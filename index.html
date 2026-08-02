@@ -156,7 +156,7 @@ button{font-family:inherit}
 
 /* ===== Таблица метрик OnePager ===== */
 .mtable{width:100%;border-collapse:collapse;table-layout:fixed}
-.mtable thead th{font-size:10px;text-transform:uppercase;letter-spacing:.2px;color:var(--muted);font-weight:700;text-align:left;padding:11px 8px;border-bottom:1px solid var(--line2);white-space:nowrap}
+.mtable thead th{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.2px;color:var(--muted);font-weight:700;text-align:left;padding:11px 8px;border-bottom:1px solid var(--line2);white-space:nowrap}
 .mtable thead th.num{text-align:right}
 .mtable tbody tr{border-bottom:1px solid var(--line2)}
 .mtable tbody tr:last-child{border-bottom:0}
@@ -186,7 +186,7 @@ button{font-family:inherit}
 
 /* ===== Сводная таблица подразделений ===== */
 .ptable{width:100%;border-collapse:collapse;font-size:var(--fs-body)}
-.ptable th{font-size:10px;text-transform:uppercase;letter-spacing:.2px;color:var(--muted);font-weight:700;text-align:right;padding:var(--s5) var(--s4);border-bottom:1px solid var(--line2);white-space:nowrap}
+.ptable th{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.2px;color:var(--muted);font-weight:700;text-align:right;padding:var(--s5) var(--s4);border-bottom:1px solid var(--line2);white-space:nowrap}
 .ptable th.txt{text-align:left;padding-left:var(--pad-cell)}
 .ptable td{text-align:right;padding:var(--s4);font-weight:600;border-bottom:1px solid var(--line2);white-space:nowrap}
 .ptable td.txt{text-align:left;font-weight:700;padding-left:var(--pad-cell)}
@@ -359,14 +359,17 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .split .panel-b{flex:1;min-height:0}
 .split-l .tbl-wrap{padding:0 0 4px;overflow:auto}
 .split-r .panel-b{padding:var(--s4) var(--s5) var(--s5)}
-.ptable.dense{font-size:var(--fs-note)}
-.ptable.dense th{padding:8px 6px;font-size:var(--fs-micro)}
+/* Тело таблицы — --fs-body, «основной текст таблиц» по шкале ролей.
+   Было --fs-note, то есть кегль СНОСОК: главное содержимое отчёта набиралось
+   мельче, чем предписывает его собственная роль, и на ноутбуке читалось тяжело. */
+.ptable.dense{font-size:var(--fs-body)}
+.ptable.dense th{padding:8px 6px;font-size:var(--fs-cap)}
 .ptable.dense th.txt{padding-left:var(--pad-cell);min-width:155px}
 .ptable.dense td{padding:7px 6px}
 .ptable.dense td.txt{padding-left:var(--pad-cell);max-width:190px}
 .ptable.dense td.lead{font-weight:800;color:var(--ink)}
-.ptable.dense .unit-sub{font-size:var(--fs-micro)}
-.ptable.dense .cell{font-size:var(--fs-cap);padding:5px 4px;margin:1px}
+.ptable.dense .unit-sub{font-size:var(--fs-cap)}
+.ptable.dense .cell{font-size:var(--fs-note);padding:5px 4px;margin:1px}
 .ptable.dense .vs{border-left:1px solid var(--line2)}
 .btn.xs{padding:3px 6px;min-width:24px;font-size:11px}
 @media(max-width:1120px){.split{grid-template-columns:minmax(440px,.95fr) minmax(400px,1.05fr)}}
@@ -478,10 +481,14 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .tip .t-m{display:inline-block;flex:0 0 auto;width:10px;height:9px;border-radius:var(--r1);margin:0}
 .tip .t-m.dash{height:0;width:14px;border-radius:0;border-top:2px dashed;background:none}
 .tip .t-l{font-size:var(--fs-note);font-weight:600;color:var(--muted);min-width:0}
-.tip .t-v{display:inline;margin:0 0 0 auto;font-size:13px;font-weight:700;color:var(--ink);
-  white-space:nowrap;font-variant-numeric:tabular-nums}
-.tip .t-r.pri .t-v{font-size:15px;font-weight:800;letter-spacing:-.2px}
-.tip .t-n{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-top:5px}
+/* Все значения в подсказке — ОДНОГО кегля. Разный размер кодировал порядок
+   строки в массиве, а не смысл: в дивергенте «Приняли» выходило крупнее
+   «Уволились», хотя это две равнозначные метрики одного потока.
+   Значимость теперь несёт цвет: база сравнения серая, метрика чёрная. */
+.tip .t-v{display:inline;margin:0 0 0 auto;font-size:var(--fs-lead);font-weight:700;
+  color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tip .t-r.bench .t-v{color:var(--muted);font-weight:600}
+.tip .t-n{display:block;font-size:var(--fs-note);font-weight:500;color:var(--muted);margin-top:5px}
 .tip .t-r+.t-n{margin-top:8px;padding-top:7px;border-top:1px solid var(--line2)}
 .tip .t-n+.t-n{margin-top:2px;padding-top:0;border-top:0}
 .nocmp,.rt-mark,.info,.cellbar{cursor:help}
@@ -552,8 +559,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .split-r .panel-b>.svgchart.fill{flex:1;min-height:0}
 /* Правая панель — тот же кегль, что и таблица подразделений слева:
    разные размеры шрифта в двух колонках одного экрана читаются как ошибка. */
-.split-r .ptable{font-size:var(--fs-note)}
-.split-r .ptable th{font-size:var(--fs-micro)}
+.split-r .ptable{font-size:var(--fs-body)}
+.split-r .ptable th{font-size:var(--fs-cap)}
 
 /* ---------- OnePager ---------- */
 /* Колонка «12 мес»: спарклайн стоит ПОД своим заголовком по центру и тянется
@@ -1762,7 +1769,13 @@ function tipHtml(o){
       ? '<i class="t-m'+(r.dash?' dash':'')+'" style="'+
         (r.dash?'border-top-color:':'background:')+r.color+'"></i>'
       : '';
-    s+='<span class="t-r'+(i?'':' pri')+'">'+mk+
+    /* Класс `bench`, а не «первая строка». Раньше первая строка по счёту
+       получала увеличенный кегль — и в дивергенте «Приняли» выходило крупнее
+       «Уволились» просто потому, что найм стоит первым в массиве. Размер
+       кодировал порядок в коде, а не значимость. Теперь все значения одного
+       кегля, а база сравнения отличается цветом; признак базы надёжный —
+       у неё пунктирный маркер, тот же, что в легенде графика. */
+    s+='<span class="t-r'+(r.dash?' bench':'')+'">'+mk+
        '<span class="t-l">'+esc(r.label)+'</span>'+
        '<b class="t-v">'+esc(r.value)+'</b></span>';
   });
