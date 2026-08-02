@@ -468,7 +468,7 @@ function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',
 
 /* ---------- Дефолтный state ---------- */
 const DEFAULT_STATE={unit:'T/01',paint:'HQ',itSeg:'all',staffType:'all',period:PERIOD_LABEL,
-  tab:'onepager',subTab:null,level:'-1',drillRoot:null,selNode:null,openMetric:null,aiOpen:false,viz:'dyn',
+  tab:'onepager',subTab:null,drillRoot:null,selNode:null,aiOpen:false,
   /* скрытые пользователем метрики; пусто = показаны все */
   hiddenMetrics:[]};
 
