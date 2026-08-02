@@ -11,7 +11,9 @@
         единый файл не должен зависеть от сети. Шрифт Inter деградирует до
         Helvetica/Arial, это заложено в стек font-family.
 
-   Результат: index.standalone.html рядом. Зависимостей у скрипта нет.
+   Результат: index.standalone.html рядом — файл, который уходит заказчику.
+   Плюс копия в корне репозитория как index.html — точка входа GitHub Pages.
+   Зависимостей у скрипта нет.
    ========================================================================== */
 const fs=require('fs'), path=require('path'), dir=__dirname;
 
@@ -43,8 +45,21 @@ html=html.replace(/[ \t]*<script[^>]*src="([^"]+)"[^>]*>\s*<\/script>\s*\n?/gi,(
 
 fs.writeFileSync(path.join(dir,OUT),html);
 
+/* ---------- точка входа GitHub Pages ----------
+   Тот же самый файл, положенный в корень репозитория как index.html.
+   Без него короткий адрес вида <user>.github.io/<repo>/ отдаёт 404: в корне
+   нет index.html, а отчёт лежит в подпапке, да ещё и с пробелом в имени —
+   ссылку с %20 неудобно пересылать.
+
+   Копия, а не редирект: редирект показывает вспышку и уводит адресную строку
+   обратно на длинный путь. Копии не разъедутся, потому что пишет их одна
+   сборка — правится только исходник, обе цели обновляются вместе. */
+const ROOT_OUT=path.join(dir,'..','index.html');
+fs.writeFileSync(ROOT_OUT,html);
+
 const kb=n=>(n/1024).toFixed(1)+' КБ';
 console.log('Собрано: '+OUT+'  '+kb(html.length));
+console.log('Точка входа Pages: ../index.html  '+kb(html.length));
 console.log('Встроено файлов: '+inlined.length);
 inlined.forEach(f=>console.log('  + '+f.padEnd(26)+kb(read(f).length)));
 if(dropped.length){
