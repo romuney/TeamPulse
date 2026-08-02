@@ -552,15 +552,26 @@ function attDays(lp,mIdx){
    а не первого числа месяца: сетка должна начинаться с той колонки, где день
    реально стоит в неделе.
 
-   Конец окна — последний день периода отчёта. В проде это «вчера», и тогда
-   последний месяц окажется неполным; здесь период заканчивается ровно
-   30 июня, поэтому окно совпадает с июнем. */
+   Конец окна — CAL_TODAY, «сегодня» отчёта. */
 const CAL_DAYS=30;
+/* «Сегодня» макета — число последнего месяца периода, по которое есть подневные
+   данные. В проде это вчерашняя дата, и последний месяц почти всегда неполный:
+   ровно ради этого случая календарь и стал скользящим окном.
+
+   Здесь дата зафиксирована серединой месяца, иначе двухмесячная раскладка
+   никогда бы не показалась: период заканчивается 30 июня, в июне ровно 30 дней,
+   и окно совпало бы с месяцем — то есть выглядело бы точно как прежний
+   «календарный месяц», а смысл правки пропал бы.
+
+   ДОПУЩЕНИЕ: месячные метрики июня при этом остаются полными — генератор считает
+   их по месяцу целиком. Подневный слой и месячный расходятся на этом ровно так же,
+   как расходятся воронка найма и реальные этапы: это макет, и в UI сказано. */
+const CAL_TODAY=15;
 function attLast(lp,n){
   n=n||CAL_DAYS;
   const out=[];
   let need=n, mIdx=LAST;
-  let to=new Date(MONTHS[LAST].y,MONTHS[LAST].m+1,0).getDate();
+  let to=Math.min(CAL_TODAY,new Date(MONTHS[LAST].y,MONTHS[LAST].m+1,0).getDate());
   while(need>0&&mIdx>=0){
     const blk=attDays(lp,mIdx);
     const take=Math.min(need,to);
@@ -609,7 +620,7 @@ function netGrowth(lp){
 }
 
 window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
-  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_DAYS,DOW_MONTHS,
+  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_DAYS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,
   COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,

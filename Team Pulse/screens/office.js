@@ -48,8 +48,12 @@ SC.blocks.office={
     /* календарь + дни недели: сетка отвечает «в какие дни», таблица — «в какие
        дни недели», и вместе они читаются как один ответ */
     const blocks=D.attLast(ctx.lp), dow=D.attByDow(ctx.lp);
+    /* конец окна называем явно: «последние 30 дней» без даты заставляет гадать,
+       от какого дня они отсчитаны */
+    const end=blocks[blocks.length-1];
     return G.chart('calendar',{blocks:blocks},
-      {fill:true,h:340,title:'Посещаемость по дням — последние '+D.CAL_DAYS+' дней, %'})+
+      {fill:true,h:340,title:'Посещаемость по дням — последние '+D.CAL_DAYS+
+        ' дней по '+end.to+' '+D.MONTH_GEN[end.m]+', %'})+
       '<div class="bt-group"><div class="bt-cap">По дням недели, среднее за '+
       D.DOW_MONTHS+' месяца</div>'+
       U.barTable({head:'День недели',metricKey:'office_att',valueHead:'Посещаемость',

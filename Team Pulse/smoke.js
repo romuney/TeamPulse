@@ -224,12 +224,21 @@ checks.push(['дни недели — таблица, а не бар-чарт',
   const total=blocks.reduce((a,b)=>a+b.days.length,0);
   checks.push(['календарь — окно последних '+D.CAL_DAYS+' дней, а не календарный месяц',
     total===D.CAL_DAYS&&blocks.length>=1]);
-  checks.push(['дни окна идут подряд и заканчиваются последним днём периода',
+  checks.push(['дни окна идут подряд и заканчиваются на CAL_TODAY последнего месяца',
     (function(){
       const last=blocks[blocks.length-1];
-      const endDay=new Date(D.MONTHS[D.LAST].y,D.MONTHS[D.LAST].m+1,0).getDate();
-      return last.to===endDay&&blocks.every(b=>b.days.length===b.to-b.from+1);
+      const monthDays=new Date(D.MONTHS[D.LAST].y,D.MONTHS[D.LAST].m+1,0).getDate();
+      return last.m===D.MONTHS[D.LAST].m&&
+        last.to===Math.min(D.CAL_TODAY,monthDays)&&
+        blocks.every(b=>b.days.length===b.to-b.from+1);
     })()]);
+  /* Двухмесячная раскладка должна быть ВИДНА в макете, а не только в теории.
+     При CAL_TODAY на конце месяца окно совпало бы с месяцем, и правка выглядела
+     бы точно как прежний «календарный месяц». */
+  checks.push(['в макете окно попадает на два месяца — раскладка видна',
+    blocks.length===2]);
+  checks.push(['на экране офиса обе сетки подписаны своим месяцем',
+    blocks.every(b=>calHtml.indexOf('>'+b.label+' '+b.y+'<')>0)]);
   /* первый день блока может быть не первым числом месяца — сетка обязана
      начинаться с той колонки, где день реально стоит в неделе */
   checks.push(['сетка блока стартует с дня недели первого дня окна',
@@ -343,7 +352,10 @@ checks.push(['марки графиков помечены data-s',
   const cal=D.attDays(D.reportLeaves(D.DEFAULT_STATE));
   const h=G.chart('calendar',{cal},{h:340});
   const xs=[...h.matchAll(/\sx="(-?[\d.]+)"/g)].map(m=>+m[1]);
-  checks.push(['у календаря есть боковые поля',xs.length>0&&Math.min.apply(null,xs)>=6]);
+  /* CAL_PAD=16, а не общий PAD_X=6: прижатая к краям плитка выглядит вставкой
+     в панель, а не её содержимым. При двух месяцах сетка занимает всю ширину,
+     и без собственного поля оно схлопнулось бы до 6px. */
+  checks.push(['у календаря есть боковые поля',xs.length>0&&Math.min.apply(null,xs)>=16]);
 
   /* Клетка ограничена потолком, а сетка центрируется. Без потолка календарь
      растягивается во всю ширину панели и перестаёт читаться как месяц. */

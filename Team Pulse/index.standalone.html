@@ -1570,15 +1570,26 @@ function attDays(lp,mIdx){
    а не первого числа месяца: сетка должна начинаться с той колонки, где день
    реально стоит в неделе.
 
-   Конец окна — последний день периода отчёта. В проде это «вчера», и тогда
-   последний месяц окажется неполным; здесь период заканчивается ровно
-   30 июня, поэтому окно совпадает с июнем. */
+   Конец окна — CAL_TODAY, «сегодня» отчёта. */
 const CAL_DAYS=30;
+/* «Сегодня» макета — число последнего месяца периода, по которое есть подневные
+   данные. В проде это вчерашняя дата, и последний месяц почти всегда неполный:
+   ровно ради этого случая календарь и стал скользящим окном.
+
+   Здесь дата зафиксирована серединой месяца, иначе двухмесячная раскладка
+   никогда бы не показалась: период заканчивается 30 июня, в июне ровно 30 дней,
+   и окно совпало бы с месяцем — то есть выглядело бы точно как прежний
+   «календарный месяц», а смысл правки пропал бы.
+
+   ДОПУЩЕНИЕ: месячные метрики июня при этом остаются полными — генератор считает
+   их по месяцу целиком. Подневный слой и месячный расходятся на этом ровно так же,
+   как расходятся воронка найма и реальные этапы: это макет, и в UI сказано. */
+const CAL_TODAY=15;
 function attLast(lp,n){
   n=n||CAL_DAYS;
   const out=[];
   let need=n, mIdx=LAST;
-  let to=new Date(MONTHS[LAST].y,MONTHS[LAST].m+1,0).getDate();
+  let to=Math.min(CAL_TODAY,new Date(MONTHS[LAST].y,MONTHS[LAST].m+1,0).getDate());
   while(need>0&&mIdx>=0){
     const blk=attDays(lp,mIdx);
     const take=Math.min(need,to);
@@ -1627,7 +1638,7 @@ function netGrowth(lp){
 }
 
 window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
-  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_DAYS,DOW_MONTHS,
+  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_DAYS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,
   COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
@@ -2375,11 +2386,17 @@ function drawCalendar(a,w,h){
      остаются просто крупные плитки. Остаток ширины уходит в поля слева и справа:
      сетка центрируется, и прижатой к краям она больше не выглядит. */
   const CELL_MAX=72;
-  const availW=(w-PAD_X*2-BLOCK_GAP*(n-1))/n;
+  /* У календаря собственное боковое поле, больше общего PAD_X. Это не область
+     построения с осями, а плитка: прижатая к самым краям, она выглядит вставкой
+     в панель, а не её содержимым. При одном месяце поля даёт центрирование,
+     при двух сетка занимает всю ширину — и без этой константы поля схлопнулись
+     бы до 6px. */
+  const CAL_PAD=16;
+  const availW=(w-CAL_PAD*2-BLOCK_GAP*(n-1))/n;
   const cw=Math.min(CELL_MAX,(availW-gap*6)/7);
   const ch=Math.max(22,Math.min(CELL_MAX,(h-gridTop-gap*(rows-1))/rows));
   const gridW=cw*7+gap*6, totalW=gridW*n+BLOCK_GAP*(n-1);
-  const x0=Math.max(PAD_X,(w-totalW)/2);
+  const x0=Math.max(CAL_PAD,(w-totalW)/2);
   /* высота по факту содержимого: при упёршейся в потолок клетке тянуть SVG
      на всю высоту контейнера незачем — внизу будет просто пустое место */
   const hUsed=Math.min(h,gridTop+rows*ch+(rows-1)*gap);
@@ -3568,8 +3585,12 @@ SC.blocks.office={
     /* календарь + дни недели: сетка отвечает «в какие дни», таблица — «в какие
        дни недели», и вместе они читаются как один ответ */
     const blocks=D.attLast(ctx.lp), dow=D.attByDow(ctx.lp);
+    /* конец окна называем явно: «последние 30 дней» без даты заставляет гадать,
+       от какого дня они отсчитаны */
+    const end=blocks[blocks.length-1];
     return G.chart('calendar',{blocks:blocks},
-      {fill:true,h:340,title:'Посещаемость по дням — последние '+D.CAL_DAYS+' дней, %'})+
+      {fill:true,h:340,title:'Посещаемость по дням — последние '+D.CAL_DAYS+
+        ' дней по '+end.to+' '+D.MONTH_GEN[end.m]+', %'})+
       '<div class="bt-group"><div class="bt-cap">По дням недели, среднее за '+
       D.DOW_MONTHS+' месяца</div>'+
       U.barTable({head:'День недели',metricKey:'office_att',valueHead:'Посещаемость',

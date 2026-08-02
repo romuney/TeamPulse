@@ -733,11 +733,17 @@ function drawCalendar(a,w,h){
      остаются просто крупные плитки. Остаток ширины уходит в поля слева и справа:
      сетка центрируется, и прижатой к краям она больше не выглядит. */
   const CELL_MAX=72;
-  const availW=(w-PAD_X*2-BLOCK_GAP*(n-1))/n;
+  /* У календаря собственное боковое поле, больше общего PAD_X. Это не область
+     построения с осями, а плитка: прижатая к самым краям, она выглядит вставкой
+     в панель, а не её содержимым. При одном месяце поля даёт центрирование,
+     при двух сетка занимает всю ширину — и без этой константы поля схлопнулись
+     бы до 6px. */
+  const CAL_PAD=16;
+  const availW=(w-CAL_PAD*2-BLOCK_GAP*(n-1))/n;
   const cw=Math.min(CELL_MAX,(availW-gap*6)/7);
   const ch=Math.max(22,Math.min(CELL_MAX,(h-gridTop-gap*(rows-1))/rows));
   const gridW=cw*7+gap*6, totalW=gridW*n+BLOCK_GAP*(n-1);
-  const x0=Math.max(PAD_X,(w-totalW)/2);
+  const x0=Math.max(CAL_PAD,(w-totalW)/2);
   /* высота по факту содержимого: при упёршейся в потолок клетке тянуть SVG
      на всю высоту контейнера незачем — внизу будет просто пустое место */
   const hUsed=Math.min(h,gridTop+rows*ch+(rows-1)*gap);
