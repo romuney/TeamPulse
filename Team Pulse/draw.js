@@ -740,8 +740,11 @@ function drawCalendar(a,w,h){
      бы до 6px. */
   const CAL_PAD=16;
   const availW=(w-CAL_PAD*2-BLOCK_GAP*(n-1))/n;
-  const cw=Math.min(CELL_MAX,(availW-gap*6)/7);
-  const ch=Math.max(22,Math.min(CELL_MAX,(h-gridTop-gap*(rows-1))/rows));
+  /* Клетка КВАДРАТНАЯ: считаем и по ширине, и по высоте, берём меньшее.
+     Вытянутый прямоугольник читается как таблица, а не как день календаря,
+     а месяцы разной длины рядом получали бы клетки разной формы. */
+  const cell=Math.max(22,Math.min(CELL_MAX,(availW-gap*6)/7,(h-gridTop-gap*(rows-1))/rows));
+  const cw=cell, ch=cell;
   const gridW=cw*7+gap*6, totalW=gridW*n+BLOCK_GAP*(n-1);
   const x0=Math.max(CAL_PAD,(w-totalW)/2);
   /* высота по факту содержимого: при упёршейся в потолок клетке тянуть SVG

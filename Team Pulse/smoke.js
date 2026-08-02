@@ -221,28 +221,34 @@ checks.push(['дни недели — таблица, а не бар-чарт',
 (function(){
   const lp=D.reportLeaves(D.DEFAULT_STATE);
   const blocks=D.attLast(lp);
-  const total=blocks.reduce((a,b)=>a+b.days.length,0);
-  checks.push(['календарь — окно последних '+D.CAL_DAYS+' дней, а не календарный месяц',
-    total===D.CAL_DAYS&&blocks.length>=1]);
-  checks.push(['дни окна идут подряд и заканчиваются на CAL_TODAY последнего месяца',
+  checks.push(['календарь показывает последние '+D.CAL_MONTHS+' месяца, а не один',
+    blocks.length===D.CAL_MONTHS]);
+  /* Ключевое правило раскладки: обрезается ТОЛЬКО текущий месяц и только справа.
+     Прошлый месяц обязан быть полным — иначе его статистика теряется, а «кусок
+     мая» рядом с «куском июня» не с чем сравнивать. */
+  checks.push(['прошлый месяц показан целиком, обрезан только текущий',
+    blocks.slice(0,-1).every(b=>b.full)&&
     (function(){
       const last=blocks[blocks.length-1];
       const monthDays=new Date(D.MONTHS[D.LAST].y,D.MONTHS[D.LAST].m+1,0).getDate();
-      return last.m===D.MONTHS[D.LAST].m&&
-        last.to===Math.min(D.CAL_TODAY,monthDays)&&
-        blocks.every(b=>b.days.length===b.to-b.from+1);
+      return last.m===D.MONTHS[D.LAST].m&&last.to===Math.min(D.CAL_TODAY,monthDays);
     })()]);
-  /* Двухмесячная раскладка должна быть ВИДНА в макете, а не только в теории.
-     При CAL_TODAY на конце месяца окно совпало бы с месяцем, и правка выглядела
-     бы точно как прежний «календарный месяц». */
-  checks.push(['в макете окно попадает на два месяца — раскладка видна',
-    blocks.length===2]);
+  checks.push(['дни в блоке идут подряд с первого числа',
+    blocks.every(b=>b.from===1&&b.days.length===b.to&&b.days[0].day===1)]);
   checks.push(['на экране офиса обе сетки подписаны своим месяцем',
     blocks.every(b=>calHtml.indexOf('>'+b.label+' '+b.y+'<')>0)]);
-  /* первый день блока может быть не первым числом месяца — сетка обязана
-     начинаться с той колонки, где день реально стоит в неделе */
-  checks.push(['сетка блока стартует с дня недели первого дня окна',
+  /* сетка обязана начинаться с той колонки, где 1-е число реально стоит в неделе */
+  checks.push(['сетка блока стартует с дня недели 1-го числа',
     blocks.every(b=>b.first===b.days[0].dow)]);
+  /* клетка квадратная: вытянутый прямоугольник читается как таблица,
+     а месяцы разной длины рядом получали бы клетки разной формы */
+  checks.push(['клетка календаря квадратная',
+    (function(){
+      const h=G.chart('calendar',{blocks:blocks},{h:520});
+      const c=[...h.matchAll(/<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="([\d.]+)"/g)]
+        .map(m=>({w:+m[1],h:+m[2]})).filter(r=>r.w>20);
+      return c.length>0&&c.every(r=>Math.abs(r.w-r.h)<0.01);
+    })()]);
 
   /* двухмесячное окно: две сетки рядом, 14 колонок, обе подписаны месяцем */
   const feb=D.attDays(lp,7), mar=D.attDays(lp,8);

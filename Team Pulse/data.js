@@ -541,19 +541,24 @@ function attDays(lp,mIdx){
     first:(new Date(mm.y,mm.m,1).getDay()+6)%7,days:days};
 }
 
-/* ---------- Последние CAL_DAYS дней, разложенные по месяцам ----------
-   Календарь показывает не «текущий месяц», а скользящее окно: месяц второго
-   числа — это два дня и ноль смысла. Окно почти всегда пересекает границу
-   месяцев, поэтому наружу отдаётся МАССИВ блоков, по одному на затронутый
-   месяц; экран рисует их сетками рядом. Если окно уложилось в один месяц,
-   блок будет один — отдельного случая в коде для этого нет.
+/* ---------- Последние CAL_MONTHS месяцев ----------
+   Календарь показывает не «текущий месяц» и не скользящее окно в N дней,
+   а последние два КАЛЕНДАРНЫХ месяца: предыдущий целиком, текущий — по
+   сегодняшний день.
 
-   Каждый блок несёт `first` — день недели своего ПЕРВОГО попавшего в окно дня,
-   а не первого числа месяца: сетка должна начинаться с той колонки, где день
-   реально стоит в неделе.
+   Почему не «текущий месяц»: человек, зашедший второго числа, видел две клетки.
+   Почему не окно в 30 дней: оно резало предыдущий месяц по произвольному числу
+   (17–31 мая), и месяц переставал быть месяцем — сравнивать «кусок мая»
+   с «куском июня» бессмысленно, а статистика за май частично терялась.
 
-   Конец окна — CAL_TODAY, «сегодня» отчёта. */
-const CAL_DAYS=30;
+   Теперь раскладка предсказуема: слева всегда полный месяц, справа текущий
+   ровно настолько, насколько он прожит. Первого июня справа будет один день,
+   но весь май при этом на месте.
+
+   Наружу — МАССИВ блоков; экран рисует их сетками рядом. Блок несёт `first`,
+   день недели своего первого числа: сетка обязана начинаться с той колонки,
+   где день реально стоит в неделе. */
+const CAL_MONTHS=2;
 /* «Сегодня» макета — число последнего месяца периода, по которое есть подневные
    данные. В проде это вчерашняя дата, и последний месяц почти всегда неполный:
    ровно ради этого случая календарь и стал скользящим окном.
@@ -567,21 +572,17 @@ const CAL_DAYS=30;
    их по месяцу целиком. Подневный слой и месячный расходятся на этом ровно так же,
    как расходятся воронка найма и реальные этапы: это макет, и в UI сказано. */
 const CAL_TODAY=15;
-function attLast(lp,n){
-  n=n||CAL_DAYS;
+function attLast(lp,months){
+  months=months||CAL_MONTHS;
   const out=[];
-  let need=n, mIdx=LAST;
-  let to=Math.min(CAL_TODAY,new Date(MONTHS[LAST].y,MONTHS[LAST].m+1,0).getDate());
-  while(need>0&&mIdx>=0){
-    const blk=attDays(lp,mIdx);
-    const take=Math.min(need,to);
-    const from=to-take+1;
-    const days=blk.days.filter(d=>d.day>=from&&d.day<=to);
-    out.unshift({y:blk.y,m:blk.m,label:blk.label,base:blk.base,
-      from:from,to:to,full:from===1&&to===blk.days.length,
-      first:days.length?days[0].dow:0,days:days});
-    need-=take; mIdx--;
-    if(mIdx>=0)to=new Date(MONTHS[mIdx].y,MONTHS[mIdx].m+1,0).getDate();
+  for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
+    const blk=attDays(lp,i);
+    /* обрезается ТОЛЬКО текущий месяц и только справа: прошлые месяцы
+       показываются целиком, иначе теряется их статистика */
+    const to=i===LAST?Math.min(CAL_TODAY,blk.days.length):blk.days.length;
+    out.push({y:blk.y,m:blk.m,label:blk.label,base:blk.base,
+      from:1,to:to,full:to===blk.days.length,
+      first:blk.first,days:blk.days.filter(d=>d.day<=to)});
   }
   return out;
 }
@@ -620,7 +621,7 @@ function netGrowth(lp){
 }
 
 window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
-  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_DAYS,CAL_TODAY,DOW_MONTHS,
+  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,
   COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
