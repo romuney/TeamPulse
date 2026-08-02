@@ -295,6 +295,43 @@ checks.push(['марки графиков помечены data-s',
   const h=G.chart('calendar',{cal},{h:340});
   const xs=[...h.matchAll(/\sx="(-?[\d.]+)"/g)].map(m=>+m[1]);
   checks.push(['у календаря есть боковые поля',xs.length>0&&Math.min.apply(null,xs)>=6]);
+
+  /* Клетка ограничена потолком, а сетка центрируется. Без потолка календарь
+     растягивается во всю ширину панели и перестаёт читаться как месяц. */
+  const big=G.chart('calendar',{cal},{h:520});
+  const rc=[...big.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)]
+    .map(m=>({x:+m[1],y:+m[2],w:+m[3],h:+m[4]}));
+  const cells=rc.filter(r=>r.w>20), scale=rc.filter(r=>r.w===17);
+  checks.push(['календарь не растягивается во всю ширину: у клетки есть потолок',
+    cells.length>0&&cells.every(c=>c.w<=72.01&&c.h<=72.01)]);
+  checks.push(['сетка календаря центрирована: поля слева и справа равны',
+    (function(){
+      const l=Math.min.apply(null,cells.map(c=>c.x));
+      const r=900-Math.max.apply(null,cells.map(c=>c.x+c.w));
+      return l>20&&Math.abs(l-r)<1.5;
+    })()]);
+  /* Шкала под сеткой упиралась в таблицу дней недели, которая идёт следом
+     за графиком, и читалась как подпись к ней, а не как легенда календаря. */
+  checks.push(['шкала календаря стоит НАД сеткой, а не под ней',
+    scale.length>0&&cells.length>0&&
+    Math.max.apply(null,scale.map(s=>s.y))<Math.min.apply(null,cells.map(c=>c.y))]);
+})();
+
+/* Расстояние между графиками в стопке задают ДВА механизма — GAP внутри
+   chart('panels') и CSS-зазор между двумя отдельными chart(). Пока величины
+   расходились, «Найм, отток и переводы» показывал ~25px, а «Отток и текучесть»
+   ~42px: одинаковый по смыслу зазор выглядел разным на соседних вкладках. */
+(function(){
+  const js=fs.readFileSync(path.join(dir,'draw.js'),'utf8');
+  const inJs=(js.match(/const STACK_GAP=(\d+)/)||[])[1];
+  const inCss=(css.match(/--chart-gap:(\d+)px/)||[])[1];
+  checks.push(['зазор между графиками один: STACK_GAP в draw.js = --chart-gap в CSS',
+    !!inJs&&inJs===inCss]);
+  checks.push(['панели берут зазор из общей константы, а не из своего числа',
+    /const GAP=STACK_GAP/.test(js)]);
+  /* ось X устроена одинаково во всех видах: подпись месяца на bot+15 везде */
+  checks.push(['ось X у панелей на том же отступе, что у остальных графиков',
+    !/axisX\([^)]*bot\+13\)/.test(js)]);
 })();
 
 /* заголовки одной роли — один кегль: имя графика, имя панели и шапка бар-таблицы */
