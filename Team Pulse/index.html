@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TeamPulse Hub — верхнеуровневый борт для руководителей</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#view">Перейти к отчёту</a>
+<div class="nav-scrim" id="navScrim"></div>
+
+<!-- ===== Шапка приложения ===== -->
+<header class="apphead">
+  <div class="apphead-top">
+    <button class="nav-toggle" id="navToggle" aria-label="Открыть навигацию" aria-expanded="false">☰</button>
+    <div class="logo"><span class="mark"></span>TeamPulse&nbsp;<small>Hub · макет</small></div>
+    <div class="spacer"></div>
+  </div>
+</header>
+
+<!-- ===== Левая навигация + контент ===== -->
+<div class="layout">
+  <nav class="nav" id="sideNav" aria-label="Разделы отчёта">
+    <div class="nav-h">Сводка</div>
+    <button class="nav-i" data-tab="onepager"><span class="ico"></span>One-pager</button>
+    <div class="nav-sep"></div>
+    <div class="nav-h">Блоки метрик</div>
+    <div id="navBlocks"></div>
+    <!-- Подвал навигации: дежурный огонёк. Отдельная колонка, поэтому он
+         физически не может перекрыть ни метрики, ни графики. -->
+    <div class="nav-foot" id="navFoot"></div>
+  </nav>
+  <!-- Правая колонка целиком принадлежит телу борда: сначала контекст отчёта
+       (подразделение, фильтры, точки входа в настройку и справку, период),
+       затем сам отчёт. Слева остаётся только навигация во всю высоту. -->
+  <div class="main-col">
+    <section class="reporthead">
+      <div class="rh-row">
+        <div class="rh-main">
+          <div class="rh-crumbs" id="crumbs"></div>
+          <h1 class="rh-title" id="unitTitle"></h1>
+          <div class="chips" id="chips"></div>
+        </div>
+        <div class="rh-side">
+          <span class="period" id="periodBadge"></span>
+          <button class="btn ghost" id="btnHelp">Как читать отчёт</button>
+          <button class="btn primary" id="btnSetup">Настрой свой дашборд</button>
+        </div>
+      </div>
+    </section>
+    <main class="content" id="view" tabindex="-1"></main>
+  </div>
+</div>
+
+<!-- Панель словаря метрик выезжает вправо от навигации; живёт вне .layout,
+     чтобы не растягивать колонку и не влиять на раскладку отчёта. -->
+<div id="pulseHost"></div>
+
+<!-- ===== Модалка настройки ===== -->
+<div class="ovl hidden" id="setupOvl">
+  <div class="modal wide">
+    <div class="modal-h">
+      <div class="mh-pulse" id="setupPulse"></div>
+      <h3>Настрой свой дашборд</h3>
+      <p>Выберите подразделение, разрезы и состав метрик. Важно: разрезы одновременно задают и вашу команду, и базу сравнения — то, с чем сравниваются все метрики.</p>
+    </div>
+    <!-- Два столбца: слева — кто мы и какие разрезы, справа — что показывать.
+         Так окно целиком помещается в ноутбучный экран без вертикального скролла. -->
+    <div class="modal-b setup-cols">
+      <div class="sc-col">
+      <div class="fgrp">
+        <label>1 · Подразделение</label>
+        <div class="ctl"><select id="selUnit"></select></div>
+        <div class="fhint">Определяет вашу команду. На базу сравнения не влияет.</div>
+      </div>
+      <div class="fgrp">
+        <label>2 · Покраска</label>
+        <div class="opts" id="optPaint"></div>
+      </div>
+      <div class="fgrp">
+        <label>3 · Разрез IT</label>
+        <div class="opts" id="optIt"></div>
+      </div>
+      <div class="fgrp">
+        <label>4 · Штат и не штат</label>
+        <div class="opts" id="optStaff"></div>
+      </div>
+      <div class="bench-preview" id="benchPreview"></div>
+      </div>
+      <div class="sc-col">
+      <div class="fgrp last">
+        <label>5 · Метрики в отчёте</label>
+        <div class="opts tight" id="optPreset"></div>
+        <div class="mpick" id="metricPick"></div>
+        <div class="fhint" id="metricCount"></div>
+      </div>
+      </div>
+    </div>
+    <div class="modal-f">
+      <button class="btn" id="btnReset">Сбросить разрезы</button>
+      <button class="btn" id="btnLink">Скопировать ссылку</button>
+      <div class="sp"></div>
+      <button class="btn" id="btnCancel">Отмена</button>
+      <button class="btn primary" id="btnApply">Применить</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Модалка «Как читать отчёт» ===== -->
+<div class="ovl hidden" id="helpOvl">
+  <div class="modal">
+    <div class="modal-h">
+      <div class="mh-pulse" id="helpTopPulse"></div>
+      <h3>Как читать отчёт</h3>
+      <p>Три правила, которые делают весь отчёт понятным.</p>
+    </div>
+    <div class="modal-b">
+      <div class="fgrp">
+        <label>Фильтры управляют и сравнением</label>
+        <div class="fhint">Выбрали HQ — сравнение со всем HQ. Добавили IT — сравнение со всем HQ IT. Текущая база всегда показана серой плашкой в шапке.</div>
+      </div>
+      <div class="fgrp">
+        <label>Цвет — это отклонение от базы</label>
+        <div class="legend" style="margin:0">
+          <span class="sw"><span class="dot" style="background:#bff2cd"></span>лучше базы</span>
+          <span class="sw"><span class="dot" style="background:#ffcccc"></span>хуже базы</span>
+          <span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне ±5% или без оценки</span>
+        </div>
+        <div class="fhint">Цветов ровно два: зелёный — есть чем воспользоваться, красный — есть что разбирать. Всё остальное серое, включая отклонение в пределах ±5%: присматриваться там не к чему. Численность, найм и переводы не окрашиваются вообще — больше или меньше здесь не значит хуже или лучше.</div>
+      </div>
+      <div class="fgrp">
+        <label>KPI важнее средней</label>
+        <div class="fhint">Где есть утверждённый KPI (regrettable текучесть по HQ), метрика сравнивается с KPI, а не со средней, и помечается тегом KPI.</div>
+      </div>
+      <!-- Разводка двух точек входа в объяснения: здесь — механика борта,
+           у Пульса — значение конкретной метрики. -->
+      <div class="help-pulse" id="helpPulse"></div>
+    </div>
+    <div class="modal-f"><div class="sp"></div><button class="btn primary" id="btnHelpClose">Понятно</button></div>
+  </div>
+</div>
+
+<!-- Порядок жёсткий: каждый следующий файл читает неймспейс предыдущего.
+     Внешних библиотек нет — всё рисуется на голом SVG в draw.js. -->
+<script src="data.js"></script>
+<script src="draw.js"></script>
+<script src="ui.js"></script>
+<script src="mascot.js"></script>
+<script src="insights.js"></script>
+<script src="screens/_block.js"></script>
+<script src="screens/structure.js"></script>
+<script src="screens/movement.js"></script>
+<script src="screens/turnover.js"></script>
+<script src="screens/hiring.js"></script>
+<script src="screens/tgrowth.js"></script>
+<script src="screens/monitor.js"></script>
+<script src="screens/office.js"></script>
+<script src="screens/onepager.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
