@@ -541,6 +541,40 @@ function attDays(lp,mIdx){
     first:(new Date(mm.y,mm.m,1).getDay()+6)%7,days:days};
 }
 
+/* ---------- Последние CAL_DAYS дней, разложенные по месяцам ----------
+   Календарь показывает не «текущий месяц», а скользящее окно: месяц второго
+   числа — это два дня и ноль смысла. Окно почти всегда пересекает границу
+   месяцев, поэтому наружу отдаётся МАССИВ блоков, по одному на затронутый
+   месяц; экран рисует их сетками рядом. Если окно уложилось в один месяц,
+   блок будет один — отдельного случая в коде для этого нет.
+
+   Каждый блок несёт `first` — день недели своего ПЕРВОГО попавшего в окно дня,
+   а не первого числа месяца: сетка должна начинаться с той колонки, где день
+   реально стоит в неделе.
+
+   Конец окна — последний день периода отчёта. В проде это «вчера», и тогда
+   последний месяц окажется неполным; здесь период заканчивается ровно
+   30 июня, поэтому окно совпадает с июнем. */
+const CAL_DAYS=30;
+function attLast(lp,n){
+  n=n||CAL_DAYS;
+  const out=[];
+  let need=n, mIdx=LAST;
+  let to=new Date(MONTHS[LAST].y,MONTHS[LAST].m+1,0).getDate();
+  while(need>0&&mIdx>=0){
+    const blk=attDays(lp,mIdx);
+    const take=Math.min(need,to);
+    const from=to-take+1;
+    const days=blk.days.filter(d=>d.day>=from&&d.day<=to);
+    out.unshift({y:blk.y,m:blk.m,label:blk.label,base:blk.base,
+      from:from,to:to,full:from===1&&to===blk.days.length,
+      first:days.length?days[0].dow:0,days:days});
+    need-=take; mIdx--;
+    if(mIdx>=0)to=new Date(MONTHS[mIdx].y,MONTHS[mIdx].m+1,0).getDate();
+  }
+  return out;
+}
+
 /* Среднее по дням недели за последние DOW_MONTHS месяцев */
 function attByDow(lp,months){
   months=months||DOW_MONTHS;
@@ -575,7 +609,8 @@ function netGrowth(lp){
 }
 
 window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
-  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,DOW_MONTHS,attDays,attByDow,officeRank,
+  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_DAYS,DOW_MONTHS,
+  attDays,attLast,attByDow,officeRank,
   COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,

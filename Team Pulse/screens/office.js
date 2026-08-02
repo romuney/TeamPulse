@@ -22,8 +22,9 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 const esc=U.esc;
 
 const MOCK_NOTE='Подневные отметки и привязка людей к офисам в макете сгенерированы: '+
-  'реального источника под ними пока нет. Среднее по будням календаря совпадает '+
-  'с метрикой «посещаемость офиса» за тот же месяц.';
+  'реального источника под ними пока нет. Среднее по будням ПОЛНОГО месяца совпадает '+
+  'с метрикой «посещаемость офиса» за этот месяц; в окне последних дней месяц '+
+  'может быть захвачен частично, и тогда среднее по видимым дням от неё отличается.';
 
 SC.blocks.office={
   subTabs:[['calendar','Календарь'],['offices','Рейтинг офисов'],['dynamics','Динамика']],
@@ -46,9 +47,9 @@ SC.blocks.office={
 
     /* календарь + дни недели: сетка отвечает «в какие дни», таблица — «в какие
        дни недели», и вместе они читаются как один ответ */
-    const cal=D.attDays(ctx.lp), dow=D.attByDow(ctx.lp);
-    return G.chart('calendar',{cal:cal},
-      {fill:true,h:340,title:'Посещаемость по дням — '+cal.label+' '+cal.y+', %'})+
+    const blocks=D.attLast(ctx.lp), dow=D.attByDow(ctx.lp);
+    return G.chart('calendar',{blocks:blocks},
+      {fill:true,h:340,title:'Посещаемость по дням — последние '+D.CAL_DAYS+' дней, %'})+
       '<div class="bt-group"><div class="bt-cap">По дням недели, среднее за '+
       D.DOW_MONTHS+' месяца</div>'+
       U.barTable({head:'День недели',metricKey:'office_att',valueHead:'Посещаемость',

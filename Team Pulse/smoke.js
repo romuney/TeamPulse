@@ -214,6 +214,55 @@ checks.push(['календарь не красится светофором',
   !/#80cf9a|#ef8c8c|#dbb968/i.test(G.chart('calendar',{cal:calDays},{h:340}))]);
 checks.push(['дни недели — таблица, а не бар-чарт',
   /День недели/.test(calHtml)&&/Воскресенье/.test(calHtml)]);
+
+/* Календарь показывает скользящее окно, а не календарный месяц: второго числа
+   «текущий месяц» — это два дня и ноль смысла. Окно пересекает границу месяцев,
+   поэтому блоков может быть два, и рисуются они сетками рядом. */
+(function(){
+  const lp=D.reportLeaves(D.DEFAULT_STATE);
+  const blocks=D.attLast(lp);
+  const total=blocks.reduce((a,b)=>a+b.days.length,0);
+  checks.push(['календарь — окно последних '+D.CAL_DAYS+' дней, а не календарный месяц',
+    total===D.CAL_DAYS&&blocks.length>=1]);
+  checks.push(['дни окна идут подряд и заканчиваются последним днём периода',
+    (function(){
+      const last=blocks[blocks.length-1];
+      const endDay=new Date(D.MONTHS[D.LAST].y,D.MONTHS[D.LAST].m+1,0).getDate();
+      return last.to===endDay&&blocks.every(b=>b.days.length===b.to-b.from+1);
+    })()]);
+  /* первый день блока может быть не первым числом месяца — сетка обязана
+     начинаться с той колонки, где день реально стоит в неделе */
+  checks.push(['сетка блока стартует с дня недели первого дня окна',
+    blocks.every(b=>b.first===b.days[0].dow)]);
+
+  /* двухмесячное окно: две сетки рядом, 14 колонок, обе подписаны месяцем */
+  const feb=D.attDays(lp,7), mar=D.attDays(lp,8);
+  const two=[{y:feb.y,m:feb.m,label:feb.label,base:feb.base,from:22,to:feb.days.length,full:false,
+              first:feb.days[21].dow,days:feb.days.filter(d=>d.day>=22)},
+             {y:mar.y,m:mar.m,label:mar.label,base:mar.base,from:1,to:23,full:false,
+              first:mar.days[0].dow,days:mar.days.filter(d=>d.day<=23)}];
+  const h2=G.chart('calendar',{blocks:two},{h:400});
+  const cells2=[...h2.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"/g)]
+    .map(m=>({x:+m[1],w:+m[2]})).filter(r=>r.w>20);
+  const cols=[...new Set(cells2.map(c=>Math.round(c.x)))].length;
+  checks.push(['окно через границу месяцев рисуется двумя сетками рядом',
+    cols===14&&cells2.length===two[0].days.length+two[1].days.length]);
+  checks.push(['у каждой сетки своя подпись месяца',
+    h2.indexOf('>'+feb.label+' '+feb.y+'<')>0&&h2.indexOf('>'+mar.label+' '+mar.y+'<')>0]);
+  /* Шкала одна на оба месяца: свой максимум в каждом красил бы одинаковый
+     процент по-разному слева и справа, и месяцы стало бы нельзя сравнить. */
+  const wd=two.reduce((a,b)=>a.concat(b.days.filter(d=>!d.weekend).map(d=>d.val)),[]);
+  checks.push(['шкала интенсивности одна на оба месяца',
+    h2.indexOf('чаще, до '+G.niceMax(wd).toFixed(1).replace('.',','))>0]);
+
+  /* Клетка стала тесной — значение уходит в подсказку, заливка остаётся.
+     Лучше честный хитмап, чем налезающие друг на друга цифры. */
+  const many=[two[0],two[1],two[0],two[1]];
+  const h4=G.chart('calendar',{blocks:many},{h:400});
+  const vals=(h4.match(/font-weight="700" text-anchor="middle" class="fade"[^>]*>\d/g)||[]).length;
+  checks.push(['при тесной клетке значение уходит в подсказку, а заливка остаётся',
+    vals===0&&/class="barg"/.test(h4)&&/Посещаемость/.test(h4)]);
+})();
 checks.push(['выдуманные данные помечены сноской',
   /реального источника под ними пока нет/.test(calHtml)&&
   /реального источника под ними пока нет/.test(A.go('office','offices'))]);
