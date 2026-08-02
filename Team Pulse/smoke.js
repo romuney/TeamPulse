@@ -329,6 +329,41 @@ checks.push(['подсказки собраны конструктором, а �
   (allHtml.match(/t-v/g)||[]).length>100&&!/&lt;b&gt;/.test(allHtml)]);
 checks.push(['подписи значений на графиках имеют halo',
   (allHtml.match(/stroke-width="3\.2"/g)||[]).length>50]);
+
+/* Кегль в подсказке не кодирует порядок строки. Раньше класс `pri` вешался
+   на первую строку по счёту, и в дивергенте «Приняли» выходило крупнее
+   «Уволились» — просто потому что найм стоит первым в массиве. */
+(function(){
+  const lp=D.reportLeaves(D.DEFAULT_STATE), bl=D.benchmarkLeaves(D.DEFAULT_STATE);
+  const tipsOf=h=>[...h.matchAll(/data-tip="([^"]*)"/g)].map(m=>m[1]);
+  checks.push(['в подсказке все значения одного кегля: класса pri больше нет',
+    !/t-r pri|class="t-r pri/.test(allHtml)&&!/\.t-r\.pri/.test(css)]);
+  /* база отличается цветом, а не размером: класс вешается по пунктирному
+     маркеру, тому же, что в легенде графика */
+  const line=G.chart('line',{metricKey:'turnover_m',series:D.aggregate(lp,'turnover_m'),
+    bench:D.aggregate(bl,'turnover_m')},{benchName:'база'});
+  const lt=tipsOf(line)[0]||'';
+  checks.push(['база в подсказке помечена как bench и красится серым',
+    (lt.match(/t-r bench/g)||[]).length===1&&/\.tip\.t-r\.bench\.t-v\{color:var\(--muted\)/.test(css)]);
+  /* дивергент — две равнозначные метрики одного потока: ни одна не выделена */
+  const dv=G.chart('diverge',{up:D.aggregate(lp,'hire'),down:D.aggregate(lp,'attrition'),
+    upKey:'hire',downKey:'attrition'},{});
+  const dt=tipsOf(dv)[0]||'';
+  checks.push(['равнозначные метрики в подсказке не выделяются друг перед другом',
+    (dt.match(/t-r bench/g)||[]).length===0&&(dt.match(/t-r&quot;/g)||[]).length===2]);
+})();
+
+/* Таблицы набраны ролями, которые шкала для них и заводила: тело — «основной
+   текст таблиц», шапки — «шапки колонок». До этого тело шло кеглем СНОСОК
+   (--fs-note), а шапки — служебных подписей (--fs-micro): главное содержимое
+   отчёта было мельче, чем предписывает его собственная роль. */
+checks.push(['тело сводной таблицы набрано ролью основного текста, а не сносок',
+  /\.ptable\.dense\{font-size:var\(--fs-body\)\}/.test(css)&&
+  !/\.ptable\.dense\{font-size:var\(--fs-note\)\}/.test(css)]);
+checks.push(['шапки колонок набраны ролью шапок, а не служебных подписей',
+  /\.ptable\.denseth\{padding:8px6px;font-size:var\(--fs-cap\)\}/.test(css)]);
+checks.push(['таблицы слева и справа одного кегля',
+  /\.split-r\.ptable\{font-size:var\(--fs-body\)\}/.test(css)]);
 checks.push(['легенда рисуется группами .lg с data-sid',
   (allHtml.match(/class="lg[^"]*" data-sid="/g)||[]).length>5]);
 checks.push(['марки графиков помечены data-s',
