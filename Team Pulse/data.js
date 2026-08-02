@@ -541,6 +541,52 @@ function attDays(lp,mIdx){
     first:(new Date(mm.y,mm.m,1).getDay()+6)%7,days:days};
 }
 
+/* ---------- Последние CAL_MONTHS месяцев ----------
+   Календарь показывает не «текущий месяц» и не скользящее окно в N дней,
+   а последние два КАЛЕНДАРНЫХ месяца: предыдущий целиком, текущий — по
+   сегодняшний день.
+
+   Почему не «текущий месяц»: человек, зашедший второго числа, видел две клетки.
+   Почему не окно в 30 дней: оно резало предыдущий месяц по произвольному числу
+   (17–31 мая), и месяц переставал быть месяцем — сравнивать «кусок мая»
+   с «куском июня» бессмысленно, а статистика за май частично терялась.
+
+   Теперь раскладка предсказуема: слева всегда полный месяц, справа текущий
+   ровно настолько, насколько он прожит. Первого июня справа будет один день,
+   но весь май при этом на месте.
+
+   Наружу — МАССИВ блоков; экран рисует их сетками рядом. Блок несёт `first`,
+   день недели своего первого числа: сетка обязана начинаться с той колонки,
+   где день реально стоит в неделе. */
+const CAL_MONTHS=2;
+/* «Сегодня» макета — число последнего месяца периода, по которое есть подневные
+   данные. В проде это вчерашняя дата, и последний месяц почти всегда неполный:
+   ровно ради этого случая календарь и стал скользящим окном.
+
+   Здесь дата зафиксирована серединой месяца, иначе двухмесячная раскладка
+   никогда бы не показалась: период заканчивается 30 июня, в июне ровно 30 дней,
+   и окно совпало бы с месяцем — то есть выглядело бы точно как прежний
+   «календарный месяц», а смысл правки пропал бы.
+
+   ДОПУЩЕНИЕ: месячные метрики июня при этом остаются полными — генератор считает
+   их по месяцу целиком. Подневный слой и месячный расходятся на этом ровно так же,
+   как расходятся воронка найма и реальные этапы: это макет, и в UI сказано. */
+const CAL_TODAY=15;
+function attLast(lp,months){
+  months=months||CAL_MONTHS;
+  const out=[];
+  for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
+    const blk=attDays(lp,i);
+    /* обрезается ТОЛЬКО текущий месяц и только справа: прошлые месяцы
+       показываются целиком, иначе теряется их статистика */
+    const to=i===LAST?Math.min(CAL_TODAY,blk.days.length):blk.days.length;
+    out.push({y:blk.y,m:blk.m,label:blk.label,base:blk.base,
+      from:1,to:to,full:to===blk.days.length,
+      first:blk.first,days:blk.days.filter(d=>d.day<=to)});
+  }
+  return out;
+}
+
 /* Среднее по дням недели за последние DOW_MONTHS месяцев */
 function attByDow(lp,months){
   months=months||DOW_MONTHS;
@@ -575,7 +621,8 @@ function netGrowth(lp){
 }
 
 window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
-  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,DOW_MONTHS,attDays,attByDow,officeRank,
+  OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
+  attDays,attLast,attByDow,officeRank,
   COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,

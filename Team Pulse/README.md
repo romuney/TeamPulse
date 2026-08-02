@@ -17,7 +17,7 @@ python3 -m http.server 8765
 ## Сдача одним файлом
 
 ```bash
-node build.js        # → index.standalone.html, ~276 КБ
+node build.js        # → index.standalone.html, ~282 КБ
 ```
 
 Собирает всё в один self-contained HTML: стили и скрипты встроены, внешних ссылок нет.

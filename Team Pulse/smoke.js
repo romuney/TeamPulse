@@ -214,6 +214,70 @@ checks.push(['календарь не красится светофором',
   !/#80cf9a|#ef8c8c|#dbb968/i.test(G.chart('calendar',{cal:calDays},{h:340}))]);
 checks.push(['дни недели — таблица, а не бар-чарт',
   /День недели/.test(calHtml)&&/Воскресенье/.test(calHtml)]);
+
+/* Календарь показывает скользящее окно, а не календарный месяц: второго числа
+   «текущий месяц» — это два дня и ноль смысла. Окно пересекает границу месяцев,
+   поэтому блоков может быть два, и рисуются они сетками рядом. */
+(function(){
+  const lp=D.reportLeaves(D.DEFAULT_STATE);
+  const blocks=D.attLast(lp);
+  checks.push(['календарь показывает последние '+D.CAL_MONTHS+' месяца, а не один',
+    blocks.length===D.CAL_MONTHS]);
+  /* Ключевое правило раскладки: обрезается ТОЛЬКО текущий месяц и только справа.
+     Прошлый месяц обязан быть полным — иначе его статистика теряется, а «кусок
+     мая» рядом с «куском июня» не с чем сравнивать. */
+  checks.push(['прошлый месяц показан целиком, обрезан только текущий',
+    blocks.slice(0,-1).every(b=>b.full)&&
+    (function(){
+      const last=blocks[blocks.length-1];
+      const monthDays=new Date(D.MONTHS[D.LAST].y,D.MONTHS[D.LAST].m+1,0).getDate();
+      return last.m===D.MONTHS[D.LAST].m&&last.to===Math.min(D.CAL_TODAY,monthDays);
+    })()]);
+  checks.push(['дни в блоке идут подряд с первого числа',
+    blocks.every(b=>b.from===1&&b.days.length===b.to&&b.days[0].day===1)]);
+  checks.push(['на экране офиса обе сетки подписаны своим месяцем',
+    blocks.every(b=>calHtml.indexOf('>'+b.label+' '+b.y+'<')>0)]);
+  /* сетка обязана начинаться с той колонки, где 1-е число реально стоит в неделе */
+  checks.push(['сетка блока стартует с дня недели 1-го числа',
+    blocks.every(b=>b.first===b.days[0].dow)]);
+  /* клетка квадратная: вытянутый прямоугольник читается как таблица,
+     а месяцы разной длины рядом получали бы клетки разной формы */
+  checks.push(['клетка календаря квадратная',
+    (function(){
+      const h=G.chart('calendar',{blocks:blocks},{h:520});
+      const c=[...h.matchAll(/<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="([\d.]+)"/g)]
+        .map(m=>({w:+m[1],h:+m[2]})).filter(r=>r.w>20);
+      return c.length>0&&c.every(r=>Math.abs(r.w-r.h)<0.01);
+    })()]);
+
+  /* двухмесячное окно: две сетки рядом, 14 колонок, обе подписаны месяцем */
+  const feb=D.attDays(lp,7), mar=D.attDays(lp,8);
+  const two=[{y:feb.y,m:feb.m,label:feb.label,base:feb.base,from:22,to:feb.days.length,full:false,
+              first:feb.days[21].dow,days:feb.days.filter(d=>d.day>=22)},
+             {y:mar.y,m:mar.m,label:mar.label,base:mar.base,from:1,to:23,full:false,
+              first:mar.days[0].dow,days:mar.days.filter(d=>d.day<=23)}];
+  const h2=G.chart('calendar',{blocks:two},{h:400});
+  const cells2=[...h2.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"/g)]
+    .map(m=>({x:+m[1],w:+m[2]})).filter(r=>r.w>20);
+  const cols=[...new Set(cells2.map(c=>Math.round(c.x)))].length;
+  checks.push(['окно через границу месяцев рисуется двумя сетками рядом',
+    cols===14&&cells2.length===two[0].days.length+two[1].days.length]);
+  checks.push(['у каждой сетки своя подпись месяца',
+    h2.indexOf('>'+feb.label+' '+feb.y+'<')>0&&h2.indexOf('>'+mar.label+' '+mar.y+'<')>0]);
+  /* Шкала одна на оба месяца: свой максимум в каждом красил бы одинаковый
+     процент по-разному слева и справа, и месяцы стало бы нельзя сравнить. */
+  const wd=two.reduce((a,b)=>a.concat(b.days.filter(d=>!d.weekend).map(d=>d.val)),[]);
+  checks.push(['шкала интенсивности одна на оба месяца',
+    h2.indexOf('чаще, до '+G.niceMax(wd).toFixed(1).replace('.',','))>0]);
+
+  /* Клетка стала тесной — значение уходит в подсказку, заливка остаётся.
+     Лучше честный хитмап, чем налезающие друг на друга цифры. */
+  const many=[two[0],two[1],two[0],two[1]];
+  const h4=G.chart('calendar',{blocks:many},{h:400});
+  const vals=(h4.match(/font-weight="700" text-anchor="middle" class="fade"[^>]*>\d/g)||[]).length;
+  checks.push(['при тесной клетке значение уходит в подсказку, а заливка остаётся',
+    vals===0&&/class="barg"/.test(h4)&&/Посещаемость/.test(h4)]);
+})();
 checks.push(['выдуманные данные помечены сноской',
   /реального источника под ними пока нет/.test(calHtml)&&
   /реального источника под ними пока нет/.test(A.go('office','offices'))]);
@@ -294,7 +358,47 @@ checks.push(['марки графиков помечены data-s',
   const cal=D.attDays(D.reportLeaves(D.DEFAULT_STATE));
   const h=G.chart('calendar',{cal},{h:340});
   const xs=[...h.matchAll(/\sx="(-?[\d.]+)"/g)].map(m=>+m[1]);
-  checks.push(['у календаря есть боковые поля',xs.length>0&&Math.min.apply(null,xs)>=6]);
+  /* CAL_PAD=16, а не общий PAD_X=6: прижатая к краям плитка выглядит вставкой
+     в панель, а не её содержимым. При двух месяцах сетка занимает всю ширину,
+     и без собственного поля оно схлопнулось бы до 6px. */
+  checks.push(['у календаря есть боковые поля',xs.length>0&&Math.min.apply(null,xs)>=16]);
+
+  /* Клетка ограничена потолком, а сетка центрируется. Без потолка календарь
+     растягивается во всю ширину панели и перестаёт читаться как месяц. */
+  const big=G.chart('calendar',{cal},{h:520});
+  const rc=[...big.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)]
+    .map(m=>({x:+m[1],y:+m[2],w:+m[3],h:+m[4]}));
+  const cells=rc.filter(r=>r.w>20), scale=rc.filter(r=>r.w===17);
+  checks.push(['календарь не растягивается во всю ширину: у клетки есть потолок',
+    cells.length>0&&cells.every(c=>c.w<=72.01&&c.h<=72.01)]);
+  checks.push(['сетка календаря центрирована: поля слева и справа равны',
+    (function(){
+      const l=Math.min.apply(null,cells.map(c=>c.x));
+      const r=900-Math.max.apply(null,cells.map(c=>c.x+c.w));
+      return l>20&&Math.abs(l-r)<1.5;
+    })()]);
+  /* Шкала под сеткой упиралась в таблицу дней недели, которая идёт следом
+     за графиком, и читалась как подпись к ней, а не как легенда календаря. */
+  checks.push(['шкала календаря стоит НАД сеткой, а не под ней',
+    scale.length>0&&cells.length>0&&
+    Math.max.apply(null,scale.map(s=>s.y))<Math.min.apply(null,cells.map(c=>c.y))]);
+})();
+
+/* Расстояние между графиками в стопке задают ДВА механизма — GAP внутри
+   chart('panels') и CSS-зазор между двумя отдельными chart(). Пока величины
+   расходились, «Найм, отток и переводы» показывал ~25px, а «Отток и текучесть»
+   ~42px: одинаковый по смыслу зазор выглядел разным на соседних вкладках. */
+(function(){
+  const js=fs.readFileSync(path.join(dir,'draw.js'),'utf8');
+  const inJs=(js.match(/const STACK_GAP=(\d+)/)||[])[1];
+  const inCss=(css.match(/--chart-gap:(\d+)px/)||[])[1];
+  checks.push(['зазор между графиками один: STACK_GAP в draw.js = --chart-gap в CSS',
+    !!inJs&&inJs===inCss]);
+  checks.push(['панели берут зазор из общей константы, а не из своего числа',
+    /const GAP=STACK_GAP/.test(js)]);
+  /* ось X устроена одинаково во всех видах: подпись месяца на bot+15 везде */
+  checks.push(['ось X у панелей на том же отступе, что у остальных графиков',
+    !/axisX\([^)]*bot\+13\)/.test(js)]);
 })();
 
 /* заголовки одной роли — один кегль: имя графика, имя панели и шапка бар-таблицы */

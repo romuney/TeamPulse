@@ -273,6 +273,18 @@ const VAL_ASC=8.5;      /* высота цифры при VAL_SZ */
 const LBL_ROOM=Math.ceil(VAL_DY+VAL_ASC+HEAD_GAP);   /* = 26 */
 const PAD_X=6;          /* боковые поля области построения — включая календарь */
 const DRAW_MS=760;      /* столько же длится отрисовка линии в CSS (.ln) */
+/* Воздух между двумя графиками, стоящими друг под другом. ОДНА величина на два
+   разных механизма, и в этом весь смысл константы:
+     · внутри chart('panels') панели рисуются в одном SVG — здесь это отступ
+       между осью X верхней панели и заголовком нижней;
+     · два отдельных chart() в одной панели разделяет CSS-зазор `--chart-gap`
+       в `.split-r .panel-b`.
+   Пока величины расходились, «Найм, отток и переводы» показывал ~25px между
+   графиками, а «Отток и текучесть» ~42px — заголовок нижнего графика липнул
+   к оси верхнего, и на соседних вкладках одно и то же расстояние читалось
+   по-разному. Меняешь здесь — меняй `--chart-gap` в styles.css, это сверяет
+   отдельная проверка в smoke.js. */
+const STACK_GAP=26;
 /* общие атрибуты подписи значения: один кегль, одна жирность, белая подложка */
 function valOpt(o){return Object.assign({size:VAL_SZ,weight:VAL_W,halo:true,cls:'fade'},o||{})}
 
@@ -452,7 +464,7 @@ function drawPanels(a,w,h){
   /* GAP и HEAD урезаны на 4 и 2 пикселя ровно на то, на сколько вырос LBL_ROOM
      (18 → 26): иначе трёхпанельный график растёт на 24px и в правой панели
      появляется скролл. */
-  const GAP=26;            /* воздух между осью X и заголовком следующей панели */
+  const GAP=STACK_GAP;     /* воздух между осью X и заголовком следующей панели */
   const HEAD=16;           /* полоса заголовка панели — в неё график не заходит */
   const PLOT_MIN=70;
   /* заголовок + место под подпись самого высокого бара + график + ось + воздух */
@@ -504,8 +516,10 @@ function drawPanels(a,w,h){
         s+=txt(cx,y-VAL_DY,CD.fmtVal(p.key,v),valOpt({delay:pd+300+i*24}));
       });
     }
-    /* у каждой панели СВОЯ полная ось — с месяцами и годами, как везде */
-    s+=axisX(x0,bandW,bot,bot,bot+13);
+    /* у каждой панели СВОЯ полная ось — с месяцами и годами, как везде.
+       Отступ подписи от оси тот же, что у остальных видов (bot+15): пара
+       пикселей разницы читалась как «панели устроены немного иначе». */
+    s+=axisX(x0,bandW,bot,bot,bot+15);
   });
   return svg(w,h,s);
 }
@@ -700,47 +714,89 @@ function mixRGB(a,b,t){
   return 'rgb('+c[0]+','+c[1]+','+c[2]+')';
 }
 function drawCalendar(a,w,h){
-  const cal=a.cal, o=a.opt||{};
+  /* На вход — МАССИВ месячных блоков: окно последних 30 дней почти всегда
+     пересекает границу месяцев, и тогда рядом стоят две сетки. Один блок —
+     не отдельный случай, а частный: код тот же. */
+  const blocks=a.blocks||[a.cal], o=a.opt||{};
   const hh=headH(o.title,o.legend);
   /* шапка дней недели живёт по тому же HEAD_GAP, что и воздух под заголовком графиков */
-  const DOW_H=HEAD_GAP+9, SCALE_H=30, gap=4;
-  const rows=Math.ceil((cal.first+cal.days.length)/7);
-  h=h||o.h||(hh+DOW_H+rows*52+SCALE_H);
-  /* сетка стартует с PAD_X, а не с нуля: прижатый к краям календарь
-     выбивался из общей вертикали областей построения */
-  const cw=(w-PAD_X*2-gap*6)/7, gridTop=hh+DOW_H;
-  const ch=Math.max(26,(h-gridTop-SCALE_H-gap*(rows-1))/rows);
-  /* шкалу строим по будням: выходные в неё не входят */
-  const max=niceMax(cal.days.filter(d=>!d.weekend).map(d=>d.val));
+  const DOW_H=HEAD_GAP+9, SCALE_H=26, MON_H=17, gap=4, BLOCK_GAP=22;
+  const n=blocks.length;
+  const rows=Math.max.apply(null,blocks.map(b=>Math.ceil((b.first+b.days.length)/7)));
+  h=h||o.h||(hh+SCALE_H+MON_H+DOW_H+rows*52);
+  /* Шкала интенсивности стоит СРАЗУ ПОД ЗАГОЛОВКОМ, а не под сеткой. Снизу она
+     упиралась в таблицу дней недели, которая идёт следом за графиком, и читалась
+     как подпись к этой таблице, а не как легенда календаря. */
+  const scaleY=hh+6, gridTop=hh+SCALE_H+MON_H+DOW_H;
+  /* Потолок клетки. Без него на широкой панели сетка растягивается во всю ширину,
+     клетка уходит за сотню пикселей, и месяц перестаёт читаться как месяц —
+     остаются просто крупные плитки. Остаток ширины уходит в поля слева и справа:
+     сетка центрируется, и прижатой к краям она больше не выглядит. */
+  const CELL_MAX=72;
+  /* У календаря собственное боковое поле, больше общего PAD_X. Это не область
+     построения с осями, а плитка: прижатая к самым краям, она выглядит вставкой
+     в панель, а не её содержимым. При одном месяце поля даёт центрирование,
+     при двух сетка занимает всю ширину — и без этой константы поля схлопнулись
+     бы до 6px. */
+  const CAL_PAD=16;
+  const availW=(w-CAL_PAD*2-BLOCK_GAP*(n-1))/n;
+  /* Клетка КВАДРАТНАЯ: считаем и по ширине, и по высоте, берём меньшее.
+     Вытянутый прямоугольник читается как таблица, а не как день календаря,
+     а месяцы разной длины рядом получали бы клетки разной формы. */
+  const cell=Math.max(22,Math.min(CELL_MAX,(availW-gap*6)/7,(h-gridTop-gap*(rows-1))/rows));
+  const cw=cell, ch=cell;
+  const gridW=cw*7+gap*6, totalW=gridW*n+BLOCK_GAP*(n-1);
+  const x0=Math.max(CAL_PAD,(w-totalW)/2);
+  /* высота по факту содержимого: при упёршейся в потолок клетке тянуть SVG
+     на всю высоту контейнера незачем — внизу будет просто пустое место */
+  const hUsed=Math.min(h,gridTop+rows*ch+(rows-1)*gap);
+  /* Шкала ОДНА на все блоки: свой максимум в каждом месяце красил бы одинаковый
+     процент по-разному слева и справа, и сравнить месяцы стало бы нельзя. */
+  const allWd=blocks.reduce((acc,b)=>acc.concat(b.days.filter(d=>!d.weekend).map(d=>d.val)),[]);
+  const max=niceMax(allWd);
   const num1=v=>(+v).toFixed(1).replace('.',',');
+  /* Подписи в клетке рисуются, только если помещаются. Два месяца рядом ужимают
+     клетку вдвое, и втиснуть туда и число месяца, и процент уже нельзя. Тогда
+     остаётся хитмап — заливка честно несёт величину, а точное число живёт
+     в подсказке. Налезающие друг на друга цифры хуже их отсутствия. */
+  const showVal=cw>=30&&ch>=22, showDay=ch>=34&&cw>=34;
 
   let s=header(w,o.title,o.legend);
-  CD.DOW_SHORT.forEach((d,i)=>{
-    s+=txt(PAD_X+i*(cw+gap)+cw/2,hh+HEAD_GAP+2,d,{size:10,weight:700,fill:i>=5?C_AXIS:C_LABEL});
-  });
-  cal.days.forEach(d=>{
-    const idx=cal.first+d.day-1, x=PAD_X+(idx%7)*(cw+gap), y=gridTop+Math.floor(idx/7)*(ch+gap);
-    const t=Math.max(0,Math.min(1,d.val/max));
-    const fill=d.weekend?'#f4f5f7':mixRGB(CAL_LO,CAL_HI,t);
-    /* на тёмной половине шкалы цифра белая, иначе её не прочесть */
-    const ink=d.weekend?C_AXIS:(t>0.62?'#fff':C_LABEL);
-    s+='<g class="barg"'+tip({
-      title:d.day+' '+CD.MONTH_GEN[cal.m]+' '+cal.y+', '+CD.DOW_NAME[d.dow].toLowerCase(),
-      rows:[{label:'Посещаемость',value:num1(d.val)+' %',color:fill}],
-      note:d.weekend?'выходной: офис работает по дежурствам'
-                    :'среднее по будням месяца: '+num1(cal.base)+' %'})+'>';
-    s+=rect(x,y,cw,ch,fill,7,' class="fade" style="animation-delay:'+(idx*9)+'ms"');
-    if(ch>=34)s+=txt(x+6,y+13,String(d.day),{size:9.5,weight:700,fill:ink,anchor:'start',
-      cls:'fade',delay:idx*9});
-    /* halo здесь не нужен: цвет цифры уже выбран под заливку ячейки */
-    s+=txt(x+cw/2,y+(ch>=34?ch/2+9:ch/2+4),num1(d.val),
-      {size:VAL_SZ,weight:VAL_W,fill:ink,cls:'fade',delay:60+idx*9});
-    s+='</g>';
+  blocks.forEach((b,bi)=>{
+    const bx=x0+bi*(gridW+BLOCK_GAP);
+    /* подпись месяца над своей сеткой: без неё два блока рядом неразличимы */
+    s+=txt(bx,hh+SCALE_H+12,b.label+' '+b.y,
+      {size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+    CD.DOW_SHORT.forEach((d,i)=>{
+      s+=txt(bx+i*(cw+gap)+cw/2,gridTop-6,d,{size:10,weight:700,fill:i>=5?C_AXIS:C_LABEL});
+    });
+    b.days.forEach((d,di)=>{
+      /* позиция считается от ПЕРВОГО дня окна в этом месяце, а не от первого
+         числа: окно может начинаться с середины месяца */
+      const idx=b.first+di, x=bx+(idx%7)*(cw+gap), y=gridTop+Math.floor(idx/7)*(ch+gap);
+      const t=Math.max(0,Math.min(1,d.val/max));
+      const fill=d.weekend?'#f4f5f7':mixRGB(CAL_LO,CAL_HI,t);
+      /* на тёмной половине шкалы цифра белая, иначе её не прочесть */
+      const ink=d.weekend?C_AXIS:(t>0.62?'#fff':C_LABEL);
+      const dly=(bi*40)+di*9;
+      s+='<g class="barg"'+tip({
+        title:d.day+' '+CD.MONTH_GEN[b.m]+' '+b.y+', '+CD.DOW_NAME[d.dow].toLowerCase(),
+        rows:[{label:'Посещаемость',value:num1(d.val)+' %',color:fill}],
+        note:d.weekend?'выходной: офис работает по дежурствам'
+                      :'среднее по будням месяца: '+num1(b.base)+' %'})+'>';
+      s+=rect(x,y,cw,ch,fill,7,' class="fade" style="animation-delay:'+dly+'ms"');
+      if(showDay)s+=txt(x+6,y+13,String(d.day),{size:9.5,weight:700,fill:ink,anchor:'start',
+        cls:'fade',delay:dly});
+      /* halo здесь не нужен: цвет цифры уже выбран под заливку ячейки */
+      if(showVal)s+=txt(x+cw/2,y+(showDay?ch/2+9:ch/2+4),num1(d.val),
+        {size:VAL_SZ,weight:VAL_W,fill:ink,cls:'fade',delay:60+dly});
+      s+='</g>';
+    });
   });
 
   /* шкала интенсивности: 5 ступеней плюс отдельный образец выходного дня */
-  const sy=h-SCALE_H+12, sw=17, sh=10;
-  let x=PAD_X;   /* шкала начинается от того же поля, что и сетка дней */
+  const sy=scaleY, sw=17, sh=10;
+  let x=x0;      /* шкала начинается от левого края сетки, а не от края SVG */
   s+=txt(x,sy+9,'реже',{size:10.5,fill:C_AXIS,anchor:'start'});x+=textW('реже',10.5)+7;
   for(let i=0;i<5;i++){s+=rect(x,sy,sw,sh,mixRGB(CAL_LO,CAL_HI,i/4),2);x+=sw+3}
   x+=4;
@@ -748,7 +804,7 @@ function drawCalendar(a,w,h){
   x+=textW('чаще, до '+num1(max)+' %',10.5)+16;
   s+=rect(x,sy,sw,sh,'#f4f5f7',2);x+=sw+6;
   s+=txt(x,sy+9,'выходной',{size:10.5,fill:C_AXIS,anchor:'start'});
-  return svg(w,h,s);
+  return svg(w,hUsed,s);
 }
 
 const KINDS={line:drawLine,bars:drawBars,diverge:drawDiverge,panels:drawPanels,
