@@ -80,16 +80,29 @@ const tip=tipAttr;                       /* короткий алиас для �
    Стрелка и цвет кодировали один и тот же факт двумя способами, и их приходилось
    сверять между собой: ↓ у текучести это хорошо, ↓ у найма — ни хорошо, ни плохо.
    Теперь знак говорит «в какую сторону», цвет — «хорошо это или плохо», и оба
-   читаются с одного взгляда. Нет изменения — просто ноль, без значка. */
-function deltaChip(key,dv){
+   читаются с одного взгляда. Нет изменения — просто ноль, без значка.
+
+   o.vs — с чем сравнивается («к маю»). Подпись живёт ВНУТРИ пилюли: «+3» без
+   неё читалось как отклонение от базы, а не как изменение за месяц, и понять
+   это можно было только зная, как устроен отчёт. В колонках таблицы, где месяц
+   уже подписан в шапке, vs не передаётся — там он был бы повторён у каждой
+   строки. o.tip — подсказка с полной формулировкой («июнь 2026 против мая 2026»). */
+function deltaChip(key,dv,o){
   const m=D.METRIC_BY_KEY[key];
-  if(dv===0)return '<span class="delta flat">0</span>';
-  /* типографский минус вместо дефиса: рядом с «+» дефис выглядит короче и ниже */
-  const txt=D.fmtDelta(key,dv).replace('-','−');
-  if(m.better==='flat')return '<span class="delta neu">'+txt+'</span>';
+  const vs=o&&o.vs?'<span class="d-vs">'+esc(o.vs)+'</span>':'';
+  const at=o&&o.tip?tipAttr(o.tip):'';
+  if(dv===0)return '<span class="delta flat"'+at+'>0'+vs+'</span>';
+  /* типографский минус подставляет сам fmtDelta — здесь его больше не чиним:
+     пока чинили тут, пилюля «К базе» в сводной таблице оставалась с дефисом */
+  const txt=D.fmtDelta(key,dv);
+  if(m.better==='flat')return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=m.better==='lower'?dv<0:dv>0;
-  return '<span class="delta '+(good?'up':'down')+'">'+txt+'</span>';
+  return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
 }
+/* Пилюля изменения за месяц с подписью месяца — ровно то, что стоит в карточках
+   KPI на всех экранах. Отдельная функция, чтобы подпись и подсказка не
+   разъезжались между one-pager и детальными вкладками. */
+function momChip(key,dv){return deltaChip(key,dv,{vs:D.CMP.momShort,tip:D.CMP.momTip})}
 
 /* Иконка перехода на внешний дашборд. Символ ↗ брался из шрифта и в разных
    начертаниях получался то мелким, то съехавшим по базовой линии. */
@@ -98,6 +111,20 @@ function icoExt(){
     'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'+
     '<path d="M8.4 2.4h3.2v3.2"/><path d="M11.6 2.4 6.9 7.1"/>'+
     '<path d="M9.7 8.3v2.2a1.1 1.1 0 0 1-1.1 1.1H3.5a1.1 1.1 0 0 1-1.1-1.1V5.4a1.1 1.1 0 0 1 1.1-1.1h2.2"/></svg>';
+}
+
+/* ---------- Каретка раскрытия строки ----------
+   Строка сводной таблицы one-pager раскрывает график метрики, но узнать об
+   этом можно было только случайным кликом: ни значка, ни курсора-указателя
+   в конце строки не было. Каретка стоит последней колонкой — там, где взгляд
+   заканчивает читать строку, — и разворачивается вниз, когда график открыт.
+   Отдельной кнопкой её не делаем: кликается вся строка, и вторая точка входа
+   в то же действие только сбивала бы с толку. */
+function rowCaret(open){
+  return '<span class="row-caret'+(open?' on':'')+'"'+
+    tipAttr({title:open?'Свернуть график':'Показать динамику',
+      text:'Клик по строке раскрывает график метрики за 12 месяцев прямо в таблице.'})+
+    ' aria-hidden="true">'+(open?'▾':'▸')+'</span>';
 }
 
 /* ---------- Значок справки ----------
@@ -118,14 +145,18 @@ function infoDot(key){
 const NOCMP_HINT='Абсолютная величина зависит от размера подразделения: сравнение с базой здесь ничего не значит.';
 function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Сравнение отключено',text:NOCMP_HINT})+'>не сравнивается</span>'}
 
-/* ---------- Ячейка «сравнение с базой» / «против KPI» ---------- */
+/* ---------- Ячейка «сравнение с базой» / «против KPI» ----------
+   Порядок проверок не косметика: **есть утверждённый KPI — сравниваем с ним,
+   и только с ним**. Средняя по базе рядом с целью KPI заставляла выбирать,
+   по какому из двух чисел судить, хотя ответ один: цель важнее средней. */
 function targetCell(key,val,baseVal,kpi){
-  if(!D.comparable(key))return '<div class="tgt">'+noCmpMark()+'</div>';
   if(kpi){
-    const st=D.stateForKpi(key,val,kpi);
+    const st=D.stateForKpi(key,val,kpi), m=D.METRIC_BY_KEY[key];
+    const badTxt=m.better==='lower'?'выше порога':'ниже порога';
     return '<div class="tgt"><span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'+
-      '<span class="sig-chip '+st+'">'+(st==='good'?'в цели':st==='warn'?'зона риска':'выше порога')+'</span></div>';
+      '<span class="sig-chip '+st+'">'+(st==='good'?'в цели':st==='warn'?'зона риска':badTxt)+'</span></div>';
   }
+  if(!D.comparable(key))return '<div class="tgt">'+noCmpMark()+'</div>';
   if(baseVal==null)return '<div class="tgt">—</div>';
   const st=D.compareState(key,val,baseVal), diff=val-baseVal, m=D.METRIC_BY_KEY[key];
   const lbl=m.better==='flat'
@@ -167,12 +198,23 @@ function aiIco(big){
            :'<span class="ai-ico">AI</span>';
 }
 
-/* ---------- Карточка KPI ---------- */
+/* ---------- Карточка KPI ----------
+   Четыре строки РОВНО ВСЕГДА: заголовок, значение, первый ряд, второй ряд.
+   Пустой второй ряд рисуется тоже — иначе карточки в одной полосе состоят из
+   разного числа строк, и выровнять их по строкам нечем.
+
+   Выравнивание держит CSS: полоса .kpis — grid, карточка — subgrid на четыре
+   строки родителя. Поэтому длинный заголовок, переносящийся на две строки
+   («Прирост с начала года» в узкой колонке), добавляет вторую строку ВСЕМ
+   заголовкам полосы, и значения, дельты и подписи базы остаются на одном
+   уровне. До этого перенос в одной карточке сдвигал её цифры вниз, и полоса
+   KPI переставала читаться как строка. Лишняя строка воздуха — приемлемая
+   цена; съехавшие цифры — нет. */
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.q||'')+'</div>'+
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
-    (o.row2!=null?'<div class="k-row">'+o.row2+'</div>':'')+'</div>';
+    '<div class="k-row">'+(o.row2||'')+'</div></div>';
 }
 
 /* ============================================================================
@@ -265,6 +307,6 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={esc,tipAttr,tip,deltaChip,icoExt,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={esc,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,panel,subTabs,empty,trafficLegend};
 })();

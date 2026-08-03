@@ -632,10 +632,23 @@ function sparkSvg(w,h,body){
 /* warn сюда тоже попадает и красится серым — отдельного цвета у него больше нет */
 function stateColor(st){return st==='good'?C_GREEN:st==='bad'?C_RED:C_FLAT}
 
+/* Строка подсказки спарклайна с тем, с чем метрика сравнивается: цель KPI, если
+   она есть, иначе база. Одна функция на оба спарклайна — иначе колонка «12 мес»
+   и hero-карточка объясняли бы один и тот же месяц по-разному. */
+function cmpRow(key,i,base,kpi){
+  if(kpi)return [{label:'цель KPI',value:CD.fmtVal(key,kpi.green),color:C_BENCH,dash:true}];
+  return base?[{label:'база',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[];
+}
+/* Оценка месяца: есть KPI — только против него, базы здесь уже нет. */
+function cmpState(key,v,i,base,kpi,flat,state){
+  if(kpi)return CD.stateForKpi(key,v,kpi);
+  return (flat||!base||!key)?state:CD.compareState(key,v,base[i]);
+}
+
 function sparkBars(series,state,w,h,o){
   o=o||{};w=w||120;h=h||26;
   const n=series.length, gap=w/n, bw=gap*0.68;
-  const key=o.key, base=o.base, flat=o.flat;
+  const key=o.key, base=o.base, flat=o.flat, kpi=o.kpi;
   /* Шкала. От нуля столбики честны по величине, но при малом размахе
      (численность 175 → 191) все двенадцать месяцев выглядят одинаково и
      динамика пропадает. Поэтому при размахе меньше 40% от максимума низ
@@ -649,12 +662,11 @@ function sparkBars(series,state,w,h,o){
   let s='';
   series.forEach((v,i)=>{
     const bh=Math.max(1.5,((v-lo)/span)*(h-2));
-    /* окраска месяца: сравниваем с базой ЭТОГО месяца */
-    const st=(flat||!base||!key)?state
-      :CD.compareState(key,v,base[i]);
+    /* окраска месяца: с целью KPI, а при её отсутствии — с базой ЭТОГО месяца */
+    const st=cmpState(key,v,i,base,kpi,flat,state);
     const t=key?{title:mLabel(i),
       rows:[{label:(CD.METRIC_BY_KEY[key]||{}).name||'',value:CD.fmtVal(key,v),color:stateColor(st)}]
-        .concat(base?[{label:'база',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[])}:null;
+        .concat(cmpRow(key,i,base,kpi))}:null;
     s+='<g class="sbg"'+(t?tip(t):'')+'>';
     s+='<rect class="hit" x="'+num(i*gap)+'" y="0" width="'+num(gap)+'" height="'+num(h)+'"/>';
     s+=rect(i*gap+(gap-bw)/2,h-bh,bw,bh,stateColor(st),1,' class="sb"');
@@ -665,7 +677,7 @@ function sparkBars(series,state,w,h,o){
 function sparkLine(series,state,w,h,o){
   o=o||{};w=w||120;h=h||26;
   const max=niceMax(series), n=series.length;
-  const col=stateColor(state), key=o.key, base=o.base;
+  const col=stateColor(state), key=o.key, base=o.base, kpi=o.kpi;
   /* PAD — не косметика: svg тянется preserveAspectRatio="none", и точка радиусом 2
      на самом краю viewBox срезалась ровно наполовину. Отступ по краям и сверху
      держит крайние точки целиком внутри картинки. */
@@ -684,7 +696,7 @@ function sparkLine(series,state,w,h,o){
     const gapw=w/n, cx=X(i), cy=Y(v);
     const t={title:mLabel(i),
       rows:[{label:(CD.METRIC_BY_KEY[key]||{}).name||'',value:CD.fmtVal(key,v),color:col}]
-        .concat(base?[{label:'база',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[])};
+        .concat(cmpRow(key,i,base,kpi))};
     s+='<g class="spg"'+tip(t)+'>';
     s+='<rect class="hit" x="'+num(i*gapw)+'" y="0" width="'+num(gapw)+'" height="'+num(h)+'"/>';
     s+='<line class="spgd" x1="'+num(cx)+'" y1="0" x2="'+num(cx)+'" y2="'+num(h)+'" stroke="'+col+'"/>';

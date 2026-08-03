@@ -18,6 +18,38 @@ const MONTHS=(function(){
 const N=MONTHS.length, LAST=N-1;
 const PERIOD_LABEL='июль 2025 — июнь 2026';
 
+/* ---------- С чем сравнивается изменение ----------
+   MoM и YoY — это конкретные два месяца, а не абстрактное «за месяц». Пока
+   в интерфейсе стояло просто «+3», приходилось догадываться, относительно
+   чего: базы сравнения, начала периода или прошлого месяца. Подписи собираются
+   здесь, чтобы во всех местах отчёта стоял один и тот же месяц.
+   Дательный падеж — для «к маю», именительный — для заголовков и подсказок. */
+const MONTH_DAT=['январю','февралю','марту','апрелю','маю','июню','июлю','августу',
+                 'сентябрю','октябрю','ноябрю','декабрю'];
+/* родительный падеж — подсказки календаря («15 июня 2026, понедельник») и
+   изменения («июнь 2026 против мая 2026») */
+const MONTH_GEN=['января','февраля','марта','апреля','мая','июня','июля','августа',
+                 'сентября','октября','ноября','декабря'];
+const MONTH_NOM=['январь','февраль','март','апрель','май','июнь','июль','август',
+                 'сентябрь','октябрь','ноябрь','декабрь'];
+const CUR_M=MONTHS[LAST], PREV_M=MONTHS[LAST-1];
+const YOY_M={y:CUR_M.y-1,m:CUR_M.m};                      /* тот же месяц год назад */
+function monthNom(mm){return MONTH_NOM[mm.m]+' '+mm.y}    /* «июнь 2026» */
+function monthGen(mm){return MONTH_GEN[mm.m]+' '+mm.y}    /* «июня 2026» */
+const CMP={
+  cur:monthNom(CUR_M),
+  /* короткая подпись стоит прямо в пилюле изменения, полная — в шапках колонок */
+  momShort:'к '+MONTH_DAT[PREV_M.m],
+  momFull:'к '+MONTH_DAT[PREV_M.m]+' '+PREV_M.y,
+  /* у года год обязателен и в короткой подписи: «к июню» читалось бы как MoM */
+  yoy:'к '+MONTH_DAT[YOY_M.m]+' '+YOY_M.y,
+  momTip:{title:'Изменение за месяц',
+    text:monthNom(CUR_M)+' против '+monthGen(PREV_M)+'. Не отклонение от базы сравнения: '+
+      'база стоит отдельной строкой в карточке.'},
+  yoyTip:{title:'Изменение за год',
+    text:monthNom(CUR_M)+' против '+monthGen(YOY_M)+' — тот же месяц год назад, а не начало периода.'}
+};
+
 /* Расширенная сетка: 6 месяцев до окна (янв.–июнь 2025) + сами 12.
    Нужна только для накопительной текучести: YTD июля 2025 считается с января 2025,
    которого в окне нет. Наружу отдаются всегда 12 точек окна. */
@@ -33,6 +65,12 @@ const YEAR_START_EXT=MONTHS_EXT.map(function(mm){
   for(let j=0;j<NEXT;j++)if(MONTHS_EXT[j].y===mm.y&&MONTHS_EXT[j].m===0)return j;
   return 0;
 });
+/* База «с начала года» для метрик вида ytdDelta: численность на 31 декабря —
+   это значение ПРЕДЫДУЩЕГО месяца перед январём. Для первой половины окна
+   (июль–декабрь 2025) декабрь 2024 в сетку не попадает, и базой служит первая
+   точка сетки; на последний месяц окна, по которому читаются KPI-карточки,
+   это не влияет — там база честный декабрь 2025. */
+function ytdBase(i){const j=YEAR_START_EXT[i];return j>0?j-1:0}
 
 /* ---------- Блоки ---------- */
 const BLOCKS=[
@@ -53,11 +91,22 @@ const BLOCK_BY_KEY=Object.fromEntries(BLOCKS.map(b=>[b.key,b]));
 const METRICS=[
 {key:'hc_active',block:'structure',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники без длительных отсутствий на конец месяца.'},
 {key:'hc_total',block:'structure',name:'Общая численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Списочная численность на конец месяца, включая декреты и длительные отсутствия.'},
-{key:'hc_avg',block:'structure',name:'Среднесписочная численность',short:'Среднеспис.',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Средняя списочная численность за месяц: (начало + конец) / 2. Знаменатель всех расчётов текучести.'},
+/* Среднесписочная численность в списке метрик не стоит: как строка отчёта она
+   ничего не сообщала руководителю (это всегда полусумма двух соседних значений
+   численности), а место в таблице и карточку занимала. Ряд `hc_avg` остался —
+   он знаменатель текучести и считается в seriesExt по ключу. */
 {key:'hire',block:'movement',name:'Найм',short:'Найм',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Принятые за месяц.'},
 {key:'attrition',block:'movement',name:'Отток',short:'Отток',fmt:'int',better:'lower',unit:'чел',anchor:null,hint:'Уволившиеся за месяц (все причины).'},
 {key:'transfer_in',block:'movement',name:'Переводы в команду',short:'Перев. в',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы из других команд.'},
 {key:'transfer_out',block:'movement',name:'Переводы из команды',short:'Перев. из',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы в другие команды.'},
+/* Итог движения персонала: найм + переводы в − отток − переводы из за вычетом
+   прочих изменений. Пять потоков без итога не отвечали на вопрос «команда
+   выросла или нет» — считать в уме четыре числа приходилось самому. */
+/* short'ы блока движения держим короткими намеренно: колонок в сводной таблице
+   стало пять, и «Прирост с НГ» отправлял последнюю колонку под горизонтальный
+   скролл на ноутбучной ширине. Полное имя и пояснение живут в подсказке шапки. */
+{key:'net_ytd',block:'movement',name:'Прирост с начала года',short:'Прирост',fmt:'int',better:'flat',unit:'чел',anchor:null,
+  ytdDelta:'hc_total',hint:'Изменение общей численности с начала календарного года: значение на конец месяца минус численность на 31 декабря.'},
 {key:'turnover_m',block:'turnover',name:'Текучесть месячная',short:'Тек. мес',fmt:'pct',better:'lower',unit:'%',anchor:null,
   derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Отток за месяц к среднесписочной численности этого месяца, в процентах.'},
 {key:'turnover_y',block:'turnover',name:'Текучесть накопительная',short:'Тек. накоп.',fmt:'pct',better:'lower',unit:'%',anchor:null,
@@ -75,7 +124,9 @@ const METRICS=[
 ];
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
 function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
-const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','vac_open','vac_closed','tgrowth_pass','tgrowth_deny']);
+/* hc_avg метрикой отчёта не является, но в этом наборе остаётся: он управляет
+   не только сравнимостью, но и способом агрегации (сумма, а не среднее). */
+const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -102,7 +153,7 @@ const LOCKED_METRICS=new Set(['hc_active','hc_total']);
    `keys:null` — весь список; остальные перечисляют показанные метрики. */
 const METRIC_PRESETS=[
 {key:'all',name:'Всё',keys:null},
-{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','hc_avg','attrition','turnover_m','turnover_y','regret']},
+{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','attrition','turnover_m','turnover_y','regret']},
 {key:'hiring',name:'Найм',keys:['hc_active','hc_total','hire','vac_open','vac_closed','time_to_fill']},
 {key:'min',name:'Минимум',keys:['hc_active','hc_total','turnover_m','regret']}
 ];
@@ -323,6 +374,12 @@ function seriesExt(leafPath,key){
     for(let i=0;i<NEXT;i++){let s=0;for(let j=YEAR_START_EXT[i];j<=i;j++)s+=src[j];out[i]=+s.toFixed(2)}
     _sc[ck]=out;return out;
   }
+  /* прирост с начала года: значение месяца минус значение на 31 декабря */
+  if(m.ytdDelta){
+    const src=seriesExt(leafPath,m.ytdDelta);
+    for(let i=0;i<NEXT;i++)out[i]=+(src[i]-src[ytdBase(i)]).toFixed(1);
+    _sc[ck]=out;return out;
+  }
 
   const r=rng('ser'+leafPath+key);
   /* Счётная метрика: ожидание = численность × месячная ставка × сезонность × «рваность».
@@ -391,6 +448,11 @@ function aggregateExt(leafPaths,key){
   } else if(m.ytd){
     const src=aggregateExt(leafPaths,m.ytd);
     for(let i=0;i<NEXT;i++){let s=0;for(let j=YEAR_START_EXT[i];j<=i;j++)s+=src[j];out[i]=+s.toFixed(2)}
+  } else if(m.ytdDelta){
+    /* считается из уже агрегированного ряда, а не суммой по листьям: результат
+       тот же (разность линейна), но без прохода по всем листьям дважды */
+    const src=aggregateExt(leafPaths,m.ytdDelta);
+    for(let i=0;i<NEXT;i++)out[i]=+(src[i]-src[ytdBase(i)]).toFixed(1);
   } else if(COUNT_METRICS.has(key)){
     for(let i=0;i<NEXT;i++){let s=0;leafPaths.forEach(p=>{s+=seriesExt(p,key)[i]});out[i]=+s.toFixed(1)}
   } else {
@@ -449,7 +511,9 @@ function kpiFor(key,st){
 }
 
 /* ---------- Форматирование ---------- */
-function fmtInt(v){return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2009')}
+/* минус типографский: у «Прироста с начала года» значение бывает отрицательным,
+   и дефис рядом с плюсом в соседней пилюле выглядит короче и ниже */
+function fmtInt(v){return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2009').replace('-','\u2212')}
 function fmtVal(key,v){
   if(v==null)return'—';
   const m=METRIC_BY_KEY[key];if(!m)return String(v);
@@ -457,12 +521,15 @@ function fmtVal(key,v){
   if(m.fmt==='days')return (+v).toFixed(0).replace('.',',')+'\u2009дн';
   return (+v).toFixed(1).replace('.',',')+'%';
 }
+/* Минус во всех дельтах типографский. Раньше его подставлял только deltaChip,
+   а пилюля «К базе» в сводной таблице, которая зовёт fmtDelta напрямую,
+   оставалась с дефисом: два соседних элемента одного экрана писали минус по-разному. */
 function fmtDelta(key,v){
   const m=METRIC_BY_KEY[key];if(v==null)return'—';
   const s=v>0?'+':'';
   if(m.fmt==='int')return s+fmtInt(v);
-  if(m.fmt==='days')return s+(+v).toFixed(0)+'\u2009дн';
-  return s+(+v).toFixed(1).replace('.',',')+'\u2009п.п.';
+  if(m.fmt==='days')return s+(+v).toFixed(0).replace('-','\u2212')+'\u2009дн';
+  return s+(+v).toFixed(1).replace('.',',').replace('-','\u2212')+'\u2009п.п.';
 }
 function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',',')+'K':fmtInt(v)}
 
@@ -512,9 +579,8 @@ const OFFICES=[
 ];
 const DOW_NAME=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
 const DOW_SHORT=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-/* родительный падеж — только для подсказок вида «15 июня 2026, понедельник» */
-const MONTH_GEN=['января','февраля','марта','апреля','мая','июня','июля','августа',
-                 'сентября','октября','ноября','декабря'];
+/* MONTH_GEN (родительный падеж) объявлен в шапке файла: его читает и календарь
+   («15 июня 2026, понедельник»), и подсказка изменения («против мая 2026»). */
 const CAL_MONTH=LAST;              /* календарь строится за последний месяц окна */
 const DOW_MONTHS=3;                /* дни недели усредняем за 3 месяца: по одному выборка коротка */
 
@@ -620,7 +686,7 @@ function netGrowth(lp){
   return hc[LAST]-hc[0];
 }
 
-window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
+window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,
   COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
