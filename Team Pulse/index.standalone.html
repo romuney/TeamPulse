@@ -121,6 +121,7 @@ button{font-family:inherit}
 .kpis.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .kpis.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpis.n5{grid-template-columns:repeat(5,minmax(0,1fr))}
 .kpis.compact{gap:12px;margin-bottom:16px}
 .kpis.compact .kpi{padding:13px 15px}
 .kpis.compact .k-val{font-size:var(--fs-hero)}
@@ -129,7 +130,28 @@ button{font-family:inherit}
 .kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:700;margin-bottom:7px;display:flex;align-items:center;gap:6px}
 .kpi .k-val{font-size:27px;font-weight:800;letter-spacing:-.6px;line-height:1.1}
 .kpi .k-row{display:flex;align-items:center;gap:9px;margin-top:8px;flex-wrap:wrap}
+/* пустой второй ряд карточка рисует всегда (ей нужно ровно четыре строки),
+   но воздуха он не занимает */
+.kpi .k-row:empty{margin:0}
 .kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
+
+/* ---------- Одна высота строк во всей полосе KPI ----------
+   Заголовок метрики в одной карточке переносился на две строки — и её
+   значение, дельта и подпись базы уезжали вниз относительно соседей. Полоса
+   переставала читаться как строка: глазу приходилось искать, где чьё число.
+
+   Карточка объявлена subgrid'ом на четыре строки родителя, поэтому высоту
+   каждой строки задаёт самая высокая карточка полосы: перенёсся заголовок
+   у одного KPI — лишняя строка появилась у всех, зато цифры остались на
+   общем уровне. Это ровно тот размен, который выбрал заказчик.
+
+   Собственные отступы строк сохранены, а gap внутри карточки обнулён: иначе
+   subgrid унаследовал бы междукарточные 14px и разорвал бы карточку. Правило
+   под @supports: без subgrid карточка обязана остаться обычным блоком, иначе
+   grid-row:span 4 растянул бы её по пустым строкам. */
+@supports (grid-template-rows:subgrid){
+  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0}
+}
 
 /* ===== Панели ===== */
 .panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
@@ -138,7 +160,10 @@ button{font-family:inherit}
 .panel-b{padding:var(--s7) var(--s8)}
 
 /* ===== Дельты и статусы ===== */
-.delta{display:inline-flex;align-items:center;gap:3px;font-size:var(--fs-note);font-weight:700;padding:3px 7px;border-radius:var(--r2);white-space:nowrap}
+.delta{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-note);font-weight:700;padding:3px 7px;border-radius:var(--r2);white-space:nowrap;cursor:help}
+/* «к маю» внутри пилюли: с чем сравнивается изменение. Тише самого числа —
+   число несёт факт, подпись объясняет, откуда он взялся. */
+.delta .d-vs{font-weight:600;font-size:var(--fs-cap);opacity:.72}
 .delta.up{background:var(--green-bg);color:var(--green-tx)}
 .delta.down{background:var(--red-bg);color:var(--red-tx)}
 .delta.flat{background:#f0f1f3;color:var(--muted)}
@@ -158,11 +183,24 @@ button{font-family:inherit}
 .mtable{width:100%;border-collapse:collapse;table-layout:fixed}
 .mtable thead th{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.2px;color:var(--muted);font-weight:700;text-align:left;padding:11px 8px;border-bottom:1px solid var(--line2);white-space:nowrap}
 .mtable thead th.num{text-align:right}
+/* месяц сравнения второй строкой шапки: «за месяц» без него не говорит,
+   с чем сравнивается число. Не капсом — это пояснение, а не имя колонки */
+.mtable thead th .th-sub{display:block;margin-top:2px;font-size:var(--fs-micro);font-weight:600;
+  text-transform:none;letter-spacing:0;color:var(--muted2)}
 .mtable tbody tr{border-bottom:1px solid var(--line2)}
 .mtable tbody tr:last-child{border-bottom:0}
 .mrow{cursor:pointer}
 .mrow:hover{background:#fafbfc}
 .mrow td{padding:11px 8px;vertical-align:middle}
+/* Каретка в конце строки — единственный признак того, что строка раскрывается.
+   Курсор-указатель на всей строке об этом не сообщал: его не видно, пока
+   не наведёшь, а наводить незачем, если не ждёшь, что что-то откроется. */
+.mtable td.col-caret{text-align:center;padding:11px 4px}
+.row-caret{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+  border-radius:var(--r2);color:var(--muted);font-size:12px;line-height:1;
+  transition:color .15s,background .15s}
+.mrow:hover .row-caret{color:var(--blue);background:var(--blue-bg)}
+.row-caret.on{color:var(--blue)}
 .m-name{font-weight:700;font-size:var(--fs-lead);border-left:3px solid var(--bench);padding-left:12px!important;word-break:break-word}
 .m-name .m-sub{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:2px}
 .m-name.bar-good{border-color:var(--green)}
@@ -288,7 +326,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 @media(max-width:1100px){
-  .kpis{grid-template-columns:repeat(3,minmax(160px,1fr))}
+  /* классы n2…n5 задают колонки жёстче, чем базовое правило, поэтому на узком
+     экране их приходится переопределять явно — иначе пять карточек движения
+     персонала остались бы впятером и на планшете */
+  .kpis,.kpis.n4,.kpis.n5{grid-template-columns:repeat(3,minmax(160px,1fr))}
   .content{padding:22px}
   .reporthead{padding-left:22px;padding-right:22px}
 }
@@ -297,7 +338,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .reporthead{padding:14px}.rh-row{align-items:flex-start}.rh-title{font-size:22px}.rh-side{display:none}
   .layout{display:block}.nav{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(82vw,300px);transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 28px rgba(20,28,45,.18);padding-top:18px}.nav.open{transform:translateX(0)}
   .nav-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}.nav-scrim.open{display:block}
-  .content{padding:16px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
+  .content{padding:16px}.kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
   .toolbar{align-items:stretch}.toolbar .ctl,.toolbar .ctl select{width:100%}.toolbar .sp{display:none}.toolbar>.btn{flex:1;text-align:center;justify-content:center}
   .panel{overflow-x:auto}.mtable,.ptable{min-width:760px}.page-h h2{font-size:21px}.block-h{align-items:flex-start}
   .modal{width:calc(100vw - 20px);max-height:92vh}.modal-b{padding:16px}.modal-f{padding:12px;flex-wrap:wrap}
@@ -305,7 +346,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 }
 @media(max-width:480px){
   .apphead .primary{padding:8px 10px;font-size:11px}.logo{font-size:14px}.rh-title .lvl{display:block;margin:5px 0 0;width:max-content}
-  .kpis{grid-template-columns:1fr}.chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
+  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}.chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
   .legend{gap:8px 12px}.panel-h{padding:12px}.panel-b{padding:10px}
   .mpick-l{grid-template-columns:1fr}.mpick{max-height:200px}
 }
@@ -364,16 +405,34 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    мельче, чем предписывает его собственная роль, и на ноутбуке читалось тяжело. */
 .ptable.dense{font-size:var(--fs-body)}
 .ptable.dense th{padding:8px 6px;font-size:var(--fs-cap)}
-.ptable.dense th.txt{padding-left:var(--pad-cell);min-width:155px}
+/* Колонка имени отдаёт свои 14px пятой метрике: в «Движении персонала» столбцов
+   стало пять, и на ноутбучной ширине таблица уезжала под горизонтальный скролл.
+   Имена подразделений и так переносятся по словам, а числовые колонки ужимать
+   нельзя — там между значениями останется меньше воздуха, чем внутри них. */
+.ptable.dense th.txt{padding-left:var(--pad-cell);min-width:141px}
 .ptable.dense td{padding:7px 6px}
-.ptable.dense td.txt{padding-left:var(--pad-cell);max-width:190px}
+.ptable.dense td.txt{padding-left:var(--pad-cell);max-width:176px}
 .ptable.dense td.lead{font-weight:800;color:var(--ink)}
 .ptable.dense .unit-sub{font-size:var(--fs-cap)}
 .ptable.dense .cell{font-size:var(--fs-note);padding:5px 4px;margin:1px}
 .ptable.dense .vs{border-left:1px solid var(--line2)}
 .btn.xs{padding:3px 6px;min-width:24px;font-size:11px}
-@media(max-width:1120px){.split{grid-template-columns:minmax(440px,.95fr) minmax(400px,1.05fr)}}
-@media(max-width:900px){.split{grid-template-columns:1fr;height:auto}.split>.panel{height:auto}.split-l .tbl-wrap{max-height:430px}.split-r .panel-b{height:380px}}
+/* кнопка «сделать корнем» в плотной таблице занимает ровно свою стрелку:
+   служебная колонка не должна отнимать ширину у колонки метрики */
+.ptable.dense .btn.xs{padding:3px 4px;min-width:22px}
+.ptable.dense td:last-child{padding-left:2px;padding-right:4px}
+/* Порог 1240, а не 1120: минимумы колонок (500+440+16 = 956px) перестают
+   помещаться в контент раньше, чем срабатывал прежний брейкпоинт, и на ширинах
+   1121–1240px рабочая зона вылезала за экран — появлялся горизонтальный скролл
+   всей страницы, а правая панель обрезалась. Теперь узкие минимумы включаются
+   там, где широкие уже не влезают. */
+@media(max-width:1240px){.split{grid-template-columns:minmax(440px,.95fr) minmax(400px,1.05fr)}}
+/* Порог 1110, а не 900: две колонки перестают помещаться раньше, чем экран
+   становится планшетным. Минимумы 440+400+16 = 856px требуют контента шире
+   ~870px, а это ширина окна около 1120. На 901–1120px рабочая зона вылезала
+   за экран, и страница ехала вбок — при том что таблица и график там уже
+   не читались рядом. Ниже порога они встают друг под друга. */
+@media(max-width:1120px){.split{grid-template-columns:1fr;height:auto}.split>.panel{height:auto}.split-l .tbl-wrap{max-height:430px}.split-r .panel-b{height:380px}}
 
 /* ===== Итерация 13: сравнимость, ИТОГО сверху, шапка блока ===== */
 
@@ -825,9 +884,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    зону точно под шапку и ничего лишнего в кадре не оставляет.
    Нижний отступ контента уменьшен с 64 до 24px по той же причине: 64px пустоты
    внизу означали, что в конце прокрутки .split приподнят над низом экрана.
-   Правило только для широких экранов: ниже 900px .split уже разложен в одну
-   колонку с height:auto, и фиксировать высоту там нельзя. */
-@media(min-width:901px){
+   Правило только для широких экранов: ниже 1120px .split уже разложен в одну
+   колонку с height:auto, и фиксировать высоту там нельзя — пороги обязаны совпадать. */
+@media(min-width:1121px){
   .split{height:clamp(520px,calc(100vh - var(--head-h) - 28px),1280px)}
   .content{padding-bottom:24px}
 }
@@ -992,7 +1051,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
     <div class="modal-h">
       <div class="mh-pulse" id="helpTopPulse"></div>
       <h3>Как читать отчёт</h3>
-      <p>Три правила, которые делают весь отчёт понятным.</p>
+      <p>Четыре правила, которые делают весь отчёт понятным.</p>
     </div>
     <div class="modal-b">
       <div class="fgrp">
@@ -1010,7 +1069,11 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
       </div>
       <div class="fgrp">
         <label>KPI важнее средней</label>
-        <div class="fhint">Где есть утверждённый KPI (regrettable текучесть по HQ), метрика сравнивается с KPI, а не со средней, и помечается тегом KPI.</div>
+        <div class="fhint">Где есть утверждённый KPI (regrettable текучесть по HQ), метрика сравнивается с целью KPI, а не со средней по базе, — и в карточке, и в таблице, и на графике. Базы там нет вовсе: два ориентира рядом заставляли бы выбирать, по какому судить.</div>
+      </div>
+      <div class="fgrp">
+        <label>Изменение — к прошлому месяцу, а не к базе</label>
+        <div class="fhint">Пилюля рядом со значением («+3 к маю») — это изменение месяца к предыдущему, а не отклонение от базы сравнения. Отклонение от базы живёт отдельной строкой: «база 9,0%» в карточке и колонка «Сравнение» в сводной таблице. В колонке «За год» сравнение идёт с тем же месяцем год назад, а не с началом периода.</div>
       </div>
       <!-- Разводка двух точек входа в объяснения: здесь — механика борта,
            у Пульса — значение конкретной метрики. -->
@@ -1043,6 +1106,38 @@ const MONTHS=(function(){
 const N=MONTHS.length, LAST=N-1;
 const PERIOD_LABEL='июль 2025 — июнь 2026';
 
+/* ---------- С чем сравнивается изменение ----------
+   MoM и YoY — это конкретные два месяца, а не абстрактное «за месяц». Пока
+   в интерфейсе стояло просто «+3», приходилось догадываться, относительно
+   чего: базы сравнения, начала периода или прошлого месяца. Подписи собираются
+   здесь, чтобы во всех местах отчёта стоял один и тот же месяц.
+   Дательный падеж — для «к маю», именительный — для заголовков и подсказок. */
+const MONTH_DAT=['январю','февралю','марту','апрелю','маю','июню','июлю','августу',
+                 'сентябрю','октябрю','ноябрю','декабрю'];
+/* родительный падеж — подсказки календаря («15 июня 2026, понедельник») и
+   изменения («июнь 2026 против мая 2026») */
+const MONTH_GEN=['января','февраля','марта','апреля','мая','июня','июля','августа',
+                 'сентября','октября','ноября','декабря'];
+const MONTH_NOM=['январь','февраль','март','апрель','май','июнь','июль','август',
+                 'сентябрь','октябрь','ноябрь','декабрь'];
+const CUR_M=MONTHS[LAST], PREV_M=MONTHS[LAST-1];
+const YOY_M={y:CUR_M.y-1,m:CUR_M.m};                      /* тот же месяц год назад */
+function monthNom(mm){return MONTH_NOM[mm.m]+' '+mm.y}    /* «июнь 2026» */
+function monthGen(mm){return MONTH_GEN[mm.m]+' '+mm.y}    /* «июня 2026» */
+const CMP={
+  cur:monthNom(CUR_M),
+  /* короткая подпись стоит прямо в пилюле изменения, полная — в шапках колонок */
+  momShort:'к '+MONTH_DAT[PREV_M.m],
+  momFull:'к '+MONTH_DAT[PREV_M.m]+' '+PREV_M.y,
+  /* у года год обязателен и в короткой подписи: «к июню» читалось бы как MoM */
+  yoy:'к '+MONTH_DAT[YOY_M.m]+' '+YOY_M.y,
+  momTip:{title:'Изменение за месяц',
+    text:monthNom(CUR_M)+' против '+monthGen(PREV_M)+'. Не отклонение от базы сравнения: '+
+      'база стоит отдельной строкой в карточке.'},
+  yoyTip:{title:'Изменение за год',
+    text:monthNom(CUR_M)+' против '+monthGen(YOY_M)+' — тот же месяц год назад, а не начало периода.'}
+};
+
 /* Расширенная сетка: 6 месяцев до окна (янв.–июнь 2025) + сами 12.
    Нужна только для накопительной текучести: YTD июля 2025 считается с января 2025,
    которого в окне нет. Наружу отдаются всегда 12 точек окна. */
@@ -1058,6 +1153,12 @@ const YEAR_START_EXT=MONTHS_EXT.map(function(mm){
   for(let j=0;j<NEXT;j++)if(MONTHS_EXT[j].y===mm.y&&MONTHS_EXT[j].m===0)return j;
   return 0;
 });
+/* База «с начала года» для метрик вида ytdDelta: численность на 31 декабря —
+   это значение ПРЕДЫДУЩЕГО месяца перед январём. Для первой половины окна
+   (июль–декабрь 2025) декабрь 2024 в сетку не попадает, и базой служит первая
+   точка сетки; на последний месяц окна, по которому читаются KPI-карточки,
+   это не влияет — там база честный декабрь 2025. */
+function ytdBase(i){const j=YEAR_START_EXT[i];return j>0?j-1:0}
 
 /* ---------- Блоки ---------- */
 const BLOCKS=[
@@ -1078,11 +1179,22 @@ const BLOCK_BY_KEY=Object.fromEntries(BLOCKS.map(b=>[b.key,b]));
 const METRICS=[
 {key:'hc_active',block:'structure',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники без длительных отсутствий на конец месяца.'},
 {key:'hc_total',block:'structure',name:'Общая численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Списочная численность на конец месяца, включая декреты и длительные отсутствия.'},
-{key:'hc_avg',block:'structure',name:'Среднесписочная численность',short:'Среднеспис.',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Средняя списочная численность за месяц: (начало + конец) / 2. Знаменатель всех расчётов текучести.'},
+/* Среднесписочная численность в списке метрик не стоит: как строка отчёта она
+   ничего не сообщала руководителю (это всегда полусумма двух соседних значений
+   численности), а место в таблице и карточку занимала. Ряд `hc_avg` остался —
+   он знаменатель текучести и считается в seriesExt по ключу. */
 {key:'hire',block:'movement',name:'Найм',short:'Найм',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Принятые за месяц.'},
 {key:'attrition',block:'movement',name:'Отток',short:'Отток',fmt:'int',better:'lower',unit:'чел',anchor:null,hint:'Уволившиеся за месяц (все причины).'},
 {key:'transfer_in',block:'movement',name:'Переводы в команду',short:'Перев. в',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы из других команд.'},
 {key:'transfer_out',block:'movement',name:'Переводы из команды',short:'Перев. из',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы в другие команды.'},
+/* Итог движения персонала: найм + переводы в − отток − переводы из за вычетом
+   прочих изменений. Пять потоков без итога не отвечали на вопрос «команда
+   выросла или нет» — считать в уме четыре числа приходилось самому. */
+/* short'ы блока движения держим короткими намеренно: колонок в сводной таблице
+   стало пять, и «Прирост с НГ» отправлял последнюю колонку под горизонтальный
+   скролл на ноутбучной ширине. Полное имя и пояснение живут в подсказке шапки. */
+{key:'net_ytd',block:'movement',name:'Прирост с начала года',short:'Прирост',fmt:'int',better:'flat',unit:'чел',anchor:null,
+  ytdDelta:'hc_total',hint:'Изменение общей численности с начала календарного года: значение на конец месяца минус численность на 31 декабря.'},
 {key:'turnover_m',block:'turnover',name:'Текучесть месячная',short:'Тек. мес',fmt:'pct',better:'lower',unit:'%',anchor:null,
   derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Отток за месяц к среднесписочной численности этого месяца, в процентах.'},
 {key:'turnover_y',block:'turnover',name:'Текучесть накопительная',short:'Тек. накоп.',fmt:'pct',better:'lower',unit:'%',anchor:null,
@@ -1100,7 +1212,9 @@ const METRICS=[
 ];
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
 function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
-const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','vac_open','vac_closed','tgrowth_pass','tgrowth_deny']);
+/* hc_avg метрикой отчёта не является, но в этом наборе остаётся: он управляет
+   не только сравнимостью, но и способом агрегации (сумма, а не среднее). */
+const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -1127,7 +1241,7 @@ const LOCKED_METRICS=new Set(['hc_active','hc_total']);
    `keys:null` — весь список; остальные перечисляют показанные метрики. */
 const METRIC_PRESETS=[
 {key:'all',name:'Всё',keys:null},
-{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','hc_avg','attrition','turnover_m','turnover_y','regret']},
+{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','attrition','turnover_m','turnover_y','regret']},
 {key:'hiring',name:'Найм',keys:['hc_active','hc_total','hire','vac_open','vac_closed','time_to_fill']},
 {key:'min',name:'Минимум',keys:['hc_active','hc_total','turnover_m','regret']}
 ];
@@ -1348,6 +1462,12 @@ function seriesExt(leafPath,key){
     for(let i=0;i<NEXT;i++){let s=0;for(let j=YEAR_START_EXT[i];j<=i;j++)s+=src[j];out[i]=+s.toFixed(2)}
     _sc[ck]=out;return out;
   }
+  /* прирост с начала года: значение месяца минус значение на 31 декабря */
+  if(m.ytdDelta){
+    const src=seriesExt(leafPath,m.ytdDelta);
+    for(let i=0;i<NEXT;i++)out[i]=+(src[i]-src[ytdBase(i)]).toFixed(1);
+    _sc[ck]=out;return out;
+  }
 
   const r=rng('ser'+leafPath+key);
   /* Счётная метрика: ожидание = численность × месячная ставка × сезонность × «рваность».
@@ -1416,6 +1536,11 @@ function aggregateExt(leafPaths,key){
   } else if(m.ytd){
     const src=aggregateExt(leafPaths,m.ytd);
     for(let i=0;i<NEXT;i++){let s=0;for(let j=YEAR_START_EXT[i];j<=i;j++)s+=src[j];out[i]=+s.toFixed(2)}
+  } else if(m.ytdDelta){
+    /* считается из уже агрегированного ряда, а не суммой по листьям: результат
+       тот же (разность линейна), но без прохода по всем листьям дважды */
+    const src=aggregateExt(leafPaths,m.ytdDelta);
+    for(let i=0;i<NEXT;i++)out[i]=+(src[i]-src[ytdBase(i)]).toFixed(1);
   } else if(COUNT_METRICS.has(key)){
     for(let i=0;i<NEXT;i++){let s=0;leafPaths.forEach(p=>{s+=seriesExt(p,key)[i]});out[i]=+s.toFixed(1)}
   } else {
@@ -1474,7 +1599,9 @@ function kpiFor(key,st){
 }
 
 /* ---------- Форматирование ---------- */
-function fmtInt(v){return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2009')}
+/* минус типографский: у «Прироста с начала года» значение бывает отрицательным,
+   и дефис рядом с плюсом в соседней пилюле выглядит короче и ниже */
+function fmtInt(v){return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2009').replace('-','\u2212')}
 function fmtVal(key,v){
   if(v==null)return'—';
   const m=METRIC_BY_KEY[key];if(!m)return String(v);
@@ -1482,12 +1609,15 @@ function fmtVal(key,v){
   if(m.fmt==='days')return (+v).toFixed(0).replace('.',',')+'\u2009дн';
   return (+v).toFixed(1).replace('.',',')+'%';
 }
+/* Минус во всех дельтах типографский. Раньше его подставлял только deltaChip,
+   а пилюля «К базе» в сводной таблице, которая зовёт fmtDelta напрямую,
+   оставалась с дефисом: два соседних элемента одного экрана писали минус по-разному. */
 function fmtDelta(key,v){
   const m=METRIC_BY_KEY[key];if(v==null)return'—';
   const s=v>0?'+':'';
   if(m.fmt==='int')return s+fmtInt(v);
-  if(m.fmt==='days')return s+(+v).toFixed(0)+'\u2009дн';
-  return s+(+v).toFixed(1).replace('.',',')+'\u2009п.п.';
+  if(m.fmt==='days')return s+(+v).toFixed(0).replace('-','\u2212')+'\u2009дн';
+  return s+(+v).toFixed(1).replace('.',',').replace('-','\u2212')+'\u2009п.п.';
 }
 function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',',')+'K':fmtInt(v)}
 
@@ -1537,9 +1667,8 @@ const OFFICES=[
 ];
 const DOW_NAME=['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
 const DOW_SHORT=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-/* родительный падеж — только для подсказок вида «15 июня 2026, понедельник» */
-const MONTH_GEN=['января','февраля','марта','апреля','мая','июня','июля','августа',
-                 'сентября','октября','ноября','декабря'];
+/* MONTH_GEN (родительный падеж) объявлен в шапке файла: его читает и календарь
+   («15 июня 2026, понедельник»), и подсказка изменения («против мая 2026»). */
 const CAL_MONTH=LAST;              /* календарь строится за последний месяц окна */
 const DOW_MONTHS=3;                /* дни недели усредняем за 3 месяца: по одному выборка коротка */
 
@@ -1645,7 +1774,7 @@ function netGrowth(lp){
   return hc[LAST]-hc[0];
 }
 
-window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
+window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,
   COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
@@ -2293,10 +2422,23 @@ function sparkSvg(w,h,body){
 /* warn сюда тоже попадает и красится серым — отдельного цвета у него больше нет */
 function stateColor(st){return st==='good'?C_GREEN:st==='bad'?C_RED:C_FLAT}
 
+/* Строка подсказки спарклайна с тем, с чем метрика сравнивается: цель KPI, если
+   она есть, иначе база. Одна функция на оба спарклайна — иначе колонка «12 мес»
+   и hero-карточка объясняли бы один и тот же месяц по-разному. */
+function cmpRow(key,i,base,kpi){
+  if(kpi)return [{label:'цель KPI',value:CD.fmtVal(key,kpi.green),color:C_BENCH,dash:true}];
+  return base?[{label:'база',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[];
+}
+/* Оценка месяца: есть KPI — только против него, базы здесь уже нет. */
+function cmpState(key,v,i,base,kpi,flat,state){
+  if(kpi)return CD.stateForKpi(key,v,kpi);
+  return (flat||!base||!key)?state:CD.compareState(key,v,base[i]);
+}
+
 function sparkBars(series,state,w,h,o){
   o=o||{};w=w||120;h=h||26;
   const n=series.length, gap=w/n, bw=gap*0.68;
-  const key=o.key, base=o.base, flat=o.flat;
+  const key=o.key, base=o.base, flat=o.flat, kpi=o.kpi;
   /* Шкала. От нуля столбики честны по величине, но при малом размахе
      (численность 175 → 191) все двенадцать месяцев выглядят одинаково и
      динамика пропадает. Поэтому при размахе меньше 40% от максимума низ
@@ -2310,12 +2452,11 @@ function sparkBars(series,state,w,h,o){
   let s='';
   series.forEach((v,i)=>{
     const bh=Math.max(1.5,((v-lo)/span)*(h-2));
-    /* окраска месяца: сравниваем с базой ЭТОГО месяца */
-    const st=(flat||!base||!key)?state
-      :CD.compareState(key,v,base[i]);
+    /* окраска месяца: с целью KPI, а при её отсутствии — с базой ЭТОГО месяца */
+    const st=cmpState(key,v,i,base,kpi,flat,state);
     const t=key?{title:mLabel(i),
       rows:[{label:(CD.METRIC_BY_KEY[key]||{}).name||'',value:CD.fmtVal(key,v),color:stateColor(st)}]
-        .concat(base?[{label:'база',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[])}:null;
+        .concat(cmpRow(key,i,base,kpi))}:null;
     s+='<g class="sbg"'+(t?tip(t):'')+'>';
     s+='<rect class="hit" x="'+num(i*gap)+'" y="0" width="'+num(gap)+'" height="'+num(h)+'"/>';
     s+=rect(i*gap+(gap-bw)/2,h-bh,bw,bh,stateColor(st),1,' class="sb"');
@@ -2326,7 +2467,7 @@ function sparkBars(series,state,w,h,o){
 function sparkLine(series,state,w,h,o){
   o=o||{};w=w||120;h=h||26;
   const max=niceMax(series), n=series.length;
-  const col=stateColor(state), key=o.key, base=o.base;
+  const col=stateColor(state), key=o.key, base=o.base, kpi=o.kpi;
   /* PAD — не косметика: svg тянется preserveAspectRatio="none", и точка радиусом 2
      на самом краю viewBox срезалась ровно наполовину. Отступ по краям и сверху
      держит крайние точки целиком внутри картинки. */
@@ -2345,7 +2486,7 @@ function sparkLine(series,state,w,h,o){
     const gapw=w/n, cx=X(i), cy=Y(v);
     const t={title:mLabel(i),
       rows:[{label:(CD.METRIC_BY_KEY[key]||{}).name||'',value:CD.fmtVal(key,v),color:col}]
-        .concat(base?[{label:'база',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[])};
+        .concat(cmpRow(key,i,base,kpi))};
     s+='<g class="spg"'+tip(t)+'>';
     s+='<rect class="hit" x="'+num(i*gapw)+'" y="0" width="'+num(gapw)+'" height="'+num(h)+'"/>';
     s+='<line class="spgd" x1="'+num(cx)+'" y1="0" x2="'+num(cx)+'" y2="'+num(h)+'" stroke="'+col+'"/>';
@@ -2648,16 +2789,29 @@ const tip=tipAttr;                       /* короткий алиас для �
    Стрелка и цвет кодировали один и тот же факт двумя способами, и их приходилось
    сверять между собой: ↓ у текучести это хорошо, ↓ у найма — ни хорошо, ни плохо.
    Теперь знак говорит «в какую сторону», цвет — «хорошо это или плохо», и оба
-   читаются с одного взгляда. Нет изменения — просто ноль, без значка. */
-function deltaChip(key,dv){
+   читаются с одного взгляда. Нет изменения — просто ноль, без значка.
+
+   o.vs — с чем сравнивается («к маю»). Подпись живёт ВНУТРИ пилюли: «+3» без
+   неё читалось как отклонение от базы, а не как изменение за месяц, и понять
+   это можно было только зная, как устроен отчёт. В колонках таблицы, где месяц
+   уже подписан в шапке, vs не передаётся — там он был бы повторён у каждой
+   строки. o.tip — подсказка с полной формулировкой («июнь 2026 против мая 2026»). */
+function deltaChip(key,dv,o){
   const m=D.METRIC_BY_KEY[key];
-  if(dv===0)return '<span class="delta flat">0</span>';
-  /* типографский минус вместо дефиса: рядом с «+» дефис выглядит короче и ниже */
-  const txt=D.fmtDelta(key,dv).replace('-','−');
-  if(m.better==='flat')return '<span class="delta neu">'+txt+'</span>';
+  const vs=o&&o.vs?'<span class="d-vs">'+esc(o.vs)+'</span>':'';
+  const at=o&&o.tip?tipAttr(o.tip):'';
+  if(dv===0)return '<span class="delta flat"'+at+'>0'+vs+'</span>';
+  /* типографский минус подставляет сам fmtDelta — здесь его больше не чиним:
+     пока чинили тут, пилюля «К базе» в сводной таблице оставалась с дефисом */
+  const txt=D.fmtDelta(key,dv);
+  if(m.better==='flat')return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=m.better==='lower'?dv<0:dv>0;
-  return '<span class="delta '+(good?'up':'down')+'">'+txt+'</span>';
+  return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
 }
+/* Пилюля изменения за месяц с подписью месяца — ровно то, что стоит в карточках
+   KPI на всех экранах. Отдельная функция, чтобы подпись и подсказка не
+   разъезжались между one-pager и детальными вкладками. */
+function momChip(key,dv){return deltaChip(key,dv,{vs:D.CMP.momShort,tip:D.CMP.momTip})}
 
 /* Иконка перехода на внешний дашборд. Символ ↗ брался из шрифта и в разных
    начертаниях получался то мелким, то съехавшим по базовой линии. */
@@ -2666,6 +2820,20 @@ function icoExt(){
     'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'+
     '<path d="M8.4 2.4h3.2v3.2"/><path d="M11.6 2.4 6.9 7.1"/>'+
     '<path d="M9.7 8.3v2.2a1.1 1.1 0 0 1-1.1 1.1H3.5a1.1 1.1 0 0 1-1.1-1.1V5.4a1.1 1.1 0 0 1 1.1-1.1h2.2"/></svg>';
+}
+
+/* ---------- Каретка раскрытия строки ----------
+   Строка сводной таблицы one-pager раскрывает график метрики, но узнать об
+   этом можно было только случайным кликом: ни значка, ни курсора-указателя
+   в конце строки не было. Каретка стоит последней колонкой — там, где взгляд
+   заканчивает читать строку, — и разворачивается вниз, когда график открыт.
+   Отдельной кнопкой её не делаем: кликается вся строка, и вторая точка входа
+   в то же действие только сбивала бы с толку. */
+function rowCaret(open){
+  return '<span class="row-caret'+(open?' on':'')+'"'+
+    tipAttr({title:open?'Свернуть график':'Показать динамику',
+      text:'Клик по строке раскрывает график метрики за 12 месяцев прямо в таблице.'})+
+    ' aria-hidden="true">'+(open?'▾':'▸')+'</span>';
 }
 
 /* ---------- Значок справки ----------
@@ -2686,14 +2854,18 @@ function infoDot(key){
 const NOCMP_HINT='Абсолютная величина зависит от размера подразделения: сравнение с базой здесь ничего не значит.';
 function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Сравнение отключено',text:NOCMP_HINT})+'>не сравнивается</span>'}
 
-/* ---------- Ячейка «сравнение с базой» / «против KPI» ---------- */
+/* ---------- Ячейка «сравнение с базой» / «против KPI» ----------
+   Порядок проверок не косметика: **есть утверждённый KPI — сравниваем с ним,
+   и только с ним**. Средняя по базе рядом с целью KPI заставляла выбирать,
+   по какому из двух чисел судить, хотя ответ один: цель важнее средней. */
 function targetCell(key,val,baseVal,kpi){
-  if(!D.comparable(key))return '<div class="tgt">'+noCmpMark()+'</div>';
   if(kpi){
-    const st=D.stateForKpi(key,val,kpi);
+    const st=D.stateForKpi(key,val,kpi), m=D.METRIC_BY_KEY[key];
+    const badTxt=m.better==='lower'?'выше порога':'ниже порога';
     return '<div class="tgt"><span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'+
-      '<span class="sig-chip '+st+'">'+(st==='good'?'в цели':st==='warn'?'зона риска':'выше порога')+'</span></div>';
+      '<span class="sig-chip '+st+'">'+(st==='good'?'в цели':st==='warn'?'зона риска':badTxt)+'</span></div>';
   }
+  if(!D.comparable(key))return '<div class="tgt">'+noCmpMark()+'</div>';
   if(baseVal==null)return '<div class="tgt">—</div>';
   const st=D.compareState(key,val,baseVal), diff=val-baseVal, m=D.METRIC_BY_KEY[key];
   const lbl=m.better==='flat'
@@ -2735,12 +2907,23 @@ function aiIco(big){
            :'<span class="ai-ico">AI</span>';
 }
 
-/* ---------- Карточка KPI ---------- */
+/* ---------- Карточка KPI ----------
+   Четыре строки РОВНО ВСЕГДА: заголовок, значение, первый ряд, второй ряд.
+   Пустой второй ряд рисуется тоже — иначе карточки в одной полосе состоят из
+   разного числа строк, и выровнять их по строкам нечем.
+
+   Выравнивание держит CSS: полоса .kpis — grid, карточка — subgrid на четыре
+   строки родителя. Поэтому длинный заголовок, переносящийся на две строки
+   («Прирост с начала года» в узкой колонке), добавляет вторую строку ВСЕМ
+   заголовкам полосы, и значения, дельты и подписи базы остаются на одном
+   уровне. До этого перенос в одной карточке сдвигал её цифры вниз, и полоса
+   KPI переставала читаться как строка. Лишняя строка воздуха — приемлемая
+   цена; съехавшие цифры — нет. */
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.q||'')+'</div>'+
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
-    (o.row2!=null?'<div class="k-row">'+o.row2+'</div>':'')+'</div>';
+    '<div class="k-row">'+(o.row2||'')+'</div></div>';
 }
 
 /* ============================================================================
@@ -2833,7 +3016,7 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={esc,tipAttr,tip,deltaChip,icoExt,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={esc,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,panel,subTabs,empty,trafficLegend};
 })();
 
@@ -3196,12 +3379,15 @@ function selLabel(S){
   const n=D.NODE_BY_PATH[S.selNode]||D.NODE_BY_PATH[S.drillRoot]||D.NODE_BY_PATH[S.unit];
   return n?n.name:'Ваша команда';
 }
-/* линия метрики с базой; для несравнимых метрик база не рисуется — она вводит в заблуждение */
+/* Линия метрики с базой. База не рисуется в двух случаях: у несравнимых метрик
+   (там она вводит в заблуждение) и у метрик с утверждённым KPI — на графике
+   остаются пороги цели, и вторая пунктирная линия рядом с ними спорила бы с
+   ними за роль ориентира. */
 function metricLine(key,lp,bl,S,opt){
-  const cmp=D.comparable(key), bench=D.benchmarkLabel(S);
+  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
   return G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
     Object.assign({legend:cmp?[{name:selLabel(S),color:G.C_LINE},{name:bench,color:G.C_BENCH,dash:true}]:null,
-      benchName:bench,kpi:D.kpiFor(key,S),h:300,fill:true},opt||{}));
+      benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
 }
 
 /* ---------- рендер детальной вкладки ---------- */
@@ -3227,13 +3413,18 @@ function renderBlock(S,expanded){
   const sel=S.selNode&&D.NODE_BY_PATH[S.selNode]?S.selNode:root;
   const selNode=D.NODE_BY_PATH[sel];
 
-  /* 1 · заголовок: название слева, переход на детальный дашборд справа */
-  const cmpMets=mets.filter(m=>D.comparable(m.key));
+  /* 1 · заголовок: название слева, переход на детальный дашборд справа.
+     Метрика с KPI из «сравнимых с базой» вычтена: она сравнивается с целью,
+     и обещать по ней базу в подзаголовке было бы неправдой. */
+  const kpiMets=mets.filter(m=>D.kpiFor(m.key,S));
+  const cmpMets=mets.filter(m=>D.comparable(m.key)&&!D.kpiFor(m.key,S));
+  const cmpTxt=(cmpMets.length
+      ? 'Сравнение с базой <b>'+esc(D.benchmarkLabel(S))+'</b>.'
+      : kpiMets.length?'':'Метрики блока абсолютные — с базой не сравниваются.')+
+    (kpiMets.length?' У метрик с утверждённым KPI сравнение идёт с целью, а не с базой.':'');
   let h='<div class="page-h"><div class="ph-row"><h2>'+esc(b.name)+'</h2>'+
     '<a class="btn dash" href="'+b.drillUrl+'" target="_blank" rel="noopener">Детальный дашборд'+U.icoExt()+'</a></div>'+
-    '<p>'+esc(b.hint)+' '+(cmpMets.length
-      ? 'Сравнение с базой <b>'+esc(D.benchmarkLabel(S))+'</b>.'
-      : 'Метрики блока абсолютные — с базой не сравниваются.')+'</p></div>';
+    '<p>'+esc(b.hint)+' '+cmpTxt+'</p></div>';
 
   /* 2 · инсайт */
   h+=INS.html({S,b,mainK,rl,bl,rows,rowLeaves:p=>rowLeaves(p,S)});
@@ -3245,31 +3436,39 @@ function renderBlock(S,expanded){
       '<div class="note-inline">Временный корень: <b>'+esc(rootNode.name)+'</b>. База сравнения не меняется.</div>';
   }
 
-  /* 4 · KPI блока */
-  h+='<div class="kpis compact'+(mets.length<=4?' n'+mets.length:'')+'">';
+  /* 4 · KPI блока
+     Дельта и ориентир разведены по строкам карточки: в первой — изменение и
+     месяц, с которым оно сравнивается, во второй — цель KPI или база. Пока
+     они стояли в одной строке, «+3» и «база 4,1%» читались как одно
+     сравнение, хотя это два разных. Классы n2…n5 держат ровно столько колонок,
+     сколько метрик: у движения персонала их теперь пять. */
+  h+='<div class="kpis compact'+(mets.length<=5?' n'+mets.length:'')+'">';
   mets.forEach(m=>{
     const sr=D.aggregate(rl,m.key), v=sr[D.LAST], dl=D.deltasOf(rl,m.key);
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
     h+=U.kpiCard({label:m.name,
       q:U.infoDot(m.key),
       value:D.fmtVal(m.key,v),
-      row1:U.deltaChip(m.key,dl.mom)+
-        (kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span>'
-           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark())+
-        (kpi?'<span class="kpi-tag">KPI</span>':'')});
+      row1:U.momChip(m.key,dl.mom),
+      row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
+           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark()});
   });
   h+='</div>';
 
   /* 5 · две колонки */
   h+='<div class="split">';
 
-  /* 5a · сводная таблица подразделений */
-  const benchMain=D.lastVal(bl,mainK);
-  const showVs=D.comparable(mainK);
+  /* 5a · сводная таблица подразделений
+     Ориентир колонки один и тот же для всей таблицы: цель KPI, если она у
+     главной метрики есть, иначе средняя по базе. Сравнивать подразделение с
+     базой, когда по метрике утверждён KPI, — значит мерить не тем. */
+  const kpiMain=D.kpiFor(mainK,S);
+  const benchMain=kpiMain?kpiMain.green:D.lastVal(bl,mainK);
+  const showVs=D.comparable(mainK)||!!kpiMain;
   const totalCells=mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,D.lastVal(rl,m.key))+'</td>').join('');
   let tbl='<table class="ptable dense"><thead><tr><th class="txt">Подразделение</th>'+
     mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+'</th>').join('')+
-    (showVs?'<th class="vs">К базе<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
+    (showVs?'<th class="vs">'+(kpiMain?'К цели KPI':'К базе')+'<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
     '<th></th></tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл */
     '<tr class="total top"><td class="txt">ИТОГО</td>'+totalCells+
@@ -3277,7 +3476,8 @@ function renderBlock(S,expanded){
     '<td></td></tr>';
   rows.forEach(r=>{
     const lp=rowLeaves(r.n.path,S);
-    const v=D.lastVal(lp,mainK), st=D.compareState(mainK,v,benchMain);
+    const v=D.lastVal(lp,mainK);
+    const st=kpiMain?D.stateForKpi(mainK,v,kpiMain):D.compareState(mainK,v,benchMain);
     const kids=D.childrenOf(r.n.path).length, canExp=r.depth===1&&kids>0;
     tbl+='<tr class="urow'+(r.depth===2?' lvl2':'')+(sel===r.n.path?' sel':'')+'" data-node="'+r.n.path+'">'+
       '<td class="txt"><span class="row-label">'+
@@ -3655,8 +3855,11 @@ function bestMetrics(S,rl,bl,limit){
   D.METRICS.forEach(m=>{
     if(!D.metricVisible(m.key,S))return;
     if(m.better==='flat')return;
-    const v=D.lastVal(rl,m.key), bv=D.lastVal(bl,m.key);
-    if(D.compareState(m.key,v,bv)==='good')out.push({m,v,bv});
+    /* та же развилка, что и в worstMetrics: где есть KPI, «хорошо» считается
+       от цели, а не от средней по базе */
+    const v=D.lastVal(rl,m.key), bv=D.lastVal(bl,m.key), kpi=D.kpiFor(m.key,S);
+    const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
+    if(st==='good')out.push({m,v,bv:kpi?kpi.green:bv,kpi:!!kpi});
   });
   return out.slice(0,limit||2);
 }
@@ -3674,7 +3877,8 @@ function bullets(S,rl,bl){
       ' — смотрите разбивку по подразделениям в блоке «'+esc(D.BLOCK_BY_KEY[x.m.block].name)+'».');
   });
   bestMetrics(S,rl,bl,2).forEach(x=>{
-    out.push('<b>'+esc(x.m.name)+'</b> лучше базы: '+D.fmtVal(x.m.key,x.v)+' против '+D.fmtVal(x.m.key,x.bv)+'.');
+    out.push('<b>'+esc(x.m.name)+'</b> лучше '+(x.kpi?'цели KPI':'базы')+': '+
+      D.fmtVal(x.m.key,x.v)+' против '+D.fmtVal(x.m.key,x.bv)+'.');
   });
   out.push('Сравнение пересчитано под ваши разрезы: смените покраску или разрез IT — и база, и выводы изменятся.');
   out.push('Численность, найм и переводы не окрашиваются светофором: отклонение от базы здесь не оценка, а факт масштаба.');
@@ -3688,8 +3892,10 @@ function render(S,openRows){
     'В этом подразделении нет команд, подходящих под текущие фильтры. Снимите один из разрезов в шапке.');
 
   let h='<div class="page-h"><h2>Сводка по всем метрикам</h2>'+
-    '<p>Все ключевые метрики команды на одном экране: значение, изменение за месяц и за год, динамика и '+
-    'сравнение с базой <b>'+esc(D.benchmarkLabel(S))+'</b>. Нажмите на строку, чтобы развернуть график.</p></div>';
+    '<p>Все ключевые метрики команды на одном экране: значение, изменение '+esc(D.CMP.momFull)+
+    ' и '+esc(D.CMP.yoy)+', динамика и сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
+    '</b>; там, где есть утверждённый KPI, метрика сравнивается с целью, а не с базой. '+
+    'Нажмите на строку — каретка справа развернёт график.</p></div>';
 
   /* AI-подсказка сразу под заголовком — как на детальных экранах. Внизу страницы
      её никто не дочитывал: сначала вывод, потом цифры. */
@@ -3702,12 +3908,15 @@ function render(S,openRows){
     const s=D.aggregate(rl,k), v=s[D.LAST], dl=D.deltasOf(rl,k);
     const kpi=D.kpiFor(k,S), bv=D.lastVal(bl,k);
     const st=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,bv);
+    /* Есть KPI — сравниваемся с ним, и базы в карточке нет вовсе: два ориентира
+       рядом заставляли выбирать, по какому судить. Нет KPI — база как раньше. */
     h+=U.kpiCard({label:D.METRIC_BY_KEY[k].name,
       q:U.infoDot(k),
       value:D.fmtVal(k,v),
-      row1:U.deltaChip(k,dl.mom)+G.sparkLine(s,st,84,24,{key:k,base:D.comparable(k)?D.aggregate(bl,k):null}),
-      row2:(D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':U.noCmpMark())+
-        (kpi?'<span class="kpi-tag">KPI</span>':'')});
+      row1:U.momChip(k,dl.mom)+
+        G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:!kpi&&D.comparable(k)?D.aggregate(bl,k):null}),
+      row2:(kpi?'<span class="k-sub">цель '+D.fmtVal(k,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
+             :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':U.noCmpMark())});
   });
   h+='</div>'+U.trafficLegend();
 
@@ -3716,35 +3925,44 @@ function render(S,openRows){
     h+='<div class="block-h"><span class="block-name">'+esc(b.name)+'</span>'+
       '<span class="block-hint">'+esc(b.hint)+'</span>'+
       '<button class="btn ghost" data-tab="'+b.key+'">Подробнее →</button></div>';
+    /* Месяц сравнения подписан в шапке колонки, а не у каждой строки: «за месяц»
+       само по себе не говорило, с чем сравнивается число, а повторять «к маю»
+       девятнадцать раз незачем. */
+    const thSub=s=>'<span class="th-sub">'+esc(s)+'</span>';
     let t='<table class="mtable">'+
       /* колонка «12 мес» без фиксированной ширины: забирает всю свободную
          ширину на широком экране, а спарклайн тянется вместе с ней */
-      '<colgroup><col style="width:28%"><col style="width:12%"><col style="width:10%"><col style="width:10%"><col><col style="width:19%"></colgroup>'+
-      '<thead><tr><th>Метрика</th><th class="num">Значение</th><th class="num">За месяц</th>'+
-      '<th class="num">За год</th><th class="mid">12 мес</th><th class="mid">Сравнение с базой</th></tr></thead><tbody>';
+      '<colgroup><col style="width:26%"><col style="width:12%"><col style="width:10%"><col style="width:10%"><col>'+
+      '<col style="width:19%"><col style="width:28px"></colgroup>'+
+      '<thead><tr><th>Метрика</th><th class="num">Значение</th>'+
+      '<th class="num">За месяц'+thSub(D.CMP.momFull)+'</th>'+
+      '<th class="num">За год'+thSub(D.CMP.yoy)+'</th><th class="mid">12 мес</th>'+
+      '<th class="mid">Сравнение'+thSub('база или цель KPI')+'</th><th></th></tr></thead><tbody>';
     D.visibleMetricsOfBlock(b.key,S).forEach(m=>{
       const s=D.aggregate(rl,m.key), v=s[D.LAST], dl=D.deltasOf(rl,m.key);
       const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
       const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
       /* база помесячно: спарклайн красит КАЖДЫЙ месяц по своему месяцу базы,
-         а не весь ряд по последнему значению */
-      const bser=D.comparable(m.key)?D.aggregate(bl,m.key):null;
-      t+='<tr class="mrow" data-metric="'+m.key+'">'+
+         а не весь ряд по последнему значению. У метрики с KPI базы нет ни в
+         спарклайне, ни на раскрытом графике: ориентир там один — цель. */
+      const bser=!kpi&&D.comparable(m.key)?D.aggregate(bl,m.key):null;
+      const open=openRows.has(m.key);
+      t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
         '<td class="m-name bar-'+st+'">'+esc(m.name)+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
         '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
-        '<td class="col-num">'+U.deltaChip(m.key,dl.mom)+'</td>'+
-        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy)+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:D.CMP.momTip})+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:D.CMP.yoyTip})+'</td>'+
         '<td class="col-spark">'+G.sparkBars(s,st,180,28,
-          {key:m.key,base:bser,flat:!D.comparable(m.key)})+'</td>'+
-        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi)+'</td></tr>';
+          {key:m.key,base:bser,kpi:kpi,flat:!D.comparable(m.key)})+'</td>'+
+        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi)+'</td>'+
+        '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */
-      if(openRows.has(m.key)){
-        const cmp=D.comparable(m.key);
-        t+='<tr class="detail-row"><td colspan="6"><div class="detail-chart">'+
+      if(open){
+        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+
           G.chart('line',{metricKey:m.key,series:s,bench:bser},
-            {title:m.name+(cmp?' — динамика и база сравнения':' — динамика'),
+            {title:m.name+(kpi?' — динамика и цель KPI':bser?' — динамика и база сравнения':' — динамика'),
              /* серии подписаны именами, иначе непонятно, что за синяя линия */
-             legend:cmp?[{name:unitName(S),color:G.C_LINE},{name:D.benchmarkLabel(S),color:G.C_BENCH,dash:true}]:null,
+             legend:bser?[{name:unitName(S),color:G.C_LINE},{name:D.benchmarkLabel(S),color:G.C_BENCH,dash:true}]:null,
              benchName:D.benchmarkLabel(S),
              kpi:kpi,h:280})+'</div></td></tr>';
       }

@@ -41,6 +41,8 @@ global.localStorage={getItem(){return'1'},setItem(){}};
 const probe=path.join(dir,'.app.probe.js');
 fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;render();return $("#view").innerHTML},'+
+  /* one-pager с раскрытыми строками: каретка и график живут именно в них */
+  '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  hide:list=>{S.hiddenMetrics=list.slice();S.mainMetric=null},'+
   '\n  tab:()=>S.tab, nav:()=>$("#navBlocks").innerHTML, st:()=>S,'+
   '\n  chips:()=>{renderHead();return $("#chips").innerHTML}};');
@@ -151,9 +153,11 @@ checks.push(['высота .split привязана к высоте экран�
   css.includes('.split{height:clamp(520px,calc(100vh-var(--head-h)-28px)')]);
 
 /* 9б. изменения показываются знаком, а не стрелкой; пустого состояния фильтров нет */
+/* у пилюли изменения теперь есть свои атрибуты (подсказка «июнь против мая»),
+   поэтому знак ищем не сразу за классом, а за концом открывающего тега */
 checks.push(['дельты без стрелок: только + и −',
-  !/<span class="delta[^"]*">[^<]*[↑↓→]/.test(allHtml)&&
-  /<span class="delta[^"]*">\+/.test(allHtml)]);
+  !/<span class="delta[^>]*>[^<]*[↑↓→]/.test(allHtml)&&
+  /<span class="delta[^>]*>\+/.test(allHtml)]);
 checks.push(['нулевое изменение — просто ноль',
   U.deltaChip('hire',0).replace(/<[^>]+>/g,'')==='0']);
 /* у turnover_m рост плохой, у vac_closed — хороший, у hire (better:flat) без оценки */
@@ -162,6 +166,88 @@ checks.push(['знак говорит направление, класс — о�
   /delta up/.test(U.deltaChip('vac_closed',3))&&/delta neu/.test(U.deltaChip('hire',3))]);
 checks.push(['переход на детальный дашборд — иконка, а не символ ↗',
   /class="ico-ext"/.test(allHtml)&&!/↗/.test(allHtml)]);
+checks.push(['минус во всех дельтах типографский, а не дефис',
+  !/>\s*-\d/.test(allHtml)&&/−/.test(D.fmtDelta('hire',-3))&&/−/.test(D.fmtDelta('turnover_m',-1.4))]);
+
+/* ---- итерация 23: с чем сравнивается изменение и с чем — сама метрика ---- */
+
+/* «+3» без подписи читалось как отклонение от базы. Месяц сравнения стоит
+   в пилюле KPI-карточек и в шапках колонок one-pager. */
+(function(){
+  const opHtml=A.go('onepager',null), mvHtml=A.go('movement','balance');
+  checks.push(['в карточке KPI подписан месяц, с которым сравнивается изменение',
+    /<span class="d-vs">к маю<\/span>/.test(opHtml)&&/<span class="d-vs">к маю<\/span>/.test(mvHtml)]);
+  checks.push(['подпись месяца берётся из одного места, а не пишется руками',
+    D.CMP.momShort==='к '+'маю'&&D.CMP.momFull==='к маю 2026'&&D.CMP.yoy==='к июню 2025']);
+  checks.push(['шапки колонок «за месяц» и «за год» называют свои месяцы',
+    opHtml.indexOf('За месяц<span class="th-sub">'+D.CMP.momFull)>0&&
+    opHtml.indexOf('За год<span class="th-sub">'+D.CMP.yoy)>0]);
+  /* в строках таблицы месяц не повторяется: он уже назван в шапке */
+  checks.push(['в колонках таблицы месяц не дублируется у каждой строки',
+    (opHtml.match(/class="d-vs"/g)||[]).length<=SC.onepager.HERO.length]);
+
+  /* Строка one-pager раскрывает график — и об этом теперь говорит каретка */
+  checks.push(['у строки one-pager есть каретка раскрытия справа',
+    (opHtml.match(/<td class="col-caret"><span class="row-caret"/g)||[]).length>=15]);
+  checks.push(['каретка раскрытой строки развёрнута вниз',
+    /class="row-caret on"/.test(A.op(['regret']))&&
+    /<td colspan="7">/.test(A.op(['regret']))]);
+
+  /* Карточки KPI выравниваются по строкам: перенос заголовка в одной карточке
+     не должен сдвигать цифры в ней относительно соседних. */
+  checks.push(['карточка KPI всегда из четырёх строк',
+    (function(){
+      const cards=mvHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
+      return cards.length===5&&cards.every(c=>(c.match(/<div class="k-row">/g)||[]).length===2);
+    })()]);
+  checks.push(['полоса KPI выровнена subgrid, а не надеждой на короткие заголовки',
+    /\.kpi\{display:grid;grid-template-rows:subgrid;grid-row:span4;row-gap:0\}/.test(css)&&
+    /@supports\(grid-template-rows:subgrid\)/.test(css)]);
+  checks.push(['пять метрик движения персонала стоят пятью колонками',
+    /class="kpis compact n5"/.test(mvHtml)&&/\.kpis\.n5\{grid-template-columns:repeat\(5/.test(css)]);
+})();
+
+/* Есть утверждённый KPI — сравниваемся с ним, и базы рядом нет: два ориентира
+   заставляли выбирать, по какому судить. */
+(function(){
+  const S0=D.DEFAULT_STATE, rl0=D.reportLeaves(S0), bl0=D.benchmarkLeaves(S0);
+  const kpi=D.kpiFor('regret',S0), v=D.lastVal(rl0,'regret');
+  const cell=U.targetCell('regret',v,D.lastVal(bl0,'regret'),kpi);
+  checks.push(['метрика с KPI сравнивается с целью, а не с базой',
+    !!kpi&&/цель/.test(cell)&&!/база/.test(cell)]);
+  const opHtml=A.go('onepager',null);
+  /* сравнение ищем в видимом тексте карточки: слово «база» встречается ещё и
+     внутри подсказки к пилюле изменения, и по нему проверять нельзя */
+  const cards=opHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
+  const card=cards.filter(c=>/Regrettable/.test(c))[0]||'';
+  const subs=(card.match(/<span class="k-sub">[^<]*</g)||[]).join('|');
+  checks.push(['в hero-карточке метрики с KPI стоит цель, а базы нет',
+    /цель 4,0%/.test(subs)&&!/база/.test(subs)&&/kpi-tag/.test(card)]);
+  /* на раскрытом графике та же развилка: пороги KPI вместо линии базы */
+  const line=SC.metricLine('regret',rl0,bl0,S0,{});
+  checks.push(['у метрики с KPI на графике пороги цели, а не линия базы',
+    /KPI /.test(line)&&!/class="lnb"/.test(line)]);
+  /* без KPI (regret вне HQ) поведение прежнее: линия базы на месте */
+  const S1=Object.assign({},S0,{paint:'Line'});
+  checks.push(['без KPI метрика возвращается к сравнению с базой',
+    !D.kpiFor('regret',S1)&&/class="lnb"/.test(SC.metricLine('regret',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{}))]);
+})();
+
+/* Среднесписочная ушла из отчёта, но осталась знаменателем текучести;
+   на её место в движении персонала встал прирост с начала года. */
+checks.push(['среднесписочной численности нет среди метрик отчёта',
+  !D.METRIC_BY_KEY['hc_avg']&&!/Среднесписочная/.test(allHtml)&&D.METRICS.length===19]);
+checks.push(['ряд hc_avg жив: текучесть по-прежнему считается',
+  D.aggregate(rl,'hc_avg')[D.LAST]>0]);
+(function(){
+  const hc=D.aggregate(rl,'hc_total'), ny=D.aggregate(rl,'net_ytd');
+  /* декабрь предыдущего года — точка перед январём окна */
+  const jan=D.MONTHS.findIndex(m=>m.isYearStart);
+  checks.push(['прирост с начала года = численность минус её значение на 31 декабря',
+    Math.abs(ny[D.LAST]-(hc[D.LAST]-hc[jan-1]))<0.01&&ny[jan]===+(hc[jan]-hc[jan-1]).toFixed(1)]);
+  checks.push(['прирост стоит в движении персонала и с базой не сравнивается',
+    D.METRIC_BY_KEY['net_ytd'].block==='movement'&&!D.comparable('net_ytd')]);
+})();
 (function(){
   const st=A.st(), keep=[st.paint,st.itSeg,st.staffType];
   st.paint='all';st.itSeg='all';st.staffType='all';

@@ -58,12 +58,15 @@ function selLabel(S){
   const n=D.NODE_BY_PATH[S.selNode]||D.NODE_BY_PATH[S.drillRoot]||D.NODE_BY_PATH[S.unit];
   return n?n.name:'Ваша команда';
 }
-/* линия метрики с базой; для несравнимых метрик база не рисуется — она вводит в заблуждение */
+/* Линия метрики с базой. База не рисуется в двух случаях: у несравнимых метрик
+   (там она вводит в заблуждение) и у метрик с утверждённым KPI — на графике
+   остаются пороги цели, и вторая пунктирная линия рядом с ними спорила бы с
+   ними за роль ориентира. */
 function metricLine(key,lp,bl,S,opt){
-  const cmp=D.comparable(key), bench=D.benchmarkLabel(S);
+  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
   return G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
     Object.assign({legend:cmp?[{name:selLabel(S),color:G.C_LINE},{name:bench,color:G.C_BENCH,dash:true}]:null,
-      benchName:bench,kpi:D.kpiFor(key,S),h:300,fill:true},opt||{}));
+      benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
 }
 
 /* ---------- рендер детальной вкладки ---------- */
@@ -89,13 +92,18 @@ function renderBlock(S,expanded){
   const sel=S.selNode&&D.NODE_BY_PATH[S.selNode]?S.selNode:root;
   const selNode=D.NODE_BY_PATH[sel];
 
-  /* 1 · заголовок: название слева, переход на детальный дашборд справа */
-  const cmpMets=mets.filter(m=>D.comparable(m.key));
+  /* 1 · заголовок: название слева, переход на детальный дашборд справа.
+     Метрика с KPI из «сравнимых с базой» вычтена: она сравнивается с целью,
+     и обещать по ней базу в подзаголовке было бы неправдой. */
+  const kpiMets=mets.filter(m=>D.kpiFor(m.key,S));
+  const cmpMets=mets.filter(m=>D.comparable(m.key)&&!D.kpiFor(m.key,S));
+  const cmpTxt=(cmpMets.length
+      ? 'Сравнение с базой <b>'+esc(D.benchmarkLabel(S))+'</b>.'
+      : kpiMets.length?'':'Метрики блока абсолютные — с базой не сравниваются.')+
+    (kpiMets.length?' У метрик с утверждённым KPI сравнение идёт с целью, а не с базой.':'');
   let h='<div class="page-h"><div class="ph-row"><h2>'+esc(b.name)+'</h2>'+
     '<a class="btn dash" href="'+b.drillUrl+'" target="_blank" rel="noopener">Детальный дашборд'+U.icoExt()+'</a></div>'+
-    '<p>'+esc(b.hint)+' '+(cmpMets.length
-      ? 'Сравнение с базой <b>'+esc(D.benchmarkLabel(S))+'</b>.'
-      : 'Метрики блока абсолютные — с базой не сравниваются.')+'</p></div>';
+    '<p>'+esc(b.hint)+' '+cmpTxt+'</p></div>';
 
   /* 2 · инсайт */
   h+=INS.html({S,b,mainK,rl,bl,rows,rowLeaves:p=>rowLeaves(p,S)});
@@ -107,31 +115,39 @@ function renderBlock(S,expanded){
       '<div class="note-inline">Временный корень: <b>'+esc(rootNode.name)+'</b>. База сравнения не меняется.</div>';
   }
 
-  /* 4 · KPI блока */
-  h+='<div class="kpis compact'+(mets.length<=4?' n'+mets.length:'')+'">';
+  /* 4 · KPI блока
+     Дельта и ориентир разведены по строкам карточки: в первой — изменение и
+     месяц, с которым оно сравнивается, во второй — цель KPI или база. Пока
+     они стояли в одной строке, «+3» и «база 4,1%» читались как одно
+     сравнение, хотя это два разных. Классы n2…n5 держат ровно столько колонок,
+     сколько метрик: у движения персонала их теперь пять. */
+  h+='<div class="kpis compact'+(mets.length<=5?' n'+mets.length:'')+'">';
   mets.forEach(m=>{
     const sr=D.aggregate(rl,m.key), v=sr[D.LAST], dl=D.deltasOf(rl,m.key);
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
     h+=U.kpiCard({label:m.name,
       q:U.infoDot(m.key),
       value:D.fmtVal(m.key,v),
-      row1:U.deltaChip(m.key,dl.mom)+
-        (kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span>'
-           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark())+
-        (kpi?'<span class="kpi-tag">KPI</span>':'')});
+      row1:U.momChip(m.key,dl.mom),
+      row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
+           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark()});
   });
   h+='</div>';
 
   /* 5 · две колонки */
   h+='<div class="split">';
 
-  /* 5a · сводная таблица подразделений */
-  const benchMain=D.lastVal(bl,mainK);
-  const showVs=D.comparable(mainK);
+  /* 5a · сводная таблица подразделений
+     Ориентир колонки один и тот же для всей таблицы: цель KPI, если она у
+     главной метрики есть, иначе средняя по базе. Сравнивать подразделение с
+     базой, когда по метрике утверждён KPI, — значит мерить не тем. */
+  const kpiMain=D.kpiFor(mainK,S);
+  const benchMain=kpiMain?kpiMain.green:D.lastVal(bl,mainK);
+  const showVs=D.comparable(mainK)||!!kpiMain;
   const totalCells=mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,D.lastVal(rl,m.key))+'</td>').join('');
   let tbl='<table class="ptable dense"><thead><tr><th class="txt">Подразделение</th>'+
     mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+'</th>').join('')+
-    (showVs?'<th class="vs">К базе<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
+    (showVs?'<th class="vs">'+(kpiMain?'К цели KPI':'К базе')+'<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
     '<th></th></tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл */
     '<tr class="total top"><td class="txt">ИТОГО</td>'+totalCells+
@@ -139,7 +155,8 @@ function renderBlock(S,expanded){
     '<td></td></tr>';
   rows.forEach(r=>{
     const lp=rowLeaves(r.n.path,S);
-    const v=D.lastVal(lp,mainK), st=D.compareState(mainK,v,benchMain);
+    const v=D.lastVal(lp,mainK);
+    const st=kpiMain?D.stateForKpi(mainK,v,kpiMain):D.compareState(mainK,v,benchMain);
     const kids=D.childrenOf(r.n.path).length, canExp=r.depth===1&&kids>0;
     tbl+='<tr class="urow'+(r.depth===2?' lvl2':'')+(sel===r.n.path?' sel':'')+'" data-node="'+r.n.path+'">'+
       '<td class="txt"><span class="row-label">'+

@@ -114,6 +114,7 @@ button{font-family:inherit}
 .kpis.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .kpis.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.kpis.n5{grid-template-columns:repeat(5,minmax(0,1fr))}
 .kpis.compact{gap:12px;margin-bottom:16px}
 .kpis.compact .kpi{padding:13px 15px}
 .kpis.compact .k-val{font-size:var(--fs-hero)}
@@ -122,7 +123,28 @@ button{font-family:inherit}
 .kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:700;margin-bottom:7px;display:flex;align-items:center;gap:6px}
 .kpi .k-val{font-size:27px;font-weight:800;letter-spacing:-.6px;line-height:1.1}
 .kpi .k-row{display:flex;align-items:center;gap:9px;margin-top:8px;flex-wrap:wrap}
+/* пустой второй ряд карточка рисует всегда (ей нужно ровно четыре строки),
+   но воздуха он не занимает */
+.kpi .k-row:empty{margin:0}
 .kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
+
+/* ---------- Одна высота строк во всей полосе KPI ----------
+   Заголовок метрики в одной карточке переносился на две строки — и её
+   значение, дельта и подпись базы уезжали вниз относительно соседей. Полоса
+   переставала читаться как строка: глазу приходилось искать, где чьё число.
+
+   Карточка объявлена subgrid'ом на четыре строки родителя, поэтому высоту
+   каждой строки задаёт самая высокая карточка полосы: перенёсся заголовок
+   у одного KPI — лишняя строка появилась у всех, зато цифры остались на
+   общем уровне. Это ровно тот размен, который выбрал заказчик.
+
+   Собственные отступы строк сохранены, а gap внутри карточки обнулён: иначе
+   subgrid унаследовал бы междукарточные 14px и разорвал бы карточку. Правило
+   под @supports: без subgrid карточка обязана остаться обычным блоком, иначе
+   grid-row:span 4 растянул бы её по пустым строкам. */
+@supports (grid-template-rows:subgrid){
+  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0}
+}
 
 /* ===== Панели ===== */
 .panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
@@ -131,7 +153,10 @@ button{font-family:inherit}
 .panel-b{padding:var(--s7) var(--s8)}
 
 /* ===== Дельты и статусы ===== */
-.delta{display:inline-flex;align-items:center;gap:3px;font-size:var(--fs-note);font-weight:700;padding:3px 7px;border-radius:var(--r2);white-space:nowrap}
+.delta{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-note);font-weight:700;padding:3px 7px;border-radius:var(--r2);white-space:nowrap;cursor:help}
+/* «к маю» внутри пилюли: с чем сравнивается изменение. Тише самого числа —
+   число несёт факт, подпись объясняет, откуда он взялся. */
+.delta .d-vs{font-weight:600;font-size:var(--fs-cap);opacity:.72}
 .delta.up{background:var(--green-bg);color:var(--green-tx)}
 .delta.down{background:var(--red-bg);color:var(--red-tx)}
 .delta.flat{background:#f0f1f3;color:var(--muted)}
@@ -151,11 +176,24 @@ button{font-family:inherit}
 .mtable{width:100%;border-collapse:collapse;table-layout:fixed}
 .mtable thead th{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.2px;color:var(--muted);font-weight:700;text-align:left;padding:11px 8px;border-bottom:1px solid var(--line2);white-space:nowrap}
 .mtable thead th.num{text-align:right}
+/* месяц сравнения второй строкой шапки: «за месяц» без него не говорит,
+   с чем сравнивается число. Не капсом — это пояснение, а не имя колонки */
+.mtable thead th .th-sub{display:block;margin-top:2px;font-size:var(--fs-micro);font-weight:600;
+  text-transform:none;letter-spacing:0;color:var(--muted2)}
 .mtable tbody tr{border-bottom:1px solid var(--line2)}
 .mtable tbody tr:last-child{border-bottom:0}
 .mrow{cursor:pointer}
 .mrow:hover{background:#fafbfc}
 .mrow td{padding:11px 8px;vertical-align:middle}
+/* Каретка в конце строки — единственный признак того, что строка раскрывается.
+   Курсор-указатель на всей строке об этом не сообщал: его не видно, пока
+   не наведёшь, а наводить незачем, если не ждёшь, что что-то откроется. */
+.mtable td.col-caret{text-align:center;padding:11px 4px}
+.row-caret{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+  border-radius:var(--r2);color:var(--muted);font-size:12px;line-height:1;
+  transition:color .15s,background .15s}
+.mrow:hover .row-caret{color:var(--blue);background:var(--blue-bg)}
+.row-caret.on{color:var(--blue)}
 .m-name{font-weight:700;font-size:var(--fs-lead);border-left:3px solid var(--bench);padding-left:12px!important;word-break:break-word}
 .m-name .m-sub{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:2px}
 .m-name.bar-good{border-color:var(--green)}
@@ -281,7 +319,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 @media(max-width:1100px){
-  .kpis{grid-template-columns:repeat(3,minmax(160px,1fr))}
+  /* классы n2…n5 задают колонки жёстче, чем базовое правило, поэтому на узком
+     экране их приходится переопределять явно — иначе пять карточек движения
+     персонала остались бы впятером и на планшете */
+  .kpis,.kpis.n4,.kpis.n5{grid-template-columns:repeat(3,minmax(160px,1fr))}
   .content{padding:22px}
   .reporthead{padding-left:22px;padding-right:22px}
 }
@@ -290,7 +331,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .reporthead{padding:14px}.rh-row{align-items:flex-start}.rh-title{font-size:22px}.rh-side{display:none}
   .layout{display:block}.nav{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(82vw,300px);transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 28px rgba(20,28,45,.18);padding-top:18px}.nav.open{transform:translateX(0)}
   .nav-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}.nav-scrim.open{display:block}
-  .content{padding:16px}.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
+  .content{padding:16px}.kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
   .toolbar{align-items:stretch}.toolbar .ctl,.toolbar .ctl select{width:100%}.toolbar .sp{display:none}.toolbar>.btn{flex:1;text-align:center;justify-content:center}
   .panel{overflow-x:auto}.mtable,.ptable{min-width:760px}.page-h h2{font-size:21px}.block-h{align-items:flex-start}
   .modal{width:calc(100vw - 20px);max-height:92vh}.modal-b{padding:16px}.modal-f{padding:12px;flex-wrap:wrap}
@@ -298,7 +339,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 }
 @media(max-width:480px){
   .apphead .primary{padding:8px 10px;font-size:11px}.logo{font-size:14px}.rh-title .lvl{display:block;margin:5px 0 0;width:max-content}
-  .kpis{grid-template-columns:1fr}.chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
+  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}.chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
   .legend{gap:8px 12px}.panel-h{padding:12px}.panel-b{padding:10px}
   .mpick-l{grid-template-columns:1fr}.mpick{max-height:200px}
 }
@@ -357,16 +398,34 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    мельче, чем предписывает его собственная роль, и на ноутбуке читалось тяжело. */
 .ptable.dense{font-size:var(--fs-body)}
 .ptable.dense th{padding:8px 6px;font-size:var(--fs-cap)}
-.ptable.dense th.txt{padding-left:var(--pad-cell);min-width:155px}
+/* Колонка имени отдаёт свои 14px пятой метрике: в «Движении персонала» столбцов
+   стало пять, и на ноутбучной ширине таблица уезжала под горизонтальный скролл.
+   Имена подразделений и так переносятся по словам, а числовые колонки ужимать
+   нельзя — там между значениями останется меньше воздуха, чем внутри них. */
+.ptable.dense th.txt{padding-left:var(--pad-cell);min-width:141px}
 .ptable.dense td{padding:7px 6px}
-.ptable.dense td.txt{padding-left:var(--pad-cell);max-width:190px}
+.ptable.dense td.txt{padding-left:var(--pad-cell);max-width:176px}
 .ptable.dense td.lead{font-weight:800;color:var(--ink)}
 .ptable.dense .unit-sub{font-size:var(--fs-cap)}
 .ptable.dense .cell{font-size:var(--fs-note);padding:5px 4px;margin:1px}
 .ptable.dense .vs{border-left:1px solid var(--line2)}
 .btn.xs{padding:3px 6px;min-width:24px;font-size:11px}
-@media(max-width:1120px){.split{grid-template-columns:minmax(440px,.95fr) minmax(400px,1.05fr)}}
-@media(max-width:900px){.split{grid-template-columns:1fr;height:auto}.split>.panel{height:auto}.split-l .tbl-wrap{max-height:430px}.split-r .panel-b{height:380px}}
+/* кнопка «сделать корнем» в плотной таблице занимает ровно свою стрелку:
+   служебная колонка не должна отнимать ширину у колонки метрики */
+.ptable.dense .btn.xs{padding:3px 4px;min-width:22px}
+.ptable.dense td:last-child{padding-left:2px;padding-right:4px}
+/* Порог 1240, а не 1120: минимумы колонок (500+440+16 = 956px) перестают
+   помещаться в контент раньше, чем срабатывал прежний брейкпоинт, и на ширинах
+   1121–1240px рабочая зона вылезала за экран — появлялся горизонтальный скролл
+   всей страницы, а правая панель обрезалась. Теперь узкие минимумы включаются
+   там, где широкие уже не влезают. */
+@media(max-width:1240px){.split{grid-template-columns:minmax(440px,.95fr) minmax(400px,1.05fr)}}
+/* Порог 1110, а не 900: две колонки перестают помещаться раньше, чем экран
+   становится планшетным. Минимумы 440+400+16 = 856px требуют контента шире
+   ~870px, а это ширина окна около 1120. На 901–1120px рабочая зона вылезала
+   за экран, и страница ехала вбок — при том что таблица и график там уже
+   не читались рядом. Ниже порога они встают друг под друга. */
+@media(max-width:1120px){.split{grid-template-columns:1fr;height:auto}.split>.panel{height:auto}.split-l .tbl-wrap{max-height:430px}.split-r .panel-b{height:380px}}
 
 /* ===== Итерация 13: сравнимость, ИТОГО сверху, шапка блока ===== */
 
@@ -818,9 +877,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    зону точно под шапку и ничего лишнего в кадре не оставляет.
    Нижний отступ контента уменьшен с 64 до 24px по той же причине: 64px пустоты
    внизу означали, что в конце прокрутки .split приподнят над низом экрана.
-   Правило только для широких экранов: ниже 900px .split уже разложен в одну
-   колонку с height:auto, и фиксировать высоту там нельзя. */
-@media(min-width:901px){
+   Правило только для широких экранов: ниже 1120px .split уже разложен в одну
+   колонку с height:auto, и фиксировать высоту там нельзя — пороги обязаны совпадать. */
+@media(min-width:1121px){
   .split{height:clamp(520px,calc(100vh - var(--head-h) - 28px),1280px)}
   .content{padding-bottom:24px}
 }

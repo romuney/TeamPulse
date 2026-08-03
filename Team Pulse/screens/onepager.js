@@ -32,8 +32,11 @@ function bestMetrics(S,rl,bl,limit){
   D.METRICS.forEach(m=>{
     if(!D.metricVisible(m.key,S))return;
     if(m.better==='flat')return;
-    const v=D.lastVal(rl,m.key), bv=D.lastVal(bl,m.key);
-    if(D.compareState(m.key,v,bv)==='good')out.push({m,v,bv});
+    /* та же развилка, что и в worstMetrics: где есть KPI, «хорошо» считается
+       от цели, а не от средней по базе */
+    const v=D.lastVal(rl,m.key), bv=D.lastVal(bl,m.key), kpi=D.kpiFor(m.key,S);
+    const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
+    if(st==='good')out.push({m,v,bv:kpi?kpi.green:bv,kpi:!!kpi});
   });
   return out.slice(0,limit||2);
 }
@@ -51,7 +54,8 @@ function bullets(S,rl,bl){
       ' — смотрите разбивку по подразделениям в блоке «'+esc(D.BLOCK_BY_KEY[x.m.block].name)+'».');
   });
   bestMetrics(S,rl,bl,2).forEach(x=>{
-    out.push('<b>'+esc(x.m.name)+'</b> лучше базы: '+D.fmtVal(x.m.key,x.v)+' против '+D.fmtVal(x.m.key,x.bv)+'.');
+    out.push('<b>'+esc(x.m.name)+'</b> лучше '+(x.kpi?'цели KPI':'базы')+': '+
+      D.fmtVal(x.m.key,x.v)+' против '+D.fmtVal(x.m.key,x.bv)+'.');
   });
   out.push('Сравнение пересчитано под ваши разрезы: смените покраску или разрез IT — и база, и выводы изменятся.');
   out.push('Численность, найм и переводы не окрашиваются светофором: отклонение от базы здесь не оценка, а факт масштаба.');
@@ -65,8 +69,10 @@ function render(S,openRows){
     'В этом подразделении нет команд, подходящих под текущие фильтры. Снимите один из разрезов в шапке.');
 
   let h='<div class="page-h"><h2>Сводка по всем метрикам</h2>'+
-    '<p>Все ключевые метрики команды на одном экране: значение, изменение за месяц и за год, динамика и '+
-    'сравнение с базой <b>'+esc(D.benchmarkLabel(S))+'</b>. Нажмите на строку, чтобы развернуть график.</p></div>';
+    '<p>Все ключевые метрики команды на одном экране: значение, изменение '+esc(D.CMP.momFull)+
+    ' и '+esc(D.CMP.yoy)+', динамика и сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
+    '</b>; там, где есть утверждённый KPI, метрика сравнивается с целью, а не с базой. '+
+    'Нажмите на строку — каретка справа развернёт график.</p></div>';
 
   /* AI-подсказка сразу под заголовком — как на детальных экранах. Внизу страницы
      её никто не дочитывал: сначала вывод, потом цифры. */
@@ -79,12 +85,15 @@ function render(S,openRows){
     const s=D.aggregate(rl,k), v=s[D.LAST], dl=D.deltasOf(rl,k);
     const kpi=D.kpiFor(k,S), bv=D.lastVal(bl,k);
     const st=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,bv);
+    /* Есть KPI — сравниваемся с ним, и базы в карточке нет вовсе: два ориентира
+       рядом заставляли выбирать, по какому судить. Нет KPI — база как раньше. */
     h+=U.kpiCard({label:D.METRIC_BY_KEY[k].name,
       q:U.infoDot(k),
       value:D.fmtVal(k,v),
-      row1:U.deltaChip(k,dl.mom)+G.sparkLine(s,st,84,24,{key:k,base:D.comparable(k)?D.aggregate(bl,k):null}),
-      row2:(D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':U.noCmpMark())+
-        (kpi?'<span class="kpi-tag">KPI</span>':'')});
+      row1:U.momChip(k,dl.mom)+
+        G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:!kpi&&D.comparable(k)?D.aggregate(bl,k):null}),
+      row2:(kpi?'<span class="k-sub">цель '+D.fmtVal(k,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
+             :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':U.noCmpMark())});
   });
   h+='</div>'+U.trafficLegend();
 
@@ -93,35 +102,44 @@ function render(S,openRows){
     h+='<div class="block-h"><span class="block-name">'+esc(b.name)+'</span>'+
       '<span class="block-hint">'+esc(b.hint)+'</span>'+
       '<button class="btn ghost" data-tab="'+b.key+'">Подробнее →</button></div>';
+    /* Месяц сравнения подписан в шапке колонки, а не у каждой строки: «за месяц»
+       само по себе не говорило, с чем сравнивается число, а повторять «к маю»
+       девятнадцать раз незачем. */
+    const thSub=s=>'<span class="th-sub">'+esc(s)+'</span>';
     let t='<table class="mtable">'+
       /* колонка «12 мес» без фиксированной ширины: забирает всю свободную
          ширину на широком экране, а спарклайн тянется вместе с ней */
-      '<colgroup><col style="width:28%"><col style="width:12%"><col style="width:10%"><col style="width:10%"><col><col style="width:19%"></colgroup>'+
-      '<thead><tr><th>Метрика</th><th class="num">Значение</th><th class="num">За месяц</th>'+
-      '<th class="num">За год</th><th class="mid">12 мес</th><th class="mid">Сравнение с базой</th></tr></thead><tbody>';
+      '<colgroup><col style="width:26%"><col style="width:12%"><col style="width:10%"><col style="width:10%"><col>'+
+      '<col style="width:19%"><col style="width:28px"></colgroup>'+
+      '<thead><tr><th>Метрика</th><th class="num">Значение</th>'+
+      '<th class="num">За месяц'+thSub(D.CMP.momFull)+'</th>'+
+      '<th class="num">За год'+thSub(D.CMP.yoy)+'</th><th class="mid">12 мес</th>'+
+      '<th class="mid">Сравнение'+thSub('база или цель KPI')+'</th><th></th></tr></thead><tbody>';
     D.visibleMetricsOfBlock(b.key,S).forEach(m=>{
       const s=D.aggregate(rl,m.key), v=s[D.LAST], dl=D.deltasOf(rl,m.key);
       const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
       const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
       /* база помесячно: спарклайн красит КАЖДЫЙ месяц по своему месяцу базы,
-         а не весь ряд по последнему значению */
-      const bser=D.comparable(m.key)?D.aggregate(bl,m.key):null;
-      t+='<tr class="mrow" data-metric="'+m.key+'">'+
+         а не весь ряд по последнему значению. У метрики с KPI базы нет ни в
+         спарклайне, ни на раскрытом графике: ориентир там один — цель. */
+      const bser=!kpi&&D.comparable(m.key)?D.aggregate(bl,m.key):null;
+      const open=openRows.has(m.key);
+      t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
         '<td class="m-name bar-'+st+'">'+esc(m.name)+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
         '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
-        '<td class="col-num">'+U.deltaChip(m.key,dl.mom)+'</td>'+
-        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy)+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:D.CMP.momTip})+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:D.CMP.yoyTip})+'</td>'+
         '<td class="col-spark">'+G.sparkBars(s,st,180,28,
-          {key:m.key,base:bser,flat:!D.comparable(m.key)})+'</td>'+
-        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi)+'</td></tr>';
+          {key:m.key,base:bser,kpi:kpi,flat:!D.comparable(m.key)})+'</td>'+
+        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi)+'</td>'+
+        '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */
-      if(openRows.has(m.key)){
-        const cmp=D.comparable(m.key);
-        t+='<tr class="detail-row"><td colspan="6"><div class="detail-chart">'+
+      if(open){
+        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+
           G.chart('line',{metricKey:m.key,series:s,bench:bser},
-            {title:m.name+(cmp?' — динамика и база сравнения':' — динамика'),
+            {title:m.name+(kpi?' — динамика и цель KPI':bser?' — динамика и база сравнения':' — динамика'),
              /* серии подписаны именами, иначе непонятно, что за синяя линия */
-             legend:cmp?[{name:unitName(S),color:G.C_LINE},{name:D.benchmarkLabel(S),color:G.C_BENCH,dash:true}]:null,
+             legend:bser?[{name:unitName(S),color:G.C_LINE},{name:D.benchmarkLabel(S),color:G.C_BENCH,dash:true}]:null,
              benchName:D.benchmarkLabel(S),
              kpi:kpi,h:280})+'</div></td></tr>';
       }
