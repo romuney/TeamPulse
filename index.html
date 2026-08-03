@@ -616,6 +616,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    gap нужен, чтобы ось X верхнего не липла к заголовку нижнего. */
 .split-r .panel-b{display:flex;flex-direction:column;gap:var(--chart-gap)}
 .split-r .panel-b>.svgchart.fill{flex:1;min-height:0}
+/* График БЕЗ fill стоит собственной высотой и делить с кем-то её не должен:
+   ни растягиваться на остаток панели, ни сжиматься. Так запас высоты копится
+   ВНИЗУ панели, а до соседнего блока остаётся тот же --chart-gap, что между
+   двумя графиками. Это случай календаря посещаемости: под ним таблица дней
+   недели, и расстояние до неё не может зависеть от высоты монитора. */
+.split-r .panel-b>.svgchart{flex:none}
 /* Правая панель — тот же кегль, что и таблица подразделений слева:
    разные размеры шрифта в двух колонках одного экрана читаются как ошибка. */
 .split-r .ptable{font-size:var(--fs-body)}
@@ -654,6 +660,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .bt-group+.bt-group{padding-top:14px}
   .split-r .panel-b{display:block}
   .svgchart.fill{height:auto}
+  /* display:block гасит flex-gap, и на телефоне график слипался с тем, что под
+     ним, вплотную. Возвращаем то же расстояние маргином: между графиком и его
+     соседом оно одно на всех ширинах. Сноске margin-top обнулён ради flex-gap —
+     в блочной раскладке обнулять нечего, возвращаем и его. */
+  .split-r .panel-b>*+*{margin-top:var(--chart-gap)}
+  .split-r .panel-b>.tbl-note{margin-top:var(--chart-gap)}
 }
 
 /* ============================================================================
@@ -2531,7 +2543,12 @@ function drawCalendar(a,w,h){
   const DOW_H=HEAD_GAP+9, SCALE_H=26, MON_H=17, gap=4, BLOCK_GAP=22;
   const n=blocks.length;
   const rows=Math.max.apply(null,blocks.map(b=>Math.ceil((b.first+b.days.length)/7)));
-  h=h||o.h||(hh+SCALE_H+MON_H+DOW_H+rows*52);
+  /* Высота КОНТЕЙНЕРА, а не самого календаря. Может не прийти вовсе — тогда
+     календарь стоит собственной высотой, и размер клетки держат только ширина
+     и потолок CELL_MAX. Именно так он и стоит на экране офиса: высота там
+     ничего не должна решать, иначе один и тот же календарь получался бы
+     разным на ноутбуке и на большом мониторе. */
+  const hBox=h||o.h||0;
   /* Шкала интенсивности стоит СРАЗУ ПОД ЗАГОЛОВКОМ, а не под сеткой. Снизу она
      упиралась в таблицу дней недели, которая идёт следом за графиком, и читалась
      как подпись к этой таблице, а не как легенда календаря. */
@@ -2550,14 +2567,19 @@ function drawCalendar(a,w,h){
   const availW=(w-CAL_PAD*2-BLOCK_GAP*(n-1))/n;
   /* Клетка КВАДРАТНАЯ: считаем и по ширине, и по высоте, берём меньшее.
      Вытянутый прямоугольник читается как таблица, а не как день календаря,
-     а месяцы разной длины рядом получали бы клетки разной формы. */
-  const cell=Math.max(22,Math.min(CELL_MAX,(availW-gap*6)/7,(h-gridTop-gap*(rows-1))/rows));
+     а месяцы разной длины рядом получали бы клетки разной формы.
+     Заданная высота контейнера участвует как ещё один потолок — из него
+     календарь вылезать не должен; без неё потолок один, CELL_MAX. */
+  const byH=hBox?(hBox-gridTop-gap*(rows-1))/rows:CELL_MAX;
+  const cell=Math.max(22,Math.min(CELL_MAX,(availW-gap*6)/7,byH));
   const cw=cell, ch=cell;
   const gridW=cw*7+gap*6, totalW=gridW*n+BLOCK_GAP*(n-1);
   const x0=Math.max(CAL_PAD,(w-totalW)/2);
-  /* высота по факту содержимого: при упёршейся в потолок клетке тянуть SVG
-     на всю высоту контейнера незачем — внизу будет просто пустое место */
-  const hUsed=Math.min(h,gridTop+rows*ch+(rows-1)*gap);
+  /* Высота SVG — РОВНО по содержимому. Тянуть её до высоты контейнера нельзя:
+     клетка упирается в потолок, остаток превращается в пустую полосу внизу
+     картинки, и она отодвигает то, что стоит под графиком, — разрыв между
+     календарём и таблицей дней недели рос вместе с высотой экрана. */
+  const hUsed=gridTop+rows*ch+(rows-1)*gap;
   /* Шкала ОДНА на все блоки: свой максимум в каждом месяце красил бы одинаковый
      процент по-разному слева и справа, и сравнить месяцы стало бы нельзя. */
   const allWd=blocks.reduce((acc,b)=>acc.concat(b.days.filter(d=>!d.weekend).map(d=>d.val)),[]);
@@ -3364,6 +3386,12 @@ function blockMain(bk,S){
   const mets=D.visibleMetricsOfBlock(bk,S);
   return (mets.find(x=>D.comparable(x.key))||mets[0]).key;
 }
+/* Строки первого уровня, у которых есть что раскрывать. Ими и только ими
+   управляет каретка в ИТОГО: глубже второго уровня сводная таблица не идёт,
+   поэтому «раскрыть всё» — это ровно они. */
+function expandableRows(root){
+  return D.nodesBelow(root,1).filter(n=>D.childrenOf(n.path).length).map(n=>n.path);
+}
 function pivotRows(root,expanded){
   const rows=[];
   D.nodesBelow(root,1).forEach(n=>{
@@ -3458,6 +3486,11 @@ function renderBlock(S,expanded){
   /* 5 · две колонки */
   h+='<div class="split">';
 
+  /* Состояние каретки ИТОГО: пока раскрыто не всё — она предлагает раскрыть,
+     и только когда раскрыты все раскрываемые строки — свернуть. */
+  const expandable=expandableRows(root);
+  const allOpen=expandable.length>0&&expandable.every(p=>expanded.has(p));
+
   /* 5a · сводная таблица подразделений
      Ориентир колонки один и тот же для всей таблицы: цель KPI, если она у
      главной метрики есть, иначе средняя по базе. Сравнивать подразделение с
@@ -3470,8 +3503,21 @@ function renderBlock(S,expanded){
     mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+'</th>').join('')+
     (showVs?'<th class="vs">'+(kpiMain?'К цели KPI':'К базе')+'<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
     '<th></th></tr></thead><tbody>'+
-    /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл */
-    '<tr class="total top"><td class="txt">ИТОГО</td>'+totalCells+
+    /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
+       Каретка у ИТОГО раскрывает и сворачивает ВСЁ дерево разом: раскрывать
+       десяток подразделений по одному, чтобы увидеть вторые уровни, — работа,
+       которую строка итога может сделать одним кликом. Заодно «ИТОГО» встаёт
+       на ту же вертикаль, что и названия подразделений под ним: без каретки
+       оно было сдвинуто влево на её ширину. */
+    '<tr class="total top"><td class="txt"><span class="row-label">'+
+    (expandable.length
+      ? '<button class="caret-btn"'+(allOpen?' data-open="1"':'')+
+        ' data-expall="'+(allOpen?'0':'1')+'" aria-label="'+(allOpen?'Свернуть всё':'Развернуть всё')+'"'+
+        U.tipAttr({title:allOpen?'Свернуть всё':'Развернуть всё',
+          text:'Вторые уровни всех подразделений сразу.'})+'>'+
+        (allOpen?'▾':'▸')+'</button>'
+      : '<span class="caret-spacer"></span>')+
+    '<span class="row-body">ИТОГО</span></span></td>'+totalCells+
     (showVs?'<td class="vs"><span class="cell neutral">'+D.fmtVal(mainK,benchMain)+'</span></td>':'')+
     '<td></td></tr>';
   rows.forEach(r=>{
@@ -3503,7 +3549,8 @@ function renderBlock(S,expanded){
   return h+'</div>';
 }
 
-window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,metricLine,selLabel};
+window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
+  expandableRows,metricLine,selLabel};
 })();
 
 </script>
@@ -3805,8 +3852,15 @@ SC.blocks.office={
     /* конец периода называем явно: иначе непонятно, почему текущий месяц
        оборван и на каком именно дне */
     const end=blocks[blocks.length-1];
+    /* Календарь БЕЗ fill и без своей высоты — единственный такой график в правых
+       панелях, и намеренно. fill отдал бы ему всю высоту панели, а клетка всё
+       равно упирается в потолок: излишек оставался пустотой между календарём и
+       таблицей дней недели и рос вместе с экраном (26px на ноутбуке, 500px на
+       большом мониторе). Теперь календарь стоит своей высотой, до таблицы
+       ровно --chart-gap, как между любыми двумя графиками, а запас высоты
+       копится внизу панели. */
     return G.chart('calendar',{blocks:blocks},
-      {fill:true,h:340,title:'Посещаемость по дням — по '+end.to+' '+
+      {title:'Посещаемость по дням — по '+end.to+' '+
         D.MONTH_GEN[end.m]+' '+end.y+', %'})+
       '<div class="bt-group"><div class="bt-cap">По дням недели, среднее за '+
       D.DOW_MONTHS+' месяца</div>'+
@@ -4241,7 +4295,17 @@ document.addEventListener('click',e=>{
   const un=t.closest('[data-unchip]');
   if(un){S[un.dataset.unchip]='all';render();return}
 
-  /* дерево подразделений */
+  /* дерево подразделений.
+     Каретка ИТОГО ходит первой: одна кнопка на всё дерево, а не на свою строку.
+     data-expall=1 — раскрыть всё, 0 — свернуть; в какую сторону, решает разметка,
+     она же и рисует каретку в нужную сторону. */
+  const exAll=t.closest('[data-expall]');
+  if(exAll){
+    e.stopPropagation();
+    expanded.clear();
+    if(exAll.dataset.expall==='1')SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));
+    render(true);return;
+  }
   const ex=t.closest('[data-exp]');
   if(ex){e.stopPropagation();const p=ex.dataset.exp;expanded.has(p)?expanded.delete(p):expanded.add(p);render(true);return}
   const dr=t.closest('[data-drill]');

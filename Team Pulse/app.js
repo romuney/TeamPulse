@@ -261,7 +261,17 @@ document.addEventListener('click',e=>{
   const un=t.closest('[data-unchip]');
   if(un){S[un.dataset.unchip]='all';render();return}
 
-  /* дерево подразделений */
+  /* дерево подразделений.
+     Каретка ИТОГО ходит первой: одна кнопка на всё дерево, а не на свою строку.
+     data-expall=1 — раскрыть всё, 0 — свернуть; в какую сторону, решает разметка,
+     она же и рисует каретку в нужную сторону. */
+  const exAll=t.closest('[data-expall]');
+  if(exAll){
+    e.stopPropagation();
+    expanded.clear();
+    if(exAll.dataset.expall==='1')SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));
+    render(true);return;
+  }
   const ex=t.closest('[data-exp]');
   if(ex){e.stopPropagation();const p=ex.dataset.exp;expanded.has(p)?expanded.delete(p):expanded.add(p);render(true);return}
   const dr=t.closest('[data-drill]');
