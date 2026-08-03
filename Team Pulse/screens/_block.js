@@ -43,6 +43,12 @@ function blockMain(bk,S){
   const mets=D.visibleMetricsOfBlock(bk,S);
   return (mets.find(x=>D.comparable(x.key))||mets[0]).key;
 }
+/* Строки первого уровня, у которых есть что раскрывать. Ими и только ими
+   управляет каретка в ИТОГО: глубже второго уровня сводная таблица не идёт,
+   поэтому «раскрыть всё» — это ровно они. */
+function expandableRows(root){
+  return D.nodesBelow(root,1).filter(n=>D.childrenOf(n.path).length).map(n=>n.path);
+}
 function pivotRows(root,expanded){
   const rows=[];
   D.nodesBelow(root,1).forEach(n=>{
@@ -137,6 +143,11 @@ function renderBlock(S,expanded){
   /* 5 · две колонки */
   h+='<div class="split">';
 
+  /* Состояние каретки ИТОГО: пока раскрыто не всё — она предлагает раскрыть,
+     и только когда раскрыты все раскрываемые строки — свернуть. */
+  const expandable=expandableRows(root);
+  const allOpen=expandable.length>0&&expandable.every(p=>expanded.has(p));
+
   /* 5a · сводная таблица подразделений
      Ориентир колонки один и тот же для всей таблицы: цель KPI, если она у
      главной метрики есть, иначе средняя по базе. Сравнивать подразделение с
@@ -149,8 +160,21 @@ function renderBlock(S,expanded){
     mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+'</th>').join('')+
     (showVs?'<th class="vs">'+(kpiMain?'К цели KPI':'К базе')+'<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
     '<th></th></tr></thead><tbody>'+
-    /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл */
-    '<tr class="total top"><td class="txt">ИТОГО</td>'+totalCells+
+    /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
+       Каретка у ИТОГО раскрывает и сворачивает ВСЁ дерево разом: раскрывать
+       десяток подразделений по одному, чтобы увидеть вторые уровни, — работа,
+       которую строка итога может сделать одним кликом. Заодно «ИТОГО» встаёт
+       на ту же вертикаль, что и названия подразделений под ним: без каретки
+       оно было сдвинуто влево на её ширину. */
+    '<tr class="total top"><td class="txt"><span class="row-label">'+
+    (expandable.length
+      ? '<button class="caret-btn"'+(allOpen?' data-open="1"':'')+
+        ' data-expall="'+(allOpen?'0':'1')+'" aria-label="'+(allOpen?'Свернуть всё':'Развернуть всё')+'"'+
+        U.tipAttr({title:allOpen?'Свернуть всё':'Развернуть всё',
+          text:'Вторые уровни всех подразделений сразу.'})+'>'+
+        (allOpen?'▾':'▸')+'</button>'
+      : '<span class="caret-spacer"></span>')+
+    '<span class="row-body">ИТОГО</span></span></td>'+totalCells+
     (showVs?'<td class="vs"><span class="cell neutral">'+D.fmtVal(mainK,benchMain)+'</span></td>':'')+
     '<td></td></tr>';
   rows.forEach(r=>{
@@ -182,5 +206,6 @@ function renderBlock(S,expanded){
   return h+'</div>';
 }
 
-window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,metricLine,selLabel};
+window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
+  expandableRows,metricLine,selLabel};
 })();

@@ -44,6 +44,10 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   /* one-pager с раскрытыми строками: каретка и график живут именно в них */
   '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  hide:list=>{S.hiddenMetrics=list.slice();S.mainMetric=null},'+
+  /* каретка ИТОГО живёт в app.js, а не в разметке: дёргаем её обработчик напрямую */
+  '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));'+
+  'render(true);return $("#view").innerHTML},'+
+  '\n  expClear:()=>{expanded.clear()},'+
   '\n  tab:()=>S.tab, nav:()=>$("#navBlocks").innerHTML, st:()=>S,'+
   '\n  chips:()=>{renderHead();return $("#chips").innerHTML}};');
 const A=require(probe);
@@ -503,6 +507,49 @@ checks.push(['марки графиков помечены data-s',
   checks.push(['шкала календаря стоит НАД сеткой, а не под ней',
     scale.length>0&&cells.length>0&&
     Math.max.apply(null,scale.map(s=>s.y))<Math.min.apply(null,cells.map(c=>c.y))]);
+})();
+
+/* Под календарём стоит таблица дней недели, и расстояние до неё обязано быть тем
+   же --chart-gap, что между любыми двумя графиками. Пока календарь был fill, он
+   забирал всю высоту панели, клетка упиралась в потолок, а излишек оставался
+   пустотой ВНУТРИ графика: 26px на ноутбуке и ~500px на большом мониторе. */
+(function(){
+  const svgH=s=>+((s.match(/<svg[^>]*\sheight="([\d.]+)"/)||[])[1]);
+  const blocks=D.attLast(rl);
+  checks.push(['календарь стоит своей высотой: у него нет fill',
+    (calHtml.match(/class="svgchart/g)||[]).length===1&&
+    !/class="svgchart fill"/.test(calHtml)]);
+  /* высокий контейнер не должен добавлять графику пустоты снизу */
+  checks.push(['высота календаря не зависит от высоты контейнера',
+    svgH(G.chart('calendar',{blocks:blocks},{}))===
+    svgH(G.chart('calendar',{blocks:blocks},{h:900}))]);
+  /* низкий контейнер по-прежнему ужимает клетку: вылезать из панели нельзя */
+  checks.push(['низкий контейнер ужимает клетку календаря, а не обрезает сетку',
+    svgH(G.chart('calendar',{blocks:blocks},{h:240}))<
+    svgH(G.chart('calendar',{blocks:blocks},{}))]);
+  checks.push(['график без fill не тянется на остаток панели',
+    /\.split-r\.panel-b>\.svgchart\{flex:none\}/.test(css)]);
+  /* На телефоне панель становится блочной, flex-gap гаснет — расстояние
+     до соседнего блока возвращается маргином, и оно то же самое */
+  checks.push(['в блочной раскладке зазор в панели тот же --chart-gap',
+    /\.split-r\.panel-b>\*\+\*\{margin-top:var\(--chart-gap\)\}/.test(css)&&
+    /\.split-r\.panel-b>\.tbl-note\{margin-top:var\(--chart-gap\)\}/.test(css)]);
+})();
+
+/* Каретка у ИТОГО: раскрыть и свернуть всё дерево одним кликом, а не десятью */
+(function(){
+  const closed=A.go('structure','breakdown');
+  checks.push(['у ИТОГО есть каретка на всё дерево',
+    /<tr class="total top"><td class="txt"><span class="row-label"><button class="caret-btn" data-expall="1"/.test(closed)]);
+  checks.push(['«ИТОГО» стоит на той же вертикали, что и названия подразделений',
+    /data-expall="1"[^>]*>▸<\/button><span class="row-body">ИТОГО<\/span>/.test(closed)]);
+  const open=A.expAll();
+  checks.push(['каретка ИТОГО раскрывает все раскрываемые строки',
+    (open.match(/<tr class="urow lvl2/g)||[]).length>0&&
+    (open.match(/<tr class="urow lvl2/g)||[]).length>(closed.match(/<tr class="urow lvl2/g)||[]).length]);
+  checks.push(['раскрыв всё, каретка ИТОГО предлагает свернуть',
+    /data-expall="0" aria-label="Свернуть всё"/.test(open)&&/data-expall="0"[^>]*>▾</.test(open)]);
+  A.expClear();
 })();
 
 /* Расстояние между графиками в стопке задают ДВА механизма — GAP внутри

@@ -609,6 +609,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    gap нужен, чтобы ось X верхнего не липла к заголовку нижнего. */
 .split-r .panel-b{display:flex;flex-direction:column;gap:var(--chart-gap)}
 .split-r .panel-b>.svgchart.fill{flex:1;min-height:0}
+/* График БЕЗ fill стоит собственной высотой и делить с кем-то её не должен:
+   ни растягиваться на остаток панели, ни сжиматься. Так запас высоты копится
+   ВНИЗУ панели, а до соседнего блока остаётся тот же --chart-gap, что между
+   двумя графиками. Это случай календаря посещаемости: под ним таблица дней
+   недели, и расстояние до неё не может зависеть от высоты монитора. */
+.split-r .panel-b>.svgchart{flex:none}
 /* Правая панель — тот же кегль, что и таблица подразделений слева:
    разные размеры шрифта в двух колонках одного экрана читаются как ошибка. */
 .split-r .ptable{font-size:var(--fs-body)}
@@ -647,6 +653,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .bt-group+.bt-group{padding-top:14px}
   .split-r .panel-b{display:block}
   .svgchart.fill{height:auto}
+  /* display:block гасит flex-gap, и на телефоне график слипался с тем, что под
+     ним, вплотную. Возвращаем то же расстояние маргином: между графиком и его
+     соседом оно одно на всех ширинах. Сноске margin-top обнулён ради flex-gap —
+     в блочной раскладке обнулять нечего, возвращаем и его. */
+  .split-r .panel-b>*+*{margin-top:var(--chart-gap)}
+  .split-r .panel-b>.tbl-note{margin-top:var(--chart-gap)}
 }
 
 /* ============================================================================
