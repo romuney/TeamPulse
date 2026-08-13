@@ -793,15 +793,48 @@ checks.push(['марки графиков помечены data-s',
       /<tr class="urow lvl2" data-mix="spec:be"/.test(open)&&
       /data-open="1" data-btexp="stream:dev"/.test(open)]);
     /* ИТОГО не должно удвоиться: дети уже сидят в родительской строке */
+    /* ищем внутри самой разбивки: ИТОГО сводной таблицы подразделений стоит
+       на странице раньше и до правки перехватывало проверку на себя */
+    const grp=(open.match(/<div class="bt-group">[\s\S]*?<\/table>/)||[''])[0];
     checks.push(['ИТОГО двухуровневой разбивки не удваивается',
-      (open.match(/<tr class="total"><td class="txt">ИТОГО<\/td><td class="lead">([\d\u2009]+)/)||[])[1]===
+      (grp.match(/<span class="row-body">ИТОГО<\/span><\/span><\/td><td class="lead">([\d\u2009]+)/)||[])[1]===
       D.fmtVal('hc_total',hc)]);
+
+    /* ПРАВИЛО: у таблицы с каретками в строках обязана быть общая каретка. */
+    checks.push(['у двухуровневой разбивки есть общая каретка в строке ИТОГО',
+      /<tr class="total"><td class="txt"><span class="row-label"><button class="caret-btn" data-btexpall="stream\|1"/.test(html)]);
+    checks.push(['«ИТОГО» стоит на той же вертикали, что и названия строк',
+      /data-btexpall="stream\|1"[^>]*>▸<\/button><span class="row-body">ИТОГО<\/span>/.test(html)]);
+    const allOpen=A.mixOpen(D.MIX_BY_KEY.stream.cats.map(c=>c.id));
+    checks.push(['раскрыв всё, общая каретка предлагает свернуть',
+      /data-open="1" data-btexpall="stream\|0"/.test(allOpen)&&
+      (allOpen.match(/<tr class="urow lvl2/g)||[]).length===D.MIX_BY_KEY.spec.cats.length]);
     A.mixOpen([]);
   })();
 
   /* 11. Мусор в ссылке не ломает экран */
   checks.push(['неизвестный разрез из ссылки выбрасывается',
     D.sliceParse(['nosuch:x','seniority:s','seniority:nope']).map(p=>p.id).join(',')==='seniority:s']);
+})();
+
+/* Общая каретка есть у КАЖДОЙ таблицы с каретками в строках — иначе десять
+   строк раскрываются по одной. Проверяем все три такие таблицы отчёта. */
+(function(){
+  const one=A.op([]);
+  checks.push(['у таблицы метрик one-pager есть общая каретка блока',
+    /<th class="col-caret"><button class="caret-btn" data-opexpall="structure\|1"/.test(one)]);
+  checks.push(['общая каретка блока раскрывает графики всех его метрик',
+    (function(){
+      const opened=A.op(D.metricsOfBlock('turnover').map(m=>m.key));
+      return /data-open="1" data-opexpall="turnover\|0"/.test(opened)&&
+        (opened.match(/<tr class="detail-row"/g)||[]).length>=3;
+    })()]);
+  A.op([]);
+  /* и в сводной таблице подразделений — она была первой, правило пришло оттуда */
+  checks.push(['общая каретка есть во всех трёх таблицах с каретками',
+    /data-expall="1"/.test(A.go('structure','qual'))&&
+    /data-btexpall="stream\|1"/.test(A.go('structure','stream'))&&
+    /data-opexpall="/.test(A.op([]))]);
 })();
 
 /* заголовки одной роли — один кегль: имя графика, имя панели и шапка бар-таблицы */

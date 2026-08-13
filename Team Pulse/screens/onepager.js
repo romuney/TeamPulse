@@ -106,6 +106,9 @@ function render(S,openRows){
        само по себе не говорило, с чем сравнивается число, а повторять «к маю»
        девятнадцать раз незачем. */
     const thSub=s=>'<span class="th-sub">'+esc(s)+'</span>';
+    /* Общая каретка предлагает свернуть только когда раскрыты ВСЕ строки блока */
+    const bMets=D.visibleMetricsOfBlock(b.key,S);
+    const allOpen=bMets.length>0&&bMets.every(m=>openRows.has(m.key));
     let t='<table class="mtable">'+
       /* колонка «12 мес» без фиксированной ширины: забирает всю свободную
          ширину на широком экране, а спарклайн тянется вместе с ней */
@@ -114,8 +117,13 @@ function render(S,openRows){
       '<thead><tr><th>Метрика</th><th class="num">Значение</th>'+
       '<th class="num">За месяц'+thSub(D.CMP.momFull)+'</th>'+
       '<th class="num">За год'+thSub(D.CMP.yoy)+'</th><th class="mid">12 мес</th>'+
-      '<th class="mid">Сравнение'+thSub('база или цель KPI')+'</th><th></th></tr></thead><tbody>';
-    D.visibleMetricsOfBlock(b.key,S).forEach(m=>{
+      '<th class="mid">Сравнение'+thSub('база или цель KPI')+'</th>'+
+      /* Общая каретка стоит над колонкой строчных кареток: строки блока
+         раскрывают графики по одной, и раскрыть их разом должно быть можно
+         одной кнопкой — правило то же, что у ИТОГО в сводной таблице. */
+      '<th class="col-caret">'+U.allCaret('data-opexpall',b.key+'|'+(allOpen?'0':'1'),allOpen,
+        'Графики всех метрик блока разом.')+'</th></tr></thead><tbody>';
+    bMets.forEach(m=>{
       const s=D.aggregate(rl,m.key), v=s[D.LAST], dl=D.deltasOf(rl,m.key);
       const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
       const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);

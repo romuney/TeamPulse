@@ -3476,6 +3476,22 @@ function rowCaret(open){
     ' aria-hidden="true">'+(open?'▾':'▸')+'</span>';
 }
 
+/* ---------- Общая каретка «раскрыть / свернуть всё» ----------
+   ПРАВИЛО ОТЧЁТА: если в таблице есть каретки в строках, у неё ОБЯЗАНА быть
+   общая. Раскрывать десять строк по одной, чтобы увидеть, что внутри, — работа,
+   которую одна кнопка делает за один клик. Пока раскрыто не всё, кнопка
+   предлагает раскрыть; сворачивать — только когда раскрыто всё.
+
+   Одна функция на все такие таблицы: сводную по подразделениям, двухуровневые
+   разбивки состава и метрики one-pager. Разойтись по виду и поведению им теперь
+   негде — а до этого каждая таблица заводила свою кнопку или не заводила вовсе. */
+function allCaret(attr,val,open,tipText){
+  return '<button class="caret-btn"'+(open?' data-open="1"':'')+
+    ' '+attr+'="'+esc(val)+'" aria-label="'+(open?'Свернуть всё':'Развернуть всё')+'"'+
+    tipAttr({title:open?'Свернуть всё':'Развернуть всё',text:tipText})+
+    '>'+(open?'▾':'▸')+'</button>';
+}
+
 /* ---------- Значок справки ----------
    Один значок на весь отчёт. Раньше их было два: «?» в OnePager с тултипом по
    наведению и квадратная «i» в блоках, открывавшая попап по клику. Два разных
@@ -3640,7 +3656,16 @@ function barTable(o){
   });
 
   if(o.total!==false){
-    h+='<tr class="total"><td class="txt">ИТОГО</td><td class="lead">'+D.fmtVal(key,sum)+'</td>'+
+    /* Общая каретка живёт в строке ИТОГО — там же, где в сводной таблице
+       подразделений. Заодно «ИТОГО» встаёт на ту же вертикаль, что и названия
+       строк над ним: без каретки оно было сдвинуто влево на её ширину. */
+    const allBtn=o.expAll
+      ? allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
+          'Все вторые уровни разом.')
+      : (o.tree?'<span class="caret-spacer"></span>':'');
+    h+='<tr class="total"><td class="txt">'+
+      (o.tree?'<span class="row-label">'+allBtn+'<span class="row-body">ИТОГО</span></span>':'ИТОГО')+
+      '</td><td class="lead">'+D.fmtVal(key,sum)+'</td>'+
       (withShare?'<td>100%</td>':'')+'<td class="barcell"></td></tr>';
   }
   return h+'</tbody></table>';
@@ -3826,7 +3851,7 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
 })();
 
@@ -4440,9 +4465,13 @@ function treeTable(dim,lp,sel,mixSel,open){
     });
   });
   const others=D.otherParts(mixSel,[dim.key,kid.key]);
+  /* Общая каретка предлагает свернуть, только когда раскрыто ВСЁ, — то же
+     состояние, что у ИТОГО в сводной таблице подразделений. */
+  const allOpen=tree.length>0&&tree.every(n=>open.has(n.cat.id));
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
-    head:dim.short||dim.name,metricKey:'hc_total',compact:true,tree:true,items:items});
+    head:dim.short||dim.name,metricKey:'hc_total',compact:true,tree:true,items:items,
+    expAll:{key:dim.key,open:allOpen}});
 }
 
 SC.blocks.structure={
@@ -4897,6 +4926,9 @@ function render(S,openRows){
        само по себе не говорило, с чем сравнивается число, а повторять «к маю»
        девятнадцать раз незачем. */
     const thSub=s=>'<span class="th-sub">'+esc(s)+'</span>';
+    /* Общая каретка предлагает свернуть только когда раскрыты ВСЕ строки блока */
+    const bMets=D.visibleMetricsOfBlock(b.key,S);
+    const allOpen=bMets.length>0&&bMets.every(m=>openRows.has(m.key));
     let t='<table class="mtable">'+
       /* колонка «12 мес» без фиксированной ширины: забирает всю свободную
          ширину на широком экране, а спарклайн тянется вместе с ней */
@@ -4905,8 +4937,13 @@ function render(S,openRows){
       '<thead><tr><th>Метрика</th><th class="num">Значение</th>'+
       '<th class="num">За месяц'+thSub(D.CMP.momFull)+'</th>'+
       '<th class="num">За год'+thSub(D.CMP.yoy)+'</th><th class="mid">12 мес</th>'+
-      '<th class="mid">Сравнение'+thSub('база или цель KPI')+'</th><th></th></tr></thead><tbody>';
-    D.visibleMetricsOfBlock(b.key,S).forEach(m=>{
+      '<th class="mid">Сравнение'+thSub('база или цель KPI')+'</th>'+
+      /* Общая каретка стоит над колонкой строчных кареток: строки блока
+         раскрывают графики по одной, и раскрыть их разом должно быть можно
+         одной кнопкой — правило то же, что у ИТОГО в сводной таблице. */
+      '<th class="col-caret">'+U.allCaret('data-opexpall',b.key+'|'+(allOpen?'0':'1'),allOpen,
+        'Графики всех метрик блока разом.')+'</th></tr></thead><tbody>';
+    bMets.forEach(m=>{
       const s=D.aggregate(rl,m.key), v=s[D.LAST], dl=D.deltasOf(rl,m.key);
       const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
       const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
@@ -5279,6 +5316,17 @@ document.addEventListener('click',e=>{
   if(t.closest('[data-mixswap]')){
     const r=S.mixRows;S.mixRows=S.mixCols||r;S.mixCols=S.mixCols?r:'';render(true);return;
   }
+  /* Общая каретка двухуровневой разбивки: раскрыть или свернуть ВСЕ стримы.
+     Идёт первой из кареток — она стоит в строке ИТОГО, у которой своих
+     обработчиков нет, но правило «от частного к общему» держим и здесь. */
+  const bxa=t.closest('[data-btexpall]');
+  if(bxa){
+    e.stopPropagation();
+    const [dim,on]=bxa.dataset.btexpall.split('|');
+    [...mixOpen].forEach(k=>{if(k.indexOf(dim+':')===0)mixOpen.delete(k)});
+    if(on==='1')(D.MIX_BY_KEY[dim].cats||[]).forEach(c=>mixOpen.add(c.id));
+    render(true);return;
+  }
   /* каретка стрима — раньше среза: она стоит ВНУТРИ строки, у которой есть
      data-mix, и общий обработчик среза перехватил бы клик по ней */
   const bx=t.closest('[data-btexp]');
@@ -5306,6 +5354,17 @@ document.addEventListener('click',e=>{
   /* раскрытие строк */
   const ai=t.closest('[data-ai]');
   if(ai){S.aiOpen=S.aiOpen===ai.dataset.ai?null:ai.dataset.ai;render(true);return}
+  /* Общая каретка блока one-pager: графики всех метрик блока разом.
+     Строго до `.mrow` — кнопка живёт в шапке таблицы, но клик по ней не должен
+     проваливаться в раскрытие строки, если разметка когда-нибудь съедет. */
+  const opa=t.closest('[data-opexpall]');
+  if(opa){
+    e.stopPropagation();
+    const [bk,on]=opa.dataset.opexpall.split('|');
+    D.metricsOfBlock(bk).forEach(m=>openRows.delete(m.key));
+    if(on==='1')D.visibleMetricsOfBlock(bk,S).forEach(m=>openRows.add(m.key));
+    render(true);return;
+  }
   const mr=t.closest('.mrow');
   if(mr){const k=mr.dataset.metric;openRows.has(k)?openRows.delete(k):openRows.add(k);render(true);return}
   const ur=t.closest('.urow');
