@@ -252,7 +252,8 @@ function kpiCard(o){
 
    o.items    — [{name, value, note, color, mark, node, pick, on}]
    o.metricKey— чем форматировать значение
-   o.head     — заголовок первой колонки
+   o.head     — заголовок первой колонки; пустой, если над таблицей уже стоит
+                её название (иначе одно и то же написано дважды подряд)
    o.sort     — сортировать по убыванию значения
    o.total    — дописать строку ИТОГО
    o.compact  — плотный вариант для нескольких таблиц на одном экране
@@ -278,9 +279,24 @@ function barTable(o){
   let h='<table class="ptable btable'+(o.compact?' dense':'')+'">'+
     '<colgroup><col style="width:'+(o.compact?'40%':'34%')+'"><col style="width:14%">'+
     (withShare?'<col style="width:11%">':'')+'<col></colgroup>'+
-    '<thead><tr><th class="txt">'+esc(o.head||'Категория')+'</th>'+
+    '<thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
     '<th>'+esc(o.valueHead||'Значение')+'</th>'+(withShare?'<th>Доля</th>':'')+
     '<th class="txt bar-th">'+esc(o.barHead||'Распределение')+'</th></tr></thead><tbody>';
+
+  /* ИТОГО ПЕРВОЙ СТРОКОЙ — так же, как в сводной таблице подразделений.
+     Пока итог стоял снизу в одной таблице и сверху в другой, пользователю
+     приходилось искать его заново на каждом экране. Все таблицы отчёта
+     считываются одинаково: сначала итог, потом из чего он сложился. */
+  if(o.total!==false){
+    const allBtn=o.expAll
+      ? allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
+          'Все вторые уровни разом.')
+      : (o.tree?'<span class="caret-spacer"></span>':'');
+    h+='<tr class="total top"><td class="txt">'+
+      (o.tree?'<span class="row-label">'+allBtn+'<span class="row-body">ИТОГО</span></span>':'ИТОГО')+
+      '</td><td class="lead">'+D.fmtVal(key,sum)+'</td>'+
+      (withShare?'<td>100%</td>':'')+'<td class="barcell"></td></tr>';
+  }
 
   items.forEach(x=>{
     const share=sum?x.value/sum*100:0;
@@ -315,19 +331,6 @@ function barTable(o){
         (x.color?';background:'+x.color:'')+'"></i></span></td></tr>';
   });
 
-  if(o.total!==false){
-    /* Общая каретка живёт в строке ИТОГО — там же, где в сводной таблице
-       подразделений. Заодно «ИТОГО» встаёт на ту же вертикаль, что и названия
-       строк над ним: без каретки оно было сдвинуто влево на её ширину. */
-    const allBtn=o.expAll
-      ? allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
-          'Все вторые уровни разом.')
-      : (o.tree?'<span class="caret-spacer"></span>':'');
-    h+='<tr class="total"><td class="txt">'+
-      (o.tree?'<span class="row-label">'+allBtn+'<span class="row-body">ИТОГО</span></span>':'ИТОГО')+
-      '</td><td class="lead">'+D.fmtVal(key,sum)+'</td>'+
-      (withShare?'<td>100%</td>':'')+'<td class="barcell"></td></tr>';
-  }
   return h+'</tbody></table>';
 }
 
