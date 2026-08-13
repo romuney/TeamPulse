@@ -946,3 +946,113 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* ---------- Справка: разводка без второго портрета ---------- */
 .help-pulse{gap:0}
+
+/* ============================================================================
+   Итерация 24: состав численности — срез по клику, матрица, конструктор
+   ========================================================================== */
+
+/* ---------- Подпись разреза со значком «i» ----------
+   У разрезов бывает что пояснить (грейд ≠ сеньорность), и пояснение живёт
+   там же, где название, — значок тот же, что у метрик, второго не заводим. */
+.bt-cap{display:flex;align-items:center;gap:6px}
+
+/* ---------- Плашка взятого среза ----------
+   Стоит под карточками KPI, потому что меняет именно их цифры. Оформлена
+   синим, а не серым пунктиром обычной сноски: это не пояснение, а активное
+   состояние отчёта, которое пользователь включил и должен видеть. */
+.note-inline.slice{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;
+  border-style:solid;border-color:#d7e0f2;background:var(--blue-bg);color:var(--ink2)}
+.note-inline.slice .sl-t{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.3px;
+  font-weight:800;color:#2b5fd0;flex:0 0 auto}
+.note-inline.slice .chip.sl{background:#fff;border-color:#dbe6fd;flex:0 0 auto}
+.note-inline.slice .sl-x{flex:1 1 240px;min-width:0;font-size:var(--fs-note);color:var(--muted)}
+.note-inline.slice .btn.xs{flex:0 0 auto;padding:4px 9px}
+
+/* ---------- Конструктор своего среза ----------
+   Две оси и содержимое клетки стоят одной строкой над таблицей и отделены от
+   неё линией: это орган управления таблицей, а не её часть. */
+.mx-bar{display:flex;align-items:flex-end;gap:var(--s5);flex-wrap:wrap;
+  margin:0 0 var(--s8);padding-bottom:var(--s7);border-bottom:1px solid var(--line2)}
+.mx-bar .ctl select{min-width:148px;padding:7px 28px 7px 10px;font-size:12.5px}
+.mx-bar .opts.tight{gap:4px}
+.mx-bar .opts.tight .opt{padding:6px 9px;font-size:11.5px}
+.mx-bar .mx-swap{margin-bottom:1px;padding:7px 9px;font-size:15px;line-height:1;color:var(--muted)}
+.mx-bar .mx-swap:hover{color:var(--blue)}
+
+/* ---------- Матрица состава ----------
+   Клетки разделены border-spacing, а не линиями сетки: заливка сама рисует
+   границу клетки, а линия поверх заливки читалась бы как третий уровень
+   разметки. Первая колонка и колонка «Всего» заливки не несут — они не часть
+   распределения, а его подписи и итоги.
+   Первая колонка липкая: разрезов с десятью категориями (стрим) хватает,
+   чтобы матрица поехала вбок, и без липкой колонки перестало бы быть понятно,
+   какую строку читаешь. Скролл живёт ВНУТРИ .mx-wrap: горизонтальная прокрутка
+   страницы в отчёте запрещена. */
+.mx-wrap{overflow-x:auto;overflow-y:hidden;padding-bottom:2px}
+.mxtable{border-collapse:separate;border-spacing:2px;width:100%}
+.mxtable th,.mxtable td{border:0;white-space:nowrap}
+.mxtable th.mx-corner{position:sticky;left:0;z-index:2;background:#fff;
+  text-align:left;padding:0 var(--s5) var(--s3) 7px}
+/* Колонка названий забирает весь остаток ширины, клетки стоят своей.
+   Иначе на матрице из двух колонок клетка растягивалась на 180px и двузначное
+   число тонуло в пустоте, а на матрице из десяти — все жались к левому краю. */
+.mxtable td.txt,.mxtable th.mx-corner{width:100%}
+.mxtable td.mx-cell,.mxtable th.mx-h{width:94px}
+.mx-corner .mx-r{display:block;font-size:var(--fs-cap);font-weight:800;color:var(--ink2);
+  text-transform:uppercase;letter-spacing:.2px}
+.mx-corner .mx-c{display:block;margin-top:2px;font-size:var(--fs-micro);font-weight:700;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.2px}
+.mxtable th.mx-h{padding:0 0 var(--s3);text-align:center}
+.mxtable th.mx-tot{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.2px;
+  color:var(--muted);text-align:right;padding:0 var(--s3) var(--s3) var(--s4)}
+.mxtable td.mx-tot{text-align:right;font-weight:800;color:var(--ink2);
+  font-size:var(--fs-body);padding:0 var(--s3) 0 var(--s4)}
+.mxtable td.mx-sum{text-align:center;font-weight:800;color:var(--ink2);font-size:var(--fs-body)}
+.mxtable td.txt{position:sticky;left:0;z-index:1;background:#fff;padding:0 var(--s5) 0 0;max-width:none}
+
+/* Название категории — кнопка: клик по ней берёт срез по одному атрибуту,
+   клик по клетке — сразу по двум. Взятый срез подсвечен так же, как активная
+   опция в модалке: одно состояние «выбрано» на весь отчёт. */
+.mx-pick{border:0;background:transparent;font:inherit;font-size:var(--fs-body);font-weight:700;
+  color:var(--ink2);cursor:pointer;padding:4px 7px;border-radius:var(--r2);max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background .15s,color .15s}
+.mx-pick.row{display:block;width:100%;text-align:left}
+.mx-pick:hover{background:var(--blue-bg);color:#2b5fd0}
+.mx-pick.on{background:var(--act);color:#fff}
+
+.mxtable td.mx-cell{text-align:center;font-weight:700;font-size:var(--fs-body);color:var(--ink);
+  background:#f7f8fa;border-radius:var(--r2);padding:7px 9px;min-width:54px;cursor:pointer;
+  transition:box-shadow .12s}
+.mxtable td.mx-cell:hover{box-shadow:inset 0 0 0 2px var(--act)}
+.mxtable td.mx-cell.zero{background:#fafbfc;color:var(--muted2);font-weight:600}
+.mxtable tr.mx-on td.mx-cell{box-shadow:inset 0 0 0 1px var(--act)}
+.mxtable tr.total td,.mxtable tr.total td.mx-sum{border-top:1px solid var(--line);
+  background:transparent;padding-top:var(--s5)}
+.mxtable tr.total td.txt{font-weight:800;color:var(--ink);padding-left:7px}
+
+@media(max-width:900px){
+  .mx-bar{flex-direction:column;align-items:stretch;gap:var(--s4)}
+  .mx-bar .ctl select{width:100%}
+  .mx-bar .mx-swap{align-self:flex-end;margin:0}
+  .note-inline.slice .sl-x{flex-basis:100%}
+  /* На узком экране колонка названий больше не забирает остаток ширины:
+     иначе в кадре оставались одни названия, а числа уезжали за правый край,
+     и матрица открывалась пустой. Название переносится по строкам, клетки
+     стоят своей шириной и видны сразу. */
+  /* Общий пол в 760px у .ptable матрице не нужен: у неё свой скролл внутри
+     .mx-wrap, а этот пол растягивал колонку названий на весь экран телефона,
+     и клетки уезжали за правый край — матрица открывалась пустой. */
+  .mxtable{min-width:0}
+  .mxtable td.txt,.mxtable th.mx-corner{width:auto;max-width:132px}
+  .mx-pick.row{white-space:normal;line-height:1.25}
+  /* Пять под-вкладок в одну строку на телефоне не встают. Переносим на вторую,
+     а не прячем за горизонтальный скролл: вкладка, о которой не знаешь, что
+     она есть, — это вкладка, которой нет. */
+  .panel-h .sub-tabs{flex-wrap:wrap;margin-left:0}
+}
+
+/* Уточнение среза в подписи разбивки: та же роль, что «· выбрано» в шапке
+   панели — состояние, а не заголовок, поэтому кегль сноски и серый. */
+.bt-cap .bt-sub{font-size:var(--fs-note);font-weight:600;color:var(--muted);margin-left:2px}
+/* Строка над матрицей: что из среза до неё дошло. Роль та же, что у .bt-sub. */
+.mx-cap{font-size:var(--fs-note);font-weight:600;color:var(--muted);margin:0 0 var(--s5)}

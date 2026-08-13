@@ -225,12 +225,17 @@ function kpiCard(o){
    сверху вниз как список, а длины сравниваются по общему левому старту.
    Масштаб полосы — от нуля до максимума по столбцу, как и везде в отчёте.
 
-   o.items    — [{name, value, note, color, mark}]
+   o.items    — [{name, value, note, color, mark, node, pick, on}]
    o.metricKey— чем форматировать значение
    o.head     — заголовок первой колонки
    o.sort     — сортировать по убыванию значения
    o.total    — дописать строку ИТОГО
    o.compact  — плотный вариант для нескольких таблиц на одном экране
+
+   Строка кликается двумя способами: `node` уводит в подразделение, `pick` берёт
+   срез состава («покажи только Senior»). Оба дают строке класс `.urow`, поэтому
+   курсор, ховер и выделение у них те же, что у сводной таблицы слева, — новых
+   правил взаимодействия в отчёте не заводится.
    ========================================================================== */
 function barTable(o){
   let items=o.items.slice();
@@ -251,7 +256,14 @@ function barTable(o){
 
   items.forEach(x=>{
     const share=sum?x.value/sum*100:0;
-    h+='<tr'+(x.node?' class="urow" data-node="'+esc(x.node)+'"':'')+'>'+
+    /* клик по строке: либо переход в подразделение, либо срез по категории */
+    const hook=x.node?' class="urow" data-node="'+esc(x.node)+'"'
+              :x.pick?' class="urow'+(x.on?' sel':'')+'" data-mix="'+esc(x.pick)+'"'+
+                tipAttr({title:x.name,
+                  text:x.on?'Срез по этой категории уже взят. Клик снимает его.'
+                           :'Клик берёт срез: численность в карточках и в таблице подразделений пересчитается по этой категории.'})
+              :'';
+    h+='<tr'+hook+'>'+
       '<td class="txt"><span class="row-body">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять.'})+'>★</span> ':'')+esc(x.name)+
       (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span></td>'+
       '<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+
@@ -269,6 +281,150 @@ function barTable(o){
       (withShare?'<td>100%</td>':'')+'<td class="barcell"></td></tr>';
   }
   return h+'</tbody></table>';
+}
+
+/* ---------- Разбивка с подписью ----------
+   Подпись разреза и сама таблица — один элемент: пока `.bt-group` собирался
+   в экране, соседние экраны рисовали заголовок разбивки по-своему. Значок «i»
+   тот же, что у метрик: у разрезов бывает что пояснить (грейд ≠ сеньорность),
+   и объяснение должно жить там же, где название. */
+function btGroup(o){
+  return '<div class="bt-group"><div class="bt-cap">'+esc(o.cap)+
+    (o.tip?'<span class="info"'+tipAttr(o.tip)+' aria-label="О разрезе">i</span>':'')+
+    /* Уточнение среза стоит В ПОДПИСИ таблицы, а не только в общей плашке:
+       иначе «ИТОГО 59» под заголовком «Грейд» читается как ошибка данных. */
+    (o.capSub?'<span class="bt-sub">'+esc(o.capSub)+'</span>':'')+
+    '</div>'+barTable(o)+'</div>';
+}
+function btStack(list){return '<div class="bt-stack">'+list.join('')+'</div>'}
+
+/* ============================================================================
+   matrixTable — состав в двух разрезах сразу: строки × колонки.
+
+   Зачем вообще матрица. Одна разбивка отвечает «сколько у нас Senior», но
+   вопрос руководителя обычно другой: «а по грейдам девушки и мальчики стоят
+   одинаково?». Двумя таблицами подряд на него не ответить — их приходится
+   сличать глазами. Матрица ставит оба разреза на одни оси, и ответ читается
+   строкой и столбцом.
+
+   Почему таблица, а не тепловая картинка. Правило разбивок в проекте одно:
+   разбивка по атрибутам — настоящая `<table>` с числом в клетке. Заливка здесь
+   не заменяет число, а помогает найти взглядом, где густо: сначала читается
+   пятно, потом цифра.
+
+   Шкала заливки — СИНЯЯ МОНОХРОМНАЯ, та же, что у календаря офиса, и это не
+   светофор. Много людей в клетке — не «плохо» и не «хорошо», это просто много
+   людей. Красить состав светофором значило бы выносить оценку там, где её нет.
+
+   o.rowDim/o.colDim — разрезы из D.MIX_DIMS
+   o.cells           — матрица людей [строка][колонка]
+   o.mode            — 'abs' люди · 'row' % по строке · 'col' % по колонке
+   o.sel             — Set взятых срезов (id вида 'grade:g2')
+   ========================================================================== */
+function pct(v){return v.toFixed(v<10&&v>0?1:0).replace('.',',')+'%'}
+function mxPick(id,name,on,cls){
+  return '<button class="mx-pick'+(on?' on':'')+(cls?' '+cls:'')+'" data-mix="'+esc(id)+'"'+
+    tipAttr({title:name,text:on?'Срез по этой категории уже взят. Клик снимает его.'
+                               :'Клик берёт срез по этой категории.'})+
+    '>'+esc(name)+'</button>';
+}
+function matrixTable(o){
+  const R=o.rowDim, C=o.colDim, cells=o.cells, mode=o.mode||'abs';
+  const sel=o.sel||new Set();
+  const rowSum=cells.map(r=>r.reduce((a,b)=>a+b,0));
+  const colSum=C.cats.map((_,j)=>cells.reduce((a,r)=>a+r[j],0));
+  const all=rowSum.reduce((a,b)=>a+b,0);
+  const maxCell=Math.max(1,...cells.map(r=>Math.max(...r)));
+
+  /* Интенсивность клетки: в режиме людей — от максимальной клетки, в режимах
+     долей — сама доля. Иначе в «% по строке» клетка со 100% в маленькой строке
+     красилась бы бледнее клетки с 40% в большой, хотя написано в ней больше. */
+  const shade=(v,i,j)=>mode==='abs'?v/maxCell
+    :mode==='row'?(rowSum[i]?v/rowSum[i]:0):(colSum[j]?v/colSum[j]:0);
+  /* Проценты в строке (в колонке) обязаны давать 100: 37,5 и 62,5 округлённые
+     по отдельности дают 38 и 63, и строка из двух клеток показывает 101%.
+     Округляем группой, тем же методом наибольших остатков, что и людей. */
+  const pctRow=cells.map((r,i)=>rowSum[i]?D.roundParts(r.map(v=>v/rowSum[i]*100),100):r.map(()=>0));
+  const pctCol=C.cats.map((_,j)=>colSum[j]
+    ?D.roundParts(cells.map(r=>r[j]/colSum[j]*100),100):cells.map(()=>0));
+  const show=(v,i,j)=>mode==='abs'?D.fmtInt(v)
+    :mode==='row'?(rowSum[i]?pctRow[i][j]+'%':'—')
+                 :(colSum[j]?pctCol[j][i]+'%':'—');
+
+  /* Какая часть среза до матрицы дошла, а какая нет. Без этой строки «ИТОГО 38»
+     под карточкой на 11 человек читается как ошибка: срез по оси матрицы её
+     собственную ось не режет, и сказать об этом надо там же, где стоят числа. */
+  let h=(o.cap?'<div class="mx-cap">'+esc(o.cap)+'</div>':'')+
+    '<div class="mx-wrap"><table class="ptable mxtable dense">'+
+    '<thead><tr><th class="txt mx-corner"><span class="mx-r">'+esc(R.short||R.name)+'</span>'+
+    '<span class="mx-c">'+esc(C.short||C.name)+' →</span></th>'+
+    C.cats.map(c=>'<th class="mx-h">'+mxPick(c.id,c.name,sel.has(c.id))+'</th>').join('')+
+    '<th class="mx-tot">Всего</th></tr></thead><tbody>';
+
+  R.cats.forEach((rc,i)=>{
+    h+='<tr'+(sel.has(rc.id)?' class="mx-on"':'')+'>'+
+      '<td class="txt">'+mxPick(rc.id,rc.name,sel.has(rc.id),'row')+'</td>';
+    C.cats.forEach((cc,j)=>{
+      const v=cells[i][j], t=shade(v,i,j);
+      h+='<td class="mx-cell'+(v?'':' zero')+'" data-mix="'+esc(rc.id+','+cc.id)+'"'+
+        (v?' style="background:'+G.heat(t)+';color:'+G.heatInk(t)+'"':'')+
+        tipAttr({title:rc.name+' · '+cc.name,
+          rows:[{label:'людей',value:D.fmtVal('hc_total',v),color:G.heat(Math.max(0.35,t))},
+                {label:'от строки',value:rowSum[i]?pct(v/rowSum[i]*100):'—'},
+                {label:'от колонки',value:colSum[j]?pct(v/colSum[j]*100):'—'}],
+          note:'Клик берёт срез сразу по двум атрибутам.'})+
+        '>'+(v?show(v,i,j):'—')+'</td>';
+    });
+    h+='<td class="mx-tot">'+D.fmtInt(rowSum[i])+'</td></tr>';
+  });
+
+  /* Итоги колонок стоят ПОД своими клетками и по их выравниванию — по центру;
+     общий итог живёт в колонке «Всего» и выровнен как она, по правому краю.
+     Одно выравнивание на всю строку ставило бы число мимо своей колонки. */
+  h+='<tr class="total"><td class="txt">ИТОГО</td>'+
+    colSum.map(v=>'<td class="mx-sum">'+D.fmtInt(v)+'</td>').join('')+
+    '<td class="mx-tot">'+D.fmtInt(all)+'</td></tr>';
+  return h+'</tbody></table></div>';
+}
+
+/* ---------- Конструктор среза: две оси и содержимое клетки ----------
+   Две оси, а не дерево группировок. Группированная таблица «пол → внутри
+   грейды» отвечает на тот же вопрос, но читается вниз одной колонкой: чтобы
+   сравнить грейды у женщин и у мужчин, взгляд прыгает через всю таблицу.
+   На двух осях сравнение — это соседние клетки строки. Третья ось на борде
+   не нужна: она уже про выгрузку, а не про «посмотреть». */
+function mixPicker(o){
+  const dims=o.dims, none='<option value=""'+(o.cols?'':' selected')+'>— без колонок</option>';
+  const opts=(cur,skip)=>dims.filter(d=>d.key!==skip).map(d=>
+    '<option value="'+d.key+'"'+(d.key===cur?' selected':'')+'>'+esc(d.name)+'</option>').join('');
+  const modes=[['abs','Люди'],['row','% по строке'],['col','% по колонке']];
+  return '<div class="mx-bar">'+
+    '<div class="ctl"><label>Строки</label>'+
+      '<select data-mixaxis="rows">'+opts(o.rows,o.cols)+'</select></div>'+
+    '<button class="btn ghost mx-swap" data-mixswap="1"'+
+      tipAttr({title:'Поменять оси местами',text:'Строки станут колонками, колонки — строками.'})+
+      ' aria-label="Поменять оси местами">⇄</button>'+
+    '<div class="ctl"><label>Колонки</label>'+
+      '<select data-mixaxis="cols">'+none+opts(o.cols,o.rows)+'</select></div>'+
+    (o.cols?'<div class="ctl"><label>В клетке</label><div class="opts tight">'+
+      modes.map(m=>'<button class="opt'+(o.mode===m[0]?' on':'')+'" data-mixmode="'+m[0]+'">'+
+        esc(m[1])+'</button>').join('')+'</div></div>':'')+
+    '</div>';
+}
+
+/* ---------- Плашка взятого среза ----------
+   Срез обязан быть виден там, где он меняет цифры, — рядом с карточками, а не
+   только в таблице, по которой кликнули. Иначе «191 → 59» выглядит поломкой
+   отчёта. Чип снимается кликом, как разрезы в шапке. */
+function sliceNote(parts,extra){
+  if(!parts.length)return'';
+  return '<div class="note-inline slice">'+
+    '<span class="sl-t">Срез состава:</span>'+
+    parts.map(p=>'<span class="chip sl">'+esc(p.dim.short||p.dim.name)+': <b>'+esc(p.cat.name)+'</b>'+
+      '<button class="x" data-mix="'+esc(p.id)+'"'+
+      tipAttr({title:'Снять срез',text:p.dim.name+': '+p.cat.name})+'>×</button></span>').join('')+
+    '<span class="sl-x">'+esc(extra||'')+'</span>'+
+    '<button class="btn ghost xs" data-mixclear="1">Сбросить</button></div>';
 }
 
 /* ---------- Панель с шапкой ---------- */
@@ -308,5 +464,5 @@ function trafficLegend(){
 }
 
 window.TPUI={esc,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
-  barTable,panel,subTabs,empty,trafficLegend};
+  barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
 })();

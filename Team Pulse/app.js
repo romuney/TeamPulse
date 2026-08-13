@@ -16,7 +16,8 @@ const esc=U.esc;
 /* ---------- состояние ---------- */
 /* hiddenMetrics копируем, а не берём ссылку из DEFAULT_STATE: иначе правка набора
    метрик молча мутировала бы дефолт, и «Всё» перестало бы возвращать всё */
-let S=Object.assign({},D.DEFAULT_STATE,{hiddenMetrics:D.DEFAULT_STATE.hiddenMetrics.slice()});
+let S=Object.assign({},D.DEFAULT_STATE,{hiddenMetrics:D.DEFAULT_STATE.hiddenMetrics.slice(),
+  mixSel:D.DEFAULT_STATE.mixSel.slice()});
 let DRAFT=null;              /* черновик фильтров в модалке */
 let pulseOpen=false;         /* раскрыт ли словарь метрик Пульса */
 const openRows=new Set();    /* раскрытые строки OnePager */
@@ -27,6 +28,14 @@ function urlParams(){
   const p=new URLSearchParams({unit:S.unit,paint:S.paint,it:S.itSeg,staff:S.staffType,tab:S.tab});
   /* набор метрик едет в ссылке скрытыми ключами: пустой параметр = показано всё */
   if(S.hiddenMetrics&&S.hiddenMetrics.length)p.set('hide',S.hiddenMetrics.join(','));
+  /* Срез состава и оси конструктора — в ссылку: «покажи грейды у женщин» это
+     ровно то, что пересылают друг другу, а собирать его заново руками у
+     получателя ссылки нет причин. Дефолтные значения не пишем: параметры,
+     которые ничего не меняют, делают ссылку нечитаемой. */
+  if(S.mixSel&&S.mixSel.length)p.set('mix',S.mixSel.join(','));
+  if(S.mixRows!==D.DEFAULT_STATE.mixRows)p.set('mxr',S.mixRows);
+  if(S.mixCols!==D.DEFAULT_STATE.mixCols)p.set('mxc',S.mixCols||'');
+  if(S.mixMode!==D.DEFAULT_STATE.mixMode)p.set('mxm',S.mixMode);
   return p;
 }
 function readURL(){
@@ -35,6 +44,14 @@ function readURL(){
   Object.entries(map).forEach(([k,f])=>{const v=q.get(k);if(v)S[f]=v});
   const hide=q.get('hide');
   if(hide!=null)S.hiddenMetrics=D.sanitizeHidden(hide.split(',').filter(Boolean));
+  const mix=q.get('mix');
+  /* sliceParse выбрасывает неизвестные разрезы и категории и режет длину до
+     SLICE_MAX — ссылка из прошлой версии не должна ломать экран */
+  if(mix!=null)S.mixSel=D.sliceParse(mix.split(',').filter(Boolean)).map(x=>x.id);
+  const mxr=q.get('mxr'), mxc=q.get('mxc'), mxm=q.get('mxm');
+  if(mxr&&D.MIX_BY_KEY[mxr])S.mixRows=mxr;
+  if(mxc!=null)S.mixCols=D.MIX_BY_KEY[mxc]?mxc:'';
+  if(mxm&&['abs','row','col'].indexOf(mxm)>=0)S.mixMode=mxm;
   if(!D.NODE_BY_PATH[S.unit])S.unit=D.DEFAULT_STATE.unit;
 }
 function writeURL(){history.replaceState(null,'','?'+urlParams().toString())}
@@ -152,6 +169,28 @@ function metricOpts(){
     'таблиц; графики в детальных листах остаются.'+
     (hidB?' Блоков скрыто целиком: <b>'+hidB+'</b> — они исчезнут и из меню слева.':'');
 }
+/* ---------- Срез состава ----------
+   Один срез на разрез: клик по «Senior» после «Junior» не складывает их, а
+   заменяет — две категории одного разреза в пересечении дают ноль, и таблица
+   молча опустела бы. Дальше SLICE_MAX атрибутов срез не растёт: на третьем
+   начинаются доли от долей, и в клетке остаётся полчеловека. Уходит самый
+   старый — так последний клик пользователя всегда виден в результате.
+   Повторный клик по уже взятому снимает ровно его. */
+function toggleMix(spec){
+  const want=String(spec).split(',').filter(Boolean);
+  let cur=D.sliceParse(S.mixSel).map(p=>p.id);
+  if(want.every(id=>cur.indexOf(id)>=0)){
+    S.mixSel=cur.filter(id=>want.indexOf(id)<0);return;
+  }
+  want.forEach(id=>{
+    const dim=id.split(':')[0];
+    cur=cur.filter(x=>x.split(':')[0]!==dim);
+    cur.push(id);
+  });
+  while(cur.length>D.SLICE_MAX)cur.shift();
+  S.mixSel=cur;
+}
+
 function toggleMetric(key){
   if(D.LOCKED_METRICS.has(key))return;
   const hid=new Set(DRAFT.hiddenMetrics);
@@ -175,7 +214,7 @@ function navOpen(on){
 }
 function enhanceA11y(){
   document.querySelectorAll('.nav-i').forEach(x=>{x.setAttribute('aria-current',x.classList.contains('active')?'page':'false')});
-  document.querySelectorAll('.mrow,.urow').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button')});
+  document.querySelectorAll('.mrow,.urow,.mx-cell').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button')});
   document.querySelectorAll('.ai-h').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button');x.setAttribute('aria-expanded',String(S.aiOpen===x.dataset.ai))});
 }
 
@@ -248,6 +287,11 @@ document.addEventListener('click',e=>{
   const mt=t.closest('[data-mtoggle]');
   if(mt&&DRAFT){toggleMetric(mt.dataset.mtoggle);return}
 
+  /* содержимое клетки матрицы — раньше общей ветки .opt: кнопки режима тоже
+     .opt, но без data-f, и общий обработчик записал бы в DRAFT undefined */
+  const mm=t.closest('[data-mixmode]');
+  if(mm){S.mixMode=mm.dataset.mixmode;render(true);return}
+
   const opt=t.closest('.opt');
   if(opt&&DRAFT){DRAFT[opt.dataset.f]=opt.dataset.v;paintOpts();return}
 
@@ -278,6 +322,15 @@ document.addEventListener('click',e=>{
   if(dr){e.stopPropagation();S.drillRoot=dr.dataset.drill;S.selNode=null;expanded.clear();render();return}
   if(t.closest('[data-undrill]')){S.drillRoot=null;S.selNode=null;expanded.clear();render();return}
 
+  /* Срез состава — СТРОГО до .urow: строка разбивки и есть .urow, и общий
+     обработчик выбора подразделения перехватил бы её первым. */
+  if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
+  if(t.closest('[data-mixswap]')){
+    const r=S.mixRows;S.mixRows=S.mixCols||r;S.mixCols=S.mixCols?r:'';render(true);return;
+  }
+  const mx=t.closest('[data-mix]');
+  if(mx){e.stopPropagation();toggleMix(mx.dataset.mix);render(true);return}
+
   /* Легенда графика — СТРОГО до .urow: в правой панели график лежит рядом
      с таблицей, и клик по легенде не должен уходить в выбор строки. */
   const lg=t.closest&&t.closest('.lg[data-sid]');
@@ -301,7 +354,14 @@ document.addEventListener('click',e=>{
   if(t.closest('.nav-i')&&innerWidth<=780)navOpen(false);
 });
 document.addEventListener('change',e=>{
-  if(e.target.id==='selUnit'&&DRAFT){DRAFT.unit=e.target.value;paintOpts()}
+  if(e.target.id==='selUnit'&&DRAFT){DRAFT.unit=e.target.value;paintOpts();return}
+  const ax=e.target.closest&&e.target.closest('[data-mixaxis]');
+  if(ax){
+    const v=e.target.value;
+    if(ax.dataset.mixaxis==='rows'){S.mixRows=v;if(S.mixCols===v)S.mixCols=''}
+    else{S.mixCols=v===S.mixRows?'':v}
+    render(true);
+  }
 });
 
 /* Наведение на пункт легенды гасит чужие серии. focusin/focusout — то же
@@ -319,7 +379,7 @@ document.addEventListener('mouseout',e=>lgHover(e,false));
 document.addEventListener('focusin',e=>lgHover(e,true));
 document.addEventListener('focusout',e=>lgHover(e,false));
 document.addEventListener('keydown',e=>{
-  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.ai-h')){e.preventDefault();e.target.click()}
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.ai-h,.mx-cell')){e.preventDefault();e.target.click()}
   /* У SVGElement может не быть .click() — зовём обработчик напрямую.
      После перерисовки узла больше нет, поэтому фокус возвращаем вручную. */
   if((e.key==='Enter'||e.key===' ')&&e.target.closest){

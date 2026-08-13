@@ -258,14 +258,11 @@ function leafAttrs(path,blockSeg){
   const paint = rp<0.42?'HQ':(rp<0.78?'Line':'Support');
   const it = blockSeg==='nonIT' ? (rng('it'+path)()<0.18?'IT':'nonIT') : (rng('it'+path)()<0.82?'IT':'nonIT');
   const staff = rng('st'+path)()<0.86?'staff':'nonstaff';
-  const gr=rng('gr'+path), tn=rng('tn'+path);
-  const gw=[0.10+gr()*0.5,0.55+gr()*0.5,0.40+gr()*0.4,0.10+gr()*0.2];
-  const gs=gw.reduce((a,b)=>a+b,0);
-  const grades=gw.map(x=>x/gs);
-  const tw=[0.25+tn()*0.4,0.45+tn()*0.4,0.30+tn()*0.5];
-  const ts=tw.reduce((a,b)=>a+b,0);
-  const tenure=tw.map(x=>x/ts);
-  return {paint,it,staff,grades,tenure};
+  /* Доли по разрезам состава здесь больше не считаются: их выдаёт mixWeights
+     лениво и по одному ключу разреза. Держать девять векторов на каждом листе
+     ради трёх таблиц, которые рисуются за рендер, незачем — да и список
+     разрезов теперь живёт в MIX_DIMS, а не в полях узла. */
+  return {paint,it,staff};
 }
 
 function genChildren(node,blockSeg){
@@ -537,31 +534,385 @@ function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',
 const DEFAULT_STATE={unit:'T/01',paint:'HQ',itSeg:'all',staffType:'all',period:PERIOD_LABEL,
   tab:'onepager',subTab:null,drillRoot:null,selNode:null,aiOpen:false,
   /* скрытые пользователем метрики; пусто = показаны все */
-  hiddenMetrics:[]};
+  hiddenMetrics:[],
+  /* срез состава: не больше SLICE_MAX категорий, по одной на разрез */
+  mixSel:[],
+  /* оси конструктора «Свой срез» и содержимое ячейки */
+  mixRows:'seniority',mixCols:'gender',mixMode:'abs'};
 
-/* ---------- Разрезы состава численности ---------- */
-const GRADES=[{key:'j',name:'Junior',color:'#a8c4ea'},{key:'m',name:'Middle',color:'#7fa8dd'},
-              {key:'s',name:'Senior',color:'#5f86c2'},{key:'l',name:'Lead и выше',color:'#3f5e93'}];
-const TENURES=[{key:'t0',name:'До 1 года',color:'#cdbf97'},{key:'t1',name:'1–3 года',color:'#9fae6a'},
-               {key:'t3',name:'Больше 3 лет',color:'#5f9d8a'}];
-const STAFFMIX=[{key:'staff',name:'Штат',color:'#5f86c2'},{key:'nonstaff',name:'Не штат',color:'#cdbf97'}];
+/* ============================================================================
+   Разрезы состава численности
 
-/* состав группы листьев по выбранному разрезу: возвращает массив человек по категориям */
-/* lp — массив ПУТЕЙ листьев, а атрибуты лежат на узле: без разыменования
-   через NODE_BY_PATH все доли выходили равными, а «штат» весь падал в «не штат». */
-function mixParts(lp,dim){
-  const cats=dim==='grade'?GRADES:dim==='tenure'?TENURES:STAFFMIX;
-  const out=cats.map(()=>0);
-  lp.forEach(p=>{
-    const n=NODE_BY_PATH[p]||{};
-    const hc=lastVal([p],'hc_total');
-    if(dim==='staff'){ out[n.staff==='staff'?0:1]+=hc; return }
-    const w=dim==='grade'?n.grades:n.tenure;
-    cats.forEach((c,i)=>{out[i]+=hc*(w?w[i]:1/cats.length)});
-  });
-  return out.map(x=>Math.round(x));
+   Разрезов девять, и это список, а не набор веток в if: атрибуты в HR-борде
+   заводятся постоянно (юрлицо, формат работы, стрим), и каждый новый не должен
+   означать правку разбивки, матрицы, конструктора и среза по отдельности.
+   Экран берёт разрезы группами (MIX_GROUPS), конструктор — всем списком.
+
+   ГРЕЙД И СЕНЬОРНОСТЬ — РАЗНЫЕ ВЕЩИ. Грейд — числовой уровень должности,
+   сеньорность — текстовый уровень специалиста. Связаны, но не совпадают:
+   Senior на третьем грейде и Senior на четвёртом — обычное дело. Поэтому
+   разреза два, а не один, и связь между ними задана явно (GRADE_BY_SEN).
+
+   Шкалы: у порядковых разрезов (грейд, сеньорность, стаж, возраст) — одна
+   последовательная шкала светлое→тёмное, порядок обязан читаться. У номинальных
+   (пол, юрлицо, стрим, формат, занятость) — различимые тона: порядка у них нет,
+   и градиент врал бы про него.
+   ========================================================================== */
+const MIX_SEQ=['#c3d6f2','#a8c4ea','#7fa8dd','#5f86c2','#3f5e93','#2c4370'];
+const MIX_NOM=['#5f86c2','#cdbf97','#5f9d8a','#9fae6a','#8b8fc0','#7fb0c8',
+               '#c08a9e','#a8b5c4','#b9a2d8','#c9a678'];
+function mixColors(n,ord){
+  if(!ord)return Array.from({length:n},(_,i)=>MIX_NOM[i%MIX_NOM.length]);
+  return Array.from({length:n},(_,i)=>MIX_SEQ[n<=1?0:Math.round(i*(MIX_SEQ.length-1)/(n-1))]);
 }
-function mixCats(dim){return dim==='grade'?GRADES:dim==='tenure'?TENURES:STAFFMIX}
+
+/* Сеньорность → грейд. Строка — сеньорность, столбец — грейд, сумма строки 1.
+   Без этой таблицы грейд бросался бы независимо, и матрица «грейд × сеньорность»
+   показала бы Junior на пятом грейде — то есть ровно то, ради чего заказчик
+   и просил развести два разреза. */
+const GRADE_BY_SEN=[
+  [0.55,0.40,0.05,0.00,0.00],   /* Junior      */
+  [0.05,0.45,0.42,0.08,0.00],   /* Middle      */
+  [0.00,0.06,0.44,0.42,0.08],   /* Senior      */
+  [0.00,0.00,0.10,0.45,0.45]    /* Lead и выше */
+];
+
+const MIX_DIMS=[
+{key:'grade',name:'Грейд',short:'Грейд',ord:true,group:'qual',
+ hint:'Числовой уровень должности. Не то же самое, что сеньорность: она про уровень специалиста, грейд — про позицию в системе грейдов.',
+ cats:[{key:'g1',name:'Грейд 1'},{key:'g2',name:'Грейд 2'},{key:'g3',name:'Грейд 3'},
+       {key:'g4',name:'Грейд 4'},{key:'g5',name:'Грейд 5'}]},
+{key:'seniority',name:'Сеньорность',short:'Сеньорность',ord:true,group:'qual',
+ hint:'Текстовый уровень специалиста. С грейдом связан, но не равен ему.',
+ cats:[{key:'j',name:'Junior',w:1.00},{key:'m',name:'Middle',w:1.70},
+       {key:'s',name:'Senior',w:1.25},{key:'l',name:'Lead и выше',w:0.42}]},
+{key:'gender',name:'Пол',short:'Пол',group:'people',
+ hint:'Разрез нужен вместе с другими: сам по себе он ни о чём не говорит, а «пол × грейд» показывает, ровно ли распределены уровни.',
+ cats:[{key:'f',name:'Женщины',wIT:0.85,wNon:1.75},{key:'m',name:'Мужчины',wIT:1.90,wNon:0.95}]},
+{key:'age',name:'Возрастная группа',short:'Возраст',ord:true,group:'people',
+ cats:[{key:'a0',name:'До 25 лет',w:0.50},{key:'a25',name:'25–34 года',w:1.90},
+       {key:'a35',name:'35–44 года',w:1.15},{key:'a45',name:'45 лет и старше',w:0.40}]},
+{key:'tenure',name:'Стаж в компании',short:'Стаж',ord:true,group:'people',
+ cats:[{key:'t0',name:'До 1 года',w:1.00},{key:'t1',name:'1–3 года',w:1.35},
+       {key:'t3',name:'Больше 3 лет',w:0.90}]},
+{key:'employment',name:'Тип занятости',short:'Занятость',group:'contract',
+ hint:'Форма оформления. Штат — трудовой договор; всё остальное — не штат, и фильтр «штат / не штат» в шапке режет ровно по этой границе.',
+ cats:[{key:'tk',name:'Штат (ТК РФ)'},{key:'gph',name:'ГПХ',w:1.15},{key:'ip',name:'ИП',w:0.95},
+       {key:'sz',name:'Самозанятый',w:0.80},{key:'out',name:'Аутстафф',w:0.55}]},
+{key:'worksite',name:'Формат работы',short:'Формат',group:'contract',
+ cats:[{key:'off',name:'Офис',w:1.10},{key:'hyb',name:'Гибрид',w:1.60},
+       {key:'rem',name:'Дистанционно',w:0.80}]},
+{key:'legal',name:'Юрлицо',short:'Юрлицо',group:'contract',
+ hint:'Юрлицо у подразделения одно: доля не размазывается между несколькими.',
+ cats:[{key:'l1',name:'Основное юрлицо',w:0.50},{key:'l2',name:'Технологии',w:0.24},
+       {key:'l3',name:'Сервис',w:0.16},{key:'l4',name:'Регионы',w:0.10}]},
+{key:'stream',name:'Стрим и специализация',short:'Стрим',group:'stream',sort:true,
+ hint:'Чем люди занимаются. Разрез длинный: строк здесь больше, чем в остальных, поэтому он стоит на своей вкладке.',
+ cats:[{key:'dev',name:'Разработка',wIT:3.20,wNon:0.05},
+       {key:'qa',name:'Тестирование',wIT:1.10,wNon:0.05},
+       {key:'ana',name:'Аналитика',wIT:0.90,wNon:0.50},
+       {key:'ops',name:'DevOps и инфраструктура',wIT:0.60,wNon:0.05},
+       {key:'ml',name:'Данные и ML',wIT:0.55,wNon:0.10},
+       {key:'des',name:'Дизайн',wIT:0.35,wNon:0.10},
+       {key:'prod',name:'Продукт и проекты',wIT:0.60,wNon:0.35},
+       {key:'sup',name:'Поддержка клиентов',wIT:0.10,wNon:2.60},
+       {key:'back',name:'Операции и бэк-офис',wIT:0.10,wNon:1.90},
+       {key:'adm',name:'Управление и администрирование',wIT:0.30,wNon:0.60}]}
+];
+MIX_DIMS.forEach(d=>{
+  const cols=mixColors(d.cats.length,d.ord);
+  d.cats.forEach((c,i)=>{c.color=cols[i];c.dim=d.key;c.id=d.key+':'+c.key});
+});
+const MIX_BY_KEY=Object.fromEntries(MIX_DIMS.map(d=>[d.key,d]));
+
+/* Группы разрезов = под-вкладки состава. Правило раскладки одно: на вкладке
+   не больше трёх таблиц. Четвёртая уже не влезает в рабочую зону ноутбука,
+   а вкладка с прокруткой на два экрана перестаёт быть вкладкой. */
+const MIX_GROUPS=[
+{key:'qual',name:'Квалификация',dims:['grade','seniority'],
+ title:'Квалификация: грейд и сеньорность'},
+{key:'people',name:'Люди',dims:['gender','age','tenure'],
+ title:'Кто эти люди: пол, возраст, стаж'},
+{key:'contract',name:'Оформление',dims:['employment','worksite','legal'],
+ title:'Как оформлены и где работают'},
+{key:'stream',name:'Стримы',dims:['stream'],
+ title:'Стримы и специализации'}
+];
+
+/* Доли категорий внутри одного листа. Считаются лениво и кешируются: держать
+   девять векторов на каждом из 204 листьев незачем — за один рендер экран
+   спрашивает от силы три разреза. */
+const _mixW=new Map();
+function mixWeights(leafPath,dimKey){
+  const ck=leafPath+'|'+dimKey;
+  if(_mixW.has(ck))return _mixW.get(ck);
+  const dim=MIX_BY_KEY[dimKey], n=NODE_BY_PATH[leafPath]||{};
+  const r=rng('mixw'+dimKey+leafPath);
+  let w;
+  if(dimKey==='grade'){
+    const sw=mixWeights(leafPath,'seniority');
+    w=dim.cats.map((c,j)=>sw.reduce((a,s,i)=>a+s*GRADE_BY_SEN[i][j],0));
+  } else if(dimKey==='employment'){
+    /* Согласовано с фильтром «штат / не штат» в шапке: штатный лист весь в ТК,
+       нештатный делится между ГПХ, ИП, самозанятыми и аутстаффом. Иначе отбор
+       «только штат» показывал бы людей на ГПХ. */
+    w=dim.cats.map((c,i)=>n.staff==='staff'?(i===0?1:0)
+                        :(i===0?0:Math.max(0.02,(c.w||1)*(0.6+r()*0.8))));
+  } else if(dimKey==='legal'){
+    /* Юрлицо одно на подразделение: единица в одной категории, а не доли. */
+    const acc=[];let s=0;
+    dim.cats.forEach(c=>{s+=c.w||1;acc.push(s)});
+    const x=r()*s, hit=acc.findIndex(a=>x<=a);
+    w=dim.cats.map((c,i)=>i===(hit<0?0:hit)?1:0);
+  } else {
+    w=dim.cats.map(c=>{
+      const base=n.it==='nonIT'?(c.wNon!=null?c.wNon:(c.w!=null?c.w:1))
+                              :(c.wIT!=null?c.wIT:(c.w!=null?c.w:1));
+      return Math.max(0.02,base*(0.6+r()*0.8));
+    });
+  }
+  const s=w.reduce((a,b)=>a+b,0)||1;
+  const out=w.map(x=>x/s);
+  _mixW.set(ck,out);return out;
+}
+
+/* ---------- Связи между разрезами ----------
+   Без связей матрица бесполезна: если атрибуты независимы, «% по строке» даёт
+   одни и те же 25/75 в каждой строке, и смотреть на неё незачем. Ровно тот
+   вопрос, ради которого матрица и заводится («грейды у женщин и у мужчин
+   стоят одинаково?»), остался бы без ответа по построению.
+
+   Пары со связью перечислены здесь; всё остальное внутри листа независимо.
+   Список отдаётся наружу (MIX_LINKS) и подписывается в сноске под матрицей —
+   выдуманная связь обязана быть названа, а не выглядеть находкой в данных. */
+/* Шкала наклона задаётся по категориям ПЕРВОГО разреза, а знак тянет ко
+   ВТОРОЙ категории второго: плюс — к первой в его списке, минус — к последней. */
+const SEN_GENDER_TILT=[0.30,0.05,-0.18,-0.40];   /* + к женщинам (первая), − к мужчинам */
+const AGE_TENURE_TILT=[0.45,0.10,-0.22,-0.40];   /* + к «до 1 года», − к «больше 3 лет» */
+const MIX_LINKS=[
+{a:'seniority',b:'grade',exact:GRADE_BY_SEN,
+ label:'сеньорность и грейд (Junior не сидит на пятом грейде)'},
+{a:'seniority',b:'gender',tilt:SEN_GENDER_TILT,
+ label:'сеньорность и пол (доля женщин падает с уровнем)'},
+{a:'age',b:'tenure',tilt:AGE_TENURE_TILT,
+ label:'возраст и стаж (кто старше, тот дольше в компании)'}
+];
+const MIX_LINK_TEXT=MIX_LINKS.map(l=>l.label).join('; ');
+
+/* Связь вносится множителем, а потом распределение возвращается к исходным
+   маргиналам (IPF, десяток итераций). Это принципиально: обе одномерные
+   разбивки обязаны остаться ТЕМИ ЖЕ, что на соседних вкладках. Иначе матрица
+   спорила бы с таблицами, из которых собрана, — а сходимость чисел между
+   экранами в этом отчёте дороже любой связи. */
+function ipfJoint(wr,wc,bias){
+  let m=wr.map((a,i)=>wc.map((b,j)=>Math.max(1e-9,a*b*bias[i][j])));
+  for(let t=0;t<12;t++){
+    m=m.map((row,i)=>{const sr=row.reduce((x,y)=>x+y,0)||1;return row.map(v=>v*wr[i]/sr)});
+    const cs=wc.map((_,j)=>m.reduce((x,r)=>x+r[j],0)||1);
+    m=m.map(row=>row.map((v,j)=>v*wc[j]/cs[j]));
+  }
+  return m;
+}
+/* Перекос из шкалы наклона: первая категория второго разреза тянется вверх,
+   последняя — вниз, промежуточные линейно между ними. */
+function tiltBias(tilt,nc){
+  return tilt.map(t=>Array.from({length:nc},(_,j)=>
+    Math.exp(t*(nc<2?0:1-2*j/(nc-1)))));
+}
+
+/* Совместное распределение двух разрезов внутри одного листа. */
+function mixJoint(leafPath,rowKey,colKey){
+  const wr=mixWeights(leafPath,rowKey), wc=mixWeights(leafPath,colKey);
+  const link=MIX_LINKS.find(l=>(l.a===rowKey&&l.b===colKey)||(l.a===colKey&&l.b===rowKey));
+  if(!link)return wr.map(a=>wc.map(b=>a*b));
+  const flip=link.a===colKey;
+  if(link.exact){
+    /* точная связь: доли второго разреза выведены из первого, маргиналы
+       сходятся по построению, выравнивать нечего */
+    return flip ? wr.map((_,i)=>wc.map((s,j)=>s*link.exact[j][i]))
+                : wr.map((s,i)=>link.exact[i].map(g=>s*g));
+  }
+  const bias=tiltBias(link.tilt,flip?wr.length:wc.length);
+  return flip ? ipfJoint(wr,wc,wr.map((_,i)=>wc.map((__,j)=>bias[j][i])))
+              : ipfJoint(wr,wc,bias);
+}
+
+/* Округление долей до людей по наибольшим остаткам. Округлять каждую долю
+   отдельно нельзя: сумма разъезжается с численностью, и ИТОГО таблицы начинает
+   спорить с карточкой KPI над ней — на один-двух человек, но заметно. */
+function roundParts(vals,total){
+  const fl=vals.map(v=>Math.floor(v));
+  let rest=Math.max(0,Math.round(total)-fl.reduce((a,b)=>a+b,0));
+  const idx=vals.map((v,i)=>i).sort((a,b)=>(vals[b]-fl[b])-(vals[a]-fl[a]));
+  for(let k=0;k<rest&&idx.length;k++)fl[idx[k%idx.length]]++;
+  return fl;
+}
+
+/* Вес листа с учётом среза, НО без той части среза, которая приходится на
+   сам показываемый разрез. Правило перекрёстной фильтрации: срез действует на
+   всё, кроме таблицы, из которой его взяли. Иначе клик по «Senior» схлопнул бы
+   таблицу сеньорности в одну строку, и переключиться на Middle стало бы нечем.
+   Второй сторонний атрибут (срез из двух) домножается независимо — то же
+   допущение, что и в матрице. */
+function otherParts(sel,skip){
+  return sliceParse(sel).filter(p=>skip.indexOf(p.dim.key)<0);
+}
+function shareBesides(leafPath,parts){
+  if(!parts.length)return 1;
+  return sliceShare(leafPath,parts);
+}
+
+/* Состав группы листьев по разрезу: массив человек по категориям.
+   lp — массив ПУТЕЙ листьев, атрибуты берутся по пути через mixWeights.
+   sel — активный срез: он режет таблицу, но не по её собственному разрезу. */
+function mixParts(lp,dimKey,sel){
+  const dim=MIX_BY_KEY[dimKey];
+  if(!dim)return [];
+  const parts=otherParts(sel,[dimKey]);
+  const raw=dim.cats.map(()=>0);
+  lp.forEach(p=>{
+    const hc=lastVal([p],'hc_total');
+    let w;
+    if(!parts.length)w=mixWeights(p,dimKey);
+    else{
+      /* с первым сторонним атрибутом — совместное распределение (для пары
+         грейд/сеньорность оно точное), остальное независимо */
+      const j=mixJoint(p,dimKey,parts[0].dim.key);
+      const rest=parts.length>1?mixWeights(p,parts[1].dim.key)[parts[1].idx]:1;
+      w=dim.cats.map((_,i)=>j[i][parts[0].idx]*rest);
+    }
+    dim.cats.forEach((c,i)=>{raw[i]+=hc*w[i]});
+  });
+  return roundParts(raw,raw.reduce((a,b)=>a+b,0));
+}
+function mixCats(dimKey){return (MIX_BY_KEY[dimKey]||{cats:[]}).cats}
+
+/* Округление матрицы С СОХРАНЕНИЕМ КРАЁВ. Просто округлить все клетки разом
+   мало: итог колонки в матрице тогда расходится с той же категорией в обычной
+   разбивке на соседней вкладке — «Женщины 54» против «Женщины 53». Один
+   человек, но это ровно тот случай, когда пользователь перестаёт верить обеим
+   таблицам. Поэтому сначала округляются края (тем же методом, что и разбивка,
+   так что совпадают с ней ровно), а потом целые люди раскладываются по клеткам
+   в порядке убывания дробной части, но только туда, где ещё не выбрана квота
+   и строки, и колонки. */
+function roundMatrix(raw,rowTot,colTot){
+  const out=raw.map(r=>r.map(v=>Math.floor(v)));
+  const needR=rowTot.map((t,i)=>t-out[i].reduce((a,b)=>a+b,0));
+  const needC=colTot.map((t,j)=>t-out.reduce((a,r)=>a+r[j],0));
+  /* Клетки со структурным нулём (Junior на пятом грейде) из раздачи исключены:
+     доложить туда человека ради схождения края — значит нарисовать в матрице
+     то, чего в модели нет. Такие нули остаются нулями. */
+  const cells=[];
+  raw.forEach((r,i)=>r.forEach((v,j)=>{if(v>1e-9)cells.push({i:i,j:j,f:v-out[i][j]})}));
+  cells.sort((a,b)=>b.f-a.f);
+  let moved=1;
+  while(moved){
+    moved=0;
+    cells.forEach(c=>{
+      if(needR[c.i]>0&&needC[c.j]>0){out[c.i][c.j]++;needR[c.i]--;needC[c.j]--;moved++}
+    });
+  }
+  /* Довод остатка. Сначала ищем разрешённую клетку на пересечении строки и
+     колонки, которым не хватает. Если такой нет (в строке остались одни
+     структурные нули), доводим обменом по циклу: +1 в разрешённую клетку этой
+     строки, −1 у соседней строки в той же колонке, +1 у неё в нужной. Итог
+     ровно тот же — строка и колонка получили по человеку, — а нули остались
+     нулями. Без обмена приходилось бы выбирать между сходящимся краем и
+     честной матрицей, и Lead оказывался на первом грейде. */
+  const R=out.length, C=out[0].length;
+  for(let guard=0;guard<4096;guard++){
+    let i=-1,j=-1;
+    for(let a=0;a<R&&i<0;a++){
+      if(needR[a]<=0)continue;
+      for(let b=0;b<C;b++)if(needC[b]>0&&raw[a][b]>1e-9){i=a;j=b;break}
+    }
+    if(i>=0){out[i][j]++;needR[i]--;needC[j]--;continue}
+    i=needR.findIndex(v=>v>0);j=needC.findIndex(v=>v>0);
+    if(i<0||j<0)break;
+    let done=false;
+    for(let k=0;k<C&&!done;k++){
+      if(raw[i][k]<=1e-9)continue;
+      for(let r=0;r<R&&!done;r++){
+        if(r===i||out[r][k]<=0||raw[r][j]<=1e-9)continue;
+        out[i][k]++;out[r][k]--;out[r][j]++;
+        needR[i]--;needC[j]--;done=true;
+      }
+    }
+    if(!done){out[i][j]++;needR[i]--;needC[j]--}
+  }
+  return out;
+}
+
+/* Матрица «строки × колонки» в людях. Итоги строк и колонок совпадают с теми же
+   разрезами в обычных разбивках, сумма клеток — с численностью в карточках.
+   Срез по третьему атрибуту матрицу режет, срез по её собственным осям — нет. */
+function mixMatrix(lp,rowKey,colKey,sel){
+  const R=MIX_BY_KEY[rowKey], C=MIX_BY_KEY[colKey];
+  if(!R||!C)return [];
+  const parts=otherParts(sel,[rowKey,colKey]);
+  const raw=R.cats.map(()=>C.cats.map(()=>0));
+  let sum=0;
+  lp.forEach(p=>{
+    const hc=lastVal([p],'hc_total')*shareBesides(p,parts), j=mixJoint(p,rowKey,colKey);
+    sum+=hc;
+    R.cats.forEach((_,i)=>C.cats.forEach((__,k)=>{raw[i][k]+=hc*j[i][k]}));
+  });
+  const rowTot=roundParts(raw.map(r=>r.reduce((a,b)=>a+b,0)),sum);
+  const colTot=roundParts(C.cats.map((_,k)=>raw.reduce((a,r)=>a+r[k],0)),sum);
+  return roundMatrix(raw,rowTot,colTot);
+}
+
+/* ---------- Срез состава ----------
+   Клик по строке разбивки берёт срез: численность в карточках и в таблице
+   подразделений пересчитывается по доле этой категории. Дальше двух атрибутов
+   срез не идёт — на третьем начинаются доли от долей, и в клетке остаётся
+   полчеловека. Режутся только счётные метрики численности: проценты умножать
+   на долю состава бессмысленно, а найм и отток модель по атрибутам не знает. */
+const SLICE_MAX=2;
+const SLICE_KEYS=new Set(['hc_total','hc_active']);
+function sliceable(key){return SLICE_KEYS.has(key)}
+function sliceParse(sel){
+  return (sel||[]).map(id=>{
+    const [dk,ck]=String(id).split(':'), dim=MIX_BY_KEY[dk];
+    if(!dim)return null;
+    const i=dim.cats.findIndex(c=>c.key===ck);
+    return i<0?null:{id:dim.key+':'+ck,dim:dim,idx:i,cat:dim.cats[i]};
+  }).filter(Boolean).slice(0,SLICE_MAX);
+}
+function sliceLabel(sel){return sliceParse(sel).map(p=>p.cat.name).join(' · ')}
+/* Доля листа, попадающая в срез. Для пары разрезов берётся совместное
+   распределение — то же самое, что стоит в клетке матрицы, иначе срез по клику
+   расходился бы с числом, по которому кликнули. */
+function sliceShare(leafPath,parts){
+  if(!parts.length)return 1;
+  if(parts.length===1)return mixWeights(leafPath,parts[0].dim.key)[parts[0].idx];
+  const j=mixJoint(leafPath,parts[0].dim.key,parts[1].dim.key);
+  return j[parts[0].idx][parts[1].idx];
+}
+function aggregateSlice(lp,key,sel){
+  const parts=sliceParse(sel);
+  if(!parts.length||!sliceable(key)||!lp.length)return aggregate(lp,key);
+  const ck='sl|'+key+'|'+parts.map(p=>p.id).join(',')+'#'+lp.length+'#'+hashStr(lp.join(','));
+  if(_ac.has(ck))return _ac.get(ck);
+  const out=new Array(N).fill(0);
+  for(let i=0;i<N;i++){
+    let s=0;
+    lp.forEach(p=>{s+=metricSeries(p,key)[i]*sliceShare(p,parts)});
+    /* НЕ до десятых: 53,46 округлилось бы сначала до 53,5, а потом до 54 —
+       и карточка показывала бы 54 там, где разбивка честно считает 53.
+       Двойное округление на срезе даёт расхождение ровно в одного человека,
+       то есть ровно то, из-за чего перестают верить обеим таблицам. */
+    out[i]=+s.toFixed(4);
+  }
+  _ac.set(ck,out);return out;
+}
+function lastValSlice(lp,key,sel){return aggregateSlice(lp,key,sel)[LAST]}
+/* Изменение к прошлому месяцу по срезу: на расширенную сетку срез не ходит,
+   поэтому MoM считается по окну — для численности это тот же прошлый месяц. */
+function sliceDeltaMoM(lp,key,sel){
+  const s=aggregateSlice(lp,key,sel);
+  return +(s[LAST]-s[LAST-1]).toFixed(1);
+}
 
 /* ---------- Посещаемость офисов: подневно, по дням недели, по офисам ----------
    ВАЖНО: ни подневных отметок, ни привязки людей к офисам в модели нет — здесь
@@ -686,7 +1037,10 @@ function netGrowth(lp){
   return hc[LAST]-hc[0];
 }
 
-window.TPDATA={GRADES,TENURES,STAFFMIX,mixParts,mixCats,netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
+window.TPDATA={MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_SEQ,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+  mixParts,mixCats,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
+  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
+  netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,
   COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
