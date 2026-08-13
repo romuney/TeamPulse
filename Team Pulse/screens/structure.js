@@ -47,7 +47,11 @@ function dimTable(dim,lp,sel,mixSel){
   const others=D.otherParts(mixSel,[dim.key]);
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
-    head:dim.short||dim.name,metricKey:'hc_total',compact:true,sort:!!dim.sort,
+    /* Название разреза уже стоит подписью НАД таблицей — в шапке первой
+       колонки его повторять незачем: «Грейд» и сразу под ним «ГРЕЙД» это одно
+       и то же, написанное дважды. Подписаны колонки, у которых имя добавляет
+       смысл: что за число и в чём оно. */
+    head:'',valueHead:'Человек',metricKey:'hc_total',compact:true,sort:!!dim.sort,
     items:dim.cats.map((c,i)=>({name:c.name,value:parts[i],color:D.dimColor(dim.key),
       pick:c.id,on:sel.has(c.id)}))});
 }
@@ -78,7 +82,7 @@ function treeTable(dim,lp,sel,mixSel,open){
   const allOpen=tree.length>0&&tree.every(n=>open.has(n.cat.id));
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
-    head:dim.short||dim.name,metricKey:'hc_total',compact:true,tree:true,items:items,
+    head:'',valueHead:'Человек',metricKey:'hc_total',compact:true,tree:true,items:items,
     expAll:{key:dim.key,open:allOpen}});
 }
 

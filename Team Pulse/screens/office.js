@@ -38,7 +38,9 @@ SC.blocks.office={
     if(ctx.sub==='offices'){
       const rows=D.officeRank(ctx.lp);
       if(!rows.length)return U.empty('Нет данных по офисам','В отборе нет сотрудников.');
-      return U.barTable({head:'Офис',metricKey:'office_att',valueHead:'Посещаемость',
+      /* «Рейтинг офисов» стоит заголовком панели над таблицей — колонку имён
+         второй раз не подписываем */
+      return U.barTable({head:'',metricKey:'office_att',valueHead:'Посещаемость',
         barHead:'Сравнение офисов',share:false,total:false,
         items:rows.map(o=>({name:o.name,note:o.city+' · '+D.fmtInt(o.hc)+' чел',
           value:o.att,tip:'сотрудников отбора: '+D.fmtInt(o.hc)}))})+

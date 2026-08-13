@@ -24,7 +24,10 @@ SC.blocks.turnover={
     const lp=ctx.lp;
     if(ctx.sub==='reasons'){
       /* ★ — нежелательный уход; сортировка по убыванию, как в разборе «сверху вниз» */
-      return U.barTable({head:'Причина увольнения',metricKey:'attrition',sort:true,
+      /* Шапка первой колонки пустая: «Причины увольнений за период» уже стоит
+         заголовком панели прямо над таблицей, и «ПРИЧИНА УВОЛЬНЕНИЯ» под ним —
+         то же самое во второй раз. */
+      return U.barTable({head:'',valueHead:'Человек',metricKey:'attrition',sort:true,
         items:D.EXIT_REASONS.map(r=>({name:r.name,value:SC.sumS(D.reasonSeries(lp,r.key)),
           mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})+
         '<div class="tbl-note">★ — нежелательный уход: причина, на которую компания могла повлиять.</div>';

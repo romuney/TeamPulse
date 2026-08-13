@@ -796,15 +796,34 @@ checks.push(['марки графиков помечены data-s',
     /* ищем внутри самой разбивки: ИТОГО сводной таблицы подразделений стоит
        на странице раньше и до правки перехватывало проверку на себя */
     const grp=(open.match(/<div class="bt-group">[\s\S]*?<\/table>/)||[''])[0];
+    /* заголовок первой колонки не повторяет название разреза над таблицей */
+    checks.push(['подпись разреза не продублирована в шапке колонки',
+      /<div class="bt-cap">Стрим и специализация/.test(grp)&&
+      /<thead><tr><th class="txt"><\/th>/.test(grp)]);
+    /* то же правило во всех таблицах, у которых имя стоит прямо над ними */
+    checks.push(['ни одна таблица не повторяет своё название в шапке колонки',
+      /<thead><tr><th class="txt"><\/th>/.test(A.go('turnover','reasons'))&&
+      /<thead><tr><th class="txt"><\/th>/.test(A.go('office','offices'))]);
     checks.push(['ИТОГО двухуровневой разбивки не удваивается',
       (grp.match(/<span class="row-body">ИТОГО<\/span><\/span><\/td><td class="lead">([\d\u2009]+)/)||[])[1]===
       D.fmtVal('hc_total',hc)]);
 
     /* ПРАВИЛО: у таблицы с каретками в строках обязана быть общая каретка. */
     checks.push(['у двухуровневой разбивки есть общая каретка в строке ИТОГО',
-      /<tr class="total"><td class="txt"><span class="row-label"><button class="caret-btn" data-btexpall="stream\|1"/.test(html)]);
+      /<tr class="total top"><td class="txt"><span class="row-label"><button class="caret-btn" data-btexpall="stream\|1"/.test(html)]);
+    /* ИТОГО во ВСЕХ таблицах отчёта стоит первой строкой: пока в одной он был
+       сверху, а в другой снизу, его приходилось искать заново на каждом экране */
+    checks.push(['ИТОГО стоит первой строкой и в разбивке, и в сводной таблице',
+      (function(){
+        const body=(html.match(/<div class="bt-group">[\s\S]*?<tbody>([\s\S]{0,120})/)||[])[1]||'';
+        return /^<tr class="total top"/.test(body)&&
+          /<tbody>[\s\S]{0,40}<tr class="total top"/.test(A.go('turnover','reasons'));
+      })()]);
     checks.push(['«ИТОГО» стоит на той же вертикали, что и названия строк',
       /data-btexpall="stream\|1"[^>]*>▸<\/button><span class="row-body">ИТОГО<\/span>/.test(html)]);
+    /* проверка выше уходила на вкладку текучести — возвращаемся, иначе
+       A.mixOpen отрисует не тот экран */
+    A.go('structure','stream');
     const allOpen=A.mixOpen(D.MIX_BY_KEY.stream.cats.map(c=>c.id));
     checks.push(['раскрыв всё, общая каретка предлагает свернуть',
       /data-open="1" data-btexpall="stream\|0"/.test(allOpen)&&
@@ -841,6 +860,17 @@ checks.push(['марки графиков помечены data-s',
 checks.push(['заголовки графиков и панелей одного кегля',
   /const TTL_SZ=12/.test(fs.readFileSync(path.join(dir,'draw.js'),'utf8'))&&
   /\.bt-cap\{[^}]*font-size:12px/.test(css)]);
+
+/* Типографика: вес — иерархия, а не украшение. Пока жирным было набрано всё,
+   выделять стало нечем; проверка держит шкалу и не даёт вернуть восьмисотый. */
+checks.push(['в :root есть шкала весов из четырёх ролей',
+  /--fw-body:400/.test(css)&&/--fw-med:500/.test(css)&&
+  /--fw-lead:600/.test(css)&&/--fw-bold:700/.test(css)]);
+checks.push(['веса 800 в отчёте не осталось',!/font-weight:800/.test(css)]);
+checks.push(['числа в ячейках таблиц набраны обычным весом, а не полужирным',
+  /\.ptabletd\{[^}]*font-weight:var\(--fw-body\)/.test(css)&&
+  /\.ptabletd\.txt\{[^}]*font-weight:var\(--fw-lead\)/.test(css)&&
+  /\.ptable\.densetd\.lead\{font-weight:var\(--fw-bold\)/.test(css)]);
 
 /* токены: три шкалы в :root, литеральных цветов в экранах не осталось */
 checks.push(['в :root есть шкала расстояний, роли кеглей и радиусы',
