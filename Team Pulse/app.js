@@ -331,6 +331,17 @@ document.addEventListener('click',e=>{
   if(t.closest('[data-mixswap]')){
     const r=S.mixRows;S.mixRows=S.mixCols||r;S.mixCols=S.mixCols?r:'';render(true);return;
   }
+  /* Общая каретка двухуровневой разбивки: раскрыть или свернуть ВСЕ стримы.
+     Идёт первой из кареток — она стоит в строке ИТОГО, у которой своих
+     обработчиков нет, но правило «от частного к общему» держим и здесь. */
+  const bxa=t.closest('[data-btexpall]');
+  if(bxa){
+    e.stopPropagation();
+    const [dim,on]=bxa.dataset.btexpall.split('|');
+    [...mixOpen].forEach(k=>{if(k.indexOf(dim+':')===0)mixOpen.delete(k)});
+    if(on==='1')(D.MIX_BY_KEY[dim].cats||[]).forEach(c=>mixOpen.add(c.id));
+    render(true);return;
+  }
   /* каретка стрима — раньше среза: она стоит ВНУТРИ строки, у которой есть
      data-mix, и общий обработчик среза перехватил бы клик по ней */
   const bx=t.closest('[data-btexp]');
@@ -358,6 +369,17 @@ document.addEventListener('click',e=>{
   /* раскрытие строк */
   const ai=t.closest('[data-ai]');
   if(ai){S.aiOpen=S.aiOpen===ai.dataset.ai?null:ai.dataset.ai;render(true);return}
+  /* Общая каретка блока one-pager: графики всех метрик блока разом.
+     Строго до `.mrow` — кнопка живёт в шапке таблицы, но клик по ней не должен
+     проваливаться в раскрытие строки, если разметка когда-нибудь съедет. */
+  const opa=t.closest('[data-opexpall]');
+  if(opa){
+    e.stopPropagation();
+    const [bk,on]=opa.dataset.opexpall.split('|');
+    D.metricsOfBlock(bk).forEach(m=>openRows.delete(m.key));
+    if(on==='1')D.visibleMetricsOfBlock(bk,S).forEach(m=>openRows.add(m.key));
+    render(true);return;
+  }
   const mr=t.closest('.mrow');
   if(mr){const k=mr.dataset.metric;openRows.has(k)?openRows.delete(k):openRows.add(k);render(true);return}
   const ur=t.closest('.urow');

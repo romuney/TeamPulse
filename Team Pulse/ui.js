@@ -136,6 +136,22 @@ function rowCaret(open){
     ' aria-hidden="true">'+(open?'▾':'▸')+'</span>';
 }
 
+/* ---------- Общая каретка «раскрыть / свернуть всё» ----------
+   ПРАВИЛО ОТЧЁТА: если в таблице есть каретки в строках, у неё ОБЯЗАНА быть
+   общая. Раскрывать десять строк по одной, чтобы увидеть, что внутри, — работа,
+   которую одна кнопка делает за один клик. Пока раскрыто не всё, кнопка
+   предлагает раскрыть; сворачивать — только когда раскрыто всё.
+
+   Одна функция на все такие таблицы: сводную по подразделениям, двухуровневые
+   разбивки состава и метрики one-pager. Разойтись по виду и поведению им теперь
+   негде — а до этого каждая таблица заводила свою кнопку или не заводила вовсе. */
+function allCaret(attr,val,open,tipText){
+  return '<button class="caret-btn"'+(open?' data-open="1"':'')+
+    ' '+attr+'="'+esc(val)+'" aria-label="'+(open?'Свернуть всё':'Развернуть всё')+'"'+
+    tipAttr({title:open?'Свернуть всё':'Развернуть всё',text:tipText})+
+    '>'+(open?'▾':'▸')+'</button>';
+}
+
 /* ---------- Значок справки ----------
    Один значок на весь отчёт. Раньше их было два: «?» в OnePager с тултипом по
    наведению и квадратная «i» в блоках, открывавшая попап по клику. Два разных
@@ -300,7 +316,16 @@ function barTable(o){
   });
 
   if(o.total!==false){
-    h+='<tr class="total"><td class="txt">ИТОГО</td><td class="lead">'+D.fmtVal(key,sum)+'</td>'+
+    /* Общая каретка живёт в строке ИТОГО — там же, где в сводной таблице
+       подразделений. Заодно «ИТОГО» встаёт на ту же вертикаль, что и названия
+       строк над ним: без каретки оно было сдвинуто влево на её ширину. */
+    const allBtn=o.expAll
+      ? allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
+          'Все вторые уровни разом.')
+      : (o.tree?'<span class="caret-spacer"></span>':'');
+    h+='<tr class="total"><td class="txt">'+
+      (o.tree?'<span class="row-label">'+allBtn+'<span class="row-body">ИТОГО</span></span>':'ИТОГО')+
+      '</td><td class="lead">'+D.fmtVal(key,sum)+'</td>'+
       (withShare?'<td>100%</td>':'')+'<td class="barcell"></td></tr>';
   }
   return h+'</tbody></table>';
@@ -486,6 +511,6 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
 })();

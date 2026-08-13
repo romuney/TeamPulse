@@ -73,9 +73,13 @@ function treeTable(dim,lp,sel,mixSel,open){
     });
   });
   const others=D.otherParts(mixSel,[dim.key,kid.key]);
+  /* Общая каретка предлагает свернуть, только когда раскрыто ВСЁ, — то же
+     состояние, что у ИТОГО в сводной таблице подразделений. */
+  const allOpen=tree.length>0&&tree.every(n=>open.has(n.cat.id));
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
-    head:dim.short||dim.name,metricKey:'hc_total',compact:true,tree:true,items:items});
+    head:dim.short||dim.name,metricKey:'hc_total',compact:true,tree:true,items:items,
+    expAll:{key:dim.key,open:allOpen}});
 }
 
 SC.blocks.structure={
