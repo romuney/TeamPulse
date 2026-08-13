@@ -17,6 +17,15 @@ const D=window.TPDATA, G=window.TPDRAW;
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
+/* Русское склонение по числу: «1 специализация», «2 специализации»,
+   «5 специализаций». Отдельной функцией, потому что подписей вида «N чего-то»
+   в отчёте будет больше одной, а «3 специализации» руками пишется правильно
+   ровно до первого стрима с одной или с пятью. */
+function plural(n,forms){
+  const a=Math.abs(n)%100, b=a%10;
+  return forms[a>4&&a<21?2:b===1?0:b>1&&b<5?1:2];
+}
+
 /* ============================================================================
    Кастомный тултип — ЕДИНСТВЕННЫЙ тултип в отчёте.
 
@@ -241,8 +250,11 @@ function barTable(o){
   let items=o.items.slice();
   if(o.sort)items.sort((a,b)=>b.value-a.value);
   const key=o.metricKey||'hc_total';
-  const sum=items.reduce((a,x)=>a+x.value,0);
-  const max=G.niceMax(items.map(x=>x.value));
+  /* Итог и масштаб полосы считаются по ВЕРХНЕМУ уровню: дочерние строки уже
+     учтены в родительской, и складывать их второй раз — удвоить ИТОГО. */
+  const topItems=items.filter(x=>x.depth!==2);
+  const sum=topItems.reduce((a,x)=>a+x.value,0);
+  const max=G.niceMax(topItems.map(x=>x.value));
 
   /* share:false — для процентных метрик: доля одного процента в сумме процентов
      ничего не значит, а колонка «Доля» делает вид, что значит. */
@@ -257,15 +269,26 @@ function barTable(o){
   items.forEach(x=>{
     const share=sum?x.value/sum*100:0;
     /* клик по строке: либо переход в подразделение, либо срез по категории */
-    const hook=x.node?' class="urow" data-node="'+esc(x.node)+'"'
-              :x.pick?' class="urow'+(x.on?' sel':'')+'" data-mix="'+esc(x.pick)+'"'+
-                tipAttr({title:x.name,
-                  text:x.on?'Срез по этой категории уже взят. Клик снимает его.'
-                           :'Клик берёт срез: численность в карточках и в таблице подразделений пересчитается по этой категории.'})
-              :'';
+    const cls=[x.node||x.pick?'urow':'',x.on?'sel':'',x.depth===2?'lvl2':''].filter(Boolean).join(' ');
+    const hook=(cls?' class="'+cls+'"':'')+
+      (x.node?' data-node="'+esc(x.node)+'"':'')+
+      (x.pick?' data-mix="'+esc(x.pick)+'"'+
+        tipAttr({title:x.name,
+          text:x.on?'Срез по этой категории уже взят. Клик снимает его.'
+                   :'Клик берёт срез: численность в карточках и в таблице подразделений пересчитается по этой категории.'}):'');
+    /* Двухуровневая разбивка: каретка раскрывает верхний уровень. Разметка та
+       же, что в сводной таблице подразделений (`row-label` + `caret-btn`),
+       чтобы раскрытие в отчёте выглядело и работало одинаково везде. */
+    const caret=!o.tree?''
+      :x.exp?'<button class="caret-btn"'+(x.open?' data-open="1"':'')+' data-btexp="'+esc(x.exp)+'"'+
+        ' aria-label="'+(x.open?'Свернуть':'Раскрыть')+'"'+
+        tipAttr({title:x.open?'Свернуть':'Раскрыть',text:'Специализации внутри стрима.'})+
+        '>'+(x.open?'▾':'▸')+'</button>'
+      :'<span class="caret-spacer"></span>';
+    const nm='<span class="row-body">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять.'})+'>★</span> ':'')+esc(x.name)+
+      (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span>';
     h+='<tr'+hook+'>'+
-      '<td class="txt"><span class="row-body">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять.'})+'>★</span> ':'')+esc(x.name)+
-      (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span></td>'+
+      '<td class="txt">'+(o.tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
       '<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+
       (withShare?'<td>'+share.toFixed(share<10?1:0).replace('.',',')+'%</td>':'')+
       '<td class="barcell"'+tipAttr({title:x.name,
@@ -463,6 +486,6 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={esc,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
 })();
