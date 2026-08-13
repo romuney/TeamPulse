@@ -51,6 +51,7 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   /* срез состава живёт в S, но кликом его ставит обработчик — зовём его напрямую */
   '\n  mix:list=>{S.mixSel=(list||[]).slice()},'+
   '\n  mixClick:spec=>{toggleMix(spec);return S.mixSel.slice()},'+
+  '\n  mixOpen:list=>{mixOpen.clear();(list||[]).forEach(k=>mixOpen.add(k));render();return $("#view").innerHTML},'+
   '\n  link:()=>shareLink(),'+
   '\n  tab:()=>S.tab, nav:()=>$("#navBlocks").innerHTML, st:()=>S,'+
   '\n  chips:()=>{renderHead();return $("#chips").innerHTML}};');
@@ -580,14 +581,35 @@ checks.push(['марки графиков помечены data-s',
   const dims=D.MIX_DIMS, byKey=D.MIX_BY_KEY;
 
   /* 1. Разрезов девять, и это реестр, а не ветки в if */
-  checks.push(['разрезы состава объявлены списком: грейд, сеньорность, пол, возраст, стаж, занятость, формат, юрлицо, стрим',
+  checks.push(['разрезы состава объявлены списком: от грейда до специализации',
     dims.map(d=>d.key).join(',')===
-    'grade,seniority,gender,age,tenure,employment,worksite,legal,stream']);
+    'grade,seniority,gender,age,tenure,employment,worksite,legal,stream,spec']);
   checks.push(['грейд и сеньорность — РАЗНЫЕ разрезы: числовой и текстовый',
     byKey.grade.cats.every(c=>/^Грейд \d$/.test(c.name))&&
     byKey.seniority.cats.map(c=>c.name).join(',')==='Junior,Middle,Senior,Lead и выше']);
-  checks.push(['у каждой категории есть цвет и составной id «разрез:категория»',
-    dims.every(d=>d.cats.every(c=>/^#[0-9a-f]{6}$/i.test(c.color)&&c.id===d.key+':'+c.key))]);
+  checks.push(['у каждой категории есть составной id «разрез:категория»',
+    dims.every(d=>d.cats.every(c=>c.id===d.key+':'+c.key&&c.dim===d.key))]);
+  /* ЦВЕТ ОДИН НА ТАБЛИЦУ. Величину несёт длина полосы; красить строки разными
+     цветами — кодировать одно и то же дважды. Цвет различает ГРУППЫ разрезов. */
+  checks.push(['цвет один на разрез, а не на категорию',
+    dims.every(d=>/^#[0-9a-f]{6}$/i.test(d.color)&&d.cats.every(c=>c.color==null))]);
+  checks.push(['у каждой группы разрезов свой цвет, и они разные',
+    (function(){
+      const c=D.MIX_GROUPS.map(g=>D.MIX_GROUP_COLOR[g.key]);
+      return c.every(Boolean)&&new Set(c).size===c.length;
+    })()]);
+  checks.push(['разрезы одной группы красятся одинаково',
+    D.MIX_GROUPS.every(g=>new Set(g.dims.map(k=>D.dimColor(k))).size===1)]);
+  /* в собранной разбивке ровно один цвет полосы на таблицу */
+  (function(){
+    const html=A.go('structure','people');
+    const groups=html.split('<div class="bt-group">').slice(1);
+    checks.push(['в собранной разбивке полосы одного цвета',
+      groups.length===3&&groups.every(g=>{
+        const cols=[...g.matchAll(/;background:(#[0-9a-f]{6})/gi)].map(m=>m[1].toLowerCase());
+        return cols.length>1&&new Set(cols).size===1;
+      })]);
+  })();
 
   /* 2. Раскладка по вкладкам: не больше трёх разбивок на одной */
   checks.push(['на вкладке состава не больше трёх разбивок',
@@ -670,9 +692,13 @@ checks.push(['марки графиков помечены data-s',
      карточке против 53 в таблице: один человек, но после него не верят обеим. */
   (function(){
     let bad=0,n=0;
+    /* Уровни одного разреза (стрим и специализация) из сверки исключены:
+       срез по стриму не режет разбивку по специализациям — это тот же разрез,
+       и схлопнуть его собственной категорией нельзя, иначе не переключиться. */
+    const same=(a,b)=>a.childDim===b.key||b.childDim===a.key;
     dims.forEach(d=>d.cats.forEach(c=>{
       const one=[c.id], card=D.fmtVal('hc_total',D.lastValSlice(rl,'hc_total',one));
-      dims.filter(x=>x.key!==d.key).forEach(other=>{
+      dims.filter(x=>x.key!==d.key&&!same(x,d)).forEach(other=>{
         n++;
         if(card!==D.fmtVal('hc_total',D.mixParts(rl,other.key,one).reduce((a,b)=>a+b,0)))bad++;
       });
@@ -727,8 +753,11 @@ checks.push(['марки графиков помечены data-s',
   A.mix([]);
   checks.push(['второй клик по тому же разрезу заменяет категорию, а не складывает',
     (A.mixClick('seniority:j'),A.mixClick('seniority:s')).join(',')==='seniority:s']);
-  checks.push(['срез не растёт дальше двух атрибутов',
-    (A.mixClick('gender:f'),A.mixClick('worksite:rem')).length===D.SLICE_MAX]);
+  checks.push(['категории разных разрезов складываются в срез',
+    (A.mixClick('gender:f'),A.mixClick('worksite:rem')).length===3]);
+  checks.push(['срез из трёх атрибутов режет сильнее, чем из двух',
+    D.lastValSlice(rl,'hc_total',['seniority:s','gender:m','worksite:rem'])<
+    D.lastValSlice(rl,'hc_total',['seniority:s','gender:m'])]);
   A.mix(['seniority:s']);
   checks.push(['повторный клик по взятой категории снимает её',
     A.mixClick('seniority:s').length===0]);
@@ -736,7 +765,41 @@ checks.push(['марки графиков помечены data-s',
     (A.mix(['seniority:s','gender:f']),/mix=seniority%3As%2Cgender%3Af/.test(A.link()))]);
   A.mix([]);
 
-  /* 10. Мусор в ссылке не ломает экран */
+  /* 10. Стрим — двухуровневый разрез: каретка раскрывает специализации */
+  (function(){
+    const tree=D.mixTree(rl,'stream');
+    checks.push(['специализации в сумме дают ровно свой стрим',
+      tree.every(n=>n.kids.reduce((a,k)=>a+k.value,0)===n.value)]);
+    checks.push(['стримы в сумме дают численность отбора',
+      tree.reduce((a,n)=>a+n.value,0)===Math.round(hc)]);
+    checks.push(['разбивка по специализациям и дерево стримов — одни и те же числа',
+      D.mixParts(rl,'spec').join()===[].concat(...tree.map(n=>n.kids.map(k=>k.value))).join()]);
+    /* уровни одного разреза не перемножаются как независимые */
+    checks.push(['срез «стрим + его специализация» равен самой специализации',
+      D.lastValSlice(rl,'hc_total',['stream:dev','spec:be'])===
+      D.lastValSlice(rl,'hc_total',['spec:be'])]);
+    checks.push(['срез «стрим + чужая специализация» пуст',
+      D.lastValSlice(rl,'hc_total',['stream:dev','spec:l1'])===0]);
+    const mx=D.mixMatrix(rl,'stream','spec');
+    checks.push(['матрица «стрим × специализация» блочно-диагональная',
+      mx.every((r,i)=>r.every((v,j)=>
+        v===0||D.MIX_BY_KEY.spec.cats[j].parent===D.MIX_BY_KEY.stream.cats[i].key))]);
+    const html=A.go('structure','stream');
+    checks.push(['у стрима есть каретка, а сами специализации свёрнуты',
+      /<button class="caret-btn" data-btexp="stream:dev"/.test(html)&&
+      !/data-mix="spec:be"/.test(html)]);
+    const open=A.mixOpen(['stream:dev']);
+    checks.push(['раскрытая каретка показывает специализации вторым уровнем',
+      /<tr class="urow lvl2" data-mix="spec:be"/.test(open)&&
+      /data-open="1" data-btexp="stream:dev"/.test(open)]);
+    /* ИТОГО не должно удвоиться: дети уже сидят в родительской строке */
+    checks.push(['ИТОГО двухуровневой разбивки не удваивается',
+      (open.match(/<tr class="total"><td class="txt">ИТОГО<\/td><td class="lead">([\d\u2009]+)/)||[])[1]===
+      D.fmtVal('hc_total',hc)]);
+    A.mixOpen([]);
+  })();
+
+  /* 11. Мусор в ссылке не ломает экран */
   checks.push(['неизвестный разрез из ссылки выбрасывается',
     D.sliceParse(['nosuch:x','seniority:s','seniority:nope']).map(p=>p.id).join(',')==='seniority:s']);
 })();

@@ -1768,12 +1768,22 @@ const DEFAULT_STATE={unit:'T/01',paint:'HQ',itSeg:'all',staffType:'all',period:P
    (пол, юрлицо, стрим, формат, занятость) — различимые тона: порядка у них нет,
    и градиент врал бы про него.
    ========================================================================== */
-const MIX_SEQ=['#c3d6f2','#a8c4ea','#7fa8dd','#5f86c2','#3f5e93','#2c4370'];
-const MIX_NOM=['#5f86c2','#cdbf97','#5f9d8a','#9fae6a','#8b8fc0','#7fb0c8',
-               '#c08a9e','#a8b5c4','#b9a2d8','#c9a678'];
-function mixColors(n,ord){
-  if(!ord)return Array.from({length:n},(_,i)=>MIX_NOM[i%MIX_NOM.length]);
-  return Array.from({length:n},(_,i)=>MIX_SEQ[n<=1?0:Math.round(i*(MIX_SEQ.length-1)/(n-1))]);
+/* ---------- Цвет: ОДИН НА ГРУППУ РАЗРЕЗОВ, а не на категорию ----------
+   Внутри одной разбивки все полосы одного цвета. Величину несёт длина полосы,
+   и раскрашивать строки в разные цвета — значит кодировать одно и то же дважды:
+   цвет начинает выглядеть смыслом, которого в нём нет. Формулировка заказчика:
+   «разница между барчартами зашита в длину, поэтому цвета мы не меняем».
+
+   Цвет при этом не пропадает, а меняет работу: он различает ГРУППЫ разрезов.
+   Квалификация синяя, люди лиловые, оформление песочное, стримы зелёные —
+   на какой вкладке стоишь, видно по цвету полос, не читая заголовок. В своём
+   срезе полоса красится по группе выбранного разреза, поэтому цвет остаётся
+   признаком семьи атрибута и там. */
+const MIX_GROUP_COLOR={qual:'#5f86c2',people:'#8b8fc0',contract:'#cdbf97',stream:'#5f9d8a'};
+const MIX_COLOR_DEF='#5f86c2';
+function dimColor(dimKey){
+  const d=MIX_BY_KEY[dimKey];
+  return (d&&MIX_GROUP_COLOR[d.group])||MIX_COLOR_DEF;
 }
 
 /* Сеньорность → грейд. Строка — сеньорность, столбец — грейд, сумма строки 1.
@@ -1816,24 +1826,55 @@ const MIX_DIMS=[
  hint:'Юрлицо у подразделения одно: доля не размазывается между несколькими.',
  cats:[{key:'l1',name:'Основное юрлицо',w:0.50},{key:'l2',name:'Технологии',w:0.24},
        {key:'l3',name:'Сервис',w:0.16},{key:'l4',name:'Регионы',w:0.10}]},
-{key:'stream',name:'Стрим и специализация',short:'Стрим',group:'stream',sort:true,
- hint:'Чем люди занимаются. Разрез длинный: строк здесь больше, чем в остальных, поэтому он стоит на своей вкладке.',
- cats:[{key:'dev',name:'Разработка',wIT:3.20,wNon:0.05},
-       {key:'qa',name:'Тестирование',wIT:1.10,wNon:0.05},
-       {key:'ana',name:'Аналитика',wIT:0.90,wNon:0.50},
-       {key:'ops',name:'DevOps и инфраструктура',wIT:0.60,wNon:0.05},
-       {key:'ml',name:'Данные и ML',wIT:0.55,wNon:0.10},
-       {key:'des',name:'Дизайн',wIT:0.35,wNon:0.10},
-       {key:'prod',name:'Продукт и проекты',wIT:0.60,wNon:0.35},
-       {key:'sup',name:'Поддержка клиентов',wIT:0.10,wNon:2.60},
-       {key:'back',name:'Операции и бэк-офис',wIT:0.10,wNon:1.90},
-       {key:'adm',name:'Управление и администрирование',wIT:0.30,wNon:0.60}]}
+{key:'stream',name:'Стрим и специализация',short:'Стрим',group:'stream',sort:true,childDim:'spec',
+ hint:'Чем люди занимаются. Разрез двухуровневый: каретка раскрывает стрим до специализаций внутри него.',
+ cats:[{key:'dev',name:'Разработка',kids:['be','fe','mob','core']},
+       {key:'qa',name:'Тестирование',kids:['qaa','qam']},
+       {key:'ana',name:'Аналитика',kids:['sa','ba']},
+       {key:'ops',name:'DevOps и инфраструктура',kids:['dop','sre','net']},
+       {key:'ml',name:'Данные и ML',kids:['de','mlm','bi']},
+       {key:'des',name:'Дизайн',kids:['ux','res']},
+       {key:'prod',name:'Продукт и проекты',kids:['pm','pjm']},
+       {key:'sup',name:'Поддержка клиентов',kids:['l1','l2','vip']},
+       {key:'back',name:'Операции и бэк-офис',kids:['ver','rec','doc']},
+       {key:'adm',name:'Управление и администрирование',kids:['lead','adf']}]},
+/* Специализации — нижний уровень стрима. Веса заданы ЗДЕСЬ, а вес стрима
+   складывается из детей (см. mixWeights): иначе уровни разъезжались бы, и
+   раскрытая каретка показывала бы сумму, не равную строке над ней. */
+{key:'spec',name:'Специализация',short:'Специализация',group:'stream',sort:true,parentDim:'stream',
+ hint:'Нижний уровень стрима. Отдельным разрезом нужен в конструкторе: в матрице специализация — такая же ось, как остальные.',
+ cats:[{key:'be',name:'Бэкенд',parent:'dev',wIT:1.20,wNon:0.02},
+       {key:'fe',name:'Фронтенд',parent:'dev',wIT:0.85,wNon:0.02},
+       {key:'mob',name:'Мобильная разработка',parent:'dev',wIT:0.75,wNon:0.005},
+       {key:'core',name:'Платформа и ядро',parent:'dev',wIT:0.40,wNon:0.005},
+       {key:'qaa',name:'Автоматизация тестирования',parent:'qa',wIT:0.65,wNon:0.02},
+       {key:'qam',name:'Ручное тестирование',parent:'qa',wIT:0.45,wNon:0.03},
+       {key:'sa',name:'Системный анализ',parent:'ana',wIT:0.50,wNon:0.20},
+       {key:'ba',name:'Бизнес-анализ',parent:'ana',wIT:0.40,wNon:0.30},
+       {key:'dop',name:'DevOps и релизы',parent:'ops',wIT:0.28,wNon:0.02},
+       {key:'sre',name:'SRE и надёжность',parent:'ops',wIT:0.18,wNon:0.01},
+       {key:'net',name:'Сети и оборудование',parent:'ops',wIT:0.14,wNon:0.02},
+       {key:'de',name:'Дата-инженерия',parent:'ml',wIT:0.22,wNon:0.04},
+       {key:'mlm',name:'ML и моделирование',parent:'ml',wIT:0.18,wNon:0.02},
+       {key:'bi',name:'BI и отчётность',parent:'ml',wIT:0.15,wNon:0.04},
+       {key:'ux',name:'Продуктовый дизайн',parent:'des',wIT:0.25,wNon:0.07},
+       {key:'res',name:'Исследования',parent:'des',wIT:0.10,wNon:0.03},
+       {key:'pm',name:'Продакт-менеджмент',parent:'prod',wIT:0.35,wNon:0.15},
+       {key:'pjm',name:'Проектное управление',parent:'prod',wIT:0.25,wNon:0.20},
+       {key:'l1',name:'Первая линия',parent:'sup',wIT:0.05,wNon:1.40},
+       {key:'l2',name:'Вторая линия',parent:'sup',wIT:0.03,wNon:0.80},
+       {key:'vip',name:'Премиальный сегмент',parent:'sup',wIT:0.02,wNon:0.40},
+       {key:'ver',name:'Верификация',parent:'back',wIT:0.04,wNon:0.70},
+       {key:'rec',name:'Сверка операций',parent:'back',wIT:0.03,wNon:0.65},
+       {key:'doc',name:'Документооборот',parent:'back',wIT:0.03,wNon:0.55},
+       {key:'lead',name:'Руководители',parent:'adm',wIT:0.18,wNon:0.30},
+       {key:'adf',name:'Административные функции',parent:'adm',wIT:0.12,wNon:0.30}]}
 ];
-MIX_DIMS.forEach(d=>{
-  const cols=mixColors(d.cats.length,d.ord);
-  d.cats.forEach((c,i)=>{c.color=cols[i];c.dim=d.key;c.id=d.key+':'+c.key});
-});
 const MIX_BY_KEY=Object.fromEntries(MIX_DIMS.map(d=>[d.key,d]));
+MIX_DIMS.forEach(d=>{
+  d.color=MIX_GROUP_COLOR[d.group]||MIX_COLOR_DEF;
+  d.cats.forEach(c=>{c.dim=d.key;c.id=d.key+':'+c.key});
+});
 
 /* Группы разрезов = под-вкладки состава. Правило раскладки одно: на вкладке
    не больше трёх таблиц. Четвёртая уже не влезает в рабочую зону ноутбука,
@@ -1859,7 +1900,13 @@ function mixWeights(leafPath,dimKey){
   const dim=MIX_BY_KEY[dimKey], n=NODE_BY_PATH[leafPath]||{};
   const r=rng('mixw'+dimKey+leafPath);
   let w;
-  if(dimKey==='grade'){
+  if(dim.childDim){
+    /* Верхний уровень — сумма детей, а не свой бросок: раскрытая каретка
+       обязана давать в сумме ровно строку над собой. */
+    const kid=MIX_BY_KEY[dim.childDim], kw=mixWeights(leafPath,dim.childDim);
+    const at={};kid.cats.forEach((c,i)=>{at[c.key]=i});
+    w=dim.cats.map(c=>c.kids.reduce((a,k)=>a+(kw[at[k]]||0),0));
+  } else if(dimKey==='grade'){
     const sw=mixWeights(leafPath,'seniority');
     w=dim.cats.map((c,j)=>sw.reduce((a,s,i)=>a+s*GRADE_BY_SEN[i][j],0));
   } else if(dimKey==='employment'){
@@ -1931,9 +1978,32 @@ function tiltBias(tilt,nc){
 }
 
 /* Совместное распределение двух разрезов внутри одного листа. */
+function linkOf(a,b){return MIX_LINKS.find(l=>(l.a===a&&l.b===b)||(l.a===b&&l.b===a))||null}
+/* «Считать совместно, а не перемножать» — и для заданной связи, и для уровней
+   одного разреза. Объявлено выше sliceShare, потому что нужно им обоим. */
+function joined(a,b){return !!(linkOf(a,b)||nestOf(a,b))}
+/* Пара «стрим → специализация» — не два независимых атрибута, а уровни одного:
+   специализация лежит ровно в одном стриме. Поэтому совместное распределение
+   здесь блочно-диагональное и точное. Без этого случая матрица «стрим ×
+   специализация» показывала бы бэкендеров в поддержке клиентов, а срез
+   «Разработка + Бэкенд» считался бы как пересечение независимых событий —
+   то есть заметно меньше, чем самих бэкендеров. */
+function nestOf(a,b){
+  const A=MIX_BY_KEY[a], B=MIX_BY_KEY[b];
+  if(A&&A.childDim===b)return {top:a,kid:b,flip:false};
+  if(B&&B.childDim===a)return {top:b,kid:a,flip:true};
+  return null;
+}
 function mixJoint(leafPath,rowKey,colKey){
   const wr=mixWeights(leafPath,rowKey), wc=mixWeights(leafPath,colKey);
-  const link=MIX_LINKS.find(l=>(l.a===rowKey&&l.b===colKey)||(l.a===colKey&&l.b===rowKey));
+  const nest=nestOf(rowKey,colKey);
+  if(nest){
+    const kid=MIX_BY_KEY[nest.kid], kw=mixWeights(leafPath,nest.kid);
+    const topCats=MIX_BY_KEY[nest.top].cats;
+    const m=topCats.map(tc=>kid.cats.map((kc,j)=>kc.parent===tc.key?kw[j]:0));
+    return nest.flip ? kid.cats.map((_,j)=>topCats.map((__,i)=>m[i][j])) : m;
+  }
+  const link=linkOf(rowKey,colKey);
   if(!link)return wr.map(a=>wc.map(b=>a*b));
   const flip=link.a===colKey;
   if(link.exact){
@@ -1975,27 +2045,72 @@ function shareBesides(leafPath,parts){
 /* Состав группы листьев по разрезу: массив человек по категориям.
    lp — массив ПУТЕЙ листьев, атрибуты берутся по пути через mixWeights.
    sel — активный срез: он режет таблицу, но не по её собственному разрезу. */
-function mixParts(lp,dimKey,sel){
+/* Доли листа по разрезу с учётом стороннего среза. Совместное распределение
+   берётся со связанным разрезом, если он среди сторонних есть, — иначе с
+   первым; остальные домножаются независимо, как и в матрице. */
+function partsWeight(leafPath,dimKey,parts){
+  const dim=MIX_BY_KEY[dimKey];
+  if(!parts.length)return mixWeights(leafPath,dimKey);
+  let k=parts.findIndex(p=>joined(dimKey,p.dim.key));
+  if(k<0)k=0;
+  const j=mixJoint(leafPath,dimKey,parts[k].dim.key);
+  const rest=sliceShare(leafPath,parts.filter((_,i)=>i!==k));
+  return dim.cats.map((_,i)=>j[i][parts[k].idx]*rest);
+}
+/* skip — какие разрезы среза не применять. По умолчанию свой собственный;
+   матрица передаёт обе свои оси, чтобы её края считались ровно так же, как
+   разбивки, которые она обязана повторять. */
+function mixParts(lp,dimKey,sel,skip){
   const dim=MIX_BY_KEY[dimKey];
   if(!dim)return [];
-  const parts=otherParts(sel,[dimKey]);
-  const raw=dim.cats.map(()=>0);
-  lp.forEach(p=>{
-    const hc=lastVal([p],'hc_total');
-    let w;
-    if(!parts.length)w=mixWeights(p,dimKey);
-    else{
-      /* с первым сторонним атрибутом — совместное распределение (для пары
-         грейд/сеньорность оно точное), остальное независимо */
-      const j=mixJoint(p,dimKey,parts[0].dim.key);
-      const rest=parts.length>1?mixWeights(p,parts[1].dim.key)[parts[1].idx]:1;
-      w=dim.cats.map((_,i)=>j[i][parts[0].idx]*rest);
-    }
-    dim.cats.forEach((c,i)=>{raw[i]+=hc*w[i]});
-  });
+  /* нижний уровень считается через дерево: вкладка «Стримы» и разбивка по
+     специализациям обязаны показывать одни и те же числа */
+  if(dim.parentDim){
+    const at={}, out=dim.cats.map(()=>0);
+    dim.cats.forEach((c,i)=>{at[c.key]=i});
+    mixTree(lp,dim.parentDim,sel,skip).forEach(n=>n.kids.forEach(k=>{out[at[k.cat.key]]=k.value}));
+    return out;
+  }
+  const raw=mixRaw(lp,dimKey,sel,skip||[dimKey]);
   return roundParts(raw,raw.reduce((a,b)=>a+b,0));
 }
 function mixCats(dimKey){return (MIX_BY_KEY[dimKey]||{cats:[]}).cats}
+
+/* ---------- Двухуровневый разрез: стрим → специализации ----------
+   Округляется СВЕРХУ ВНИЗ: сначала стримы к численности отбора, потом
+   специализации внутри каждого стрима — к его уже округлённому значению.
+   Иначе раскрытая каретка показывала бы дочерние строки, которые в сумме
+   не дают строку над ними: 15+12 под стримом со значением 26.
+
+   Наружу — и дерево (`mixTree`), и плоский вектор по нижнему уровню:
+   `mixParts` для дочернего разреза берёт числа отсюда же, поэтому вкладка
+   «Стримы» и разбивка по специализациям в конструкторе показывают одно и то же. */
+function mixRaw(lp,dimKey,sel,skip){
+  const dim=MIX_BY_KEY[dimKey];
+  const parts=otherParts(sel,skip||[dimKey]);
+  const raw=dim.cats.map(()=>0);
+  lp.forEach(p=>{
+    const hc=lastVal([p],'hc_total'), w=partsWeight(p,dimKey,parts);
+    dim.cats.forEach((c,i)=>{raw[i]+=hc*w[i]});
+  });
+  return raw;
+}
+function mixTree(lp,dimKey,sel,skipExtra){
+  const dim=MIX_BY_KEY[dimKey], kid=MIX_BY_KEY[dim.childDim];
+  /* Оба уровня исключаются из среза одинаково: они живут в одной таблице,
+     и отфильтруй нижний по «Разработке» — дети остальных стримов обнулятся,
+     а сами стримы останутся, и сумма детей перестанет равняться родителю. */
+  const skip=[dimKey,dim.childDim].concat(skipExtra||[]);
+  const rawTop=mixRaw(lp,dimKey,sel,skip), rawKid=mixRaw(lp,dim.childDim,sel,skip);
+  const at={};kid.cats.forEach((c,i)=>{at[c.key]=i});
+  const top=roundParts(rawTop,rawTop.reduce((a,b)=>a+b,0));
+  return dim.cats.map((c,i)=>{
+    const idx=c.kids.map(k=>at[k]);
+    const vals=roundParts(idx.map(j=>rawKid[j]),top[i]);
+    return {cat:c,value:top[i],
+      kids:idx.map((j,n)=>({cat:kid.cats[j],value:vals[n]}))};
+  });
+}
 
 /* Округление матрицы С СОХРАНЕНИЕМ КРАЁВ. Просто округлить все клетки разом
    мало: итог колонки в матрице тогда расходится с той же категорией в обычной
@@ -2067,9 +2182,10 @@ function mixMatrix(lp,rowKey,colKey,sel){
     sum+=hc;
     R.cats.forEach((_,i)=>C.cats.forEach((__,k)=>{raw[i][k]+=hc*j[i][k]}));
   });
-  const rowTot=roundParts(raw.map(r=>r.reduce((a,b)=>a+b,0)),sum);
-  const colTot=roundParts(C.cats.map((_,k)=>raw.reduce((a,r)=>a+r[k],0)),sum);
-  return roundMatrix(raw,rowTot,colTot);
+  /* Края берутся у ТЕХ ЖЕ разбивок, что показаны на вкладках, а не считаются
+     заново: только так матрица не расходится с ними на человека. */
+  const axes=[rowKey,colKey];
+  return roundMatrix(raw,mixParts(lp,rowKey,sel,axes),mixParts(lp,colKey,sel,axes));
 }
 
 /* ---------- Срез состава ----------
@@ -2078,7 +2194,13 @@ function mixMatrix(lp,rowKey,colKey,sel){
    срез не идёт — на третьем начинаются доли от долей, и в клетке остаётся
    полчеловека. Режутся только счётные метрики численности: проценты умножать
    на долю состава бессмысленно, а найм и отток модель по атрибутам не знает. */
-const SLICE_MAX=2;
+/* Сколько атрибутов держит срез. Два — это было ограничение МОДЕЛИ МАКЕТА,
+   а не продукта: на выдуманных долях третий атрибут давал доли от долей.
+   Ограничение снято — срез держит по одной категории на разрез, сколько их
+   ни возьми. На реальных данных это обычный фильтр по сотруднику, и резать
+   по трём атрибутам нормально; в макете при этом честно считается совместное
+   распределение для связанных пар и независимое для остальных. */
+const SLICE_MAX=MIX_DIMS.length;
 const SLICE_KEYS=new Set(['hc_total','hc_active']);
 function sliceable(key){return SLICE_KEYS.has(key)}
 function sliceParse(sel){
@@ -2096,8 +2218,24 @@ function sliceLabel(sel){return sliceParse(sel).map(p=>p.cat.name).join(' · ')}
 function sliceShare(leafPath,parts){
   if(!parts.length)return 1;
   if(parts.length===1)return mixWeights(leafPath,parts[0].dim.key)[parts[0].idx];
-  const j=mixJoint(leafPath,parts[0].dim.key,parts[1].dim.key);
-  return j[parts[0].idx][parts[1].idx];
+  /* Связанные пары берутся совместным распределением — иначе срез по клику
+     разошёлся бы с числом в клетке матрицы, по которому кликнули. Всё
+     остальное перемножается как независимое. */
+  const used=[]; let v=1;
+  for(let i=0;i<parts.length;i++){
+    if(used.indexOf(i)>=0)continue;
+    let pair=-1;
+    for(let j=i+1;j<parts.length;j++){
+      if(used.indexOf(j)<0&&joined(parts[i].dim.key,parts[j].dim.key)){pair=j;break}
+    }
+    if(pair<0)continue;
+    v*=mixJoint(leafPath,parts[i].dim.key,parts[pair].dim.key)[parts[i].idx][parts[pair].idx];
+    used.push(i,pair);
+  }
+  parts.forEach((p,i)=>{if(used.indexOf(i)<0)v*=mixWeights(leafPath,p.dim.key)[p.idx]});
+  /* пара без связи считается независимой — как и в матрице */
+  if(!used.length&&parts.length===2)return v;
+  return v;
 }
 function aggregateSlice(lp,key,sel){
   const parts=sliceParse(sel);
@@ -2247,8 +2385,8 @@ function netGrowth(lp){
   return hc[LAST]-hc[0];
 }
 
-window.TPDATA={MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_SEQ,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
-  mixParts,mixCats,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
+window.TPDATA={MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+  mixParts,mixCats,mixTree,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
@@ -3219,6 +3357,15 @@ const D=window.TPDATA, G=window.TPDRAW;
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
+/* Русское склонение по числу: «1 специализация», «2 специализации»,
+   «5 специализаций». Отдельной функцией, потому что подписей вида «N чего-то»
+   в отчёте будет больше одной, а «3 специализации» руками пишется правильно
+   ровно до первого стрима с одной или с пятью. */
+function plural(n,forms){
+  const a=Math.abs(n)%100, b=a%10;
+  return forms[a>4&&a<21?2:b===1?0:b>1&&b<5?1:2];
+}
+
 /* ============================================================================
    Кастомный тултип — ЕДИНСТВЕННЫЙ тултип в отчёте.
 
@@ -3443,8 +3590,11 @@ function barTable(o){
   let items=o.items.slice();
   if(o.sort)items.sort((a,b)=>b.value-a.value);
   const key=o.metricKey||'hc_total';
-  const sum=items.reduce((a,x)=>a+x.value,0);
-  const max=G.niceMax(items.map(x=>x.value));
+  /* Итог и масштаб полосы считаются по ВЕРХНЕМУ уровню: дочерние строки уже
+     учтены в родительской, и складывать их второй раз — удвоить ИТОГО. */
+  const topItems=items.filter(x=>x.depth!==2);
+  const sum=topItems.reduce((a,x)=>a+x.value,0);
+  const max=G.niceMax(topItems.map(x=>x.value));
 
   /* share:false — для процентных метрик: доля одного процента в сумме процентов
      ничего не значит, а колонка «Доля» делает вид, что значит. */
@@ -3459,15 +3609,26 @@ function barTable(o){
   items.forEach(x=>{
     const share=sum?x.value/sum*100:0;
     /* клик по строке: либо переход в подразделение, либо срез по категории */
-    const hook=x.node?' class="urow" data-node="'+esc(x.node)+'"'
-              :x.pick?' class="urow'+(x.on?' sel':'')+'" data-mix="'+esc(x.pick)+'"'+
-                tipAttr({title:x.name,
-                  text:x.on?'Срез по этой категории уже взят. Клик снимает его.'
-                           :'Клик берёт срез: численность в карточках и в таблице подразделений пересчитается по этой категории.'})
-              :'';
+    const cls=[x.node||x.pick?'urow':'',x.on?'sel':'',x.depth===2?'lvl2':''].filter(Boolean).join(' ');
+    const hook=(cls?' class="'+cls+'"':'')+
+      (x.node?' data-node="'+esc(x.node)+'"':'')+
+      (x.pick?' data-mix="'+esc(x.pick)+'"'+
+        tipAttr({title:x.name,
+          text:x.on?'Срез по этой категории уже взят. Клик снимает его.'
+                   :'Клик берёт срез: численность в карточках и в таблице подразделений пересчитается по этой категории.'}):'');
+    /* Двухуровневая разбивка: каретка раскрывает верхний уровень. Разметка та
+       же, что в сводной таблице подразделений (`row-label` + `caret-btn`),
+       чтобы раскрытие в отчёте выглядело и работало одинаково везде. */
+    const caret=!o.tree?''
+      :x.exp?'<button class="caret-btn"'+(x.open?' data-open="1"':'')+' data-btexp="'+esc(x.exp)+'"'+
+        ' aria-label="'+(x.open?'Свернуть':'Раскрыть')+'"'+
+        tipAttr({title:x.open?'Свернуть':'Раскрыть',text:'Специализации внутри стрима.'})+
+        '>'+(x.open?'▾':'▸')+'</button>'
+      :'<span class="caret-spacer"></span>';
+    const nm='<span class="row-body">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять.'})+'>★</span> ':'')+esc(x.name)+
+      (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span>';
     h+='<tr'+hook+'>'+
-      '<td class="txt"><span class="row-body">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять.'})+'>★</span> ':'')+esc(x.name)+
-      (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span></td>'+
+      '<td class="txt">'+(o.tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
       '<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+
       (withShare?'<td>'+share.toFixed(share<10?1:0).replace('.',',')+'%</td>':'')+
       '<td class="barcell"'+tipAttr({title:x.name,
@@ -3665,7 +3826,7 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={esc,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
 })();
 
@@ -4046,7 +4207,7 @@ function metricLine(key,lp,bl,S,opt){
 }
 
 /* ---------- рендер детальной вкладки ---------- */
-function renderBlock(S,expanded){
+function renderBlock(S,expanded,mixOpen){
   const b=D.BLOCK_BY_KEY[S.tab];
   const mod=blocks[b.key];
   /* под-вкладка проверяется по списку блока: после перекомпоновки вкладок ссылка
@@ -4189,7 +4350,8 @@ function renderBlock(S,expanded){
     body:tbl,bodyCls:'tbl-wrap'});
 
   /* 5b · правая панель — содержимое блока */
-  const ctx={S,b,sub:S.subTab,lp:rowLeaves(sel,S),rl,bl,rows,root,sel,benchLabel:D.benchmarkLabel(S)};
+  const ctx={S,b,sub:S.subTab,lp:rowLeaves(sel,S),rl,bl,rows,root,sel,
+    mixOpen:mixOpen||new Set(),benchLabel:D.benchmarkLabel(S)};
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
     sub:selNode.name+(sel!==root?' · выбрано':' · всё подразделение'),
     tabs:U.subTabs(mod.subTabs,S.subTab),body:mod.view(ctx)});
@@ -4236,7 +4398,12 @@ const D=window.TPDATA, U=window.TPUI, SC=window.TPSCREENS;
 
 /* Разрез длинный (стрим — десять строк) — сортируем по убыванию: у номинального
    разреза порядка нет, и алфавит ничего не сообщает. У порядковых (грейд, стаж,
-   возраст) порядок и есть смысл, их не трогаем. */
+   возраст) порядок и есть смысл, их не трогаем.
+
+   ЦВЕТ ПОЛОСЫ ОДИН НА ВСЮ ТАБЛИЦУ и берётся у разреза (`D.dimColor`), а не у
+   категории. Величину несёт длина полосы; красить строки в разные цвета —
+   кодировать одно и то же дважды. Цвет при этом работает: он различает группы
+   разрезов, и по нему видно, на какой вкладке стоишь. */
 function dimTable(dim,lp,sel,mixSel){
   const parts=D.mixParts(lp,dim.key,mixSel);
   /* ПЕРЕКРЁСТНАЯ ФИЛЬТРАЦИЯ. Срез, взятый в соседней таблице, режет и эту:
@@ -4248,8 +4415,34 @@ function dimTable(dim,lp,sel,mixSel){
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
     head:dim.short||dim.name,metricKey:'hc_total',compact:true,sort:!!dim.sort,
-    items:dim.cats.map((c,i)=>({name:c.name,value:parts[i],color:c.color,
+    items:dim.cats.map((c,i)=>({name:c.name,value:parts[i],color:D.dimColor(dim.key),
       pick:c.id,on:sel.has(c.id)}))});
+}
+
+/* Двухуровневая разбивка: стрим раскрывается кареткой до специализаций.
+   Отдельной таблицей специализаций рядом обойтись нельзя — двадцать шесть строк
+   без группировки не читаются, а вопрос «из чего состоит разработка» задают
+   не ко всем стримам сразу, а к одному. */
+function treeTable(dim,lp,sel,mixSel,open){
+  const kid=D.MIX_BY_KEY[dim.childDim];
+  const tree=D.mixTree(lp,dim.key,mixSel).slice().sort((a,b)=>b.value-a.value);
+  const col=D.dimColor(dim.key), items=[];
+  tree.forEach(n=>{
+    const on=open.has(n.cat.id);
+    items.push({name:n.cat.name,value:n.value,color:col,depth:1,
+      exp:n.cat.id,open:on,pick:n.cat.id,on:sel.has(n.cat.id),
+      note:on?'':D.fmtInt(n.kids.length)+' '+
+        U.plural(n.kids.length,['специализация','специализации','специализаций'])});
+    if(!on)return;
+    n.kids.slice().sort((a,b)=>b.value-a.value).forEach(k=>{
+      items.push({name:k.cat.name,value:k.value,color:col,depth:2,
+        pick:k.cat.id,on:sel.has(k.cat.id)});
+    });
+  });
+  const others=D.otherParts(mixSel,[dim.key,kid.key]);
+  return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
+    capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
+    head:dim.short||dim.name,metricKey:'hc_total',compact:true,tree:true,items:items});
 }
 
 SC.blocks.structure={
@@ -4267,13 +4460,18 @@ SC.blocks.structure={
 
     if(ctx.sub!=='custom'){
       const g=D.MIX_GROUPS.find(x=>x.key===ctx.sub)||D.MIX_GROUPS[0];
+      const open=ctx.mixOpen||new Set();
       /* Сноска о клике стоит под таблицами, а не над ними: пока среза нет,
          это подсказка, а не сообщение, и место в кадре она забирать не должна.
          Когда срез взят, о нём говорит плашка над рабочей зоной. */
-      return U.btStack(g.dims.map(k=>dimTable(D.MIX_BY_KEY[k],ctx.lp,sel,S.mixSel)))+
+      return U.btStack(g.dims.map(k=>{
+        const dim=D.MIX_BY_KEY[k];
+        return dim.childDim?treeTable(dim,ctx.lp,sel,S.mixSel,open)
+                           :dimTable(dim,ctx.lp,sel,S.mixSel);
+      }))+
         (sel.size?'':'<div class="tbl-note">Клик по строке берёт срез: численность '+
           'в карточках и в таблице подразделений пересчитается по этой категории. '+
-          'Разрезы можно сложить — не больше двух.</div>');
+          'Разрезы складываются — по одной категории на разрез.</div>');
     }
 
     /* Конструктор. Ось колонок можно снять — тогда остаётся обычная разбивка
@@ -4284,7 +4482,8 @@ SC.blocks.structure={
     let h=U.mixPicker({dims:D.MIX_DIMS,rows:rowDim.key,cols:colDim?colDim.key:'',mode:S.mixMode});
 
     if(!colDim){
-      h+=dimTable(rowDim,ctx.lp,sel,S.mixSel);
+      h+=rowDim.childDim?treeTable(rowDim,ctx.lp,sel,S.mixSel,ctx.mixOpen||new Set())
+                        :dimTable(rowDim,ctx.lp,sel,S.mixSel);
       return h+'<div class="tbl-note">Выберите колонки — и разбивка станет матрицей: '+
         'два разреза на одних осях, чтобы сравнивать не таблицы между собой, а клетки строки.</div>';
     }
@@ -4771,6 +4970,9 @@ let DRAFT=null;              /* черновик фильтров в модал�
 let pulseOpen=false;         /* раскрыт ли словарь метрик Пульса */
 const openRows=new Set();    /* раскрытые строки OnePager */
 const expanded=new Set();    /* раскрытые узлы в сводной таблице */
+/* раскрытые стримы в двухуровневой разбивке состава. Живёт рядом с expanded и
+   по той же причине: это состояние показа, а не отчёта, и в ссылку не едет */
+const mixOpen=new Set();
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -4983,7 +5185,7 @@ function render(keepScroll){
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
     ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded);
+    : SC.renderBlock(S,expanded,mixOpen);
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),true);
   renderMascot();
@@ -5076,6 +5278,15 @@ document.addEventListener('click',e=>{
   if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
   if(t.closest('[data-mixswap]')){
     const r=S.mixRows;S.mixRows=S.mixCols||r;S.mixCols=S.mixCols?r:'';render(true);return;
+  }
+  /* каретка стрима — раньше среза: она стоит ВНУТРИ строки, у которой есть
+     data-mix, и общий обработчик среза перехватил бы клик по ней */
+  const bx=t.closest('[data-btexp]');
+  if(bx){
+    e.stopPropagation();
+    const k=bx.dataset.btexp;
+    mixOpen.has(k)?mixOpen.delete(k):mixOpen.add(k);
+    render(true);return;
   }
   const mx=t.closest('[data-mix]');
   if(mx){e.stopPropagation();toggleMix(mx.dataset.mix);render(true);return}

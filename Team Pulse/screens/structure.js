@@ -31,7 +31,12 @@ const D=window.TPDATA, U=window.TPUI, SC=window.TPSCREENS;
 
 /* Разрез длинный (стрим — десять строк) — сортируем по убыванию: у номинального
    разреза порядка нет, и алфавит ничего не сообщает. У порядковых (грейд, стаж,
-   возраст) порядок и есть смысл, их не трогаем. */
+   возраст) порядок и есть смысл, их не трогаем.
+
+   ЦВЕТ ПОЛОСЫ ОДИН НА ВСЮ ТАБЛИЦУ и берётся у разреза (`D.dimColor`), а не у
+   категории. Величину несёт длина полосы; красить строки в разные цвета —
+   кодировать одно и то же дважды. Цвет при этом работает: он различает группы
+   разрезов, и по нему видно, на какой вкладке стоишь. */
 function dimTable(dim,lp,sel,mixSel){
   const parts=D.mixParts(lp,dim.key,mixSel);
   /* ПЕРЕКРЁСТНАЯ ФИЛЬТРАЦИЯ. Срез, взятый в соседней таблице, режет и эту:
@@ -43,8 +48,34 @@ function dimTable(dim,lp,sel,mixSel){
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
     head:dim.short||dim.name,metricKey:'hc_total',compact:true,sort:!!dim.sort,
-    items:dim.cats.map((c,i)=>({name:c.name,value:parts[i],color:c.color,
+    items:dim.cats.map((c,i)=>({name:c.name,value:parts[i],color:D.dimColor(dim.key),
       pick:c.id,on:sel.has(c.id)}))});
+}
+
+/* Двухуровневая разбивка: стрим раскрывается кареткой до специализаций.
+   Отдельной таблицей специализаций рядом обойтись нельзя — двадцать шесть строк
+   без группировки не читаются, а вопрос «из чего состоит разработка» задают
+   не ко всем стримам сразу, а к одному. */
+function treeTable(dim,lp,sel,mixSel,open){
+  const kid=D.MIX_BY_KEY[dim.childDim];
+  const tree=D.mixTree(lp,dim.key,mixSel).slice().sort((a,b)=>b.value-a.value);
+  const col=D.dimColor(dim.key), items=[];
+  tree.forEach(n=>{
+    const on=open.has(n.cat.id);
+    items.push({name:n.cat.name,value:n.value,color:col,depth:1,
+      exp:n.cat.id,open:on,pick:n.cat.id,on:sel.has(n.cat.id),
+      note:on?'':D.fmtInt(n.kids.length)+' '+
+        U.plural(n.kids.length,['специализация','специализации','специализаций'])});
+    if(!on)return;
+    n.kids.slice().sort((a,b)=>b.value-a.value).forEach(k=>{
+      items.push({name:k.cat.name,value:k.value,color:col,depth:2,
+        pick:k.cat.id,on:sel.has(k.cat.id)});
+    });
+  });
+  const others=D.otherParts(mixSel,[dim.key,kid.key]);
+  return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
+    capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
+    head:dim.short||dim.name,metricKey:'hc_total',compact:true,tree:true,items:items});
 }
 
 SC.blocks.structure={
@@ -62,13 +93,18 @@ SC.blocks.structure={
 
     if(ctx.sub!=='custom'){
       const g=D.MIX_GROUPS.find(x=>x.key===ctx.sub)||D.MIX_GROUPS[0];
+      const open=ctx.mixOpen||new Set();
       /* Сноска о клике стоит под таблицами, а не над ними: пока среза нет,
          это подсказка, а не сообщение, и место в кадре она забирать не должна.
          Когда срез взят, о нём говорит плашка над рабочей зоной. */
-      return U.btStack(g.dims.map(k=>dimTable(D.MIX_BY_KEY[k],ctx.lp,sel,S.mixSel)))+
+      return U.btStack(g.dims.map(k=>{
+        const dim=D.MIX_BY_KEY[k];
+        return dim.childDim?treeTable(dim,ctx.lp,sel,S.mixSel,open)
+                           :dimTable(dim,ctx.lp,sel,S.mixSel);
+      }))+
         (sel.size?'':'<div class="tbl-note">Клик по строке берёт срез: численность '+
           'в карточках и в таблице подразделений пересчитается по этой категории. '+
-          'Разрезы можно сложить — не больше двух.</div>');
+          'Разрезы складываются — по одной категории на разрез.</div>');
     }
 
     /* Конструктор. Ось колонок можно снять — тогда остаётся обычная разбивка
@@ -79,7 +115,8 @@ SC.blocks.structure={
     let h=U.mixPicker({dims:D.MIX_DIMS,rows:rowDim.key,cols:colDim?colDim.key:'',mode:S.mixMode});
 
     if(!colDim){
-      h+=dimTable(rowDim,ctx.lp,sel,S.mixSel);
+      h+=rowDim.childDim?treeTable(rowDim,ctx.lp,sel,S.mixSel,ctx.mixOpen||new Set())
+                        :dimTable(rowDim,ctx.lp,sel,S.mixSel);
       return h+'<div class="tbl-note">Выберите колонки — и разбивка станет матрицей: '+
         'два разреза на одних осях, чтобы сравнивать не таблицы между собой, а клетки строки.</div>';
     }

@@ -76,7 +76,7 @@ function metricLine(key,lp,bl,S,opt){
 }
 
 /* ---------- рендер детальной вкладки ---------- */
-function renderBlock(S,expanded){
+function renderBlock(S,expanded,mixOpen){
   const b=D.BLOCK_BY_KEY[S.tab];
   const mod=blocks[b.key];
   /* под-вкладка проверяется по списку блока: после перекомпоновки вкладок ссылка
@@ -219,7 +219,8 @@ function renderBlock(S,expanded){
     body:tbl,bodyCls:'tbl-wrap'});
 
   /* 5b · правая панель — содержимое блока */
-  const ctx={S,b,sub:S.subTab,lp:rowLeaves(sel,S),rl,bl,rows,root,sel,benchLabel:D.benchmarkLabel(S)};
+  const ctx={S,b,sub:S.subTab,lp:rowLeaves(sel,S),rl,bl,rows,root,sel,
+    mixOpen:mixOpen||new Set(),benchLabel:D.benchmarkLabel(S)};
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
     sub:selNode.name+(sel!==root?' · выбрано':' · всё подразделение'),
     tabs:U.subTabs(mod.subTabs,S.subTab),body:mod.view(ctx)});

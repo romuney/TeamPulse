@@ -22,6 +22,9 @@ let DRAFT=null;              /* черновик фильтров в модал�
 let pulseOpen=false;         /* раскрыт ли словарь метрик Пульса */
 const openRows=new Set();    /* раскрытые строки OnePager */
 const expanded=new Set();    /* раскрытые узлы в сводной таблице */
+/* раскрытые стримы в двухуровневой разбивке состава. Живёт рядом с expanded и
+   по той же причине: это состояние показа, а не отчёта, и в ссылку не едет */
+const mixOpen=new Set();
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -234,7 +237,7 @@ function render(keepScroll){
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
     ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded);
+    : SC.renderBlock(S,expanded,mixOpen);
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),true);
   renderMascot();
@@ -327,6 +330,15 @@ document.addEventListener('click',e=>{
   if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
   if(t.closest('[data-mixswap]')){
     const r=S.mixRows;S.mixRows=S.mixCols||r;S.mixCols=S.mixCols?r:'';render(true);return;
+  }
+  /* каретка стрима — раньше среза: она стоит ВНУТРИ строки, у которой есть
+     data-mix, и общий обработчик среза перехватил бы клик по ней */
+  const bx=t.closest('[data-btexp]');
+  if(bx){
+    e.stopPropagation();
+    const k=bx.dataset.btexp;
+    mixOpen.has(k)?mixOpen.delete(k):mixOpen.add(k);
+    render(true);return;
   }
   const mx=t.closest('[data-mix]');
   if(mx){e.stopPropagation();toggleMix(mx.dataset.mix);render(true);return}
