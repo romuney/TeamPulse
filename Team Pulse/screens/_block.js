@@ -85,6 +85,15 @@ function renderBlock(S,expanded){
   const root=currentRoot(S), rootNode=D.NODE_BY_PATH[root];
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
   const mainK=blockMain(b.key,S), mainM=D.METRIC_BY_KEY[mainK];
+  /* Срез состава живёт только на «Структуре численности» и только там читается.
+     Гейт по блоку не перестраховка: подпись «N чел» под именем подразделения
+     стоит на КАЖДОЙ вкладке, и без него срез, взятый в составе, молча ужимал бы
+     численность в оттоке и найме — там, где его никто не брал и не видит.
+     Режутся только счётные метрики численности, остальное `lastValSlice`
+     пропускает через обычную агрегацию (`D.sliceable`). */
+  const slice=b.key==='structure'?D.sliceParse(S.mixSel):[];
+  const selIds=slice.map(p=>p.id);
+  const val=(lp,key)=>D.lastValSlice(lp,key,selIds);
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
@@ -129,16 +138,26 @@ function renderBlock(S,expanded){
      сколько метрик: у движения персонала их теперь пять. */
   h+='<div class="kpis compact'+(mets.length<=5?' n'+mets.length:'')+'">';
   mets.forEach(m=>{
-    const sr=D.aggregate(rl,m.key), v=sr[D.LAST], dl=D.deltasOf(rl,m.key);
+    const v=val(rl,m.key);
+    /* Изменение по срезу считается по окну, а не по расширенной сетке: срез
+       на неё не ходит. Для численности это тот же прошлый месяц. */
+    const mom=selIds.length&&D.sliceable(m.key)
+      ? D.sliceDeltaMoM(rl,m.key,selIds) : D.deltasOf(rl,m.key).mom;
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
     h+=U.kpiCard({label:m.name,
       q:U.infoDot(m.key),
       value:D.fmtVal(m.key,v),
-      row1:U.momChip(m.key,dl.mom),
+      row1:U.momChip(m.key,mom),
       row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
            :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark()});
   });
   h+='</div>';
+
+  /* 4a · что сейчас срезано. Плашка стоит под карточками, а не только в той
+     таблице, по которой кликнули: без неё «191 → 59» в карточке выглядит
+     поломкой отчёта, а не ответом на свой же клик. */
+  h+=U.sliceNote(slice,'в карточках и в таблице подразделений численность показана '+
+    'по срезу; база сравнения и инсайты считаются по всему отбору');
 
   /* 5 · две колонки */
   h+='<div class="split">';
@@ -155,7 +174,7 @@ function renderBlock(S,expanded){
   const kpiMain=D.kpiFor(mainK,S);
   const benchMain=kpiMain?kpiMain.green:D.lastVal(bl,mainK);
   const showVs=D.comparable(mainK)||!!kpiMain;
-  const totalCells=mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,D.lastVal(rl,m.key))+'</td>').join('');
+  const totalCells=mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   let tbl='<table class="ptable dense"><thead><tr><th class="txt">Подразделение</th>'+
     mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+'</th>').join('')+
     (showVs?'<th class="vs">'+(kpiMain?'К цели KPI':'К базе')+'<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
@@ -186,15 +205,17 @@ function renderBlock(S,expanded){
       '<td class="txt"><span class="row-label">'+
       (canExp?'<button class="caret-btn"'+(expanded.has(r.n.path)?' data-open="1"':'')+' data-exp="'+r.n.path+'" aria-label="Раскрыть">'+(expanded.has(r.n.path)?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>')+
       '<span class="row-body">'+esc(r.n.name)+
-      '<span class="unit-sub">'+D.fmtVal('hc_total',D.lastVal(lp,'hc_total'))+' чел</span></span></span></td>'+
-      mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,D.lastVal(lp,m.key))+'</td>').join('')+
+      '<span class="unit-sub">'+D.fmtVal('hc_total',val(lp,'hc_total'))+' чел</span></span></span></td>'+
+      mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(lp,m.key))+'</td>').join('')+
       (showVs?'<td class="vs"><span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(1))+'</span></td>':'')+
       '<td>'+(kids>0?'<button class="btn ghost xs" data-drill="'+r.n.path+'"'+
         U.tipAttr({title:'Сделать корнем',
           text:'Показать детей «'+r.n.name+'» отдельным списком. База сравнения не меняется.'})+'>↓</button>':'')+'</td></tr>';
   });
   tbl+='</tbody></table>';
-  h+=U.panel({cls:'split-l',title:'Подразделения',sub:'клик по строке фильтрует правую панель',
+  h+=U.panel({cls:'split-l',title:'Подразделения',
+    sub:slice.length?'численность по срезу: '+D.sliceLabel(selIds)
+                    :'клик по строке фильтрует правую панель',
     body:tbl,bodyCls:'tbl-wrap'});
 
   /* 5b · правая панель — содержимое блока */

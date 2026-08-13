@@ -731,6 +731,13 @@ function mixRGB(a,b,t){
   const c=[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*t));
   return 'rgb('+c[0]+','+c[1]+','+c[2]+')';
 }
+/* Шкала интенсивности для матрицы состава — ТА ЖЕ синяя, что у календаря,
+   и по той же причине: «много» в клетке не значит «плохо», значит «здесь люди».
+   Светофор тут был бы ложным сигналом, а вторая шкала в отчёте — вторым языком.
+   heatInk отдаёт цвет цифры: на тёмном конце шкалы чёрная цифра не читается. */
+function heat(t){return mixRGB(CAL_LO,CAL_HI,Math.max(0,Math.min(1,t||0)))}
+function heatInk(t){return (t||0)>0.58?'#ffffff':C_LABEL}
+
 function drawCalendar(a,w,h){
   /* На вход — МАССИВ месячных блоков: окно последних 30 дней почти всегда
      пересекает границу месяцев, и тогда рядом стоят две сетки. Один блок —
@@ -919,7 +926,7 @@ function toggleSeries(cid,sid){
 function reset(){_specs=new Map();_sid=0}
 
 window.TPDRAW={chart,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
-  sparkBars,sparkLine,niceMax,textW,esc,stateColor,tipHtml,
+  sparkBars,sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,
   FONT,PALETTE,C_LINE,C_BENCH,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
   C_VAC,C_UNDER,C_LOWPERF,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y};

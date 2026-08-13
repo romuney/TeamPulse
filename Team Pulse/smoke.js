@@ -48,6 +48,10 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));'+
   'render(true);return $("#view").innerHTML},'+
   '\n  expClear:()=>{expanded.clear()},'+
+  /* срез состава живёт в S, но кликом его ставит обработчик — зовём его напрямую */
+  '\n  mix:list=>{S.mixSel=(list||[]).slice()},'+
+  '\n  mixClick:spec=>{toggleMix(spec);return S.mixSel.slice()},'+
+  '\n  link:()=>shareLink(),'+
   '\n  tab:()=>S.tab, nav:()=>$("#navBlocks").innerHTML, st:()=>S,'+
   '\n  chips:()=>{renderHead();return $("#chips").innerHTML}};');
 const A=require(probe);
@@ -120,7 +124,7 @@ checks.push(['текучесть = отток / среднесписочная �
   Math.abs(tm[D.LAST]-att[D.LAST]/avg[D.LAST]*100)<0.02]);
 
 /* 5. разбивки — таблицы, а не графики */
-const brk=SC.blocks.structure.view({S:D.DEFAULT_STATE,sub:'breakdown',lp:rl,bl:rl});
+const brk=SC.blocks.structure.view({S:D.DEFAULT_STATE,sub:'qual',lp:rl,bl:rl});
 checks.push(['разбивки по атрибутам — таблица',/<table/.test(brk)&&!/<svg/.test(brk)]);
 const rsn=SC.blocks.turnover.view({S:D.DEFAULT_STATE,sub:'reasons',lp:rl,bl:rl});
 checks.push(['причины увольнений — таблица',/<table/.test(rsn)&&!/<svg/.test(rsn)]);
@@ -266,8 +270,8 @@ checks.push(['ряд hc_avg жив: текучесть по-прежнему с�
 
 /* 10. перекомпоновка под-вкладок: что где лежит после итерации 20 */
 const subsOf=k=>SC.blocks[k].subTabs.map(t=>t[0]).join(',');
-checks.push(['структура — одна вкладка, динамика оттуда убрана',
-  subsOf('structure')==='breakdown']);
+checks.push(['состав разложен по группам плюс конструктор',
+  subsOf('structure')==='qual,people,contract,stream,custom']);
 checks.push(['срок закрытия больше не отдельная вкладка',
   subsOf('hiring')==='vacancies,funnel']);
 checks.push(['T-рост собран в одну вкладку',subsOf('tgrowth')==='flow']);
@@ -567,6 +571,174 @@ checks.push(['марки графиков помечены data-s',
   /* ось X устроена одинаково во всех видах: подпись месяца на bot+15 везде */
   checks.push(['ось X у панелей на том же отступе, что у остальных графиков',
     !/axisX\([^)]*bot\+13\)/.test(js)]);
+})();
+
+/* ============================================================================
+   Итерация 24: состав численности — группы разрезов, срез по клику, матрица
+   ========================================================================== */
+(function(){
+  const dims=D.MIX_DIMS, byKey=D.MIX_BY_KEY;
+
+  /* 1. Разрезов девять, и это реестр, а не ветки в if */
+  checks.push(['разрезы состава объявлены списком: грейд, сеньорность, пол, возраст, стаж, занятость, формат, юрлицо, стрим',
+    dims.map(d=>d.key).join(',')===
+    'grade,seniority,gender,age,tenure,employment,worksite,legal,stream']);
+  checks.push(['грейд и сеньорность — РАЗНЫЕ разрезы: числовой и текстовый',
+    byKey.grade.cats.every(c=>/^Грейд \d$/.test(c.name))&&
+    byKey.seniority.cats.map(c=>c.name).join(',')==='Junior,Middle,Senior,Lead и выше']);
+  checks.push(['у каждой категории есть цвет и составной id «разрез:категория»',
+    dims.every(d=>d.cats.every(c=>/^#[0-9a-f]{6}$/i.test(c.color)&&c.id===d.key+':'+c.key))]);
+
+  /* 2. Раскладка по вкладкам: не больше трёх разбивок на одной */
+  checks.push(['на вкладке состава не больше трёх разбивок',
+    D.MIX_GROUPS.every(g=>g.dims.length<=3&&g.dims.length>0)]);
+  checks.push(['каждая группа ссылается на существующие разрезы',
+    D.MIX_GROUPS.every(g=>g.dims.every(k=>!!byKey[k]))]);
+  checks.push(['длинный разрез стоит на своей вкладке один',
+    D.MIX_GROUPS.find(g=>g.dims.indexOf('stream')>=0).dims.length===1&&
+    byKey.stream.cats.length>=8]);
+
+  /* 3. Доли сходятся с численностью: округление общее, а не поклеточное */
+  const hc=D.lastVal(rl,'hc_total');
+  checks.push(['сумма разбивки равна численности отбора у ВСЕХ разрезов',
+    dims.every(d=>D.mixParts(rl,d.key).reduce((a,b)=>a+b,0)===Math.round(hc))]);
+  const mtx=D.mixMatrix(rl,'seniority','grade');
+  checks.push(['сумма клеток матрицы равна численности отбора',
+    [].concat(...mtx).reduce((a,b)=>a+b,0)===Math.round(hc)]);
+  /* Края матрицы обязаны совпасть с обычной разбивкой по тому же разрезу:
+     «Женщины 54» в матрице против «Женщины 53» на соседней вкладке — один
+     человек, но после него не верят обеим таблицам. Проверяем ВСЕ пары. */
+  (function(){
+    let bad=0;
+    dims.forEach(a=>dims.forEach(b=>{
+      if(a.key===b.key)return;
+      const M=D.mixMatrix(rl,a.key,b.key);
+      const rt=M.map(r=>r.reduce((x,y)=>x+y,0));
+      const ct=b.cats.map((_,j)=>M.reduce((x,r)=>x+r[j],0));
+      if(rt.join()!==D.mixParts(rl,a.key).join())bad++;
+      if(ct.join()!==D.mixParts(rl,b.key).join())bad++;
+    }));
+    checks.push(['края всех матриц сходятся с одномерными разбивками',bad===0]);
+  })();
+  /* Связи между разрезами не должны ломать одномерные доли: IPF возвращает
+     распределение к тем же маргиналам, иначе матрица спорит с таблицей. */
+  checks.push(['связь разрезов не сдвигает одномерные разбивки',
+    D.MIX_LINKS.length>=2&&
+    D.mixMatrix(rl,'seniority','gender').map(r=>r.reduce((a,b)=>a+b,0)).join()===
+      D.mixParts(rl,'seniority').join()]);
+  checks.push(['связь видна: доля женщин падает от Junior к Lead',
+    (function(){
+      const M=D.mixMatrix(rl,'seniority','gender');
+      const sh=M.map(r=>r[0]/(r[0]+r[1]));
+      return sh[0]>sh[3];
+    })()]);
+  checks.push(['выдуманные связи названы в сноске под матрицей',
+    /Связи между атрибутами в макете/.test(A.go('structure','custom'))&&
+    D.MIX_LINK_TEXT.length>20]);
+  checks.push(['матрица «сеньорность × грейд» диагональная: связь разрезов задана, а не выдумана',
+    mtx[0][4]===0&&mtx[3][0]===0&&mtx[0][0]>0&&mtx[3][4]>0]);
+  /* пара без заданной связи считается независимо — и это ровно то, что сказано в сноске */
+  const gg=D.mixMatrix(rl,'gender','worksite');
+  checks.push(['независимая пара разрезов тоже сходится по сумме',
+    [].concat(...gg).reduce((a,b)=>a+b,0)===Math.round(hc)]);
+
+  /* 4. Тип занятости согласован с фильтром «штат / не штат» в шапке */
+  (function(){
+    const st=Object.assign({},D.DEFAULT_STATE,{staffType:'staff'});
+    const only=D.reportLeaves(st), parts=D.mixParts(only,'employment');
+    checks.push(['отбор «только штат» не показывает людей на ГПХ, ИП и аутстаффе',
+      parts.slice(1).every(v=>v===0)&&parts[0]===Math.round(D.lastVal(only,'hc_total'))]);
+  })();
+
+  /* 5. Клик по строке разбивки берёт срез */
+  const qual=A.go('structure','qual');
+  checks.push(['строка разбивки кликается: у неё есть data-mix',
+    /<tr class="urow" data-mix="seniority:s"/.test(qual)&&
+    /<tr class="urow" data-mix="grade:g1"/.test(qual)]);
+  const hcAll=D.lastVal(rl,'hc_total'), hcSen=D.lastValSlice(rl,'hc_total',['seniority:s']);
+  checks.push(['срез режет численность, а не оставляет её прежней',
+    hcSen>0&&hcSen<hcAll]);
+  checks.push(['срез двух атрибутов уже первого',
+    D.lastValSlice(rl,'hc_total',['seniority:s','gender:f'])<hcSen]);
+  checks.push(['проценты и сроки срезу не поддаются: режутся только счётные численности',
+    D.sliceable('hc_total')&&D.sliceable('hc_active')&&
+    !D.sliceable('turnover_m')&&!D.sliceable('office_att')&&
+    D.lastValSlice(rl,'turnover_m',['seniority:s'])===D.lastVal(rl,'turnover_m')]);
+
+  /* Карточка KPI и ИТОГО соседней разбивки — одно и то же число.
+     Двойное округление (сначала до десятых, потом до целых) давало 54 в
+     карточке против 53 в таблице: один человек, но после него не верят обеим. */
+  (function(){
+    let bad=0,n=0;
+    dims.forEach(d=>d.cats.forEach(c=>{
+      const one=[c.id], card=D.fmtVal('hc_total',D.lastValSlice(rl,'hc_total',one));
+      dims.filter(x=>x.key!==d.key).forEach(other=>{
+        n++;
+        if(card!==D.fmtVal('hc_total',D.mixParts(rl,other.key,one).reduce((a,b)=>a+b,0)))bad++;
+      });
+    }));
+    checks.push(['карточка и ИТОГО разбивки под срезом дают одно число ('+n+' пар)',bad===0]);
+  })();
+
+  /* 6. Срез виден в карточках, в таблице подразделений и в плашке */
+  A.mix(['seniority:s']);
+  const sliced=A.go('structure','qual');
+  checks.push(['срез подписан плашкой под карточками KPI',
+    /note-inline slice/.test(sliced)&&/Срез состава/.test(sliced)&&
+    /data-mixclear="1"/.test(sliced)]);
+  checks.push(['карточка KPI показывает численность по срезу',
+    new RegExp('<div class="k-val">'+D.fmtVal('hc_total',hcSen)+'</div>').test(sliced)]);
+  const totRow=(sliced.match(/<tr class="total top">[\s\S]*?<\/tr>/)||[''])[0];
+  checks.push(['ИТОГО таблицы подразделений тоже по срезу',
+    totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
+    totRow.indexOf('>'+D.fmtVal('hc_total',hcAll)+'<')<0]);
+  checks.push(['выбранная строка разбивки помечена',
+    /<tr class="urow sel" data-mix="seniority:s"/.test(sliced)]);
+
+  /* 7. Срез НЕ протекает на другие вкладки: подпись «N чел» стоит везде */
+  const movSliced=A.go('movement','balance');
+  A.mix([]);
+  const movPlain=A.go('movement','balance');
+  checks.push(['срез состава не протекает в другие блоки',
+    movSliced===movPlain&&!/note-inline slice/.test(movSliced)]);
+
+  /* 8. Матрица: таблица, синяя шкала, без светофора */
+  A.mix([]);
+  const cust=A.go('structure','custom');
+  checks.push(['матрица — таблица, а не график',/<table class="ptable mxtable/.test(cust)&&
+    !/<svg[^>]*class="svgchart/.test(cust)]);
+  checks.push(['у матрицы есть конструктор осей и кнопка обмена',
+    /data-mixaxis="rows"/.test(cust)&&/data-mixaxis="cols"/.test(cust)&&
+    /data-mixswap="1"/.test(cust)]);
+  checks.push(['клетка матрицы берёт срез сразу по двум атрибутам',
+    /data-mix="seniority:[a-z]+,gender:[a-z]+"/.test(cust)||
+    /data-mix="[a-z]+:[a-z0-9]+,[a-z]+:[a-z0-9]+"/.test(cust)]);
+  const cellCols=[...cust.matchAll(/class="mx-cell[^"]*"[^>]*style="background:([^;]+);/g)].map(m=>m[1]);
+  checks.push(['шкала матрицы синяя монохромная, как у календаря',
+    cellCols.length>0&&cellCols.every(c=>{
+      const [r,g,b]=c.match(/\d+/g).map(Number);return b>=r&&b>=g;
+    })]);
+  checks.push(['в матрице нет светофора',
+    !new RegExp(G.C_GREEN+'|'+G.C_RED,'i').test(cust)]);
+  checks.push(['первая колонка матрицы липкая: строку видно и после прокрутки вбок',
+    /\.mxtabletd\.txt\{position:sticky/.test(css)&&/\.mx-wrap\{overflow-x:auto/.test(css)]);
+
+  /* 9. Механика среза: один на разрез, не длиннее SLICE_MAX, повтор снимает */
+  A.mix([]);
+  checks.push(['второй клик по тому же разрезу заменяет категорию, а не складывает',
+    (A.mixClick('seniority:j'),A.mixClick('seniority:s')).join(',')==='seniority:s']);
+  checks.push(['срез не растёт дальше двух атрибутов',
+    (A.mixClick('gender:f'),A.mixClick('worksite:rem')).length===D.SLICE_MAX]);
+  A.mix(['seniority:s']);
+  checks.push(['повторный клик по взятой категории снимает её',
+    A.mixClick('seniority:s').length===0]);
+  checks.push(['ссылка переживает срез и оси конструктора',
+    (A.mix(['seniority:s','gender:f']),/mix=seniority%3As%2Cgender%3Af/.test(A.link()))]);
+  A.mix([]);
+
+  /* 10. Мусор в ссылке не ломает экран */
+  checks.push(['неизвестный разрез из ссылки выбрасывается',
+    D.sliceParse(['nosuch:x','seniority:s','seniority:nope']).map(p=>p.id).join(',')==='seniority:s']);
 })();
 
 /* заголовки одной роли — один кегль: имя графика, имя панели и шапка бар-таблицы */

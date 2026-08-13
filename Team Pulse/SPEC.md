@@ -98,6 +98,10 @@ Drill по кнопке `↓` меняет `drillRoot`, но базу не тр�
 19 метрик в 7 блоках:
 
 1. `structure` — Структура численности: `hc_active`, `hc_total` (int, flat)
+   плюс девять разрезов состава (`D.MIX_DIMS`): грейд, сеньорность, пол,
+   возраст, стаж, тип занятости, формат работы, юрлицо, стрим. Разрезы —
+   не метрики: они не попадают в `METRICS`, не выбираются в модалке и не
+   сравниваются с базой.
 2. `movement` — Движение: `hire`, `attrition`, `transfer_in`, `transfer_out`,
    `net_ytd` — прирост с начала года (int, flat, `ytdDelta:'hc_total'`)
 3. `turnover` — Отток и текучесть: `turnover_m`, `turnover_y` (pct, lower),
@@ -129,8 +133,15 @@ Drill по кнопке `↓` меняет `drillRoot`, но базу не тр�
 ## Контракт state
 ```
 { unit, paint, itSeg, staffType, period, tab, subTab, mainMetric,
-  drillRoot, selNode, aiOpen, hiddenMetrics }
+  drillRoot, selNode, aiOpen, hiddenMetrics,
+  mixSel, mixRows, mixCols, mixMode }
 ```
+`mixSel` — срез состава: до `SLICE_MAX`=2 категорий вида `'разрез:категория'`,
+по одной на разрез. Действует только на блоке `structure` и только на счётные
+метрики численности (`D.sliceable`). `mixRows` / `mixCols` / `mixMode` — оси и
+содержимое клетки конструктора «Свой срез». Всё четыре едут в ссылке
+(`mix`, `mxr`, `mxc`, `mxm`) и нормализуются при чтении: неизвестный разрез,
+неизвестная категория и лишняя длина выбрасываются `sliceParse`.
 `mainMetric` в `DEFAULT_STATE` не объявлен — выставляется в рантайме, UI для смены
 нет: `blockMain()` отдаёт первую сравнимую метрику среди выбранных в блоке.
 `period` хранит `PERIOD_LABEL` и сейчас не читается — задел под выбор периода.
