@@ -34,11 +34,13 @@ SC.blocks.turnover={
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся
        только отток, потому что отток — счётные люди за месяц. */
-    return G.chart('panels',{panels:[
+    return SC.dynWrap(ctx,G.chart('panels',{panels:[
       {name:'Отток, чел',key:'attrition',type:'bar',series:D.aggregate(lp,'attrition'),color:G.C_OUT},
       {name:'Текучесть месячная, %',key:'turnover_m',type:'line',series:D.aggregate(lp,'turnover_m'),color:G.C_LINE},
       {name:'Текучесть накопительная с января, %',key:'turnover_y',type:'line',series:D.aggregate(lp,'turnover_y'),color:G.C_TURN_Y}
-    ]},{h:520,fill:true});
+    ]},{h:520,fill:true}),[
+      {key:'turnover_m',title:'Текучесть месячная, % · год к году'},
+      {key:'turnover_y',title:'Текучесть накопительная с января, % · год к году'}]);
   }
 };
 })();

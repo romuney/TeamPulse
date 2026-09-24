@@ -12,10 +12,12 @@ SC.blocks.monitor={
   defaultSub:'both',
   title(){return 'Недоработчики и лоу-перформеры'},
   view(ctx){
-    return G.chart('panels',{panels:[
+    return SC.dynWrap(ctx,G.chart('panels',{panels:[
       {name:'Недоработчики, %',key:'underwork',type:'line',series:D.aggregate(ctx.lp,'underwork'),color:G.C_UNDER},
       {name:'Лоу-перформеры, %',key:'low_perf',type:'line',series:D.aggregate(ctx.lp,'low_perf'),color:G.C_LOWPERF}
-    ]},{h:360,fill:true});
+    ]},{h:360,fill:true}),[
+      {key:'underwork',title:'Недоработчики, % · год к году'},
+      {key:'low_perf',title:'Лоу-перформеры, % · год к году'}]);
   }
 };
 })();

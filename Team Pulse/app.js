@@ -39,6 +39,7 @@ function urlParams(){
   if(S.mixRows!==D.DEFAULT_STATE.mixRows)p.set('mxr',S.mixRows);
   if(S.mixCols!==D.DEFAULT_STATE.mixCols)p.set('mxc',S.mixCols||'');
   if(S.mixMode!==D.DEFAULT_STATE.mixMode)p.set('mxm',S.mixMode);
+  if(S.dyn!==D.DEFAULT_STATE.dyn)p.set('dyn',S.dyn);
   return p;
 }
 function readURL(){
@@ -55,6 +56,8 @@ function readURL(){
   if(mxr&&D.MIX_BY_KEY[mxr])S.mixRows=mxr;
   if(mxc!=null)S.mixCols=D.MIX_BY_KEY[mxc]?mxc:'';
   if(mxm&&['abs','row','col'].indexOf(mxm)>=0)S.mixMode=mxm;
+  const dyn=q.get('dyn');
+  if(dyn==='yoy'||dyn==='roll')S.dyn=dyn;
   if(!D.NODE_BY_PATH[S.unit])S.unit=D.DEFAULT_STATE.unit;
 }
 function writeURL(){history.replaceState(null,'','?'+urlParams().toString())}
@@ -79,6 +82,8 @@ function renderHead(){
   html+='<span class="chip bench">'+D.fmtInt(D.reportLeaves(S).length)+' команд в отборе</span>';
   $('#chips').innerHTML=html;
   $('#periodBadge').textContent=D.PERIOD_LABEL;
+  const fr=$('#freshness');
+  if(fr)fr.innerHTML='<span class="dot"></span>закрытый месяц <b>'+esc(D.CMP.cur)+'</b>';
 }
 function renderNav(){
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */
@@ -303,6 +308,11 @@ document.addEventListener('click',e=>{
   if(tab){S.tab=tab.dataset.tab;S.subTab=null;S.mainMetric=null;S.selNode=null;openRows.clear();render();return}
   const sub=t.closest('[data-subtab]');
   if(sub){S.subTab=sub.dataset.subtab;render(true);return}
+  /* масштаб динамики один на все детальные вкладки: переключили на «год к
+     году» в текучести — в мониторинге тоже год, иначе соседние экраны
+     оказались бы в разных календарях */
+  const dy=t.closest('[data-dyn]');
+  if(dy){S.dyn=dy.dataset.dyn;render(true);return}
   const cr=t.closest('[data-crumb]');
   if(cr){S.unit=cr.dataset.crumb;openRows.clear();render();return}
   const un=t.closest('[data-unchip]');

@@ -12,8 +12,20 @@
   --green:#12b048; --green-bg:#bff2cd; --green-tx:#0a8f3c;
   --red:#f51f1f;   --red-bg:#ffcccc;  --red-tx:#d11414;
   --warn:#f59300;  --warn-bg:#ffe6a0; --warn-tx:#9a6500;
-  --blue:#3b6fe0;  --blue-bg:#eef3fe; --act:#2b6cff;
-  --ai:#6f4ed8;    --ai-bg:#f2eefc;   --ai-tx:#5334c4;
+  /* ---------- Акцент: голубой из дизайн-системы Proteus Adoption ----------
+     Один активный тон на всё: кнопки, выбранная строка, фокус, линия
+     подразделения на графиках. «Активное в интерфейсе» и «активное в данных» —
+     один цвет, отдельного синего в системе больше нет. Тон #0073A0 — самая
+     тёмная ступень присланных палитр (#218DAE / #2BBBD7 / #62CDFF), на белом
+     даёт 5,3:1 и держит текст. */
+  --act:#0073A0;   --act-ink:#015A7D; --act-line:#C4E2ED;
+  --blue:var(--act); --blue-bg:#E8F4F9;
+  /* полосы в ячейках — светлая ступень палитры: это фон под числом, а не
+     марка, за которой следят; тёмная полоса перетягивала взгляд с цифры */
+  --bar-soft:#5CC0EE;
+  /* фиолетовый палитры — только у AI-подсказок: единственное на экране, что
+     не является ни активным состоянием, ни величиной */
+  --ai:#AA77FF;    --ai-bg:#F1E9FF;   --ai-tx:#6C36C9;
   --bench:#9aa0ac;
 
   /* ---------- Шкала расстояний ----------
@@ -67,6 +79,9 @@
   --shadow-lg:0 8px 28px rgba(20,28,45,.16);
 }
 *{box-sizing:border-box}
+/* Макет светлый, и системные контролы обязаны это знать: без color-scheme
+   браузер при тёмной теме ОС рисует нативные списки и полосы прокрутки чёрными. */
+:root{color-scheme:light}
 html,body{margin:0;padding:0}
 body{font-family:Inter,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;-webkit-font-smoothing:antialiased}
 button{font-family:inherit}
@@ -76,13 +91,16 @@ button{font-family:inherit}
 .apphead{background:#fff;border-bottom:1px solid var(--line)}
 .apphead-top{display:flex;align-items:center;gap:14px;padding:12px 22px}
 .logo{font-weight:var(--fw-bold);font-size:18px;letter-spacing:-.2px;display:flex;align-items:center;gap:9px}
-.logo .mark{width:26px;height:26px;border-radius:var(--r3);background:linear-gradient(135deg,#2b6cff,#6f4ed8);display:inline-block}
+.logo .mark{width:26px;height:26px;border-radius:var(--r3);background:var(--act);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:var(--fw-bold)}
 .logo small{color:var(--muted);font-weight:600;font-size:12px}
 .apphead .spacer{flex:1}
+.freshness{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-med);display:flex;align-items:center;gap:var(--s3)}
+.freshness b{color:var(--ink2);font-weight:var(--fw-lead)}
+.freshness .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 auto}
 .btn{border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 14px;font-weight:600;color:var(--ink2);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:7px;transition:background .15s,border-color .15s}
 .btn:hover{background:#fafbfc;border-color:#d8dce4}
 .btn.primary{background:var(--act);border-color:var(--act);color:#fff}
-.btn.primary:hover{background:#1b5cf0}
+.btn.primary:hover{background:var(--act-ink)}
 .btn.ghost{border-color:transparent;color:var(--blue)}
 .btn.ghost:hover{background:var(--blue-bg)}
 
@@ -101,9 +119,9 @@ button{font-family:inherit}
 
 /* чипы активных фильтров */
 .chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.chip{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);padding:5px 12px;font-size:12px;font-weight:700;background:var(--blue-bg);color:#2b5fd0;border:1px solid #dbe6fd}
-.chip .x{width:14px;height:14px;border-radius:50%;border:0;background:rgba(43,95,208,.14);color:#2b5fd0;font-size:11px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
-.chip .x:hover{background:rgba(43,95,208,.28)}
+.chip{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);padding:5px 12px;font-size:12px;font-weight:700;background:var(--blue-bg);color:var(--act-ink);border:1px solid var(--act-line)}
+.chip .x{width:14px;height:14px;border-radius:50%;border:0;background:rgba(0,115,160,.14);color:var(--act-ink);font-size:11px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.chip .x:hover{background:rgba(0,115,160,.28)}
 .chip.bench{background:#f4f5f7;color:var(--ink2);border-color:var(--line)}
 .chip.bench b{color:var(--ink)}
 /* .chip.empty («Разрезы не выбраны») удалён вместе с самим пустым состоянием:
@@ -115,7 +133,7 @@ button{font-family:inherit}
 .nav-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:var(--fw-bold);margin:0 0 9px;padding:0 10px}
 .nav-i{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;text-align:left;padding:10px 11px;border-radius:var(--r3);font-size:var(--fs-lead);font-weight:600;color:var(--ink2);cursor:pointer;margin-bottom:2px;transition:background .15s}
 .nav-i:hover{background:#f4f6fa}
-.nav-i.active{background:var(--blue-bg);color:#2b5fd0;font-weight:700}
+.nav-i.active{background:var(--blue-bg);color:var(--act-ink);font-weight:700}
 .nav-i .ico{width:8px;height:8px;border-radius:var(--r1);background:var(--muted2);flex:0 0 auto}
 .nav-i.active .ico{background:var(--blue)}
 .nav-sep{height:1px;background:var(--line2);margin:12px 8px}
@@ -156,7 +174,7 @@ button{font-family:inherit}
    значение, дельта и подпись базы уезжали вниз относительно соседей. Полоса
    переставала читаться как строка: глазу приходилось искать, где чьё число.
 
-   Карточка объявлена subgrid'ом на четыре строки родителя, поэтому высоту
+   Карточка объявлена subgrid'ом на пять строк родителя (пятая — «год назад»), поэтому высоту
    каждой строки задаёт самая высокая карточка полосы: перенёсся заголовок
    у одного KPI — лишняя строка появилась у всех, зато цифры остались на
    общем уровне. Это ровно тот размен, который выбрал заказчик.
@@ -164,9 +182,9 @@ button{font-family:inherit}
    Собственные отступы строк сохранены, а gap внутри карточки обнулён: иначе
    subgrid унаследовал бы междукарточные 14px и разорвал бы карточку. Правило
    под @supports: без subgrid карточка обязана остаться обычным блоком, иначе
-   grid-row:span 4 растянул бы её по пустым строкам. */
+   grid-row:span 5 растянул бы её по пустым строкам. */
 @supports (grid-template-rows:subgrid){
-  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0}
+  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 5;row-gap:0}
 }
 
 /* ===== Панели ===== */
@@ -192,7 +210,7 @@ button{font-family:inherit}
 .sig-chip.bad{background:var(--red-bg);color:var(--red-tx)}
 .sig-chip.neutral{background:#f3f4f6;color:var(--muted)}
 /* тег KPI — метка «у метрики есть цель», а не оценка: жёлтый читался сигналом */
-.kpi-tag{display:inline-block;font-size:9px;font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;padding:2px 6px;border-radius:var(--r2);background:var(--blue-bg);color:#2b5fd0}
+.kpi-tag{display:inline-block;font-size:9px;font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;padding:2px 6px;border-radius:var(--r2);background:var(--blue-bg);color:var(--act-ink)}
 .spark{display:inline-block;vertical-align:middle}
 
 /* ===== Таблица метрик OnePager ===== */
@@ -246,7 +264,7 @@ button{font-family:inherit}
 .ptable td.txt{text-align:left;font-weight:var(--fw-lead);padding-left:var(--pad-cell)}
 .ptable tr.urow{cursor:pointer}
 .ptable tr.urow:hover{background:#fafbfc}
-.ptable tr.urow.sel{background:#f5f8ff;box-shadow:inset 3px 0 0 var(--act)}
+.ptable tr.urow.sel{background:#F2F8FB;box-shadow:inset 3px 0 0 var(--act)}
 .ptable tr.total td{border-top:2px solid var(--line);border-bottom:0;font-weight:var(--fw-bold);background:#fafbfc}
 .ptable tr.lvl2 td.txt{padding-left:34px;font-weight:var(--fw-med);color:var(--ink2)}
 .unit-sub{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:var(--fw-body);margin-top:1px}
@@ -303,10 +321,10 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .fgrp .fhint{font-size:var(--fs-note);color:var(--muted2);font-weight:600;margin-top:7px;line-height:1.4}
 .opts{display:flex;gap:8px;flex-wrap:wrap}
 .opt{border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 14px;font-size:13px;font-weight:700;color:var(--ink2);cursor:pointer;transition:all .15s}
-.opt:hover{border-color:#c9d3e6;background:#fafbfc}
+.opt:hover{border-color:#C4D4DC;background:#fafbfc}
 .opt.on{background:var(--act);border-color:var(--act);color:#fff}
-.bench-preview{background:var(--blue-bg);border:1px solid #dbe6fd;border-radius:var(--r3);padding:12px 14px;font-size:var(--fs-body);color:#2b5fd0;font-weight:600;line-height:1.5}
-.bench-preview b{color:#1c47a8}
+.bench-preview{background:var(--blue-bg);border:1px solid var(--act-line);border-radius:var(--r3);padding:12px 14px;font-size:var(--fs-body);color:var(--act-ink);font-weight:600;line-height:1.5}
+.bench-preview b{color:var(--act-ink)}
 
 /* ----- Выбор метрик: пресеты + чекбоксы по блокам -----
    Список прокручивается внутри себя, иначе модалка с 19 метриками уезжает
@@ -318,7 +336,7 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .mpick-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:var(--fw-bold);margin-bottom:6px}
 .mpick-l{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px}
 .mp-i{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;padding:4px 5px;border-radius:var(--r2);font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--muted);cursor:pointer}
-.mp-i:hover{background:#f1f4f9}
+.mp-i:hover{background:#F0F5F8}
 .mp-i.on{color:var(--ink2)}
 .mp-i .box{flex:none;width:15px;height:15px;border:1.5px solid #c9cdd6;border-radius:var(--r1);background:#fff;position:relative}
 .mp-i.on .box{background:var(--act);border-color:var(--act)}
@@ -330,7 +348,7 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .mp-i.lock .box{background:var(--bench);border-color:var(--bench)}
 
 /* ===== Итерация 7: адаптив, доступность, печать ===== */
-:focus-visible{outline:3px solid rgba(43,108,255,.32);outline-offset:2px}
+:focus-visible{outline:3px solid rgba(0,115,160,.32);outline-offset:2px}
 button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--act)}
 .skip-link{position:fixed;left:12px;top:-60px;z-index:9999;background:var(--ink);color:#fff;padding:10px 14px;border-radius:var(--r3);font-weight:700;text-decoration:none;transition:top .15s}
 .skip-link:focus{top:12px}
@@ -338,7 +356,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .nav-scrim{display:none}
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 [aria-current="page"]{font-weight:var(--fw-bold)}
-.mrow:focus,.urow:focus{outline:3px solid rgba(43,108,255,.25);outline-offset:-3px;background:#f5f8ff}
+.mrow:focus,.urow:focus{outline:3px solid rgba(0,115,160,.25);outline-offset:-3px;background:#F2F8FB}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 @media(max-width:1100px){
@@ -350,7 +368,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .reporthead{padding-left:22px;padding-right:22px}
 }
 @media(max-width:780px){
-  .apphead-top{padding:9px 14px}.logo small{display:none}.apphead .ghost{display:none}.nav-toggle{display:inline-flex}
+  .apphead-top{padding:9px 14px}.logo small{display:none}.freshness{display:none}.apphead .ghost{display:none}.nav-toggle{display:inline-flex}
   .reporthead{padding:14px}.rh-row{align-items:flex-start}.rh-title{font-size:22px}.rh-side{display:none}
   .layout{display:block}.nav{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(82vw,300px);transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 28px rgba(20,28,45,.18);padding-top:18px}.nav.open{transform:translateX(0)}
   .nav-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}.nav-scrim.open{display:block}
@@ -389,7 +407,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .ptable tr.lvl2 td.txt{padding-left:26px}
 .ptable tr.lvl2 td.txt .row-body{font-weight:var(--fw-med);color:var(--ink2)}
 .ptable tr.lvl2 td{background:#fcfcfd}
-.ptable tr.lvl2.sel td{background:#f5f8ff}
+.ptable tr.lvl2.sel td{background:#F2F8FB}
 .hint-col{font-size:var(--fs-micro);font-weight:700;color:var(--muted2);text-transform:none;letter-spacing:0;display:block;margin-top:2px}
 
 /* AI-инсайт сразу под заголовком */
@@ -457,9 +475,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    и между заголовком листа и его подзаголовком набегал лишний воздух. */
 .ph-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:0}
 .ph-row h2{margin:0}
-.btn.dash{margin-left:auto;border-color:#d7e0f2;background:var(--blue-bg);color:#2b5fd0;font-weight:700;
+.btn.dash{margin-left:auto;border-color:var(--act-line);background:var(--blue-bg);color:var(--act-ink);font-weight:700;
   border-radius:var(--r3);padding:6px 12px;text-decoration:none;white-space:nowrap}
-.btn.dash:hover{background:#e2ebfd;border-color:#bed0f6;color:#1c47a8}
+.btn.dash:hover{background:#D6ECF5;border-color:var(--act-line);color:var(--act-ink)}
 .btn.dash .ico-ext{opacity:.8;margin-left:-1px;flex:0 0 auto}
 
 /* Метрика, которую с базой сравнивать бессмысленно */
@@ -473,7 +491,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* Каретка была почти незаметна */
 .caret-btn{width:23px;height:23px;font-size:12px;color:var(--ink2);margin-right:7px}
-.caret-btn:hover{background:#e7edf7;color:var(--act)}
+.caret-btn:hover{background:var(--blue-bg);color:var(--act)}
 .caret-btn[data-open]{color:var(--act)}
 .caret-spacer{width:23px;margin-right:7px}
 
@@ -497,7 +515,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .btable td.barcell,.btable th.bar-th{text-align:left;padding-left:var(--pad-cell)}
 .btable th.bar-th{padding-left:var(--pad-cell)}
 .cellbar{display:block;width:100%;height:13px;background:#f1f3f6;border-radius:var(--r1);overflow:hidden}
-.cellbar i{display:block;height:100%;border-radius:var(--r1);background:var(--act);min-width:2px}
+.cellbar i{display:block;height:100%;border-radius:2px;background:var(--bar-soft);min-width:2px}
 .btable tr.total td{border-bottom:0}
 /* ★ у нежелательных уходов */
 .rt-mark{color:#d9534f;font-weight:700;margin-right:2px}
@@ -598,7 +616,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* Прозрачный прямоугольник-ловушка на всю полосу месяца: попасть в тонкий бар
    мышью тяжело, а в полосу — легко. fill-opacity:0 вместо fill:none —
    иначе элемент не участвует в hit-тесте. */
-.hit{fill:#2b6cff;fill-opacity:0;transition:fill-opacity .12s}
+.hit{fill:#0073A0;fill-opacity:0;transition:fill-opacity .12s}
 .barg:hover .hit,.ptg:hover .hit,.sbg:hover .hit{fill-opacity:.05}
 .barg:hover .bar,.sbg:hover .sb{filter:brightness(1.1) saturate(1.3)}
 .ptg:hover .dot{r:5.2;stroke-width:2.6}
@@ -663,6 +681,55 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    к верхней границе, а ось X наезжает на следующую метрику. */
 .detail-row td{padding:18px 18px 20px;background:#fafbfc}
 .detail-chart{height:auto;width:100%}
+/* Два полотна рядом (год к году + 12 мес) — половины разделены волосяной
+   линией, а не зазором: это один ответ из двух частей, а не две карточки. */
+.detail-split{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.dsplit{min-width:0;padding:0 var(--s9)}
+.dsplit:first-child{padding-left:0;border-right:1px solid var(--line2)}
+.dsplit:last-child{padding-right:0}
+@media (max-width:1100px){
+  .detail-split{grid-template-columns:1fr;gap:var(--chart-gap)}
+  .dsplit,.dsplit:first-child,.dsplit:last-child{padding:0;border:0}
+}
+
+/* ---------- Переключатель масштаба динамики: 12 мес / год к году ----------
+   Сегмент из дизайн-системы Proteus Adoption: подложка --line2, активный —
+   белая плашка с тенью. Стоит над графиком, а не в шапке панели: шапку уже
+   занимают под-вкладки блока. */
+.dyn-switch{display:inline-flex;gap:3px;background:var(--line2);border-radius:var(--r3);
+  padding:3px;margin:0 0 var(--s6);align-self:flex-start;flex:none}
+.dyn-switch button{border:0;background:transparent;padding:5px var(--s5);border-radius:var(--r2);
+  font:inherit;font-size:var(--fs-note);font-weight:var(--fw-lead);color:var(--muted);cursor:pointer;
+  transition:background .15s,color .15s}
+.dyn-switch button:hover{color:var(--ink2)}
+.dyn-switch button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+
+/* строка «год назад» в KPI-карточке — второй план, тише строки базы */
+.split-r .panel-b>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
+.pulse-strip{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:var(--s10);background:var(--card);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--s7) var(--s9);margin:var(--s7) 0 var(--s7)}
+.ps-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:var(--fw-lead);
+  margin-bottom:var(--s4);display:flex;gap:var(--s4);align-items:baseline}
+.ps-sub{text-transform:none;letter-spacing:0;color:var(--muted2);font-weight:var(--fw-med)}
+.ps-num{display:flex;align-items:baseline;gap:var(--s2) var(--s3);flex-wrap:wrap;font-size:var(--fs-note);color:var(--muted);margin-bottom:var(--s4)}
+.ps-num b{font-size:var(--fs-head);font-weight:var(--fw-bold);color:var(--ink)}
+.ps-num b.g{color:var(--green-tx)} .ps-num b.r{color:var(--red-tx)} .ps-num b.n{color:var(--ink2)}
+.ps-num span{margin-right:var(--s4)}
+.ps-bar{display:flex;gap:2px;height:8px;border-radius:var(--r-pill);overflow:hidden}
+.ps-bar i{display:block;min-width:4px}
+.ps-bar i.g{background:#80cf9a} .ps-bar i.r{background:#ef8c8c} .ps-bar i.n{background:#e4e7ec}
+.ps-movers{display:flex;flex-direction:column;min-width:0;border-left:1px solid var(--line2);padding-left:var(--s10)}
+.ps-mv{display:grid;grid-template-columns:minmax(0,1fr) auto 84px;align-items:center;gap:var(--s6);border:0;background:transparent;
+  font:inherit;text-align:left;padding:5px var(--s3);margin:0 calc(-1 * var(--s3));border-radius:var(--r2);cursor:pointer;color:var(--ink2)}
+.ps-mv:hover{background:var(--blue-bg)}
+.ps-mv .delta{justify-self:end}
+.ps-n{font-size:var(--fs-body);font-weight:var(--fw-lead);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ps-v{font-size:var(--fs-note);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ps-v b{color:var(--ink);font-weight:var(--fw-lead)}
+.ps-empty{font-size:var(--fs-note);color:var(--muted)}
+@media (max-width:900px){.pulse-strip{grid-template-columns:1fr}.ps-movers{border-left:0;padding-left:0;border-top:1px solid var(--line2);padding-top:var(--s6)}}
+.kpi .k-row.k-yoy{margin-top:var(--s2);font-size:var(--fs-note);color:var(--muted)}
+.kpi .k-row.k-yoy b{color:var(--ink2);font-weight:var(--fw-lead)}
 
 /* ---------- Структура: разбивки не должны слипаться ---------- */
 .bt-stack{gap:28px}
@@ -724,7 +791,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   border:1px solid var(--line);background:#fff;border-radius:var(--r4);padding:9px 10px;
   cursor:pointer;font:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
 .pulse-dock:hover{border-color:#d3d9e4;box-shadow:var(--shadow)}
-.pulse-dock.on{border-color:#c9d3e6;background:#fbfcfe;box-shadow:var(--shadow)}
+.pulse-dock.on{border-color:#C4D4DC;background:#fbfcfe;box-shadow:var(--shadow)}
 .pd-av{position:relative;flex:0 0 auto;line-height:0}
 /* Точка состояния дублирует эмоцию огонька формой и цветом: одной картинки
    мало на 54 px, а подписывать словами нельзя — он молчит. */
@@ -757,7 +824,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pp-x{margin-left:auto;flex:0 0 auto;border:0;background:transparent;cursor:pointer;
   color:var(--muted);font-size:13px;line-height:1;padding:6px;border-radius:var(--r2)}
-.pp-x:hover{background:#f1f4f9;color:var(--ink)}
+.pp-x:hover{background:#F0F5F8;color:var(--ink)}
 .pp-b{flex:1;min-height:0;overflow-y:auto;padding:12px 14px 4px}
 .pp-lead{font-size:12px;color:var(--ink2);font-weight:600;line-height:1.5;
   background:#f7f8fa;border-radius:var(--r3);padding:9px 11px;margin-bottom:12px}
@@ -984,10 +1051,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    синим, а не серым пунктиром обычной сноски: это не пояснение, а активное
    состояние отчёта, которое пользователь включил и должен видеть. */
 .note-inline.slice{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;
-  border-style:solid;border-color:#d7e0f2;background:var(--blue-bg);color:var(--ink2)}
+  border-style:solid;border-color:var(--act-line);background:var(--blue-bg);color:var(--ink2)}
 .note-inline.slice .sl-t{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.3px;
-  font-weight:var(--fw-bold);color:#2b5fd0;flex:0 0 auto}
-.note-inline.slice .chip.sl{background:#fff;border-color:#dbe6fd;flex:0 0 auto}
+  font-weight:var(--fw-bold);color:var(--act-ink);flex:0 0 auto}
+.note-inline.slice .chip.sl{background:#fff;border-color:var(--act-line);flex:0 0 auto}
 .note-inline.slice .sl-x{flex:1 1 240px;min-width:0;font-size:var(--fs-note);color:var(--muted)}
 .note-inline.slice .btn.xs{flex:0 0 auto;padding:4px 9px}
 
@@ -1040,7 +1107,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   color:var(--ink2);cursor:pointer;padding:4px 7px;border-radius:var(--r2);max-width:100%;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background .15s,color .15s}
 .mx-pick.row{display:block;width:100%;text-align:left}
-.mx-pick:hover{background:var(--blue-bg);color:#2b5fd0}
+.mx-pick:hover{background:var(--blue-bg);color:var(--act-ink)}
 .mx-pick.on{background:var(--act);color:#fff}
 
 .mxtable td.mx-cell{text-align:center;font-weight:var(--fw-lead);font-size:var(--fs-body);color:var(--ink);
@@ -1096,8 +1163,11 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 <header class="apphead">
   <div class="apphead-top">
     <button class="nav-toggle" id="navToggle" aria-label="Открыть навигацию" aria-expanded="false">☰</button>
-    <div class="logo"><span class="mark"></span>TeamPulse&nbsp;<small>Hub · макет</small></div>
+    <div class="logo"><span class="mark">T</span>TeamPulse&nbsp;<small>Hub · макет</small></div>
     <div class="spacer"></div>
+    <!-- Свежесть данных — как в Proteus Adoption: закрытый месяц, по которому
+         читаются все карточки, назван в шапке один раз для всего отчёта. -->
+    <div class="freshness" id="freshness"></div>
   </div>
 </header>
 
@@ -1715,6 +1785,26 @@ function deltasOf(leafPaths,key){
   const e=aggregateExt(leafPaths,key), i=NEXT-1;
   return {mom:+(e[i]-e[i-1]).toFixed(2), yoy:+(e[i]-e[i-12]).toFixed(2)};
 }
+/* ---------- Год к году ----------
+   Механика перенесена из HRBP HUB: ось — двенадцать месяцев календарного года,
+   на ней две линии. Прошлый год целиком, текущий — отработанные месяцы и хвост
+   из null, чтобы обе линии легли на одну ось янв.–дек.
+   Расширенная сетка ровно под это и устроена: янв. 2025 — июнь 2026, 18 точек.
+   Окно «12 мес» (июль — июнь) отвечает на вопрос «куда идём», год к году —
+   «где мы против прошлого года в тот же сезон». Накопительная текучесть в
+   скользящем окне ломается посередине — обнуляется в январе; на оси года
+   обе её линии начинаются с нуля и сравниваются месяц в месяц. */
+const YEAR_CUR=CUR_M.y, YEAR_PREV=CUR_M.y-1;
+const YOY_FROM=MONTHS_EXT.findIndex(mm=>mm.y===YEAR_PREV&&mm.m===0);   /* янв. прошлого года */
+const CUR_LEN=CUR_M.m+1;                     /* сколько месяцев текущего года закрыто */
+function yoyOf(ext){
+  const prev=ext.slice(YOY_FROM,YOY_FROM+12);
+  const cur=ext.slice(YOY_FROM+12,YOY_FROM+12+CUR_LEN);
+  while(cur.length<12)cur.push(null);
+  return {prev,cur};
+}
+function yoySeries(leafPaths,key){return yoyOf(aggregateExt(leafPaths,key))}
+
 /* отклонение от базы — в светофор с мёртвой зоной 5% */
 function compareState(key,val,base){
   const m=METRIC_BY_KEY[key];
@@ -1770,7 +1860,9 @@ const DEFAULT_STATE={unit:'T/01',paint:'HQ',itSeg:'all',staffType:'all',period:P
   /* срез состава: не больше SLICE_MAX категорий, по одной на разрез */
   mixSel:[],
   /* оси конструктора «Свой срез» и содержимое ячейки */
-  mixRows:'seniority',mixCols:'gender',mixMode:'abs'};
+  mixRows:'seniority',mixCols:'gender',mixMode:'abs',
+  /* масштаб динамики на детальных вкладках: roll — 12 мес, yoy — год к году */
+  dyn:'roll'};
 
 /* ============================================================================
    Разрезы состава численности
@@ -2420,7 +2512,8 @@ window.TPDATA={MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,fmtCompact,DEFAULT_STATE,
-  PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt};
+  PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
+  YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries};
 
 </script>
 <script>
@@ -2470,7 +2563,7 @@ const CD=window.TPDATA;
 const FONT='Inter, Helvetica, Arial, sans-serif';
 const C_LABEL='#2b2b2b';                    /* единственный цвет цифр на графиках */
 const C_AXIS='#8a909c', C_DIV='#e4e7ec', C_ZERO='#c9cdd6';
-const C_LINE='#3b6fe0', C_BENCH='#9aa0ac';
+const C_LINE='#0073A0', C_BENCH='#9aa0ac';
 
 /* светофор — гамма пилюль. C_FLAT работает и на «без оценки», и на «на уровне» */
 const C_GREEN='#80cf9a', C_RED='#ef8c8c', C_FLAT='#c7c8cc';
@@ -2590,7 +2683,7 @@ function rect(x,y,w,h,fill,r,extra){
 /* Бар со скруглением ТОЛЬКО сверху. Низ ровный — правило 4. */
 function barUp(x,y,w,h,fill,extra){
   h=Math.max(0,h);
-  const r=Math.min(3,w/2,h);
+  const r=Math.min(2,w/2,h);   /* скругление марок 2px — ДС Proteus Adoption */
   if(h<=0.5)return'';
   return '<path d="M'+num(x)+' '+num(y+h)+'V'+num(y+r)+'Q'+num(x)+' '+num(y)+' '+num(x+r)+' '+num(y)
     +'H'+num(x+w-r)+'Q'+num(x+w)+' '+num(y)+' '+num(x+w)+' '+num(y+r)+'V'+num(y+h)+'Z"'
@@ -2600,7 +2693,7 @@ function barUp(x,y,w,h,fill,extra){
    скругляется нижний край. Правило одно: мягкий край смотрит от нуля. */
 function barDown(x,y,w,h,fill,extra){
   h=Math.max(0,h);
-  const r=Math.min(3,w/2,h);
+  const r=Math.min(2,w/2,h);   /* скругление марок 2px — ДС Proteus Adoption */
   if(h<=0.5)return'';
   return '<path d="M'+num(x)+' '+num(y)+'V'+num(y+h-r)+'Q'+num(x)+' '+num(y+h)+' '+num(x+r)+' '+num(y+h)
     +'H'+num(x+w-r)+'Q'+num(x+w)+' '+num(y+h)+' '+num(x+w)+' '+num(y+h-r)+'V'+num(y)+'Z"'
@@ -2623,7 +2716,7 @@ const TTL_SZ=12, TTL_W=700, C_INK='#1f1f1f';
    ВАЖНО: id серии живёт в ОТДЕЛЬНОМ атрибуте data-s, а НЕ в class.
    В классе уже лежат `bar up`, `bar dn`, `ln`, `lnb`, `dot` — и smoke.js
    сверяет эти литералы посимвольно. Любой лишний класс там ломает проверку. */
-const SERIES={line:['main','bench'],diverge:['up','dn'],
+const SERIES={line:['main','bench'],yoy:['main','prev','bench'],diverge:['up','dn'],
               waterfall:['total','in','out'],bars:['main']};
 /* каскад держится на композиции — выключать типы столбцов в нём бессмысленно,
    остаётся только подсветка */
@@ -2791,6 +2884,96 @@ function drawLine(a,w,h){
        факт, и появляться они должны вместе, вслед за кончиком линии */
     if(showMain)s+=txt(cx,cy-VAL_DY,CD.fmtVal(key,v),valOpt({delay:dly,s:'main'}));
   });
+  return svg(w,h,s);
+}
+
+/* ============================================================================
+   1a. Год к году — механика HRBP HUB на голом SVG
+   ----------------------------------------------------------------------------
+   Ось — двенадцать месяцев календарного года, на ней две линии одной формы
+   записи: текущий год — насыщенная линия с подписями, прошлый — бледная без
+   подписей. Разделяют их вес и цвет, а не тип графика: заливка под одной из
+   них превратила бы её в площадь, и глаз сравнивал бы площадь с линией.
+
+   Ориентир один — цель KPI или база, и только для текущего года: прошлогодней
+   базы на полотне нет, иначе рядом оказались бы четыре линии и два вопроса.
+
+   Отличия от ECharts-версии HRBP, и они осознанные — здесь действуют правила
+   этого движка:
+     · шкала от нуля (правило 1), поэтому оси Y нет, а значения подписаны;
+     · год не подписывается под январём (правило 6 здесь не применимо): на оси
+       лежат ОБА года сразу, и год называет легенда, а не подпись месяца.
+   Прошлогоднее значение подписано ровно в одной точке — в последнем закрытом
+   месяце: это и есть «год к году» из таблицы, и его видно без наведения.
+   ========================================================================== */
+const C_PREV='#b9bdc6', C_NOW='#dfe3ea';
+function drawYoy(a,w,h){
+  const key=a.metricKey, cur=a.cur, prev=a.prev, bench=a.bench, o=a.opt||{};
+  const nm=CD.METRIC_BY_KEY[key]||{};
+  const hh=headH(o.title,o.legend);
+  h=h||o.h||280;
+  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H+12;
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/12;
+  const off=offOf(o);
+  const showMain=!off.has('main'), showPrev=!off.has('prev'), showBench=!!bench&&!off.has('bench');
+  const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
+  if(o.kpi){all.push(o.kpi.green);all.push(o.kpi.red)}
+  const max=niceMax(all);
+  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
+  const X=i=>x0+bandW*(i+0.5);
+  const nowI=CD.CUR_LEN-1;
+
+  let s=header(w,o.title,o.legend,{kind:'yoy',off:o.off});
+  /* «вы здесь»: тонкая сплошная — пунктиром на полотне уже сказаны цель и база */
+  s+=line(X(nowI),plotTop-6,X(nowI),plotBot,C_NOW,1);
+  CD.MONTH_ABBR.forEach((lb,i)=>{
+    s+=txt(X(i),plotBot+15,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+  });
+  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
+
+  if(o.kpi){
+    [['green',C_GREEN],['red',C_RED]].forEach(([k,c])=>{
+      const y=Y(o.kpi[k]);
+      s+=line(x0,y,x0+plotW,y,c,1.4,'2 3');
+      s+=txt(x0+plotW-2,y+VAL_DY+2,'KPI '+CD.fmtVal(key,o.kpi[k]),valOpt({anchor:'end'}));
+    });
+  }
+  const path=arr=>{let d='',pen=false;arr.forEach((v,i)=>{if(v==null){pen=false;return}
+    d+=(pen?'L':'M')+num(X(i))+' '+num(Y(v));pen=true});return d};
+  if(showPrev)s+='<path class="lnb"'+sAttr('prev')+' d="'+path(prev)+'" fill="none" stroke="'+C_PREV+'"'
+    +' stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
+  if(showBench)s+='<path class="lnb"'+sAttr('bench')+' d="'+path(bench)+'" fill="none" stroke="'+C_BENCH+'"'
+    +' stroke-width="2" stroke-dasharray="5 3"/>';
+  if(showMain)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+path(cur)+'" fill="none" stroke="'+C_LINE+'"'
+    +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+
+  const yC=CD.YEAR_CUR, yP=CD.YEAR_PREV;
+  for(let i=0;i<12;i++){
+    const c=cur[i], p=prev[i], b=bench?bench[i]:null;
+    const rows=[];
+    if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:C_LINE});
+    if(showPrev&&p!=null)rows.push({label:String(yP),value:CD.fmtVal(key,p),color:C_PREV});
+    if(showBench&&b!=null)rows.push({label:o.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
+    const note=c!=null&&p!=null?'Год к году: '+CD.fmtDelta(key,+(c-p).toFixed(2))
+      :c==null?'Месяц '+yC+' ещё не закрыт':null;
+    const nmM=CD.MONTH_NOM[i];
+    s+='<g class="ptg"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+(nm.name?' · '+nm.name:''),rows,note})+'>';
+    s+='<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
+    if(showPrev&&p!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(X(i))+'" cy="'+num(Y(p))+'" r="2.4" fill="'+C_PREV+'"/>';
+    const dly=DRAW_MS*(i/Math.max(1,nowI))*0.9;
+    if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(X(i))+'" cy="'+num(Y(c))+'" r="3.4" fill="#fff" stroke="'+C_LINE+'"'
+      +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
+    s+='</g>';
+    /* Подписи. У последнего закрытого месяца подписаны обе линии, и подписи
+       разведены по разные стороны: верхняя точка — над собой, нижняя — под
+       собой. Иначе на близких значениях цифры легли бы одна на другую. */
+    if(showMain&&c!=null){
+      const both=i===nowI&&showPrev&&p!=null, below=both&&p>c;
+      s+=txt(X(i),below?Y(c)+VAL_DY+VAL_ASC:Y(c)-VAL_DY,CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
+      if(both)s+=txt(X(i),below?Y(p)-VAL_DY:Y(p)+VAL_DY+VAL_ASC,CD.fmtVal(key,p),
+        valOpt({s:'prev',fill:C_AXIS,weight:600}));
+    }
+  }
   return svg(w,h,s);
 }
 
@@ -3152,7 +3335,7 @@ function sparkLine(series,state,w,h,o){
    градиента на себя и будни между собой стали бы неразличимы.
    Ось Y тут отсутствует по определению, значение подписано в каждой ячейке —
    оба правила визуализации соблюдены без специальных усилий. */
-const CAL_LO=[234,241,253], CAL_HI=[43,94,197];   /* #eaf1fd → #2b5ec5 */
+const CAL_LO=[232,244,249], CAL_HI=[0,115,160];   /* #E8F4F9 → #0073A0: шкала активного тона */
 function mixRGB(a,b,t){
   const c=[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*t));
   return 'rgb('+c[0]+','+c[1]+','+c[2]+')';
@@ -3268,7 +3451,7 @@ function drawCalendar(a,w,h){
   return svg(w,hUsed,s);
 }
 
-const KINDS={line:drawLine,bars:drawBars,diverge:drawDiverge,panels:drawPanels,
+const KINDS={line:drawLine,yoy:drawYoy,bars:drawBars,diverge:drawDiverge,panels:drawPanels,
              waterfall:drawWaterfall,funnel:drawFunnel,calendar:drawCalendar};
 const NOMINAL_W=900, NOMINAL_H=null;
 let _specs=new Map(), _sid=0;
@@ -3353,7 +3536,7 @@ function reset(){_specs=new Map();_sid=0}
 
 window.TPDRAW={chart,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkBars,sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,
-  FONT,PALETTE,C_LINE,C_BENCH,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
+  FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
   C_VAC,C_UNDER,C_LOWPERF,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y};
 })();
@@ -3597,11 +3780,29 @@ function aiIco(big){
    уровне. До этого перенос в одной карточке сдвигал её цифры вниз, и полоса
    KPI переставала читаться как строка. Лишняя строка воздуха — приемлемая
    цена; съехавшие цифры — нет. */
+/* ---------- Раскрытая строка: два полотна рядом ----------
+   Приём HRBP HUB: одно широкое полотно на всю таблицу растягивало метрику в 5:1
+   и плющило наклон; два узких дают и наклон, и ответы на два разных вопроса —
+   «где мы против прошлого года» и «куда идём последние двенадцать месяцев». */
+function detailSplit(left,right){
+  return '<div class="detail-split"><div class="dsplit">'+left+'</div><div class="dsplit">'+right+'</div></div>';
+}
+/* ---------- Переключатель масштаба динамики ----------
+   Правая панель детальной вкладки узкая, два полотна рядом в неё не встают —
+   поэтому, как в HRBP, вместо раскладки «обзор + зум» переключатель. */
+function dynSwitch(mode){
+  const it=[['roll','12 мес'],['yoy','Год к году']];
+  return '<div class="dyn-switch" role="tablist">'+it.map(([k,n])=>
+    '<button class="'+(mode===k?'on':'')+'" data-dyn="'+k+'" role="tab" aria-selected="'+(mode===k)+'">'+n+'</button>').join('')+'</div>';
+}
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.q||'')+'</div>'+
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
-    '<div class="k-row">'+(o.row2||'')+'</div></div>';
+    '<div class="k-row">'+(o.row2||'')+'</div>'+
+    /* пятая строка — «год назад»: рисуется всегда, как и второй ряд, иначе
+       subgrid потерял бы общий шаг строк у карточек с ней и без неё */
+    '<div class="k-row k-yoy">'+(o.row3||'')+'</div></div>';
 }
 
 /* ============================================================================
@@ -3867,6 +4068,36 @@ function empty(title,text){
 }
 
 /* ---------- Легенда светофора ---------- */
+/* ============================================================================
+   pulseStrip — «Пульс команды»: одна полоса над KPI, отвечающая на два вопроса
+   до чтения таблиц. Слева — сколько метрик сейчас лучше и хуже своего
+   ориентира (цель KPI или база), полосой с тем же светофором, что у пилюль.
+   Справа — главные сдвиги за год: относительные метрики с самым большим
+   изменением к тому же месяцу прошлого года. Клик по сдвигу ведёт в блок.
+
+   o = {good, bad, neu, movers:[{key,name,block,cur,prev,yoy}]}
+   ========================================================================== */
+function pulseStrip(o){
+  const tot=Math.max(1,o.good+o.bad+o.neu);
+  const seg=(n,c)=>n?'<i class="'+c+'" style="flex:'+n+'"></i>':'';
+  let h='<div class="pulse-strip"><div class="ps-score">'+
+    '<div class="ps-h">Сигналы · '+esc(D.CMP.cur)+'</div>'+
+    '<div class="ps-num"><b class="g">'+o.good+'</b><span>лучше ориентира</span>'+
+      '<b class="r">'+o.bad+'</b><span>хуже</span>'+
+      '<b class="n">'+o.neu+'</b><span>на уровне или без оценки</span></div>'+
+    '<div class="ps-bar" role="img" aria-label="'+o.good+' лучше, '+o.bad+' хуже, '+o.neu+' без сигнала из '+tot+'">'+
+      seg(o.good,'g')+seg(o.bad,'r')+seg(o.neu,'n')+'</div></div>';
+  h+='<div class="ps-movers"><div class="ps-h">Главные сдвиги за год<span class="ps-sub">'+esc(D.CMP.yoy)+'</span></div>';
+  if(!o.movers.length)h+='<div class="ps-empty">Сдвигов больше ±5% к прошлому году нет.</div>';
+  o.movers.forEach(mv=>{
+    h+='<button class="ps-mv" data-tab="'+mv.block+'"'+tipAttr({title:mv.name,
+        text:'Было '+D.fmtVal(mv.key,mv.prev)+' в '+D.CMP.yoy.replace(/^к /,'')+', стало '+D.fmtVal(mv.key,mv.cur)+'. Клик — открыть блок.'})+'>'+
+      '<span class="ps-n">'+esc(mv.name)+'</span>'+
+      '<span class="ps-v">'+D.fmtVal(mv.key,mv.prev)+' → <b>'+D.fmtVal(mv.key,mv.cur)+'</b></span>'+
+      deltaChip(mv.key,mv.yoy)+'</button>';
+  });
+  return h+'</div></div>';
+}
 function trafficLegend(){
   /* два цвета и серый: жёлтого в светофоре нет. «На уровне ±5%» и «без оценки»
      делят один серый — оба означают «повода вмешиваться нет». */
@@ -3876,7 +4107,7 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
 })();
 
@@ -4249,9 +4480,29 @@ function selLabel(S){
    (там она вводит в заблуждение) и у метрик с утверждённым KPI — на графике
    остаются пороги цели, и вторая пунктирная линия рядом с ними спорила бы с
    ними за роль ориентира. */
-function metricLine(key,lp,bl,S,opt){
+/* График «год к году» — тот же выбор ориентира, что и у metricLine:
+   цель KPI или база, и только для текущего года. */
+function yoyChart(key,lp,bl,S,opt){
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
-  return G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
+  const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
+  const legend=[{name:String(D.YEAR_CUR),color:G.C_LINE},{name:String(D.YEAR_PREV),color:G.C_PREV}]
+    .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
+  return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
+    Object.assign({legend,benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
+}
+/* Переключатель «12 мес / год к году» для вкладок, где динамика нарисована
+   панелями: в режиме года каждая метрика получает своё полотно год к году. */
+function dynWrap(ctx,rollHtml,items){
+  if(ctx.S.dyn!=='yoy')return U.dynSwitch('roll')+rollHtml;
+  return U.dynSwitch('yoy')+items.map(it=>yoyChart(it.key,ctx.lp,ctx.bl,ctx.S,
+    {title:it.title,h:it.h||250,fill:false})).join('');
+}
+function metricLine(key,lp,bl,S,opt){
+  if(S.dyn==='yoy'&&!(opt&&opt.noSwitch))
+    return U.dynSwitch('yoy')+yoyChart(key,lp,bl,S,Object.assign({},opt||{},
+      {title:(opt&&opt.title?opt.title+' · ':'')+'год к году'}));
+  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
+  return (opt&&opt.noSwitch?'':U.dynSwitch('roll'))+G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
     Object.assign({legend:cmp?[{name:selLabel(S),color:G.C_LINE},{name:bench,color:G.C_BENCH,dash:true}]:null,
       benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
 }
@@ -4330,7 +4581,9 @@ function renderBlock(S,expanded,mixOpen){
       value:D.fmtVal(m.key,v),
       row1:U.momChip(m.key,mom),
       row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark()});
+           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark(),
+      /* по срезу состава прошлогоднего значения нет: срез живёт только в окне */
+      row3:selIds.length&&D.sliceable(m.key)?'':'год назад <b>'+D.fmtVal(m.key,v-D.deltasOf(rl,m.key).yoy)+'</b>'});
   });
   h+='</div>';
 
@@ -4410,7 +4663,7 @@ function renderBlock(S,expanded,mixOpen){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,metricLine,selLabel};
+  expandableRows,metricLine,yoyChart,dynWrap,selLabel};
 })();
 
 </script>
@@ -4663,11 +4916,13 @@ SC.blocks.turnover={
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся
        только отток, потому что отток — счётные люди за месяц. */
-    return G.chart('panels',{panels:[
+    return SC.dynWrap(ctx,G.chart('panels',{panels:[
       {name:'Отток, чел',key:'attrition',type:'bar',series:D.aggregate(lp,'attrition'),color:G.C_OUT},
       {name:'Текучесть месячная, %',key:'turnover_m',type:'line',series:D.aggregate(lp,'turnover_m'),color:G.C_LINE},
       {name:'Текучесть накопительная с января, %',key:'turnover_y',type:'line',series:D.aggregate(lp,'turnover_y'),color:G.C_TURN_Y}
-    ]},{h:520,fill:true});
+    ]},{h:520,fill:true}),[
+      {key:'turnover_m',title:'Текучесть месячная, % · год к году'},
+      {key:'turnover_y',title:'Текучесть накопительная с января, % · год к году'}]);
   }
 };
 })();
@@ -4764,10 +5019,12 @@ SC.blocks.monitor={
   defaultSub:'both',
   title(){return 'Недоработчики и лоу-перформеры'},
   view(ctx){
-    return G.chart('panels',{panels:[
+    return SC.dynWrap(ctx,G.chart('panels',{panels:[
       {name:'Недоработчики, %',key:'underwork',type:'line',series:D.aggregate(ctx.lp,'underwork'),color:G.C_UNDER},
       {name:'Лоу-перформеры, %',key:'low_perf',type:'line',series:D.aggregate(ctx.lp,'low_perf'),color:G.C_LOWPERF}
-    ]},{h:360,fill:true});
+    ]},{h:360,fill:true}),[
+      {key:'underwork',title:'Недоработчики, % · год к году'},
+      {key:'low_perf',title:'Лоу-перформеры, % · год к году'}]);
   }
 };
 })();
@@ -4894,6 +5151,25 @@ function bestMetrics(S,rl,bl,limit){
   });
   return out.slice(0,limit||2);
 }
+/* Счёт сигналов и сдвиги за год для полосы «Пульс команды».
+   Сигнал — та же развилка, что везде: цель KPI, иначе база; несравнимые и
+   «больше не значит лучше» — без оценки. Сдвиги берём только у относительных
+   метрик: у счётных «2 → 4 человека» даёт +100% и забивает весь список. */
+function pulse(S,rl,bl){
+  let good=0,bad=0,neu=0;const mv=[];
+  D.METRICS.forEach(m=>{
+    if(!D.metricVisible(m.key,S))return;
+    const v=D.lastVal(rl,m.key), kpi=D.kpiFor(m.key,S);
+    const st=m.better==='flat'?'neutral':kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,D.lastVal(bl,m.key));
+    if(st==='good')good++;else if(st==='bad')bad++;else neu++;
+    if(m.better==='flat'||m.fmt==='int')return;
+    const yoy=D.deltasOf(rl,m.key).yoy, prev=v-yoy;
+    const rel=prev?Math.abs(yoy)/Math.abs(prev):0;
+    if(rel>=0.05)mv.push({key:m.key,name:m.name,block:m.block,cur:v,prev,yoy,rel});
+  });
+  mv.sort((a,b)=>b.rel-a.rel);
+  return {good,bad,neu,movers:mv.slice(0,3)};
+}
 function lead(S,rl,bl){
   const hc=D.lastVal(rl,'hc_total'), w=worstMetrics(S,rl,bl,3);
   return 'В отборе <b>'+D.fmtInt(hc)+' чел</b> из '+D.fmtInt(rl.length)+' команд, база сравнения — <b>'+
@@ -4932,6 +5208,10 @@ function render(S,openRows){
      её никто не дочитывал: сначала вывод, потом цифры. */
   h+=U.aiBlock('op','Как читать эту сводку',lead(S,rl,bl),bullets(S,rl,bl),S.aiOpen==='op','insight');
 
+  /* Пульс команды: счёт сигналов и главные сдвиги за год — до таблиц,
+     чтобы первые пять секунд на экране отвечали «что изменилось». */
+  h+=U.pulseStrip(pulse(S,rl,bl));
+
   /* KPI-стрип: только выбранные метрики. hc_total и hc_active выключить нельзя,
      поэтому стрип не может опустеть целиком. */
   h+='<div class="kpis">';
@@ -4947,7 +5227,10 @@ function render(S,openRows){
       row1:U.momChip(k,dl.mom)+
         G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:!kpi&&D.comparable(k)?D.aggregate(bl,k):null}),
       row2:(kpi?'<span class="k-sub">цель '+D.fmtVal(k,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-             :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':U.noCmpMark())});
+             :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':U.noCmpMark()),
+      /* год назад — тем же месяцем: число, которое в таблице стоит пилюлей
+         «за год», здесь названо значением, чтобы его было с чем сверить */
+      row3:'год назад <b>'+D.fmtVal(k,v-dl.yoy)+'</b>'});
   });
   h+='</div>'+U.trafficLegend();
 
@@ -4997,13 +5280,17 @@ function render(S,openRows){
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */
       if(open){
-        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+
+        /* Два полотна рядом, как в HRBP HUB: слева год к году (сезон и то,
+           где метрика была год назад), справа скользящие 12 месяцев с базой
+           или целью (куда идём). Ориентир на обоих один и тот же. */
+        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+U.detailSplit(
+          SC.yoyChart(m.key,rl,bl,S,{title:'Год к году',h:280,fill:false}),
           G.chart('line',{metricKey:m.key,series:s,bench:bser},
-            {title:m.name+(kpi?' — динамика и цель KPI':bser?' — динамика и база сравнения':' — динамика'),
+            {title:kpi?'12 мес и цель KPI':bser?'12 мес и база':'12 мес',
              /* серии подписаны именами, иначе непонятно, что за синяя линия */
              legend:bser?[{name:unitName(S),color:G.C_LINE},{name:D.benchmarkLabel(S),color:G.C_BENCH,dash:true}]:null,
              benchName:D.benchmarkLabel(S),
-             kpi:kpi,h:280})+'</div></td></tr>';
+             kpi:kpi,h:280}))+'</div></td></tr>';
       }
     });
     h+=U.panel({body:t+'</tbody></table>'});
@@ -5058,6 +5345,7 @@ function urlParams(){
   if(S.mixRows!==D.DEFAULT_STATE.mixRows)p.set('mxr',S.mixRows);
   if(S.mixCols!==D.DEFAULT_STATE.mixCols)p.set('mxc',S.mixCols||'');
   if(S.mixMode!==D.DEFAULT_STATE.mixMode)p.set('mxm',S.mixMode);
+  if(S.dyn!==D.DEFAULT_STATE.dyn)p.set('dyn',S.dyn);
   return p;
 }
 function readURL(){
@@ -5074,6 +5362,8 @@ function readURL(){
   if(mxr&&D.MIX_BY_KEY[mxr])S.mixRows=mxr;
   if(mxc!=null)S.mixCols=D.MIX_BY_KEY[mxc]?mxc:'';
   if(mxm&&['abs','row','col'].indexOf(mxm)>=0)S.mixMode=mxm;
+  const dyn=q.get('dyn');
+  if(dyn==='yoy'||dyn==='roll')S.dyn=dyn;
   if(!D.NODE_BY_PATH[S.unit])S.unit=D.DEFAULT_STATE.unit;
 }
 function writeURL(){history.replaceState(null,'','?'+urlParams().toString())}
@@ -5098,6 +5388,8 @@ function renderHead(){
   html+='<span class="chip bench">'+D.fmtInt(D.reportLeaves(S).length)+' команд в отборе</span>';
   $('#chips').innerHTML=html;
   $('#periodBadge').textContent=D.PERIOD_LABEL;
+  const fr=$('#freshness');
+  if(fr)fr.innerHTML='<span class="dot"></span>закрытый месяц <b>'+esc(D.CMP.cur)+'</b>';
 }
 function renderNav(){
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */
@@ -5322,6 +5614,11 @@ document.addEventListener('click',e=>{
   if(tab){S.tab=tab.dataset.tab;S.subTab=null;S.mainMetric=null;S.selNode=null;openRows.clear();render();return}
   const sub=t.closest('[data-subtab]');
   if(sub){S.subTab=sub.dataset.subtab;render(true);return}
+  /* масштаб динамики один на все детальные вкладки: переключили на «год к
+     году» в текучести — в мониторинге тоже год, иначе соседние экраны
+     оказались бы в разных календарях */
+  const dy=t.closest('[data-dyn]');
+  if(dy){S.dyn=dy.dataset.dyn;render(true);return}
   const cr=t.closest('[data-crumb]');
   if(cr){S.unit=cr.dataset.crumb;openRows.clear();render();return}
   const un=t.closest('[data-unchip]');

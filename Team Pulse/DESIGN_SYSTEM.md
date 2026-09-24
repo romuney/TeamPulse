@@ -89,8 +89,11 @@
   --warn:#f59300;  --warn-bg:#ffe6a0;  --warn-tx:#9a6500;
 
   /* ---------- Акцент и служебное ---------- */
-  --blue:#3b6fe0;  --blue-bg:#eef3fe;  --act:#2b6cff;   /* --act: активное состояние */
-  --ai:#6f4ed8;    --ai-bg:#f2eefc;    --ai-tx:#5334c4; /* только AI-подсказки */
+  /* акцент — голубой из ДС Proteus Adoption: один тон на интерфейс и данные */
+  --act:#0073A0;   --act-ink:#015A7D;  --act-line:#C4E2ED; /* --act: активное состояние */
+  --blue:var(--act); --blue-bg:#E8F4F9;
+  --bar-soft:#5CC0EE;                  /* полосы в ячейках: фон под числом, не марка */
+  --ai:#AA77FF;    --ai-bg:#F1E9FF;    --ai-tx:#6C36C9; /* только AI-подсказки */
   --bench:#9aa0ac;                                       /* база сравнения */
 
   /* ---------- Расстояния: десять ступеней ---------- */
@@ -265,9 +268,9 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 .chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);
   padding:5px 12px;font-size:12px;font-weight:700;
-  background:var(--blue-bg);color:#2b5fd0;border:1px solid #dbe6fd}
+  background:var(--blue-bg);color:var(--act-ink);border:1px solid var(--act-line)}
 .chip .x{width:14px;height:14px;border-radius:50%;border:0;padding:0;cursor:pointer;
-  background:rgba(43,95,208,.14);color:#2b5fd0;font-size:11px;line-height:1;
+  background:rgba(0,115,160,.14);color:var(--act-ink);font-size:11px;line-height:1;
   display:inline-flex;align-items:center;justify-content:center}
 .chip .x:hover{background:rgba(43,95,208,.28)}
 .chip.bench{background:#f4f5f7;color:var(--ink2);border-color:var(--line)}
@@ -307,12 +310,12 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 .kpi .k-row:empty{margin:0}
 .kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
 
-/* Одна высота строк во всей полосе: карточка — subgrid на четыре строки родителя.
+/* Одна высота строк во всей полосе: карточка — subgrid на пять строк родителя (пятая — «год назад»).
    Перенос заголовка в одной карточке добавляет строку ВСЕМ, зато значения,
    дельты и подписи базы остаются на одном уровне.
    @supports обязателен: без subgrid карточка должна остаться обычным блоком. */
 @supports (grid-template-rows:subgrid){
-  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0}
+  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 5;row-gap:0}
 }
 ```
 
@@ -613,7 +616,7 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 /* Тег «у метрики есть утверждённая цель» — метка, а не оценка. Только синий. */
 .kpi-tag{display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;
   letter-spacing:.3px;padding:2px 6px;border-radius:var(--r2);
-  background:var(--blue-bg);color:#2b5fd0}
+  background:var(--blue-bg);color:var(--act-ink)}
 
 /* Метрика, которую с базой сравнивать бессмысленно */
 .nocmp{display:inline-block;font-size:11px;font-weight:700;color:var(--muted);
@@ -1000,7 +1003,7 @@ const DRAW_MS  = 760;  // длительность отрисовки линии
 ```css
 /* Прозрачная ловушка на всю полосу периода: попасть мышью в тонкий бар тяжело,
    в полосу — легко. fill-opacity:0, а не fill:none — иначе нет hit-теста. */
-.hit{fill:#2b6cff;fill-opacity:0;transition:fill-opacity .12s}
+.hit{fill:#0073A0;fill-opacity:0;transition:fill-opacity .12s}
 .barg:hover .hit,.ptg:hover .hit,.sbg:hover .hit{fill-opacity:.05}
 .barg:hover .bar,.sbg:hover .sb{filter:brightness(1.1) saturate(1.3)}
 .ptg:hover .dot{r:5.2;stroke-width:2.6}
@@ -1053,6 +1056,31 @@ const DRAW_MS  = 760;  // длительность отрисовки линии
   дёргаться при каждом изменении ширины окна график не должен.
 
 ---
+
+### 6.x Год к году — механика HRBP HUB
+
+Динамика метрики отвечает на два разных вопроса, и у каждого своя ось:
+
+| Полотно | Ось X | Вопрос |
+|---|---|---|
+| 12 мес (`kind:'line'`) | скользящее окно июль — июнь | куда идём |
+| Год к году (`kind:'yoy'`) | янв. — дек. календарного года | где мы против прошлого года в тот же сезон |
+
+- Текущий год — активная линия `--act` с подписями у каждой точки; прошлый —
+  бледная `#b9bdc6` той же формы записи (линия с точками), без подписей.
+  Различают их вес и цвет, а не тип графика.
+- Прошлогоднее значение подписано в одной точке — последнем закрытом месяце,
+  серым, по другую сторону от подписи текущего года. Это число «за год» из таблицы.
+- «Вы здесь» — тонкая сплошная вертикаль и жирная подпись месяца на оси.
+- Ориентир один (цель KPI **или** база) и только для текущего года.
+- Шкала от нуля, оси Y нет — общее правило движка. Год под январём не
+  подписывается: на оси лежат оба года, год называет легенда.
+- В раскрытой строке One-pager — два полотна рядом (`U.detailSplit`): слева год
+  к году, справа 12 мес. На детальной вкладке правая панель узкая, поэтому
+  вместо двух полотен — переключатель `U.dynSwitch` «12 мес / Год к году»;
+  масштаб общий для всех вкладок и едет в ссылке параметром `dyn=yoy`.
+- Накопительные метрики (текучесть с января) читаются только так: в скользящем
+  окне линия обрывается в январе, на оси года обе линии стартуют с нуля.
 
 ## 7. Числа и форматирование **[ЯДРО]**
 
@@ -1522,7 +1550,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 | ИТОГО сверху в одной таблице и снизу в другой | всегда первой строкой |
 | Название таблицы, повторённое в шапке колонки | шапка пустая |
 | Отступ 7 / 9 / 13 / 17px | ступень шкалы `--s*` |
-| `#3b6fe0` в разметке экрана | `var(--blue)` |
+| `#0073A0` в разметке экрана | `var(--blue)` |
 | Разный кегль значений в подсказке | один кегль, разница цветом |
 | Плашка «ничего не выбрано» | отсутствие плашки |
 | Прочерк у несравнимой метрики | «не сравнивается» |

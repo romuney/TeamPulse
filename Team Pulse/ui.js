@@ -235,11 +235,29 @@ function aiIco(big){
    уровне. До этого перенос в одной карточке сдвигал её цифры вниз, и полоса
    KPI переставала читаться как строка. Лишняя строка воздуха — приемлемая
    цена; съехавшие цифры — нет. */
+/* ---------- Раскрытая строка: два полотна рядом ----------
+   Приём HRBP HUB: одно широкое полотно на всю таблицу растягивало метрику в 5:1
+   и плющило наклон; два узких дают и наклон, и ответы на два разных вопроса —
+   «где мы против прошлого года» и «куда идём последние двенадцать месяцев». */
+function detailSplit(left,right){
+  return '<div class="detail-split"><div class="dsplit">'+left+'</div><div class="dsplit">'+right+'</div></div>';
+}
+/* ---------- Переключатель масштаба динамики ----------
+   Правая панель детальной вкладки узкая, два полотна рядом в неё не встают —
+   поэтому, как в HRBP, вместо раскладки «обзор + зум» переключатель. */
+function dynSwitch(mode){
+  const it=[['roll','12 мес'],['yoy','Год к году']];
+  return '<div class="dyn-switch" role="tablist">'+it.map(([k,n])=>
+    '<button class="'+(mode===k?'on':'')+'" data-dyn="'+k+'" role="tab" aria-selected="'+(mode===k)+'">'+n+'</button>').join('')+'</div>';
+}
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.q||'')+'</div>'+
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
-    '<div class="k-row">'+(o.row2||'')+'</div></div>';
+    '<div class="k-row">'+(o.row2||'')+'</div>'+
+    /* пятая строка — «год назад»: рисуется всегда, как и второй ряд, иначе
+       subgrid потерял бы общий шаг строк у карточек с ней и без неё */
+    '<div class="k-row k-yoy">'+(o.row3||'')+'</div></div>';
 }
 
 /* ============================================================================
@@ -505,6 +523,36 @@ function empty(title,text){
 }
 
 /* ---------- Легенда светофора ---------- */
+/* ============================================================================
+   pulseStrip — «Пульс команды»: одна полоса над KPI, отвечающая на два вопроса
+   до чтения таблиц. Слева — сколько метрик сейчас лучше и хуже своего
+   ориентира (цель KPI или база), полосой с тем же светофором, что у пилюль.
+   Справа — главные сдвиги за год: относительные метрики с самым большим
+   изменением к тому же месяцу прошлого года. Клик по сдвигу ведёт в блок.
+
+   o = {good, bad, neu, movers:[{key,name,block,cur,prev,yoy}]}
+   ========================================================================== */
+function pulseStrip(o){
+  const tot=Math.max(1,o.good+o.bad+o.neu);
+  const seg=(n,c)=>n?'<i class="'+c+'" style="flex:'+n+'"></i>':'';
+  let h='<div class="pulse-strip"><div class="ps-score">'+
+    '<div class="ps-h">Сигналы · '+esc(D.CMP.cur)+'</div>'+
+    '<div class="ps-num"><b class="g">'+o.good+'</b><span>лучше ориентира</span>'+
+      '<b class="r">'+o.bad+'</b><span>хуже</span>'+
+      '<b class="n">'+o.neu+'</b><span>на уровне или без оценки</span></div>'+
+    '<div class="ps-bar" role="img" aria-label="'+o.good+' лучше, '+o.bad+' хуже, '+o.neu+' без сигнала из '+tot+'">'+
+      seg(o.good,'g')+seg(o.bad,'r')+seg(o.neu,'n')+'</div></div>';
+  h+='<div class="ps-movers"><div class="ps-h">Главные сдвиги за год<span class="ps-sub">'+esc(D.CMP.yoy)+'</span></div>';
+  if(!o.movers.length)h+='<div class="ps-empty">Сдвигов больше ±5% к прошлому году нет.</div>';
+  o.movers.forEach(mv=>{
+    h+='<button class="ps-mv" data-tab="'+mv.block+'"'+tipAttr({title:mv.name,
+        text:'Было '+D.fmtVal(mv.key,mv.prev)+' в '+D.CMP.yoy.replace(/^к /,'')+', стало '+D.fmtVal(mv.key,mv.cur)+'. Клик — открыть блок.'})+'>'+
+      '<span class="ps-n">'+esc(mv.name)+'</span>'+
+      '<span class="ps-v">'+D.fmtVal(mv.key,mv.prev)+' → <b>'+D.fmtVal(mv.key,mv.cur)+'</b></span>'+
+      deltaChip(mv.key,mv.yoy)+'</button>';
+  });
+  return h+'</div></div>';
+}
 function trafficLegend(){
   /* два цвета и серый: жёлтого в светофоре нет. «На уровне ±5%» и «без оценки»
      делят один серый — оба означают «повода вмешиваться нет». */
@@ -514,6 +562,6 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
 })();

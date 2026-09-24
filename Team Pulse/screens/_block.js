@@ -68,9 +68,29 @@ function selLabel(S){
    (там она вводит в заблуждение) и у метрик с утверждённым KPI — на графике
    остаются пороги цели, и вторая пунктирная линия рядом с ними спорила бы с
    ними за роль ориентира. */
-function metricLine(key,lp,bl,S,opt){
+/* График «год к году» — тот же выбор ориентира, что и у metricLine:
+   цель KPI или база, и только для текущего года. */
+function yoyChart(key,lp,bl,S,opt){
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
-  return G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
+  const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
+  const legend=[{name:String(D.YEAR_CUR),color:G.C_LINE},{name:String(D.YEAR_PREV),color:G.C_PREV}]
+    .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
+  return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
+    Object.assign({legend,benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
+}
+/* Переключатель «12 мес / год к году» для вкладок, где динамика нарисована
+   панелями: в режиме года каждая метрика получает своё полотно год к году. */
+function dynWrap(ctx,rollHtml,items){
+  if(ctx.S.dyn!=='yoy')return U.dynSwitch('roll')+rollHtml;
+  return U.dynSwitch('yoy')+items.map(it=>yoyChart(it.key,ctx.lp,ctx.bl,ctx.S,
+    {title:it.title,h:it.h||250,fill:false})).join('');
+}
+function metricLine(key,lp,bl,S,opt){
+  if(S.dyn==='yoy'&&!(opt&&opt.noSwitch))
+    return U.dynSwitch('yoy')+yoyChart(key,lp,bl,S,Object.assign({},opt||{},
+      {title:(opt&&opt.title?opt.title+' · ':'')+'год к году'}));
+  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
+  return (opt&&opt.noSwitch?'':U.dynSwitch('roll'))+G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
     Object.assign({legend:cmp?[{name:selLabel(S),color:G.C_LINE},{name:bench,color:G.C_BENCH,dash:true}]:null,
       benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
 }
@@ -149,7 +169,9 @@ function renderBlock(S,expanded,mixOpen){
       value:D.fmtVal(m.key,v),
       row1:U.momChip(m.key,mom),
       row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark()});
+           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark(),
+      /* по срезу состава прошлогоднего значения нет: срез живёт только в окне */
+      row3:selIds.length&&D.sliceable(m.key)?'':'год назад <b>'+D.fmtVal(m.key,v-D.deltasOf(rl,m.key).yoy)+'</b>'});
   });
   h+='</div>';
 
@@ -229,5 +251,5 @@ function renderBlock(S,expanded,mixOpen){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,metricLine,selLabel};
+  expandableRows,metricLine,yoyChart,dynWrap,selLabel};
 })();
