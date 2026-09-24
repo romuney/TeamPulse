@@ -49,11 +49,16 @@ function blockMain(bk,S){
 function expandableRows(root){
   return D.nodesBelow(root,1).filter(n=>D.childrenOf(n.path).length).map(n=>n.path);
 }
-function pivotRows(root,expanded){
-  const rows=[];
-  D.nodesBelow(root,1).forEach(n=>{
-    rows.push({n:n,depth:1});
-    if(expanded.has(n.path))D.childrenOf(n.path).forEach(c=>rows.push({n:c,depth:2}));
+/* isEmpty(path) — у подразделения под текущими фильтрами никого нет. Такие
+   строки уходят вниз своего уровня и приглушаются: «0 чел» с нулями во всех
+   колонках занимали столько же места, сколько живые команды, и разрывали
+   список. Порядок внутри живых и внутри пустых — как в оргдереве. */
+function pivotRows(root,expanded,isEmpty){
+  const rows=[], emp=isEmpty||(()=>false);
+  const order=list=>list.filter(n=>!emp(n.path)).concat(list.filter(n=>emp(n.path)));
+  order(D.nodesBelow(root,1)).forEach(n=>{
+    rows.push({n:n,depth:1,empty:emp(n.path)});
+    if(expanded.has(n.path))order(D.childrenOf(n.path)).forEach(c=>rows.push({n:c,depth:2,empty:emp(c.path)}));
   });
   return rows;
 }
@@ -85,6 +90,11 @@ function dynWrap(ctx,rollHtml,items){
   return U.dynSwitch('yoy')+items.map(it=>yoyChart(it.key,ctx.lp,ctx.bl,ctx.S,
     {title:it.title,h:it.h||250,fill:false})).join('');
 }
+/* Заголовок графика, который в режиме «год к году» остаётся на скользящем окне
+   (дивергент, водопад: их ось — двенадцать месяцев подряд, календарного года у
+   них нет). Под переключателем «Год к году» такой график без подписи читался бы
+   как тоже календарный — называем окно прямо в заголовке. */
+function winTitle(S,title){return S.dyn==='yoy'?title+' · 12 мес, '+D.PERIOD_LABEL:title}
 function metricLine(key,lp,bl,S,opt){
   if(S.dyn==='yoy'&&!(opt&&opt.noSwitch))
     return U.dynSwitch('yoy')+yoyChart(key,lp,bl,S,Object.assign({},opt||{},
@@ -123,7 +133,7 @@ function renderBlock(S,expanded,mixOpen){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
       U.empty('Нет данных по выбранным разрезам','Снимите один из разрезов в шапке отчёта.');
   }
-  const rows=pivotRows(root,expanded);
+  const rows=pivotRows(root,expanded,p=>!rowLeaves(p,S).length);
   const sel=S.selNode&&D.NODE_BY_PATH[S.selNode]?S.selNode:root;
   const selNode=D.NODE_BY_PATH[sel];
 
@@ -223,13 +233,15 @@ function renderBlock(S,expanded,mixOpen){
     const v=D.lastVal(lp,mainK);
     const st=kpiMain?D.stateForKpi(mainK,v,kpiMain):D.compareState(mainK,v,benchMain);
     const kids=D.childrenOf(r.n.path).length, canExp=r.depth===1&&kids>0;
-    tbl+='<tr class="urow'+(r.depth===2?' lvl2':'')+(sel===r.n.path?' sel':'')+'" data-node="'+r.n.path+'">'+
+    tbl+='<tr class="urow'+(r.depth===2?' lvl2':'')+(r.empty?' empty':'')+(sel===r.n.path?' sel':'')+'" data-node="'+r.n.path+'">'+
       '<td class="txt"><span class="row-label">'+
       (canExp?'<button class="caret-btn"'+(expanded.has(r.n.path)?' data-open="1"':'')+' data-exp="'+r.n.path+'" aria-label="Раскрыть">'+(expanded.has(r.n.path)?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>')+
       '<span class="row-body">'+esc(r.n.name)+
       '<span class="unit-sub">'+D.fmtVal('hc_total',val(lp,'hc_total'))+' чел</span></span></span></td>'+
       mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(lp,m.key))+'</td>').join('')+
-      (showVs?'<td class="vs"><span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(1))+'</span></td>':'')+
+      /* у пустого подразделения 0% — не «лучше базы», а отсутствие людей */
+      (showVs?'<td class="vs">'+(r.empty?'<span class="cell neutral">—</span>'
+        :'<span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(1))+'</span>')+'</td>':'')+
       '<td>'+(kids>0?'<button class="btn ghost xs" data-drill="'+r.n.path+'"'+
         U.tipAttr({title:'Сделать корнем',
           text:'Показать детей «'+r.n.name+'» отдельным списком. База сравнения не меняется.'})+'>↓</button>':'')+'</td></tr>';
@@ -251,5 +263,5 @@ function renderBlock(S,expanded,mixOpen){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,metricLine,yoyChart,dynWrap,selLabel};
+  expandableRows,metricLine,yoyChart,dynWrap,winTitle,selLabel};
 })();

@@ -503,6 +503,24 @@ function yoyOf(ext){
 }
 function yoySeries(leafPaths,key){return yoyOf(aggregateExt(leafPaths,key))}
 
+/* ---------- Сигнал блока ----------
+   Сколько выбранных метрик блока сейчас лучше и хуже своего ориентира — та же
+   развилка, что везде: цель KPI, иначе база; «больше не значит лучше» и
+   несравнимые — без оценки. Читают мини-навигация One-pager и точки в левом
+   меню: по ним видно, в какой блок идти, не пролистывая семь таблиц. */
+function blockSignal(bk,st){
+  const rl=reportLeaves(st), bl=benchmarkLeaves(st);
+  let good=0,bad=0;
+  if(!rl.length)return {good,bad,state:'neutral'};
+  visibleMetricsOfBlock(bk,st).forEach(m=>{
+    if(m.better==='flat')return;
+    const v=lastVal(rl,m.key), kpi=kpiFor(m.key,st);
+    const s=kpi?stateForKpi(m.key,v,kpi):compareState(m.key,v,lastVal(bl,m.key));
+    if(s==='good')good++;else if(s==='bad')bad++;
+  });
+  return {good,bad,state:bad?'bad':good?'good':'neutral'};
+}
+
 /* отклонение от базы — в светофор с мёртвой зоной 5% */
 function compareState(key,val,base){
   const m=METRIC_BY_KEY[key];
@@ -1211,4 +1229,4 @@ window.TPDATA={MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,fmtCompact,DEFAULT_STATE,
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
-  YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries};
+  YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal};

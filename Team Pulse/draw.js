@@ -388,6 +388,7 @@ function drawLine(a,w,h){
    месяце: это и есть «год к году» из таблицы, и его видно без наведения.
    ========================================================================== */
 const C_PREV='#b9bdc6', C_NOW='#dfe3ea';
+const C_SPARK_INK='#8a909c';   /* спарклайн метрики без оценки — тон подписей осей */
 function drawYoy(a,w,h){
   const key=a.metricKey, cur=a.cur, prev=a.prev, bench=a.bench, o=a.opt||{};
   const nm=CD.METRIC_BY_KEY[key]||{};
@@ -766,19 +767,29 @@ function sparkBars(series,state,w,h,o){
 }
 function sparkLine(series,state,w,h,o){
   o=o||{};w=w||120;h=h||26;
-  const max=niceMax(series), n=series.length;
-  const col=stateColor(state), key=o.key, base=o.base, kpi=o.kpi;
+  const n=series.length;
+  /* o.ink — спарклайн метрики без оценки в колонке «12 мес». Бледно-серые бары
+     там сливались с фоном: цвета у такой метрики нет по правилу, значит форму
+     должна нести сама линия — тёмно-серая, тонкая, с последней точкой.
+     o.fit — та же поднятая шкала, что у sparkBars при малом размахе: численность
+     175 → 191 от нуля — прямая. На детальных графиках шкала остаётся от нуля. */
+  const col=o.ink?C_SPARK_INK:stateColor(state), key=o.key, base=o.base, kpi=o.kpi;
+  const mn=Math.min.apply(null,series), mx=Math.max.apply(null,series), rg=mx-mn;
+  let lo=0, max=niceMax(series);
+  if(o.fit&&rg>0&&mx>0&&rg/mx<0.4){lo=Math.max(0,mn-rg*0.45);max=mx+rg*0.12}
+  /* прирост с начала года уходит в минус — линия не должна проваливаться под низ */
+  if(mn<0){lo=mn;max=Math.max(mx,0)+(rg||1)*0.08}
   /* PAD — не косметика: svg тянется preserveAspectRatio="none", и точка радиусом 2
      на самом краю viewBox срезалась ровно наполовину. Отступ по краям и сверху
      держит крайние точки целиком внутри картинки. */
   const PAD=3.5, TOP=3.5;
   const X=i=>n>1?PAD+i/(n-1)*(w-2*PAD):w/2;
-  const Y=v=>h-PAD-(v/max)*(h-PAD-TOP);
+  const Y=v=>h-PAD-((v-lo)/((max-lo)||1))*(h-PAD-TOP);
   let d='';
   series.forEach((v,i)=>{d+=(i?'L':'M')+num(X(i))+' '+num(Y(v))});
   let s='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.7"'
     +' stroke-linejoin="round" stroke-linecap="round"/>';
-  s+='<circle cx="'+num(X(n-1))+'" cy="'+num(Y(series[n-1]))+'" r="2" fill="'+col+'"/>';
+  s+='<circle cx="'+num(X(n-1))+'" cy="'+num(Y(series[n-1]))+'" r="'+(o.ink?2.6:2)+'" fill="'+col+'"/>';
   /* Наведение: под курсором подсвечивается ИМЕННО тот месяц, о котором говорит
      тултип. Без этого по спарклайну было непонятно, какую точку он описывает.
      Всё на CSS (.spg:hover), никаких обработчиков. */

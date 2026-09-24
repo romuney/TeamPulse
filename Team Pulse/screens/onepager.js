@@ -59,6 +59,20 @@ function pulse(S,rl,bl){
   mv.sort((a,b)=>b.rel-a.rel);
   return {good,bad,neu,movers:mv.slice(0,3)};
 }
+/* Второй ряд карточки-героя у счётной метрики. Пометка «не сравнивается»
+   занимала место и ничего не сообщала — три карточки из шести кончались ею.
+   Здесь её место отдано контексту из той же метрики: у потока людей — сумма
+   за 12 месяцев (месячное «3» ничего не говорит о масштабе), у численности —
+   прирост с начала года. Оценки по-прежнему нет: это факты, а не сравнение. */
+function heroContext(k,s,rl){
+  if(k==='hc_total'){
+    const ytd=D.lastVal(rl,'net_ytd');
+    return '<span class="k-sub">с начала года <b>'+D.fmtDelta('net_ytd',ytd)+'</b></span>';
+  }
+  if(D.METRIC_BY_KEY[k].fmt==='int')
+    return '<span class="k-sub">за 12 мес <b>'+D.fmtVal(k,SC.sumS(s))+'</b> чел</span>';
+  return U.noCmpMark();
+}
 function lead(S,rl,bl){
   const hc=D.lastVal(rl,'hc_total'), w=worstMetrics(S,rl,bl,3);
   return 'В отборе <b>'+D.fmtInt(hc)+' чел</b> из '+D.fmtInt(rl.length)+' команд, база сравнения — <b>'+
@@ -116,16 +130,19 @@ function render(S,openRows){
       row1:U.momChip(k,dl.mom)+
         G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:!kpi&&D.comparable(k)?D.aggregate(bl,k):null}),
       row2:(kpi?'<span class="k-sub">цель '+D.fmtVal(k,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-             :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':U.noCmpMark()),
+             :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':heroContext(k,s,rl)),
       /* год назад — тем же месяцем: число, которое в таблице стоит пилюлей
          «за год», здесь названо значением, чтобы его было с чем сверить */
       row3:'год назад <b>'+D.fmtVal(k,v-dl.yoy)+'</b>'});
   });
   h+='</div>'+U.trafficLegend();
 
+  /* мини-навигация по блокам: липкая, с точкой худшего сигнала */
+  h+=U.blockNav(D.visibleBlocks(S).map(b=>Object.assign({key:b.key,name:b.name},D.blockSignal(b.key,S))));
+
   /* блоки: пропускаем те, где отключены все метрики */
   D.visibleBlocks(S).forEach(b=>{
-    h+='<div class="block-h"><span class="block-name">'+esc(b.name)+'</span>'+
+    h+='<div class="block-h" id="op-'+b.key+'"><span class="block-name">'+esc(b.name)+'</span>'+
       '<span class="block-hint">'+esc(b.hint)+'</span>'+
       '<button class="btn ghost" data-tab="'+b.key+'">Подробнее →</button></div>';
     /* Месяц сравнения подписан в шапке колонки, а не у каждой строки: «за месяц»
@@ -163,8 +180,12 @@ function render(S,openRows){
         '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:D.CMP.momTip})+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:D.CMP.yoyTip})+'</td>'+
-        '<td class="col-spark">'+G.sparkBars(s,st,180,28,
-          {key:m.key,base:bser,kpi:kpi,flat:!D.comparable(m.key)})+'</td>'+
+        /* Метрика без оценки (счётная, без KPI) — линией: у неё нет цвета,
+           и серые бары не несли ни формы, ни оценки. Бары со светофором
+           остаются там, где каждый месяц окрашен сравнением. */
+        '<td class="col-spark">'+(!kpi&&!D.comparable(m.key)
+          ? G.sparkLine(s,'neutral',180,28,{key:m.key,ink:true,fit:true})
+          : G.sparkBars(s,st,180,28,{key:m.key,base:bser,kpi:kpi,flat:!D.comparable(m.key)}))+'</td>'+
         '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi)+'</td>'+
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */

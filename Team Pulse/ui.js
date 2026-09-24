@@ -532,6 +532,19 @@ function empty(title,text){
 
    o = {good, bad, neu, movers:[{key,name,block,cur,prev,yoy}]}
    ========================================================================== */
+/* ---------- Мини-навигация One-pager ----------
+   Семь таблиц подряд — длинный скролл без ориентиров. Липкая полоса блоков
+   с точкой худшего сигнала: красная — есть метрика хуже ориентира, зелёная —
+   только лучше, серая — сигналов нет. Цифра — число красных. Клик прокручивает
+   к блоку, текущий блок подсвечивается по мере прокрутки (app.js). */
+function blockNav(items){
+  return '<nav class="op-nav" aria-label="Блоки сводки">'+items.map(it=>
+    '<button class="op-nav-i" data-jump="'+it.key+'"'+tipAttr({title:it.name,
+      text:it.bad?it.bad+' '+plural(it.bad,['метрика','метрики','метрик'])+' хуже ориентира.'
+        :it.good?'Хуже ориентира — ничего, лучше — '+it.good+'.':'Сигналов нет: метрики на уровне или без оценки.'})+'>'+
+    '<span class="sig '+it.state+'"></span>'+esc(it.name)+
+    (it.bad?'<span class="op-nav-n">'+it.bad+'</span>':'')+'</button>').join('')+'</nav>';
+}
 function pulseStrip(o){
   const tot=Math.max(1,o.good+o.bad+o.neu);
   const seg=(n,c)=>n?'<i class="'+c+'" style="flex:'+n+'"></i>':'';
@@ -562,6 +575,6 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
 })();

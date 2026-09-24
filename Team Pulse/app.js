@@ -80,15 +80,20 @@ function renderHead(){
     U.tipAttr({title:'Снять разрез',text:c.label})+'>×</button></span>').join('');
   html+='<span class="chip bench">Сравнение: <b>'+esc(D.benchmarkLabel(S))+'</b></span>';
   html+='<span class="chip bench">'+D.fmtInt(D.reportLeaves(S).length)+' команд в отборе</span>';
+  /* Период — чипом рядом с базой, а не отдельной плашкой справа: плашка
+     повторяла свежесть данных в шапке и забирала место у кнопок. Здесь он
+     остаётся и в печатной версии, где шапка приложения скрыта. */
+  html+='<span class="chip bench">Период: <b>'+esc(D.PERIOD_LABEL)+'</b></span>';
   $('#chips').innerHTML=html;
-  $('#periodBadge').textContent=D.PERIOD_LABEL;
   const fr=$('#freshness');
   if(fr)fr.innerHTML='<span class="dot"></span>закрытый месяц <b>'+esc(D.CMP.cur)+'</b>';
 }
 function renderNav(){
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */
   $('#navBlocks').innerHTML=D.visibleBlocks(S).map(b=>
-    '<button class="nav-i'+(S.tab===b.key?' active':'')+'" data-tab="'+b.key+'"><span class="ico"></span>'+esc(b.name)+'</button>').join('');
+    /* точка у пункта — худший сигнал блока, тем же цветом, что в мини-навигации
+       One-pager: в какой блок идти, видно с любой вкладки */
+    '<button class="nav-i'+(S.tab===b.key?' active':'')+'" data-tab="'+b.key+'"><span class="ico sig-'+D.blockSignal(b.key,S).state+'"></span>'+esc(b.name)+'</button>').join('');
   document.querySelectorAll('.nav-i[data-tab="onepager"]').forEach(b=>b.classList.toggle('active',S.tab==='onepager'));
 }
 
@@ -249,7 +254,22 @@ function render(keepScroll){
   enhanceA11y();navOpen(false);
   if(keepScroll)window.scrollTo(0,y);
   else window.scrollTo({top:0,behavior:'smooth'});
+  spyBlocks();
 }
+
+/* ---------- мини-навигация One-pager: какой блок сейчас на экране ----------
+   Текущим считается последний блок, чей заголовок уже прошёл под липкую полосу. */
+let _spy=0;
+function spyBlocks(){
+  _spy=0;
+  const nav=document.querySelector('.op-nav');
+  if(!nav)return;
+  const edge=nav.getBoundingClientRect().bottom+48;   /* с запасом на отступ прыжка */
+  let cur=null;
+  document.querySelectorAll('.block-h[id^="op-"]').forEach(h=>{if(h.getBoundingClientRect().top<=edge)cur=h.id.slice(3)});
+  nav.querySelectorAll('[data-jump]').forEach(b=>b.classList.toggle('on',b.dataset.jump===cur));
+}
+window.addEventListener('scroll',()=>{if(!_spy)_spy=requestAnimationFrame(spyBlocks)},{passive:true});
 
 /* перерисовка графиков под новую ширину окна, без пересчёта данных */
 let _rz=null;
@@ -311,6 +331,9 @@ document.addEventListener('click',e=>{
   /* масштаб динамики один на все детальные вкладки: переключили на «год к
      году» в текучести — в мониторинге тоже год, иначе соседние экраны
      оказались бы в разных календарях */
+  const jp=t.closest('[data-jump]');
+  if(jp){const el=document.getElementById('op-'+jp.dataset.jump);
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
   const dy=t.closest('[data-dyn]');
   if(dy){S.dyn=dy.dataset.dyn;render(true);return}
   const cr=t.closest('[data-crumb]');
