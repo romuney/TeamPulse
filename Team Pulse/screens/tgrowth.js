@@ -21,7 +21,7 @@ SC.blocks.tgrowth={
       G.chart('diverge',
         {up:D.aggregate(ctx.lp,'tgrowth_pass'),down:D.aggregate(ctx.lp,'tgrowth_deny'),
          upKey:'tgrowth_pass',downKey:'tgrowth_deny'},
-        {h:300,fill:true,title:'Из чего она считается, чел',
+        {h:300,fill:true,title:SC.winTitle(ctx.S,'Из чего она считается, чел'),
          legend:[{name:'Прошли',color:G.C_IN},{name:'Отказано',color:G.C_OUT}]});
   }
 };

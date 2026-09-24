@@ -40,6 +40,39 @@ function bestMetrics(S,rl,bl,limit){
   });
   return out.slice(0,limit||2);
 }
+/* Счёт сигналов и сдвиги за год для полосы «Пульс команды».
+   Сигнал — та же развилка, что везде: цель KPI, иначе база; несравнимые и
+   «больше не значит лучше» — без оценки. Сдвиги берём только у относительных
+   метрик: у счётных «2 → 4 человека» даёт +100% и забивает весь список. */
+function pulse(S,rl,bl){
+  let good=0,bad=0,neu=0;const mv=[];
+  D.METRICS.forEach(m=>{
+    if(!D.metricVisible(m.key,S))return;
+    const v=D.lastVal(rl,m.key), kpi=D.kpiFor(m.key,S);
+    const st=m.better==='flat'?'neutral':kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,D.lastVal(bl,m.key));
+    if(st==='good')good++;else if(st==='bad')bad++;else neu++;
+    if(m.better==='flat'||m.fmt==='int')return;
+    const yoy=D.deltasOf(rl,m.key).yoy, prev=v-yoy;
+    const rel=prev?Math.abs(yoy)/Math.abs(prev):0;
+    if(rel>=0.05)mv.push({key:m.key,name:m.name,block:m.block,cur:v,prev,yoy,rel});
+  });
+  mv.sort((a,b)=>b.rel-a.rel);
+  return {good,bad,neu,movers:mv.slice(0,3)};
+}
+/* Второй ряд карточки-героя у счётной метрики. Пометка «не сравнивается»
+   занимала место и ничего не сообщала — три карточки из шести кончались ею.
+   Здесь её место отдано контексту из той же метрики: у потока людей — сумма
+   за 12 месяцев (месячное «3» ничего не говорит о масштабе), у численности —
+   прирост с начала года. Оценки по-прежнему нет: это факты, а не сравнение. */
+function heroContext(k,s,rl){
+  if(k==='hc_total'){
+    const ytd=D.lastVal(rl,'net_ytd');
+    return '<span class="k-sub">с начала года <b>'+D.fmtDelta('net_ytd',ytd)+'</b></span>';
+  }
+  if(D.METRIC_BY_KEY[k].fmt==='int')
+    return '<span class="k-sub">за 12 мес <b>'+D.fmtVal(k,SC.sumS(s))+'</b> чел</span>';
+  return U.noCmpMark();
+}
 function lead(S,rl,bl){
   const hc=D.lastVal(rl,'hc_total'), w=worstMetrics(S,rl,bl,3);
   return 'В отборе <b>'+D.fmtInt(hc)+' чел</b> из '+D.fmtInt(rl.length)+' команд, база сравнения — <b>'+
@@ -78,6 +111,10 @@ function render(S,openRows){
      её никто не дочитывал: сначала вывод, потом цифры. */
   h+=U.aiBlock('op','Как читать эту сводку',lead(S,rl,bl),bullets(S,rl,bl),S.aiOpen==='op','insight');
 
+  /* Пульс команды: счёт сигналов и главные сдвиги за год — до таблиц,
+     чтобы первые пять секунд на экране отвечали «что изменилось». */
+  h+=U.pulseStrip(pulse(S,rl,bl));
+
   /* KPI-стрип: только выбранные метрики. hc_total и hc_active выключить нельзя,
      поэтому стрип не может опустеть целиком. */
   h+='<div class="kpis">';
@@ -93,13 +130,19 @@ function render(S,openRows){
       row1:U.momChip(k,dl.mom)+
         G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:!kpi&&D.comparable(k)?D.aggregate(bl,k):null}),
       row2:(kpi?'<span class="k-sub">цель '+D.fmtVal(k,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-             :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':U.noCmpMark())});
+             :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':heroContext(k,s,rl)),
+      /* год назад — тем же месяцем: число, которое в таблице стоит пилюлей
+         «за год», здесь названо значением, чтобы его было с чем сверить */
+      row3:'год назад <b>'+D.fmtVal(k,v-dl.yoy)+'</b>'});
   });
   h+='</div>'+U.trafficLegend();
 
+  /* мини-навигация по блокам: липкая, с точкой худшего сигнала */
+  h+=U.blockNav(D.visibleBlocks(S).map(b=>Object.assign({key:b.key,name:b.name},D.blockSignal(b.key,S))));
+
   /* блоки: пропускаем те, где отключены все метрики */
   D.visibleBlocks(S).forEach(b=>{
-    h+='<div class="block-h"><span class="block-name">'+esc(b.name)+'</span>'+
+    h+='<div class="block-h" id="op-'+b.key+'"><span class="block-name">'+esc(b.name)+'</span>'+
       '<span class="block-hint">'+esc(b.hint)+'</span>'+
       '<button class="btn ghost" data-tab="'+b.key+'">Подробнее →</button></div>';
     /* Месяц сравнения подписан в шапке колонки, а не у каждой строки: «за месяц»
@@ -137,19 +180,27 @@ function render(S,openRows){
         '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:D.CMP.momTip})+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:D.CMP.yoyTip})+'</td>'+
-        '<td class="col-spark">'+G.sparkBars(s,st,180,28,
-          {key:m.key,base:bser,kpi:kpi,flat:!D.comparable(m.key)})+'</td>'+
+        /* Метрика без оценки (счётная, без KPI) — линией: у неё нет цвета,
+           и серые бары не несли ни формы, ни оценки. Бары со светофором
+           остаются там, где каждый месяц окрашен сравнением. */
+        '<td class="col-spark">'+(!kpi&&!D.comparable(m.key)
+          ? G.sparkLine(s,'neutral',180,28,{key:m.key,ink:true,fit:true})
+          : G.sparkBars(s,st,180,28,{key:m.key,base:bser,kpi:kpi,flat:!D.comparable(m.key)}))+'</td>'+
         '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi)+'</td>'+
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */
       if(open){
-        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+
+        /* Два полотна рядом, как в HRBP HUB: слева год к году (сезон и то,
+           где метрика была год назад), справа скользящие 12 месяцев с базой
+           или целью (куда идём). Ориентир на обоих один и тот же. */
+        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+U.detailSplit(
+          SC.yoyChart(m.key,rl,bl,S,{title:'Год к году',h:280,fill:false}),
           G.chart('line',{metricKey:m.key,series:s,bench:bser},
-            {title:m.name+(kpi?' — динамика и цель KPI':bser?' — динамика и база сравнения':' — динамика'),
+            {title:kpi?'12 мес и цель KPI':bser?'12 мес и база':'12 мес',
              /* серии подписаны именами, иначе непонятно, что за синяя линия */
              legend:bser?[{name:unitName(S),color:G.C_LINE},{name:D.benchmarkLabel(S),color:G.C_BENCH,dash:true}]:null,
              benchName:D.benchmarkLabel(S),
-             kpi:kpi,h:280})+'</div></td></tr>';
+             kpi:kpi,h:280}))+'</div></td></tr>';
       }
     });
     h+=U.panel({body:t+'</tbody></table>'});

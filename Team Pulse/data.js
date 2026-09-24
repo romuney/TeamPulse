@@ -483,6 +483,44 @@ function deltasOf(leafPaths,key){
   const e=aggregateExt(leafPaths,key), i=NEXT-1;
   return {mom:+(e[i]-e[i-1]).toFixed(2), yoy:+(e[i]-e[i-12]).toFixed(2)};
 }
+/* ---------- Год к году ----------
+   Механика перенесена из HRBP HUB: ось — двенадцать месяцев календарного года,
+   на ней две линии. Прошлый год целиком, текущий — отработанные месяцы и хвост
+   из null, чтобы обе линии легли на одну ось янв.–дек.
+   Расширенная сетка ровно под это и устроена: янв. 2025 — июнь 2026, 18 точек.
+   Окно «12 мес» (июль — июнь) отвечает на вопрос «куда идём», год к году —
+   «где мы против прошлого года в тот же сезон». Накопительная текучесть в
+   скользящем окне ломается посередине — обнуляется в январе; на оси года
+   обе её линии начинаются с нуля и сравниваются месяц в месяц. */
+const YEAR_CUR=CUR_M.y, YEAR_PREV=CUR_M.y-1;
+const YOY_FROM=MONTHS_EXT.findIndex(mm=>mm.y===YEAR_PREV&&mm.m===0);   /* янв. прошлого года */
+const CUR_LEN=CUR_M.m+1;                     /* сколько месяцев текущего года закрыто */
+function yoyOf(ext){
+  const prev=ext.slice(YOY_FROM,YOY_FROM+12);
+  const cur=ext.slice(YOY_FROM+12,YOY_FROM+12+CUR_LEN);
+  while(cur.length<12)cur.push(null);
+  return {prev,cur};
+}
+function yoySeries(leafPaths,key){return yoyOf(aggregateExt(leafPaths,key))}
+
+/* ---------- Сигнал блока ----------
+   Сколько выбранных метрик блока сейчас лучше и хуже своего ориентира — та же
+   развилка, что везде: цель KPI, иначе база; «больше не значит лучше» и
+   несравнимые — без оценки. Читают мини-навигация One-pager и точки в левом
+   меню: по ним видно, в какой блок идти, не пролистывая семь таблиц. */
+function blockSignal(bk,st){
+  const rl=reportLeaves(st), bl=benchmarkLeaves(st);
+  let good=0,bad=0;
+  if(!rl.length)return {good,bad,state:'neutral'};
+  visibleMetricsOfBlock(bk,st).forEach(m=>{
+    if(m.better==='flat')return;
+    const v=lastVal(rl,m.key), kpi=kpiFor(m.key,st);
+    const s=kpi?stateForKpi(m.key,v,kpi):compareState(m.key,v,lastVal(bl,m.key));
+    if(s==='good')good++;else if(s==='bad')bad++;
+  });
+  return {good,bad,state:bad?'bad':good?'good':'neutral'};
+}
+
 /* отклонение от базы — в светофор с мёртвой зоной 5% */
 function compareState(key,val,base){
   const m=METRIC_BY_KEY[key];
@@ -538,7 +576,9 @@ const DEFAULT_STATE={unit:'T/01',paint:'HQ',itSeg:'all',staffType:'all',period:P
   /* срез состава: не больше SLICE_MAX категорий, по одной на разрез */
   mixSel:[],
   /* оси конструктора «Свой срез» и содержимое ячейки */
-  mixRows:'seniority',mixCols:'gender',mixMode:'abs'};
+  mixRows:'seniority',mixCols:'gender',mixMode:'abs',
+  /* масштаб динамики на детальных вкладках: roll — 12 мес, yoy — год к году */
+  dyn:'roll'};
 
 /* ============================================================================
    Разрезы состава численности
@@ -1188,4 +1228,5 @@ window.TPDATA={MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,fmtCompact,DEFAULT_STATE,
-  PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt};
+  PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
+  YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal};

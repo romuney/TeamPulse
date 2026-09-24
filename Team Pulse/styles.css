@@ -5,8 +5,20 @@
   --green:#12b048; --green-bg:#bff2cd; --green-tx:#0a8f3c;
   --red:#f51f1f;   --red-bg:#ffcccc;  --red-tx:#d11414;
   --warn:#f59300;  --warn-bg:#ffe6a0; --warn-tx:#9a6500;
-  --blue:#3b6fe0;  --blue-bg:#eef3fe; --act:#2b6cff;
-  --ai:#6f4ed8;    --ai-bg:#f2eefc;   --ai-tx:#5334c4;
+  /* ---------- Акцент: голубой из дизайн-системы Proteus Adoption ----------
+     Один активный тон на всё: кнопки, выбранная строка, фокус, линия
+     подразделения на графиках. «Активное в интерфейсе» и «активное в данных» —
+     один цвет, отдельного синего в системе больше нет. Тон #0073A0 — самая
+     тёмная ступень присланных палитр (#218DAE / #2BBBD7 / #62CDFF), на белом
+     даёт 5,3:1 и держит текст. */
+  --act:#0073A0;   --act-ink:#015A7D; --act-line:#C4E2ED;
+  --blue:var(--act); --blue-bg:#E8F4F9;
+  /* полосы в ячейках — светлая ступень палитры: это фон под числом, а не
+     марка, за которой следят; тёмная полоса перетягивала взгляд с цифры */
+  --bar-soft:#5CC0EE;
+  /* фиолетовый палитры — только у AI-подсказок: единственное на экране, что
+     не является ни активным состоянием, ни величиной */
+  --ai:#AA77FF;    --ai-bg:#F1E9FF;   --ai-tx:#6C36C9;
   --bench:#9aa0ac;
 
   /* ---------- Шкала расстояний ----------
@@ -60,6 +72,9 @@
   --shadow-lg:0 8px 28px rgba(20,28,45,.16);
 }
 *{box-sizing:border-box}
+/* Макет светлый, и системные контролы обязаны это знать: без color-scheme
+   браузер при тёмной теме ОС рисует нативные списки и полосы прокрутки чёрными. */
+:root{color-scheme:light}
 html,body{margin:0;padding:0}
 body{font-family:Inter,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;-webkit-font-smoothing:antialiased}
 button{font-family:inherit}
@@ -69,13 +84,16 @@ button{font-family:inherit}
 .apphead{background:#fff;border-bottom:1px solid var(--line)}
 .apphead-top{display:flex;align-items:center;gap:14px;padding:12px 22px}
 .logo{font-weight:var(--fw-bold);font-size:18px;letter-spacing:-.2px;display:flex;align-items:center;gap:9px}
-.logo .mark{width:26px;height:26px;border-radius:var(--r3);background:linear-gradient(135deg,#2b6cff,#6f4ed8);display:inline-block}
+.logo .mark{width:26px;height:26px;border-radius:var(--r3);background:var(--act);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:var(--fw-bold)}
 .logo small{color:var(--muted);font-weight:600;font-size:12px}
 .apphead .spacer{flex:1}
+.freshness{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-med);display:flex;align-items:center;gap:var(--s3)}
+.freshness b{color:var(--ink2);font-weight:var(--fw-lead)}
+.freshness .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 auto}
 .btn{border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 14px;font-weight:600;color:var(--ink2);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:7px;transition:background .15s,border-color .15s}
 .btn:hover{background:#fafbfc;border-color:#d8dce4}
 .btn.primary{background:var(--act);border-color:var(--act);color:#fff}
-.btn.primary:hover{background:#1b5cf0}
+.btn.primary:hover{background:var(--act-ink)}
 .btn.ghost{border-color:transparent;color:var(--blue)}
 .btn.ghost:hover{background:var(--blue-bg)}
 
@@ -90,13 +108,12 @@ button{font-family:inherit}
 .rh-title{font-size:23px;font-weight:var(--fw-bold);letter-spacing:-.4px;margin:0 0 8px;line-height:1.2}
 .rh-title .lvl{font-size:11px;font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.4px;color:var(--blue);background:var(--blue-bg);border-radius:var(--r2);padding:3px 8px;margin-left:10px;vertical-align:middle}
 .rh-side{display:flex;align-items:center;gap:10px}
-.period{font-size:12px;color:var(--ink2);font-weight:700;border:1px solid var(--line);border-radius:var(--r3);padding:7px 12px;background:#fafbfc}
 
 /* чипы активных фильтров */
 .chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.chip{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);padding:5px 12px;font-size:12px;font-weight:700;background:var(--blue-bg);color:#2b5fd0;border:1px solid #dbe6fd}
-.chip .x{width:14px;height:14px;border-radius:50%;border:0;background:rgba(43,95,208,.14);color:#2b5fd0;font-size:11px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
-.chip .x:hover{background:rgba(43,95,208,.28)}
+.chip{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);padding:5px 12px;font-size:12px;font-weight:700;background:var(--blue-bg);color:var(--act-ink);border:1px solid var(--act-line)}
+.chip .x{width:14px;height:14px;border-radius:50%;border:0;background:rgba(0,115,160,.14);color:var(--act-ink);font-size:11px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.chip .x:hover{background:rgba(0,115,160,.28)}
 .chip.bench{background:#f4f5f7;color:var(--ink2);border-color:var(--line)}
 .chip.bench b{color:var(--ink)}
 /* .chip.empty («Разрезы не выбраны») удалён вместе с самим пустым состоянием:
@@ -108,9 +125,13 @@ button{font-family:inherit}
 .nav-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:var(--fw-bold);margin:0 0 9px;padding:0 10px}
 .nav-i{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;text-align:left;padding:10px 11px;border-radius:var(--r3);font-size:var(--fs-lead);font-weight:600;color:var(--ink2);cursor:pointer;margin-bottom:2px;transition:background .15s}
 .nav-i:hover{background:#f4f6fa}
-.nav-i.active{background:var(--blue-bg);color:#2b5fd0;font-weight:700}
+.nav-i.active{background:var(--blue-bg);color:var(--act-ink);font-weight:700}
 .nav-i .ico{width:8px;height:8px;border-radius:var(--r1);background:var(--muted2);flex:0 0 auto}
 .nav-i.active .ico{background:var(--blue)}
+/* Точка сигнала блока. Вытесняет и активный синий: у активного пункта уже есть
+   заливка строки, а сигнал на нём важнее, чем повтор выделения. */
+.nav-i .ico.sig-bad{background:var(--red);border-radius:50%}
+.nav-i .ico.sig-good{background:var(--green);border-radius:50%}
 .nav-sep{height:1px;background:var(--line2);margin:12px 8px}
 .content{flex:1;padding:18px 26px 64px;min-width:0;background:var(--bg)}
 
@@ -143,13 +164,14 @@ button{font-family:inherit}
    но воздуха он не занимает */
 .kpi .k-row:empty{margin:0}
 .kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body)}
+.kpi .k-sub b{color:var(--ink2);font-weight:var(--fw-lead)}
 
 /* ---------- Одна высота строк во всей полосе KPI ----------
    Заголовок метрики в одной карточке переносился на две строки — и её
    значение, дельта и подпись базы уезжали вниз относительно соседей. Полоса
    переставала читаться как строка: глазу приходилось искать, где чьё число.
 
-   Карточка объявлена subgrid'ом на четыре строки родителя, поэтому высоту
+   Карточка объявлена subgrid'ом на пять строк родителя (пятая — «год назад»), поэтому высоту
    каждой строки задаёт самая высокая карточка полосы: перенёсся заголовок
    у одного KPI — лишняя строка появилась у всех, зато цифры остались на
    общем уровне. Это ровно тот размен, который выбрал заказчик.
@@ -157,9 +179,9 @@ button{font-family:inherit}
    Собственные отступы строк сохранены, а gap внутри карточки обнулён: иначе
    subgrid унаследовал бы междукарточные 14px и разорвал бы карточку. Правило
    под @supports: без subgrid карточка обязана остаться обычным блоком, иначе
-   grid-row:span 4 растянул бы её по пустым строкам. */
+   grid-row:span 5 растянул бы её по пустым строкам. */
 @supports (grid-template-rows:subgrid){
-  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 4;row-gap:0}
+  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 5;row-gap:0}
 }
 
 /* ===== Панели ===== */
@@ -185,7 +207,7 @@ button{font-family:inherit}
 .sig-chip.bad{background:var(--red-bg);color:var(--red-tx)}
 .sig-chip.neutral{background:#f3f4f6;color:var(--muted)}
 /* тег KPI — метка «у метрики есть цель», а не оценка: жёлтый читался сигналом */
-.kpi-tag{display:inline-block;font-size:9px;font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;padding:2px 6px;border-radius:var(--r2);background:var(--blue-bg);color:#2b5fd0}
+.kpi-tag{display:inline-block;font-size:9px;font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;padding:2px 6px;border-radius:var(--r2);background:var(--blue-bg);color:var(--act-ink)}
 .spark{display:inline-block;vertical-align:middle}
 
 /* ===== Таблица метрик OnePager ===== */
@@ -239,7 +261,10 @@ button{font-family:inherit}
 .ptable td.txt{text-align:left;font-weight:var(--fw-lead);padding-left:var(--pad-cell)}
 .ptable tr.urow{cursor:pointer}
 .ptable tr.urow:hover{background:#fafbfc}
-.ptable tr.urow.sel{background:#f5f8ff;box-shadow:inset 3px 0 0 var(--act)}
+.ptable tr.urow.empty td{color:var(--muted2)}
+.ptable tr.urow.empty .row-body{color:var(--muted);font-weight:var(--fw-med)}
+.ptable tr.urow.empty .cell{opacity:.45}
+.ptable tr.urow.sel{background:#F2F8FB;box-shadow:inset 3px 0 0 var(--act)}
 .ptable tr.total td{border-top:2px solid var(--line);border-bottom:0;font-weight:var(--fw-bold);background:#fafbfc}
 .ptable tr.lvl2 td.txt{padding-left:34px;font-weight:var(--fw-med);color:var(--ink2)}
 .unit-sub{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:var(--fw-body);margin-top:1px}
@@ -296,10 +321,10 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .fgrp .fhint{font-size:var(--fs-note);color:var(--muted2);font-weight:600;margin-top:7px;line-height:1.4}
 .opts{display:flex;gap:8px;flex-wrap:wrap}
 .opt{border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 14px;font-size:13px;font-weight:700;color:var(--ink2);cursor:pointer;transition:all .15s}
-.opt:hover{border-color:#c9d3e6;background:#fafbfc}
+.opt:hover{border-color:#C4D4DC;background:#fafbfc}
 .opt.on{background:var(--act);border-color:var(--act);color:#fff}
-.bench-preview{background:var(--blue-bg);border:1px solid #dbe6fd;border-radius:var(--r3);padding:12px 14px;font-size:var(--fs-body);color:#2b5fd0;font-weight:600;line-height:1.5}
-.bench-preview b{color:#1c47a8}
+.bench-preview{background:var(--blue-bg);border:1px solid var(--act-line);border-radius:var(--r3);padding:12px 14px;font-size:var(--fs-body);color:var(--act-ink);font-weight:600;line-height:1.5}
+.bench-preview b{color:var(--act-ink)}
 
 /* ----- Выбор метрик: пресеты + чекбоксы по блокам -----
    Список прокручивается внутри себя, иначе модалка с 19 метриками уезжает
@@ -311,7 +336,7 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .mpick-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:var(--fw-bold);margin-bottom:6px}
 .mpick-l{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px}
 .mp-i{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;padding:4px 5px;border-radius:var(--r2);font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--muted);cursor:pointer}
-.mp-i:hover{background:#f1f4f9}
+.mp-i:hover{background:#F0F5F8}
 .mp-i.on{color:var(--ink2)}
 .mp-i .box{flex:none;width:15px;height:15px;border:1.5px solid #c9cdd6;border-radius:var(--r1);background:#fff;position:relative}
 .mp-i.on .box{background:var(--act);border-color:var(--act)}
@@ -323,7 +348,7 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .mp-i.lock .box{background:var(--bench);border-color:var(--bench)}
 
 /* ===== Итерация 7: адаптив, доступность, печать ===== */
-:focus-visible{outline:3px solid rgba(43,108,255,.32);outline-offset:2px}
+:focus-visible{outline:3px solid rgba(0,115,160,.32);outline-offset:2px}
 button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--act)}
 .skip-link{position:fixed;left:12px;top:-60px;z-index:9999;background:var(--ink);color:#fff;padding:10px 14px;border-radius:var(--r3);font-weight:700;text-decoration:none;transition:top .15s}
 .skip-link:focus{top:12px}
@@ -331,7 +356,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .nav-scrim{display:none}
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 [aria-current="page"]{font-weight:var(--fw-bold)}
-.mrow:focus,.urow:focus{outline:3px solid rgba(43,108,255,.25);outline-offset:-3px;background:#f5f8ff}
+.mrow:focus,.urow:focus{outline:3px solid rgba(0,115,160,.25);outline-offset:-3px;background:#F2F8FB}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 @media(max-width:1100px){
@@ -343,7 +368,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .reporthead{padding-left:22px;padding-right:22px}
 }
 @media(max-width:780px){
-  .apphead-top{padding:9px 14px}.logo small{display:none}.apphead .ghost{display:none}.nav-toggle{display:inline-flex}
+  .apphead-top{padding:9px 14px}.logo small{display:none}.freshness{display:none}.apphead .ghost{display:none}.nav-toggle{display:inline-flex}
   .reporthead{padding:14px}.rh-row{align-items:flex-start}.rh-title{font-size:22px}.rh-side{display:none}
   .layout{display:block}.nav{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(82vw,300px);transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 28px rgba(20,28,45,.18);padding-top:18px}.nav.open{transform:translateX(0)}
   .nav-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}.nav-scrim.open{display:block}
@@ -382,7 +407,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .ptable tr.lvl2 td.txt{padding-left:26px}
 .ptable tr.lvl2 td.txt .row-body{font-weight:var(--fw-med);color:var(--ink2)}
 .ptable tr.lvl2 td{background:#fcfcfd}
-.ptable tr.lvl2.sel td{background:#f5f8ff}
+.ptable tr.lvl2.sel td{background:#F2F8FB}
 .hint-col{font-size:var(--fs-micro);font-weight:700;color:var(--muted2);text-transform:none;letter-spacing:0;display:block;margin-top:2px}
 
 /* AI-инсайт сразу под заголовком */
@@ -450,9 +475,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    и между заголовком листа и его подзаголовком набегал лишний воздух. */
 .ph-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:0}
 .ph-row h2{margin:0}
-.btn.dash{margin-left:auto;border-color:#d7e0f2;background:var(--blue-bg);color:#2b5fd0;font-weight:700;
+.btn.dash{margin-left:auto;border-color:var(--act-line);background:var(--blue-bg);color:var(--act-ink);font-weight:700;
   border-radius:var(--r3);padding:6px 12px;text-decoration:none;white-space:nowrap}
-.btn.dash:hover{background:#e2ebfd;border-color:#bed0f6;color:#1c47a8}
+.btn.dash:hover{background:#D6ECF5;border-color:var(--act-line);color:var(--act-ink)}
 .btn.dash .ico-ext{opacity:.8;margin-left:-1px;flex:0 0 auto}
 
 /* Метрика, которую с базой сравнивать бессмысленно */
@@ -466,7 +491,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* Каретка была почти незаметна */
 .caret-btn{width:23px;height:23px;font-size:12px;color:var(--ink2);margin-right:7px}
-.caret-btn:hover{background:#e7edf7;color:var(--act)}
+.caret-btn:hover{background:var(--blue-bg);color:var(--act)}
 .caret-btn[data-open]{color:var(--act)}
 .caret-spacer{width:23px;margin-right:7px}
 
@@ -490,7 +515,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .btable td.barcell,.btable th.bar-th{text-align:left;padding-left:var(--pad-cell)}
 .btable th.bar-th{padding-left:var(--pad-cell)}
 .cellbar{display:block;width:100%;height:13px;background:#f1f3f6;border-radius:var(--r1);overflow:hidden}
-.cellbar i{display:block;height:100%;border-radius:var(--r1);background:var(--act);min-width:2px}
+.cellbar i{display:block;height:100%;border-radius:2px;background:var(--bar-soft);min-width:2px}
 .btable tr.total td{border-bottom:0}
 /* ★ у нежелательных уходов */
 .rt-mark{color:#d9534f;font-weight:700;margin-right:2px}
@@ -591,7 +616,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* Прозрачный прямоугольник-ловушка на всю полосу месяца: попасть в тонкий бар
    мышью тяжело, а в полосу — легко. fill-opacity:0 вместо fill:none —
    иначе элемент не участвует в hit-тесте. */
-.hit{fill:#2b6cff;fill-opacity:0;transition:fill-opacity .12s}
+.hit{fill:#0073A0;fill-opacity:0;transition:fill-opacity .12s}
 .barg:hover .hit,.ptg:hover .hit,.sbg:hover .hit{fill-opacity:.05}
 .barg:hover .bar,.sbg:hover .sb{filter:brightness(1.1) saturate(1.3)}
 .ptg:hover .dot{r:5.2;stroke-width:2.6}
@@ -656,6 +681,70 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    к верхней границе, а ось X наезжает на следующую метрику. */
 .detail-row td{padding:18px 18px 20px;background:#fafbfc}
 .detail-chart{height:auto;width:100%}
+/* Два полотна рядом (год к году + 12 мес) — половины разделены волосяной
+   линией, а не зазором: это один ответ из двух частей, а не две карточки. */
+.detail-split{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.dsplit{min-width:0;padding:0 var(--s9)}
+.dsplit:first-child{padding-left:0;border-right:1px solid var(--line2)}
+.dsplit:last-child{padding-right:0}
+@media (max-width:1100px){
+  .detail-split{grid-template-columns:1fr;gap:var(--chart-gap)}
+  .dsplit,.dsplit:first-child,.dsplit:last-child{padding:0;border:0}
+}
+
+/* ---------- Переключатель масштаба динамики: 12 мес / год к году ----------
+   Сегмент из дизайн-системы Proteus Adoption: подложка --line2, активный —
+   белая плашка с тенью. Стоит над графиком, а не в шапке панели: шапку уже
+   занимают под-вкладки блока. */
+.dyn-switch{display:inline-flex;gap:3px;background:var(--line2);border-radius:var(--r3);
+  padding:3px;margin:0 0 var(--s6);align-self:flex-start;flex:none}
+.dyn-switch button{border:0;background:transparent;padding:5px var(--s5);border-radius:var(--r2);
+  font:inherit;font-size:var(--fs-note);font-weight:var(--fw-lead);color:var(--muted);cursor:pointer;
+  transition:background .15s,color .15s}
+.dyn-switch button:hover{color:var(--ink2)}
+.dyn-switch button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+
+/* строка «год назад» в KPI-карточке — второй план, тише строки базы */
+.split-r .panel-b>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
+.pulse-strip{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:var(--s10);background:var(--card);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--s7) var(--s9);margin:var(--s7) 0 var(--s7)}
+.ps-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:var(--fw-lead);
+  margin-bottom:var(--s4);display:flex;gap:var(--s4);align-items:baseline}
+.ps-sub{text-transform:none;letter-spacing:0;color:var(--muted2);font-weight:var(--fw-med)}
+.ps-num{display:flex;align-items:baseline;gap:var(--s2) var(--s3);flex-wrap:wrap;font-size:var(--fs-note);color:var(--muted);margin-bottom:var(--s4)}
+.ps-num b{font-size:var(--fs-head);font-weight:var(--fw-bold);color:var(--ink)}
+.ps-num b.g{color:var(--green-tx)} .ps-num b.r{color:var(--red-tx)} .ps-num b.n{color:var(--ink2)}
+.ps-num span{margin-right:var(--s4)}
+.ps-bar{display:flex;gap:2px;height:8px;border-radius:var(--r-pill);overflow:hidden}
+.ps-bar i{display:block;min-width:4px}
+.ps-bar i.g{background:#80cf9a} .ps-bar i.r{background:#ef8c8c} .ps-bar i.n{background:#e4e7ec}
+.ps-movers{display:flex;flex-direction:column;min-width:0;border-left:1px solid var(--line2);padding-left:var(--s10)}
+.ps-mv{display:grid;grid-template-columns:minmax(0,1fr) auto 84px;align-items:center;gap:var(--s6);border:0;background:transparent;
+  font:inherit;text-align:left;padding:5px var(--s3);margin:0 calc(-1 * var(--s3));border-radius:var(--r2);cursor:pointer;color:var(--ink2)}
+.ps-mv:hover{background:var(--blue-bg)}
+.ps-mv .delta{justify-self:end}
+.ps-n{font-size:var(--fs-body);font-weight:var(--fw-lead);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ps-v{font-size:var(--fs-note);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ps-v b{color:var(--ink);font-weight:var(--fw-lead)}
+.ps-empty{font-size:var(--fs-note);color:var(--muted)}
+@media (max-width:900px){.pulse-strip{grid-template-columns:1fr}.ps-movers{border-left:0;padding-left:0;border-top:1px solid var(--line2);padding-top:var(--s6)}}
+.op-nav{position:sticky;top:var(--head-h,0px);z-index:20;display:flex;gap:var(--s2);flex-wrap:wrap;
+  margin:0 calc(-1 * var(--s3)) var(--s4);padding:var(--s3);background:rgba(244,245,247,.92);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:0 0 var(--r4) var(--r4)}
+.op-nav-i{display:inline-flex;align-items:center;gap:var(--s3);border:1px solid var(--line);background:var(--card);
+  border-radius:var(--r-pill);padding:5px var(--s5);font:inherit;font-size:var(--fs-note);font-weight:var(--fw-lead);
+  color:var(--ink2);cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.op-nav-i:hover{border-color:var(--act-line);background:var(--blue-bg)}
+.op-nav-i.on{border-color:var(--act);color:var(--act-ink);background:var(--blue-bg)}
+.op-nav-i .sig{width:7px;height:7px;border-radius:50%;background:#d9dce1;flex:0 0 auto}
+.op-nav-i .sig.bad{background:var(--red)} .op-nav-i .sig.good{background:var(--green)}
+.op-nav-n{font-size:var(--fs-micro);font-weight:var(--fw-bold);color:var(--red-tx);background:var(--red-bg);
+  border-radius:var(--r-pill);padding:0 5px;line-height:15px}
+/* заголовок блока не прячется под липкой полосой при прыжке */
+.block-h[id]{scroll-margin-top:calc(var(--head-h,0px) + 64px)}
+@media print{.op-nav{display:none}}
+.kpi .k-row.k-yoy{margin-top:var(--s2);font-size:var(--fs-note);color:var(--muted)}
+.kpi .k-row.k-yoy b{color:var(--ink2);font-weight:var(--fw-lead)}
 
 /* ---------- Структура: разбивки не должны слипаться ---------- */
 .bt-stack{gap:28px}
@@ -717,7 +806,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   border:1px solid var(--line);background:#fff;border-radius:var(--r4);padding:9px 10px;
   cursor:pointer;font:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
 .pulse-dock:hover{border-color:#d3d9e4;box-shadow:var(--shadow)}
-.pulse-dock.on{border-color:#c9d3e6;background:#fbfcfe;box-shadow:var(--shadow)}
+.pulse-dock.on{border-color:#C4D4DC;background:#fbfcfe;box-shadow:var(--shadow)}
 .pd-av{position:relative;flex:0 0 auto;line-height:0}
 /* Точка состояния дублирует эмоцию огонька формой и цветом: одной картинки
    мало на 54 px, а подписывать словами нельзя — он молчит. */
@@ -750,7 +839,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pp-x{margin-left:auto;flex:0 0 auto;border:0;background:transparent;cursor:pointer;
   color:var(--muted);font-size:13px;line-height:1;padding:6px;border-radius:var(--r2)}
-.pp-x:hover{background:#f1f4f9;color:var(--ink)}
+.pp-x:hover{background:#F0F5F8;color:var(--ink)}
 .pp-b{flex:1;min-height:0;overflow-y:auto;padding:12px 14px 4px}
 .pp-lead{font-size:12px;color:var(--ink2);font-weight:600;line-height:1.5;
   background:#f7f8fa;border-radius:var(--r3);padding:9px 11px;margin-bottom:12px}
@@ -925,6 +1014,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   /* Мобильная навигация снова выезжающая панель, поэтому sticky тут не нужен */
   .nav{position:fixed;height:auto;padding-bottom:44px}
   .apphead{position:static}
+  /* шапка здесь не липкая — полоса блоков прилипает к самому верху */
+  .op-nav{top:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.op-nav::-webkit-scrollbar{display:none}
+  .block-h[id]{scroll-margin-top:64px}
   .reporthead{padding:14px}
   /* Кнопки отчёта больше не в шапке приложения — прятать их нельзя */
   .apphead .ghost{display:inline-flex}
@@ -977,10 +1069,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    синим, а не серым пунктиром обычной сноски: это не пояснение, а активное
    состояние отчёта, которое пользователь включил и должен видеть. */
 .note-inline.slice{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;
-  border-style:solid;border-color:#d7e0f2;background:var(--blue-bg);color:var(--ink2)}
+  border-style:solid;border-color:var(--act-line);background:var(--blue-bg);color:var(--ink2)}
 .note-inline.slice .sl-t{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.3px;
-  font-weight:var(--fw-bold);color:#2b5fd0;flex:0 0 auto}
-.note-inline.slice .chip.sl{background:#fff;border-color:#dbe6fd;flex:0 0 auto}
+  font-weight:var(--fw-bold);color:var(--act-ink);flex:0 0 auto}
+.note-inline.slice .chip.sl{background:#fff;border-color:var(--act-line);flex:0 0 auto}
 .note-inline.slice .sl-x{flex:1 1 240px;min-width:0;font-size:var(--fs-note);color:var(--muted)}
 .note-inline.slice .btn.xs{flex:0 0 auto;padding:4px 9px}
 
@@ -1033,7 +1125,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   color:var(--ink2);cursor:pointer;padding:4px 7px;border-radius:var(--r2);max-width:100%;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background .15s,color .15s}
 .mx-pick.row{display:block;width:100%;text-align:left}
-.mx-pick:hover{background:var(--blue-bg);color:#2b5fd0}
+.mx-pick:hover{background:var(--blue-bg);color:var(--act-ink)}
 .mx-pick.on{background:var(--act);color:#fff}
 
 .mxtable td.mx-cell{text-align:center;font-weight:var(--fw-lead);font-size:var(--fs-body);color:var(--ink);

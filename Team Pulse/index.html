@@ -17,8 +17,11 @@
 <header class="apphead">
   <div class="apphead-top">
     <button class="nav-toggle" id="navToggle" aria-label="Открыть навигацию" aria-expanded="false">☰</button>
-    <div class="logo"><span class="mark"></span>TeamPulse&nbsp;<small>Hub · макет</small></div>
+    <div class="logo"><span class="mark">T</span>TeamPulse&nbsp;<small>Hub · макет</small></div>
     <div class="spacer"></div>
+    <!-- Свежесть данных — как в Proteus Adoption: закрытый месяц, по которому
+         читаются все карточки, назван в шапке один раз для всего отчёта. -->
+    <div class="freshness" id="freshness"></div>
   </div>
 </header>
 
@@ -46,7 +49,6 @@
           <div class="chips" id="chips"></div>
         </div>
         <div class="rh-side">
-          <span class="period" id="periodBadge"></span>
           <button class="btn ghost" id="btnHelp">Как читать отчёт</button>
           <button class="btn primary" id="btnSetup">Настрой свой дашборд</button>
         </div>

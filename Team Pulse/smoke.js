@@ -204,13 +204,14 @@ checks.push(['минус во всех дельтах типографский, 
 
   /* Карточки KPI выравниваются по строкам: перенос заголовка в одной карточке
      не должен сдвигать цифры в ней относительно соседних. */
-  checks.push(['карточка KPI всегда из четырёх строк',
+  checks.push(['карточка KPI всегда из пяти строк: две строки сравнения плюс «год назад»',
     (function(){
       const cards=mvHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
-      return cards.length===5&&cards.every(c=>(c.match(/<div class="k-row">/g)||[]).length===2);
+      return cards.length===5&&cards.every(c=>(c.match(/<div class="k-row">/g)||[]).length===2)&&
+        (mvHtml.match(/<div class="k-row k-yoy">/g)||[]).length===5;
     })()]);
   checks.push(['полоса KPI выровнена subgrid, а не надеждой на короткие заголовки',
-    /\.kpi\{display:grid;grid-template-rows:subgrid;grid-row:span4;row-gap:0\}/.test(css)&&
+    /\.kpi\{display:grid;grid-template-rows:subgrid;grid-row:span5;row-gap:0\}/.test(css)&&
     /@supports\(grid-template-rows:subgrid\)/.test(css)]);
   checks.push(['пять метрик движения персонала стоят пятью колонками',
     /class="kpis compact n5"/.test(mvHtml)&&/\.kpis\.n5\{grid-template-columns:repeat\(5/.test(css)]);

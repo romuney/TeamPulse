@@ -44,7 +44,7 @@ const CD=window.TPDATA;
 const FONT='Inter, Helvetica, Arial, sans-serif';
 const C_LABEL='#2b2b2b';                    /* единственный цвет цифр на графиках */
 const C_AXIS='#8a909c', C_DIV='#e4e7ec', C_ZERO='#c9cdd6';
-const C_LINE='#3b6fe0', C_BENCH='#9aa0ac';
+const C_LINE='#0073A0', C_BENCH='#9aa0ac';
 
 /* светофор — гамма пилюль. C_FLAT работает и на «без оценки», и на «на уровне» */
 const C_GREEN='#80cf9a', C_RED='#ef8c8c', C_FLAT='#c7c8cc';
@@ -164,7 +164,7 @@ function rect(x,y,w,h,fill,r,extra){
 /* Бар со скруглением ТОЛЬКО сверху. Низ ровный — правило 4. */
 function barUp(x,y,w,h,fill,extra){
   h=Math.max(0,h);
-  const r=Math.min(3,w/2,h);
+  const r=Math.min(2,w/2,h);   /* скругление марок 2px — ДС Proteus Adoption */
   if(h<=0.5)return'';
   return '<path d="M'+num(x)+' '+num(y+h)+'V'+num(y+r)+'Q'+num(x)+' '+num(y)+' '+num(x+r)+' '+num(y)
     +'H'+num(x+w-r)+'Q'+num(x+w)+' '+num(y)+' '+num(x+w)+' '+num(y+r)+'V'+num(y+h)+'Z"'
@@ -174,7 +174,7 @@ function barUp(x,y,w,h,fill,extra){
    скругляется нижний край. Правило одно: мягкий край смотрит от нуля. */
 function barDown(x,y,w,h,fill,extra){
   h=Math.max(0,h);
-  const r=Math.min(3,w/2,h);
+  const r=Math.min(2,w/2,h);   /* скругление марок 2px — ДС Proteus Adoption */
   if(h<=0.5)return'';
   return '<path d="M'+num(x)+' '+num(y)+'V'+num(y+h-r)+'Q'+num(x)+' '+num(y+h)+' '+num(x+r)+' '+num(y+h)
     +'H'+num(x+w-r)+'Q'+num(x+w)+' '+num(y+h)+' '+num(x+w)+' '+num(y+h-r)+'V'+num(y)+'Z"'
@@ -197,7 +197,7 @@ const TTL_SZ=12, TTL_W=700, C_INK='#1f1f1f';
    ВАЖНО: id серии живёт в ОТДЕЛЬНОМ атрибуте data-s, а НЕ в class.
    В классе уже лежат `bar up`, `bar dn`, `ln`, `lnb`, `dot` — и smoke.js
    сверяет эти литералы посимвольно. Любой лишний класс там ломает проверку. */
-const SERIES={line:['main','bench'],diverge:['up','dn'],
+const SERIES={line:['main','bench'],yoy:['main','prev','bench'],diverge:['up','dn'],
               waterfall:['total','in','out'],bars:['main']};
 /* каскад держится на композиции — выключать типы столбцов в нём бессмысленно,
    остаётся только подсветка */
@@ -365,6 +365,97 @@ function drawLine(a,w,h){
        факт, и появляться они должны вместе, вслед за кончиком линии */
     if(showMain)s+=txt(cx,cy-VAL_DY,CD.fmtVal(key,v),valOpt({delay:dly,s:'main'}));
   });
+  return svg(w,h,s);
+}
+
+/* ============================================================================
+   1a. Год к году — механика HRBP HUB на голом SVG
+   ----------------------------------------------------------------------------
+   Ось — двенадцать месяцев календарного года, на ней две линии одной формы
+   записи: текущий год — насыщенная линия с подписями, прошлый — бледная без
+   подписей. Разделяют их вес и цвет, а не тип графика: заливка под одной из
+   них превратила бы её в площадь, и глаз сравнивал бы площадь с линией.
+
+   Ориентир один — цель KPI или база, и только для текущего года: прошлогодней
+   базы на полотне нет, иначе рядом оказались бы четыре линии и два вопроса.
+
+   Отличия от ECharts-версии HRBP, и они осознанные — здесь действуют правила
+   этого движка:
+     · шкала от нуля (правило 1), поэтому оси Y нет, а значения подписаны;
+     · год не подписывается под январём (правило 6 здесь не применимо): на оси
+       лежат ОБА года сразу, и год называет легенда, а не подпись месяца.
+   Прошлогоднее значение подписано ровно в одной точке — в последнем закрытом
+   месяце: это и есть «год к году» из таблицы, и его видно без наведения.
+   ========================================================================== */
+const C_PREV='#b9bdc6', C_NOW='#dfe3ea';
+const C_SPARK_INK='#8a909c';   /* спарклайн метрики без оценки — тон подписей осей */
+function drawYoy(a,w,h){
+  const key=a.metricKey, cur=a.cur, prev=a.prev, bench=a.bench, o=a.opt||{};
+  const nm=CD.METRIC_BY_KEY[key]||{};
+  const hh=headH(o.title,o.legend);
+  h=h||o.h||280;
+  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H+12;
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/12;
+  const off=offOf(o);
+  const showMain=!off.has('main'), showPrev=!off.has('prev'), showBench=!!bench&&!off.has('bench');
+  const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
+  if(o.kpi){all.push(o.kpi.green);all.push(o.kpi.red)}
+  const max=niceMax(all);
+  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
+  const X=i=>x0+bandW*(i+0.5);
+  const nowI=CD.CUR_LEN-1;
+
+  let s=header(w,o.title,o.legend,{kind:'yoy',off:o.off});
+  /* «вы здесь»: тонкая сплошная — пунктиром на полотне уже сказаны цель и база */
+  s+=line(X(nowI),plotTop-6,X(nowI),plotBot,C_NOW,1);
+  CD.MONTH_ABBR.forEach((lb,i)=>{
+    s+=txt(X(i),plotBot+15,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+  });
+  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
+
+  if(o.kpi){
+    [['green',C_GREEN],['red',C_RED]].forEach(([k,c])=>{
+      const y=Y(o.kpi[k]);
+      s+=line(x0,y,x0+plotW,y,c,1.4,'2 3');
+      s+=txt(x0+plotW-2,y+VAL_DY+2,'KPI '+CD.fmtVal(key,o.kpi[k]),valOpt({anchor:'end'}));
+    });
+  }
+  const path=arr=>{let d='',pen=false;arr.forEach((v,i)=>{if(v==null){pen=false;return}
+    d+=(pen?'L':'M')+num(X(i))+' '+num(Y(v));pen=true});return d};
+  if(showPrev)s+='<path class="lnb"'+sAttr('prev')+' d="'+path(prev)+'" fill="none" stroke="'+C_PREV+'"'
+    +' stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
+  if(showBench)s+='<path class="lnb"'+sAttr('bench')+' d="'+path(bench)+'" fill="none" stroke="'+C_BENCH+'"'
+    +' stroke-width="2" stroke-dasharray="5 3"/>';
+  if(showMain)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+path(cur)+'" fill="none" stroke="'+C_LINE+'"'
+    +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+
+  const yC=CD.YEAR_CUR, yP=CD.YEAR_PREV;
+  for(let i=0;i<12;i++){
+    const c=cur[i], p=prev[i], b=bench?bench[i]:null;
+    const rows=[];
+    if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:C_LINE});
+    if(showPrev&&p!=null)rows.push({label:String(yP),value:CD.fmtVal(key,p),color:C_PREV});
+    if(showBench&&b!=null)rows.push({label:o.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
+    const note=c!=null&&p!=null?'Год к году: '+CD.fmtDelta(key,+(c-p).toFixed(2))
+      :c==null?'Месяц '+yC+' ещё не закрыт':null;
+    const nmM=CD.MONTH_NOM[i];
+    s+='<g class="ptg"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+(nm.name?' · '+nm.name:''),rows,note})+'>';
+    s+='<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
+    if(showPrev&&p!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(X(i))+'" cy="'+num(Y(p))+'" r="2.4" fill="'+C_PREV+'"/>';
+    const dly=DRAW_MS*(i/Math.max(1,nowI))*0.9;
+    if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(X(i))+'" cy="'+num(Y(c))+'" r="3.4" fill="#fff" stroke="'+C_LINE+'"'
+      +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
+    s+='</g>';
+    /* Подписи. У последнего закрытого месяца подписаны обе линии, и подписи
+       разведены по разные стороны: верхняя точка — над собой, нижняя — под
+       собой. Иначе на близких значениях цифры легли бы одна на другую. */
+    if(showMain&&c!=null){
+      const both=i===nowI&&showPrev&&p!=null, below=both&&p>c;
+      s+=txt(X(i),below?Y(c)+VAL_DY+VAL_ASC:Y(c)-VAL_DY,CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
+      if(both)s+=txt(X(i),below?Y(p)-VAL_DY:Y(p)+VAL_DY+VAL_ASC,CD.fmtVal(key,p),
+        valOpt({s:'prev',fill:C_AXIS,weight:600}));
+    }
+  }
   return svg(w,h,s);
 }
 
@@ -676,19 +767,29 @@ function sparkBars(series,state,w,h,o){
 }
 function sparkLine(series,state,w,h,o){
   o=o||{};w=w||120;h=h||26;
-  const max=niceMax(series), n=series.length;
-  const col=stateColor(state), key=o.key, base=o.base, kpi=o.kpi;
+  const n=series.length;
+  /* o.ink — спарклайн метрики без оценки в колонке «12 мес». Бледно-серые бары
+     там сливались с фоном: цвета у такой метрики нет по правилу, значит форму
+     должна нести сама линия — тёмно-серая, тонкая, с последней точкой.
+     o.fit — та же поднятая шкала, что у sparkBars при малом размахе: численность
+     175 → 191 от нуля — прямая. На детальных графиках шкала остаётся от нуля. */
+  const col=o.ink?C_SPARK_INK:stateColor(state), key=o.key, base=o.base, kpi=o.kpi;
+  const mn=Math.min.apply(null,series), mx=Math.max.apply(null,series), rg=mx-mn;
+  let lo=0, max=niceMax(series);
+  if(o.fit&&rg>0&&mx>0&&rg/mx<0.4){lo=Math.max(0,mn-rg*0.45);max=mx+rg*0.12}
+  /* прирост с начала года уходит в минус — линия не должна проваливаться под низ */
+  if(mn<0){lo=mn;max=Math.max(mx,0)+(rg||1)*0.08}
   /* PAD — не косметика: svg тянется preserveAspectRatio="none", и точка радиусом 2
      на самом краю viewBox срезалась ровно наполовину. Отступ по краям и сверху
      держит крайние точки целиком внутри картинки. */
   const PAD=3.5, TOP=3.5;
   const X=i=>n>1?PAD+i/(n-1)*(w-2*PAD):w/2;
-  const Y=v=>h-PAD-(v/max)*(h-PAD-TOP);
+  const Y=v=>h-PAD-((v-lo)/((max-lo)||1))*(h-PAD-TOP);
   let d='';
   series.forEach((v,i)=>{d+=(i?'L':'M')+num(X(i))+' '+num(Y(v))});
   let s='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.7"'
     +' stroke-linejoin="round" stroke-linecap="round"/>';
-  s+='<circle cx="'+num(X(n-1))+'" cy="'+num(Y(series[n-1]))+'" r="2" fill="'+col+'"/>';
+  s+='<circle cx="'+num(X(n-1))+'" cy="'+num(Y(series[n-1]))+'" r="'+(o.ink?2.6:2)+'" fill="'+col+'"/>';
   /* Наведение: под курсором подсвечивается ИМЕННО тот месяц, о котором говорит
      тултип. Без этого по спарклайну было непонятно, какую точку он описывает.
      Всё на CSS (.spg:hover), никаких обработчиков. */
@@ -726,7 +827,7 @@ function sparkLine(series,state,w,h,o){
    градиента на себя и будни между собой стали бы неразличимы.
    Ось Y тут отсутствует по определению, значение подписано в каждой ячейке —
    оба правила визуализации соблюдены без специальных усилий. */
-const CAL_LO=[234,241,253], CAL_HI=[43,94,197];   /* #eaf1fd → #2b5ec5 */
+const CAL_LO=[232,244,249], CAL_HI=[0,115,160];   /* #E8F4F9 → #0073A0: шкала активного тона */
 function mixRGB(a,b,t){
   const c=[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*t));
   return 'rgb('+c[0]+','+c[1]+','+c[2]+')';
@@ -842,7 +943,7 @@ function drawCalendar(a,w,h){
   return svg(w,hUsed,s);
 }
 
-const KINDS={line:drawLine,bars:drawBars,diverge:drawDiverge,panels:drawPanels,
+const KINDS={line:drawLine,yoy:drawYoy,bars:drawBars,diverge:drawDiverge,panels:drawPanels,
              waterfall:drawWaterfall,funnel:drawFunnel,calendar:drawCalendar};
 const NOMINAL_W=900, NOMINAL_H=null;
 let _specs=new Map(), _sid=0;
@@ -927,7 +1028,7 @@ function reset(){_specs=new Map();_sid=0}
 
 window.TPDRAW={chart,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkBars,sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,
-  FONT,PALETTE,C_LINE,C_BENCH,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
+  FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
   C_VAC,C_UNDER,C_LOWPERF,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y};
 })();

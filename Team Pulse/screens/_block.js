@@ -49,11 +49,16 @@ function blockMain(bk,S){
 function expandableRows(root){
   return D.nodesBelow(root,1).filter(n=>D.childrenOf(n.path).length).map(n=>n.path);
 }
-function pivotRows(root,expanded){
-  const rows=[];
-  D.nodesBelow(root,1).forEach(n=>{
-    rows.push({n:n,depth:1});
-    if(expanded.has(n.path))D.childrenOf(n.path).forEach(c=>rows.push({n:c,depth:2}));
+/* isEmpty(path) — у подразделения под текущими фильтрами никого нет. Такие
+   строки уходят вниз своего уровня и приглушаются: «0 чел» с нулями во всех
+   колонках занимали столько же места, сколько живые команды, и разрывали
+   список. Порядок внутри живых и внутри пустых — как в оргдереве. */
+function pivotRows(root,expanded,isEmpty){
+  const rows=[], emp=isEmpty||(()=>false);
+  const order=list=>list.filter(n=>!emp(n.path)).concat(list.filter(n=>emp(n.path)));
+  order(D.nodesBelow(root,1)).forEach(n=>{
+    rows.push({n:n,depth:1,empty:emp(n.path)});
+    if(expanded.has(n.path))order(D.childrenOf(n.path)).forEach(c=>rows.push({n:c,depth:2,empty:emp(c.path)}));
   });
   return rows;
 }
@@ -68,9 +73,34 @@ function selLabel(S){
    (там она вводит в заблуждение) и у метрик с утверждённым KPI — на графике
    остаются пороги цели, и вторая пунктирная линия рядом с ними спорила бы с
    ними за роль ориентира. */
-function metricLine(key,lp,bl,S,opt){
+/* График «год к году» — тот же выбор ориентира, что и у metricLine:
+   цель KPI или база, и только для текущего года. */
+function yoyChart(key,lp,bl,S,opt){
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
-  return G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
+  const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
+  const legend=[{name:String(D.YEAR_CUR),color:G.C_LINE},{name:String(D.YEAR_PREV),color:G.C_PREV}]
+    .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
+  return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
+    Object.assign({legend,benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
+}
+/* Переключатель «12 мес / год к году» для вкладок, где динамика нарисована
+   панелями: в режиме года каждая метрика получает своё полотно год к году. */
+function dynWrap(ctx,rollHtml,items){
+  if(ctx.S.dyn!=='yoy')return U.dynSwitch('roll')+rollHtml;
+  return U.dynSwitch('yoy')+items.map(it=>yoyChart(it.key,ctx.lp,ctx.bl,ctx.S,
+    {title:it.title,h:it.h||250,fill:false})).join('');
+}
+/* Заголовок графика, который в режиме «год к году» остаётся на скользящем окне
+   (дивергент, водопад: их ось — двенадцать месяцев подряд, календарного года у
+   них нет). Под переключателем «Год к году» такой график без подписи читался бы
+   как тоже календарный — называем окно прямо в заголовке. */
+function winTitle(S,title){return S.dyn==='yoy'?title+' · 12 мес, '+D.PERIOD_LABEL:title}
+function metricLine(key,lp,bl,S,opt){
+  if(S.dyn==='yoy'&&!(opt&&opt.noSwitch))
+    return U.dynSwitch('yoy')+yoyChart(key,lp,bl,S,Object.assign({},opt||{},
+      {title:(opt&&opt.title?opt.title+' · ':'')+'год к году'}));
+  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
+  return (opt&&opt.noSwitch?'':U.dynSwitch('roll'))+G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
     Object.assign({legend:cmp?[{name:selLabel(S),color:G.C_LINE},{name:bench,color:G.C_BENCH,dash:true}]:null,
       benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
 }
@@ -103,7 +133,7 @@ function renderBlock(S,expanded,mixOpen){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
       U.empty('Нет данных по выбранным разрезам','Снимите один из разрезов в шапке отчёта.');
   }
-  const rows=pivotRows(root,expanded);
+  const rows=pivotRows(root,expanded,p=>!rowLeaves(p,S).length);
   const sel=S.selNode&&D.NODE_BY_PATH[S.selNode]?S.selNode:root;
   const selNode=D.NODE_BY_PATH[sel];
 
@@ -149,7 +179,9 @@ function renderBlock(S,expanded,mixOpen){
       value:D.fmtVal(m.key,v),
       row1:U.momChip(m.key,mom),
       row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark()});
+           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark(),
+      /* по срезу состава прошлогоднего значения нет: срез живёт только в окне */
+      row3:selIds.length&&D.sliceable(m.key)?'':'год назад <b>'+D.fmtVal(m.key,v-D.deltasOf(rl,m.key).yoy)+'</b>'});
   });
   h+='</div>';
 
@@ -201,13 +233,15 @@ function renderBlock(S,expanded,mixOpen){
     const v=D.lastVal(lp,mainK);
     const st=kpiMain?D.stateForKpi(mainK,v,kpiMain):D.compareState(mainK,v,benchMain);
     const kids=D.childrenOf(r.n.path).length, canExp=r.depth===1&&kids>0;
-    tbl+='<tr class="urow'+(r.depth===2?' lvl2':'')+(sel===r.n.path?' sel':'')+'" data-node="'+r.n.path+'">'+
+    tbl+='<tr class="urow'+(r.depth===2?' lvl2':'')+(r.empty?' empty':'')+(sel===r.n.path?' sel':'')+'" data-node="'+r.n.path+'">'+
       '<td class="txt"><span class="row-label">'+
       (canExp?'<button class="caret-btn"'+(expanded.has(r.n.path)?' data-open="1"':'')+' data-exp="'+r.n.path+'" aria-label="Раскрыть">'+(expanded.has(r.n.path)?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>')+
       '<span class="row-body">'+esc(r.n.name)+
       '<span class="unit-sub">'+D.fmtVal('hc_total',val(lp,'hc_total'))+' чел</span></span></span></td>'+
       mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(lp,m.key))+'</td>').join('')+
-      (showVs?'<td class="vs"><span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(1))+'</span></td>':'')+
+      /* у пустого подразделения 0% — не «лучше базы», а отсутствие людей */
+      (showVs?'<td class="vs">'+(r.empty?'<span class="cell neutral">—</span>'
+        :'<span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(1))+'</span>')+'</td>':'')+
       '<td>'+(kids>0?'<button class="btn ghost xs" data-drill="'+r.n.path+'"'+
         U.tipAttr({title:'Сделать корнем',
           text:'Показать детей «'+r.n.name+'» отдельным списком. База сравнения не меняется.'})+'>↓</button>':'')+'</td></tr>';
@@ -229,5 +263,5 @@ function renderBlock(S,expanded,mixOpen){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,metricLine,selLabel};
+  expandableRows,metricLine,yoyChart,dynWrap,winTitle,selLabel};
 })();

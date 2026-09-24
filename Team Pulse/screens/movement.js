@@ -50,7 +50,7 @@ SC.blocks.movement={
     }
     return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Общая численность, чел'})+
       G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
-        title:'Из чего сложилось изменение за период',
+        title:SC.winTitle(ctx.S,'Из чего сложилось изменение за период'),
         legend:[{name:'Итог месяца',color:G.C_TOTAL},{name:'Приход',color:G.C_IN},{name:'Уход',color:G.C_OUT}]});
   }
 };
