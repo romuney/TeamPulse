@@ -44,7 +44,7 @@ const CD=window.TPDATA;
 const FONT='Inter, Helvetica, Arial, sans-serif';
 const C_LABEL='#2b2b2b';                    /* единственный цвет цифр на графиках */
 const C_AXIS='#8a909c', C_DIV='#e4e7ec', C_ZERO='#c9cdd6';
-const C_LINE='#0073A0', C_BENCH='#9aa0ac';
+const C_LINE='#245FD4', C_BENCH='#9aa0ac';
 
 /* светофор — гамма пилюль. C_FLAT работает и на «без оценки», и на «на уровне» */
 const C_GREEN='#80cf9a', C_RED='#ef8c8c', C_FLAT='#c7c8cc';
@@ -827,7 +827,7 @@ function sparkLine(series,state,w,h,o){
    градиента на себя и будни между собой стали бы неразличимы.
    Ось Y тут отсутствует по определению, значение подписано в каждой ячейке —
    оба правила визуализации соблюдены без специальных усилий. */
-const CAL_LO=[232,244,249], CAL_HI=[0,115,160];   /* #E8F4F9 → #0073A0: шкала активного тона */
+const CAL_LO=[238,244,255], CAL_HI=[36,95,212];   /* #EEF4FF → #245FD4: шкала активного тона */
 function mixRGB(a,b,t){
   const c=[0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*t));
   return 'rgb('+c[0]+','+c[1]+','+c[2]+')';

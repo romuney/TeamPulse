@@ -219,7 +219,7 @@ Drill по кнопке `↓` меняет `drillRoot`, но базу не тр�
 ## Дизайн-система
 `--bg #f4f5f7`, `--card #fff`, `--line #e7e9ee`, `--ink #1f1f1f`, `--muted #8a909c`,
 `--green #12b048` / `--green-bg #bff2cd`, `--red #f51f1f` / `--red-bg #ffcccc`,
-акцент `--act #0073A0` (он же `--blue`), `--blue-bg #E8F4F9`, полосы `--bar-soft #5CC0EE`, AI `--ai #AA77FF` — палитра ДС Proteus Adoption.
+акцент `--act #245FD4` — кобальт, тон подтона серых (он же `--blue`), `--blue-bg #EEF4FF`, полосы `--bar-soft #82AAF5`, AI `--ai #AA77FF`.
 
 Шкалы: расстояния `--s1…--s10`, семь ролей кеглей `--fs-micro…--fs-hero`,
 радиусы `--r1…--r5` плюс `--r-pill`. Новые значения берём из шкал, а не на глаз.
