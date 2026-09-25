@@ -5,17 +5,24 @@
   --green:#12b048; --green-bg:#bff2cd; --green-tx:#0a8f3c;
   --red:#f51f1f;   --red-bg:#ffcccc;  --red-tx:#d11414;
   --warn:#f59300;  --warn-bg:#ffe6a0; --warn-tx:#9a6500;
-  /* ---------- Акцент: голубой из дизайн-системы Proteus Adoption ----------
+  /* ---------- Акцент: кобальт ----------
      Один активный тон на всё: кнопки, выбранная строка, фокус, линия
      подразделения на графиках. «Активное в интерфейсе» и «активное в данных» —
-     один цвет, отдельного синего в системе больше нет. Тон #0073A0 — самая
-     тёмная ступень присланных палитр (#218DAE / #2BBBD7 / #62CDFF), на белом
-     даёт 5,3:1 и держит текст. */
-  --act:#0073A0;   --act-ink:#015A7D; --act-line:#C4E2ED;
-  --blue:var(--act); --blue-bg:#E8F4F9;
-  /* полосы в ячейках — светлая ступень палитры: это фон под числом, а не
+     один цвет, отдельного синего в системе больше нет.
+
+     Почему кобальт, а не петроль #0073A0 из ДС Adoption. У всех серых отчёта
+     холодный сине-фиолетовый подтон: OKLCH-тон 263–268°. У #0073A0 тон 235° —
+     на 30° ближе к бирюзе, и рядом с серыми он читался «морским», чужим; к тому
+     же он совпадал по тону с цветами данных (переводы #3c84ab, вакансии) и
+     был вдвое менее насыщен, чем основной синий ведущих систем.
+     #245FD4 = oklch(0.52 0.19 262): тон серых, насыщенность и светлота из
+     коридора Carbon / Primer / Atlassian / Tailwind (тон 257–264°, C 0,16–0,24),
+     контраст с белым 5,7:1. Все ступени ниже — тот же тон 262° в OKLCH. */
+  --act:#245FD4;   --act-ink:#1545A3; --act-line:#C8D8F6;
+  --blue:var(--act); --blue-bg:#EEF4FF;
+  /* полосы в ячейках — светлая ступень того же тона: это фон под числом, а не
      марка, за которой следят; тёмная полоса перетягивала взгляд с цифры */
-  --bar-soft:#5CC0EE;
+  --bar-soft:#82AAF5;
   /* фиолетовый палитры — только у AI-подсказок: единственное на экране, что
      не является ни активным состоянием, ни величиной */
   --ai:#AA77FF;    --ai-bg:#F1E9FF;   --ai-tx:#6C36C9;
@@ -112,8 +119,8 @@ button{font-family:inherit}
 /* чипы активных фильтров */
 .chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);padding:5px 12px;font-size:12px;font-weight:700;background:var(--blue-bg);color:var(--act-ink);border:1px solid var(--act-line)}
-.chip .x{width:14px;height:14px;border-radius:50%;border:0;background:rgba(0,115,160,.14);color:var(--act-ink);font-size:11px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
-.chip .x:hover{background:rgba(0,115,160,.28)}
+.chip .x{width:14px;height:14px;border-radius:50%;border:0;background:rgba(36,95,212,.14);color:var(--act-ink);font-size:11px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.chip .x:hover{background:rgba(36,95,212,.28)}
 .chip.bench{background:#f4f5f7;color:var(--ink2);border-color:var(--line)}
 .chip.bench b{color:var(--ink)}
 /* .chip.empty («Разрезы не выбраны») удалён вместе с самим пустым состоянием:
@@ -264,7 +271,7 @@ button{font-family:inherit}
 .ptable tr.urow.empty td{color:var(--muted2)}
 .ptable tr.urow.empty .row-body{color:var(--muted);font-weight:var(--fw-med)}
 .ptable tr.urow.empty .cell{opacity:.45}
-.ptable tr.urow.sel{background:#F2F8FB;box-shadow:inset 3px 0 0 var(--act)}
+.ptable tr.urow.sel{background:#F5F9FE;box-shadow:inset 3px 0 0 var(--act)}
 .ptable tr.total td{border-top:2px solid var(--line);border-bottom:0;font-weight:var(--fw-bold);background:#fafbfc}
 .ptable tr.lvl2 td.txt{padding-left:34px;font-weight:var(--fw-med);color:var(--ink2)}
 .unit-sub{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:var(--fw-body);margin-top:1px}
@@ -321,7 +328,7 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .fgrp .fhint{font-size:var(--fs-note);color:var(--muted2);font-weight:600;margin-top:7px;line-height:1.4}
 .opts{display:flex;gap:8px;flex-wrap:wrap}
 .opt{border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 14px;font-size:13px;font-weight:700;color:var(--ink2);cursor:pointer;transition:all .15s}
-.opt:hover{border-color:#C4D4DC;background:#fafbfc}
+.opt:hover{border-color:#C0CBDF;background:#fafbfc}
 .opt.on{background:var(--act);border-color:var(--act);color:#fff}
 .bench-preview{background:var(--blue-bg);border:1px solid var(--act-line);border-radius:var(--r3);padding:12px 14px;font-size:var(--fs-body);color:var(--act-ink);font-weight:600;line-height:1.5}
 .bench-preview b{color:var(--act-ink)}
@@ -336,7 +343,7 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .mpick-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:var(--fw-bold);margin-bottom:6px}
 .mpick-l{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px}
 .mp-i{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;padding:4px 5px;border-radius:var(--r2);font:inherit;font-size:var(--fs-body);font-weight:600;color:var(--muted);cursor:pointer}
-.mp-i:hover{background:#F0F5F8}
+.mp-i:hover{background:#F5F9FE}
 .mp-i.on{color:var(--ink2)}
 .mp-i .box{flex:none;width:15px;height:15px;border:1.5px solid #c9cdd6;border-radius:var(--r1);background:#fff;position:relative}
 .mp-i.on .box{background:var(--act);border-color:var(--act)}
@@ -348,7 +355,7 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .mp-i.lock .box{background:var(--bench);border-color:var(--bench)}
 
 /* ===== Итерация 7: адаптив, доступность, печать ===== */
-:focus-visible{outline:3px solid rgba(0,115,160,.32);outline-offset:2px}
+:focus-visible{outline:3px solid rgba(36,95,212,.32);outline-offset:2px}
 button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--act)}
 .skip-link{position:fixed;left:12px;top:-60px;z-index:9999;background:var(--ink);color:#fff;padding:10px 14px;border-radius:var(--r3);font-weight:700;text-decoration:none;transition:top .15s}
 .skip-link:focus{top:12px}
@@ -356,7 +363,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .nav-scrim{display:none}
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 [aria-current="page"]{font-weight:var(--fw-bold)}
-.mrow:focus,.urow:focus{outline:3px solid rgba(0,115,160,.25);outline-offset:-3px;background:#F2F8FB}
+.mrow:focus,.urow:focus{outline:3px solid rgba(36,95,212,.25);outline-offset:-3px;background:#F5F9FE}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 @media(max-width:1100px){
@@ -407,7 +414,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .ptable tr.lvl2 td.txt{padding-left:26px}
 .ptable tr.lvl2 td.txt .row-body{font-weight:var(--fw-med);color:var(--ink2)}
 .ptable tr.lvl2 td{background:#fcfcfd}
-.ptable tr.lvl2.sel td{background:#F2F8FB}
+.ptable tr.lvl2.sel td{background:#F5F9FE}
 .hint-col{font-size:var(--fs-micro);font-weight:700;color:var(--muted2);text-transform:none;letter-spacing:0;display:block;margin-top:2px}
 
 /* AI-инсайт сразу под заголовком */
@@ -477,7 +484,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .ph-row h2{margin:0}
 .btn.dash{margin-left:auto;border-color:var(--act-line);background:var(--blue-bg);color:var(--act-ink);font-weight:700;
   border-radius:var(--r3);padding:6px 12px;text-decoration:none;white-space:nowrap}
-.btn.dash:hover{background:#D6ECF5;border-color:var(--act-line);color:var(--act-ink)}
+.btn.dash:hover{background:#DDE8FD;border-color:var(--act-line);color:var(--act-ink)}
 .btn.dash .ico-ext{opacity:.8;margin-left:-1px;flex:0 0 auto}
 
 /* Метрика, которую с базой сравнивать бессмысленно */
@@ -616,7 +623,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* Прозрачный прямоугольник-ловушка на всю полосу месяца: попасть в тонкий бар
    мышью тяжело, а в полосу — легко. fill-opacity:0 вместо fill:none —
    иначе элемент не участвует в hit-тесте. */
-.hit{fill:#0073A0;fill-opacity:0;transition:fill-opacity .12s}
+.hit{fill:#245FD4;fill-opacity:0;transition:fill-opacity .12s}
 .barg:hover .hit,.ptg:hover .hit,.sbg:hover .hit{fill-opacity:.05}
 .barg:hover .bar,.sbg:hover .sb{filter:brightness(1.1) saturate(1.3)}
 .ptg:hover .dot{r:5.2;stroke-width:2.6}
@@ -806,7 +813,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   border:1px solid var(--line);background:#fff;border-radius:var(--r4);padding:9px 10px;
   cursor:pointer;font:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
 .pulse-dock:hover{border-color:#d3d9e4;box-shadow:var(--shadow)}
-.pulse-dock.on{border-color:#C4D4DC;background:#fbfcfe;box-shadow:var(--shadow)}
+.pulse-dock.on{border-color:#C0CBDF;background:#fbfcfe;box-shadow:var(--shadow)}
 .pd-av{position:relative;flex:0 0 auto;line-height:0}
 /* Точка состояния дублирует эмоцию огонька формой и цветом: одной картинки
    мало на 54 px, а подписывать словами нельзя — он молчит. */
@@ -839,7 +846,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pp-x{margin-left:auto;flex:0 0 auto;border:0;background:transparent;cursor:pointer;
   color:var(--muted);font-size:13px;line-height:1;padding:6px;border-radius:var(--r2)}
-.pp-x:hover{background:#F0F5F8;color:var(--ink)}
+.pp-x:hover{background:#F5F9FE;color:var(--ink)}
 .pp-b{flex:1;min-height:0;overflow-y:auto;padding:12px 14px 4px}
 .pp-lead{font-size:12px;color:var(--ink2);font-weight:600;line-height:1.5;
   background:#f7f8fa;border-radius:var(--r3);padding:9px 11px;margin-bottom:12px}

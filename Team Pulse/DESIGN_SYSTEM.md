@@ -89,10 +89,11 @@
   --warn:#f59300;  --warn-bg:#ffe6a0;  --warn-tx:#9a6500;
 
   /* ---------- Акцент и служебное ---------- */
-  /* акцент — голубой из ДС Proteus Adoption: один тон на интерфейс и данные */
-  --act:#0073A0;   --act-ink:#015A7D;  --act-line:#C4E2ED; /* --act: активное состояние */
-  --blue:var(--act); --blue-bg:#E8F4F9;
-  --bar-soft:#5CC0EE;                  /* полосы в ячейках: фон под числом, не марка */
+  /* акцент — кобальт oklch(0.52 0.19 262): тон совпадает с подтоном серых
+     (263–268°), один тон на интерфейс и данные, контраст с белым 5,7:1 */
+  --act:#245FD4;   --act-ink:#1545A3;  --act-line:#C8D8F6; /* --act: активное состояние */
+  --blue:var(--act); --blue-bg:#EEF4FF;
+  --bar-soft:#82AAF5;                  /* полосы в ячейках: фон под числом, не марка */
   --ai:#AA77FF;    --ai-bg:#F1E9FF;    --ai-tx:#6C36C9; /* только AI-подсказки */
   --bench:#9aa0ac;                                       /* база сравнения */
 
@@ -270,7 +271,7 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
   padding:5px 12px;font-size:12px;font-weight:700;
   background:var(--blue-bg);color:var(--act-ink);border:1px solid var(--act-line)}
 .chip .x{width:14px;height:14px;border-radius:50%;border:0;padding:0;cursor:pointer;
-  background:rgba(0,115,160,.14);color:var(--act-ink);font-size:11px;line-height:1;
+  background:rgba(36,95,212,.14);color:var(--act-ink);font-size:11px;line-height:1;
   display:inline-flex;align-items:center;justify-content:center}
 .chip .x:hover{background:rgba(43,95,208,.28)}
 .chip.bench{background:#f4f5f7;color:var(--ink2);border-color:var(--line)}
@@ -1003,7 +1004,7 @@ const DRAW_MS  = 760;  // длительность отрисовки линии
 ```css
 /* Прозрачная ловушка на всю полосу периода: попасть мышью в тонкий бар тяжело,
    в полосу — легко. fill-opacity:0, а не fill:none — иначе нет hit-теста. */
-.hit{fill:#0073A0;fill-opacity:0;transition:fill-opacity .12s}
+.hit{fill:#245FD4;fill-opacity:0;transition:fill-opacity .12s}
 .barg:hover .hit,.ptg:hover .hit,.sbg:hover .hit{fill-opacity:.05}
 .barg:hover .bar,.sbg:hover .sb{filter:brightness(1.1) saturate(1.3)}
 .ptg:hover .dot{r:5.2;stroke-width:2.6}
@@ -1550,7 +1551,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 | ИТОГО сверху в одной таблице и снизу в другой | всегда первой строкой |
 | Название таблицы, повторённое в шапке колонки | шапка пустая |
 | Отступ 7 / 9 / 13 / 17px | ступень шкалы `--s*` |
-| `#0073A0` в разметке экрана | `var(--blue)` |
+| `#245FD4` в разметке экрана | `var(--blue)` |
 | Разный кегль значений в подсказке | один кегль, разница цветом |
 | Плашка «ничего не выбрано» | отсутствие плашки |
 | Прочерк у несравнимой метрики | «не сравнивается» |
