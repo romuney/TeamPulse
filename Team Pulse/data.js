@@ -386,8 +386,9 @@ function leafPasses(leafPath,st){
   if(st.staffType!=='all'&&n.staff!==st.staffType)return false;
   return true;
 }
-/* популяция отчёта: подразделение + атрибуты */
-function reportLeaves(st){return leavesUnder(st.drillRoot||st.unit).map(l=>l.path).filter(p=>leafPasses(p,st))}
+/* популяция отчёта: подразделение + атрибуты. Временного корня (drillRoot)
+   больше нет: переход глубже меняет сам юнит отчёта (итерация 29). */
+function reportLeaves(st){return leavesUnder(st.unit).map(l=>l.path).filter(p=>leafPasses(p,st))}
 /* ГЛАВНОЕ ПРАВИЛО: база сравнения = те же атрибуты, вся компания */
 function benchmarkLeaves(st){return leavesUnder('T').map(l=>l.path).filter(p=>leafPasses(p,st))}
 function benchmarkLabel(st){
@@ -741,7 +742,7 @@ function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',
 
 /* ---------- Дефолтный state ---------- */
 const DEFAULT_STATE={unit:'T/01',paint:'HQ',itSeg:'all',staffType:'all',period:PERIOD_LABEL,
-  tab:'onepager',subTab:null,drillRoot:null,selNode:null,aiOpen:false,
+  tab:'onepager',subTab:null,selNode:null,aiOpen:false,
   /* скрытые пользователем метрики; пусто = показаны все */
   hiddenMetrics:[],
   /* срез состава: не больше SLICE_MAX категорий, по одной на разрез */

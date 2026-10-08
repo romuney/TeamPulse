@@ -1312,3 +1312,65 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    а не выталкивают полосу распределения или колонку за край */
 .split-r .btable td.txt,.split-r .btable td.txt .unit-sub,
 .split-r .stable td.txt,.split-r .stable td.txt .unit-sub{white-space:normal}
+
+/* ============================================================================
+   Итерация 29: дерево подразделений на три уровня и переход в юнит
+   (механика HRBP HUB, «Команды»)
+   ========================================================================== */
+
+/* ---------- Ступени дерева ----------
+   16px на уровень — тот же шаг, что был у второго уровня. Правило с запасом
+   специфичности: на узком экране отступ ячеек ужимается до --pad-cell, и без
+   него второй и третий уровни вставали бы на одну вертикаль с первым. */
+.split-l .ptable.dense tr.lvl2 td.txt{padding-left:calc(var(--pad-cell) + 16px)}
+.split-l .ptable.dense tr.lvl3 td.txt{padding-left:calc(var(--pad-cell) + 32px)}
+.ptable tr.lvl3 td{background:#fcfcfd}
+.ptable tr.lvl3 td.txt .row-body{color:var(--ink2)}
+.split-l .ptable.dense tr.lvl3 td.txt{background:#fcfcfd}
+.ptable tr.lvl3.sel td,.split-l .ptable.dense tr.lvl3.sel td.txt{background:#F5F9FE}
+/* имя занимает всё место до кнопки перехода, а не только свою длину */
+.ptable.tree td.txt .row-body{flex:1 1 auto}
+
+/* «ниже ещё N» — на границе глубины: подсказка, а не ссылка */
+.ptable .unit-sub .below{color:var(--muted);border-bottom:1px dotted var(--muted2);cursor:help;white-space:nowrap}
+
+/* ---------- «Открыть юнит» ----------
+   У выбранной строки — у правого края имени, по центру строки: имя липкое,
+   поэтому кнопка видна и при горизонтальной прокрутке широкой таблицы.
+   В шапке правой панели — та же кнопка с подписью, после имени выбранного. */
+.open-unit{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;align-self:center;
+  width:26px;height:26px;margin:-4px -4px -4px var(--s3);padding:0;border:1px solid var(--act-line);
+  border-radius:var(--r2);background:#fff;color:var(--act);cursor:pointer}
+.open-unit:hover{background:var(--blue-bg);border-color:var(--act)}
+.open-unit.with-label{width:auto;height:auto;margin:0 0 0 var(--s3);padding:1px var(--s3) 1px var(--s2);gap:4px;
+  border-color:transparent;background:transparent;font:inherit;color:var(--act);vertical-align:-3px}
+.open-unit.with-label:hover{background:var(--blue-bg);border-color:transparent}
+.panel-h .sub .ico-open{vertical-align:-3px;color:var(--muted)}
+
+/* ---------- Поиск по таблице ---------- */
+/* основа 150px, рост до 220: так поле встаёт в строку с заголовком панели,
+   пока хватает места, и уходит под него, только когда не хватает */
+.tsearch{display:inline-flex;align-items:center;gap:var(--s3);flex:1 1 150px;max-width:220px;min-width:150px;height:30px;
+  margin-left:auto;padding:0 var(--s5);border:1px solid var(--line);border-radius:var(--r-pill);background:#fff;
+  color:var(--muted);font-weight:var(--fw-body);cursor:text}
+.tsearch:focus-within{border-color:var(--act);box-shadow:0 0 0 3px rgba(36,95,212,.14)}
+.tsearch input{flex:1 1 auto;min-width:0;width:100%;height:100%;border:0;outline:0;padding:0;background:transparent;
+  font:inherit;font-size:var(--fs-body);color:var(--ink)}
+.tsearch input::placeholder{color:var(--muted)}
+mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;padding:0 1px}
+/* предки находок — контекст, а не результат: тише */
+.ptable tr.urow.anc td.txt .row-body{color:var(--muted)}
+.ptable tr.tree-empty td.txt{padding:var(--s8) var(--pad-cell);color:var(--muted);white-space:normal;cursor:default}
+
+/* ---------- Путь над отчётом: «← Назад» и «↑ Уровнем выше» ---------- */
+.rh-crumbs .nbs{display:inline-flex;gap:var(--s3);margin-right:var(--s4)}
+.rh-crumbs .nb{display:inline-flex;align-items:center;height:22px;padding:0 var(--s5);border:1px solid var(--line);
+  border-radius:var(--r-pill);background:#fff;color:var(--ink2);font-size:var(--fs-note);white-space:nowrap}
+.rh-crumbs .nb:hover{border-color:var(--act-line);background:var(--blue-bg);color:var(--act-ink);text-decoration:none}
+
+/* ИТОГО — под шапкой, какой бы высоты она ни вышла (--thead-h ставит app.js) */
+.ptable tr.total.top td{top:var(--thead-h,29px)}
+/* В border-collapse рамка липкой ячейки остаётся на месте, а сама ячейка
+   едет: под ИТОГО оставалась щель в 2px, в которую просвечивали строки.
+   Линию под итогом рисует тень внутри ячейки — она едет вместе с ней. */
+.split-l .ptable.dense tr.total.top td{border-bottom:0;box-shadow:inset 0 -2px 0 var(--line)}

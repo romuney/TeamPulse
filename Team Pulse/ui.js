@@ -124,6 +124,44 @@ function icoExt(){
     '<path d="M9.7 8.3v2.2a1.1 1.1 0 0 1-1.1 1.1H3.5a1.1 1.1 0 0 1-1.1-1.1V5.4a1.1 1.1 0 0 1 1.1-1.1h2.2"/></svg>';
 }
 
+/* ---------- «Открыть юнит» (итерация 29, механика HRBP HUB) ----------
+   Сводная таблица показывает три уровня вниз; глубже — переходом в юнит:
+   отчёт встаёт на выбранное подразделение, и под ним открываются следующие
+   три уровня. Кнопка — иконка «вход» и только у ВЫБРАННОЙ строки: клик по
+   строке выбирает её для правой панели и никуда не уводит, случайного
+   перехода нет. Та же кнопка с подписью стоит в шапке правой панели. */
+function icoOpen(){
+  return '<svg class="ico-open" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" '+
+    'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+
+    '<path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/><path d="M9 16l4-4-4-4"/><path d="M13 12H3"/></svg>';
+}
+function openUnitBtn(path,name,label){
+  return '<button class="open-unit'+(label?' with-label':'')+'" data-openunit="'+esc(path)+'" aria-label="Открыть «'+esc(name)+'»"'+
+    tipAttr({title:'Открыть юнит',
+      text:'Отчёт встанет на «'+name+'»: карточки, таблица на три уровня ниже него, one-pager и ссылка — по нему. '+
+        'База сравнения не меняется.',
+      note:'Вернуться — «← Назад» или путь над отчётом.'})+'>'+icoOpen()+(label?esc(label):'')+'</button>';
+}
+
+/* ---------- Поиск по таблице ----------
+   Ищет среди показанного — трёх уровней вниз от юнита отчёта, без запроса.
+   Находка выводится вместе с предками: «Группа поддержки» без родителя не
+   говорит, чья она. Совпадение подсвечено, остальной текст строки — нет. */
+function icoSearch(){
+  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+}
+function searchBox(o){
+  return '<label class="tsearch">'+icoSearch()+'<input type="search" data-tsearch="1" autocomplete="off" '+
+    'placeholder="'+esc(o.placeholder)+'" aria-label="'+esc(o.placeholder)+'" value="'+esc(o.q||'')+'"></label>';
+}
+function hlText(text,q){
+  const s=String(text==null?'':text), n=String(q||'').trim().toLowerCase();
+  const at=n?s.toLowerCase().indexOf(n):-1;
+  if(at<0)return esc(s);
+  return esc(s.slice(0,at))+'<mark class="hl">'+esc(s.slice(at,at+n.length))+'</mark>'+esc(s.slice(at+n.length));
+}
+
 /* ---------- Каретка раскрытия строки ----------
    Строка сводной таблицы one-pager раскрывает график метрики, но узнать об
    этом можно было только случайным кликом: ни значка, ни курсора-указателя
@@ -504,11 +542,14 @@ function sliceNote(parts,extra){
 }
 
 /* ---------- Панель с шапкой ---------- */
+/* subHtml — подзаголовок с разметкой (кнопка «Открыть юнит», иконка в
+   подсказке о глубине); обычный sub по-прежнему экранируется. */
 function panel(o){
   const tabs=o.tabs||'';
+  const sub=o.subHtml?o.subHtml:o.sub?esc(o.sub):'';
   return '<div class="panel'+(o.cls?' '+o.cls:'')+'">'+
     (o.title?'<div class="panel-h'+(tabs?' with-tabs':'')+'"><div class="h-txt"><span>'+o.title+'</span>'+
-      (o.sub?'<span class="sub">'+esc(o.sub)+'</span>':'')+'</div>'+tabs+'</div>':'')+
+      (sub?'<span class="sub">'+sub+'</span>':'')+'</div>'+tabs+'</div>':'')+
     '<div class="panel-b'+(o.bodyCls?' '+o.bodyCls:'')+'">'+o.body+'</div></div>';
 }
 
@@ -671,5 +712,5 @@ function trafficLegend(){
 
 window.TPUI={blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
-  statTable,heatTable};
+  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText};
 })();

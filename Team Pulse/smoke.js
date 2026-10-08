@@ -48,6 +48,15 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));'+
   'render(true);return $("#view").innerHTML},'+
   '\n  expClear:()=>{expanded.clear()},'+
+  /* итерация 29: выбор строки, переход в юнит, стек «Назад», путь, поиск */
+  '\n  sel:p=>{S.selNode=p;render(true);return $("#view").innerHTML},'+
+  '\n  unit:p=>{goUnit(p);return S.unit},'+
+  '\n  back:()=>{const p=unitBack.pop();if(p)goUnit(p,true);return S.unit},'+
+  '\n  stack:()=>unitBack.slice(),'+
+  '\n  search:q=>{tq=q;render(true,true);return $("#view").innerHTML},'+
+  '\n  crumbs:()=>{renderHead();return $("#crumbs").innerHTML},'+
+  '\n  setupUnits:()=>{openSetup();const h=$("#selUnit").innerHTML;closeSetup();return h},'+
+  '\n  home:()=>{S.unit=D.DEFAULT_STATE.unit;unitBack.length=0;tq="";S.selNode=null;expanded.clear()},'+
   /* срез состава живёт в S, но кликом его ставит обработчик — зовём его напрямую */
   '\n  mix:list=>{S.mixSel=(list||[]).slice()},'+
   '\n  mixClick:spec=>{toggleMix(spec);return S.mixSel.slice()},'+
@@ -1025,6 +1034,109 @@ checks.push(['третьей палитры нет: в экранах ни од�
     ['reasons','who'].every(sb=>/на проде/i.test(A.go('turnover',sb)))&&
     /на проде/i.test(A.go('monitor','review'))&&/на проде/i.test(A.go('office','booking'))&&
     /на проде/i.test(A.go('ai','tools'))&&/сгенерированы/.test(A.go('tgrowth','statuses'))]);
+})();
+
+/* ============================================================================
+   Итерация 29: дерево подразделений на три уровня и переход в юнит
+   (механика HRBP HUB). Таблица показывает −1…−3 от юнита отчёта, глубже —
+   «Открыть юнит» у выбранной строки; переход меняет сам юнит, путь над
+   отчётом кликабелен, «← Назад» возвращает к юниту до перехода.
+   ========================================================================== */
+(function(){
+  A.home();
+  const U0=D.DEFAULT_STATE.unit, n0=D.NODE_BY_PATH[U0];
+  const under=lvl=>D.NODES.filter(n=>n.path.indexOf(U0+'/')===0&&n.level===n0.level+lvl);
+  const lv1=under(1), lv2=under(2), lv3=under(3);
+  const ex=SC.expandableRows(U0);
+  checks.push(['«раскрыть всё» открывает два уровня кареток — таблица уходит на три уровня вниз',
+    SC.TREE_DEPTH===3&&ex.length>0&&
+    ex.every(p=>{const d=D.NODE_BY_PATH[p].level-n0.level;return d>=1&&d<=2&&D.childrenOf(p).length>0})&&
+    ex.some(p=>D.NODE_BY_PATH[p].level===n0.level+2)]);
+
+  const closed=A.go('turnover','dynamics');
+  checks.push(['свёрнутая таблица — только первый уровень, с подписью уровня',
+    (closed.match(/ data-node="/g)||[]).length===lv1.length&&
+    !/<tr class="urow lvl2/.test(closed)&&/<span class="unit-sub">Деп\. · /.test(closed)]);
+  const open=A.expAll();
+  const rows3=(open.match(/<tr class="urow lvl3[^"]*" data-node="/g)||[]).length;
+  checks.push(['раскрытая таблица — все три уровня, третий без кареток',
+    (open.match(/<tr class="urow lvl2[^"]*" data-node="/g)||[]).length===lv2.length&&
+    rows3===lv3.length&&rows3>0&&
+    !/<tr class="urow lvl3[^"]*" data-node="[^"]+"><td class="txt"><span class="row-label"><button class="caret-btn"/.test(open)&&
+    /<tr class="urow lvl2[^"]*" data-node="[^"]+"><td class="txt"><span class="row-label"><button class="caret-btn"/.test(open)]);
+  const deep=lv3.filter(n=>D.childrenOf(n.path).length);
+  checks.push(['на границе глубины — «ниже ещё N»: сколько подразделений осталось ниже',
+    deep.length>0&&(open.match(/class="below"/g)||[]).length===deep.length&&
+    new RegExp('ниже ещё '+D.childrenOf(deep[0].path).length+'<').test(open)]);
+  checks.push(['каретка ИТОГО обещает все три уровня',
+    /Все три уровня подразделений сразу/.test(closed)]);
+  A.expClear();
+
+  /* --- выбор и переход --- */
+  checks.push(['без выбора строки кнопки перехода нет — клик по строке не уводит',
+    !/data-openunit=/.test(closed)]);
+  const pick=lv1[0].path, picked=A.sel(pick);
+  checks.push(['у выбранной строки и в шапке правой панели — «Открыть юнит»',
+    (picked.match(new RegExp('data-openunit="'+pick+'"','g'))||[]).length===2&&
+    new RegExp('<tr class="urow[^"]* sel" data-node="'+pick+'">[\\s\\S]*?data-openunit="'+pick+'"').test(picked)&&
+    />Открыть юнит<\/button>/.test(picked)]);
+  checks.push(['кнопки ↓ и временного корня больше нет',
+    !/data-drill|data-undrill|Временный корень/.test(picked)&&!('drillRoot' in D.DEFAULT_STATE)]);
+
+  const before=A.crumbs();
+  checks.push(['путь над отчётом: «↑ Уровнем выше», «Назад» до первого перехода нет',
+    new RegExp('data-crumb="'+n0.parent+'"[^>]*>↑ Уровнем выше').test(before)&&!/data-uback/.test(before)]);
+  A.unit(pick);
+  const after=A.go('turnover','dynamics'), cr=A.crumbs();
+  checks.push(['«Открыть юнит» делает строку юнитом отчёта: его дети — новый первый уровень',
+    A.st().unit===pick&&
+    (after.match(/ data-node="/g)||[]).length===D.childrenOf(pick).length&&
+    D.reportLeaves(A.st()).every(p=>p.indexOf(pick+'/')===0)]);
+  checks.push(['после перехода путь ведёт назад: «← Назад» и предки кликабельны',
+    /data-uback="1"[^>]*>← Назад/.test(cr)&&new RegExp('data-crumb="'+U0+'"').test(cr)&&
+    A.stack().slice(-1)[0]===U0]);
+  checks.push(['ссылка открывает юнит, в который перешли',
+    A.link().indexOf('unit='+encodeURIComponent(pick))>0]);
+  A.back();
+  checks.push(['«← Назад» возвращает к юниту до перехода и снимает себя',
+    A.st().unit===U0&&A.stack().length===0&&!/data-uback/.test(A.crumbs())]);
+  A.home();A.unit('T');
+  checks.push(['у компании целиком уровня выше нет',
+    !/Уровнем выше/.test(A.crumbs())]);
+
+  /* --- команда без подразделений: пустое состояние словами, все экраны живы --- */
+  const leaf=D.NODES.find(n=>n.leaf&&n.path.indexOf(U0+'/')===0&&n.level===6);
+  A.home();A.unit(leaf.path);
+  const lv=A.go('turnover','dynamics');
+  let alive=true;
+  D.BLOCKS.forEach(b=>SC.blocks[b.key].subTabs.forEach(t=>{
+    try{if(!A.go(b.key,t[0]))alive=false}catch(err){alive=false}
+  }));
+  checks.push(['у команды без подразделений — строка «нет подразделений уровнем ниже», экраны собираются',
+    /class="tree-empty"/.test(lv)&&/нет подразделений уровнем ниже/.test(lv)&&!/ data-node="/.test(lv)&&alive]);
+  checks.push(['в настройке юнит глубже управления остаётся в списке и выбран',
+    new RegExp('value="'+leaf.path+'" selected').test(A.setupUnits())]);
+
+  /* --- поиск по таблице --- */
+  A.home();
+  const q='Команда', found=A.search(q);
+  const hitRows=(found.match(/<tr class="urow[^"]* hit" data-node="[^"]+"/g)||[]).map(x=>x.match(/data-node="([^"]+)"/)[1]);
+  const ancRows=(found.match(/<tr class="urow[^"]* anc" data-node="[^"]+"/g)||[]).map(x=>x.match(/data-node="([^"]+)"/)[1]);
+  const expect=lv1.concat(lv2,lv3).filter(n=>n.name.indexOf(q)>=0).map(n=>n.path);
+  checks.push(['поиск находит в трёх уровнях и показывает находки вместе с предками',
+    hitRows.length===expect.length&&hitRows.length>0&&expect.every(p=>hitRows.indexOf(p)>=0)&&
+    ancRows.every(a=>hitRows.some(h=>h.indexOf(a+'/')===0))&&
+    /<mark class="hl">Команда<\/mark>/.test(found)]);
+  checks.push(['при поиске каретки не нужны — дерево раскрыто по находкам',
+    !/data-exp="/.test(found)&&!/data-expall="/.test(found)]);
+  checks.push(['поиск без находок говорит, где искать дальше',
+    /Подразделений с «нетакого» в трёх уровнях вниз нет/.test(A.search('нетакого'))]);
+  A.home();
+  checks.push(['ступени дерева держатся на любой ширине, кнопка перехода и поиск — из токенов',
+    /\.split-l\.ptable\.densetr\.lvl2td\.txt\{padding-left:calc\(var\(--pad-cell\)\+16px\)\}/.test(css)&&
+    /\.split-l\.ptable\.densetr\.lvl3td\.txt\{padding-left:calc\(var\(--pad-cell\)\+32px\)\}/.test(css)&&
+    /\.open-unit\{[^}]*color:var\(--act\)/.test(css)&&/mark\.hl\{background:var\(--act-line\)/.test(css)]);
+  A.go('onepager',null);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});
