@@ -4,8 +4,11 @@
 подсказки, доступность, тон текста. Готов к подаче на вход нейросети как
 системный промпт для генерации HTML-отчётов и дашбордов.
 
-Проверено на живом макете: HR-борд из 8 экранов, 19 метрик, 13 видов графиков,
-96 автоматических проверок правил. Всё, что здесь написано, там работает.
+Проверено на живом макете: HR-борд из One-pager и 8 блоков (29 экранов
+с под-вкладками), 30 метрик, 8 видов графиков и 2 спарклайна на голом SVG,
+195 автоматических проверок правил. Всё, что здесь написано, там работает.
+Шрифт — только Arial в двух начертаниях: так отчёт выглядит одинаково
+в макете и в Proteus.
 
 ---
 
@@ -138,14 +141,34 @@
 - **Цвета живут только в `:root` и в рисовальном слое.** Литеральный `#rrggbb`
   в разметке экрана — ошибка. Проверяется грепом.
 
-### Четыре веса **[ЯДРО]**
+### Два начертания **[ЯДРО]**
 
 ```css
---fw-body:400;  /* данные: числа в ячейках, доли, пояснения, сноски */
---fw-med:500;   /* второй план: дочерние строки, подписи под значением */
---fw-lead:600;  /* по чему ведут взглядом: имя строки, шапка колонки, контролы */
---fw-bold:700;  /* на что нужно смотреть: заголовки, итоги, главное число */
+--fw-body:400;  /* читают подряд: данные, имена строк, подписи, кнопки, пилюли, сноски */
+--fw-bold:700;  /* на что смотрят: заголовки, итоги, главное число, значение KPI,
+                   число в подсказке, активный пункт и вкладка, рубрики капсом */
+--fw-med:var(--fw-body);   /* алиас: третьего веса нет */
+--fw-lead:var(--fw-body);  /* алиас: третьего веса нет */
 ```
+
+**Весов два, потому что шрифт один — Arial** (см. «Шрифт»). У Arial ровно два
+начертания, Regular и Bold; промежуточные веса браузер подменяет сам: 500
+рисует обычным, 600 — жирным. Шкала из четырёх ролей (400 / 500 / 600 / 700)
+на нём схлопывается: всё «полужирное» — имена строк, шапки, кнопки, пункты
+меню — выходит таким же жирным, как заголовки и итоги, и иерархия пропадает
+вместе с разницей между 600 и 700. Поэтому вес отвечает ровно на один вопрос:
+сюда смотреть или это читать подряд.
+
+**Второй план отличается цветом и кеглем, а не весом.** Дочерняя строка —
+`--ink2`, подпись под значением — `--muted` и `--fs-note`, сноска — `--muted`
+и `--fs-note`. Светло-серый `--muted2` — только служебное, которое можно не
+читать: разделитель крошек, нулевая клетка, вторая строка шапки колонки.
+Пояснение, которое нужно прочесть, им не набирают: обычным начертанием на 11px
+светло-серый не читается — раньше это прятал полужирный.
+
+В правилах — только `var(--fw-body)` и `var(--fw-bold)`. `--fw-med` и `--fw-lead`
+оставлены алиасами, чтобы старые правила не разъехались, но в новых их не пишут.
+Числовых весов в CSS нет; в SVG — только `400` и `700`.
 
 **Жирным набрано не всё.** Самая частая ошибка в отчётных интерфейсах: имя
 строки полужирное, число полужирное, подпись полужирная, итог ещё жирнее —
@@ -154,26 +177,28 @@
 разряду, а не насыщенность. Вес несёт иерархию, а не важность вообще.
 
 Восьмисотого веса в системе нет. Рядом с 700 он даёт не ступень, а шум:
-разницу видно, только если поставить образцы вплотную.
+разницу видно, только если поставить образцы вплотную. В Arial его нет тоже.
 
 ### Шрифт **[ЯДРО]**
 
 ```css
-body{font-family:Inter,Helvetica,Arial,sans-serif;font-size:14px;
+body{font-family:Arial,sans-serif;font-size:14px;
      background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;margin:0}
 *{box-sizing:border-box}
-button{font-family:inherit}
+button,select,input,textarea{font-family:inherit}
 ```
 
-Inter, начертания 400 / 600 / 700 / 800. Деградация до Helvetica/Arial заложена
-в стек намеренно: автономный файл без интернета обязан выглядеть прилично.
-Подключение (в автономной сборке эта ссылка вырезается):
-
-```html
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+```js
+const FONT = 'Arial, sans-serif';   // подписи SVG — тот же шрифт, что у страницы
 ```
+
+**Только Arial.** Отчёты открываются в Proteus, а там работает только Arial:
+любой другой шрифт — веб-шрифт, Inter, Helvetica первой в стеке — в инструменте
+не отрисуется, и макет будет выглядеть не так, как отчёт. Поэтому подключения
+шрифтов нет вовсе: ни `<link>` на Google Fonts, ни `@font-face`. `sans-serif`
+в стеке — не второй шрифт, а страховка на машине без Arial (Linux): без неё
+браузер откатился бы к засечному. Элементы форм шрифт сами не наследуют, отсюда
+`font-family:inherit`. Начертаний у Arial два — отсюда раздел «Два начертания».
 
 Иконочных шрифтов нет. Все иконки — инлайн-SVG или юникод-символы
 (`▸ ▾ ▲ ▼ ↓ ↑ ×`). Символ `↗` запрещён: он берётся из шрифта и в разных
@@ -251,7 +276,7 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 
 ```css
 .btn{border:1px solid var(--line);background:#fff;border-radius:var(--r3);
-  padding:8px 14px;font-weight:600;color:var(--ink2);cursor:pointer;font-size:13px;
+  padding:8px 14px;font-weight:var(--fw-body);color:var(--ink2);cursor:pointer;font-size:13px;
   display:inline-flex;align-items:center;gap:7px;transition:background .15s,border-color .15s}
 .btn:hover{background:#fafbfc;border-color:#d8dce4}
 .btn.primary{background:var(--act);border-color:var(--act);color:#fff}
@@ -268,7 +293,7 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 ```css
 .chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:7px;border-radius:var(--r-pill);
-  padding:5px 12px;font-size:12px;font-weight:700;
+  padding:5px 12px;font-size:12px;font-weight:var(--fw-bold);
   background:var(--blue-bg);color:var(--act-ink);border:1px solid var(--act-line)}
 .chip .x{width:14px;height:14px;border-radius:50%;border:0;padding:0;cursor:pointer;
   background:rgba(36,95,212,.14);color:var(--act-ink);font-size:11px;line-height:1;
@@ -304,12 +329,12 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 .kpis.compact .k-val{font-size:var(--fs-hero)}
 
 .kpi{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:15px 17px}
-.kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:700;
+.kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);
   margin-bottom:7px;display:flex;align-items:center;gap:6px}
-.kpi .k-val{font-size:27px;font-weight:800;letter-spacing:-.6px;line-height:1.1}
+.kpi .k-val{font-size:27px;font-weight:var(--fw-bold);letter-spacing:-.6px;line-height:1.1}
 .kpi .k-row{display:flex;align-items:center;gap:9px;margin-top:8px;flex-wrap:wrap}
 .kpi .k-row:empty{margin:0}
-.kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
+.kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body)}
 
 /* Одна высота строк во всей полосе: карточка — subgrid на пять строк родителя (пятая — «год назад»).
    Перенос заголовка в одной карточке добавляет строку ВСЕМ, зато значения,
@@ -342,10 +367,10 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 
 ```css
 .panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-.panel-h{padding:var(--s7) var(--s8);font-weight:700;font-size:14.5px;
+.panel-h{padding:var(--s7) var(--s8);font-weight:var(--fw-bold);font-size:14.5px;
   border-bottom:1px solid var(--line2);display:flex;align-items:center;
   justify-content:space-between;gap:12px}
-.panel-h .sub{font-size:var(--fs-note);color:var(--muted);font-weight:600}
+.panel-h .sub{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body)}
 .panel-h .h-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
 .panel-h.with-tabs{flex-wrap:wrap;row-gap:10px}
 .panel-h .sub-tabs{margin:0 0 0 auto;flex:0 0 auto}
@@ -367,25 +392,25 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 /* --- Сводная таблица --- */
 .ptable{width:100%;border-collapse:collapse;font-size:var(--fs-body)}
 .ptable th{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.2px;
-  color:var(--muted);font-weight:700;text-align:right;padding:var(--s5) var(--s4);
+  color:var(--muted);font-weight:var(--fw-bold);text-align:right;padding:var(--s5) var(--s4);
   border-bottom:1px solid var(--line2);white-space:nowrap}
 .ptable th.txt{text-align:left;padding-left:var(--pad-cell)}
-.ptable td{text-align:right;padding:var(--s4);font-weight:600;
+.ptable td{text-align:right;padding:var(--s4);font-weight:var(--fw-body);
   border-bottom:1px solid var(--line2);white-space:nowrap}
-.ptable td.txt{text-align:left;font-weight:700;padding-left:var(--pad-cell)}
+.ptable td.txt{text-align:left;font-weight:var(--fw-body);padding-left:var(--pad-cell)}
 .ptable tr.urow{cursor:pointer}
 .ptable tr.urow:hover{background:#fafbfc}
 .ptable tr.urow.sel{background:#f5f8ff;box-shadow:inset 3px 0 0 var(--act)}
 .ptable tr.total td{border-top:2px solid var(--line);border-bottom:0;
-  font-weight:800;background:#fafbfc}
+  font-weight:var(--fw-bold);background:#fafbfc}
 .unit-sub{display:block;font-size:var(--fs-cap);color:var(--muted);
-  font-weight:600;margin-top:1px}
+  font-weight:var(--fw-body);margin-top:1px}
 
 /* Плотный вариант для рабочей зоны */
 .ptable.dense{font-size:var(--fs-body)}
 .ptable.dense th{padding:8px 6px;font-size:var(--fs-cap)}
 .ptable.dense td{padding:7px 6px}
-.ptable.dense td.lead{font-weight:800;color:var(--ink)}
+.ptable.dense td.lead{font-weight:var(--fw-bold);color:var(--ink)}
 .ptable.dense .vs{border-left:1px solid var(--line2)}
 
 /* ИТОГО первой строкой + липкая шапка: итог не уезжает под скролл */
@@ -394,7 +419,7 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
   border-bottom:2px solid var(--line);background:#fafbfc}
 
 /* Цветная ячейка сравнения */
-.cell{margin:3px;border-radius:var(--r3);padding:7px 4px;font-weight:700;
+.cell{margin:3px;border-radius:var(--r3);padding:7px 4px;font-weight:var(--fw-body);
   font-size:var(--fs-body);line-height:1.15}
 .cell.good{background:var(--green-bg);color:var(--green-tx)}
 .cell.bad{background:var(--red-bg);color:var(--red-tx)}
@@ -507,10 +532,10 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 .mxtable th,.mxtable td{border:0;white-space:nowrap}
 .mxtable td.txt,.mxtable th.mx-corner{width:100%;position:sticky;left:0;background:#fff}
 .mxtable td.mx-cell,.mxtable th.mx-h{width:94px}
-.mxtable td.mx-cell{text-align:center;font-weight:700;font-size:var(--fs-body);
+.mxtable td.mx-cell{text-align:center;font-weight:var(--fw-body);font-size:var(--fs-body);
   background:#f7f8fa;border-radius:var(--r2);padding:7px 9px;cursor:pointer}
 .mxtable td.mx-cell:hover{box-shadow:inset 0 0 0 2px var(--act)}
-.mxtable td.mx-cell.zero{background:#fafbfc;color:var(--muted2);font-weight:600}
+.mxtable td.mx-cell.zero{background:#fafbfc;color:var(--muted2);font-weight:var(--fw-body)}
 ```
 
 Правила:
@@ -577,12 +602,71 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 одной функцией на все такие таблицы: у разных таблиц одного отчёта эта кнопка
 не имеет права выглядеть или вести себя по-разному.
 
+### 4.6d. Таблица показателей по срезам **[ЯДРО]**
+
+Когда строки — **разные величины** (план, факт, выполнение, срок), а колонки —
+срезы (всего · массовый · профильный), это не разбивка и не матрица: полосы
+в ячейке тут нечему расти, у каждой строки своя единица. Такая таблица —
+та же плотная `ptable`, только формат задаётся строке, а не колонке.
+
+```css
+.stable tr.st-sec td{text-align:left;padding:var(--s7) var(--s4) var(--s3) var(--pad-cell);
+  font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.3px;color:var(--muted);
+  font-weight:var(--fw-bold);background:transparent;white-space:normal}
+.stable tbody tr.st-sec:first-child td{padding-top:var(--s3)}
+.stable tr.st-sub td.txt{padding-left:calc(var(--pad-cell) + var(--s7));color:var(--ink2)}
+.stable th.st-tot{color:var(--ink2)}
+.stable td .cell{display:inline-block;margin:0;padding:3px 7px;min-width:56px;text-align:right}
+```
+
+- **Итог здесь — первая колонка, а не строка** («Всего» слева от срезов).
+  Строки складывать нельзя: план и срок закрытия не суммируются.
+- **Рубрики секций — капсом, как шапки колонок, и с окном:** «С начала года ·
+  январь — июнь 2026», «Вакансии на конец месяца · июнь 2026». Окно у разных
+  секций разное, и без подписи их цифры сравнят между собой.
+- **«Из них» — дочерние строки** со сдвигом вправо и цветом `--ink2`, как второй
+  уровень сводной таблицы. Строки «в т.ч.» со статусами не складываются — это
+  разные срезы одного итога, и это сказано в подписи строки.
+- Оценку к цели строка показывает **той же пилюлей**, что «К базе» в сводной
+  таблице: один язык светофора на весь отчёт.
+
+### 4.6e. Тепловая таблица долей **[ЯДРО]**
+
+Распределение людей по статусам без среза — «грейд × статус роста»,
+«грейд × оценка ревью». Та же сетка, что у матрицы (4.6a), но клетка **не
+кликается**: срез по статусу ничего бы не пересчитал. Поэтому курсор —
+подсказка, а подсветка при наведении тише.
+
+```css
+.hxtable td.mx-cell,.hxtable th.mx-h{width:64px;min-width:46px}
+.hxtable td.mx-cell{cursor:help;font-weight:var(--fw-body);padding:7px var(--s2)}
+.hxtable td.mx-cell:hover{box-shadow:inset 0 0 0 2px var(--act-line)}
+.hxtable th.mx-h{white-space:normal;vertical-align:bottom;line-height:1.25;
+  font-size:var(--fs-micro);color:var(--muted);text-transform:none;letter-spacing:0;
+  padding:0 var(--s1) var(--s3)}
+.hxtable td.txt{padding-left:7px;color:var(--ink2);white-space:nowrap}
+.hxtable tr.total td.txt{color:var(--ink)}
+.hxtable tr.hx-sec td{padding:var(--s6) 0 var(--s2) 7px;font-size:var(--fs-cap);
+  text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:var(--fw-bold)}
+@media(max-width:1300px){.hxtable td.txt{white-space:normal;max-width:132px}}
+```
+
+- **В клетке — доля в строке**, людей видно в подсказке и в последней колонке
+  «Человек». Проценты строки дают ровно 100 (округление группой).
+- **Шкала монохромная, светофора нет** — та же, что у матрицы и календаря.
+  Заливка показывает, где густо, а не где плохо: много людей в статусе «рост
+  недоступен» — повод посмотреть, а не красная клетка.
+- Шапки колонок — имена категорий в две строки кеглем `--fs-micro`: пять
+  категорий по 13 букв кеглем шапок в узкую панель не встают.
+- Несколько разрезов в одной таблице (грейд, стаж, роль) — секциями с рубрикой
+  капсом, а не тремя таблицами подряд: колонки у них общие.
+
 ### 4.7. Пилюля изменения **[ЯДРО]**
 
 ```css
 .delta{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-note);
-  font-weight:700;padding:3px 7px;border-radius:var(--r2);white-space:nowrap;cursor:help}
-.delta .d-vs{font-weight:600;font-size:var(--fs-cap);opacity:.72}
+  font-weight:var(--fw-body);padding:3px 7px;border-radius:var(--r2);white-space:nowrap;cursor:help}
+.delta .d-vs{font-weight:var(--fw-body);font-size:var(--fs-cap);opacity:.72}
 .delta.up{background:var(--green-bg);color:var(--green-tx)}
 .delta.down{background:var(--red-bg);color:var(--red-tx)}
 .delta.flat,.delta.neu{background:#f0f1f3}
@@ -608,26 +692,26 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 ### 4.8. Сигнальные чипы и метки **[ЯДРО]**
 
 ```css
-.sig-chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 8px;
+.sig-chip{display:inline-block;font-size:11px;font-weight:var(--fw-body);padding:3px 8px;
   border-radius:var(--r2);white-space:nowrap}
 .sig-chip.good{background:var(--green-bg);color:var(--green-tx)}
 .sig-chip.bad{background:var(--red-bg);color:var(--red-tx)}
 .sig-chip.warn,.sig-chip.neutral{background:#f3f4f6;color:var(--muted)}
 
 /* Тег «у метрики есть утверждённая цель» — метка, а не оценка. Только синий. */
-.kpi-tag{display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;
+.kpi-tag{display:inline-block;font-size:9px;font-weight:var(--fw-bold);text-transform:uppercase;
   letter-spacing:.3px;padding:2px 6px;border-radius:var(--r2);
   background:var(--blue-bg);color:var(--act-ink)}
 
 /* Метрика, которую с базой сравнивать бессмысленно */
-.nocmp{display:inline-block;font-size:11px;font-weight:700;color:var(--muted);
+.nocmp{display:inline-block;font-size:11px;font-weight:var(--fw-body);color:var(--muted);
   border:1px dashed var(--line);border-radius:var(--r2);padding:2px 8px;
   white-space:nowrap;cursor:help}
 
 /* Блок «ориентир»: база или цель */
-.tgt{font-size:var(--fs-note);color:var(--muted);font-weight:600;
+.tgt{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);
   line-height:1.4;white-space:nowrap;text-align:right}
-.tgt b{color:var(--ink2);font-weight:700;display:block;font-size:var(--fs-body)}
+.tgt b{color:var(--ink2);font-weight:var(--fw-body);display:block;font-size:var(--fs-body)}
 ```
 
 **Метрика без сравнения помечается словами «не сравнивается», а не прочерком.**
@@ -639,17 +723,24 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 .sub-tabs{display:inline-flex;gap:3px;background:#eef0f3;border-radius:var(--r4);
   padding:3px;margin:0 0 14px}
 .sub-tab{border:0;background:transparent;padding:8px 15px;border-radius:var(--r3);
-  font-weight:700;font-size:var(--fs-body);color:var(--muted);cursor:pointer;
+  font-weight:var(--fw-body);font-size:var(--fs-body);color:var(--muted);cursor:pointer;
   display:inline-flex;align-items:center;gap:7px;transition:background .15s,color .15s}
 .sub-tab:hover{color:var(--ink2)}
-.sub-tab.active{background:#fff;color:var(--ink);box-shadow:var(--shadow)}
+.sub-tab.active{background:#fff;color:var(--ink);box-shadow:var(--shadow);
+  font-weight:var(--fw-bold)}
+/* Жирная подпись шире обычной: без резерва соседние вкладки сдвигались бы
+   при каждом переключении. Невидимая копия подписи нулевой высоты держит
+   ширину жирного варианта; visibility:hidden убирает её и для диктора. */
+.sub-tab{flex-direction:column;gap:0}
+.sub-tab::after{content:attr(data-text);display:block;height:0;overflow:hidden;
+  visibility:hidden;font-weight:var(--fw-bold);pointer-events:none;user-select:none}
 
 .ctl{display:flex;flex-direction:column;gap:5px}
 .ctl label{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;
-  color:var(--muted);font-weight:800}
+  color:var(--muted);font-weight:var(--fw-bold)}
 .ctl select{appearance:none;border:1px solid var(--line);background:#fff;
   border-radius:var(--r3);padding:8px 30px 8px 12px;font-size:13px;color:var(--ink);
-  font-weight:600;cursor:pointer;min-width:170px;max-width:100%;text-overflow:ellipsis;
+  font-weight:var(--fw-body);cursor:pointer;min-width:170px;max-width:100%;text-overflow:ellipsis;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");
   background-repeat:no-repeat;background-position:right 10px center}
 
@@ -658,14 +749,16 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 
 /* Кнопка-опция (выбор одного из набора) */
 .opt{border:1px solid var(--line);background:#fff;border-radius:var(--r3);
-  padding:8px 14px;font-size:13px;font-weight:700;color:var(--ink2);
+  padding:8px 14px;font-size:13px;font-weight:var(--fw-body);color:var(--ink2);
   cursor:pointer;transition:all .15s}
 .opt:hover{border-color:#c9d3e6;background:#fafbfc}
 .opt.on{background:var(--act);border-color:var(--act);color:#fff}
 ```
 
 Сегментированный переключатель (`.sub-tabs`) — для 2–5 взаимоисключающих видов
-одного экрана. Больше пяти — это `<select>`. Стрелка селекта — инлайн-SVG
+одного экрана. Активная вкладка — жирная, и у каждой кнопки есть
+`data-text="<подпись>"` для резерва ширины: `<button class="sub-tab"
+data-text="Динамика">Динамика</button>`. Больше пяти — это `<select>`. Стрелка селекта — инлайн-SVG
 в `background-image`, а не системная: системная выглядит по-разному в браузерах.
 
 ### 4.10. AI-подсказка / инсайт **[ПРОДУКТ]**
@@ -680,12 +773,12 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 .ai.sev-none{background:linear-gradient(103deg,#f2f4fa 0%,#f8f9fd 46%,#fcfcfe 100%)}
 .ai-h{display:flex;align-items:center;gap:10px;padding:12px 15px;cursor:pointer;user-select:none}
 .ai-ico{width:22px;height:22px;border-radius:var(--r2);background:var(--ai-bg);
-  color:var(--ai-tx);font-size:12px;font-weight:800;
+  color:var(--ai-tx);font-size:12px;font-weight:var(--fw-bold);
   display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
-.ai-t{font-size:13px;font-weight:700;color:var(--ai-tx)}
-.ai-lead{font-size:var(--fs-body);color:var(--ink2);font-weight:600;flex:1;
+.ai-t{font-size:13px;font-weight:var(--fw-bold);color:var(--ai-tx)}
+.ai-lead{font-size:var(--fs-body);color:var(--ink2);font-weight:var(--fw-body);flex:1;
   min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ai-tag{font-size:11px;font-weight:800;padding:3px 9px;border-radius:var(--r2);
+.ai-tag{font-size:11px;font-weight:var(--fw-body);padding:3px 9px;border-radius:var(--r2);
   color:var(--ai-tx);background:rgba(255,255,255,.72);
   box-shadow:inset 0 0 0 1px rgba(111,78,216,.16);flex:0 0 auto;transition:background .15s}
 .ai-h:hover .ai-tag{background:#fff}
@@ -698,7 +791,7 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 /* Состояние «отклонений нет» — одна строка вместо пустой плашки */
 .no-insight{display:flex;align-items:center;gap:9px;font-size:var(--fs-body);
   color:var(--muted);background:#fff;border:1px solid var(--line2);
-  border-radius:var(--r3);padding:11px 14px;margin:0 0 16px;font-weight:600}
+  border-radius:var(--r3);padding:11px 14px;margin:0 0 16px;font-weight:var(--fw-body)}
 .no-insight .ok-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:0 0 auto}
 ```
 
@@ -724,7 +817,7 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
   width:100%;max-width:620px;overflow:hidden}
 .modal.wide{max-width:1020px}
 .modal-h{padding:18px 22px 14px;border-bottom:1px solid var(--line2)}
-.modal-h h3{margin:0 0 5px;font-size:18px;font-weight:800;letter-spacing:-.3px}
+.modal-h h3{margin:0 0 5px;font-size:18px;font-weight:var(--fw-bold);letter-spacing:-.3px}
 .modal-h p{margin:0;font-size:var(--fs-body);color:var(--muted);line-height:1.45}
 .modal-b{padding:18px 22px 8px}
 .modal-f{padding:14px 22px 18px;border-top:1px solid var(--line2);
@@ -732,8 +825,8 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 .modal-f .sp{flex:1}
 .fgrp{margin-bottom:18px}
 .fgrp>label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;
-  color:var(--muted);font-weight:800;margin-bottom:8px}
-.fgrp .fhint{font-size:var(--fs-note);color:var(--muted2);font-weight:600;
+  color:var(--muted);font-weight:var(--fw-bold);margin-bottom:8px}
+.fgrp .fhint{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);
   margin-top:7px;line-height:1.4}
 
 /* Длинное окно: скроллится ТОЛЬКО тело, кнопки всегда достижимы */
@@ -764,10 +857,10 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
   border:1px dashed var(--line);border-radius:var(--r3);padding:11px 14px;
   margin-bottom:14px;line-height:1.5}
 .tbl-note{margin-top:var(--s4);font-size:var(--fs-note);color:var(--muted);
-  font-weight:600;line-height:1.45}
+  font-weight:var(--fw-body);line-height:1.45}
 .legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:0 0 14px;
   font-size:12px;color:var(--ink2)}
-.legend .sw{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+.legend .sw{display:inline-flex;align-items:center;gap:6px;font-weight:var(--fw-body)}
 .legend .dot{width:11px;height:11px;border-radius:var(--r1);display:inline-block}
 .empty{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);
   padding:38px 22px;text-align:center;color:var(--muted)}
@@ -787,7 +880,7 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
 .info{display:inline-flex;align-items:center;justify-content:center;
   width:17px;height:17px;border-radius:50%;border:1px solid var(--line);
   background:#fff;color:var(--muted);font-family:inherit;font-size:11px;
-  font-weight:700;line-height:1;letter-spacing:.2px;cursor:help;flex:0 0 auto;
+  font-weight:var(--fw-bold);line-height:1;letter-spacing:.2px;cursor:help;flex:0 0 auto;
   user-select:none;transition:border-color .12s,color .12s,background .12s}
 .info:hover{border-color:var(--act);background:var(--blue-bg);color:var(--act)}
 ```
@@ -816,21 +909,21 @@ good #80cf9a   bad #ef8c8c   flat/neutral #c7c8cc
   transition:opacity .11s ease-out,transform .11s ease-out;
   background:#fff;border:1px solid var(--line);border-radius:var(--r3);
   box-shadow:0 10px 30px rgba(24,33,50,.18),0 2px 6px rgba(24,33,50,.08);
-  padding:9px 12px;font-size:12px;line-height:1.45;color:var(--ink2);font-weight:500;
+  padding:9px 12px;font-size:12px;line-height:1.45;color:var(--ink2);font-weight:var(--fw-body);
   min-width:148px;max-width:300px;white-space:normal}
 .tip.on{opacity:1;transform:none}
-.tip .t-h{display:block;font-size:var(--fs-cap);font-weight:700;letter-spacing:.2px;
+.tip .t-h{display:block;font-size:var(--fs-cap);font-weight:var(--fw-bold);letter-spacing:.2px;
   color:var(--muted);margin-bottom:6px}
-.tip .t-x{display:block;font-size:12px;font-weight:500;color:var(--ink2);line-height:1.45}
+.tip .t-x{display:block;font-size:12px;font-weight:var(--fw-body);color:var(--ink2);line-height:1.45}
 .tip .t-r{display:flex;align-items:center;gap:8px;margin-top:4px}
 .tip .t-r:first-child{margin-top:0}
 .tip .t-m{display:inline-block;flex:0 0 auto;width:10px;height:9px;border-radius:var(--r1)}
 .tip .t-m.dash{height:0;width:14px;border-radius:0;border-top:2px dashed;background:none}
-.tip .t-l{font-size:var(--fs-note);font-weight:600;color:var(--muted);min-width:0}
-.tip .t-v{display:inline;margin:0 0 0 auto;font-size:var(--fs-lead);font-weight:700;
+.tip .t-l{font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);min-width:0}
+.tip .t-v{display:inline;margin:0 0 0 auto;font-size:var(--fs-lead);font-weight:var(--fw-bold);
   color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
-.tip .t-r.bench .t-v{color:var(--muted);font-weight:600}
-.tip .t-n{display:block;font-size:var(--fs-note);font-weight:500;color:var(--muted);margin-top:5px}
+.tip .t-r.bench .t-v{color:var(--muted)}
+.tip .t-n{display:block;font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);margin-top:5px}
 .tip .t-r+.t-n{margin-top:8px;padding-top:7px;border-top:1px solid var(--line2)}
 .tip .t-n+.t-n{margin-top:2px;padding-top:0;border-top:0}
 .nocmp,.rt-mark,.info,.cellbar,.delta{cursor:help}
@@ -973,6 +1066,19 @@ function tip(o){return ' data-tip="'+esc(tipHtml(o))+'"'}
 13. **Заголовок графика слева, легенда справа** — не накладываются.
 14. **Ось X устроена одинаково во всех видах**: месяц, под первым месяцем
     и под каждым январём — ещё и год. Без исключений для панелей.
+    **На узком полотне (полоса месяца уже 31px) месяцы подписаны через один**,
+    с чётностью от января: под январём стоит год, и он остаётся подписанным.
+15. **Подписи значений — через одну, если не помещаются.** Шаг считается
+    по ширине самой длинной подписи против ширины полосы месяца; отсчёт —
+    от последнего месяца, он подписан всегда. Остальные значения живут
+    в подсказке. Налезающие друг на друга цифры хуже их отсутствия.
+16. **Пороги цели подписаны справа от полотна, а не поверх данных.** У графика
+    с целью KPI справа своё поле, в нём на уровне своих пунктиров стоят «цель X»
+    и «порог X»; близкие пороги разводятся по вертикали. Внутри полотна подпись
+    порога налезала на подписи точек ровно тогда, когда метрика подходила к цели.
+17. **Нет значения — разрыв линии, а не ноль.** Доля без знаменателя (`null`)
+    рвёт линию: точки и подписи в этом месяце нет, спарклайн пропускает месяц.
+    Ноль на графике — только настоящий ноль.
 
 ### 6.3. Единая геометрия
 
@@ -1082,6 +1188,10 @@ const DRAW_MS  = 760;  // длительность отрисовки линии
   масштаб общий для всех вкладок и едет в ссылке параметром `dyn=yoy`.
 - Накопительные метрики (текучесть с января) читаются только так: в скользящем
   окне линия обрывается в январе, на оси года обе линии стартуют с нуля.
+- **Прогноз на конец года** (run-rate, если он у метрики есть) — тонкий пунктир
+  того же цвета от последнего закрытого месяца до декабря, полая точка и подпись
+  «прогноз X». В подсказке декабря — отдельная строка «прогноз на декабрь».
+  Прогноз не факт: ни сплошной линии, ни заливки точки.
 
 ## 7. Числа и форматирование **[ЯДРО]**
 
@@ -1095,8 +1205,15 @@ const DRAW_MS  = 760;  // длительность отрисовки линии
 | Проценты | `1,8%` без пробела | `1,8%` |
 | Пункты | `п.п.` с тонким пробелом | `+1,4 п.п.` |
 | Дни | `дн` с тонким пробелом | `27 дн` |
+| Месяцы | `мес` с тонким пробелом, один знак | `16,2 мес` |
+| Коэффициент | два знака, без единицы | `1,14` |
 | Нет данных | длинное тире | `—` |
 | Тысячи в тесноте | `1,2K` | `1,2K` |
+
+**Доля, которую не из чего считать, — тире, а не ноль.** Нет уходов — нет
+коэффициента замещения; `0` прочитают как провал. Тире ставит форматтер,
+пилюля изменения пишет тире, ячейка сравнения — «нет данных», светофор
+оценку не даёт. Ноль — только настоящий ноль.
 
 **Минус подставляет форматтер значения, а не компонент.** Пока типографский
 минус ставился в пилюле, соседняя ячейка таблицы, зовущая форматтер напрямую,
@@ -1233,13 +1350,13 @@ tabular-nums`. Иначе значения в столбце «дышат» пр
 :focus-visible{outline:3px solid rgba(43,108,255,.32);outline-offset:2px}
 button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--act)}
 .skip-link{position:fixed;left:12px;top:-60px;z-index:9999;background:var(--ink);
-  color:#fff;padding:10px 14px;border-radius:var(--r3);font-weight:700;
+  color:#fff;padding:10px 14px;border-radius:var(--r3);font-weight:var(--fw-bold);
   text-decoration:none;transition:top .15s}
 .skip-link:focus{top:12px}
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;
   padding:0!important;margin:-1px!important;overflow:hidden!important;
   clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
-[aria-current="page"]{font-weight:800}
+[aria-current="page"]{font-weight:var(--fw-bold)}
 .mrow:focus,.urow:focus{outline:3px solid rgba(43,108,255,.25);outline-offset:-3px;
   background:#f5f8ff}
 @media (prefers-reduced-motion:reduce){
@@ -1349,7 +1466,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 - [ ] Блок `:root` скопирован целиком, значения не правлены
 - [ ] В разметке нет литеральных `#rrggbb` — только `var(--…)`
 - [ ] Все кегли — из семи ролей; голых `px` в шрифтах компонентов нет
-- [ ] Все веса — из четырёх ролей; жирным набрано не всё подряд, восьмисотого нет
+- [ ] Шрифт — только Arial: ни `<link>` на веб-шрифты, ни `@font-face`, ни другой гарнитуры в стеке
+- [ ] Весов два — `var(--fw-body)` и `var(--fw-bold)`; числовых весов в CSS нет, в SVG только 400 и 700
+- [ ] Жирным набрано не всё подряд: имена строк, кнопки и пилюли обычные, второй план — цветом
+- [ ] Активная вкладка жирная, и соседние вкладки при переключении не сдвигаются
 - [ ] Числа в ячейках таблиц набраны обычным весом, а не полужирным
 - [ ] Отступы и радиусы из шкал `--s*` / `--r*`
 - [ ] Тело таблиц набрано `--fs-body`, шапки — `--fs-cap`
@@ -1395,6 +1515,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 - [ ] Двух баров рядом за один период нет
 - [ ] Зазор между графиками равен `--chart-gap` и совпадает с внутренним `STACK_GAP`
 - [ ] Ось X одинакова во всех графиках
+- [ ] На узком полотне подписи не налезают друг на друга (идут через одну)
+- [ ] Подписи порогов цели стоят справа от полотна, не поверх точек
+- [ ] Пропуск в данных — разрыв линии, а не ноль
 
 **Числа и текст**
 - [ ] Минус типографский везде, включая ячейки таблиц
@@ -1423,9 +1546,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Название отчёта</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<!-- Шрифтов не подключаем: только Arial, он системный (раздел 2, «Шрифт») -->
 <style>
   /* 1. Блок :root из раздела 2 — целиком */
   /* 2. База: *, body, button из раздела 2 */
@@ -1546,8 +1667,14 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 | Стрелка `↑↓` в дельте | знак `+` / `−` |
 | `↗` из шрифта | инлайн-SVG |
 | Новый кегль «между 12 и 13» | одна из семи ролей |
-| Полужирный по умолчанию во всей таблице | 400 на данных, 600–700 на главном |
+| Полужирный по умолчанию во всей таблице | 400 на данных и именах строк, 700 на главном |
 | Вес 800 рядом с 700 | один сильный вес |
+| Вес 500 или 600 | только 400 и 700: в Arial 500 — обычный, 600 — тот же жирный |
+| Inter, Helvetica, веб-шрифт | только Arial |
+| Второй план полужирным | второй план цветом и кеглем |
+| Активная вкладка без резерва ширины | невидимая жирная копия подписи (`data-text`) |
+| Ноль вместо пропуска у доли без знаменателя | тире и разрыв линии |
+| Подпись порога KPI поверх точек | подпись справа от полотна |
 | ИТОГО сверху в одной таблице и снизу в другой | всегда первой строкой |
 | Название таблицы, повторённое в шапке колонки | шапка пустая |
 | Отступ 7 / 9 / 13 / 17px | ступень шкалы `--s*` |
@@ -1579,9 +1706,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 - **Внешних библиотек нет вообще.** Ни графических, ни UI. Всё рисуется
   на голом SVG, всё верстается на своём CSS.
 - **Отчёт сдаётся одним самодостаточным HTML-файлом**: стили и скрипты
-  встроены, внешних ссылок нет. Единственная внешняя ссылка в режиме
-  разработки — шрифт; в автономном файле она вырезается, и шрифт корректно
-  деградирует.
+  встроены, внешних ссылок нет ни в сборке, ни в режиме разработки.
+- **Шрифт — только Arial, начертаний два (400 и 700).** Конечный инструмент
+  (Proteus) других гарнитур не рисует; макет обязан выглядеть так же.
 - **Иконочных шрифтов нет** — инлайн-SVG и юникод.
 - **Правила проверяются автоматически.** Ось от нуля, отсутствие жёлтого,
   совпадение зазоров, кегли таблиц, подпись месяца сравнения, число строк
