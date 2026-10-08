@@ -254,7 +254,18 @@ function renderBlock(S,expanded,mixOpen,view){
      левая колонка становится шире — иначе главная метрика и «К базе» уезжали
      за край панели под горизонтальную прокрутку. */
   const wideL=mets.length+(D.comparable(mainK)||D.kpiFor(mainK,S)?1:0)>=7;
-  h+='<div class="split'+(wideL?' wide-l':'')+'">';
+  /* Ширина колонок — выбор пользователя (итерация 30, механика HRBP HUB):
+     m-both / m-table / m-charts — обе колонки или одна во всю ширину, share —
+     доля таблицы после перетаскивания разделителя (null — раскладка по умолчанию).
+     Разметка всегда полная — полосы, разделитель, обе панели, — а что видно,
+     решает CSS: ниже 1121px (широкой таблице — 1241px) колонки и так одна под
+     другой, и сворачивать там нечего. */
+  const sp=view&&view.split||{};
+  const mode=sp.mode==='table'||sp.mode==='charts'?sp.mode:'both', share=sp.share!=null?sp.share:null;
+  const subName=(mod.subTabs.find(t=>t[0]===S.subTab)||[])[1]||mod.title(S.subTab);
+  h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'"'+
+    (share!=null?' style="--split-l:'+(share*100).toFixed(2)+'fr;--split-r:'+((1-share)*100).toFixed(2)+'fr"':'')+'>'+
+    U.splitRail('l','Подразделения');
 
   /* Состояние каретки ИТОГО: пока раскрыто не всё — она предлагает раскрыть,
      и только когда раскрыты все раскрываемые строки — свернуть. */
@@ -330,9 +341,10 @@ function renderBlock(S,expanded,mixOpen,view){
      переходом. Пока взят срез состава, подзаголовок говорит о нём. */
   h+=U.panel({cls:'split-l',title:'Подразделения',
     subHtml:slice.length?esc('численность по срезу: '+D.sliceLabel(selIds))
-      :'три уровня вниз · глубже: выберите строку и откройте юнит '+U.icoOpen(),
+      :'три уровня вниз · глубже — откройте юнит '+U.icoOpen(),
+    hBtn:U.splitBtn('table',mode,'Подразделения'),
     tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'}),
-    body:tbl,bodyCls:'tbl-wrap'});
+    body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share);
 
   /* 5b · правая панель — содержимое блока */
   const ctx={S,b,sub:S.subTab,lp:rowLeaves(sel,S),rl,bl,rows:baseRows,root,sel,
@@ -341,7 +353,9 @@ function renderBlock(S,expanded,mixOpen,view){
      с её именем, там, куда смотрят, читая её графики. */
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
     subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+U.openUnitBtn(sel,selNode.name,'Открыть юнит'):' · всё подразделение'),
-    tabs:U.subTabs(mod.subTabs,S.subTab),body:mod.view(ctx)});
+    hBtn:U.splitBtn('charts',mode,subName),
+    tabs:U.subTabs(mod.subTabs,S.subTab),body:mod.view(ctx)})+
+    U.splitRail('r',subName);
 
   return h+'</div>';
 }

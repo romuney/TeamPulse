@@ -57,6 +57,8 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\n  crumbs:()=>{renderHead();return $("#crumbs").innerHTML},'+
   '\n  setupUnits:()=>{openSetup();const h=$("#selUnit").innerHTML;closeSetup();return h},'+
   '\n  home:()=>{S.unit=D.DEFAULT_STATE.unit;unitBack.length=0;tq="";S.selNode=null;expanded.clear()},'+
+  /* итерация 30: ширина колонок — режим и доля таблицы */
+  '\n  split:(m,sh)=>{splitMode=m;splitShare=sh;render(true);return $("#view").innerHTML},'+
   /* срез состава живёт в S, но кликом его ставит обработчик — зовём его напрямую */
   '\n  mix:list=>{S.mixSel=(list||[]).slice()},'+
   '\n  mixClick:spec=>{toggleMix(spec);return S.mixSel.slice()},'+
@@ -1024,7 +1026,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['в карточках KPI блока есть спарклайн',
     (mv.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[]).filter(c=>/class="spark"/.test(c)).length===7]);
   checks.push(['у широкой сводной таблицы левая колонка шире, а ниже 1240px она встаёт над графиком',
-    /class="split wide-l"/.test(mv)&&!/class="split wide-l"/.test(A.go('turnover','dynamics'))&&
+    /class="split wide-l[ "]/.test(mv)&&!/class="split wide-l/.test(A.go('turnover','dynamics'))&&
     /\.split\.wide-l\{grid-template-columns:minmax\(560px,1\.12fr\)/.test(css)&&
     /@media\(max-width:1240px\)\{\.split\.wide-l\{grid-template-columns:1fr;height:auto\}/.test(css)]);
   checks.push(['имя подразделения липкое: широкая таблица прокручивается внутри панели',
@@ -1137,6 +1139,45 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /\.split-l\.ptable\.densetr\.lvl3td\.txt\{padding-left:calc\(var\(--pad-cell\)\+32px\)\}/.test(css)&&
     /\.open-unit\{[^}]*color:var\(--act\)/.test(css)&&/mark\.hl\{background:var\(--act-line\)/.test(css)]);
   A.go('onepager',null);
+})();
+
+/* ============================================================================
+   Итерация 30: ширина колонок рабочей зоны (механика HRBP HUB). Разделитель
+   между таблицей и графиками тянется, любую панель можно развернуть во всю
+   ширину — вторая сворачивается в полосу со своим именем.
+   ========================================================================== */
+(function(){
+  A.home();A.go('turnover','dynamics');
+  const both=A.split('both',null);
+  checks.push(['между таблицей и графиками — разделитель: separator с клавиатурой и подсказкой',
+    /<div class="split-gut" data-split="1" role="separator" aria-orientation="vertical"[^>]*tabindex="0"/.test(both)&&
+    /class="split m-both"/.test(both)&&!/class="split[^"]* custom"/.test(both)]);
+  checks.push(['кнопка «во всю ширину» — в углу заголовка панели, не в ряду поиска и вкладок',
+    /<div class="h-txt has-btn"><span>Подразделения<\/span>[\s\S]*?<button class="split-btn" data-splitmode="table"[\s\S]*?<\/div><label class="tsearch">/.test(both)&&
+    /\.panel-h\.h-txt>\.split-btn\{position:absolute;right:0/.test(css)]);
+  checks.push(['у обеих панелей — «во всю ширину», полосы свёрнутых панелей подписаны',
+    /data-splitmode="table" aria-label="Подразделения во всю ширину"/.test(both)&&
+    /data-splitmode="charts" aria-label="Отток и текучесть во всю ширину"/.test(A.go('turnover','dynamics'))&&
+    /<button class="split-rail l" data-splitmode="both" aria-label="Показать: Подразделения"/.test(both)]);
+  const tbl=A.split('table',null);
+  checks.push(['таблица во всю ширину: кнопка возвращает две колонки, графики — полосой справа',
+    /class="split m-table"/.test(tbl)&&/<button class="split-btn on" data-splitmode="both" aria-label="Вернуть две колонки"/.test(tbl)&&
+    /<button class="split-rail r" data-splitmode="both"/.test(tbl)]);
+  checks.push(['графики во всю ширину — обратный режим',
+    /class="split m-charts"/.test(A.split('charts',null))]);
+  const cust=A.split('both',0.62);
+  A.go('onepager',null);
+  checks.push(['доля после перетаскивания — переменные сетки, separator знает своё значение',
+    /class="split m-both custom" style="--split-l:62\.00fr;--split-r:38\.00fr"/.test(cust)&&
+    /aria-valuenow="62"/.test(cust)]);
+  A.split('both',null);
+  checks.push(['раскладка колонок: разделитель — третья колонка, минимум 340px, узкий экран не трогаем',
+    /\.split\{display:grid;grid-template-columns:minmax\(500px,\.95fr\)16pxminmax\(440px,1\.05fr\);column-gap:0;row-gap:16px/.test(css)&&
+    /\.split\.custom\{grid-template-columns:minmax\(340px,var\(--split-l\)\)16pxminmax\(340px,var\(--split-r\)\)\}/.test(css)&&
+    /\.split-gut,\.split-rail\{display:none\}/.test(css)&&
+    /@media\(min-width:1121px\)\{\.split>\.split-gut\{display:flex\}/.test(css)&&
+    /@media\(max-width:1120px\)\{\.split-btn\{display:none\}/.test(css)&&
+    /\.split\.wide-l\.wide-l\{grid-template-columns:1fr;column-gap:0\}/.test(css)]);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

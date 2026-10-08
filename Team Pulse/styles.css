@@ -443,7 +443,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* ===== Итерация 12: таблица слева, визуализация справа ===== */
 .toolbar.slim{margin:-4px 0 10px;min-height:0}
-.split{display:grid;grid-template-columns:minmax(500px,.95fr) minmax(440px,1.05fr);gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
+.split{display:grid;grid-template-columns:minmax(500px,.95fr) 16px minmax(440px,1.05fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
 .split>.panel{min-height:0;height:100%;display:flex;flex-direction:column}
 .split .panel-h{flex:0 0 auto;min-height:54px}
 .split .panel-b{flex:1;min-height:0}
@@ -475,7 +475,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    1121–1240px рабочая зона вылезала за экран — появлялся горизонтальный скролл
    всей страницы, а правая панель обрезалась. Теперь узкие минимумы включаются
    там, где широкие уже не влезают. */
-@media(max-width:1240px){.split{grid-template-columns:minmax(440px,.95fr) minmax(400px,1.05fr)}}
+@media(max-width:1240px){.split{grid-template-columns:minmax(440px,.95fr) 16px minmax(400px,1.05fr)}}
 /* Порог 1110, а не 900: две колонки перестают помещаться раньше, чем экран
    становится планшетным. Минимумы 440+400+16 = 856px требуют контента шире
    ~870px, а это ширина окна около 1120. На 901–1120px рабочая зона вылезала
@@ -1278,7 +1278,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Ниже 1240px двум колонкам места уже нет и широкой таблице: она встаёт над
    графиком раньше остальных — тем же приёмом, каким все блоки складываются
    ниже 1120px, и с теми же высотами. */
-.split.wide-l{grid-template-columns:minmax(560px,1.12fr) minmax(440px,.88fr)}
+.split.wide-l{grid-template-columns:minmax(560px,1.12fr) 16px minmax(440px,.88fr)}
 @media(max-width:1240px){
   .split.wide-l{grid-template-columns:1fr;height:auto}
   .split.wide-l>.panel{height:auto}
@@ -1374,3 +1374,60 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    едет: под ИТОГО оставалась щель в 2px, в которую просвечивали строки.
    Линию под итогом рисует тень внутри ячейки — она едет вместе с ней. */
 .split-l .ptable.dense tr.total.top td{border-bottom:0;box-shadow:inset 0 -2px 0 var(--line)}
+
+/* ============================================================================
+   Итерация 30: ширина колонок рабочей зоны (механика HRBP HUB)
+   Таблицу и графики разводит разделитель — третья колонка сетки шириной
+   в прежний зазор (16px). Его тянут мышью и пальцем, ← → двигают его
+   с клавиатуры, двойной клик возвращает раскладку по умолчанию. Любую
+   панель можно развернуть во всю ширину — вторая сворачивается в полосу
+   со своим именем. Всё это — только пока колонки стоят рядом: ниже 1121px
+   (широкой таблице — 1241px) они и так одна под другой.
+   ========================================================================== */
+.split-gut,.split-rail{display:none}
+.split-gut{position:relative;align-self:stretch;justify-content:center;align-items:center;
+  cursor:col-resize;outline:none;touch-action:none}
+.split-gut i{display:block;width:4px;height:44px;border-radius:var(--r-pill);background:var(--line);
+  transition:background .12s,height .12s}
+.split-gut:hover i,.split-gut:focus-visible i,.split-drag .split-gut i{background:var(--act);height:64px}
+/* пока тянут — курсор и выделение не скачут, подсказка не едет за мышью */
+.split-drag,.split-drag *{cursor:col-resize!important;user-select:none!important}
+.split-drag .tip{visibility:hidden}
+
+.split-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:30px;height:30px;
+  padding:0;border:0;border-radius:var(--r3);background:transparent;color:var(--muted);cursor:pointer}
+.split-btn:hover{background:#eef1f6;color:var(--ink)}
+.split-btn.on{color:var(--act)}
+/* Кнопка — в правом углу блока заголовка, на своём поле: блок растягивается
+   на свободное место строки, поэтому кнопка стоит у края панели, когда поиск
+   или вкладки ушли на вторую строку, и перед ними — когда поместились рядом. */
+.panel-h .h-txt.has-btn{position:relative;flex:1 1 auto;padding-right:38px}
+.panel-h .h-txt>.split-btn{position:absolute;right:0;top:50%;transform:translateY(-50%)}
+
+.split-rail{flex-direction:column;align-items:center;gap:var(--s4);width:40px;padding:var(--s6) 0;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--card);color:var(--muted);
+  font-size:var(--fs-note);cursor:pointer;box-shadow:var(--shadow)}
+.split-rail:hover{color:var(--act);border-color:var(--act-line);background:var(--blue-bg)}
+.split-rail span{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap}
+.split-rail i{font-style:normal;font-size:11px}
+
+@media(min-width:1121px){
+  .split>.split-gut{display:flex}
+  /* доля после перетаскивания; у каждой колонки остаётся минимум 340px */
+  .split.custom{grid-template-columns:minmax(340px,var(--split-l)) 16px minmax(340px,var(--split-r))}
+  .split.m-table{grid-template-columns:minmax(0,1fr) 40px;column-gap:16px}
+  .split.m-charts{grid-template-columns:40px minmax(0,1fr);column-gap:16px}
+  .split.m-table>.split-r,.split.m-table>.split-gut,
+  .split.m-charts>.split-l,.split.m-charts>.split-gut{display:none}
+  .split.m-table>.split-rail.r,.split.m-charts>.split-rail.l{display:flex}
+}
+/* широкая таблица стоит над графиком до 1240px — там раскладку не трогаем */
+@media(min-width:1121px) and (max-width:1240px){
+  .split.wide-l.wide-l{grid-template-columns:1fr;column-gap:0}
+  .split.wide-l.wide-l>.split-l,.split.wide-l.wide-l>.split-r{display:flex}
+  .split.wide-l.wide-l>.split-gut,.split.wide-l.wide-l>.split-rail{display:none}
+}
+/* одна колонка — кнопкам «во всю ширину» нечего делать, и поле под них не нужно */
+@media(max-width:1120px){.split-btn{display:none}.panel-h .h-txt.has-btn{padding-right:0}}
+@media(min-width:1121px) and (max-width:1240px){.split.wide-l .split-btn{display:none}
+  .split.wide-l .panel-h .h-txt.has-btn{padding-right:0}}

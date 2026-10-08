@@ -31,6 +31,12 @@ const mixOpen=new Set();
 const unitBack=[];
 /* поиск по сводной таблице подразделений — тоже состояние показа */
 let tq='';
+/* Ширина колонок рабочей зоны (итерация 30): режим — обе колонки ('both')
+   или одна во всю ширину ('table' / 'charts'), доля таблицы после
+   перетаскивания разделителя (null — раскладка по умолчанию). Один выбор
+   на все блоки: «мне нужно больше таблицы» — предпочтение, а не свойство
+   вкладки. В ссылку не едет, как и раскрытия. */
+let splitMode='both', splitShare=null;
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -288,7 +294,7 @@ function render(keepScroll,quiet){
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
     ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded,mixOpen,{tq});
+    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   stickTotals();
@@ -309,6 +315,57 @@ function stickTotals(){
     if(h)t.style.setProperty('--thead-h',Math.round(h)+'px');
   });
 }
+
+/* ---------- разделитель «таблица | графики» ----------
+   Тянется мышью или пальцем: доля пишется в переменные сетки на лету, без
+   render(), графики перемеряются под новую ширину раз в 60 мс и ещё раз —
+   когда отпустили. Каждой колонке остаётся минимум 340px. */
+function splitBounds(box){
+  const room=box.getBoundingClientRect().width-16;
+  return [Math.max(.2,340/room),Math.min(.8,1-340/room)];
+}
+function applySplit(box,share){
+  const gut=box.querySelector('[data-split]');
+  if(share==null){
+    box.classList.remove('custom');
+    box.style.removeProperty('--split-l');box.style.removeProperty('--split-r');
+    if(gut)gut.removeAttribute('aria-valuenow');
+    return;
+  }
+  box.classList.add('custom');
+  box.style.setProperty('--split-l',(share*100).toFixed(2)+'fr');
+  box.style.setProperty('--split-r',((1-share)*100).toFixed(2)+'fr');
+  if(gut)gut.setAttribute('aria-valuenow',String(Math.round(share*100)));
+}
+function relayout(){G.remeasure($('#view'));stickTotals()}
+let _sd=null;
+document.addEventListener('pointerdown',e=>{
+  const gut=e.target.closest&&e.target.closest('[data-split]');
+  if(!gut||e.button>0)return;
+  const box=gut.parentNode, r=box.getBoundingClientRect(), b=splitBounds(box);
+  e.preventDefault();
+  try{gut.setPointerCapture(e.pointerId)}catch(_){}
+  document.body.classList.add('split-drag');
+  const move=ev=>{
+    splitShare=Math.max(b[0],Math.min(b[1],(ev.clientX-r.left-8)/(r.width-16)));
+    applySplit(box,splitShare);
+    if(!_sd)_sd=setTimeout(()=>{_sd=null;relayout()},60);
+  };
+  const up=()=>{
+    gut.removeEventListener('pointermove',move);
+    gut.removeEventListener('pointerup',up);gut.removeEventListener('pointercancel',up);
+    document.body.classList.remove('split-drag');
+    clearTimeout(_sd);_sd=null;relayout();
+  };
+  gut.addEventListener('pointermove',move);
+  gut.addEventListener('pointerup',up);gut.addEventListener('pointercancel',up);
+});
+/* двойной клик по разделителю — раскладка по умолчанию */
+document.addEventListener('dblclick',e=>{
+  const gut=e.target.closest&&e.target.closest('[data-split]');
+  if(!gut)return;
+  splitShare=null;applySplit(gut.parentNode,null);relayout();
+});
 
 /* ---------- мини-навигация One-pager: какой блок сейчас на экране ----------
    Текущим считается последний блок, чей заголовок уже прошёл под липкую полосу. */
@@ -409,6 +466,9 @@ document.addEventListener('click',e=>{
   }
   const ex=t.closest('[data-exp]');
   if(ex){e.stopPropagation();const p=ex.dataset.exp;expanded.has(p)?expanded.delete(p):expanded.add(p);render(true);return}
+  /* «во всю ширину» и полоса свёрнутой панели — один обработчик: режим едет в атрибуте */
+  const smode=t.closest('[data-splitmode]');
+  if(smode){splitMode=smode.dataset.splitmode;render(true);return}
   /* «Открыть юнит» живёт ВНУТРИ строки .urow — проверка строго до неё, иначе
      клик по иконке снимал бы выбор строки вместо перехода */
   const ou=t.closest('[data-openunit]');
@@ -533,6 +593,14 @@ document.addEventListener('keydown',e=>{
       }
       return;
     }
+  }
+  /* разделитель с клавиатуры: ← → по 5% */
+  if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&e.target.matches&&e.target.matches('[data-split]')){
+    e.preventDefault();
+    const box=e.target.parentNode, b=splitBounds(box), l=box.querySelector('.split-l');
+    const cur=splitShare!=null?splitShare:l.getBoundingClientRect().width/(box.getBoundingClientRect().width-16);
+    splitShare=Math.max(b[0],Math.min(b[1],cur+(e.key==='ArrowRight'?.05:-.05)));
+    applySplit(box,splitShare);relayout();return;
   }
   /* Escape в поле поиска сначала очищает поиск */
   if(e.key==='Escape'&&tq&&e.target.matches&&e.target.matches('[data-tsearch]')){searchInput('',0);return}

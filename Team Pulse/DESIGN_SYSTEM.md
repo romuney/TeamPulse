@@ -6,7 +6,7 @@
 
 Проверено на живом макете: HR-борд из One-pager и 8 блоков (29 экранов
 с под-вкладками), 30 метрик, 8 видов графиков и 2 спарклайна на голом SVG,
-215 автоматических проверок правил. Всё, что здесь написано, там работает.
+222 автоматических проверок правил. Всё, что здесь написано, там работает.
 Шрифт — только Arial в двух начертаниях: так отчёт выглядит одинаково
 в макете и в Proteus.
 
@@ -729,6 +729,53 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 - **У юнита без подразделений** — строка-пояснение под ИТОГО, а не повтор ИТОГО.
 - **Если у юнита есть свои люди и подразделения** — строка «Напрямую в «X»»
   в конце группы, иначе строки не сойдутся с итогом.
+
+### 4.6g. Ширина колонок: разделитель и «во всю ширину» **[ЯДРО]**
+
+Рабочая зона «таблица слева, визуализация справа» (8.2) отдаёт ширину пользователю:
+разделитель между колонками тянется, любую панель можно развернуть во всю ширину.
+
+```css
+.split{display:grid;grid-template-columns:minmax(500px,.95fr) 16px minmax(440px,1.05fr);
+  column-gap:0;row-gap:16px}                    /* разделитель — третья колонка */
+.split-gut,.split-rail{display:none}
+.split-gut{align-self:stretch;justify-content:center;align-items:center;cursor:col-resize;
+  outline:none;touch-action:none}
+.split-gut i{display:block;width:4px;height:44px;border-radius:var(--r-pill);background:var(--line)}
+.split-gut:hover i,.split-gut:focus-visible i,.split-drag .split-gut i{background:var(--act);height:64px}
+.split-drag,.split-drag *{cursor:col-resize!important;user-select:none!important}
+.split-rail{flex-direction:column;align-items:center;gap:var(--s4);width:40px;padding:var(--s6) 0;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--card);color:var(--muted);
+  font-size:var(--fs-note);cursor:pointer;box-shadow:var(--shadow)}
+.split-rail span{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap}
+.panel-h .h-txt.has-btn{position:relative;flex:1 1 auto;padding-right:38px}
+.panel-h .h-txt>.split-btn{position:absolute;right:0;top:50%;transform:translateY(-50%)}
+@media(min-width:1121px){
+  .split>.split-gut{display:flex}
+  .split.custom{grid-template-columns:minmax(340px,var(--split-l)) 16px minmax(340px,var(--split-r))}
+  .split.m-table{grid-template-columns:minmax(0,1fr) 40px;column-gap:16px}
+  .split.m-charts{grid-template-columns:40px minmax(0,1fr);column-gap:16px}
+  .split.m-table>.split-r,.split.m-table>.split-gut,
+  .split.m-charts>.split-l,.split.m-charts>.split-gut{display:none}
+  .split.m-table>.split-rail.r,.split.m-charts>.split-rail.l{display:flex}
+}
+@media(max-width:1120px){.split-btn{display:none}}
+```
+
+- **Разделитель — это `role="separator"`:** тянется мышью и пальцем, ← → двигают
+  его с клавиатуры, двойной клик возвращает раскладку по умолчанию. У каждой колонки
+  есть минимум — пустая колонка в 40px читается как поломка, а не как выбор.
+- **Доля — в переменных сетки, не в `grid-template-columns` инлайном:** инлайн
+  перебил бы медиазапросы, и на узком экране колонки не встали бы друг под друга.
+- **Во время перетаскивания экран не перерисовывается целиком** — графики
+  перемеряются под новую ширину раз в несколько кадров и ещё раз в конце.
+- **Свёрнутая панель не исчезает** — остаётся полосой со своим именем: что там
+  лежит, видно без клика, и вернуть две колонки можно одним нажатием.
+- **Кнопка «во всю ширину» — в углу заголовка, на своём поле**, а не в ряду поиска
+  и вкладок: там она переносила их на лишнюю строку.
+- **Разметка полная всегда, видимость решает CSS** — смена ширины окна через порог
+  не требует перерисовки. На узком экране кнопок и разделителя нет.
+- Выбор ширины — предпочтение пользователя, а не свойство отчёта: в ссылку не едет.
 
 ### 4.7. Пилюля изменения **[ЯДРО]**
 
@@ -1563,6 +1610,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 - [ ] Клик по строке только выбирает; переход — кнопкой у выбранной строки
 - [ ] После перехода над отчётом путь, «← Назад» и «↑ Уровнем выше»
 - [ ] Липкая строка итога не уходит под шапку таблицы при прокрутке
+- [ ] Разделитель между таблицей и графиками тянется и работает с клавиатуры
+- [ ] Свёрнутая панель — полоса со своим именем, клик возвращает обе колонки
 
 **Матрица и срез (если они есть)**
 - [ ] Внутри одной разбивки полосы одного цвета; разными цветами различаются таблицы
@@ -1775,6 +1824,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 | Временный корень рядом с переходом | один способ вглубь — переход, с путём и «Назад» |
 | Липкий итог с отступом-константой | отступ по высоте шапки |
 | Рамка у липкой ячейки в `border-collapse` | линия тенью внутри ячейки |
+| Ширина колонок инлайном в `grid-template-columns` | переменные сетки, медиазапросы целы |
+| Свёрнутая панель, исчезнувшая без следа | полоса с именем панели |
+| Кнопка «во всю ширину» в ряду вкладок | в углу заголовка, на своём поле |
 
 ---
 

@@ -451,7 +451,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* ===== Итерация 12: таблица слева, визуализация справа ===== */
 .toolbar.slim{margin:-4px 0 10px;min-height:0}
-.split{display:grid;grid-template-columns:minmax(500px,.95fr) minmax(440px,1.05fr);gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
+.split{display:grid;grid-template-columns:minmax(500px,.95fr) 16px minmax(440px,1.05fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
 .split>.panel{min-height:0;height:100%;display:flex;flex-direction:column}
 .split .panel-h{flex:0 0 auto;min-height:54px}
 .split .panel-b{flex:1;min-height:0}
@@ -483,7 +483,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    1121–1240px рабочая зона вылезала за экран — появлялся горизонтальный скролл
    всей страницы, а правая панель обрезалась. Теперь узкие минимумы включаются
    там, где широкие уже не влезают. */
-@media(max-width:1240px){.split{grid-template-columns:minmax(440px,.95fr) minmax(400px,1.05fr)}}
+@media(max-width:1240px){.split{grid-template-columns:minmax(440px,.95fr) 16px minmax(400px,1.05fr)}}
 /* Порог 1110, а не 900: две колонки перестают помещаться раньше, чем экран
    становится планшетным. Минимумы 440+400+16 = 856px требуют контента шире
    ~870px, а это ширина окна около 1120. На 901–1120px рабочая зона вылезала
@@ -1286,7 +1286,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Ниже 1240px двум колонкам места уже нет и широкой таблице: она встаёт над
    графиком раньше остальных — тем же приёмом, каким все блоки складываются
    ниже 1120px, и с теми же высотами. */
-.split.wide-l{grid-template-columns:minmax(560px,1.12fr) minmax(440px,.88fr)}
+.split.wide-l{grid-template-columns:minmax(560px,1.12fr) 16px minmax(440px,.88fr)}
 @media(max-width:1240px){
   .split.wide-l{grid-template-columns:1fr;height:auto}
   .split.wide-l>.panel{height:auto}
@@ -1382,6 +1382,63 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    едет: под ИТОГО оставалась щель в 2px, в которую просвечивали строки.
    Линию под итогом рисует тень внутри ячейки — она едет вместе с ней. */
 .split-l .ptable.dense tr.total.top td{border-bottom:0;box-shadow:inset 0 -2px 0 var(--line)}
+
+/* ============================================================================
+   Итерация 30: ширина колонок рабочей зоны (механика HRBP HUB)
+   Таблицу и графики разводит разделитель — третья колонка сетки шириной
+   в прежний зазор (16px). Его тянут мышью и пальцем, ← → двигают его
+   с клавиатуры, двойной клик возвращает раскладку по умолчанию. Любую
+   панель можно развернуть во всю ширину — вторая сворачивается в полосу
+   со своим именем. Всё это — только пока колонки стоят рядом: ниже 1121px
+   (широкой таблице — 1241px) они и так одна под другой.
+   ========================================================================== */
+.split-gut,.split-rail{display:none}
+.split-gut{position:relative;align-self:stretch;justify-content:center;align-items:center;
+  cursor:col-resize;outline:none;touch-action:none}
+.split-gut i{display:block;width:4px;height:44px;border-radius:var(--r-pill);background:var(--line);
+  transition:background .12s,height .12s}
+.split-gut:hover i,.split-gut:focus-visible i,.split-drag .split-gut i{background:var(--act);height:64px}
+/* пока тянут — курсор и выделение не скачут, подсказка не едет за мышью */
+.split-drag,.split-drag *{cursor:col-resize!important;user-select:none!important}
+.split-drag .tip{visibility:hidden}
+
+.split-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:30px;height:30px;
+  padding:0;border:0;border-radius:var(--r3);background:transparent;color:var(--muted);cursor:pointer}
+.split-btn:hover{background:#eef1f6;color:var(--ink)}
+.split-btn.on{color:var(--act)}
+/* Кнопка — в правом углу блока заголовка, на своём поле: блок растягивается
+   на свободное место строки, поэтому кнопка стоит у края панели, когда поиск
+   или вкладки ушли на вторую строку, и перед ними — когда поместились рядом. */
+.panel-h .h-txt.has-btn{position:relative;flex:1 1 auto;padding-right:38px}
+.panel-h .h-txt>.split-btn{position:absolute;right:0;top:50%;transform:translateY(-50%)}
+
+.split-rail{flex-direction:column;align-items:center;gap:var(--s4);width:40px;padding:var(--s6) 0;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--card);color:var(--muted);
+  font-size:var(--fs-note);cursor:pointer;box-shadow:var(--shadow)}
+.split-rail:hover{color:var(--act);border-color:var(--act-line);background:var(--blue-bg)}
+.split-rail span{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap}
+.split-rail i{font-style:normal;font-size:11px}
+
+@media(min-width:1121px){
+  .split>.split-gut{display:flex}
+  /* доля после перетаскивания; у каждой колонки остаётся минимум 340px */
+  .split.custom{grid-template-columns:minmax(340px,var(--split-l)) 16px minmax(340px,var(--split-r))}
+  .split.m-table{grid-template-columns:minmax(0,1fr) 40px;column-gap:16px}
+  .split.m-charts{grid-template-columns:40px minmax(0,1fr);column-gap:16px}
+  .split.m-table>.split-r,.split.m-table>.split-gut,
+  .split.m-charts>.split-l,.split.m-charts>.split-gut{display:none}
+  .split.m-table>.split-rail.r,.split.m-charts>.split-rail.l{display:flex}
+}
+/* широкая таблица стоит над графиком до 1240px — там раскладку не трогаем */
+@media(min-width:1121px) and (max-width:1240px){
+  .split.wide-l.wide-l{grid-template-columns:1fr;column-gap:0}
+  .split.wide-l.wide-l>.split-l,.split.wide-l.wide-l>.split-r{display:flex}
+  .split.wide-l.wide-l>.split-gut,.split.wide-l.wide-l>.split-rail{display:none}
+}
+/* одна колонка — кнопкам «во всю ширину» нечего делать, и поле под них не нужно */
+@media(max-width:1120px){.split-btn{display:none}.panel-h .h-txt.has-btn{padding-right:0}}
+@media(min-width:1121px) and (max-width:1240px){.split.wide-l .split-btn{display:none}
+  .split.wide-l .panel-h .h-txt.has-btn{padding-right:0}}
 
 </style>
 </head>
@@ -4496,6 +4553,45 @@ function openUnitBtn(path,name,label){
       note:'Вернуться — «← Назад» или путь над отчётом.'})+'>'+icoOpen()+(label?esc(label):'')+'</button>';
 }
 
+/* ---------- Ширина колонок рабочей зоны (итерация 30, механика HRBP HUB) ----------
+   Таблицу и графики можно развести иначе: потянуть разделитель между ними
+   или развернуть одну панель во всю ширину. Свёрнутая панель не исчезает —
+   остаётся узкой полосой со своим именем, клик по ней возвращает обе колонки.
+   side — что разворачиваем: 'table' (таблица подразделений) или 'charts'. */
+function icoExpand(){
+  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>';
+}
+function icoShrink(){
+  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7"/></svg>';
+}
+function splitBtn(side,mode,name){
+  const wide=mode===side;
+  const lbl=wide?'Вернуть две колонки':name+' во всю ширину';
+  return '<button class="split-btn'+(wide?' on':'')+'" data-splitmode="'+(wide?'both':side)+'" aria-label="'+esc(lbl)+'"'+
+    tipAttr({title:lbl,text:wide?'Таблица подразделений слева, содержимое вкладки справа.'
+      :(side==='table'?'Правая панель':'Таблица подразделений')+' свернётся в полосу у края — клик по ней вернёт обе колонки.',
+      note:'Ширину колонок можно и тянуть — за разделитель между ними; двойной клик возвращает как было.'})+'>'+
+    (wide?icoShrink():icoExpand())+'</button>';
+}
+/* Свёрнутая панель — полоса с именем: что там лежит, видно и без клика.
+   pos — у какого края стоит полоса: 'l' (слева) или 'r' (справа). */
+function splitRail(pos,label){
+  return '<button class="split-rail '+pos+'" data-splitmode="both" aria-label="Показать: '+esc(label)+'"'+
+    tipAttr({title:label,text:'Вернуть две колонки: таблица слева, графики справа.'})+
+    '><i aria-hidden="true">'+(pos==='l'?'▸':'◂')+'</i><span>'+esc(label)+'</span></button>';
+}
+/* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
+   его с клавиатуры, двойной клик возвращает ширину по умолчанию. */
+function splitGut(share){
+  return '<div class="split-gut" data-split="1" role="separator" aria-orientation="vertical" '+
+    'aria-label="Ширина таблицы подразделений" aria-valuemin="20" aria-valuemax="80"'+
+    (share!=null?' aria-valuenow="'+Math.round(share*100)+'"':'')+' tabindex="0"'+
+    tipAttr({title:'Ширина колонок',text:'Потяните, чтобы дать больше места таблице или графикам.',
+      note:'Двойной клик — как было; стрелки ← → — с клавиатуры.'})+'><i></i></div>';
+}
+
 /* ---------- Поиск по таблице ----------
    Ищет среди показанного — трёх уровней вниз от юнита отчёта, без запроса.
    Находка выводится вместе с предками: «Группа поддержки» без родителя не
@@ -4896,13 +4992,16 @@ function sliceNote(parts,extra){
 
 /* ---------- Панель с шапкой ---------- */
 /* subHtml — подзаголовок с разметкой (кнопка «Открыть юнит», иконка в
-   подсказке о глубине); обычный sub по-прежнему экранируется. */
+   подсказке о глубине); обычный sub по-прежнему экранируется.
+   hBtn — кнопка в углу заголовка («во всю ширину»): стоит поверх своего
+   поля справа и не отнимает места у поиска и вкладок — иначе шапка росла
+   на строку. */
 function panel(o){
   const tabs=o.tabs||'';
   const sub=o.subHtml?o.subHtml:o.sub?esc(o.sub):'';
   return '<div class="panel'+(o.cls?' '+o.cls:'')+'">'+
-    (o.title?'<div class="panel-h'+(tabs?' with-tabs':'')+'"><div class="h-txt"><span>'+o.title+'</span>'+
-      (sub?'<span class="sub">'+sub+'</span>':'')+'</div>'+tabs+'</div>':'')+
+    (o.title?'<div class="panel-h'+(tabs?' with-tabs':'')+'"><div class="h-txt'+(o.hBtn?' has-btn':'')+'"><span>'+o.title+'</span>'+
+      (sub?'<span class="sub">'+sub+'</span>':'')+(o.hBtn||'')+'</div>'+tabs+'</div>':'')+
     '<div class="panel-b'+(o.bodyCls?' '+o.bodyCls:'')+'">'+o.body+'</div></div>';
 }
 
@@ -5065,7 +5164,7 @@ function trafficLegend(){
 
 window.TPUI={blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
-  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText};
+  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,splitBtn,splitRail,splitGut};
 })();
 
 </script>
@@ -5627,7 +5726,18 @@ function renderBlock(S,expanded,mixOpen,view){
      левая колонка становится шире — иначе главная метрика и «К базе» уезжали
      за край панели под горизонтальную прокрутку. */
   const wideL=mets.length+(D.comparable(mainK)||D.kpiFor(mainK,S)?1:0)>=7;
-  h+='<div class="split'+(wideL?' wide-l':'')+'">';
+  /* Ширина колонок — выбор пользователя (итерация 30, механика HRBP HUB):
+     m-both / m-table / m-charts — обе колонки или одна во всю ширину, share —
+     доля таблицы после перетаскивания разделителя (null — раскладка по умолчанию).
+     Разметка всегда полная — полосы, разделитель, обе панели, — а что видно,
+     решает CSS: ниже 1121px (широкой таблице — 1241px) колонки и так одна под
+     другой, и сворачивать там нечего. */
+  const sp=view&&view.split||{};
+  const mode=sp.mode==='table'||sp.mode==='charts'?sp.mode:'both', share=sp.share!=null?sp.share:null;
+  const subName=(mod.subTabs.find(t=>t[0]===S.subTab)||[])[1]||mod.title(S.subTab);
+  h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'"'+
+    (share!=null?' style="--split-l:'+(share*100).toFixed(2)+'fr;--split-r:'+((1-share)*100).toFixed(2)+'fr"':'')+'>'+
+    U.splitRail('l','Подразделения');
 
   /* Состояние каретки ИТОГО: пока раскрыто не всё — она предлагает раскрыть,
      и только когда раскрыты все раскрываемые строки — свернуть. */
@@ -5703,9 +5813,10 @@ function renderBlock(S,expanded,mixOpen,view){
      переходом. Пока взят срез состава, подзаголовок говорит о нём. */
   h+=U.panel({cls:'split-l',title:'Подразделения',
     subHtml:slice.length?esc('численность по срезу: '+D.sliceLabel(selIds))
-      :'три уровня вниз · глубже: выберите строку и откройте юнит '+U.icoOpen(),
+      :'три уровня вниз · глубже — откройте юнит '+U.icoOpen(),
+    hBtn:U.splitBtn('table',mode,'Подразделения'),
     tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'}),
-    body:tbl,bodyCls:'tbl-wrap'});
+    body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share);
 
   /* 5b · правая панель — содержимое блока */
   const ctx={S,b,sub:S.subTab,lp:rowLeaves(sel,S),rl,bl,rows:baseRows,root,sel,
@@ -5714,7 +5825,9 @@ function renderBlock(S,expanded,mixOpen,view){
      с её именем, там, куда смотрят, читая её графики. */
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
     subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+U.openUnitBtn(sel,selNode.name,'Открыть юнит'):' · всё подразделение'),
-    tabs:U.subTabs(mod.subTabs,S.subTab),body:mod.view(ctx)});
+    hBtn:U.splitBtn('charts',mode,subName),
+    tabs:U.subTabs(mod.subTabs,S.subTab),body:mod.view(ctx)})+
+    U.splitRail('r',subName);
 
   return h+'</div>';
 }
@@ -6687,6 +6800,12 @@ const mixOpen=new Set();
 const unitBack=[];
 /* поиск по сводной таблице подразделений — тоже состояние показа */
 let tq='';
+/* Ширина колонок рабочей зоны (итерация 30): режим — обе колонки ('both')
+   или одна во всю ширину ('table' / 'charts'), доля таблицы после
+   перетаскивания разделителя (null — раскладка по умолчанию). Один выбор
+   на все блоки: «мне нужно больше таблицы» — предпочтение, а не свойство
+   вкладки. В ссылку не едет, как и раскрытия. */
+let splitMode='both', splitShare=null;
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -6944,7 +7063,7 @@ function render(keepScroll,quiet){
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
     ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded,mixOpen,{tq});
+    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   stickTotals();
@@ -6965,6 +7084,57 @@ function stickTotals(){
     if(h)t.style.setProperty('--thead-h',Math.round(h)+'px');
   });
 }
+
+/* ---------- разделитель «таблица | графики» ----------
+   Тянется мышью или пальцем: доля пишется в переменные сетки на лету, без
+   render(), графики перемеряются под новую ширину раз в 60 мс и ещё раз —
+   когда отпустили. Каждой колонке остаётся минимум 340px. */
+function splitBounds(box){
+  const room=box.getBoundingClientRect().width-16;
+  return [Math.max(.2,340/room),Math.min(.8,1-340/room)];
+}
+function applySplit(box,share){
+  const gut=box.querySelector('[data-split]');
+  if(share==null){
+    box.classList.remove('custom');
+    box.style.removeProperty('--split-l');box.style.removeProperty('--split-r');
+    if(gut)gut.removeAttribute('aria-valuenow');
+    return;
+  }
+  box.classList.add('custom');
+  box.style.setProperty('--split-l',(share*100).toFixed(2)+'fr');
+  box.style.setProperty('--split-r',((1-share)*100).toFixed(2)+'fr');
+  if(gut)gut.setAttribute('aria-valuenow',String(Math.round(share*100)));
+}
+function relayout(){G.remeasure($('#view'));stickTotals()}
+let _sd=null;
+document.addEventListener('pointerdown',e=>{
+  const gut=e.target.closest&&e.target.closest('[data-split]');
+  if(!gut||e.button>0)return;
+  const box=gut.parentNode, r=box.getBoundingClientRect(), b=splitBounds(box);
+  e.preventDefault();
+  try{gut.setPointerCapture(e.pointerId)}catch(_){}
+  document.body.classList.add('split-drag');
+  const move=ev=>{
+    splitShare=Math.max(b[0],Math.min(b[1],(ev.clientX-r.left-8)/(r.width-16)));
+    applySplit(box,splitShare);
+    if(!_sd)_sd=setTimeout(()=>{_sd=null;relayout()},60);
+  };
+  const up=()=>{
+    gut.removeEventListener('pointermove',move);
+    gut.removeEventListener('pointerup',up);gut.removeEventListener('pointercancel',up);
+    document.body.classList.remove('split-drag');
+    clearTimeout(_sd);_sd=null;relayout();
+  };
+  gut.addEventListener('pointermove',move);
+  gut.addEventListener('pointerup',up);gut.addEventListener('pointercancel',up);
+});
+/* двойной клик по разделителю — раскладка по умолчанию */
+document.addEventListener('dblclick',e=>{
+  const gut=e.target.closest&&e.target.closest('[data-split]');
+  if(!gut)return;
+  splitShare=null;applySplit(gut.parentNode,null);relayout();
+});
 
 /* ---------- мини-навигация One-pager: какой блок сейчас на экране ----------
    Текущим считается последний блок, чей заголовок уже прошёл под липкую полосу. */
@@ -7065,6 +7235,9 @@ document.addEventListener('click',e=>{
   }
   const ex=t.closest('[data-exp]');
   if(ex){e.stopPropagation();const p=ex.dataset.exp;expanded.has(p)?expanded.delete(p):expanded.add(p);render(true);return}
+  /* «во всю ширину» и полоса свёрнутой панели — один обработчик: режим едет в атрибуте */
+  const smode=t.closest('[data-splitmode]');
+  if(smode){splitMode=smode.dataset.splitmode;render(true);return}
   /* «Открыть юнит» живёт ВНУТРИ строки .urow — проверка строго до неё, иначе
      клик по иконке снимал бы выбор строки вместо перехода */
   const ou=t.closest('[data-openunit]');
@@ -7189,6 +7362,14 @@ document.addEventListener('keydown',e=>{
       }
       return;
     }
+  }
+  /* разделитель с клавиатуры: ← → по 5% */
+  if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&e.target.matches&&e.target.matches('[data-split]')){
+    e.preventDefault();
+    const box=e.target.parentNode, b=splitBounds(box), l=box.querySelector('.split-l');
+    const cur=splitShare!=null?splitShare:l.getBoundingClientRect().width/(box.getBoundingClientRect().width-16);
+    splitShare=Math.max(b[0],Math.min(b[1],cur+(e.key==='ArrowRight'?.05:-.05)));
+    applySplit(box,splitShare);relayout();return;
   }
   /* Escape в поле поиска сначала очищает поиск */
   if(e.key==='Escape'&&tq&&e.target.matches&&e.target.matches('[data-tsearch]')){searchInput('',0);return}

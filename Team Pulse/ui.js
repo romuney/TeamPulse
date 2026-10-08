@@ -143,6 +143,45 @@ function openUnitBtn(path,name,label){
       note:'Вернуться — «← Назад» или путь над отчётом.'})+'>'+icoOpen()+(label?esc(label):'')+'</button>';
 }
 
+/* ---------- Ширина колонок рабочей зоны (итерация 30, механика HRBP HUB) ----------
+   Таблицу и графики можно развести иначе: потянуть разделитель между ними
+   или развернуть одну панель во всю ширину. Свёрнутая панель не исчезает —
+   остаётся узкой полосой со своим именем, клик по ней возвращает обе колонки.
+   side — что разворачиваем: 'table' (таблица подразделений) или 'charts'. */
+function icoExpand(){
+  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>';
+}
+function icoShrink(){
+  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7"/></svg>';
+}
+function splitBtn(side,mode,name){
+  const wide=mode===side;
+  const lbl=wide?'Вернуть две колонки':name+' во всю ширину';
+  return '<button class="split-btn'+(wide?' on':'')+'" data-splitmode="'+(wide?'both':side)+'" aria-label="'+esc(lbl)+'"'+
+    tipAttr({title:lbl,text:wide?'Таблица подразделений слева, содержимое вкладки справа.'
+      :(side==='table'?'Правая панель':'Таблица подразделений')+' свернётся в полосу у края — клик по ней вернёт обе колонки.',
+      note:'Ширину колонок можно и тянуть — за разделитель между ними; двойной клик возвращает как было.'})+'>'+
+    (wide?icoShrink():icoExpand())+'</button>';
+}
+/* Свёрнутая панель — полоса с именем: что там лежит, видно и без клика.
+   pos — у какого края стоит полоса: 'l' (слева) или 'r' (справа). */
+function splitRail(pos,label){
+  return '<button class="split-rail '+pos+'" data-splitmode="both" aria-label="Показать: '+esc(label)+'"'+
+    tipAttr({title:label,text:'Вернуть две колонки: таблица слева, графики справа.'})+
+    '><i aria-hidden="true">'+(pos==='l'?'▸':'◂')+'</i><span>'+esc(label)+'</span></button>';
+}
+/* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
+   его с клавиатуры, двойной клик возвращает ширину по умолчанию. */
+function splitGut(share){
+  return '<div class="split-gut" data-split="1" role="separator" aria-orientation="vertical" '+
+    'aria-label="Ширина таблицы подразделений" aria-valuemin="20" aria-valuemax="80"'+
+    (share!=null?' aria-valuenow="'+Math.round(share*100)+'"':'')+' tabindex="0"'+
+    tipAttr({title:'Ширина колонок',text:'Потяните, чтобы дать больше места таблице или графикам.',
+      note:'Двойной клик — как было; стрелки ← → — с клавиатуры.'})+'><i></i></div>';
+}
+
 /* ---------- Поиск по таблице ----------
    Ищет среди показанного — трёх уровней вниз от юнита отчёта, без запроса.
    Находка выводится вместе с предками: «Группа поддержки» без родителя не
@@ -543,13 +582,16 @@ function sliceNote(parts,extra){
 
 /* ---------- Панель с шапкой ---------- */
 /* subHtml — подзаголовок с разметкой (кнопка «Открыть юнит», иконка в
-   подсказке о глубине); обычный sub по-прежнему экранируется. */
+   подсказке о глубине); обычный sub по-прежнему экранируется.
+   hBtn — кнопка в углу заголовка («во всю ширину»): стоит поверх своего
+   поля справа и не отнимает места у поиска и вкладок — иначе шапка росла
+   на строку. */
 function panel(o){
   const tabs=o.tabs||'';
   const sub=o.subHtml?o.subHtml:o.sub?esc(o.sub):'';
   return '<div class="panel'+(o.cls?' '+o.cls:'')+'">'+
-    (o.title?'<div class="panel-h'+(tabs?' with-tabs':'')+'"><div class="h-txt"><span>'+o.title+'</span>'+
-      (sub?'<span class="sub">'+sub+'</span>':'')+'</div>'+tabs+'</div>':'')+
+    (o.title?'<div class="panel-h'+(tabs?' with-tabs':'')+'"><div class="h-txt'+(o.hBtn?' has-btn':'')+'"><span>'+o.title+'</span>'+
+      (sub?'<span class="sub">'+sub+'</span>':'')+(o.hBtn||'')+'</div>'+tabs+'</div>':'')+
     '<div class="panel-b'+(o.bodyCls?' '+o.bodyCls:'')+'">'+o.body+'</div></div>';
 }
 
@@ -712,5 +754,5 @@ function trafficLegend(){
 
 window.TPUI={blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
-  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText};
+  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,splitBtn,splitRail,splitGut};
 })();
