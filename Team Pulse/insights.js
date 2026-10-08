@@ -33,6 +33,8 @@ function build(ctx){
      некуда проверить — её нет ни в таблице, ни в KPI-карточках */
   D.visibleMetricsOfBlock(b.key,S).forEach(m=>{
     if(m.better==='flat')return;
+    /* пробник: у заглушки («демо») выводов нет — цифра сгенерирована */
+    if(D.isStub(m.key))return;
     const ser=D.aggregate(rl,m.key), v=ser[D.LAST];
     /* доля без знаменателя (в окне не было ни одного найма) — фактов нет */
     if(v==null)return;
@@ -96,7 +98,7 @@ function html(ctx){
        отбор прошёл, просто ничего выше порогов не нашлось. Поэтому здесь такая
        же AI-плашка, а не серая строчка: место подсказки на экране одно и то
        же на всех вкладках, и раскрывается оно везде одинаково. */
-    const vis=D.visibleMetricsOfBlock(b.key,S);
+    const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key));
     const hasCmp=vis.some(m=>D.comparable(m.key));
     const nChk=vis.filter(m=>m.better!=='flat').length;
     const lead=hasCmp

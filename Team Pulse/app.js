@@ -10,7 +10,15 @@
    Если правишь конкретный экран — файл этого экрана в screens/, а не здесь.
    ========================================================================== */
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS, M=window.TPMASCOT;
-const $=s=>document.querySelector(s);
+/* Чарт Proteus (итерация 31): proteus/prelude.js кладёт в window.TP_ENV корень
+   отчёта внутри хоста ECharts, прокручиваемый контейнер, хранилище, которое
+   переживает перезапуск скрипта на каждый ответ датасета, регистрацию слушателей
+   и отправку кросс-фильтра. Без TP_ENV — обычная страница макета. */
+const ENV=window.TP_ENV||null;
+const ROOTEL=ENV?ENV.root:document, STORE=ENV?ENV.store:null;
+const $=s=>ROOTEL.querySelector(s);
+const $$=s=>ROOTEL.querySelectorAll(s);
+const on=(t,type,fn,opt)=>ENV?ENV.on(t,type,fn,opt):t.addEventListener(type,fn,opt);
 const esc=U.esc;
 
 /* ---------- состояние ---------- */
@@ -20,15 +28,20 @@ let S=Object.assign({},D.DEFAULT_STATE,{hiddenMetrics:D.DEFAULT_STATE.hiddenMetr
   mixSel:D.DEFAULT_STATE.mixSel.slice()});
 let DRAFT=null;              /* черновик фильтров в модалке */
 let pulseOpen=false;         /* раскрыт ли словарь метрик Пульса */
-const openRows=new Set();    /* раскрытые строки OnePager */
-const expanded=new Set();    /* раскрытые узлы в сводной таблице */
+/* В Proteus множества и стек живут в хранилище TP_ENV: скрипт перезапускается
+   на каждый ответ датасета, а раскрытия и выбор вкладки терять нельзя */
+const keep=(k,v)=>STORE?(STORE[k]||(STORE[k]=v)):v;
+const openRows=keep('openRows',new Set());    /* раскрытые строки OnePager */
+const expanded=keep('expanded',new Set());    /* раскрытые узлы в сводной таблице */
 /* раскрытые стримы в двухуровневой разбивке состава. Живёт рядом с expanded и
    по той же причине: это состояние показа, а не отчёта, и в ссылку не едет */
-const mixOpen=new Set();
+const mixOpen=keep('mixOpen',new Set());
 /* «← Назад»: юниты отчёта до переходов, не больше 10 (механика HRBP HUB).
    Состояние показа, как expanded: в ссылку не едет — по ссылке открывается
    юнит, а не история того, как к нему пришли. */
-const unitBack=[];
+const unitBack=keep('unitBack',[]);
+/* имена юнитов из стека: после перехода прежнего юнита в ответе датасета нет */
+const unitNames=keep('unitNames',{});
 /* поиск по сводной таблице подразделений — тоже состояние показа */
 let tq='';
 /* Ширина колонок рабочей зоны (итерация 30): режим — обе колонки ('both')
@@ -55,6 +68,7 @@ function urlParams(){
   return p;
 }
 function readURL(){
+  if(ENV)return;
   const q=new URLSearchParams(location.search);
   const map={unit:'unit',paint:'paint',it:'itSeg',staff:'staffType',tab:'tab',sub:'subTab'};
   Object.entries(map).forEach(([k,f])=>{const v=q.get(k);if(v)S[f]=v});
@@ -72,7 +86,8 @@ function readURL(){
   if(dyn==='yoy'||dyn==='roll')S.dyn=dyn;
   if(!D.NODE_BY_PATH[S.unit])S.unit=D.DEFAULT_STATE.unit;
 }
-function writeURL(){history.replaceState(null,'','?'+urlParams().toString())}
+/* в Proteus адресной строки у чарта нет: состояние живёт в TP_ENV.store */
+function writeURL(){if(ENV)return;history.replaceState(null,'','?'+urlParams().toString())}
 function shareLink(){return location.origin+location.pathname+'?'+urlParams().toString()}
 
 /* ---------- переход к юниту ----------
@@ -86,6 +101,7 @@ function pushBack(p){
   if(unitBack.length>10)unitBack.shift();
 }
 function goUnit(p,back){
+  if(ENV){requestUnit(p,back);return}
   if(!D.NODE_BY_PATH[p]||p===S.unit)return;
   if(!back)pushBack(S.unit);
   S.unit=p;S.selNode=null;
@@ -93,10 +109,104 @@ function goUnit(p,back){
   render();
 }
 
+/* ---------- Proteus: юнит и фильтры меняет датасет ----------
+   В ответе датасета — три уровня под выбранным юнитом, фильтры применил SQL.
+   Поэтому переход в юнит и смена фильтра — кросс-фильтр самому себе, как в
+   HRBP HUB: чарт шлёт маску целиком, Proteus перезапрашивает датасет и
+   перезапускает скрипт с новым ответом, а состояние показа ждёт в TP_ENV.store.
+   Пока ответа нет, отчёт показывает прежний юнит, приглушённый, с чипом
+   «Загружаю…». */
+function unitId(p){
+  if(!p)return null;
+  if(p==='T')return D.REAL.rootId;
+  const last=p.split('/').pop();
+  return last==='·'?null:last;
+}
+function curReq(){return {unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType}}
+let _pendT=null;
+function request(next){
+  const id=unitId(next.unit);
+  if(!id)return;
+  const mask=[];
+  /* юнит по умолчанию не шлём: ответ без фильтра юнита общий для всех */
+  if(id!==D.REAL.defId)mask.push({column:'unit_f',operator:'IN',value:[id]});
+  [['paint','paint_f'],['itSeg','it_f'],['staffType','staff_f']].forEach(([k,col])=>{
+    const v=next[k]!=='all'?D.REAL.filterValue(k,next[k]):null;
+    if(v)mask.push({column:col,operator:'IN',value:[v]});
+  });
+  const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
+  unitNames[next.unit]=nm;
+  unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||unitNames[S.unit]||'';
+  STORE.pending={unit:next.unit,name:nm,at:Date.now()};
+  STORE.warn='';
+  if(!ENV.emit(mask)){
+    STORE.pending=null;
+    STORE.warn='Фильтры не применились: здесь нет кросс-фильтра — откройте чарт на дашборде.';
+  }
+  ROOTEL.classList.toggle('tp-busy',!!STORE.pending);
+  /* ответа нет 45 секунд — говорим об этом, а не ждём молча */
+  clearTimeout(_pendT);
+  _pendT=setTimeout(()=>{
+    if(!STORE.pending)return;
+    STORE.pending=null;ROOTEL.classList.remove('tp-busy');
+    STORE.warn='Ответ не пришёл за 45 секунд. Проверьте кросс-фильтры чарта в настройках дашборда.';
+    renderHead();
+  },45000);
+  renderHead();
+}
+function requestUnit(p,back){
+  if(p===S.unit||!unitId(p))return;
+  if(!back)pushBack(S.unit);
+  request(Object.assign(curReq(),{unit:p}));
+}
+/* Пришёл ответ: юнит и фильтры — те, что применил датасет (DEFAULT_STATE в
+   режиме пробника). Сменился юнит — раскрытия, выбор строки и поиск относятся
+   к прежнему дереву и сбрасываются; вкладка, метрики и раскладка остаются. */
+function arrive(){
+  const prev=STORE.S;
+  if(prev){
+    Object.assign(S,prev,{unit:D.DEFAULT_STATE.unit,paint:D.DEFAULT_STATE.paint,
+      itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType});
+    const ui=STORE.ui||{};
+    tq=ui.tq||'';splitMode=ui.splitMode||'both';splitShare=ui.splitShare!=null?ui.splitShare:null;
+    if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
+  }
+  const pend=STORE.pending;
+  STORE.pending=null;clearTimeout(_pendT);
+  ROOTEL.classList.remove('tp-busy');
+  if(pend)STORE.warn=pend.unit!==S.unit&&D.REAL.scopeId!==unitId(pend.unit)
+    ?'«'+(pend.name||'Юнит')+'» не открылся: его нет в данных последнего полного месяца.':'';
+  if(D.REAL.truncated)STORE.warn='Ответ датасета обрезан лимитом строк чарта — часть подразделений не показана. '+
+    'Поднимите «Лимит строк» в настройках чарта.';
+  if(D.REAL.noMeta)STORE.warn='В ответе нет служебной строки meta: датасет не тот или «Лимит строк» слишком мал.';
+  if(D.REAL.missing.length)STORE.warn='В данных чарта нет колонок: '+D.REAL.missing.join(', ')+
+    ' — добавьте их в «Измерения» чарта.';
+  unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||'';
+  const bl=$('#btnLink');if(bl)bl.style.display='none';
+  ROOTEL.classList.add('tp-pilot');
+  const lg=$('.logo small');if(lg)lg.textContent='Hub · пробник';
+  const ph=$('#planHost');
+  if(ph&&window.TPREAL)ph.innerHTML=U.planTable(window.TPREAL.PLAN);
+}
+/* Чипы пробника в шапке: ожидание ответа, предупреждение и что здесь живое */
+function pilotChips(){
+  let h='';
+  const p=STORE.pending;
+  if(p)h+='<span class="chip busy">Загружаю «'+esc(p.name||'…')+'»…</span>';
+  if(STORE.warn)h+='<span class="chip warn">'+esc(STORE.warn)+'</span>';
+  h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на живых данных',
+    text:'Живое — из hr_structure_overall: численность, найм, увольнения, переводы, текучесть, regret '+
+      'и оценки перформанса. Метрики и разбивки с пометкой «демо» — заглушки до подключения своих источников.',
+    note:'Данные — по '+D.CMP.cur+' включительно: текущий месяц неполный и в отчёт не идёт.'})+
+    '>Пробник · «демо» — заглушки</span>';
+  return h;
+}
+
 /* ---------- шапка и навигация ---------- */
 function renderHead(){
   const n=D.NODE_BY_PATH[S.unit], par=D.NODE_BY_PATH[n.parent];
-  const prev=D.NODE_BY_PATH[unitBack[unitBack.length-1]];
+  const pp=unitBack[unitBack.length-1];
+  const prev=D.NODE_BY_PATH[pp]||(pp&&unitNames[pp]?{name:unitNames[pp]}:null);
   /* «← Назад» и «↑ Уровнем выше» стоят перед путём: путь отвечает «где я»,
      кнопки — «как вернуться». Предки в пути кликабельны, как и раньше. */
   const nav=(prev?'<button class="nb" data-uback="1"'+U.tipAttr({title:'Назад',
@@ -117,12 +227,13 @@ function renderHead(){
     U.tipAttr({title:'Снять разрез',text:c.label})+'>×</button></span>').join('');
   html+='<span class="chip bench">Сравнение: <b>'+esc(D.benchmarkLabel(S))+'</b></span>';
   /* после перехода в отдел команд в отборе бывает одна — «1 команд» не пишем */
-  const nT=D.reportLeaves(S).length;
-  html+='<span class="chip bench">'+D.fmtInt(nT)+' '+U.plural(nT,['команда','команды','команд'])+' в отборе</span>';
+  const nT=D.unitsInScope(S);
+  html+='<span class="chip bench">'+D.fmtInt(nT)+' '+U.plural(nT,D.UNIT_WORDS)+(ENV?' в таблице':' в отборе')+'</span>';
   /* Период — чипом рядом с базой, а не отдельной плашкой справа: плашка
      повторяла свежесть данных в шапке и забирала место у кнопок. Здесь он
      остаётся и в печатной версии, где шапка приложения скрыта. */
   html+='<span class="chip bench">Период: <b>'+esc(D.PERIOD_LABEL)+'</b></span>';
+  if(ENV)html+=pilotChips();
   $('#chips').innerHTML=html;
   const fr=$('#freshness');
   if(fr)fr.innerHTML='<span class="dot"></span>закрытый месяц <b>'+esc(D.CMP.cur)+'</b>';
@@ -133,7 +244,7 @@ function renderNav(){
     /* точка у пункта — худший сигнал блока, тем же цветом, что в мини-навигации
        One-pager: в какой блок идти, видно с любой вкладки */
     '<button class="nav-i'+(S.tab===b.key?' active':'')+'" data-tab="'+b.key+'"><span class="ico sig-'+D.blockSignal(b.key,S).state+'"></span>'+esc(b.name)+'</button>').join('');
-  document.querySelectorAll('.nav-i[data-tab="onepager"]').forEach(b=>b.classList.toggle('active',S.tab==='onepager'));
+  $$('.nav-i[data-tab="onepager"]').forEach(b=>b.classList.toggle('active',S.tab==='onepager'));
 }
 
 /* ---------- маскот ----------
@@ -177,7 +288,18 @@ function openSetup(){
      перехода в отдел или команду их нет среди первых четырёх уровней, и
      «Применить» молча вернуло бы отчёт на первую строку списка. */
   const path=new Set(D.ancestorsOf(S.unit).map(a=>a.path));
-  const opts=D.NODES.filter(n=>n.level<=4||path.has(n.path)).sort((a,b)=>a.sort-b.sort);
+  /* В пробнике уровней одиннадцать, и порядок узлов в модели не древесный:
+     список — обходом дерева, четыре верхних уровня плюс путь; строки
+     «Напрямую в «X»» — не юниты, их в списке нет. */
+  const opts=ENV?(function(){
+    const out=[], top=D.ROOT.level||1;
+    (function walk(n){
+      if(!n||n.direct)return;
+      if(n.level<=top+3||path.has(n.path))out.push(n);
+      D.childrenOf(n.path).forEach(walk);
+    })(D.ROOT);
+    return out;
+  })():D.NODES.filter(n=>n.level<=4||path.has(n.path)).sort((a,b)=>a.sort-b.sort);
   $('#selUnit').innerHTML=opts.map(n=>
     '<option value="'+n.path+'"'+(n.path===DRAFT.unit?' selected':'')+'>'+
     ' '.repeat((n.level-1)*3)+esc(n.name)+'</option>').join('');
@@ -194,7 +316,7 @@ function paintOpts(){
   metricOpts();
   const d=Object.assign({},S,DRAFT);
   const rl=D.reportLeaves(d), bl=D.benchmarkLeaves(d);
-  $('#benchPreview').innerHTML='Ваша команда: <b>'+esc(D.NODE_BY_PATH[d.unit].name)+'</b>, '+D.fmtInt(rl.length)+' команд, '+
+  $('#benchPreview').innerHTML='Ваша команда: <b>'+esc(D.NODE_BY_PATH[d.unit].name)+'</b>, '+D.fmtInt(D.unitsInScope(d))+' '+U.plural(D.unitsInScope(d),D.UNIT_WORDS)+', '+
     D.fmtVal('hc_total',D.lastVal(rl,'hc_total'))+' чел.<br>Все метрики будут сравниваться с базой <b>'+
     esc(D.benchmarkLabel(d))+'</b> — '+D.fmtVal('hc_total',D.lastVal(bl,'hc_total'))+' чел.';
 }
@@ -256,6 +378,17 @@ function toggleMetric(key){
 }
 function closeSetup(){$('#setupOvl').classList.add('hidden');DRAFT=null}
 function applySetup(){
+  /* в Proteus юнит и фильтры меняет датасет: уходит кросс-фильтр, а выбор
+     метрик — состояние показа, он применяется сразу */
+  if(ENV){
+    const changed=DRAFT.unit!==S.unit||DRAFT.paint!==S.paint||DRAFT.itSeg!==S.itSeg||DRAFT.staffType!==S.staffType;
+    S.hiddenMetrics=DRAFT.hiddenMetrics.slice();
+    if(S.mainMetric&&!D.metricVisible(S.mainMetric,S))S.mainMetric=null;
+    const next={unit:DRAFT.unit,paint:DRAFT.paint,itSeg:DRAFT.itSeg,staffType:DRAFT.staffType};
+    openRows.clear();closeSetup();
+    if(changed){if(next.unit!==S.unit)pushBack(S.unit);request(next)}else render();
+    return;
+  }
   /* смена юнита в модалке — тоже переход: прежний уходит в «← Назад» */
   if(DRAFT.unit!==S.unit){pushBack(S.unit);S.selNode=null;expanded.clear();tq=''}
   Object.assign(S,DRAFT);
@@ -271,9 +404,9 @@ function navOpen(on){
   btn.setAttribute('aria-expanded',String(on));
 }
 function enhanceA11y(){
-  document.querySelectorAll('.nav-i').forEach(x=>{x.setAttribute('aria-current',x.classList.contains('active')?'page':'false')});
-  document.querySelectorAll('.mrow,.urow,.mx-cell').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button')});
-  document.querySelectorAll('.ai-h').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button');x.setAttribute('aria-expanded',String(S.aiOpen===x.dataset.ai))});
+  $$('.nav-i').forEach(x=>{x.setAttribute('aria-current',x.classList.contains('active')?'page':'false')});
+  $$('.mrow,.urow,.mx-cell').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button')});
+  $$('.ai-h').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button');x.setAttribute('aria-expanded',String(S.aiOpen===x.dataset.ai))});
 }
 
 /* ---------- роутер ----------
@@ -286,7 +419,8 @@ function enhanceA11y(){
 /* quiet=true — перерисовка без анимации графиков: набор в поиске по таблице
    перерисовывает экран на каждую букву, и линии не должны рисоваться заново. */
 function render(keepScroll,quiet){
-  const y=keepScroll?(window.pageYOffset||0):0;
+  const sc=ENV?ENV.scroller:null;
+  const y=keepScroll?(sc?sc.scrollTop:(window.pageYOffset||0)):0;
   /* вкладка скрытого (или несуществующего) блока — уводим на one-pager. Одна
      точка на всё: и ссылка с ?tab=tgrowth&hide=…, и отключение метрик в модалке */
   if(S.tab!=='onepager'&&!(D.BLOCK_BY_KEY[S.tab]&&D.blockVisible(S.tab,S))){S.tab='onepager';S.subTab=null}
@@ -300,9 +434,11 @@ function render(keepScroll,quiet){
   stickTotals();
   renderMascot();
   enhanceA11y();navOpen(false);
-  if(keepScroll)window.scrollTo(0,y);
+  if(sc){if(keepScroll)sc.scrollTop=y;else if(sc.scrollTo)sc.scrollTo({top:0,behavior:'smooth'})}
+  else if(keepScroll)window.scrollTo(0,y);
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
+  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
 }
 
 /* Липкий ИТОГО встаёт ровно под шапку таблицы. Шапка переносится по словам
@@ -310,7 +446,7 @@ function render(keepScroll,quiet){
    итога — с деревом на три уровня таблица прокручивается внутри панели
    чаще, и это стало видно. Высоту шапки меряем после отрисовки и на ресайз. */
 function stickTotals(){
-  document.querySelectorAll('.ptable.dense').forEach(t=>{
+  $$('.ptable.dense').forEach(t=>{
     const h=t.tHead?t.tHead.getBoundingClientRect().height:0;
     if(h)t.style.setProperty('--thead-h',Math.round(h)+'px');
   });
@@ -339,7 +475,7 @@ function applySplit(box,share){
 }
 function relayout(){G.remeasure($('#view'));stickTotals()}
 let _sd=null;
-document.addEventListener('pointerdown',e=>{
+on(document,'pointerdown',e=>{
   const gut=e.target.closest&&e.target.closest('[data-split]');
   if(!gut||e.button>0)return;
   const box=gut.parentNode, r=box.getBoundingClientRect(), b=splitBounds(box);
@@ -361,7 +497,7 @@ document.addEventListener('pointerdown',e=>{
   gut.addEventListener('pointerup',up);gut.addEventListener('pointercancel',up);
 });
 /* двойной клик по разделителю — раскладка по умолчанию */
-document.addEventListener('dblclick',e=>{
+on(document,'dblclick',e=>{
   const gut=e.target.closest&&e.target.closest('[data-split]');
   if(!gut)return;
   splitShare=null;applySplit(gut.parentNode,null);relayout();
@@ -372,18 +508,18 @@ document.addEventListener('dblclick',e=>{
 let _spy=0;
 function spyBlocks(){
   _spy=0;
-  const nav=document.querySelector('.op-nav');
+  const nav=$('.op-nav');
   if(!nav)return;
   const edge=nav.getBoundingClientRect().bottom+48;   /* с запасом на отступ прыжка */
   let cur=null;
-  document.querySelectorAll('.block-h[id^="op-"]').forEach(h=>{if(h.getBoundingClientRect().top<=edge)cur=h.id.slice(3)});
+  $$('.block-h[id^="op-"]').forEach(h=>{if(h.getBoundingClientRect().top<=edge)cur=h.id.slice(3)});
   nav.querySelectorAll('[data-jump]').forEach(b=>b.classList.toggle('on',b.dataset.jump===cur));
 }
-window.addEventListener('scroll',()=>{if(!_spy)_spy=requestAnimationFrame(spyBlocks)},{passive:true});
+on(ENV?ENV.scroller:window,'scroll',()=>{if(!_spy)_spy=requestAnimationFrame(spyBlocks)},{passive:true});
 
 /* перерисовка графиков под новую ширину окна, без пересчёта данных */
 let _rz=null;
-window.addEventListener('resize',()=>{
+on(window,'resize',()=>{
   clearTimeout(_rz);_rz=setTimeout(()=>{G.remeasure($('#view'));stickTotals()},140);
 });
 
@@ -391,7 +527,7 @@ window.addEventListener('resize',()=>{
    Все слушатели висят на document, поэтому stopPropagation внутри одного
    не глушит соседей. Порядок проверок внутри обработчика важен: более
    специфичные цели проверяются раньше общих (.urow ловит всё подряд). */
-document.addEventListener('click',e=>{
+on(document,'click',e=>{
   const t=e.target;
 
   /* Словарь Пульса закрывается кликом мимо. Проверка стоит ПЕРВОЙ и без
@@ -442,7 +578,7 @@ document.addEventListener('click',e=>{
      году» в текучести — в мониторинге тоже год, иначе соседние экраны
      оказались бы в разных календарях */
   const jp=t.closest('[data-jump]');
-  if(jp){const el=document.getElementById('op-'+jp.dataset.jump);
+  if(jp){const el=$('#op-'+jp.dataset.jump);
     if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
   const dy=t.closest('[data-dyn]');
   if(dy){S.dyn=dy.dataset.dyn;render(true);return}
@@ -451,7 +587,10 @@ document.addEventListener('click',e=>{
   if(cr){goUnit(cr.dataset.crumb);return}
   if(t.closest('[data-uback]')){const p=unitBack.pop();if(p)goUnit(p,true);return}
   const un=t.closest('[data-unchip]');
-  if(un){S[un.dataset.unchip]='all';render();return}
+  if(un){
+    if(ENV){request(Object.assign(curReq(),{[un.dataset.unchip]:'all'}));return}
+    S[un.dataset.unchip]='all';render();return;
+  }
 
   /* дерево подразделений.
      Каретка ИТОГО ходит первой: одна кнопка на всё дерево, а не на свою строку.
@@ -547,11 +686,11 @@ function searchInput(v,pos){
   const n=$('[data-tsearch]');
   if(n&&n.focus){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}
 }
-document.addEventListener('input',e=>{
+on(document,'input',e=>{
   const s=e.target.closest&&e.target.closest('[data-tsearch]');
   if(s)searchInput(s.value,s.selectionStart);
 });
-document.addEventListener('change',e=>{
+on(document,'change',e=>{
   if(e.target.id==='selUnit'&&DRAFT){DRAFT.unit=e.target.value;paintOpts();return}
   const ax=e.target.closest&&e.target.closest('[data-mixaxis]');
   if(ax){
@@ -572,11 +711,11 @@ function lgHover(e,on){
   const box=lg.closest('.svgchart');
   if(box)G.highlight(box,on?lg.getAttribute('data-sid'):null);
 }
-document.addEventListener('mouseover',e=>lgHover(e,true));
-document.addEventListener('mouseout',e=>lgHover(e,false));
-document.addEventListener('focusin',e=>lgHover(e,true));
-document.addEventListener('focusout',e=>lgHover(e,false));
-document.addEventListener('keydown',e=>{
+on(document,'mouseover',e=>lgHover(e,true));
+on(document,'mouseout',e=>lgHover(e,false));
+on(document,'focusin',e=>lgHover(e,true));
+on(document,'focusout',e=>lgHover(e,false));
+on(document,'keydown',e=>{
   if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.ai-h,.mx-cell')){e.preventDefault();e.target.click()}
   /* У SVGElement может не быть .click() — зовём обработчик напрямую.
      После перерисовки узла больше нет, поэтому фокус возвращаем вручную. */
@@ -612,8 +751,10 @@ mountStaticMascots();
 /* ?tour=0 читаем ДО первого рендера: render() переписывает адрес своими
    параметрами, и после него флага в location.search уже нет — справка
    открывалась поверх скриншота, хотя её просили не показывать. */
-const noTour=location.search.indexOf('tour=0')>=0;
-readURL();render();
+const noTour=ENV?true:location.search.indexOf('tour=0')>=0;
+readURL();
+if(ENV)arrive();
+render();
 
 /* первый вход: справка «Как читать отчёт» работает онбордингом.
    ?tour=0 — не показывать: нужно, чтобы скриншот сразу показывал отчёт. */

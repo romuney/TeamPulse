@@ -9,14 +9,24 @@ function hashStr(s){let h=2166136261>>>0;for(let i=0;i<s.length;i++){h^=s.charCo
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 function rng(seed){return mulberry32(hashStr(seed))}
 
+/* ---------- Пробник Proteus (итерация 31) ----------
+   В чарте Proteus перед этим файлом загружается proteus/real.js, и prelude
+   кладёт в window.TP_REAL модель из ответа датасета: календарь, дерево юнитов
+   и ряды метрик, у которых есть источник (hr_structure_overall). Тогда месяцы,
+   дерево и эти ряды берутся оттуда, а метрики без источника генерируются как
+   в макете — по настоящей численности юнита — и помечены «демо» (isStub).
+   Без TP_REAL всё как было: макет на генераторе, smoke.js его и проверяет. */
+const REAL=(typeof window!=='undefined'&&window.TP_REAL)||null;
+
 /* ---------- Периоды: 12 мес (июль 2025 — июнь 2026) ---------- */
 const MONTH_ABBR=['янв.','февр.','март','апр.','май','июнь','июль','авг.','сент.','окт.','нояб.','дек.'];
 const MONTHS=(function(){
+  if(REAL)return REAL.months;
   const seq=[[2025,6],[2025,7],[2025,8],[2025,9],[2025,10],[2025,11],[2026,0],[2026,1],[2026,2],[2026,3],[2026,4],[2026,5]];
   return seq.map(([y,m])=>({y,m,label:MONTH_ABBR[m],isYearStart:m===0}));
 })();
 const N=MONTHS.length, LAST=N-1;
-const PERIOD_LABEL='июль 2025 — июнь 2026';
+const PERIOD_LABEL=REAL?REAL.periodLabel:'июль 2025 — июнь 2026';
 
 /* ---------- С чем сравнивается изменение ----------
    MoM и YoY — это конкретные два месяца, а не абстрактное «за месяц». Пока
@@ -53,8 +63,10 @@ const CMP={
 /* Расширенная сетка: 6 месяцев до окна (янв.–июнь 2025) + сами 12.
    Нужна только для накопительной текучести: YTD июля 2025 считается с января 2025,
    которого в окне нет. Наружу отдаются всегда 12 точек окна. */
-const PRE=6;
+const PRE=REAL?REAL.pre:6;
 const MONTHS_EXT=(function(){
+  /* в пробнике сетка — от января прошлого года до последнего полного месяца */
+  if(REAL)return REAL.monthsExt;
   const out=[];
   for(let m=0;m<PRE;m++)out.push({y:2025,m,label:MONTH_ABBR[m],isYearStart:m===0});
   return out.concat(MONTHS);
@@ -187,7 +199,28 @@ const METRICS=[
 {key:'ai_wau',block:'ai',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
   hint:'Уникальные пользователи AI-инструментов за неделю, в среднем по неделям месяца.'}
 ];
+/* Пробник: две метрики считаются из настоящих рядов, а не из генератора.
+   regret — как текучесть накопительная: сумма месячных долей нежелательных
+   увольнений к ССЧ с января (служебный ряд regret_m). low_perf — оценка
+   «низкая» среди оценённых (норма + низкая + высокая): «без оценки» в
+   знаменатель не идёт, иначе доля зависела бы от охвата ревью, а не от
+   результата. Остальным метрикам без источника — флаг stub («демо»). */
+if(REAL){
+  const ov={
+    regret:{ytd:'regret_m',anchor:null,
+      hint:'Нежелательные увольнения к среднесписочной численности, накопительно с января. По HQ есть KPI.'},
+    low_perf:{derived:{num:'plow',den:'prated',scale:100},anchor:null,
+      hint:'Доля оценки «низкая» среди оценённых в последнем цикле: норма, низкая и высокая. Без оценки — не в счёт.'}
+  };
+  METRICS.forEach(m=>{if(ov[m.key])Object.assign(m,ov[m.key]);if(REAL.stub.has(m.key))m.stub=true});
+}
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
+/* Служебные производные ряды: метрикой отчёта не являются, но считаются тем же
+   способом, что и метрики (числитель / знаменатель). */
+const SERVICE_DEF=REAL?{regret_m:{derived:{num:'regret_cnt',den:'hc_avg',scale:100}}}:{};
+function defOf(key){return METRIC_BY_KEY[key]||SERVICE_DEF[key]||{}}
+/* метрика без источника: в пробнике — заглушка на генераторе, «демо» в интерфейсе */
+function isStub(key){return !!(METRIC_BY_KEY[key]&&METRIC_BY_KEY[key].stub)}
 function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
 /* hc_avg метрикой отчёта не является, но в этом наборе остаётся: он управляет
    не только сравнимостью, но и способом агрегации (сумма, а не среднее). */
@@ -195,7 +228,9 @@ function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
    pf_plan — план закрытия вакансий, hire_jun — принятые джуны,
    rev_eval / rev_up — оценённые в цикле ревью и улучшившие оценку. */
 const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny',
-  'ai_wau','pf_plan','hire_jun','rev_eval','rev_up']);
+  'ai_wau','pf_plan','hire_jun','rev_eval','rev_up',
+  /* пробник: нежелательные увольнения, оценка «низкая» и оценённые — слагаемые */
+  'regret_cnt','plow','prated']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -278,14 +313,20 @@ const EXIT_INITIATORS=[
 
 /* ---------- Атрибуты фильтров ---------- */
 const PAINTS=[{key:'all',name:'Все покраски',chip:null},{key:'HQ',name:'HQ',chip:'HQ'},{key:'Line',name:'Line',chip:'Line'},{key:'Support',name:'Support',chip:'Support'}];
-const ITSEGS=[{key:'all',name:'IT и nonIT',chip:null},{key:'IT',name:'Только IT',chip:'IT'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}];
+/* В пробнике у IT-специализации три значения — IT, Digital и NonIT: Digital
+   третьим значением, как в hr_structure_overall, а не внутри IT. */
+const ITSEGS=REAL
+  ? [{key:'all',name:'IT, Digital и nonIT',chip:null},{key:'IT',name:'Только IT',chip:'IT'},
+     {key:'Digital',name:'Только Digital',chip:'Digital'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}]
+  : [{key:'all',name:'IT и nonIT',chip:null},{key:'IT',name:'Только IT',chip:'IT'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}];
 const STAFFTYPES=[{key:'all',name:'Штат и не штат',chip:null},{key:'staff',name:'Только штат',chip:'штат'},{key:'nonstaff',name:'Только не штат',chip:'не штат'}];
 
 /* ---------- Оргдерево ----------
-   level 1 компания, 2 блок, 3 департамент, 4 управление, 5 отдел, 6 команда (лист) */
-const LEVEL_NAME={1:'Компания',2:'Блок',3:'Департамент',4:'Управление',5:'Отдел',6:'Команда'};
-const LEVEL_SHORT={2:'Блок',3:'Деп.',4:'Упр.',5:'Отд.',6:'Ком.'};
-const MAX_LEVEL=6;
+   level 1 компания, 2 блок, 3 департамент, 4 управление, 5 отдел, 6 команда (лист).
+   В пробнике уровней одиннадцать и названий у них нет — «ур. N». */
+const LEVEL_NAME=REAL?{1:'Компания'}:{1:'Компания',2:'Блок',3:'Департамент',4:'Управление',5:'Отдел',6:'Команда'};
+const LEVEL_SHORT=REAL?{}:{2:'Блок',3:'Деп.',4:'Упр.',5:'Отд.',6:'Ком.'};
+const MAX_LEVEL=REAL?12:6;
 const BLOCK_DEFS=[
 {id:'01',name:'Технологические платформы',seg:'IT'},
 {id:'02',name:'Розничные продукты',seg:'IT'},
@@ -323,9 +364,10 @@ function pickName(level,seg,path){
   return pool[0];
 }
 
-const NODES=[];
-const ROOT={id:'T',path:'T',parent:null,level:1,name:'Вся компания',sort:0,leaf:false};
-NODES.push(ROOT);
+const NODES=REAL?REAL.nodes.slice():[];
+const ROOT=REAL?(NODES.find(n=>n.path==='T')||{id:'T',path:'T',parent:null,level:1,name:'Вся компания',sort:0,leaf:false})
+  :{id:'T',path:'T',parent:null,level:1,name:'Вся компания',sort:0,leaf:false};
+if(!REAL||!NODES.some(n=>n.path==='T'))NODES.push(ROOT);
 let sortCtr=1;
 const pad2=n=>String(n).padStart(2,'0');
 function nodeCode(path){return path.split('/').slice(1).map(s=>String(parseInt(s,10))).join('.')}
@@ -355,14 +397,29 @@ function genChildren(node,blockSeg){
     if(!isLeaf)genChildren(cn,blockSeg);
   }
 }
-BLOCK_DEFS.forEach(b=>{
+/* в пробнике дерево — из ответа датасета, генерировать нечего */
+if(!REAL)BLOCK_DEFS.forEach(b=>{
   const bp='T/'+b.id;
   const bn={id:b.id,path:bp,parent:'T',level:2,name:b.name,sort:sortCtr++,leaf:false,seg:b.seg};
   NODES.push(bn);
   genChildren(bn,b.seg);
 });
 const NODE_BY_PATH=Object.fromEntries(NODES.map(n=>[n.path,n]));
+/* Сколько у строки подразделений: в пробнике у юнита третьего уровня вниз дети
+   в ответ не едут — их число приходит из датасета (below), «ниже ещё N». */
+function kidsOf(p){
+  const n=NODE_BY_PATH[p];
+  if(n&&n.below!=null)return n.below;
+  return rowsOf(p).length;
+}
 function childrenOf(p){return NODES.filter(n=>n.parent===p).sort((a,b)=>a.sort-b.sort)}
+/* Строки таблицы подразделений: дети без скрытого листа «Напрямую в «X»» —
+   он участвует в суммах всегда, а строкой виден, только если свои люди есть. */
+function rowsOf(p){return childrenOf(p).filter(n=>!n.hide)}
+/* У строки «Напрямую в «X»» переводы — это переходы между детьми юнита (у юнита
+   их нет, у детей есть): для суммы верно, как число строки — бессмыслица. */
+const DIRECT_NA=new Set(['transfer_in','transfer_out','internal_share']);
+function directNA(node,key){return !!(node&&node.direct&&DIRECT_NA.has(key))}
 function descendantsOf(p){return NODES.filter(n=>n.path===p||n.path.startsWith(p+'/'))}
 function leavesUnder(p){return descendantsOf(p).filter(n=>n.leaf)}
 function ancestorsOf(p){const seg=p.split('/');const out=[];for(let i=1;i<=seg.length;i++){const q=seg.slice(0,i).join('/');if(NODE_BY_PATH[q])out.push(NODE_BY_PATH[q])}return out}
@@ -381,6 +438,8 @@ function nodesBelow(path,depth){
 /* ---------- Фильтр листьев ---------- */
 function leafPasses(leafPath,st){
   const n=NODE_BY_PATH[leafPath];if(!n||!n.leaf)return false;
+  /* в пробнике фильтры уже применил датасет: в ответе только то, что прошло */
+  if(REAL)return REAL.hasSeries(leafPath);
   if(st.paint!=='all'&&n.paint!==st.paint)return false;
   if(st.itSeg!=='all'&&n.it!==st.itSeg)return false;
   if(st.staffType!=='all'&&n.staff!==st.staffType)return false;
@@ -390,7 +449,18 @@ function leafPasses(leafPath,st){
    больше нет: переход глубже меняет сам юнит отчёта (итерация 29). */
 function reportLeaves(st){return leavesUnder(st.unit).map(l=>l.path).filter(p=>leafPasses(p,st))}
 /* ГЛАВНОЕ ПРАВИЛО: база сравнения = те же атрибуты, вся компания */
-function benchmarkLeaves(st){return leavesUnder('T').map(l=>l.path).filter(p=>leafPasses(p,st))}
+function benchmarkLeaves(st){
+  /* в пробнике база — строка base датасета: вся компания под теми же фильтрами */
+  if(REAL)return REAL.hasSeries('BASE')?['BASE']:[];
+  return leavesUnder('T').map(l=>l.path).filter(p=>leafPasses(p,st));
+}
+/* Сколько подразделений в отборе: в макете — команды-листья, в пробнике — юниты
+   трёх уровней под выбранным из ответа датасета (строки «Напрямую» не в счёт). */
+function unitsInScope(st){
+  if(!REAL)return reportLeaves(st).length;
+  return NODES.filter(n=>!n.outside&&!n.direct&&n.path.indexOf(st.unit+'/')===0).length;
+}
+const UNIT_WORDS=REAL?['подразделение','подразделения','подразделений']:['команда','команды','команд'];
 function benchmarkLabel(st){
   const parts=[];
   if(st.paint!=='all')parts.push(st.paint);
@@ -414,6 +484,8 @@ function leafBase(leafPath){
   /* vol — «характер» команды: у одних ровно, у других рвано. Разброс нужен,
      чтобы месячную текучесть было с чем сравнивать между подразделениями. */
   const v={hc:14+Math.floor(r()*46), lvl:r(), vol:0.55+r()*1.5};
+  /* в пробнике заглушки масштабируются по настоящей численности листа */
+  if(REAL)v.hc=Math.max(0,Math.round(REAL.lastHc(leafPath)));
   _sc['b'+leafPath]=v;return v;
 }
 function wave(seed,i,amp){return Math.sin((hashStr(seed)%100)/16+i/2.1)*amp}
@@ -480,7 +552,9 @@ function reviewAt(leafPath,key,i,n){
 function seriesExt(leafPath,key){
   const ck='x|'+leafPath+'|'+key;
   if(_sc[ck])return _sc[ck];
-  const m=METRIC_BY_KEY[key]||{}, b=leafBase(leafPath), n=NODE_BY_PATH[leafPath]||{};
+  /* пробник: у ключа есть настоящий ряд — он и есть ответ */
+  if(REAL){const rs=REAL.series(leafPath,key);if(rs){_sc[ck]=rs;return rs}}
+  const m=defOf(key), b=leafBase(leafPath), n=NODE_BY_PATH[leafPath]||{};
   const out=new Array(NEXT);
 
   /* среднесписочная: полусумма численности на начало и конец месяца */
@@ -592,7 +666,7 @@ function aggregateExt(leafPaths,key){
   if(!leafPaths.length)return new Array(NEXT).fill(0);
   const ck='x'+key+'#'+leafPaths.length+'#'+hashStr(leafPaths.join(','));
   if(_ac.has(ck))return _ac.get(ck);
-  const m=METRIC_BY_KEY[key]||{};
+  const m=defOf(key);
   const out=new Array(NEXT).fill(0);
   if(m.derived){
     /* сначала суммы по листьям, потом деление — Правило 2 из SOURCES.md */
@@ -685,6 +759,8 @@ function blockSignal(bk,st){
 function compareState(key,val,base){
   const m=METRIC_BY_KEY[key];
   if(val==null||base==null||!base)return'neutral';
+  /* пробник: заглушку не оцениваем — светофор по выдуманной цифре врал бы */
+  if(isStub(key))return'neutral';
   if(!comparable(key))return'neutral';
   if(m.better==='flat')return'neutral';
   const rel=(val-base)/Math.abs(base);
@@ -694,6 +770,7 @@ function compareState(key,val,base){
 }
 function stateForKpi(key,val,kpi){
   const m=METRIC_BY_KEY[key];if(!kpi||val==null)return'neutral';
+  if(isStub(key))return'neutral';
   if(m.better==='lower')return val<=kpi.green?'good':(val>=kpi.red?'bad':'warn');
   return val>=kpi.green?'good':(val<=kpi.red?'bad':'warn');
 }
@@ -741,7 +818,10 @@ function fmtDelta(key,v){
 function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',',')+'K':fmtInt(v)}
 
 /* ---------- Дефолтный state ---------- */
-const DEFAULT_STATE={unit:'T/01',paint:'HQ',itSeg:'all',staffType:'all',period:PERIOD_LABEL,
+/* В пробнике юнит и фильтры — те, что применил датасет (эхо в meta): отчёт
+   показывает ровно то, что пришло, а не то, что хотелось бы. */
+const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.paint:'HQ',
+  itSeg:REAL?REAL.applied.itSeg:'all',staffType:REAL?REAL.applied.staffType:'all',period:PERIOD_LABEL,
   tab:'onepager',subTab:null,selNode:null,aiOpen:false,
   /* скрытые пользователем метрики; пусто = показаны все */
   hiddenMetrics:[],
@@ -1703,7 +1783,7 @@ function aiProfile(lp){
     streams:st.map((n,i)=>({key:n.cat.key,name:n.cat.name,hc:n.value,value:Math.min(98,att[i])}))};
 }
 
-window.TPDATA={MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,isStub,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,

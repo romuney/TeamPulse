@@ -1431,3 +1431,34 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 @media(max-width:1120px){.split-btn{display:none}.panel-h .h-txt.has-btn{padding-right:0}}
 @media(min-width:1121px) and (max-width:1240px){.split.wide-l .split-btn{display:none}
   .split.wide-l .panel-h .h-txt.has-btn{padding-right:0}}
+
+/* ===== Итерация 31: пробник Proteus ==========================================
+   Метрика или разбивка без источника — заглушка на генераторе, и это сказано у
+   её имени серой меткой «демо». Не оценка и не сигнал: ни цвета светофора, ни
+   акцента — пунктирная рамка, как у всего «ещё не настоящего». Видна только в
+   чарте Proteus (TP_REAL): в макете метка не рисуется. */
+.demo-tag{display:inline-block;margin-left:var(--s3);padding:0 var(--s3);border:1px dashed var(--muted2);
+  border-radius:var(--r-pill);font-size:var(--fs-micro);font-weight:var(--fw-body);line-height:15px;
+  color:var(--muted);background:var(--card);vertical-align:1px;text-transform:none;letter-spacing:0;white-space:nowrap}
+.demo-tag.sm{display:block;width:max-content;margin:var(--s1) auto 0;padding:0 var(--s2);line-height:13px}
+.demo-note{display:flex;gap:var(--s4);align-items:baseline;margin:0 0 var(--s6);padding:var(--s4) var(--s5);
+  border:1px dashed var(--muted2);border-radius:var(--r2);font-size:var(--fs-note);line-height:1.4;
+  color:var(--ink2);background:var(--bg)}
+.demo-note .demo-tag{margin-left:0;flex:none}
+/* чипы пробника в шапке: что здесь живое, ожидание ответа, предупреждение */
+.chip.pilot{background:var(--card);color:var(--ink2);border:1px dashed var(--muted2);font-weight:var(--fw-body)}
+.chip.busy{background:var(--card);color:var(--act-ink);border-color:var(--act-line);font-weight:var(--fw-body);
+  animation:tp-busy 1.2s ease-in-out infinite alternate}
+.chip.warn{background:var(--warn-bg);color:var(--warn-tx);border-color:var(--warn-bg);font-weight:var(--fw-body)}
+@keyframes tp-busy{from{opacity:1}to{opacity:.45}}
+/* пока датасет отвечает на переход или фильтр, прежний юнит приглушён */
+.tp-busy #view{opacity:.5;pointer-events:none;transition:opacity .2s}
+/* корень отчёта внутри хоста ECharts: он и прокручивается (prelude.js) */
+.tp-overlay{background:var(--bg)}
+/* «План метрик» в справке — только в пробнике */
+.pilot-only{display:none}
+.tp-pilot .pilot-only{display:block}
+.plan-t{width:100%;border-collapse:collapse;font-size:var(--fs-note);margin-top:var(--s4)}
+.plan-t th,.plan-t td{text-align:left;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line2);vertical-align:top}
+.plan-t th{font-size:var(--fs-cap);font-weight:var(--fw-bold);color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
+.plan-t td:first-child{font-weight:var(--fw-bold);white-space:nowrap}

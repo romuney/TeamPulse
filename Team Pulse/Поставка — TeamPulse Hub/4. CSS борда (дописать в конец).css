@@ -1,0 +1,40 @@
+/* ==========================================================================
+   TeamPulse Hub — один чарт на весь лист: без белого поля и шапки чарта Proteus.
+   Без вставки вокруг отчёта белая рамка 16 px, а над ним — строка шапки чарта
+   («TeamPulse Hub ⋯»): у отчёта своя шапка, вторая лишняя.
+
+   ID — id чарта «TeamPulse Hub»: меню чарта «⋮» → «Редактировать график» — число
+   после slice_id= в адресе. Замените ID во ВСЕХ местах (Ctrl+H «ID» → число).
+   Правила — проверенная вставка борда HRBP HUB (там же разобрано, откуда поле).
+   ========================================================================== */
+
+/* 1. шапка чарта Proteus (название и меню «⋯») — у отчёта своя шапка */
+.dashboard-chart-id-ID .header-title,
+.dashboard-chart-id-ID .header-controls,
+.dashboard-chart-id-ID [data-test="slice-header"] {
+  display: none !important;
+}
+
+/* 2. без белого поля вокруг чарта и без белого фона */
+.dashboard-grid .dashboard-chart-id-ID .dashboard-component-chart-holder,
+.dashboard-grid .dashboard-component-chart-holder.dashboard-chart-id-ID {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* 3. область чарта — колонка на всю высоту ячейки */
+.dashboard-chart-id-ID .chart-slice {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 4. без паддинга платформы вокруг iframe */
+.dashboard-chart-id-ID .chart-container {
+  padding: 0 !important;
+}
+
+/* 5. iframe без строчной щели снизу */
+.dashboard-chart-id-ID iframe {
+  display: block;
+}

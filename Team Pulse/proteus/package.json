@@ -1,0 +1,10 @@
+{
+  "name": "teampulse-hub-proteus",
+  "private": true,
+  "description": "Сборка чарта Proteus из исходников макета TeamPulse Hub: node build.js",
+  "devDependencies": {
+    "@babel/core": "7.25.2",
+    "@babel/preset-env": "7.25.4",
+    "acorn": "8.12.1"
+  }
+}

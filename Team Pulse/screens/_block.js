@@ -57,8 +57,8 @@ function blockMain(bk,S){
 function expandableRows(root){
   const out=[];
   (function walk(p,d){
-    D.childrenOf(p).forEach(n=>{
-      if(d<TREE_DEPTH&&D.childrenOf(n.path).length){out.push(n.path);walk(n.path,d+1)}
+    D.rowsOf(p).forEach(n=>{
+      if(d<TREE_DEPTH&&D.rowsOf(n.path).length){out.push(n.path);walk(n.path,d+1)}
     });
   })(root,1);
   return out;
@@ -76,8 +76,10 @@ function pivotRows(root,expanded,isEmpty,q){
   const rows=[], emp=isEmpty||(()=>false), needle=String(q||'').trim().toLowerCase();
   const order=list=>list.filter(n=>!emp(n.path)).concat(list.filter(n=>emp(n.path)));
   (function walk(p,d){
-    order(D.childrenOf(p)).forEach(n=>{
-      const kids=D.childrenOf(n.path).length;
+    order(D.rowsOf(p)).forEach(n=>{
+      /* kidsOf: в пробнике у юнита третьего уровня дети в ответ не едут —
+         их число приходит из датасета («ниже ещё N») */
+      const kids=D.kidsOf(n.path);
       rows.push({n:n,depth:d,empty:emp(n.path),kids:kids});
       if(kids&&d<TREE_DEPTH&&(needle||expanded.has(n.path)))walk(n.path,d+1);
     });
@@ -150,6 +152,32 @@ function cardSpark(key,ser,st,S,bl){
 /* Значение того же месяца год назад — прямо из расширенной сетки, а не
    «значение минус изменение»: у доли без знаменателя изменения нет. */
 function yearAgo(lp,key){return D.aggregateExt(lp,key)[D.NEXT-13]}
+
+/* ---------- пробник: что на вкладке — заглушка ----------
+   В Proteus (TP_REAL) живые только метрики и ряды из hr_structure_overall:
+   численность, движение, текучесть, regret и оценки. Разбивки по атрибутам,
+   которых в таблице нет, и метрики без источника — демо на генераторе, и
+   вкладка говорит об этом плашкой над содержимым. '*' — все под-вкладки блока. */
+const DEMO={
+  structure:{'*':'Доли по атрибутам — демо: грейда, пола, возраста, региона и стрима в hr_structure_overall нет. '+
+    'Численность в ИТОГО — живая.'},
+  turnover:{reasons:'Причины и инициаторы увольнений — демо: их нет в hr_structure_overall. Отток в ИТОГО — живой.',
+    who:'Стаж, грейд и стрим ушедших — демо. Отток в ИТОГО — живой.'},
+  hiring:{vacancies:'Вакансии и срок закрытия — демо: нужен источник вакансий (vacancy_daily_for_digest).',
+    plan:'План найма — демо (plan_fact_tf_rabota), факт — живой найм.',
+    profile:'Каналы, сеньорность и грейд найма — демо (atributy_nayma). Найм в ИТОГО — живой.',
+    funnel:'Воронка — демо: нужен источник вакансий.'},
+  tgrowth:{'*':'T-рост — демо: нужны заявки и решения сервиса «Рост».'},
+  monitor:{both:'Низкая оценка — живая; недоработка и улучшение оценки в ревью — демо.',
+    review:'Ревью — демо (review_digest_us).'},
+  office:{'*':'Посещаемость и бронирование — демо: нужны СКУД и система бронирования.'},
+  ai:{'*':'AI-инструменты — демо: нужна AI-витрина (penetration_unit, wau).'}
+};
+function demoNoteFor(bk,sub){
+  if(!D.REAL)return '';
+  const d=DEMO[bk]||{}, t=d[sub]||d['*'];
+  return t?U.demoNote(t):'';
+}
 
 /* ---------- рендер детальной вкладки ----------
    view — состояние показа, которое в ссылку не едет: tq — поиск по таблице. */
@@ -232,7 +260,7 @@ function renderBlock(S,expanded,mixOpen,view){
     const mom=sliced?D.sliceDeltaMoM(rl,m.key,selIds):D.deltasOf(rl,m.key).mom;
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
     const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    h+=U.kpiCard({label:m.name,
+    h+=U.kpiCard({label:m.name,tag:D.isStub(m.key)?U.demoTag():'',
       q:U.infoDot(m.key),
       value:D.fmtVal(m.key,v),
       row1:U.momChip(m.key,mom)+cardSpark(m.key,ser,st,S,bl),
@@ -283,7 +311,8 @@ function renderBlock(S,expanded,mixOpen,view){
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'». Глубже — выберите строку и откройте её '+
       'юнит иконкой у правого края имени.'})+'>Подразделение</th>'+
-    mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+'</th>').join('')+
+    mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+
+      (D.isStub(m.key)?U.demoTag(true):'')+'</th>').join('')+
     (showVs?'<th class="vs">'+(kpiMain?'К цели KPI':'К базе')+'<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
@@ -318,14 +347,16 @@ function renderBlock(S,expanded,mixOpen,view){
       (canExp?'<button class="caret-btn"'+(isOpen?' data-open="1"':'')+' data-exp="'+r.n.path+'" aria-label="'+
         (isOpen?'Свернуть':'Раскрыть')+'">'+(isOpen?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>')+
       '<span class="row-body">'+(tq?U.hlText(r.n.name,tq):esc(r.n.name))+
-      '<span class="unit-sub">'+esc(D.LEVEL_SHORT[r.n.level]||D.levelLabel(r.n.level))+' · '+
+      '<span class="unit-sub">'+esc(r.n.direct?'без подразделения':D.LEVEL_SHORT[r.n.level]||D.levelLabel(r.n.level))+' · '+
         D.fmtVal('hc_total',val(lp,'hc_total'))+' чел'+
       (below?' · <span class="below"'+U.tipAttr({title:'Ниже ещё '+below+' '+U.plural(below,['подразделение','подразделения','подразделений']),
           text:'Таблица показывает три уровня вниз. Глубже — выберите строку и откройте её юнит иконкой у правого края имени.'})+
         '>ниже ещё '+below+'</span>':'')+'</span></span>'+
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
-      (isSel?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
-      mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(lp,m.key))+'</td>').join('')+
+      /* «Напрямую в «X»» — не юнит, открывать нечего */
+      (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
+      mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+
+        (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>').join('')+
       /* у пустого подразделения 0% — не «лучше базы», а отсутствие людей */
       (showVs?'<td class="vs">'+(r.empty||v==null||benchMain==null?'<span class="cell neutral">—</span>'
         :'<span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(4))+'</span>')+'</td>':'')+'</tr>';
@@ -352,9 +383,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
-    subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+U.openUnitBtn(sel,selNode.name,'Открыть юнит'):' · всё подразделение'),
+    subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть юнит')):' · всё подразделение'),
     hBtn:U.splitBtn('charts',mode,subName),
-    tabs:U.subTabs(mod.subTabs,S.subTab),body:mod.view(ctx)})+
+    tabs:U.subTabs(mod.subTabs,S.subTab),body:demoNoteFor(b.key,S.subTab)+mod.view(ctx)})+
     U.splitRail('r',subName);
 
   return h+'</div>';

@@ -67,13 +67,16 @@ function tipTarget(e){
 }
 function bindTips(){
   if(!document.addEventListener)return;
-  document.addEventListener('mousemove',e=>{
+  /* В чарте Proteus скрипт перезапускается на каждый ответ датасета: слушатели
+     регистрирует TP_ENV.on, и прошлый прогон их снимает (proteus/prelude.js) */
+  const E=window.TP_ENV, on=(t,ty,fn,o)=>E?E.on(t,ty,fn,o):t.addEventListener(ty,fn,o);
+  on(document,'mousemove',e=>{
     const t=tipTarget(e);
     if(t)showTip(t,e.clientX,e.clientY);else if(_tipFor)hideTip();
   },{passive:true});
-  document.addEventListener('mouseleave',hideTip,true);
-  document.addEventListener('click',hideTip,true);
-  window.addEventListener('scroll',hideTip,true);
+  on(document,'mouseleave',hideTip,true);
+  on(document,'click',hideTip,true);
+  on(window,'scroll',hideTip,true);
 }
 bindTips();
 
@@ -335,7 +338,7 @@ function dynSwitch(mode){
     '<button class="'+(mode===k?'on':'')+'" data-dyn="'+k+'" data-text="'+esc(n)+'" role="tab" aria-selected="'+(mode===k)+'">'+n+'</button>').join('')+'</div>';
 }
 function kpiCard(o){
-  return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.q||'')+'</div>'+
+  return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.tag||'')+(o.q||'')+'</div>'+
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
     '<div class="k-row">'+(o.row2||'')+'</div>'+
@@ -752,7 +755,26 @@ function trafficLegend(){
     'больше не значит лучше</span></div>';
 }
 
-window.TPUI={blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+/* ============================================================================
+   Пробник Proteus (итерация 31): метрика или разбивка без источника — заглушка
+   на генераторе макета, и это сказано прямо у её имени. «Демо» — не оценка и не
+   сигнал: серая метка, а не цвет светофора. В макете (без TP_REAL) не рисуется.
+   ========================================================================== */
+const DEMO_TIP={title:'Демо-данные',
+  text:'Источника для этой метрики пока нет: цифра сгенерирована по настоящей численности юнита, '+
+    'чтобы было видно, где она будет стоять. Какой источник и когда — в «Как читать отчёт» → «План метрик».'};
+function demoTag(small){return '<span class="demo-tag'+(small?' sm':'')+'"'+tipAttr(DEMO_TIP)+'>демо</span>'}
+function demoNote(text){return '<div class="demo-note">'+demoTag()+'<span>'+esc(text)+'</span></div>'}
+/* План метрик пробника в справке: этап · что · откуда · сейчас */
+function planTable(rows){
+  return '<label>План метрик</label><div class="fhint">Пробник показывает то, что уже есть в '+
+    'hr_structure_overall. Остальное — заглушки с пометкой «демо»; они становятся живыми по этапам:</div>'+
+    '<table class="plan-t"><thead><tr><th>Этап</th><th>Что</th><th>Источник</th><th>Сейчас</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td>'+esc(r.stage)+'</td><td>'+esc(r.what)+'</td><td>'+esc(r.src)+'</td><td>'+
+      (r.now==='демо'?demoTag():esc(r.now))+'</td></tr>').join('')+'</tbody></table>';
+}
+
+window.TPUI={demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,splitBtn,splitRail,splitGut};
 })();

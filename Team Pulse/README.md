@@ -27,6 +27,22 @@ GitHub Pages, чтобы короткий адрес сайта открывал
 не нужен: шрифт — только Arial, как в Proteus, и начертаний у него два — обычное
 и жирное, на этом построена вся типографика.
 
+## Пробник в Proteus
+
+Тот же отчёт работает чартом Proteus на живых данных `prod_proteus.hr_structure_overall`
+(итерация 31). Поставка — папка `Поставка — TeamPulse Hub/`: датасет (файл 2), чарт
+(файл 3), CSS борда (4), проверки в SQL Lab (5), `План метрик.md` и инструкция `0.`.
+
+```bash
+cd proteus && npm install && node build.js     # чарт → «3. Proteus — чарт TeamPulse Hub.js», ES5
+node proteus/smoke_real.js ответ.json          # модель пробника на ответе датасета
+```
+
+Стенд без Proteus — `stand/` (нужны `pip install chdb==3.1.2 jinja2==3.1.4`): `sim_hso.py` и
+`load_hso.py` — симуляция таблицы по людям, `dataset.py --check` — датасет на ClickHouse 24.8
+при разных настройках сервера, `serve.py` + `scenario.js` — чарт на странице с хостом
+ECharts и кросс-фильтром, сценарий в Chromium.
+
 ## Возможности
 
 - OnePager: 8 блоков, 30 метрик, дайджест из 8 карточек, KPI, MoM/YoY, спарклайны,

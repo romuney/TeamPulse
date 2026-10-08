@@ -51,6 +51,8 @@ function pulse(S,rl,bl){
   let good=0,bad=0,neu=0;const mv=[];
   D.METRICS.forEach(m=>{
     if(!D.metricVisible(m.key,S))return;
+    /* пробник: заглушка не сигнал и не сдвиг — цифра сгенерирована */
+    if(D.isStub(m.key))return;
     const v=D.lastVal(rl,m.key), kpi=D.kpiFor(m.key,S);
     const st=m.better==='flat'?'neutral':kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,D.lastVal(bl,m.key));
     if(st==='good')good++;else if(st==='bad')bad++;else neu++;
@@ -81,7 +83,8 @@ function heroContext(k,s,rl){
 }
 function lead(S,rl,bl){
   const hc=D.lastVal(rl,'hc_total'), w=worstMetrics(S,rl,bl,3);
-  return 'В отборе <b>'+D.fmtInt(hc)+' чел</b> из '+D.fmtInt(rl.length)+' команд, база сравнения — <b>'+
+  const nU=D.unitsInScope(S);
+  return 'В отборе <b>'+D.fmtInt(hc)+' чел</b> из '+D.fmtInt(nU)+' '+U.plural(nU,D.UNIT_WORDS)+', база сравнения — <b>'+
     esc(D.benchmarkLabel(S))+'</b>. '+
     (w.length?'Требуют внимания: '+w.map(x=>esc(x.m.name)).join(', ')+'.':'Критичных отклонений от базы нет.');
 }
@@ -132,7 +135,7 @@ function render(S,openRows){
     const st=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,bv);
     /* Есть KPI — сравниваемся с ним, и базы в карточке нет вовсе: два ориентира
        рядом заставляли выбирать, по какому судить. Нет KPI — база как раньше. */
-    h+=U.kpiCard({label:D.METRIC_BY_KEY[k].name,
+    h+=U.kpiCard({label:D.METRIC_BY_KEY[k].name,tag:D.isStub(k)?U.demoTag():'',
       q:U.infoDot(k),
       value:D.fmtVal(k,v),
       row1:U.momChip(k,dl.mom)+
@@ -184,7 +187,7 @@ function render(S,openRows){
       const bser=!kpi&&D.comparable(m.key)?D.aggregate(bl,m.key):null;
       const open=openRows.has(m.key);
       t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
-        '<td class="m-name bar-'+st+'">'+esc(m.name)+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
+        '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isStub(m.key)?U.demoTag():'')+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
         '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:D.CMP.momTip})+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:D.CMP.yoyTip})+'</td>'+
