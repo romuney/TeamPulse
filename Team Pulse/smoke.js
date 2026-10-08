@@ -863,15 +863,45 @@ checks.push(['заголовки графиков и панелей одного
   /\.bt-cap\{[^}]*font-size:12px/.test(css)]);
 
 /* Типографика: вес — иерархия, а не украшение. Пока жирным было набрано всё,
-   выделять стало нечем; проверка держит шкалу и не даёт вернуть восьмисотый. */
-checks.push(['в :root есть шкала весов из четырёх ролей',
-  /--fw-body:400/.test(css)&&/--fw-med:500/.test(css)&&
-  /--fw-lead:600/.test(css)&&/--fw-bold:700/.test(css)]);
+   выделять стало нечем; проверка держит шкалу и не даёт вернуть восьмисотый.
+
+   Итерация 28: в Proteus работает только Arial, а у него ДВА начертания.
+   500 браузер рисует обычным, 600 — жирным, и прежняя шкала из четырёх ролей
+   там схлопывалась: всё полужирное выходило таким же жирным, как заголовки.
+   Поэтому весов два, и проверки держат именно это. */
+checks.push(['в :root два начертания: обычное 400 и жирное 700',
+  /--fw-body:400/.test(css)&&/--fw-bold:700/.test(css)&&
+  /--fw-med:var\(--fw-body\)/.test(css)&&/--fw-lead:var\(--fw-body\)/.test(css)]);
 checks.push(['веса 800 в отчёте не осталось',!/font-weight:800/.test(css)]);
-checks.push(['числа в ячейках таблиц набраны обычным весом, а не полужирным',
+(function(){
+  /* каждое font-weight в правилах — один из двух токенов; промежуточных 500/600
+     и алиасов --fw-med / --fw-lead в правилах нет */
+  const ws=[...css.matchAll(/font-weight:([^;}]+)/g)].map(m=>m[1]);
+  checks.push(['в стилях только два веса: каждое font-weight — обычный или жирный токен',
+    ws.length>50&&ws.every(w=>w==='var(--fw-body)'||w==='var(--fw-bold)')]);
+  /* то же в SVG: подписи графиков 400 или 700, полужирного там тоже нет */
+  const sw=[...allHtml.matchAll(/font-weight="(\d+)"/g)].map(m=>m[1]);
+  checks.push(['на графиках только два веса подписей',
+    sw.length>100&&sw.every(w=>w==='400'||w==='700')]);
+  /* только Arial: ни веб-шрифта, ни другой гарнитуры в стеке */
+  const fams=[...css.matchAll(/font-family:([^;}]+)/g)].map(m=>m[1]);
+  const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
+  checks.push(['шрифт — только Arial: в стилях, на графиках и без веб-шрифта',
+    fams.length>0&&fams.every(f=>f==='Arial,sans-serif'||f==='inherit')&&
+    G.FONT==='Arial, sans-serif'&&/font-family="Arial, sans-serif"/.test(allHtml)&&
+    !/fonts\.googleapis|Inter|Helvetica/.test(html)]);
+  /* активная вкладка жирная, а соседние не прыгают: ширина жирной подписи
+     зарезервирована невидимой копией */
+  checks.push(['активная вкладка жирная, ширина под жирную подпись зарезервирована',
+    /\.sub-tab\.active\{[^}]*font-weight:var\(--fw-bold\)/.test(css)&&
+    /\.sub-tab::after,\.dyn-switchbutton::after\{content:attr\(data-text\)/.test(css)&&
+    /class="sub-tab[^"]*" data-subtab="[^"]+" data-text="/.test(allHtml)]);
+})();
+checks.push(['числа и имена строк — обычным, главное число и ИТОГО — жирным',
   /\.ptabletd\{[^}]*font-weight:var\(--fw-body\)/.test(css)&&
-  /\.ptabletd\.txt\{[^}]*font-weight:var\(--fw-lead\)/.test(css)&&
-  /\.ptable\.densetd\.lead\{font-weight:var\(--fw-bold\)/.test(css)]);
+  /\.ptabletd\.txt\{[^}]*font-weight:var\(--fw-body\)/.test(css)&&
+  /\.ptable\.densetd\.lead\{font-weight:var\(--fw-bold\)/.test(css)&&
+  /\.ptabletr\.totaltd\{[^}]*font-weight:var\(--fw-bold\)/.test(css)]);
 
 /* токены: три шкалы в :root, литеральных цветов в экранах не осталось */
 checks.push(['в :root есть шкала расстояний, роли кеглей и радиусы',

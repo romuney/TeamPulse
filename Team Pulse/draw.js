@@ -41,7 +41,9 @@ const CD=window.TPDATA;
    2. Потоки людей (найм / увольнение / переводы / численность) — фирменная
       гамма HR-дашбордов. Это НЕ оценка: увольнение сиреневое, а не
       красное, именно чтобы не читаться как «плохо». */
-const FONT='Inter, Helvetica, Arial, sans-serif';
+/* Только Arial — как и во всём отчёте: в Proteus другие гарнитуры не работают.
+   У Arial два начертания, поэтому веса подписей здесь тоже только 400 и 700. */
+const FONT='Arial, sans-serif';
 const C_LABEL='#2b2b2b';                    /* единственный цвет цифр на графиках */
 const C_AXIS='#8a909c', C_DIV='#e4e7ec', C_ZERO='#c9cdd6';
 const C_LINE='#245FD4', C_BENCH='#9aa0ac';
@@ -453,7 +455,7 @@ function drawYoy(a,w,h){
       const both=i===nowI&&showPrev&&p!=null, below=both&&p>c;
       s+=txt(X(i),below?Y(c)+VAL_DY+VAL_ASC:Y(c)-VAL_DY,CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
       if(both)s+=txt(X(i),below?Y(p)-VAL_DY:Y(p)+VAL_DY+VAL_ASC,CD.fmtVal(key,p),
-        valOpt({s:'prev',fill:C_AXIS,weight:600}));
+        valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }
   }
   return svg(w,h,s);
@@ -687,7 +689,7 @@ function drawFunnel(a,w,h){
       rows:[{label:'Значение',value:CD.fmtInt(it.value),color:PALETTE[i%PALETTE.length]}],
       note:[conv!=null?'конверсия с предыдущего этапа: '+conv.toFixed(0)+'%':null,
             'от первого этапа: '+(items[0].value?(it.value/items[0].value*100).toFixed(0):'—')+'%']};
-    s+=txt(cx,y-4,it.name,{size:11,weight:600,fill:C_AXIS});
+    s+=txt(cx,y-4,it.name,{size:11,weight:400,fill:C_AXIS});
     s+='<g class="barg"'+tip(t)+'>';
     s+='<rect class="hit" x="0" y="'+num(y-14)+'" width="'+num(w)+'" height="'+num(bh+18)+'"/>';
     s+=rect(cx-bwv/2,y,bwv,bh,PALETTE[i%PALETTE.length],3,' class="bar fn" style="animation-delay:'+(i*40)+'ms"');
@@ -921,7 +923,7 @@ function drawCalendar(a,w,h){
         note:d.weekend?'выходной: офис работает по дежурствам'
                       :'среднее по будням месяца: '+num1(b.base)+' %'})+'>';
       s+=rect(x,y,cw,ch,fill,7,' class="fade" style="animation-delay:'+dly+'ms"');
-      if(showDay)s+=txt(x+6,y+13,String(d.day),{size:9.5,weight:700,fill:ink,anchor:'start',
+      if(showDay)s+=txt(x+6,y+13,String(d.day),{size:9.5,weight:400,fill:ink,anchor:'start',
         cls:'fade',delay:dly});
       /* halo здесь не нужен: цвет цифры уже выбран под заливку ячейки */
       if(showVal)s+=txt(x+cw/2,y+(showDay?ch/2+9:ch/2+4),num1(d.val),

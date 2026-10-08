@@ -468,12 +468,16 @@ document.addEventListener('keydown',e=>{
 
 /* ---------- старт ---------- */
 mountStaticMascots();
+/* ?tour=0 читаем ДО первого рендера: render() переписывает адрес своими
+   параметрами, и после него флага в location.search уже нет — справка
+   открывалась поверх скриншота, хотя её просили не показывать. */
+const noTour=location.search.indexOf('tour=0')>=0;
 readURL();render();
 
 /* первый вход: справка «Как читать отчёт» работает онбордингом.
    ?tour=0 — не показывать: нужно, чтобы скриншот сразу показывал отчёт. */
 try{
-  if(!localStorage.getItem('tp_onboarded')&&location.search.indexOf('tour=0')<0){
+  if(!localStorage.getItem('tp_onboarded')&&!noTour){
     $('#helpOvl').classList.remove('hidden');
     $('#btnHelpClose').addEventListener('click',()=>localStorage.setItem('tp_onboarded','1'),{once:true});
   }

@@ -248,7 +248,7 @@ function detailSplit(left,right){
 function dynSwitch(mode){
   const it=[['roll','12 мес'],['yoy','Год к году']];
   return '<div class="dyn-switch" role="tablist">'+it.map(([k,n])=>
-    '<button class="'+(mode===k?'on':'')+'" data-dyn="'+k+'" role="tab" aria-selected="'+(mode===k)+'">'+n+'</button>').join('')+'</div>';
+    '<button class="'+(mode===k?'on':'')+'" data-dyn="'+k+'" data-text="'+esc(n)+'" role="tab" aria-selected="'+(mode===k)+'">'+n+'</button>').join('')+'</div>';
 }
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.q||'')+'</div>'+
@@ -508,8 +508,10 @@ function panel(o){
 /* ---------- Под-вкладки ---------- */
 function subTabs(list,active){
   if(!list||list.length<2)return'';
+  /* data-text — невидимая жирная копия подписи (styles.css, итерация 28):
+     активная вкладка жирная, и без резерва ширины ряд прыгал бы при переключении */
   return '<div class="sub-tabs">'+list.map(t=>'<button class="sub-tab'+(active===t[0]?' active':'')+
-    '" data-subtab="'+t[0]+'">'+esc(t[1])+'</button>').join('')+'</div>';
+    '" data-subtab="'+t[0]+'" data-text="'+esc(t[1])+'">'+esc(t[1])+'</button>').join('')+'</div>';
 }
 
 /* ---------- Пустое состояние ----------
