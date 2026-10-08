@@ -25,6 +25,18 @@ const expanded=new Set();    /* раскрытые узлы в сводной т
 /* раскрытые стримы в двухуровневой разбивке состава. Живёт рядом с expanded и
    по той же причине: это состояние показа, а не отчёта, и в ссылку не едет */
 const mixOpen=new Set();
+/* «← Назад»: юниты отчёта до переходов, не больше 10 (механика HRBP HUB).
+   Состояние показа, как expanded: в ссылку не едет — по ссылке открывается
+   юнит, а не история того, как к нему пришли. */
+const unitBack=[];
+/* поиск по сводной таблице подразделений — тоже состояние показа */
+let tq='';
+/* Ширина колонок рабочей зоны (итерация 30): режим — обе колонки ('both')
+   или одна во всю ширину ('table' / 'charts'), доля таблицы после
+   перетаскивания разделителя (null — раскладка по умолчанию). Один выбор
+   на все блоки: «мне нужно больше таблицы» — предпочтение, а не свойство
+   вкладки. В ссылку не едет, как и раскрытия. */
+let splitMode='both', splitShare=null;
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -63,10 +75,35 @@ function readURL(){
 function writeURL(){history.replaceState(null,'','?'+urlParams().toString())}
 function shareLink(){return location.origin+location.pathname+'?'+urlParams().toString()}
 
+/* ---------- переход к юниту ----------
+   Одна точка на все переходы: «Открыть юнит» у строки таблицы и в шапке
+   правой панели, путь над отчётом, «↑ Уровнем выше», модалка настройки.
+   Юнит до перехода уходит в стек «← Назад»; back=true — шаг по самому стеку.
+   Раскрытия, выбор строки и поиск относятся к прежнему дереву — сбрасываются. */
+function pushBack(p){
+  if(unitBack[unitBack.length-1]===p)return;
+  unitBack.push(p);
+  if(unitBack.length>10)unitBack.shift();
+}
+function goUnit(p,back){
+  if(!D.NODE_BY_PATH[p]||p===S.unit)return;
+  if(!back)pushBack(S.unit);
+  S.unit=p;S.selNode=null;
+  expanded.clear();openRows.clear();tq='';
+  render();
+}
+
 /* ---------- шапка и навигация ---------- */
 function renderHead(){
-  const n=D.NODE_BY_PATH[S.unit];
-  $('#crumbs').innerHTML=D.ancestorsOf(S.unit).map((a,i,arr)=>
+  const n=D.NODE_BY_PATH[S.unit], par=D.NODE_BY_PATH[n.parent];
+  const prev=D.NODE_BY_PATH[unitBack[unitBack.length-1]];
+  /* «← Назад» и «↑ Уровнем выше» стоят перед путём: путь отвечает «где я»,
+     кнопки — «как вернуться». Предки в пути кликабельны, как и раньше. */
+  const nav=(prev?'<button class="nb" data-uback="1"'+U.tipAttr({title:'Назад',
+      text:'Вернуться к «'+prev.name+'» — подразделению до последнего перехода.'})+'>← Назад</button>':'')+
+    (par?'<button class="nb" data-crumb="'+par.path+'"'+U.tipAttr({title:'Уровнем выше',
+      text:'Перейти к «'+par.name+'».'})+'>↑ Уровнем выше</button>':'');
+  $('#crumbs').innerHTML=(nav?'<span class="nbs">'+nav+'</span>':'')+D.ancestorsOf(S.unit).map((a,i,arr)=>
     i===arr.length-1
       ? '<span>'+esc(a.name)+'</span>'
       : '<button data-crumb="'+a.path+'">'+esc(a.name)+'</button><span class="sep">/</span>'
@@ -79,7 +116,9 @@ function renderHead(){
   let html=chips.map(c=>'<span class="chip">'+esc(c.label)+'<button class="x" data-unchip="'+c.k+'"'+
     U.tipAttr({title:'Снять разрез',text:c.label})+'>×</button></span>').join('');
   html+='<span class="chip bench">Сравнение: <b>'+esc(D.benchmarkLabel(S))+'</b></span>';
-  html+='<span class="chip bench">'+D.fmtInt(D.reportLeaves(S).length)+' команд в отборе</span>';
+  /* после перехода в отдел команд в отборе бывает одна — «1 команд» не пишем */
+  const nT=D.reportLeaves(S).length;
+  html+='<span class="chip bench">'+D.fmtInt(nT)+' '+U.plural(nT,['команда','команды','команд'])+' в отборе</span>';
   /* Период — чипом рядом с базой, а не отдельной плашкой справа: плашка
      повторяла свежесть данных в шапке и забирала место у кнопок. Здесь он
      остаётся и в печатной версии, где шапка приложения скрыта. */
@@ -134,7 +173,11 @@ function mountStaticMascots(){
 function openSetup(){
   DRAFT={unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,
     hiddenMetrics:(S.hiddenMetrics||[]).slice()};
-  const opts=D.NODES.filter(n=>n.level<=4).sort((a,b)=>a.sort-b.sort);
+  /* В списке — верх дерева до управлений и путь к текущему юниту: после
+     перехода в отдел или команду их нет среди первых четырёх уровней, и
+     «Применить» молча вернуло бы отчёт на первую строку списка. */
+  const path=new Set(D.ancestorsOf(S.unit).map(a=>a.path));
+  const opts=D.NODES.filter(n=>n.level<=4||path.has(n.path)).sort((a,b)=>a.sort-b.sort);
   $('#selUnit').innerHTML=opts.map(n=>
     '<option value="'+n.path+'"'+(n.path===DRAFT.unit?' selected':'')+'>'+
     ' '.repeat((n.level-1)*3)+esc(n.name)+'</option>').join('');
@@ -213,6 +256,8 @@ function toggleMetric(key){
 }
 function closeSetup(){$('#setupOvl').classList.add('hidden');DRAFT=null}
 function applySetup(){
+  /* смена юнита в модалке — тоже переход: прежний уходит в «← Назад» */
+  if(DRAFT.unit!==S.unit){pushBack(S.unit);S.selNode=null;expanded.clear();tq=''}
   Object.assign(S,DRAFT);
   /* главная метрика таблицы могла оказаться скрытой — пусть блок выберет заново */
   if(S.mainMetric&&!D.metricVisible(S.mainMetric,S))S.mainMetric=null;
@@ -238,7 +283,9 @@ function enhanceA11y(){
 /* keepScroll=true — перерисовка внутри того же экрана (раскрыли метрику,
    выбрали строку, переключили под-вкладку). Прыгать наверх при клике по
    метрике нельзя: пользователь теряет ту самую строку, которую только что открыл. */
-function render(keepScroll){
+/* quiet=true — перерисовка без анимации графиков: набор в поиске по таблице
+   перерисовывает экран на каждую букву, и линии не должны рисоваться заново. */
+function render(keepScroll,quiet){
   const y=keepScroll?(window.pageYOffset||0):0;
   /* вкладка скрытого (или несуществующего) блока — уводим на one-pager. Одна
      точка на всё: и ссылка с ?tab=tgrowth&hide=…, и отключение метрик в модалке */
@@ -247,15 +294,78 @@ function render(keepScroll){
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
     ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded,mixOpen);
+    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
-  G.remeasure($('#view'),true);
+  G.remeasure($('#view'),!quiet);
+  stickTotals();
   renderMascot();
   enhanceA11y();navOpen(false);
   if(keepScroll)window.scrollTo(0,y);
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
 }
+
+/* Липкий ИТОГО встаёт ровно под шапку таблицы. Шапка переносится по словам
+   и бывает в две-три строки, а константа 29px оставляла под ней половину
+   итога — с деревом на три уровня таблица прокручивается внутри панели
+   чаще, и это стало видно. Высоту шапки меряем после отрисовки и на ресайз. */
+function stickTotals(){
+  document.querySelectorAll('.ptable.dense').forEach(t=>{
+    const h=t.tHead?t.tHead.getBoundingClientRect().height:0;
+    if(h)t.style.setProperty('--thead-h',Math.round(h)+'px');
+  });
+}
+
+/* ---------- разделитель «таблица | графики» ----------
+   Тянется мышью или пальцем: доля пишется в переменные сетки на лету, без
+   render(), графики перемеряются под новую ширину раз в 60 мс и ещё раз —
+   когда отпустили. Каждой колонке остаётся минимум 340px. */
+function splitBounds(box){
+  const room=box.getBoundingClientRect().width-16;
+  return [Math.max(.2,340/room),Math.min(.8,1-340/room)];
+}
+function applySplit(box,share){
+  const gut=box.querySelector('[data-split]');
+  if(share==null){
+    box.classList.remove('custom');
+    box.style.removeProperty('--split-l');box.style.removeProperty('--split-r');
+    if(gut)gut.removeAttribute('aria-valuenow');
+    return;
+  }
+  box.classList.add('custom');
+  box.style.setProperty('--split-l',(share*100).toFixed(2)+'fr');
+  box.style.setProperty('--split-r',((1-share)*100).toFixed(2)+'fr');
+  if(gut)gut.setAttribute('aria-valuenow',String(Math.round(share*100)));
+}
+function relayout(){G.remeasure($('#view'));stickTotals()}
+let _sd=null;
+document.addEventListener('pointerdown',e=>{
+  const gut=e.target.closest&&e.target.closest('[data-split]');
+  if(!gut||e.button>0)return;
+  const box=gut.parentNode, r=box.getBoundingClientRect(), b=splitBounds(box);
+  e.preventDefault();
+  try{gut.setPointerCapture(e.pointerId)}catch(_){}
+  document.body.classList.add('split-drag');
+  const move=ev=>{
+    splitShare=Math.max(b[0],Math.min(b[1],(ev.clientX-r.left-8)/(r.width-16)));
+    applySplit(box,splitShare);
+    if(!_sd)_sd=setTimeout(()=>{_sd=null;relayout()},60);
+  };
+  const up=()=>{
+    gut.removeEventListener('pointermove',move);
+    gut.removeEventListener('pointerup',up);gut.removeEventListener('pointercancel',up);
+    document.body.classList.remove('split-drag');
+    clearTimeout(_sd);_sd=null;relayout();
+  };
+  gut.addEventListener('pointermove',move);
+  gut.addEventListener('pointerup',up);gut.addEventListener('pointercancel',up);
+});
+/* двойной клик по разделителю — раскладка по умолчанию */
+document.addEventListener('dblclick',e=>{
+  const gut=e.target.closest&&e.target.closest('[data-split]');
+  if(!gut)return;
+  splitShare=null;applySplit(gut.parentNode,null);relayout();
+});
 
 /* ---------- мини-навигация One-pager: какой блок сейчас на экране ----------
    Текущим считается последний блок, чей заголовок уже прошёл под липкую полосу. */
@@ -274,7 +384,7 @@ window.addEventListener('scroll',()=>{if(!_spy)_spy=requestAnimationFrame(spyBlo
 /* перерисовка графиков под новую ширину окна, без пересчёта данных */
 let _rz=null;
 window.addEventListener('resize',()=>{
-  clearTimeout(_rz);_rz=setTimeout(()=>G.remeasure($('#view')),140);
+  clearTimeout(_rz);_rz=setTimeout(()=>{G.remeasure($('#view'));stickTotals()},140);
 });
 
 /* ---------- события ----------
@@ -336,8 +446,10 @@ document.addEventListener('click',e=>{
     if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
   const dy=t.closest('[data-dyn]');
   if(dy){S.dyn=dy.dataset.dyn;render(true);return}
+  /* путь и «↑ Уровнем выше» — переход, как «Открыть юнит»: со стеком «Назад» */
   const cr=t.closest('[data-crumb]');
-  if(cr){S.unit=cr.dataset.crumb;openRows.clear();render();return}
+  if(cr){goUnit(cr.dataset.crumb);return}
+  if(t.closest('[data-uback]')){const p=unitBack.pop();if(p)goUnit(p,true);return}
   const un=t.closest('[data-unchip]');
   if(un){S[un.dataset.unchip]='all';render();return}
 
@@ -354,9 +466,15 @@ document.addEventListener('click',e=>{
   }
   const ex=t.closest('[data-exp]');
   if(ex){e.stopPropagation();const p=ex.dataset.exp;expanded.has(p)?expanded.delete(p):expanded.add(p);render(true);return}
-  const dr=t.closest('[data-drill]');
-  if(dr){e.stopPropagation();S.drillRoot=dr.dataset.drill;S.selNode=null;expanded.clear();render();return}
-  if(t.closest('[data-undrill]')){S.drillRoot=null;S.selNode=null;expanded.clear();render();return}
+  /* «во всю ширину» и полоса свёрнутой панели — один обработчик: режим едет в атрибуте */
+  const smode=t.closest('[data-splitmode]');
+  if(smode){splitMode=smode.dataset.splitmode;render(true);return}
+  /* «Открыть юнит» живёт ВНУТРИ строки .urow — проверка строго до неё, иначе
+     клик по иконке снимал бы выбор строки вместо перехода */
+  const ou=t.closest('[data-openunit]');
+  if(ou){e.stopPropagation();goUnit(ou.dataset.openunit);return}
+  /* поле поиска стоит в шапке панели — клик в него ничего не выбирает */
+  if(t.closest('.tsearch'))return;
 
   /* Срез состава — СТРОГО до .urow: строка разбивки и есть .urow, и общий
      обработчик выбора подразделения перехватил бы её первым. */
@@ -420,6 +538,19 @@ document.addEventListener('click',e=>{
 
   if(t.closest('.nav-i')&&innerWidth<=780)navOpen(false);
 });
+/* Поиск по таблице: перерисовка на каждую букву, без анимации графиков,
+   с возвратом фокуса и каретки в поле — иначе после первой буквы ввод
+   обрывался бы. */
+function searchInput(v,pos){
+  tq=v;
+  render(true,true);
+  const n=$('[data-tsearch]');
+  if(n&&n.focus){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}
+}
+document.addEventListener('input',e=>{
+  const s=e.target.closest&&e.target.closest('[data-tsearch]');
+  if(s)searchInput(s.value,s.selectionStart);
+});
 document.addEventListener('change',e=>{
   if(e.target.id==='selUnit'&&DRAFT){DRAFT.unit=e.target.value;paintOpts();return}
   const ax=e.target.closest&&e.target.closest('[data-mixaxis]');
@@ -463,17 +594,31 @@ document.addEventListener('keydown',e=>{
       return;
     }
   }
+  /* разделитель с клавиатуры: ← → по 5% */
+  if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&e.target.matches&&e.target.matches('[data-split]')){
+    e.preventDefault();
+    const box=e.target.parentNode, b=splitBounds(box), l=box.querySelector('.split-l');
+    const cur=splitShare!=null?splitShare:l.getBoundingClientRect().width/(box.getBoundingClientRect().width-16);
+    splitShare=Math.max(b[0],Math.min(b[1],cur+(e.key==='ArrowRight'?.05:-.05)));
+    applySplit(box,splitShare);relayout();return;
+  }
+  /* Escape в поле поиска сначала очищает поиск */
+  if(e.key==='Escape'&&tq&&e.target.matches&&e.target.matches('[data-tsearch]')){searchInput('',0);return}
   if(e.key==='Escape'){closeSetup();$('#helpOvl').classList.add('hidden');navOpen(false);pulse(false)}
 });
 
 /* ---------- старт ---------- */
 mountStaticMascots();
+/* ?tour=0 читаем ДО первого рендера: render() переписывает адрес своими
+   параметрами, и после него флага в location.search уже нет — справка
+   открывалась поверх скриншота, хотя её просили не показывать. */
+const noTour=location.search.indexOf('tour=0')>=0;
 readURL();render();
 
 /* первый вход: справка «Как читать отчёт» работает онбордингом.
    ?tour=0 — не показывать: нужно, чтобы скриншот сразу показывал отчёт. */
 try{
-  if(!localStorage.getItem('tp_onboarded')&&location.search.indexOf('tour=0')<0){
+  if(!localStorage.getItem('tp_onboarded')&&!noTour){
     $('#helpOvl').classList.remove('hidden');
     $('#btnHelpClose').addEventListener('click',()=>localStorage.setItem('tp_onboarded','1'),{once:true});
   }

@@ -34,6 +34,8 @@ function build(ctx){
   D.visibleMetricsOfBlock(b.key,S).forEach(m=>{
     if(m.better==='flat')return;
     const ser=D.aggregate(rl,m.key), v=ser[D.LAST];
+    /* доля без знаменателя (в окне не было ни одного найма) — фактов нет */
+    if(v==null)return;
     const kpi=D.kpiFor(m.key,S);
     const base=kpi?kpi.green:D.lastVal(bl,m.key);
     /* разрыв считаем только там, где сравнение осмысленно; тренд — у любой метрики */
@@ -63,15 +65,17 @@ function build(ctx){
     const tops=rows.filter(r=>r.depth===1).map(r=>{
       const lp=ctx.rowLeaves(r.n.path);
       const v=D.lastVal(lp,mainK), hc=D.lastVal(lp,'hc_total');
-      return {name:r.n.name,v:v,hc:hc,exc:isBad(mM,v,base)?Math.abs(v-base)*Math.max(hc,1):0};
+      return {name:r.n.name,v:v,hc:hc,exc:v!=null&&isBad(mM,v,base)?Math.abs(v-base)*Math.max(hc,1):0};
     });
     const total=tops.reduce((a,x)=>a+x.exc,0);
     if(total>0){
       const top=tops.slice().sort((a,b2)=>b2.exc-a.exc)[0];
       const share=top.exc/total*100;
       if(share>=INS_CONC)out.push({sev:3,metric:mM,
-        text:'<b>'+esc(top.name)+'</b> даёт '+share.toFixed(0)+'% всего отклонения по '+esc(mM.name).toLowerCase()+
-          ': '+D.fmtVal(mainK,top.v)+' при '+(kpi?'цели ':'базе ')+D.fmtVal(mainK,base)+
+        /* имя метрики — в кавычках и как есть: «по проникновение ai» ломало
+           и падеж, и аббревиатуру */
+        text:'<b>'+esc(top.name)+'</b> даёт '+share.toFixed(0)+'% всего отклонения по метрике «'+esc(mM.name)+
+          '»: '+D.fmtVal(mainK,top.v)+' при '+(kpi?'цели ':'базе ')+D.fmtVal(mainK,base)+
           ' на '+D.fmtInt(top.hc)+' чел. Начните разбор с него.'});
     }
   }

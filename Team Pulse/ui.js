@@ -100,6 +100,8 @@ function deltaChip(key,dv,o){
   const m=D.METRIC_BY_KEY[key];
   const vs=o&&o.vs?'<span class="d-vs">'+esc(o.vs)+'</span>':'';
   const at=o&&o.tip?tipAttr(o.tip):'';
+  /* у отношения без знаменателя изменения нет — прочерк, а не «минус всё» */
+  if(dv==null)return '<span class="delta flat"'+at+'>—'+vs+'</span>';
   if(dv===0)return '<span class="delta flat"'+at+'>0'+vs+'</span>';
   /* типографский минус подставляет сам fmtDelta — здесь его больше не чиним:
      пока чинили тут, пилюля «К базе» в сводной таблице оставалась с дефисом */
@@ -120,6 +122,83 @@ function icoExt(){
     'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'+
     '<path d="M8.4 2.4h3.2v3.2"/><path d="M11.6 2.4 6.9 7.1"/>'+
     '<path d="M9.7 8.3v2.2a1.1 1.1 0 0 1-1.1 1.1H3.5a1.1 1.1 0 0 1-1.1-1.1V5.4a1.1 1.1 0 0 1 1.1-1.1h2.2"/></svg>';
+}
+
+/* ---------- «Открыть юнит» (итерация 29, механика HRBP HUB) ----------
+   Сводная таблица показывает три уровня вниз; глубже — переходом в юнит:
+   отчёт встаёт на выбранное подразделение, и под ним открываются следующие
+   три уровня. Кнопка — иконка «вход» и только у ВЫБРАННОЙ строки: клик по
+   строке выбирает её для правой панели и никуда не уводит, случайного
+   перехода нет. Та же кнопка с подписью стоит в шапке правой панели. */
+function icoOpen(){
+  return '<svg class="ico-open" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" '+
+    'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+
+    '<path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/><path d="M9 16l4-4-4-4"/><path d="M13 12H3"/></svg>';
+}
+function openUnitBtn(path,name,label){
+  return '<button class="open-unit'+(label?' with-label':'')+'" data-openunit="'+esc(path)+'" aria-label="Открыть «'+esc(name)+'»"'+
+    tipAttr({title:'Открыть юнит',
+      text:'Отчёт встанет на «'+name+'»: карточки, таблица на три уровня ниже него, one-pager и ссылка — по нему. '+
+        'База сравнения не меняется.',
+      note:'Вернуться — «← Назад» или путь над отчётом.'})+'>'+icoOpen()+(label?esc(label):'')+'</button>';
+}
+
+/* ---------- Ширина колонок рабочей зоны (итерация 30, механика HRBP HUB) ----------
+   Таблицу и графики можно развести иначе: потянуть разделитель между ними
+   или развернуть одну панель во всю ширину. Свёрнутая панель не исчезает —
+   остаётся узкой полосой со своим именем, клик по ней возвращает обе колонки.
+   side — что разворачиваем: 'table' (таблица подразделений) или 'charts'. */
+function icoExpand(){
+  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>';
+}
+function icoShrink(){
+  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7"/></svg>';
+}
+function splitBtn(side,mode,name){
+  const wide=mode===side;
+  const lbl=wide?'Вернуть две колонки':name+' во всю ширину';
+  return '<button class="split-btn'+(wide?' on':'')+'" data-splitmode="'+(wide?'both':side)+'" aria-label="'+esc(lbl)+'"'+
+    tipAttr({title:lbl,text:wide?'Таблица подразделений слева, содержимое вкладки справа.'
+      :(side==='table'?'Правая панель':'Таблица подразделений')+' свернётся в полосу у края — клик по ней вернёт обе колонки.',
+      note:'Ширину колонок можно и тянуть — за разделитель между ними; двойной клик возвращает как было.'})+'>'+
+    (wide?icoShrink():icoExpand())+'</button>';
+}
+/* Свёрнутая панель — полоса с именем: что там лежит, видно и без клика.
+   pos — у какого края стоит полоса: 'l' (слева) или 'r' (справа). */
+function splitRail(pos,label){
+  return '<button class="split-rail '+pos+'" data-splitmode="both" aria-label="Показать: '+esc(label)+'"'+
+    tipAttr({title:label,text:'Вернуть две колонки: таблица слева, графики справа.'})+
+    '><i aria-hidden="true">'+(pos==='l'?'▸':'◂')+'</i><span>'+esc(label)+'</span></button>';
+}
+/* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
+   его с клавиатуры, двойной клик возвращает ширину по умолчанию. */
+function splitGut(share){
+  return '<div class="split-gut" data-split="1" role="separator" aria-orientation="vertical" '+
+    'aria-label="Ширина таблицы подразделений" aria-valuemin="20" aria-valuemax="80"'+
+    (share!=null?' aria-valuenow="'+Math.round(share*100)+'"':'')+' tabindex="0"'+
+    tipAttr({title:'Ширина колонок',text:'Потяните, чтобы дать больше места таблице или графикам.',
+      note:'Двойной клик — как было; стрелки ← → — с клавиатуры.'})+'><i></i></div>';
+}
+
+/* ---------- Поиск по таблице ----------
+   Ищет среди показанного — трёх уровней вниз от юнита отчёта, без запроса.
+   Находка выводится вместе с предками: «Группа поддержки» без родителя не
+   говорит, чья она. Совпадение подсвечено, остальной текст строки — нет. */
+function icoSearch(){
+  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
+}
+function searchBox(o){
+  return '<label class="tsearch">'+icoSearch()+'<input type="search" data-tsearch="1" autocomplete="off" '+
+    'placeholder="'+esc(o.placeholder)+'" aria-label="'+esc(o.placeholder)+'" value="'+esc(o.q||'')+'"></label>';
+}
+function hlText(text,q){
+  const s=String(text==null?'':text), n=String(q||'').trim().toLowerCase();
+  const at=n?s.toLowerCase().indexOf(n):-1;
+  if(at<0)return esc(s);
+  return esc(s.slice(0,at))+'<mark class="hl">'+esc(s.slice(at,at+n.length))+'</mark>'+esc(s.slice(at+n.length));
 }
 
 /* ---------- Каретка раскрытия строки ----------
@@ -175,6 +254,11 @@ function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Сравнен
    и только с ним**. Средняя по базе рядом с целью KPI заставляла выбирать,
    по какому из двух чисел судить, хотя ответ один: цель важнее средней. */
 function targetCell(key,val,baseVal,kpi){
+  /* Значения нет (доля без знаменателя) — оценки нет: «ниже порога» про
+     команду, у которой в окне не было ни одного найма, было бы неправдой. */
+  if(val==null)return '<div class="tgt">'+(kpi?'<span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'
+    :D.comparable(key)&&baseVal!=null?'<b>'+D.fmtVal(key,baseVal)+'</b>':'')+
+    '<span class="sig-chip neutral">нет данных</span></div>';
   if(kpi){
     const st=D.stateForKpi(key,val,kpi), m=D.METRIC_BY_KEY[key];
     const badTxt=m.better==='lower'?'выше порога':'ниже порога';
@@ -248,7 +332,7 @@ function detailSplit(left,right){
 function dynSwitch(mode){
   const it=[['roll','12 мес'],['yoy','Год к году']];
   return '<div class="dyn-switch" role="tablist">'+it.map(([k,n])=>
-    '<button class="'+(mode===k?'on':'')+'" data-dyn="'+k+'" role="tab" aria-selected="'+(mode===k)+'">'+n+'</button>').join('')+'</div>';
+    '<button class="'+(mode===k?'on':'')+'" data-dyn="'+k+'" data-text="'+esc(n)+'" role="tab" aria-selected="'+(mode===k)+'">'+n+'</button>').join('')+'</div>';
 }
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.q||'')+'</div>'+
@@ -497,19 +581,112 @@ function sliceNote(parts,extra){
 }
 
 /* ---------- Панель с шапкой ---------- */
+/* subHtml — подзаголовок с разметкой (кнопка «Открыть юнит», иконка в
+   подсказке о глубине); обычный sub по-прежнему экранируется.
+   hBtn — кнопка в углу заголовка («во всю ширину»): стоит поверх своего
+   поля справа и не отнимает места у поиска и вкладок — иначе шапка росла
+   на строку. */
 function panel(o){
   const tabs=o.tabs||'';
+  const sub=o.subHtml?o.subHtml:o.sub?esc(o.sub):'';
   return '<div class="panel'+(o.cls?' '+o.cls:'')+'">'+
-    (o.title?'<div class="panel-h'+(tabs?' with-tabs':'')+'"><div class="h-txt"><span>'+o.title+'</span>'+
-      (o.sub?'<span class="sub">'+esc(o.sub)+'</span>':'')+'</div>'+tabs+'</div>':'')+
+    (o.title?'<div class="panel-h'+(tabs?' with-tabs':'')+'"><div class="h-txt'+(o.hBtn?' has-btn':'')+'"><span>'+o.title+'</span>'+
+      (sub?'<span class="sub">'+sub+'</span>':'')+(o.hBtn||'')+'</div>'+tabs+'</div>':'')+
     '<div class="panel-b'+(o.bodyCls?' '+o.bodyCls:'')+'">'+o.body+'</div></div>';
 }
 
 /* ---------- Под-вкладки ---------- */
 function subTabs(list,active){
   if(!list||list.length<2)return'';
+  /* data-text — невидимая жирная копия подписи (styles.css, итерация 28):
+     активная вкладка жирная, и без резерва ширины ряд прыгал бы при переключении */
   return '<div class="sub-tabs">'+list.map(t=>'<button class="sub-tab'+(active===t[0]?' active':'')+
-    '" data-subtab="'+t[0]+'">'+esc(t[1])+'</button>').join('')+'</div>';
+    '" data-subtab="'+t[0]+'" data-text="'+esc(t[1])+'">'+esc(t[1])+'</button>').join('')+'</div>';
+}
+
+/* ============================================================================
+   statTable — таблица показателей: строки — разные величины, колонки — срезы.
+   План-факт подбора («Всего · Массовый · Профильный»), заявки «Роста» по типу.
+
+   Это не разбивка. Строки не складываются в итог и у каждой свой формат
+   (люди, проценты, дни), поэтому полосы в ячейке здесь нет: её длина
+   сравнивала бы несравнимое. Если первая колонка — итог среза («Всего»),
+   она жирная: сначала итог, потом из чего сложился — как ИТОГО первой
+   строкой в разбивках (правило 10e).
+
+   o.cols   — подписи колонок            o.fmts — формат по колонке (по умолчанию int)
+   o.head   — шапка первой колонки; пустая, если имя таблицы стоит над ней (10f)
+   o.firstTotal — первая колонка итоговая (по умолчанию да)
+   o.rows   — {name, note, fmt, vals, sub, total, state:[good|bad|…], tip}
+              или {sec:'Заголовок секции'} — рубрика внутри таблицы
+   ========================================================================== */
+function statTable(o){
+  const nc=o.cols.length, first=o.firstTotal!==false;
+  let h='<table class="ptable stable dense"><thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
+    o.cols.map((c,j)=>'<th'+(j===0&&first?' class="st-tot"':'')+'>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
+  o.rows.forEach(r=>{
+    if(r.sec){h+='<tr class="st-sec"><td class="txt" colspan="'+(nc+1)+'">'+esc(r.sec)+'</td></tr>';return}
+    const cls=[r.total?'total top':'',r.sub?'st-sub':''].filter(Boolean).join(' ');
+    h+='<tr'+(cls?' class="'+cls+'"':'')+(r.tip?tipAttr(r.tip):'')+'><td class="txt">'+esc(r.name)+
+      (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+'</td>'+
+      r.vals.map((v,j)=>{
+        const txt=D.fmtNum(r.fmt||(o.fmts&&o.fmts[j])||'int',v);
+        /* оценка строки (выполнение плана к цели) — той же пилюлей, что «К базе»
+           в сводной таблице: один язык светофора на весь отчёт */
+        const st=r.state&&r.state[j];
+        return '<td'+(j===0&&first&&!r.total?' class="lead"':'')+'>'+
+          (st&&v!=null?'<span class="cell '+st+'">'+txt+'</span>':txt)+'</td>';
+      }).join('')+'</tr>';
+  });
+  return h+'</tbody></table>';
+}
+
+/* ============================================================================
+   heatTable — матрица долей без среза по клику: строки — группы людей,
+   колонки — категории (статусы роста, оценки ревью).
+
+   В клетке % по строке: группы разного размера сравниваются только долями,
+   а людей видно в подсказке и в последней колонке. Заливка — та же синяя
+   монохромная шкала, что у матрицы состава и календаря: это распределение,
+   а не оценка, и светофор здесь соврал бы. Насыщенность считается от самой
+   большой доли таблицы, иначе при долях 5–40% вся матрица была бы бледной.
+
+   o.cols   — [{name, tip}]                 o.corner — подпись над колонкой строк
+   o.total  — {name, cells} — итоговая строка, первой (правило 10e)
+   o.groups — [{name, rows:[{name, cells}]}]; при нескольких группах имя группы
+              стоит строкой-рубрикой (грейд · стаж · роль в одной таблице)
+   ========================================================================== */
+function heatTable(o){
+  const nc=o.cols.length;
+  const sumOf=c=>c.reduce((a,b)=>a+b,0);
+  const all=(o.total?[o.total]:[]).concat(...o.groups.map(g=>g.rows));
+  let top=0;
+  all.forEach(r=>{const t=sumOf(r.cells);if(t)r.cells.forEach(v=>{top=Math.max(top,v/t)})});
+  top=top||1;
+  const row=(r,cls)=>{
+    const t=sumOf(r.cells);
+    /* проценты строки дают ровно 100: округляются группой, как в матрице состава */
+    const pc=t?D.roundParts(r.cells.map(v=>v/t*100),100):r.cells.map(()=>0);
+    return '<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(r.name)+'</td>'+
+      r.cells.map((v,j)=>{
+        const k=t?v/t/top:0;
+        return '<td class="mx-cell'+(v?'':' zero')+'"'+(v?' style="background:'+G.heat(k)+';color:'+G.heatInk(k)+'"':'')+
+          tipAttr({title:r.name+' · '+o.cols[j].name,
+            rows:[{label:'доля в строке',value:t?pc[j]+'%':'—',color:G.heat(Math.max(0.35,k))},
+                  {label:'человек',value:D.fmtInt(v)}],
+            note:o.cols[j].tip||null})+'>'+(t?pc[j]+'%':'—')+'</td>';
+      }).join('')+'<td class="mx-tot">'+D.fmtInt(t)+'</td></tr>';
+  };
+  let h='<div class="mx-wrap"><table class="ptable mxtable hxtable dense"><thead><tr>'+
+    '<th class="txt mx-corner">'+(o.corner?'<span class="mx-r">'+esc(o.corner)+'</span>':'')+'</th>'+
+    o.cols.map(c=>'<th class="mx-h"'+(c.tip?tipAttr({title:c.name,text:c.tip}):'')+'>'+esc(c.name)+'</th>').join('')+
+    '<th class="mx-tot">'+esc(o.totHead||'Человек')+'</th></tr></thead><tbody>';
+  if(o.total)h+=row(o.total,'total top');
+  o.groups.forEach(g=>{
+    if(o.groups.length>1)h+='<tr class="hx-sec"><td class="txt" colspan="'+(nc+2)+'">'+esc(g.name)+'</td></tr>';
+    g.rows.forEach(r=>{h+=row(r)});
+  });
+  return h+'</tbody></table></div>';
 }
 
 /* ---------- Пустое состояние ----------
@@ -576,5 +753,6 @@ function trafficLegend(){
 }
 
 window.TPUI={blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
-  barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
+  barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
+  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,splitBtn,splitRail,splitGut};
 })();
