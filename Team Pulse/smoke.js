@@ -34,7 +34,7 @@ global.localStorage={getItem(){return'1'},setItem(){}};
 /* порядок как в index.html */
 ['data.js','draw.js','ui.js','insights.js',
  'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js',
- 'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js',
+ 'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js',
  'screens/onepager.js'].forEach(f=>require(path.join(dir,f)));
 
 /* app.js держит state в замыкании — добавляем экспорт-хвост во временную копию */
@@ -204,17 +204,21 @@ checks.push(['минус во всех дельтах типографский, 
 
   /* Карточки KPI выравниваются по строкам: перенос заголовка в одной карточке
      не должен сдвигать цифры в ней относительно соседних. */
+  /* у движения персонала карточек столько, сколько выбранных метрик блока:
+     после итерации 28 их семь (замещение и найм на 100 человек) */
+  const nMv=D.visibleMetricsOfBlock('movement',A.st()).length;
   checks.push(['карточка KPI всегда из пяти строк: две строки сравнения плюс «год назад»',
     (function(){
       const cards=mvHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
-      return cards.length===5&&cards.every(c=>(c.match(/<div class="k-row">/g)||[]).length===2)&&
-        (mvHtml.match(/<div class="k-row k-yoy">/g)||[]).length===5;
+      return cards.length===nMv&&cards.every(c=>(c.match(/<div class="k-row">/g)||[]).length===2)&&
+        (mvHtml.match(/<div class="k-row k-yoy">/g)||[]).length===nMv;
     })()]);
   checks.push(['полоса KPI выровнена subgrid, а не надеждой на короткие заголовки',
     /\.kpi\{display:grid;grid-template-rows:subgrid;grid-row:span5;row-gap:0\}/.test(css)&&
     /@supports\(grid-template-rows:subgrid\)/.test(css)]);
-  checks.push(['пять метрик движения персонала стоят пятью колонками',
-    /class="kpis compact n5"/.test(mvHtml)&&/\.kpis\.n5\{grid-template-columns:repeat\(5/.test(css)]);
+  checks.push(['метрики движения персонала стоят своим числом колонок',
+    nMv===7&&new RegExp('class="kpis compact n'+nMv+'"').test(mvHtml)&&
+    new RegExp('\\.kpis\\.n'+nMv+'\\{grid-template-columns:repeat\\('+nMv).test(css)]);
 })();
 
 /* Есть утверждённый KPI — сравниваемся с ним, и базы рядом нет: два ориентира
@@ -236,7 +240,7 @@ checks.push(['минус во всех дельтах типографский, 
   /* на раскрытом графике та же развилка: пороги KPI вместо линии базы */
   const line=SC.metricLine('regret',rl0,bl0,S0,{});
   checks.push(['у метрики с KPI на графике пороги цели, а не линия базы',
-    /KPI /.test(line)&&!/class="lnb"/.test(line)]);
+    />цель 4,0%</.test(line)&&/>порог 7,0%</.test(line)&&!/class="lnb"/.test(line)]);
   /* без KPI (regret вне HQ) поведение прежнее: линия базы на месте */
   const S1=Object.assign({},S0,{paint:'Line'});
   checks.push(['без KPI метрика возвращается к сравнению с базой',
@@ -246,7 +250,7 @@ checks.push(['минус во всех дельтах типографский, 
 /* Среднесписочная ушла из отчёта, но осталась знаменателем текучести;
    на её место в движении персонала встал прирост с начала года. */
 checks.push(['среднесписочной численности нет среди метрик отчёта',
-  !D.METRIC_BY_KEY['hc_avg']&&!/Среднесписочная/.test(allHtml)&&D.METRICS.length===19]);
+  !D.METRIC_BY_KEY['hc_avg']&&!/Среднесписочная/.test(allHtml)&&D.METRICS.length===30]);
 checks.push(['ряд hc_avg жив: текучесть по-прежнему считается',
   D.aggregate(rl,'hc_avg')[D.LAST]>0]);
 (function(){
@@ -273,12 +277,17 @@ checks.push(['ряд hc_avg жив: текучесть по-прежнему с�
 /* 10. перекомпоновка под-вкладок: что где лежит после итерации 20 */
 const subsOf=k=>SC.blocks[k].subTabs.map(t=>t[0]).join(',');
 checks.push(['состав разложен по группам плюс конструктор',
-  subsOf('structure')==='qual,people,contract,stream,custom']);
-checks.push(['срок закрытия больше не отдельная вкладка',
-  subsOf('hiring')==='vacancies,funnel']);
-checks.push(['T-рост собран в одну вкладку',subsOf('tgrowth')==='flow']);
-checks.push(['офис — календарь, рейтинг, динамика',
-  subsOf('office')==='calendar,offices,dynamics']);
+  subsOf('structure')==='qual,people,contract,geo,stream,custom']);
+/* итерация 28 (бизнес-анализ): план-факт и профиль найма, заявки и статусы
+   роста, бронирование и «кто ходит» встали своими вкладками; срок закрытия
+   по-прежнему панелью к вакансиям, конверсия T-роста — рядом с решениями */
+checks.push(['срок закрытия не отдельная вкладка, план-факт и профиль найма — свои',
+  subsOf('hiring')==='vacancies,plan,profile,funnel']);
+checks.push(['T-рост: конверсия с решениями на одной вкладке, заявки и статусы — на своих',
+  subsOf('tgrowth')==='flow,requests,statuses']);
+checks.push(['офис — календарь, офисы и города, кто ходит, бронирование, динамика',
+  subsOf('office')==='calendar,offices,people,booking,dynamics']);
+checks.push(['AI — проникновение, инструменты и стримы',subsOf('ai')==='adoption,tools']);
 /* неизвестная под-вкладка из старой ссылки не должна ломать экран */
 checks.push(['неизвестная под-вкладка откатывается на дефолтную',
   A.go('hiring','speed').length>400&&A.go('tgrowth','conv').length>400]);
@@ -584,7 +593,7 @@ checks.push(['марки графиков помечены data-s',
   /* 1. Разрезов девять, и это реестр, а не ветки в if */
   checks.push(['разрезы состава объявлены списком: от грейда до специализации',
     dims.map(d=>d.key).join(',')===
-    'grade,seniority,gender,age,tenure,employment,worksite,legal,stream,spec']);
+    'grade,seniority,gender,age,tenure,employment,worksite,legal,region,stream,spec']);
   checks.push(['грейд и сеньорность — РАЗНЫЕ разрезы: числовой и текстовый',
     byKey.grade.cats.every(c=>/^Грейд \d$/.test(c.name))&&
     byKey.seniority.cats.map(c=>c.name).join(',')==='Junior,Middle,Senior,Lead и выше']);
@@ -911,6 +920,112 @@ checks.push(['в :root есть шкала расстояний, роли кег
 checks.push(['третьей палитры нет: в экранах ни одного литерального цвета',
   fs.readdirSync(path.join(dir,'screens')).filter(f=>f.endsWith('.js'))
     .every(f=>!/#[0-9a-fA-F]{6}/.test(fs.readFileSync(path.join(dir,'screens',f),'utf8')))]);
+
+/* ============================================================================
+   Итерация 28: дообогащение по бизнес-анализу 07.10.2026 (пробелы против
+   дашбордов Proteus 34661 / 34136 и рекомендации). Главное правило новых
+   разбивок: ИТОГО — это метрика отчёта за то же окно, а не отдельное число.
+   ========================================================================== */
+(function(){
+  const S0=D.DEFAULT_STATE, rl0=D.reportLeaves(S0), bl0=D.benchmarkLeaves(S0);
+  const near=(a,b,eps)=>a!=null&&b!=null&&Math.abs(a-b)<=(eps||0.051);
+  const sum=a=>a.reduce((x,y)=>x+y,0);
+  const ytd=k=>D.sumWin(D.aggregate(rl0,k),'ytd');
+
+  checks.push(['восемь блоков: AI-инструменты — восьмой, тридцать метрик, сравнимых восемнадцать',
+    D.BLOCKS.length===8&&D.BLOCKS[7].key==='ai'&&D.metricsOfBlock('ai').length===2&&
+    D.METRICS.length===30&&D.METRICS.filter(m=>D.comparable(m.key)).length===18]);
+
+  /* --- производные метрики: формулы --- */
+  const e=k=>D.aggregate(rl0,k)[D.LAST];
+  checks.push(['коэффициент замещения = найм к оттоку с начала года',
+    near(e('replace_ratio'),ytd('hire')/ytd('attrition'),0.0001)]);
+  checks.push(['найм на 100 человек = найм / среднесписочная × 100',
+    near(e('hire_rate'),e('hire')/e('hc_avg')*100,0.006)]);
+  checks.push(['прогноз годовой текучести = накопительная / месяцев года × 12',
+    near(e('turnover_fc'),e('turnover_y')/(D.MONTHS[D.LAST].m+1)*12,0.006)]);
+  checks.push(['проникновение AI = активные пользователи / активная численность',
+    near(e('ai_penetration'),e('ai_wau')/e('hc_active')*100,0.006)]);
+  checks.push(['на «год к году» накопительной текучести стоит прогноз на декабрь',
+    /прогноз [\d,]+%/.test(SC.yoyChart('turnover_y',rl0,bl0,S0,{}))&&
+    !/прогноз/.test(SC.yoyChart('turnover_m',rl0,bl0,S0,{}))]);
+
+  /* --- разбивки сходятся со своими метриками --- */
+  const hp=D.hiringProfile(rl0,'ytd');
+  checks.push(['профиль найма: строка Junior = доля джунов, переводы = доля внутреннего найма',
+    hp.total===ytd('hire')&&sum(hp.seniority.map(x=>x.value))===hp.total&&
+    sum(hp.grade.map(x=>x.value))===hp.total&&sum(hp.channels.map(x=>x.value))===hp.total&&
+    near(hp.jun/hp.total*100,e('junior_share'))&&near(hp.tin/(hp.total+hp.tin)*100,e('internal_share'))]);
+  const pf=D.planFact(rl0);
+  checks.push(['план-факт: факт — найм из «Движения», выполнение = метрике, типы складываются',
+    pf.fact[0]===ytd('hire')&&pf.plan[0]===ytd('pf_plan')&&pf.closed[0]===ytd('vac_closed')&&
+    pf.open[0]===e('vac_open')&&near(pf.done[0],e('hire_plan'))&&
+    ['plan','fact','closed','open','overdue','replace','junior'].every(k=>pf[k][0]===pf[k][1]+pf[k][2])&&
+    pf.status.every(x=>x.vals[0]===x.vals[1]+x.vals[2])&&sum(pf.status.map(x=>x.vals[0]))===pf.open[0]]);
+  const rs=D.exitReasons(rl0,'ytd'), ini=D.exitInitiators(rl0,'ytd'), ex=D.exitProfile(rl0,'ytd');
+  checks.push(['инициатор увольнения — сумма причин, ИТОГО обеих — отток с начала года',
+    sum(rs.map(x=>x.value))===ytd('attrition')&&sum(ini.map(x=>x.value))===ytd('attrition')&&
+    D.EXIT_INITIATORS.every(i=>ini.find(x=>x.key===i.key).value===
+      sum(rs.filter(r=>r.init===i.key).map(r=>r.value)))]);
+  checks.push(['кто уходит: стаж, грейд и стрим ушедших в сумме — отток с начала года',
+    ['tenure','grade','stream'].every(k=>sum(ex[k].map(x=>x.value))===ytd('attrition'))]);
+  const tg=D.tgrowthProfile(rl0), gp=D.mixParts(rl0,'grade');
+  checks.push(['статусы роста: строки = разбивке по грейдам, «рост состоялся» = прошли за 12 мес',
+    tg.rows.every((r,i)=>sum(r.cells)===gp[i])&&
+    sum(tg.rows.map(r=>r.cells[0]))===Math.min(tg.pass,sum(gp))&&
+    sum(tg.types.map(t=>t.pass))===tg.pass&&sum(tg.types.map(t=>t.deny))===tg.deny]);
+  const rv=D.reviewProfile(rl0);
+  checks.push(['ревью: «улучшили» = метрике, края каждой группы сходятся с общим распределением',
+    sum(rv.dyn.map(x=>x.value))===rv.E&&near(rv.U/rv.E*100,e('review_up'))&&
+    rv.groups.every(g=>rv.scores.every((sc,j)=>sum(g.cells.map(r=>r[j]))===sc.value)&&
+      g.cells.every((r,i)=>sum(r)===g.tot[i]))]);
+  const bk=D.bookingQuality(rl0);
+  checks.push(['бронирование: доля нарушений в таблице = метрике блока',
+    bk.ok+bk.noshow+bk.walkin===bk.total&&near(bk.viol/bk.total*100,e('booking_viol'),0.06)]);
+  const wavg=rows=>sum(rows.map(r=>r.hc*r.att))/sum(rows.map(r=>r.hc));
+  checks.push(['посещаемость по грейдам и по роли с локацией в среднем = посещаемости отбора',
+    near(wavg(D.attByGrade(rl0)),e('office_att'),0.11)&&near(wavg(D.attByRoleLoc(rl0)),e('office_att'),0.11)&&
+    sum(D.attByRoleLoc(rl0).map(r=>r.hc))===Math.round(e('hc_total'))]);
+  const ai=D.aiProfile(rl0);
+  checks.push(['AI: по стримам в среднем = проникновению, ни один инструмент не выше общего',
+    near(sum(ai.streams.map(x=>x.hc*x.value))/sum(ai.streams.map(x=>x.hc)),ai.pen,0.11)&&
+    ai.tools.every(t=>t.value<=ai.pen)]);
+  checks.push(['регион — разрез вкладки «География», матрица «регион × специализация» сходится',
+    D.MIX_GROUPS.find(g=>g.key==='geo').dims.join()==='region,worksite'&&
+    sum([].concat(...D.mixMatrix(rl0,'region','spec')))===Math.round(e('hc_total'))&&
+    /Москва и область/.test(A.go('structure','geo'))]);
+
+  /* --- доля без знаменателя: прочерк, а не ноль --- */
+  const empty=D.leavesUnder('T').map(l=>l.path).find(p=>D.sumWin(D.aggregate([p],'hire'),'ytd')===0);
+  checks.push(['доля без знаменателя — прочерк без оценки, а не ноль',
+    !!empty&&D.lastVal([empty],'junior_share')===null&&D.fmtVal('junior_share',null)==='—'&&
+    D.compareState('junior_share',null,20)==='neutral'&&U.deltaChip('junior_share',null).replace(/<[^>]+>/g,'')==='—'&&
+    /нет данных/.test(U.targetCell('hire_plan',null,null,{green:95,red:80}))]);
+
+  /* --- раскладка и детальный слой --- */
+  checks.push(['«Детальный дашборд» ведёт в ту версию Proteus, где блок есть',
+    D.blockDash('structure',{paint:'HQ'}).id==='34136'&&D.blockDash('structure',{paint:'Line'}).id==='34661'&&
+    D.blockDash('ai',{paint:'Line'}).id==='34136'&&D.blockDash('monitor',{paint:'HQ'}).id==='34661'&&
+    /href="#\/proteus\/34136"/.test(A.go('ai','adoption'))]);
+  const op=A.go('onepager',null);
+  checks.push(['шапка one-pager — дайджест из восьми карточек: с джунами и проникновением AI',
+    SC.onepager.HERO.length===8&&SC.onepager.HERO.indexOf('junior_share')>=0&&
+    SC.onepager.HERO.indexOf('ai_penetration')>=0&&/<div class="kpis n4">/.test(op)]);
+  const mv=A.go('movement','balance');
+  checks.push(['в карточках KPI блока есть спарклайн',
+    (mv.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[]).filter(c=>/class="spark"/.test(c)).length===7]);
+  checks.push(['у широкой сводной таблицы левая колонка шире, а ниже 1240px она встаёт над графиком',
+    /class="split wide-l"/.test(mv)&&!/class="split wide-l"/.test(A.go('turnover','dynamics'))&&
+    /\.split\.wide-l\{grid-template-columns:minmax\(560px,1\.12fr\)/.test(css)&&
+    /@media\(max-width:1240px\)\{\.split\.wide-l\{grid-template-columns:1fr;height:auto\}/.test(css)]);
+  checks.push(['имя подразделения липкое: широкая таблица прокручивается внутри панели',
+    /\.split-l\.ptable\.densetd\.txt\{position:sticky;left:0/.test(css)]);
+  checks.push(['новые экраны помечают сгенерированное сноской с источником на проде',
+    ['plan','profile'].every(sb=>/на проде/i.test(A.go('hiring',sb)))&&
+    ['reasons','who'].every(sb=>/на проде/i.test(A.go('turnover',sb)))&&
+    /на проде/i.test(A.go('monitor','review'))&&/на проде/i.test(A.go('office','booking'))&&
+    /на проде/i.test(A.go('ai','tools'))&&/сгенерированы/.test(A.go('tgrowth','statuses'))]);
+})();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});
 

@@ -8,7 +8,10 @@
 const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
 const esc=U.esc;
 
-const HERO=['hc_total','hire','attrition','turnover_y','regret','office_att'];
+/* Шапка-дайджест (рекомендация бизнес-анализа: «свести численность, текучесть
+   YTD, долю джунов и проникновение AI в единую шапку»). Восемь карточек —
+   две строки по четыре: поток людей, текучесть, найм, AI и офис. */
+const HERO=['hc_total','hire','attrition','turnover_y','regret','junior_share','ai_penetration','office_att'];
 
 /* Имя выбранного подразделения — именно им подписана синяя линия в легенде. */
 function unitName(S){const n=D.NODE_BY_PATH[S.unit];return n?n.name:'Ваша команда'}
@@ -52,7 +55,10 @@ function pulse(S,rl,bl){
     const st=m.better==='flat'?'neutral':kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,D.lastVal(bl,m.key));
     if(st==='good')good++;else if(st==='bad')bad++;else neu++;
     if(m.better==='flat'||m.fmt==='int')return;
-    const yoy=D.deltasOf(rl,m.key).yoy, prev=v-yoy;
+    const yoy=D.deltasOf(rl,m.key).yoy;
+    /* доля без знаменателя в одном из месяцев — сдвига нет, а не «минус всё» */
+    if(v==null||yoy==null)return;
+    const prev=v-yoy;
     const rel=prev?Math.abs(yoy)/Math.abs(prev):0;
     if(rel>=0.05)mv.push({key:m.key,name:m.name,block:m.block,cur:v,prev,yoy,rel});
   });
@@ -117,8 +123,10 @@ function render(S,openRows){
 
   /* KPI-стрип: только выбранные метрики. hc_total и hc_active выключить нельзя,
      поэтому стрип не может опустеть целиком. */
-  h+='<div class="kpis">';
-  HERO.filter(k=>D.metricVisible(k,S)).forEach(k=>{
+  /* восемь карточек — по четыре в ряд; если часть скрыта, полоса тянется сама */
+  const heroKeys=HERO.filter(k=>D.metricVisible(k,S));
+  h+='<div class="kpis'+(heroKeys.length>6?' n4':'')+'">';
+  heroKeys.forEach(k=>{
     const s=D.aggregate(rl,k), v=s[D.LAST], dl=D.deltasOf(rl,k);
     const kpi=D.kpiFor(k,S), bv=D.lastVal(bl,k);
     const st=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,bv);
@@ -133,7 +141,7 @@ function render(S,openRows){
              :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':heroContext(k,s,rl)),
       /* год назад — тем же месяцем: число, которое в таблице стоит пилюлей
          «за год», здесь названо значением, чтобы его было с чем сверить */
-      row3:'год назад <b>'+D.fmtVal(k,v-dl.yoy)+'</b>'});
+      row3:'год назад <b>'+D.fmtVal(k,SC.yearAgo(rl,k))+'</b>'});
   });
   h+='</div>'+U.trafficLegend();
 

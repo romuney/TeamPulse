@@ -78,10 +78,13 @@ function selLabel(S){
 function yoyChart(key,lp,bl,S,opt){
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
   const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
+  /* у накопительной метрики с прогнозом (fc) декабрь получает точку run-rate:
+     «чем закончится год, если темп сохранится» читается прямо на полотне */
+  const fcK=(D.METRIC_BY_KEY[key]||{}).fc;
   const legend=[{name:String(D.YEAR_CUR),color:G.C_LINE},{name:String(D.YEAR_PREV),color:G.C_PREV}]
     .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
-    Object.assign({legend,benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
+    Object.assign({legend,benchName:bench,kpi:kpi,fc:fcK?D.lastVal(lp,fcK):null,h:300,fill:true},opt||{}));
 }
 /* Переключатель «12 мес / год к году» для вкладок, где динамика нарисована
    панелями: в режиме года каждая метрика получает своё полотно год к году. */
@@ -104,6 +107,21 @@ function metricLine(key,lp,bl,S,opt){
     Object.assign({legend:cmp?[{name:selLabel(S),color:G.C_LINE},{name:bench,color:G.C_BENCH,dash:true}]:null,
       benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
 }
+
+/* Спарклайн в карточке KPI блока (рекомендация бизнес-анализа: динамика
+   читается без перехода на график). Правило то же, что в колонке «12 мес»
+   one-pager: у метрики без оценки — тёмно-серая линия с поднятой шкалой,
+   у метрики со светофором — линия цвета оценки, месяц сравнивается с базой
+   этого месяца или с целью KPI. */
+function cardSpark(key,ser,st,S,bl){
+  const m=D.METRIC_BY_KEY[key], kpi=D.kpiFor(key,S);
+  const noEval=!kpi&&(!D.comparable(key)||m.better==='flat');
+  return G.sparkLine(ser,noEval?'neutral':st,84,24,{key:key,kpi:kpi,ink:noEval,fit:noEval,
+    base:!kpi&&D.comparable(key)?D.aggregate(bl,key):null});
+}
+/* Значение того же месяца год назад — прямо из расширенной сетки, а не
+   «значение минус изменение»: у доли без знаменателя изменения нет. */
+function yearAgo(lp,key){return D.aggregateExt(lp,key)[D.NEXT-13]}
 
 /* ---------- рендер детальной вкладки ---------- */
 function renderBlock(S,expanded,mixOpen){
@@ -146,8 +164,15 @@ function renderBlock(S,expanded,mixOpen){
       ? 'Сравнение с базой <b>'+esc(D.benchmarkLabel(S))+'</b>.'
       : kpiMets.length?'':'Метрики блока абсолютные — с базой не сравниваются.')+
     (kpiMets.length?' У метрик с утверждённым KPI сравнение идёт с целью, а не с базой.':'');
+  /* «Детальный дашборд» ведёт туда, где блок есть в Proteus: при покраске HQ —
+     в HQ-версию 34136, иначе в общую 34661; HQ-блоки — всегда в 34136. */
+  const dash=D.blockDash(b.key,S);
   let h='<div class="page-h"><div class="ph-row"><h2>'+esc(b.name)+'</h2>'+
-    '<a class="btn dash" href="'+b.drillUrl+'" target="_blank" rel="noopener">Детальный дашборд'+U.icoExt()+'</a></div>'+
+    '<a class="btn dash" href="'+(dash?dash.href:b.drillUrl)+'" target="_blank" rel="noopener"'+
+    (dash?U.tipAttr({title:'Дашборд Proteus '+dash.id,text:'«'+dash.name+'» — детальный слой этого блока.',
+      note:dash.only?'Блок есть только в этой версии дашборда.'
+        :'Блок есть в обеих версиях: при покраске HQ открывается HQ-версия, иначе общая.'}):'')+
+    '>Детальный дашборд'+U.icoExt()+'</a></div>'+
     '<p>'+esc(b.hint)+' '+cmpTxt+'</p></div>';
 
   /* 2 · инсайт */
@@ -166,22 +191,26 @@ function renderBlock(S,expanded,mixOpen){
      они стояли в одной строке, «+3» и «база 4,1%» читались как одно
      сравнение, хотя это два разных. Классы n2…n5 держат ровно столько колонок,
      сколько метрик: у движения персонала их теперь пять. */
-  h+='<div class="kpis compact'+(mets.length<=5?' n'+mets.length:'')+'">';
+  /* n1…n8: колонок ровно столько, сколько метрик. После итерации 28 у движения
+     персонала их семь — полоса на ноутбуке переносится на два ряда по четыре. */
+  h+='<div class="kpis compact n'+Math.min(8,mets.length)+'">';
   mets.forEach(m=>{
+    const sliced=selIds.length&&D.sliceable(m.key);
+    const ser=sliced?D.aggregateSlice(rl,m.key,selIds):D.aggregate(rl,m.key);
     const v=val(rl,m.key);
     /* Изменение по срезу считается по окну, а не по расширенной сетке: срез
        на неё не ходит. Для численности это тот же прошлый месяц. */
-    const mom=selIds.length&&D.sliceable(m.key)
-      ? D.sliceDeltaMoM(rl,m.key,selIds) : D.deltasOf(rl,m.key).mom;
+    const mom=sliced?D.sliceDeltaMoM(rl,m.key,selIds):D.deltasOf(rl,m.key).mom;
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
+    const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
     h+=U.kpiCard({label:m.name,
       q:U.infoDot(m.key),
       value:D.fmtVal(m.key,v),
-      row1:U.momChip(m.key,mom),
+      row1:U.momChip(m.key,mom)+cardSpark(m.key,ser,st,S,bl),
       row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
            :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark(),
       /* по срезу состава прошлогоднего значения нет: срез живёт только в окне */
-      row3:selIds.length&&D.sliceable(m.key)?'':'год назад <b>'+D.fmtVal(m.key,v-D.deltasOf(rl,m.key).yoy)+'</b>'});
+      row3:sliced?'':'год назад <b>'+D.fmtVal(m.key,yearAgo(rl,m.key))+'</b>'});
   });
   h+='</div>';
 
@@ -191,8 +220,12 @@ function renderBlock(S,expanded,mixOpen){
   h+=U.sliceNote(slice,'в карточках и в таблице подразделений численность показана '+
     'по срезу; база сравнения и инсайты считаются по всему отбору');
 
-  /* 5 · две колонки */
-  h+='<div class="split">';
+  /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
+     найм после итерации 28), сводной таблице нужно больше места, чем графику:
+     левая колонка становится шире — иначе главная метрика и «К базе» уезжали
+     за край панели под горизонтальную прокрутку. */
+  const wideL=mets.length+(D.comparable(mainK)||D.kpiFor(mainK,S)?1:0)>=7;
+  h+='<div class="split'+(wideL?' wide-l':'')+'">';
 
   /* Состояние каретки ИТОГО: пока раскрыто не всё — она предлагает раскрыть,
      и только когда раскрыты все раскрываемые строки — свернуть. */
@@ -240,8 +273,8 @@ function renderBlock(S,expanded,mixOpen){
       '<span class="unit-sub">'+D.fmtVal('hc_total',val(lp,'hc_total'))+' чел</span></span></span></td>'+
       mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(lp,m.key))+'</td>').join('')+
       /* у пустого подразделения 0% — не «лучше базы», а отсутствие людей */
-      (showVs?'<td class="vs">'+(r.empty?'<span class="cell neutral">—</span>'
-        :'<span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(1))+'</span>')+'</td>':'')+
+      (showVs?'<td class="vs">'+(r.empty||v==null||benchMain==null?'<span class="cell neutral">—</span>'
+        :'<span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(4))+'</span>')+'</td>':'')+
       '<td>'+(kids>0?'<button class="btn ghost xs" data-drill="'+r.n.path+'"'+
         U.tipAttr({title:'Сделать корнем',
           text:'Показать детей «'+r.n.name+'» отдельным списком. База сравнения не меняется.'})+'>↓</button>':'')+'</td></tr>';
@@ -263,5 +296,5 @@ function renderBlock(S,expanded,mixOpen){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,metricLine,yoyChart,dynWrap,winTitle,selLabel};
+  expandableRows,metricLine,yoyChart,dynWrap,winTitle,selLabel,yearAgo};
 })();

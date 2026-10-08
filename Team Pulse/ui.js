@@ -100,6 +100,8 @@ function deltaChip(key,dv,o){
   const m=D.METRIC_BY_KEY[key];
   const vs=o&&o.vs?'<span class="d-vs">'+esc(o.vs)+'</span>':'';
   const at=o&&o.tip?tipAttr(o.tip):'';
+  /* у отношения без знаменателя изменения нет — прочерк, а не «минус всё» */
+  if(dv==null)return '<span class="delta flat"'+at+'>—'+vs+'</span>';
   if(dv===0)return '<span class="delta flat"'+at+'>0'+vs+'</span>';
   /* типографский минус подставляет сам fmtDelta — здесь его больше не чиним:
      пока чинили тут, пилюля «К базе» в сводной таблице оставалась с дефисом */
@@ -175,6 +177,11 @@ function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Сравнен
    и только с ним**. Средняя по базе рядом с целью KPI заставляла выбирать,
    по какому из двух чисел судить, хотя ответ один: цель важнее средней. */
 function targetCell(key,val,baseVal,kpi){
+  /* Значения нет (доля без знаменателя) — оценки нет: «ниже порога» про
+     команду, у которой в окне не было ни одного найма, было бы неправдой. */
+  if(val==null)return '<div class="tgt">'+(kpi?'<span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'
+    :D.comparable(key)&&baseVal!=null?'<b>'+D.fmtVal(key,baseVal)+'</b>':'')+
+    '<span class="sig-chip neutral">нет данных</span></div>';
   if(kpi){
     const st=D.stateForKpi(key,val,kpi), m=D.METRIC_BY_KEY[key];
     const badTxt=m.better==='lower'?'выше порога':'ниже порога';
@@ -514,6 +521,91 @@ function subTabs(list,active){
     '" data-subtab="'+t[0]+'" data-text="'+esc(t[1])+'">'+esc(t[1])+'</button>').join('')+'</div>';
 }
 
+/* ============================================================================
+   statTable — таблица показателей: строки — разные величины, колонки — срезы.
+   План-факт подбора («Всего · Массовый · Профильный»), заявки «Роста» по типу.
+
+   Это не разбивка. Строки не складываются в итог и у каждой свой формат
+   (люди, проценты, дни), поэтому полосы в ячейке здесь нет: её длина
+   сравнивала бы несравнимое. Если первая колонка — итог среза («Всего»),
+   она жирная: сначала итог, потом из чего сложился — как ИТОГО первой
+   строкой в разбивках (правило 10e).
+
+   o.cols   — подписи колонок            o.fmts — формат по колонке (по умолчанию int)
+   o.head   — шапка первой колонки; пустая, если имя таблицы стоит над ней (10f)
+   o.firstTotal — первая колонка итоговая (по умолчанию да)
+   o.rows   — {name, note, fmt, vals, sub, total, state:[good|bad|…], tip}
+              или {sec:'Заголовок секции'} — рубрика внутри таблицы
+   ========================================================================== */
+function statTable(o){
+  const nc=o.cols.length, first=o.firstTotal!==false;
+  let h='<table class="ptable stable dense"><thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
+    o.cols.map((c,j)=>'<th'+(j===0&&first?' class="st-tot"':'')+'>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
+  o.rows.forEach(r=>{
+    if(r.sec){h+='<tr class="st-sec"><td class="txt" colspan="'+(nc+1)+'">'+esc(r.sec)+'</td></tr>';return}
+    const cls=[r.total?'total top':'',r.sub?'st-sub':''].filter(Boolean).join(' ');
+    h+='<tr'+(cls?' class="'+cls+'"':'')+(r.tip?tipAttr(r.tip):'')+'><td class="txt">'+esc(r.name)+
+      (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+'</td>'+
+      r.vals.map((v,j)=>{
+        const txt=D.fmtNum(r.fmt||(o.fmts&&o.fmts[j])||'int',v);
+        /* оценка строки (выполнение плана к цели) — той же пилюлей, что «К базе»
+           в сводной таблице: один язык светофора на весь отчёт */
+        const st=r.state&&r.state[j];
+        return '<td'+(j===0&&first&&!r.total?' class="lead"':'')+'>'+
+          (st&&v!=null?'<span class="cell '+st+'">'+txt+'</span>':txt)+'</td>';
+      }).join('')+'</tr>';
+  });
+  return h+'</tbody></table>';
+}
+
+/* ============================================================================
+   heatTable — матрица долей без среза по клику: строки — группы людей,
+   колонки — категории (статусы роста, оценки ревью).
+
+   В клетке % по строке: группы разного размера сравниваются только долями,
+   а людей видно в подсказке и в последней колонке. Заливка — та же синяя
+   монохромная шкала, что у матрицы состава и календаря: это распределение,
+   а не оценка, и светофор здесь соврал бы. Насыщенность считается от самой
+   большой доли таблицы, иначе при долях 5–40% вся матрица была бы бледной.
+
+   o.cols   — [{name, tip}]                 o.corner — подпись над колонкой строк
+   o.total  — {name, cells} — итоговая строка, первой (правило 10e)
+   o.groups — [{name, rows:[{name, cells}]}]; при нескольких группах имя группы
+              стоит строкой-рубрикой (грейд · стаж · роль в одной таблице)
+   ========================================================================== */
+function heatTable(o){
+  const nc=o.cols.length;
+  const sumOf=c=>c.reduce((a,b)=>a+b,0);
+  const all=(o.total?[o.total]:[]).concat(...o.groups.map(g=>g.rows));
+  let top=0;
+  all.forEach(r=>{const t=sumOf(r.cells);if(t)r.cells.forEach(v=>{top=Math.max(top,v/t)})});
+  top=top||1;
+  const row=(r,cls)=>{
+    const t=sumOf(r.cells);
+    /* проценты строки дают ровно 100: округляются группой, как в матрице состава */
+    const pc=t?D.roundParts(r.cells.map(v=>v/t*100),100):r.cells.map(()=>0);
+    return '<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(r.name)+'</td>'+
+      r.cells.map((v,j)=>{
+        const k=t?v/t/top:0;
+        return '<td class="mx-cell'+(v?'':' zero')+'"'+(v?' style="background:'+G.heat(k)+';color:'+G.heatInk(k)+'"':'')+
+          tipAttr({title:r.name+' · '+o.cols[j].name,
+            rows:[{label:'доля в строке',value:t?pc[j]+'%':'—',color:G.heat(Math.max(0.35,k))},
+                  {label:'человек',value:D.fmtInt(v)}],
+            note:o.cols[j].tip||null})+'>'+(t?pc[j]+'%':'—')+'</td>';
+      }).join('')+'<td class="mx-tot">'+D.fmtInt(t)+'</td></tr>';
+  };
+  let h='<div class="mx-wrap"><table class="ptable mxtable hxtable dense"><thead><tr>'+
+    '<th class="txt mx-corner">'+(o.corner?'<span class="mx-r">'+esc(o.corner)+'</span>':'')+'</th>'+
+    o.cols.map(c=>'<th class="mx-h"'+(c.tip?tipAttr({title:c.name,text:c.tip}):'')+'>'+esc(c.name)+'</th>').join('')+
+    '<th class="mx-tot">'+esc(o.totHead||'Человек')+'</th></tr></thead><tbody>';
+  if(o.total)h+=row(o.total,'total top');
+  o.groups.forEach(g=>{
+    if(o.groups.length>1)h+='<tr class="hx-sec"><td class="txt" colspan="'+(nc+2)+'">'+esc(g.name)+'</td></tr>';
+    g.rows.forEach(r=>{h+=row(r)});
+  });
+  return h+'</tbody></table></div>';
+}
+
 /* ---------- Пустое состояние ----------
    Пустой экран — единственное место, где маскоту есть что добавить к смыслу:
    спящий огонёк читается быстрее серой надписи и сразу говорит, что отчёт
@@ -578,5 +670,6 @@ function trafficLegend(){
 }
 
 window.TPUI={blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
-  barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend};
+  barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
+  statTable,heatTable};
 })();

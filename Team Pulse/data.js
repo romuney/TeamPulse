@@ -72,17 +72,33 @@ const YEAR_START_EXT=MONTHS_EXT.map(function(mm){
    это не влияет — там база честный декабрь 2025. */
 function ytdBase(i){const j=YEAR_START_EXT[i];return j>0?j-1:0}
 
-/* ---------- Блоки ---------- */
+/* ---------- Блоки ----------
+   dash — в каких дашбордах Proteus есть этот блок (бизнес-анализ 07.10.2026):
+   34661 «Управленческая структура» и 34136 «Управленческая структура HQ».
+   Hub заменяет оба, а дашборды остаются детальным слоем: кнопка «Детальный
+   дашборд» ведёт туда, где блок есть, — при покраске HQ в HQ-версию. */
 const BLOCKS=[
-{key:'structure',name:'Структура численности',hint:'Сколько людей в команде и как это меняется.',drillUrl:'#/detail/structure'},
-{key:'movement',name:'Движение персонала',hint:'Найм, отток и переводы в команду и из неё.',drillUrl:'#/detail/movement'},
-{key:'turnover',name:'Отток и текучесть',hint:'Темпы увольнений и их причины.',drillUrl:'#/detail/turnover'},
-{key:'hiring',name:'Найм и вакансии',hint:'Открытые и закрытые вакансии, скорость закрытия.',drillUrl:'#/detail/hiring'},
-{key:'tgrowth',name:'T-рост',hint:'Прошли и отказано, конверсия в повышение.',drillUrl:'#/detail/tgrowth'},
-{key:'monitor',name:'Мониторинг работы',hint:'Лоу-перформеры и недоработчики.',drillUrl:'#/detail/monitor'},
-{key:'office',name:'Посещаемость офисов',hint:'Средняя посещаемость и её динамика.',drillUrl:'#/detail/office'}
+{key:'structure',name:'Структура численности',hint:'Сколько людей в команде, кто они и где работают.',drillUrl:'#/detail/structure',dash:['34661','34136']},
+{key:'movement',name:'Движение персонала',hint:'Найм, отток и переводы в команду и из неё; растёт ли команда.',drillUrl:'#/detail/movement',dash:['34661','34136']},
+{key:'turnover',name:'Отток и текучесть',hint:'Темпы увольнений, прогноз на год, кто и почему уходит.',drillUrl:'#/detail/turnover',dash:['34661','34136']},
+{key:'hiring',name:'Найм и вакансии',hint:'Вакансии, план-факт подбора, каналы и профиль найма.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
+{key:'tgrowth',name:'T-рост',hint:'Заявки на рост, решения по ним, время до повышения и статусы по грейдам.',drillUrl:'#/detail/tgrowth',dash:['34136']},
+{key:'monitor',name:'Мониторинг работы',hint:'Лоу-перформеры, недоработка и итоги ревью.',drillUrl:'#/detail/monitor',dash:['34661']},
+{key:'office',name:'Посещаемость офисов',hint:'Посещаемость, офисы и города, качество бронирования.',drillUrl:'#/detail/office',dash:['34136']},
+/* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
+   У Hub были AI-подсказки, но не было метрик внедрения AI. */
+{key:'ai',name:'AI-инструменты',hint:'Проникновение AI-инструментов и активные пользователи.',drillUrl:'#/detail/ai',dash:['34136']}
 ];
 const BLOCK_BY_KEY=Object.fromEntries(BLOCKS.map(b=>[b.key,b]));
+const PROTEUS_DASH={'34661':'Team Pulse: Управленческая структура','34136':'Team Pulse: Управленческая структура HQ'};
+/* В какой дашборд Proteus ведёт «Детальный дашборд». Блок есть в обоих —
+   решает покраска: HQ уходит в HQ-версию, остальное в общую. Адрес Proteus
+   в макете не известен, поэтому ссылка — заглушка с номером дашборда. */
+function blockDash(bk,st){
+  const ids=(BLOCK_BY_KEY[bk]||{}).dash||[];
+  const id=ids.length>1?(st&&st.paint==='HQ'?'34136':'34661'):ids[0];
+  return id?{id:id,name:PROTEUS_DASH[id],href:'#/proteus/'+id,only:ids.length===1}:null;
+}
 
 /* ---------- Конфиг метрик ----------
    better: 'lower'|'higher'|'flat'   fmt: 'int'|'pct'|'days'
@@ -107,26 +123,79 @@ const METRICS=[
    скролл на ноутбучной ширине. Полное имя и пояснение живут в подсказке шапки. */
 {key:'net_ytd',block:'movement',name:'Прирост с начала года',short:'Прирост',fmt:'int',better:'flat',unit:'чел',anchor:null,
   ytdDelta:'hc_total',hint:'Изменение общей численности с начала календарного года: значение на конец месяца минус численность на 31 декабря.'},
+/* Производные движения (бизнес-анализ, итерация 28). Отвечают на «растём или
+   держимся» и делают поток сравнимым с базой: найм в людях — масштаб, а не
+   оценка, найм на 100 человек — уже темп. Отток на 100 человек отдельной
+   метрикой не заводим: это ровно текучесть месячная, та же формула. */
+{key:'replace_ratio',block:'movement',name:'Коэффициент замещения',short:'Замещ.',fmt:'ratio',better:'flat',unit:'×',anchor:null,
+  derived:{num:'hire',den:'attrition',win:'ytd',dp:4},
+  hint:'Найм к оттоку с начала года. Больше 1 — приходит больше людей, чем уходит; меньше 1 — команда не восполняет уходы внешним наймом.'},
+{key:'hire_rate',block:'movement',name:'Найм на 100 человек',short:'Найм /100',fmt:'pct',better:'flat',unit:'%',anchor:null,
+  derived:{num:'hire',den:'hc_avg',scale:100},
+  hint:'Принятые за месяц на 100 человек среднесписочной численности. В отличие от найма в людях, сравнивается с базой. Отток на 100 человек — это текучесть месячная.'},
 {key:'turnover_m',block:'turnover',name:'Текучесть месячная',short:'Тек. мес',fmt:'pct',better:'lower',unit:'%',anchor:null,
   derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Отток за месяц к среднесписочной численности этого месяца, в процентах.'},
 {key:'turnover_y',block:'turnover',name:'Текучесть накопительная',short:'Тек. накоп.',fmt:'pct',better:'lower',unit:'%',anchor:null,
-  ytd:'turnover_m',hint:'Сумма месячной текучести с января текущего года. Обнуляется каждый январь и растёт до декабря.'},
+  ytd:'turnover_m',fc:'turnover_fc',hint:'Сумма месячной текучести с января текущего года. Обнуляется каждый январь и растёт до декабря.'},
 {key:'regret',block:'turnover',name:'Regrettable текучесть',short:'Regret',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7},hint:'Нежелательные уходы ценных сотрудников. По HQ есть KPI.'},
+/* Run-rate: чем закончится год, если темп сохранится. На полотне «год
+   к году» накопительной текучести он стоит точкой на декабре (fc у turnover_y). */
+{key:'turnover_fc',block:'turnover',name:'Прогноз годовой текучести',short:'Прогноз',fmt:'pct',better:'lower',unit:'%',anchor:null,
+  runRate:'turnover_y',hint:'Накопительная текучесть с начала года, пересчитанная на 12 месяцев: чем закончится год, если темп увольнений сохранится.'},
 {key:'vac_open',block:'hiring',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
 {key:'time_to_fill',block:'hiring',name:'Срок закрытия вакансии',short:'Time-to-fill',fmt:'days',better:'lower',unit:'дн',anchor:47,hint:'Среднее время от открытия до закрытия вакансии.'},
+/* План-факт подбора, доля джунов и внутренний найм — пробелы бизнес-анализа:
+   в дашборде 34661 они есть, в Hub не было. Все три — доли потока, поэтому
+   считаются с начала года: за один месяц у команды из десяти человек
+   знаменатель часто ноль или единица, и процент прыгал бы на десятки пунктов.
+   У выполнения плана есть цель: сам план и есть ориентир, сравнивать его со
+   средней по компании — мерить не тем. Пороги 95 / 80 — черновик. */
+{key:'hire_plan',block:'hiring',name:'Выполнение плана найма',short:'План',fmt:'pct',better:'higher',unit:'%',anchor:null,
+  derived:{num:'hire',den:'pf_plan',scale:100,win:'ytd'},kpi:{green:95,red:80},
+  hint:'Принятые к плану найма с начала года — массовый и профильный найм вместе. Факт — тот же найм, что в «Движении персонала». Цель KPI — 95% плана.'},
+{key:'junior_share',block:'hiring',name:'Доля джунов в найме',short:'Джуны',fmt:'pct',better:'flat',unit:'%',anchor:null,
+  derived:{num:'hire_jun',den:'hire',scale:100,win:'ytd'},
+  hint:'Junior среди принятых с начала года. Больше — дешевле найм и больше нагрузка на наставников; меньше — дороже и дольше подбор. Оценки нет: это выбор стратегии, а не результат.'},
+{key:'internal_share',block:'hiring',name:'Доля внутреннего найма',short:'Внутр.',fmt:'pct',better:'flat',unit:'%',anchor:null,
+  derived:{num:'transfer_in',den:['hire','transfer_in'],scale:100,win:'ytd'},
+  hint:'Доля пришедших переводом из других команд среди всех пришедших с начала года: какая часть позиций закрыта людьми изнутри компании.'},
 {key:'tgrowth_pass',block:'tgrowth',name:'Прошли T-рост',short:'Прошли',fmt:'int',better:'higher',unit:'чел',anchor:null,hint:'Сотрудники с положительным решением по T-росту.'},
 {key:'tgrowth_deny',block:'tgrowth',name:'Отказано в T-росте',short:'Отказано',fmt:'int',better:'lower',unit:'чел',anchor:null,hint:'Заявки с отрицательным решением.'},
 {key:'tgrowth_conv',block:'tgrowth',name:'Конверсия T-роста',short:'Конверсия',fmt:'pct',better:'higher',unit:'%',anchor:68,hint:'Доля положительных решений от всех заявок.'},
+/* T@T — время до повышения из сервиса «Рост» (дашборд HQ 34136) */
+{key:'tgrowth_tat',block:'tgrowth',name:'Время до повышения (T@T)',short:'T@T',fmt:'mon',better:'lower',unit:'мес',anchor:16,
+  hint:'Сколько месяцев в среднем прошло от прошлого повышения до нового у тех, кто прошёл T-рост в этом месяце.'},
 {key:'low_perf',block:'monitor',name:'Лоу-перформеры',short:'Лоу-перф',fmt:'pct',better:'lower',unit:'%',anchor:4.2,hint:'Доля сотрудников с низкой результативностью.'},
 {key:'underwork',block:'monitor',name:'Недоработчики',short:'Недораб.',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников с недоработкой нормы времени.'},
-{key:'office_att',block:'office',name:'Посещаемость офиса',short:'Офис',fmt:'pct',better:'higher',unit:'%',anchor:58,hint:'Средняя доля рабочих дней в офисе.'}
+/* Ревью из дашборда 34661. Цикл — раз в полгода (июнь и декабрь), поэтому
+   ряд ступенчатый: между циклами значение стоит, а изменение «к маю» в июне —
+   это и есть сдвиг к прошлому циклу. Считается парой «улучшили / оценены». */
+{key:'review_up',block:'monitor',name:'Улучшили оценку в ревью',short:'Улучшили',fmt:'pct',better:'higher',unit:'%',anchor:null,
+  derived:{num:'rev_up',den:'rev_eval',scale:100},
+  hint:'Доля сотрудников, у которых оценка последнего цикла ревью выше прошлой. Ревью — раз в полгода, между циклами значение не меняется.'},
+{key:'office_att',block:'office',name:'Посещаемость офиса',short:'Офис',fmt:'pct',better:'higher',unit:'%',anchor:58,hint:'Средняя доля рабочих дней в офисе.'},
+/* Качество бронирования из дашборда HQ 34136 */
+{key:'booking_viol',block:'office',name:'Нарушения бронирования',short:'Нарушения',fmt:'pct',better:'lower',unit:'%',anchor:17,
+  hint:'Доля офисных дней с нарушением — бронь без прихода или приход без брони — от всех дней с бронью или посещением.'},
+/* AI-метрики из дашборда HQ 34136. Проникновение — доля, поэтому едет парой
+   «активные пользователи / активная численность» и сравнивается с базой:
+   ровно то сравнение «по команде против компании», что было в Proteus. */
+{key:'ai_penetration',block:'ai',name:'Проникновение AI',short:'Проникн.',fmt:'pct',better:'higher',unit:'%',anchor:null,
+  derived:{num:'ai_wau',den:'hc_active',scale:100},
+  hint:'Доля сотрудников, которые хотя бы раз за неделю пользовались AI-инструментом, в среднем по неделям месяца.'},
+{key:'ai_wau',block:'ai',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
+  hint:'Уникальные пользователи AI-инструментов за неделю, в среднем по неделям месяца.'}
 ];
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
 function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
 /* hc_avg метрикой отчёта не является, но в этом наборе остаётся: он управляет
    не только сравнимостью, но и способом агрегации (сумма, а не среднее). */
-const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny']);
+/* Служебные ряды-слагаемые (в METRICS их нет, строки в отчёте у них нет):
+   pf_plan — план закрытия вакансий, hire_jun — принятые джуны,
+   rev_eval / rev_up — оценённые в цикле ревью и улучшившие оценку. */
+const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny',
+  'ai_wau','pf_plan','hire_jun','rev_eval','rev_up']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -153,8 +222,8 @@ const LOCKED_METRICS=new Set(['hc_active','hc_total']);
    `keys:null` — весь список; остальные перечисляют показанные метрики. */
 const METRIC_PRESETS=[
 {key:'all',name:'Всё',keys:null},
-{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','attrition','turnover_m','turnover_y','regret']},
-{key:'hiring',name:'Найм',keys:['hc_active','hc_total','hire','vac_open','vac_closed','time_to_fill']},
+{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','attrition','turnover_m','turnover_y','regret','turnover_fc']},
+{key:'hiring',name:'Найм',keys:['hc_active','hc_total','hire','hire_rate','vac_open','vac_closed','time_to_fill','hire_plan','junior_share','internal_share']},
 {key:'min',name:'Минимум',keys:['hc_active','hc_total','turnover_m','regret']}
 ];
 
@@ -188,15 +257,23 @@ function activePreset(S){
   return p?p.key:null;
 }
 
-/* ---------- Причины увольнений (размерность блока turnover) ---------- */
+/* ---------- Причины увольнений (размерность блока turnover) ----------
+   init — инициатор увольнения (fire_initiative в дашбордах Proteus). Причина
+   лежит ровно у одного инициатора, поэтому разбивка по инициатору — сумма
+   причин, и две таблицы на одной вкладке не могут разойтись. */
 const EXIT_REASONS=[
-{key:'better_offer',name:'Лучшее предложение',share:0.28,regret:true},
-{key:'manager',name:'Отношения с руководителем',share:0.14,regret:true},
-{key:'no_growth',name:'Нет роста и развития',share:0.17,regret:true},
-{key:'burnout',name:'Выгорание и нагрузка',share:0.12,regret:true},
-{key:'performance',name:'Не справился с задачами',share:0.11,regret:false},
-{key:'relocation',name:'Релокация и личные',share:0.09,regret:false},
-{key:'other',name:'Прочее и не заполнено',share:0.09,regret:false}
+{key:'better_offer',name:'Лучшее предложение',share:0.28,regret:true,init:'emp'},
+{key:'manager',name:'Отношения с руководителем',share:0.14,regret:true,init:'emp'},
+{key:'no_growth',name:'Нет роста и развития',share:0.17,regret:true,init:'emp'},
+{key:'burnout',name:'Выгорание и нагрузка',share:0.12,regret:true,init:'emp'},
+{key:'performance',name:'Не справился с задачами',share:0.11,regret:false,init:'org'},
+{key:'relocation',name:'Релокация и личные',share:0.09,regret:false,init:'emp'},
+{key:'other',name:'Прочее и не заполнено',share:0.09,regret:false,init:'oth'}
+];
+const EXIT_INITIATORS=[
+{key:'emp',name:'По инициативе сотрудника'},
+{key:'org',name:'По инициативе работодателя'},
+{key:'oth',name:'Другое',note:'соглашение сторон, окончание договора, не заполнено'}
 ];
 
 /* ---------- Атрибуты фильтров ---------- */
@@ -345,6 +422,58 @@ function wave(seed,i,amp){return Math.sin((hashStr(seed)%100)/16+i/2.1)*amp}
 const SEAS_ATTR=[0.95,1.36,1.28,1.06,0.86,1.00,1.14,1.04,1.18,0.98,0.86,0.70];
 const SEAS_HIRE=[0.82,1.12,1.24,1.16,0.96,0.90,0.76,0.94,1.28,1.20,1.04,0.66];
 
+/* ---------- Отношения: числитель / знаменатель ----------
+   d.den — ключ или список ключей (знаменатель-сумма: найм + переводы в).
+   d.win:'ytd' — числитель и знаменатель накапливаются с января, а делится
+   уже накопленное: доля потока за месяц у маленькой команды прыгает от нуля
+   до ста, а с начала года читается.
+   Нулевой знаменатель — null, а не ноль: «джунов 0%» при нуле принятых —
+   ложь, честный ответ «не из чего считать». Экраны рисуют его прочерком. */
+function ratioAt(get,d,i){
+  const num=get(d.num), dens=[].concat(d.den).map(get);
+  const from=d.win==='ytd'?YEAR_START_EXT[i]:i;
+  let n=0,dd=0;
+  for(let j=from;j<=i;j++){n+=num[j]||0;dens.forEach(x=>{dd+=x[j]||0})}
+  return dd?+((n/dd)*(d.scale||1)).toFixed(d.dp||2):null;
+}
+/* Run-rate: накопленное с января делится на число прошедших месяцев года
+   и умножается на 12. В январе это месячное значение × 12 — так и задумано. */
+function runRateAt(src,i){
+  const v=src[i];
+  return v==null?null:+(v/(MONTHS_EXT[i].m+1)*12).toFixed(2);
+}
+/* Амбиция плана найма у команды: одни планируют с запасом, другие впритык.
+   Отсюда разброс выполнения плана между подразделениями. */
+function planK(leafPath){return 0.86+rng('pk'+leafPath)()*0.36}
+/* Вероятность, что принятый — Junior: у nonIT выше (линейные позиции). */
+function juniorP(leafPath){
+  const n=NODE_BY_PATH[leafPath]||{};
+  return Math.min(0.7,Math.max(0.05,(n.it==='nonIT'?0.38:0.20)+(rng('pj'+leafPath)()-0.5)*0.16));
+}
+function aiCurve(leafPath,n){
+  return {base:(n.it==='nonIT'?0.18:0.34)+(rng('aib'+leafPath)()-0.5)*0.16,
+          grow:0.08+rng('aig'+leafPath)()*0.14};
+}
+/* Цикл ревью — июнь и декабрь. Для точки сетки ищем последний цикл не позже
+   неё; до первого цикла в сетке живёт декабрь предыдущего года ('pre'). */
+const _rev={};
+function reviewAt(leafPath,key,i,n){
+  let c=i;
+  while(c>=0&&MONTHS_EXT[c].m!==5&&MONTHS_EXT[c].m!==11)c--;
+  const ck=leafPath+'|'+key+'|'+(c<0?'pre':c);
+  if(_rev[ck]!=null)return _rev[ck];
+  let v;
+  if(key==='rev_eval'){
+    /* оценивается не вся численность: новички до трёх месяцев ревью не проходят */
+    v=Math.max(1,Math.round(seriesExt(leafPath,'hc_total')[Math.max(c,0)]*0.9));
+  }else{
+    const e=reviewAt(leafPath,'rev_eval',i,n), r=rng('rvu'+ck);
+    const p=0.13+0.17*r()+(n.paint==='HQ'?0.02:0);
+    v=0;for(let k=0;k<e;k++)if(r()<p)v++;
+  }
+  _rev[ck]=v;return v;
+}
+
 /* Расширенный ряд на 18 точек — внутренняя кухня для накопительной текучести.
    Наружу через metricSeries отдаются только 12 точек окна. */
 function seriesExt(leafPath,key){
@@ -361,8 +490,13 @@ function seriesExt(leafPath,key){
   }
   /* производная метрика: числитель / знаменатель (текучесть месячная) */
   if(m.derived){
-    const num=seriesExt(leafPath,m.derived.num), den=seriesExt(leafPath,m.derived.den);
-    for(let i=0;i<NEXT;i++)out[i]=den[i]?+((num[i]/den[i])*(m.derived.scale||1)).toFixed(2):0;
+    for(let i=0;i<NEXT;i++)out[i]=ratioAt(k=>seriesExt(leafPath,k),m.derived,i);
+    _sc[ck]=out;return out;
+  }
+  /* run-rate: накопленное с начала года, пересчитанное на 12 месяцев */
+  if(m.runRate){
+    const src=seriesExt(leafPath,m.runRate);
+    for(let i=0;i<NEXT;i++)out[i]=runRateAt(src,i);
     _sc[ck]=out;return out;
   }
   /* накопительная с начала календарного года (текучесть годовая) */
@@ -401,6 +535,26 @@ function seriesExt(leafPath,key){
     else if(key==='vac_closed'){ v=cg(0.0140,SEAS_HIRE[cm],0.65,leafPath+'vc',i); }
     else if(key==='tgrowth_pass'){ v=cg(0.0090,1,0.75,leafPath+'tp',i); }
     else if(key==='tgrowth_deny'){ v=cg(0.0045,1,0.85,leafPath+'td',i); }
+    /* План найма: та же ставка, что у найма этой команды, умноженная на её
+       амбицию (pk), и только половина сезонности — план сглаженнее факта.
+       Факт плана — сам найм, поэтому план-факт не спорит с «Движением». */
+    else if(key==='pf_plan'){ v=cg((0.0135+b.lvl*0.0075)*planK(leafPath),0.55+0.45*SEAS_HIRE[cm],0.30,leafPath+'pp',i); }
+    /* Джуны среди принятых: каждый принятый — джун с вероятностью команды.
+       Ряд не может превысить найм того же месяца по построению. */
+    else if(key==='hire_jun'){
+      const h=seriesExt(leafPath,'hire')[i], pj=juniorP(leafPath);
+      v=0;for(let k=0;k<h;k++)if(r()<pj)v++;
+    }
+    /* Активные пользователи AI: доля растёт внутри окна (внедрение идёт),
+       у IT выше, у nonIT ниже, у каждой команды свой старт и темп. */
+    else if(key==='ai_wau'){
+      const ha=seriesExt(leafPath,'hc_active')[i], ai=aiCurve(leafPath,n);
+      const pAi=Math.min(0.92,Math.max(0.03,ai.base+ai.grow*(i/(NEXT-1))+wave(leafPath+'ai',i,0.02)+(r()-0.5)*0.03));
+      v=Math.round(ha*pAi);
+    }
+    /* Ревью раз в полгода: оценённые и улучшившие стоят ступенькой от цикла
+       до цикла. Значение цикла считается один раз и запоминается. */
+    else if(key==='rev_eval'||key==='rev_up'){ v=reviewAt(leafPath,key,i,n); }
     else {
       const a=m.anchor||10;
       const skew=(b.lvl-0.5)*a*0.55 + (n.paint==='HQ'?-a*0.06:n.paint==='Line'?a*0.08:0) + (n.it==='nonIT'?a*0.05:0);
@@ -440,8 +594,11 @@ function aggregateExt(leafPaths,key){
   const m=METRIC_BY_KEY[key]||{};
   const out=new Array(NEXT).fill(0);
   if(m.derived){
-    const num=aggregateExt(leafPaths,m.derived.num), den=aggregateExt(leafPaths,m.derived.den);
-    for(let i=0;i<NEXT;i++)out[i]=den[i]?+((num[i]/den[i])*(m.derived.scale||1)).toFixed(2):0;
+    /* сначала суммы по листьям, потом деление — Правило 2 из SOURCES.md */
+    for(let i=0;i<NEXT;i++)out[i]=ratioAt(k=>aggregateExt(leafPaths,k),m.derived,i);
+  } else if(m.runRate){
+    const src=aggregateExt(leafPaths,m.runRate);
+    for(let i=0;i<NEXT;i++)out[i]=runRateAt(src,i);
   } else if(m.ytd){
     const src=aggregateExt(leafPaths,m.ytd);
     for(let i=0;i<NEXT;i++){let s=0;for(let j=YEAR_START_EXT[i];j<=i;j++)s+=src[j];out[i]=+s.toFixed(2)}
@@ -481,7 +638,9 @@ function deltas(series){
    июньский YTD с июльским YTD прошлого года бессмысленно, там разное число месяцев. */
 function deltasOf(leafPaths,key){
   const e=aggregateExt(leafPaths,key), i=NEXT-1;
-  return {mom:+(e[i]-e[i-1]).toFixed(2), yoy:+(e[i]-e[i-12]).toFixed(2)};
+  /* у отношения без знаменателя изменения нет: null, а не «минус всё значение» */
+  const d=(a,b)=>a==null||b==null?null:+(a-b).toFixed(4);
+  return {mom:d(e[i],e[i-1]), yoy:d(e[i],e[i-12])};
 }
 /* ---------- Год к году ----------
    Механика перенесена из HRBP HUB: ось — двенадцать месяцев календарного года,
@@ -524,7 +683,7 @@ function blockSignal(bk,st){
 /* отклонение от базы — в светофор с мёртвой зоной 5% */
 function compareState(key,val,base){
   const m=METRIC_BY_KEY[key];
-  if(base==null||!base)return'neutral';
+  if(val==null||base==null||!base)return'neutral';
   if(!comparable(key))return'neutral';
   if(m.better==='flat')return'neutral';
   const rel=(val-base)/Math.abs(base);
@@ -533,7 +692,7 @@ function compareState(key,val,base){
   return good?'good':'bad';
 }
 function stateForKpi(key,val,kpi){
-  const m=METRIC_BY_KEY[key];if(!kpi)return'neutral';
+  const m=METRIC_BY_KEY[key];if(!kpi||val==null)return'neutral';
   if(m.better==='lower')return val<=kpi.green?'good':(val>=kpi.red?'bad':'warn');
   return val>=kpi.green?'good':(val<=kpi.red?'bad':'warn');
 }
@@ -549,12 +708,22 @@ function kpiFor(key,st){
 /* минус типографский: у «Прироста с начала года» значение бывает отрицательным,
    и дефис рядом с плюсом в соседней пилюле выглядит короче и ниже */
 function fmtInt(v){return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2009').replace('-','\u2212')}
+/* Формат по виду числа, а не по метрике: им же пользуются таблицы, где в одной
+   колонке стоят разные величины (план-факт: штуки, проценты, дни). */
+function fmtNum(fmt,v){
+  if(v==null||!isFinite(v))return'—';
+  if(fmt==='int')return fmtInt(v);
+  if(fmt==='days')return (+v).toFixed(0).replace('.',',')+'\u2009дн';
+  if(fmt==='mon')return (+v).toFixed(1).replace('.',',')+'\u2009мес';
+  /* коэффициент — две цифры после запятой: 1,1 и 1,14 — разные ответы на
+     «растём или держимся», а третья цифра уже шум */
+  if(fmt==='ratio')return (+v).toFixed(2).replace('.',',');
+  return (+v).toFixed(1).replace('.',',')+'%';
+}
 function fmtVal(key,v){
   if(v==null)return'—';
   const m=METRIC_BY_KEY[key];if(!m)return String(v);
-  if(m.fmt==='int')return fmtInt(v);
-  if(m.fmt==='days')return (+v).toFixed(0).replace('.',',')+'\u2009дн';
-  return (+v).toFixed(1).replace('.',',')+'%';
+  return fmtNum(m.fmt,v);
 }
 /* Минус во всех дельтах типографский. Раньше его подставлял только deltaChip,
    а пилюля «К базе» в сводной таблице, которая зовёт fmtDelta напрямую,
@@ -564,6 +733,8 @@ function fmtDelta(key,v){
   const s=v>0?'+':'';
   if(m.fmt==='int')return s+fmtInt(v);
   if(m.fmt==='days')return s+(+v).toFixed(0).replace('-','\u2212')+'\u2009дн';
+  if(m.fmt==='mon')return s+(+v).toFixed(1).replace('.',',').replace('-','\u2212')+'\u2009мес';
+  if(m.fmt==='ratio')return s+(+v).toFixed(2).replace('.',',').replace('-','\u2212');
   return s+(+v).toFixed(1).replace('.',',').replace('-','\u2212')+'\u2009п.п.';
 }
 function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',',')+'K':fmtInt(v)}
@@ -609,7 +780,7 @@ const DEFAULT_STATE={unit:'T/01',paint:'HQ',itSeg:'all',staffType:'all',period:P
    на какой вкладке стоишь, видно по цвету полос, не читая заголовок. В своём
    срезе полоса красится по группе выбранного разреза, поэтому цвет остаётся
    признаком семьи атрибута и там. */
-const MIX_GROUP_COLOR={qual:'#5f86c2',people:'#8b8fc0',contract:'#cdbf97',stream:'#5f9d8a'};
+const MIX_GROUP_COLOR={qual:'#5f86c2',people:'#8b8fc0',contract:'#cdbf97',geo:'#bf9373',stream:'#5f9d8a'};
 const MIX_COLOR_DEF='#5f86c2';
 function dimColor(dimKey){
   const d=MIX_BY_KEY[dimKey];
@@ -649,13 +820,26 @@ const MIX_DIMS=[
  hint:'Форма оформления. Штат — трудовой договор; всё остальное — не штат, и фильтр «штат / не штат» в шапке режет ровно по этой границе.',
  cats:[{key:'tk',name:'Штат (ТК РФ)'},{key:'gph',name:'ГПХ',w:1.15},{key:'ip',name:'ИП',w:0.95},
        {key:'sz',name:'Самозанятый',w:0.80},{key:'out',name:'Аутстафф',w:0.55}]},
-{key:'worksite',name:'Формат работы',short:'Формат',group:'contract',
+{key:'worksite',name:'Формат работы',short:'Формат',group:'geo',
  cats:[{key:'off',name:'Офис',w:1.10},{key:'hyb',name:'Гибрид',w:1.60},
        {key:'rem',name:'Дистанционно',w:0.80}]},
 {key:'legal',name:'Юрлицо',short:'Юрлицо',group:'contract',
  hint:'Юрлицо у подразделения одно: доля не размазывается между несколькими.',
  cats:[{key:'l1',name:'Основное юрлицо',w:0.50},{key:'l2',name:'Технологии',w:0.24},
        {key:'l3',name:'Сервис',w:0.16},{key:'l4',name:'Регионы',w:0.10}]},
+/* Регион — пробел бизнес-анализа: в HQ-дашборде 34136 есть «доля регионов»
+   и «регионы по специализации». Первое — разбивка на вкладке «География»,
+   второе — матрица «регион × специализация» в конструкторе, без нового кода.
+   Атрибут человека, а не подразделения: распределённая команда — обычное дело. */
+{key:'region',name:'Регион',short:'Регион',group:'geo',sort:true,
+ hint:'Где работает сотрудник. Распределённая команда — обычное дело, поэтому регион — атрибут человека, а не подразделения.',
+ cats:[{key:'msk',name:'Москва и область',wIT:1.55,wNon:0.95},
+       {key:'spb',name:'Санкт-Петербург',wIT:0.55,wNon:0.35},
+       {key:'vlg',name:'Поволжье',wIT:0.30,wNon:0.55},
+       {key:'url',name:'Урал',wIT:0.22,wNon:0.42},
+       {key:'sib',name:'Сибирь',wIT:0.16,wNon:0.30},
+       {key:'sth',name:'Юг',wIT:0.10,wNon:0.26},
+       {key:'oth',name:'Другие регионы',wIT:0.12,wNon:0.20}]},
 {key:'stream',name:'Стрим и специализация',short:'Стрим',group:'stream',sort:true,childDim:'spec',
  hint:'Чем люди занимаются. Разрез двухуровневый: каретка раскрывает стрим до специализаций внутри него.',
  cats:[{key:'dev',name:'Разработка',kids:['be','fe','mob','core']},
@@ -714,8 +898,12 @@ const MIX_GROUPS=[
  title:'Квалификация: грейд и сеньорность'},
 {key:'people',name:'Люди',dims:['gender','age','tenure'],
  title:'Кто эти люди: пол, возраст, стаж'},
-{key:'contract',name:'Оформление',dims:['employment','worksite','legal'],
- title:'Как оформлены и где работают'},
+/* Формат работы переехал из «Оформления» в «Географию»: «где работают»
+   теперь отдельный вопрос — регион и формат вместе. */
+{key:'contract',name:'Оформление',dims:['employment','legal'],
+ title:'Как оформлены: тип занятости и юрлицо'},
+{key:'geo',name:'География',dims:['region','worksite'],
+ title:'Где работают: регион и формат работы'},
 {key:'stream',name:'Стримы',dims:['stream'],
  title:'Стримы и специализации'}
 ];
@@ -1215,6 +1403,305 @@ function netGrowth(lp){
   return hc[LAST]-hc[0];
 }
 
+/* ============================================================================
+   Разбивки потоков и состояний за окно (итерация 28, бизнес-анализ 07.10.2026)
+
+   Кто и почему уходит, откуда приходят, план-факт подбора, статусы роста по
+   грейдам, ревью, качество бронирования, AI-инструменты — всё, чего Hub не
+   хватало против дашбордов Proteus 34661 / 34136.
+
+   Правило у всех одно: ИТОГО разбивки — это метрика отчёта за то же окно, а не
+   отдельно выдуманное число. Сумма инициаторов — отток с начала года, строка
+   «Внутренние переводы» в таблице каналов — ровно доля внутреннего найма,
+   «Улучшили» в ревью — метрика review_up, факт план-факта — найм из «Движения».
+   Выдуманы только ДОЛИ внутри итога, и на экранах это помечено сносками; на
+   проде доли заменяются группировкой по колонке витрины (SOURCES.md, §17).
+   ========================================================================== */
+/* Окно «с начала года» внутри 12 месяцев отчёта: январь текущего года — LAST.
+   В 12-месячном окне январь есть всегда, поэтому индекс не бывает −1. */
+const YTD_FROM=MONTHS.findIndex(mm=>mm.y===CUR_M.y&&mm.m===0);
+const YTD_RANGE=MONTH_NOM[0]+' — '+monthNom(CUR_M);
+function winFrom(win){return win==='ytd'?Math.max(0,YTD_FROM):0}
+function sumWin(ser,win){let s=0;for(let i=winFrom(win);i<=LAST;i++)s+=ser[i]||0;return s}
+/* доли по весам → целые люди с точной суммой (тем же методом, что разбивки) */
+function splitBy(total,weights){
+  const sw=weights.reduce((a,b)=>a+b,0)||1;
+  return roundParts(weights.map(w=>w/sw*total),total);
+}
+/* шум долей — детерминированный по отбору: скриншоты воспроизводятся */
+function jitter(r,w,amp){return w.map(x=>x*(1-amp+r()*amp*2))}
+/* Матрица с заданными краями: связь задаётся множителем, IPF возвращает
+   края к заданным, roundMatrix раскладывает целых людей. Тот же механизм,
+   что у матрицы состава, — поэтому края здесь тоже сходятся до человека. */
+function jointRound(rowTot,colTot,bias){
+  const T=rowTot.reduce((a,b)=>a+b,0);
+  if(!T)return rowTot.map(()=>colTot.map(()=>0));
+  const j=ipfJoint(rowTot.map(v=>v/T),colTot.map(v=>v/T),bias);
+  return roundMatrix(j.map(row=>row.map(v=>v*T)),rowTot,colTot);
+}
+function hcIT(lp){
+  let it=0,all=0;
+  lp.forEach(p=>{const h=lastVal([p],'hc_total');all+=h;if((NODE_BY_PATH[p]||{}).it!=='nonIT')it+=h});
+  return all?it/all:1;
+}
+
+/* ---------- Почему уходят: причины и инициатор ----------
+   Причины делятся от оттока за окно точно (сумма = отток), а инициатор —
+   сумма причин. В прежнем reasonSeries сумма причин с оттоком не сходилась:
+   каждая причина шумела отдельно. */
+function exitReasons(lp,win){
+  win=win||'ytd';
+  const total=sumWin(aggregate(lp,'attrition'),win), r=rng(lpSeed(lp,'rsn'+win));
+  const parts=splitBy(total,jitter(r,EXIT_REASONS.map(x=>x.share),0.25));
+  return EXIT_REASONS.map((x,i)=>({key:x.key,name:x.name,regret:x.regret,init:x.init,value:parts[i]}));
+}
+function exitInitiators(lp,win){
+  const rs=exitReasons(lp,win);
+  return EXIT_INITIATORS.map(x=>({key:x.key,name:x.name,note:x.note||'',
+    value:rs.filter(r=>r.init===x.key).reduce((a,r)=>a+r.value,0)}));
+}
+
+/* ---------- Кто уходит: стаж на момент ухода, грейд, стрим ----------
+   Стаж ухода — свои категории, а не разрез состава: ранняя текучесть меряется
+   рубежами 3 и 12 месяцев (испытательный срок и первый год), а в составе
+   «до 1 года» одной строкой. Грейд и стрим — пропорционально численности
+   с поправкой на склонность к уходу: младшие грейды и поддержка уходят чаще. */
+const EXIT_TENURE=[{key:'m3',name:'До 3 месяцев',w:0.13,early:true},{key:'m12',name:'3–12 месяцев',w:0.23,early:true},
+  {key:'y3',name:'1–3 года',w:0.36},{key:'y3p',name:'Больше 3 лет',w:0.28}];
+const EXIT_GRADE_K=[1.35,1.15,1.0,0.78,0.6];
+const EXIT_STREAM_K={dev:1.0,qa:1.1,ana:0.9,ops:0.85,ml:0.95,des:1.0,prod:0.9,sup:1.45,back:1.2,adm:0.6};
+function exitProfile(lp,win){
+  win=win||'ytd';
+  const total=sumWin(aggregate(lp,'attrition'),win), r=rng(lpSeed(lp,'exp'+win));
+  const ten=splitBy(total,jitter(r,EXIT_TENURE.map(x=>x.w),0.3));
+  const gr=splitBy(total,mixParts(lp,'grade').map((v,i)=>v*EXIT_GRADE_K[i]+1e-6));
+  const st=mixTree(lp,'stream');
+  const sr=splitBy(total,st.map(n=>n.value*(EXIT_STREAM_K[n.cat.key]||1)+1e-6));
+  return {total:total,
+    tenure:EXIT_TENURE.map((x,i)=>({key:x.key,name:x.name,early:!!x.early,value:ten[i]})),
+    grade:MIX_BY_KEY.grade.cats.map((c,i)=>({key:c.key,name:c.name,value:gr[i]})),
+    stream:st.map((n,i)=>({key:n.cat.key,name:n.cat.name,value:sr[i]}))};
+}
+
+/* ---------- Откуда приходят: каналы, сеньорность, грейд ----------
+   Джуны — ровно служебный ряд hire_jun, поэтому строка Junior делит найм
+   так же, как метрика «Доля джунов в найме». Грейд принятых выводится из
+   сеньорности через ту же связь, что в составе (GRADE_BY_SEN). Переводы
+   в команду стоят в таблице каналов отдельной строкой: её доля и есть
+   «Доля внутреннего найма». */
+const HIRE_CHANNELS=[
+{key:'ref',name:'Рекомендации сотрудников',wIT:0.22,wNon:0.14},
+{key:'site',name:'Карьерный сайт и соцсети',wIT:0.14,wNon:0.16},
+{key:'job',name:'Сайты вакансий',wIT:0.27,wNon:0.42},
+{key:'hunt',name:'Прямой поиск (хантинг)',wIT:0.21,wNon:0.06},
+{key:'agency',name:'Кадровые агентства',wIT:0.05,wNon:0.12},
+{key:'campus',name:'Вузы и стажировки',wIT:0.11,wNon:0.10}
+];
+function hiringProfile(lp,win){
+  win=win||'ytd';
+  const total=sumWin(aggregate(lp,'hire'),win);
+  const jun=Math.min(total,sumWin(aggregate(lp,'hire_jun'),win));
+  const tin=sumWin(aggregate(lp,'transfer_in'),win);
+  const r=rng(lpSeed(lp,'hpr'+win)), it=hcIT(lp);
+  const ch=splitBy(total,jitter(r,HIRE_CHANNELS.map(c=>c.wIT*it+c.wNon*(1-it)),0.25));
+  const sen=[jun].concat(splitBy(total-jun,jitter(r,[0.56,0.32,0.12],0.2)));
+  const gr=roundParts(MIX_BY_KEY.grade.cats.map((c,j)=>sen.reduce((a,v,i)=>a+v*GRADE_BY_SEN[i][j],0)),total);
+  return {total:total,jun:jun,tin:tin,
+    channels:HIRE_CHANNELS.map((c,i)=>({key:c.key,name:c.name,value:ch[i]})),
+    seniority:MIX_BY_KEY.seniority.cats.map((c,i)=>({key:c.key,name:c.name,value:sen[i]})),
+    grade:MIX_BY_KEY.grade.cats.map((c,i)=>({key:c.key,name:c.name,value:gr[i]}))};
+}
+
+/* ---------- План-факт подбора: массовый и профильный найм ----------
+   Тип найма — характер команды: у nonIT (контакт-центр, операции) в основном
+   массовый, у IT — профильный. Каждый ряд делится по доле массового своего
+   листа, поэтому выполнение плана по типам расходится естественно: отстают
+   конкретные команды, а не выдуманный коэффициент.
+   Факт плана — найм (тот же, что в «Движении»), закрытые и открытые вакансии —
+   те же ряды, что на вкладке вакансий. Выдуманы статусы воронки на конец
+   месяца, доли «в срок», «на замену», «джуны» и «просрочено». */
+function massShare(leafPath){
+  const n=NODE_BY_PATH[leafPath]||{}, x=rng('ms'+leafPath)();
+  return n.it==='nonIT'?0.62+x*0.3:0.04+x*0.16;
+}
+const PF_STATUS=[
+{key:'work',name:'В работе',bias:[1.1,0.95]},
+{key:'ready',name:'Готово к выходу',note:'оффер принят, ждём первого дня',bias:[1.25,0.85]},
+{key:'backlog',name:'Backlog',note:'не взяты в работу',bias:[0.8,1.15]},
+{key:'hold',name:'Холд',note:'поиск на паузе',bias:[0.85,1.1]}];
+function planFact(lp){
+  const ytd=k=>sumWin(aggregate(lp,k),'ytd');
+  const P=ytd('pf_plan'), F=ytd('hire'), C=ytd('vac_closed'), O=lastVal(lp,'vac_open');
+  /* сырые доли массового по каждому ряду — взвешены по листьям */
+  const massOf=(k,win)=>lp.reduce((a,p)=>{
+    const ser=metricSeries(p,k), v=win?sumWin(ser,win):ser[LAST];
+    return a+v*massShare(p)},0);
+  const two=(tot,raw)=>{const m=Math.max(0,Math.min(tot,Math.round(raw)));return [m,tot-m]};
+  const Pt=two(P,massOf('pf_plan','ytd')), Ft=two(F,massOf('hire','ytd'));
+  const Ct=two(C,massOf('vac_closed','ytd')), Ot=two(O,massOf('vac_open'));
+  const r=rng(lpSeed(lp,'pf'));
+  /* в срок закрывается массовый найм чаще: позиции типовые, выход на линию быстрее */
+  const onTime=[Math.round(Ct[0]*(0.76+r()*0.12)),Math.round(Ct[1]*(0.56+r()*0.14))];
+  /* Срок закрытия: средневзвешенное по закрытым за окно (сумма дней / число),
+     а не среднее по месяцам. Массовый быстрее, профильный дольше; веса
+     пересчитаны так, чтобы общее среднее сошлось с обоими типами. */
+  const ttf=aggregate(lp,'time_to_fill'), vc=aggregate(lp,'vac_closed');
+  let dd=0,dc=0;for(let i=winFrom('ytd');i<=LAST;i++){dd+=ttf[i]*vc[i];dc+=vc[i]}
+  const avg=dc?dd/dc:null;
+  const k=avg&&C?C/(0.55*Ct[0]+1.12*Ct[1]):1;
+  const days=[avg,avg&&Ct[0]?avg*0.55*k:null,avg&&Ct[1]?avg*1.12*k:null];
+  const stTot=splitBy(O,jitter(r,[0.52,0.13,0.19,0.16],0.2));
+  const st=jointRound(stTot,Ot,PF_STATUS.map(x=>x.bias));
+  const part=(rate,vary)=>Ot.map((o,i)=>Math.min(o,Math.round(o*rate[i]*(1-vary+r()*vary*2))));
+  const pct=(a,b)=>b?+(a/b*100).toFixed(1):null;
+  const col=(arr)=>[arr[0]+arr[1]].concat(arr);
+  const over=part([0.17,0.27],0.3), repl=part([0.62,0.34],0.2), jun=part([0.55,0.18],0.25);
+  return {cols:['Всего','Массовый','Профильный'],
+    plan:col(Pt), fact:col(Ft), closed:col(Ct), open:col(Ot),
+    done:[pct(F,P),pct(Ft[0],Pt[0]),pct(Ft[1],Pt[1])],
+    share:[pct(C,C+O),pct(Ct[0],Ct[0]+Ot[0]),pct(Ct[1],Ct[1]+Ot[1])],
+    onTime:[pct(onTime[0]+onTime[1],C),pct(onTime[0],Ct[0]),pct(onTime[1],Ct[1])],
+    days:days,
+    status:PF_STATUS.map((x,i)=>({key:x.key,name:x.name,note:x.note||'',vals:col(st[i])})),
+    overdue:col(over), replace:col(repl), junior:col(jun)};
+}
+
+/* ---------- T-рост: заявки по типу и статусы по грейдам ----------
+   Окно — 12 месяцев: так считает «Рост» в HQ-дашборде («закрыто за 12 мес.»).
+   Заявки делятся на повышение грейда и смену специализации; решения — те же
+   ряды «прошли» и «отказано», что на графике блока.
+   Статусы по грейдам — матрица людей: строки сходятся с разбивкой по грейдам
+   в составе, «рост состоялся» и «заявка отклонена» — с теми же решениями
+   за 12 месяцев. Выдуманы «в карьерном росте» и «рост недоступен», остальные —
+   «нет развития». */
+const TG_TYPES=[{key:'grade',name:'Повышение грейда',w:0.78},{key:'spec',name:'Смена специализации',w:0.22}];
+const TG_STATUS=[
+{key:'done',name:'Рост состоялся',tip:'Повышение за последние 12 месяцев.'},
+{key:'inprog',name:'В карьерном росте',tip:'Заявка подана, решение ещё не принято.'},
+{key:'denied',name:'Заявка отклонена',tip:'Отказ за 12 месяцев, новой заявки нет.'},
+{key:'none',name:'Нет развития',tip:'Ни повышения, ни заявки за 12 месяцев.'},
+{key:'na',name:'Рост недоступен',tip:'Потолок грейда для роли или испытательный срок.'}];
+function tgrowthProfile(lp){
+  const P=sumWin(aggregate(lp,'tgrowth_pass'),'12m'), Dn=sumWin(aggregate(lp,'tgrowth_deny'),'12m');
+  const r=rng(lpSeed(lp,'tg'));
+  const types=jointRound(splitBy(P+Dn,jitter(r,TG_TYPES.map(t=>t.w),0.15)),[P,Dn],[[1.12,0.8],[0.7,1.6]]);
+  const gp=mixParts(lp,'grade'), hc=gp.reduce((a,b)=>a+b,0);
+  const done=Math.min(P,hc), denied=Math.min(Dn,hc-done);
+  const inprog=Math.min(hc-done-denied,Math.round(hc*(0.05+r()*0.03)));
+  const na=Math.min(hc-done-denied-inprog,Math.round(hc*(0.10+r()*0.04)));
+  /* строки — грейды 1…5: младшие растут чаще, на пятом грейде рост чаще недоступен */
+  const bias=[[1.25,1.2,1.0,0.85,0.25],[1.2,1.15,1.05,0.9,0.45],[1.0,1.0,1.0,1.0,0.8],
+              [0.75,0.8,0.95,1.1,1.5],[0.45,0.5,0.8,1.05,3.2]];
+  const cells=jointRound(gp,[done,inprog,denied,hc-done-denied-inprog-na,na],bias);
+  return {pass:P,deny:Dn,hc:hc,
+    types:TG_TYPES.map((t,i)=>({key:t.key,name:t.name,pass:types[i][0],deny:types[i][1]})),
+    rows:MIX_BY_KEY.grade.cats.map((c,i)=>({key:c.key,name:c.name,cells:cells[i]}))};
+}
+
+/* ---------- Ревью: последний цикл ----------
+   Оценённые и улучшившие — служебные ряды rev_eval / rev_up на конец окна,
+   то есть строка «Улучшили» = метрике review_up. Распределение оценок
+   выдумано; группы (грейд, стаж, роль) — матрицы с теми же краями: численность
+   группы, приведённая к оценённым, и общее распределение оценок. Поэтому
+   итоговая строка у всех трёх групп одна и та же — как и должно быть. */
+/* Короткие имена — шапки колонок тепловой таблицы, полные — в подсказке */
+const REVIEW_SCORES=[{key:'a',name:'Выдающийся',full:'Выдающийся результат',w:0.07},
+  {key:'b',name:'Выше ожиданий',full:'Результат выше ожиданий',w:0.22},
+  {key:'c',name:'Соответствует',full:'Соответствует ожиданиям',w:0.49},
+  {key:'d',name:'Частично',full:'Частично соответствует ожиданиям',w:0.15},
+  {key:'e',name:'Не соответствует',full:'Не соответствует ожиданиям',w:0.07}];
+const REVIEW_DYN=[{key:'up',name:'Улучшили оценку'},{key:'same',name:'Без изменений'},
+  {key:'down',name:'Ухудшили оценку'},{key:'first',name:'Первая оценка',note:'в прошлом цикле ещё не работали'}];
+function reviewProfile(lp){
+  const E=lastVal(lp,'rev_eval'), U=Math.min(E,lastVal(lp,'rev_up')), r=rng(lpSeed(lp,'rv'));
+  const first=Math.min(E-U,Math.round(E*(0.09+r()*0.05)));
+  const rest=splitBy(E-U-first,jitter(r,[0.66,0.34],0.15));
+  const sc=splitBy(E,jitter(r,REVIEW_SCORES.map(x=>x.w),0.2));
+  const toE=parts=>{const t=parts.reduce((a,b)=>a+b,0);return t?roundParts(parts.map(v=>v/t*E),E):parts.map(()=>0)};
+  const ms=0.09+r()*0.05;
+  const groups=[
+    {key:'grade',name:'Грейд',rows:MIX_BY_KEY.grade.cats.map(c=>c.name),tot:toE(mixParts(lp,'grade')),tilt:[-0.25,-0.1,0,0.15,0.3]},
+    {key:'tenure',name:'Стаж в компании',rows:MIX_BY_KEY.tenure.cats.map(c=>c.name),tot:toE(mixParts(lp,'tenure')),tilt:[-0.15,0.05,0.12]},
+    {key:'role',name:'Роль',rows:['Руководители','Сотрудники'],tot:splitBy(E,[ms,1-ms]),tilt:[0.3,-0.03]}];
+  groups.forEach(g=>{g.cells=jointRound(g.tot,sc,tiltBias(g.tilt,sc.length))});
+  return {E:E,U:U,
+    dyn:REVIEW_DYN.map((d,i)=>({key:d.key,name:d.name,note:d.note||'',value:[U,rest[0],rest[1],first][i]})),
+    scores:REVIEW_SCORES.map((x,i)=>({key:x.key,name:x.name,full:x.full,value:sc[i]})),
+    groups:groups};
+}
+
+/* ---------- Посещаемость: бронирование, города, грейды, роль и локация ----------
+   Бронирование — человеко-дни последнего месяца: посещения выведены из
+   office_att и численности, нарушения — из booking_viol. Сходится в двух
+   точках: доля нарушений в таблице = метрике, «пришли» = посещениям месяца.
+   По грейдам и по роли с локацией посещаемость нормирована так, что среднее,
+   взвешенное по людям, равно office_att, — тот же приём, что у календаря. */
+function workdays(mIdx){
+  const mm=MONTHS[mIdx], nd=new Date(mm.y,mm.m+1,0).getDate();
+  let w=0;for(let d=1;d<=nd;d++)if((new Date(mm.y,mm.m,d).getDay()+6)%7<5)w++;
+  return w;
+}
+function bookingQuality(lp){
+  const hc=lastVal(lp,'hc_total'), att=lastVal(lp,'office_att')/100, v=lastVal(lp,'booking_viol')/100;
+  const V=Math.round(hc*workdays(LAST)*att), r=rng(lpSeed(lp,'bk'));
+  const q=0.52+r()*0.18;                     /* доля «бронь без прихода» среди нарушений */
+  const T=Math.round(V/(1-v*q)), viol=Math.round(T*v), noshow=Math.round(viol*q);
+  return {total:T,ok:T-viol,noshow:noshow,walkin:viol-noshow,viol:viol,visits:T-noshow,month:monthNom(CUR_M)};
+}
+function officeByCity(lp){
+  const by={};
+  officeRank(lp).forEach(o=>{const c=by[o.city]||(by[o.city]={name:o.city,hc:0,w:0,offices:0});
+    c.hc+=o.hc;c.w+=o.att*o.hc;c.offices++});
+  return Object.keys(by).map(k=>by[k]).map(c=>({name:c.name,hc:c.hc,offices:c.offices,
+    att:c.hc?+(c.w/c.hc).toFixed(1):0})).sort((a,b)=>b.att-a.att);
+}
+function normAtt(base,hcs,f){
+  const tot=hcs.reduce((a,b)=>a+b,0)||1, mean=hcs.reduce((a,v,i)=>a+v*f[i],0)/tot||1;
+  return f.map(x=>+(x*base/mean).toFixed(1));
+}
+function attByGrade(lp){
+  const gp=mixParts(lp,'grade'), r=rng(lpSeed(lp,'ag'));
+  const att=normAtt(lastVal(lp,'office_att'),gp,[1.08,1.04,1.0,0.95,0.9].map(x=>x*(0.94+r()*0.12)));
+  return MIX_BY_KEY.grade.cats.map((c,i)=>({key:c.key,name:c.name,hc:gp[i],att:att[i]}));
+}
+/* РУК / ЛИН × МСК / ТЦР — разрез из HQ-дашборда: руководители и линейные
+   сотрудники в Москве и в территориальных центрах. Москва — регион «Москва
+   и область» из состава, ТЦР — все остальные регионы. */
+const ROLE_LOC=[{key:'rm',name:'Руководители, Москва',code:'РУК-МСК',f:1.16},
+  {key:'lm',name:'Сотрудники, Москва',code:'ЛИН-МСК',f:1.0},
+  {key:'rt',name:'Руководители, ТЦР',code:'РУК-ТЦР',f:1.06},
+  {key:'lt',name:'Сотрудники, ТЦР',code:'ЛИН-ТЦР',f:0.9}];
+function attByRoleLoc(lp){
+  const reg=mixParts(lp,'region'), hc=reg.reduce((a,b)=>a+b,0), r=rng(lpSeed(lp,'arl'));
+  const ms=0.09+r()*0.05;
+  const c=jointRound([reg[0],hc-reg[0]],splitBy(hc,[ms,1-ms]),[[1,1],[1,1]]);
+  const hcs=[c[0][0],c[0][1],c[1][0],c[1][1]];
+  const att=normAtt(lastVal(lp,'office_att'),hcs,ROLE_LOC.map(x=>x.f*(0.95+r()*0.1)));
+  return ROLE_LOC.map((x,i)=>({key:x.key,name:x.name,code:x.code,hc:hcs[i],att:att[i]}));
+}
+
+/* ---------- AI: инструменты и стримы ----------
+   Проникновение по инструменту не больше общего: инструменты пересекаются,
+   человек с двумя инструментами в общем проникновении один. Поэтому у
+   таблицы инструментов нет ни ИТОГО, ни колонки «Доля» — проценты не
+   складываются. По стримам — нормировка: среднее, взвешенное по людям,
+   равно ai_penetration отбора. */
+const AI_TOOLS=[{key:'chat',name:'Корпоративный AI-ассистент',k:0.82},
+  {key:'code',name:'AI-помощник разработчика',k:0.5,it:true},
+  {key:'kb',name:'AI-поиск по базе знаний',k:0.38},
+  {key:'docs',name:'Генерация документов и писем',k:0.27},
+  {key:'data',name:'AI в аналитике данных',k:0.15}];
+const AI_STREAM_K={dev:1.5,qa:1.25,ana:1.2,ops:1.15,ml:1.6,des:1.1,prod:1.05,sup:0.45,back:0.5,adm:0.8};
+function aiProfile(lp){
+  const pen=lastVal(lp,'ai_penetration')||0, wau=lastVal(lp,'ai_wau'), r=rng(lpSeed(lp,'ai')), it=hcIT(lp);
+  const tools=AI_TOOLS.map(t=>({key:t.key,name:t.name,
+    value:+Math.min(pen,pen*t.k*(t.it?Math.min(1,it*1.2):1)*(0.9+r()*0.2)).toFixed(1)}));
+  const st=mixTree(lp,'stream').filter(n=>n.value>0);
+  const att=normAtt(pen,st.map(n=>n.value),st.map(n=>(AI_STREAM_K[n.cat.key]||1)*(0.92+r()*0.16)));
+  return {pen:pen,wau:wau,tools:tools,
+    streams:st.map((n,i)=>({key:n.cat.key,name:n.cat.name,hc:n.value,value:Math.min(98,att[i])}))};
+}
+
 window.TPDATA={MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
@@ -1229,4 +1716,9 @@ window.TPDATA={MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,fmtCompact,DEFAULT_STATE,
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
-  YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal};
+  YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
+  /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
+  PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
+  exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
+  planFact,PF_STATUS,tgrowthProfile,TG_TYPES,TG_STATUS,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
+  bookingQuality,officeByCity,attByGrade,attByRoleLoc,ROLE_LOC,aiProfile,AI_TOOLS};

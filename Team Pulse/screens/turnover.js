@@ -11,26 +11,58 @@
         доходит до годового значения.
 
    Причины увольнений — ТАБЛИЦА с полосами в ячейках, не бар-чарт.
+
+   Итерация 28 (бизнес-анализ, дашборд 34661): «Почему уходят» — инициатор
+   увольнения над причинами; «Кто уходит» — стаж на момент ухода, грейд и
+   стрим ушедших. Окно у всех разбивок — с начала года: так их считает Proteus
+   («отток YTD по грейду, стажу, специализации»), и так же копится
+   накопительная текучесть на соседней вкладке.
    ========================================================================== */
 (function(){
 'use strict';
 const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
 
 SC.blocks.turnover={
-  subTabs:[['dynamics','Отток и текучесть'],['reasons','Причины увольнений']],
+  subTabs:[['dynamics','Отток и текучесть'],['reasons','Почему уходят'],['who','Кто уходит']],
   defaultSub:'dynamics',
-  title(sub){return sub==='reasons'?'Причины увольнений за период':'Отток и текучесть по месяцам'},
+  title(sub){return sub==='reasons'?'Почему уходят: инициатор и причины'
+    :sub==='who'?'Кто уходит: стаж, грейд, стрим'
+    :'Отток и текучесть по месяцам'},
   view(ctx){
-    const lp=ctx.lp;
+    const lp=ctx.lp, ytd=' с начала года';
     if(ctx.sub==='reasons'){
-      /* ★ — нежелательный уход; сортировка по убыванию, как в разборе «сверху вниз» */
-      /* Шапка первой колонки пустая: «Причины увольнений за период» уже стоит
-         заголовком панели прямо над таблицей, и «ПРИЧИНА УВОЛЬНЕНИЯ» под ним —
-         то же самое во второй раз. */
-      return U.barTable({head:'',valueHead:'Человек',metricKey:'attrition',sort:true,
-        items:D.EXIT_REASONS.map(r=>({name:r.name,value:SC.sumS(D.reasonSeries(lp,r.key)),
-          mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})+
-        '<div class="tbl-note">★ — нежелательный уход: причина, на которую компания могла повлиять.</div>';
+      /* Инициатор — сумма причин: у каждой причины ровно один инициатор, поэтому
+         две таблицы не расходятся. ★ — нежелательный уход; причины по убыванию,
+         как в разборе «сверху вниз». Шапки первых колонок пустые: имя таблицы
+         стоит подписью прямо над ней (правило 10f). */
+      const rs=D.exitReasons(lp,'ytd');
+      const initName=k=>(D.EXIT_INITIATORS.find(x=>x.key===k)||{}).name||'';
+      return U.btStack([
+        U.btGroup({cap:'Инициатор увольнения',capSub:ytd,head:'',valueHead:'Человек',metricKey:'attrition',compact:true,
+          items:D.exitInitiators(lp,'ytd').map(x=>({name:x.name,note:x.note,value:x.value,color:G.C_OUT}))}),
+        U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Человек',metricKey:'attrition',sort:true,compact:true,
+          items:rs.map(r=>({name:r.name,note:initName(r.init).toLowerCase(),value:r.value,
+            mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+
+        '<div class="tbl-note">★ — нежелательный уход: причина, на которую компания могла повлиять. '+
+        'ИТОГО обеих таблиц — отток с начала года ('+U.esc(D.YTD_RANGE)+'); доли внутри него в макете '+
+        'сгенерированы, на проде это fire_initiative и fire_reason из витрины оттока.</div>';
+    }
+    if(ctx.sub==='who'){
+      /* Ранний уход — первые 12 месяцев (испытательный срок и первый год): это
+         качество найма и адаптации, а не текучесть вообще. Его доля названа
+         в подписи, чтобы не складывать две строки в уме. */
+      const ex=D.exitProfile(lp,'ytd');
+      const early=ex.tenure.filter(t=>t.early).reduce((a,t)=>a+t.value,0);
+      const grp=(cap,sub,items,sort)=>U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'Человек',
+        metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>({name:x.name,value:x.value,color:G.C_OUT}))});
+      return U.btStack([
+        grp('Стаж на момент ухода',ytd+(ex.total?' · ранний уход, до года: '+D.fmtInt(early)+' чел, '+
+          U.pct(early/ex.total*100):''),ex.tenure),
+        grp('Грейд',ytd,ex.grade),
+        grp('Стрим',ytd,ex.stream,true)])+
+        '<div class="tbl-note">ИТОГО каждой таблицы — отток с начала года ('+U.esc(D.YTD_RANGE)+'). '+
+        'Доли в макете сгенерированы: стаж — типовым профилем, грейд и стрим — пропорционально '+
+        'численности с поправкой на склонность к уходу. На проде это атрибуты ушедшего на дату увольнения.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся
        только отток, потому что отток — счётные люди за месяц. */

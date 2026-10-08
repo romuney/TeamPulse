@@ -7,6 +7,12 @@
    «Рейтинг офисов» — где посещаемость выше, с численностью привязанных людей.
    «Динамика»       — месячная линия с базой сравнения (то, что было тут раньше).
 
+   Итерация 28 (бизнес-анализ, HQ-дашборд 34136):
+   «Офисы и города» — к рейтингу офисов добавлена посещаемость по городам.
+   «Кто ходит»      — по грейдам и по роли с локацией (РУК / ЛИН × МСК / ТЦР).
+   «Бронирование»   — нарушения бронирования: бронь без прихода и приход
+                      без брони, динамикой и разбором последнего месяца.
+
    Дни недели — таблицей, а не барами: день недели это атрибут, а для разбивок
    по атрибутам в проекте таблица с полосой в ячейке (то же правило, что у грейдов
    и причин увольнений). Доля отключена: доля одного процента в сумме процентов
@@ -27,24 +33,60 @@ const MOCK_NOTE='Подневные отметки и привязка люде�
   'может быть захвачен частично, и тогда среднее по видимым дням от неё отличается.';
 
 SC.blocks.office={
-  subTabs:[['calendar','Календарь'],['offices','Рейтинг офисов'],['dynamics','Динамика']],
+  subTabs:[['calendar','Календарь'],['offices','Офисы и города'],['people','Кто ходит'],
+    ['booking','Бронирование'],['dynamics','Динамика']],
   defaultSub:'calendar',
-  title(sub){return sub==='offices'?'Офисы по посещаемости'
+  title(sub){return sub==='offices'?'Офисы и города по посещаемости'
+    :sub==='people'?'Кто ходит в офис: грейды, роль и локация'
+    :sub==='booking'?'Качество бронирования рабочих мест'
     :sub==='dynamics'?'Посещаемость офиса против базы'
     :'Когда люди приходят в офис'},
   view(ctx){
     if(ctx.sub==='dynamics')return SC.metricLine('office_att',ctx.lp,ctx.bl,ctx.S);
 
+    /* Таблицы посещаемости — проценты: доля процента в сумме процентов ничего
+       не значит, поэтому ни колонки «Доля», ни строки ИТОГО у них нет. */
+    const attTbl=(cap,capSub,items,barHead)=>U.btGroup({cap:cap,capSub:capSub,head:'',metricKey:'office_att',
+      valueHead:'Посещаемость',barHead:barHead,share:false,total:false,compact:true,items:items});
+
     if(ctx.sub==='offices'){
       const rows=D.officeRank(ctx.lp);
       if(!rows.length)return U.empty('Нет данных по офисам','В отборе нет сотрудников.');
-      /* «Рейтинг офисов» стоит заголовком панели над таблицей — колонку имён
-         второй раз не подписываем */
-      return U.barTable({head:'',metricKey:'office_att',valueHead:'Посещаемость',
-        barHead:'Сравнение офисов',share:false,total:false,
-        items:rows.map(o=>({name:o.name,note:o.city+' · '+D.fmtInt(o.hc)+' чел',
-          value:o.att,tip:'сотрудников отбора: '+D.fmtInt(o.hc)}))})+
+      return U.btStack([
+        attTbl('Офисы','',rows.map(o=>({name:o.name,note:o.city+' · '+D.fmtInt(o.hc)+' чел',
+          value:o.att,color:G.C_OFFICE,tip:'сотрудников отбора: '+D.fmtInt(o.hc)})),'Сравнение офисов'),
+        attTbl('Города','среднее по офисам города, взвешенное по людям',D.officeByCity(ctx.lp).map(c=>({name:c.name,
+          note:D.fmtInt(c.hc)+' чел · '+c.offices+' '+U.plural(c.offices,['офис','офиса','офисов']),
+          value:c.att,color:G.C_OFFICE})),'Сравнение городов')])+
         '<div class="tbl-note">'+esc(MOCK_NOTE)+'</div>';
+    }
+
+    if(ctx.sub==='people'){
+      return U.btStack([
+        attTbl('Грейд',D.CMP.cur,D.attByGrade(ctx.lp).map(g=>({name:g.name,note:D.fmtInt(g.hc)+' чел',
+          value:g.att,color:G.C_OFFICE})),'Сравнение грейдов'),
+        attTbl('Роль и локация',D.CMP.cur,D.attByRoleLoc(ctx.lp).map(x=>({name:x.name,
+          note:x.code+' · '+D.fmtInt(x.hc)+' чел',value:x.att,color:G.C_OFFICE})),'Сравнение групп')])+
+        '<div class="tbl-note">Среднее по строкам, взвешенное по людям, равно посещаемости отбора за '+
+        esc(D.CMP.cur)+'. Москва — регион «Москва и область» из состава, ТЦР — остальные регионы. '+
+        'Разбивки в макете сгенерированы: в витрине посещаемости пока нет ни грейда, ни роли '+
+        '(SOURCES.md, §5.6) — для этих вкладок их нужно добавить.</div>';
+    }
+
+    if(ctx.sub==='booking'){
+      const bk=D.bookingQuality(ctx.lp);
+      /* Человеко-дни, а не люди: один сотрудник за месяц может и прийти без
+         брони, и не прийти по брони. Нарушения — две нижние строки. */
+      return SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,
+          {h:250,fill:false,title:'Нарушения бронирования, %'})+
+        U.btGroup({cap:'Бронирования и посещения',capSub:D.CMP.cur+', человеко-дни',head:'',
+          valueHead:'Дней',metricKey:'hc_total',compact:true,items:[
+          {name:'Бронь и приход',value:bk.ok,color:G.C_OFFICE},
+          {name:'Бронь без прихода',note:'нарушение: место простояло',value:bk.noshow,color:G.C_OFFICE},
+          {name:'Приход без брони',note:'нарушение: место не учтено',value:bk.walkin,color:G.C_OFFICE}]})+
+        '<div class="tbl-note">Доля двух нижних строк — это и есть «Нарушения бронирования» за '+esc(D.CMP.cur)+
+        '; приходы в сумме — посещения месяца. Подневных броней в макете нет, разбор сгенерирован '+
+        'от двух метрик блока; на проде — система бронирования рядом со СКУД.</div>';
     }
 
     /* календарь + дни недели: сетка отвечает «в какие дни», таблица — «в какие

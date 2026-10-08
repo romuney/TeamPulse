@@ -1204,3 +1204,111 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* В справке пояснения — не сноски, а сам текст правила: обычный вес
    светло-серым там не читался бы, поэтому цвет основного текста. */
 #helpOvl .fgrp .fhint{color:var(--ink2)}
+
+/* ---------- Полоса KPI на 6–8 метрик ----------
+   После итерации 28 у движения персонала семь метрик, у найма шесть, а шапка
+   one-pager стала дайджестом из восьми карточек. Колонка на метрику — только
+   на широком экране: семь карточек по 150px не вмещают пилюлю со спарклайном.
+   Ниже — по четыре в ряд; восемь карточек дайджеста — всегда два ряда по четыре. */
+.kpis.n6{grid-template-columns:repeat(6,minmax(0,1fr))}
+.kpis.n7{grid-template-columns:repeat(7,minmax(0,1fr))}
+.kpis.n8{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1599px){.kpis.n6,.kpis.n7{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1100px){.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:repeat(3,minmax(160px,1fr))}}
+@media(max-width:780px){.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:1fr}}
+
+/* ---------- Таблица показателей (U.statTable) ----------
+   План-факт подбора и заявки «Роста»: строки — разные величины, колонки —
+   срезы. Рубрики секций — тот же капс, что шапки колонок; строки «из них»
+   сдвинуты вправо, как дочерние строки сводной таблицы. Итог здесь первой
+   колонкой, а не строкой — липким его делать нечему. */
+.stable tr.total.top td{position:static}
+.stable tr.st-sec td{text-align:left;padding:var(--s7) var(--s4) var(--s3) var(--pad-cell);font-size:var(--fs-cap);
+  text-transform:uppercase;letter-spacing:.3px;color:var(--muted);font-weight:var(--fw-bold);background:transparent;
+  white-space:normal;max-width:none}
+.stable tbody tr.st-sec:first-child td{padding-top:var(--s3)}
+.stable tr.st-sub td.txt{padding-left:calc(var(--pad-cell) + var(--s7));color:var(--ink2)}
+.stable th.st-tot{color:var(--ink2)}
+.stable td .cell{display:inline-block;margin:0;padding:3px 7px;min-width:56px;text-align:right}
+
+/* ---------- Тепловая таблица долей (U.heatTable) ----------
+   Та же сетка, что у матрицы состава, но клетка не кликается: срез по статусу
+   роста или по оценке ревью ничего бы не пересчитал. Поэтому курсор —
+   подсказка, а подсветка при наведении тише, чем у кликабельной клетки.
+   Шапки — имена категорий в две строки: «В карьерном росте» в одну не встаёт. */
+.hxtable td.mx-cell,.hxtable th.mx-h{width:64px;min-width:46px}
+/* первая колонка — по самому длинному имени строки: общий минимум плотной
+   таблицы (141px под имена подразделений) здесь только распирал матрицу */
+.ptable.hxtable th.txt.mx-corner{min-width:0}
+.hxtable td.mx-cell{cursor:help;font-weight:var(--fw-body)}
+.hxtable td.mx-cell:hover{box-shadow:inset 0 0 0 2px var(--act-line)}
+/* Шапки — кеглем служебных подписей: пять категорий по 13 букв («Соответствует»)
+   кеглем шапок колонок не вставали в правую панель, и матрица уезжала вбок. */
+.hxtable th.mx-h{white-space:normal;vertical-align:bottom;line-height:1.25;font-size:var(--fs-micro);
+  color:var(--muted);text-transform:none;letter-spacing:0;padding:0 var(--s1) var(--s3)}
+.hxtable td.mx-cell{padding:7px var(--s2)}
+.hxtable th.mx-tot{font-size:var(--fs-micro)}
+.hxtable td.txt{padding-left:7px;color:var(--ink2);white-space:nowrap}
+.hxtable tr.total td{border-top:0;border-bottom:1px solid var(--line);padding-top:0;padding-bottom:0;position:static}
+.hxtable tr.total td.txt{color:var(--ink)}
+.hxtable tr.hx-sec td{padding:var(--s6) 0 var(--s2) 7px;font-size:var(--fs-cap);text-transform:uppercase;
+  letter-spacing:.3px;color:var(--muted);font-weight:var(--fw-bold);background:transparent}
+@media(max-width:1300px){.hxtable td.txt{white-space:normal;max-width:132px}}
+
+/* ---------- Сводная таблица с шестью и больше колонками ----------
+   Шапки колонок переносятся по словам: колонка ужимается до самого длинного
+   слова шапки, а не до всей подписи («ПЕРЕВ. ИЗ» → две строки). Пока шапка
+   не переносилась, ширину таблицы задавали подписи, а не числа, и у движения
+   персонала таблица выходила на 716px при панели в 540px. Переносится только
+   то, что не влезает: на широком экране шапка остаётся в одну строку.
+
+   Имя подразделения — липкое: если таблица всё равно шире панели, она
+   прокручивается внутри неё, а строку по-прежнему видно. Фон ячейки берётся
+   у строки, иначе числа проезжали бы под прозрачным именем. */
+.split-l .ptable.dense th{white-space:normal;vertical-align:bottom;line-height:1.2}
+.split-l .ptable.dense th.txt{white-space:nowrap}
+.split-l .ptable.dense tbody tr{background:#fff}
+.split-l .ptable.dense td.txt{position:sticky;left:0;z-index:1;background:inherit}
+.split-l .ptable.dense thead th.txt{left:0;z-index:4}
+.split-l .ptable.dense tr.total.top td.txt{z-index:3}
+.split-l .ptable tr.urow.sel td.txt{box-shadow:inset 3px 0 0 var(--act)}
+
+/* Шире левая колонка — у блоков, где колонок метрик с «К базе» семь и больше.
+   Ниже 1240px двум колонкам места уже нет и широкой таблице: она встаёт над
+   графиком раньше остальных — тем же приёмом, каким все блоки складываются
+   ниже 1120px, и с теми же высотами. */
+.split.wide-l{grid-template-columns:minmax(560px,1.12fr) minmax(440px,.88fr)}
+@media(max-width:1240px){
+  .split.wide-l{grid-template-columns:1fr;height:auto}
+  .split.wide-l>.panel{height:auto}
+  .split.wide-l .split-l .tbl-wrap{max-height:430px}
+  .split.wide-l .split-r .panel-b{height:380px}
+}
+/* Колонка имён — 120px минимум, а не 141: имена подразделений и так
+   переносятся по словам, а на ноутбуке эти 20px решают, видна ли «К базе». */
+.split-l .ptable.dense th.txt{min-width:120px}
+@media(max-width:1300px){
+  .split-l .ptable.dense th,.split-l .ptable.dense td{padding-left:4px;padding-right:4px}
+  .split-l .ptable.dense th.txt,.split-l .ptable.dense td.txt{padding-left:var(--pad-cell)}
+}
+/* Имя подразделения переносится, когда места мало: раньше оно стояло в одну
+   строку и растягивало колонку до 176px. Перенос включается только у тесной
+   таблицы — на широком экране имя по-прежнему в одну строку. */
+.split-l .ptable.dense td.txt{white-space:normal}
+
+/* ---------- Правки после просмотра в браузере (итерация 28) ---------- */
+/* Вкладки в шапке панели переносятся внутри себя: у найма их четыре, и на
+   суженной правой панели ряд выходил за край, последняя вкладка обрезалась. */
+.panel-h .sub-tabs{flex:0 1 auto;flex-wrap:wrap;justify-content:flex-end;max-width:100%}
+/* Липкое имя строки берёт фон своей строки — и у ИТОГО, и у второго уровня */
+.split-l .ptable.dense tr.total td.txt{background:#fafbfc}
+.split-l .ptable.dense tr.lvl2 td.txt{background:#fcfcfd}
+.split-l .ptable.dense tr.lvl2.sel td.txt{background:#F5F9FE}
+/* ИТОГО тепловой таблицы стоит сверху: линия под ним, отступы клеток — как
+   у остальных строк, иначе число съезжало к верхнему краю клетки */
+.hxtable tr.total td.mx-cell{padding:7px var(--s2)}
+/* Таблицы правой панели: на суженной панели имя и пояснение переносятся,
+   а не выталкивают полосу распределения или колонку за край */
+.split-r .btable td.txt,.split-r .btable td.txt .unit-sub,
+.split-r .stable td.txt,.split-r .stable td.txt .unit-sub{white-space:normal}
