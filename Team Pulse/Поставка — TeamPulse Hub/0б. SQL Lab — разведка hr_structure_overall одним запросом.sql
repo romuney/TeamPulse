@@ -2,12 +2,21 @@ SELECT section, item, value
 -- ============================================================================
 -- 0б. Разведка prod_proteus.hr_structure_overall — ОДИН запрос на все проверки.
 -- SQL Lab: вставить целиком, выполнить (Ctrl+Enter), ответ — «Скопировать
--- в буфер» или CSV — прислать. Строк в ответе — от сотни до четырёхсот,
--- меньше лимита SQL Lab в 1000.
+-- в буфер» или CSV. Строк в ответе — от сотни до четырёхсот.
+--
+-- ОТВЕТ МАСКИРОВАН — его можно класть в публичный репозиторий как есть:
+--   · имён и ключей юнитов в нём нет: связи дерева проверяются внутри
+--     запроса, наружу — только счётчики (у колонок юнитов — длина значений);
+--   · абсолютных чисел нет: численность, потоки и перформанс показаны
+--     в промилле (‰) — на 1000 от численности всех строк последнего месяца.
+--     Отношения между показателями (текучесть, доли, сверки) от этого
+--     не меняются;
+--   · видны названия справочников (тип численности, специализации, тип
+--     трудовых отношений), число строк и юнитов, месяцы и уровни.
+--
 -- Разделы: 1 таблица целиком · 2 каждая колонка · 3 по месяцам ·
 -- 4 дерево юнитов (последний месяц) · 5 значения справочников (последний
--- месяц) · 6 сверки показателей. Людей в таблице нет — только юниты и суммы.
--- Проверено на ClickHouse 24.8.
+-- месяц) · 6 сверки показателей. Проверено на ClickHouse 24.8.
 -- ============================================================================
 FROM
 (
@@ -34,7 +43,8 @@ FROM
 
     UNION ALL
 
-    -- 2. Каждая колонка: разных, NULL, пустых, мин, макс, сумма, отрицательных, дробных
+    -- 2. Каждая колонка: разных, NULL, пустых, мин и макс (суммы — в ‰),
+    --    отрицательных, дробных; у колонок юнитов — только длина значений
     SELECT 2, '2 колонки', kv.1, kv.2, kv.3
     FROM
     (
@@ -42,17 +52,17 @@ FROM
             uniqExact(month) AS c1_u, countIf(isNull(month)) AS c1_n,
             min(month) AS c1_lo, max(month) AS c1_hi,
             uniqExact(mngt_unit_rk) AS c2_u, countIf(isNull(mngt_unit_rk)) AS c2_n,
-            countIf(mngt_unit_rk = '') AS c2_e, min(mngt_unit_rk) AS c2_lo, max(mngt_unit_rk) AS c2_hi,
+            countIf(mngt_unit_rk = '') AS c2_e, min(length(mngt_unit_rk)) AS c2_lo, max(length(mngt_unit_rk)) AS c2_hi,
             uniqExact(mngt_unit_nm) AS c3_u, countIf(isNull(mngt_unit_nm)) AS c3_n,
-            countIf(mngt_unit_nm = '') AS c3_e, min(mngt_unit_nm) AS c3_lo, max(mngt_unit_nm) AS c3_hi,
+            countIf(mngt_unit_nm = '') AS c3_e, min(length(mngt_unit_nm)) AS c3_lo, max(length(mngt_unit_nm)) AS c3_hi,
             uniqExact(lvl) AS c4_u, countIf(isNull(lvl)) AS c4_n,
-            min(lvl) AS c4_lo, max(lvl) AS c4_hi, sum(lvl) AS c4_s, countIf(lvl < 0) AS c4_neg, countIf(lvl != floor(lvl)) AS c4_fr,
+            min(lvl) AS c4_lo, max(lvl) AS c4_hi, countIf(lvl != floor(lvl)) AS c4_fr,
             uniqExact(parent_mngt_unit_rk) AS c5_u, countIf(isNull(parent_mngt_unit_rk)) AS c5_n,
-            countIf(parent_mngt_unit_rk = '') AS c5_e, min(parent_mngt_unit_rk) AS c5_lo, max(parent_mngt_unit_rk) AS c5_hi,
+            countIf(parent_mngt_unit_rk = '') AS c5_e, min(length(parent_mngt_unit_rk)) AS c5_lo, max(length(parent_mngt_unit_rk)) AS c5_hi,
             uniqExact(parent_mngt_unit_nm) AS c6_u, countIf(isNull(parent_mngt_unit_nm)) AS c6_n,
-            countIf(parent_mngt_unit_nm = '') AS c6_e, min(parent_mngt_unit_nm) AS c6_lo, max(parent_mngt_unit_nm) AS c6_hi,
+            countIf(parent_mngt_unit_nm = '') AS c6_e, min(length(parent_mngt_unit_nm)) AS c6_lo, max(length(parent_mngt_unit_nm)) AS c6_hi,
             uniqExact(parent_lvl) AS c7_u, countIf(isNull(parent_lvl)) AS c7_n,
-            min(parent_lvl) AS c7_lo, max(parent_lvl) AS c7_hi, sum(parent_lvl) AS c7_s, countIf(parent_lvl < 0) AS c7_neg, countIf(parent_lvl != floor(parent_lvl)) AS c7_fr,
+            min(parent_lvl) AS c7_lo, max(parent_lvl) AS c7_hi, countIf(parent_lvl != floor(parent_lvl)) AS c7_fr,
             uniqExact(active_type_gr_nm) AS c8_u, countIf(isNull(active_type_gr_nm)) AS c8_n,
             countIf(active_type_gr_nm = '') AS c8_e, min(active_type_gr_nm) AS c8_lo, max(active_type_gr_nm) AS c8_hi,
             uniqExact(active_type_nm) AS c9_u, countIf(isNull(active_type_nm)) AS c9_n,
@@ -97,49 +107,57 @@ FROM
     )
     ARRAY JOIN [
         (1, 'month · Nullable(Date)', concat('разных ', toString(c1_u), ' · NULL ', toString(c1_n), ' · мин ', ifNull(toString(c1_lo), 'NULL'), ' · макс ', ifNull(toString(c1_hi), 'NULL'))),
-        (2, 'mngt_unit_rk · Nullable(String)', concat('разных ', toString(c2_u), ' · NULL ', toString(c2_n), ' · пустых ', toString(c2_e), ' · мин «', ifNull(c2_lo, ''), '» · макс «', ifNull(c2_hi, ''), '»')),
-        (3, 'mngt_unit_nm · Nullable(String)', concat('разных ', toString(c3_u), ' · NULL ', toString(c3_n), ' · пустых ', toString(c3_e), ' · мин «', ifNull(c3_lo, ''), '» · макс «', ifNull(c3_hi, ''), '»')),
-        (4, 'lvl · Nullable(Int32)', concat('разных ', toString(c4_u), ' · NULL ', toString(c4_n), ' · мин ', ifNull(toString(c4_lo), 'NULL'), ' · макс ', ifNull(toString(c4_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c4_s, 2)), 'NULL'), ' · отриц ', toString(c4_neg), ' · дробных ', toString(c4_fr))),
-        (5, 'parent_mngt_unit_rk · Nullable(String)', concat('разных ', toString(c5_u), ' · NULL ', toString(c5_n), ' · пустых ', toString(c5_e), ' · мин «', ifNull(c5_lo, ''), '» · макс «', ifNull(c5_hi, ''), '»')),
-        (6, 'parent_mngt_unit_nm · Nullable(String)', concat('разных ', toString(c6_u), ' · NULL ', toString(c6_n), ' · пустых ', toString(c6_e), ' · мин «', ifNull(c6_lo, ''), '» · макс «', ifNull(c6_hi, ''), '»')),
-        (7, 'parent_lvl · Nullable(Float64)', concat('разных ', toString(c7_u), ' · NULL ', toString(c7_n), ' · мин ', ifNull(toString(c7_lo), 'NULL'), ' · макс ', ifNull(toString(c7_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c7_s, 2)), 'NULL'), ' · отриц ', toString(c7_neg), ' · дробных ', toString(c7_fr))),
+        (2, 'mngt_unit_rk · Nullable(String)', concat('разных ', toString(c2_u), ' · NULL ', toString(c2_n), ' · пустых ', toString(c2_e), ' · длина ', ifNull(toString(c2_lo), 'NULL'), '–', ifNull(toString(c2_hi), 'NULL'), ' · значения скрыты')),
+        (3, 'mngt_unit_nm · Nullable(String)', concat('разных ', toString(c3_u), ' · NULL ', toString(c3_n), ' · пустых ', toString(c3_e), ' · длина ', ifNull(toString(c3_lo), 'NULL'), '–', ifNull(toString(c3_hi), 'NULL'), ' · значения скрыты')),
+        (4, 'lvl · Nullable(Int32)', concat('разных ', toString(c4_u), ' · NULL ', toString(c4_n), ' · мин ', ifNull(toString(c4_lo), 'NULL'), ' · макс ', ifNull(toString(c4_hi), 'NULL'), ' · дробных ', toString(c4_fr))),
+        (5, 'parent_mngt_unit_rk · Nullable(String)', concat('разных ', toString(c5_u), ' · NULL ', toString(c5_n), ' · пустых ', toString(c5_e), ' · длина ', ifNull(toString(c5_lo), 'NULL'), '–', ifNull(toString(c5_hi), 'NULL'), ' · значения скрыты')),
+        (6, 'parent_mngt_unit_nm · Nullable(String)', concat('разных ', toString(c6_u), ' · NULL ', toString(c6_n), ' · пустых ', toString(c6_e), ' · длина ', ifNull(toString(c6_lo), 'NULL'), '–', ifNull(toString(c6_hi), 'NULL'), ' · значения скрыты')),
+        (7, 'parent_lvl · Nullable(Float64)', concat('разных ', toString(c7_u), ' · NULL ', toString(c7_n), ' · мин ', ifNull(toString(c7_lo), 'NULL'), ' · макс ', ifNull(toString(c7_hi), 'NULL'), ' · дробных ', toString(c7_fr))),
         (8, 'active_type_gr_nm · Nullable(String)', concat('разных ', toString(c8_u), ' · NULL ', toString(c8_n), ' · пустых ', toString(c8_e), ' · мин «', ifNull(c8_lo, ''), '» · макс «', ifNull(c8_hi, ''), '»')),
         (9, 'active_type_nm · Nullable(String)', concat('разных ', toString(c9_u), ' · NULL ', toString(c9_n), ' · пустых ', toString(c9_e), ' · мин «', ifNull(c9_lo, ''), '» · макс «', ifNull(c9_hi, ''), '»')),
         (10, 'emp_specialization_oper_code · Nullable(String)', concat('разных ', toString(c10_u), ' · NULL ', toString(c10_n), ' · пустых ', toString(c10_e), ' · мин «', ifNull(c10_lo, ''), '» · макс «', ifNull(c10_hi, ''), '»')),
         (11, 'emp_specialization_it_code · Nullable(String)', concat('разных ', toString(c11_u), ' · NULL ', toString(c11_n), ' · пустых ', toString(c11_e), ' · мин «', ifNull(c11_lo, ''), '» · макс «', ifNull(c11_hi, ''), '»')),
         (12, 'employment_relation_type_desc · Nullable(String)', concat('разных ', toString(c12_u), ' · NULL ', toString(c12_n), ' · пустых ', toString(c12_e), ' · мин «', ifNull(c12_lo, ''), '» · макс «', ifNull(c12_hi, ''), '»')),
-        (13, 'employee_amt · Nullable(Float64)', concat('разных ', toString(c13_u), ' · NULL ', toString(c13_n), ' · мин ', ifNull(toString(c13_lo), 'NULL'), ' · макс ', ifNull(toString(c13_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c13_s, 2)), 'NULL'), ' · отриц ', toString(c13_neg), ' · дробных ', toString(c13_fr))),
-        (14, 'transfer_candidate_amt · Nullable(Float64)', concat('разных ', toString(c14_u), ' · NULL ', toString(c14_n), ' · мин ', ifNull(toString(c14_lo), 'NULL'), ' · макс ', ifNull(toString(c14_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c14_s, 2)), 'NULL'), ' · отриц ', toString(c14_neg), ' · дробных ', toString(c14_fr))),
-        (15, 'transfer_internal_amt · Nullable(Float64)', concat('разных ', toString(c15_u), ' · NULL ', toString(c15_n), ' · мин ', ifNull(toString(c15_lo), 'NULL'), ' · макс ', ifNull(toString(c15_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c15_s, 2)), 'NULL'), ' · отриц ', toString(c15_neg), ' · дробных ', toString(c15_fr))),
-        (16, 'hire_amt · Nullable(Float64)', concat('разных ', toString(c16_u), ' · NULL ', toString(c16_n), ' · мин ', ifNull(toString(c16_lo), 'NULL'), ' · макс ', ifNull(toString(c16_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c16_s, 2)), 'NULL'), ' · отриц ', toString(c16_neg), ' · дробных ', toString(c16_fr))),
-        (17, 'hire_to_active_amt · Nullable(Float64)', concat('разных ', toString(c17_u), ' · NULL ', toString(c17_n), ' · мин ', ifNull(toString(c17_lo), 'NULL'), ' · макс ', ifNull(toString(c17_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c17_s, 2)), 'NULL'), ' · отриц ', toString(c17_neg), ' · дробных ', toString(c17_fr))),
-        (18, 'fire_amt · Nullable(Float64)', concat('разных ', toString(c18_u), ' · NULL ', toString(c18_n), ' · мин ', ifNull(toString(c18_lo), 'NULL'), ' · макс ', ifNull(toString(c18_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c18_s, 2)), 'NULL'), ' · отриц ', toString(c18_neg), ' · дробных ', toString(c18_fr))),
-        (19, 'regret_fire_amt · Nullable(Float64)', concat('разных ', toString(c19_u), ' · NULL ', toString(c19_n), ' · мин ', ifNull(toString(c19_lo), 'NULL'), ' · макс ', ifNull(toString(c19_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c19_s, 2)), 'NULL'), ' · отриц ', toString(c19_neg), ' · дробных ', toString(c19_fr))),
-        (20, 'transfer_in_amt · Nullable(Float64)', concat('разных ', toString(c20_u), ' · NULL ', toString(c20_n), ' · мин ', ifNull(toString(c20_lo), 'NULL'), ' · макс ', ifNull(toString(c20_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c20_s, 2)), 'NULL'), ' · отриц ', toString(c20_neg), ' · дробных ', toString(c20_fr))),
-        (21, 'transfer_out_amt · Nullable(Float64)', concat('разных ', toString(c21_u), ' · NULL ', toString(c21_n), ' · мин ', ifNull(toString(c21_lo), 'NULL'), ' · макс ', ifNull(toString(c21_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c21_s, 2)), 'NULL'), ' · отриц ', toString(c21_neg), ' · дробных ', toString(c21_fr))),
-        (22, 'perf_normal · Nullable(Float64)', concat('разных ', toString(c22_u), ' · NULL ', toString(c22_n), ' · мин ', ifNull(toString(c22_lo), 'NULL'), ' · макс ', ifNull(toString(c22_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c22_s, 2)), 'NULL'), ' · отриц ', toString(c22_neg), ' · дробных ', toString(c22_fr))),
-        (23, 'perf_low · Nullable(Float64)', concat('разных ', toString(c23_u), ' · NULL ', toString(c23_n), ' · мин ', ifNull(toString(c23_lo), 'NULL'), ' · макс ', ifNull(toString(c23_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c23_s, 2)), 'NULL'), ' · отриц ', toString(c23_neg), ' · дробных ', toString(c23_fr))),
-        (24, 'perf_high · Nullable(Float64)', concat('разных ', toString(c24_u), ' · NULL ', toString(c24_n), ' · мин ', ifNull(toString(c24_lo), 'NULL'), ' · макс ', ifNull(toString(c24_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c24_s, 2)), 'NULL'), ' · отриц ', toString(c24_neg), ' · дробных ', toString(c24_fr))),
-        (25, 'perf_gray · Nullable(Float64)', concat('разных ', toString(c25_u), ' · NULL ', toString(c25_n), ' · мин ', ifNull(toString(c25_lo), 'NULL'), ' · макс ', ifNull(toString(c25_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c25_s, 2)), 'NULL'), ' · отриц ', toString(c25_neg), ' · дробных ', toString(c25_fr))),
-        (26, 'lag_employee_amt · Nullable(Float64)', concat('разных ', toString(c26_u), ' · NULL ', toString(c26_n), ' · мин ', ifNull(toString(c26_lo), 'NULL'), ' · макс ', ifNull(toString(c26_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c26_s, 2)), 'NULL'), ' · отриц ', toString(c26_neg), ' · дробных ', toString(c26_fr))),
-        (27, 'ssch_employee_amt · Nullable(Float64)', concat('разных ', toString(c27_u), ' · NULL ', toString(c27_n), ' · мин ', ifNull(toString(c27_lo), 'NULL'), ' · макс ', ifNull(toString(c27_hi), 'NULL'), ' · сумма ', ifNull(toString(round(c27_s, 2)), 'NULL'), ' · отриц ', toString(c27_neg), ' · дробных ', toString(c27_fr)))
+        (13, 'employee_amt · Nullable(Float64)', concat('разных ', toString(c13_u), ' · NULL ', toString(c13_n), ' · мин ‰ ', ifNull(toString(round((c13_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c13_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c13_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c13_neg), ' · дробных ', toString(c13_fr))),
+        (14, 'transfer_candidate_amt · Nullable(Float64)', concat('разных ', toString(c14_u), ' · NULL ', toString(c14_n), ' · мин ‰ ', ifNull(toString(round((c14_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c14_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c14_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c14_neg), ' · дробных ', toString(c14_fr))),
+        (15, 'transfer_internal_amt · Nullable(Float64)', concat('разных ', toString(c15_u), ' · NULL ', toString(c15_n), ' · мин ‰ ', ifNull(toString(round((c15_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c15_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c15_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c15_neg), ' · дробных ', toString(c15_fr))),
+        (16, 'hire_amt · Nullable(Float64)', concat('разных ', toString(c16_u), ' · NULL ', toString(c16_n), ' · мин ‰ ', ifNull(toString(round((c16_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c16_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c16_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c16_neg), ' · дробных ', toString(c16_fr))),
+        (17, 'hire_to_active_amt · Nullable(Float64)', concat('разных ', toString(c17_u), ' · NULL ', toString(c17_n), ' · мин ‰ ', ifNull(toString(round((c17_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c17_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c17_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c17_neg), ' · дробных ', toString(c17_fr))),
+        (18, 'fire_amt · Nullable(Float64)', concat('разных ', toString(c18_u), ' · NULL ', toString(c18_n), ' · мин ‰ ', ifNull(toString(round((c18_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c18_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c18_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c18_neg), ' · дробных ', toString(c18_fr))),
+        (19, 'regret_fire_amt · Nullable(Float64)', concat('разных ', toString(c19_u), ' · NULL ', toString(c19_n), ' · мин ‰ ', ifNull(toString(round((c19_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c19_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c19_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c19_neg), ' · дробных ', toString(c19_fr))),
+        (20, 'transfer_in_amt · Nullable(Float64)', concat('разных ', toString(c20_u), ' · NULL ', toString(c20_n), ' · мин ‰ ', ifNull(toString(round((c20_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c20_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c20_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c20_neg), ' · дробных ', toString(c20_fr))),
+        (21, 'transfer_out_amt · Nullable(Float64)', concat('разных ', toString(c21_u), ' · NULL ', toString(c21_n), ' · мин ‰ ', ifNull(toString(round((c21_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c21_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c21_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c21_neg), ' · дробных ', toString(c21_fr))),
+        (22, 'perf_normal · Nullable(Float64)', concat('разных ', toString(c22_u), ' · NULL ', toString(c22_n), ' · мин ‰ ', ifNull(toString(round((c22_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c22_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c22_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c22_neg), ' · дробных ', toString(c22_fr))),
+        (23, 'perf_low · Nullable(Float64)', concat('разных ', toString(c23_u), ' · NULL ', toString(c23_n), ' · мин ‰ ', ifNull(toString(round((c23_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c23_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c23_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c23_neg), ' · дробных ', toString(c23_fr))),
+        (24, 'perf_high · Nullable(Float64)', concat('разных ', toString(c24_u), ' · NULL ', toString(c24_n), ' · мин ‰ ', ifNull(toString(round((c24_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c24_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c24_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c24_neg), ' · дробных ', toString(c24_fr))),
+        (25, 'perf_gray · Nullable(Float64)', concat('разных ', toString(c25_u), ' · NULL ', toString(c25_n), ' · мин ‰ ', ifNull(toString(round((c25_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c25_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c25_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c25_neg), ' · дробных ', toString(c25_fr))),
+        (26, 'lag_employee_amt · Nullable(Float64)', concat('разных ', toString(c26_u), ' · NULL ', toString(c26_n), ' · мин ‰ ', ifNull(toString(round((c26_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c26_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c26_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c26_neg), ' · дробных ', toString(c26_fr))),
+        (27, 'ssch_employee_amt · Nullable(Float64)', concat('разных ', toString(c27_u), ' · NULL ', toString(c27_n), ' · мин ‰ ', ifNull(toString(round((c27_lo) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · макс ‰ ', ifNull(toString(round((c27_hi) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · сумма ‰ ', ifNull(toString(round((c27_s) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'), ' · отриц ', toString(c27_neg), ' · дробных ', toString(c27_fr)))
     ] AS kv
 
     UNION ALL
 
-    -- 3. По месяцам: суммы всех строк. «числ прошл» — численность прошлого месяца,
-    --    её сверяем с лагом; «верх» — численность только верхнего уровня
+    -- 3. По месяцам: суммы всех строк в ‰. «числ прошл» — численность прошлого
+    --    месяца, её сверяем с лагом; «верх» — численность только верхнего уровня
     SELECT 3, '3 месяцы', toUInt32(toYYYYMM(month)), toString(month),
-           concat('строк ', toString(rows), ' · юнитов ', toString(units),
-                  ' · числ ', toString(round(emp, 1)), ' · верх ', toString(round(emp_top, 1)),
-                  ' · лаг ', toString(round(lag, 1)), ' · числ прошл ', if(prev_emp < 0, '—', toString(round(prev_emp, 1))),
-                  ' · ССЧ ', toString(round(ssch, 1)),
-                  ' · найм ', toString(round(hire, 1)), ' · найм→акт ', toString(round(hire_act, 1)),
-                  ' · увольн ', toString(round(fire, 1)), ' · regret ', toString(round(regret, 1)),
-                  ' · перев вход ', toString(round(t_in, 1)), ' · выход ', toString(round(t_out, 1)),
-                  ' · внутр ', toString(round(t_int, 1)), ' · кандидаты ', toString(round(t_cand, 1)),
-                  ' · perf норм ', toString(round(p_n, 1)), ' низк ', toString(round(p_l, 1)),
-                  ' выс ', toString(round(p_h, 1)), ' сер ', toString(round(p_g, 1)))
+           concat('строк ', toString(rows), ' · юнитов ', toString(units), ' · суммы в ‰',
+                  ' · числ ', ifNull(toString(round((emp) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · верх ', ifNull(toString(round((emp_top) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · лаг ', ifNull(toString(round((lag) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · числ прошл ', if(prev_emp < 0, '—', ifNull(toString(round((prev_emp) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL')),
+                  ' · ССЧ ', ifNull(toString(round((ssch) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · найм ', ifNull(toString(round((hire) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · найм→акт ', ifNull(toString(round((hire_act) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · увольн ', ifNull(toString(round((fire) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · regret ', ifNull(toString(round((regret) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · перев вход ', ifNull(toString(round((t_in) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · выход ', ifNull(toString(round((t_out) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · внутр ', ifNull(toString(round((t_int) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · кандидаты ', ifNull(toString(round((t_cand) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · perf норм ', ifNull(toString(round((p_n) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · низк ', ifNull(toString(round((p_l) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · выс ', ifNull(toString(round((p_h) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'),
+                  ' · сер ', ifNull(toString(round((p_g) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'))
     FROM
     (
         SELECT *, lagInFrame(emp, 1, toFloat64(-1)) OVER (ORDER BY month ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS prev_emp
@@ -163,12 +181,12 @@ FROM
 
     UNION ALL
 
-    -- 4а. Дерево на последний месяц: юниты и численность по уровням.
+    -- 4а. Дерево на последний месяц: юниты и численность (‰) по уровням.
     --     Одинаковая численность на всех уровнях — значения накопительные
     --     (юнит включает подразделения); растёт вглубь — у юнита только свои люди
     SELECT 4, '4 дерево', toUInt32(ifNull(lvl, 0)), concat('уровень ', ifNull(toString(lvl), 'NULL')),
            concat('юнитов ', toString(uniqExact(mngt_unit_rk)), ' · строк ', toString(count()),
-                  ' · числ ', toString(round(ifNull(sum(employee_amt), 0), 1)))
+                  ' · числ ‰ ', ifNull(toString(round((ifNull(sum(employee_amt), 0)) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'))
     FROM prod_proteus.hr_structure_overall
     WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)
     GROUP BY lvl
@@ -225,9 +243,9 @@ FROM
 
     UNION ALL
 
-    -- 5. Значения справочников на последний месяц: до 40 самых частых
+    -- 5. Значения справочников на последний месяц: до 40 самых частых, численность в ‰
     SELECT 5, concat('5 справочник · ', kv.1), toUInt32(rn), kv.2,
-           concat('строк ', toString(rows), ' · юнитов ', toString(units), ' · числ ', toString(round(emp, 1)))
+           concat('строк ', toString(rows), ' · юнитов ', toString(units), ' · числ ‰ ', ifNull(toString(round((emp) / greatest(ifNull((SELECT sum(employee_amt) FROM prod_proteus.hr_structure_overall WHERE month = (SELECT max(month) FROM prod_proteus.hr_structure_overall)), 0), 1) * 1000, 2)), 'NULL'))
     FROM
     (
         SELECT kv, count() AS rows, uniqExact(mngt_unit_rk) AS units, ifNull(sum(employee_amt), 0) AS emp,
@@ -250,7 +268,7 @@ FROM
 
     UNION ALL
 
-    -- 6. Сверки показателей по всей таблице
+    -- 6. Сверки показателей по всей таблице (отношения — не маскируются)
     SELECT 6, '6 сверки', kv.1, kv.2, kv.3
     FROM
     (
