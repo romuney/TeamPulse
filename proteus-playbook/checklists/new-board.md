@@ -113,7 +113,9 @@ checklists/before-delivery.md, после — checklists/after-delivery.md.
 - [ ] CSS — `proteus/<x>.board.css` из `<playbook>/templates/board.template.css`: блоки 1–8, заглушки id `100001…`,
       маркеры канала — те же, что в `CFG` чартов, префикс отчёта уникален на борде (BC-01, BC-10, BC-20).
 - [ ] Сниппет разметки — `proteus/<x>.board-check.js` из `<kit>/board-check.js`: `CHART_IDS` — те же заглушки,
-      `EXPECT` — поля 16 (BC-22, DV-30).
+      `EXPECT` — числа блоков 5–7 CSS (по умолчанию — владельца DL: над вкладками 12, по бокам и снизу 24, под вкладками и
+      между чартами 16, вкладки через 40, значок в 6 px); поля — спросить у владельца по фото или выводу сниппета до первой
+      поставки (BC-12, BC-22, DV-30, DV-35).
 - [ ] JSON-метаданные: блок `chart_configuration` + `"cross_filters_enabled": true` по таблице «источник → получатели»,
       `scope` и `chartsInScope` согласованно; проверка скриптом сборщика (MC-09, MC-10, DV-25).
 - [ ] Модель борда на стенде: iframe `sandbox="allow-scripts"`, `onerror` гасит чарт, полосы Windows, области из JSON,
