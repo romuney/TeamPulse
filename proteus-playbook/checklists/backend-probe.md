@@ -22,6 +22,18 @@ Python и Superset, версии пакетов (sqlparse, sqlglot, clickhouse-c
 версию, SHA и сборку Proteus, флаги функций, лимиты строк, режим асинхронных запросов, валидаторы SQL и вид iframe чартов
 и копирует это в буфер. Логин, почту и адреса серверов он не печатает (у адресов — только имена ключей).
 
+**Без кода:** «Настройки» (справа вверху) → внизу раздел **About**: `Version`, `SHA`, `Build` — так в Superset 2.0.1, если
+форк этот раздел не убрал.
+
+**Короткий вариант — одна строка** (`kit/backend-probe.oneline.js`). Длинный сниппет 09.10 при переносе на рабочий
+ноутбук испортился: в строке 7 25 знаков заменились куском строки 2 — «Unexpected token 'var'». Если переносите текст
+через мессенджер, заметки или фото, берите эту строку или копируйте файл с GitHub (кнопка «Copy raw file»). Ответ печатается
+одной строкой в консоли:
+
+```js
+(function(){var e=document.querySelector('[data-bootstrap]');if(!e)return 'нет data-bootstrap';var c=JSON.parse(e.getAttribute('data-bootstrap')).common||{},n=(c.menu_data||{}).navbar_right||{},f=c.feature_flags||{},k=c.conf||{};return ['версия '+n.version_string,'SHA '+n.version_sha,'сборка '+n.build_number,'флаги: '+Object.keys(f).filter(function(x){return f[x]===true}).sort().join(', '),'SQL_MAX_ROW '+k.SQL_MAX_ROW,'async '+k.GLOBAL_ASYNC_QUERIES_TRANSPORT,'валидаторы '+JSON.stringify(k.SQL_VALIDATORS_BY_ENGINE)].join(' | ')})()
+```
+
 ## 2. SQL Lab — четыре запроса, каждый отдельно
 
 **2.1. Версия лексера sqlparse (OQ-02):**
@@ -64,8 +76,8 @@ SELECT '{{ current_username() }}' AS who
 
 ## 3. Обёртка кастомного чарта (OQ-01)
 
-Любой кастомный чарт (например, HRBP HUB) → меню «⋯» чарта или Explore → «Показать запрос» / «View query» (в русской
-локали может называться «Скопировать запрос»). Найдите `virtual_table` (Ctrl+F) и пришлите текст от `) AS virtual_table`
+Любой кастомный чарт (например, HRBP HUB) → меню «⋯» чарта или Explore → «Скопировать запрос» (так «View query»
+переведён в русской локали 2.0.1; у форка может быть «Показать запрос»). Найдите `virtual_table` (Ctrl+F) и пришлите текст от `) AS virtual_table`
 до конца: есть ли там `GROUP BY` и какой `LIMIT`. Середину с SQL датасета присылать не нужно.
 
 ## 4. По желанию — с коллегой: логин в ключе кэша (OQ-12)
