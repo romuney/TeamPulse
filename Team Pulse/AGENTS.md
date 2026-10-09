@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Контекст области — в `../AGENTS.md`, контекст workspace — в `../../AGENTS.md`.
 `CLAUDE.md` и `NESSY.md` рядом — симлинки на этот файл, правь только `AGENTS.md`.
 
-Общий гайд по бордам Proteus — romuney/TeamPulse, ветка claude/proteus-playbook, папка
+Общий гайд по бордам Proteus — romuney/TeamPulse (main), папка
 proteus-playbook/: SKILL.md — вход (правила по кодам: SP-06/07/08 — литералы в датасете,
 SB-03 — ошибки окна, CJ-21 / DV-06 — сжатая сборка).
 

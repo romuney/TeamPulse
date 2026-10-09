@@ -4,5 +4,5 @@
 и его пробник в Proteus (папка поставки `Team Pulse/Поставка — TeamPulse Hub/`).
 
 - Правила проекта, команды и поставка — **`Team Pulse/AGENTS.md`** (читать первым).
-- Общий гайд по бордам Proteus — romuney/TeamPulse, ветка claude/proteus-playbook, папка
+- Общий гайд по бордам Proteus — romuney/TeamPulse (main), папка
   proteus-playbook/: SKILL.md — вход.

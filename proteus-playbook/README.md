@@ -11,6 +11,9 @@ Apache Superset 2.1.0 (владелец зовёт его «2.0»). В Proteus �
 
 **Состояние.** Факты — на 08.10.2026, инструменты kit проверены на всех четырёх проектах 09.10.2026.
 
+
+**Переслать коротко:** OPTIMIZATION.md — как ускорять борды Proteus, с цифрами и ссылками на правила.
+
 ## Откуда
 
 | Проект | Репозиторий | Что это |
@@ -59,11 +62,10 @@ Apache Superset 2.1.0 (владелец зовёт его «2.0»). В Proteus �
 
 ## Как подключить агенту
 
-**Как скилл Claude Code** — локально, где есть `~/.claude/skills`. Гайд лежит в ветке `claude/proteus-playbook`, пока
-она не влита в `main`. Папку скилла назови так же, как `name` в SKILL.md:
+**Как скилл Claude Code** — локально, где есть `~/.claude/skills`. Гайд лежит в `main`. Папку скилла назови так же, как `name` в SKILL.md:
 
 ```bash
-git clone --branch claude/proteus-playbook https://github.com/romuney/TeamPulse.git ~/src/TeamPulse
+git clone https://github.com/romuney/TeamPulse.git ~/src/TeamPulse
 mkdir -p ~/.claude/skills
 cp -r ~/src/TeamPulse/proteus-playbook ~/.claude/skills/proteus-board-playbook
 ```
@@ -76,7 +78,7 @@ cp -r ~/src/TeamPulse/proteus-playbook ~/.claude/skills/proteus-board-playbook
 ```markdown
 ## Гайд по Proteus
 Перед любой работой с бордом, датасетом, чартом, CSS борда или поставкой читай romuney/TeamPulse:proteus-playbook/SKILL.md
-(ветка claude/proteus-playbook), дальше — главы по таблице «Задача → главы». Инструменты стенда — proteus-playbook/kit/.
+(ветка main), дальше — главы по таблице «Задача → главы». Инструменты стенда — proteus-playbook/kit/.
 ```
 
 **Инструменты kit:**
