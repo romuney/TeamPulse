@@ -94,8 +94,9 @@ HRBP; `<s.volkov>` — две корневые ветки; `nobody` — нет �
   `result[0].query` (SP-13, OQ-01).
 - Ключ кэша как в 2.0.1 → `cache_key` у двух пользователей при тех же фильтрах: у личного разный, у общего одинаковый
   (AC-07, AC-09, OQ-12).
-- Классы разметки форка вокруг сетки (`.grid-container`, `.dashboard--editing`, `.dashboard-header-container`), число
-  TOP высоты ряда, `is_css_scoped` → вывод сниппета разметки (файл <N>, BC-22, BC-23, OQ-28, OQ-29).
+- Классы разметки форка вне сетки (`.dashboard--editing`, `.dashboard-header-container`, `#main-menu`; `.grid-container`
+  подтверждён), число TOP высоты ряда для раскладки этого борда (у DL — 201), поля по вкусу владельца,
+  `is_css_scoped` → вывод сниппета разметки и фото тура (файл <N>, BC-12, BC-22, BC-23, OQ-28, OQ-29).
 - Чем песочница ловит ошибки (`onerror` или слушатель) → консоль F12 при пропаже чарта (SB-03, OQ-16).
 - Значения с длинным и коротким тире → проба на копии борда: chdb превращает их в `--` (ST-21).
 - Профиль ClickHouse боя (`prefer_column_name_to_alias`, `join_use_nulls`, `group_by_use_nulls`, `max_query_size`) →
