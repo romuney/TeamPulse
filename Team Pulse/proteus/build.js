@@ -16,10 +16,20 @@
    4. Babel → ES5 (кастомный чарт Proteus — только ES5, как у HRBP HUB),
       комментарии исходников вырезаются — в них подробности для разработки;
    5. проверка: разбор acorn как ES5, нет запрещённого (getElementById, console,
-      eval), в конце — глобальный option с пустым scatter (контракт Proteus).
+      eval), в конце — глобальный option с пустым scatter (контракт Proteus);
+   6. сжатие terser (min.cjs — копия kit/min.cjs гайда proteus-playbook, terser 5.51.2):
+      без комментариев и пробелов, короткие локальные имена, строка TP_CSS — без
+      комментариев и лишних пробелов; верхний уровень и option не трогаются. Proteus
+      шлёт код чарта в form_data.jsx КАЖДОГО запроса данных (отправка у владельца
+      ≈50 КБ/с), поэтому у сборки бюджет BUDGET_KIB — больше него сборка не пишется.
+      Сборку проверяет min.cjs (ES5, option на верхнем уровне, имена верхнего
+      уровня на месте, нет кода из строки).
    ========================================================================== */
 const fs=require('fs'), path=require('path');
 const babel=require('@babel/core'), acorn=require('acorn');
+const MIN=require('./min.cjs');
+/* бюджет сборки, КиБ (09.10: без сжатия 524, сжатая 333, из них картинки маскота ≈72 — base64 WebP в mascot.js) */
+const BUDGET_KIB=340;
 const dir=path.join(__dirname,'..');
 const OUT=path.join(dir,'Поставка — TeamPulse Hub','3. Proteus — чарт TeamPulse Hub.js');
 const read=f=>fs.readFileSync(path.join(dir,f),'utf8');
@@ -79,7 +89,17 @@ catch(e){fail.push('не ES5: '+e.message)}
 if(!/\noption = \{[^\n]*\n[^\n]*\};\n$/.test(result))fail.push('option не последний');
 if(fail.length){console.error('СБОРКА НЕ ПРОШЛА:\n  '+fail.join('\n  '));process.exit(1)}
 
-fs.writeFileSync(OUT,result);
-const kb=n=>(n/1024).toFixed(0)+' КБ';
-console.log('чарт собран: '+path.relative(dir,OUT)+' — '+kb(Buffer.byteLength(result))+
-  ' (стили '+kb(css.length)+', разметка '+kb(body.length)+'), ES5 проверен');
+/* 6. сжатие: шапка — комментарием сборки, код — terser, TP_CSS — cssMin */
+const head=HEAD.replace(/^\/\/ ?/gm,'').replace(/^=+\n|\n=+\n$/g,'').trim();
+MIN.minifyChart(out+tail,head,{cssVars:['TP_CSS']}).then(r=>{
+  const code=r.code, v=MIN.verify(code,out+tail);
+  if(!/(^|[;}\n])option=\{[^]*\};?\n$/.test(code))v.fails.push('option не последний после сжатия');
+  if(Buffer.byteLength(code)>BUDGET_KIB*1024)v.fails.push('больше бюджета '+BUDGET_KIB+' КиБ: '+(Buffer.byteLength(code)/1024).toFixed(0)+' КиБ');
+  v.warns.forEach(t=>console.error('  ! '+t));
+  if(!v.ok||v.fails.length){console.error('СЖАТИЕ НЕ ПРОШЛО:\n  '+v.fails.join('\n  '));process.exit(1)}
+  fs.writeFileSync(OUT,code);
+  const kb=n=>(n/1024).toFixed(0)+' КиБ';
+  console.log('чарт собран: '+path.relative(dir,OUT)+' — '+kb(Buffer.byteLength(code))+
+    ' (до сжатия '+kb(Buffer.byteLength(result))+'; '+r.notes.join('; ')+', разметка '+kb(Buffer.byteLength(body))+
+    '; бюджет '+BUDGET_KIB+' КиБ, ≈'+(Buffer.byteLength(code)/1024/50).toFixed(1)+' с отправки на запрос при 50 КБ/с), ES5 и сборка проверены');
+}).catch(e=>{console.error('СЖАТИЕ НЕ ПРОШЛО: '+(e.message||e));process.exit(1)});

@@ -44,11 +44,17 @@
     Проверено на ClickHouse 24.8 на симуляции таблицы по людям: оба анализатора,
     join_use_nulls = 1, prefer_column_name_to_alias = 1 — ответ один и тот же.
 ============================================================================ -#}
-{#- Строковый литерал ClickHouse: обратный слэш и кавычка экранируются. -#}
-{% macro qs(v) -%}'{{ v|string|replace('\\', '\\\\')|replace("'", "\\'") }}'{%- endmacro %}
-{#- Массив строк для has() и toJSONString(); пустой — типизированный. -#}
+{#- Строковый литерал ClickHouse: сначала слэш → \\, затем кавычка → '' (не \': лексер
+    sqlparse Proteus его не понимает — тихо меняет ответ); слэши в конце — repeat(char(92), N). -#}
+{% macro qs(v) -%}
+{%- set s = v|string -%}{%- set t = s.rstrip('\\') -%}
+{%- if t|length < s|length -%}concat('{{ t|replace('\\', '\\\\')|replace("'", "''") }}', repeat(char(92), {{ s|length - t|length }}))
+{%- else -%}'{{ s|replace('\\', '\\\\')|replace("'", "''") }}'{%- endif -%}
+{%- endmacro %}
+{#- Массив строк для has() и toJSONString(); пустой — типизированный. array(…), а не […]:
+    «]» в значении sqlparse принял бы за конец имени [..] и сбил строки (значений ≤ 20). -#}
 {% macro qa(values) -%}
-{%- if values|length == 0 -%}CAST([], 'Array(String)'){%- else -%}[{% for v in values %}{{ qs(v) }}{% if not loop.last %}, {% endif %}{% endfor %}]{%- endif -%}
+{%- if values|length == 0 -%}CAST([], 'Array(String)'){%- else -%}array({% for v in values %}{{ qs(v) }}{% if not loop.last %}, {% endif %}{% endfor %}){%- endif -%}
 {%- endmacro %}
 {#- Значения фильтров собираются циклом: при сохранении датасета Proteus отдаёт
     вместо списка AlwaysTrueObject — у него нет ни длины, ни «+». -#}

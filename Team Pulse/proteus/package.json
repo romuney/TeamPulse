@@ -1,10 +1,11 @@
 {
   "name": "teampulse-hub-proteus",
   "private": true,
-  "description": "Сборка чарта Proteus из исходников макета TeamPulse Hub: node build.js",
+  "description": "Сборка чарта Proteus из исходников макета TeamPulse Hub: node build.js (Babel → ES5 → terser, min.cjs)",
   "devDependencies": {
     "@babel/core": "7.25.2",
     "@babel/preset-env": "7.25.4",
-    "acorn": "8.12.1"
+    "acorn": "8.12.1",
+    "terser": "5.51.2"
   }
 }

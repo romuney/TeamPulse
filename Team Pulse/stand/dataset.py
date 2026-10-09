@@ -5,7 +5,8 @@
 #
 # DB — папка chdb с prod_proteus.hr_structure_overall (sim_hso.py + load_hso.py).
 # Как в Proteus: filter_values(колонка) — значения кросс-фильтра, current_username() — логин.
-# --check гоняет ответ при обоих анализаторах и при join_use_nulls / prefer_column_name_to_alias
+# --check гоняет ответ при обоих анализаторах и при join_use_nulls / prefer_column_name_to_alias,
+# в том числе в профиле боя (новый анализатор + prefer_column_name_to_alias = 1)
 # (ответы обязаны совпасть) и сверяет его с тем, что считается прямо по таблице.
 import argparse, hashlib, json, os, sys
 import jinja2
@@ -19,6 +20,8 @@ CFG = {
     'join_use_nulls': 'join_use_nulls = 1',
     'old + nulls + prefer': 'allow_experimental_analyzer = 0, join_use_nulls = 1, prefer_column_name_to_alias = 1, group_by_use_nulls = 1',
     'new + nulls + prefer': 'allow_experimental_analyzer = 1, join_use_nulls = 1, prefer_column_name_to_alias = 1, group_by_use_nulls = 1',
+    # профиль боя (SQL Lab владельца, 09.10): ClickHouse 24.8.15.1, новый анализатор, prefer_column_name_to_alias = 1
+    'бой (new + prefer)': 'allow_experimental_analyzer = 1, prefer_column_name_to_alias = 1',
 }
 T = 'prod_proteus.hr_structure_overall'
 

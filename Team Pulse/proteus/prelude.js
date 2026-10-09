@@ -9,6 +9,8 @@
       один обработчик клика, и одно нажатие срабатывало бы несколько раз;
    4. window.TP_REAL — модель из ответа (real.js), window.TP_ENV — окружение
       для app.js: корень, хранилище между прогонами, слушатели, кросс-фильтр.
+   5. документ и хост — overflow:hidden, window.onerror пропускает «ResizeObserver loop»
+      (иначе песочница гасит чарт, SB-03 гайда).
    data и applyCrossFilter — то, что Proteus даёт скрипту чарта.
    ========================================================================== */
 (function(){
@@ -20,6 +22,22 @@ store.listeners=[];
 
 const hosts=document.querySelectorAll('[_echarts_instance_]');
 const host=hosts.length?hosts[hosts.length-1]:document.body;
+/* песочница Proteus гасит чарт на ЛЮБУЮ ошибку окна, и на безвредное «ResizeObserver loop…»
+   (полосы прокрутки Windows при сужении iframe): документ и хост не прокручиваются — своя
+   прокрутка только в .tp-overlay; window.onerror пропускает мимо песочницы только это событие
+   (гайд proteus-playbook, SB-03; так у detail_list с 06.10) */
+host.style.overflow='hidden';
+document.documentElement.style.overflow='hidden';
+if(document.body)document.body.style.overflow='hidden';
+const onErr0=window.onerror;
+if(!(onErr0&&onErr0.__roSkip)){                 /* перезапуск скрипта: второй раз не оборачивать */
+  const onErr=function(msg){
+    if(/ResizeObserver loop/i.test(String(msg)))return true;
+    return typeof onErr0==='function'?onErr0.apply(this,arguments):false;
+  };
+  onErr.__roSkip=true;
+  window.onerror=onErr;
+}
 Array.prototype.forEach.call(host.querySelectorAll('canvas'),c=>{c.style.display='none'});
 Array.prototype.forEach.call(document.querySelectorAll('.tp-overlay, body > .tip'),
   n=>{if(n.parentNode)n.parentNode.removeChild(n)});
