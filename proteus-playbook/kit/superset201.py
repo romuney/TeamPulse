@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Путь Superset 2.0.1 над SQL виртуального датасета — модуль и CLI.
+"""Путь Superset 2.1.0 над SQL виртуального датасета — модуль и CLI (имя файла — историческое: на этом пути 2.0.1 и
+2.1.0 построчно одинаковы, сверено 09.10).
 
-Что делает Proteus (форк Superset 2.0.1) с текстом датасета до ClickHouse, по исходнику 2.0.1:
+Что делает Proteus (форк Superset 2.1.0: version_string 2.1.0, сниппет консоли 09.10) с текстом датасета до ClickHouse:
   superset/jinja_context.py    — рендер Jinja: SandboxedEnvironment(undefined=DebugUndefined), без расширений;
                                  current_username / current_user_id / cache_key_wrapper / url_param / filter_values /
                                  get_filters / where_in; ExtraCache.regex решает, рендерить ли ради ключа кэша;
-  superset/sql_parse.py        — патч лексера sqlparse 0.3.0: ПЕРВЫМ правилом строковый литерал '(''|\\\\|\\|[^'])*'
+  superset/sql_parse.py        — патч лексера sqlparse (0.4.3 в 2.1.0): ПЕРВЫМ правилом литерал '(''|\\\\|\\|[^'])*'
                                  (в нём \\' кавычку НЕ экранирует); ParsedQuery, is_select, get_statements, LIMIT;
   superset/connectors/sqla/models.py
                                — get_rendered_sql: strip('\\t\\r\\n; ') → format(strip_comments=True) → split
@@ -16,13 +17,13 @@
                                — сохранение и «Синхронизировать столбцы»: рендер с AlwaysTrueObject (особенность форка),
                                  ParsedQuery без strip_comments, одна инструкция, текст + "\\nLIMIT 1000" исполняется.
 
-Две модели лексера — гоняйте датасет в обеих (kit/setup.sh ставит оба venv):
-  ~/.venvs/proteus-kit   — sqlparse 0.3.0 + патч 2.0.1 (исходник 2.0.1: «sqlparse==0.3.0  # PINNED!»);
-  ~/.venvs/proteus-sp044 — sqlparse 0.4.4 + тот же литерал, поставленный как в Superset 2.1.3 / 3.0.
-  Бой adoption (30.09) ведёт себя как 0.4.x: его pa_one на модели 0.3.0 падает Code 36 после reindent, а в бою
-  работает (kit/RESULTS.md). Пока версия не снята в бою (пробы — kit/README.md), датасет должен пройти обе.
+Модели лексера (kit/setup.sh ставит оба venv):
+  ~/.venvs/proteus-kit   — модель боя: sqlparse 0.4.3 + патч insert(0) (requirements/base.txt 2.1.0: sqlparse==0.4.3);
+  ~/.venvs/proteus-sp044 — запас: sqlparse 0.4.4 + тот же литерал, поставленный как в Superset 2.1.3 / 3.0.
+  Модель боя сходится с боем: adoption pa_one и pa_body_one в ней проходят (в бою работают), в модели 0.3.0
+  (Superset 2.0.x) — падают Code 36 после reindent (kit/RESULTS.md). Ответы 0.4.3 и 0.4.4 на четырёх проектах совпали.
 
-Запуск (venv из kit/setup.sh: sqlparse 0.3.0, jinja2 3.0.3, sqlglot 26.33.0, chdb 2.1.1):
+Запуск (venv из kit/setup.sh: sqlparse 0.4.3, jinja2 3.0.3, sqlglot 26.33.0, chdb 2.1.1):
 
     python kit/superset201.py dataset.sql --user a.user --filters '{"unit_f": ["u1"]}' --url-params '{}' \\
         --cols role,k,v,n,j --limit 50000 [--run --db stand/.db] [--hostile] [--json]
@@ -72,23 +73,23 @@ try:
     from sqlparse.sql import IdentifierList
     from sqlparse.tokens import DDL, DML, Keyword, Punctuation
 except ImportError:  # pragma: no cover
-    sys.exit('нет sqlparse: запустите kit/setup.sh и берите python из его venv (sqlparse==0.3.0, как в Superset 2.0.1)')
+    sys.exit('нет sqlparse: запустите kit/setup.sh и берите python из его venv (sqlparse==0.4.3, как в Superset 2.1.0)')
 
 try:
     import jinja2
     from jinja2 import DebugUndefined, TemplateError
     from jinja2.sandbox import SandboxedEnvironment
 except ImportError:  # pragma: no cover
-    sys.exit('нет jinja2: запустите kit/setup.sh (jinja2==3.0.3, как в Superset 2.0.1)')
+    sys.exit('нет jinja2: запустите kit/setup.sh (jinja2==3.0.3, как в Superset 2.1.0)')
 
 # ─────────────────────────────── версии и бюджеты ───────────────────────────────
-SQLPARSE_SUPERSET = '0.3.0'          # setup.py 2.0.1: "sqlparse==0.3.0",  # PINNED!
-JINJA_SUPERSET = '3.0.3'             # requirements/base.txt 2.0.1
+SQLPARSE_SUPERSET = '0.4.3'          # requirements/base.txt 2.1.0 (бой — Superset 2.1.0, 09.10); 2.0.x — 0.3.0
+JINJA_SUPERSET = '3.0.3'             # requirements/base.txt 2.1.0 (и 2.0.1)
 MAX_QUERY_SIZE = 262144              # ClickHouse 24.8 по умолчанию; считается по тексту ПОСЛЕ обёртки и reindent
 # MAX_GROUPING_TOKENS / MAX_GROUPING_DEPTH появились в sqlparse 0.5.4 (там превышение молча пропускает группировку),
 # исключения «Maximum number of tokens exceeded (10000).» / «Maximum grouping depth exceeded (100).» — с 0.5.5.
-# Предел — на число токенов лексера в одном списке (каждый пробел — отдельный токен). В Superset 2.0.1 их нет
-# (sqlparse 0.3.0) — это запас на обновление Proteus; меряется по тексту датасета (как в стендах проектов).
+# Предел — на число токенов лексера в одном списке (каждый пробел — отдельный токен). В Superset 2.1.0 их нет
+# (sqlparse 0.4.3) — это запас на обновление Proteus до 4.x; меряется по тексту датасета (как в стендах проектов).
 TOKENS_MAX = 10000
 DEPTH_MAX = 100
 REINDENT_MAX_S = 1.0                 # ориентир: reindent обёртки на худшем рендере (вывод, бой ≈ 2× стенда)
@@ -96,7 +97,7 @@ KEY_MAX_S = 0.5                      # ориентир: разбор ради �
 SAVE_LIMIT = 1000                    # models/core.py apply_limit_to_sql(limit=1000) при сохранении
 VIRTUAL_TABLE = 'virtual_table'
 
-# Враждебный ввод: значения, которые ломают лексер sqlparse 0.3.0 + патч, если экран или литерал выбраны неверно.
+# Враждебный ввод: значения, которые ломают лексер sqlparse с патчем Superset, если экран или литерал выбраны неверно.
 HOSTILE = ["O'Brien; x", 'a]b', 'x -- y', 'x // y', '# x', 'a\\', 'a;b', 'Отдел «Альфа» — 1']
 # --hostile-set full: остальное из набора SP-11 (02-superset-path.md). Длинное и короткое тире chdb 2.1.1 превращает
 # в «--» даже внутри строки (ST-21) — значения с ними на стенде не сверить; кириллица без тире — в последнем хвосте.
@@ -165,7 +166,7 @@ def lexer_patch(enabled=None):
         first = kw.SQL_REGEX[0][0]
         if getattr(getattr(first, '__self__', None), 'pattern', None) != _PATCH_RX:
             kw.SQL_REGEX.insert(0, (re.compile(_PATCH_RX, kw.FLAGS).match, sqlparse.tokens.String.Single))
-        _patch_state['status'] = 'стоит (как superset/sql_parse.py 2.0.1)'
+        _patch_state['status'] = 'стоит (как superset/sql_parse.py 2.0.1 и 2.1.0 — insert(0))'
     return _patch_state['status']
 
 
@@ -1169,14 +1170,16 @@ def print_report(rep, ver):
         (' · ClickHouse %s' % ver['clickhouse']) if 'clickhouse' in ver else ''))
     if not ver['patch'].startswith('стоит'):
         print('  ! лексер без патча Superset: сравнение, а не модель Proteus')
-    elif ver['sqlparse'] != SQLPARSE_SUPERSET:
-        if ver['patch'].startswith('стоит как в Superset 2.1.3'):
-            print('  · вторая модель лексера (sqlparse %s, патч 2.1.3/3.0): бой adoption ведёт себя так; '
-                  'датасет должен пройти и её, и 0.3.0' % ver['sqlparse'])
-        else:
-            print('  ! sqlparse не %s и без патча Superset: это не модель Proteus' % SQLPARSE_SUPERSET)
+    elif ver['sqlparse'] == SQLPARSE_SUPERSET:
+        pass                                                   # модель боя: Superset 2.1.0
+    elif ver['patch'].startswith('стоит как в Superset 2.1.3'):
+        print('  · запасная модель (sqlparse %s, патч 2.1.3/3.0 — на обновление форка); модель боя — sqlparse %s'
+              % (ver['sqlparse'], SQLPARSE_SUPERSET))
+    else:
+        print('  ! sqlparse %s с патчем 2.0.x — модель Superset 2.0, а бой — 2.1.0 (sqlparse %s)'
+              % (ver['sqlparse'], SQLPARSE_SUPERSET))
     if ver['jinja2'] != JINJA_SUPERSET:
-        print('  ! jinja2 %s, в Superset 2.0.1 — %s' % (ver['jinja2'], JINJA_SUPERSET))
+        print('  ! jinja2 %s, в Superset 2.1.0 — %s' % (ver['jinja2'], JINJA_SUPERSET))
     if 'cols' in rep:
         print('Измерения: %s' % ', '.join(rep['cols']))
     c = rep.get('cache')

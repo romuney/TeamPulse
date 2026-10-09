@@ -10,13 +10,14 @@
 #
 # Версии (почему именно они — 13-stand.md):
 #   chdb 2.1.1        = ClickHouse 24.8.4.1 (бой — 24.8.15.1); chdb 3.0.0–3.2.0 — тоже 24.8, 4.x — уже 26.x
-#   sqlparse 0.3.0    = Superset 2.0.1 (setup.py: «PINNED!»); патч лексера Superset ставит kit/superset201.py
-#   jinja2 3.0.3      = Superset 2.0.1 (requirements/base.txt), markupsafe 2.0.1 — так же (ставится на 3.12)
+#   sqlparse 0.4.3    = Superset 2.1.0 — версия боя (Proteus сообщает 2.1.0, 09.10; requirements/base.txt 2.1.0:
+#                       sqlparse==0.4.3); патч лексера Superset (insert(0), как 2.0.1) ставит kit/superset201.py
+#   jinja2 3.0.3      = Superset 2.1.0 (requirements/base.txt), markupsafe 2.0.1 — так же (ставится на 3.12)
 #   sqlglot 26.33.0   — модель проверки форка «Некорректный SQL запрос» (23–30 дают тот же отказ; < 15 не годятся:
 #                       не знают CAST(x, 'T') и роняют рабочие датасеты); другие версии — pip install --target
 #   pyyaml            — выгрузки Proteus (YAML); psycopg2-binary — стенд GP на PostgreSQL 16
-#   sqlparse 0.4.4    — второй venv: вторая модель лексера (Superset 2.1.3–3.x; патч ставит superset201.py так, как
-#                       они). Бой adoption (30.09) ведёт себя как 0.4.x, а не 0.3.0 — гоняйте датасет в ОБОИХ venv
+#   sqlparse 0.4.4    — второй venv: запас на обновление форка до Superset 2.1.3–3.x (патч ставит superset201.py так,
+#                       как они). Ответы 0.4.3 и 0.4.4 на четырёх проектах совпали (09.10); 0.3.0 (2.0.x) не нужен
 #   terser 5.51.2     — сжатие кода чарта (kit/min.cjs): версия закреплена, иначе pack --check разойдётся
 #   eslint 10.1.0     — no-undef по kit/eslint.chart.cjs; playwright 1.56.1 — kit/sbx (модель песочницы)
 #   каталоги версий   — sqlglot 23.17 / 25.34 / 28.10 / 30.0 в ~/sg/<версия>, sqlparse 0.5.5 / 0.6.0 в ~/sp/<версия>
@@ -26,7 +27,7 @@ set -euo pipefail
 KIT_VENV="${KIT_VENV:-$HOME/.venvs/proteus-kit}"
 SP044_VENV="${SP044_VENV:-$HOME/.venvs/proteus-sp044}"
 PY="${PYTHON:-python3.12}"
-PKGS=(chdb==2.1.1 sqlparse==0.3.0 sqlglot==26.33.0 jinja2==3.0.3 markupsafe==2.0.1 pyyaml psycopg2-binary)
+PKGS=(chdb==2.1.1 sqlparse==0.4.3 sqlglot==26.33.0 jinja2==3.0.3 markupsafe==2.0.1 pyyaml psycopg2-binary)
 
 say() { printf '\n== %s\n' "$*"; }
 
@@ -43,11 +44,11 @@ make_venv() {   # $1 — каталог, остальное — пакеты
   fi
 }
 
-say "venv $KIT_VENV (Python 3.12)"
+say "venv $KIT_VENV (Python 3.12, модель боя: sqlparse 0.4.3 = Superset 2.1.0)"
 if ! make_venv "$KIT_VENV" "${PKGS[@]}"; then
   # jinja2 3.0.3 / markupsafe 2.0.1 не встали (сборка из исходников) — ближайшие, это отмечается ниже
   echo "! jinja2 3.0.3 / markupsafe 2.0.1 не встали — беру jinja2 3.0.x/3.1 с новым markupsafe"
-  make_venv "$KIT_VENV" chdb==2.1.1 sqlparse==0.3.0 sqlglot==26.33.0 'jinja2>=3.0.3,<3.2' pyyaml psycopg2-binary
+  make_venv "$KIT_VENV" chdb==2.1.1 sqlparse==0.4.3 sqlglot==26.33.0 'jinja2>=3.0.3,<3.2' pyyaml psycopg2-binary
 fi
 
 if [ "${SP044:-1}" != "0" ]; then
