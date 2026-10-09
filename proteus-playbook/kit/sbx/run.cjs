@@ -4,7 +4,7 @@
 //
 //   NODE_PATH=$(npm root -g) node kit/sbx/run.cjs <chart.js> <mock.json> [флаги]
 //     --css board.css         CSS борда из папки поставки (как в «CSS» борда); id в нём — те, что у --id / --also
-//     --id N                  id чарта (класс .dashboard-chart-id-N, #chart-id-N); по умолчанию 000000 — заглушка исходников
+//     --id N                  id чарта — число (класс .dashboard-chart-id-N, #chart-id-N); по умолчанию 000000 — заглушка исходников
 //     --w 1200 --h 900        окно браузера; --ch 735 — высота ячейки (по умолчанию — окно минус меню, шапка и поля)
 //     --cols 12               ширина ячейки в колонках сетки (12 — весь ряд)
 //     --also <js> <mock> <id> [cols]   соседний чарт в том же ряду (своя песочница), можно несколько раз
@@ -12,19 +12,24 @@
 //     --shot out.png          скриншот страницы в конце
 //     --exec fn|script        как запускать код: new Function('data','applyCrossFilter', код) (fn, как стенды проектов)
 //                             или глобальным <script> (script, как хост smoke скилла)
+//     --catch onerror|listener  чем песочница ловит ошибки окна (S8 — не известно): window.onerror до кода чарта
+//                             (по умолчанию; обёртка SB-03 его пропускает) или слушатель error (обёртка бессильна)
 //     --echarts <путь>        настоящий echarts (например adoption:vendor/echarts.min.js); без флага — заглушка хоста
 //     --rerun self|all|none   после эмита перезапустить тем же ответом: себя (по умолчанию), все чарты, никого
 //     --emit-delay 300        через сколько мс после эмита перезапуск (Proteus отвечает не сразу)
-//     --no-header             без шапки чарта (у Superset она есть; CSS борда обычно её прячет)
+//     --no-header             шапка чарта спрятана (display:none), как её прячет CSS борда; у 2.0.1 она в DOM всегда
 //     --frame srcdoc|src      документ iframe — srcdoc (по умолчанию, как стенды DL / HRBP) или src с того же сервера: от этого
 //                             зависит document.referrer чарта (srcdoc — только origin, src — полный адрес борда; Chromium 141)
 //     --iframe-attrs mount|follow  атрибуты размера iframe: только при монтаже (по умолчанию, S2) или по каждой смене окна
 //     --no-scrollbars         полосы прокрутки как на Mac (по умолчанию — как в Windows: занимают место, SB-03)
-//     --board-check           выполнить kit/board-check.js на странице (ids = id чартов) и напечатать вывод
+//     --board-check           выполнить kit/board-check.js на странице (CHART_IDS = id чартов прогона) и напечатать вывод
 //     --board N               номер борда в адресе родителя /superset/dashboard/N/ (что чарт увидит в document.referrer)
 //     --json                  вывод — JSON (для скриптов)
-// Код выхода: 0 — ошибок окна нет; 1 — были (чарт в бою погас бы); 2 — не запустилось.
-// Нужно: npm i -g playwright@1.56 (браузер — PLAYWRIGHT_BROWSERS_PATH, например /opt/pw-browsers).
+// Код выхода: 0 — ошибок окна нет; 1 — были (чарт в бою погас бы); 2 — неверный вызов или не запустилось
+// (нет файла, id не число или повторяется, frame шага — не id прогона).
+// Нужно: npm i -g playwright@1.56.1 (браузер — PLAYWRIGHT_BROWSERS_PATH, например /opt/pw-browsers).
+// Правила playbook: SB-20 (08-sandbox.md), ST-22 (13-stand.md); прогоны на чартах четырёх проектов — kit/RESULTS.js.md, раздел 5.
+// Модель — не бой: чем форк запускает код, ловит ошибки и грузит iframe, не известно — гоняйте оба варианта флагов.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -63,7 +68,8 @@ function usage(msg) {
 
 function parseArgs(argv) {
   const o = { charts: [], css: null, w: 1200, h: 900, ch: 0, clicks: null, shot: null, exec: 'fn', echarts: null, rerun: 'self',
-    emitDelay: 300, header: true, follow: false, frame: 'srcdoc', scrollbars: true, boardCheck: false, board: '1', json: false, id: '000000', cols: 12 };
+    emitDelay: 300, header: true, follow: false, frame: 'srcdoc', scrollbars: true, boardCheck: false, board: '1', json: false, id: '000000', cols: 12,
+    catch: 'onerror' };
   const pos = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -77,6 +83,7 @@ function parseArgs(argv) {
     else if (a === '--clicks') o.clicks = val();
     else if (a === '--shot') o.shot = val();
     else if (a === '--exec') o.exec = val();
+    else if (a === '--catch') o.catch = val();
     else if (a === '--echarts') o.echarts = val();
     else if (a === '--rerun') o.rerun = val();
     else if (a === '--emit-delay') o.emitDelay = +val();
@@ -96,7 +103,17 @@ function parseArgs(argv) {
   }
   if (pos.length !== 2) usage('нужны два пути: чарт и мок');
   o.charts.unshift({ js: pos[0], mock: pos[1], id: o.id, cols: o.cols });
+  // id — числа, как у Superset (dashboard-chart-id-N; заглушки поставки 000000…); разные: иначе две ячейки с одним id
+  const ids = o.charts.map((c) => String(c.id));
+  ids.forEach((id) => { if (!/^\d+$/.test(id)) usage('id чарта — число (как у Superset и заглушек 000000…): «' + id + '»'); });
+  if (new Set(ids).size !== ids.length) usage('id чартов повторяются: ' + ids.join(', ') + ' — у соседа (--also) свой id');
+  [['--w', o.w], ['--h', o.h], ['--cols', o.cols], ['--emit-delay', o.emitDelay]].forEach(([k, v]) => {
+    if (!(v >= 0) || v !== Math.floor(v)) usage(k + ' — целое число ≥ 0: ' + v);
+  });
+  if (!(o.ch >= 0)) usage('--ch — число px: ' + o.ch);
+  if (!(o.w > 0 && o.h > 0)) usage('--w и --h — больше 0');
   if (['fn', 'script'].indexOf(o.exec) < 0) usage('--exec fn|script');
+  if (['onerror', 'listener'].indexOf(o.catch) < 0) usage('--catch onerror|listener');
   if (['self', 'all', 'none'].indexOf(o.rerun) < 0) usage('--rerun self|all|none');
   if (['srcdoc', 'src'].indexOf(o.frame) < 0) usage('--frame srcdoc|src');
   // ширины (колонки сетки из 12): у первого — --cols; с соседями без --cols — поровну из того, что не занято
@@ -120,35 +137,56 @@ function readJSON(p, what) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { usage(what + ' ' + p + ': ' + e.message); return null; }
 }
 
+function readText(p, what) {
+  try { return fs.readFileSync(p, 'utf8'); } catch (e) { usage(what + ' ' + p + ': ' + (e.code || e.message)); return ''; }
+}
+
 async function main() {
   const o = parseArgs(process.argv.slice(2));
   let chromium;
   try { chromium = require('playwright').chromium; } catch (e) { usage('нет playwright: npm i -g playwright, NODE_PATH=$(npm root -g)'); }
   const charts = o.charts.map((c) => ({ id: String(c.id), cols: c.cols, title: path.basename(c.js).replace(/\.js$/, ''),
-    src: fs.readFileSync(c.js, 'utf8'), rows: readJSON(c.mock, 'мок'), js: c.js, mock: c.mock }));
-  const boardCss = o.css ? fs.readFileSync(o.css, 'utf8') : '';
+    src: readText(c.js, 'чарт'), rows: readJSON(c.mock, 'мок'), js: c.js, mock: c.mock }));
+  // BOM в начале файла (сохранил редактор Windows) владелец в «CSS» борда не вставит, а в <style> он стал бы частью
+  // первого селектора — и браузер отбросил бы первое правило: срезаем
+  const boardCss = o.css ? readText(o.css, 'CSS борда').replace(/^\uFEFF/, '') : '';
   let ech = '';
-  if (o.echarts) ech = fs.readFileSync(o.echarts, 'utf8').replace(/<\/script/gi, '<\\/script');
-  const inner = fs.readFileSync(path.join(HERE, 'inner.html'), 'utf8').replace('<script>/*__ECHARTS__*/</script>', () => '<script>' + ech + '</script>').replace("var MODE = '__MODE__'", "var MODE = '" + o.exec + "'");
+  if (o.echarts) ech = readText(o.echarts, 'echarts').replace(/<\/script/gi, '<\\/script');
+  // сценарий — до браузера: формат и id чартов в шагах (опечатка в frame иначе роняла прогон посреди сценария)
+  const steps = o.clicks ? readJSON(o.clicks, 'сценарий') : [];
+  if (!Array.isArray(steps)) usage('сценарий ' + o.clicks + ': нужен массив шагов (формат — kit/sbx/clicks.example.json)');
+  steps.forEach((s, k) => {
+    if (!s || typeof s !== 'object') usage('сценарий, шаг ' + (k + 1) + ': нужен объект');
+    if (s.frame != null && !charts.some((c) => c.id === String(s.frame))) {
+      usage('сценарий, шаг ' + (k + 1) + ': frame «' + s.frame + '» — такого чарта нет (есть: ' + charts.map((c) => c.id).join(', ') + ')');
+    }
+  });
+  // снимки — в существующие каталоги: иначе playwright падает в конце прогона, и вывод теряется
+  [o.shot].concat(steps.map((s) => s.shot)).filter(Boolean).forEach((f) => {
+    if (!fs.existsSync(path.dirname(path.resolve(String(f))))) usage('снимок ' + f + ': нет каталога ' + path.dirname(path.resolve(String(f))));
+  });
+  const inner = fs.readFileSync(path.join(HERE, 'inner.html'), 'utf8').replace('<script>/*__ECHARTS__*/</script>', () => '<script>' + ech + '</script>').replace("var MODE = '__MODE__', CATCH = '__CATCH__'", "var MODE = '" + o.exec + "', CATCH = '" + o.catch + "'");
   const cellH = o.ch || Math.max(320, o.h - 53 - 64 - 48);
   const cfg = { charts: charts.map((c) => ({ id: c.id, cols: c.cols, title: c.title })), cellH, header: o.header,
     inner: o.frame === 'src' ? '' : inner, innerUrl: o.frame === 'src' ? '/sbx-inner.html' : '',
     title: 'Модель песочницы · ' + charts.map((c) => c.title).join(' + '), rerun: o.rerun, emitDelay: o.emitDelay, follow: o.follow };
   const page0 = fs.readFileSync(path.join(HERE, 'parent.html'), 'utf8')
     .replace('<style id="sbx-base">/*__BASE_CSS__*/</style>', () => '<style id="sbx-base">' + BASE_CSS + '</style>')
-    .replace('<style id="sbx-board">/*__BOARD_CSS__*/</style>', () => '<style id="sbx-board">' + boardCss.replace(/<\/style/gi, '<\\/style') + '</style>')
+    .replace('<style class="CssEditor-css" id="sbx-board">/*__BOARD_CSS__*/</style>', () => '<style class="CssEditor-css" id="sbx-board">' + boardCss.replace(/<\/style/gi, '<\\/style') + '</style>')
     .replace('var SBX = __CFG__;', () => 'var SBX = ' + JSON.stringify(cfg).replace(/<\//g, '<\\/').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') + ';');
   // шаблоны поменялись — падать, а не тихо гонять без кода чарта
-  if (/var SBX = __CFG__;|\/\*__BASE_CSS__\*\/<\/style>|\/\*__BOARD_CSS__\*\/<\/style>/.test(page0) || /var MODE = '__MODE__'/.test(inner)) usage('шаблон kit/sbx/*.html не совпал с run.cjs');
+  if (/var SBX = __CFG__;|\/\*__BASE_CSS__\*\/<\/style>|\/\*__BOARD_CSS__\*\/<\/style>/.test(page0) || /MODE = '__MODE__'|CATCH = '__CATCH__'/.test(inner)) usage('шаблон kit/sbx/*.html не совпал с run.cjs');
   // родитель — по адресу борда: чарт видит его в document.referrer (адрес борда для «ссылки на вид», SB-17)
   const route = '/superset/dashboard/' + o.board + '/';
   const srv = http.createServer((q, r) => {
-    if (q.url.split('?')[0] === route) { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(page0); }
+    let pth = q.url.split('?')[0];
+    try { pth = decodeURIComponent(pth); } catch (e) { /* как есть */ }
+    if (pth === route) { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(page0); }
     else if (q.url === '/sbx-inner.html') { r.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); r.end(inner); }
     else { r.writeHead(404); r.end(); }
   });
   await new Promise((ok) => srv.listen(0, '127.0.0.1', ok));
-  const url = 'http://127.0.0.1:' + srv.address().port + route;
+  const url = 'http://127.0.0.1:' + srv.address().port + encodeURI(route);              // --board 'мой борд' — тоже адрес
 
   const browser = await chromium.launch(o.scrollbars ? { ignoreDefaultArgs: ['--hide-scrollbars'] } : {});
   const page = await browser.newPage({ viewport: { width: o.w, height: o.h } });
@@ -233,7 +271,7 @@ async function main() {
   const since = (n) => S((x) => ({ emits: window.__sbx.emits.slice(x.e), channel: window.__sbx.channel.slice(x.c), errs: window.__sbx.errs.slice(x.r),
     msgs: window.__sbx.msgs.slice(x.m).filter((m) => m.type !== 'SBX_RUN' && m.type !== 'SBX_READY') }), n);
 
-  const report = { url, window: o.w + '×' + o.h, cellH, exec: o.exec, echarts: o.echarts ? 'настоящий' : 'заглушка', css: o.css || '',
+  const report = { url, window: o.w + '×' + o.h, cellH, exec: o.exec, catch: o.catch, echarts: o.echarts ? 'настоящий' : 'заглушка', css: o.css || '',
     charts: [], steps: [], errors: [], emits: 0, channel: 0, other: {}, boardCheck: '' };
   for (const c of charts) {
     const ready = await S((id) => window.__sbx.msgs.filter((m) => m.chart === id && m.type === 'SBX_READY')[0] || null, c.id);
@@ -242,8 +280,7 @@ async function main() {
       ready }, await state(c.id)));
   }
 
-  // ── сценарий ──
-  const steps = o.clicks ? readJSON(o.clicks, 'сценарий') : [];
+  // ── сценарий (прочитан и проверен до браузера) ──
   for (let k = 0; k < steps.length; k++) {
     const s = steps[k], id = String(s.frame || charts[0].id), n0 = await snap(), box0 = await frameBox(id);
     const st = { n: k + 1, name: s.name || '', act: '', ok: true };
@@ -288,7 +325,8 @@ async function main() {
   report.consoleErrors = consoleErrs.filter((t) => !/Failed to load resource/.test(t));
   if (o.boardCheck) {
     const snip = fs.readFileSync(path.join(HERE, '..', 'board-check.js'), 'utf8')
-      .replace(/ids: \[[^\]]*\]/, 'ids: ' + JSON.stringify(charts.map((c) => c.id)).replace(/"/g, "'"));
+      .replace(/CHART_IDS = \[[^\]]*\]/, () => 'CHART_IDS = ' + JSON.stringify(charts.map((c) => c.id)).replace(/"/g, "'"));
+    if (snip.indexOf("CHART_IDS = ['" + charts[0].id + "'") < 0) usage('kit/board-check.js: строка CHART_IDS = […] не найдена');
     await page.evaluate(snip);
     await page.waitForTimeout(100);
     report.boardCheck = boardLog.pop() || '(сниппет ничего не напечатал)';
@@ -302,6 +340,7 @@ async function main() {
   if (o.json) { process.stdout.write(JSON.stringify(report, null, 1) + '\n'); process.exit(bad ? 1 : 0); }
   const L = [];
   L.push('модель песочницы Proteus · Chromium ' + report.browser + ' · окно ' + report.window + ' · ячейка ' + cellH + ' px · код: ' + o.exec
+    + ' · ошибки ловит: ' + (o.catch === 'listener' ? 'слушатель error' : 'window.onerror')
     + ' · echarts: ' + report.echarts + ' · iframe: ' + o.frame + (o.css ? ' · CSS борда: ' + path.basename(o.css) : ' · без CSS борда'));
   for (const c of report.charts) {
     const fr = report.final[c.id];
@@ -313,7 +352,7 @@ async function main() {
       + ' · документ iframe: ' + (fr.scrollY || fr.scrollX ? 'ЕСТЬ прокрутка' + (fr.scrollY ? ' по вертикали' : '') + (fr.scrollX ? ' по горизонтали' : '') : 'без прокрутки')
       + ', overflow html/body ' + fr.ov
       + (Math.abs(fr.miss[0]) > 1 || Math.abs(fr.miss[1]) > 1 ? '\n  ! iframe не совпадает с областью ячейки ' + fr.area + ': по ширине ' + (fr.miss[0] > 0 ? '+' : '') + fr.miss[0]
-        + ', по высоте ' + (fr.miss[1] > 0 ? '+' : '') + fr.miss[1] + ' px («+» — вылез и обрезан, «−» — щель): CSS борда не растягивает iframe (width / height 100 % !important)' : ''));
+        + ', по высоте ' + (fr.miss[1] > 0 ? '+' : '') + fr.miss[1] + ' px («+» — вылез за область, «−» — щель; без CSS борда у 2.0.1 «+4»: чарт = ячейка − 32, а поле с рамкой — 36): CSS борда не растягивает iframe (width / height 100 % !important)' : ''));
     if (c.ready) L.push('  чарт видит: origin ' + c.ready.origin + ', referrer «' + c.ready.referrer + '»');
   }
   for (const st of report.steps) {
@@ -327,7 +366,7 @@ async function main() {
       + (st.shot ? ' · снимок ' + st.shot : ''));
   }
   L.push('ошибки окна: ' + (report.errors.length ? '' : 'нет'));
-  report.errors.forEach((e) => L.push('  ' + e.chart + ': ' + e.msg + (e.where ? ' (' + e.where + ')' : '') + (e.killed ? ' → ЧАРТ ПОГАС (песочница: clear + dispose)' : /^unhandledrejection/.test(e.msg) ? ' (onerror не зовётся — чарт жив; в бою — не известно)' : '') + (e.stack ? '\n    ' + e.stack : '')));
+  report.errors.forEach((e) => L.push('  ' + e.chart + ': ' + e.msg + (e.where ? ' (' + e.where + ')' : '') + (e.killed ? ' → ЧАРТ ПОГАС (песочница: clear + dispose)' : /^unhandledrejection/.test(e.msg) ? ' (обработчик ошибок окна не зовётся — чарт жив; в бою — не известно)' : '') + (e.stack ? '\n    ' + e.stack : '')));
   if (report.pageErrors.length) L.push('pageerror Playwright (все фреймы, дубли строк выше): ' + report.pageErrors.join(' | '));
   if (report.consoleErrors.length) L.push('консоль (error): ' + report.consoleErrors.slice(0, 8).join(' | ') + (report.consoleErrors.length > 8 ? ' …' : ''));
   L.push('эмитов applyCrossFilter: ' + report.emits + (all.emits.length ? ' — последний: ' + JSON.stringify(all.emits[all.emits.length - 1].filters).slice(0, 300) : ''));

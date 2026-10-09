@@ -36,12 +36,26 @@
     --ch-sub 'A=>B'    замена регуляркой перед исполнением на стенде (chdb 2.1.1 без base64Encode:
                        --ch-sub 'base64Encode\\(=>(')
     --hostile          враждебный ввод: значения носителей и параметров адреса с хвостами из HOSTILE
+    --hostile-set full ещё и хвосты HOSTILE_FULL (SP-11: «[», «/*», «*/», обратная кавычка, \\', управляющие,
+                       длинное значение)
+    --template-params  JSON «Параметров шаблона» датасета (template_params): переменные Jinja и при сохранении,
+                       и при открытии (models.py 2.0.1: template_kwargs.update(template_params_dict))
     --dump DIR         записать тексты каждого шага (только в скратч!)
     --no-patch         лексер без патча Superset (сравнить, как видит текст «ванильный» sqlparse)
+    --no-escape-dialect / --no-double-percents
+                       url_param(escape_result=True) без экрана / без «%» → «%%» (драйвер Proteus не снят)
     --json             отчёт JSON в stdout
 
-Код выхода: 0 — путь пройден, бюджеты и сверки в норме; 1 — ошибка пути, лексера, бюджета или сверки; 2 — вызов.
-Модуль без зависимостей от проектов: импортируй render(), chart_path(), save_path(), lexer_problems(), analyze().
+Каждый вариант открытия ещё сверяет токены ClickHouse (sqlglot) обёртки до и после format(reindent): сбитый лексер
+отдаёт reindent «код» внутри строки, и тот правит в ней пробелы (Code 36 у adoption) — это видно и без --run.
+
+Ключ кэша: ЛИЧНЫЙ (логин в ключе) / ПО ЗНАЧЕНИЯМ (параметры адреса, cache_key_wrapper) / ОБЩИЙ / рендер впустую /
+ОПАСНО (ответ зависит от значения, которого нет в ключе: регулярка не видит вызова или add_to_cache_keys=False).
+
+Код выхода: 0 — путь пройден, бюджеты и сверки в норме; 1 — ошибка пути, лексера, бюджета, ключа (ОПАСНО) или сверки;
+2 — вызов (нет файла, --db не каталог, неверная регулярка --ch-sub, JSON не объект).
+Модуль без зависимостей от проектов: read_sql(), render(), chart_path(), save_path(), lexer_problems(),
+reindent_problems(), cache_key_report(), ch_run(), analyze().
 """
 import argparse
 import json
@@ -69,8 +83,12 @@ except ImportError:  # pragma: no cover
 SQLPARSE_SUPERSET = '0.3.0'          # setup.py 2.0.1: "sqlparse==0.3.0",  # PINNED!
 JINJA_SUPERSET = '3.0.3'             # requirements/base.txt 2.0.1
 MAX_QUERY_SIZE = 262144              # ClickHouse 24.8 по умолчанию; считается по тексту ПОСЛЕ обёртки и reindent
-TOKENS_MAX = 10000                   # sqlparse ≥ 0.5.4: MAX_GROUPING_TOKENS (запас на обновление Proteus)
-DEPTH_MAX = 100                      # sqlparse ≥ 0.5.4: MAX_GROUPING_DEPTH
+# MAX_GROUPING_TOKENS / MAX_GROUPING_DEPTH появились в sqlparse 0.5.4 (там превышение молча пропускает группировку),
+# исключения «Maximum number of tokens exceeded (10000).» / «Maximum grouping depth exceeded (100).» — с 0.5.5.
+# Предел — на число токенов лексера в одном списке (каждый пробел — отдельный токен). В Superset 2.0.1 их нет
+# (sqlparse 0.3.0) — это запас на обновление Proteus; меряется по тексту датасета (как в стендах проектов).
+TOKENS_MAX = 10000
+DEPTH_MAX = 100
 REINDENT_MAX_S = 1.0                 # ориентир: reindent обёртки на худшем рендере (вывод, бой ≈ 2× стенда)
 KEY_MAX_S = 0.5                      # ориентир: разбор ради ключа (идёт на КАЖДОМ расчёте ключа)
 SAVE_LIMIT = 1000                    # models/core.py apply_limit_to_sql(limit=1000) при сохранении
@@ -78,9 +96,19 @@ VIRTUAL_TABLE = 'virtual_table'
 
 # Враждебный ввод: значения, которые ломают лексер sqlparse 0.3.0 + патч, если экран или литерал выбраны неверно.
 HOSTILE = ["O'Brien; x", 'a]b', 'x -- y', 'x // y', '# x', 'a\\', 'a;b', 'Отдел «Альфа» — 1']
+# --hostile-set full: остальное из набора SP-11 (02-superset-path.md). Длинное и короткое тире chdb 2.1.1 превращает
+# в «--» даже внутри строки (ST-21) — значения с ними на стенде не сверить; кириллица без тире — в последнем хвосте.
+HOSTILE_FULL = HOSTILE + ['[a', 'x /* y', 'y */ z', '`b`', "O\\'K", 'a\tb\x01c', 'Ж' * 3000]
 # Метка, по которой видно, дошло ли значение до SQL (экран меняет кавычку и слэш, метка — нет).
 HOSTILE_MARK = {"O'Brien; x": ['Brien; x'], 'a]b': ['a]b'], 'x -- y': ['x -- y'], 'x // y': ['x // y'],
-                '# x': ['# x'], 'a\\': ['a\\', 'repeat(char(92)'], 'a;b': ['a;b'], 'Отдел «Альфа» — 1': ['«Альфа»']}
+                '# x': ['# x'], 'a\\': ['a\\', 'repeat(char(92)'], 'a;b': ['a;b'], 'Отдел «Альфа» — 1': ['«Альфа»'],
+                '[a': ['[a'], 'x /* y': ['/* y'], 'y */ z': ['*/ z'], '`b`': ['`b`'], "O\\'K": ['K'],
+                'a\tb\x01c': ['\x01c', 'b\\x01c', 'char(1)'], 'Ж' * 3000: ['Ж' * 100]}
+
+
+def hostile_label(h):
+    """Подпись хвоста в отчёте: длинное значение — длиной, а не текстом."""
+    return repr(h) if len(h) < 40 else '%r × %d' % (h[0], len(h))
 
 # ExtraCache.regex: 2.0.0–4.0.2 (jinja_context.py 2.0.1) и 4.1+ (4.1.0 / 5.0.0) — дословно.
 CACHE_RX_20 = re.compile(
@@ -208,34 +236,48 @@ def _norm_filters(filters):
                 op, val = (it.get('op') or 'IN').upper(), it.get('val')
             else:
                 op, val = 'IN', it
+            if not val:
+                continue           # get_filters 2.0.1 пропускает ложный comparator (… and val) ДО обёртки в список:
+                #                    None, '', 0, False, [] — фильтра нет
             if op in ('IN', 'NOT IN') and not isinstance(val, list):
                 val = [val]
-            if val in (None, '', []):
-                continue           # get_filters пропускает пустой comparator (and val)
             lst.append({'op': op, 'col': col, 'val': val})
         out[col] = lst
     return out
 
 
-class ExtraCache:
-    """jinja_context.ExtraCache 2.0.1 над «запросом чарта»: фильтры, параметры адреса, пользователь."""
+USER_CALLS = ('current_username', 'current_user_id')
 
-    def __init__(self, user, user_id, filters, url_params, save, escape_quote=True):
+
+class ExtraCache:
+    """jinja_context.ExtraCache 2.0.1 над «запросом чарта»: фильтры, параметры адреса, пользователь.
+    key_sources — откуда значения ключа: [(вызов, значение)]; unkeyed — вызовы, чьё значение шаблон взял, а в ключ
+    оно не пошло (add_to_cache_keys=False): ответ от него зависит, ключ — нет."""
+
+    def __init__(self, user, user_id, filters, url_params, save, escape_quote=True, double_percents=True):
         self.user, self.user_id = user, user_id
         self.filters = _norm_filters(filters)
         self.url_params = dict(url_params or {})
         self.save = save
         self.escape_quote = escape_quote
+        self.double_percents = double_percents
         self.extra_cache_keys = []
+        self.key_sources, self.unkeyed = [], set()
         self.applied_filters, self.removed_filters = [], []
         self.asked_filters, self.asked_params, self.calls = [], [], set()
+
+    def _key(self, source, value):
+        self.extra_cache_keys.append(value)
+        self.key_sources.append((source, value))
 
     def current_user_id(self, add_to_cache_keys=True):
         self.calls.add('current_user_id')
         if self.user_id is None:
             return None
         if add_to_cache_keys:
-            self.cache_key_wrapper(self.user_id)
+            self._key('current_user_id', self.user_id)
+        else:
+            self.unkeyed.add('current_user_id')
         return self.user_id
 
     def current_username(self, add_to_cache_keys=True):
@@ -243,25 +285,33 @@ class ExtraCache:
         if not self.user:
             return None
         if add_to_cache_keys:
-            self.cache_key_wrapper(self.user)
+            self._key('current_username', self.user)
+        else:
+            self.unkeyed.add('current_username')
         return self.user
 
     def cache_key_wrapper(self, key):
         self.calls.add('cache_key_wrapper')
-        self.extra_cache_keys.append(key)
+        self._key('cache_key_wrapper', key)
         return key
 
     def url_param(self, param, default=None, add_to_cache_keys=True, escape_result=True):
         """2.0.1: из form_data.url_params (параметры адреса дашборда), при сохранении их нет. escape_result —
-        литерал диалектом драйвера (SQLAlchemy 1.3 String: кавычка удваивается; модель — вывод, драйвер не снят)."""
+        String().literal_processor(dialect)[1:-1] (SQLAlchemy 1.3): кавычка удваивается, обратный слэш — НЕТ, а у
+        драйвера с paramstyle format/pyformat ещё и «%» → «%%» (compile_sqla_query потом сворачивает «%%» всего
+        текста обратно, так что удвоенный процент значения остаётся удвоенным). Драйвер Proteus не снят — вывод."""
         self.calls.add('url_param')
         if param not in self.asked_params:
             self.asked_params.append(param)
         result = default if self.save else self.url_params.get(param, default)
         if result and escape_result and self.escape_quote:
             result = str(result).replace("'", "''")
+            if self.double_percents:
+                result = result.replace('%', '%%')
         if add_to_cache_keys:
-            self.cache_key_wrapper(result)
+            self._key('url_param', result)
+        else:
+            self.unkeyed.add('url_param')
         return result
 
     def get_filters(self, column, remove_filter=False):
@@ -301,10 +351,12 @@ def dataset_macro(*_a, **_k):
 
 
 class Rendered:
-    """Итог рендера: текст, ключи кэша, какие носители и параметры шаблон спрашивал."""
+    """Итог рендера: текст, ключи кэша, какие носители и параметры шаблон спрашивал. extra_errors — ошибки рендера
+    доп. текстов (WHERE/HAVING чарта, RLS: Superset рендерит их тем же процессором)."""
 
     def __init__(self, text, cache, seconds, error=None):
         self.text, self.cache, self.seconds, self.error = text, cache, seconds, error
+        self.extra_errors = []
 
     @property
     def leftovers(self):
@@ -312,18 +364,45 @@ class Rendered:
         return sorted(set(re.findall(r'\{\{.*?\}\}|\{%.*?%\}', self.text or '')))[:10]
 
 
+def _render_error(ex):
+    if isinstance(ex, TemplateError):
+        return 'Error while rendering virtual dataset query: %s' % ex
+    # ZeroDivisionError, OverflowError песочницы (range > 100 000), IndexError .pop() и прочее: в Superset 2.0.1
+    # get_rendered_sql ловит только TemplateError — остальное роняет запрос чарта той же ошибкой
+    return 'Ошибка рендера (%s): %s' % (type(ex).__name__, ex)
+
+
 def render(template, *, user='stand.user', user_id=1, filters=None, url_params=None, save=False, columns=None,
-           row_limit=50000, table_columns=None, escape_quote=True):
-    """Рендер как JinjaTemplateProcessor 2.0.1 (save=True — сохранение: filter_values → AlwaysTrueObject)."""
-    cache = ExtraCache(user, user_id, filters, url_params, save, escape_quote)
+           row_limit=50000, table_columns=None, escape_quote=True, template_params=None, double_percents=True,
+           extra_texts=()):
+    """Рендер как JinjaTemplateProcessor 2.0.1 (save=True — сохранение: filter_values → AlwaysTrueObject).
+    template_params — «Параметры шаблона» датасета (JSON): переменные шаблона и при сохранении
+    (process_template(sql, **template_params_dict)), и при открытии (template_kwargs.update(...)).
+    extra_texts — WHERE/HAVING чарта, RLS: при открытии get_sqla_query рендерит их тем же процессором, и их вызовы
+    кладут значения в тот же ключ кэша (при сохранении их нет)."""
+    cache = ExtraCache(user, user_id, filters, url_params, save, escape_quote, double_percents)
     env = SandboxedEnvironment(undefined=DebugUndefined)
     env.filters['where_in'] = where_in
     flt_list = [f for lst in cache.filters.values() for f in lst] if not save else []
-    # template_kwargs из SqlaTable.get_sqla_query 2.0.1 — доступны шаблону как переменные
-    ctx = {
-        'columns': list(columns or []), 'from_dttm': None, 'groupby': None, 'metrics': [],
-        'row_limit': row_limit, 'row_offset': 0, 'time_column': None, 'time_grain': None, 'to_dttm': None,
-        'table_columns': list(table_columns or columns or []), 'filter': flt_list,
+    ctx = {}
+    if not save:
+        # template_kwargs из SqlaTable.get_sqla_query 2.0.1 — доступны шаблону как переменные (при сохранении их нет:
+        # get_virtual_table_metadata зовёт process_template(sql, **template_params_dict) без них)
+        ctx.update({
+            'columns': list(columns or []), 'from_dttm': None, 'groupby': None, 'metrics': [],
+            'row_limit': row_limit, 'row_offset': 0, 'time_column': None, 'time_grain': None, 'to_dttm': None,
+            'table_columns': list(table_columns or columns or []), 'filter': flt_list,
+        })
+    ctx.update(template_params or {})
+    # validate_context_types 2.0.1: тип из белого списка, коллекции — через JSON (кортеж станет списком)
+    for k, val in list(ctx.items()):
+        vt = type(val).__name__
+        if vt not in ALLOWED_TYPES:
+            return Rendered(None, cache, 0.0, 'Unsafe template value for key %s: %s' % (k, vt))
+        if vt in COLLECTION_TYPES:
+            ctx[k] = json.loads(json.dumps(val))
+    # макросы ExtraCache — последними: process_template делает kwargs.update(self._context), макрос сильнее параметра
+    ctx.update({
         'url_param': partial(safe_proxy, cache.url_param),
         'current_user_id': partial(safe_proxy, cache.current_user_id),
         'current_username': partial(safe_proxy, cache.current_username),
@@ -331,18 +410,21 @@ def render(template, *, user='stand.user', user_id=1, filters=None, url_params=N
         'filter_values': partial(safe_proxy, cache.filter_values),
         'get_filters': partial(safe_proxy, cache.get_filters),
         'dataset': partial(safe_proxy, dataset_macro),
-    }
-    for k in ('columns', 'table_columns', 'filter', 'metrics'):
-        ctx[k] = json.loads(json.dumps(ctx[k]))
+    })
     t0 = time.perf_counter()
     try:
         text = env.from_string(template).render(ctx)
         err = None
-    except TemplateError as ex:
-        text, err = None, 'Error while rendering virtual dataset query: %s' % ex
-    except (SupersetTemplateException, TypeError, ValueError, AttributeError, KeyError) as ex:
-        text, err = None, 'Ошибка рендера (%s): %s' % (type(ex).__name__, ex)
-    return Rendered(text, cache, time.perf_counter() - t0, err)
+    except Exception as ex:  # noqa: BLE001 — любая ошибка шаблона — отчёт, а не трассировка
+        text, err = None, _render_error(ex)
+    rd = Rendered(text, cache, time.perf_counter() - t0, err)
+    if not save:
+        for t in extra_texts or ():
+            try:
+                env.from_string(t).render(ctx)
+            except Exception as ex:  # noqa: BLE001
+                rd.extra_errors.append('доп. текст %r: %s' % (t[:60], _render_error(ex)))
+    return rd
 
 
 # ─────────────────────────────── ключ кэша ───────────────────────────────
@@ -354,41 +436,65 @@ def _line_of(text, m):
 
 def cache_key_report(raw_text, rendered=None, extra_texts=()):
     """Что Superset сделает с ключом кэша. Регулярка — по СЫРОМУ тексту датасета (+ предикат автозаполнения,
-    WHERE/HAVING чарта, RLS — extra_texts), как has_extra_cache_key_calls 2.0.1. Вывод — по тексту без {# #}."""
+    WHERE/HAVING чарта, RLS — extra_texts), как has_extra_cache_key_calls 2.0.1. Вывод — по тексту без {# #}.
+    rendered — рендер ОТКРЫТИЯ (render(..., save=False, extra_texts=...)): какие вызовы исполнились и что положили в
+    ключ. Вердикты: ЛИЧНЫЙ (логин в ключе), ПО ЗНАЧЕНИЯМ (параметры адреса / cache_key_wrapper, у всех с теми же
+    значениями ключ один), ОБЩИЙ, «рендер впустую», ОПАСНО (ответ зависит от того, чего в ключе нет)."""
     body = JINJA_COMMENT.sub('', raw_text)
     m_text = CACHE_RX_20.search(raw_text)
     m_extra = any(CACHE_RX_20.search(t) for t in extra_texts)
     m_raw = bool(m_text) or m_extra                     # так решает Superset: рендерить ли ради ключа
     m_body = bool(CACHE_RX_20.search(body)) or m_extra   # то же без комментариев {# #}
     m_41 = bool(CACHE_RX_41.search(body)) or any(CACHE_RX_41.search(t) for t in extra_texts)
-    keys = list(rendered.cache.extra_cache_keys) if rendered is not None and rendered.cache else []
-    calls = sorted(rendered.cache.calls & {'current_username', 'current_user_id', 'url_param', 'cache_key_wrapper'}) \
-        if rendered is not None and rendered.cache else []
+    cache = rendered.cache if rendered is not None and rendered.cache else None
+    sources = list(cache.key_sources) if cache else []
+    keys = [v for _, v in sources]
+    executed = cache.calls & {'current_username', 'current_user_id', 'url_param', 'cache_key_wrapper'} if cache else set()
+    unkeyed = set(cache.unkeyed) if cache else set()
+    user_keyed = any(s in USER_CALLS for s, _ in sources)
+    shown = list(dict.fromkeys(str(k)[:60] for k in keys))
     rep = {'regex_2_0_raw': m_raw, 'regex_2_0_body': m_body, 'regex_4_1_body': m_41,
            'match_line': _line_of(raw_text, m_text) if m_text else None,
-           'rendered_keys': [str(k)[:60] for k in keys], 'calls': calls, 'warnings': [], 'verdict': ''}
-    if m_raw and not m_body:
-        rep['warnings'].append('регулярка 2.0 находит вызов только в комментарии {# … #}: Superset будет рендерить и '
-                               'разбирать датасет ради ключа на каждом запросе, но значение в ключ не попадёт')
-    if m_raw:
-        if keys:
-            rep['verdict'] = 'ключ ЛИЧНЫЙ: в ключ кэша войдут %s — рендер и разбор на каждом расчёте ключа' % (
-                ', '.join(repr(k) for k in rep['rendered_keys'][:4]))
-        else:
-            rep['verdict'] = ('ключ без значений: регулярка видит вызов, но при рендере он не сработал (комментарий '
-                              'или неисполненная ветка) — Superset рендерит впустую на каждом расчёте ключа')
-            rep['warnings'].append(rep['verdict'])
+           'rendered_keys': [str(k)[:60] for k in keys], 'key_sources': sorted({s for s, _ in sources}),
+           'calls': sorted(executed), 'unkeyed': sorted(unkeyed), 'warnings': [], 'verdict': ''}
+    if cache is None:
+        rep['verdict'] = 'не оценён: нет рендера открытия'
+        return rep
+    vals = ', '.join(repr(k) for k in shown[:4]) + (' …' if len(shown) > 4 else '')
+    if not m_raw and (executed or keys):
+        rep['verdict'] = ('ОПАСНО: шаблон вызывает %s, но регулярка 2.0 вызова не видит (он в {%% set %%}, в макросе '
+                          'без {{ }} или на нескольких строках) — Superset не рендерит датасет ради ключа, и ответ, '
+                          'зависящий от этих значений, уйдёт из кэша другому' % ', '.join(sorted(executed)))
+    elif m_raw and unkeyed & set(USER_CALLS) and not user_keyed:
+        rep['verdict'] = ('ОПАСНО: логин читается (%s с add_to_cache_keys=False), а в ключ не идёт — ответ одного '
+                          'пользователя уйдёт из кэша другому' % ', '.join(sorted(unkeyed & set(USER_CALLS))))
+    elif m_raw and 'url_param' in unkeyed and not any(s == 'url_param' for s, _ in sources):
+        rep['verdict'] = ('ОПАСНО: url_param(…, add_to_cache_keys=False) — значение параметра адреса меняет ответ, '
+                          'а в ключ не идёт: ответ для одной ссылки уйдёт открывшему другую')
+    elif m_raw and user_keyed:
+        rep['verdict'] = 'ключ ЛИЧНЫЙ: в ключ кэша войдут %s — рендер и разбор на каждом расчёте ключа' % vals
+    elif m_raw and keys:
+        rep['verdict'] = ('ключ ПО ЗНАЧЕНИЯМ (%s): в ключ войдут %s — у всех с теми же значениями ключ один; рендер и '
+                          'разбор на каждом расчёте ключа' % (', '.join(rep['key_sources']), vals))
+    elif m_raw:
+        rep['verdict'] = ('ключ без значений: регулярка видит вызов, но при рендере он не сработал (комментарий '
+                          'или неисполненная ветка) — Superset рендерит впустую на каждом расчёте ключа')
+        rep['warnings'].append(rep['verdict'])
     else:
-        if keys or set(calls) & {'current_username', 'current_user_id', 'url_param'}:
-            rep['verdict'] = ('ОПАСНО: шаблон вызывает %s, но регулярка 2.0 вызова не видит (он в {%% set %%} или '
-                              'на нескольких строках) — ответ одного пользователя уйдёт из кэша другому' % ', '.join(calls))
-            rep['error'] = rep['verdict']
-        else:
-            rep['verdict'] = 'ключ ОБЩИЙ: вызовов нет — ключ без рендера, кэш один на всех'
+        rep['verdict'] = 'ключ ОБЩИЙ: вызовов нет — ключ без рендера, кэш один на всех'
+    if rep['verdict'].startswith('ОПАСНО'):
+        rep['error'] = rep['verdict']
+    if m_raw and not m_body:
+        rep['warnings'].append('регулярка 2.0 находит вызов только в комментарии {# … #}: Superset рендерит датасет '
+                               'ради ключа из-за комментария' + (
+                                   ' — ключ держится на нём: уберут комментарий, и ключ станет ОПАСНЫМ' if keys else
+                                   ', в ключ ничего не идёт — рендер впустую'))
     if m_41 and not m_body:
         rep['warnings'].append('регулярка 4.1+ видит вызов в {% %}, 2.0 — нет: после обновления Proteus (4.1+) Superset '
                                'начнёт рендерить датасет ради ключа на каждом запросе; в ключ войдёт то, что вызов '
                                'вернёт при рендере')
+    for e in (rendered.extra_errors if rendered is not None else []):
+        rep['warnings'].append(e)
     return rep
 
 
@@ -533,7 +639,7 @@ def wrap(sql, cols, row_limit=50000, groupby=True, where=None):
     if where:
         w = ' \nWHERE ' + ' AND '.join('%s IN %s' % (_ident(c), where_in([str(x) for x in v])) for c, v in where.items())
     g = (' GROUP BY %s' % grp) if groupby and cols else ''
-    return 'SELECT %s \nFROM (%s) AS %s%s%s \n LIMIT %d' % (sel, sql, VIRTUAL_TABLE, w, g, row_limit)
+    return 'SELECT %s \nFROM (%s) AS %s%s%s\n LIMIT %d' % (sel, sql, VIRTUAL_TABLE, w, g, row_limit)
 
 
 def chart_path(rendered, cols, row_limit=50000, groupby=True, where=None):
@@ -665,6 +771,27 @@ def lexer_problems(text):
     return out
 
 
+def reindent_problems(before, after):
+    """reindent меняет только пробелы вне строк: токены ClickHouse (sqlglot) обёртки до и после format(reindent)
+    одинаковы. Сбитый лексер (SP-12) даёт reindent «код» внутри строки — он вставит или схлопнет там пробелы
+    (HRBP ',"it":' → ', "it":'; adoption translate(x, '\\t\\n\\r', '   ') → '   ' стало ' ' и Code 36)."""
+    try:
+        t1, t2 = _sqlglot_tokens(before), _sqlglot_tokens(after)
+    except ImportError:
+        return []
+    except Exception as ex:  # noqa: BLE001
+        return ['после reindent текст не токенизируется: %s' % str(ex).splitlines()[0][:160]]
+    x1 = [(t.token_type.name, t.text) for t in t1]
+    x2 = [(t.token_type.name, t.text) for t in t2]
+    if x1 == x2:
+        return []
+    i = next((i for i, (p, q) in enumerate(zip(x1, x2)) if p != q), min(len(x1), len(x2)))
+    at = t2[i].start if i < len(t2) else len(after)
+    return ['reindent изменил текст запроса (лексер сбит, SP-12): токен %d %r → %r: …%s…' % (
+        i + 1, x1[i][1][:40] if i < len(x1) else None, x2[i][1][:40] if i < len(x2) else None,
+        after[max(0, at - 50):at + 30].replace('\n', ' '))]
+
+
 # ─────────────────────────────── chdb ───────────────────────────────
 _session = {}
 
@@ -691,6 +818,9 @@ def ch_run(sql, db=None, settings='', subs=()):
     """→ (строки dict, секунды, ошибка). subs — [(regex, замена)] для стенда (функций нет в chdb)."""
     for a, b in subs:
         sql = re.sub(a, b, sql)
+    if settings:
+        # хвостовые «;» и пробелы срезает и Superset (strip('\t\r\n; ')); иначе «…;\nSETTINGS» — вторая инструкция
+        sql = sql.rstrip('\t\r\n; ')
     q = sql + ('\nSETTINGS ' + settings if settings else '')
     t0 = time.perf_counter()
     try:
@@ -761,7 +891,9 @@ def analyze_variant(name, template, opts, filters, url_params, save=False):
     """Один вариант рендера → отчёт dict (рендер, путь, метрики, бюджеты, лексер, исполнение)."""
     r = render(template, user=opts.get('user'), user_id=opts.get('user_id'), filters=filters, url_params=url_params,
                save=save, columns=opts.get('cols'), row_limit=opts.get('limit', 50000),
-               escape_quote=not opts.get('no_escape_dialect'))
+               escape_quote=not opts.get('no_escape_dialect'), template_params=opts.get('template_params'),
+               double_percents=not opts.get('no_double_percents'),
+               extra_texts=() if save else opts.get('extra_texts', ()))
     v = {'name': name, 'save': save, 'errors': [], 'warnings': [], 'render_s': r.seconds,
          'asked_filters': list(r.cache.asked_filters), 'asked_params': list(r.cache.asked_params)}
     if r.error:
@@ -811,6 +943,11 @@ def analyze_variant(name, template, opts, filters, url_params, save=False):
     v['tokens_final'] = tokens(fin) if fin else 0
     v['parens'], v['depth'] = paren_stats(ds) if ds else (0, 0)
     v['parens_raw'] = ds.count('(')     # по сырому тексту (со строками) — так считали стенды проектов
+    if p['texts'].get('wrapped') and p['texts'].get('final'):
+        v['errors'].extend(reindent_problems(p['texts']['wrapped'], p['texts']['final']))
+    if v['tokens_final'] >= TOKENS_MAX:
+        v['notes'].append('после reindent %d токенов (каждый пробел отступа — токен): при sqlparse ≥ 0.5.5 parse_sql '
+                          '(get_df) упал бы на пределе %d — запас, в 2.0.1 предела нет' % (v['tokens_final'], TOKENS_MAX))
     v['parse_for_key_s'] = r.seconds + p.get('parse_for_key', 0.0)
     v['query_cost_s'] = r.seconds + p.get('query_cost', 0.0)
     v['reindent_s'] = p['steps'].get('format(reindent) обёртки', 0.0)
@@ -840,15 +977,49 @@ def analyze_variant(name, template, opts, filters, url_params, save=False):
     return v, r
 
 
+def read_sql(path):
+    """Файл → (текст, предупреждения). Как текстовый режим Python: \\r\\n и \\r → \\n. BOM в начале убирается с
+    предупреждением (в поле Proteus его не вставят, а sqlglot на нём падает — ложная ошибка гейта). Не UTF-8 —
+    ValueError с местом; нет файла — OSError (ошибка вызова)."""
+    raw = open(path, 'rb').read()
+    warns = []
+    if raw.startswith(b'\xef\xbb\xbf'):
+        raw = raw[3:]
+        warns.append('файл начинается с BOM (U+FEFF): для проверки убран; сохраните файл как UTF-8 без BOM')
+    try:
+        text = raw.decode('utf-8')
+    except UnicodeDecodeError as ex:
+        line = raw.count(b'\n', 0, ex.start) + 1
+        raise ValueError('файл не в UTF-8: байт 0x%02x в строке %d — пересохраните как UTF-8' % (raw[ex.start], line))
+    if '﻿' in text:
+        warns.append('символ U+FEFF внутри текста (строка %d): невидим в редакторе — уберите'
+                     % (text.count('\n', 0, text.index('﻿')) + 1))
+    return text.replace('\r\n', '\n').replace('\r', '\n'), warns
+
+
 def analyze(path, opts):
     """Файл датасета → полный отчёт (варианты: сохранение, открытие, враждебный ввод)."""
-    template = open(path, encoding='utf-8').read()
     rep = {'file': path, 'variants': [], 'errors': [], 'warnings': []}
+    try:
+        template, rep['warnings'] = read_sql(path)
+    except ValueError as ex:
+        rep['errors'].append(str(ex))
+        return rep
     filters, url_params = opts.get('filters') or {}, opts.get('url_params') or {}
+    # пустой датасет (после рендера и strip_comments): Superset — «Virtual dataset query cannot be empty»
+    r_empty = render(template, user=opts.get('user'), user_id=opts.get('user_id'), filters=filters,
+                     url_params=url_params, template_params=opts.get('template_params'))
+    if r_empty.text is not None and not sqlparse.format(r_empty.text.strip('\t\r\n; '), strip_comments=True).strip():
+        rep['errors'].append('датасет пуст после рендера и strip_comments — Superset: «Virtual dataset query cannot be '
+                             'empty»')
+        return rep
     # колонки «Измерений»
     if opts.get('cols') in (None, 'auto', ['auto']):
-        r0 = render(template, user=opts.get('user'), user_id=opts.get('user_id'), filters=filters, url_params=url_params)
+        r0 = r_empty
         cols = None
+        if r0.error:
+            rep['errors'].append('рендер открытия: %s' % r0.error)
+            return rep
         if r0.text:
             try:
                 import sqlglot
@@ -876,7 +1047,13 @@ def analyze(path, opts):
         rep['variants'].append(v)
         renders[name] = r
     open_r = next((renders[n] for n, _, _, s in variants if not s), None)
-    rep['cache'] = cache_key_report(template, open_r, opts.get('extra_texts', ()))
+    key_r = open_r
+    if key_r is None:   # --save-only: ключ всё равно оцениваем по рендеру открытия (без пути и метрик)
+        key_r = render(template, user=opts.get('user'), user_id=opts.get('user_id'), filters=filters,
+                       url_params=url_params, columns=opts.get('cols'), template_params=opts.get('template_params'),
+                       escape_quote=not opts.get('no_escape_dialect'),
+                       double_percents=not opts.get('no_double_percents'), extra_texts=opts.get('extra_texts', ()))
+    rep['cache'] = cache_key_report(template, key_r, opts.get('extra_texts', ()))
     if rep['cache'].get('error'):
         rep['errors'].append(rep['cache']['error'])
     rep['warnings'].extend(rep['cache']['warnings'])
@@ -892,18 +1069,23 @@ def analyze(path, opts):
             rep['warnings'].append('разбор ради ключа %.2f с > %.2f с — он идёт на каждом заборе qc-… (SP-22)'
                                    % (cost, opts.get('max_key_s', KEY_MAX_S)))
     # враждебный ввод
-    if opts.get('hostile') and open_r is not None and open_r.cache and not (
+    if opts.get('hostile') and open_r is None:
+        rep['warnings'].append('--hostile не прогнан: враждебный ввод идёт путём открытия, а задан --save-only')
+    elif opts.get('hostile') and open_r is not None and open_r.cache and not (
             open_r.cache.asked_filters or open_r.cache.asked_params):
         rep['warnings'].append('враждебный ввод неприменим: шаблон не читает ни носителей, ни параметров адреса')
     elif opts.get('hostile') and open_r is not None and open_r.cache:
         # ошибки, которые есть уже при открытии, у враждебных вариантов не повторяем — только новые
-        base = {e.split('…')[0] for v in rep['variants'] if not v['save'] for e in v['errors']}
-        for h in HOSTILE:
+        # (причина без места и чисел: «токены = 13459 ≥ 10000» и «= 12397 ≥ 10000» — одна причина)
+        def cause(e):
+            return re.sub(r'\d+', 'N', e.split('…')[0])
+        base = {cause(e) for v in rep['variants'] if not v['save'] for e in v['errors']}
+        for h in (HOSTILE_FULL if opts.get('hostile_set') == 'full' else HOSTILE):
             f2, p2 = _hostile_variant(filters, url_params, open_r.cache.asked_filters, open_r.cache.asked_params, h)
-            v, r = analyze_variant('враждебный %r' % h, template, opts, f2, p2, False)
+            v, r = analyze_variant('враждебный %s' % hostile_label(h), template, opts, f2, p2, False)
             v['hostile'] = h
-            same = [e for e in v['errors'] if e.split('…')[0] in base]
-            v['errors'] = [e for e in v['errors'] if e.split('…')[0] not in base]
+            same = [e for e in v['errors'] if cause(e) in base]
+            v['errors'] = [e for e in v['errors'] if cause(e) not in base]
             if same:
                 v.setdefault('notes', []).append('и %d ошибок, как при открытии' % len(same))
             v['reached_sql'] = bool(r.text and any(m in r.text for m in HOSTILE_MARK[h]))
@@ -937,12 +1119,16 @@ def analyze(path, opts):
                 elif c.get('direct_error') and c.get('via_error'):
                     (v['warnings'] if v.get('hostile') else v['errors']).append(
                         'ClickHouse%s: %s' % (tag, c['via_error']))
+                elif c.get('direct_error'):
+                    v['warnings'].append('прямой запуск отрендеренного текста упал%s — сверка с путём Superset не '
+                                         'проведена: %s' % (tag, c['direct_error']))
                 elif c.get('same') is False:
                     v['errors'].append('ответ после пути ДРУГОЙ%s (%s)' % (tag, c.get('note', 'строки разные')))
                 elif c.get('nondeterministic'):
                     v['warnings'].append(c['note'] + tag)
                 if c.get('glued'):
                     v['warnings'].append('GROUP BY обёртки склеит %d одинаковых строк ответа (SP-13)' % c['glued'])
+    rep['top_errors'], rep['top_warnings'] = list(rep['errors']), list(rep['warnings'])   # печать: не по вариантам
     for v in rep['variants']:
         rep['errors'].extend('%s: %s' % (v['name'], e) for e in v['errors'])
         rep['warnings'].extend('%s: %s' % (v['name'], w) for w in v['warnings'])
@@ -969,7 +1155,9 @@ def print_report(rep, ver):
     print('sqlparse %s (патч: %s) · jinja2 %s · sqlglot %s%s' % (
         ver['sqlparse'], ver['patch'], ver['jinja2'], ver['sqlglot'],
         (' · ClickHouse %s' % ver['clickhouse']) if 'clickhouse' in ver else ''))
-    if ver['sqlparse'] != SQLPARSE_SUPERSET:
+    if not ver['patch'].startswith('стоит'):
+        print('  ! лексер без патча Superset: сравнение, а не модель Proteus')
+    elif ver['sqlparse'] != SQLPARSE_SUPERSET:
         if ver['patch'].startswith('стоит как в Superset 2.1.3'):
             print('  · вторая модель лексера (sqlparse %s, патч 2.1.3/3.0): бой adoption ведёт себя так; '
                   'датасет должен пройти и её, и 0.3.0' % ver['sqlparse'])
@@ -985,6 +1173,11 @@ def print_report(rep, ver):
         print('  регулярка 2.0–4.0: %s (без {# #}: %s) · 4.1+: %s%s' % (
             'да' if c['regex_2_0_raw'] else 'нет', 'да' if c['regex_2_0_body'] else 'нет',
             'да' if c['regex_4_1_body'] else 'нет', ('  ← ' + c['match_line']) if c.get('match_line') else ''))
+    for e in rep.get('top_errors', []) if rep['variants'] else []:
+        if not (c and e == c.get('error')):          # ОПАСНО уже в строке «Ключ кэша»
+            print('✗ ' + e)
+    for w in rep.get('top_warnings', []):
+        print('! ' + w)
     if rep.get('asked_filters') or rep.get('asked_params'):
         print('Шаблон спрашивает: filter_values %s; url_param %s' % (
             ', '.join(rep.get('asked_filters') or []) or '—', ', '.join(rep.get('asked_params') or []) or '—'))
@@ -1053,16 +1246,24 @@ def print_report(rep, ver):
             print('Цена в Superset: холодное открытие ≈ %.2f с разбора, из кэша — без рендера' % t['cold_s'])
     for e in rep['errors'] if not rep['variants'] else []:
         print('✗ ' + e)
+    for w in rep['warnings'] if not rep['variants'] and 'top_warnings' not in rep else []:
+        print('! ' + w)
     print('ИТОГ: %s (ошибок %d, предупреждений %d)' % ('провал' if rep['errors'] else 'ок', len(rep['errors']),
                                                        len(rep['warnings'])))
 
 
 def _json_arg(s):
+    """JSON-объект из строки или @файла. Не объект ({…}) — ValueError: носители, параметры адреса и «Параметры
+    шаблона» — словари."""
     if not s:
         return {}
     if s.startswith('@'):
-        return json.load(open(s[1:], encoding='utf-8'))
-    return json.loads(s)
+        val = json.load(open(s[1:], encoding='utf-8'))
+    else:
+        val = json.loads(s)
+    if not isinstance(val, dict):
+        raise ValueError('нужен JSON-объект {…}, а не %s' % type(val).__name__)
+    return val
 
 
 def main(argv=None):
@@ -1087,6 +1288,11 @@ def main(argv=None):
     ap.add_argument('--extra-text', action='append', default=[],
                     help='ещё текст для регулярки ключа: предикат автозаполнения, WHERE/HAVING чарта, RLS')
     ap.add_argument('--no-escape-dialect', action='store_true', help='url_param(escape_result=True) не экранирует')
+    ap.add_argument('--no-double-percents', action='store_true',
+                    help='url_param(escape_result=True) не удваивает «%%» (драйвер с paramstyle не format/pyformat)')
+    ap.add_argument('--template-params', default='', help='JSON «Параметров шаблона» датасета или @файл.json')
+    ap.add_argument('--hostile-set', choices=('base', 'full'), default='base',
+                    help='base — 8 хвостов HOSTILE; full — ещё 7 из набора SP-11 (HOSTILE_FULL)')
     ap.add_argument('--no-patch', action='store_true', help='лексер без патча Superset')
     ap.add_argument('--max-reindent-s', type=float, default=REINDENT_MAX_S)
     ap.add_argument('--max-key-s', type=float, default=KEY_MAX_S)
@@ -1096,8 +1302,9 @@ def main(argv=None):
     lexer_patch(not a.no_patch)
     try:
         filters, url_params = _json_arg(a.filters), _json_arg(a.url_params)
+        template_params = _json_arg(a.template_params)
     except (ValueError, OSError) as ex:
-        print('--filters / --url-params: %s' % ex, file=sys.stderr)
+        print('--filters / --url-params / --template-params: %s' % ex, file=sys.stderr)
         return 2
     settings = a.settings or ['']
     if a.matrix:
@@ -1110,12 +1317,27 @@ def main(argv=None):
             print('--ch-sub: нужно «регулярка=>замена»', file=sys.stderr)
             return 2
         x, y = s.split('=>', 1)
+        try:
+            re.compile(x)
+        except re.error as ex:
+            print('--ch-sub %r: неверная регулярка: %s' % (x, ex), file=sys.stderr)
+            return 2
         subs.append((x, y))
+    missing = [p for p in a.dataset if not os.path.isfile(p)]
+    if missing:
+        print('нет файла датасета: %s' % ', '.join(missing), file=sys.stderr)
+        return 2
+    if a.db and not os.path.isdir(a.db):
+        # chdb сам создаст пустой каталог по опечатке (и в репозитории проекта) — не даём
+        print('--db %s: каталога нет — укажите мир стенда (копию во временном каталоге)' % a.db, file=sys.stderr)
+        return 2
     opts = {'user': a.user, 'user_id': a.user_id, 'filters': filters, 'url_params': url_params,
             'cols': 'auto' if a.cols == 'auto' else [c.strip() for c in a.cols.split(',') if c.strip()],
             'limit': a.limit, 'no_groupby': a.no_groupby, 'save_only': a.save_only, 'open_only': a.open_only,
             'hostile': a.hostile, 'run': a.run, 'db': a.db, 'settings': settings, 'subs': subs,
             'extra_texts': a.extra_text, 'no_escape_dialect': a.no_escape_dialect,
+            'no_double_percents': a.no_double_percents, 'template_params': template_params,
+            'hostile_set': a.hostile_set,
             'max_reindent_s': a.max_reindent_s, 'max_key_s': a.max_key_s}
     ver = versions(a.db, a.run)
     bad = 0
@@ -1128,7 +1350,10 @@ def main(argv=None):
             base = os.path.join(a.dump, re.sub(r'[^\w.-]+', '_', os.path.basename(path)))
             os.makedirs(a.dump, exist_ok=True)
             for i, v in enumerate(rep['variants']):
-                for k, t in (v.get('_texts') or {}).items():
+                texts = dict(v.get('_texts') or {})
+                if v.get('_save_text'):
+                    texts['save'] = v['_save_text']        # сохранение: текст + LIMIT 1000, как его исполнит Superset
+                for k, t in texts.items():
                     if t:
                         open('%s.%d.%s.sql' % (base, i, k), 'w', encoding='utf-8').write(t)
         if not a.json:

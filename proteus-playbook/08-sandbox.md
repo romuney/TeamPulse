@@ -9,6 +9,7 @@
 **Главное в 5 пунктах.**
 1. **SB-03, SB-04.** Ни одной ошибки окна: в начале `mount()` — `overflow:hidden` у `html`, `body` и хоста и обёртка
    `window.onerror`, пропускающая мимо песочницы только «ResizeObserver loop»; каждый необязательный API — с проверкой.
+   Растяжку iframe CSS борда и разворот по маркеру ставь только вместе с этим.
 2. **SB-05.** `window.innerHeight` и `100vh` — высота ячейки. Всё «по экрану» (модалка, тултип, карточка тура, высота
    панелей) ставь по видимой части из линейки IntersectionObserver; высоту ряда по экрану даёт CSS борда (SB-06).
 3. **SB-11, SB-13.** За ячейку выходи только каналом скриншотов: PNG 1×1 с маркером → CSS борда разворачивает iframe.
@@ -31,8 +32,8 @@
 | S2 | Размер iframe | атрибуты `width`/`height` ставятся при монтаже (ячейка − 32/36 px: высота чарта 2.0.1 = единицы сетки × 8 − 32 − шапка) и потом не пересчитываются; по умолчанию iframe строчный (щель снизу). Растягивает только CSS борда | [бой] + [исходник 2.0.1] (`ChartHolder.jsx`) | там же; 10-board-css.md |
 | S3 | Происхождение | `self.origin === "null"`, `frameElement === null`; `window.top.frames` доступен, `postMessage` родителю и соседним iframe работает | [вывод] опыт Chromium 141 | опыт 08.10: iframe по `src` и по `srcdoc` |
 | S4 | Родитель | чтение `parent.document`, навигация `top.location` — SecurityError («Blocked a frame with origin "null"», «Unsafe attempt to initiate navigation») | [вывод] опыт Chromium 141 | там же |
-| S5 | Хранилища | `localStorage`, `sessionStorage`, `indexedDB.open`, `document.cookie` — SecurityError | [бой] (консоль DL 06.10) + опыт | detail_list:docs/analysis.md |
-| S6 | Сеть | CSP документа песочницы `connect-src 'none'`: `fetch` и XHR запрещены. Запрет даёт CSP, а не sandbox; без CSP запрос ушёл бы с `Origin: null` и без cookies — к API Proteus бесполезен. `@font-face` и `<link rel=stylesheet>` CSP не режет | [бой] (консоль DL) + опыт | detail_list:docs/analysis.md; опыт Chromium 141, 08.10 |
+| S5 | Хранилища | `localStorage`, `sessionStorage`, `indexedDB.open`, `document.cookie` — SecurityError: следствие `sandbox` без `allow-same-origin`. Необработанное исключение гасит чарт (S7) | [вывод] опыт Chromium 141 и модель kit (`localStorage` вне `try` — чарт погас); в бою видны только атрибуты (S1) | detail_list:docs/analysis.md (раздел 9.25); kit/RESULTS.js.md (раздел 5) |
+| S6 | Сеть | CSP документа песочницы `connect-src 'none'`: `fetch` и XHR запрещены. Запрет даёт CSP, а не sandbox; без CSP запрос ушёл бы с `Origin: null` и без cookies — к API Proteus бесполезен. Отказ `fetch` — отклонённый промис (`unhandledrejection`), чарт не гаснет. Директива `connect-src` не режет `@font-face` и `<link rel=stylesheet>`, но остальные директивы CSP песочницы неизвестны — шрифтов и стилей не подключай (UI-04, 11-ui.md) | [бой] (консоль DL 06.10: CSP документа песочницы) + [вывод] опыт Chromium 141 | detail_list:docs/analysis.md (раздел 9.12); kit/RESULTS.js.md (раздел 5) |
 | S7 | Ошибки окна | любая ошибка окна — `chart.clear + dispose`, чарт пропадает; и на безвредное «ResizeObserver loop completed with undelivered notifications» | [бой] (борд 59922, 17.09; видео коллег 06.10) | adoption:memory/proteus-adoption-echarts-platform.md; detail_list@2e05b5d |
 | S8 | Чем песочница ловит ошибки | `window.onerror` или слушатель `error` — неизвестно (исходника `echartsSandbox…entry.js` нет) | открытый вопрос | 17-open-questions.md |
 | S9 | Перезапуск | скрипт чарта целиком перезапускается в том же окне iframe на каждый ответ и перерисовку | [бой] | adoption:skills/proteus-echarts-builder/SKILL.md |
@@ -41,14 +42,15 @@
 | S12 | Буфер обмена | `clipboard-write` не разрешён: `navigator.clipboard.writeText` → NotAllowedError и ошибка в консоли; `execCommand('copy')` из textarea в жесте клика — работает | [вывод] опыт Chromium 141 [не проверено в бою] | опыт 08.10 |
 | S13 | `document.referrer` | iframe по `src` с того же хоста — полный адрес борда с query, без якоря; iframe по `srcdoc` — только origin. Как грузит iframe форк — неизвестно | [вывод] опыт Chromium 141 [не проверено в бою] | там же |
 | S14 | Первый вход | Proteus не помнит, заходил ли пользователь | [владелец 29.09] | HRBP_HUB@6a371ff |
+| S15 | Диалоги и окна | без `allow-modals` `alert`, `confirm`, `prompt` не показываются; без `allow-popups` `window.open` и ссылки `target="_blank"` окна не откроют | [вывод] по атрибутам sandbox (S1) [не проверено в бою] | kit/eslint.chart.cjs (предупреждения `no-restricted-globals`) |
 
 ---
 
 ## A. Что даёт песочница
 
 ### SB-01. Считай, что у чарта нет родителя, хранилища, сети и навигации: связь наружу — только `postMessage`
-- **Почему:** факты S1–S6, S11. Любая попытка дойти до родителя, хранилища или сети бросает исключение, а исключение гасит
-  чарт (S7). API Proteus недоступен: CSP запрещает `fetch`, а без cookies запрос бесполезен.
+- **Почему:** факты S1–S6, S11, S15. Попытка дойти до родителя или хранилища бросает исключение, а исключение гасит чарт
+  (S7). API Proteus недоступен: CSP запрещает `fetch`, а без cookies запрос бесполезен. Диалоги браузера молча не работают.
 - **Как:** заменяй недоступное так:
 
   | Нужно | Как в песочнице | Правило |
@@ -61,10 +63,12 @@
   | адрес борда для ссылки | `document.referrer`, запасной — meta датасета | SB-17 |
   | шрифт | системный стек; Inter страницы Superset в iframe не виден | 11-ui.md |
   | сохранить пресет, «первый вход» | ссылка, закладка браузера, тур только кнопкой | SB-02, SB-19 |
+  | спросить «Точно сбросить?», показать сообщение | своя модалка или плашка в overlay, не `confirm` / `alert` | S15 |
 - **Проверка:** на стенде чарт в iframe `sandbox="allow-scripts"` без `allow-same-origin` (SB-20): ошибок консоли 0.
-  grep кода на `localStorage`, `sessionStorage`, `indexedDB`, `document.cookie`, `fetch(`, `XMLHttpRequest`, `parent.document`,
-  `top.location` — 0 вхождений вне `try`.
-- **Уверенность:** [бой] (S1, S5, S7, S11) + [вывод] опыт Chromium 141 (S3, S4, S6).
+  `kit/eslint.chart.cjs` предупреждает о `localStorage`, `sessionStorage`, `indexedDB`, `fetch`, `XMLHttpRequest`, `location`,
+  `history`, `alert`, `confirm`, `open` (CJ-20); grep на `document.cookie`, `parent.document`, `top.location` — 0 вхождений
+  вне `try`.
+- **Уверенность:** [бой] (S1, S7, S11) + [вывод] опыт Chromium 141 (S3–S6) и атрибуты sandbox (S15).
 - **Образец:** detail_list:proteus/detail-list.chart.js (адрес борда — `boardUrl`, канал — `bcast`, состояние — `STATE0`).
 
 ### SB-02. Не строй ничего на хранилище и «первом входе»
@@ -76,8 +80,9 @@
   - Пресет — ссылка на вид и закладка браузера (SB-18, SB-19), а не список в чарте.
   - Тур и справка открываются только кнопкой «Как работать» (12-tour.md); логики «первого входа» нет.
   - Код, который в песочнице не работает, из сборки для Proteus выкидывай, а не выключай флагом.
-- **Проверка:** grep на `localStorage`, `sessionStorage` в сборке поставки — 0.
-- **Уверенность:** [владелец 29.09] + [бой] (S5).
+- **Проверка:** grep на `localStorage`, `sessionStorage` в сборке поставки — 0; ESLint с `kit/eslint.chart.cjs` — без
+  предупреждений о хранилищах.
+- **Уверенность:** [владелец 29.09] + [вывод] (S5: опыт Chromium 141 и модель kit).
 - **Образец:** HRBP_HUB:proteus/hrbp-hub.chart.js (тур только кнопкой). Нарушение — TeamPulse:Team Pulse/app.js (онбординг по
   `localStorage`).
 
@@ -92,12 +97,18 @@
   iframe div на миг шире окна, в документе появлялась полоса прокрутки Windows, хост менял размер во время раздачи
   уведомлений. На Mac полосы плавающие и места не занимают — у владельца не воспроизводилось. Опыт Chromium 141:
   - «ResizeObserver loop…» приходит в `window.onerror` и в слушатели `error`, в консоль не пишется;
-  - с полосами, занимающими место (`ignoreDefaultArgs: ['--hide-scrollbars']`), — 4 события на цикл «сузить-расширить»;
-    с `overflow:hidden` у `html`, `body` и хоста — 0; с плавающими полосами — 0 и без правила;
+  - с полосами, занимающими место (`ignoreDefaultArgs: ['--hide-scrollbars']`), — 4 события «ResizeObserver loop» за прогон
+    «сузить-расширить»; с `overflow:hidden` у `html`, `body` и хоста — 0; с плавающими полосами — 0 и без правила;
   - обёртка `window.onerror` гасит только RO, настоящую ошибку передаёт песочнице;
   - слушатель `error` на `window`, даже с перехватом и `stopImmediatePropagation`, песочницу не опережает: обработчики окна
     зовутся строго в порядке регистрации, песочница регистрируется раньше;
   - если песочница слушает через `addEventListener('error')`, обёртка бессильна — тогда держит только `overflow:hidden`.
+
+  Модель kit (`kit/sbx/run.cjs`, полосы как в Windows, 08.10): без этого правила гаснут все проверенные чарты, у которых
+  iframe меняет размер: шапка и строка ЦА adoption — при сворачивании разворота по маркеру; каталог и панель adoption, HRBP и
+  TeamPulse с растяжкой iframe CSS борда — на сужении окна на 17 px. Чарты без растяжки и разворота живы и без правила. С
+  `overflow:hidden` у `html`, `body` и хоста живы все. Поэтому
+  растяжку iframe (BC-04, 10-board-css.md) и разворот по маркеру (SB-11) ставь только вместе с этим правилом.
 - **Как:** в начале `mount()` каждого чарта, до любой разметки:
   ```js
   host.style.overflow = 'hidden';                       // своя прокрутка — только внутри overlay
@@ -116,11 +127,14 @@
   Размеры наблюдаемых элементов в колбэке RO меняй только отложенно (CJ-07): синхронная правка — та самая петля.
 - **Проверка:** стенд в режиме песочницы (`?sbx=1`: px-div echarts с подгонкой по RO и `window.onerror`, гасящий чарт) и с
   полосами как в Windows (Chromium с `ignoreDefaultArgs: ['--hide-scrollbars']`): окно уже на 17 px и обратно — чарт на месте,
-  ошибок окна 0. Без правки на этом стенде пропадание воспроизводится (окна уже на 17 px достаточно).
-- **Уверенность:** [бой] — инцидент 06.10; [вывод] — опыт Chromium 141 и стенд DL; [не проверено в бою] — чем ловит ошибки
-  песочница форка (S8).
+  ошибок окна 0. Без правки на этом стенде пропадание воспроизводится (окна уже на 17 px достаточно). Для любого чарта —
+  `node kit/sbx/run.cjs <чарт> <мок> --css <CSS борда>` со сценарием, который открывает выпадашки и сужает окно: код
+  выхода 1 — были ошибки окна, в бою чарт погас бы.
+- **Уверенность:** [бой] — инцидент DL 06.10; [вывод] — опыт Chromium 141, стенд DL и модель kit; [не проверено в бою] — чем
+  ловит ошибки песочница форка (S8) и гибель чартов adoption, HRBP, TeamPulse (в бою подтверждена только у DL до правки).
 - **Образец:** detail_list:proteus/detail-list.chart.js и detail_list:proteus/detail-list-filters.chart.js (начало `mount`,
-  `__roSkip`). Нарушение: HRBP_HUB, adoption, TeamPulse и шаблон скилла — обёртки нет, документ прокручивается.
+  `__roSkip`). Нарушение: HRBP_HUB, adoption, TeamPulse и шаблон скилла — обёртки нет, документ прокручивается (прогон
+  каждого — kit/RESULTS.js.md, раздел 5).
 
 ### SB-04. Проверяй наличие каждого необязательного API перед вызовом
 - **Почему:** любое исключение гасит чарт (S7). Опыт Chromium 141: на небезопасной странице `navigator.clipboard` нет вовсе,
@@ -221,27 +235,22 @@
 - **Почему:** владелец 08.10 (DL): «чарты по экрану». Чарт свою высоту странице не сообщает: из песочницы к странице есть только
   канал скриншотов, а он включает заранее написанное правило, но числа не передаёт. В CSS борда `vh` — настоящий экран
   (там это страница, а не iframe).
-- **Как:** правило ряда в CSS борда (детали, блоки и сниппет проверки — 10-board-css.md):
-  ```css
-  /* самый внутренний .resizable-container с ячейкой чарта N, кроме режима правки */
-  .resizable-container:not(.dashboard--editing *):has(.dashboard-chart-id-N):not(:has(.resizable-container .dashboard-chart-id-N)) {
-    height: max(560px, calc(100vh - 230px)) !important;
-  }
-  ```
-  - Вторая часть селектора обязательна: колонка (`Column`) 2.0.1 тоже обёрнута в `.resizable-container`, без защиты правило
-    растянет и внешнюю колонку.
-  - Работает только вместе с флекс-цепочкой от холдера до iframe и `height:100%!important` у iframe: атрибут высоты iframe
-    фиксирован при монтаже (S2).
-  - Режим правки не трогать (`:not(.dashboard--editing *)`).
-  - 230 px — оценка (меню, шапка, вкладки, поля); точное число даёт сниппет DevTools из поставки.
-  - Две модели, выбор — за владельцем: HRBP — ячейка выше экрана, прокручивается страница, внутри чарта — линейка (SB-05);
-    DL — ряд = экран, длинное прокручивается внутри панелей. Линейка нужна в обеих: страницу всё равно прокручивают.
+- **Как:**
+  - Высоту ряда задаёт правило CSS борда `height: max(560px, calc(100vh - 230px))` на самом внутреннем
+    `.resizable-container` с ячейкой чарта, кроме режима правки. Готовый селектор, разбор числа 230 и сниппет DevTools —
+    BC-18 и BC-22 (10-board-css.md). Правило работает только вместе с растяжкой iframe на всю ячейку (BC-04): атрибут
+    высоты iframe фиксирован при монтаже (S2). Растяжка, в свою очередь, — только вместе с SB-03.
+  - Чарт высоту не считает и странице не сообщает: корень и overlay — `100%` ячейки, длинное прокручивается внутри панелей
+    (UI-09, 11-ui.md), а не в документе iframe (SB-03).
+  - Выбери модель вместе с владельцем: HRBP — ячейка выше экрана, прокручивается страница, внутри чарта — линейка (SB-05);
+    DL — ряд = экран, длинное прокручивается внутри панелей. Линейку держи в обеих: страницу всё равно прокручивают, а не
+    лёг CSS — ячейка снова выше экрана.
 - **Проверка:** каркас дашборда Superset 2.0.1 на стенде (DL `live.py ?sk=1`, `click.cjs DL_ONLY=board`): окно 950 → ряд 720 px,
-  820 → 590, 700 → 560; в режиме правки высота не меняется. В бою — сниппет DevTools (файл 12 DL) печатает фактическую высоту
-  и число для правила.
+  820 → 590, 700 → 560; в режиме правки высота не меняется; iframe равен ячейке. В бою — сниппет DevTools (файл 12 DL,
+  `kit/board-check.js`) печатает фактическую высоту и число для правила.
 - **Уверенность:** [владелец 08.10]; [исходник 2.0.1] — классы `.resizable-container`, `.dashboard--editing`,
-  `dashboard-chart-id-N`; [не проверено в бою] — классы форка и число 230.
-- **Образец:** detail_list:proteus/detail-list.board.css (блок 7) и detail_list:proteus/detail-list.board-check.js.
+  `dashboard-chart-id-N`; [не проверено в бою] — классы форка и число 230 (на каркасе 2.0.1 сниппет даёт 201).
+- **Образец:** detail_list:proteus/detail-list.board.css (блоки 1 и 7) и detail_list:proteus/detail-list.board-check.js.
 
 ### SB-07. Не блокируй колесо мыши
 - **Почему:** HRBP 06.10 добавил `preventDefault` колеса над подложкой окна фильтров — 07.10 в бою окно нельзя было долистать
@@ -258,8 +267,9 @@
 - **Образец:** HRBP_HUB:proteus/hrbp-hub.chart.js (модалка «Фильтры и настройки»: `placeDrawer`, `state.onAnyScroll`).
 
 ### SB-08. Ставь fixed-элемент через замер: под предком с `transform` он отсчитывается от предка
-- **Почему:** HRBP 06.10: боковая панель фильтров съезжала. У предка с `transform` элемент `position:fixed` отсчитывается от
-  этого предка, а не от окна.
+- **Почему:** у предка с `transform` (а также `filter`, `perspective`) элемент `position:fixed` отсчитывается от этого
+  предка, а не от окна — так устроен CSS. Чарт не знает, что на него наложит Proteus или CSS борда, а модалка, поставленная
+  «по окну», под таким предком съезжает. HRBP 06.10 заложил поправку в панель фильтров сразу при разработке.
 - **Как:** поставить элемент в `left/top = 0`, замерить `getBoundingClientRect()`, сдвинуть на разницу с нужной точкой.
   ```js
   d.style.top = '0px'; d.style.left = '0px';
@@ -268,7 +278,7 @@
   d.style.top = Math.round(top - o.top) + 'px';
   ```
 - **Проверка:** на стенде задать `transform: translateZ(0)` предку overlay — модалка стоит там же, где без него.
-- **Уверенность:** [бой] (HRBP 06.10).
+- **Уверенность:** [вывод] — поведение CSS и стенд HRBP; в бою съезда не наблюдали.
 - **Образец:** HRBP_HUB:proteus/hrbp-hub.chart.js (`placeDrawer`).
 
 ### SB-09. Держи тултип, тур и линейку слоями в body: создавай один раз и удаляй старые
@@ -279,7 +289,7 @@
     видимости, выпадашка панели — в body, вне overlay.
   - На каждом запуске найди `body > .<ns>-…` и удали старый слой, затем создай новый.
   - У каждого слоя свой `font-family` (body его не наследует от корня чарта) и место в шкале z-index: модалка 60/61, тур
-    99990–99992, тултип 99999.
+    99990–99993, тултип 99999.
 - **Проверка:** на стенде три перезапуска: в body ровно один узел каждого слоя.
 - **Уверенность:** [бой] (RETRO 7, 19, 44).
 - **Образец:** HRBP_HUB:proteus/hrbp-hub.chart.js (`getTip`, `visBuild`, слой тура); detail_list:proteus/detail-list-filters.chart.js
@@ -342,8 +352,9 @@
        if (mark) { var raw = atob(b); while (raw.length % 3) raw += '\0'; b = btoa(raw + atob(mark)); }
        return 'data:image/png;base64,' + b;
      }
-     function signal(mark) {
+     function signal(mark) {                      // mark — base64-маркер или '' (чистый PNG)
        var url = pngUrl(mark);
+       state.sig = mark || '';                      // последний отправленный маркер: его повторяют после перезапуска (SB-14)
        try {
          if (window.parent && window.parent !== window)
            window.parent.postMessage({ type: 'ECHARTS_UPDATE_DATA_URL', dataUrl: url, payload: { dataUrl: url } }, '*');
@@ -351,26 +362,20 @@
      }
      ```
   3. **Родитель** (форк) кладёт dataUrl в `img.echarts-plugin` рядом с iframe.
-  4. **CSS борда** по маркеру разворачивает iframe прозрачным слоем (полный набор правил и вес селекторов — 10-board-css.md):
-     ```css
-     .dashboard-chart-id-N:has(img.echarts-plugin[src*="REwtRkxULURELU9O"]) .slice_container,
-     .dashboard-chart-id-N:has(img.echarts-plugin[src*="REwtRkxULURELU9O"]) .chart-container,
-     .dashboard-chart-id-N:has(img.echarts-plugin[src*="REwtRkxULURELU9O"]) .dashboard-chart { overflow: visible !important; }
-     .dashboard-chart-id-N:has(img.echarts-plugin[src*="REwtRkxULURELU9O"]) #chart-id-N { position: relative !important; }
-     .dashboard-chart-id-N:has(img.echarts-plugin[src*="REwtRkxULURELU9O"]) #chart-id-N iframe {
-       position: absolute !important; top: 0 !important; left: 0 !important;
-       width: calc(100vw - 48px) !important; height: 100% !important;
-       z-index: 998 !important; background: transparent !important;    /* выше сетки, ниже системных модалок */
-     }
-     ```
-     Якорь — `#chart-id-N` (обёртка iframe), а не ячейка с заголовком: иначе панель прыгает на высоту заголовка (урок 59922).
+  4. **CSS борда** по `.dashboard-chart-id-N:has(img.echarts-plugin[src*="МАРКЕР"])` разворачивает iframe прозрачным слоем:
+     `overflow: visible` у `.slice_container`, `.chart-container`, `.dashboard-chart`; якорь `#chart-id-N { position:
+     relative }`; iframe — `position: absolute`, размер разворота, `z-index: 998` (выше сетки, ниже системных модалок), фон
+     прозрачный. Якорь — `#chart-id-N` (обёртка iframe), а не ячейка с заголовком: иначе панель прыгает на высоту заголовка
+     (урок 59922). `#chart-id-N` нужен и в селекторе слоя — иначе база растяжки iframe его перебьёт. Готовые правила — BC-08,
+     вес селекторов — BC-09 (10-board-css.md).
   5. **Закрыли** — чистый PNG без маркера (`signal('')`).
   6. Выпадашка — слой в body iframe, `position:fixed` (SB-09).
 - **Проверка:** стенд с родителем как в Proteus (канал → `img.echarts-plugin`, CSS из папки поставки): открыть выпадашку —
   iframe развёрнут, закрыть — вернулся; покадровая запись (SB-13). В бою — консоль страницы:
   `document.querySelector('.dashboard-chart-id-N img.echarts-plugin').src.includes('МАРКЕР')` при открытой выпадашке.
-- **Уверенность:** [бой] (adoption 25.09, 30.09; DL 30.09, 06.10) + [вывод] опыт Chromium 141. На борде 7241 разворот панели DL
-  отдельно не подтверждён.
+- **Уверенность:** [бой] (adoption 25.09, 30.09; DL 30.09, 06.10 — видео владельца) + [вывод] опыт Chromium 141 и модель kit
+  (маркер DL разворачивает iframe 330 → 1 352 px, чистый PNG — обратно). Разворот DL после правок 06.10 — [не проверено в
+  бою].
 - **Образец:** detail_list:proteus/detail-list-filters.chart.js (`pngUrl`, `signal`, `CFG.overlay`); adoption:Виджеты/pa-head.chart.js
   (`pngUrl`, `signal`, шапка файла — описание костыля); detail_list:proteus/detail-list.board.css (блоки 2–3).
 
@@ -384,6 +389,8 @@
   - Подсказка не перестраивает борд: малый разворот, ширина карточки чарта закреплена (SB-13).
   - Курсор ушёл с карточки на прозрачную развёрнутую часть — разворот под подсказку снять сразу (`document` `mousemove` вне
     overlay → чистый PNG).
+  - Маркер уникален на борде: у двух отчётов на одном борде — разные префиксы (`DL-`, `PA-`). CSS-сторона и размеры
+    разворотов — BC-10 (10-board-css.md).
 - **Проверка:** на стенде навести на поле с подсказкой у правого края — iframe шире на 360 px, соседний чарт не сдвинулся;
   увести курсор — iframe вернулся в том же кадре.
 - **Уверенность:** [бой] (30.09); [вывод] — стенд DL, малый разворот в бою отдельно не подтверждён.
@@ -435,11 +442,15 @@
     поиск.
   - Перезапуск без выпадашки, а прошлый сигнал был с маркером — чистый PNG.
   - Тур, который держит маркер для CSS борда, повторяет его каждые 1,5 с до конца тура (12-tour.md).
+  - Если `signal()` гасит повтор того же маркера (`if (mk === state.sig) return`, как у DL), перед повтором сбрасывай
+    `state.sig = ''` — иначе повтор молча ничего не отправит.
   ```js
+  // после render() в конце mount(); signal(mark) — из SB-11, mark — base64-маркер выпадашки
   if (state.dd) {
-    signal('dd');
-    setTimeout(function () { if (state.dd) signal('dd'); }, 400);
-    setTimeout(function () { if (state.dd) signal('dd'); }, 1500);
+    var mk = CFG.overlay.mark;
+    state.sig = ''; signal(mk);
+    setTimeout(function () { if (state.dd) { state.sig = ''; signal(mk); placeDd(); } }, 400);
+    setTimeout(function () { if (state.dd) { state.sig = ''; signal(mk); placeDd(); } }, 1500);
   } else if (state.sig) signal('');
   ```
 - **Проверка:** стенд: родитель подменяет `img.echarts-plugin` чистым PNG через 200 мс после перезапуска — через 400 мс маркер
@@ -487,8 +498,9 @@
 
 ### SB-17. Не пиши адресов в коде: адрес борда бери из `document.referrer`, запасной — из meta датасета
 - **Почему:** правило D1c скилла — адресов в коде чарта нет: тестовый и боевой борды разные, а код один. Родителя песочница не
-  читает (S4), `location` у iframe — свой документ. Опыт Chromium 141 (S13): `document.referrer` даёт путь борда только
-  iframe, загруженному по `src` с того же хоста; у `srcdoc` — только origin. Как грузит iframe форк — неизвестно.
+  читает (S4), `location` у iframe — свой документ (у `srcdoc` — `about:srcdoc`). Опыт Chromium 141 (S13): `document.referrer`
+  даёт путь борда только iframe, загруженному по `src` с того же хоста; у `srcdoc` — только origin, путь виден, лишь если
+  родитель задал `<meta name="referrer" content="unsafe-url">`. Как грузит iframe форк — неизвестно.
 - **Как:**
   ```js
   function boardUrl() {
@@ -505,8 +517,9 @@
     при сбое лексера становится комментарием (SP-10, 02-superset-path.md).
   - Нет ни referrer, ни meta — кнопка ссылки пишет причину («Адрес борда неизвестен: поставьте датасет этой поставки»).
   - Помни: на копии борда запасной адрес ведёт на боевой борд — скажи об этом в инструкции.
-- **Проверка:** стенд, iframe по `src` и по `srcdoc`: в первом случае ссылка — на путь борда стенда, во втором — на адрес из
-  meta. В бою — консоль iframe чарта (выбрать фрейм в DevTools): `document.referrer`.
+- **Проверка:** стенд, iframe по `src` и по `srcdoc` (`kit/sbx/run.cjs --frame src|srcdoc --board N`): в первом случае ссылка
+  — на путь борда стенда, во втором — на адрес из meta. В бою — консоль iframe чарта (выбрать фрейм в DevTools):
+  `document.referrer`.
 - **Уверенность:** [вывод] — опыт Chromium 141; [не проверено в бою] — referrer в iframe форка.
 - **Образец:** detail_list:proteus/detail-list.chart.js (`boardUrl`); adoption:Виджеты/pa-reports-body.chart.js (referrer для
   ссылки на отчёт и запасной адрес в `CFG`).
@@ -530,7 +543,7 @@
       var out = '', i = 0;
       while (i < s.length) {
         var c = s.charCodeAt(i), n = (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length) ? 2 : 1, ch = s.substr(i, n);
-        if (/^[0-9A-Za-zЀ-ӿ\-._~:=]$/.test(ch)) out += ch;
+        if (/^[0-9A-Za-zЀ-ӿ\-._~:=]$/.test(ch)) out += ch;   // цифры, латиница, кириллица — как есть
         else { try { out += encodeURIComponent(ch); } catch (e) { out += '%EF%BF%BD'; } }
         i += n;
       }
@@ -589,11 +602,20 @@
   - `applyCrossFilter` превращает маски в фильтры по областям из JSON поставки; параметры адреса — в `url_params` (SB-18).
 
   Геометрию борда (швы, поля, классы) не придумывай: только каркас из исходников сборки 2.0.1 или реплика сохранённой живой
-  страницы, а истина — сниппет DevTools в бою (10-board-css.md, 13-stand.md). Готовая модель песочницы — kit/.
-- **Проверка:** весь живой прогон чарта — в режиме песочницы; ошибка консоли — провал шага (кроме блокировки Clipboard API).
-- **Уверенность:** [бой] — инциденты воспроизведены и после правок в бою не повторялись.
+  страницы, а истина — сниппет DevTools в бою (10-board-css.md, 13-stand.md).
+
+  Готовая модель для любого чарта — `kit/sbx/run.cjs`: борд 2.0.1 → ячейка → iframe `sandbox="allow-scripts"`, заглушка
+  хоста echarts с подгонкой по RO, перезапуск тем же ответом после эмита, печать ошибок окна, эмитов и сигналов канала.
+  Чего не знаем о форке, гоняй в обоих вариантах: `--exec fn|script` (как запускается код), `--frame srcdoc|src` (referrer),
+  `--iframe-attrs mount|follow` (пересчитываются ли атрибуты iframe), `--no-scrollbars` (Mac против Windows). Соседний
+  чарт — `--also`, сценарий кликов — `--clicks`, сниппет разметки — `--board-check`.
+- **Проверка:** весь живой прогон чарта — в режиме песочницы; ошибка консоли — провал шага (кроме блокировки Clipboard API);
+  `run.cjs` выходит с кодом 1, если были ошибки окна.
+- **Уверенность:** [бой] — инциденты воспроизведены и после правок в бою не повторялись; модель kit — [вывод] (механизм
+  песочницы форка не виден, S8).
 - **Образец:** detail_list:stand/live.py (`?sbx=1`, `?first=`, `?sk=1`, канал, области) и detail_list:stand/click.cjs (полосы
-  Windows, покадровая запись); HRBP_HUB:stand/live.py (`/board`: высокая ячейка, липкая шапка, `?css`, `?delay`).
+  Windows, покадровая запись); HRBP_HUB:stand/live.py (`/board`: высокая ячейка, липкая шапка, `?css`, `?delay`);
+  kit/sbx/run.cjs и прогоны четырёх проектов — kit/RESULTS.js.md, раздел 5.
 
 ---
 
@@ -602,6 +624,8 @@
 | Что видно | Вероятная причина | Правило |
 |---|---|---|
 | Чарт отрисовался и через долю секунды пропал (Windows) | «ResizeObserver loop» от полосы прокрутки документа iframe | SB-03 |
+| Чарт пропал после закрытия выпадашки или после растяжки iframe CSS борда | iframe меняет размер, документ iframe прокручивается | SB-03 |
+| «Точно сбросить?» не спрашивает, сообщение не показалось | `confirm` / `alert` в песочнице без `allow-modals` | SB-01 |
 | Чарт пропал после действия, на стенде без песочницы — нет | исключение (нет API, ReferenceError) → `onerror` песочницы | SB-04, CJ-08 |
 | SecurityError в консоли iframe | обращение к хранилищу, cookies или родителю | SB-01, SB-02 |
 | Окно фильтров или карточка тура уезжает за край экрана | расчёт по `innerHeight` или `vh` (это ячейка) | SB-05 |
@@ -631,5 +655,6 @@
 - 10-board-css.md — CSS вокруг iframe: флекс-цепочка, разворот по маркеру, высота ряда, вес селекторов, сниппет DevTools.
 - 11-ui.md — тултип за курсором, шрифты (Inter страницы в iframe не виден), всплывающие окна.
 - 12-tour.md — карточка тура по видимой части, маркер тура, слой тура в body.
-- 13-stand.md — модель борда и песочницы на стенде, покадровая запись.
+- 13-stand.md — модель борда и песочницы на стенде, покадровая запись; kit/sbx/run.cjs и kit/RESULTS.js.md — модель
+  песочницы и её прогоны на чартах четырёх проектов.
 - 17-open-questions.md — чем песочница ловит ошибки, referrer, `url_params`, предел длины, затирание маркера.

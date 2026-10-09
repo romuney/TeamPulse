@@ -28,7 +28,10 @@
     python kit/sqlgate.py report.data.sql --sqlglot-dirs ~/sg/23.17.0,~/sg/30.0.0   # ещё версии sqlglot
 
 Другие версии sqlglot ставятся рядом, не в venv:  pip install --target ~/sg/23.17.0 sqlglot==23.17.0
-и подаются каталогами (--sqlglot-dirs) — гейт перезапустит себя с PYTHONPATH=<каталог> для каждого.
+и подаются каталогами (--sqlglot-dirs) — гейт перезапустит себя с PYTHONPATH=<каталог> для каждого. Так же —
+sqlparse 0.5.5 / 0.6 (--sqlparse-dirs ~/sp/0.5.5,~/sp/0.6.0): запас на обновление Proteus, где у разбора есть предел
+10 000 токенов и глубина 100. Датасет сверх предела — ошибка (как бюджет superset201), текст после reindent и SQL Lab —
+предупреждение: в 2.0.1 предела нет, а в Superset 4.1+ нет reindent.
 Варианты датасета: сохранение (AlwaysTrue, текст + LIMIT 1000), открытие (--user, --filters, --url-params) и
 обёртка чарта (SELECT … GROUP BY … LIMIT). Код выхода: 0 — чисто, 1 — есть ошибки, 2 — вызов.
 """
@@ -40,6 +43,7 @@ import subprocess
 import sys
 import tempfile
 
+sys.dont_write_bytecode = True          # не оставлять kit/__pycache__ в репозитории playbook
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import superset201 as ss  # noqa: E402
 
@@ -47,6 +51,14 @@ MUTATING = ['Insert', 'Update', 'Delete', 'Merge', 'Create', 'Drop', 'TruncateTa
 QUERY_NODES = ['Select', 'Union', 'Subquery', 'Except', 'Intersect']
 GB_END = {'HAVING', 'ORDER_BY', 'LIMIT', 'UNION', 'EXCEPT', 'INTERSECT', 'SEMICOLON', 'WINDOW', 'QUALIFY',
           'SETTINGS', 'FORMAT'}
+# Формат вывода ClickHouse после FORMAT (FORMAT — последнее предложение запроса). Колонка или алиас с именем
+# format (SELECT format AS f) — не он: проверка смотрит, что за FORMAT идёт имя формата, а перед ним — не «,», «AS»,
+# SELECT, «(» или «.».
+CH_FORMAT = re.compile(r'(?i)^(JSON\w*|TSV\w*|TabSeparated\w*|CSV\w*|Pretty\w*|Native|RowBinary\w*|Values|Vertical|'
+                       r'Null|Parquet\w*|Arrow\w*|ORC|XML|Markdown|TSKV|Template\w*|CustomSeparated\w*|LineAsString\w*|'
+                       r'RawBLOB|MsgPack|Avro\w*|Protobuf\w*|CapnProto|Regexp|SQLInsert|BSONEachRow|Npy|One|Form|'
+                       r'MySQLDump|MySQLWire|PostgreSQLWire|Prometheus|DWARF|Hash|Raw\w*)$')
+FORMAT_NOT_AFTER = {'COMMA', 'ALIAS', 'SELECT', 'L_PAREN', 'DOT', 'DISTINCT'}
 
 
 # ─────────────────────────────── sqlglot: разбор как при сохранении ───────────────────────────────
@@ -129,7 +141,8 @@ def token_problems(text, dataset=True):
         if up[i] == 'SETTINGS' and i + 2 < len(t) and names[i + 2] == 'EQ':
             out.append('SETTINGS в теле датасета (сохранение допишет LIMIT после него — Code 62): …%s…'
                        % _ctx(text, t[i].start))
-        if up[i] == 'FORMAT' and i + 1 < len(t) and names[i + 1] != 'L_PAREN' and (i == 0 or names[i - 1] != 'DOT'):
+        if (up[i] == 'FORMAT' and i + 1 < len(t) and CH_FORMAT.match(t[i + 1].text)
+                and (i == 0 or names[i - 1] not in FORMAT_NOT_AFTER)):
             out.append('FORMAT в теле датасета (подзапрос не принимает FORMAT): …%s…' % _ctx(text, t[i].start))
         if up[i] == 'MATERIALIZED' and i > 0 and names[i - 1] == 'ALIAS':
             out.append('AS MATERIALIZED (в ClickHouse 24.8 нет — Code 62): …%s…' % _ctx(text, t[i].start))
@@ -156,7 +169,7 @@ def sqllab_problems(text):
                     'функция replace( в датасетах работает')
     if '{{' in text or '{%' in text:
         warn.append('в SQL Lab-файле Jinja: SQL Lab 2.0.1 её рендерит и падает на неизвестной переменной — '
-                    'давайте отрендеренный текст (DV-23)')
+                    'давайте отрендеренный текст (DV-27, ST-32)')
     ss.lexer_patch()
     pq = ss.ParsedQuery(text, strip_comments=True)
     stm = pq.get_statements()
@@ -185,13 +198,16 @@ def sqllab_problems(text):
 
 
 # ─────────────────────────────── варианты текста ───────────────────────────────
-def dataset_texts(path, opts):
-    """→ [(вариант, текст, проверять ли тело датасета)] + ошибки рендера."""
-    tpl = open(path, encoding='utf-8').read()
+def dataset_texts(path, opts, tpl):
+    """→ [(вариант, текст, проверять ли тело датасета)] + ошибки рендера. tpl — текст файла (ss.read_sql)."""
     out, errs = [], []
     if opts.get('rendered'):
         return [('как есть', tpl, True)], errs
-    rs = ss.render(tpl, user=opts['user'], filters={}, url_params={}, save=True)
+    rs = ss.render(tpl, user=opts['user'], filters={}, url_params={}, save=True,
+                   template_params=opts.get('template_params'))
+    if rs.text is not None and not ss.sqlparse.format(rs.text.strip('\t\r\n; '), strip_comments=True).strip():
+        errs.append('датасет пуст после рендера и strip_comments — Superset: «Virtual dataset query cannot be empty»')
+        return out, errs
     if rs.error:
         errs.append('сохранение: ' + rs.error)
     else:
@@ -203,7 +219,8 @@ def dataset_texts(path, opts):
             out.append(('сохранение + LIMIT 1000', sp['executed'], False))
         if rs.leftovers:
             errs.append('сохранение: после рендера остался Jinja-текст: %s' % ', '.join(rs.leftovers[:4]))
-    ro = ss.render(tpl, user=opts['user'], filters=opts['filters'], url_params=opts['url_params'])
+    ro = ss.render(tpl, user=opts['user'], filters=opts['filters'], url_params=opts['url_params'],
+                   template_params=opts.get('template_params'))
     if ro.error:
         errs.append('открытие: ' + ro.error)
         return out, errs
@@ -225,17 +242,25 @@ def dataset_texts(path, opts):
     return out, errs
 
 
+SQL_FENCE = re.compile(r'^[ \t]*(```|~~~)[ \t]*sql\b[^\n]*\n(.*?)^[ \t]*\1', re.S | re.M | re.I)
+
+
 def gate_file(path, opts):
     rep = {'file': path, 'errors': [], 'warnings': [], 'variants': [], 'texts': {}}
+    try:
+        text, rep['warnings'] = ss.read_sql(path)
+    except ValueError as ex:
+        rep['errors'].append(str(ex))
+        return rep
     if opts['sqllab']:
-        text = open(path, encoding='utf-8').read()
-        if path.endswith('.md'):
-            # инструкция: каждый блок ```sql — отдельный запрос для SQL Lab
-            blocks = [('блок %d' % (i + 1), b) for i, b in
-                      enumerate(re.findall(r'```sql[^\n]*\n(.*?)```', text, flags=re.S))]
+        if path.lower().endswith(('.md', '.markdown')):
+            # инструкция: каждый блок ```sql (или ~~~sql, регистр не важен) — отдельный запрос для SQL Lab
+            blocks = [('блок %d' % (i + 1), m.group(2)) for i, m in enumerate(SQL_FENCE.finditer(text))]
         else:
             blocks = [('', text)]
-        variants = []
+        if not blocks:
+            rep['warnings'].append('в файле нет блоков ```sql — проверять нечего')
+        variants, own = [], {}
         for label, b in blocks:
             ss.lexer_patch()
             stm = ss.ParsedQuery(b, strip_comments=True).get_statements()
@@ -247,8 +272,9 @@ def gate_file(path, opts):
                 parts = [('%s запрос %d' % (label, k + 1)).strip() for k in range(len(stm))]
                 pieces = list(zip(parts, stm))
                 for m in re.finditer(r'(?i)system', b):   # system — по сырому тексту, с комментариями
-                    rep['errors'].append('%sслово «system» в строке %d (даже в комментарии)'
-                                         % ((label + ': ') if label else '', b.count('\n', 0, m.start()) + 1))
+                    x = 'слово «system» в строке %d (даже в комментарии)' % (b.count('\n', 0, m.start()) + 1)
+                    rep['errors'].append(((label + ': ') if label else '') + x)
+                    own.setdefault('SQL Lab, ' + parts[0], []).append(x)
             else:
                 pieces = [(label or 'SQL Lab', b)]
             for name, q in pieces:
@@ -258,13 +284,16 @@ def gate_file(path, opts):
                 pre = '' if name == 'SQL Lab' else name + ': '
                 rep['errors'] += [pre + x for x in e]
                 rep['warnings'] += [pre + x for x in w]
-                variants.append(('SQL Lab' if name == 'SQL Lab' else 'SQL Lab, ' + name, q, False))
+                vname = 'SQL Lab' if name == 'SQL Lab' else 'SQL Lab, ' + name
+                own.setdefault(vname, []).extend(e)
+                variants.append((vname, q, False))
     else:
-        variants, errs = dataset_texts(path, opts)
+        variants, errs = dataset_texts(path, opts, text)
+        own = {}
         rep['errors'] += errs
-        if re.search(r'(?i)system', open(path, encoding='utf-8').read()):
+        if re.search(r'(?i)system', text):
             rep['warnings'].append('слово «system» в датасете: если владелец запустит его в SQL Lab — отказ')
-    seen = {}
+    seen, first = {}, {}
     for name, text, body in variants:
         probs = []
         p = sqlglot_problem(text, opts['sqllab'])
@@ -274,59 +303,149 @@ def gate_file(path, opts):
         if name in ('открытие', 'сохранение (AlwaysTrue)', 'как есть') or name.startswith('SQL Lab'):
             probs += ['лексер: ' + x for x in ss.lexer_problems(text)]
         probs = list(dict.fromkeys(probs))
-        rep['variants'].append({'name': name, 'problems': probs})
+        # свои проблемы SQL Lab (system, SHOW, первое слово, LIMIT BY) уже в rep['errors'] — только в статус варианта
+        rep['variants'].append({'name': name, 'problems': probs + own.get(name, [])})
         rep['texts'][name] = text
         for x in probs:
-            seen.setdefault(x, []).append(name)
-    # одна и та же причина в нескольких вариантах — одной строкой
-    for x, names in seen.items():
-        line = '%s  [%s]' % (x, ', '.join(names))
-        (rep['warnings'] if x.startswith('нет sqlglot') else rep['errors']).append(line)
+            key = _cause(x)
+            first.setdefault(key, x)
+            if name not in seen.setdefault(key, []):
+                seen[key].append(name)
+    # одна и та же причина в нескольких вариантах — одной строкой (место — из первого варианта)
+    for key, names in seen.items():
+        line = '%s  [%s]' % (first[key], ', '.join(names))
+        (rep['warnings'] if key.startswith('нет sqlglot') else rep['errors']).append(line)
     return rep
 
 
+def _cause(msg):
+    """Причина без места в тексте: «…→AS←…» и «: …контекст…» у разных вариантов отличаются, причина — одна."""
+    m = re.match(r'(Некорректный SQL запрос: ).*?→(.*?)←.*?\((.*)\)$', msg)
+    if m:
+        return m.group(1) + m.group(2) + ' (' + m.group(3) + ')'
+    return msg.split(': …', 1)[0]
+
+
 # ─────────────────────────────── другие версии sqlglot ───────────────────────────────
+def _child(d, flag, tmp, module):
+    """Перезапуск себя с PYTHONPATH=<каталог>. → (результат dict, проблема или ''). Проблема — каталога нет, модуль
+    взят не из него (пустой каталог: тогда молча работала бы версия из venv) или процесс упал."""
+    d = os.path.expanduser(d)
+    if not os.path.isdir(os.path.join(d, module)):
+        return None, '%s: нет %s/%s — каталог версии пуст или указан неверно (pip install --target %s %s==…)' % (
+            d, d, module, d, module)
+    env = dict(os.environ, PYTHONPATH=d + os.pathsep + os.environ.get('PYTHONPATH', ''), PYTHONDONTWRITEBYTECODE='1',
+               PYTHONIOENCODING='utf-8')
+    r = subprocess.run([sys.executable, os.path.abspath(__file__), flag, tmp], env=env, capture_output=True,
+                       text=True, encoding='utf-8')
+    try:
+        res = json.loads(r.stdout)
+    except ValueError:
+        return None, '%s: проверка упала: %s' % (d, (r.stderr or r.stdout).strip()[-300:])
+    real = os.path.realpath(res.get('file') or '')
+    if not real.startswith(os.path.realpath(d) + os.sep):
+        return None, '%s: %s взят не отсюда, а из %s (версия %s)' % (d, module, res.get('file'), res.get('version'))
+    return res, ''
+
+
 def other_sqlglot(reports, dirs, sqllab):
-    """Перезапуск себя с PYTHONPATH=<каталог> на тех же текстах: {каталог: {версия, ошибки}}."""
+    """Те же тексты под другими версиями sqlglot: ({каталог: {version, errors}}, [проблемы каталогов])."""
     payload = [{'key': '%s :: %s' % (r['file'], n), 'text': t} for r in reports for n, t in r['texts'].items()]
     with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8') as f:
         json.dump({'sqllab': sqllab, 'items': payload}, f, ensure_ascii=False)
         tmp = f.name
-    out = {}
+    out, bad = {}, []
     try:
         for d in dirs:
-            d = os.path.expanduser(d)
-            env = dict(os.environ, PYTHONPATH=d + os.pathsep + os.environ.get('PYTHONPATH', ''))
-            r = subprocess.run([sys.executable, os.path.abspath(__file__), '--_sqlglot-json', tmp], env=env,
-                               capture_output=True, text=True)
-            try:
-                out[d] = json.loads(r.stdout)
-            except ValueError:
-                out[d] = {'version': '?', 'errors': {'запуск': (r.stderr or r.stdout)[-300:]}}
+            res, problem = _child(d, '--_sqlglot-json', tmp, 'sqlglot')
+            if problem:
+                bad.append(problem)
+            else:
+                out[os.path.expanduser(d)] = res
     finally:
         os.unlink(tmp)
-    return out
+    return out, bad
+
+
+# ─────────────────────────────── другие версии sqlparse (запас: 0.5.5 / 0.6) ───────────────────────────────
+SP_STEPS_DATASET = ('format(strip_comments)', 'parse')
+SP_STEPS_WRAP = ('format(reindent)', 'parse_sql после reindent')
+
+
+def other_sqlparse(reports, dirs):
+    """Те же тексты под другой версией sqlparse (PYTHONPATH=<каталог>): где упал бы путь Superset, если Proteus
+    обновит sqlparse (с 0.5.5 — «Maximum number of tokens exceeded (10000).» / «Maximum grouping depth exceeded»).
+    → {каталог: {version, patch, items: {ключ: {step, error, tokens}}}}"""
+    payload = [{'key': '%s :: %s' % (r['file'], n), 'text': t, 'wrap': n == 'обёртка чарта'}
+               for r in reports for n, t in r['texts'].items() if n != 'сохранение + LIMIT 1000']
+    with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False, encoding='utf-8') as f:
+        json.dump({'items': payload}, f, ensure_ascii=False)
+        tmp = f.name
+    out, bad = {}, []
+    try:
+        for d in dirs:
+            res, problem = _child(d, '--_sqlparse-json', tmp, 'sqlparse')
+            if problem:
+                bad.append(problem)
+            else:
+                out[os.path.expanduser(d)] = res
+    finally:
+        os.unlink(tmp)
+    return out, bad
+
+
+def _sqlparse_only(tmp):
+    data = json.load(open(tmp, encoding='utf-8'))
+    patch = ss.lexer_patch()
+    res = {'version': ss.sqlparse.__version__, 'file': ss.sqlparse.__file__, 'patch': patch, 'items': {}}
+    for it in data['items']:
+        text = it['text'].strip('\t\r\n; ')
+        steps = [('format(reindent)', lambda t: ss.sqlparse.format(t, reindent=True)),
+                 ('parse_sql после reindent', lambda t: [str(x) for x in ss.sqlparse.parse(t)])] if it['wrap'] else \
+                [('format(strip_comments)', lambda t: ss.sqlparse.format(t, strip_comments=True)),
+                 ('parse', lambda t: [str(x) for x in ss.sqlparse.parse(t)])]
+        cur = text
+        for name, f in steps:
+            try:
+                r = f(cur)
+            except Exception as ex:  # noqa: BLE001 — SQLParseError и прочее
+                res['items'][it['key']] = {'step': name, 'error': '%s: %s' % (type(ex).__name__, str(ex)[:160]),
+                                           'tokens': ss.tokens(cur)}
+                break
+            if isinstance(r, str):
+                cur = r
+    print(json.dumps(res, ensure_ascii=False))
+
+
+def _major(ver):
+    try:
+        return int(str(ver).split('.')[0])
+    except ValueError:
+        return 0
 
 
 def _sqlglot_only(tmp):
     data = json.load(open(tmp, encoding='utf-8'))
     try:
         import sqlglot
-        ver = sqlglot.__version__
+        ver, where = sqlglot.__version__, sqlglot.__file__
     except ImportError:
-        ver = 'нет'
+        ver, where = 'нет', ''
     errs = {}
     for it in data['items']:
         p = sqlglot_problem(it['text'], data['sqllab'])
         if p:
             errs[it['key']] = p
-    print(json.dumps({'version': ver, 'errors': errs}, ensure_ascii=False))
+    print(json.dumps({'version': ver, 'file': where, 'errors': errs}, ensure_ascii=False))
 
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ['--_sqlglot-json']:
         _sqlglot_only(argv[1])
+        return 0
+    if argv[:1] == ['--_sqlparse-json']:
+        _sqlparse_only(argv[1])
         return 0
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0], formatter_class=argparse.RawDescriptionHelpFormatter,
                                  epilog=__doc__.split('\n\n', 1)[1])
@@ -336,38 +455,80 @@ def main(argv=None):
     ap.add_argument('--user', default='stand.user')
     ap.add_argument('--filters', default='')
     ap.add_argument('--url-params', default='')
+    ap.add_argument('--template-params', default='', help='JSON «Параметров шаблона» датасета или @файл.json')
     ap.add_argument('--cols', default='auto')
     ap.add_argument('--limit', type=int, default=50000)
     ap.add_argument('--sqlglot-dirs', default='', help='каталоги с другими версиями sqlglot через запятую')
+    ap.add_argument('--sqlparse-dirs', default='',
+                    help='каталоги с другими версиями sqlparse (0.5.5, 0.6 — запас на обновление) через запятую')
     ap.add_argument('--no-patch', action='store_true', help='лексер без патча Superset')
     ap.add_argument('--json', action='store_true')
     a = ap.parse_args(argv)
     ss.lexer_patch(not a.no_patch)
-    opts = {'sqllab': a.sqllab, 'rendered': a.rendered, 'user': a.user, 'filters': ss._json_arg(a.filters),
-            'url_params': ss._json_arg(a.url_params), 'limit': a.limit,
-            'cols': 'auto' if a.cols == 'auto' else [c.strip() for c in a.cols.split(',') if c.strip()]}
+    try:
+        opts = {'sqllab': a.sqllab, 'rendered': a.rendered, 'user': a.user, 'filters': ss._json_arg(a.filters),
+                'url_params': ss._json_arg(a.url_params), 'limit': a.limit,
+                'template_params': ss._json_arg(a.template_params),
+                'cols': 'auto' if a.cols == 'auto' else [c.strip() for c in a.cols.split(',') if c.strip()]}
+    except (ValueError, OSError) as ex:
+        print('--filters / --url-params / --template-params: %s' % ex, file=sys.stderr)
+        return 2
+    missing = [f for f in a.files if not os.path.isfile(f)]
+    if missing:
+        print('нет файла: %s' % ', '.join(missing), file=sys.stderr)
+        return 2
     reports = [gate_file(f, opts) for f in a.files]
     dirs = [d for d in a.sqlglot_dirs.split(',') if d.strip()]
-    others = other_sqlglot(reports, dirs, a.sqllab) if dirs else {}
+    others, bad_dirs = other_sqlglot(reports, dirs, a.sqllab) if dirs else ({}, [])
+    spdirs = [d for d in a.sqlparse_dirs.split(',') if d.strip()]
+    sp_others, bad_sp = other_sqlparse(reports, spdirs) if spdirs else ({}, [])
+    if bad_dirs or bad_sp:
+        # иначе проверка молча шла бы версией из venv, а шапка обещала бы 23.17 / 0.5.5
+        for x in bad_dirs + bad_sp:
+            print('✗ --sqlglot-dirs / --sqlparse-dirs: %s' % x, file=sys.stderr)
+        return 2
     for d, res in others.items():
         agg = {}
         for key, p in res.get('errors', {}).items():
             f, _, n = key.partition(' :: ')
             agg.setdefault((f, p), []).append(n)
+        old = _major(res.get('version')) < 25
         for (f, p), names in agg.items():
             for r in reports:
-                if r['file'] == f:
+                if r['file'] != f:
+                    continue
+                if old:
+                    # ST-15: отказ только в sqlglot < 25 — предупреждение: pa_one (CTE `pr AS (…)`) sqlglot 18–23
+                    # отвергает, а в бою он сохранён 30.09 — проверка форка не sqlglot ≤ 23 [вывод]
+                    r['warnings'].append('sqlglot %s (< 25, не модель форка — только предупреждение): %s  [%s]'
+                                         % (res.get('version'), p, ', '.join(names)))
+                else:
                     r['errors'].append('sqlglot %s: %s  [%s]' % (res.get('version'), p, ', '.join(names)))
+    for d, res in sp_others.items():
+        agg = {}
+        for key, it in res.get('items', {}).items():
+            f, _, n = key.partition(' :: ')
+            agg.setdefault((f, it['step'], it['error']), []).append('%s, %s токенов' % (n, it.get('tokens', '?')))
+        for (f, step, err), names in agg.items():
+            for r in reports:
+                if r['file'] != f:
+                    continue
+                line = 'sqlparse %s, шаг %s: %s  [%s]' % (res.get('version'), step, err, '; '.join(names))
+                # датасет: тот же бюджет, что в superset201 (токенов < 10 000) — ошибка; обёртка после reindent и
+                # SQL Lab — запас на обновление Proteus (в 2.0.1 этих шагов с пределом нет) — предупреждение
+                (r['warnings'] if (step in SP_STEPS_WRAP or a.sqllab) else r['errors']).append(line)
     bad = sum(1 for r in reports if r['errors'])
     ver = ss.versions()
     if a.json:
         for r in reports:
             r.pop('texts', None)
         print(json.dumps({'versions': ver, 'other_sqlglot': {d: r.get('version') for d, r in others.items()},
+                          'other_sqlparse': {d: r.get('version') for d, r in sp_others.items()},
                           'reports': reports}, ensure_ascii=False, indent=1))
         return 1 if bad else 0
-    print('sqlglot %s · sqlparse %s (патч: %s)%s' % (ver['sqlglot'], ver['sqlparse'], ver['patch'],
-          ''.join(' · sqlglot %s' % r.get('version') for r in others.values())))
+    print('sqlglot %s · sqlparse %s (патч: %s)%s%s' % (ver['sqlglot'], ver['sqlparse'], ver['patch'],
+          ''.join(' · sqlglot %s' % r.get('version') for r in others.values()),
+          ''.join(' · sqlparse %s' % r.get('version') for r in sp_others.values())))
     for r in reports:
         print('=' * 100)
         print('%s — %s' % (r['file'], 'ЧИСТО' if not r['errors'] else 'ОШИБКИ: %d' % len(r['errors'])))

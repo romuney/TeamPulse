@@ -1,18 +1,20 @@
 <!doctype html>
 <!-- kit/sbx/inner.html — документ внутри iframe sandbox="allow-scripts" (без allow-same-origin): модель песочницы
-     react_sanbbox форка Proteus. Собирает kit/sbx/run.cjs (подставляет __ECHARTS__ и __MODE__).
-     Повторено (08-sandbox.md, факты S1–S11):
-       • origin "null": нет localStorage / sessionStorage / cookie (SecurityError), родителя не прочитать;
-       • CSP connect-src 'none': fetch / XHR запрещены (так в бою; запрет даёт CSP, не sandbox);
+     react_sanbbox форка Proteus. Собирает kit/sbx/run.cjs (подставляет __ECHARTS__, __MODE__ и __CATCH__).
+     Повторено (08-sandbox.md, факты S1–S15):
+       • origin "null": нет localStorage / sessionStorage / cookie (SecurityError), родителя не прочитать (S3–S5);
+       • CSP connect-src 'none': fetch / XHR запрещены (так в бою; запрет даёт CSP, не sandbox — S6);
        • хост — div [_echarts_instance_] во весь документ; в нём корень зрендера с размером В ПИКСЕЛЯХ, подгоняется по
-         ResizeObserver (stub) или настоящий echarts.init + chart.resize() (real);
-       • window.onerror ставится ДО кода чарта и гасит чарт на ЛЮБУЮ ошибку окна — chart.clear() + dispose(), хост пуст.
-         В том числе на безвредное «ResizeObserver loop completed with undelivered notifications» (бой 06.10). Обёртка чарта
-         (SB-03) регистрируется позже и пропускает мимо только это событие — так и должно быть;
-       • код чарта запускается на каждый ответ В ТОМ ЖЕ окне (window.__pvtState переживает), data и applyCrossFilter —
+         ResizeObserver (заглушка) или настоящий echarts.init + chart.resize();
+       • песочница гасит чарт на ЛЮБУЮ ошибку окна — chart.clear() + dispose(), хост пуст (S7), в том числе на безвредное
+         «ResizeObserver loop completed with undelivered notifications» (бой 06.10). Чем она ловит ошибки — не известно (S8),
+         поэтому два варианта: __CATCH__ = onerror — window.onerror, поставленный ДО кода чарта (обёртка чарта по SB-03
+         регистрируется позже и пропускает мимо только «ResizeObserver loop» — так и должно быть); __CATCH__ = listener —
+         addEventListener('error') до кода чарта: его обёртка не опередит, держит только overflow:hidden (SB-03);
+       • код чарта запускается на каждый ответ В ТОМ ЖЕ окне (window.__pvtState переживает, S9), data и applyCrossFilter —
          как у стендов проектов: new Function('data', 'applyCrossFilter', код) (__MODE__ = fn) или глобальным <script>
          (__MODE__ = script, как хост smoke скилла). Чем именно запускает Proteus — не известно (17-open-questions.md);
-       • после прогона option отдаётся echarts (real: chart.setOption(option, true)).
+       • после прогона option отдаётся echarts (настоящий: chart.setOption(option, true)).
      Фон прозрачный, как у iframe react_sanbbox в бою: скругления карточек видны на фоне борда. -->
 <html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="connect-src 'none'">
@@ -21,7 +23,7 @@
 <script>/*__ECHARTS__*/</script>
 <script>
 (function () {
-  var MODE = '__MODE__', host = document.querySelector('.sbx-host'), chart = null, zr = null, SRC = '';
+  var MODE = '__MODE__', CATCH = '__CATCH__', host = document.querySelector('.sbx-host'), chart = null, zr = null, SRC = '';
   window.option = null;
   function send(m) { try { parent.postMessage(m, '*'); } catch (e) { /* родителя нет — некуда */ } }
   // ── хост echarts ──
@@ -45,13 +47,15 @@
     new ResizeObserver(fit).observe(host);
   }
   // ── песочница гасит чарт на любую ошибку окна ──
-  window.onerror = function (msg, src, line, col, err) {
+  function kill(msg, line, col, err) {
     var kids = host.children.length;
     if (chart) { try { chart.clear(); chart.dispose(); } catch (e) { /* уже */ } }
     host.innerHTML = '';                                                 // как dispose зрендера: корень пуст
     send({ type: 'SBX_ERR', msg: String(msg), where: (line ? line + ':' + col : ''), stack: err && err.stack ? String(err.stack).slice(0, 800) : '',
-      killed: kids > 0 });
-  };
+      killed: kids > 0, how: CATCH });
+  }
+  if (CATCH === 'listener') window.addEventListener('error', function (e) { kill(e.message, e.lineno, e.colno, e.error); });
+  else window.onerror = function (msg, src, line, col, err) { kill(msg, line, col, err); };
   window.addEventListener('unhandledrejection', function (e) {
     send({ type: 'SBX_ERR', msg: 'unhandledrejection: ' + String(e.reason && e.reason.message || e.reason), where: '', stack: '', killed: false });
   });
@@ -68,7 +72,7 @@
       s.parentNode.removeChild(s);
       opt = window.option;
     } else {
-      // исключение кода чарта не ловим: оно уходит в window.onerror, как ошибка в песочнице
+      // исключение кода чарта не ловим: оно уходит в обработчик ошибок окна, как ошибка в песочнице
       opt = (new Function('data', 'applyCrossFilter', SRC + '\n;return typeof option !== "undefined" ? option : null;'))(rows, window.applyCrossFilter);
     }
     if (chart && !chart.isDisposed() && opt) chart.setOption(opt, true);

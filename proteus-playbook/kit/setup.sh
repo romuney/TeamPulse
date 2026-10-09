@@ -6,6 +6,7 @@
 #   SP044=0 bash kit/setup.sh          # без второго venv с sqlparse 0.4.4
 #   NPM=0 bash kit/setup.sh            # без npm (terser, eslint, playwright не ставить)
 #   BROWSER=1 bash kit/setup.sh        # ещё и Chromium для kit/sbx (≈150 МБ)
+#   SIDE=0 bash kit/setup.sh           # без каталогов версий для sqlgate (~/sg/<sqlglot>, ~/sp/<sqlparse>)
 #
 # Версии (почему именно они — 13-stand.md):
 #   chdb 2.1.1        = ClickHouse 24.8.4.1 (бой — 24.8.15.1); chdb 3.0.0–3.2.0 — тоже 24.8, 4.x — уже 26.x
@@ -18,6 +19,8 @@
 #                       они). Бой adoption (30.09) ведёт себя как 0.4.x, а не 0.3.0 — гоняйте датасет в ОБОИХ venv
 #   terser 5.51.2     — сжатие кода чарта (kit/min.cjs): версия закреплена, иначе pack --check разойдётся
 #   eslint 10.1.0     — no-undef по kit/eslint.chart.cjs; playwright 1.56.1 — kit/sbx (модель песочницы)
+#   каталоги версий   — sqlglot 23.17 / 25.34 / 28.10 / 30.0 в ~/sg/<версия>, sqlparse 0.5.5 / 0.6.0 в ~/sp/<версия>
+#                       (pip install --target): kit/sqlgate.py --sqlglot-dirs / --sqlparse-dirs
 set -euo pipefail
 
 KIT_VENV="${KIT_VENV:-$HOME/.venvs/proteus-kit}"
@@ -51,6 +54,31 @@ if [ "${SP044:-1}" != "0" ]; then
   say "venv $SP044_VENV (sqlparse 0.4.4 — запас на обновление Proteus)"
   make_venv "$SP044_VENV" chdb==2.1.1 sqlparse==0.4.4 sqlglot==26.33.0 jinja2==3.0.3 markupsafe==2.0.1 \
     || make_venv "$SP044_VENV" chdb==2.1.1 sqlparse==0.4.4 sqlglot==26.33.0 'jinja2>=3.0.3,<3.2'
+fi
+
+SG_DIR="${SG_DIR:-$HOME/sg}"
+SP_DIR="${SP_DIR:-$HOME/sp}"
+if [ "${SIDE:-1}" != "0" ]; then
+  say "каталоги версий для kit/sqlgate.py: $SG_DIR (sqlglot), $SP_DIR (sqlparse)"
+  side() {   # $1 — каталог, $2 — пакет==версия
+    # «стоит» — только если модуль берётся из этого каталога и версии нужной: прерванная установка оставляет
+    # каталог без пакета, и тогда sqlgate молча взял бы версию из venv
+    local mod="${2%%==*}" want="${2##*==}" have
+    have="$(PYTHONPATH="$1" PYTHONDONTWRITEBYTECODE=1 "$KIT_VENV/bin/python" -c '
+import os, sys, importlib
+m = importlib.import_module(sys.argv[1])
+inside = os.path.realpath(m.__file__).startswith(os.path.realpath(sys.argv[2]) + os.sep)
+print(m.__version__ if inside else "")' "$mod" "$1" 2>/dev/null || true)"
+    if [ "$have" = "$want" ]; then echo "$2 уже стоит в $1"; return; fi
+    [ -d "$1" ] && echo "! в $1 нет $2 (${have:-пакета нет или он битый}) — ставлю поверх"
+    if command -v uv >/dev/null 2>&1; then
+      uv pip install -q -p "$KIT_VENV/bin/python" --target "$1" --reinstall "$2"
+    else
+      "$KIT_VENV/bin/python" -m pip install -q --upgrade --force-reinstall --target "$1" "$2"
+    fi
+  }
+  for v in 23.17.0 25.34.0 28.10.0 30.0.0; do side "$SG_DIR/$v" "sqlglot==$v"; done
+  for v in 0.5.5 0.6.0; do side "$SP_DIR/$v" "sqlparse==$v"; done
 fi
 
 if [ "${NPM:-1}" != "0" ]; then
@@ -99,3 +127,8 @@ if command -v node >/dev/null 2>&1; then
 fi
 echo
 echo "Готово. Python стенда: $KIT_VENV/bin/python (для pack --gate: PLAYBOOK_PY=$KIT_VENV/bin/python)"
+if [ -d "$SG_DIR" ] || [ -d "$SP_DIR" ]; then
+  # в кавычках: пути с пробелами (каталог пользователя, «sg dir») иначе разорвутся при вставке в команду
+  echo "Гейт с версиями: --sqlglot-dirs \"$(ls -d "$SG_DIR"/*/ 2>/dev/null | sed 's:/$::' | paste -sd, -)\"" \
+       "--sqlparse-dirs \"$(ls -d "$SP_DIR"/*/ 2>/dev/null | sed 's:/$::' | paste -sd, -)\""
+fi
