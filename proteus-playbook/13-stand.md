@@ -634,7 +634,7 @@ chdb 2.1.1 = ClickHouse 24.8      ▼                                           
     4. заглушка логина или id встречается ровно столько раз, сколько написано в шапке («Ctrl+H — все N мест»), и сама по себе в шаблонах не встречается;
     5. у каждого запроса — комментарий «Ждали: …» с ожидаемыми числами на стенде.
   - Руками проверочные SQL не правят.
-- **Проверка:** `kit/sqlgate.py --sqllab <файлы> "<папка>/0. Инструкция.md"` (блоки ```sql инструкции — тоже); `python3 stand/diag.py --run`, `python3 stand/timing.py --run` (DL), `python3 .stand/check_one.py <папка> --rebuild` (adoption §8).
+- **Проверка:** `kit/sqlgate.py --sqllab <файлы> "<папка>/0. Инструкция.md"` (SQL-блоки инструкции — тоже); `python3 stand/diag.py --run`, `python3 stand/timing.py --run` (DL), `python3 .stand/check_one.py <папка> --rebuild` (adoption §8).
 - **Уверенность:** [бой] — запрет `system` и SHOW; [исходник 2.0.1] [не проверено в бою] — `strip_comments` и `LIMIT N BY` в SQL Lab; [вывод] — `* REPLACE` и `WITH` первым словом (отказа не было, это осторожность).
 - **Образец:** kit/sqlgate.py (`--sqllab`); detail_list:stand/diag.py (`build`: запрос из `ch.sql`, assert на «system»), stand/timing.py; adoption:.stand/check_one.py (раздел 8: рендер = шаблон, исполняется, метка `777777` не встречается сама по себе). Формат файлов — 14-delivery.md, DV-27, DV-28.
 
