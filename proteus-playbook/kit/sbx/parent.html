@@ -1,0 +1,102 @@
+<!doctype html>
+<!-- kit/sbx/parent.html — страница-родитель модели песочницы Proteus (борд Superset 2.0.1 + плагин react_sanbbox форка).
+     Её собирает kit/sbx/run.cjs: подставляет __CFG__ (чарты, размеры), __BASE_CSS__ (правила 2.0.1 ниже),
+     __BOARD_CSS__ (CSS борда из папки поставки — как владелец вставляет его в «CSS» борда).
+     Что повторено (08-sandbox.md, 10-board-css.md):
+       • цепочка классов ячейки 2.0.1: .grid-container → .dashboard-grid → .grid-content → .dragdroppable-row → .grid-row →
+         .dragdroppable-column → .resizable-container → холдер .dashboard-component-chart-holder.dashboard-chart-id-N (класс id —
+         на самом холдере) → .chart-slice → .chart-header → .dashboard-chart → .chart-container → .slice_container →
+         #chart-id-N → .react_sanbbox → iframe sandbox="allow-scripts" + img.echarts-plugin рядом;
+       • iframe получает атрибуты width / height при монтаже (ячейка без полей 16 px и шапки) и потом их не меняет; сам по
+         себе он строчный (щель снизу) — растягивает только CSS борда (S2: замер adoption 18.09 — «ячейка − 32/36», атрибуты
+         не следят за CSS; меняет ли их Proteus при смене окна — не проверено: --iframe-attrs follow пересчитывает);
+         рамки нет (iframe = ячейка − 32 ровно, без +4 на рамку) [вывод];
+       • канал скриншотов: ECHARTS_UPDATE_DATA_URL → dataUrl в img.echarts-plugin своей ячейки (CSS борда ловит маркер);
+       • applyCrossFilter чарта → сообщение ECHARTS_APPLY_CROSS_FILTER: родитель пишет его в журнал и (по --rerun)
+         перезапускает чарты тем же ответом — как Proteus после кросс-фильтра с самовлиянием;
+       • меню 53 px и липкая шапка борда 64 px; страница прокручивается снаружи, ячейка может быть выше окна.
+     Чего нет: вкладок, нативных фильтров, режима правки, правил форка в emotion-классах — их проверяет каркас стенда
+     проекта и сниппет kit/board-check.js на живом борде. -->
+<html lang="ru"><head><meta charset="utf-8"><title>Модель песочницы Proteus</title>
+<style id="sbx-base">/*__BASE_CSS__*/</style>
+<style id="sbx-board">/*__BOARD_CSS__*/</style>
+</head>
+<body>
+<div class="sbx-menu"><b>Proteus</b><span>Дашборды</span><span>Графики</span><span>Датасеты</span><span>SQL</span></div>
+<div class="dashboard"><div class="dashboard-header-container"><div class="header-with-actions">
+  <span class="dynamic-title" id="sbx-title">Борд</span><span>Редактировать</span></div></div>
+<div class="dashboard-content"><div class="grid-container"><div id="GRID_ID" class="dashboard-grid"><div class="grid-content">
+  <div class="dragdroppable dragdroppable-row"><div class="with-popover-menu"><div class="grid-row background--transparent" id="sbx-row"></div></div></div>
+</div></div></div></div></div>
+<script>
+// Конфигурация от run.cjs: { charts: [{ id, title, cols }], cellH, header, inner (HTML документа песочницы) }
+var SBX = __CFG__;
+window.__sbx = { emits: [], channel: [], msgs: [], errs: [], runs: {}, frames: {} };
+var row = document.getElementById('sbx-row');
+document.getElementById('sbx-title').textContent = SBX.title || 'Борд';
+// Ширины ячеек — как DashboardGrid 2.0.1: колонка = (ширина сетки + 16) / 12 − 16, ячейка из m колонок — m колонок и m − 1 зазоров
+function layout() {
+  var gw = row.parentNode.parentNode.parentNode.clientWidth, cw = (gw + 16) / 12 - 16;
+  SBX.charts.forEach(function (c) {
+    var rc = document.getElementById('sbx-rc-' + c.id);
+    rc.style.width = (c.cols * cw + (c.cols - 1) * 16) + 'px';
+    if (SBX.follow && window.__sbx.frames[c.id]) attrs(c.id);           // --iframe-attrs follow: как стенд DL (skLayout)
+  });
+}
+// атрибуты iframe = ячейка без полей холдера (2×16) и шапки (+4) — от раскладки, а не от CSS борда (S2)
+function attrs(id) {
+  var holder = document.querySelector('.dashboard-chart-id-' + id), fr = holder.querySelector('iframe');
+  var hd = holder.querySelector('.chart-header'), hh = hd ? hd.offsetHeight + 4 : 0, rc = holder.parentNode;
+  fr.setAttribute('width', Math.floor(rc.clientWidth - 4 - 32));
+  fr.setAttribute('height', Math.floor(rc.clientHeight - 4 - 32 - hh));
+}
+SBX.charts.forEach(function (c) {
+  var col = document.createElement('div');
+  col.className = 'dragdroppable dragdroppable-column';
+  col.innerHTML = '<div class="resizable-container" id="sbx-rc-' + c.id + '" style="height:' + SBX.cellH + 'px">'
+    + '<div class="dashboard-component dashboard-component-chart-holder dashboard-chart-id-' + c.id + ' fade-out">'
+    + '<div class="chart-slice">'
+    + (SBX.header ? '<div class="chart-header"><div class="header-title"><span class="editable-title">' + c.title + '</span></div><div class="header-controls">⋯</div></div>' : '')
+    + '<div class="dashboard-chart"><div class="chart-container"><div class="slice_container">'
+    + '<div id="chart-id-' + c.id + '"><div class="react_sanbbox"><iframe sandbox="allow-scripts" frameborder="0" data-chart="' + c.id + '"></iframe></div></div>'
+    + '<img class="echarts-plugin" alt=""></div></div></div></div></div></div>';
+  row.appendChild(col);
+});
+layout();
+window.addEventListener('resize', layout);
+// Монтаж iframe: атрибуты размера — один раз (ячейка без полей холдера 2×16 и без шапки), дальше не пересчитываются
+SBX.charts.forEach(function (c) {
+  var fr = document.querySelector('.dashboard-chart-id-' + c.id + ' iframe');
+  attrs(c.id);
+  window.__sbx.frames[c.id] = fr;
+  window.__sbx.runs[c.id] = 0;
+  if (SBX.innerUrl) fr.src = SBX.innerUrl; else fr.srcdoc = SBX.inner;   // --frame src | srcdoc (чем делает Proteus — не известно)
+});
+function chartOf(win) {
+  for (var id in window.__sbx.frames) if (window.__sbx.frames[id].contentWindow === win) return id;
+  return '';
+}
+window.addEventListener('message', function (e) {
+  var d = e.data || {}, id = chartOf(e.source), t = Date.now();
+  if (!id) return;
+  if (d.type === 'ECHARTS_APPLY_CROSS_FILTER') {
+    window.__sbx.emits.push({ t: t, chart: id, filters: d.filters });
+  } else if (d.type === 'ECHARTS_UPDATE_DATA_URL') {
+    var url = d.dataUrl || (d.payload && d.payload.dataUrl) || '';
+    document.querySelector('.dashboard-chart-id-' + id + ' img.echarts-plugin').src = url;
+    window.__sbx.channel.push({ t: t, chart: id, dataUrl: url });
+  } else if (d.type === 'SBX_ERR') {
+    window.__sbx.errs.push({ t: t, chart: id, msg: d.msg, where: d.where, stack: d.stack, killed: d.killed });
+  } else if (d.type === 'SBX_READY') {
+    window.__sbx.msgs.push({ t: t, chart: id, type: d.type, referrer: d.referrer, origin: d.origin });
+  } else if (d.type === 'SBX_RUN') {
+    window.__sbx.runs[id]++;
+    window.__sbx.msgs.push({ t: t, chart: id, type: d.type, ms: d.ms, kids: d.kids, option: d.option });
+  } else {
+    window.__sbx.msgs.push({ t: t, chart: id, type: String(d.type || typeof d), data: JSON.stringify(d).slice(0, 300) });
+  }
+});
+// Команды от run.cjs: код чарта и ответ датасета — в iframe сообщениями (как Proteus: тот же документ, новый прогон)
+window.__sbxSend = function (id, msg) { window.__sbx.frames[id].contentWindow.postMessage(msg, '*'); };
+</script>
+</body></html>
