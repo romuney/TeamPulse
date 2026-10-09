@@ -5,8 +5,8 @@
 
     ПРОВЕРЕНО (09.10) на стенде-заглушке: chdb 2.1.1 = ClickHouse 24.8.4.1, 3 000 строк факта, всё Nullable, NULL в
     массиве, значения с «'», «]», «--», «//», «;», «\» в конце; логины a.user, b.kotov, hr.super, o'neil, nobody.
-      kit/superset201.py --run --matrix --hostile --hostile-set full в моделях лексера М1 (sqlparse 0.3.0 + патч 2.0.1)
-        и М2 (0.4.4 + патч 2.1.3): 0 ошибок — сохранение (AlwaysTrue + LIMIT 1000), открытие, 15 враждебных хвостов,
+      kit/superset201.py --run --matrix --hostile --hostile-set full в моделях лексера 0.3.0 + патч 2.0.1
+        и М2 (0.4.4 + патч 2.1.3); М1 — модель боя 0.4.3 + патч 2.1.0 — путь с --hostile-set full без --run (09.10): 0 ошибок — сохранение (AlwaysTrue + LIMIT 1000), открытие, 15 враждебных хвостов,
         новый и старый анализатор, все *_use_nulls + prefer_column_name_to_alias; ответ после пути = прямому запуску;
         ключ: main — ЛИЧНЫЙ, shared — ОБЩИЙ; nobody — только meta (ok = 0) и end; WITH_F = false — тоже 0 ошибок.
       kit/sqlgate.py, sqlglot 23.17 / 25.34 / 26.33 / 28.10 / 30.0, sqlparse 0.5.5 / 0.6.0 — 0 ошибок (main, shared,

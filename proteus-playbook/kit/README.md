@@ -10,7 +10,7 @@
 |---|---|---|
 | `setup.sh` | venv на Python 3.12 с версиями боя; второй venv с sqlparse 0.4.4; node-пакеты (terser, eslint, playwright) | ST-01 |
 | `superset201.py` | путь Superset 2.0.1 над SQL датасета: рендер, ключ кэша, strip_comments, обёртка, reindent, бюджеты, враждебный ввод, сверка на chdb | SP-01…SP-23, AC-07…AC-09, AC-14, ST-12…ST-17 |
-| `sqlgate.py` | гейт сохранения и SQL Lab: sqlglot 23–30, алиас в GROUP BY, `\x`, кортежный CAST, SETTINGS/FORMAT/`;`, лексер, предел sqlparse ≥ 0.5.5, `system` | SP-04, SP-09, SP-12, SP-17, CH-04, CH-17, PL-04, ST-15, ST-32 |
+| `sqlgate.py` | гейт сохранения и SQL Lab: sqlglot 25–30 (23 — предупреждение), алиас в GROUP BY, `\x`, кортежный CAST, SETTINGS/FORMAT/`;`, лексер, предел sqlparse ≥ 0.5.5, `system` | SP-04, SP-09, SP-12, SP-17, CH-04, CH-17, PL-04, ST-15, ST-32 |
 | `pack_template.py` | шаблон сборщика папки поставки: COPIES, сжатие JS, id чартов, штамп, `--check`, `--gate` | DV-03…DV-06, DV-09, DV-24, DV-30 |
 | `min.cjs`, `eslint.chart.cjs`, `board-check.js`, `sbx/` | JS: сжатие, no-undef, разметка борда, модель песочницы | раздел «JS» ниже |
 
@@ -35,10 +35,10 @@ BROWSER=1 bash kit/setup.sh           # ещё и Chromium для kit/sbx (≈15
 | Пакет | Версия | Почему |
 |---|---|---|
 | chdb | 2.1.1 | = ClickHouse 24.8.4.1 (в бою 24.8.15.1). 3.0–3.2 — тоже 24.8, а 4.x — уже 26.x и годится только вторым движком (ST-01) |
-| sqlparse | 0.3.0 | Superset 2.0.1: `sqlparse==0.3.0  # PINNED!`. Патч лексера Superset ставит `superset201.py` |
-| sqlparse (второй venv) | 0.4.4 | вторая модель: Superset 2.1.3 / 3.0 с тем же литералом. Бой adoption ведёт себя так (RESULTS.md, п. 4) |
+| sqlparse | 0.4.3 | М1 — модель боя: Superset 2.1.0 (`version_string` 09.10) закрепляет `sqlparse==0.4.3`. Патч лексера Superset ставит `superset201.py`. 0.3.0 (2.0.x) снят 09.10: в нём adoption pa_one и pa_body_one падают, а в бою работают |
+| sqlparse (второй venv) | 0.4.4 | М2 — запас: Superset 2.1.3 / 3.0 с тем же литералом через `Lexer`. Ответы 0.4.3 и 0.4.4 на четырёх проектах совпали (RESULTS.md, «Модель боя») |
 | jinja2 / markupsafe | 3.0.3 / 2.0.1 | как в `requirements/base.txt` 2.0.1; на Python 3.12 ставятся (проверено 08.10). Не встанут — скрипт возьмёт jinja2 3.0.x/3.1 и скажет об этом |
-| sqlglot | 26.33.0 | модель проверки форка «Некорректный SQL запрос». Версии 23–30 дают тот же отказ на алиасе в GROUP BY. Версии < 15 не годятся: они не знают `CAST(x, 'T')` и роняют рабочие датасеты |
+| sqlglot | 26.33.0 | модель проверки форка «Некорректный SQL запрос». Версии 25–30 — модель (отказ — ошибка гейта), 18–23 — только предупреждение: они отвергают pa_one adoption (CTE `pr AS (…)`), сохранённый в бою 30.09. Отказ на алиасе в GROUP BY дают все. Версии < 15 не годятся: они не знают `CAST(x, 'T')` и роняют рабочие датасеты |
 | pyyaml, psycopg2-binary | любые | выгрузки Proteus (YAML) и стенд GP на PostgreSQL 16 |
 | terser / eslint / playwright | 5.51.2 / 10.1.0 / 1.56.1 | версии закреплены: с другим terser `pack --check` расходится |
 
@@ -106,8 +106,10 @@ BROWSER=1 bash kit/setup.sh           # ещё и Chromium для kit/sbx (≈15
    «Дошло до SQL: нет» значит, что шаблон отбросил значение своими пределами (AC-14) — это норма.
 
 ```bash
-PY=~/.venvs/proteus-kit/bin/python          # модель 0.3.0 + патч 2.0.1
-PY44=~/.venvs/proteus-sp044/bin/python      # модель 0.4.4 + патч 2.1.3 / 3.0 — гоняйте и её
+PY=~/.venvs/proteus-kit/bin/python          # М1: модель боя 0.4.3 + патч 2.1.0
+PY44=~/.venvs/proteus-sp044/bin/python      # М2: 0.4.4 + патч 2.1.3 / 3.0 — гоняйте и её
+# свои venv (не из setup.sh): PY=<venv с sqlparse 0.4.3>/bin/python, PY44=<venv с 0.4.4>/bin/python;
+# venv с sqlparse 0.3.0 не годится — superset201.py предупредит «модель Superset 2.0, а бой — 2.1.0»
 
 # личный датасет (логин в ключе), колонки — из верхнего SELECT, исполнение на мире стенда
 $PY kit/superset201.py proteus/report.data.sql --user b.kotov --cols auto --run --db stand/.chdb24 --hostile
@@ -301,8 +303,8 @@ SELECT 'O\'K; c' AS t
 - Патч Superset стоит (любая версия 2.0–3.x). Ожидание: две инструкции, ошибка.
 - Патча нет. Ожидание: `t = O'K; c`.
 
-Если первый запрос ответил `2` и `a -- b`, бой работает как второй venv (0.4.4). Тогда модель 0.3.0 нужна только как
-запас.
+Если первый запрос ответил `2` и `a -- b` (ждём этого: Superset 2.1.0 = sqlparse 0.4.3), бой — М1 или М2, обе модели
+остаются; 0.4.3 от 0.4.4 отличит только `server-probe.sh`. Если ошибка — в бою 0.3.x: вернуть модель 0.3.0 третьим venv.
 
 Верхняя граница уже известна: файл 10 DL (≈15 тыс. токенов лексера) 08.10 исполнился в SQL Lab Proteus. SQL Lab 2.0.1
 вырезает комментарии через `sqlparse.format(strip_comments=True)`, и sqlparse 0.5.5 на этом тексте падает «Maximum

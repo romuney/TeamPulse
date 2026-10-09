@@ -493,7 +493,7 @@ Helicopter и выгружается в ClickHouse через `gp_to_click`. Т�
 | Что видно | Вероятная причина | Правило |
 |---|---|---|
 | «Argument … of function arrayMap must be Array. Found Nullable(String)» | таблица выгружена без `array_type_cast=True` | GP-20 |
-| Code 349 / CANNOT_INSERT_NULL на клике | Nullable-колонки выгрузки без `ifNull` в датасете | GP-20, CH-14 (04-clickhouse.md) |
+| Code 349 / CANNOT_INSERT_NULL на клике | Nullable-колонки выгрузки без `ifNull` в датасете | GP-20; CH-14 (04-clickhouse.md) |
 | После поставки пропали параметры, реестр целей, OWNERS | ноут переимпортирован из YAML | GP-05, GP-06 |
 | Ноут упал на «HH · проверки» | стоп-проверка: имя колонки говорит, что сломалось | GP-08 |
 | Ряд съехал на месяц, «обвал» в последнем слоте | источник не обновился, незакрытый слот, нет плотной сетки | GP-08, GP-12 |

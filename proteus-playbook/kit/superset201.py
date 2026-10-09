@@ -713,7 +713,7 @@ def _sqlglot_tokens(text):
 
 
 def lexer_problems(text):
-    """Видят ли sqlparse (0.3.0 + патч) и ClickHouse (sqlglot) строки одинаково, и вырезал ли strip_comments только
+    """Видят ли sqlparse (с патчем Superset) и ClickHouse (sqlglot) строки одинаково, и вырезал ли strip_comments только
     комментарии. → список проблем (пусто — норма). Без sqlglot — ['нет sqlglot'].
     Правила: каждая строка sqlglot — строка sqlparse с теми же границами или целиком внутри имени […] sqlparse
     (T-SQL: sqlparse читает […] одним именем до первой «]»); имя […] кончается на скобке массива; лишних строк нет."""

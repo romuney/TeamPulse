@@ -22,9 +22,10 @@
 
 ```sh
 PB=<путь>/proteus-playbook; KIT=$PB/kit; SK=<путь к adoption>/skills/proteus-echarts-builder   # скилл @ e77d754
-PY=$HOME/.venvs/proteus-kit/bin/python       # М1: sqlparse 0.3.0 + патч 2.0.1, chdb 2.1.1 (kit/setup.sh)
-PY44=$HOME/.venvs/proteus-sp044/bin/python   # М2: sqlparse 0.4.4 + патч 2.1.3 / 3.0
-SG=$HOME/sg/23.17.0,$HOME/sg/25.34.0,$HOME/sg/28.10.0,$HOME/sg/30.0.0   # не «~» после запятой: shell его не раскроет
+PY=$HOME/.venvs/proteus-kit/bin/python       # М1: sqlparse 0.4.3 + патч 2.1.0 (модель боя), chdb 2.1.1 (kit/setup.sh)
+PY44=$HOME/.venvs/proteus-sp044/bin/python   # М2: sqlparse 0.4.4 + патч 2.1.3 / 3.0 (запас)
+# свои venv — те же переменные: PY=<venv с sqlparse 0.4.3>/bin/python, PY44=<venv с 0.4.4>/bin/python
+SG=$HOME/sg/23.17.0,$HOME/sg/25.34.0,$HOME/sg/28.10.0,$HOME/sg/30.0.0   # не «~» после запятой; отказ только в 23.17 — предупреждение
 SP=$HOME/sp/0.5.5,$HOME/sp/0.6.0
 export NODE_PATH=$(npm root -g) PLAYWRIGHT_BROWSERS_PATH=<каталог браузеров>
 D="Поставка — <Отчёт>"; X=proteus/<x>       # папка поставки и основа имён исходников

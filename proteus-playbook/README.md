@@ -1,7 +1,7 @@
 # Proteus Playbook — гайд по бордам Proteus
 
 **Что это.** Единая база практик для тех, кто делает борды (дашборды) в Proteus — корпоративном BI на форке
-Apache Superset 2.0. В Proteus чарты — кастомный JS (`react_sanbbox`) в iframe-песочнице, данные — ClickHouse 24.8,
+Apache Superset 2.1.0 (владелец зовёт его «2.0»). В Proteus чарты — кастомный JS (`react_sanbbox`) в iframe-песочнице, данные — ClickHouse 24.8,
 витрины считаются в Greenplum ноутом Helicopter. Читатели гайда:
 - **агенты** — сессии Claude Code, которые пишут датасеты, чарты, CSS и поставки;
 - **владелец бордов** — он вставляет файлы в боевой Proteus руками и присылает ответы SQL Lab и DevTools.
@@ -82,7 +82,7 @@ cp -r ~/src/TeamPulse/proteus-playbook ~/.claude/skills/proteus-board-playbook
 **Инструменты kit:**
 
 ```bash
-bash proteus-playbook/kit/setup.sh            # два venv на Python 3.12 (sqlparse 0.3.0 и 0.4.4), chdb 2.1.1, node-пакеты
+bash proteus-playbook/kit/setup.sh            # два venv на Python 3.12 (sqlparse 0.4.3 — бой, 0.4.4 — запас), chdb 2.1.1, node-пакеты
 BROWSER=1 bash proteus-playbook/kit/setup.sh  # ещё и Chromium для модели песочницы kit/sbx
 ```
 

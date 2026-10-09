@@ -13,7 +13,8 @@
 #   sqlparse 0.4.3    = Superset 2.1.0 — версия боя (Proteus сообщает 2.1.0, 09.10; requirements/base.txt 2.1.0:
 #                       sqlparse==0.4.3); патч лексера Superset (insert(0), как 2.0.1) ставит kit/superset201.py
 #   jinja2 3.0.3      = Superset 2.1.0 (requirements/base.txt), markupsafe 2.0.1 — так же (ставится на 3.12)
-#   sqlglot 26.33.0   — модель проверки форка «Некорректный SQL запрос» (23–30 дают тот же отказ; < 15 не годятся:
+#   sqlglot 26.33.0   — модель проверки форка «Некорректный SQL запрос» (25–30 — модель; 23 — только предупреждение: отвергает pa_one,
+#                       сохранённый в бою; на алиасе в GROUP BY отказ у всех; < 15 не годятся:
 #                       не знают CAST(x, 'T') и роняют рабочие датасеты); другие версии — pip install --target
 #   pyyaml            — выгрузки Proteus (YAML); psycopg2-binary — стенд GP на PostgreSQL 16
 #   sqlparse 0.4.4    — второй venv: запас на обновление форка до Superset 2.1.3–3.x (патч ставит superset201.py так,

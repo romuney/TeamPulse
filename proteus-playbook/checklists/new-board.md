@@ -28,7 +28,7 @@ checklists/before-delivery.md, после — checklists/after-delivery.md.
 - [ ] Заменяем существующий борд — выгрузка владельца в репозитории: `charts/` (ключ `jsx` — прежний код), `datasets/`,
       `dashboards/` (DV-32). Это оракул доступа (ST-08) и путь отката (DV-26). JSON-метаданные и id чартов — только
       из выгрузки, не угадывать (DV-25).
-- [ ] Стенд: `bash <kit>/setup.sh` — два venv (М1: sqlparse 0.3.0, М2: 0.4.4), chdb 2.1.1, terser 5.51.2, eslint 10.1.0,
+- [ ] Стенд: `bash <kit>/setup.sh` — два venv (М1: sqlparse 0.4.3 — модель боя, М2: 0.4.4 — запас), chdb 2.1.1, terser 5.51.2, eslint 10.1.0,
       playwright 1.56.1. **Готово, когда:** setup печатает `24.8.4.1`, `true`, `262144` (ST-01).
 - [ ] Скилл: клон `romuney/adoption` рядом, коммит `e77d754`; путь и коммит — в NOTES §0 (`<playbook>/templates/
       chart.notes.template.md`) и в CLAUDE.md (CJ-01, PR-18). Скрипты скилла — по полному пути (PR-14).

@@ -592,7 +592,7 @@
 ## Связанные главы
 
 - 01-platform.md — версии, бой и стенд, SQL Lab (запрет слова `system`), время ClickHouse в бою.
-- 02-superset-path.md — путь текста до ClickHouse: Jinja, sqlparse 0.3.0 с патчем, обёртка с GROUP BY, reindent, бюджет
+- 02-superset-path.md — путь текста до ClickHouse: Jinja, sqlparse с патчем Superset (М1 0.4.3 — бой, М2 0.4.4 — запас), обёртка с GROUP BY, reindent, бюджет
   текста, экранирование значений, гейт сохранения.
 - 03-access-cache.md — логин в ключе кэша, общий кэш, строка доступа.
 - 05-dataset.md — форма и вес ответа, роли, пачки, деревья, целостность.
