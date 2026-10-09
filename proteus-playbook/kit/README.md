@@ -126,8 +126,9 @@ $PY kit/superset201.py dataset.sql --template-params '{"days": 90}' --hostile --
 ```
 
 Флаги: `--limit` (лимит строк чарта, 50 000), `--no-groupby` (обёртка без GROUP BY для сравнения), `--settings`
-(можно несколько) или `--matrix` (новый анализатор, старый, новый с `join_use_nulls`/`prefer_column_name_to_alias`/
-`group_by_use_nulls` — CH-03), `--extra-text` (предикат автозаполнения, WHERE/HAVING чарта, RLS — их тоже читает
+(можно несколько; по умолчанию — профиль боя `PROD_SETTINGS`: новый анализатор + `prefer_column_name_to_alias = 1`,
+SQL Lab 09.10; `--settings ''` — голые умолчания chdb) или `--matrix` (профиль боя, новый анализатор, старый, новый с
+`join_use_nulls`/`prefer_column_name_to_alias`/`group_by_use_nulls` — CH-03), `--extra-text` (предикат автозаполнения, WHERE/HAVING чарта, RLS — их тоже читает
 регулярка ключа), `--no-patch` (лексер без патча Superset), `--max-reindent-s`, `--max-key-s`, `--no-escape-dialect` и
 `--no-double-percents` (экран `url_param(escape_result=True)`, см. ниже). `--dump` пишет тексты шагов открытия и текст
 сохранения (`….save.sql`, с `LIMIT 1000`).

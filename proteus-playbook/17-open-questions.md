@@ -156,7 +156,11 @@
 
 ## B. ClickHouse
 
-### OQ-09. Какой профиль ClickHouse в бою: режимы и пределы
+### OQ-09. Какой профиль ClickHouse в бою: режимы и пределы — закрыт 09.10
+- **Ответ (SQL Lab владельца, 09.10):** `24.8.15.1`, анализатор `true`, `max_execution_time` 30, `max_threads` 12,
+  `prefer_column_name_to_alias` **1**, `join_use_nulls` 0, `group_by_use_nulls` 0, `max_query_size` 262 144,
+  `max_ast_elements` 50 000, `max_expanded_ast_elements` 500 000, `max_parser_depth` 1 000, `use_query_cache` 0. Профиль
+  боя — основной режим стенда (F14, CH-03). Ниже — как было спрошено.
 - **Зачем:** Code 215 в бою (adoption 23.09) воспроизводится только при «новый анализатор + `prefer_column_name_to_alias
   = 1`», поэтому в бою, вероятно, `prefer = 1`. Пределы текста запроса сняты только на стенде. Правила: CH-03, CH-28
   (04-clickhouse.md), SP-16 (02-superset-path.md), факты F14 и F15.
@@ -644,7 +648,8 @@ SQL Lab:  1) …   2) …   3) …   4) мой логин / скобки / ош�
 
 | Факт | Что закрыто | Источник |
 |---|---|---|
-| ClickHouse 24.8.15.1, новый анализатор, `max_execution_time` 30 с, `max_threads` 12, `max_memory_usage` 10 ГиБ, кэш результатов выключен | версия и профиль, кроме режимов OQ-09 | SQL Lab владельца, файл 11 DL, 08.10 (F13) |
+| ClickHouse 24.8.15.1, новый анализатор, `max_execution_time` 30 с, `max_threads` 12, `max_memory_usage` 10 ГиБ, кэш результатов выключен | версия и профиль | SQL Lab владельца, файл 11 DL, 08.10 (F13) |
+| `prefer_column_name_to_alias` = 1, `join_use_nulls` = 0, `group_by_use_nulls` = 0, `use_query_cache` = 0; `max_query_size` 262 144, `max_ast_elements` 50 000, `max_expanded_ast_elements` 500 000, `max_parser_depth` 1 000 | режимы и пределы (OQ-09) | SQL Lab владельца, 09.10 (F14, F15) |
 | Источники DL лежат на одном узле (`uniqExact(hostName())` = 1) | распределённость таблиц DL | файл 11 DL, 08.10 |
 | Ответы приходят сжатыми zstd | «есть ли gzip» | DevTools владельца, 07.10 (F20) |
 | Запросы чартов асинхронные: POST 202 → `async_event` → GET `qc-…`; из кэша — POST 200 | «включён ли GLOBAL_ASYNC_QUERIES» | DevTools HRBP, 07.10 (F10) |

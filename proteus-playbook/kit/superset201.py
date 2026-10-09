@@ -32,7 +32,9 @@
     --no-groupby       обёртка без GROUP BY (сравнить; у react_sanbbox metrics=[] → GROUP BY есть)
     --run              исполнить на chdb: текст после пути vs прямой запуск отрендеренного текста
     --db PATH          каталог chdb со стендовыми таблицами (без него — пустая сессия в памяти)
-    --settings 'a=1'   настройки ClickHouse для обоих запусков (можно несколько раз); --matrix — три набора
+    --settings 'a=1'   настройки ClickHouse для обоих запусков (можно несколько раз); по умолчанию — профиль боя
+                       PROD_SETTINGS (новый анализатор + prefer_column_name_to_alias = 1), --settings '' — голые
+                       умолчания chdb; --matrix — четыре набора: бой, новый, старый анализатор, всё *_use_nulls
     --ch-sub 'A=>B'    замена регуляркой перед исполнением на стенде (chdb 2.1.1 без base64Encode:
                        --ch-sub 'base64Encode\\(=>(')
     --hostile          враждебный ввод: значения носителей и параметров адреса с хвостами из HOSTILE
@@ -814,6 +816,16 @@ def ch_version(db=None):
         return 'chdb недоступен: %s' % ex
 
 
+# Профиль ClickHouse боя — SQL Lab владельца 09.10 (version() = 24.8.15.1, getSetting): новый анализатор,
+# prefer_column_name_to_alias = 1, join_use_nulls = 0, group_by_use_nulls = 0, max_query_size 262 144,
+# max_ast_elements 50 000, max_expanded_ast_elements 500 000, max_parser_depth 1 000, use_query_cache 0.
+# У chdb по умолчанию prefer = 0 — поэтому --run исполняет в этом профиле, если --settings не задан.
+PROD_SETTINGS = 'allow_experimental_analyzer = 1, prefer_column_name_to_alias = 1'
+MATRIX_SETTINGS = [PROD_SETTINGS, 'allow_experimental_analyzer = 1', 'allow_experimental_analyzer = 0',
+                   'allow_experimental_analyzer = 1, join_use_nulls = 1, prefer_column_name_to_alias = 1, '
+                   'group_by_use_nulls = 1']
+
+
 def ch_run(sql, db=None, settings='', subs=()):
     """→ (строки dict, секунды, ошибка). subs — [(regex, замена)] для стенда (функций нет в chdb)."""
     for a, b in subs:
@@ -1095,7 +1107,7 @@ def analyze(path, opts):
             renders[v['name']] = r
     # исполнение на chdb
     if opts.get('run'):
-        sets = opts.get('settings') or ['']
+        sets = opts.get('settings') or [PROD_SETTINGS]
         for v in rep['variants']:
             r = renders.get(v['name'])
             if r is None or not r.text:
@@ -1282,8 +1294,8 @@ def main(argv=None):
     ap.add_argument('--hostile', action='store_true', help='варианты с враждебными значениями')
     ap.add_argument('--run', action='store_true', help='исполнить на chdb и сверить с прямым запуском')
     ap.add_argument('--db', default=None, help='каталог chdb стенда')
-    ap.add_argument('--settings', action='append', default=None, help="настройки ClickHouse ('a = 1, b = 0')")
-    ap.add_argument('--matrix', action='store_true', help='три набора настроек: новый, старый анализатор, *_use_nulls')
+    ap.add_argument('--settings', action='append', default=None, help="настройки ClickHouse ('a = 1, b = 0'); по умолчанию — PROD_SETTINGS, '' — умолчания chdb")
+    ap.add_argument('--matrix', action='store_true', help='четыре набора настроек: профиль боя, новый, старый анализатор, всё *_use_nulls')
     ap.add_argument('--ch-sub', action='append', default=[], help="'регулярка=>замена' перед исполнением на стенде")
     ap.add_argument('--extra-text', action='append', default=[],
                     help='ещё текст для регулярки ключа: предикат автозаполнения, WHERE/HAVING чарта, RLS')
@@ -1306,11 +1318,9 @@ def main(argv=None):
     except (ValueError, OSError) as ex:
         print('--filters / --url-params / --template-params: %s' % ex, file=sys.stderr)
         return 2
-    settings = a.settings or ['']
+    settings = a.settings or [PROD_SETTINGS]
     if a.matrix:
-        settings = ['allow_experimental_analyzer = 1', 'allow_experimental_analyzer = 0',
-                    'allow_experimental_analyzer = 1, join_use_nulls = 1, prefer_column_name_to_alias = 1, '
-                    'group_by_use_nulls = 1']
+        settings = list(MATRIX_SETTINGS)
     subs = []
     for s in a.ch_sub:
         if '=>' not in s:
