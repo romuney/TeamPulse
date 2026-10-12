@@ -443,7 +443,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* ===== Итерация 12: таблица слева, визуализация справа ===== */
 .toolbar.slim{margin:-4px 0 10px;min-height:0}
-.split{display:grid;grid-template-columns:minmax(500px,.95fr) 16px minmax(440px,1.05fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
+.split{display:grid;grid-template-columns:minmax(min-content,.7fr) 16px minmax(400px,1.3fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
 .split>.panel{min-height:0;height:100%;display:flex;flex-direction:column}
 .split .panel-h{flex:0 0 auto;min-height:54px}
 .split .panel-b{flex:1;min-height:0}
@@ -475,7 +475,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    1121–1240px рабочая зона вылезала за экран — появлялся горизонтальный скролл
    всей страницы, а правая панель обрезалась. Теперь узкие минимумы включаются
    там, где широкие уже не влезают. */
-@media(max-width:1240px){.split{grid-template-columns:minmax(440px,.95fr) 16px minmax(400px,1.05fr)}}
+@media(max-width:1240px){.split{grid-template-columns:minmax(min-content,.7fr) 16px minmax(380px,1.3fr)}}
 /* Порог 1110, а не 900: две колонки перестают помещаться раньше, чем экран
    становится планшетным. Минимумы 440+400+16 = 856px требуют контента шире
    ~870px, а это ширина окна около 1120. На 901–1120px рабочая зона вылезала
@@ -1278,7 +1278,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Ниже 1240px двум колонкам места уже нет и широкой таблице: она встаёт над
    графиком раньше остальных — тем же приёмом, каким все блоки складываются
    ниже 1120px, и с теми же высотами. */
-.split.wide-l{grid-template-columns:minmax(560px,1.12fr) 16px minmax(440px,.88fr)}
+.split.wide-l{grid-template-columns:minmax(min-content,.9fr) 16px minmax(400px,1.1fr)}
 @media(max-width:1240px){
   .split.wide-l{grid-template-columns:1fr;height:auto}
   .split.wide-l>.panel{height:auto}
@@ -1288,6 +1288,21 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* Колонка имён — 120px минимум, а не 141: имена подразделений и так
    переносятся по словам, а на ноутбуке эти 20px решают, видна ли «К базе». */
 .split-l .ptable.dense th.txt{min-width:120px}
+/* Итерация 32: таблица подразделений уже — около трети рабочей зоны (у широкой
+   таблицы движения и найма — около 45%). Это основа фильтрации, и она видна
+   всегда, но графикам нужно больше места, чем ей. Чтобы в узкой колонке
+   не появлялась горизонтальная прокрутка, ячейки плотнее на любой ширине. */
+.split-l .ptable.dense th,.split-l .ptable.dense td{padding-left:6px;padding-right:6px}
+.split-l .ptable.dense th.txt,.split-l .ptable.dense td.txt{padding-left:var(--pad-cell)}
+/* В узкой колонке поиск стоит в строке заголовка, а не уходит под него: подпись
+   о глубине переносится по словам, поле поиска ужимается до 120px. Иначе шапка
+   панели росла на строку (~40px) и съедала строки таблицы. */
+@media(min-width:1121px){
+  .split-l .panel-h.with-tabs{flex-wrap:nowrap}
+  .split-l .panel-h .h-txt{flex:1 1 auto}
+  .split-l .panel-h .h-txt .sub{white-space:normal}
+  .split-l .panel-h .tsearch{flex:0 1 200px;min-width:120px}
+}
 @media(max-width:1300px){
   .split-l .ptable.dense th,.split-l .ptable.dense td{padding-left:4px;padding-right:4px}
   .split-l .ptable.dense th.txt,.split-l .ptable.dense td.txt{padding-left:var(--pad-cell)}

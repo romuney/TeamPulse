@@ -451,7 +451,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* ===== Итерация 12: таблица слева, визуализация справа ===== */
 .toolbar.slim{margin:-4px 0 10px;min-height:0}
-.split{display:grid;grid-template-columns:minmax(500px,.95fr) 16px minmax(440px,1.05fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
+.split{display:grid;grid-template-columns:minmax(min-content,.7fr) 16px minmax(400px,1.3fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
 .split>.panel{min-height:0;height:100%;display:flex;flex-direction:column}
 .split .panel-h{flex:0 0 auto;min-height:54px}
 .split .panel-b{flex:1;min-height:0}
@@ -483,7 +483,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    1121–1240px рабочая зона вылезала за экран — появлялся горизонтальный скролл
    всей страницы, а правая панель обрезалась. Теперь узкие минимумы включаются
    там, где широкие уже не влезают. */
-@media(max-width:1240px){.split{grid-template-columns:minmax(440px,.95fr) 16px minmax(400px,1.05fr)}}
+@media(max-width:1240px){.split{grid-template-columns:minmax(min-content,.7fr) 16px minmax(380px,1.3fr)}}
 /* Порог 1110, а не 900: две колонки перестают помещаться раньше, чем экран
    становится планшетным. Минимумы 440+400+16 = 856px требуют контента шире
    ~870px, а это ширина окна около 1120. На 901–1120px рабочая зона вылезала
@@ -1286,7 +1286,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Ниже 1240px двум колонкам места уже нет и широкой таблице: она встаёт над
    графиком раньше остальных — тем же приёмом, каким все блоки складываются
    ниже 1120px, и с теми же высотами. */
-.split.wide-l{grid-template-columns:minmax(560px,1.12fr) 16px minmax(440px,.88fr)}
+.split.wide-l{grid-template-columns:minmax(min-content,.9fr) 16px minmax(400px,1.1fr)}
 @media(max-width:1240px){
   .split.wide-l{grid-template-columns:1fr;height:auto}
   .split.wide-l>.panel{height:auto}
@@ -1296,6 +1296,21 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* Колонка имён — 120px минимум, а не 141: имена подразделений и так
    переносятся по словам, а на ноутбуке эти 20px решают, видна ли «К базе». */
 .split-l .ptable.dense th.txt{min-width:120px}
+/* Итерация 32: таблица подразделений уже — около трети рабочей зоны (у широкой
+   таблицы движения и найма — около 45%). Это основа фильтрации, и она видна
+   всегда, но графикам нужно больше места, чем ей. Чтобы в узкой колонке
+   не появлялась горизонтальная прокрутка, ячейки плотнее на любой ширине. */
+.split-l .ptable.dense th,.split-l .ptable.dense td{padding-left:6px;padding-right:6px}
+.split-l .ptable.dense th.txt,.split-l .ptable.dense td.txt{padding-left:var(--pad-cell)}
+/* В узкой колонке поиск стоит в строке заголовка, а не уходит под него: подпись
+   о глубине переносится по словам, поле поиска ужимается до 120px. Иначе шапка
+   панели росла на строку (~40px) и съедала строки таблицы. */
+@media(min-width:1121px){
+  .split-l .panel-h.with-tabs{flex-wrap:nowrap}
+  .split-l .panel-h .h-txt{flex:1 1 auto}
+  .split-l .panel-h .h-txt .sub{white-space:normal}
+  .split-l .panel-h .tsearch{flex:0 1 200px;min-width:120px}
+}
 @media(max-width:1300px){
   .split-l .ptable.dense th,.split-l .ptable.dense td{padding-left:4px;padding-right:4px}
   .split-l .ptable.dense th.txt,.split-l .ptable.dense td.txt{padding-left:var(--pad-cell)}
@@ -4691,9 +4706,9 @@ function openUnitBtn(path,name,label){
 }
 
 /* ---------- Таблица подразделений: показать / скрыть (итерация 32) ----------
-   По умолчанию графики занимают всю ширину: отчёт читают руководители, и первым
-   они смотрят на историю метрики, а не на дерево команд. Таблица включается одним
-   переключателем — свитч с подписью, а не пара иконок «развернуть / свернуть»:
+   Таблица — основа фильтрации и видна по умолчанию; убрать её, чтобы отдать
+   графикам всю ширину, можно одним переключателем — свитч с подписью, а не пара
+   иконок «развернуть / свернуть»:
    по иконке было не понять, что именно развернётся. Переключатель стоит в правом
    углу шапки панели графиков — это место не сдвигается ни в одном режиме.
    shown — видна ли таблица сейчас. */
@@ -5899,13 +5914,14 @@ function renderBlock(S,expanded,mixOpen,view){
      левая колонка становится шире — иначе главная метрика и «К базе» уезжали
      за край панели под горизонтальную прокрутку. */
   const wideL=mets.length+(D.comparable(mainK)||D.kpiFor(mainK,S)?1:0)>=7;
-  /* Таблица подразделений — по выбору (итерация 32): m-charts — графики во всю
-     ширину (по умолчанию), m-both — таблица слева, графики справа; share — доля
+  /* Таблица подразделений — по выбору (итерация 32): m-both — таблица слева,
+     графики справа (по умолчанию: таблица — основа фильтрации), m-charts —
+     графики во всю ширину; share — доля
      таблицы после перетаскивания разделителя (null — раскладка по умолчанию).
      Разметка всегда полная — обе панели и разделитель, — а что видно, решает CSS:
      ниже 1121px (широкой таблице — 1241px) показанная таблица встаёт над графиками. */
   const sp=view&&view.split||{};
-  const mode=sp.mode==='both'?'both':'charts', share=sp.share!=null?sp.share:null;
+  const mode=sp.mode==='charts'?'charts':'both', share=sp.share!=null?sp.share:null;
   h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'"'+
     (share!=null?' style="--split-l:'+(share*100).toFixed(2)+'fr;--split-r:'+((1-share)*100).toFixed(2)+'fr"':'')+'>';
 
@@ -6987,13 +7003,13 @@ const unitBack=keep('unitBack',[]);
 const unitNames=keep('unitNames',{});
 /* поиск по сводной таблице подразделений — тоже состояние показа */
 let tq='';
-/* Ширина колонок рабочей зоны (итерации 30, 32): режим — графики во всю
-   ширину ('charts', по умолчанию) или таблица подразделений слева от них
-   ('both'), доля таблицы после
+/* Ширина колонок рабочей зоны (итерации 30, 32): режим — таблица
+   подразделений слева от графиков ('both', по умолчанию) или графики во всю
+   ширину ('charts'), доля таблицы после
    перетаскивания разделителя (null — раскладка по умолчанию). Один выбор
    на все блоки: «мне нужна таблица» — предпочтение, а не свойство
    вкладки. В ссылку не едет, как и раскрытия. */
-let splitMode='charts', splitShare=null;
+let splitMode='both', splitShare=null;
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -7112,7 +7128,7 @@ function arrive(){
     Object.assign(S,prev,{unit:D.DEFAULT_STATE.unit,paint:D.DEFAULT_STATE.paint,
       itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType});
     const ui=STORE.ui||{};
-    tq=ui.tq||'';splitMode=ui.splitMode==='both'?'both':'charts';splitShare=ui.splitShare!=null?ui.splitShare:null;
+    tq=ui.tq||'';splitMode=ui.splitMode==='charts'?'charts':'both';splitShare=ui.splitShare!=null?ui.splitShare:null;
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;

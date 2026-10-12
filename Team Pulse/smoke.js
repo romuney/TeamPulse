@@ -1028,7 +1028,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     (mv.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[]).filter(c=>/class="spark"/.test(c)).length===7]);
   checks.push(['у широкой сводной таблицы левая колонка шире, а ниже 1240px она встаёт над графиком',
     /class="split wide-l[ "]/.test(mv)&&!/class="split wide-l/.test(A.go('turnover','dynamics'))&&
-    /\.split\.wide-l\{grid-template-columns:minmax\(560px,1\.12fr\)/.test(css)&&
+    /\.split\.wide-l\{grid-template-columns:minmax\(min-content,\.9fr\)/.test(css)&&
     /@media\(max-width:1240px\)\{\.split\.wide-l\{grid-template-columns:1fr;height:auto\}/.test(css)]);
   checks.push(['имя подразделения липкое: широкая таблица прокручивается внутри панели',
     /\.split-l\.ptable\.densetd\.txt\{position:sticky;left:0/.test(css)]);
@@ -1162,9 +1162,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /class="split m-charts"/.test(chs)&&
     /<button class="unit-toggle" data-splitmode="both" role="switch" aria-checked="false"/.test(chs)&&
     /class="panel split-l"/.test(chs)]);
-  checks.push(['таблица подразделений по умолчанию скрыта — на всех вкладках, в том числе после старого «table»',
-    /let splitMode='charts'/.test(appSrc)&&/splitMode=ui\.splitMode==='both'\?'both':'charts'/.test(appSrc)&&
-    /class="split m-charts"/.test(A.split('table',null))]);
+  checks.push(['таблица подразделений по умолчанию видна — основа фильтрации; старое «table» читается как обе колонки',
+    /let splitMode='both'/.test(appSrc)&&/splitMode=ui\.splitMode==='charts'\?'charts':'both'/.test(appSrc)&&
+    /class="split m-both"/.test(A.split('table',null))]);
   const cust=A.split('both',0.62);
   A.go('onepager',null);
   checks.push(['доля после перетаскивания — переменные сетки, separator знает своё значение',
@@ -1172,7 +1172,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /aria-valuenow="62"/.test(cust)]);
   A.split('both',null);
   checks.push(['раскладка колонок: разделитель — третья колонка, минимум 340px, узкий экран не трогаем',
-    /\.split\{display:grid;grid-template-columns:minmax\(500px,\.95fr\)16pxminmax\(440px,1\.05fr\);column-gap:0;row-gap:16px/.test(css)&&
+    /\.split\{display:grid;grid-template-columns:minmax\(min-content,\.7fr\)16pxminmax\(400px,1\.3fr\);column-gap:0;row-gap:16px/.test(css)&&
     /\.split\.custom\{grid-template-columns:minmax\(340px,var\(--split-l\)\)16pxminmax\(340px,var\(--split-r\)\)\}/.test(css)&&
     /\.split-gut\{display:none\}/.test(css)&&
     /@media\(min-width:1121px\)\{\.split>\.split-gut\{display:flex\}/.test(css)&&

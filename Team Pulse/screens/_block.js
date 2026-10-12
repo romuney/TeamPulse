@@ -282,13 +282,14 @@ function renderBlock(S,expanded,mixOpen,view){
      левая колонка становится шире — иначе главная метрика и «К базе» уезжали
      за край панели под горизонтальную прокрутку. */
   const wideL=mets.length+(D.comparable(mainK)||D.kpiFor(mainK,S)?1:0)>=7;
-  /* Таблица подразделений — по выбору (итерация 32): m-charts — графики во всю
-     ширину (по умолчанию), m-both — таблица слева, графики справа; share — доля
+  /* Таблица подразделений — по выбору (итерация 32): m-both — таблица слева,
+     графики справа (по умолчанию: таблица — основа фильтрации), m-charts —
+     графики во всю ширину; share — доля
      таблицы после перетаскивания разделителя (null — раскладка по умолчанию).
      Разметка всегда полная — обе панели и разделитель, — а что видно, решает CSS:
      ниже 1121px (широкой таблице — 1241px) показанная таблица встаёт над графиками. */
   const sp=view&&view.split||{};
-  const mode=sp.mode==='both'?'both':'charts', share=sp.share!=null?sp.share:null;
+  const mode=sp.mode==='charts'?'charts':'both', share=sp.share!=null?sp.share:null;
   h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'"'+
     (share!=null?' style="--split-l:'+(share*100).toFixed(2)+'fr;--split-r:'+((1-share)*100).toFixed(2)+'fr"':'')+'>';
 
