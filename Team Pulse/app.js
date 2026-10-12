@@ -44,12 +44,13 @@ const unitBack=keep('unitBack',[]);
 const unitNames=keep('unitNames',{});
 /* поиск по сводной таблице подразделений — тоже состояние показа */
 let tq='';
-/* Ширина колонок рабочей зоны (итерация 30): режим — обе колонки ('both')
-   или одна во всю ширину ('table' / 'charts'), доля таблицы после
+/* Ширина колонок рабочей зоны (итерации 30, 32): режим — графики во всю
+   ширину ('charts', по умолчанию) или таблица подразделений слева от них
+   ('both'), доля таблицы после
    перетаскивания разделителя (null — раскладка по умолчанию). Один выбор
-   на все блоки: «мне нужно больше таблицы» — предпочтение, а не свойство
+   на все блоки: «мне нужна таблица» — предпочтение, а не свойство
    вкладки. В ссылку не едет, как и раскрытия. */
-let splitMode='both', splitShare=null;
+let splitMode='charts', splitShare=null;
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -168,7 +169,7 @@ function arrive(){
     Object.assign(S,prev,{unit:D.DEFAULT_STATE.unit,paint:D.DEFAULT_STATE.paint,
       itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType});
     const ui=STORE.ui||{};
-    tq=ui.tq||'';splitMode=ui.splitMode||'both';splitShare=ui.splitShare!=null?ui.splitShare:null;
+    tq=ui.tq||'';splitMode=ui.splitMode==='both'?'both':'charts';splitShare=ui.splitShare!=null?ui.splitShare:null;
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;

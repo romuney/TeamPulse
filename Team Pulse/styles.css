@@ -1012,7 +1012,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Правило только для широких экранов: ниже 1120px .split уже разложен в одну
    колонку с height:auto, и фиксировать высоту там нельзя — пороги обязаны совпадать. */
 @media(min-width:1121px){
-  .split{height:clamp(520px,calc(100vh - var(--head-h) - 28px),1280px)}
+  .split{height:clamp(520px,calc(100vh - var(--head-h) - 28px),1040px)}
   .content{padding-bottom:24px}
 }
 
@@ -1379,12 +1379,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    Итерация 30: ширина колонок рабочей зоны (механика HRBP HUB)
    Таблицу и графики разводит разделитель — третья колонка сетки шириной
    в прежний зазор (16px). Его тянут мышью и пальцем, ← → двигают его
-   с клавиатуры, двойной клик возвращает раскладку по умолчанию. Любую
-   панель можно развернуть во всю ширину — вторая сворачивается в полосу
-   со своим именем. Всё это — только пока колонки стоят рядом: ниже 1121px
+   с клавиатуры, двойной клик возвращает раскладку по умолчанию. Всё это —
+   только пока колонки стоят рядом: ниже 1121px
    (широкой таблице — 1241px) они и так одна под другой.
    ========================================================================== */
-.split-gut,.split-rail{display:none}
+.split-gut{display:none}
 .split-gut{position:relative;align-self:stretch;justify-content:center;align-items:center;
   cursor:col-resize;outline:none;touch-action:none}
 .split-gut i{display:block;width:4px;height:44px;border-radius:var(--r-pill);background:var(--line);
@@ -1394,43 +1393,40 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .split-drag,.split-drag *{cursor:col-resize!important;user-select:none!important}
 .split-drag .tip{visibility:hidden}
 
-.split-btn{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:30px;height:30px;
-  padding:0;border:0;border-radius:var(--r3);background:transparent;color:var(--muted);cursor:pointer}
-.split-btn:hover{background:#eef1f6;color:var(--ink)}
-.split-btn.on{color:var(--act)}
-/* Кнопка — в правом углу блока заголовка, на своём поле: блок растягивается
-   на свободное место строки, поэтому кнопка стоит у края панели, когда поиск
-   или вкладки ушли на вторую строку, и перед ними — когда поместились рядом. */
-.panel-h .h-txt.has-btn{position:relative;flex:1 1 auto;padding-right:38px}
-.panel-h .h-txt>.split-btn{position:absolute;right:0;top:50%;transform:translateY(-50%)}
+/* Итерация 32: таблица подразделений — по переключателю, по умолчанию скрыта.
+   Свитч с подписью в правом углу шапки панели графиков: это место не сдвигается
+   ни в одном режиме. Поле под него — у блока заголовка, как раньше у иконки. */
+.unit-toggle{display:inline-flex;align-items:center;gap:var(--s4);flex:0 0 auto;height:30px;
+  padding:0 var(--s5) 0 var(--s4);border:1px solid var(--line);border-radius:var(--r-pill);background:#fff;
+  color:var(--ink2);font:inherit;font-size:var(--fs-note);font-weight:var(--fw-body);cursor:pointer;white-space:nowrap}
+.unit-toggle:hover{border-color:var(--act-line);color:var(--ink)}
+.unit-toggle:focus-visible{outline:2px solid var(--act);outline-offset:2px}
+.ut-sw{position:relative;width:26px;height:16px;border-radius:var(--r-pill);background:var(--muted2);transition:background .15s}
+.ut-sw i{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.unit-toggle.on .ut-sw{background:var(--act)}
+.unit-toggle.on .ut-sw i{transform:translateX(10px)}
+.unit-toggle.on{color:var(--act-ink);border-color:var(--act-line);background:var(--blue-bg)}
+.panel-h .h-txt.has-btn{position:relative;flex:1 1 auto;padding-right:150px}
+.panel-h .h-txt>.unit-toggle{position:absolute;right:0;top:50%;transform:translateY(-50%)}
 
-.split-rail{flex-direction:column;align-items:center;gap:var(--s4);width:40px;padding:var(--s6) 0;
-  border:1px solid var(--line);border-radius:var(--radius);background:var(--card);color:var(--muted);
-  font-size:var(--fs-note);cursor:pointer;box-shadow:var(--shadow)}
-.split-rail:hover{color:var(--act);border-color:var(--act-line);background:var(--blue-bg)}
-.split-rail span{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap}
-.split-rail i{font-style:normal;font-size:11px}
-
+/* графики во всю ширину — на любой ширине окна: таблица и разделитель не видны */
+.split.m-charts{grid-template-columns:minmax(0,1fr);column-gap:0}
+.split.m-charts>.split-l,.split.m-charts>.split-gut{display:none}
 @media(min-width:1121px){
   .split>.split-gut{display:flex}
   /* доля после перетаскивания; у каждой колонки остаётся минимум 340px */
   .split.custom{grid-template-columns:minmax(340px,var(--split-l)) 16px minmax(340px,var(--split-r))}
-  .split.m-table{grid-template-columns:minmax(0,1fr) 40px;column-gap:16px}
-  .split.m-charts{grid-template-columns:40px minmax(0,1fr);column-gap:16px}
-  .split.m-table>.split-r,.split.m-table>.split-gut,
-  .split.m-charts>.split-l,.split.m-charts>.split-gut{display:none}
-  .split.m-table>.split-rail.r,.split.m-charts>.split-rail.l{display:flex}
+  .split.m-charts.m-charts{grid-template-columns:minmax(0,1fr)}
+  .split.m-charts>.split-gut{display:none}
 }
-/* широкая таблица стоит над графиком до 1240px — там раскладку не трогаем */
+/* широкая таблица стоит над графиком до 1240px — там разделитель не нужен */
 @media(min-width:1121px) and (max-width:1240px){
   .split.wide-l.wide-l{grid-template-columns:1fr;column-gap:0}
-  .split.wide-l.wide-l>.split-l,.split.wide-l.wide-l>.split-r{display:flex}
-  .split.wide-l.wide-l>.split-gut,.split.wide-l.wide-l>.split-rail{display:none}
+  .split.wide-l.wide-l>.split-gut{display:none}
 }
-/* одна колонка — кнопкам «во всю ширину» нечего делать, и поле под них не нужно */
-@media(max-width:1120px){.split-btn{display:none}.panel-h .h-txt.has-btn{padding-right:0}}
-@media(min-width:1121px) and (max-width:1240px){.split.wide-l .split-btn{display:none}
-  .split.wide-l .panel-h .h-txt.has-btn{padding-right:0}}
+@media(max-width:480px){.panel-h .h-txt.has-btn{padding-right:0}
+  .panel-h .h-txt>.unit-toggle{position:static;transform:none;margin-top:var(--s4);align-self:flex-start}}
 
 /* ===== Итерация 31: пробник Proteus ==========================================
    Метрика или разбивка без источника — заглушка на генераторе, и это сказано у
@@ -1462,3 +1458,27 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .plan-t th,.plan-t td{text-align:left;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line2);vertical-align:top}
 .plan-t th{font-size:var(--fs-cap);font-weight:var(--fw-bold);color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
 .plan-t td:first-child{font-weight:var(--fw-bold);white-space:nowrap}
+
+/* ============================================================================
+   Итерация 32: максимальная ширина борда (12.10.2026)
+
+   В офисе отчёт открывают на широкоформатных мониторах (2560 и шире), и
+   растянутый на всю ширину борд читается плохо: строка таблицы и ось графика
+   уходят за поле зрения, столбики расползаются. Поэтому весь каркас — навигация
+   и тело — шире --shell не растёт и стоит по центру, как страница сайта.
+   Белая полоса шапки остаётся во всю ширину окна, а её содержимое выровнено
+   по краям каркаса. 1760 = навигация 236 + контент ~1470: на этой ширине
+   полоса KPI ещё встаёт в один ряд, а 12 месяцев графика читаются без поворота
+   головы.
+   ========================================================================== */
+:root{--shell:1760px}
+@media(min-width:781px){
+  .apphead-top{padding-left:max(22px,calc((100% - var(--shell))/2 + 22px));
+    padding-right:max(22px,calc((100% - var(--shell))/2 + 22px))}
+  .layout{max-width:var(--shell);margin:0 auto;width:100%}
+}
+@media(min-width:1761px){
+  .nav{border-left:1px solid var(--line)}
+  .main-col{border-right:1px solid var(--line)}
+  .pulse-panel{left:calc((100vw - var(--shell))/2 + 244px)}
+}

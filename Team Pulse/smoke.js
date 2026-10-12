@@ -160,6 +160,7 @@ checks.push(['кастомные тултипы есть на каждом эк�
 
 /* 9. светофор: два цвета плюс серый, жёлтого нет нигде */
 const css=fs.readFileSync(path.join(dir,'styles.css'),'utf8').replace(/\s+/g,'');
+const appSrc=fs.readFileSync(path.join(dir,'app.js'),'utf8');
 checks.push(['в светофоре нет жёлтого: stateColor(warn) серый',
   G.stateColor('warn')===G.C_FLAT&&G.stateColor('good')!==G.C_FLAT]);
 checks.push(['жёлтого нет в графиках и легендах отчёта',
@@ -1152,19 +1153,18 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['между таблицей и графиками — разделитель: separator с клавиатурой и подсказкой',
     /<div class="split-gut" data-split="1" role="separator" aria-orientation="vertical"[^>]*tabindex="0"/.test(both)&&
     /class="split m-both"/.test(both)&&!/class="split[^"]* custom"/.test(both)]);
-  checks.push(['кнопка «во всю ширину» — в углу заголовка панели, не в ряду поиска и вкладок',
-    /<div class="h-txt has-btn"><span>Подразделения<\/span>[\s\S]*?<button class="split-btn" data-splitmode="table"[\s\S]*?<\/div><label class="tsearch">/.test(both)&&
-    /\.panel-h\.h-txt>\.split-btn\{position:absolute;right:0/.test(css)]);
-  checks.push(['у обеих панелей — «во всю ширину», полосы свёрнутых панелей подписаны',
-    /data-splitmode="table" aria-label="Подразделения во всю ширину"/.test(both)&&
-    /data-splitmode="charts" aria-label="Отток и текучесть во всю ширину"/.test(A.go('turnover','dynamics'))&&
-    /<button class="split-rail l" data-splitmode="both" aria-label="Показать: Подразделения"/.test(both)]);
-  const tbl=A.split('table',null);
-  checks.push(['таблица во всю ширину: кнопка возвращает две колонки, графики — полосой справа',
-    /class="split m-table"/.test(tbl)&&/<button class="split-btn on" data-splitmode="both" aria-label="Вернуть две колонки"/.test(tbl)&&
-    /<button class="split-rail r" data-splitmode="both"/.test(tbl)]);
-  checks.push(['графики во всю ширину — обратный режим',
-    /class="split m-charts"/.test(A.split('charts',null))]);
+  checks.push(['переключатель таблицы — свитч с подписью в углу шапки панели графиков, иконок «во всю ширину» нет',
+    /<div class="h-txt has-btn"><span>Отток и текучесть по месяцам<\/span>[\s\S]*?<button class="unit-toggle on" data-splitmode="charts" role="switch" aria-checked="true"[\s\S]*?<span class="ut-l">Подразделения<\/span><\/button><\/div>/.test(both)&&
+    /\.panel-h\.h-txt>\.unit-toggle\{position:absolute;right:0/.test(css)&&
+    !/split-btn|split-rail|data-splitmode="table"/.test(both)]);
+  const chs=A.split('charts',null);
+  checks.push(['графики во всю ширину: переключатель предлагает показать таблицу, разметка таблицы на месте',
+    /class="split m-charts"/.test(chs)&&
+    /<button class="unit-toggle" data-splitmode="both" role="switch" aria-checked="false"/.test(chs)&&
+    /class="panel split-l"/.test(chs)]);
+  checks.push(['таблица подразделений по умолчанию скрыта — на всех вкладках, в том числе после старого «table»',
+    /let splitMode='charts'/.test(appSrc)&&/splitMode=ui\.splitMode==='both'\?'both':'charts'/.test(appSrc)&&
+    /class="split m-charts"/.test(A.split('table',null))]);
   const cust=A.split('both',0.62);
   A.go('onepager',null);
   checks.push(['доля после перетаскивания — переменные сетки, separator знает своё значение',
@@ -1174,10 +1174,13 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['раскладка колонок: разделитель — третья колонка, минимум 340px, узкий экран не трогаем',
     /\.split\{display:grid;grid-template-columns:minmax\(500px,\.95fr\)16pxminmax\(440px,1\.05fr\);column-gap:0;row-gap:16px/.test(css)&&
     /\.split\.custom\{grid-template-columns:minmax\(340px,var\(--split-l\)\)16pxminmax\(340px,var\(--split-r\)\)\}/.test(css)&&
-    /\.split-gut,\.split-rail\{display:none\}/.test(css)&&
+    /\.split-gut\{display:none\}/.test(css)&&
     /@media\(min-width:1121px\)\{\.split>\.split-gut\{display:flex\}/.test(css)&&
-    /@media\(max-width:1120px\)\{\.split-btn\{display:none\}/.test(css)&&
+    /\.split\.m-charts>\.split-l,\.split\.m-charts>\.split-gut\{display:none\}/.test(css)&&
     /\.split\.wide-l\.wide-l\{grid-template-columns:1fr;column-gap:0\}/.test(css)]);
+  checks.push(['каркас борда не шире --shell и стоит по центру, шапка выровнена по его краям',
+    /--shell:1760px/.test(css)&&/\.layout\{max-width:var\(--shell\);margin:0auto/.test(css)&&
+    /\.apphead-top\{padding-left:max\(22px,calc\(\(100%-var\(--shell\)\)\/2\+22px\)\)/.test(css)]);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

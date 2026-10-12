@@ -146,34 +146,21 @@ function openUnitBtn(path,name,label){
       note:'Вернуться — «← Назад» или путь над отчётом.'})+'>'+icoOpen()+(label?esc(label):'')+'</button>';
 }
 
-/* ---------- Ширина колонок рабочей зоны (итерация 30, механика HRBP HUB) ----------
-   Таблицу и графики можно развести иначе: потянуть разделитель между ними
-   или развернуть одну панель во всю ширину. Свёрнутая панель не исчезает —
-   остаётся узкой полосой со своим именем, клик по ней возвращает обе колонки.
-   side — что разворачиваем: 'table' (таблица подразделений) или 'charts'. */
-function icoExpand(){
-  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
-    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg>';
-}
-function icoShrink(){
-  return '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" '+
-    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7"/></svg>';
-}
-function splitBtn(side,mode,name){
-  const wide=mode===side;
-  const lbl=wide?'Вернуть две колонки':name+' во всю ширину';
-  return '<button class="split-btn'+(wide?' on':'')+'" data-splitmode="'+(wide?'both':side)+'" aria-label="'+esc(lbl)+'"'+
-    tipAttr({title:lbl,text:wide?'Таблица подразделений слева, содержимое вкладки справа.'
-      :(side==='table'?'Правая панель':'Таблица подразделений')+' свернётся в полосу у края — клик по ней вернёт обе колонки.',
-      note:'Ширину колонок можно и тянуть — за разделитель между ними; двойной клик возвращает как было.'})+'>'+
-    (wide?icoShrink():icoExpand())+'</button>';
-}
-/* Свёрнутая панель — полоса с именем: что там лежит, видно и без клика.
-   pos — у какого края стоит полоса: 'l' (слева) или 'r' (справа). */
-function splitRail(pos,label){
-  return '<button class="split-rail '+pos+'" data-splitmode="both" aria-label="Показать: '+esc(label)+'"'+
-    tipAttr({title:label,text:'Вернуть две колонки: таблица слева, графики справа.'})+
-    '><i aria-hidden="true">'+(pos==='l'?'▸':'◂')+'</i><span>'+esc(label)+'</span></button>';
+/* ---------- Таблица подразделений: показать / скрыть (итерация 32) ----------
+   По умолчанию графики занимают всю ширину: отчёт читают руководители, и первым
+   они смотрят на историю метрики, а не на дерево команд. Таблица включается одним
+   переключателем — свитч с подписью, а не пара иконок «развернуть / свернуть»:
+   по иконке было не понять, что именно развернётся. Переключатель стоит в правом
+   углу шапки панели графиков — это место не сдвигается ни в одном режиме.
+   shown — видна ли таблица сейчас. */
+function unitToggle(shown){
+  const lbl=shown?'Скрыть таблицу подразделений':'Показать таблицу подразделений';
+  return '<button class="unit-toggle'+(shown?' on':'')+'" data-splitmode="'+(shown?'charts':'both')+'"'+
+    ' role="switch" aria-checked="'+(shown?'true':'false')+'" aria-label="'+lbl+'"'+
+    tipAttr({title:lbl,text:shown?'Графики снова займут всю ширину.'
+      :'Слева встанет таблица подразделений: клик по строке покажет графики этого подразделения.',
+      note:shown?'Ширину колонок можно тянуть за разделитель; двойной клик — как было.':''})+
+    '><span class="ut-sw" aria-hidden="true"><i></i></span><span class="ut-l">Подразделения</span></button>';
 }
 /* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
    его с клавиатуры, двойной клик возвращает ширину по умолчанию. */
@@ -776,5 +763,5 @@ function planTable(rows){
 
 window.TPUI={demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
-  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,splitBtn,splitRail,splitGut};
+  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
