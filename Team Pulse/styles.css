@@ -1542,11 +1542,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-main>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
 .st-main>.tbl-note{margin-top:0}
 .st-main>.st-head+.dyn-switch{margin-top:calc(var(--s2) - var(--chart-gap) + var(--s6))}
-/* Активный шаг — всегда целиком (своей шириной), остальные делят остаток и
-   ужимаются многоточием, но не до одного номера: «непонятно, что значит
-   2, 3, 4, 5» (заказчик, 12.10). Полный вопрос и ответ — в подсказке шага. */
-.st-step.on{flex:0 0 auto;max-width:64%}
-.st-step.on .st-q,.st-step.on .st-s{overflow:visible}
+/* Шаги — равной ширины в любом состоянии (правки 12.10, второй заход): активный
+   не растёт и не сжимается — выбор шага меняет только фон, тень и вес подписи,
+   а не геометрию ряда. Не помещается — многоточие; полный вопрос и ответ
+   в подсказке шага. Раньше активный стоял «своей шириной» и с коротким
+   вопросом выходил уже соседей. */
 .st-rail{flex:none;display:flex;flex-direction:column;gap:var(--s8);padding-top:var(--s6);border-top:1px solid var(--line2)}
 .st-act-in{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3) var(--s5);margin-top:var(--s5);padding:var(--s4) var(--s6);
   border-radius:var(--r3);background:var(--blue-bg);font-size:var(--fs-body);color:var(--ink);line-height:1.4}
@@ -1589,7 +1589,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 }
 @media(max-width:780px){
   .st-steps{overflow-x:auto;scrollbar-width:none}
-  .st-step{flex:0 0 auto;max-width:200px}
+  .st-step{flex:0 0 168px}
 }
 
 /* ============================================================================
@@ -1667,3 +1667,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-act-in .btn{margin-left:auto}
 .st-steps{padding:var(--s3)}
 .st-step{padding:var(--s4) var(--s6) var(--s4) var(--s5)}
+
+/* Воздух под последним графиком или таблицей главы (правки 12.10): содержимое
+   главы упиралось в нижний край панели. */
+.st-main{padding-bottom:var(--s8)}
