@@ -673,6 +673,12 @@ on(document,'click',e=>{
   }
   const mr=t.closest('.mrow');
   if(mr){const k=mr.dataset.metric;openRows.has(k)?openRows.delete(k):openRows.add(k);render(true);return}
+  /* история (итерация 32): «Где сосредоточено» и «Показать «X»» выбирают
+     подразделение так же, как клик по строке сводной таблицы — графики главы
+     перестраиваются по нему. Повторный клик выбор не снимает: кнопка зовёт
+     показать, а не переключить. */
+  const sn=t.closest('[data-selnode]');
+  if(sn&&sn.dataset.selnode){S.selNode=sn.dataset.selnode;render(true);return}
   const ur=t.closest('.urow');
   if(ur&&ur.dataset.node){S.selNode=S.selNode===ur.dataset.node?null:ur.dataset.node;render(true);return}
 

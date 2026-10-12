@@ -25,7 +25,7 @@
    ========================================================================== */
 (function(){
 'use strict';
-const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, INS=window.TPINSIGHTS;
+const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, INS=window.TPINSIGHTS, STY=window.TPSTORY;
 const esc=U.esc;
 
 const blocks={};
@@ -129,13 +129,17 @@ function dynWrap(ctx,rollHtml,items){
    как тоже календарный — называем окно прямо в заголовке. */
 function winTitle(S,title){return S.dyn==='yoy'?title+' · 12 мес, '+D.PERIOD_LABEL:title}
 function metricLine(key,lp,bl,S,opt){
+  /* акценты истории (ann) — индексы скользящего окна; у полотна «год к году»
+     ось календарная, поэтому туда они не едут */
   if(S.dyn==='yoy'&&!(opt&&opt.noSwitch))
     return U.dynSwitch('yoy')+yoyChart(key,lp,bl,S,Object.assign({},opt||{},
-      {title:(opt&&opt.title?opt.title+' · ':'')+'год к году'}));
+      {title:(opt&&opt.title?opt.title+' · ':'')+'год к году',ann:null}));
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
   return (opt&&opt.noSwitch?'':U.dynSwitch('roll'))+G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
+    /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
+       базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
     Object.assign({legend:cmp?[{name:selLabel(S),color:G.C_LINE},{name:bench,color:G.C_BENCH,dash:true}]:null,
-      benchName:bench,kpi:kpi,h:300,fill:true},opt||{}));
+      benchName:bench,kpi:kpi,h:300,fill:true,gap:cmp},opt||{}));
 }
 
 /* Спарклайн в карточке KPI блока (рекомендация бизнес-анализа: динамика
@@ -374,15 +378,29 @@ function renderBlock(S,expanded,mixOpen,view){
     tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'}),
     body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share);
 
-  /* 5b · правая панель — содержимое блока */
+  /* 5b · правая панель — история блока по главам (итерация 32, концепция B).
+     Глава = под-вкладка. TPSTORY считает по выбранному узлу вопрос, ответ и
+     сигнал каждой главы (степпер), вывод и факты текущей главы и что подписать
+     на её графиках (ctx.ann — экраны передают это в опции графиков). */
   const ctx={S,b,sub:S.subTab,lp:rowLeaves(sel,S),rl,bl,rows:baseRows,root,sel,
     mixOpen:mixOpen||new Set(),benchLabel:D.benchmarkLabel(S)};
+  const bookC=STY.book(b.key,mod.subTabs,S.subTab,{S,lp:ctx.lp,bl,sel,bench:ctx.benchLabel},
+    k=>!!demoNoteFor(b.key,k));
+  const ch=bookC.cur;
+  ctx.ann=ch.ann||{};
+  const body=U.story({
+    steps:U.chapters(bookC.chapters,S.subTab),
+    head:U.storyHead(ch.head,ch.lede,ch.act),
+    main:demoNoteFor(b.key,S.subTab)+mod.view(ctx),
+    rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act,
+      next:bookC.next?{key:bookC.next.key,q:bookC.next.q}:null})});
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
-    subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть юнит')):' · всё подразделение'),
+    subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть юнит')):' · всё подразделение')+
+      (bookC.chapters.length>1?' · глава '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
     hBtn:U.unitToggle(mode==='both'),
-    tabs:U.subTabs(mod.subTabs,S.subTab),body:demoNoteFor(b.key,S.subTab)+mod.view(ctx)});
+    body:body,bodyCls:'st-on'});
 
   return h+'</div>';
 }

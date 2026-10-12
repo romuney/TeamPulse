@@ -42,7 +42,7 @@ SC.blocks.office={
     :sub==='dynamics'?'Посещаемость офиса против базы'
     :'Когда люди приходят в офис'},
   view(ctx){
-    if(ctx.sub==='dynamics')return SC.metricLine('office_att',ctx.lp,ctx.bl,ctx.S);
+    if(ctx.sub==='dynamics')return SC.metricLine('office_att',ctx.lp,ctx.bl,ctx.S,{ann:ctx.ann.office_att});
 
     /* Таблицы посещаемости — проценты: доля процента в сумме процентов ничего
        не значит, поэтому ни колонки «Доля», ни строки ИТОГО у них нет. */
@@ -78,7 +78,7 @@ SC.blocks.office={
       /* Человеко-дни, а не люди: один сотрудник за месяц может и прийти без
          брони, и не прийти по брони. Нарушения — две нижние строки. */
       return SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,
-          {h:250,fill:false,title:'Нарушения бронирования, %'})+
+          {h:250,fill:false,title:'Нарушения бронирования, %',ann:ctx.ann.booking_viol})+
         U.btGroup({cap:'Бронирования и посещения',capSub:D.CMP.cur+', человеко-дни',head:'',
           valueHead:'Дней',metricKey:'hc_total',compact:true,items:[
           {name:'Бронь и приход',value:bk.ok,color:G.C_OFFICE},

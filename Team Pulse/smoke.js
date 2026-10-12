@@ -32,7 +32,7 @@ global.setTimeout=global.setTimeout;global.clearTimeout=global.clearTimeout;
 global.localStorage={getItem(){return'1'},setItem(){}};
 
 /* порядок как в index.html */
-['data.js','draw.js','ui.js','insights.js',
+['data.js','draw.js','ui.js','insights.js','story.js',
  'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js',
  'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js',
  'screens/onepager.js'].forEach(f=>require(path.join(dir,f)));
@@ -916,7 +916,8 @@ checks.push(['веса 800 в отчёте не осталось',!/font-weight:
   checks.push(['активная вкладка жирная, ширина под жирную подпись зарезервирована',
     /\.sub-tab\.active\{[^}]*font-weight:var\(--fw-bold\)/.test(css)&&
     /\.sub-tab::after,\.dyn-switchbutton::after\{content:attr\(data-text\)/.test(css)&&
-    /class="sub-tab[^"]*" data-subtab="[^"]+" data-text="/.test(allHtml)]);
+    /class="(sub-tab|st-step)[^"]*" data-subtab="[^"]+" data-text="/.test(allHtml)&&
+    /\.st-step\.on\.st-q\{font-weight:var\(--fw-bold\)\}/.test(css)]);
 })();
 checks.push(['числа и имена строк — обычным, главное число и ИТОГО — жирным',
   /\.ptabletd\{[^}]*font-weight:var\(--fw-body\)/.test(css)&&
@@ -1181,6 +1182,63 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['каркас борда не шире --shell и стоит по центру, шапка выровнена по его краям',
     /--shell:1760px/.test(css)&&/\.layout\{max-width:var\(--shell\);margin:0auto/.test(css)&&
     /\.apphead-top\{padding-left:max\(22px,calc\(\(100%-var\(--shell\)\)\/2\+22px\)\)/.test(css)]);
+})();
+
+/* ============================================================================
+   Итерация 32: история по главам. Правая панель — степпер глав, заголовок-вывод,
+   колонка «Что важно / Где сосредоточено / Что сделать / Дальше»; тексты считает
+   story.js из тех же рядов, что рисуют графики.
+   ========================================================================== */
+(function(){
+  const STY=window.TPSTORY;
+  A.home();
+  /* каждая глава каждого блока считается без исключений — на отборе по
+     умолчанию, на одной команде и на подразделении без людей в отборе */
+  const st0=D.DEFAULT_STATE;
+  const team=D.NODES.find(n=>D.childrenOf(n.path).length===0&&D.leavesUnder(n.path).length);
+  const probes=[{sel:st0.unit},{sel:team.path}];
+  let thrown=[], noHead=[];
+  probes.forEach(pr=>{
+    const S=Object.assign({},st0);
+    const c={S:S,lp:D.leavesUnder(pr.sel).map(l=>l.path).filter(p=>D.leafPasses(p,S)),
+      bl:D.benchmarkLeaves(S),sel:pr.sel,bench:D.benchmarkLabel(S)};
+    Object.keys(STY.CH).forEach(bk=>Object.keys(STY.CH[bk]).forEach(k=>{
+      try{const r=STY.CH[bk][k](c)||{};if(!r.head&&k!=='custom'&&pr.sel===st0.unit)noHead.push(bk+'/'+k)}
+      catch(e){thrown.push(bk+'/'+k+': '+e.message)}
+    }));
+  });
+  if(thrown.length)console.log('    главы с ошибкой:',thrown.join('; '));
+  if(noHead.length)console.log('    главы без вывода:',noHead.join('; '));
+  checks.push(['история: каждая глава каждого блока считается без ошибок и с выводом',
+    !thrown.length&&!noHead.length]);
+  /* у каждой под-вкладки — своя глава с вопросом */
+  const qMiss=D.BLOCKS.flatMap(b=>SC.blocks[b.key].subTabs.filter(t=>!STY.Q[b.key]||!STY.Q[b.key][t[0]]).map(t=>b.key+'/'+t[0]));
+  checks.push(['история: у каждой под-вкладки есть вопрос главы',!qMiss.length]);
+  /* экран: степпер на все главы, текущая отмечена, вывод и колонка на месте */
+  const to=A.go('turnover','dynamics');
+  const nSteps=(to.match(/class="st-step[^"]*" data-subtab=/g)||[]).length;
+  checks.push(['история: степпер на все главы блока, текущая отмечена, «глава 1 из 3» в шапке',
+    nSteps===SC.blocks.turnover.subTabs.length&&/class="st-step on" data-subtab="dynamics"/.test(to)&&
+    /глава 1 из 3/.test(to)&&/<div class="st-head"><h3>/.test(to)&&/<aside class="st-rail">/.test(to)&&
+    /class="st-next" data-subtab="reasons"/.test(to)]);
+  /* цифры вывода — те же, что на графике */
+  const rl=D.reportLeaves(st0), n12=D.aggregate(rl,'attrition').reduce((a,b)=>a+b,0);
+  checks.push(['история: число уходов в выводе сходится с суммой баров графика',
+    to.indexOf('<b>'+D.fmtInt(n12)+'\u00a0')>=0]);
+  /* акценты на графике: заметка «пик года», остальные бары приглушены */
+  const att=D.aggregate(rl,'attrition');
+  checks.push(['история: пик подписан на графике, прочие месяцы приглушены, текущий — полным тоном',
+    />пик года<\/text>/.test(to)&&/fill-opacity="\.38"/.test(to)]);
+  /* разрыв с базой залит светофором хотя бы на одной главе */
+  checks.push(['история: разрыв линии с базой залит цветом светофора',/class="gapf"/.test(allHtml)]);
+  /* палитра A: одиночные метрики — кобальтом, цвет только у потоков */
+  checks.push(['палитра «смысловая»: одиночные метрики — кобальтом, потоки — насыщенными тонами',
+    G.C_VAC===G.C_LINE&&G.C_UNDER===G.C_LINE&&G.C_LOWPERF===G.C_LINE&&G.C_AI===G.C_LINE&&
+    G.C_HIRE==='#14A38B'&&G.C_FIRE==='#8A4FD8']);
+  /* жирное в тексте истории собирается только через richText — без сырой разметки */
+  checks.push(['история: текст экранируется, жирное — только через **…**',
+    U.richText('a<b>**x**')==='a&lt;b&gt;<b>x</b>']);
+  A.go('onepager',null);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

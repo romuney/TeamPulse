@@ -51,13 +51,21 @@ const C_LINE='#245FD4', C_BENCH='#9aa0ac';
 /* светофор — гамма пилюль. C_FLAT работает и на «без оценки», и на «на уровне» */
 const C_GREEN='#80cf9a', C_RED='#ef8c8c', C_FLAT='#c7c8cc';
 
-/* потоки людей */
-const C_HIRE='#97dece',      /* найм, приход */
-      C_HIRE_D='#0ea293',    /* найм, насыщенный тон */
-      C_HIRE_I='#009dae',    /* внутренний найм */
-      C_FIRE='#ac87c5',      /* увольнение, уход */
-      C_TR_IN='#85cdfd',     /* перевод внутрь */
-      C_TR_OUT='#3c84ab',    /* перевод наружу */
+/* потоки людей. Итерация 32 — палитра «смысловая» (вариант A, выбор заказчика):
+   пастельные тона читались «блёкло», и валидатор палитры это подтвердил — четыре
+   из семи прежних цветов были ниже порога насыщенности (читаются как серые),
+   а вакансии и уход почти не различались (ΔE 11,9 при пороге 15). Теперь
+   цвет кодирует смысл, а не номер метрики: одиночная метрика — кобальтом
+   C_LINE (эталон, не меняется), цвет есть только у потоков людей. Набор
+   кобальт · найм · уход · переводы проходит все проверки (насыщенность,
+   светлота, различимость в т. ч. при дальтонизме); контраст голубого перевода
+   ниже 3:1, поэтому его значения подписаны всегда. */
+const C_HIRE='#14A38B',      /* найм, приход */
+      C_HIRE_D='#0E8A74',    /* найм, насыщенный тон */
+      C_HIRE_I='#0E95C7',    /* внутренний найм */
+      C_FIRE='#8A4FD8',      /* увольнение, уход */
+      C_TR_IN='#2E9BE0',     /* перевод внутрь */
+      C_TR_OUT='#2448A8',    /* перевод наружу */
       C_CNT='#c7c8cc',       /* численность, итоги */
       C_OTHER='#686d76';     /* прочее */
 const C_IN=C_HIRE, C_OUT=C_FIRE, C_TOTAL=C_CNT;   /* старые имена — для экранов */
@@ -65,16 +73,20 @@ const C_IN=C_HIRE, C_OUT=C_FIRE, C_TOTAL=C_CNT;   /* старые имена —
 /* Цвета отдельных метрик. Раньше они стояли литералами в screens/*.js —
    это была третья палитра помимо :root и этого файла, и при смене оттенка
    приходилось искать по всем экранам. Контроль: grep по screens/*.js — пусто. */
-const C_VAC='#7fb0c8',        /* открытые вакансии */
-      C_UNDER='#c08a3e',      /* недоработчики */
-      C_LOWPERF='#b4576f',    /* лоу-перформеры */
-      C_OFFICE='#5f86c2',     /* посещаемость офиса в календаре */
-      C_REGRET='#e8918f',     /* нежелательный уход */
-      C_NOREG='#9aa8bd',      /* обычный уход */
-      C_TURN_Y='#8b6fc0',     /* текучесть накопительная */
+/* С итерации 32 одиночные метрики — кобальтом C_LINE: отдельный «свой» цвет
+   у каждой (горчичный у недоработчиков, пыльно-розовый у лоу-перформеров)
+   ничего не кодировал, а заказчик читал их как блёклые и случайные. Имена
+   оставлены — экраны ссылаются на них, и смена тона не требует правок там. */
+const C_VAC=C_LINE,            /* открытые вакансии */
+      C_UNDER=C_LINE,          /* недоработчики */
+      C_LOWPERF=C_LINE,        /* лоу-перформеры */
+      C_OFFICE=C_LINE,         /* посещаемость офиса в таблицах */
+      C_REGRET='#8A4FD8',      /* нежелательный уход — тон ухода */
+      C_NOREG='#CDBEF0',       /* обычный уход — светлый тон ухода */
+      C_TURN_Y=C_LINE,         /* текучесть накопительная */
       /* Использование AI — данные, а не AI-подсказка: фиолетовый --ai занят
          плашками Пульса, и столбики WAU в нём читались бы как подсказка. */
-      C_AI='#4f9fb5';
+      C_AI=C_LINE;
 const PALETTE=[C_TR_IN,C_HIRE_I,C_HIRE_D,C_HIRE,C_FIRE,C_TR_OUT,C_CNT,C_OTHER];
 
 /* ---------- Утилиты ---------- */
@@ -310,6 +322,53 @@ const STACK_GAP=26;
 /* общие атрибуты подписи значения: один кегль, одна жирность, белая подложка */
 function valOpt(o){return Object.assign({size:VAL_SZ,weight:VAL_W,halo:true,cls:'fade'},o||{})}
 
+/* ---------- Акценты истории (итерация 32) ----------
+   Глава истории называет на графике то, о чём говорит её заголовок: пик года,
+   максимум, текущий месяц. ann = {hi:[i…], notes:[{i, t}]} приходит из
+   story.js через экран. Месяцы из hi рисуются полным тоном, остальные бары —
+   приглушённо (fill-opacity, а не другой класс: smoke сверяет class="bar up"
+   посимвольно); у приглушённых подпись значения серая и обычного веса, но
+   стоит — правило «подпись у каждого бара» не отменяется. Заметка — короткая
+   подпись над значением месяца на светлой полосе; под неё у полотна
+   резервируется ANN_ROOM сверху, чтобы она не уходила в заголовок. */
+const ANN_ROOM=16, C_BAND='#f3f4f7';
+function annOf(o){return o&&o.ann&&(o.ann.hi||o.ann.notes)?o.ann:null}
+function annHi(ann,i){return !ann||!ann.hi||ann.hi.indexOf(i)>=0}
+function annRoom(ann){return ann&&ann.notes&&ann.notes.length?ANN_ROOM:0}
+/* полоса и подпись заметки; yTop — верх марки месяца */
+function annBand(ann,x0,bandW,top,bot){
+  let s='';
+  (ann&&ann.notes||[]).forEach(n=>{
+    s+=rect(x0+bandW*n.i+2,top-ANN_ROOM-4,bandW-4,bot-top+ANN_ROOM+4,C_BAND,6);
+  });
+  return s;
+}
+function annText(ann,i,cx,yTop,x0,plotW){
+  const n=ann&&ann.notes&&ann.notes.find(z=>z.i===i);
+  if(!n)return'';
+  const tw=textW(n.t,10.5), y=yTop-VAL_DY-VAL_ASC-5;
+  /* у края полотна подпись прижимается внутрь, а не обрезается */
+  const xl=x0+2, xr=x0+plotW-2;
+  let x=cx, a='middle';
+  if(cx-tw/2<xl){x=xl;a='start'}else if(cx+tw/2>xr){x=xr;a='end'}
+  return txt(x,y,n.t,{size:10.5,weight:700,fill:C_INK,anchor:a,halo:true,cls:'fade'});
+}
+/* Заливка разрыва линии с базой: зелёным, где метрика лучше базы, красным —
+   где хуже, без заливки в мёртвой зоне ±5%. Это тот же светофор, что у
+   пилюль, и та же логика compareState — глава «видна» без чтения цифр. */
+function gapFill(key,ser,bench,XL,Y){
+  let s='';
+  for(let i=0;i<ser.length-1;i++){
+    const a=ser[i],b=ser[i+1],c=bench[i],d=bench[i+1];
+    if(a==null||b==null||c==null||d==null)continue;
+    const st=CD.compareState(key,(a+b)/2,(c+d)/2);
+    if(st!=='good'&&st!=='bad')continue;
+    s+='<path class="gapf" d="M'+num(XL(i))+' '+num(Y(a))+'L'+num(XL(i+1))+' '+num(Y(b))+
+      'L'+num(XL(i+1))+' '+num(Y(d))+'L'+num(XL(i))+' '+num(Y(c))+'Z" fill="'+(st==='good'?C_GREEN:C_RED)+'" fill-opacity=".22"/>';
+  }
+  return s;
+}
+
 /* ---------- Шаг подписей: подписываем через одну, если не помещаются ----------
    Правило «подпись над каждой точкой» держится, пока подпись уже полосы
    месяца. На суженной панели (у блоков с широкой сводной таблицей) двенадцать
@@ -356,7 +415,8 @@ function drawLine(a,w,h){
   h=h||o.h||300;
   /* Значение базы в конце линии убрано: непонятно, что это за число.
      База читается по тултипу, поэтому справа больше не нужен вылет. */
-  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H;
+  const ann=annOf(o);
+  const plotTop=hh+LBL_ROOM+annRoom(ann), plotBot=h-AXIS_H;
   const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(key,o.kpi), bandW=plotW/CD.N;
   /* выключенная серия уходит и из шкалы, и из подсказки: просто спрятать
      линию, оставив её в расчёте максимума, — значит оставить пустое место ни о чём */
@@ -368,6 +428,7 @@ function drawLine(a,w,h){
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
 
   let s=header(w,o.title,o.legend,{kind:'line',off:o.off});
+  s+=annBand(ann,x0,bandW,plotTop,plotBot);
   s+=axisX(x0,bandW,plotTop,plotBot,plotBot+15);
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
 
@@ -376,6 +437,7 @@ function drawLine(a,w,h){
   /* база — пунктир, и пунктир нельзя рисовать через dashoffset (это тот же
      атрибут), поэтому у неё отдельный класс с обычным проявлением */
   const XL=i=>x0+bandW*(i+0.5);
+  if(o.gap&&showMain&&showBench)s+=gapFill(key,ser,bench,XL,Y);
   if(showBench){
     s+='<path class="lnb"'+sAttr('bench')+' d="'+polyD(bench,XL,Y)+'" fill="none" stroke="'+C_BENCH+'" stroke-width="2" stroke-dasharray="5 3"/>';
   }
@@ -401,12 +463,14 @@ function drawLine(a,w,h){
     s+='<g class="ptg"'+tip(t)+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
     if(showBench&&bench[i]!=null)s+='<circle class="dotb"'+sAttr('bench')+' cx="'+num(cx)+'" cy="'+num(Y(bench[i]))+'" r="0" fill="'+C_BENCH+'"/>';
-    if(showMain&&v!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(cy)+'" r="3.4" fill="#fff" stroke="'+C_LINE+'"'
+    const big=ann&&ann.hi&&ann.hi.indexOf(i)>=0;
+    if(showMain&&v!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(cy)+'" r="'+(big?4.6:3.4)+'" fill="'+(big?C_LINE:'#fff')+'" stroke="'+C_LINE+'"'
       +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
     s+='</g>';
     /* подпись выходит ОДНОВРЕМЕННО со своей точкой: цифра и точка — это один
        факт, и появляться они должны вместе, вслед за кончиком линии */
-    if(showMain&&v!=null&&lblAt(i,ser.length-1,step))s+=txt(cx,cy-VAL_DY,CD.fmtVal(key,v),valOpt({delay:dly,s:'main'}));
+    if(showMain&&v!=null&&(big||lblAt(i,ser.length-1,step)))s+=txt(cx,cy-VAL_DY,CD.fmtVal(key,v),valOpt({delay:dly,s:'main'}));
+    if(showMain&&v!=null)s+=annText(ann,i,cx,cy,x0,plotW);
   });
   return svg(w,h,s);
 }
@@ -521,13 +585,15 @@ function drawBars(a,w,h){
   const nm=CD.METRIC_BY_KEY[key]||{};
   const hh=headH(o.title,o.legend);
   h=h||o.h||280;
-  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H;
+  const ann=annOf(o);
+  const plotTop=hh+LBL_ROOM+annRoom(ann), plotBot=h-AXIS_H;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/CD.N;
   const max=niceMax(ser);
   const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
   const bw=Math.min(46,bandW*0.66);
 
   let s=header(w,o.title,o.legend,{kind:'bars',off:o.off});
+  s+=annBand(ann,x0,bandW,plotTop,plotBot);
   s+=axisX(x0,bandW,plotTop,plotBot,plotBot+15);
   s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
   const col=o.color||C_LINE, step=labelStep(ser,key,bandW);
@@ -536,9 +602,11 @@ function drawBars(a,w,h){
     const t={title:mLabel(i),rows:[{label:nm.name||key,value:CD.fmtVal(key,v),color:col}]};
     s+='<g class="barg"'+tip(t)+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
-    if(v!=null)s+=barUp(cx-bw/2,y,bw,plotBot-y,col,' class="bar up"'+sAttr('main')+' style="animation-delay:'+(i*26)+'ms"');
+    const on=annHi(ann,i);
+    if(v!=null)s+=barUp(cx-bw/2,y,bw,plotBot-y,col,' class="bar up"'+sAttr('main')+(on?'':' fill-opacity=".38"')+' style="animation-delay:'+(i*26)+'ms"');
     s+='</g>';
-    if(v!=null&&lblAt(i,ser.length-1,step))s+=txt(cx,y-VAL_DY,CD.fmtVal(key,v),valOpt({delay:240+i*26,s:'main'}));
+    if(v!=null&&lblAt(i,ser.length-1,step))s+=txt(cx,y-VAL_DY,CD.fmtVal(key,v),valOpt(on?{delay:240+i*26,s:'main'}:{delay:240+i*26,s:'main',weight:400,fill:C_AXIS}));
+    if(v!=null)s+=annText(ann,i,cx,y,x0,plotW);
   });
   return svg(w,h,s);
 }
@@ -621,20 +689,21 @@ function drawPanels(a,w,h){
   const HEAD=16;           /* полоса заголовка панели — в неё график не заходит */
   const PLOT_MIN=70;
   /* заголовок + место под подпись самого высокого бара + график + ось + воздух */
-  const minPanel=HEAD+LBL_ROOM+PLOT_MIN+AXIS_H+GAP;
+  const minPanel=HEAD+LBL_ROOM+PLOT_MIN+AXIS_H+GAP+(ps.some(p=>annRoom(annOf(p)))?ANN_ROOM:0);
   h=Math.max(h||o.h||340,ps.length*minPanel+14);
   const panelH=(h-14)/ps.length;
   let s='';
   ps.forEach((p,pi)=>{
-    const base=pi*panelH;
+    const base=pi*panelH, ann=annOf(p);
     /* бары и их подписи начинаются СТРОГО под заголовком: раньше самый
        высокий бар на экране вакансий наезжал на имя панели */
-    const top=base+HEAD+LBL_ROOM;
+    const top=base+HEAD+LBL_ROOM+annRoom(ann);
     const bot=base+panelH-AXIS_H-GAP;
     const max=niceMax(p.series);
     const Y=v=>bot-(v/max)*(bot-top);
     const nm=CD.METRIC_BY_KEY[p.key]||{};
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+    s+=annBand(ann,x0,bandW,top,bot);
     s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
     CD.MONTHS.forEach((m,i)=>{if(m.isYearStart&&i>0)s+=line(x0+bandW*i,top,x0+bandW*i,bot,C_DIV,1,'4 3')});
 
@@ -651,10 +720,12 @@ function drawPanels(a,w,h){
         const dly=pd+DRAW_MS*(i/Math.max(1,p.series.length-1))*0.9;
         s+='<g class="ptg"'+tip(t)+'>';
         s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(top-12)+'" width="'+num(bandW)+'" height="'+num(bot-top+12)+'"/>';
-        if(v!=null)s+='<circle class="dot" cx="'+num(cx)+'" cy="'+num(cy)+'" r="3.1" fill="#fff" stroke="'+(p.color||C_LINE)+'"'
+        const big=ann&&ann.hi&&ann.hi.indexOf(i)>=0;
+        if(v!=null)s+='<circle class="dot" cx="'+num(cx)+'" cy="'+num(cy)+'" r="'+(big?4.2:3.1)+'" fill="'+(big?(p.color||C_LINE):'#fff')+'" stroke="'+(p.color||C_LINE)+'"'
           +' stroke-width="1.9" style="animation-delay:'+num(dly)+'ms"/>';
         s+='</g>';
-        if(v!=null&&lblAt(i,last,step))s+=txt(cx,cy-VAL_DY,CD.fmtVal(p.key,v),valOpt({delay:dly}));
+        if(v!=null&&(big||lblAt(i,last,step)))s+=txt(cx,cy-VAL_DY,CD.fmtVal(p.key,v),valOpt({delay:dly}));
+        if(v!=null)s+=annText(ann,i,cx,cy,x0,plotW);
       });
     } else {
       const bw=Math.min(42,bandW*0.64);
@@ -663,9 +734,11 @@ function drawPanels(a,w,h){
         const t={title:mLabel(i),rows:[{label:p.name,value:CD.fmtVal(p.key,v),color:p.color||C_LINE}]};
         s+='<g class="barg"'+tip(t)+'>';
         s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(top-12)+'" width="'+num(bandW)+'" height="'+num(bot-top+12)+'"/>';
-        s+=barUp(cx-bw/2,y,bw,bot-y,p.color||C_LINE,' class="bar up" style="animation-delay:'+(pd+i*24)+'ms"');
+        const on=annHi(ann,i);
+        s+=barUp(cx-bw/2,y,bw,bot-y,p.color||C_LINE,' class="bar up"'+(on?'':' fill-opacity=".38"')+' style="animation-delay:'+(pd+i*24)+'ms"');
         s+='</g>';
-        if(lblAt(i,last,step))s+=txt(cx,y-VAL_DY,CD.fmtVal(p.key,v),valOpt({delay:pd+300+i*24}));
+        if(lblAt(i,last,step))s+=txt(cx,y-VAL_DY,CD.fmtVal(p.key,v),valOpt(on?{delay:pd+300+i*24}:{delay:pd+300+i*24,weight:400,fill:C_AXIS}));
+        s+=annText(ann,i,cx,y,x0,plotW);
       });
     }
     /* у каждой панели СВОЯ полная ось — с месяцами и годами, как везде.

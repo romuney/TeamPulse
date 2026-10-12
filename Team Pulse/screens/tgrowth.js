@@ -32,7 +32,7 @@ SC.blocks.tgrowth={
       /* Конверсия в таблице — за 12 месяцев, а метрика блока — за месяц:
          окно названо в шапке колонки, чтобы два числа не путали. */
       return SC.metricLine('tgrowth_tat',ctx.lp,ctx.bl,ctx.S,
-          {h:250,fill:false,title:'Время до повышения (T@T), мес'})+
+          {h:250,fill:false,title:'Время до повышения (T@T), мес',ann:ctx.ann.tgrowth_tat})+
         '<div class="bt-group"><div class="bt-cap">Заявки «Рост» по типу<span class="bt-sub">за 12 месяцев</span></div>'+
         U.statTable({cols:['Заявок','Одобрено','Отказано','Конверсия'],fmts:['int','int','int','pct'],firstTotal:false,
           rows:[{name:'ИТОГО',total:true,vals:[tg.pass+tg.deny,tg.pass,tg.deny,pct(tg.pass,tg.pass+tg.deny)]}]
@@ -51,7 +51,7 @@ SC.blocks.tgrowth={
         'Строки сходятся с разбивкой по грейдам в «Структуре», «рост состоялся» и «заявка отклонена» — '+
         'с решениями за 12 месяцев. «В карьерном росте» и «рост недоступен» в макете сгенерированы.</div>';
     }
-    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %'})+
+    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       G.chart('diverge',
         {up:D.aggregate(ctx.lp,'tgrowth_pass'),down:D.aggregate(ctx.lp,'tgrowth_deny'),
          upKey:'tgrowth_pass',downKey:'tgrowth_deny'},

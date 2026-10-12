@@ -63,7 +63,7 @@ SC.blocks.hiring={
          «fill — только когда высоту делят графики»). У выполнения плана есть
          цель, поэтому на полотне её пороги, а не база (правило KPI). */
       return SC.metricLine('hire_plan',lp,ctx.bl,ctx.S,
-          {h:250,fill:false,title:'Выполнение плана найма с начала года, %'})+
+          {h:250,fill:false,title:'Выполнение плана найма с начала года, %',ann:ctx.ann.hire_plan})+
         planTable(lp,ctx.S)+
         '<div class="tbl-note">Факт плана — найм, закрытые и открытые вакансии — те же ряды, что на '+
         'соседних вкладках. План по месяцам, тип найма, статусы, «в срок», «на замену», «джуны» и '+
@@ -98,7 +98,7 @@ SC.blocks.hiring={
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
        в блоке оттока. Барами остаются штуки вакансий. */
     return G.chart('panels',{panels:[
-      {name:'Открытые вакансии, шт',key:'vac_open',type:'bar',series:D.aggregate(lp,'vac_open'),color:G.C_VAC},
+      {name:'Открытые вакансии, шт',key:'vac_open',type:'bar',series:D.aggregate(lp,'vac_open'),color:G.C_VAC,ann:ctx.ann.vac_open},
       {name:'Закрытые вакансии, шт',key:'vac_closed',type:'bar',series:D.aggregate(lp,'vac_closed'),color:G.C_IN},
       {name:'Срок закрытия вакансии, дн',key:'time_to_fill',type:'line',series:D.aggregate(lp,'time_to_fill'),color:G.C_LINE}
     ]},{h:520,fill:true});

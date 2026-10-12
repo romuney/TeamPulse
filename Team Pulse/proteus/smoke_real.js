@@ -46,7 +46,7 @@ global.localStorage={getItem(){return'1'},setItem(){}};
 
 require(path.join(__dirname,'real.js'));
 window.TP_REAL=window.TPREAL.build(rows);
-['data.js','draw.js','ui.js','insights.js',
+['data.js','draw.js','ui.js','insights.js','story.js',
  'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js',
  'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js',
  'screens/onepager.js'].forEach(f=>require(path.join(dir,f)));
@@ -122,6 +122,10 @@ ok(R.nodes.filter(n=>n.direct&&n.hide).every(n=>!new RegExp('data-node="'+n.path
 ok(!/data-openunit="[^"]*\/·"/.test(exp),'у строки «Напрямую» нет «Открыть юнит»');
 ok(!/NaN|undefined/.test(html.replace(/data-[a-z-]+="[^"]*"/g,'')),'в разметке нет NaN и undefined');
 ok(/demo-tag/.test(html),'метрики без источника помечены «демо»');
+/* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
+const hv=A.go('hiring','vacancies'), td=A.go('turnover','dynamics');
+ok(!/<div class="st-head">/.test(hv)&&/<div class="st-head"><h3>/.test(td),
+  'история: у демо-главы нет вывода, у живой (отток) — есть');
 
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);

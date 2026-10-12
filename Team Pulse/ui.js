@@ -585,6 +585,66 @@ function panel(o){
     '<div class="panel-b'+(o.bodyCls?' '+o.bodyCls:'')+'">'+o.body+'</div></div>';
 }
 
+/* ============================================================================
+   История по главам (итерация 32, концепция B). Правая панель детальной
+   вкладки: степпер глав → заголовок-вывод → графики главы, рядом колонка
+   «Что важно / Где сосредоточено / Что сделать / Дальше». Тексты считает
+   story.js; здесь только разметка.
+   ========================================================================== */
+/* **жирное** → <b>; всё остальное экранируется */
+function richText(t){
+  return esc(t==null?'':t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+}
+/* Степпер: шаг = под-вкладка. data-subtab — тот же обработчик, что у вкладок;
+   data-text — резерв ширины жирной подписи (правило 10d). Под вопросом —
+   короткий ответ и точка сигнала: зелёная, красная или серая (светофор). */
+function chapters(list,active){
+  if(!list||list.length<2)return'';
+  /* nN — число глав: при пяти-шести главах в узкой панели неактивные шаги
+     сворачиваются до номера (CSS), иначе подписи резались до «Когда …» */
+  return '<div class="st-steps n'+Math.min(6,list.length)+'" role="tablist">'+list.map((c,i)=>{
+    const on=c.key===active;
+    return '<button class="st-step'+(on?' on':'')+'" data-subtab="'+esc(c.key)+'" data-text="'+esc(c.q)+'" role="tab" aria-selected="'+on+'"'+
+      tipAttr({title:(i+1)+'. '+c.q,text:c.sum?String(c.sum):c.name,note:c.name})+'>'+
+      '<span class="st-n">'+(i+1)+'</span><span class="st-tx"><span class="st-q">'+esc(c.q)+'</span>'+
+      (c.sum?'<span class="st-s"><i class="st-dot '+esc(c.st||'n')+'"></i>'+esc(c.sum)+'</span>':'')+'</span></button>';
+  }).join('')+'</div>';
+}
+/* act — «Что сделать» строкой под выводом. Она видна, только пока колонка
+   выводов стоит под графиками (узкая панель, таблица подразделений слева):
+   иначе главный совет главы был бы под сгибом. Когда колонка встаёт сбоку,
+   строку прячет CSS — совет уже в колонке. */
+function storyHead(head,lede,act){
+  if(!head&&!lede)return'';
+  return '<div class="st-head">'+(head?'<h3>'+richText(head)+'</h3>':'')+(lede?'<p>'+richText(lede)+'</p>':'')+
+    (act?'<div class="st-act-in"><span>'+richText(act.text)+'</span>'+
+      (act.node?'<button class="btn xs" data-selnode="'+esc(act.node)+'">Показать «'+esc(act.name)+'»</button>':'')+'</div>':'')+
+    '</div>';
+}
+/* o: {facts, focus:{cap,rows:[{name,val,w,st,path}]}, act:{text,node,name}, next:{key,q}, toggle} */
+function storyRail(o){
+  let h='';
+  const facts=(o.facts||[]).filter(Boolean);
+  if(facts.length)h+='<div class="st-sec"><div class="st-cap">Что важно</div><ul class="st-facts">'+
+    facts.map(x=>'<li>'+richText(x)+'</li>').join('')+'</ul></div>';
+  const fo=o.focus;
+  if(fo&&fo.rows&&fo.rows.length)h+='<div class="st-sec"><div class="st-cap">'+esc(fo.cap||'Где сосредоточено')+'</div>'+
+    '<table class="st-focus"><tbody>'+fo.rows.map(r=>'<tr data-selnode="'+esc(r.path)+'"'+
+      tipAttr({title:r.name,text:'Клик — графики этой главы по «'+r.name+'».'})+'><td class="nm">'+esc(r.name)+'</td>'+
+      '<td class="v'+(r.st?' '+esc(r.st):'')+'">'+esc(r.val)+'</td>'+
+      '<td class="bar"><i style="width:'+Math.max(4,Math.round((r.w||0)*100))+'%"></i></td></tr>').join('')+
+    '</tbody></table></div>';
+  if(o.act)h+='<div class="st-act"><div class="st-cap">Что сделать</div><p>'+richText(o.act.text)+'</p>'+
+    (o.act.node?'<button class="btn xs" data-selnode="'+esc(o.act.node)+'">Показать «'+esc(o.act.name)+'»</button>':'')+'</div>';
+  if(o.next)h+='<button class="st-next" data-subtab="'+esc(o.next.key)+'"><span>Дальше</span>'+esc(o.next.q)+' →</button>';
+  return h?'<aside class="st-rail">'+h+'</aside>':'';
+}
+/* Обёртка главы. main — содержимое под-вкладки как есть (графики, таблицы). */
+function story(o){
+  return '<div class="st-wrap">'+(o.steps||'')+'<div class="st-grid'+(o.rail?' has-rail':'')+'">'+
+    '<div class="st-main">'+(o.head||'')+o.main+'</div>'+(o.rail||'')+'</div></div>';
+}
+
 /* ---------- Под-вкладки ---------- */
 function subTabs(list,active){
   if(!list||list.length<2)return'';
@@ -761,7 +821,7 @@ function planTable(rows){
       (r.now==='демо'?demoTag():esc(r.now))+'</td></tr>').join('')+'</tbody></table>';
 }
 
-window.TPUI={demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

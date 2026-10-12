@@ -1497,3 +1497,106 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .main-col{border-right:1px solid var(--line)}
   .pulse-panel{left:calc((100vw - var(--shell))/2 + 244px)}
 }
+
+/* ============================================================================
+   Итерация 32: история по главам (концепция B, выбор заказчика 12.10.2026)
+
+   Правая панель отвечает на вопрос, а не только показывает метрику:
+   степпер глав (вопрос + короткий ответ + сигнал) → заголовок-вывод → графики
+   главы, рядом колонка «Что важно / Где сосредоточено / Что сделать / Дальше».
+   Колонка встаёт сбоку, только когда панели хватает ширины (container query:
+   графики во всю ширину или широкий монитор); в узкой панели — под графиками,
+   чтобы графики сохранили всю высоту рабочей зоны.
+   ========================================================================== */
+.split-r .panel-b.st-on{container-type:inline-size;container-name:stp}
+.st-wrap{display:flex;flex-direction:column;gap:var(--s7);flex:1;min-height:0}
+/* степпер */
+.st-steps{display:flex;gap:var(--s2);padding:var(--s2);background:#f4f5f7;border-radius:var(--r4);flex:none}
+.st-step{flex:1 1 0;min-width:0;display:flex;align-items:flex-start;gap:var(--s4);padding:7px var(--s5) 7px var(--s4);
+  border:0;border-radius:var(--r3);background:transparent;font:inherit;text-align:left;cursor:pointer;color:var(--muted);
+  transition:background .15s,color .15s}
+.st-step:hover{background:rgba(255,255,255,.6);color:var(--ink2)}
+.st-step.on{background:#fff;box-shadow:var(--shadow);color:var(--ink)}
+.st-step:focus-visible{outline:2px solid var(--act);outline-offset:1px}
+.st-n{flex:0 0 20px;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-size:var(--fs-cap);font-weight:var(--fw-bold);background:var(--line);color:var(--ink2);margin-top:1px}
+.st-step.on .st-n{background:var(--act);color:#fff}
+.st-tx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.st-q{font-size:var(--fs-body);font-weight:var(--fw-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-step.on .st-q{font-weight:var(--fw-bold)}
+.st-s{display:flex;align-items:center;gap:5px;font-size:var(--fs-note);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-dot{flex:0 0 7px;width:7px;height:7px;border-radius:50%;background:var(--muted2)}
+.st-dot.good{background:var(--green)}.st-dot.bad{background:var(--red)}
+/* data-text у шага — резерв ширины жирной подписи: он не нужен, подпись режется многоточием */
+.st-step::after{content:none}
+/* заголовок-вывод */
+.st-head{flex:none}
+.st-head h3{margin:0;font-size:var(--fs-head);font-weight:var(--fw-bold);line-height:1.3;color:var(--ink);letter-spacing:-.1px}
+.st-head p{margin:var(--s3) 0 0;font-size:var(--fs-body);line-height:1.5;color:var(--ink2);max-width:900px}
+.st-head p b{color:var(--ink)}
+/* раскладка главы: графики, колонка выводов под ними (узко) или сбоку (широко) */
+.st-grid{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--chart-gap)}
+.st-main{flex:0 0 100%;min-height:0;display:flex;flex-direction:column;gap:var(--chart-gap)}
+.st-main>.svgchart.fill{flex:1;min-height:0}
+.st-main>.svgchart{flex:none}
+.st-main>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
+.st-main>.tbl-note{margin-top:0}
+.st-main>.st-head+.dyn-switch{margin-top:calc(var(--s2) - var(--chart-gap) + var(--s6))}
+/* тесная панель: при 4 главах уже 760px и при 5–6 уже 980px неактивные шаги —
+   только номер (вопрос и ответ — в подсказке), активный — целиком */
+@container stp (max-width:760px){
+  .st-steps.n4 .st-step:not(.on){flex:0 0 auto}
+  .st-steps.n4 .st-step:not(.on) .st-tx{display:none}
+}
+@container stp (max-width:980px){
+  .st-steps.n5 .st-step:not(.on),.st-steps.n6 .st-step:not(.on){flex:0 0 auto}
+  .st-steps.n5 .st-step:not(.on) .st-tx,.st-steps.n6 .st-step:not(.on) .st-tx{display:none}
+}
+.st-rail{flex:none;display:flex;flex-direction:column;gap:var(--s8);padding-top:var(--s6);border-top:1px solid var(--line2)}
+.st-act-in{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3) var(--s5);margin-top:var(--s5);padding:var(--s4) var(--s6);
+  border-radius:var(--r3);background:var(--blue-bg);font-size:var(--fs-body);color:var(--ink);line-height:1.4}
+.st-act-in::before{content:'→';color:var(--act);font-weight:var(--fw-bold)}
+.st-act-in span{flex:1 1 240px}
+@container stp (min-width:980px){
+  .st-grid.has-rail .st-act-in{display:none}
+  .st-grid.has-rail{display:grid;grid-template-columns:minmax(0,1fr) 272px;grid-template-rows:minmax(0,1fr);column-gap:var(--s10)}
+  .st-grid.has-rail>.st-main{height:100%}
+  .st-rail{padding:0 0 0 var(--s9);border-top:0;border-left:1px solid var(--line2);overflow:auto}
+}
+.st-cap{font-size:var(--fs-cap);font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;color:var(--muted);margin-bottom:var(--s4)}
+.st-facts{margin:0;padding:0 0 0 var(--s8);font-size:var(--fs-body);line-height:1.5;color:var(--ink2)}
+.st-facts li+li{margin-top:var(--s3)}
+.st-facts b{color:var(--ink)}
+.st-focus{width:100%;border-collapse:collapse;font-size:var(--fs-body)}
+.st-focus tr{cursor:pointer}
+.st-focus tr:hover td{background:var(--blue-bg)}
+.st-focus td{padding:5px 0;border-bottom:1px solid var(--line2);color:var(--ink2);vertical-align:middle}
+.st-focus td.nm{padding-right:var(--s4);line-height:1.25}
+.st-focus td.v{text-align:right;padding-right:var(--s5);font-weight:var(--fw-bold);color:var(--ink);white-space:nowrap}
+.st-focus td.v.bad{color:var(--red-tx)}.st-focus td.v.good{color:var(--green-tx)}
+.st-focus td.bar{width:34%}
+.st-focus td.bar i{display:block;height:6px;border-radius:3px;background:var(--act)}
+.st-act{padding:var(--s7);border-radius:var(--r4);background:var(--blue-bg);border:1px solid var(--act-line)}
+.st-act .st-cap{color:var(--act-ink)}
+.st-act p{margin:0;font-size:var(--fs-body);line-height:1.45;color:var(--ink)}
+.st-act .btn{margin-top:var(--s5)}
+.st-next{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:var(--s6) var(--s7);border:1px solid var(--line);
+  border-radius:var(--r4);background:#fff;font:inherit;font-size:var(--fs-lead);font-weight:var(--fw-bold);color:var(--act);cursor:pointer;text-align:left}
+.st-next span{font-size:var(--fs-cap);font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
+.st-next:hover{border-color:var(--act-line);background:var(--blue-bg)}
+/* узкие экраны: панель не держит высоту экрана — всё стоит своей высотой */
+@media(max-width:1120px){
+  .split-r .panel-b.st-on{height:auto}
+  .st-wrap,.st-grid{display:block}
+  .st-steps{margin-bottom:var(--s7)}
+  .st-main{display:block}
+  .st-main>*+*{margin-top:var(--chart-gap)}
+  .st-main>.dyn-switch+*{margin-top:0}
+  .st-main>.st-head+*,.st-main>.st-head+.dyn-switch{margin-top:var(--s7)}
+  .st-rail{margin-top:var(--chart-gap)}
+  .svgchart.fill{height:auto}
+}
+@media(max-width:780px){
+  .st-steps{overflow-x:auto;scrollbar-width:none}
+  .st-step{flex:0 0 auto;max-width:200px}
+}

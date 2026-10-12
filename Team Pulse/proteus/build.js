@@ -28,14 +28,17 @@
 const fs=require('fs'), path=require('path');
 const babel=require('@babel/core'), acorn=require('acorn');
 const MIN=require('./min.cjs');
-/* бюджет сборки, КиБ (09.10: без сжатия 524, сжатая 333, из них картинки маскота ≈72 — base64 WebP в mascot.js) */
-const BUDGET_KIB=340;
+/* бюджет сборки, КиБ (09.10: без сжатия 524, сжатая 333, из них картинки маскота ≈72 — base64 WebP в mascot.js).
+   12.10, итерация 32: 340 → 370. История по главам (story.js) — почти целиком русский текст выводов,
+   строки terser не сжимает: story.js +25 КиБ, со стилями и компонентами сборка 333 → 367 КиБ.
+   Цена — ≈+0,7 с отправки на запрос при 50 КБ/с (код чарта едет в каждом POST, CJ-21). */
+const BUDGET_KIB=370;
 const dir=path.join(__dirname,'..');
 const OUT=path.join(dir,'Поставка — TeamPulse Hub','3. Proteus — чарт TeamPulse Hub.js');
 const read=f=>fs.readFileSync(path.join(dir,f),'utf8');
 
 /* порядок как в index.html, плюс модель и вход Proteus впереди */
-const FILES=['proteus/real.js','proteus/prelude.js','data.js','draw.js','ui.js','mascot.js','insights.js',
+const FILES=['proteus/real.js','proteus/prelude.js','data.js','draw.js','ui.js','mascot.js','insights.js','story.js',
   'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js','screens/hiring.js',
   'screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js','screens/onepager.js','app.js'];
 

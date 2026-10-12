@@ -44,7 +44,7 @@ SC.blocks.movement={
          поэтому нижнее плечо берёт её ряд, а не заводит дубль. Одна шкала на
          оба плеча: темпы прихода и ухода сравниваются длиной бара. */
       return SC.metricLine('replace_ratio',ctx.lp,ctx.bl,ctx.S,
-          {h:300,title:'Коэффициент замещения'})+
+          {h:300,title:'Коэффициент замещения',ann:ctx.ann.replace_ratio})+
         G.chart('diverge',
         {up:D.aggregate(ctx.lp,'hire_rate'),down:D.aggregate(ctx.lp,'turnover_m'),
          upKey:'hire_rate',downKey:'turnover_m'},
@@ -67,7 +67,7 @@ SC.blocks.movement={
         {h:300,fill:true,title:'Переводы внутри компании, чел',
          legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]});
     }
-    return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Общая численность, чел'})+
+    return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Общая численность, чел',ann:ctx.ann.hc_total})+
       G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
         title:SC.winTitle(ctx.S,'Из чего сложилось изменение за период'),
         legend:[{name:'Итог месяца',color:G.C_TOTAL},{name:'Приход',color:G.C_IN},{name:'Уход',color:G.C_OUT}]});
