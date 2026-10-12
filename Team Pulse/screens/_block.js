@@ -193,7 +193,7 @@ function renderBlock(S,expanded,mixOpen,view){
   if(!S.subTab||!mod.subTabs.some(t=>t[0]===S.subTab))S.subTab=mod.defaultSub;
   const root=currentRoot(S), rootNode=D.NODE_BY_PATH[root];
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
-  const mainK=blockMain(b.key,S), mainM=D.METRIC_BY_KEY[mainK];
+  const mainK=blockMain(b.key,S);
   /* Срез состава живёт только на «Структуре численности» и только там читается.
      Гейт по блоку не перестраховка: подпись «N чел» под именем подразделения
      стоит на КАЖДОЙ вкладке, и без него срез, взятый в составе, молча ужимал бы
@@ -285,7 +285,7 @@ function renderBlock(S,expanded,mixOpen,view){
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
      левая колонка становится шире — иначе главная метрика и «К базе» уезжали
      за край панели под горизонтальную прокрутку. */
-  const wideL=mets.length+(D.comparable(mainK)||D.kpiFor(mainK,S)?1:0)>=7;
+  const wideL=mets.length>=7;
   /* Таблица подразделений — по выбору (итерация 32): m-both — таблица слева,
      графики справа (по умолчанию: таблица — основа фильтрации), m-charts —
      графики во всю ширину; share — доля
@@ -303,19 +303,15 @@ function renderBlock(S,expanded,mixOpen,view){
   const allOpen=expandable.length>0&&expandable.every(p=>expanded.has(p));
 
   /* 5a · сводная таблица подразделений
-     Ориентир колонки один и тот же для всей таблицы: цель KPI, если она у
-     главной метрики есть, иначе средняя по базе. Сравнивать подразделение с
-     базой, когда по метрике утверждён KPI, — значит мерить не тем. */
-  const kpiMain=D.kpiFor(mainK,S);
-  const benchMain=kpiMain?kpiMain.green:D.lastVal(bl,mainK);
-  const showVs=D.comparable(mainK)||!!kpiMain;
+     Колонки «К базе» / «К цели KPI» больше нет (итерация 32, заказчик: «непонятно,
+     по какой логике он появляется»). Ориентир — база или цель — живёт в
+     KPI-карточках над таблицей и на графиках главы. */
   const totalCells=mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'». Глубже — выберите строку и откройте её '+
       'юнит иконкой у правого края имени.'})+'>Подразделение</th>'+
     mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+
       (D.isStub(m.key)?U.demoTag(true):'')+'</th>').join('')+
-    (showVs?'<th class="vs">'+(kpiMain?'К цели KPI':'К базе')+'<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
        Каретка у ИТОГО раскрывает и сворачивает ВСЁ дерево разом: раскрывать
@@ -333,12 +329,9 @@ function renderBlock(S,expanded,mixOpen,view){
         (allOpen?'▾':'▸')+'</button>'
       : '<span class="caret-spacer"></span>')+
     '<span class="row-body">ИТОГО</span></span></td>'+totalCells+
-    (showVs?'<td class="vs"><span class="cell neutral">'+D.fmtVal(mainK,benchMain)+'</span></td>':'')+
     '</tr>';
   rows.forEach(r=>{
     const lp=rowLeaves(r.n.path,S);
-    const v=D.lastVal(lp,mainK);
-    const st=kpiMain?D.stateForKpi(mainK,v,kpiMain):D.compareState(mainK,v,benchMain);
     const canExp=!tq&&r.kids>0&&r.depth<TREE_DEPTH, isOpen=expanded.has(r.n.path), isSel=sel===r.n.path;
     /* На границе глубины подразделения ниже не показаны — говорим, сколько их
        и как до них дойти. Число — прямые подразделения, а не все потомки. */
@@ -358,13 +351,10 @@ function renderBlock(S,expanded,mixOpen,view){
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
       mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+
-        (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>').join('')+
-      /* у пустого подразделения 0% — не «лучше базы», а отсутствие людей */
-      (showVs?'<td class="vs">'+(r.empty||v==null||benchMain==null?'<span class="cell neutral">—</span>'
-        :'<span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(4))+'</span>')+'</td>':'')+'</tr>';
+        (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>').join('')+'</tr>';
   });
   /* пустые состояния — строкой в таблице, а не вместо неё: ИТОГО остаётся */
-  const ncol=1+mets.length+(showVs?1:0);
+  const ncol=1+mets.length;
   if(!rows.length)tbl+='<tr class="tree-empty"><td class="txt" colspan="'+ncol+'">'+
     (tq?'Подразделений с «'+esc(tq)+'» в трёх уровнях вниз нет. Глубже — откройте юнит; другое подразделение '+
         'компании — в «Настрой свой дашборд».'
@@ -387,13 +377,12 @@ function renderBlock(S,expanded,mixOpen,view){
   const bookC=STY.book(b.key,mod.subTabs,S.subTab,{S,lp:ctx.lp,bl,sel,bench:ctx.benchLabel},
     k=>!!demoNoteFor(b.key,k));
   const ch=bookC.cur;
-  ctx.ann=ch.ann||{};
+  ctx.ann=ch.ann||{};ctx.story=ch;
   const body=U.story({
     steps:U.chapters(bookC.chapters,S.subTab),
-    head:U.storyHead(ch.head,ch.lede,ch.act),
+    head:U.storyHead(ch.head,ch.lede,ch.act,ch.why,ch.todo),
     main:demoNoteFor(b.key,S.subTab)+mod.view(ctx),
-    rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act,
-      next:bookC.next?{key:bookC.next.key,q:bookC.next.q}:null})});
+    rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act})});
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),

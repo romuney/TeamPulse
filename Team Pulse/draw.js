@@ -1093,7 +1093,9 @@ function chart(kind,args,opt){
   opt.off=_off.get(opt._key)||new Set();
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
-  return '<div class="svgchart'+(opt.fill?' fill':'')+'" data-cid="'+id+'">'+
+  /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px
+     (воронка: растянутая на всю панель, она читалась «сумасшедшей») */
+  return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'">'+
     build(spec,NOMINAL_W,NOMINAL_H)+'</div>';
 }
 

@@ -1542,16 +1542,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-main>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
 .st-main>.tbl-note{margin-top:0}
 .st-main>.st-head+.dyn-switch{margin-top:calc(var(--s2) - var(--chart-gap) + var(--s6))}
-/* тесная панель: при 4 главах уже 760px и при 5–6 уже 980px неактивные шаги —
-   только номер (вопрос и ответ — в подсказке), активный — целиком */
-@container stp (max-width:760px){
-  .st-steps.n4 .st-step:not(.on){flex:0 0 auto}
-  .st-steps.n4 .st-step:not(.on) .st-tx{display:none}
-}
-@container stp (max-width:980px){
-  .st-steps.n5 .st-step:not(.on),.st-steps.n6 .st-step:not(.on){flex:0 0 auto}
-  .st-steps.n5 .st-step:not(.on) .st-tx,.st-steps.n6 .st-step:not(.on) .st-tx{display:none}
-}
+/* Активный шаг — всегда целиком (своей шириной), остальные делят остаток и
+   ужимаются многоточием, но не до одного номера: «непонятно, что значит
+   2, 3, 4, 5» (заказчик, 12.10). Полный вопрос и ответ — в подсказке шага. */
+.st-step.on{flex:0 0 auto;max-width:64%}
+.st-step.on .st-q,.st-step.on .st-s{overflow:visible}
 .st-rail{flex:none;display:flex;flex-direction:column;gap:var(--s8);padding-top:var(--s6);border-top:1px solid var(--line2)}
 .st-act-in{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3) var(--s5);margin-top:var(--s5);padding:var(--s4) var(--s6);
   border-radius:var(--r3);background:var(--blue-bg);font-size:var(--fs-body);color:var(--ink);line-height:1.4}
@@ -1580,10 +1575,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-act .st-cap{color:var(--act-ink)}
 .st-act p{margin:0;font-size:var(--fs-body);line-height:1.45;color:var(--ink)}
 .st-act .btn{margin-top:var(--s5)}
-.st-next{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:var(--s6) var(--s7);border:1px solid var(--line);
-  border-radius:var(--r4);background:#fff;font:inherit;font-size:var(--fs-lead);font-weight:var(--fw-bold);color:var(--act);cursor:pointer;text-align:left}
-.st-next span{font-size:var(--fs-cap);font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
-.st-next:hover{border-color:var(--act-line);background:var(--blue-bg)}
 /* узкие экраны: панель не держит высоту экрана — всё стоит своей высотой */
 @media(max-width:1120px){
   .split-r .panel-b.st-on{height:auto}
@@ -1600,3 +1591,79 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .st-steps{overflow-x:auto;scrollbar-width:none}
   .st-step{flex:0 0 auto;max-width:200px}
 }
+
+/* ============================================================================
+   Итерация 32, правки по фидбэку 12.10 — отступы.
+   «Всё какое-то прижатое, нет воздуха»: цифры таблицы подразделений стояли
+   в 4px от правого края, а тело правой панели — в 8–10px от рамки. Поля
+   у панелей рабочей зоны теперь одни: 20px слева и справа — и у шапки,
+   и у тела, и у крайних колонок таблицы подразделений.
+   ========================================================================== */
+.split .panel-h{padding-left:var(--s9);padding-right:var(--s9)}
+.split-r .panel-b{padding:var(--s8) var(--s9) var(--s9)}
+.split-l .ptable.dense{--pad-cell:var(--s9)}
+.split-l .ptable.dense th:last-child,.split-l .ptable.dense td:last-child{padding-right:var(--s9)}
+@media(max-width:780px){
+  .split .panel-h{padding-left:var(--s7);padding-right:var(--s7)}
+  .split-r .panel-b{padding:var(--s7)}
+  .split-l .ptable.dense{--pad-cell:var(--s7)}
+  .split-l .ptable.dense th:last-child,.split-l .ptable.dense td:last-child{padding-right:var(--s7)}
+}
+/* «Что нужно знать» под графиком главы (обзор движения) */
+.st-ins{flex:none;padding:var(--s7) var(--s8);border-radius:var(--r4);background:#f7f8fa;border:1px solid var(--line2)}
+.st-ins ul{margin:0;padding:0 0 0 var(--s8);font-size:var(--fs-body);line-height:1.5;color:var(--ink2)}
+.st-ins li+li{margin-top:var(--s3)}
+.st-ins b{color:var(--ink)}
+/* График главы не сжимается ниже 220px: три графика в одной главе (динамика
+   движения) иначе делили высоту экрана, и бары найма вырастали на 6px. Не
+   хватает высоты — панель прокручивается, а не плющит графики. */
+.st-main>.svgchart.fill{min-height:220px}
+/* График с ограниченной шириной — по центру своей колонки */
+.svgchart.narrow{width:100%;max-width:760px;align-self:center;margin-left:auto;margin-right:auto}
+
+/* ============================================================================
+   Итерация 32, фидбэк 12.10 — таблицы.
+   1. Матрица растягивается на всю ширину: колонка названий — около четверти,
+      клетки делят остаток поровну. Раньше названия забирали всю свободную
+      ширину, и на матрице из двух-трёх колонок цифры стояли у правого края,
+      а между ними и названиями зияла пустота («свой срез почему-то справа»).
+   2. Одна высота строки у всех разбивок правой панели — 40px, с подписью под
+      названием и без: в «Стримах» строки были выше, чем в «Квалификации».
+   3. Наведение подсвечивает строку целиком — фон на ячейках, а не на <tr>:
+      у липкой первой ячейки свой белый фон, и раньше она оставалась белой.
+      В матрицах — крест: строка и столбец (столбец ставит app.js, класс x-col).
+   ========================================================================== */
+.mxtable td.txt,.mxtable th.mx-corner{width:26%;min-width:140px}
+.mxtable td.mx-cell,.mxtable th.mx-h{width:auto}
+.mxtable th.mx-tot,.mxtable td.mx-tot{width:64px}
+.mxtable td.mx-cell{height:36px}
+
+.split-r .btable tbody td,.split-r .stable tbody tr:not(.st-sec) td{height:40px;padding-top:4px;padding-bottom:4px}
+.split-r .btable .unit-sub,.split-r .stable .unit-sub{line-height:1.25}
+
+.ptable tbody tr.urow:hover>td,
+.split-r .btable tbody tr:not(.total):hover>td,
+.split-r .stable tbody tr:not(.st-sec):not(.total):hover>td{background-color:#f3f6fd}
+.ptable tbody tr.urow.sel:hover>td{background-color:#eaf1fd}
+.mxtable tbody tr:not(.total):not(.hx-sec):hover>td,.mxtable td.x-col{
+  box-shadow:inset 0 0 0 999px rgba(36,95,212,.07)}
+.mxtable tbody tr:not(.total):not(.hx-sec):hover>td.txt{background-color:#f3f6fd;box-shadow:none}
+.mxtable tbody td.mx-cell:hover{box-shadow:inset 0 0 0 2px var(--act),inset 0 0 0 999px rgba(36,95,212,.07)}
+.mxtable th.x-col{color:var(--act-ink)}
+/* липкая колонка имени у таблицы подразделений держит свой белый фон —
+   подсветка строки обязана его перебить, иначе строка горит без имени */
+.split-l .ptable.dense tbody tr.urow:hover>td.txt{background-color:#f3f6fd}
+.split-l .ptable.dense tbody tr.urow.sel:hover>td.txt{background-color:#eaf1fd}
+/* «Зачем смотреть / Что с этим делать» под выводом главы и термины с определениями */
+.st-why{margin-top:var(--s5);padding:var(--s4) var(--s6);border-left:3px solid var(--act-line);background:#fafbfc;
+  border-radius:0 var(--r2) var(--r2) 0}
+.st-head .st-why p{margin:0;font-size:var(--fs-note);line-height:1.5;color:var(--ink2);max-width:none}
+.st-head .st-why p+p{margin-top:var(--s2)}
+.st-head .st-why b{color:var(--ink)}
+.term{border-bottom:1px dashed var(--muted);cursor:help}
+.term:hover,.term:focus-visible{border-bottom-color:var(--act);color:var(--act-ink);outline:none}
+/* мелкие поля, найденные на ревью 12.10: плашка совета и степпер */
+.st-act-in{padding:var(--s5) var(--s5) var(--s5) var(--s7)}
+.st-act-in .btn{margin-left:auto}
+.st-steps{padding:var(--s3)}
+.st-step{padding:var(--s4) var(--s6) var(--s4) var(--s5)}

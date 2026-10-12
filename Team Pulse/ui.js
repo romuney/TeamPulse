@@ -592,16 +592,21 @@ function panel(o){
    story.js; здесь только разметка.
    ========================================================================== */
 /* **жирное** → <b>; всё остальное экранируется */
+/* {{Термин|форма}} → термин с определением в подсказке (словарь TPSTORY.GL);
+   нет такого термина в словаре — остаётся просто текст */
 function richText(t){
-  return esc(t==null?'':t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  return esc(t==null?'':t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
+    .replace(/\{\{([^}|]+)(?:\|([^}]+))?\}\}/g,(m,term,shown)=>{
+      const def=window.TPSTORY&&window.TPSTORY.glossary?window.TPSTORY.glossary(term):null;
+      const txt=shown||term;
+      return def?'<span class="term" tabindex="0"'+tipAttr({title:term,text:def})+'>'+txt+'</span>':txt;
+    });
 }
 /* Степпер: шаг = под-вкладка. data-subtab — тот же обработчик, что у вкладок;
    data-text — резерв ширины жирной подписи (правило 10d). Под вопросом —
    короткий ответ и точка сигнала: зелёная, красная или серая (светофор). */
 function chapters(list,active){
   if(!list||list.length<2)return'';
-  /* nN — число глав: при пяти-шести главах в узкой панели неактивные шаги
-     сворачиваются до номера (CSS), иначе подписи резались до «Когда …» */
   return '<div class="st-steps n'+Math.min(6,list.length)+'" role="tablist">'+list.map((c,i)=>{
     const on=c.key===active;
     return '<button class="st-step'+(on?' on':'')+'" data-subtab="'+esc(c.key)+'" data-text="'+esc(c.q)+'" role="tab" aria-selected="'+on+'"'+
@@ -614,14 +619,20 @@ function chapters(list,active){
    выводов стоит под графиками (узкая панель, таблица подразделений слева):
    иначе главный совет главы был бы под сгибом. Когда колонка встаёт сбоку,
    строку прячет CSS — совет уже в колонке. */
-function storyHead(head,lede,act){
-  if(!head&&!lede)return'';
+/* why / todo — «Зачем смотреть» и «Что с этим делать»: обычным текстом, не
+   в подсказке (фидбэк 12.10); термины в них — с определениями по наведению */
+function storyHead(head,lede,act,why,todo){
+  if(!head&&!lede&&!why)return'';
   return '<div class="st-head">'+(head?'<h3>'+richText(head)+'</h3>':'')+(lede?'<p>'+richText(lede)+'</p>':'')+
+    (why||todo?'<div class="st-why">'+(why?'<p><b>Зачем смотреть.</b> '+richText(why)+'</p>':'')+
+      (todo?'<p><b>Что с этим делать.</b> '+richText(todo)+'</p>':'')+'</div>':'')+
     (act?'<div class="st-act-in"><span>'+richText(act.text)+'</span>'+
       (act.node?'<button class="btn xs" data-selnode="'+esc(act.node)+'">Показать «'+esc(act.name)+'»</button>':'')+'</div>':'')+
     '</div>';
 }
-/* o: {facts, focus:{cap,rows:[{name,val,w,st,path}]}, act:{text,node,name}, next:{key,q}, toggle} */
+/* o: {facts, focus:{cap,rows:[{name,val,w,st,path}]}, act:{text,node,name}}.
+   Кнопки «Дальше» нет (итерация 32, заказчик): к следующей главе ведёт степпер
+   сверху, а кнопка внизу колонки только занимала место. */
 function storyRail(o){
   let h='';
   const facts=(o.facts||[]).filter(Boolean);
@@ -636,8 +647,15 @@ function storyRail(o){
     '</tbody></table></div>';
   if(o.act)h+='<div class="st-act"><div class="st-cap">Что сделать</div><p>'+richText(o.act.text)+'</p>'+
     (o.act.node?'<button class="btn xs" data-selnode="'+esc(o.act.node)+'">Показать «'+esc(o.act.name)+'»</button>':'')+'</div>';
-  if(o.next)h+='<button class="st-next" data-subtab="'+esc(o.next.key)+'"><span>Дальше</span>'+esc(o.next.q)+' →</button>';
   return h?'<aside class="st-rail">'+h+'</aside>':'';
+}
+/* Список выводов внутри главы (обзор «Движения персонала»): то, что нужно
+   вынести из графика, — прямо под ним, а не в колонке сбоку. */
+function storyFacts(list,cap){
+  const f=(list||[]).filter(Boolean);
+  if(!f.length)return'';
+  return '<div class="st-ins"><div class="st-cap">'+esc(cap||'Что важно')+'</div><ul>'+
+    f.map(x=>'<li>'+richText(x)+'</li>').join('')+'</ul></div>';
 }
 /* Обёртка главы. main — содержимое под-вкладки как есть (графики, таблицы). */
 function story(o){
@@ -821,7 +839,7 @@ function planTable(rows){
       (r.now==='демо'?demoTag():esc(r.now))+'</td></tr>').join('')+'</tbody></table>';
 }
 
-window.TPUI={richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

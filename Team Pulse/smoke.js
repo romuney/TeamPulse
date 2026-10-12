@@ -307,11 +307,13 @@ checks.push(['неизвестная под-вкладка откатывает�
 const balHtml=A.go('movement','balance'), flowHtml=A.go('movement','dynamics');
 /* считаем графики, а не теги <svg>: иконка перехода на детальный дашборд — тоже svg */
 const svgN=s=>(s.match(/class="svgchart/g)||[]).length;
-checks.push(['баланс: динамика численности + водопад на одном экране',
-  svgN(balHtml)===2&&/Общая численность, чел/.test(balHtml)&&
-  /Из чего сложилось изменение/.test(balHtml)]);
-checks.push(['потоки: наймоток сверху, переводы снизу',
-  svgN(flowHtml)===2&&/Найм и отток, чел/.test(flowHtml)&&
+/* итерация 32 (фидбэк 12.10): обзор — водопад и «что нужно знать»; вся
+   динамика — численность, найм и отток, переводы — на одном листе */
+checks.push(['движение: обзор и динамика, «Замещение и темпы» снята',subsOf('movement')==='balance,dynamics']);
+checks.push(['обзор движения: водопад и «что нужно знать» под ним',
+  svgN(balHtml)===1&&/Из чего сложилось изменение/.test(balHtml)&&/<div class="st-ins">/.test(balHtml)]);
+checks.push(['динамика движения: численность, найм и отток, переводы на одном листе',
+  svgN(flowHtml)===3&&/Общая численность, чел/.test(flowHtml)&&/Найм и отток, чел/.test(flowHtml)&&
   /Переводы внутри компании, чел/.test(flowHtml)]);
 checks.push(['вакансии: три панели, включая срок закрытия',
   /Срок закрытия вакансии, дн/.test(A.go('hiring','vacancies'))]);
@@ -1211,6 +1213,18 @@ checks.push(['третьей палитры нет: в экранах ни од�
   if(noHead.length)console.log('    главы без вывода:',noHead.join('; '));
   checks.push(['история: каждая глава каждого блока считается без ошибок и с выводом',
     !thrown.length&&!noHead.length]);
+  /* фидбэк 12.10: «зачем смотреть и что с этим делать» у каждой главы,
+     каждый размеченный термин есть в словаре и объяснён */
+  const whyMiss=[], termBad=[];
+  D.BLOCKS.forEach(b=>SC.blocks[b.key].subTabs.forEach(t=>{
+    const w=(STY.WHY[b.key]||{})[t[0]];
+    if(!w||!w[0]||!w[1])whyMiss.push(b.key+'/'+t[0]);
+    (w||[]).join(' ').replace(/\{\{([^}|]+)(?:\|[^}]+)?\}\}/g,(m,term)=>{if(!STY.glossary(term))termBad.push(term)});
+  }));
+  if(termBad.length)console.log('    термины без определения:',termBad.join(', '));
+  checks.push(['история: у каждой главы «зачем смотреть» и «что делать», все термины объяснены',
+    !whyMiss.length&&!termBad.length&&/<div class="st-why">/.test(A.go('monitor','both'))&&
+    /<span class="term" tabindex="0"/.test(A.go('monitor','both'))]);
   /* у каждой под-вкладки — своя глава с вопросом */
   const qMiss=D.BLOCKS.flatMap(b=>SC.blocks[b.key].subTabs.filter(t=>!STY.Q[b.key]||!STY.Q[b.key][t[0]]).map(t=>b.key+'/'+t[0]));
   checks.push(['история: у каждой под-вкладки есть вопрос главы',!qMiss.length]);
@@ -1220,7 +1234,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['история: степпер на все главы блока, текущая отмечена, «глава 1 из 3» в шапке',
     nSteps===SC.blocks.turnover.subTabs.length&&/class="st-step on" data-subtab="dynamics"/.test(to)&&
     /глава 1 из 3/.test(to)&&/<div class="st-head"><h3>/.test(to)&&/<aside class="st-rail">/.test(to)&&
-    /class="st-next" data-subtab="reasons"/.test(to)]);
+    !/class="st-next"/.test(to)]);
   /* цифры вывода — те же, что на графике */
   const rl=D.reportLeaves(st0), n12=D.aggregate(rl,'attrition').reduce((a,b)=>a+b,0);
   checks.push(['история: число уходов в выводе сходится с суммой баров графика',

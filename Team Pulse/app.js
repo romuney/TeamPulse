@@ -419,9 +419,19 @@ function enhanceA11y(){
    метрике нельзя: пользователь теряет ту самую строку, которую только что открыл. */
 /* quiet=true — перерисовка без анимации графиков: набор в поиске по таблице
    перерисовывает экран на каждую букву, и линии не должны рисоваться заново. */
+/* Прокрутка ВНУТРИ панелей (итерация 32, фидбэк 12.10: «при клике на разрез
+   не должно быть скролла вверх — нужно оставаться на своём месте»). innerHTML
+   заменяет и прокручиваемые контейнеры, и их scrollTop обнулялся, хотя
+   прокрутку страницы render(true) уже держал. Теперь держит и их; панель
+   графиков начинает сверху только при смене вкладки или главы — там другой
+   экран, и стоять посередине чужого нечему. */
+const INNER_SCROLL=['.split-l .tbl-wrap','.split-r .panel-b','.st-rail'];
+let lastView='';
 function render(keepScroll,quiet){
   const sc=ENV?ENV.scroller:null;
   const y=keepScroll?(sc?sc.scrollTop:(window.pageYOffset||0)):0;
+  const view=S.tab+'|'+(S.subTab||'');
+  const inner=keepScroll?INNER_SCROLL.map(q=>{const el=$(q);return el?[el.scrollTop,el.scrollLeft]:null}):[];
   /* вкладка скрытого (или несуществующего) блока — уводим на one-pager. Одна
      точка на всё: и ссылка с ?tab=tgrowth&hide=…, и отключение метрик в модалке */
   if(S.tab!=='onepager'&&!(D.BLOCK_BY_KEY[S.tab]&&D.blockVisible(S.tab,S))){S.tab='onepager';S.subTab=null}
@@ -432,6 +442,15 @@ function render(keepScroll,quiet){
     : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
+  /* после смены вкладки или главы (S.subTab подставляется при сборке) */
+  const sameView=view===lastView||(S.tab+'|'+(S.subTab||''))===lastView;
+  if(keepScroll)INNER_SCROLL.forEach((q,i)=>{
+    const el=$(q), v=inner[i];
+    if(!el||!v)return;
+    if(q!=='.split-l .tbl-wrap'&&!sameView)return;
+    el.scrollTop=v[0];el.scrollLeft=v[1];
+  });
+  lastView=S.tab+'|'+(S.subTab||'');
   stickTotals();
   renderMascot();
   enhanceA11y();navOpen(false);
@@ -441,6 +460,21 @@ function render(keepScroll,quiet){
   spyBlocks();
   if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
 }
+
+/* Крест в матрицах (итерация 32, фидбэк 12.10): строку подсвечивает CSS
+   по :hover, столбец — этот обработчик классом x-col. Индекс — по cellIndex;
+   строки-разделы с colspan (группы тепловой таблицы) пропускаем. */
+function crossCol(td,on){
+  const tb=td&&td.closest&&td.closest('.mxtable');
+  if(!tb)return;
+  $$('.mxtable .x-col').forEach(x=>x.classList.remove('x-col'));
+  if(!on||td.cellIndex<1)return;
+  const i=td.cellIndex, n=td.parentNode.cells.length;
+  [].forEach.call(tb.rows,r=>{if(r.cells.length===n&&r.cells[i])r.cells[i].classList.add('x-col')});
+}
+on(document,'mouseover',e=>{const td=e.target.closest&&e.target.closest('.mxtable td');if(td)crossCol(td,true)});
+on(document,'mouseout',e=>{const td=e.target.closest&&e.target.closest('.mxtable td');
+  if(td&&!(e.relatedTarget&&td.contains(e.relatedTarget)))crossCol(td,false)});
 
 /* Липкий ИТОГО встаёт ровно под шапку таблицы. Шапка переносится по словам
    и бывает в две-три строки, а константа 29px оставляла под ней половину

@@ -18,7 +18,7 @@
    ========================================================================== */
 (function(){
 'use strict';
-const D=window.TPDATA, G=window.TPDRAW, SC=window.TPSCREENS;
+const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
 function balancedSteps(lp){
   const hc=D.aggregate(lp,'hc_total'), begin=hc[0], end=hc[D.LAST];
@@ -32,31 +32,24 @@ function balancedSteps(lp){
 }
 
 SC.blocks.movement={
-  subTabs:[['balance','Баланс за период'],['dynamics','Найм, отток и переводы'],['rates','Замещение и темпы']],
+  /* Итерация 32 (фидбэк 12.10): «вначале waterfall, а потом только динамики»,
+     и вся динамика — численность, найм и отток, переводы — на одном листе,
+     «чтобы было видно, что на что повлияло». Глава «Замещение и темпы»
+     снята: коэффициент замещения и найм на 100 человек на отдельном листе
+     читались как непонятные метрики. Сами метрики остались в карточках
+     и в таблице подразделений — их можно скрыть в «Настрой свой дашборд». */
+  subTabs:[['balance','Обзор за год'],['dynamics','Динамика по месяцам']],
   defaultSub:'balance',
   title(sub){return sub==='dynamics'
-    ? 'Внешние и внутренние потоки по месяцам'
-    : sub==='rates'?'Растёт ли команда: замещение и темпы потоков'
-    : 'Численность и из чего сложилось её изменение'},
+    ? 'Численность, найм, отток и переводы по месяцам'
+    : 'Из чего сложилось изменение численности'},
   view(ctx){
-    if(ctx.sub==='rates'){
-      /* Отток на 100 человек — это и есть текучесть месячная (та же формула),
-         поэтому нижнее плечо берёт её ряд, а не заводит дубль. Одна шкала на
-         оба плеча: темпы прихода и ухода сравниваются длиной бара. */
-      return SC.metricLine('replace_ratio',ctx.lp,ctx.bl,ctx.S,
-          {h:300,title:'Коэффициент замещения',ann:ctx.ann.replace_ratio})+
-        G.chart('diverge',
-        {up:D.aggregate(ctx.lp,'hire_rate'),down:D.aggregate(ctx.lp,'turnover_m'),
-         upKey:'hire_rate',downKey:'turnover_m'},
-        {h:300,fill:true,title:SC.winTitle(ctx.S,'Найм и отток на 100 человек, %'),
-         upName:'Найм на 100 человек',downName:'Отток на 100 человек (текучесть)',
-         legend:[{name:'Найм на 100',color:G.C_IN},{name:'Отток на 100',color:G.C_OUT}]});
-    }
     if(ctx.sub==='dynamics'){
-      return G.chart('diverge',
+      return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:240,title:'Общая численность, чел',ann:ctx.ann.hc_total})+
+        G.chart('diverge',
         {up:D.aggregate(ctx.lp,'hire'),down:D.aggregate(ctx.lp,'attrition'),
          upKey:'hire',downKey:'attrition'},
-        {h:300,fill:true,title:'Найм и отток, чел',
+        {h:240,fill:true,title:SC.winTitle(ctx.S,'Найм и отток, чел'),
          legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT}]})+
         G.chart('diverge',
         {up:D.aggregate(ctx.lp,'transfer_in'),down:D.aggregate(ctx.lp,'transfer_out'),
@@ -64,13 +57,14 @@ SC.blocks.movement={
         /* та же гамма, что у найма и оттока: человек пришёл — C_IN, ушёл — C_OUT.
            Отдельный «приглушённый» цвет для внутренних переводов заводить нельзя,
            иначе водопад рядом красит те же переводы зелёным и красным. */
-        {h:300,fill:true,title:'Переводы внутри компании, чел',
+        {h:240,fill:true,title:SC.winTitle(ctx.S,'Переводы внутри компании, чел'),
          legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]});
     }
-    return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Общая численность, чел',ann:ctx.ann.hc_total})+
-      G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
-        title:SC.winTitle(ctx.S,'Из чего сложилось изменение за период'),
-        legend:[{name:'Итог месяца',color:G.C_TOTAL},{name:'Приход',color:G.C_IN},{name:'Уход',color:G.C_OUT}]});
+    /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
+    return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
+        title:'Из чего сложилось изменение за 12 месяцев, чел',
+        legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Приход',color:G.C_IN},{name:'Уход',color:G.C_OUT}]})+
+      U.storyFacts(ctx.story&&ctx.story.insights,'Что нужно знать');
   }
 };
 })();

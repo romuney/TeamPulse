@@ -124,8 +124,9 @@ ok(!/NaN|undefined/.test(html.replace(/data-[a-z-]+="[^"]*"/g,'')),'в разм�
 ok(/demo-tag/.test(html),'метрики без источника помечены «демо»');
 /* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
 const hv=A.go('hiring','vacancies'), td=A.go('turnover','dynamics');
-ok(!/<div class="st-head">/.test(hv)&&/<div class="st-head"><h3>/.test(td),
-  'история: у демо-главы нет вывода, у живой (отток) — есть');
+/* «Зачем смотреть» на демо-главе есть — это объяснение, а не вывод из цифр */
+ok(!/<div class="st-head"><h3>/.test(hv)&&/<div class="st-head"><h3>/.test(td)&&/<div class="st-why">/.test(hv),
+  'история: у демо-главы нет вывода (только «зачем смотреть»), у живой (отток) — есть');
 
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);

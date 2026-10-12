@@ -1550,16 +1550,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-main>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
 .st-main>.tbl-note{margin-top:0}
 .st-main>.st-head+.dyn-switch{margin-top:calc(var(--s2) - var(--chart-gap) + var(--s6))}
-/* тесная панель: при 4 главах уже 760px и при 5–6 уже 980px неактивные шаги —
-   только номер (вопрос и ответ — в подсказке), активный — целиком */
-@container stp (max-width:760px){
-  .st-steps.n4 .st-step:not(.on){flex:0 0 auto}
-  .st-steps.n4 .st-step:not(.on) .st-tx{display:none}
-}
-@container stp (max-width:980px){
-  .st-steps.n5 .st-step:not(.on),.st-steps.n6 .st-step:not(.on){flex:0 0 auto}
-  .st-steps.n5 .st-step:not(.on) .st-tx,.st-steps.n6 .st-step:not(.on) .st-tx{display:none}
-}
+/* Активный шаг — всегда целиком (своей шириной), остальные делят остаток и
+   ужимаются многоточием, но не до одного номера: «непонятно, что значит
+   2, 3, 4, 5» (заказчик, 12.10). Полный вопрос и ответ — в подсказке шага. */
+.st-step.on{flex:0 0 auto;max-width:64%}
+.st-step.on .st-q,.st-step.on .st-s{overflow:visible}
 .st-rail{flex:none;display:flex;flex-direction:column;gap:var(--s8);padding-top:var(--s6);border-top:1px solid var(--line2)}
 .st-act-in{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3) var(--s5);margin-top:var(--s5);padding:var(--s4) var(--s6);
   border-radius:var(--r3);background:var(--blue-bg);font-size:var(--fs-body);color:var(--ink);line-height:1.4}
@@ -1588,10 +1583,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-act .st-cap{color:var(--act-ink)}
 .st-act p{margin:0;font-size:var(--fs-body);line-height:1.45;color:var(--ink)}
 .st-act .btn{margin-top:var(--s5)}
-.st-next{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:var(--s6) var(--s7);border:1px solid var(--line);
-  border-radius:var(--r4);background:#fff;font:inherit;font-size:var(--fs-lead);font-weight:var(--fw-bold);color:var(--act);cursor:pointer;text-align:left}
-.st-next span{font-size:var(--fs-cap);font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
-.st-next:hover{border-color:var(--act-line);background:var(--blue-bg)}
 /* узкие экраны: панель не держит высоту экрана — всё стоит своей высотой */
 @media(max-width:1120px){
   .split-r .panel-b.st-on{height:auto}
@@ -1608,6 +1599,82 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .st-steps{overflow-x:auto;scrollbar-width:none}
   .st-step{flex:0 0 auto;max-width:200px}
 }
+
+/* ============================================================================
+   Итерация 32, правки по фидбэку 12.10 — отступы.
+   «Всё какое-то прижатое, нет воздуха»: цифры таблицы подразделений стояли
+   в 4px от правого края, а тело правой панели — в 8–10px от рамки. Поля
+   у панелей рабочей зоны теперь одни: 20px слева и справа — и у шапки,
+   и у тела, и у крайних колонок таблицы подразделений.
+   ========================================================================== */
+.split .panel-h{padding-left:var(--s9);padding-right:var(--s9)}
+.split-r .panel-b{padding:var(--s8) var(--s9) var(--s9)}
+.split-l .ptable.dense{--pad-cell:var(--s9)}
+.split-l .ptable.dense th:last-child,.split-l .ptable.dense td:last-child{padding-right:var(--s9)}
+@media(max-width:780px){
+  .split .panel-h{padding-left:var(--s7);padding-right:var(--s7)}
+  .split-r .panel-b{padding:var(--s7)}
+  .split-l .ptable.dense{--pad-cell:var(--s7)}
+  .split-l .ptable.dense th:last-child,.split-l .ptable.dense td:last-child{padding-right:var(--s7)}
+}
+/* «Что нужно знать» под графиком главы (обзор движения) */
+.st-ins{flex:none;padding:var(--s7) var(--s8);border-radius:var(--r4);background:#f7f8fa;border:1px solid var(--line2)}
+.st-ins ul{margin:0;padding:0 0 0 var(--s8);font-size:var(--fs-body);line-height:1.5;color:var(--ink2)}
+.st-ins li+li{margin-top:var(--s3)}
+.st-ins b{color:var(--ink)}
+/* График главы не сжимается ниже 220px: три графика в одной главе (динамика
+   движения) иначе делили высоту экрана, и бары найма вырастали на 6px. Не
+   хватает высоты — панель прокручивается, а не плющит графики. */
+.st-main>.svgchart.fill{min-height:220px}
+/* График с ограниченной шириной — по центру своей колонки */
+.svgchart.narrow{width:100%;max-width:760px;align-self:center;margin-left:auto;margin-right:auto}
+
+/* ============================================================================
+   Итерация 32, фидбэк 12.10 — таблицы.
+   1. Матрица растягивается на всю ширину: колонка названий — около четверти,
+      клетки делят остаток поровну. Раньше названия забирали всю свободную
+      ширину, и на матрице из двух-трёх колонок цифры стояли у правого края,
+      а между ними и названиями зияла пустота («свой срез почему-то справа»).
+   2. Одна высота строки у всех разбивок правой панели — 40px, с подписью под
+      названием и без: в «Стримах» строки были выше, чем в «Квалификации».
+   3. Наведение подсвечивает строку целиком — фон на ячейках, а не на <tr>:
+      у липкой первой ячейки свой белый фон, и раньше она оставалась белой.
+      В матрицах — крест: строка и столбец (столбец ставит app.js, класс x-col).
+   ========================================================================== */
+.mxtable td.txt,.mxtable th.mx-corner{width:26%;min-width:140px}
+.mxtable td.mx-cell,.mxtable th.mx-h{width:auto}
+.mxtable th.mx-tot,.mxtable td.mx-tot{width:64px}
+.mxtable td.mx-cell{height:36px}
+
+.split-r .btable tbody td,.split-r .stable tbody tr:not(.st-sec) td{height:40px;padding-top:4px;padding-bottom:4px}
+.split-r .btable .unit-sub,.split-r .stable .unit-sub{line-height:1.25}
+
+.ptable tbody tr.urow:hover>td,
+.split-r .btable tbody tr:not(.total):hover>td,
+.split-r .stable tbody tr:not(.st-sec):not(.total):hover>td{background-color:#f3f6fd}
+.ptable tbody tr.urow.sel:hover>td{background-color:#eaf1fd}
+.mxtable tbody tr:not(.total):not(.hx-sec):hover>td,.mxtable td.x-col{
+  box-shadow:inset 0 0 0 999px rgba(36,95,212,.07)}
+.mxtable tbody tr:not(.total):not(.hx-sec):hover>td.txt{background-color:#f3f6fd;box-shadow:none}
+.mxtable tbody td.mx-cell:hover{box-shadow:inset 0 0 0 2px var(--act),inset 0 0 0 999px rgba(36,95,212,.07)}
+.mxtable th.x-col{color:var(--act-ink)}
+/* липкая колонка имени у таблицы подразделений держит свой белый фон —
+   подсветка строки обязана его перебить, иначе строка горит без имени */
+.split-l .ptable.dense tbody tr.urow:hover>td.txt{background-color:#f3f6fd}
+.split-l .ptable.dense tbody tr.urow.sel:hover>td.txt{background-color:#eaf1fd}
+/* «Зачем смотреть / Что с этим делать» под выводом главы и термины с определениями */
+.st-why{margin-top:var(--s5);padding:var(--s4) var(--s6);border-left:3px solid var(--act-line);background:#fafbfc;
+  border-radius:0 var(--r2) var(--r2) 0}
+.st-head .st-why p{margin:0;font-size:var(--fs-note);line-height:1.5;color:var(--ink2);max-width:none}
+.st-head .st-why p+p{margin-top:var(--s2)}
+.st-head .st-why b{color:var(--ink)}
+.term{border-bottom:1px dashed var(--muted);cursor:help}
+.term:hover,.term:focus-visible{border-bottom-color:var(--act);color:var(--act-ink);outline:none}
+/* мелкие поля, найденные на ревью 12.10: плашка совета и степпер */
+.st-act-in{padding:var(--s5) var(--s5) var(--s5) var(--s7)}
+.st-act-in .btn{margin-left:auto}
+.st-steps{padding:var(--s3)}
+.st-step{padding:var(--s4) var(--s6) var(--s4) var(--s5)}
 
 </style>
 </head>
@@ -4661,7 +4728,9 @@ function chart(kind,args,opt){
   opt.off=_off.get(opt._key)||new Set();
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
-  return '<div class="svgchart'+(opt.fill?' fill':'')+'" data-cid="'+id+'">'+
+  /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px
+     (воронка: растянутая на всю панель, она читалась «сумасшедшей») */
+  return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'">'+
     build(spec,NOMINAL_W,NOMINAL_H)+'</div>';
 }
 
@@ -5327,16 +5396,21 @@ function panel(o){
    story.js; здесь только разметка.
    ========================================================================== */
 /* **жирное** → <b>; всё остальное экранируется */
+/* {{Термин|форма}} → термин с определением в подсказке (словарь TPSTORY.GL);
+   нет такого термина в словаре — остаётся просто текст */
 function richText(t){
-  return esc(t==null?'':t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  return esc(t==null?'':t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
+    .replace(/\{\{([^}|]+)(?:\|([^}]+))?\}\}/g,(m,term,shown)=>{
+      const def=window.TPSTORY&&window.TPSTORY.glossary?window.TPSTORY.glossary(term):null;
+      const txt=shown||term;
+      return def?'<span class="term" tabindex="0"'+tipAttr({title:term,text:def})+'>'+txt+'</span>':txt;
+    });
 }
 /* Степпер: шаг = под-вкладка. data-subtab — тот же обработчик, что у вкладок;
    data-text — резерв ширины жирной подписи (правило 10d). Под вопросом —
    короткий ответ и точка сигнала: зелёная, красная или серая (светофор). */
 function chapters(list,active){
   if(!list||list.length<2)return'';
-  /* nN — число глав: при пяти-шести главах в узкой панели неактивные шаги
-     сворачиваются до номера (CSS), иначе подписи резались до «Когда …» */
   return '<div class="st-steps n'+Math.min(6,list.length)+'" role="tablist">'+list.map((c,i)=>{
     const on=c.key===active;
     return '<button class="st-step'+(on?' on':'')+'" data-subtab="'+esc(c.key)+'" data-text="'+esc(c.q)+'" role="tab" aria-selected="'+on+'"'+
@@ -5349,14 +5423,20 @@ function chapters(list,active){
    выводов стоит под графиками (узкая панель, таблица подразделений слева):
    иначе главный совет главы был бы под сгибом. Когда колонка встаёт сбоку,
    строку прячет CSS — совет уже в колонке. */
-function storyHead(head,lede,act){
-  if(!head&&!lede)return'';
+/* why / todo — «Зачем смотреть» и «Что с этим делать»: обычным текстом, не
+   в подсказке (фидбэк 12.10); термины в них — с определениями по наведению */
+function storyHead(head,lede,act,why,todo){
+  if(!head&&!lede&&!why)return'';
   return '<div class="st-head">'+(head?'<h3>'+richText(head)+'</h3>':'')+(lede?'<p>'+richText(lede)+'</p>':'')+
+    (why||todo?'<div class="st-why">'+(why?'<p><b>Зачем смотреть.</b> '+richText(why)+'</p>':'')+
+      (todo?'<p><b>Что с этим делать.</b> '+richText(todo)+'</p>':'')+'</div>':'')+
     (act?'<div class="st-act-in"><span>'+richText(act.text)+'</span>'+
       (act.node?'<button class="btn xs" data-selnode="'+esc(act.node)+'">Показать «'+esc(act.name)+'»</button>':'')+'</div>':'')+
     '</div>';
 }
-/* o: {facts, focus:{cap,rows:[{name,val,w,st,path}]}, act:{text,node,name}, next:{key,q}, toggle} */
+/* o: {facts, focus:{cap,rows:[{name,val,w,st,path}]}, act:{text,node,name}}.
+   Кнопки «Дальше» нет (итерация 32, заказчик): к следующей главе ведёт степпер
+   сверху, а кнопка внизу колонки только занимала место. */
 function storyRail(o){
   let h='';
   const facts=(o.facts||[]).filter(Boolean);
@@ -5371,8 +5451,15 @@ function storyRail(o){
     '</tbody></table></div>';
   if(o.act)h+='<div class="st-act"><div class="st-cap">Что сделать</div><p>'+richText(o.act.text)+'</p>'+
     (o.act.node?'<button class="btn xs" data-selnode="'+esc(o.act.node)+'">Показать «'+esc(o.act.name)+'»</button>':'')+'</div>';
-  if(o.next)h+='<button class="st-next" data-subtab="'+esc(o.next.key)+'"><span>Дальше</span>'+esc(o.next.q)+' →</button>';
   return h?'<aside class="st-rail">'+h+'</aside>':'';
+}
+/* Список выводов внутри главы (обзор «Движения персонала»): то, что нужно
+   вынести из графика, — прямо под ним, а не в колонке сбоку. */
+function storyFacts(list,cap){
+  const f=(list||[]).filter(Boolean);
+  if(!f.length)return'';
+  return '<div class="st-ins"><div class="st-cap">'+esc(cap||'Что важно')+'</div><ul>'+
+    f.map(x=>'<li>'+richText(x)+'</li>').join('')+'</ul></div>';
 }
 /* Обёртка главы. main — содержимое под-вкладки как есть (графики, таблицы). */
 function story(o){
@@ -5556,7 +5643,7 @@ function planTable(rows){
       (r.now==='демо'?demoTag():esc(r.now))+'</td></tr>').join('')+'</tbody></table>';
 }
 
-window.TPUI={richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
@@ -5995,7 +6082,7 @@ function focusRate(c,k,cap){
 const Q={
   structure:{qual:'Какой квалификации?',people:'Кто эти люди?',contract:'Как оформлены?',
     geo:'Где работают?',stream:'В каких стримах?',custom:'Свой срез'},
-  movement:{balance:'Растём или сжимаемся?',dynamics:'Кто пришёл и кто ушёл?',rates:'Восполняем ли уходы?'},
+  movement:{balance:'Растём или сжимаемся?',dynamics:'Что двигало численность?'},
   turnover:{dynamics:'Сколько уходит?',reasons:'Почему уходят?',who:'Кто уходит?'},
   hiring:{vacancies:'Успеваем закрывать вакансии?',plan:'Выполняем план?',profile:'Кого и откуда берём?',
     funnel:'Где теряем кандидатов?'},
@@ -6065,47 +6152,46 @@ CH.turnover={
   }
 };
 
-/* ===== Движение персонала ===== */
+/* ===== Движение персонала =====
+   Итерация 32: обзор (водопад + «что нужно знать» под ним) и одна глава
+   динамики по месяцам; глава «Замещение и темпы» снята. */
 CH.movement={
   balance(c){
     const hc=ser(c.lp,'hc_total'), begin=hc[0], end=hc[D.LAST], net=end-begin;
     const hire=s12(c.lp,'hire'), tin=s12(c.lp,'transfer_in'), attr=s12(c.lp,'attrition'), tout=s12(c.lp,'transfer_out');
+    const other=net-(hire+tin-attr-tout);
     const mx=argmax(hc);
     const fo=focusCount(c,'hire',{cap:'Где нанимают · 12 мес',what:'найма'});
+    const top=fo.focus&&fo.focus.rows[0];
     return {sum:signed(net)+' за год',st:'n',
       head:net>0?'Команда выросла на '+pl(net,PPL)+' за год':net<0?'Команда сократилась на '+pl(-net,PPL)+' за год'
         :'Численность за год не изменилась',
-      lede:'Было **'+D.fmtInt(begin)+'**, стало **'+D.fmtInt(end)+'**. Пришли '+hire+' по найму и '+tin+
-        ' переводом, ушли '+attr+' и '+tout+' переводом.',
-      facts:[mx!==D.LAST&&mx!==0?'Максимум — **'+D.fmtInt(hc[mx])+'** '+mPrep(mx):null,
-        'Найм против оттока: **'+hire+'** и **'+attr+'**',
-        'Переводы: **+'+tin+'** в команду, **'+minus(-tout)+'** из неё'],
-      focus:fo.focus,ann:{hc_total:annFor(mx!==D.LAST&&mx!==0?mx:-1,'максимум')}};
+      lede:'Было **'+D.fmtInt(begin)+'**, стало **'+D.fmtInt(end)+'**. Водопад показывает, что сдвинуло численность: '+
+        'найм и переводы в команду поднимают её, отток и переводы из команды — опускают.',
+      insights:[
+        hire>=attr?'Найм покрывает отток: пришли **'+hire+'**, ушли **'+attr+'**'
+          :'Найм не покрывает отток: пришли **'+hire+'**, ушли **'+attr+'**',
+        tin!==tout?'Переводы: **+'+tin+'** в команду и **'+minus(-tout)+'** из неё — '+
+          (tin<tout?'команда отдаёт людей другим подразделениям':'команда получает людей из других подразделений')
+          :'Переводы уравновешены: по **'+tin+'** в обе стороны',
+        other?'Прочие изменения — **'+signed(other)+'**: то, что не объясняют найм, отток и переводы (смена типа численности, реорганизации)':null,
+        mx!==D.LAST&&mx!==0?'Максимум численности — **'+D.fmtInt(hc[mx])+'** '+mPrep(mx):null,
+        top?'Больше всего нанимает «'+top.name+'»: **'+top.val+'** из '+hire:null],
+      focus:fo.focus,act:fo.act};
   },
   dynamics(c){
-    const hs=ser(c.lp,'hire'), as=ser(c.lp,'attrition');
+    const hs=ser(c.lp,'hire'), as=ser(c.lp,'attrition'), hc=ser(c.lp,'hc_total');
     const h=sum(hs), a=sum(as), ti=s12(c.lp,'transfer_in'), to=s12(c.lp,'transfer_out');
-    const ph=argmax(hs), pa=argmax(as);
+    const ph=argmax(hs), pa=argmax(as), mx=argmax(hc);
     const fo=focusCount(c,'attrition',{cap:'Где уходят · 12 мес',what:'уходов'});
     return {sum:'+'+h+' / '+minus(-a),st:'n',
       head:h>a?'Нанимаем больше, чем теряем: +'+(h-a)+' за год':h<a?'Теряем больше, чем нанимаем: '+minus(h-a)+' за год'
         :'Найм и отток за год сравнялись',
-      lede:'За 12 месяцев приняли **'+pl(h,PPL)+'**, ушли **'+pl(a,PPL)+'**. Переводами пришли '+ti+', ушли '+to+'.',
+      lede:'За 12 месяцев приняли **'+pl(h,PPL)+'**, ушли **'+pl(a,PPL)+'**; переводами пришли '+ti+', ушли '+to+
+        '. Сверху — итог, ниже — потоки, которые его двигали: видно, какой месяц что сдвинул.',
       facts:[ph>=0&&hs[ph]?'Больше всего приняли '+mPrep(ph)+': **'+hs[ph]+'**':null,
         pa>=0&&as[pa]?'Больше всего ушли '+mPrep(pa)+': **'+as[pa]+'**':null],
-      focus:fo.focus,act:fo.act};
-  },
-  rates(c){
-    const rr=judge('replace_ratio',c), hr=D.lastVal(c.lp,'hire_rate'), tm=D.lastVal(c.lp,'turnover_m');
-    const v=rr.v;
-    return {sum:v==null?'уходов не было':'замещение '+f('replace_ratio',v),st:'n',
-      head:v==null?'Уходов с начала года не было — восполнять нечего'
-        :v>=1.05?'Уходы восполняются с запасом: '+f('replace_ratio',v)+' нового на одного ушедшего'
-        :v>=0.95?'Уходы восполняются один к одному'
-        :'Уходы не восполняются: '+f('replace_ratio',v)+' нового на одного ушедшего',
-      lede:'Коэффициент — найм к оттоку с начала года'+(rr.base!=null?', база — '+f('replace_ratio',rr.base):'')+
-        '. За '+mNom(D.LAST)+' на 100 человек — **'+f('hire_rate',hr)+'** найма и **'+f('turnover_m',tm)+'** оттока.',
-      ann:{replace_ratio:{hi:[D.LAST]}}};
+      focus:fo.focus,act:fo.act,ann:{hc_total:annFor(mx!==D.LAST&&mx!==0?mx:-1,'максимум')}};
   }
 };
 
@@ -6309,6 +6395,108 @@ D.MIX_GROUPS.forEach(g=>{
 });
 CH.structure.custom=function(){return {sum:'конструктор',st:'n'}};
 
+/* ---------- Зачем смотреть и что с этим делать (итерация 32, фидбэк 12.10) ----------
+   «Когда я смотрю: а что мне с этим делать? Что мне это даёт? Зачем я смотрю
+   на этот график?» — у каждой главы две фразы обычным текстом под выводом.
+   Термины размечены {{Термин|форма в тексте}}: подчёркнуты пунктиром, при
+   наведении — определение из словаря GL. Определения метрик и разрезов берутся
+   из data.js (hint / tip) — те же, что в справке и в «i» у карточек, чтобы
+   одно и то же слово не объяснялось в отчёте двумя способами. */
+const GL={
+  'Грейд':{dim:'grade',add:' Грейд 1 — младший уровень, грейд 5 — старший.'},
+  'Сеньорность':{dim:'seniority',add:' Junior → Middle → Senior → Lead: зрелость в профессии, а не позиция в сетке.'},
+  'Стрим':{text:'Профессиональное направление сотрудника: разработка, тестирование, аналитика и так далее. Внутри стрима — специализации.'},
+  'Водопад':{text:'График-лестница: от численности на начало периода столбики прибавляют пришедших и вычитают ушедших — и приходят к численности на конец.'},
+  'Текучесть':{metric:'turnover_m',add:' Учитывает размер команды, поэтому её можно сравнивать между командами и с базой.'},
+  'База':{text:'Средняя по всей компании под теми же фильтрами, что выбраны в шапке, — чип «Сравнение». Переход в подразделение базу не меняет.'},
+  'Прогноз текучести':{metric:'turnover_fc'},
+  'Нежелательный уход':{metric:'regret',add:' В причинах отмечен ★: компания могла на него повлиять — оплатой, ростом, руководителем.'},
+  'Срок закрытия вакансии':{metric:'time_to_fill'},
+  'Выполнение плана найма':{metric:'hire_plan'},
+  'T-рост':{text:'Внутренний карьерный рост: сотрудник подаёт заявку на повышение грейда или смену специализации, по ней принимается решение — одобрить или отказать.'},
+  'Конверсия T-роста':{metric:'tgrowth_conv'},
+  'T@T':{metric:'tgrowth_tat'},
+  'Недоработчики':{metric:'underwork',add:' То есть отработали за месяц меньше нормы рабочего времени — по табелю.'},
+  'Лоу-перформеры':{metric:'low_perf',add:' Считается по оценке результативности: «низкая» к числу оценённых.'},
+  'Ревью':{text:'Оценка результатов работы раз в полгода. Между циклами значения не меняются.'},
+  'Нарушения бронирования':{metric:'booking_viol'},
+  'Посещаемость офиса':{metric:'office_att'},
+  'Проникновение AI':{metric:'ai_penetration'},
+  'WAU':{metric:'ai_wau'}
+};
+function glossary(term){
+  const g=GL[term];
+  if(!g)return null;
+  const dm=g.dim?(D.MIX_BY_KEY[g.dim]||{}):null;
+  const base=g.metric?(D.METRIC_BY_KEY[g.metric]||{}).hint:dm?(dm.hint||dm.tip||''):g.text;
+  if(!base)return null;
+  return String(base||'')+(g.add||'');
+}
+const WHY={
+  structure:{
+    qual:['Видно, на каком уровне команда: много ли людей младших {{Грейд|грейдов}} (растущих) или старших (опытных).',
+      'Перекос вниз — нужны наставники и план роста; перекос вверх — дорогая команда и мало места для роста.'],
+    people:['Возраст, стаж и пол показывают, насколько команда устойчива.',
+      'Много людей со стажем до года — следите за адаптацией и ранним уходом. «Пол × грейд» в «Своём срезе» покажет, ровно ли распределены уровни.'],
+    contract:['От формы оформления зависят затраты и управляемость команды.',
+      'Большая доля не штата — проверьте, не держатся ли на ней ключевые роли.'],
+    geo:['Где и в каком формате работают люди: офисы, часовые пояса, найм в регионах.',
+      'Сверьте с посещаемостью офисов: гибридный формат без офиса рядом не работает.'],
+    stream:['Из каких {{Стрим|стримов}} состоит команда и где её основная экспертиза.',
+      'Стрим из одного-двух человек — точка отказа: с их уходом уйдёт и экспертиза.'],
+    custom:['Любой разрез против любого — например, {{Сеньорность|сеньорность}} × пол или грейд × стаж.',
+      'Клик по клетке берёт срез, и цифры в карточках и в таблице подразделений пересчитаются по нему.']},
+  movement:{
+    balance:['{{Водопад}} раскладывает изменение численности на найм, отток и переводы — видно, что именно сдвинуло команду.',
+      'Если сокращение идёт за счёт оттока, а не по плану, — переходите в «Отток и текучесть».'],
+    dynamics:['По месяцам видно, какой поток и когда двигал численность.',
+      'Месяц, где отток выше найма, — сверьте с причинами ухода в «Отток и текучесть».']},
+  turnover:{
+    dynamics:['{{Текучесть}} — темп ухода с поправкой на размер команды; её и сравнивают с {{База|базой}}.',
+      'Всплеск в одном месяце — найдите подразделение в таблице слева; рост {{Прогноз текучести|прогноза на год}} — повод поговорить с руководителями команд.'],
+    reasons:['Причины отделяют уходы, на которые компания могла повлиять ({{Нежелательный уход|нежелательные}}, ★), от неизбежных.',
+      'Первая ★-причина в списке — главный рычаг удержания: оплата, рост или руководитель.'],
+    who:['Стаж, {{Грейд|грейд}} и стрим ушедших показывают, кого именно теряем.',
+      'Много уходов в первый год — вопрос найма и адаптации; уходят опытные — вопрос роста и вознаграждения.']},
+  hiring:{
+    vacancies:['Открытые вакансии — недостающие люди; {{Срок закрытия вакансии|срок закрытия}} — сколько команда работает в неполном составе.',
+      'Вакансии копятся месяцами — пересмотрите требования и каналы подбора.'],
+    plan:['{{Выполнение плана найма|Выполнение плана}} показывает, успевает ли подбор за потребностью бизнеса.',
+      'Отставание — начните с просроченных вакансий: они и тянут план вниз.'],
+    profile:['Откуда приходят люди и какого они уровня — это стоимость и скорость найма.',
+      'Сильный канал масштабируйте; много джунов ({{Сеньорность|сеньорность}} Junior) — заложите наставников.'],
+    funnel:['Воронка показывает, на каком этапе теряются кандидаты.',
+      'Пока этапы — допущение макета; выводы появятся вместе с источником вакансий.']},
+  tgrowth:{
+    flow:['{{T-рост}} — внутренний карьерный рост; {{Конверсия T-роста|конверсия}} показывает, насколько этот путь реально работает.',
+      'Низкая конверсия — люди пробуют расти и упираются, а это предвестник ухода.'],
+    requests:['{{T@T}} — сколько месяцев проходит между повышениями: если долго, люди уходят расти в другие компании.',
+      'Сравните с базой и с уходами со стажем 1–3 года в «Отток и текучесть».'],
+    statuses:['У кого есть движение по росту, а у кого его нет уже год.',
+      'Большая доля «нет развития» в грейде — обсудите с руководителями планы роста этих людей.']},
+  monitor:{
+    both:['{{Недоработчики}} и {{Лоу-перформеры|лоу-перформеры}} — ранние сигналы проблем с нагрузкой и результатом; {{Ревью|ревью}} — динамика оценок.',
+      'Растёт любая из первых двух линий — разберите подразделение, которое даёт рост.'],
+    review:['Итоги последнего {{Ревью|ревью}}: у кого оценка выросла, у кого упала.',
+      'Ухудшивших больше, чем улучшивших, — проверьте нагрузку и цели в этих группах.']},
+  office:{
+    calendar:['В какие дни офис заполнен, а в какие пустует — это командные дни и аренда.',
+      'Пустые дни — кандидаты на общий «офисный день» команды.'],
+    offices:['Какие офисы заполнены, а какие стоят пустыми.',
+      'Пустой офис — повод пересмотреть площадь или сделать его местом встреч.'],
+    people:['Кто ходит в офис: грейды, роли, локации.',
+      'Старшие грейды не ходят — младшим не у кого учиться в офисе.'],
+    booking:['{{Нарушения бронирования|Нарушения брони}} — места, которые заняли и не пришли, или пришли без брони.',
+      'Высокая доля — места простаивают, а план офиса не сходится с реальностью.'],
+    dynamics:['{{Посещаемость офиса|Посещаемость}} против {{База|базы}} за год.',
+      'Падение — сверьте с правилами гибридного формата в команде.']},
+  ai:{
+    adoption:['{{Проникновение AI|Проникновение}} — какая доля людей пользуется AI каждую неделю; {{WAU}} — сколько их.',
+      'Отстающие подразделения — кандидаты на обучение и пилоты.'],
+    tools:['Какими AI-инструментами пользуются и в каких стримах.',
+      'Стрим с низким проникновением — спросите, каких инструментов ему не хватает.']}
+};
+
 /* ---------- сборка книги блока ----------
    c: {S, lp, bl, sel, bench}; subTabs — список глав блока; demo(sub) — правда,
    если глава в пробнике демо. Возвращает шаги степпера, текущую главу и
@@ -6318,13 +6506,14 @@ function book(bk,subTabs,cur,c,demo){
   const chapters=subTabs.map(([key,name])=>{
     let s={};
     if(!(demo&&demo(key))&&defs[key]){try{s=defs[key](c)||{}}catch(e){s={}}}
-    return Object.assign({key:key,name:name,q:q[key]||name,st:'n'},s);
+    const w=(WHY[bk]||{})[key];
+    return Object.assign({key:key,name:name,q:q[key]||name,st:'n',why:w?w[0]:null,todo:w?w[1]:null},s);
   });
   const i=Math.max(0,chapters.findIndex(x=>x.key===cur));
   return {chapters:chapters,cur:chapters[i],idx:i,next:chapters[i+1]||null};
 }
 
-window.TPSTORY={book,Q,CH,judge};
+window.TPSTORY={book,Q,CH,judge,GL,WHY,glossary};
 })();
 
 </script>
@@ -6524,7 +6713,7 @@ function renderBlock(S,expanded,mixOpen,view){
   if(!S.subTab||!mod.subTabs.some(t=>t[0]===S.subTab))S.subTab=mod.defaultSub;
   const root=currentRoot(S), rootNode=D.NODE_BY_PATH[root];
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
-  const mainK=blockMain(b.key,S), mainM=D.METRIC_BY_KEY[mainK];
+  const mainK=blockMain(b.key,S);
   /* Срез состава живёт только на «Структуре численности» и только там читается.
      Гейт по блоку не перестраховка: подпись «N чел» под именем подразделения
      стоит на КАЖДОЙ вкладке, и без него срез, взятый в составе, молча ужимал бы
@@ -6616,7 +6805,7 @@ function renderBlock(S,expanded,mixOpen,view){
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
      левая колонка становится шире — иначе главная метрика и «К базе» уезжали
      за край панели под горизонтальную прокрутку. */
-  const wideL=mets.length+(D.comparable(mainK)||D.kpiFor(mainK,S)?1:0)>=7;
+  const wideL=mets.length>=7;
   /* Таблица подразделений — по выбору (итерация 32): m-both — таблица слева,
      графики справа (по умолчанию: таблица — основа фильтрации), m-charts —
      графики во всю ширину; share — доля
@@ -6634,19 +6823,15 @@ function renderBlock(S,expanded,mixOpen,view){
   const allOpen=expandable.length>0&&expandable.every(p=>expanded.has(p));
 
   /* 5a · сводная таблица подразделений
-     Ориентир колонки один и тот же для всей таблицы: цель KPI, если она у
-     главной метрики есть, иначе средняя по базе. Сравнивать подразделение с
-     базой, когда по метрике утверждён KPI, — значит мерить не тем. */
-  const kpiMain=D.kpiFor(mainK,S);
-  const benchMain=kpiMain?kpiMain.green:D.lastVal(bl,mainK);
-  const showVs=D.comparable(mainK)||!!kpiMain;
+     Колонки «К базе» / «К цели KPI» больше нет (итерация 32, заказчик: «непонятно,
+     по какой логике он появляется»). Ориентир — база или цель — живёт в
+     KPI-карточках над таблицей и на графиках главы. */
   const totalCells=mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'». Глубже — выберите строку и откройте её '+
       'юнит иконкой у правого края имени.'})+'>Подразделение</th>'+
     mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+
       (D.isStub(m.key)?U.demoTag(true):'')+'</th>').join('')+
-    (showVs?'<th class="vs">'+(kpiMain?'К цели KPI':'К базе')+'<span class="hint-col">'+esc(mainM.short)+'</span></th>':'')+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
        Каретка у ИТОГО раскрывает и сворачивает ВСЁ дерево разом: раскрывать
@@ -6664,12 +6849,9 @@ function renderBlock(S,expanded,mixOpen,view){
         (allOpen?'▾':'▸')+'</button>'
       : '<span class="caret-spacer"></span>')+
     '<span class="row-body">ИТОГО</span></span></td>'+totalCells+
-    (showVs?'<td class="vs"><span class="cell neutral">'+D.fmtVal(mainK,benchMain)+'</span></td>':'')+
     '</tr>';
   rows.forEach(r=>{
     const lp=rowLeaves(r.n.path,S);
-    const v=D.lastVal(lp,mainK);
-    const st=kpiMain?D.stateForKpi(mainK,v,kpiMain):D.compareState(mainK,v,benchMain);
     const canExp=!tq&&r.kids>0&&r.depth<TREE_DEPTH, isOpen=expanded.has(r.n.path), isSel=sel===r.n.path;
     /* На границе глубины подразделения ниже не показаны — говорим, сколько их
        и как до них дойти. Число — прямые подразделения, а не все потомки. */
@@ -6689,13 +6871,10 @@ function renderBlock(S,expanded,mixOpen,view){
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
       mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+
-        (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>').join('')+
-      /* у пустого подразделения 0% — не «лучше базы», а отсутствие людей */
-      (showVs?'<td class="vs">'+(r.empty||v==null||benchMain==null?'<span class="cell neutral">—</span>'
-        :'<span class="cell '+st+'">'+D.fmtDelta(mainK,+(v-benchMain).toFixed(4))+'</span>')+'</td>':'')+'</tr>';
+        (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>').join('')+'</tr>';
   });
   /* пустые состояния — строкой в таблице, а не вместо неё: ИТОГО остаётся */
-  const ncol=1+mets.length+(showVs?1:0);
+  const ncol=1+mets.length;
   if(!rows.length)tbl+='<tr class="tree-empty"><td class="txt" colspan="'+ncol+'">'+
     (tq?'Подразделений с «'+esc(tq)+'» в трёх уровнях вниз нет. Глубже — откройте юнит; другое подразделение '+
         'компании — в «Настрой свой дашборд».'
@@ -6718,13 +6897,12 @@ function renderBlock(S,expanded,mixOpen,view){
   const bookC=STY.book(b.key,mod.subTabs,S.subTab,{S,lp:ctx.lp,bl,sel,bench:ctx.benchLabel},
     k=>!!demoNoteFor(b.key,k));
   const ch=bookC.cur;
-  ctx.ann=ch.ann||{};
+  ctx.ann=ch.ann||{};ctx.story=ch;
   const body=U.story({
     steps:U.chapters(bookC.chapters,S.subTab),
-    head:U.storyHead(ch.head,ch.lede,ch.act),
+    head:U.storyHead(ch.head,ch.lede,ch.act,ch.why,ch.todo),
     main:demoNoteFor(b.key,S.subTab)+mod.view(ctx),
-    rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act,
-      next:bookC.next?{key:bookC.next.key,q:bookC.next.q}:null})});
+    rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act})});
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
@@ -6914,7 +7092,7 @@ SC.blocks.structure={
    ========================================================================== */
 (function(){
 'use strict';
-const D=window.TPDATA, G=window.TPDRAW, SC=window.TPSCREENS;
+const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
 function balancedSteps(lp){
   const hc=D.aggregate(lp,'hc_total'), begin=hc[0], end=hc[D.LAST];
@@ -6928,31 +7106,24 @@ function balancedSteps(lp){
 }
 
 SC.blocks.movement={
-  subTabs:[['balance','Баланс за период'],['dynamics','Найм, отток и переводы'],['rates','Замещение и темпы']],
+  /* Итерация 32 (фидбэк 12.10): «вначале waterfall, а потом только динамики»,
+     и вся динамика — численность, найм и отток, переводы — на одном листе,
+     «чтобы было видно, что на что повлияло». Глава «Замещение и темпы»
+     снята: коэффициент замещения и найм на 100 человек на отдельном листе
+     читались как непонятные метрики. Сами метрики остались в карточках
+     и в таблице подразделений — их можно скрыть в «Настрой свой дашборд». */
+  subTabs:[['balance','Обзор за год'],['dynamics','Динамика по месяцам']],
   defaultSub:'balance',
   title(sub){return sub==='dynamics'
-    ? 'Внешние и внутренние потоки по месяцам'
-    : sub==='rates'?'Растёт ли команда: замещение и темпы потоков'
-    : 'Численность и из чего сложилось её изменение'},
+    ? 'Численность, найм, отток и переводы по месяцам'
+    : 'Из чего сложилось изменение численности'},
   view(ctx){
-    if(ctx.sub==='rates'){
-      /* Отток на 100 человек — это и есть текучесть месячная (та же формула),
-         поэтому нижнее плечо берёт её ряд, а не заводит дубль. Одна шкала на
-         оба плеча: темпы прихода и ухода сравниваются длиной бара. */
-      return SC.metricLine('replace_ratio',ctx.lp,ctx.bl,ctx.S,
-          {h:300,title:'Коэффициент замещения',ann:ctx.ann.replace_ratio})+
-        G.chart('diverge',
-        {up:D.aggregate(ctx.lp,'hire_rate'),down:D.aggregate(ctx.lp,'turnover_m'),
-         upKey:'hire_rate',downKey:'turnover_m'},
-        {h:300,fill:true,title:SC.winTitle(ctx.S,'Найм и отток на 100 человек, %'),
-         upName:'Найм на 100 человек',downName:'Отток на 100 человек (текучесть)',
-         legend:[{name:'Найм на 100',color:G.C_IN},{name:'Отток на 100',color:G.C_OUT}]});
-    }
     if(ctx.sub==='dynamics'){
-      return G.chart('diverge',
+      return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:240,title:'Общая численность, чел',ann:ctx.ann.hc_total})+
+        G.chart('diverge',
         {up:D.aggregate(ctx.lp,'hire'),down:D.aggregate(ctx.lp,'attrition'),
          upKey:'hire',downKey:'attrition'},
-        {h:300,fill:true,title:'Найм и отток, чел',
+        {h:240,fill:true,title:SC.winTitle(ctx.S,'Найм и отток, чел'),
          legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT}]})+
         G.chart('diverge',
         {up:D.aggregate(ctx.lp,'transfer_in'),down:D.aggregate(ctx.lp,'transfer_out'),
@@ -6960,13 +7131,14 @@ SC.blocks.movement={
         /* та же гамма, что у найма и оттока: человек пришёл — C_IN, ушёл — C_OUT.
            Отдельный «приглушённый» цвет для внутренних переводов заводить нельзя,
            иначе водопад рядом красит те же переводы зелёным и красным. */
-        {h:300,fill:true,title:'Переводы внутри компании, чел',
+        {h:240,fill:true,title:SC.winTitle(ctx.S,'Переводы внутри компании, чел'),
          legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]});
     }
-    return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Общая численность, чел',ann:ctx.ann.hc_total})+
-      G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
-        title:SC.winTitle(ctx.S,'Из чего сложилось изменение за период'),
-        legend:[{name:'Итог месяца',color:G.C_TOTAL},{name:'Приход',color:G.C_IN},{name:'Уход',color:G.C_OUT}]});
+    /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
+    return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
+        title:'Из чего сложилось изменение за 12 месяцев, чел',
+        legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Приход',color:G.C_IN},{name:'Уход',color:G.C_OUT}]})+
+      U.storyFacts(ctx.story&&ctx.story.insights,'Что нужно знать');
   }
 };
 })();
@@ -7148,7 +7320,9 @@ SC.blocks.hiring={
       const open=SC.sumS(D.aggregate(lp,'vac_open')), closed=SC.sumS(D.aggregate(lp,'vac_closed'));
       const items=FUNNEL.map(([name,k],i)=>({name,
         value:i===FUNNEL.length-1?Math.max(closed,Math.round(open*k)):Math.round(open*k)}));
-      return G.chart('funnel',{items},{fill:true,h:Math.max(300,items.length*74)})+
+      /* воронка своей высотой и не шире 760px (итерация 32, фидбэк 12.10:
+         растянутая на всю панель она читалась «сумасшедшей») */
+      return G.chart('funnel',{items},{h:items.length*72+12,cls:'narrow'})+
         '<div class="tbl-note">Этапы после открытия вакансии — допущение макета: коэффициенты 0,63 / 0,49 / 0,41. Реального источника под ними пока нет.</div>';
     }
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
@@ -8095,9 +8269,19 @@ function enhanceA11y(){
    метрике нельзя: пользователь теряет ту самую строку, которую только что открыл. */
 /* quiet=true — перерисовка без анимации графиков: набор в поиске по таблице
    перерисовывает экран на каждую букву, и линии не должны рисоваться заново. */
+/* Прокрутка ВНУТРИ панелей (итерация 32, фидбэк 12.10: «при клике на разрез
+   не должно быть скролла вверх — нужно оставаться на своём месте»). innerHTML
+   заменяет и прокручиваемые контейнеры, и их scrollTop обнулялся, хотя
+   прокрутку страницы render(true) уже держал. Теперь держит и их; панель
+   графиков начинает сверху только при смене вкладки или главы — там другой
+   экран, и стоять посередине чужого нечему. */
+const INNER_SCROLL=['.split-l .tbl-wrap','.split-r .panel-b','.st-rail'];
+let lastView='';
 function render(keepScroll,quiet){
   const sc=ENV?ENV.scroller:null;
   const y=keepScroll?(sc?sc.scrollTop:(window.pageYOffset||0)):0;
+  const view=S.tab+'|'+(S.subTab||'');
+  const inner=keepScroll?INNER_SCROLL.map(q=>{const el=$(q);return el?[el.scrollTop,el.scrollLeft]:null}):[];
   /* вкладка скрытого (или несуществующего) блока — уводим на one-pager. Одна
      точка на всё: и ссылка с ?tab=tgrowth&hide=…, и отключение метрик в модалке */
   if(S.tab!=='onepager'&&!(D.BLOCK_BY_KEY[S.tab]&&D.blockVisible(S.tab,S))){S.tab='onepager';S.subTab=null}
@@ -8108,6 +8292,15 @@ function render(keepScroll,quiet){
     : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
+  /* после смены вкладки или главы (S.subTab подставляется при сборке) */
+  const sameView=view===lastView||(S.tab+'|'+(S.subTab||''))===lastView;
+  if(keepScroll)INNER_SCROLL.forEach((q,i)=>{
+    const el=$(q), v=inner[i];
+    if(!el||!v)return;
+    if(q!=='.split-l .tbl-wrap'&&!sameView)return;
+    el.scrollTop=v[0];el.scrollLeft=v[1];
+  });
+  lastView=S.tab+'|'+(S.subTab||'');
   stickTotals();
   renderMascot();
   enhanceA11y();navOpen(false);
@@ -8117,6 +8310,21 @@ function render(keepScroll,quiet){
   spyBlocks();
   if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
 }
+
+/* Крест в матрицах (итерация 32, фидбэк 12.10): строку подсвечивает CSS
+   по :hover, столбец — этот обработчик классом x-col. Индекс — по cellIndex;
+   строки-разделы с colspan (группы тепловой таблицы) пропускаем. */
+function crossCol(td,on){
+  const tb=td&&td.closest&&td.closest('.mxtable');
+  if(!tb)return;
+  $$('.mxtable .x-col').forEach(x=>x.classList.remove('x-col'));
+  if(!on||td.cellIndex<1)return;
+  const i=td.cellIndex, n=td.parentNode.cells.length;
+  [].forEach.call(tb.rows,r=>{if(r.cells.length===n&&r.cells[i])r.cells[i].classList.add('x-col')});
+}
+on(document,'mouseover',e=>{const td=e.target.closest&&e.target.closest('.mxtable td');if(td)crossCol(td,true)});
+on(document,'mouseout',e=>{const td=e.target.closest&&e.target.closest('.mxtable td');
+  if(td&&!(e.relatedTarget&&td.contains(e.relatedTarget)))crossCol(td,false)});
 
 /* Липкий ИТОГО встаёт ровно под шапку таблицы. Шапка переносится по словам
    и бывает в две-три строки, а константа 29px оставляла под ней половину

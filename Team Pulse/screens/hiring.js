@@ -92,7 +92,9 @@ SC.blocks.hiring={
       const open=SC.sumS(D.aggregate(lp,'vac_open')), closed=SC.sumS(D.aggregate(lp,'vac_closed'));
       const items=FUNNEL.map(([name,k],i)=>({name,
         value:i===FUNNEL.length-1?Math.max(closed,Math.round(open*k)):Math.round(open*k)}));
-      return G.chart('funnel',{items},{fill:true,h:Math.max(300,items.length*74)})+
+      /* воронка своей высотой и не шире 760px (итерация 32, фидбэк 12.10:
+         растянутая на всю панель она читалась «сумасшедшей») */
+      return G.chart('funnel',{items},{h:items.length*72+12,cls:'narrow'})+
         '<div class="tbl-note">Этапы после открытия вакансии — допущение макета: коэффициенты 0,63 / 0,49 / 0,41. Реального источника под ними пока нет.</div>';
     }
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
