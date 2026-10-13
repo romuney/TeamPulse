@@ -24,8 +24,16 @@ const MONTH_NOM=['январь','февраль','март','апрель','ма
                  'сентябрь','октябрь','ноябрь','декабрь'];
 /* колонка датасета → ключ ряда макета (ключи метрик и служебных рядов data.js) */
 const COLS=['hc','act','avg','hire','fire','reg','tin','tout','plow','prat'];
+/* Ряды из колонок, добавленных в таблицу к 12.10.2026 (разведка 2): отработанные
+   человеко-дни, посещения офиса и решения по заявкам T-роста (GRT). Они
+   НЕОБЯЗАТЕЛЬНЫЕ: датасет прежней версии их не везёт, и тогда посещаемость
+   и T-рост остаются заглушками «демо», а не падают и не встают нулями. */
+const OPT=['wday','ovis','gapr','gdec'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
-  transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',plow:'plow',prated:'prat'};
+  transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',plow:'plow',prated:'prat',
+  wday:'wday',ovis:'ovis',tgrowth_pass:'gapr',tgrowth_deny:'gdec'};
+/* метрики, которые оживают, когда в ответе есть их колонки */
+const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec']};
 /* Метрики без источника в hr_structure_overall: в пробнике — заглушки на генераторе
    макета (по численности юнита), с пометкой «демо». План подключения —
    «Поставка — TeamPulse Hub/План метрик.md». */
@@ -47,8 +55,12 @@ const PLAN=[
   {stage:'4',what:'Состав: грейд, сеньорность, пол, возраст, стаж, формат работы, юрлицо, регион, стрим',
     src:'mdm_employee_structure_d → ноут Helicopter, как в HRBP HUB',now:'демо'},
   {stage:'5',what:'Ревью и недоработка',src:'review_digest_us, review_table_ys; недоработка — уточнить',now:'демо'},
-  {stage:'6',what:'T-рост: заявки, решения, конверсия, T@T',src:'сервис «Рост» (дашборд 34136)',now:'демо'},
-  {stage:'7',what:'Посещаемость офиса и бронирование',src:'СКУД и система бронирования (дашборд 34136)',now:'демо'},
+  {stage:'6',what:'T-рост: решения по заявкам и конверсия — из GRT-колонок hr_structure_overall (12.10); '+
+    'T@T, типы заявок и статусы по грейдам',src:'hr_structure_overall (grt_*); остальное — сервис «Рост» (дашборд 34136)',
+    now:'решения и конверсия — живые, остальное — демо'},
+  {stage:'7',what:'Посещаемость офиса — из work_day_amt и office_visit_amt (12.10); календарь по дням, офисы, '+
+    'бронирование',src:'hr_structure_overall; по дням и офисам — СКУД и система бронирования (дашборд 34136)',
+    now:'посещаемость — живая, остальное — демо'},
   {stage:'8',what:'AI: проникновение и активные пользователи',src:'penetration_unit, penetration_company, wau',now:'демо'}
 ];
 /* значения фильтров в датасете ↔ ключи фильтров макета */
@@ -70,14 +82,20 @@ function pairs(list){
   return (list||[]).map(x=>Array.isArray(x)?{v:str(x[0]),n:num(x[1])}:{v:str(x.v),n:num(x.e)});
 }
 
-/* все колонки датасета: каждую нужно добавить в «Измерения» чарта */
+/* все колонки датасета: каждую нужно добавить в «Измерения» чарта. Необязательные
+   (OPT) в список «нет колонок» не попадают — без них метрики остаются «демо». */
 const FIELDS=['role','id','pid','lvl','nm','kids','j'].concat(COLS.map(c=>'m_'+c));
+const FIELDS_OPT=OPT.map(c=>'m_'+c);
 
 function build(data){
   const rows=Array.isArray(data)?data:[];
   /* поле, которого нет в «Измерениях», приходит undefined — массивы молча стали бы
      нулями; поэтому чарт называет пропущенные колонки сам */
   const missing=rows.length?FIELDS.filter(f=>!(f in rows[0])):[];
+  /* необязательные ряды — только если колонка есть в ответе */
+  const have=new Set(rows.length?OPT.filter(c=>('m_'+c) in rows[0]):[]);
+  const cols=COLS.concat(OPT.filter(c=>have.has(c)));
+  const stub=new Set(STUB.filter(k=>!(LIVE_WITH[k]&&LIVE_WITH[k].every(c=>have.has(c)))));
   const by=role=>rows.filter(r=>str(r.role)===role);
   let meta={};
   try{meta=JSON.parse(str((by('meta')[0]||{}).j)||'{}')}catch(e){meta={}}
@@ -107,7 +125,7 @@ function build(data){
     const role=str(r.role);
     if(!(role in DEPTH))return;
     const u={id:str(r.id),pid:str(r.pid),lvl:num(r.lvl),kids:num(r.kids),name:str(r.nm),depth:DEPTH[role],ser:{}};
-    COLS.forEach(c=>{u.ser[c]=parseArr(r['m_'+c],n)});
+    cols.forEach(c=>{u.ser[c]=parseArr(r['m_'+c],n)});
     units.push(u);
     byId[u.id]=Object.assign(byId[u.id]||{},{id:u.id,pid:u.pid,lvl:u.lvl,kids:u.kids,name:u.name});
   });
@@ -160,7 +178,7 @@ function build(data){
     }
     const own={};
     let any=false;
-    COLS.forEach(c=>{
+    cols.forEach(c=>{
       own[c]=u.ser[c].map((v,i)=>{
         let s=v;ch.forEach(k=>{s-=k.ser[c][i]});
         s=Math.round(s*10)/10;
@@ -183,7 +201,7 @@ function build(data){
   const baseRow=by('base')[0];
   if(baseRow){
     const b={};
-    COLS.forEach(c=>{b[c]=parseArr(baseRow['m_'+c],n)});
+    cols.forEach(c=>{b[c]=parseArr(baseRow['m_'+c],n)});
     series.BASE=b;
   }
 
@@ -202,11 +220,13 @@ function build(data){
     nodes,
     applied:{paint:one(meta.paint,pv),itSeg:one(meta.it,iv),staffType:one(meta.staff,sv)},
     vals:{paint:pairs(vals.paint),it:pairs(vals.it),staff:pairs(vals.staff)},
-    stub:new Set(STUB),
+    stub,
+    /* есть ли в ответе необязательная колонка (без m_) */
+    has(c){return have.has(c)},
     /* ряд по ключу метрики макета; null — у ключа нет источника (дальше генератор) */
     series(path,key){
       const s=series[path], c=KEY[key];
-      return s&&c?s[c]:null;
+      return s&&c&&s[c]?s[c]:null;
     },
     hasSeries(path){return !!series[path]},
     lastHc(path){const s=series[path];return s?lastOf(s.hc):0},
@@ -216,5 +236,5 @@ function build(data){
   };
 }
 
-window.TPREAL={build,FIELDS,STUB,PLAN,PAINT_V,IT_V,STAFF_V};
+window.TPREAL={build,FIELDS,FIELDS_OPT,OPT,LIVE_WITH,STUB,PLAN,PAINT_V,IT_V,STAFF_V};
 })();

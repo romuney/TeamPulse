@@ -70,7 +70,9 @@ console.log('— '+name+': '+D.NODE_BY_PATH[D.DEFAULT_STATE.unit].name+', '+D.PE
 const scopeRow=rows.find(r=>r.role==='scope'), baseRow=rows.find(r=>r.role==='base');
 const arr=(r,c)=>String(r['m_'+c]).split(',').map(Number);
 const KEYS=[['hc_total','hc'],['hc_active','act'],['hc_avg','avg'],['hire','hire'],['attrition','fire'],
-  ['transfer_in','tin'],['transfer_out','tout'],['regret_cnt','reg'],['plow','plow'],['prated','prat']];
+  ['transfer_in','tin'],['transfer_out','tout'],['regret_cnt','reg'],['plow','plow'],['prated','prat']]
+  /* колонки разведки 12.10 — если ответ их везёт */
+  .concat([['wday','wday'],['ovis','ovis'],['tgrowth_pass','gapr'],['tgrowth_deny','gdec']].filter(([,c])=>R.has(c)));
 let treeOk=true, checked=0;
 rows.filter(r=>['scope','c','g','x'].indexOf(r.role)>=0).forEach(r=>{
   const node=D.NODES.find(n=>n.id===r.id);
@@ -82,7 +84,7 @@ rows.filter(r=>['scope','c','g','x'].indexOf(r.role)>=0).forEach(r=>{
   });
   checked++;
 });
-ok(treeOk,'сумма листьев под каждым юнитом ответа = его строке ('+checked+' юнитов × 10 рядов × '+R.n+' мес)');
+ok(treeOk,'сумма листьев под каждым юнитом ответа = его строке ('+checked+' юнитов × '+KEYS.length+' рядов × '+R.n+' мес)');
 const rl=D.reportLeaves(D.DEFAULT_STATE), bl=D.benchmarkLeaves(D.DEFAULT_STATE);
 ok(near(D.lastVal(rl,'hc_total'),arr(scopeRow,'hc')[R.n-1]),'ИТОГО = численность выбранного юнита в последнем полном месяце');
 ok(bl.length===1&&near(D.lastVal(bl,'hc_total'),arr(baseRow,'hc')[R.n-1]),'база = строка base (вся компания под фильтрами)');
@@ -102,6 +104,21 @@ const pl=arr(scopeRow,'plow')[i], pr=arr(scopeRow,'prat')[i];
 ok(near(D.lastVal(rl,'low_perf'),pr?+(pl/pr*100).toFixed(2):null),'низкая оценка = «низкая» / оценённые');
 ok(D.isStub('vac_open')&&D.isStub('ai_penetration')&&!D.isStub('turnover_m')&&!D.isStub('hc_total'),
   'заглушки помечены: вакансии и AI — демо, численность и текучесть — живые');
+/* колонки разведки 12.10: с ними посещаемость и T-рост живые, без них — «демо», и
+   чарт не жалуется на «нет колонок» (они необязательные) */
+const NEWC=['wday','ovis','gapr','gdec'], hasNew=NEWC.every(c=>R.has(c));
+if(hasNew){
+  const wd=arr(scopeRow,'wday')[i], ov=arr(scopeRow,'ovis')[i], ga=arr(scopeRow,'gapr')[i], gd=arr(scopeRow,'gdec')[i];
+  ok(near(D.lastVal(rl,'office_att'),wd?+(ov/wd*100).toFixed(2):null),'посещаемость = посещения офиса / отработанные дни × 100');
+  ok(near(D.lastVal(rl,'tgrowth_pass'),ga)&&near(D.lastVal(rl,'tgrowth_deny'),gd)&&
+    near(D.lastVal(rl,'tgrowth_conv'),ga+gd?+(ga/(ga+gd)*100).toFixed(2):null),
+    'T-рост: одобрено, отклонено, конверсия = одобрено / (одобрено + отклонено)');
+  ok(!D.isStub('office_att')&&!D.isStub('tgrowth_conv')&&D.isStub('tgrowth_tat')&&D.isStub('booking_viol'),
+    'посещаемость и решения T-роста — живые, T@T и бронирование — демо');
+}else{
+  ok(NEWC.every(c=>!R.has(c))&&D.isStub('office_att')&&D.isStub('tgrowth_conv')&&!R.missing.length,
+    'ответ без колонок 12.10: посещаемость и T-рост — демо, «нет колонок» не поднимается');
+}
 
 /* 3. экраны */
 const CASES=[['onepager',null]];
@@ -122,6 +139,12 @@ ok(R.nodes.filter(n=>n.direct&&n.hide).every(n=>!new RegExp('data-node="'+n.path
 ok(!/data-openunit="[^"]*\/·"/.test(exp),'у строки «Напрямую» нет «Открыть юнит»');
 ok(!/NaN|undefined/.test(html.replace(/data-[a-z-]+="[^"]*"/g,'')),'в разметке нет NaN и undefined');
 ok(/demo-tag/.test(html),'метрики без источника помечены «демо»');
+/* плашки «демо» по вкладкам: с колонками 12.10 у живых вкладок плашки нет */
+const tgF=A.go('tgrowth','flow'), ofD=A.go('office','dynamics'), ofC=A.go('office','calendar');
+ok(hasNew?!/demo-note/.test(tgF)&&!/demo-note/.test(ofD)&&/посещения есть только суммой/.test(ofC)
+         :/demo-note/.test(tgF)&&/demo-note/.test(ofD),
+  hasNew?'плашки: решения T-роста и посещаемость — без «демо», календарь офиса — с уточнением'
+        :'плашки: T-рост и посещаемость — «демо»');
 /* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
 const hv=A.go('hiring','vacancies'), td=A.go('turnover','dynamics');
 /* «Зачем смотреть» на демо-главе есть — это объяснение, а не вывод из цифр */

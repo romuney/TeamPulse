@@ -50,7 +50,7 @@ def run(db, filters, settings=''):
 
 
 def arrays(row):
-    keys = ['hc', 'act', 'avg', 'hire', 'fire', 'reg', 'tin', 'tout', 'plow', 'prat']
+    keys = ['hc', 'act', 'avg', 'hire', 'fire', 'reg', 'tin', 'tout', 'plow', 'prat', 'wday', 'ovis', 'gapr', 'gdec']
     return {k: [float(x) for x in row['m_' + k].split(',')] for k in keys}
 
 
@@ -79,19 +79,23 @@ def check(db):
     deep = next(rk for rk, u in st.items() if u['lv'] == max(x['lv'] for x in st.values()))
     mid = next(rk for rk in kids.get(dflt, []) if kids.get(rk))
 
-    def direct(rk, cond='1'):
-        """ряд численности юнита прямо по таблице: копии строк юнита с двумя родителями — один раз"""
-        q = f"""SELECT m, sum(e) FROM (SELECT month AS m, max(ifNull(employee_amt, 0)) AS e FROM {T}
+    # ряд датасета → колонка таблицы (новые колонки разведки 12.10 — вместе с численностью)
+    DIRECT = {'hc': 'employee_amt', 'wday': 'work_day_amt', 'ovis': 'office_visit_amt',
+              'gapr': 'grt_approve_cnt', 'gdec': 'grt_decline_cnt'}
+
+    def direct(rk, cond='1', col='employee_amt'):
+        """ряд юнита прямо по таблице: копии строк юнита с двумя родителями — один раз"""
+        q = f"""SELECT m, sum(e) FROM (SELECT month AS m, max(toFloat64(ifNull({col}, 0))) AS e FROM {T}
                 WHERE mngt_unit_rk = '{rk}' AND {cond} AND month BETWEEN toStartOfYear(addYears(toDate('{lm}'), -1)) AND '{lm}'
-                GROUP BY m, active_type_gr_nm, active_type_nm, emp_specialization_oper_code,
-                         emp_specialization_it_code, employment_relation_type_desc) GROUP BY m ORDER BY m"""
+                GROUP BY m, active_type_gr_nm, emp_specialization_oper_code,
+                         emp_specialization_it_code, employment_relation_type) GROUP BY m ORDER BY m"""
         return {l.split('\t')[0]: float(l.split('\t')[1]) for l in str(s.query(q, 'TSV')).strip().splitlines() if l}
 
     cases = [
         ('без фильтров', {}, dflt, '1'),
         ('Hq', {'paint_f': ['Hq']}, dflt, "ifNull(emp_specialization_oper_code, '-') = 'Hq'"),
         ('IT + Digital, штат', {'it_f': ['IT', 'Digital'], 'staff_f': ['Штат']}, dflt,
-         "ifNull(emp_specialization_it_code, '-') IN ('IT', 'Digital') AND employment_relation_type_desc = 'Штатный сотрудник'"),
+         "ifNull(emp_specialization_it_code, '-') IN ('IT', 'Digital') AND employment_relation_type = 'Штатный сотрудник'"),
         ('юнит уровнем ниже', {'unit_f': [uid(mid)]}, mid, '1'),
         ('самый глубокий юнит', {'unit_f': [uid(deep)]}, deep, '1'),
         ('корень', {'unit_f': [uid(root)]}, root, '1'),
@@ -132,11 +136,12 @@ def check(db):
         # ряд выбранного юнита и базы — как прямо по таблице
         months = [r for r in sorted(direct(root, '1'))]
         for row, rk in ((sc, want), (rows[2], root)):
-            d = direct(rk, cond)
-            got = arrays(row)['hc']
-            exp = [d.get(m, 0.0) for m in months]
-            if got != exp:
-                fail(f"{row['role']}: ряд численности не сходится с таблицей\n    {got}\n    {exp}")
+            for key, col in DIRECT.items():
+                d = direct(rk, cond, col)
+                got = arrays(row)[key]
+                exp = [round(d.get(m, 0.0), 1) for m in months]
+                if got != exp:
+                    fail(f"{row['role']}: ряд {key} ({col}) не сходится с таблицей\n    {got}\n    {exp}")
         # дети, внуки, правнуки — ровно по дереву последнего полного месяца
         lvl_rows = {'c': [], 'g': [], 'x': []}
         for r in rows:

@@ -33,6 +33,11 @@
       m_avg  ССЧ                                m_hire найм         m_fire увольнения
       m_reg  нежелательные увольнения           m_tin  переводы в   m_tout переводы из
       m_plow оценка «низкая»                    m_prat оценённые: норма + низкая + высокая
+      m_wday отработанные человеко-дни          m_ovis посещения офиса, человеко-дни
+      m_gapr заявки T-роста (GRT): одобрено     m_gdec отклонено
+    Последние четыре — из колонок, добавленных в таблицу к 12.10.2026 (разведка 2):
+    work_day_amt, office_visit_amt, grt_approve_cnt, grt_decline_cnt. Как и остальные
+    показатели, они берутся своими строками юнита (накопительность проверяет запрос 0г).
     Текущий месяц неполный и в ответ не едет: если в таблице уже есть строки
     текущего календарного месяца, последний полный — прошлый.
 
@@ -40,6 +45,9 @@
     paint_f — покраска (Hq, Line, Support, -), it_f — IT-специализация (IT, Digital,
     NonIT, -), staff_f — «Штат» / «Не штат». Колонки-носители в SELECT не выводятся,
     иначе Superset повесит авто-IN на внешний запрос. id юнита — 12 знаков md5 ключа.
+
+    Схема таблицы — разведка 12.10.2026 (describe датасета 174609): типа численности
+    active_type_nm больше нет, тип договора — employment_relation_type (было _desc).
 
     Проверено на ClickHouse 24.8 на симуляции таблицы по людям: оба анализатора,
     join_use_nulls = 1, prefer_column_name_to_alias = 1 — ответ один и тот же.
@@ -59,7 +67,7 @@
 {#- Значения фильтров собираются циклом: при сохранении датасета Proteus отдаёт
     вместо списка AlwaysTrueObject — у него нет ни длины, ни «+». -#}
 {% set unit_req = [] %}{% for v in (filter_values('unit_f') or []) %}{% if v|string|trim != '' and unit_req|length < 1 %}{% set _ = unit_req.append(v|string|trim|lower) %}{% endif %}{% endfor %}
-{% set CUTS = [['paint', 'paint_f', "ifNull(emp_specialization_oper_code, '-')"], ['it', 'it_f', "ifNull(emp_specialization_it_code, '-')"], ['staff', 'staff_f', "if(ifNull(employment_relation_type_desc, '') = 'Штатный сотрудник', 'Штат', 'Не штат')"]] %}
+{% set CUTS = [['paint', 'paint_f', "ifNull(emp_specialization_oper_code, '-')"], ['it', 'it_f', "ifNull(emp_specialization_it_code, '-')"], ['staff', 'staff_f', "if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат')"]] %}
 {% set F = {} %}
 {% for c in CUTS %}{% set vals = [] %}{% for v in (filter_values(c[1]) or []) %}{% if v|string != '' and vals|length < 20 %}{% set _ = vals.append(v|string) %}{% endif %}{% endfor %}{% set _ = F.update({c[0]: vals}) %}{% endfor %}
 {#- Строка проходит фильтры: значение в выбранном списке; фильтр не выбран — 1. -#}
@@ -70,11 +78,12 @@
 {%- endmacro %}
 {#- Массив месяцев строкой: дроби только у ССЧ (полусумма). -#}
 {% macro out(a) -%}arrayStringConcat(arrayMap(x -> toString(round(x, 1)), {{ a }}), ','){%- endmacro %}
-{% set M = [['hc', 'e'], ['act', 'ea'], ['avg', 'sa'], ['hire', 'hi'], ['fire', 'fi'], ['reg', 'rg'], ['tin', 'ti'], ['tout', 'tu'], ['plow', 'pl'], ['prat', 'pr']] %}
+{% set M = [['hc', 'e'], ['act', 'ea'], ['avg', 'sa'], ['hire', 'hi'], ['fire', 'fi'], ['reg', 'rg'], ['tin', 'ti'], ['tout', 'tu'], ['plow', 'pl'], ['prat', 'pr'], ['wday', 'wd'], ['ovis', 'ov'], ['gapr', 'ga'], ['gdec', 'gd']] %}
 {#- Запрос начинается с SELECT, цепочка CTE — внутри: так его без правок принимает и SQL Lab
     (там пропускаются только SELECT и DESCRIBE) — датасет можно проверить целиком. -#}
 SELECT role, id, pid, lvl, nm, kids, j,
-       m_hc, m_act, m_avg, m_hire, m_fire, m_reg, m_tin, m_tout, m_plow, m_prat
+       m_hc, m_act, m_avg, m_hire, m_fire, m_reg, m_tin, m_tout, m_plow, m_prat,
+       m_wday, m_ovis, m_gapr, m_gdec
 FROM
 (
 WITH
@@ -143,7 +152,8 @@ WITH
   -- под фильтрами всё равно получил массивы
   mm AS (
     SELECT u1 AS rk, i1 AS idx, sum(e0) AS e, sum(ea0) AS ea, sum(sa0) AS sa, sum(hi0) AS hi, sum(fi0) AS fi,
-           sum(rg0) AS rg, sum(ti0) AS ti, sum(tu0) AS tu, sum(pl0) AS pl, sum(pr0) AS pr
+           sum(rg0) AS rg, sum(ti0) AS ti, sum(tu0) AS tu, sum(pl0) AS pl, sum(pr0) AS pr,
+           sum(wd0) AS wd, sum(ov0) AS ov, sum(ga0) AS ga, sum(gd0) AS gd
     FROM
     (
       SELECT ifNull(mngt_unit_rk, '') AS u1,
@@ -157,17 +167,22 @@ WITH
              max(ifNull(transfer_in_amt, 0)) AS ti0,
              max(ifNull(transfer_out_amt, 0)) AS tu0,
              max(ifNull(perf_low, 0)) AS pl0,
-             max(ifNull(perf_normal, 0) + ifNull(perf_low, 0) + ifNull(perf_high, 0)) AS pr0
+             max(ifNull(perf_normal, 0) + ifNull(perf_low, 0) + ifNull(perf_high, 0)) AS pr0,
+             max(ifNull(work_day_amt, 0)) AS wd0,
+             max(ifNull(office_visit_amt, 0)) AS ov0,
+             max(toFloat64(ifNull(grt_approve_cnt, 0))) AS ga0,
+             max(toFloat64(ifNull(grt_decline_cnt, 0))) AS gd0
       FROM prod_proteus.hr_structure_overall
       WHERE month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal)
         AND ifNull(mngt_unit_rk, '') IN (SELECT rk FROM pick)
         AND {{ cond() }}
-      GROUP BY u1, i1, active_type_gr_nm, active_type_nm, emp_specialization_oper_code,
-               emp_specialization_it_code, employment_relation_type_desc
+      GROUP BY u1, i1, active_type_gr_nm, emp_specialization_oper_code,
+               emp_specialization_it_code, employment_relation_type
       UNION ALL
       SELECT rk AS u1, toUInt32(0) AS i1, toFloat64(0) AS e0, toFloat64(0) AS ea0, toFloat64(0) AS sa0,
              toFloat64(0) AS hi0, toFloat64(0) AS fi0, toFloat64(0) AS rg0, toFloat64(0) AS ti0,
-             toFloat64(0) AS tu0, toFloat64(0) AS pl0, toFloat64(0) AS pr0
+             toFloat64(0) AS tu0, toFloat64(0) AS pl0, toFloat64(0) AS pr0,
+             toFloat64(0) AS wd0, toFloat64(0) AS ov0, toFloat64(0) AS ga0, toFloat64(0) AS gd0
       FROM pick
     )
     GROUP BY u1, i1
@@ -204,14 +219,14 @@ FROM
                     WHERE month = (SELECT lm FROM cal) AND ifNull(mngt_unit_rk, '') = (SELECT r FROM rt)
                     GROUP BY v ORDER BY e DESC)),
                 ',"staff":', (SELECT toJSONString(groupArray((v, e))) FROM (
-                    SELECT if(ifNull(employment_relation_type_desc, '') = 'Штатный сотрудник', 'Штат', 'Не штат') AS v,
+                    SELECT if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат') AS v,
                            sum(ifNull(employee_amt, 0)) AS e
                     FROM prod_proteus.hr_structure_overall
                     WHERE month = (SELECT lm FROM cal) AND ifNull(mngt_unit_rk, '') = (SELECT r FROM rt)
                     GROUP BY v ORDER BY e DESC)),
                 '}}') AS j,
          '' AS m_hc, '' AS m_act, '' AS m_avg, '' AS m_hire, '' AS m_fire, '' AS m_reg, '' AS m_tin,
-         '' AS m_tout, '' AS m_plow, '' AS m_prat
+         '' AS m_tout, '' AS m_plow, '' AS m_prat, '' AS m_wday, '' AS m_ovis, '' AS m_gapr, '' AS m_gdec
 
   UNION ALL
 
@@ -233,7 +248,7 @@ FROM
          arrayStringConcat(groupArray(concat(s.id, '\t', s.pid, '\t', toString(s.lv), '\t',
                                              toString(ifNull(k.k, 0)), '\t', s.nm)), '\n') AS j,
          '' AS m_hc, '' AS m_act, '' AS m_avg, '' AS m_hire, '' AS m_fire, '' AS m_reg, '' AS m_tin,
-         '' AS m_tout, '' AS m_plow, '' AS m_prat
+         '' AS m_tout, '' AS m_plow, '' AS m_prat, '' AS m_wday, '' AS m_ovis, '' AS m_gapr, '' AS m_gdec
   FROM st2 AS s
   LEFT JOIN kd AS k ON k.kr = s.rk
   WHERE s.lv <= (SELECT min(lv) FROM st) + 4 OR has((SELECT arr FROM anc), s.rk) OR s.rk = (SELECT s FROM sc)
@@ -242,7 +257,7 @@ FROM
 
   SELECT toUInt8(9) AS o, 'end' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids,
          '' AS j, '' AS m_hc, '' AS m_act, '' AS m_avg, '' AS m_hire, '' AS m_fire, '' AS m_reg, '' AS m_tin,
-         '' AS m_tout, '' AS m_plow, '' AS m_prat
+         '' AS m_tout, '' AS m_plow, '' AS m_prat, '' AS m_wday, '' AS m_ovis, '' AS m_gapr, '' AS m_gdec
 )
 )
 ORDER BY o, lvl, nm

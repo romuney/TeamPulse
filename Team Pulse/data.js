@@ -212,6 +212,15 @@ if(REAL){
     low_perf:{derived:{num:'plow',den:'prated',scale:100},anchor:null,
       hint:'Доля оценки «низкая» среди оценённых в последнем цикле: норма, низкая и высокая. Без оценки — не в счёт.'}
   };
+  /* Колонки разведки 12.10 (необязательные — REAL.has): посещаемость — посещения офиса
+     к отработанным человеко-дням; T-рост — решения по заявкам GRT. Смысл колонок
+     предварительный, проверяет запрос 0г; без колонок метрики остаются «демо». */
+  if(REAL.has('wday')&&REAL.has('ovis'))ov.office_att={derived:{num:'ovis',den:'wday',scale:100},anchor:null,
+    hint:'Посещения офиса к отработанным человеко-дням за месяц, в процентах (office_visit_amt / work_day_amt).'};
+  if(REAL.has('gapr'))ov.tgrowth_pass={hint:'Заявки T-роста, одобренные за месяц (grt_approve_cnt).'};
+  if(REAL.has('gdec'))ov.tgrowth_deny={hint:'Заявки T-роста, отклонённые за месяц (grt_decline_cnt).'};
+  if(REAL.has('gapr')&&REAL.has('gdec'))ov.tgrowth_conv={derived:{num:'tgrowth_pass',den:['tgrowth_pass','tgrowth_deny'],scale:100},
+    anchor:null,hint:'Одобренные заявки T-роста к решённым за месяц: одобрено / (одобрено + отклонено). Отменённые и заявки в процессе — не в счёт.'};
   METRICS.forEach(m=>{if(ov[m.key])Object.assign(m,ov[m.key]);if(REAL.stub.has(m.key))m.stub=true});
 }
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
@@ -229,8 +238,9 @@ function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
    rev_eval / rev_up — оценённые в цикле ревью и улучшившие оценку. */
 const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny',
   'ai_wau','pf_plan','hire_jun','rev_eval','rev_up',
-  /* пробник: нежелательные увольнения, оценка «низкая» и оценённые — слагаемые */
-  'regret_cnt','plow','prated']);
+  /* пробник: нежелательные увольнения, оценка «низкая» и оценённые — слагаемые;
+     отработанные человеко-дни и посещения офиса — слагаемые посещаемости */
+  'regret_cnt','plow','prated','wday','ovis']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.

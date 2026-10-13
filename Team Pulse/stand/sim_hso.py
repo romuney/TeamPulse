@@ -1,13 +1,22 @@
 # Симулятор prod_proteus.hr_structure_overall по людям.
 # Люди живут в юнитах дерева, каждый месяц: увольнения, найм, переводы,
 # смена типа численности. Агрегат — как в проде (по ответу 0б): юнит включает
-# всё своё поддерево, строка = месяц × юнит × родитель × 5 атрибутов.
+# всё своё поддерево, строка = месяц × юнит × родитель × 4 атрибута.
+# Схема — разведка 12.10.2026 (describe датасета 174609): active_type_nm больше
+# нет (тип численности живёт только внутри симуляции, строки по нему схлопнуты),
+# employment_relation_type вместо _desc, parent_lvl — Int32, и шесть новых колонок:
+#   work_day_amt     — отработанные человеко-дни за месяц (декрет — 0, прочие типы — половина);
+#   office_visit_amt — посещения офиса, человеко-дни (доля дней зависит от покраски);
+#   grt_*_cnt        — заявки T-роста (GRT): одобрено, отклонено, отменено за месяц,
+#                      в процессе — на конец месяца. Заявку подаёт только «Активная».
+# Новые колонки, как и остальные, накопительные по поддереву — так считает их и
+# датасет; в проде это проверяет запрос 0г.
 #   переводы считаются на границе юнита: уход из A в B — transfer_out у предков A,
 #   которые не предки B, transfer_in — наоборот (общий предок перевода не видит);
 #   lag = численность того же ключа месяцем раньше (NULL, если ключа не было);
 #   ssch = (emp + ifNull(lag, emp)) / 2.
 # Пишет hso.csv (строки таблицы) и truth.json (правда по людям для сверок).
-import csv, hashlib, json, random, sys
+import calendar, csv, hashlib, json, random, sys
 from collections import defaultdict
 
 random.seed(7)
@@ -84,7 +93,11 @@ def pick(opts):
 def new_person(unit):
     oper = pick(OPER)
     return dict(unit=unit, type=pick(TYPES), oper=oper, it='-' if oper == '-' else pick(ITC), rel=pick(REL),
-                perf=pick([('normal', .7), ('low', .05), ('high', .15), ('gray', .10)]))
+                perf=pick([('normal', .7), ('low', .05), ('high', .15), ('gray', .10)]), app=None)
+def workdays(mi):
+    y, m = map(int, MONTHS[mi].split('-')[:2])
+    return sum(1 for d in range(1, calendar.monthrange(y, m)[1] + 1) if calendar.weekday(y, m, d) < 5)
+OFFICE = {'Hq': .55, 'Support': .35, 'Line': .15, '-': 0}
 def place(m):
     live_leaves = [u for u in leaves if alive(u, m)]
     return random.choice(live_leaves) if random.random() < .85 else random.choice(inner)
@@ -96,9 +109,11 @@ def key_attrs(p):
 def perf_of(p):
     return p['perf'] if (p['type'] == 'Активная' and p['oper'] == 'Hq') else 'gray'
 
-M = ['emp', 'cand', 'tint', 'hire', 'hact', 'fire', 'regret', 'tin', 'tout', 'pn', 'pl', 'ph', 'pg']
+M = ['emp', 'cand', 'tint', 'hire', 'hact', 'fire', 'regret', 'tin', 'tout', 'pn', 'pl', 'ph', 'pg',
+     'wd', 'ov', 'ga', 'gd', 'gc', 'gi']
 agg = {}                                   # (mi, unit, attrs) -> measures
 truth = {'months': MONTHS, 'company': [], 'own_full': {}, 'multi': MULTI, 'reorg': 'B1D2'}
+OUTCOME = [('ga', .6), ('gd', .3), ('gc', .1)]
 def bump(mi, unit, attrs, k, v=1):
     d = agg.setdefault((mi, unit, attrs), dict.fromkeys(M, 0))
     d[k] += v
@@ -145,11 +160,31 @@ for mi in range(len(MONTHS)):
             for u in ancestors(p['unit'], mi):
                 bump(mi, u, key_attrs(p), 'hire')
                 if p['type'] == 'Активная': bump(mi, u, key_attrs(p), 'hact')
+    wdn, grt = workdays(mi), dict(ga=0, gd=0, gc=0, gi=0)
     for p in people:                                             # численность на конец месяца
-        for u in ancestors(p['unit'], mi):
+        anc = ancestors(p['unit'], mi)
+        for u in anc:
             bump(mi, u, key_attrs(p), 'emp')
             bump(mi, u, key_attrs(p), {'normal': 'pn', 'low': 'pl', 'high': 'ph', 'gray': 'pg'}[perf_of(p)])
-    truth['company'].append(dict(month=MONTHS[mi], emp=len(people), hire=hires, fire=fires, regret=regrets, moves=tins))
+        # отработанные дни и посещения офиса
+        wd = 0 if p['type'] == 'Декрет' else round(wdn * (random.uniform(.8, 1) if p['type'] == 'Активная' else .5))
+        ov = min(wd, round(wd * OFFICE[p['oper']] * random.uniform(.6, 1.3)))
+        # заявка T-роста: подаёт только «Активная», решение через 1–3 месяца
+        out = None
+        if p['app'] is not None:
+            p['app'] -= 1
+            if p['app'] <= 0:
+                out, p['app'] = pick(OUTCOME), None
+        elif mi > 0 and p['type'] == 'Активная' and random.random() < .012:
+            p['app'] = random.choice([1, 2, 3])
+        for u in anc:
+            if wd: bump(mi, u, key_attrs(p), 'wd', wd)
+            if ov: bump(mi, u, key_attrs(p), 'ov', ov)
+            if out: bump(mi, u, key_attrs(p), out)
+            if p['app'] is not None: bump(mi, u, key_attrs(p), 'gi')
+        if out: grt[out] += 1
+        if p['app'] is not None: grt['gi'] += 1
+    truth['company'].append(dict(month=MONTHS[mi], emp=len(people), hire=hires, fire=fires, regret=regrets, moves=tins, **grt))
 
 # правда: люди прямо в узле на предпоследний месяц (последний — неполный)
 FULL = len(MONTHS) - 2
@@ -165,9 +200,17 @@ for u in units:
 truth['own_full'] = own
 
 # ---- строки таблицы -----------------------------------------------------
+# Типа численности (active_type_nm) в таблице больше нет: строки с разным типом
+# внутри одной группы «Активная / Прочие» складываются, лаг — по новому ключу.
+flat = {}
+for (mi, u, a), d in agg.items():
+    k = (mi, u, (a[0],) + a[2:])
+    f = flat.setdefault(k, dict.fromkeys(M, 0))
+    for m in M:
+        f[m] += d[m]
 rows = []
-for (mi, u, a), d in sorted(agg.items()):
-    prev = agg.get((mi - 1, u, a))
+for (mi, u, a), d in sorted(flat.items()):
+    prev = flat.get((mi - 1, u, a))
     lag = prev['emp'] if prev is not None else None
     ssch = (d['emp'] + (lag if lag is not None else d['emp'])) / 2
     for par in parents_for_rows(u, mi):
@@ -177,7 +220,8 @@ for (mi, u, a), d in sorted(agg.items()):
                      hashlib.md5(par.encode()).hexdigest() if par else None,
                      pu['nm'] if pu else None, plvl, *a,
                      d['emp'], d['cand'], d['tint'], d['hire'], d['hact'], d['fire'], d['regret'], d['tin'], d['tout'],
-                     d['pn'], d['pl'], d['ph'], d['pg'], lag, ssch])
+                     d['pn'], d['pl'], d['ph'], d['pg'], lag, ssch,
+                     d['wd'], d['ov'], d['ga'], d['gd'], d['gc'], d['gi']])
 with open(f'{OUT}/hso.csv', 'w', newline='', encoding='utf-8') as f:
     w = csv.writer(f)
     for r in rows:

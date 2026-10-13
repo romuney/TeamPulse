@@ -48,7 +48,8 @@ const fs = require('fs'), path = require('path');
     if (t === 'turnover') await shot('02-turnover');
     if (t === 'hiring') await shot('03-hiring-demo');
   }
-  ok(screens >= 28, 'пройдено под-вкладок: ' + screens);
+  /* 27: с 12.10 «Движение персонала» — две главы (обзор и динамика), «Замещение и темпы» снята */
+  ok(screens >= 27, 'пройдено под-вкладок: ' + screens);
 
   /* переход в юнит: выбрать первую строку и открыть её — кросс-фильтр и новый ответ */
   await page.click('#navBlocks .nav-i[data-tab="turnover"]');
@@ -56,7 +57,8 @@ const fs = require('fs'), path = require('path');
   const t0 = await title(), r0 = await runs(), lst0 = await page.evaluate(() => window.__pvtState.tp.listeners.length);
   const row = await page.$('tr.urow[data-node]');
   const rowName = await row.$eval('.row-body', el => el.firstChild.textContent);
-  await row.click({ position: { x: 40, y: 8 } });
+  /* клик по названию, а не по координате: с полями 20px (12.10) в x = 40 попадала каретка раскрытия */
+  await (await row.$('.row-body')).click();
   await page.waitForTimeout(200);
   await page.click('tr.urow.sel [data-openunit]');
   ok(await page.$('.chip.busy') !== null, 'пока датасет отвечает — чип «Загружаю…»');
