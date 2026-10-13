@@ -52,10 +52,8 @@ SC.blocks.tgrowth={
         'с решениями за 12 месяцев. «В карьерном росте» и «рост недоступен» в макете сгенерированы.</div>';
     }
     return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
-      G.chart('diverge',
-        {up:D.aggregate(ctx.lp,'tgrowth_pass'),down:D.aggregate(ctx.lp,'tgrowth_deny'),
-         upKey:'tgrowth_pass',downKey:'tgrowth_deny'},
-        {h:300,fill:true,title:SC.winTitle(ctx.S,'Из чего она считается, чел'),
+      SC.yoyDiverge(ctx.lp,'tgrowth_pass','tgrowth_deny',
+        {h:300,title:'Из чего она считается, чел',
          legend:[{name:'Прошли',color:G.C_IN},{name:'Отказано',color:G.C_OUT}]});
   }
 };

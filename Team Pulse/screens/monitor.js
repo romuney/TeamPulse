@@ -34,14 +34,10 @@ SC.blocks.monitor={
         'парой, как текучесть. Шкала оценок, первая оценка и разбивки по группам в макете сгенерированы; '+
         'на проде это summary_score, year_evaluation и management_head_flg из review_digest_us (дашборд 34661).</div>';
     }
-    return SC.dynWrap(ctx,G.chart('panels',{panels:[
-      {name:'Недоработчики, %',key:'underwork',type:'line',series:D.aggregate(ctx.lp,'underwork'),color:G.C_UNDER,ann:ctx.ann.underwork},
-      {name:'Лоу-перформеры, %',key:'low_perf',type:'line',series:D.aggregate(ctx.lp,'low_perf'),color:G.C_LOWPERF,ann:ctx.ann.low_perf},
-      {name:'Улучшили оценку в ревью, %',key:'review_up',type:'line',series:D.aggregate(ctx.lp,'review_up'),color:G.C_LINE,ann:ctx.ann.review_up}
-    ]},{h:520,fill:true}),[
-      {key:'underwork',title:'Недоработчики, % · год к году'},
-      {key:'low_perf',title:'Лоу-перформеры, % · год к году'},
-      {key:'review_up',title:'Улучшили оценку в ревью, % · год к году'}]);
+    return SC.yoyPanels(ctx.lp,[
+      {name:'Недоработчики, %',key:'underwork',color:G.C_UNDER,ann:ctx.ann.underwork},
+      {name:'Лоу-перформеры, %',key:'low_perf',color:G.C_LOWPERF,ann:ctx.ann.low_perf},
+      {name:'Улучшили оценку в ревью, %',key:'review_up',color:G.C_LINE,ann:ctx.ann.review_up}]);
   }
 };
 })();

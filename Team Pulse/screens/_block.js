@@ -99,47 +99,57 @@ function selLabel(S){
   const n=D.NODE_BY_PATH[S.selNode]||D.NODE_BY_PATH[S.unit];
   return n?n.name:'Ваша команда';
 }
-/* Линия метрики с базой. База не рисуется в двух случаях: у несравнимых метрик
-   (там она вводит в заблуждение) и у метрик с утверждённым KPI — на графике
-   остаются пороги цели, и вторая пунктирная линия рядом с ними спорила бы с
-   ними за роль ориентира. */
-/* График «год к году» — тот же выбор ориентира, что и у metricLine:
-   цель KPI или база, и только для текущего года. */
+/* ---------- Динамика: только «год к году» ----------
+   13.10 заказчик: «убери 12 мес, оставь только год к году» — как в HRBP HUB.
+   Переключателя масштаба больше нет: каждый график динамики стоит на оси
+   янв.–дек., этот год против прошлого. Ориентир — тот же выбор, что везде:
+   цель KPI или база, и только для текущего года. База не рисуется в двух
+   случаях: у несравнимых метрик (там она вводит в заблуждение) и у метрик с
+   утверждённым KPI — на полотне остаются пороги цели, и вторая пунктирная
+   линия рядом с ними спорила бы с ними за роль ориентира.
+
+   Счётные потоки людей и штук — барами (бар этого года перед «тенью»
+   прошлого), темпы и доли — линиями. */
+const YOY_BARS=new Set(['attrition','hire','transfer_in','transfer_out','vac_open','vac_closed',
+  'tgrowth_pass','tgrowth_deny','ai_wau']);
+/* цвет потока — тот же, что на вкладках блока: пришли — C_IN, ушли — C_OUT */
+const YOY_COLOR={attrition:G.C_OUT,transfer_out:G.C_OUT,tgrowth_deny:G.C_OUT,
+  hire:G.C_IN,transfer_in:G.C_IN,vac_closed:G.C_IN,tgrowth_pass:G.C_IN,vac_open:G.C_VAC,ai_wau:G.C_AI};
 function yoyChart(key,lp,bl,S,opt){
+  opt=opt||{};
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
   const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
+  const bar=YOY_BARS.has(key), col=opt.color||YOY_COLOR[key]||G.C_LINE;
   /* у накопительной метрики с прогнозом (fc) декабрь получает точку run-rate:
      «чем закончится год, если темп сохранится» читается прямо на полотне */
   const fcK=(D.METRIC_BY_KEY[key]||{}).fc;
-  const legend=[{name:String(D.YEAR_CUR),color:G.C_LINE},{name:String(D.YEAR_PREV),color:G.C_PREV}]
+  const legend=[{name:String(D.YEAR_CUR),color:col},{name:String(D.YEAR_PREV),color:bar?G.C_GHOST:G.C_PREV}]
     .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
+  /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
+     базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
-    Object.assign({legend,benchName:bench,kpi:kpi,fc:fcK?D.lastVal(lp,fcK):null,h:300,fill:true},opt||{}));
+    Object.assign({legend,benchName:bench,kpi:kpi,fc:fcK?D.lastVal(lp,fcK):null,h:300,fill:true,
+      type:bar?'bar':'line',gap:cmp&&!bar},opt,{color:col}));
 }
-/* Переключатель «12 мес / год к году» для вкладок, где динамика нарисована
-   панелями: в режиме года каждая метрика получает своё полотно год к году. */
-function dynWrap(ctx,rollHtml,items){
-  if(ctx.S.dyn!=='yoy')return U.dynSwitch('roll')+rollHtml;
-  return U.dynSwitch('yoy')+items.map(it=>yoyChart(it.key,ctx.lp,ctx.bl,ctx.S,
-    {title:it.title,h:it.h||250,fill:false})).join('');
+/* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
+   (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
+function metricLine(key,lp,bl,S,opt){return yoyChart(key,lp,bl,S,opt)}
+/* Несколько метрик одной главы — панели друг под другом, у каждой своя шкала
+   и свой «этот год / прошлый». items: [{key, name, color, ann}] */
+function yoyPanels(lp,items,opt){
+  return G.chart('panels',{yoy:true,panels:items.map(it=>{
+    const y=D.yoySeries(lp,it.key);
+    return {name:it.name,key:it.key,type:YOY_BARS.has(it.key)?'bar':'line',cur:y.cur,prev:y.prev,
+      color:it.color||G.C_LINE,ann:it.ann||null};
+  })},Object.assign({h:520,fill:true},opt||{}));
 }
-/* Заголовок графика, который в режиме «год к году» остаётся на скользящем окне
-   (дивергент, водопад: их ось — двенадцать месяцев подряд, календарного года у
-   них нет). Под переключателем «Год к году» такой график без подписи читался бы
-   как тоже календарный — называем окно прямо в заголовке. */
-function winTitle(S,title){return S.dyn==='yoy'?title+' · 12 мес, '+D.PERIOD_LABEL:title}
-function metricLine(key,lp,bl,S,opt){
-  /* акценты истории (ann) — индексы скользящего окна; у полотна «год к году»
-     ось календарная, поэтому туда они не едут */
-  if(S.dyn==='yoy'&&!(opt&&opt.noSwitch))
-    return U.dynSwitch('yoy')+yoyChart(key,lp,bl,S,Object.assign({},opt||{},
-      {title:(opt&&opt.title?opt.title+' · ':'')+'год к году',ann:null}));
-  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
-  return (opt&&opt.noSwitch?'':U.dynSwitch('roll'))+G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
-    /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
-       базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
-    Object.assign({legend:cmp?[{name:selLabel(S),color:G.C_LINE},{name:bench,color:G.C_BENCH,dash:true}]:null,
-      benchName:bench,kpi:kpi,h:300,fill:true,gap:cmp},opt||{}));
+/* Пара встречных потоков (пришли / ушли) на оси года: этот год — цветом,
+   прошлый — тенью за ним. */
+function yoyDiverge(lp,upKey,downKey,opt){
+  const u=D.yoySeries(lp,upKey), d=D.yoySeries(lp,downKey);
+  const lg=(opt&&opt.legend||[]).concat([{name:String(D.YEAR_PREV),color:G.C_GHOST}]);
+  return G.chart('diverge',{yoy:true,up:u,down:d,upKey:upKey,downKey:downKey},
+    Object.assign({h:300,fill:true},opt||{},{legend:lg}));
 }
 
 /* Спарклайн в карточке KPI блока (рекомендация бизнес-анализа: динамика
@@ -411,5 +421,5 @@ function renderBlock(S,expanded,mixOpen,view){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,metricLine,yoyChart,dynWrap,winTitle,selLabel,yearAgo,TREE_DEPTH};
+  expandableRows,metricLine,yoyChart,yoyPanels,yoyDiverge,YOY_BARS,selLabel,yearAgo,TREE_DEPTH};
 })();

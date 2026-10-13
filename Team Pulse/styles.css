@@ -27,6 +27,7 @@
      не является ни активным состоянием, ни величиной */
   --ai:#AA77FF;    --ai-bg:#F1E9FF;   --ai-tx:#6C36C9;
   --bench:#9aa0ac;
+  --mk-prev:#7d8494;  /* номерная отметка прошлого года — как C_MK_PREV в draw.js */
 
   /* ---------- Шкала расстояний ----------
      Отступы в макете брались на глаз: 7, 9, 13, 17 пикселей рядом
@@ -696,31 +697,13 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    к верхней границе, а ось X наезжает на следующую метрику. */
 .detail-row td{padding:18px 18px 20px;background:#fafbfc}
 .detail-chart{height:auto;width:100%}
-/* Два полотна рядом (год к году + 12 мес) — половины разделены волосяной
-   линией, а не зазором: это один ответ из двух частей, а не две карточки. */
-.detail-split{display:grid;grid-template-columns:1fr 1fr;gap:0}
-.dsplit{min-width:0;padding:0 var(--s9)}
-.dsplit:first-child{padding-left:0;border-right:1px solid var(--line2)}
-.dsplit:last-child{padding-right:0}
-@media (max-width:1100px){
-  .detail-split{grid-template-columns:1fr;gap:var(--chart-gap)}
-  .dsplit,.dsplit:first-child,.dsplit:last-child{padding:0;border:0}
-}
+/* Раскрытая строка — график «год к году» и «Что видно» (.op-story ниже):
+   два полотна рядом (год к году + 12 мес) сняты 13.10. */
 
-/* ---------- Переключатель масштаба динамики: 12 мес / год к году ----------
-   Сегмент из дизайн-системы Proteus Adoption: подложка --line2, активный —
-   белая плашка с тенью. Стоит над графиком, а не в шапке панели: шапку уже
-   занимают под-вкладки блока. */
-.dyn-switch{display:inline-flex;gap:3px;background:var(--line2);border-radius:var(--r3);
-  padding:3px;margin:0 0 var(--s6);align-self:flex-start;flex:none}
-.dyn-switch button{border:0;background:transparent;padding:5px var(--s5);border-radius:var(--r2);
-  font:inherit;font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);cursor:pointer;
-  transition:background .15s,color .15s}
-.dyn-switch button:hover{color:var(--ink2)}
-.dyn-switch button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow);font-weight:var(--fw-bold)}
+/* Переключатель масштаба динамики «12 мес / год к году» снят 13.10: вся
+   динамика — год к году, как в HRBP HUB. */
 
 /* строка «год назад» в KPI-карточке — второй план, тише строки базы */
-.split-r .panel-b>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
 .pulse-strip{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:var(--s10);background:var(--card);
   border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--s7) var(--s9);margin:var(--s7) 0 var(--s7)}
 .ps-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:var(--fw-bold);
@@ -1197,8 +1180,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    visibility:hidden убирает копию и из дерева доступности — экранный
    диктор прочитает подпись один раз. */
 .sub-tab{flex-direction:column;gap:0}
-.dyn-switch button{display:inline-flex;flex-direction:column;align-items:center}
-.sub-tab::after,.dyn-switch button::after{content:attr(data-text);display:block;height:0;overflow:hidden;
+.sub-tab::after{content:attr(data-text);display:block;height:0;overflow:hidden;
   visibility:hidden;font-weight:var(--fw-bold);pointer-events:none;user-select:none}
 
 /* В справке пояснения — не сноски, а сам текст правила: обычный вес
@@ -1539,9 +1521,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-main{flex:0 0 100%;min-height:0;display:flex;flex-direction:column;gap:var(--chart-gap)}
 .st-main>.svgchart.fill{flex:1;min-height:0}
 .st-main>.svgchart{flex:none}
-.st-main>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
 .st-main>.tbl-note{margin-top:0}
-.st-main>.st-head+.dyn-switch{margin-top:calc(var(--s2) - var(--chart-gap) + var(--s6))}
 /* Шаги — равной ширины в любом состоянии (правки 12.10, второй заход): активный
    не растёт и не сжимается — выбор шага меняет только фон, тень и вес подписи,
    а не геометрию ряда. Не помещается — многоточие; полный вопрос и ответ
@@ -1582,8 +1562,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .st-steps{margin-bottom:var(--s7)}
   .st-main{display:block}
   .st-main>*+*{margin-top:var(--chart-gap)}
-  .st-main>.dyn-switch+*{margin-top:0}
-  .st-main>.st-head+*,.st-main>.st-head+.dyn-switch{margin-top:var(--s7)}
+  .st-main>.st-head+*{margin-top:var(--s7)}
   .st-rail{margin-top:var(--chart-gap)}
   .svgchart.fill{height:auto}
 }
@@ -1671,3 +1650,72 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* Воздух под последним графиком или таблицей главы (правки 12.10): содержимое
    главы упиралось в нижний край панели. */
 .st-main{padding-bottom:var(--s8)}
+
+/* ---------- One-pager: «Что видно» по механике HRBP HUB (13.10) ----------
+   Раскрытая строка: слева полотно «год к году» с номерными отметками, справа
+   пункты «Что видно» с теми же номерами и «О метрике». Наведение связывает
+   пункт и график в обе стороны (app.js — opHover): подсвеченный месяц,
+   крупная отметка, пункт на кобальтовой подложке; остальное отступает. */
+.op-story{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(280px,1fr);gap:0;align-items:start}
+.op-stc{min-width:0;padding-right:var(--s9)}
+.op-sts{min-width:0;padding-left:var(--s9);border-left:1px solid var(--line2);white-space:normal;text-align:left}
+.op-sth{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);
+  font-weight:var(--fw-bold);margin:0 0 var(--s4)}
+.op-ins{list-style:none;margin:0 0 0 calc(-1 * var(--s4));padding:0}
+.op-ins li{display:flex;align-items:flex-start;gap:9px;margin:0 0 var(--s1);padding:5px var(--s4);border-radius:var(--r2);
+  font-size:var(--fs-body);line-height:1.45;color:var(--ink2);transition:background .12s,opacity .12s}
+.op-ins li b{color:var(--ink);font-weight:var(--fw-bold)}
+.op-insn{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-top:0;
+  border-radius:50%;background:var(--ink);color:#fff;font-style:normal;font-size:var(--fs-cap);font-weight:var(--fw-bold);
+  transition:transform .12s}
+.op-insn.prev{background:var(--mk-prev)}
+.op-insb{flex:0 0 auto;width:18px;height:18px;position:relative}
+.op-insb::after{content:"";position:absolute;left:7px;top:7px;width:5px;height:5px;border-radius:50%;background:var(--muted2)}
+.op-ins li.lit{background:var(--blue-bg)}
+.op-ins li.lit .op-insn{transform:scale(1.12)}
+.op-story.lk .op-ins li:not(.lit){opacity:.45}
+.op-sta{margin-top:var(--s7);padding-top:var(--s6);border-top:1px solid var(--line2)}
+.op-stp{margin:0 0 var(--s4);font-size:var(--fs-body);line-height:1.5;color:var(--ink2)}
+.op-frac{display:inline-flex;flex-direction:column;align-items:center;font-size:var(--fs-note);color:var(--ink2);margin:0 0 var(--s2)}
+.op-frac span:first-child{border-bottom:1px solid var(--ink2);padding:0 var(--s3) 2px}
+.op-frac span:last-child{padding:2px var(--s3) 0}
+.op-frs{font-size:var(--fs-note);color:var(--muted);line-height:1.45;margin-top:var(--s2)}
+.svgchart .mkb{opacity:0;transition:opacity .15s}
+.svgchart .mkb.lit{opacity:1}
+.svgchart .mk circle{transition:r .12s,stroke-width .12s,fill .12s}
+.svgchart .mk.lit circle{r:10;stroke-width:2.4}
+.op-story.lk .svgchart .mk:not(.lit) circle{fill:var(--muted2)}
+@media (max-width:1100px){
+  .op-story{grid-template-columns:1fr}
+  .op-stc{padding:0 0 var(--s7)}
+  .op-sts{padding:var(--s7) 0 0;border-left:0;border-top:1px solid var(--line2)}
+}
+/* «Что видно в данных» над таблицами: факты списком, первые три сразу */
+.ai.obs{margin:var(--s7) 0 0;padding:var(--s6) var(--s8) var(--s6)}
+.obs-h{display:flex;align-items:center;gap:var(--s5)}
+.obs-none{font-size:var(--fs-body);color:var(--ink2)}
+.obs-list{list-style:none;margin:var(--s4) 0 0;padding:0}
+.obs-li{display:flex;align-items:flex-start;gap:var(--s5);padding:6px var(--s4);margin:0 0 0 calc(-1 * var(--s4));border-radius:var(--r2);
+  font-size:var(--fs-body);line-height:1.45;color:var(--ink2);cursor:pointer;transition:background .12s}
+.obs-li:hover,.obs-li:focus-visible{background:var(--blue-bg);outline:none}
+.obs-li b{color:var(--ink);font-weight:var(--fw-bold)}
+.obs-dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;margin-top:5px;background:var(--bench)}
+/* светофор отчёта — два цвета и серый, жёлтого нет: «стоит внимания» —
+   красный контур, «требует действий» — красная точка */
+.obs-dot.high{background:var(--red)}
+.obs-dot.mid{background:#fff;box-shadow:inset 0 0 0 2px var(--red)}
+.obs-dot.good{background:var(--green)}
+.obs-go{color:var(--act);white-space:nowrap;opacity:0;transition:opacity .12s}
+.obs-li:hover .obs-go,.obs-li:focus-visible .obs-go{opacity:1}
+.obs-more{border:0;background:none;padding:var(--s2) 0 0;margin-left:calc(18px + var(--s5) - var(--s4));
+  font:inherit;font-size:var(--fs-body);color:var(--act);cursor:pointer}
+.obs-more:hover{color:var(--act-ink)}
+/* в связанном полотне месяц подсвечивает полоса связки — серая подложка
+   наведения под ней дала бы вторую, чуть большую полосу */
+.op-stc .ptg:hover .hit,.op-stc .barg:hover .hit{fill-opacity:0}
+@media(max-width:780px){
+  /* таблица на телефоне шире экрана и листается в панели; раскрытая строка —
+     график и «Что видно» — стоит на месте в видимой части, а не уезжает
+     вместе с колонками */
+  .detail-row .detail-chart{position:sticky;left:0;width:var(--op-vis,calc(100vw - 68px))}
+}

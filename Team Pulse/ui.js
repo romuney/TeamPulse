@@ -201,7 +201,7 @@ function hlText(text,q){
 function rowCaret(open){
   return '<span class="row-caret'+(open?' on':'')+'"'+
     tipAttr({title:open?'Свернуть график':'Показать динамику',
-      text:'Клик по строке раскрывает график метрики за 12 месяцев прямо в таблице.'})+
+      text:'Клик по строке раскрывает график «год к году» и выводы по метрике прямо в таблице.'})+
     ' aria-hidden="true">'+(open?'▾':'▸')+'</span>';
 }
 
@@ -309,20 +309,41 @@ function aiIco(big){
    уровне. До этого перенос в одной карточке сдвигал её цифры вниз, и полоса
    KPI переставала читаться как строка. Лишняя строка воздуха — приемлемая
    цена; съехавшие цифры — нет. */
-/* ---------- Раскрытая строка: два полотна рядом ----------
-   Приём HRBP HUB: одно широкое полотно на всю таблицу растягивало метрику в 5:1
-   и плющило наклон; два узких дают и наклон, и ответы на два разных вопроса —
-   «где мы против прошлого года» и «куда идём последние двенадцать месяцев». */
-function detailSplit(left,right){
-  return '<div class="detail-split"><div class="dsplit">'+left+'</div><div class="dsplit">'+right+'</div></div>';
+/* ---------- Раскрытая строка One-pager: график и «Что видно» ----------
+   Механика HRBP HUB (13.10): слева полотно «год к году» с номерными
+   отметками, справа — пункты «Что видно» с теми же номерами и «О метрике».
+   Сверх HRBP пункт и график связаны наведением в обе стороны (app.js,
+   data-mk / data-mi): навёл на пункт — на графике подсвечены его отметка и
+   месяц; навёл на месяц графика — подсвечены пункты о нём.
+   st = TPINSIGHTS.yoyStory(): html пунктов уже собран и экранирован там. */
+function opStory(chart,st,about){
+  let l='';
+  if(st.stub)l='<p class="op-stp">Метрика пока на демо-данных — выводов по ней нет.</p>';
+  else if(st.items.length)l='<ol class="op-ins">'+st.items.map(it=>
+    '<li'+(it.n?' data-mk="'+it.n+'"':'')+' data-mi="'+(it.mi||[]).join(',')+'">'+
+    (it.n?'<i class="op-insn'+(it.s==='prev'?' prev':'')+'">'+it.n+'</i>':'<i class="op-insb"></i>')+
+    '<span>'+it.html+'</span></li>').join('')+'</ol>';
+  return '<div class="op-story" data-oplink="1"><div class="op-stc">'+chart+'</div><div class="op-sts">'+
+    (l?'<div class="op-sth">Что видно</div>'+l:'')+
+    '<div class="op-sta"><div class="op-sth">О метрике</div>'+about+'</div></div></div>';
 }
-/* ---------- Переключатель масштаба динамики ----------
-   Правая панель детальной вкладки узкая, два полотна рядом в неё не встают —
-   поэтому, как в HRBP, вместо раскладки «обзор + зум» переключатель. */
-function dynSwitch(mode){
-  const it=[['roll','12 мес'],['yoy','Год к году']];
-  return '<div class="dyn-switch" role="tablist">'+it.map(([k,n])=>
-    '<button class="'+(mode===k?'on':'')+'" data-dyn="'+k+'" data-text="'+esc(n)+'" role="tab" aria-selected="'+(mode===k)+'">'+n+'</button>').join('')+'</div>';
+/* ---------- «Что видно в данных» над таблицами One-pager ----------
+   HRBP HUB: верхнеуровневые факты, по одному на метрику, а не мешанина
+   юнитов. Первые три видны сразу, остальные — по «Ещё N». Клик по факту
+   раскрывает строку его метрики: там график и разбор по пунктам. */
+const OBS_SEV={high:'требует действий',mid:'стоит внимания',good:'позитив'};
+function obsPanel(list,open,info){
+  const sev=list.length?list[0].sev:'none';
+  let h='<div class="ai insight obs sev-'+sev+'"><div class="obs-h">'+aiIco(false)+
+    '<span class="ai-t">Что видно в данных</span>'+(info||'')+
+    (list.length?'<span class="ai-sev '+sev+'">'+OBS_SEV[sev]+'</span>':'<span class="obs-none">Заметных отклонений нет.</span>')+'</div>';
+  if(list.length){
+    h+='<ul class="obs-list">'+(open?list:list.slice(0,3)).map(x=>
+      '<li class="obs-li" data-opfact="'+esc(x.key)+'" tabindex="0" role="button"><i class="obs-dot '+x.sev+'"></i>'+
+      '<div><b>'+esc(x.lead)+'.</b> '+(x.body?esc(x.body)+' ':'')+'<span class="obs-go">график →</span></div></li>').join('')+'</ul>';
+    if(list.length>3)h+='<button class="obs-more" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+(list.length-3)+' ▾')+'</button>';
+  }
+  return h+'</div>';
 }
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.tag||'')+(o.q||'')+'</div>'+
@@ -839,7 +860,7 @@ function planTable(rows){
       (r.now==='демо'?demoTag():esc(r.now))+'</td></tr>').join('')+'</tbody></table>';
 }
 
-window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

@@ -1,7 +1,9 @@
 /* ============================================================================
    screens/onepager.js — сводка по всем метрикам на одном экране.
    Семь блоков таблицами, у каждой метрики значение, MoM, YoY, спарклайн и
-   сравнение с базой. Клик по строке раскрывает график метрики внутри таблицы.
+   сравнение с базой. Клик по строке раскрывает график «год к году» с
+   разбором «Что видно» (механика HRBP HUB); над таблицами — «Что видно
+   в данных» по отбору целиком.
    ========================================================================== */
 (function(){
 'use strict';
@@ -13,36 +15,6 @@ const esc=U.esc;
    две строки по четыре: поток людей, текучесть, найм, AI и офис. */
 const HERO=['hc_total','hire','attrition','turnover_y','regret','junior_share','ai_penetration','office_att'];
 
-/* Имя выбранного подразделения — именно им подписана синяя линия в легенде. */
-function unitName(S){const n=D.NODE_BY_PATH[S.unit];return n?n.name:'Ваша команда'}
-
-/* ---------- тексты сводки ---------- */
-function worstMetrics(S,rl,bl,limit){
-  const out=[];
-  D.METRICS.forEach(m=>{
-    /* отключённая метрика не должна всплывать в тексте сводки: пользователь
-       не найдёт её ни в таблице, ни в KPI */
-    if(!D.metricVisible(m.key,S))return;
-    if(m.better==='flat')return;
-    const v=D.lastVal(rl,m.key), bv=D.lastVal(bl,m.key), kpi=D.kpiFor(m.key,S);
-    const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    if(st==='bad')out.push({m,v,bv,base:kpi?kpi.green:bv,kpi:!!kpi});
-  });
-  return out.slice(0,limit||3);
-}
-function bestMetrics(S,rl,bl,limit){
-  const out=[];
-  D.METRICS.forEach(m=>{
-    if(!D.metricVisible(m.key,S))return;
-    if(m.better==='flat')return;
-    /* та же развилка, что и в worstMetrics: где есть KPI, «хорошо» считается
-       от цели, а не от средней по базе */
-    const v=D.lastVal(rl,m.key), bv=D.lastVal(bl,m.key), kpi=D.kpiFor(m.key,S);
-    const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    if(st==='good')out.push({m,v,bv:kpi?kpi.green:bv,kpi:!!kpi});
-  });
-  return out.slice(0,limit||2);
-}
 /* Счёт сигналов и сдвиги за год для полосы «Пульс команды».
    Сигнал — та же развилка, что везде: цель KPI, иначе база; несравнимые и
    «больше не значит лучше» — без оценки. Сдвиги берём только у относительных
@@ -78,30 +50,44 @@ function heroContext(k,s,rl){
     return '<span class="k-sub">с начала года <b>'+D.fmtDelta('net_ytd',ytd)+'</b></span>';
   }
   if(D.METRIC_BY_KEY[k].fmt==='int')
-    return '<span class="k-sub">за 12 мес <b>'+D.fmtVal(k,SC.sumS(s))+'</b> чел</span>';
+    return '<span class="k-sub">за год <b>'+D.fmtVal(k,SC.sumS(s))+'</b> чел</span>';
   return U.noCmpMark();
 }
-function lead(S,rl,bl){
-  const hc=D.lastVal(rl,'hc_total'), w=worstMetrics(S,rl,bl,3);
-  const nU=D.unitsInScope(S);
-  return 'В отборе <b>'+D.fmtInt(hc)+' чел</b> из '+D.fmtInt(nU)+' '+U.plural(nU,D.UNIT_WORDS)+', база сравнения — <b>'+
-    esc(D.benchmarkLabel(S))+'</b>. '+
-    (w.length?'Требуют внимания: '+w.map(x=>esc(x.m.name)).join(', ')+'.':'Критичных отклонений от базы нет.');
+/* ---------- «О метрике» в раскрытой строке ----------
+   Как в HRBP HUB: что это, как считаем (дробью, словами) и с чем сравниваем.
+   Имена слагаемых — по-русски: служебных рядов в METRICS нет. */
+const PART={hc_avg:'среднесписочная численность',pf_plan:'план найма',hire_jun:'принятые джуны',
+  rev_eval:'оценённые в цикле ревью',rev_up:'улучшившие оценку',ovis:'посещения офиса',
+  wday:'отработанные человеко-дни',plow:'оценка «низкая»',prated:'оценённые',regret_cnt:'нежелательные увольнения'};
+/* строчная — только первая буква: «T-рост», «AI», «WAU» остаются как есть */
+const partName=k=>{const n=PART[k]||(D.METRIC_BY_KEY[k]||{}).name||k;return n.charAt(0).toLowerCase()+n.slice(1)};
+function fracOf(m){
+  const dv=m.derived;
+  if(dv){
+    const den=Array.isArray(dv.den)?dv.den.map(partName).join(' + '):partName(dv.den);
+    return [partName(dv.num),den,[dv.scale===100?'в процентах':'',dv.win==='ytd'?'с начала года':'за месяц'].filter(Boolean).join(', ')];
+  }
+  if(m.ytd)return ['сумма помесячных значений с января','',''];
+  return null;
 }
-function bullets(S,rl,bl){
-  const out=[];
-  worstMetrics(S,rl,bl,3).forEach(x=>{
-    out.push('<b>'+esc(x.m.name)+'</b>: '+D.fmtVal(x.m.key,x.v)+' при '+(x.kpi?'цели KPI ':'базе ')+
-      D.fmtVal(x.m.key,x.base)+'. Отклонение '+D.fmtDelta(x.m.key,+(x.v-x.base).toFixed(1))+
-      ' — смотрите разбивку по подразделениям в блоке «'+esc(D.BLOCK_BY_KEY[x.m.block].name)+'».');
-  });
-  bestMetrics(S,rl,bl,2).forEach(x=>{
-    out.push('<b>'+esc(x.m.name)+'</b> лучше '+(x.kpi?'цели KPI':'базы')+': '+
-      D.fmtVal(x.m.key,x.v)+' против '+D.fmtVal(x.m.key,x.bv)+'.');
-  });
-  out.push('Сравнение пересчитано под ваши разрезы: смените покраску или разрез IT — и база, и выводы изменятся.');
-  out.push('Численность, найм и переводы не окрашиваются светофором: отклонение от базы здесь не оценка, а факт масштаба.');
-  return out;
+function about(m,S){
+  const kpi=D.kpiFor(m.key,S), fr=fracOf(m);
+  let h='<p class="op-stp">'+esc(m.hint)+'</p>';
+  if(fr&&fr[1])h+='<div class="op-frac"><span>'+esc(fr[0])+'</span><span>'+esc(fr[1])+'</span></div>'+
+    (fr[2]?'<div class="op-frs">'+esc(fr[2][0].toUpperCase()+fr[2].slice(1))+'</div>':'');
+  else if(fr)h+='<div class="op-frs">Считаем: '+esc(fr[0])+'.</div>';
+  const ref=kpi?'Ориентир: цель KPI '+D.fmtVal(m.key,kpi.green)+', порог '+D.fmtVal(m.key,kpi.red)
+    :D.comparable(m.key)?'Ориентир: база «'+D.benchmarkLabel(S)+'» за тот же месяц':
+     m.better==='flat'?'Ориентира нет: «больше» здесь не значит «лучше»':'Ориентира нет: абсолютная величина зависит от размера команды';
+  return h+'<div class="op-frs">'+esc(ref)+'.</div>';
+}
+/* Пояснение к «Что видно в данных»: какие пороги и что не оценивается. */
+function obsInfo(S){
+  const O=window.TPINSIGHTS.OBS;
+  return '<span class="info"'+U.tipAttr({title:'Что видно в данных',
+    text:'Главное по отбору целиком: где метрика заметно хуже или лучше ориентира, заметно изменилась к прошлому году или ухудшается подряд, всплески уходов и сдвиг численности.',
+    note:'В список попадает отклонение от '+Math.round(O.dev*100)+'% ориентира (цель KPI, иначе база «'+D.benchmarkLabel(S)+
+      '»), тренд — от '+O.trend+' месяцев подряд. Численность, найм и переводы светофором не оцениваются.'})+' aria-label="Как отобраны факты">i</span>';
 }
 
 /* ---------- рендер ---------- */
@@ -114,11 +100,12 @@ function render(S,openRows){
     '<p>Все ключевые метрики команды на одном экране: значение, изменение '+esc(D.CMP.momFull)+
     ' и '+esc(D.CMP.yoy)+', динамика и сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
     '</b>; там, где есть утверждённый KPI, метрика сравнивается с целью, а не с базой. '+
-    'Нажмите на строку — каретка справа развернёт график.</p></div>';
+    'Нажмите на строку — откроется график «год к году» и разбор по пунктам.</p></div>';
 
-  /* AI-подсказка сразу под заголовком — как на детальных экранах. Внизу страницы
-     её никто не дочитывал: сначала вывод, потом цифры. */
-  h+=U.aiBlock('op','Как читать эту сводку',lead(S,rl,bl),bullets(S,rl,bl),S.aiOpen==='op','insight');
+  /* «Что видно в данных» сразу под заголовком (HRBP HUB, 13.10): сначала
+     вывод, потом цифры. Раньше здесь была AI-подсказка «Как читать эту
+     сводку» — её пороги и оговорки переехали в ⓘ панели. */
+  h+=U.obsPanel(window.TPINSIGHTS.overview(S,rl,bl),S.aiOpen==='op',obsInfo(S));
 
   /* Пульс команды: счёт сигналов и главные сдвиги за год — до таблиц,
      чтобы первые пять секунд на экране отвечали «что изменилось». */
@@ -201,17 +188,13 @@ function render(S,openRows){
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */
       if(open){
-        /* Два полотна рядом, как в HRBP HUB: слева год к году (сезон и то,
-           где метрика была год назад), справа скользящие 12 месяцев с базой
-           или целью (куда идём). Ориентир на обоих один и тот же. */
-        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+U.detailSplit(
-          SC.yoyChart(m.key,rl,bl,S,{title:'Год к году',h:280,fill:false}),
-          G.chart('line',{metricKey:m.key,series:s,bench:bser},
-            {title:kpi?'12 мес и цель KPI':bser?'12 мес и база':'12 мес',
-             /* серии подписаны именами, иначе непонятно, что за синяя линия */
-             legend:bser?[{name:unitName(S),color:G.C_LINE},{name:D.benchmarkLabel(S),color:G.C_BENCH,dash:true}]:null,
-             benchName:D.benchmarkLabel(S),
-             kpi:kpi,h:280}))+'</div></td></tr>';
+        /* Механика HRBP HUB (13.10): слева год к году с номерными отметками,
+           справа «Что видно» с теми же номерами и «О метрике». Полотна
+           «12 мес» больше нет — вся динамика отчёта год к году. */
+        const st=window.TPINSIGHTS.yoyStory(m.key,S,rl,bl);
+        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+U.opStory(
+          SC.yoyChart(m.key,rl,bl,S,{title:'Этот год и прошлый',h:280,fill:false,
+            marks:st.marks,link:true}),st,about(m,S))+'</div></td></tr>';
       }
     });
     h+=U.panel({body:t+'</tbody></table>'});

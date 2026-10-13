@@ -109,13 +109,14 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI;
 const rl=D.reportLeaves(D.DEFAULT_STATE);
 const checks=[];
 
-/* 1. ось значений всегда от нуля */
-const uw=D.aggregate(rl,'underwork');
-const svgUW=G.chart('line',{metricKey:'underwork',series:uw},{h:280});
+/* 1. ось значений всегда от нуля. С 13.10 вся динамика — год к году:
+   проверяем полотно года — этот год (закрытые месяцы) и прошлый целиком */
+const uwY=D.yoySeries(rl,'underwork');
+const svgUW=G.chart('yoy',{metricKey:'underwork',cur:uwY.cur,prev:uwY.prev},{h:280});
 /* у точек есть class="dot" ПЕРЕД cx, и старый регекс `<circle cx=` не ловил ничего:
    массив был пуст, и обе проверки оси проходили вакуумно. Ищем cy где бы он ни стоял. */
 const ys=[...svgUW.matchAll(/<circle[^>]*\scy="([\d.]+)"/g)].map(m=>+m[1]);
-checks.push(['проверка оси видит точки: их ровно по числу месяцев',ys.length===D.N]);
+checks.push(['проверка оси видит точки: этот год по закрытым месяцам и прошлый целиком',ys.length===D.CUR_LEN+12]);
 const zeroLine=[...svgUW.matchAll(/<line x1="[\d.]+" y1="([\d.]+)"[^>]*stroke="#c9cdd6"/g)].map(m=>+m[1])[0];
 checks.push(['ось от нуля: все точки выше базовой линии',ys.every(y=>y<zeroLine)]);
 checks.push(['ось от нуля: диапазон 6,1–6,9% не растянут на всю высоту',
@@ -141,13 +142,16 @@ checks.push(['разбивки по атрибутам — таблица',/<tab
 const rsn=SC.blocks.turnover.view({S:D.DEFAULT_STATE,sub:'reasons',lp:rl,bl:rl});
 checks.push(['причины увольнений — таблица',/<table/.test(rsn)&&!/<svg/.test(rsn)]);
 
-/* 6. дивергентный чарт: один бар, разрезанный осью, а не два рядом */
-const dv=G.chart('diverge',{up:D.aggregate(rl,'hire'),down:att,upKey:'hire',downKey:'attrition'},{h:300});
-const xUp=[...dv.matchAll(/<path d="M([\d.]+) [^>]*class="bar up"/g)].map(m=>+m[1]);
-/* низ дивергента тоже path: у бара вниз скругляется нижний край */
-const xDn=[...dv.matchAll(/<path d="M([\d.]+) [^>]*class="bar dn"/g)].map(m=>+m[1]);
-checks.push(['дивергент: приход и уход на ОДНОЙ вертикали',
-  xUp.length===D.N&&xDn.length===D.N&&xUp.every((x,i)=>Math.abs(x-xDn[i])<0.01)]);
+/* 6. дивергентный чарт: один бар, разрезанный осью, а не два рядом.
+   Ряды синтетические и без нулей: бар нулевой высоты не рисуется, и пары бы
+   разъехались. Тень прошлого года (data-s="prev") — тоже по одной вертикали. */
+const yr=(a,b)=>({cur:D.MONTH_ABBR.map((_,i)=>i<D.CUR_LEN?a+i%3:null),prev:D.MONTH_ABBR.map((_,i)=>b+i%4)});
+const dv=G.chart('diverge',{yoy:true,up:yr(4,5),down:yr(2,3),upKey:'hire',downKey:'attrition'},{h:300});
+const xOf=(sid,cls)=>[...dv.matchAll(new RegExp('<path d="M([\\d.]+) [^>]*class="bar '+cls+'" data-s="'+sid+'"','g'))].map(m=>+m[1]);
+const xUp=xOf('up','up'), xDn=xOf('dn','dn'), gUp=xOf('prev','up'), gDn=xOf('prev','dn');
+checks.push(['дивергент: приход и уход на ОДНОЙ вертикали, тень прошлого года — тоже',
+  xUp.length===D.CUR_LEN&&xDn.length===D.CUR_LEN&&xUp.every((x,i)=>Math.abs(x-xDn[i])<0.01)&&
+  gUp.length===12&&gDn.length===12&&gUp.every((x,i)=>Math.abs(x-gDn[i])<0.01)]);
 
 /* 7. цифры на графиках чёрные: за смысл отвечает цвет бара, а не подписи */
 const LOUD=/fill="#(f51f1f|12b048|d11414|0a8f3c)"/;
@@ -252,11 +256,11 @@ checks.push(['минус во всех дельтах типографский, 
   /* на раскрытом графике та же развилка: пороги KPI вместо линии базы */
   const line=SC.metricLine('regret',rl0,bl0,S0,{});
   checks.push(['у метрики с KPI на графике пороги цели, а не линия базы',
-    />цель 4,0%</.test(line)&&/>порог 7,0%</.test(line)&&!/class="lnb"/.test(line)]);
+    />цель 4,0%</.test(line)&&/>порог 7,0%</.test(line)&&!/class="lnb" data-s="bench"/.test(line)]);
   /* без KPI (regret вне HQ) поведение прежнее: линия базы на месте */
   const S1=Object.assign({},S0,{paint:'Line'});
   checks.push(['без KPI метрика возвращается к сравнению с базой',
-    !D.kpiFor('regret',S1)&&/class="lnb"/.test(SC.metricLine('regret',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{}))]);
+    !D.kpiFor('regret',S1)&&/class="lnb" data-s="bench"/.test(SC.metricLine('regret',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{}))]);
 })();
 
 /* Среднесписочная ушла из отчёта, но осталась знаменателем текучести;
@@ -459,17 +463,19 @@ checks.push(['подписи значений на графиках имеют h
     !/t-r pri|class="t-r pri/.test(allHtml)&&!/\.t-r\.pri/.test(css)]);
   /* база отличается цветом, а не размером: класс вешается по пунктирному
      маркеру, тому же, что в легенде графика */
-  const line=G.chart('line',{metricKey:'turnover_m',series:D.aggregate(lp,'turnover_m'),
-    bench:D.aggregate(bl,'turnover_m')},{benchName:'база'});
+  const ty=D.yoySeries(lp,'turnover_m');
+  const line=G.chart('yoy',{metricKey:'turnover_m',cur:ty.cur,prev:ty.prev,
+    bench:D.yoySeries(bl,'turnover_m').cur},{benchName:'база'});
   const lt=tipsOf(line)[0]||'';
   checks.push(['база в подсказке помечена как bench и красится серым',
     (lt.match(/t-r bench/g)||[]).length===1&&/\.tip\.t-r\.bench\.t-v\{color:var\(--muted\)/.test(css)]);
   /* дивергент — две равнозначные метрики одного потока: ни одна не выделена */
-  const dv=G.chart('diverge',{up:D.aggregate(lp,'hire'),down:D.aggregate(lp,'attrition'),
+  const dv=G.chart('diverge',{yoy:true,up:D.yoySeries(lp,'hire'),down:D.yoySeries(lp,'attrition'),
     upKey:'hire',downKey:'attrition'},{});
   const dt=tipsOf(dv)[0]||'';
+  /* январь: оба плеча за оба года — четыре равноправные строки */
   checks.push(['равнозначные метрики в подсказке не выделяются друг перед другом',
-    (dt.match(/t-r bench/g)||[]).length===0&&(dt.match(/t-r&quot;/g)||[]).length===2]);
+    (dt.match(/t-r bench/g)||[]).length===0&&(dt.match(/t-r&quot;/g)||[]).length===4]);
 })();
 
 /* Таблицы набраны ролями, которые шкала для них и заводила: тело — «основной
@@ -491,8 +497,8 @@ checks.push(['марки графиков помечены data-s',
 /* дивергент на одном плече: шкала перестраивается, последнюю серию не выключить */
 (function(){
   const legend=[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT}];
-  const up=D.MONTHS.map((m,i)=>10+i), down=D.MONTHS.map((m,i)=>4+i%3);
-  const html=G.chart('diverge',{up,down,upKey:'hired',downKey:'left'},
+  const yr=(a,k)=>({cur:D.MONTH_ABBR.map((_,i)=>i<D.CUR_LEN?a+i%k:null),prev:D.MONTH_ABBR.map((_,i)=>a+1+i%k)});
+  const html=G.chart('diverge',{yoy:true,up:yr(10,5),down:yr(4,3),upKey:'hired',downKey:'left'},
     {title:'Проверка дивергента',legend,h:320});
   const cid=(html.match(/data-cid="(\w+)"/)||[])[1];
   const el=pick('.svgchart[data-cid="'+cid+'"]'); el.clientWidth=900;
@@ -593,9 +599,10 @@ checks.push(['марки графиков помечены data-s',
     !!inJs&&inJs===inCss]);
   checks.push(['панели берут зазор из общей константы, а не из своего числа',
     /const GAP=STACK_GAP/.test(js)]);
-  /* ось X устроена одинаково во всех видах: подпись месяца на bot+15 везде */
+  /* ось X устроена одинаково во всех видах: подпись месяца на bot+15 везде —
+     у полотна года (yoyAxis, им рисуются и панели) и у дивергента */
   checks.push(['ось X у панелей на том же отступе, что у остальных графиков',
-    !/axisX\([^)]*bot\+13\)/.test(js)]);
+    (js.match(/txt\(X\(i\),bot\+15,lb,/g)||[]).length===2&&!/bot\+13/.test(js)]);
 })();
 
 /* ============================================================================
@@ -917,7 +924,7 @@ checks.push(['веса 800 в отчёте не осталось',!/font-weight:
      зарезервирована невидимой копией */
   checks.push(['активная вкладка жирная, ширина под жирную подпись зарезервирована',
     /\.sub-tab\.active\{[^}]*font-weight:var\(--fw-bold\)/.test(css)&&
-    /\.sub-tab::after,\.dyn-switchbutton::after\{content:attr\(data-text\)/.test(css)&&
+    /\.sub-tab::after\{content:attr\(data-text\)/.test(css)&&
     /class="(sub-tab|st-step)[^"]*" data-subtab="[^"]+" data-text="/.test(allHtml)&&
     /\.st-step\.on\.st-q\{font-weight:var\(--fw-bold\)\}/.test(css)]);
 })();
@@ -1253,6 +1260,42 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['история: текст экранируется, жирное — только через **…**',
     U.richText('a<b>**x**')==='a&lt;b&gt;<b>x</b>']);
   A.go('onepager',null);
+})();
+
+/* 13.10: только «год к году» и «Что видно» по механике HRBP HUB */
+(function(){
+  const I=window.TPINSIGHTS;
+  checks.push(['переключателя «12 мес / Год к году» нет нигде: ни кнопок, ни состояния, ни стилей',
+    !/data-dyn=|dyn-switch/.test(allHtml)&&!/dyn-switch/.test(css)&&!('dyn' in D.DEFAULT_STATE)&&!U.dynSwitch]);
+  /* все графики динамики детальных вкладок стоят на оси года: у колонок месяца
+     data-mi 0–11, скользящих видов в движке больше нет */
+  checks.push(['скользящих графиков в движке нет: только год к году, водопад, воронка, календарь',
+    !G.SERIES.line&&!G.SERIES.bars&&/data-mi="11"/.test(A.go('turnover','dynamics'))&&
+    /data-mi="11"/.test(A.go('movement','dynamics'))&&/data-mi="11"/.test(A.go('hiring','vacancies'))]);
+  const S0=D.DEFAULT_STATE, rl0=D.reportLeaves(S0), bl0=D.benchmarkLeaves(S0);
+  const ov=I.overview(S0,rl0,bl0), op=A.op([]);
+  checks.push(['one-pager: «Что видно в данных» над таблицами, факты ведут к строкам метрик',
+    /<div class="ai insight obs sev-/.test(op)&&ov.length>0&&ov.length<=I.OBS.max&&
+    ov.every(x=>D.METRIC_BY_KEY[x.key]&&x.lead&&['high','mid','good'].indexOf(x.sev)>=0)&&
+    (op.match(/class="obs-li" data-opfact="/g)||[]).length===Math.min(3,ov.length)]);
+  /* раскрытая строка: номера пунктов «Что видно» = номерные отметки на полотне */
+  const keys=['turnover_y','attrition','hire_plan','hc_total','regret'];
+  const opened=A.op(keys);
+  const lis=[...opened.matchAll(/<li data-mk="(\d+)" data-mi="(\d+)"/g)].length;
+  const mks=[...opened.matchAll(/<g class="mk fade" data-mk="(\d+)" data-mi="(\d+)"/g)].length;
+  checks.push(['раскрытая строка: график «год к году» + «Что видно» + «О метрике», номера пунктов = отметки',
+    (opened.match(/<div class="op-story" data-oplink="1">/g)||[]).length===keys.length&&
+    /<div class="op-sth">Что видно<\/div>/.test(opened)&&/<div class="op-sth">О метрике<\/div>/.test(opened)&&
+    lis>=keys.length*2&&lis===mks&&!/12 мес и (база|цель)/.test(opened)]);
+  /* каждый пункт подсвечивает свои месяцы: полосы связки есть на 0–11 */
+  checks.push(['связка пункт ↔ график: у полотна полосы месяцев, у пунктов — их месяцы',
+    (opened.match(/class="mkb" data-mi="/g)||[]).length===12*keys.length&&
+    [...opened.matchAll(/<li[^>]* data-mi="([\d,]*)"/g)].every(m=>m[1].split(',').every(i=>i===''||(+i>=0&&+i<12)))]);
+  const st=I.yoyStory('turnover_y',S0,rl0,bl0);
+  checks.push(['факты метрики: номера слева направо, без двух отметок в одну точку',
+    st.marks.length>=2&&st.marks.every((m,i,a)=>!i||a[i-1].i<m.i||(a[i-1].i===m.i&&a[i-1].s==='main'&&m.s==='prev'))&&
+    new Set(st.marks.map(m=>m.i+m.s)).size===st.marks.length&&!/п\.п\.\./.test(st.items.map(x=>x.html).join(''))]);
+  A.op([]);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

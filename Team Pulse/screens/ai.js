@@ -38,8 +38,8 @@ SC.blocks.ai={
         'дашборда 34136, по инструменту и стриму сотрудника.</div>';
     }
     return SC.metricLine('ai_penetration',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Проникновение AI, %',ann:ctx.ann.ai_penetration})+
-      G.chart('bars',{metricKey:'ai_wau',series:D.aggregate(ctx.lp,'ai_wau')},
-        {h:300,fill:true,title:'Активные пользователи AI (WAU), чел',color:G.C_AI,ann:ctx.ann.ai_wau});
+      SC.yoyChart('ai_wau',ctx.lp,ctx.bl,ctx.S,
+        {h:300,title:'Активные пользователи AI (WAU), чел',color:G.C_AI,ann:ctx.ann.ai_wau});
   }
 };
 })();

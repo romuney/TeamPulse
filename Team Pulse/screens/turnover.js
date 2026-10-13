@@ -65,14 +65,13 @@ SC.blocks.turnover={
         'численности с поправкой на склонность к уходу. На проде это атрибуты ушедшего на дату увольнения.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся
-       только отток, потому что отток — счётные люди за месяц. */
-    return SC.dynWrap(ctx,G.chart('panels',{panels:[
-      {name:'Отток, чел',key:'attrition',type:'bar',series:D.aggregate(lp,'attrition'),color:G.C_OUT,ann:ctx.ann.attrition},
-      {name:'Текучесть месячная, %',key:'turnover_m',type:'line',series:D.aggregate(lp,'turnover_m'),color:G.C_LINE},
-      {name:'Текучесть накопительная с января, %',key:'turnover_y',type:'line',series:D.aggregate(lp,'turnover_y'),color:G.C_TURN_Y}
-    ]},{h:520,fill:true}),[
-      {key:'turnover_m',title:'Текучесть месячная, % · год к году'},
-      {key:'turnover_y',title:'Текучесть накопительная с января, % · год к году'}]);
+       только отток, потому что отток — счётные люди за месяц. Все три — год
+       к году (13.10): накопительная на оси года обнуляется в январе у обоих
+       лет и сравнивается месяц в месяц. */
+    return SC.yoyPanels(lp,[
+      {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
+      {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
+      {name:'Текучесть накопительная с января, %',key:'turnover_y',color:G.C_TURN_Y}]);
   }
 };
 })();

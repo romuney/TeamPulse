@@ -54,6 +54,7 @@ const probe=path.join(dir,'.app.probe.real.js');
 fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;render();return $("#view").innerHTML},'+
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));render(true);return $("#view").innerHTML},'+
+  '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  st:()=>S};');
 const A=require(probe);
 fs.unlinkSync(probe);
@@ -150,6 +151,19 @@ const hv=A.go('hiring','vacancies'), td=A.go('turnover','dynamics');
 /* «Зачем смотреть» на демо-главе есть — это объяснение, а не вывод из цифр */
 ok(!/<div class="st-head"><h3>/.test(hv)&&/<div class="st-head"><h3>/.test(td)&&/<div class="st-why">/.test(hv),
   'история: у демо-главы нет вывода (только «зачем смотреть»), у живой (отток) — есть');
+
+/* One-pager (13.10, механика HRBP HUB): у живых метрик — факты с отметками на
+   полотне «год к году», у заглушек — честное «выводов нет»; в «Что видно в данных»
+   заглушек нет */
+const all=D.METRICS.filter(m=>D.metricVisible(m.key,D.DEFAULT_STATE)).map(m=>m.key);
+const opAll=A.op(all), stories=opAll.split('<div class="op-story"').slice(1);
+const live=all.filter(k=>!D.isStub(k)), stubs=all.filter(k=>D.isStub(k));
+const ov=window.TPINSIGHTS.overview(D.DEFAULT_STATE,D.reportLeaves(D.DEFAULT_STATE),D.benchmarkLeaves(D.DEFAULT_STATE));
+ok(stories.length===all.length&&
+   stories.filter(x=>/выводов по ней нет/.test(x)).length===stubs.length&&
+   stories.filter(x=>/<ol class="op-ins">/.test(x)).length===live.length&&
+   ov.every(x=>!D.isStub(x.key))&&A.op([])&&true,
+  'one-pager: «Что видно» у '+live.length+' живых метрик, у '+stubs.length+' заглушек — «выводов нет», в сводке заглушек нет');
 
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);

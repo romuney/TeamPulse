@@ -65,7 +65,6 @@ function urlParams(){
   if(S.mixRows!==D.DEFAULT_STATE.mixRows)p.set('mxr',S.mixRows);
   if(S.mixCols!==D.DEFAULT_STATE.mixCols)p.set('mxc',S.mixCols||'');
   if(S.mixMode!==D.DEFAULT_STATE.mixMode)p.set('mxm',S.mixMode);
-  if(S.dyn!==D.DEFAULT_STATE.dyn)p.set('dyn',S.dyn);
   return p;
 }
 function readURL(){
@@ -83,8 +82,6 @@ function readURL(){
   if(mxr&&D.MIX_BY_KEY[mxr])S.mixRows=mxr;
   if(mxc!=null)S.mixCols=D.MIX_BY_KEY[mxc]?mxc:'';
   if(mxm&&['abs','row','col'].indexOf(mxm)>=0)S.mixMode=mxm;
-  const dyn=q.get('dyn');
-  if(dyn==='yoy'||dyn==='roll')S.dyn=dyn;
   if(!D.NODE_BY_PATH[S.unit])S.unit=D.DEFAULT_STATE.unit;
 }
 /* в Proteus адресной строки у чарта нет: состояние живёт в TP_ENV.store */
@@ -473,6 +470,41 @@ function crossCol(td,on){
   [].forEach.call(tb.rows,r=>{if(r.cells.length===n&&r.cells[i])r.cells[i].classList.add('x-col')});
 }
 on(document,'mouseover',e=>{const td=e.target.closest&&e.target.closest('.mxtable td');if(td)crossCol(td,true)});
+/* Связка «пункт ↔ график» в раскрытой строке One-pager (13.10, сверх HRBP
+   HUB): наведение на пункт «Что видно» подсвечивает его номерную отметку и
+   месяцы на полотне; наведение на месяц полотна или на отметку — пункты,
+   которые о нём говорят. Только классы, без перерисовки: на ресайзе полотно
+   пересобирается и подсветка просто сбрасывается. */
+function opClear(box){
+  box.classList.remove('lk');
+  [].forEach.call(box.querySelectorAll('.lit'),x=>x.classList.remove('lit'));
+}
+function opLit(box,mis,lis){
+  opClear(box);
+  const mks=lis.map(x=>x.getAttribute('data-mk')).filter(Boolean);
+  if(!mis.length&&!mks.length)return;
+  box.classList.add('lk');
+  mis.forEach(i=>[].forEach.call(box.querySelectorAll('.mkb[data-mi="'+i+'"]'),x=>x.classList.add('lit')));
+  mks.forEach(n=>[].forEach.call(box.querySelectorAll('.mk[data-mk="'+n+'"]'),x=>x.classList.add('lit')));
+  lis.forEach(x=>x.classList.add('lit'));
+}
+const miOf=el=>(el.getAttribute('data-mi')||'').split(',').filter(Boolean);
+function opHover(e,over){
+  const t=e.target, box=t&&t.closest&&t.closest('[data-oplink]');
+  if(!box)return;
+  if(!over){if(!(e.relatedTarget&&box.contains(e.relatedTarget)))opClear(box);return}
+  const li=t.closest('.op-ins li');
+  if(li){opLit(box,miOf(li),[li]);return}
+  const col=t.closest('.op-stc [data-mi]');
+  if(col){
+    const i=col.getAttribute('data-mi');
+    opLit(box,[i],[].filter.call(box.querySelectorAll('.op-ins li'),x=>miOf(x).indexOf(i)>=0));
+    return;
+  }
+  opClear(box);
+}
+on(document,'mouseover',e=>opHover(e,true));
+on(document,'mouseout',e=>opHover(e,false));
 on(document,'mouseout',e=>{const td=e.target.closest&&e.target.closest('.mxtable td');
   if(td&&!(e.relatedTarget&&td.contains(e.relatedTarget)))crossCol(td,false)});
 
@@ -615,8 +647,6 @@ on(document,'click',e=>{
   const jp=t.closest('[data-jump]');
   if(jp){const el=$('#op-'+jp.dataset.jump);
     if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
-  const dy=t.closest('[data-dyn]');
-  if(dy){S.dyn=dy.dataset.dyn;render(true);return}
   /* путь и «↑ Уровнем выше» — переход, как «Открыть юнит»: со стеком «Назад» */
   const cr=t.closest('[data-crumb]');
   if(cr){goUnit(cr.dataset.crumb);return}
@@ -707,6 +737,14 @@ on(document,'click',e=>{
   }
   const mr=t.closest('.mrow');
   if(mr){const k=mr.dataset.metric;openRows.has(k)?openRows.delete(k):openRows.add(k);render(true);return}
+  /* факт «Что видно в данных»: раскрыть строку его метрики и подвести к ней */
+  const of=t.closest('[data-opfact]');
+  if(of){
+    const k=of.dataset.opfact;openRows.add(k);render(true);
+    const r=ROOTEL.querySelector('.mrow[data-metric="'+k+'"]');
+    if(r)r.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
   /* история (итерация 32): «Где сосредоточено» и «Показать «X»» выбирают
      подразделение так же, как клик по строке сводной таблицы — графики главы
      перестраиваются по нему. Повторный клик выбор не снимает: кнопка зовёт
@@ -757,7 +795,7 @@ on(document,'mouseout',e=>lgHover(e,false));
 on(document,'focusin',e=>lgHover(e,true));
 on(document,'focusout',e=>lgHover(e,false));
 on(document,'keydown',e=>{
-  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.ai-h,.mx-cell')){e.preventDefault();e.target.click()}
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.ai-h,.mx-cell,.obs-li')){e.preventDefault();e.target.click()}
   /* У SVGElement может не быть .click() — зовём обработчик напрямую.
      После перерисовки узла больше нет, поэтому фокус возвращаем вручную. */
   if((e.key==='Enter'||e.key===' ')&&e.target.closest){

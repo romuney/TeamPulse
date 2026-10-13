@@ -158,7 +158,7 @@ CH.turnover={
     let head=fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
       :'Темп ухода — на уровне базы «'+c.bench+'»';
     if(pk>=0)head+=', но '+mPrep(pk)+' был всплеск';
-    const fo=focusCount(c,'attrition',{cap:'Где уходят · 12 мес',what:'уходов'});
+    const fo=focusCount(c,'attrition',{cap:'Где уходят · за год',what:'уходов'});
     return {sum:pl(n12,EXITS)+' за год',st:fc.st,head:head,
       lede:'За 12 месяцев ушли **'+pl(n12,PPL)+'**, с января — **'+D.fmtInt(y)+'**. Прогноз текучести на год — **'+
         f('turnover_fc',fc.v)+'**'+(ya!=null?' (год назад '+f('turnover_fc',ya)+')':'')+'.',
@@ -206,7 +206,7 @@ CH.movement={
     const hire=s12(c.lp,'hire'), tin=s12(c.lp,'transfer_in'), attr=s12(c.lp,'attrition'), tout=s12(c.lp,'transfer_out');
     const other=net-(hire+tin-attr-tout);
     const mx=argmax(hc);
-    const fo=focusCount(c,'hire',{cap:'Где нанимают · 12 мес',what:'найма'});
+    const fo=focusCount(c,'hire',{cap:'Где нанимают · за год',what:'найма'});
     const top=fo.focus&&fo.focus.rows[0];
     return {sum:signed(net)+' за год',st:'n',
       head:net>0?'Команда выросла на '+pl(net,PPL)+' за год':net<0?'Команда сократилась на '+pl(-net,PPL)+' за год'
@@ -228,7 +228,7 @@ CH.movement={
     const hs=ser(c.lp,'hire'), as=ser(c.lp,'attrition'), hc=ser(c.lp,'hc_total');
     const h=sum(hs), a=sum(as), ti=s12(c.lp,'transfer_in'), to=s12(c.lp,'transfer_out');
     const ph=argmax(hs), pa=argmax(as), mx=argmax(hc);
-    const fo=focusCount(c,'attrition',{cap:'Где уходят · 12 мес',what:'уходов'});
+    const fo=focusCount(c,'attrition',{cap:'Где уходят · за год',what:'уходов'});
     return {sum:'+'+h+' / '+minus(-a),st:'n',
       head:h>a?'Нанимаем больше, чем теряем: +'+(h-a)+' за год':h<a?'Теряем больше, чем нанимаем: '+minus(h-a)+' за год'
         :'Найм и отток за год сравнялись',

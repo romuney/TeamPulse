@@ -99,11 +99,10 @@ SC.blocks.hiring={
     }
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
        в блоке оттока. Барами остаются штуки вакансий. */
-    return G.chart('panels',{panels:[
-      {name:'Открытые вакансии, шт',key:'vac_open',type:'bar',series:D.aggregate(lp,'vac_open'),color:G.C_VAC,ann:ctx.ann.vac_open},
-      {name:'Закрытые вакансии, шт',key:'vac_closed',type:'bar',series:D.aggregate(lp,'vac_closed'),color:G.C_IN},
-      {name:'Срок закрытия вакансии, дн',key:'time_to_fill',type:'line',series:D.aggregate(lp,'time_to_fill'),color:G.C_LINE}
-    ]},{h:520,fill:true});
+    return SC.yoyPanels(lp,[
+      {name:'Открытые вакансии, шт',key:'vac_open',color:G.C_VAC,ann:ctx.ann.vac_open},
+      {name:'Закрытые вакансии, шт',key:'vac_closed',color:G.C_IN},
+      {name:'Срок закрытия вакансии, дн',key:'time_to_fill',color:G.C_LINE}]);
   }
 };
 })();

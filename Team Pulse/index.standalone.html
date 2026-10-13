@@ -35,6 +35,7 @@
      не является ни активным состоянием, ни величиной */
   --ai:#AA77FF;    --ai-bg:#F1E9FF;   --ai-tx:#6C36C9;
   --bench:#9aa0ac;
+  --mk-prev:#7d8494;  /* номерная отметка прошлого года — как C_MK_PREV в draw.js */
 
   /* ---------- Шкала расстояний ----------
      Отступы в макете брались на глаз: 7, 9, 13, 17 пикселей рядом
@@ -704,31 +705,13 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    к верхней границе, а ось X наезжает на следующую метрику. */
 .detail-row td{padding:18px 18px 20px;background:#fafbfc}
 .detail-chart{height:auto;width:100%}
-/* Два полотна рядом (год к году + 12 мес) — половины разделены волосяной
-   линией, а не зазором: это один ответ из двух частей, а не две карточки. */
-.detail-split{display:grid;grid-template-columns:1fr 1fr;gap:0}
-.dsplit{min-width:0;padding:0 var(--s9)}
-.dsplit:first-child{padding-left:0;border-right:1px solid var(--line2)}
-.dsplit:last-child{padding-right:0}
-@media (max-width:1100px){
-  .detail-split{grid-template-columns:1fr;gap:var(--chart-gap)}
-  .dsplit,.dsplit:first-child,.dsplit:last-child{padding:0;border:0}
-}
+/* Раскрытая строка — график «год к году» и «Что видно» (.op-story ниже):
+   два полотна рядом (год к году + 12 мес) сняты 13.10. */
 
-/* ---------- Переключатель масштаба динамики: 12 мес / год к году ----------
-   Сегмент из дизайн-системы Proteus Adoption: подложка --line2, активный —
-   белая плашка с тенью. Стоит над графиком, а не в шапке панели: шапку уже
-   занимают под-вкладки блока. */
-.dyn-switch{display:inline-flex;gap:3px;background:var(--line2);border-radius:var(--r3);
-  padding:3px;margin:0 0 var(--s6);align-self:flex-start;flex:none}
-.dyn-switch button{border:0;background:transparent;padding:5px var(--s5);border-radius:var(--r2);
-  font:inherit;font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);cursor:pointer;
-  transition:background .15s,color .15s}
-.dyn-switch button:hover{color:var(--ink2)}
-.dyn-switch button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow);font-weight:var(--fw-bold)}
+/* Переключатель масштаба динамики «12 мес / год к году» снят 13.10: вся
+   динамика — год к году, как в HRBP HUB. */
 
 /* строка «год назад» в KPI-карточке — второй план, тише строки базы */
-.split-r .panel-b>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
 .pulse-strip{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:var(--s10);background:var(--card);
   border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--s7) var(--s9);margin:var(--s7) 0 var(--s7)}
 .ps-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:var(--fw-bold);
@@ -1205,8 +1188,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    visibility:hidden убирает копию и из дерева доступности — экранный
    диктор прочитает подпись один раз. */
 .sub-tab{flex-direction:column;gap:0}
-.dyn-switch button{display:inline-flex;flex-direction:column;align-items:center}
-.sub-tab::after,.dyn-switch button::after{content:attr(data-text);display:block;height:0;overflow:hidden;
+.sub-tab::after{content:attr(data-text);display:block;height:0;overflow:hidden;
   visibility:hidden;font-weight:var(--fw-bold);pointer-events:none;user-select:none}
 
 /* В справке пояснения — не сноски, а сам текст правила: обычный вес
@@ -1547,9 +1529,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-main{flex:0 0 100%;min-height:0;display:flex;flex-direction:column;gap:var(--chart-gap)}
 .st-main>.svgchart.fill{flex:1;min-height:0}
 .st-main>.svgchart{flex:none}
-.st-main>.dyn-switch{margin-bottom:calc(var(--s6) - var(--chart-gap))}
 .st-main>.tbl-note{margin-top:0}
-.st-main>.st-head+.dyn-switch{margin-top:calc(var(--s2) - var(--chart-gap) + var(--s6))}
 /* Шаги — равной ширины в любом состоянии (правки 12.10, второй заход): активный
    не растёт и не сжимается — выбор шага меняет только фон, тень и вес подписи,
    а не геометрию ряда. Не помещается — многоточие; полный вопрос и ответ
@@ -1590,8 +1570,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .st-steps{margin-bottom:var(--s7)}
   .st-main{display:block}
   .st-main>*+*{margin-top:var(--chart-gap)}
-  .st-main>.dyn-switch+*{margin-top:0}
-  .st-main>.st-head+*,.st-main>.st-head+.dyn-switch{margin-top:var(--s7)}
+  .st-main>.st-head+*{margin-top:var(--s7)}
   .st-rail{margin-top:var(--chart-gap)}
   .svgchart.fill{height:auto}
 }
@@ -1679,6 +1658,75 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* Воздух под последним графиком или таблицей главы (правки 12.10): содержимое
    главы упиралось в нижний край панели. */
 .st-main{padding-bottom:var(--s8)}
+
+/* ---------- One-pager: «Что видно» по механике HRBP HUB (13.10) ----------
+   Раскрытая строка: слева полотно «год к году» с номерными отметками, справа
+   пункты «Что видно» с теми же номерами и «О метрике». Наведение связывает
+   пункт и график в обе стороны (app.js — opHover): подсвеченный месяц,
+   крупная отметка, пункт на кобальтовой подложке; остальное отступает. */
+.op-story{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(280px,1fr);gap:0;align-items:start}
+.op-stc{min-width:0;padding-right:var(--s9)}
+.op-sts{min-width:0;padding-left:var(--s9);border-left:1px solid var(--line2);white-space:normal;text-align:left}
+.op-sth{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);
+  font-weight:var(--fw-bold);margin:0 0 var(--s4)}
+.op-ins{list-style:none;margin:0 0 0 calc(-1 * var(--s4));padding:0}
+.op-ins li{display:flex;align-items:flex-start;gap:9px;margin:0 0 var(--s1);padding:5px var(--s4);border-radius:var(--r2);
+  font-size:var(--fs-body);line-height:1.45;color:var(--ink2);transition:background .12s,opacity .12s}
+.op-ins li b{color:var(--ink);font-weight:var(--fw-bold)}
+.op-insn{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-top:0;
+  border-radius:50%;background:var(--ink);color:#fff;font-style:normal;font-size:var(--fs-cap);font-weight:var(--fw-bold);
+  transition:transform .12s}
+.op-insn.prev{background:var(--mk-prev)}
+.op-insb{flex:0 0 auto;width:18px;height:18px;position:relative}
+.op-insb::after{content:"";position:absolute;left:7px;top:7px;width:5px;height:5px;border-radius:50%;background:var(--muted2)}
+.op-ins li.lit{background:var(--blue-bg)}
+.op-ins li.lit .op-insn{transform:scale(1.12)}
+.op-story.lk .op-ins li:not(.lit){opacity:.45}
+.op-sta{margin-top:var(--s7);padding-top:var(--s6);border-top:1px solid var(--line2)}
+.op-stp{margin:0 0 var(--s4);font-size:var(--fs-body);line-height:1.5;color:var(--ink2)}
+.op-frac{display:inline-flex;flex-direction:column;align-items:center;font-size:var(--fs-note);color:var(--ink2);margin:0 0 var(--s2)}
+.op-frac span:first-child{border-bottom:1px solid var(--ink2);padding:0 var(--s3) 2px}
+.op-frac span:last-child{padding:2px var(--s3) 0}
+.op-frs{font-size:var(--fs-note);color:var(--muted);line-height:1.45;margin-top:var(--s2)}
+.svgchart .mkb{opacity:0;transition:opacity .15s}
+.svgchart .mkb.lit{opacity:1}
+.svgchart .mk circle{transition:r .12s,stroke-width .12s,fill .12s}
+.svgchart .mk.lit circle{r:10;stroke-width:2.4}
+.op-story.lk .svgchart .mk:not(.lit) circle{fill:var(--muted2)}
+@media (max-width:1100px){
+  .op-story{grid-template-columns:1fr}
+  .op-stc{padding:0 0 var(--s7)}
+  .op-sts{padding:var(--s7) 0 0;border-left:0;border-top:1px solid var(--line2)}
+}
+/* «Что видно в данных» над таблицами: факты списком, первые три сразу */
+.ai.obs{margin:var(--s7) 0 0;padding:var(--s6) var(--s8) var(--s6)}
+.obs-h{display:flex;align-items:center;gap:var(--s5)}
+.obs-none{font-size:var(--fs-body);color:var(--ink2)}
+.obs-list{list-style:none;margin:var(--s4) 0 0;padding:0}
+.obs-li{display:flex;align-items:flex-start;gap:var(--s5);padding:6px var(--s4);margin:0 0 0 calc(-1 * var(--s4));border-radius:var(--r2);
+  font-size:var(--fs-body);line-height:1.45;color:var(--ink2);cursor:pointer;transition:background .12s}
+.obs-li:hover,.obs-li:focus-visible{background:var(--blue-bg);outline:none}
+.obs-li b{color:var(--ink);font-weight:var(--fw-bold)}
+.obs-dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;margin-top:5px;background:var(--bench)}
+/* светофор отчёта — два цвета и серый, жёлтого нет: «стоит внимания» —
+   красный контур, «требует действий» — красная точка */
+.obs-dot.high{background:var(--red)}
+.obs-dot.mid{background:#fff;box-shadow:inset 0 0 0 2px var(--red)}
+.obs-dot.good{background:var(--green)}
+.obs-go{color:var(--act);white-space:nowrap;opacity:0;transition:opacity .12s}
+.obs-li:hover .obs-go,.obs-li:focus-visible .obs-go{opacity:1}
+.obs-more{border:0;background:none;padding:var(--s2) 0 0;margin-left:calc(18px + var(--s5) - var(--s4));
+  font:inherit;font-size:var(--fs-body);color:var(--act);cursor:pointer}
+.obs-more:hover{color:var(--act-ink)}
+/* в связанном полотне месяц подсвечивает полоса связки — серая подложка
+   наведения под ней дала бы вторую, чуть большую полосу */
+.op-stc .ptg:hover .hit,.op-stc .barg:hover .hit{fill-opacity:0}
+@media(max-width:780px){
+  /* таблица на телефоне шире экрана и листается в панели; раскрытая строка —
+     график и «Что видно» — стоит на месте в видимой части, а не уезжает
+     вместе с колонками */
+  .detail-row .detail-chart{position:sticky;left:0;width:var(--op-vis,calc(100vw - 68px))}
+}
 
 </style>
 </head>
@@ -2669,9 +2717,9 @@ const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.pai
   /* срез состава: не больше SLICE_MAX категорий, по одной на разрез */
   mixSel:[],
   /* оси конструктора «Свой срез» и содержимое ячейки */
-  mixRows:'seniority',mixCols:'gender',mixMode:'abs',
-  /* масштаб динамики на детальных вкладках: roll — 12 мес, yoy — год к году */
-  dyn:'roll'};
+  mixRows:'seniority',mixCols:'gender',mixMode:'abs'};
+  /* Масштаба динамики в состоянии больше нет: с 13.10 вся динамика — год
+     к году (переключатель «12 мес / Год к году» снят по просьбе заказчика). */
 
 /* ============================================================================
    Разрезы состава численности
@@ -3661,9 +3709,10 @@ window.TPDATA={REAL,isStub,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,
       линии, а не цвет цифры.
    4. Скругляется ДАЛЬНИЙ ОТ НУЛЯ край бара: у бара вверх — верхний,
       у бара вниз от оси — нижний. Край у нуля всегда ровный.
-   5. Граница календарного года — пунктир ровно на высоту области построения.
-   6. Ось X устроена одинаково во всех графиках: месяц + год под первым
-      месяцем и под каждым январём. Без исключений для панелей.
+   5. Динамика — только год к году (13.10, заказчик: «убери 12 мес»): ось X
+      во всех графиках динамики — янв.–дек. календарного года, этот год
+      против прошлого; текущий месяц подписан жирно и отмечен линией «вы
+      здесь». Год называет легенда, а не подпись месяца: на оси оба года сразу.
 
    Интерактив: элементы несут data-tip (кастомный тултип живёт в ui.js) и классы
    для hover-подсветки и анимации появления — оба сделаны на CSS, без JS-таймеров.
@@ -3871,8 +3920,8 @@ const TTL_SZ=12, TTL_W=700, C_INK='#1f1f1f';
    ВАЖНО: id серии живёт в ОТДЕЛЬНОМ атрибуте data-s, а НЕ в class.
    В классе уже лежат `bar up`, `bar dn`, `ln`, `lnb`, `dot` — и smoke.js
    сверяет эти литералы посимвольно. Любой лишний класс там ломает проверку. */
-const SERIES={line:['main','bench'],yoy:['main','prev','bench'],diverge:['up','dn'],
-              waterfall:['total','in','out'],bars:['main']};
+const SERIES={yoy:['main','prev','bench'],diverge:['up','dn','prev'],
+              waterfall:['total','in','out']};
 /* каскад держится на композиции — выключать типы столбцов в нём бессмысленно,
    остаётся только подсветка */
 const LOCKED={waterfall:1};
@@ -3926,24 +3975,8 @@ function header(w,title,legend,ctx){
 }
 function headH(title,legend){return (title||(legend&&legend.length))?24:0}
 
-/* ---------- Ось X: месяцы + границы календарных лет ----------
-   Одна функция на все графики и НИКАКИХ режимов: раньше у верхних панелей
-   год не подписывался, и выходило, что один и тот же январь на соседних
-   панелях подписан по-разному. Год стоит под первым месяцем и под каждым
-   январём — везде. */
-function axisX(x0,bandW,plotTop,plotBot,labelY){
-  let s='';
-  /* узкая полоса — месяц через один, с чётностью от января: под январём стоит
-     год, и он обязан остаться подписанным */
-  const jan=CD.MONTHS.findIndex(m=>m.isYearStart), thin=bandW<31;
-  CD.MONTHS.forEach((m,i)=>{
-    const cx=x0+bandW*(i+0.5);
-    if(!thin||Math.abs(i-jan)%2===0)s+=txt(cx,labelY,m.label,{size:10.5,fill:C_AXIS});
-    if(m.isYearStart&&i>0&&plotBot>plotTop)s+=line(x0+bandW*i,plotTop,x0+bandW*i,plotBot,C_DIV,1,'4 3');
-    if(i===0||m.isYearStart)s+=txt(cx,labelY+12,m.y,{size:10.5,weight:700,fill:C_AXIS});
-  });
-  return s;
-}
+/* Ось X всех графиков динамики — двенадцать месяцев календарного года
+   (yoyAxis ниже): с 13.10 скользящего окна «12 мес» на графиках нет. */
 /* ---------- Единая геометрия графиков ----------
    Все виды считают отступы от этих констант и ни одного числа в коде
    больше не пишут: разъехавшиеся на пару пикселей отступы читаются как грязь. */
@@ -3974,24 +4007,16 @@ function valOpt(o){return Object.assign({size:VAL_SZ,weight:VAL_W,halo:true,cls:
 /* ---------- Акценты истории (итерация 32) ----------
    Глава истории называет на графике то, о чём говорит её заголовок: пик года,
    максимум, текущий месяц. ann = {hi:[i…], notes:[{i, t}]} приходит из
-   story.js через экран. Месяцы из hi рисуются полным тоном, остальные бары —
-   приглушённо (fill-opacity, а не другой класс: smoke сверяет class="bar up"
+   story.js через экран — индексами окна отчёта; на ось года их переводит
+   yoyAnn. Месяцы из hi рисуются полным тоном, остальные бары — приглушённо
+   (fill-opacity, а не другой класс: smoke сверяет class="bar up"
    посимвольно); у приглушённых подпись значения серая и обычного веса, но
    стоит — правило «подпись у каждого бара» не отменяется. Заметка — короткая
    подпись над значением месяца на светлой полосе; под неё у полотна
    резервируется ANN_ROOM сверху, чтобы она не уходила в заголовок. */
 const ANN_ROOM=16, C_BAND='#f3f4f7';
 function annOf(o){return o&&o.ann&&(o.ann.hi||o.ann.notes)?o.ann:null}
-function annHi(ann,i){return !ann||!ann.hi||ann.hi.indexOf(i)>=0}
-function annRoom(ann){return ann&&ann.notes&&ann.notes.length?ANN_ROOM:0}
-/* полоса и подпись заметки; yTop — верх марки месяца */
-function annBand(ann,x0,bandW,top,bot){
-  let s='';
-  (ann&&ann.notes||[]).forEach(n=>{
-    s+=rect(x0+bandW*n.i+2,top-ANN_ROOM-4,bandW-4,bot-top+ANN_ROOM+4,C_BAND,6);
-  });
-  return s;
-}
+/* подпись заметки; yTop — верх марки месяца */
 function annText(ann,i,cx,yTop,x0,plotW){
   const n=ann&&ann.notes&&ann.notes.find(z=>z.i===i);
   if(!n)return'';
@@ -4054,352 +4079,305 @@ function kpiLines(key,kpi,xL,xR,Y){
   return s;
 }
 
-/* ============================================================================
-   1. Линейный график
-   ========================================================================== */
-function drawLine(a,w,h){
-  const key=a.metricKey, ser=a.series, bench=a.bench, o=a.opt||{};
-  const nm=CD.METRIC_BY_KEY[key]||{};
-  const hh=headH(o.title,o.legend);
-  h=h||o.h||300;
-  /* Значение базы в конце линии убрано: непонятно, что это за число.
-     База читается по тултипу, поэтому справа больше не нужен вылет. */
-  const ann=annOf(o);
-  const plotTop=hh+LBL_ROOM+annRoom(ann), plotBot=h-AXIS_H;
-  const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(key,o.kpi), bandW=plotW/CD.N;
-  /* выключенная серия уходит и из шкалы, и из подсказки: просто спрятать
-     линию, оставив её в расчёте максимума, — значит оставить пустое место ни о чём */
-  const off=offOf(o);
-  const showMain=!off.has('main'), showBench=!!bench&&!off.has('bench');
-  const all=(showMain?ser.slice():[]).concat(showBench?bench:[]);
-  if(o.kpi){all.push(o.kpi.green);all.push(o.kpi.red)}
-  const max=niceMax(all);
-  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
+/* ---------- Год к году: общие части ---------- */
+const C_PREV='#b9bdc6', C_NOW='#dfe3ea';
+const C_SPARK_INK='#8a909c';   /* спарклайн метрики без оценки — тон подписей осей */
+/* Прошлый год у баров — «тень» за баром текущего года: шире и бледнее. Бар
+   этого года стоит перед ней, и выше он прошлогоднего или ниже — видно без
+   цифр. Рядом стоящие бары читались бы как две разные категории. */
+const C_GHOST='#d5d9e0';
+/* Номерная отметка факта «Что видно» (One-pager, механика HRBP HUB): кружок
+   с номером на точке, о которой говорит пункт списка рядом с графиком. */
+const C_MK='#1f1f1f', C_MK_PREV='#7d8494';
 
-  let s=header(w,o.title,o.legend,{kind:'line',off:o.off});
-  s+=annBand(ann,x0,bandW,plotTop,plotBot);
-  s+=axisX(x0,bandW,plotTop,plotBot,plotBot+15);
-  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
-
-  if(o.kpi)s+=kpiLines(key,o.kpi,x0,x0+plotW,Y);
-
-  /* база — пунктир, и пунктир нельзя рисовать через dashoffset (это тот же
-     атрибут), поэтому у неё отдельный класс с обычным проявлением */
-  const XL=i=>x0+bandW*(i+0.5);
-  if(o.gap&&showMain&&showBench)s+=gapFill(key,ser,bench,XL,Y);
-  if(showBench){
-    s+='<path class="lnb"'+sAttr('bench')+' d="'+polyD(bench,XL,Y)+'" fill="none" stroke="'+C_BENCH+'" stroke-width="2" stroke-dasharray="5 3"/>';
+/* Месяц скользящего окна на оси года: {i: месяц 0–11, s: серия}. Акценты
+   историй (story.js) считают индексы по окну отчёта, а ось года календарная:
+   пик в августе прошлого года ложится на бледную линию, текущий месяц — на
+   линию этого года. Месяц вне двух лет оси — null. */
+function yoyPos(i){
+  const m=CD.MONTHS[i];
+  if(!m)return null;
+  return m.y===CD.YEAR_CUR?{i:m.m,s:'main'}:m.y===CD.YEAR_PREV?{i:m.m,s:'prev'}:null;
+}
+function yoyAnn(ann){
+  if(!ann)return null;
+  const hi=[],notes=[];
+  (ann.hi||[]).forEach(i=>{const p=yoyPos(i);if(p)hi.push(p)});
+  (ann.notes||[]).forEach(n=>{const p=yoyPos(n.i);if(p)notes.push({i:p.i,s:p.s,t:n.t})});
+  return {hi:ann.hi?hi:null,notes:notes};
+}
+function yoyRoom(ya,marks){return (ya&&ya.notes.length?ANN_ROOM:0)+(marks&&marks.length?5:0)}
+/* Легенда панели «год к году»: этот год цветом панели, прошлый — серым. */
+function yoyKey(w,y,col,bar){
+  const it=[[String(CD.YEAR_CUR),col],[String(CD.YEAR_PREV),bar?C_GHOST:C_PREV]];
+  let x=w,s='';
+  for(let i=it.length-1;i>=0;i--){
+    const tw=textW(it[i][0],11.5);x-=tw;
+    s+=txt(x,y+12,it[i][0],{size:11.5,fill:C_LABEL,anchor:'start'})+rect(x-22,y+4.5,16,8,it[i][1],2);
+    x-=16+14;
   }
-
-  /* pathLength="1" приводит длину любой ломаной к единице — только так линию
-     можно рисовать слева направо одним CSS-правилом, без знания геометрии */
-  if(showMain){
-    s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+polyD(ser,XL,Y)+'" fill="none" stroke="'+C_LINE+'"'
-      +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
-  }
-
-  const step=labelStep(ser,key,bandW);
-  ser.forEach((v,i)=>{
-    const cx=x0+bandW*(i+0.5), cy=Y(v);
-    /* база — не сноска, а вторая строка значений: сравнивают именно её с первой,
-       и маркеры здесь те же, что в легенде графика */
-    const t={title:mLabel(i),
-      rows:(showMain?[{label:nm.name||key,value:CD.fmtVal(key,v),color:C_LINE}]:[])
-        .concat(showBench?[{label:o.benchName||'база',value:CD.fmtVal(key,bench[i]),
-                        color:C_BENCH,dash:true}]:[])};
-    /* точка вспыхивает ровно тогда, когда до неё дошла линия */
-    const dly=DRAW_MS*(i/Math.max(1,ser.length-1))*0.9;
-    s+='<g class="ptg"'+tip(t)+'>';
-    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
-    if(showBench&&bench[i]!=null)s+='<circle class="dotb"'+sAttr('bench')+' cx="'+num(cx)+'" cy="'+num(Y(bench[i]))+'" r="0" fill="'+C_BENCH+'"/>';
-    const big=ann&&ann.hi&&ann.hi.indexOf(i)>=0;
-    if(showMain&&v!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(cy)+'" r="'+(big?4.6:3.4)+'" fill="'+(big?C_LINE:'#fff')+'" stroke="'+C_LINE+'"'
-      +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
-    s+='</g>';
-    /* подпись выходит ОДНОВРЕМЕННО со своей точкой: цифра и точка — это один
-       факт, и появляться они должны вместе, вслед за кончиком линии */
-    if(showMain&&v!=null&&(big||lblAt(i,ser.length-1,step)))s+=txt(cx,cy-VAL_DY,CD.fmtVal(key,v),valOpt({delay:dly,s:'main'}));
-    if(showMain&&v!=null)s+=annText(ann,i,cx,cy,x0,plotW);
+  return s;
+}
+/* Месяцы оси года: на узком полотне — через один от января, текущий подписан
+   всегда и жирно. «Вы здесь» — тонкая сплошная: пунктиром уже сказаны цель и база. */
+function yoyAxis(X,bandW,top,bot,nowI){
+  let s=line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
+  CD.MONTH_ABBR.forEach((lb,i)=>{
+    if(bandW>=31||i%2===0||i===nowI)
+      s+=txt(X(i),bot+15,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
   });
-  return svg(w,h,s);
+  return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1);
+}
+/* Подсветка месяцев для связки «пункт списка ↔ график»: невидимые полосы,
+   которые проявляет класс on (app.js — наведение на пункт «Что видно»). */
+const C_LINK='#E6EEFC';         /* подсветка месяца — бледный тон кобальта */
+function yoyBands(x0,bandW,top,bot){
+  let s='';
+  for(let i=0;i<12;i++)s+=rect(x0+bandW*i+2,top-12,bandW-4,bot-top+12,C_LINK,6,' class="mkb" data-mi="'+i+'"');
+  return s;
+}
+function mkMark(cx,cy,m,dly){
+  return '<g class="mk fade" data-mk="'+m.n+'" data-mi="'+m.i+'" style="animation-delay:'+num(dly)+'ms">'+
+    '<circle cx="'+num(cx)+'" cy="'+num(cy)+'" r="8" fill="'+(m.s==='prev'?C_MK_PREV:C_MK)+'" stroke="#fff" stroke-width="1.6"/>'+
+    txt(cx,cy+3.6,String(m.n),{size:10.5,weight:700,fill:'#fff'})+'</g>';
 }
 
 /* ============================================================================
-   1a. Год к году — механика HRBP HUB на голом SVG
+   1. Год к году — механика HRBP HUB на голом SVG
    ----------------------------------------------------------------------------
-   Ось — двенадцать месяцев календарного года, на ней две линии одной формы
-   записи: текущий год — насыщенная линия с подписями, прошлый — бледная без
-   подписей. Разделяют их вес и цвет, а не тип графика: заливка под одной из
-   них превратила бы её в площадь, и глаз сравнивал бы площадь с линией.
+   С 13.10 это ЕДИНСТВЕННЫЙ масштаб динамики в отчёте (заказчик: «убери 12 мес,
+   оставь только год к году»). Ось — двенадцать месяцев календарного года, на
+   ней этот год и прошлый одной формы записи: линия к линии, бар к бару.
+   Текущий год — насыщенный, с подписями; прошлый — бледная линия или «тень»
+   за баром, без подписей (значения — в подсказке месяца).
 
    Ориентир один — цель KPI или база, и только для текущего года: прошлогодней
    базы на полотне нет, иначе рядом оказались бы четыре линии и два вопроса.
+   Разрыв с базой залит светофором (gap), как на линии истории.
 
    Отличия от ECharts-версии HRBP, и они осознанные — здесь действуют правила
    этого движка:
      · шкала от нуля (правило 1), поэтому оси Y нет, а значения подписаны;
      · год не подписывается под январём (правило 6 здесь не применимо): на оси
        лежат ОБА года сразу, и год называет легенда, а не подпись месяца.
-   Прошлогоднее значение подписано ровно в одной точке — в последнем закрытом
-   месяце: это и есть «год к году» из таблицы, и его видно без наведения.
+   Прошлогоднее значение подписано в последнем закрытом месяце: это и есть
+   «год к году» из таблицы, и его видно без наведения.
+
+   Одна функция рисует полотно в заданной области — её зовут и отдельный
+   график (drawYoy), и панели друг под другом (drawPanels с yoy).
+     p  = {key, cur[12], prev[12], bench?, type:'line'|'bar', color, kpi, fc,
+           ann (уже на оси года), marks:[{i, s, n}], gap, off, benchName, link}
+     ar = {x0, plotW, top, bot, hitTop, delay}
    ========================================================================== */
-const C_PREV='#b9bdc6', C_NOW='#dfe3ea';
-const C_SPARK_INK='#8a909c';   /* спарклайн метрики без оценки — тон подписей осей */
-function drawYoy(a,w,h){
-  const key=a.metricKey, cur=a.cur, prev=a.prev, bench=a.bench, o=a.opt||{};
-  const nm=CD.METRIC_BY_KEY[key]||{};
-  const hh=headH(o.title,o.legend);
-  h=h||o.h||280;
-  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H+12;
-  const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(key,o.kpi), bandW=plotW/12;
-  const off=offOf(o);
+function yoyPlot(p,ar){
+  const key=p.key, cur=p.cur, prev=p.prev, bench=p.bench||null, off=p.off||NOSET;
+  const nm=CD.METRIC_BY_KEY[key]||{}, bar=p.type==='bar', col=p.color||C_LINE;
+  const x0=ar.x0, plotW=ar.plotW, top=ar.top, bot=ar.bot, bandW=plotW/12, d0=ar.delay||0;
   const showMain=!off.has('main'), showPrev=!off.has('prev'), showBench=!!bench&&!off.has('bench');
+  const nowI=CD.CUR_LEN-1, ya=p.ann||null, marks=p.marks||[];
   const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
-  if(o.kpi){all.push(o.kpi.green);all.push(o.kpi.red)}
-  const nowI=CD.CUR_LEN-1;
-  /* o.fc — прогноз на декабрь (run-rate): пунктир от последнего закрытого
+  if(p.kpi){all.push(p.kpi.green);all.push(p.kpi.red)}
+  /* p.fc — прогноз на декабрь (run-rate): пунктир от последнего закрытого
      месяца до декабря. Рисуется только у накопительной метрики и только пока
      год не закрыт — в декабре прогноз совпал бы с фактом. */
-  const fc=showMain&&o.fc!=null&&nowI<11&&cur[nowI]!=null?o.fc:null;
+  const fc=!bar&&showMain&&p.fc!=null&&nowI<11&&cur[nowI]!=null?p.fc:null;
   if(fc!=null)all.push(fc);
   const max=niceMax(all);
-  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
-  const X=i=>x0+bandW*(i+0.5);
-
-  let s=header(w,o.title,o.legend,{kind:'yoy',off:o.off});
-  /* «вы здесь»: тонкая сплошная — пунктиром на полотне уже сказаны цель и база */
-  s+=line(X(nowI),plotTop-6,X(nowI),plotBot,C_NOW,1);
-  CD.MONTH_ABBR.forEach((lb,i)=>{
-    /* на узком полотне — месяц через один от января; текущий подписан всегда */
-    if(bandW>=31||i%2===0||i===nowI)
-      s+=txt(X(i),plotBot+15,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
-  });
-  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
-
-  if(o.kpi)s+=kpiLines(key,o.kpi,x0,x0+plotW,Y);
-  const path=arr=>{let d='',pen=false;arr.forEach((v,i)=>{if(v==null){pen=false;return}
-    d+=(pen?'L':'M')+num(X(i))+' '+num(Y(v));pen=true});return d};
-  if(showPrev)s+='<path class="lnb"'+sAttr('prev')+' d="'+path(prev)+'" fill="none" stroke="'+C_PREV+'"'
-    +' stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
-  if(showBench)s+='<path class="lnb"'+sAttr('bench')+' d="'+path(bench)+'" fill="none" stroke="'+C_BENCH+'"'
-    +' stroke-width="2" stroke-dasharray="5 3"/>';
-  if(showMain)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+path(cur)+'" fill="none" stroke="'+C_LINE+'"'
-    +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
-  if(fc!=null){
-    /* прогноз — не факт: тонкий пунктир того же цвета и полая точка, подпись
-       прижата к правому краю, чтобы не вылезать за полотно */
-    s+='<path class="lnb"'+sAttr('main')+' d="M'+num(X(nowI))+' '+num(Y(cur[nowI]))+'L'+num(X(11))+' '+num(Y(fc))+'"'
-      +' fill="none" stroke="'+C_LINE+'" stroke-width="1.6" stroke-dasharray="2 4" stroke-linecap="round"/>';
-    s+='<circle class="dotb"'+sAttr('main')+' cx="'+num(X(11))+'" cy="'+num(Y(fc))+'" r="3.4" fill="#fff" stroke="'+C_LINE+'" stroke-width="1.6" stroke-dasharray="2 2"/>';
-    s+=txt(X(11)+bandW*0.45,Y(fc)-VAL_DY,'прогноз '+CD.fmtVal(key,fc),valOpt({anchor:'end',s:'main',fill:C_LINE}));
+  const Y=v=>bot-(v/max)*(bot-top), X=i=>x0+bandW*(i+0.5);
+  const big=(i,s)=>!!(ya&&ya.hi&&ya.hi.some(z=>z.i===i&&z.s===s));
+  const lit=(i,s)=>!ya||!ya.hi||big(i,s);
+  const noteAt=(i,s)=>ya&&ya.notes.find(z=>z.i===i&&z.s===s);
+  const mkAt=(i,s)=>marks.find(z=>z.i===i&&z.s===s);
+  let s='';
+  (ya?ya.notes:[]).forEach(n=>{s+=rect(x0+bandW*n.i+2,top-ANN_ROOM-4,bandW-4,bot-top+ANN_ROOM+4,C_BAND,6)});
+  if(p.link)s+=yoyBands(x0,bandW,top,bot);
+  s+=yoyAxis(X,bandW,top,bot,nowI);
+  if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
+  if(p.gap&&showMain&&showBench)s+=gapFill(key,cur,bench,X,Y);
+  const gw=Math.min(44,bandW*0.7), bw=Math.min(26,bandW*0.42);
+  if(!bar){
+    if(showPrev)s+='<path class="lnb"'+sAttr('prev')+' d="'+polyD(prev,X,Y)+'" fill="none" stroke="'+C_PREV+'"'
+      +' stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
+    if(showBench)s+='<path class="lnb"'+sAttr('bench')+' d="'+polyD(bench,X,Y)+'" fill="none" stroke="'+C_BENCH+'"'
+      +' stroke-width="2" stroke-dasharray="5 3"/>';
+    if(showMain)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+polyD(cur,X,Y)+'" fill="none" stroke="'+col+'"'
+      +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"'+(d0?' style="animation-delay:'+d0+'ms"':'')+'/>';
+    if(fc!=null){
+      /* прогноз — не факт: тонкий пунктир того же цвета и полая точка, подпись
+         прижата к правому краю, чтобы не вылезать за полотно */
+      s+='<path class="lnb"'+sAttr('main')+' d="M'+num(X(nowI))+' '+num(Y(cur[nowI]))+'L'+num(X(11))+' '+num(Y(fc))+'"'
+        +' fill="none" stroke="'+col+'" stroke-width="1.6" stroke-dasharray="2 4" stroke-linecap="round"/>';
+      s+='<circle class="dotb"'+sAttr('main')+' cx="'+num(X(11))+'" cy="'+num(Y(fc))+'" r="3.4" fill="#fff" stroke="'+col+'" stroke-width="1.6" stroke-dasharray="2 2"/>';
+      s+=txt(X(11)+bandW*0.45,Y(fc)-VAL_DY,'прогноз '+CD.fmtVal(key,fc),valOpt({anchor:'end',s:'main',fill:col}));
+    }
   }
-
-  const yC=CD.YEAR_CUR, yP=CD.YEAR_PREV, step=labelStep(cur,key,bandW);
+  const yC=CD.YEAR_CUR, yP=CD.YEAR_PREV, step=labelStep(cur,key,bar?bw*1.9:bandW);
+  let lbl='', mk='';
   for(let i=0;i<12;i++){
-    const c=cur[i], p=prev[i], b=bench?bench[i]:null;
+    const c=cur[i], pv=prev[i], b=bench?bench[i]:null, cx=X(i);
     const rows=[];
-    if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:C_LINE});
-    if(showPrev&&p!=null)rows.push({label:String(yP),value:CD.fmtVal(key,p),color:C_PREV});
-    if(showBench&&b!=null)rows.push({label:o.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
-    if(fc!=null&&i===11)rows.push({label:'прогноз на декабрь',value:CD.fmtVal(key,fc),color:C_LINE,dash:true});
-    const note=c!=null&&p!=null?'Год к году: '+CD.fmtDelta(key,+(c-p).toFixed(2))
+    if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:col});
+    if(showPrev&&pv!=null)rows.push({label:String(yP),value:CD.fmtVal(key,pv),color:bar?C_GHOST:C_PREV});
+    if(showBench&&b!=null)rows.push({label:p.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
+    if(fc!=null&&i===11)rows.push({label:'прогноз на декабрь',value:CD.fmtVal(key,fc),color:col,dash:true});
+    const note=c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
       :c==null?(fc!=null&&i===11?'Прогноз — run-rate: темп с начала года, пересчитанный на 12 месяцев'
         :'Месяц '+yC+' ещё не закрыт'):null;
     const nmM=CD.MONTH_NOM[i];
-    s+='<g class="ptg"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+(nm.name?' · '+nm.name:''),rows,note})+'>';
-    s+='<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
-    if(showPrev&&p!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(X(i))+'" cy="'+num(Y(p))+'" r="2.4" fill="'+C_PREV+'"/>';
-    const dly=DRAW_MS*(i/Math.max(1,nowI))*0.9;
-    if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(X(i))+'" cy="'+num(Y(c))+'" r="3.4" fill="#fff" stroke="'+C_LINE+'"'
-      +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
+    const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
+    s+='<g class="'+(bar?'barg':'ptg')+'" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+(nm.name?' · '+nm.name:''),rows,note})+'>';
+    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(ar.hitTop)+'" width="'+num(bandW)+'" height="'+num(bot-ar.hitTop)+'"/>';
+    if(bar){
+      if(showPrev&&pv!=null)s+=barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),C_GHOST,' class="bar up"'+sAttr('prev')+' style="animation-delay:'+(d0+i*26)+'ms"');
+      /* приглушённый бар этого года стоит на белой подложке: полупрозрачный
+         поверх тени он смешивался бы с ней в третий, ничей цвет */
+      const on=lit(i,'main'), st=' style="animation-delay:'+(d0+60+i*26)+'ms"';
+      if(showMain&&c!=null&&!on)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),'#fff',' class="bar up"'+st);
+      if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),col,' class="bar up"'+sAttr('main')+(on?'':' fill-opacity=".38"')+st);
+    }else{
+      const bp=big(i,'prev')||!!noteAt(i,'prev');
+      if(showPrev&&pv!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
+      const bm=big(i,'main');
+      if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm?col:'#fff')+'" stroke="'+col+'"'
+        +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
+    }
     s+='</g>';
     /* Подписи. У последнего закрытого месяца подписаны обе линии, и подписи
        разведены по разные стороны: верхняя точка — над собой, нижняя — под
-       собой. Иначе на близких значениях цифры легли бы одна на другую. */
-    if(showMain&&c!=null&&lblAt(i,nowI,step)){
-      const both=i===nowI&&showPrev&&p!=null, below=both&&p>c;
-      s+=txt(X(i),below?Y(c)+VAL_DY+VAL_ASC:Y(c)-VAL_DY,CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
-      if(both)s+=txt(X(i),below?Y(p)-VAL_DY:Y(p)+VAL_DY+VAL_ASC,CD.fmtVal(key,p),
+       собой. Иначе на близких значениях цифры легли бы одна на другую.
+       У точки с номерной отметкой подпись отодвинута от кружка. */
+    if(showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
+      const both=!bar&&i===nowI&&showPrev&&pv!=null, below=both&&pv>c;
+      const sh=mkAt(i,'main')?5:0, on=!bar||lit(i,'main');
+      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c),
+        valOpt(on?{delay:dly,s:'main'}:{delay:dly,s:'main',weight:400,fill:C_AXIS}));
+      if(both)lbl+=txt(cx,below?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }
+    /* две отметки в одном месяце на близких значениях (этот год и прошлый
+       почти равны) разводятся в стороны, а подпись остаётся одна */
+    const twin=!!(mkAt(i,'main')&&mkAt(i,'prev')&&c!=null&&pv!=null&&Math.abs(Y(c)-Y(pv))<17);
+    /* прошлогодняя точка с акцентом или отметкой — подписана: о ней говорит текст */
+    if(showPrev&&pv!=null&&!twin&&!(i===nowI&&!bar&&showMain&&c!=null)&&(big(i,'prev')||noteAt(i,'prev')||mkAt(i,'prev')))
+      lbl+=txt(cx,Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),valOpt({s:'prev',fill:C_AXIS,weight:400}));
+    const nt=noteAt(i,'main')||noteAt(i,'prev');
+    if(nt){
+      const v=nt.s==='prev'?pv:c;
+      if(v!=null)lbl+=annText({notes:[{i:i,t:nt.t}]},i,cx,Y(v),x0,plotW);
+    }
+    ['main','prev'].forEach(sr=>{
+      const m=mkAt(i,sr), v=sr==='prev'?pv:c;
+      if(m&&v!=null&&(sr==='prev'?showPrev:showMain))mk+=mkMark(cx+(twin?(sr==='prev'?9:-9):0),Y(v),m,dly);
+    });
   }
-  return svg(w,h,s);
+  return s+lbl+mk;
 }
-
-/* ============================================================================
-   2. Бары по месяцам
-   ========================================================================== */
-function drawBars(a,w,h){
-  const key=a.metricKey, ser=a.series, o=a.opt||{};
-  const nm=CD.METRIC_BY_KEY[key]||{};
+function drawYoy(a,w,h){
+  const o=a.opt||{};
   const hh=headH(o.title,o.legend);
   h=h||o.h||280;
-  const ann=annOf(o);
-  const plotTop=hh+LBL_ROOM+annRoom(ann), plotBot=h-AXIS_H;
-  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/CD.N;
-  const max=niceMax(ser);
-  const Y=v=>plotBot-(v/max)*(plotBot-plotTop);
-  const bw=Math.min(46,bandW*0.66);
-
-  let s=header(w,o.title,o.legend,{kind:'bars',off:o.off});
-  s+=annBand(ann,x0,bandW,plotTop,plotBot);
-  s+=axisX(x0,bandW,plotTop,plotBot,plotBot+15);
-  s+=line(x0,plotBot,x0+plotW,plotBot,C_ZERO,1);
-  const col=o.color||C_LINE, step=labelStep(ser,key,bandW);
-  ser.forEach((v,i)=>{
-    const cx=x0+bandW*(i+0.5), y=Y(v||0);
-    const t={title:mLabel(i),rows:[{label:nm.name||key,value:CD.fmtVal(key,v),color:col}]};
-    s+='<g class="barg"'+tip(t)+'>';
-    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
-    const on=annHi(ann,i);
-    if(v!=null)s+=barUp(cx-bw/2,y,bw,plotBot-y,col,' class="bar up"'+sAttr('main')+(on?'':' fill-opacity=".38"')+' style="animation-delay:'+(i*26)+'ms"');
-    s+='</g>';
-    if(v!=null&&lblAt(i,ser.length-1,step))s+=txt(cx,y-VAL_DY,CD.fmtVal(key,v),valOpt(on?{delay:240+i*26,s:'main'}:{delay:240+i*26,s:'main',weight:400,fill:C_AXIS}));
-    if(v!=null)s+=annText(ann,i,cx,y,x0,plotW);
-  });
-  return svg(w,h,s);
+  const ya=yoyAnn(annOf(o));
+  const plotTop=hh+LBL_ROOM+yoyRoom(ya,o.marks), plotBot=h-AXIS_H+12;
+  const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(a.metricKey,o.kpi);
+  return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+
+    yoyPlot({key:a.metricKey,cur:a.cur,prev:a.prev,bench:a.bench,type:o.type,color:o.color,kpi:o.kpi,fc:o.fc,
+      ann:ya,marks:o.marks,gap:o.gap,off:offOf(o),benchName:o.benchName,link:o.link},
+      {x0:x0,plotW:plotW,top:plotTop,bot:plotBot,hitTop:hh}));
 }
 
 /* ============================================================================
-   3. Дивергентные бары: пришли вверх, ушли вниз — СТРОГО в одной вертикали,
+   2. Дивергентные бары: пришли вверх, ушли вниз — СТРОГО в одной вертикали,
       как один бар, разрезанный осью X. Не рядом: рядом стоящие бары читаются
       как две разные категории, а это один поток в двух направлениях.
       Шкала одна на оба плеча, иначе плечи визуально несравнимы.
+      С 13.10 — год к году: ось янв.–дек., плечи этого года цветом, прошлого —
+      «тенью» за ними (шире и бледнее), шкала одна на оба плеча и оба года.
+      a.up / a.down = {cur[12], prev[12]}. Тень выключается из легенды (серия prev).
+      На одном плече дивергент ПЕРЕСТРАИВАЕТСЯ: остался найм — ноль уезжает
+      вниз, остался отток — наверх; пустая половина читалась бы как «нули».
    ========================================================================== */
 function drawDiverge(a,w,h){
-  const up=a.up, down=a.down, o=a.opt||{};
-  const upKey=o.upKey||a.upKey, downKey=o.downKey||a.downKey;
+  const o=a.opt||{}, upKey=a.upKey, downKey=a.downKey;
   const upName=o.upName||(CD.METRIC_BY_KEY[upKey]||{}).name||'Пришли';
   const downName=o.downName||(CD.METRIC_BY_KEY[downKey]||{}).name||'Ушли';
   const hh=headH(o.title,o.legend);
   h=h||o.h||320;
-  const top=hh+LBL_ROOM, bot=h-AXIS_H;
-  const off=offOf(o);
-  const showUp=!off.has('up'), showDn=!off.has('dn');
-  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/CD.N;
-
-  /* На одном плече дивергент ПЕРЕСТРАИВАЕТСЯ, а не просто теряет половину:
-     оставшаяся пустая половина читалась бы как «там нули». Остался найм — ноль
-     уезжает вниз и это обычный бар-чарт; остался отток — ноль уезжает наверх,
-     бары растут вниз, а снизу резервируется место под подписи значений.
-     Подписи месяцев в обоих случаях остаются под графиком. */
-  let zero, armUp, armDn, max;
-  if(showUp&&showDn){
-    zero=top+(bot-top)/2;
-    /* одна шкала на верх и низ; из плеча вычитается место под подпись */
-    armUp=armDn=Math.max(8,(bot-top)/2-LBL_ROOM);
-    max=niceMax(up.concat(down));
-  }else if(showUp){
-    zero=bot; armUp=Math.max(8,bot-top); armDn=0;
-    max=niceMax(up);
-  }else{
-    zero=top; armUp=0; armDn=Math.max(8,bot-top-LBL_ROOM);
-    max=niceMax(down);
-  }
-  const bw=Math.min(40,bandW*0.58);        /* толще, раз бары больше не делят полосу */
-  const step=Math.max(labelStep(up,upKey,bandW),labelStep(down,downKey,bandW));
-
+  const top=hh+LBL_ROOM, bot=h-AXIS_H+12;
+  const off=offOf(o), showUp=!off.has('up'), showDn=!off.has('dn'), showPrev=!off.has('prev');
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/12, nowI=CD.CUR_LEN-1, X=i=>x0+bandW*(i+0.5);
+  const U=a.up, Dn=a.down;
+  const vals=[].concat(showUp?U.cur:[],showUp&&showPrev?U.prev:[],showDn?Dn.cur:[],showDn&&showPrev?Dn.prev:[]);
+  let zero, armUp, armDn;
+  if(showUp&&showDn){zero=top+(bot-top)/2;armUp=armDn=Math.max(8,(bot-top)/2-LBL_ROOM)}
+  else if(showUp){zero=bot;armUp=Math.max(8,bot-top);armDn=0}
+  else{zero=top;armUp=0;armDn=Math.max(8,bot-top-LBL_ROOM)}
+  const max=niceMax(vals);
+  const gw=Math.min(40,bandW*0.66), bw=Math.min(24,bandW*0.4);
+  const step=Math.max(labelStep(U.cur,upKey,bw*1.9),labelStep(Dn.cur,downKey,bw*1.9));
   let s=header(w,o.title,o.legend,{kind:'diverge',off:o.off});
-  s+=axisX(x0,bandW,top,bot,bot+15);
-  s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
-
-  up.forEach((v,i)=>{
-    const cx=x0+bandW*(i+0.5);
-    const hu=showUp?(v/max)*armUp:0, hd=showDn?(down[i]/max)*armDn:0;
-    /* оба плеча — равноправные строки значений: это один поток в двух
-       направлениях, и нижнее плечо не служебная сноска */
-    const t={title:mLabel(i),rows:(showUp?[
-      {label:upName,value:CD.fmtVal(upKey,v),color:C_IN}]:[]).concat(showDn?[
-      {label:downName,value:CD.fmtVal(downKey,down[i]),color:C_OUT}]:[])};
-    s+='<g class="barg"'+tip(t)+'>';
-    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
-    if(showUp)s+=barUp(cx-bw/2,zero-hu,bw,hu,C_IN,' class="bar up"'+sAttr('up')+' style="animation-delay:'+(i*26)+'ms"');
-    if(showDn)s+=barDown(cx-bw/2,zero,bw,hd,C_OUT,' class="bar dn"'+sAttr('dn')+' style="animation-delay:'+(i*26)+'ms"');
-    s+='</g>';
-    /* подписи только чёрные — правило 3 */
-    const lb=lblAt(i,up.length-1,step);
-    if(showUp&&lb)s+=txt(cx,zero-hu-VAL_DY,CD.fmtVal(upKey,v),valOpt({delay:240+i*26,s:'up'}));
-    if(showDn&&lb)s+=txt(cx,Math.min(zero+hd+VAL_DY+4,bot-2),CD.fmtVal(downKey,down[i]),valOpt({delay:240+i*26,s:'dn'}));
+  s+=line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
+  CD.MONTH_ABBR.forEach((lb,i)=>{
+    if(bandW>=31||i%2===0||i===nowI)
+      s+=txt(X(i),bot+15,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
   });
+  s+=line(x0,zero,x0+plotW,zero,C_ZERO,1);
+  const yC=String(CD.YEAR_CUR), yP=String(CD.YEAR_PREV);
+  for(let i=0;i<12;i++){
+    const cx=X(i), u=U.cur[i], up=U.prev[i], d=Dn.cur[i], dp=Dn.prev[i];
+    const H=(v,arm)=>v==null?0:(v/max)*arm;
+    const rows=[];
+    if(showUp){if(u!=null)rows.push({label:upName+' · '+yC,value:CD.fmtVal(upKey,u),color:C_IN});
+      if(showPrev&&up!=null)rows.push({label:upName+' · '+yP,value:CD.fmtVal(upKey,up),color:C_GHOST})}
+    if(showDn){if(d!=null)rows.push({label:downName+' · '+yC,value:CD.fmtVal(downKey,d),color:C_OUT});
+      if(showPrev&&dp!=null)rows.push({label:downName+' · '+yP,value:CD.fmtVal(downKey,dp),color:C_GHOST})}
+    const nmM=CD.MONTH_NOM[i];
+    s+='<g class="barg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1),rows,
+      note:u==null&&d==null?'Месяц '+yC+' ещё не закрыт':null})+'>';
+    s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
+    if(showPrev){
+      if(showUp&&up!=null)s+=barUp(cx-gw/2,zero-H(up,armUp),gw,H(up,armUp),C_GHOST,' class="bar up"'+sAttr('prev')+' style="animation-delay:'+(i*26)+'ms"');
+      if(showDn&&dp!=null)s+=barDown(cx-gw/2,zero,gw,H(dp,armDn),C_GHOST,' class="bar dn"'+sAttr('prev')+' style="animation-delay:'+(i*26)+'ms"');
+    }
+    if(showUp&&u!=null)s+=barUp(cx-bw/2,zero-H(u,armUp),bw,H(u,armUp),C_IN,' class="bar up"'+sAttr('up')+' style="animation-delay:'+(60+i*26)+'ms"');
+    if(showDn&&d!=null)s+=barDown(cx-bw/2,zero,bw,H(d,armDn),C_OUT,' class="bar dn"'+sAttr('dn')+' style="animation-delay:'+(60+i*26)+'ms"');
+    s+='</g>';
+    const lb=lblAt(i,nowI,step);
+    /* подпись — над выше стоящим из двух баров месяца, чтобы не резать тень */
+    if(showUp&&u!=null&&lb)s+=txt(cx,zero-Math.max(H(u,armUp),showPrev&&up!=null?H(up,armUp):0)-VAL_DY,CD.fmtVal(upKey,u),valOpt({delay:240+i*26,s:'up'}));
+    if(showDn&&d!=null&&lb)s+=txt(cx,Math.min(zero+Math.max(H(d,armDn),showPrev&&dp!=null?H(dp,armDn):0)+VAL_DY+4,bot-2),CD.fmtVal(downKey,d),valOpt({delay:240+i*26,s:'dn'}));
+  }
   return svg(w,h,s);
 }
 
 /* ============================================================================
-   4. Панели друг под другом. У КАЖДОЙ своя ось X под ней: одна общая ось внизу
+   3. Панели друг под другом. У КАЖДОЙ своя ось X под ней: одна общая ось внизу
       заставляла глазами бегать через весь блок. Каждая шкала — от нуля.
+      С 13.10 — год к году: у каждой панели ось янв.–дек. и своя легенда
+      «этот год / прошлый» цветом панели. p = {name, key, type, cur[12],
+      prev[12], color, ann (по окну отчёта — переводится на ось года)}.
    ========================================================================== */
 function drawPanels(a,w,h){
   const ps=a.panels, o=a.opt||{};
-  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/CD.N;
-  /* GAP и HEAD урезаны на 4 и 2 пикселя ровно на то, на сколько вырос LBL_ROOM
-     (18 → 26): иначе трёхпанельный график растёт на 24px и в правой панели
-     появляется скролл. */
   const GAP=STACK_GAP;     /* воздух между осью X и заголовком следующей панели */
-  const HEAD=16;           /* полоса заголовка панели — в неё график не заходит */
-  const PLOT_MIN=70;
-  /* заголовок + место под подпись самого высокого бара + график + ось + воздух */
-  const minPanel=HEAD+LBL_ROOM+PLOT_MIN+AXIS_H+GAP+(ps.some(p=>annRoom(annOf(p)))?ANN_ROOM:0);
+  const x0=PAD_X, plotW=w-PAD_X*2, HEAD=16, PLOT_MIN=70, AX=AXIS_H-12;
+  const yas=ps.map(p=>yoyAnn(annOf(p)));
+  const minPanel=HEAD+LBL_ROOM+PLOT_MIN+AX+GAP+(yas.some(ya=>yoyRoom(ya))?ANN_ROOM:0);
   h=Math.max(h||o.h||340,ps.length*minPanel+14);
   const panelH=(h-14)/ps.length;
   let s='';
   ps.forEach((p,pi)=>{
-    const base=pi*panelH, ann=annOf(p);
-    /* бары и их подписи начинаются СТРОГО под заголовком: раньше самый
-       высокий бар на экране вакансий наезжал на имя панели */
-    const top=base+HEAD+LBL_ROOM+annRoom(ann);
-    const bot=base+panelH-AXIS_H-GAP;
-    const max=niceMax(p.series);
-    const Y=v=>bot-(v/max)*(bot-top);
-    const nm=CD.METRIC_BY_KEY[p.key]||{};
+    const base=pi*panelH, ya=yas[pi];
+    const top=base+HEAD+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
-    s+=annBand(ann,x0,bandW,top,bot);
-    s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
-    CD.MONTHS.forEach((m,i)=>{if(m.isYearStart&&i>0)s+=line(x0+bandW*i,top,x0+bandW*i,bot,C_DIV,1,'4 3')});
-
-    /* панели вступают каскадом сверху вниз, а не все разом */
-    const pd=pi*140, step=labelStep(p.series,p.key,bandW), last=p.series.length-1;
-    if(p.type==='line'){
-      const d=polyD(p.series,i=>x0+bandW*(i+0.5),Y);
-      s+='<path class="ln" pathLength="1" d="'+d+'" fill="none" stroke="'+(p.color||C_LINE)+'"'
-        +' stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"'
-        +' style="animation-delay:'+pd+'ms"/>';
-      p.series.forEach((v,i)=>{
-        const cx=x0+bandW*(i+0.5), cy=Y(v);
-        const t={title:mLabel(i),rows:[{label:p.name,value:CD.fmtVal(p.key,v),color:p.color||C_LINE}]};
-        const dly=pd+DRAW_MS*(i/Math.max(1,p.series.length-1))*0.9;
-        s+='<g class="ptg"'+tip(t)+'>';
-        s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(top-12)+'" width="'+num(bandW)+'" height="'+num(bot-top+12)+'"/>';
-        const big=ann&&ann.hi&&ann.hi.indexOf(i)>=0;
-        if(v!=null)s+='<circle class="dot" cx="'+num(cx)+'" cy="'+num(cy)+'" r="'+(big?4.2:3.1)+'" fill="'+(big?(p.color||C_LINE):'#fff')+'" stroke="'+(p.color||C_LINE)+'"'
-          +' stroke-width="1.9" style="animation-delay:'+num(dly)+'ms"/>';
-        s+='</g>';
-        if(v!=null&&(big||lblAt(i,last,step)))s+=txt(cx,cy-VAL_DY,CD.fmtVal(p.key,v),valOpt({delay:dly}));
-        if(v!=null)s+=annText(ann,i,cx,cy,x0,plotW);
-      });
-    } else {
-      const bw=Math.min(42,bandW*0.64);
-      p.series.forEach((v,i)=>{
-        const cx=x0+bandW*(i+0.5), y=Y(v);
-        const t={title:mLabel(i),rows:[{label:p.name,value:CD.fmtVal(p.key,v),color:p.color||C_LINE}]};
-        s+='<g class="barg"'+tip(t)+'>';
-        s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(top-12)+'" width="'+num(bandW)+'" height="'+num(bot-top+12)+'"/>';
-        const on=annHi(ann,i);
-        s+=barUp(cx-bw/2,y,bw,bot-y,p.color||C_LINE,' class="bar up"'+(on?'':' fill-opacity=".38"')+' style="animation-delay:'+(pd+i*24)+'ms"');
-        s+='</g>';
-        if(lblAt(i,last,step))s+=txt(cx,y-VAL_DY,CD.fmtVal(p.key,v),valOpt(on?{delay:pd+300+i*24}:{delay:pd+300+i*24,weight:400,fill:C_AXIS}));
-        s+=annText(ann,i,cx,y,x0,plotW);
-      });
-    }
-    /* у каждой панели СВОЯ полная ось — с месяцами и годами, как везде.
-       Отступ подписи от оси тот же, что у остальных видов (bot+15): пара
-       пикселей разницы читалась как «панели устроены немного иначе». */
-    s+=axisX(x0,bandW,bot,bot,bot+15);
+    s+=yoyKey(w,base-1,p.color||C_LINE,p.type==='bar');
+    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,type:p.type,color:p.color,ann:ya,off:NOSET},
+      {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
   });
   return svg(w,h,s);
 }
 
 /* ============================================================================
-   5. Водопад баланса. Итоги — серые (это уровни, а не изменения),
+   4. Водопад баланса. Итоги — серые (это уровни, а не изменения),
       приход и уход — пастельные. Все подписи чёрные.
    ========================================================================== */
 function drawWaterfall(a,w,h){
@@ -4440,7 +4418,7 @@ function drawWaterfall(a,w,h){
 }
 
 /* ============================================================================
-   6. Воронка. Полосы центрированы по вертикальной оси, поэтому силуэт
+   5. Воронка. Полосы центрированы по вертикальной оси, поэтому силуэт
       действительно сужается — это воронка, а не столбик горизонтальных баров.
       Слева от полосы — фактическое значение, справа — конверсия к предыдущему
       этапу. Названия этапов над полосой.
@@ -4482,7 +4460,7 @@ function drawFunnel(a,w,h){
 }
 
 /* ============================================================================
-   7. Спарклайны.
+   6. Спарклайны.
       Ширина 100% с preserveAspectRatio="none": в таблице OnePager колонка
       «12 мес» тянется вместе с окном, и спарклайн должен тянуться с ней.
       Текста внутри нет, поэтому растяжение ничего не искажает.
@@ -4722,7 +4700,7 @@ function drawCalendar(a,w,h){
   return svg(w,hUsed,s);
 }
 
-const KINDS={line:drawLine,yoy:drawYoy,bars:drawBars,diverge:drawDiverge,panels:drawPanels,
+const KINDS={yoy:drawYoy,diverge:drawDiverge,panels:drawPanels,
              waterfall:drawWaterfall,funnel:drawFunnel,calendar:drawCalendar};
 const NOMINAL_W=900, NOMINAL_H=null;
 let _specs=new Map(), _sid=0;
@@ -4809,7 +4787,7 @@ function reset(){_specs=new Map();_sid=0}
 
 window.TPDRAW={chart,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkBars,sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,
-  FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
+  FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GHOST,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
   C_VAC,C_UNDER,C_LOWPERF,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y,C_AI};
 })();
@@ -5019,7 +4997,7 @@ function hlText(text,q){
 function rowCaret(open){
   return '<span class="row-caret'+(open?' on':'')+'"'+
     tipAttr({title:open?'Свернуть график':'Показать динамику',
-      text:'Клик по строке раскрывает график метрики за 12 месяцев прямо в таблице.'})+
+      text:'Клик по строке раскрывает график «год к году» и выводы по метрике прямо в таблице.'})+
     ' aria-hidden="true">'+(open?'▾':'▸')+'</span>';
 }
 
@@ -5127,20 +5105,41 @@ function aiIco(big){
    уровне. До этого перенос в одной карточке сдвигал её цифры вниз, и полоса
    KPI переставала читаться как строка. Лишняя строка воздуха — приемлемая
    цена; съехавшие цифры — нет. */
-/* ---------- Раскрытая строка: два полотна рядом ----------
-   Приём HRBP HUB: одно широкое полотно на всю таблицу растягивало метрику в 5:1
-   и плющило наклон; два узких дают и наклон, и ответы на два разных вопроса —
-   «где мы против прошлого года» и «куда идём последние двенадцать месяцев». */
-function detailSplit(left,right){
-  return '<div class="detail-split"><div class="dsplit">'+left+'</div><div class="dsplit">'+right+'</div></div>';
+/* ---------- Раскрытая строка One-pager: график и «Что видно» ----------
+   Механика HRBP HUB (13.10): слева полотно «год к году» с номерными
+   отметками, справа — пункты «Что видно» с теми же номерами и «О метрике».
+   Сверх HRBP пункт и график связаны наведением в обе стороны (app.js,
+   data-mk / data-mi): навёл на пункт — на графике подсвечены его отметка и
+   месяц; навёл на месяц графика — подсвечены пункты о нём.
+   st = TPINSIGHTS.yoyStory(): html пунктов уже собран и экранирован там. */
+function opStory(chart,st,about){
+  let l='';
+  if(st.stub)l='<p class="op-stp">Метрика пока на демо-данных — выводов по ней нет.</p>';
+  else if(st.items.length)l='<ol class="op-ins">'+st.items.map(it=>
+    '<li'+(it.n?' data-mk="'+it.n+'"':'')+' data-mi="'+(it.mi||[]).join(',')+'">'+
+    (it.n?'<i class="op-insn'+(it.s==='prev'?' prev':'')+'">'+it.n+'</i>':'<i class="op-insb"></i>')+
+    '<span>'+it.html+'</span></li>').join('')+'</ol>';
+  return '<div class="op-story" data-oplink="1"><div class="op-stc">'+chart+'</div><div class="op-sts">'+
+    (l?'<div class="op-sth">Что видно</div>'+l:'')+
+    '<div class="op-sta"><div class="op-sth">О метрике</div>'+about+'</div></div></div>';
 }
-/* ---------- Переключатель масштаба динамики ----------
-   Правая панель детальной вкладки узкая, два полотна рядом в неё не встают —
-   поэтому, как в HRBP, вместо раскладки «обзор + зум» переключатель. */
-function dynSwitch(mode){
-  const it=[['roll','12 мес'],['yoy','Год к году']];
-  return '<div class="dyn-switch" role="tablist">'+it.map(([k,n])=>
-    '<button class="'+(mode===k?'on':'')+'" data-dyn="'+k+'" data-text="'+esc(n)+'" role="tab" aria-selected="'+(mode===k)+'">'+n+'</button>').join('')+'</div>';
+/* ---------- «Что видно в данных» над таблицами One-pager ----------
+   HRBP HUB: верхнеуровневые факты, по одному на метрику, а не мешанина
+   юнитов. Первые три видны сразу, остальные — по «Ещё N». Клик по факту
+   раскрывает строку его метрики: там график и разбор по пунктам. */
+const OBS_SEV={high:'требует действий',mid:'стоит внимания',good:'позитив'};
+function obsPanel(list,open,info){
+  const sev=list.length?list[0].sev:'none';
+  let h='<div class="ai insight obs sev-'+sev+'"><div class="obs-h">'+aiIco(false)+
+    '<span class="ai-t">Что видно в данных</span>'+(info||'')+
+    (list.length?'<span class="ai-sev '+sev+'">'+OBS_SEV[sev]+'</span>':'<span class="obs-none">Заметных отклонений нет.</span>')+'</div>';
+  if(list.length){
+    h+='<ul class="obs-list">'+(open?list:list.slice(0,3)).map(x=>
+      '<li class="obs-li" data-opfact="'+esc(x.key)+'" tabindex="0" role="button"><i class="obs-dot '+x.sev+'"></i>'+
+      '<div><b>'+esc(x.lead)+'.</b> '+(x.body?esc(x.body)+' ':'')+'<span class="obs-go">график →</span></div></li>').join('')+'</ul>';
+    if(list.length>3)h+='<button class="obs-more" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+(list.length-3)+' ▾')+'</button>';
+  }
+  return h+'</div>';
 }
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.tag||'')+(o.q||'')+'</div>'+
@@ -5657,7 +5656,7 @@ function planTable(rows){
       (r.now==='демо'?demoTag():esc(r.now))+'</td></tr>').join('')+'</tbody></table>';
 }
 
-window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,detailSplit,dynSwitch,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
@@ -5960,9 +5959,207 @@ function html(ctx){
   return h+'</div>';
 }
 
+/* ============================================================================
+   «Что видно» — механика HRBP HUB (13.10, заказчик: «в one-pager сделай
+   инсайты как в HRBP HUB»). Два уровня, как там:
+     · overview — «Что видно в данных» над таблицами: один факт на метрику и
+       по отбору целиком (хуже ориентира → иначе заметно изменилась к
+       прошлому году → иначе ухудшение подряд → иначе заметно лучше
+       ориентира), плюс всплеск уходов и сдвиг численности за год;
+     · yoyStory — факты истории метрики у её раскрытой строки: до пяти
+       пунктов, у каждого с номером — отметка на графике «год к году».
+   Пороги — те же, что у фактов блоков: 10% ориентира, тренд 3 месяца.
+   ========================================================================== */
+const OBS={dev:INS_GAP/100,yoyPp:3,trend:INS_TREND,max:6,spikeX:2,spikeMin:3};
+/* Потоки за месяц: у них «с начала года» — сумма, и её есть с чем сравнить
+   год назад. У остатков (численность, открытые вакансии) суммы нет. */
+const FLOW=new Set(['hire','attrition','transfer_in','transfer_out','vac_closed','tgrowth_pass','tgrowth_deny']);
+const cap=t=>t.charAt(0).toUpperCase()+t.slice(1);
+const rel=(a,b)=>b?Math.abs(a-b)/Math.abs(b):0;
+const range=n=>Array.from({length:n},(_,i)=>i);
+/* копится с января: сумма (текучесть накопительная) или доля с начала года —
+   у таких «рост подряд» и «худший месяц» ничего не значат */
+const accum=m=>!!(m.ytd||m.ytdDelta||(m.derived&&m.derived.win==='ytd'));
+const absD=(k,d)=>D.fmtDelta(k,Math.abs(d)).replace('+','');
+/* точка в конце фразы — если её там ещё нет («3,9 п.п.» уже кончается точкой) */
+const dot=t=>/[.!?]$/.test(t)?t:t+'.';
+/* месяц расширенной сетки: имя и место на оси года */
+function extMonth(j){
+  const mm=D.MONTHS_EXT[j];
+  return {name:D.MONTH_NOM[mm.m]+(mm.y===D.YEAR_CUR?'':' '+mm.y),
+    pos:mm.y===D.YEAR_CUR?{i:mm.m,s:'main'}:mm.y===D.YEAR_PREV?{i:mm.m,s:'prev'}:null};
+}
+/* ориентир метрики: цель KPI или база того же месяца оси года */
+function refOf(key,S,bl){
+  const kpi=D.kpiFor(key,S);
+  if(kpi)return {kpi:kpi,w:'цели',at:()=>kpi.green};
+  if(!D.comparable(key))return null;
+  const b=D.yoySeries(bl,key).cur;
+  return {w:'базы',at:i=>b[i]};
+}
+function stateAt(key,v,ref,i){
+  if(!ref||v==null||ref.at(i)==null)return 'neutral';
+  return ref.kpi?D.stateForKpi(key,v,ref.kpi):D.compareState(key,v,ref.at(i));
+}
+function cmpWords(key,st,ref,i){
+  const r=D.fmtVal(key,ref.at(i));
+  return (st==='good'?'лучше ':st==='bad'?'хуже ':'на уровне ')+ref.w+' '+r;
+}
+function trendWord(m){return (m.better==='higher'?'снижение ':'рост ')+OBS.trend+' '+U.plural(OBS.trend,['месяц','месяца','месяцев'])+' подряд'}
+/* ухудшение trend месяцев подряд и на dev за них — по расширенной сетке,
+   поэтому январь продолжает декабрь: {a, b, from} или null */
+function worsening(m,ext){
+  if(m.better==='flat'||accum(m))return null;
+  const L=D.NEXT-1, n=OBS.trend, v0=ext[L-n];
+  if(v0==null)return null;
+  let prev=v0;
+  for(let i=L-n+1;i<=L;i++){
+    const v=ext[i];
+    if(v==null||(m.better==='higher'?v>=prev:v<=prev))return null;
+    prev=v;
+  }
+  return rel(prev,v0)>=OBS.dev?{a:v0,b:prev,from:L-n}:null;
+}
+
+/* Факты истории одной метрики для раскрытой строки One-pager:
+   {items:[{n?, i?, s?, mi:[месяцы], html}], marks:[{i, s, n}]}. С номером —
+   у точки графика (i — месяц 0–11, s — 'main' этот год | 'prev' прошлый);
+   без номера — вывод без точки (темп к декабрю, сколько месяцев хуже
+   ориентира), mi — какие месяцы он подсвечивает на графике. */
+function yoyStory(key,S,rl,bl){
+  const m=D.METRIC_BY_KEY[key];
+  if(!m||D.isStub(key))return {items:[],marks:[],stub:!!m};
+  const y=D.yoySeries(rl,key), cur=y.cur, prev=y.prev, b=D.CUR_LEN-1, v=cur[b];
+  if(v==null)return {items:[],marks:[]};
+  const f=x=>esc(D.fmtVal(key,x)), ref=refOf(key,S,bl), flat=m.better==='flat', out=[];
+  /* 1. Сейчас и ориентир */
+  const st=stateAt(key,v,ref,b);
+  out.push({i:b,s:'main',html:'<b>'+esc(cap(D.MONTH_NOM[b]))+' — '+f(v)+'</b>'+
+    (ref&&!flat&&ref.at(b)!=null?', '+esc(cmpWords(key,st,ref,b))+'.':'.')});
+  /* 2. Год назад — тот же месяц */
+  const pv=prev[b];
+  if(pv!=null){
+    const d=+(v-pv).toFixed(4);
+    const w=!d?'столько же':flat?(d>0?'больше на ':'меньше на ')+absD(key,d)
+      :((m.better==='lower')===(d>0)?'хуже':'лучше')+' на '+absD(key,d);
+    out.push({i:b,s:'prev',html:'<b>Год назад — '+f(pv)+'</b>: сейчас '+esc(dot(w))});
+  }
+  /* 3. Экстремум года: у накопительной суммы — месяц, добавивший больше всех;
+     у доли с начала года — ничего (январь у неё шумный); иначе худший месяц
+     этого года, у нейтральных — максимум */
+  if(m.ytd&&b>0){
+    let best=-1,inc=0;
+    for(let j=0;j<=b;j++){const a0=j?cur[j-1]:0,a1=cur[j];if(a1!=null&&a0!=null&&a1-a0>inc){inc=a1-a0;best=j}}
+    if(best>=0)out.push({i:best,s:'main',html:'<b>Больше всего прибавил '+esc(D.MONTH_NOM[best])+'</b>: '+
+      esc(D.fmtDelta(key,+inc.toFixed(2)))+' за месяц.'});
+  }else if(!accum(m)&&b>0){
+    let wi=-1;
+    for(let k=0;k<=b;k++){
+      if(cur[k]==null)continue;
+      if(wi<0||(m.better==='higher'?cur[k]<cur[wi]:cur[k]>cur[wi]))wi=k;
+    }
+    if(wi>=0&&wi!==b&&rel(cur[wi],v)>=0.05)
+      out.push({i:wi,s:'main',html:'<b>'+(flat?'Максимум года':'Худший месяц года')+' — '+esc(D.MONTH_NOM[wi])+'</b>: '+f(cur[wi])+'.'});
+  }
+  /* 4. Ухудшение подряд */
+  const tr=flat?null:worsening(m,D.aggregateExt(rl,key));
+  if(tr){
+    const em=extMonth(tr.from);
+    out.push({i:em.pos?em.pos.i:-1,s:em.pos?em.pos.s:'main',html:'<b>'+esc(cap(trendWord(m)))+'</b>: '+
+      esc(em.name)+' '+f(tr.a)+' → '+esc(D.MONTH_NOM[b])+' '+f(tr.b)+'.'});
+  }
+  /* 5. Вывод без точки */
+  if(m.ytd&&b<11&&v>0){
+    const pace=m.fc?D.lastVal(rl,m.fc):v*12/(b+1), rb=ref&&!ref.kpi?ref.at(b):null;
+    out.push({mi:[11],html:'<b>К декабрю при таком темпе — ≈ '+f(pace)+'</b>.'+
+      (rb?' У базы темп ≈ '+f(rb*12/(b+1))+'.':'')});
+  }else if(FLOW.has(key)&&b>0){
+    let ys=0,yp=0;
+    for(let k=0;k<=b;k++){ys+=cur[k]||0;yp+=prev[k]||0}
+    const d=ys-yp;
+    out.push({mi:range(b+1),html:'<b>С начала года — '+esc(D.fmtInt(ys))+'</b>, год назад за те же месяцы — '+
+      esc(D.fmtInt(yp))+(d?' ('+esc(D.fmtDelta(key,d))+')':'')+'.'});
+  }else if(!flat&&ref&&b>=2){
+    const bad=range(b+1).filter(k=>stateAt(key,cur[k],ref,k)==='bad');
+    out.push(bad.length
+      ?{mi:bad,html:'Хуже '+ref.w+' — '+bad.length+' '+
+        U.plural(bad.length,['месяц','месяца','месяцев'])+' из '+(b+1)+' в этом году.'}
+      :{mi:range(b+1),html:'Все '+(b+1)+' '+U.plural(b+1,['месяц','месяца','месяцев'])+' этого года — не хуже '+ref.w+'.'});
+  }
+  /* Номера — слева направо по графику: читается «пункт → точка». Вторая
+     отметка в ту же точку не ставится — пункт остаётся без номера, но
+     подсвечивает свой месяц. */
+  const numd=out.filter(it=>it.i!=null&&it.i>=0).sort((a,c)=>a.i-c.i||(a.s==='main'?-1:1));
+  const marks=[];
+  numd.forEach(it=>{
+    if(marks.some(z=>z.i===it.i&&z.s===it.s)){it.mi=[it.i];delete it.i;return}
+    it.n=marks.length+1;it.mi=[it.i];marks.push({i:it.i,s:it.s,n:it.n});
+  });
+  out.sort((a,c)=>(a.n||99)-(c.n||99));
+  return {items:out,marks:marks};
+}
+
+/* Один факт на метрику по отбору целиком: {key, sev, pri, w, lead, body}. */
+function metricFact(m,S,rl,bl){
+  const key=m.key, ext=D.aggregateExt(rl,key), L=D.NEXT-1, v=ext[L];
+  if(v==null)return null;
+  const kpi=D.kpiFor(key,S), ref=kpi?kpi.green:(D.comparable(key)?D.lastVal(bl,key):null);
+  const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):D.compareState(key,v,ref);
+  const f=x=>D.fmtVal(key,x), w=kpi?'цели':'базы', pv=ext[L-12];
+  const ago=pv!=null?'Год назад — '+f(pv)+'.':'';
+  const tr=worsening(m,ext);
+  if(st==='bad'&&rel(v,ref)>=OBS.dev)
+    return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — хуже '+w+' '+f(ref),
+      body:ago+(tr?' '+cap(trendWord(m))+'.':'')};
+  /* год к году: 10% от прошлого значения или 3 п.п. у долей */
+  if(pv!=null&&m.better!=='flat'&&m.fmt!=='int'&&Math.abs(v-pv)>=(m.fmt==='pct'?0.5:1e-9)&&
+     (rel(v,pv)>=OBS.dev||(m.fmt==='pct'&&Math.abs(v-pv)>=OBS.yoyPp))){
+    const worse=m.better==='lower'?v>pv:v<pv;
+    return {key,sev:worse?'mid':'good',pri:2,w:rel(v,pv),
+      lead:m.name+' '+f(v)+' — '+(worse?'хуже':'лучше')+', чем год назад ('+f(pv)+')',
+      body:ref!=null?cap(w==='цели'?'цель':'база')+' — '+f(ref)+'.':''};
+  }
+  if(tr)return {key,sev:'mid',pri:3,w:rel(tr.b,tr.a),lead:m.name+': '+trendWord(m),
+    body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.CUR_LEN-1]+' '+f(tr.b)+'.'};
+  if(st==='good'&&rel(v,ref)>=OBS.dev)
+    return {key,sev:'good',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — лучше '+w+' '+f(ref),body:ago};
+  return null;
+}
+function overview(S,rl,bl){
+  const out=[], L=D.NEXT-1;
+  D.METRICS.forEach(m=>{
+    if(!D.metricVisible(m.key,S)||D.isStub(m.key))return;
+    const x=metricFact(m,S,rl,bl);
+    if(x)out.push(x);
+  });
+  /* всплеск уходов: последний месяц против среднего за 11 до него */
+  if(D.metricVisible('attrition',S)){
+    const a=D.aggregateExt(rl,'attrition'), last=a[L]||0;
+    let usual=0;for(let i=L-11;i<L;i++)usual+=a[i]||0;usual/=11;
+    if(last>=OBS.spikeMin&&last>=OBS.spikeX*usual)
+      out.push({key:'attrition',sev:last>=3*usual?'high':'mid',pri:0,w:last-usual,
+        lead:'Всплеск уходов в '+['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'][D.MONTHS_EXT[L].m]+
+          ': '+D.fmtInt(last)+' — обычно '+(usual<1?'меньше одного':'около '+D.fmtInt(Math.round(usual)))+' в месяц',
+        body:'Уходы за месяц, все причины.'});
+  }
+  /* численность за год: найм, уходы, переводы — из чего сложилось */
+  const hc=D.aggregateExt(rl,'hc_total'), from=hc[L-12], to=hc[L];
+  if(from&&Math.abs(to-from)/from>=OBS.dev){
+    const sm=k=>D.aggregate(rl,k).reduce((x,y)=>x+(y||0),0);
+    const dp=Math.round(Math.abs(to-from)/from*100);
+    out.push({key:'hc_total',sev:'mid',pri:5,w:0,
+      lead:'Численность '+(to>from?'+':'−')+dp+'% за год: '+D.fmtInt(from)+' → '+D.fmtInt(to),
+      body:'Найм '+D.fmtInt(sm('hire'))+', уходы '+D.fmtInt(sm('attrition'))+', переводы в и из команды — '+
+        D.fmtInt(sm('transfer_in'))+' и '+D.fmtInt(sm('transfer_out'))+'.'});
+  }
+  const rank={high:0,mid:1,good:2};
+  out.sort((a,c)=>rank[a.sev]-rank[c.sev]||a.pri-c.pri||c.w-a.w);
+  return out.slice(0,OBS.max);
+}
+
 /* lastSev — тяжесть последнего отрисованного инсайта: её читает mascot.js,
    чтобы эмоция огонька совпадала с тем, что пользователь видит в плашке. */
-window.TPINSIGHTS={build,html,INS_GAP,INS_TREND,INS_CONC,lastSev:'none'};
+window.TPINSIGHTS={build,html,yoyStory,overview,OBS,INS_GAP,INS_TREND,INS_CONC,lastSev:'none'};
 })();
 
 </script>
@@ -6127,7 +6324,7 @@ CH.turnover={
     let head=fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
       :'Темп ухода — на уровне базы «'+c.bench+'»';
     if(pk>=0)head+=', но '+mPrep(pk)+' был всплеск';
-    const fo=focusCount(c,'attrition',{cap:'Где уходят · 12 мес',what:'уходов'});
+    const fo=focusCount(c,'attrition',{cap:'Где уходят · за год',what:'уходов'});
     return {sum:pl(n12,EXITS)+' за год',st:fc.st,head:head,
       lede:'За 12 месяцев ушли **'+pl(n12,PPL)+'**, с января — **'+D.fmtInt(y)+'**. Прогноз текучести на год — **'+
         f('turnover_fc',fc.v)+'**'+(ya!=null?' (год назад '+f('turnover_fc',ya)+')':'')+'.',
@@ -6175,7 +6372,7 @@ CH.movement={
     const hire=s12(c.lp,'hire'), tin=s12(c.lp,'transfer_in'), attr=s12(c.lp,'attrition'), tout=s12(c.lp,'transfer_out');
     const other=net-(hire+tin-attr-tout);
     const mx=argmax(hc);
-    const fo=focusCount(c,'hire',{cap:'Где нанимают · 12 мес',what:'найма'});
+    const fo=focusCount(c,'hire',{cap:'Где нанимают · за год',what:'найма'});
     const top=fo.focus&&fo.focus.rows[0];
     return {sum:signed(net)+' за год',st:'n',
       head:net>0?'Команда выросла на '+pl(net,PPL)+' за год':net<0?'Команда сократилась на '+pl(-net,PPL)+' за год'
@@ -6197,7 +6394,7 @@ CH.movement={
     const hs=ser(c.lp,'hire'), as=ser(c.lp,'attrition'), hc=ser(c.lp,'hc_total');
     const h=sum(hs), a=sum(as), ti=s12(c.lp,'transfer_in'), to=s12(c.lp,'transfer_out');
     const ph=argmax(hs), pa=argmax(as), mx=argmax(hc);
-    const fo=focusCount(c,'attrition',{cap:'Где уходят · 12 мес',what:'уходов'});
+    const fo=focusCount(c,'attrition',{cap:'Где уходят · за год',what:'уходов'});
     return {sum:'+'+h+' / '+minus(-a),st:'n',
       head:h>a?'Нанимаем больше, чем теряем: +'+(h-a)+' за год':h<a?'Теряем больше, чем нанимаем: '+minus(h-a)+' за год'
         :'Найм и отток за год сравнялись',
@@ -6633,47 +6830,57 @@ function selLabel(S){
   const n=D.NODE_BY_PATH[S.selNode]||D.NODE_BY_PATH[S.unit];
   return n?n.name:'Ваша команда';
 }
-/* Линия метрики с базой. База не рисуется в двух случаях: у несравнимых метрик
-   (там она вводит в заблуждение) и у метрик с утверждённым KPI — на графике
-   остаются пороги цели, и вторая пунктирная линия рядом с ними спорила бы с
-   ними за роль ориентира. */
-/* График «год к году» — тот же выбор ориентира, что и у metricLine:
-   цель KPI или база, и только для текущего года. */
+/* ---------- Динамика: только «год к году» ----------
+   13.10 заказчик: «убери 12 мес, оставь только год к году» — как в HRBP HUB.
+   Переключателя масштаба больше нет: каждый график динамики стоит на оси
+   янв.–дек., этот год против прошлого. Ориентир — тот же выбор, что везде:
+   цель KPI или база, и только для текущего года. База не рисуется в двух
+   случаях: у несравнимых метрик (там она вводит в заблуждение) и у метрик с
+   утверждённым KPI — на полотне остаются пороги цели, и вторая пунктирная
+   линия рядом с ними спорила бы с ними за роль ориентира.
+
+   Счётные потоки людей и штук — барами (бар этого года перед «тенью»
+   прошлого), темпы и доли — линиями. */
+const YOY_BARS=new Set(['attrition','hire','transfer_in','transfer_out','vac_open','vac_closed',
+  'tgrowth_pass','tgrowth_deny','ai_wau']);
+/* цвет потока — тот же, что на вкладках блока: пришли — C_IN, ушли — C_OUT */
+const YOY_COLOR={attrition:G.C_OUT,transfer_out:G.C_OUT,tgrowth_deny:G.C_OUT,
+  hire:G.C_IN,transfer_in:G.C_IN,vac_closed:G.C_IN,tgrowth_pass:G.C_IN,vac_open:G.C_VAC,ai_wau:G.C_AI};
 function yoyChart(key,lp,bl,S,opt){
+  opt=opt||{};
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
   const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
+  const bar=YOY_BARS.has(key), col=opt.color||YOY_COLOR[key]||G.C_LINE;
   /* у накопительной метрики с прогнозом (fc) декабрь получает точку run-rate:
      «чем закончится год, если темп сохранится» читается прямо на полотне */
   const fcK=(D.METRIC_BY_KEY[key]||{}).fc;
-  const legend=[{name:String(D.YEAR_CUR),color:G.C_LINE},{name:String(D.YEAR_PREV),color:G.C_PREV}]
+  const legend=[{name:String(D.YEAR_CUR),color:col},{name:String(D.YEAR_PREV),color:bar?G.C_GHOST:G.C_PREV}]
     .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
+  /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
+     базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
-    Object.assign({legend,benchName:bench,kpi:kpi,fc:fcK?D.lastVal(lp,fcK):null,h:300,fill:true},opt||{}));
+    Object.assign({legend,benchName:bench,kpi:kpi,fc:fcK?D.lastVal(lp,fcK):null,h:300,fill:true,
+      type:bar?'bar':'line',gap:cmp&&!bar},opt,{color:col}));
 }
-/* Переключатель «12 мес / год к году» для вкладок, где динамика нарисована
-   панелями: в режиме года каждая метрика получает своё полотно год к году. */
-function dynWrap(ctx,rollHtml,items){
-  if(ctx.S.dyn!=='yoy')return U.dynSwitch('roll')+rollHtml;
-  return U.dynSwitch('yoy')+items.map(it=>yoyChart(it.key,ctx.lp,ctx.bl,ctx.S,
-    {title:it.title,h:it.h||250,fill:false})).join('');
+/* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
+   (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
+function metricLine(key,lp,bl,S,opt){return yoyChart(key,lp,bl,S,opt)}
+/* Несколько метрик одной главы — панели друг под другом, у каждой своя шкала
+   и свой «этот год / прошлый». items: [{key, name, color, ann}] */
+function yoyPanels(lp,items,opt){
+  return G.chart('panels',{yoy:true,panels:items.map(it=>{
+    const y=D.yoySeries(lp,it.key);
+    return {name:it.name,key:it.key,type:YOY_BARS.has(it.key)?'bar':'line',cur:y.cur,prev:y.prev,
+      color:it.color||G.C_LINE,ann:it.ann||null};
+  })},Object.assign({h:520,fill:true},opt||{}));
 }
-/* Заголовок графика, который в режиме «год к году» остаётся на скользящем окне
-   (дивергент, водопад: их ось — двенадцать месяцев подряд, календарного года у
-   них нет). Под переключателем «Год к году» такой график без подписи читался бы
-   как тоже календарный — называем окно прямо в заголовке. */
-function winTitle(S,title){return S.dyn==='yoy'?title+' · 12 мес, '+D.PERIOD_LABEL:title}
-function metricLine(key,lp,bl,S,opt){
-  /* акценты истории (ann) — индексы скользящего окна; у полотна «год к году»
-     ось календарная, поэтому туда они не едут */
-  if(S.dyn==='yoy'&&!(opt&&opt.noSwitch))
-    return U.dynSwitch('yoy')+yoyChart(key,lp,bl,S,Object.assign({},opt||{},
-      {title:(opt&&opt.title?opt.title+' · ':'')+'год к году',ann:null}));
-  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
-  return (opt&&opt.noSwitch?'':U.dynSwitch('roll'))+G.chart('line',{metricKey:key,series:D.aggregate(lp,key),bench:cmp?D.aggregate(bl,key):null},
-    /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
-       базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
-    Object.assign({legend:cmp?[{name:selLabel(S),color:G.C_LINE},{name:bench,color:G.C_BENCH,dash:true}]:null,
-      benchName:bench,kpi:kpi,h:300,fill:true,gap:cmp},opt||{}));
+/* Пара встречных потоков (пришли / ушли) на оси года: этот год — цветом,
+   прошлый — тенью за ним. */
+function yoyDiverge(lp,upKey,downKey,opt){
+  const u=D.yoySeries(lp,upKey), d=D.yoySeries(lp,downKey);
+  const lg=(opt&&opt.legend||[]).concat([{name:String(D.YEAR_PREV),color:G.C_GHOST}]);
+  return G.chart('diverge',{yoy:true,up:u,down:d,upKey:upKey,downKey:downKey},
+    Object.assign({h:300,fill:true},opt||{},{legend:lg}));
 }
 
 /* Спарклайн в карточке KPI блока (рекомендация бизнес-анализа: динамика
@@ -6945,7 +7152,7 @@ function renderBlock(S,expanded,mixOpen,view){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,metricLine,yoyChart,dynWrap,winTitle,selLabel,yearAgo,TREE_DEPTH};
+  expandableRows,metricLine,yoyChart,yoyPanels,yoyDiverge,YOY_BARS,selLabel,yearAgo,TREE_DEPTH};
 })();
 
 </script>
@@ -7150,23 +7357,19 @@ SC.blocks.movement={
   view(ctx){
     if(ctx.sub==='dynamics'){
       return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:240,title:'Общая численность, чел',ann:ctx.ann.hc_total})+
-        G.chart('diverge',
-        {up:D.aggregate(ctx.lp,'hire'),down:D.aggregate(ctx.lp,'attrition'),
-         upKey:'hire',downKey:'attrition'},
-        {h:240,fill:true,title:SC.winTitle(ctx.S,'Найм и отток, чел'),
+        SC.yoyDiverge(ctx.lp,'hire','attrition',
+        {h:240,title:'Найм и отток, чел',
          legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT}]})+
-        G.chart('diverge',
-        {up:D.aggregate(ctx.lp,'transfer_in'),down:D.aggregate(ctx.lp,'transfer_out'),
-         upKey:'transfer_in',downKey:'transfer_out'},
         /* та же гамма, что у найма и оттока: человек пришёл — C_IN, ушёл — C_OUT.
            Отдельный «приглушённый» цвет для внутренних переводов заводить нельзя,
            иначе водопад рядом красит те же переводы зелёным и красным. */
-        {h:240,fill:true,title:SC.winTitle(ctx.S,'Переводы внутри компании, чел'),
+        SC.yoyDiverge(ctx.lp,'transfer_in','transfer_out',
+        {h:240,title:'Переводы внутри компании, чел',
          legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]});
     }
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
     return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
-        title:'Из чего сложилось изменение за 12 месяцев, чел',
+        title:'Из чего сложилось изменение за год, чел',
         legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Приход',color:G.C_IN},{name:'Уход',color:G.C_OUT}]})+
       U.storyFacts(ctx.story&&ctx.story.insights,'Что нужно знать');
   }
@@ -7242,14 +7445,13 @@ SC.blocks.turnover={
         'численности с поправкой на склонность к уходу. На проде это атрибуты ушедшего на дату увольнения.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся
-       только отток, потому что отток — счётные люди за месяц. */
-    return SC.dynWrap(ctx,G.chart('panels',{panels:[
-      {name:'Отток, чел',key:'attrition',type:'bar',series:D.aggregate(lp,'attrition'),color:G.C_OUT,ann:ctx.ann.attrition},
-      {name:'Текучесть месячная, %',key:'turnover_m',type:'line',series:D.aggregate(lp,'turnover_m'),color:G.C_LINE},
-      {name:'Текучесть накопительная с января, %',key:'turnover_y',type:'line',series:D.aggregate(lp,'turnover_y'),color:G.C_TURN_Y}
-    ]},{h:520,fill:true}),[
-      {key:'turnover_m',title:'Текучесть месячная, % · год к году'},
-      {key:'turnover_y',title:'Текучесть накопительная с января, % · год к году'}]);
+       только отток, потому что отток — счётные люди за месяц. Все три — год
+       к году (13.10): накопительная на оси года обнуляется в январе у обоих
+       лет и сравнивается месяц в месяц. */
+    return SC.yoyPanels(lp,[
+      {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
+      {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
+      {name:'Текучесть накопительная с января, %',key:'turnover_y',color:G.C_TURN_Y}]);
   }
 };
 })();
@@ -7357,11 +7559,10 @@ SC.blocks.hiring={
     }
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
        в блоке оттока. Барами остаются штуки вакансий. */
-    return G.chart('panels',{panels:[
-      {name:'Открытые вакансии, шт',key:'vac_open',type:'bar',series:D.aggregate(lp,'vac_open'),color:G.C_VAC,ann:ctx.ann.vac_open},
-      {name:'Закрытые вакансии, шт',key:'vac_closed',type:'bar',series:D.aggregate(lp,'vac_closed'),color:G.C_IN},
-      {name:'Срок закрытия вакансии, дн',key:'time_to_fill',type:'line',series:D.aggregate(lp,'time_to_fill'),color:G.C_LINE}
-    ]},{h:520,fill:true});
+    return SC.yoyPanels(lp,[
+      {name:'Открытые вакансии, шт',key:'vac_open',color:G.C_VAC,ann:ctx.ann.vac_open},
+      {name:'Закрытые вакансии, шт',key:'vac_closed',color:G.C_IN},
+      {name:'Срок закрытия вакансии, дн',key:'time_to_fill',color:G.C_LINE}]);
   }
 };
 })();
@@ -7422,10 +7623,8 @@ SC.blocks.tgrowth={
         'с решениями за 12 месяцев. «В карьерном росте» и «рост недоступен» в макете сгенерированы.</div>';
     }
     return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
-      G.chart('diverge',
-        {up:D.aggregate(ctx.lp,'tgrowth_pass'),down:D.aggregate(ctx.lp,'tgrowth_deny'),
-         upKey:'tgrowth_pass',downKey:'tgrowth_deny'},
-        {h:300,fill:true,title:SC.winTitle(ctx.S,'Из чего она считается, чел'),
+      SC.yoyDiverge(ctx.lp,'tgrowth_pass','tgrowth_deny',
+        {h:300,title:'Из чего она считается, чел',
          legend:[{name:'Прошли',color:G.C_IN},{name:'Отказано',color:G.C_OUT}]});
   }
 };
@@ -7469,14 +7668,10 @@ SC.blocks.monitor={
         'парой, как текучесть. Шкала оценок, первая оценка и разбивки по группам в макете сгенерированы; '+
         'на проде это summary_score, year_evaluation и management_head_flg из review_digest_us (дашборд 34661).</div>';
     }
-    return SC.dynWrap(ctx,G.chart('panels',{panels:[
-      {name:'Недоработчики, %',key:'underwork',type:'line',series:D.aggregate(ctx.lp,'underwork'),color:G.C_UNDER,ann:ctx.ann.underwork},
-      {name:'Лоу-перформеры, %',key:'low_perf',type:'line',series:D.aggregate(ctx.lp,'low_perf'),color:G.C_LOWPERF,ann:ctx.ann.low_perf},
-      {name:'Улучшили оценку в ревью, %',key:'review_up',type:'line',series:D.aggregate(ctx.lp,'review_up'),color:G.C_LINE,ann:ctx.ann.review_up}
-    ]},{h:520,fill:true}),[
-      {key:'underwork',title:'Недоработчики, % · год к году'},
-      {key:'low_perf',title:'Лоу-перформеры, % · год к году'},
-      {key:'review_up',title:'Улучшили оценку в ревью, % · год к году'}]);
+    return SC.yoyPanels(ctx.lp,[
+      {name:'Недоработчики, %',key:'underwork',color:G.C_UNDER,ann:ctx.ann.underwork},
+      {name:'Лоу-перформеры, %',key:'low_perf',color:G.C_LOWPERF,ann:ctx.ann.low_perf},
+      {name:'Улучшили оценку в ревью, %',key:'review_up',color:G.C_LINE,ann:ctx.ann.review_up}]);
   }
 };
 })();
@@ -7643,8 +7838,8 @@ SC.blocks.ai={
         'дашборда 34136, по инструменту и стриму сотрудника.</div>';
     }
     return SC.metricLine('ai_penetration',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Проникновение AI, %',ann:ctx.ann.ai_penetration})+
-      G.chart('bars',{metricKey:'ai_wau',series:D.aggregate(ctx.lp,'ai_wau')},
-        {h:300,fill:true,title:'Активные пользователи AI (WAU), чел',color:G.C_AI,ann:ctx.ann.ai_wau});
+      SC.yoyChart('ai_wau',ctx.lp,ctx.bl,ctx.S,
+        {h:300,title:'Активные пользователи AI (WAU), чел',color:G.C_AI,ann:ctx.ann.ai_wau});
   }
 };
 })();
@@ -7654,7 +7849,9 @@ SC.blocks.ai={
 /* ============================================================================
    screens/onepager.js — сводка по всем метрикам на одном экране.
    Семь блоков таблицами, у каждой метрики значение, MoM, YoY, спарклайн и
-   сравнение с базой. Клик по строке раскрывает график метрики внутри таблицы.
+   сравнение с базой. Клик по строке раскрывает график «год к году» с
+   разбором «Что видно» (механика HRBP HUB); над таблицами — «Что видно
+   в данных» по отбору целиком.
    ========================================================================== */
 (function(){
 'use strict';
@@ -7666,36 +7863,6 @@ const esc=U.esc;
    две строки по четыре: поток людей, текучесть, найм, AI и офис. */
 const HERO=['hc_total','hire','attrition','turnover_y','regret','junior_share','ai_penetration','office_att'];
 
-/* Имя выбранного подразделения — именно им подписана синяя линия в легенде. */
-function unitName(S){const n=D.NODE_BY_PATH[S.unit];return n?n.name:'Ваша команда'}
-
-/* ---------- тексты сводки ---------- */
-function worstMetrics(S,rl,bl,limit){
-  const out=[];
-  D.METRICS.forEach(m=>{
-    /* отключённая метрика не должна всплывать в тексте сводки: пользователь
-       не найдёт её ни в таблице, ни в KPI */
-    if(!D.metricVisible(m.key,S))return;
-    if(m.better==='flat')return;
-    const v=D.lastVal(rl,m.key), bv=D.lastVal(bl,m.key), kpi=D.kpiFor(m.key,S);
-    const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    if(st==='bad')out.push({m,v,bv,base:kpi?kpi.green:bv,kpi:!!kpi});
-  });
-  return out.slice(0,limit||3);
-}
-function bestMetrics(S,rl,bl,limit){
-  const out=[];
-  D.METRICS.forEach(m=>{
-    if(!D.metricVisible(m.key,S))return;
-    if(m.better==='flat')return;
-    /* та же развилка, что и в worstMetrics: где есть KPI, «хорошо» считается
-       от цели, а не от средней по базе */
-    const v=D.lastVal(rl,m.key), bv=D.lastVal(bl,m.key), kpi=D.kpiFor(m.key,S);
-    const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    if(st==='good')out.push({m,v,bv:kpi?kpi.green:bv,kpi:!!kpi});
-  });
-  return out.slice(0,limit||2);
-}
 /* Счёт сигналов и сдвиги за год для полосы «Пульс команды».
    Сигнал — та же развилка, что везде: цель KPI, иначе база; несравнимые и
    «больше не значит лучше» — без оценки. Сдвиги берём только у относительных
@@ -7731,30 +7898,44 @@ function heroContext(k,s,rl){
     return '<span class="k-sub">с начала года <b>'+D.fmtDelta('net_ytd',ytd)+'</b></span>';
   }
   if(D.METRIC_BY_KEY[k].fmt==='int')
-    return '<span class="k-sub">за 12 мес <b>'+D.fmtVal(k,SC.sumS(s))+'</b> чел</span>';
+    return '<span class="k-sub">за год <b>'+D.fmtVal(k,SC.sumS(s))+'</b> чел</span>';
   return U.noCmpMark();
 }
-function lead(S,rl,bl){
-  const hc=D.lastVal(rl,'hc_total'), w=worstMetrics(S,rl,bl,3);
-  const nU=D.unitsInScope(S);
-  return 'В отборе <b>'+D.fmtInt(hc)+' чел</b> из '+D.fmtInt(nU)+' '+U.plural(nU,D.UNIT_WORDS)+', база сравнения — <b>'+
-    esc(D.benchmarkLabel(S))+'</b>. '+
-    (w.length?'Требуют внимания: '+w.map(x=>esc(x.m.name)).join(', ')+'.':'Критичных отклонений от базы нет.');
+/* ---------- «О метрике» в раскрытой строке ----------
+   Как в HRBP HUB: что это, как считаем (дробью, словами) и с чем сравниваем.
+   Имена слагаемых — по-русски: служебных рядов в METRICS нет. */
+const PART={hc_avg:'среднесписочная численность',pf_plan:'план найма',hire_jun:'принятые джуны',
+  rev_eval:'оценённые в цикле ревью',rev_up:'улучшившие оценку',ovis:'посещения офиса',
+  wday:'отработанные человеко-дни',plow:'оценка «низкая»',prated:'оценённые',regret_cnt:'нежелательные увольнения'};
+/* строчная — только первая буква: «T-рост», «AI», «WAU» остаются как есть */
+const partName=k=>{const n=PART[k]||(D.METRIC_BY_KEY[k]||{}).name||k;return n.charAt(0).toLowerCase()+n.slice(1)};
+function fracOf(m){
+  const dv=m.derived;
+  if(dv){
+    const den=Array.isArray(dv.den)?dv.den.map(partName).join(' + '):partName(dv.den);
+    return [partName(dv.num),den,[dv.scale===100?'в процентах':'',dv.win==='ytd'?'с начала года':'за месяц'].filter(Boolean).join(', ')];
+  }
+  if(m.ytd)return ['сумма помесячных значений с января','',''];
+  return null;
 }
-function bullets(S,rl,bl){
-  const out=[];
-  worstMetrics(S,rl,bl,3).forEach(x=>{
-    out.push('<b>'+esc(x.m.name)+'</b>: '+D.fmtVal(x.m.key,x.v)+' при '+(x.kpi?'цели KPI ':'базе ')+
-      D.fmtVal(x.m.key,x.base)+'. Отклонение '+D.fmtDelta(x.m.key,+(x.v-x.base).toFixed(1))+
-      ' — смотрите разбивку по подразделениям в блоке «'+esc(D.BLOCK_BY_KEY[x.m.block].name)+'».');
-  });
-  bestMetrics(S,rl,bl,2).forEach(x=>{
-    out.push('<b>'+esc(x.m.name)+'</b> лучше '+(x.kpi?'цели KPI':'базы')+': '+
-      D.fmtVal(x.m.key,x.v)+' против '+D.fmtVal(x.m.key,x.bv)+'.');
-  });
-  out.push('Сравнение пересчитано под ваши разрезы: смените покраску или разрез IT — и база, и выводы изменятся.');
-  out.push('Численность, найм и переводы не окрашиваются светофором: отклонение от базы здесь не оценка, а факт масштаба.');
-  return out;
+function about(m,S){
+  const kpi=D.kpiFor(m.key,S), fr=fracOf(m);
+  let h='<p class="op-stp">'+esc(m.hint)+'</p>';
+  if(fr&&fr[1])h+='<div class="op-frac"><span>'+esc(fr[0])+'</span><span>'+esc(fr[1])+'</span></div>'+
+    (fr[2]?'<div class="op-frs">'+esc(fr[2][0].toUpperCase()+fr[2].slice(1))+'</div>':'');
+  else if(fr)h+='<div class="op-frs">Считаем: '+esc(fr[0])+'.</div>';
+  const ref=kpi?'Ориентир: цель KPI '+D.fmtVal(m.key,kpi.green)+', порог '+D.fmtVal(m.key,kpi.red)
+    :D.comparable(m.key)?'Ориентир: база «'+D.benchmarkLabel(S)+'» за тот же месяц':
+     m.better==='flat'?'Ориентира нет: «больше» здесь не значит «лучше»':'Ориентира нет: абсолютная величина зависит от размера команды';
+  return h+'<div class="op-frs">'+esc(ref)+'.</div>';
+}
+/* Пояснение к «Что видно в данных»: какие пороги и что не оценивается. */
+function obsInfo(S){
+  const O=window.TPINSIGHTS.OBS;
+  return '<span class="info"'+U.tipAttr({title:'Что видно в данных',
+    text:'Главное по отбору целиком: где метрика заметно хуже или лучше ориентира, заметно изменилась к прошлому году или ухудшается подряд, всплески уходов и сдвиг численности.',
+    note:'В список попадает отклонение от '+Math.round(O.dev*100)+'% ориентира (цель KPI, иначе база «'+D.benchmarkLabel(S)+
+      '»), тренд — от '+O.trend+' месяцев подряд. Численность, найм и переводы светофором не оцениваются.'})+' aria-label="Как отобраны факты">i</span>';
 }
 
 /* ---------- рендер ---------- */
@@ -7767,11 +7948,12 @@ function render(S,openRows){
     '<p>Все ключевые метрики команды на одном экране: значение, изменение '+esc(D.CMP.momFull)+
     ' и '+esc(D.CMP.yoy)+', динамика и сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
     '</b>; там, где есть утверждённый KPI, метрика сравнивается с целью, а не с базой. '+
-    'Нажмите на строку — каретка справа развернёт график.</p></div>';
+    'Нажмите на строку — откроется график «год к году» и разбор по пунктам.</p></div>';
 
-  /* AI-подсказка сразу под заголовком — как на детальных экранах. Внизу страницы
-     её никто не дочитывал: сначала вывод, потом цифры. */
-  h+=U.aiBlock('op','Как читать эту сводку',lead(S,rl,bl),bullets(S,rl,bl),S.aiOpen==='op','insight');
+  /* «Что видно в данных» сразу под заголовком (HRBP HUB, 13.10): сначала
+     вывод, потом цифры. Раньше здесь была AI-подсказка «Как читать эту
+     сводку» — её пороги и оговорки переехали в ⓘ панели. */
+  h+=U.obsPanel(window.TPINSIGHTS.overview(S,rl,bl),S.aiOpen==='op',obsInfo(S));
 
   /* Пульс команды: счёт сигналов и главные сдвиги за год — до таблиц,
      чтобы первые пять секунд на экране отвечали «что изменилось». */
@@ -7854,17 +8036,13 @@ function render(S,openRows){
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */
       if(open){
-        /* Два полотна рядом, как в HRBP HUB: слева год к году (сезон и то,
-           где метрика была год назад), справа скользящие 12 месяцев с базой
-           или целью (куда идём). Ориентир на обоих один и тот же. */
-        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+U.detailSplit(
-          SC.yoyChart(m.key,rl,bl,S,{title:'Год к году',h:280,fill:false}),
-          G.chart('line',{metricKey:m.key,series:s,bench:bser},
-            {title:kpi?'12 мес и цель KPI':bser?'12 мес и база':'12 мес',
-             /* серии подписаны именами, иначе непонятно, что за синяя линия */
-             legend:bser?[{name:unitName(S),color:G.C_LINE},{name:D.benchmarkLabel(S),color:G.C_BENCH,dash:true}]:null,
-             benchName:D.benchmarkLabel(S),
-             kpi:kpi,h:280}))+'</div></td></tr>';
+        /* Механика HRBP HUB (13.10): слева год к году с номерными отметками,
+           справа «Что видно» с теми же номерами и «О метрике». Полотна
+           «12 мес» больше нет — вся динамика отчёта год к году. */
+        const st=window.TPINSIGHTS.yoyStory(m.key,S,rl,bl);
+        t+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+U.opStory(
+          SC.yoyChart(m.key,rl,bl,S,{title:'Этот год и прошлый',h:280,fill:false,
+            marks:st.marks,link:true}),st,about(m,S))+'</div></td></tr>';
       }
     });
     h+=U.panel({body:t+'</tbody></table>'});
@@ -7945,7 +8123,6 @@ function urlParams(){
   if(S.mixRows!==D.DEFAULT_STATE.mixRows)p.set('mxr',S.mixRows);
   if(S.mixCols!==D.DEFAULT_STATE.mixCols)p.set('mxc',S.mixCols||'');
   if(S.mixMode!==D.DEFAULT_STATE.mixMode)p.set('mxm',S.mixMode);
-  if(S.dyn!==D.DEFAULT_STATE.dyn)p.set('dyn',S.dyn);
   return p;
 }
 function readURL(){
@@ -7963,8 +8140,6 @@ function readURL(){
   if(mxr&&D.MIX_BY_KEY[mxr])S.mixRows=mxr;
   if(mxc!=null)S.mixCols=D.MIX_BY_KEY[mxc]?mxc:'';
   if(mxm&&['abs','row','col'].indexOf(mxm)>=0)S.mixMode=mxm;
-  const dyn=q.get('dyn');
-  if(dyn==='yoy'||dyn==='roll')S.dyn=dyn;
   if(!D.NODE_BY_PATH[S.unit])S.unit=D.DEFAULT_STATE.unit;
 }
 /* в Proteus адресной строки у чарта нет: состояние живёт в TP_ENV.store */
@@ -8353,6 +8528,41 @@ function crossCol(td,on){
   [].forEach.call(tb.rows,r=>{if(r.cells.length===n&&r.cells[i])r.cells[i].classList.add('x-col')});
 }
 on(document,'mouseover',e=>{const td=e.target.closest&&e.target.closest('.mxtable td');if(td)crossCol(td,true)});
+/* Связка «пункт ↔ график» в раскрытой строке One-pager (13.10, сверх HRBP
+   HUB): наведение на пункт «Что видно» подсвечивает его номерную отметку и
+   месяцы на полотне; наведение на месяц полотна или на отметку — пункты,
+   которые о нём говорят. Только классы, без перерисовки: на ресайзе полотно
+   пересобирается и подсветка просто сбрасывается. */
+function opClear(box){
+  box.classList.remove('lk');
+  [].forEach.call(box.querySelectorAll('.lit'),x=>x.classList.remove('lit'));
+}
+function opLit(box,mis,lis){
+  opClear(box);
+  const mks=lis.map(x=>x.getAttribute('data-mk')).filter(Boolean);
+  if(!mis.length&&!mks.length)return;
+  box.classList.add('lk');
+  mis.forEach(i=>[].forEach.call(box.querySelectorAll('.mkb[data-mi="'+i+'"]'),x=>x.classList.add('lit')));
+  mks.forEach(n=>[].forEach.call(box.querySelectorAll('.mk[data-mk="'+n+'"]'),x=>x.classList.add('lit')));
+  lis.forEach(x=>x.classList.add('lit'));
+}
+const miOf=el=>(el.getAttribute('data-mi')||'').split(',').filter(Boolean);
+function opHover(e,over){
+  const t=e.target, box=t&&t.closest&&t.closest('[data-oplink]');
+  if(!box)return;
+  if(!over){if(!(e.relatedTarget&&box.contains(e.relatedTarget)))opClear(box);return}
+  const li=t.closest('.op-ins li');
+  if(li){opLit(box,miOf(li),[li]);return}
+  const col=t.closest('.op-stc [data-mi]');
+  if(col){
+    const i=col.getAttribute('data-mi');
+    opLit(box,[i],[].filter.call(box.querySelectorAll('.op-ins li'),x=>miOf(x).indexOf(i)>=0));
+    return;
+  }
+  opClear(box);
+}
+on(document,'mouseover',e=>opHover(e,true));
+on(document,'mouseout',e=>opHover(e,false));
 on(document,'mouseout',e=>{const td=e.target.closest&&e.target.closest('.mxtable td');
   if(td&&!(e.relatedTarget&&td.contains(e.relatedTarget)))crossCol(td,false)});
 
@@ -8495,8 +8705,6 @@ on(document,'click',e=>{
   const jp=t.closest('[data-jump]');
   if(jp){const el=$('#op-'+jp.dataset.jump);
     if(el)el.scrollIntoView({behavior:'smooth',block:'start'});return}
-  const dy=t.closest('[data-dyn]');
-  if(dy){S.dyn=dy.dataset.dyn;render(true);return}
   /* путь и «↑ Уровнем выше» — переход, как «Открыть юнит»: со стеком «Назад» */
   const cr=t.closest('[data-crumb]');
   if(cr){goUnit(cr.dataset.crumb);return}
@@ -8587,6 +8795,14 @@ on(document,'click',e=>{
   }
   const mr=t.closest('.mrow');
   if(mr){const k=mr.dataset.metric;openRows.has(k)?openRows.delete(k):openRows.add(k);render(true);return}
+  /* факт «Что видно в данных»: раскрыть строку его метрики и подвести к ней */
+  const of=t.closest('[data-opfact]');
+  if(of){
+    const k=of.dataset.opfact;openRows.add(k);render(true);
+    const r=ROOTEL.querySelector('.mrow[data-metric="'+k+'"]');
+    if(r)r.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
   /* история (итерация 32): «Где сосредоточено» и «Показать «X»» выбирают
      подразделение так же, как клик по строке сводной таблицы — графики главы
      перестраиваются по нему. Повторный клик выбор не снимает: кнопка зовёт
@@ -8637,7 +8853,7 @@ on(document,'mouseout',e=>lgHover(e,false));
 on(document,'focusin',e=>lgHover(e,true));
 on(document,'focusout',e=>lgHover(e,false));
 on(document,'keydown',e=>{
-  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.ai-h,.mx-cell')){e.preventDefault();e.target.click()}
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.ai-h,.mx-cell,.obs-li')){e.preventDefault();e.target.click()}
   /* У SVGElement может не быть .click() — зовём обработчик напрямую.
      После перерисовки узла больше нет, поэтому фокус возвращаем вручную. */
   if((e.key==='Enter'||e.key===' ')&&e.target.closest){
