@@ -53,6 +53,10 @@ function heroContext(k,s,rl){
     return '<span class="k-sub">за год <b>'+D.fmtVal(k,SC.sumS(s))+'</b> чел</span>';
   return U.noCmpMark();
 }
+/* Метрика без оценки: нет цели KPI, и она либо несравнима, либо «больше не
+   значит лучше» — у её спарклайна нет цветных точек и пунктира ориентира. */
+const noEval=(m,kpi)=>!kpi&&(!D.comparable(m.key)||m.better==='flat');
+
 /* ---------- «О метрике» в раскрытой строке ----------
    Как в HRBP HUB: что это, как считаем (дробью, словами) и с чем сравниваем.
    Имена слагаемых — по-русски: служебных рядов в METRICS нет. */
@@ -126,7 +130,8 @@ function render(S,openRows){
       q:U.infoDot(k),
       value:D.fmtVal(k,v),
       row1:U.momChip(k,dl.mom)+
-        G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:!kpi&&D.comparable(k)?D.aggregate(bl,k):null}),
+        G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:!kpi&&D.comparable(k)?D.aggregate(bl,k):null,
+          ink:noEval(D.METRIC_BY_KEY[k],kpi)}),
       row2:(kpi?'<span class="k-sub">цель '+D.fmtVal(k,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
              :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':heroContext(k,s,rl)),
       /* год назад — тем же месяцем: число, которое в таблице стоит пилюлей
@@ -178,12 +183,10 @@ function render(S,openRows){
         '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:D.CMP.momTip})+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:D.CMP.yoyTip})+'</td>'+
-        /* Метрика без оценки (счётная, без KPI) — линией: у неё нет цвета,
-           и серые бары не несли ни формы, ни оценки. Бары со светофором
-           остаются там, где каждый месяц окрашен сравнением. */
-        '<td class="col-spark">'+(!kpi&&!D.comparable(m.key)
-          ? G.sparkLine(s,'neutral',180,28,{key:m.key,ink:true,fit:true})
-          : G.sparkBars(s,st,180,28,{key:m.key,base:bser,kpi:kpi,flat:!D.comparable(m.key)}))+'</td>'+
+        /* Короткая динамика — у всех метрик одним видом, спарклайном (13.10:
+           «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
+           точек, ориентир — пунктиром; у метрики без оценки точек нет. */
+        '<td class="col-spark">'+G.sparkLine(s,st,180,28,{key:m.key,base:bser,kpi:kpi,ink:noEval(m,kpi)})+'</td>'+
         '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi)+'</td>'+
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */

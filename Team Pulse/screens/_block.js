@@ -153,14 +153,14 @@ function yoyDiverge(lp,upKey,downKey,opt){
 }
 
 /* Спарклайн в карточке KPI блока (рекомендация бизнес-анализа: динамика
-   читается без перехода на график). Правило то же, что в колонке «12 мес»
-   one-pager: у метрики без оценки — тёмно-серая линия с поднятой шкалой,
-   у метрики со светофором — линия цвета оценки, месяц сравнивается с базой
-   этого месяца или с целью KPI. */
+   читается без перехода на график). Тот же спарклайн, что в колонке «12 мес»
+   one-pager: серая линия, у метрики со светофором точка каждого месяца
+   окрашена сравнением с базой этого месяца или с целью KPI и пунктир
+   ориентира; у метрики без оценки — только последняя точка. */
 function cardSpark(key,ser,st,S,bl){
   const m=D.METRIC_BY_KEY[key], kpi=D.kpiFor(key,S);
   const noEval=!kpi&&(!D.comparable(key)||m.better==='flat');
-  return G.sparkLine(ser,noEval?'neutral':st,84,24,{key:key,kpi:kpi,ink:noEval,fit:noEval,
+  return G.sparkLine(ser,noEval?'neutral':st,84,24,{key:key,kpi:kpi,ink:noEval,
     base:!kpi&&D.comparable(key)?D.aggregate(bl,key):null});
 }
 /* Значение того же месяца год назад — прямо из расширенной сетки, а не

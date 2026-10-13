@@ -1295,6 +1295,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['факты метрики: номера слева направо, без двух отметок в одну точку',
     st.marks.length>=2&&st.marks.every((m,i,a)=>!i||a[i-1].i<m.i||(a[i-1].i===m.i&&a[i-1].s==='main'&&m.s==='prev'))&&
     new Set(st.marks.map(m=>m.i+m.s)).size===st.marks.length&&!/п\.п\.\./.test(st.items.map(x=>x.html).join(''))]);
+  /* короткая динамика One-pager — одним видом: спарклайн у каждой метрики,
+     баров-спарклайнов нет; у метрик с оценкой точки месяцев цветом светофора */
+  const cells=[...op.matchAll(/<td class="col-spark">([\s\S]*?)<\/td>/g)].map(m=>m[1]);
+  checks.push(['короткая динамика One-pager — только спарклайны, оценка месяцев — цветом точек',
+    !G.sparkBars&&cells.length>20&&cells.every(c=>/<svg[^>]*class="spark"/.test(c)&&!/class="sb"/.test(c))&&
+    cells.some(c=>/stroke="#(80cf9a|ef8c8c)" stroke-width="4"/.test(c))&&/vector-effect="non-scaling-stroke"/.test(cells[0])]);
   A.op([]);
 })();
 

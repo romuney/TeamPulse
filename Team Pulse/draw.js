@@ -768,9 +768,9 @@ function drawFunnel(a,w,h){
       «12 мес» тянется вместе с окном, и спарклайн должен тянуться с ней.
       Текста внутри нет, поэтому растяжение ничего не искажает.
 
-      Цвет — ПО МЕСЯЦАМ, а не один на весь ряд: раньше метрика хуже базы
-      красила все 12 баров, хотя часть месяцев была лучше. Теперь каждый бар
-      сравнивается со своим месяцем базы.
+      Цвет — ПО МЕСЯЦАМ, а не один на весь ряд: метрика хуже базы не красит
+      весь год, если часть месяцев была лучше. Каждая точка сравнивается со
+      своим месяцем базы или с целью KPI.
    ========================================================================== */
 function sparkSvg(w,h,body){
   return '<svg viewBox="0 0 '+num(w)+' '+num(h)+'" width="100%" height="'+num(h)+'"'
@@ -794,74 +794,67 @@ function cmpState(key,v,i,base,kpi,flat,state){
   return (flat||!base||!key)?state:CD.compareState(key,v,base[i]);
 }
 
-function sparkBars(series,state,w,h,o){
-  o=o||{};w=w||120;h=h||26;
-  const n=series.length, gap=w/n, bw=gap*0.68;
-  const key=o.key, base=o.base, flat=o.flat, kpi=o.kpi;
-  /* Шкала. От нуля столбики честны по величине, но при малом размахе
-     (численность 175 → 191) все двенадцать месяцев выглядят одинаково и
-     динамика пропадает. Поэтому при размахе меньше 40% от максимума низ
-     шкалы поднимается под минимум ряда: колонка «12 мес» показывает форму
-     изменения, а точные значения всё равно живут в подсказке и соседних
-     столбцах. Полный масштаб от нуля остаётся на детальных графиках. */
-  const vals=series.filter(v=>v!=null);
-  const mn=vals.length?Math.min.apply(null,vals):0, mx=vals.length?Math.max.apply(null,vals):0, rng=mx-mn;
-  let lo=0, hi=niceMax(series);
-  if(rng>0&&mx>0&&rng/mx<0.4){lo=Math.max(0,mn-rng*0.45);hi=mx+rng*0.12}
-  const span=(hi-lo)||1;
-  let s='';
-  series.forEach((v,i)=>{
-    if(v==null)return;
-    const bh=Math.max(1.5,((v-lo)/span)*(h-2));
-    /* окраска месяца: с целью KPI, а при её отсутствии — с базой ЭТОГО месяца */
-    const st=cmpState(key,v,i,base,kpi,flat,state);
-    const t=key?{title:mLabel(i),
-      rows:[{label:(CD.METRIC_BY_KEY[key]||{}).name||'',value:CD.fmtVal(key,v),color:stateColor(st)}]
-        .concat(cmpRow(key,i,base,kpi))}:null;
-    s+='<g class="sbg"'+(t?tip(t):'')+'>';
-    s+='<rect class="hit" x="'+num(i*gap)+'" y="0" width="'+num(gap)+'" height="'+num(h)+'"/>';
-    s+=rect(i*gap+(gap-bw)/2,h-bh,bw,bh,stateColor(st),1,' class="sb"');
-    s+='</g>';
-  });
-  return sparkSvg(w,h,s);
+/* Один вид короткой динамики на весь One-pager (13.10, заказчик: «сделай все
+   спарклайнами, а то где-то барчарты, а где-то лайнчарты»), как в HRBP HUB:
+   линия ряда — нейтральная серая, у метрики с оценкой ТОЧКА каждого месяца
+   окрашена по ориентиру этого месяца (цель KPI, иначе база того же месяца) —
+   так оценка по месяцам, ради которой были цветные бары, осталась; последний
+   месяц — точка крупнее. Тонкий пунктир — сам ориентир (линия базы или цель).
+   У метрики без оценки точек нет, кроме последней: цвета у неё нет по правилу.
+
+   Шкала подбирается по данным (и по ориентиру): от нуля численность 175 → 191
+   — прямая, а спарклайн показывает форму; точные значения — в подсказке и
+   соседних столбцах. Полный масштаб от нуля остаётся на графиках «год к году».
+
+   svg тянется по ширине ячейки (preserveAspectRatio="none"), поэтому у линий
+   vector-effect="non-scaling-stroke", а точки — пути нулевой длины с круглым
+   концом и той же поправкой: растянутый по ширине кружок стал бы эллипсом,
+   а штрих линии — толще на подъёмах, чем на ровных участках. */
+const NSS=' vector-effect="non-scaling-stroke"';
+function sDot(x,y,d,col,cls){
+  return '<path'+(cls?' class="'+cls+'"':'')+' d="M'+num(x)+' '+num(y)+'h0" stroke="'+col+'" stroke-width="'+d+'"'+
+    ' stroke-linecap="round"'+NSS+'/>';
 }
 function sparkLine(series,state,w,h,o){
   o=o||{};w=w||120;h=h||26;
-  const n=series.length;
-  /* o.ink — спарклайн метрики без оценки в колонке «12 мес». Бледно-серые бары
-     там сливались с фоном: цвета у такой метрики нет по правилу, значит форму
-     должна нести сама линия — тёмно-серая, тонкая, с последней точкой.
-     o.fit — та же поднятая шкала, что у sparkBars при малом размахе: численность
-     175 → 191 от нуля — прямая. На детальных графиках шкала остаётся от нуля. */
-  const col=o.ink?C_SPARK_INK:stateColor(state), key=o.key, base=o.base, kpi=o.kpi;
-  const vals=series.filter(v=>v!=null);
+  const n=series.length, key=o.key, base=o.base, kpi=o.kpi;
+  /* o.ink — у метрики нет оценки: без цветных точек */
+  const ev=!o.ink&&!!key;
+  const refs=kpi?series.map(()=>kpi.green):(base&&ev?base:null);
+  const vals=series.concat(refs||[]).filter(v=>v!=null);
   const mn=vals.length?Math.min.apply(null,vals):0, mx=vals.length?Math.max.apply(null,vals):0, rg=mx-mn;
-  let lo=0, max=niceMax(series);
-  if(o.fit&&rg>0&&mx>0&&rg/mx<0.4){lo=Math.max(0,mn-rg*0.45);max=mx+rg*0.12}
-  /* прирост с начала года уходит в минус — линия не должна проваливаться под низ */
-  if(mn<0){lo=mn;max=Math.max(mx,0)+(rg||1)*0.08}
-  /* PAD — не косметика: svg тянется preserveAspectRatio="none", и точка радиусом 2
-     на самом краю viewBox срезалась ровно наполовину. Отступ по краям и сверху
-     держит крайние точки целиком внутри картинки. */
-  const PAD=3.5, TOP=3.5;
+  let lo=mn-rg*0.12, max=mx+rg*0.12;
+  /* ровный ряд — серединой полосы, а не прижатым к краю */
+  if(!(rg>0)){const m=mx||1;lo=mn-Math.abs(m)*0.1;max=mx+Math.abs(m)*0.1}
+  if(mn>=0&&lo<0)lo=0;
+  /* PAD — поле по краям и сверху: точка на самом краю viewBox срезалась бы */
+  const PAD=4, TOP=4;
   const X=i=>n>1?PAD+i/(n-1)*(w-2*PAD):w/2;
   const Y=v=>h-PAD-((v-lo)/((max-lo)||1))*(h-PAD-TOP);
-  let s='<path d="'+polyD(series,X,Y)+'" fill="none" stroke="'+col+'" stroke-width="1.7"'
-    +' stroke-linejoin="round" stroke-linecap="round"/>';
-  if(series[n-1]!=null)s+='<circle cx="'+num(X(n-1))+'" cy="'+num(Y(series[n-1]))+'" r="'+(o.ink?2.6:2)+'" fill="'+col+'"/>';
+  let s='';
+  if(refs)s+='<path d="'+polyD(refs,X,Y)+'" fill="none" stroke="'+C_BENCH+'" stroke-width="1" stroke-dasharray="3 2"'+NSS+'/>';
+  s+='<path d="'+polyD(series,X,Y)+'" fill="none" stroke="'+C_SPARK_INK+'" stroke-width="1.6"'
+    +' stroke-linejoin="round" stroke-linecap="round"'+NSS+'/>';
+  let last=-1;
+  series.forEach((v,i)=>{if(v!=null)last=i});
+  const stAt=(v,i)=>ev?cmpState(key,v,i,base,kpi,false,state):'neutral';
+  series.forEach((v,i)=>{
+    if(v==null||(!ev&&i!==last))return;
+    const st=stAt(v,i), col=ev?stateColor(st):C_SPARK_INK;
+    s+=sDot(X(i),Y(v),i===last?6:4,col);
+  });
   /* Наведение: под курсором подсвечивается ИМЕННО тот месяц, о котором говорит
-     тултип. Без этого по спарклайну было непонятно, какую точку он описывает.
-     Всё на CSS (.spg:hover), никаких обработчиков. */
+     тултип. Всё на CSS (.spg:hover), никаких обработчиков. */
   if(key)series.forEach((v,i)=>{
     if(v==null)return;
-    const gapw=w/n, cx=X(i), cy=Y(v);
+    const gapw=w/n, cx=X(i), cy=Y(v), col=ev?stateColor(stAt(v,i)):C_SPARK_INK;
     const t={title:mLabel(i),
       rows:[{label:(CD.METRIC_BY_KEY[key]||{}).name||'',value:CD.fmtVal(key,v),color:col}]
         .concat(cmpRow(key,i,base,kpi))};
     s+='<g class="spg"'+tip(t)+'>';
     s+='<rect class="hit" x="'+num(i*gapw)+'" y="0" width="'+num(gapw)+'" height="'+num(h)+'"/>';
-    s+='<line class="spgd" x1="'+num(cx)+'" y1="0" x2="'+num(cx)+'" y2="'+num(h)+'" stroke="'+col+'"/>';
-    s+='<circle class="spdot" cx="'+num(cx)+'" cy="'+num(cy)+'" r="2.6" fill="#fff" stroke="'+col+'" stroke-width="1.6"/>';
+    s+='<line class="spgd" x1="'+num(cx)+'" y1="0" x2="'+num(cx)+'" y2="'+num(h)+'" stroke="'+col+'"'+NSS+'/>';
+    s+=sDot(cx,cy,7,col,'spdot');
     s+='</g>';
   });
   return sparkSvg(w,h,s);
@@ -1089,7 +1082,7 @@ function toggleSeries(cid,sid){
 function reset(){_specs=new Map();_sid=0}
 
 window.TPDRAW={chart,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
-  sparkBars,sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,
+  sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GHOST,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
   C_VAC,C_UNDER,C_LOWPERF,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y,C_AI};
