@@ -414,6 +414,24 @@ if(!REAL)BLOCK_DEFS.forEach(b=>{
   NODES.push(bn);
   genChildren(bn,b.seg);
 });
+/* ---------- Руководитель юнита (14.10, заказчик: «у подразделений, кроме
+   фильтра, добавить логин и имя-фамилию руководителя») ----------
+   В hr_structure_overall руководителя нет (разведка 2, 32 колонки) — в макете
+   он сгенерирован детерминированно по пути юнита, в пробнике поле приходит из
+   модели (n.head), а пока источника нет — его просто нет, и строка юнита
+   выглядит как раньше. Логин — по-корпоративному: первая буква имени, точка,
+   фамилия латиницей. */
+const HEAD_FIRST=[['Анна','a','ж'],['Мария','m','ж'],['Елена','e','ж'],['Ольга','o','ж'],['Ирина','i','ж'],['Наталья','n','ж'],
+  ['Алексей','a','м'],['Дмитрий','d','м'],['Сергей','s','м'],['Андрей','a','м'],['Михаил','m','м'],['Павел','p','м'],['Игорь','i','м'],['Роман','r','м']];
+const HEAD_LAST=[['Соколов','sokolov'],['Волков','volkov'],['Лебедев','lebedev'],['Козлов','kozlov'],['Новиков','novikov'],
+  ['Морозов','morozov'],['Павлов','pavlov'],['Семёнов','semenov'],['Голубев','golubev'],['Виноградов','vinogradov'],
+  ['Богданов','bogdanov'],['Воробьёв','vorobev'],['Фёдоров','fedorov'],['Михайлов','mikhailov'],['Беляев','belyaev'],['Тарасов','tarasov']];
+function headFor(path){
+  const r=rng('head'+path), f=HEAD_FIRST[Math.floor(r()*HEAD_FIRST.length)], l=HEAD_LAST[Math.floor(r()*HEAD_LAST.length)];
+  const fem=f[2]==='ж';
+  return {name:f[0]+' '+l[0]+(fem?'а':''),login:f[1]+'.'+l[1]+(fem?'a':'')};
+}
+if(!REAL)NODES.forEach(n=>{if(n.level>=2&&!n.direct)n.head=headFor(n.path)});
 const NODE_BY_PATH=Object.fromEntries(NODES.map(n=>[n.path,n]));
 /* Сколько у строки подразделений: в пробнике у юнита третьего уровня вниз дети
    в ответ не едут — их число приходит из датасета (below), «ниже ещё N». */
@@ -871,8 +889,13 @@ const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.pai
    на какой вкладке стоишь, видно по цвету полос, не читая заголовок. В своём
    срезе полоса красится по группе выбранного разреза, поэтому цвет остаётся
    признаком семьи атрибута и там. */
-const MIX_GROUP_COLOR={qual:'#5f86c2',people:'#8b8fc0',contract:'#cdbf97',geo:'#bf9373',stream:'#5f9d8a'};
+/* 14.10, заказчик: «в структуре численности все бары одного цвета, как
+   квалификация, сейчас радуга». Своим цветом у каждой группы разрезов вкладки
+   отличались только оттенком полос — величину и так несёт длина, а смена тона
+   от вкладки к вкладке читалась как смена смысла. Теперь все группы — тоном
+   квалификации; карта осталась, чтобы цвет группы можно было вернуть точечно. */
 const MIX_COLOR_DEF='#5f86c2';
+const MIX_GROUP_COLOR={qual:MIX_COLOR_DEF,people:MIX_COLOR_DEF,contract:MIX_COLOR_DEF,geo:MIX_COLOR_DEF,stream:MIX_COLOR_DEF};
 function dimColor(dimKey){
   const d=MIX_BY_KEY[dimKey];
   return (d&&MIX_GROUP_COLOR[d.group])||MIX_COLOR_DEF;

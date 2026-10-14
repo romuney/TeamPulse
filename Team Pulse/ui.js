@@ -238,6 +238,20 @@ function infoDot(key){
 
 const NOCMP_HINT='Абсолютная величина зависит от размера подразделения: сравнение с базой здесь ничего не значит.';
 function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Сравнение отключено',text:NOCMP_HINT})+'>не сравнивается</span>'}
+/* Руководитель юнита под именем строки (14.10): «Имя Фамилия · логин».
+   Нет данных (пробник без источника, строка «Напрямую в «X»») — ничего. */
+function unitHead(n){
+  const h=n&&n.head;
+  if(!h||!(h.name||h.login))return '';
+  return '<span class="unit-head"'+tipAttr({title:'Руководитель',text:(h.name||'')+(h.login?' · '+h.login:'')})+'>'+
+    esc(h.name||'')+(h.login?' <span class="login">'+esc(h.login)+'</span>':'')+'</span>';
+}
+/* Строка сравнения в KPI-карточке «по компании X» (14.10: вместо «база X»;
+   осталась только у «Проникновения AI»). Что именно за база — в подсказке. */
+function byCompany(key,bv,S){
+  return '<span class="k-sub"'+tipAttr({title:'По компании',text:'То же значение по всей компании под теми же фильтрами: «'+
+    D.benchmarkLabel(S)+'».'})+'>по компании '+D.fmtVal(key,bv)+'</span>';
+}
 
 /* ---------- Ячейка «сравнение с базой» / «против KPI» ----------
    Порядок проверок не косметика: **есть утверждённый KPI — сравниваем с ним,
@@ -861,7 +875,7 @@ function planTable(rows){
       (r.now==='демо'?demoTag():esc(r.now))+'</td></tr>').join('')+'</tbody></table>';
 }
 
-window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

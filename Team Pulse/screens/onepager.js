@@ -51,8 +51,12 @@ function heroContext(k,s,rl){
   }
   if(D.METRIC_BY_KEY[k].fmt==='int')
     return '<span class="k-sub">за год <b>'+D.fmtVal(k,SC.sumS(s))+'</b> чел</span>';
-  return U.noCmpMark();
+  return '';
 }
+/* Сравнение с базой в KPI-карточке — только у «Проникновения AI» (14.10,
+   заказчик): у остальных карточек оно дублировало колонку «Сравнение» таблицы
+   и перегружало полосу. Подпись — «по компании», а не «база». */
+const cardBase=(k,kpi)=>!kpi&&k==='ai_penetration'&&D.comparable(k);
 /* Метрика без оценки: нет цели KPI, и она либо несравнима, либо «больше не
    значит лучше» — у её спарклайна нет цветных точек и пунктира ориентира. */
 const noEval=(m,kpi)=>!kpi&&(!D.comparable(m.key)||m.better==='flat');
@@ -60,26 +64,36 @@ const noEval=(m,kpi)=>!kpi&&(!D.comparable(m.key)||m.better==='flat');
 /* ---------- «О метрике» в раскрытой строке ----------
    Как в HRBP HUB: что это, как считаем (дробью, словами) и с чем сравниваем.
    Имена слагаемых — по-русски: служебных рядов в METRICS нет. */
-const PART={hc_avg:'среднесписочная численность',pf_plan:'план найма',hire_jun:'принятые джуны',
+const PART={regret_m:'нежелательная текучесть месячная',hc_avg:'среднесписочная численность',pf_plan:'план найма',hire_jun:'принятые джуны',
   rev_eval:'оценённые в цикле ревью',rev_up:'улучшившие оценку',ovis:'посещения офиса',
   wday:'отработанные человеко-дни',plow:'оценка «низкая»',prated:'оценённые',regret_cnt:'нежелательные увольнения'};
 /* строчная — только первая буква: «T-рост», «AI», «WAU» остаются как есть */
 const partName=k=>{const n=PART[k]||(D.METRIC_BY_KEY[k]||{}).name||k;return n.charAt(0).toLowerCase()+n.slice(1)};
-function fracOf(m){
-  const dv=m.derived;
-  if(dv){
-    const den=Array.isArray(dv.den)?dv.den.map(partName).join(' + '):partName(dv.den);
-    return [partName(dv.num),den,[dv.scale===100?'в процентах':'',dv.win==='ytd'?'с начала года':'за месяц'].filter(Boolean).join(', ')];
+/* Формула метрики — MathML (14.10, заказчик: «формулы выделять и использовать
+   MathML»): дробь — <mfrac>, накопление с января — Σ с пределами, × 100 у
+   процентов. Слова формулы — <mtext>, экранированные esc(). Под формулой —
+   окно расчёта словами. Шрифт формулы — Arial, как везде в отчёте (styles.css). */
+const mt=t=>'<mtext>'+esc(t)+'</mtext>';
+function fracML(dv){
+  const den=Array.isArray(dv.den)?'<mrow>'+dv.den.map(k=>mt(partName(k))).join('<mo>+</mo>')+'</mrow>':mt(partName(dv.den));
+  return '<mfrac>'+mt(partName(dv.num))+den+'</mfrac>'+(dv.scale===100?'<mo>×</mo><mn>100</mn>':'');
+}
+function formulaOf(m){
+  if(m.derived)return {ml:fracML(m.derived),
+    note:[m.derived.scale===100?'в процентах':'',m.derived.win==='ytd'?'с начала года':'за месяц'].filter(Boolean).join(', ')};
+  if(m.ytd){
+    /* накопительная: сумма месячных значений с января по текущий месяц */
+    const ch=D.defOf(m.ytd), body=ch.derived?fracML(ch.derived):mt(partName(m.ytd));
+    return {ml:'<munderover><mo class="sum">∑</mo>'+mt('январь')+mt(D.MONTH_NOM[D.CUR_LEN-1])+'</munderover>'+body,
+      note:'по месяцам с января, обнуляется каждый январь'};
   }
-  if(m.ytd)return ['сумма помесячных значений с января','',''];
   return null;
 }
 function about(m,S){
-  const kpi=D.kpiFor(m.key,S), fr=fracOf(m);
+  const kpi=D.kpiFor(m.key,S), fr=formulaOf(m);
   let h='<p class="op-stp">'+esc(m.hint)+'</p>';
-  if(fr&&fr[1])h+='<div class="op-frac"><span>'+esc(fr[0])+'</span><span>'+esc(fr[1])+'</span></div>'+
-    (fr[2]?'<div class="op-frs">'+esc(fr[2][0].toUpperCase()+fr[2].slice(1))+'</div>':'');
-  else if(fr)h+='<div class="op-frs">Считаем: '+esc(fr[0])+'.</div>';
+  if(fr)h+='<div class="op-math" aria-label="Как считаем"><math display="block">'+fr.ml+'</math>'+
+    (fr.note?'<div class="op-frs">'+esc(fr.note[0].toUpperCase()+fr.note.slice(1))+'</div>':'')+'</div>';
   const ref=kpi?'Ориентир: цель KPI '+D.fmtVal(m.key,kpi.green)+', порог '+D.fmtVal(m.key,kpi.red)
     :D.comparable(m.key)?'Ориентир: база «'+D.benchmarkLabel(S)+'» за тот же месяц':
      m.better==='flat'?'Ориентира нет: «больше» здесь не значит «лучше»':'Ориентира нет: абсолютная величина зависит от размера команды';
@@ -130,10 +144,9 @@ function render(S,openRows){
       q:U.infoDot(k),
       value:D.fmtVal(k,v),
       row1:U.momChip(k,dl.mom)+
-        G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:!kpi&&D.comparable(k)?D.aggregate(bl,k):null,
-          ink:noEval(D.METRIC_BY_KEY[k],kpi)}),
+        G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:cardBase(k,kpi)?D.aggregate(bl,k):null,ink:true,dots:false}),
       row2:(kpi?'<span class="k-sub">цель '+D.fmtVal(k,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-             :D.comparable(k)?'<span class="k-sub">база '+D.fmtVal(k,bv)+'</span>':heroContext(k,s,rl)),
+             :cardBase(k,kpi)?U.byCompany(k,bv,S):heroContext(k,s,rl)),
       /* год назад — тем же месяцем: число, которое в таблице стоит пилюлей
          «за год», здесь названо значением, чтобы его было с чем сверить */
       row3:'год назад <b>'+D.fmtVal(k,SC.yearAgo(rl,k))+'</b>'});
@@ -186,7 +199,7 @@ function render(S,openRows){
         /* Короткая динамика — у всех метрик одним видом, спарклайном (13.10:
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
            точек, ориентир — пунктиром; у метрики без оценки точек нет. */
-        '<td class="col-spark">'+G.sparkLine(s,st,180,28,{key:m.key,base:bser,kpi:kpi,ink:noEval(m,kpi)})+'</td>'+
+        '<td class="col-spark">'+G.sparkLine(s,st,180,28,{key:m.key,base:bser,kpi:kpi,ink:noEval(m,kpi),dots:false})+'</td>'+
         '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi)+'</td>'+
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */

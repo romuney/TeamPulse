@@ -37,9 +37,22 @@ SC.blocks.turnover={
          стоит подписью прямо над ней (правило 10f). */
       const rs=D.exitReasons(lp,'ytd');
       const initName=k=>(D.EXIT_INITIATORS.find(x=>x.key===k)||{}).name||'';
+      /* Инициатор раскрывается в топ-3 своих причин (14.10, заказчик): строка
+         инициатора — сумма причин, под ней три самые частые. Состояние — в том
+         же наборе раскрытых строк, что у стримов (ключи «exitinit:…»). */
+      const open=ctx.mixOpen||new Set(), ini=D.exitInitiators(lp,'ytd'), items=[];
+      const topOf=k=>rs.filter(r=>r.init===k&&r.value>0).sort((a,b)=>b.value-a.value).slice(0,3);
+      ini.forEach(x=>{
+        const k='exitinit:'+x.key, top=topOf(x.key), on=top.length>0&&open.has(k);
+        items.push({name:x.name,note:on?'':x.note,value:x.value,color:G.C_OUT,depth:1,exp:top.length?k:null,open:on});
+        if(on)top.forEach(r=>items.push({name:r.name,value:r.value,color:r.regret?G.C_REGRET:G.C_NOREG,
+          mark:r.regret,depth:2}));
+      });
+      const expable=ini.filter(x=>topOf(x.key).length);
       return U.btStack([
-        U.btGroup({cap:'Инициатор увольнения',capSub:ytd,head:'',valueHead:'Человек',metricKey:'attrition',compact:true,
-          items:D.exitInitiators(lp,'ytd').map(x=>({name:x.name,note:x.note,value:x.value,color:G.C_OUT}))}),
+        U.btGroup({cap:'Инициатор увольнения',capSub:ytd+' · раскройте — три главные причины',head:'',valueHead:'Человек',
+          metricKey:'attrition',compact:true,tree:true,items:items,
+          expAll:{key:'exitinit',open:expable.length>0&&expable.every(x=>open.has('exitinit:'+x.key))}}),
         U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Человек',metricKey:'attrition',sort:true,compact:true,
           items:rs.map(r=>({name:r.name,note:initName(r.init).toLowerCase(),value:r.value,
             mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+

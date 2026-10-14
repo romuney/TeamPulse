@@ -158,11 +158,14 @@ function yoyPair(lp,aKey,bKey,opt){
    окрашена сравнением с базой этого месяца или с целью KPI и пунктир
    ориентира; у метрики без оценки — только последняя точка. */
 function cardSpark(key,ser,st,S,bl){
-  const m=D.METRIC_BY_KEY[key], kpi=D.kpiFor(key,S);
-  const noEval=!kpi&&(!D.comparable(key)||m.better==='flat');
-  return G.sparkLine(ser,noEval?'neutral':st,84,24,{key:key,kpi:kpi,ink:noEval,
-    base:!kpi&&D.comparable(key)?D.aggregate(bl,key):null});
+  const kpi=D.kpiFor(key,S);
+  /* 14.10: в KPI-карточках спарклайн без точек, ориентир — только цель KPI
+     и база у «Проникновения AI» (там же подпись «по компании») */
+  return G.sparkLine(ser,st,84,24,{key:key,kpi:kpi,ink:true,dots:false,
+    base:cardBase(key,kpi)?D.aggregate(bl,key):null});
 }
+/* Сравнение с базой в KPI-карточке — только у «Проникновения AI» (14.10). */
+function cardBase(key,kpi){return !kpi&&key==='ai_penetration'&&D.comparable(key)}
 /* Значение того же месяца год назад — прямо из расширенной сетки, а не
    «значение минус изменение»: у доли без знаменателя изменения нет. */
 function yearAgo(lp,key){return D.aggregateExt(lp,key)[D.NEXT-13]}
@@ -295,7 +298,7 @@ function renderBlock(S,expanded,mixOpen,view){
       value:D.fmtVal(m.key,v),
       row1:U.momChip(m.key,mom)+cardSpark(m.key,ser,st,S,bl),
       row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-           :D.comparable(m.key)?'<span class="k-sub">база '+D.fmtVal(m.key,bv)+'</span>':U.noCmpMark(),
+           :cardBase(m.key,kpi)?U.byCompany(m.key,bv,S):'',
       /* по срезу состава прошлогоднего значения нет: срез живёт только в окне */
       row3:sliced?'':'год назад <b>'+D.fmtVal(m.key,yearAgo(rl,m.key))+'</b>'});
   });
@@ -372,7 +375,7 @@ function renderBlock(S,expanded,mixOpen,view){
         D.fmtVal('hc_total',val(lp,'hc_total'))+' чел'+
       (below?' · <span class="below"'+U.tipAttr({title:'Ниже ещё '+below+' '+U.plural(below,['подразделение','подразделения','подразделений']),
           text:'Таблица показывает три уровня вниз. Глубже — выберите строку и откройте её юнит иконкой у правого края имени.'})+
-        '>ниже ещё '+below+'</span>':'')+'</span></span>'+
+        '>ниже ещё '+below+'</span>':'')+'</span>'+U.unitHead(r.n)+'</span>'+
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+

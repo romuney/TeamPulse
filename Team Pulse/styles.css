@@ -364,7 +364,7 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .mp-i.lock .box{background:var(--bench);border-color:var(--bench)}
 
 /* ===== Итерация 7: адаптив, доступность, печать ===== */
-:focus-visible{outline:3px solid rgba(36,95,212,.32);outline-offset:2px}
+:focus-visible{outline:1.5px solid rgba(36,95,212,.45);outline-offset:2px}
 button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--act)}
 .skip-link{position:fixed;left:12px;top:-60px;z-index:9999;background:var(--ink);color:#fff;padding:10px 14px;border-radius:var(--r3);font-weight:var(--fw-bold);text-decoration:none;transition:top .15s}
 .skip-link:focus{top:12px}
@@ -372,7 +372,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .nav-scrim{display:none}
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 [aria-current="page"]{font-weight:var(--fw-bold)}
-.mrow:focus,.urow:focus{outline:3px solid rgba(36,95,212,.25);outline-offset:-3px;background:#F5F9FE}
+.mrow:focus,.urow:focus{outline:1px solid rgba(36,95,212,.3);outline-offset:-1px;background:#F5F9FE}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
 @media(max-width:1100px){
@@ -634,7 +634,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    иначе элемент не участвует в hit-тесте. */
 .hit{fill:#245FD4;fill-opacity:0;transition:fill-opacity .12s}
 .barg:hover .hit,.ptg:hover .hit,.sbg:hover .hit{fill-opacity:.05}
-.barg:hover .bar,.sbg:hover .sb{filter:brightness(1.1) saturate(1.3)}
+/* наведение на бар чуть ТЕМНИТ его: осветление мягкого бара на светлом фоне
+   делало его почти невидимым — «при наведении исчезает бар» (14.10) */
+.barg:hover .bar{filter:brightness(.93)}
 .ptg:hover .dot{r:5.2;stroke-width:2.6}
 .ptg:hover .dotb{r:3.4}
 /* Спарклайн: под курсором подсвечивается конкретный месяц — иначе непонятно,
@@ -746,7 +748,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* ---------- Структура: разбивки не должны слипаться ---------- */
 .bt-stack{gap:28px}
-.bt-group+.bt-group{border-top:1px solid var(--line2);padding-top:22px}
+.bt-group+.bt-group{padding-top:22px}
 .bt-cap{margin-bottom:9px}
 .bt-group .ptable th{padding-top:4px;padding-bottom:9px}
 .bt-group .ptable tr.total td{padding-bottom:2px}
@@ -1397,7 +1399,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   padding:0 var(--s5) 0 var(--s4);border:1px solid var(--line);border-radius:var(--r-pill);background:#fff;
   color:var(--ink2);font:inherit;font-size:var(--fs-note);font-weight:var(--fw-body);cursor:pointer;white-space:nowrap}
 .unit-toggle:hover{border-color:var(--act-line);color:var(--ink)}
-.unit-toggle:focus-visible{outline:2px solid var(--act);outline-offset:2px}
+.unit-toggle:focus-visible{outline:1.5px solid var(--act);outline-offset:2px}
 .ut-sw{position:relative;width:26px;height:16px;border-radius:var(--r-pill);background:var(--muted2);transition:background .15s}
 .ut-sw i{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;
   box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
@@ -1499,7 +1501,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   transition:background .15s,color .15s}
 .st-step:hover{background:rgba(255,255,255,.6);color:var(--ink2)}
 .st-step.on{background:#fff;box-shadow:var(--shadow);color:var(--ink)}
-.st-step:focus-visible{outline:2px solid var(--act);outline-offset:1px}
+.st-step:focus-visible{outline:1.5px solid var(--act);outline-offset:1px}
 .st-n{flex:0 0 20px;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
   font-size:var(--fs-cap);font-weight:var(--fw-bold);background:var(--line);color:var(--ink2);margin-top:1px}
 .st-step.on .st-n{background:var(--act);color:#fff}
@@ -1647,9 +1649,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-steps{padding:var(--s3)}
 .st-step{padding:var(--s4) var(--s6) var(--s4) var(--s5)}
 
-/* Воздух под последним графиком или таблицей главы (правки 12.10): содержимое
-   главы упиралось в нижний край панели. */
-.st-main{padding-bottom:var(--s8)}
 
 /* ---------- One-pager: «Что видно» по механике HRBP HUB (13.10) ----------
    Раскрытая строка: слева полотно «год к году» с номерными отметками, справа
@@ -1676,9 +1675,15 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .op-story.lk .op-ins li:not(.lit){opacity:.45}
 .op-sta{margin-top:var(--s7);padding-top:var(--s6);border-top:1px solid var(--line2)}
 .op-stp{margin:0 0 var(--s4);font-size:var(--fs-body);line-height:1.5;color:var(--ink2)}
-.op-frac{display:inline-flex;flex-direction:column;align-items:center;font-size:var(--fs-note);color:var(--ink2);margin:0 0 var(--s2)}
-.op-frac span:first-child{border-bottom:1px solid var(--ink2);padding:0 var(--s3) 2px}
-.op-frac span:last-child{padding:2px var(--s3) 0}
+/* Формула — MathML на выделенной плашке (14.10): дробь читается сразу, а не
+   ищется глазами в абзаце. Шрифт — Arial, как во всём отчёте. */
+.op-math{margin:0 0 var(--s4);padding:var(--s5) var(--s6);border-radius:var(--r3);background:var(--blue-bg);
+  border:1px solid var(--act-line)}
+.op-math math{font-family:Arial,sans-serif;font-size:var(--fs-body);color:var(--ink);margin:0;text-align:left}
+.op-math math[display="block"]{display:block math;text-align:left}
+.op-math .op-frs{margin-top:var(--s3)}
+/* у Arial нет математической таблицы, и ∑ остаётся кеглем текста — поднимаем руками */
+.op-math mo.sum{font-size:1.7em}
 .op-frs{font-size:var(--fs-note);color:var(--muted);line-height:1.45;margin-top:var(--s2)}
 .svgchart .mkb{opacity:0;transition:opacity .15s}
 .svgchart .mkb.lit{opacity:1}
@@ -1732,15 +1737,25 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    свой отступ снизу. */
 .st-main{flex:0 0 auto;min-height:100%}
 .st-main>.svgchart.fill{flex:1 1 0px}
-.st-rail{padding-bottom:var(--s9)}
+/* 14.10, правки: «во вкладках снизу не хватает пустого места, контент
+   прилипает к нижней части» — воздух под последним блоком 32px: больше полей
+   панели (20px), иначе конец прокрутки читается как обрез */
+.st-main{padding-bottom:32px}
+.st-rail{padding-bottom:32px}
 @container stp (min-width:980px){
   /* в сетке «графики | колонка» элемент по умолчанию растягивается ровно на
      строку и не растёт по содержимому — прижимаем к верху, высота — от
      содержимого, но не меньше строки */
   .st-grid.has-rail>.st-main{height:auto;min-height:100%;align-self:start}
-  .st-rail{padding-bottom:var(--s9)}
+  .st-rail{padding-bottom:32px}
 }
 @media(max-width:1120px){
   .st-main{min-height:0}
   .st-rail{padding-bottom:0}
 }
+
+/* Руководитель юнита под именем строки таблицы подразделений (14.10):
+   третья строка подписи — тише имени, логин ещё тише */
+.unit-head{display:block;margin-top:1px;font-size:var(--fs-cap);color:var(--ink2);line-height:1.35;white-space:normal}
+/* логин переносится целиком: в узкой колонке он уходит на свою строку, а не режется */
+.unit-head .login{display:inline-block;color:var(--muted)}

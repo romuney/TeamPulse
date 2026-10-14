@@ -552,7 +552,7 @@ function yoyPlot(p,ar){
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }
     /* две отметки в одном месяце на близких значениях (этот год и прошлый
-       почти равны) разводятся в стороны, а подпись остаётся одна */
+       почти равны): подпись остаётся одна */
     const twin=!!(mkAt(i,'main')&&mkAt(i,'prev')&&c!=null&&pv!=null&&Math.abs(Y(c)-Y(pv))<17);
     /* прошлогодняя точка с акцентом или отметкой — подписана: о ней говорит текст */
     if(showPrev&&pv!=null&&!twin&&!(i===nowI&&showMain&&c!=null)&&(big(i,'prev')||noteAt(i,'prev')||mkAt(i,'prev')))
@@ -562,9 +562,13 @@ function yoyPlot(p,ar){
       const v=nt.s==='prev'?pv:c;
       if(v!=null)lbl+=annText({notes:[{i:i,t:nt.t}]},i,cx,Y(v),x0,plotW);
     }
+    /* отметка стоит ровно на своей точке; две в одном месте (точки двух лет
+       совпали) — рисуется одна, этого года: разводить их в стороны нельзя,
+       тогда обе «не совпадают с точками» (14.10) */
     ['main','prev'].forEach(sr=>{
       const m=mkAt(i,sr), v=sr==='prev'?pv:c;
-      if(m&&v!=null&&(sr==='prev'?showPrev:showMain))mk+=mkMark(cx+(twin?(sr==='prev'?9:-9):0),Y(v),m,dly);
+      if(sr==='prev'&&twin&&showMain)return;
+      if(m&&v!=null&&(sr==='prev'?showPrev:showMain))mk+=mkMark(cx,Y(v),m,dly);
     });
   }
   return s+lbl+mk;
@@ -842,7 +846,10 @@ function sparkLine(series,state,w,h,o){
   let last=-1;
   series.forEach((v,i)=>{if(v!=null)last=i});
   const stAt=(v,i)=>ev?cmpState(key,v,i,base,kpi,false,state):'neutral';
-  series.forEach((v,i)=>{
+  /* o.dots===false — без точек вовсе (14.10, заказчик: «во всех .col-spark и в
+     KPI убрать точки — они есть в подробном графике при раскрытии»): только
+     линия и пунктир ориентира; месяц под курсором по-прежнему подсвечивается */
+  if(o.dots!==false)series.forEach((v,i)=>{
     if(v==null||(!ev&&i!==last))return;
     const st=stAt(v,i), col=ev?stateColor(st):C_SPARK_INK;
     s+=sDot(X(i),Y(v),i===last?6:4,col);

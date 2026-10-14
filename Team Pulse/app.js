@@ -694,7 +694,10 @@ on(document,'click',e=>{
     e.stopPropagation();
     const [dim,on]=bxa.dataset.btexpall.split('|');
     [...mixOpen].forEach(k=>{if(k.indexOf(dim+':')===0)mixOpen.delete(k)});
-    if(on==='1')(D.MIX_BY_KEY[dim].cats||[]).forEach(c=>mixOpen.add(c.id));
+    /* «exitinit» — инициаторы увольнения (14.10), остальное — разрезы состава */
+    const keys=dim==='exitinit'?D.EXIT_INITIATORS.map(x=>'exitinit:'+x.key)
+      :((D.MIX_BY_KEY[dim]||{}).cats||[]).map(c=>c.id);
+    if(on==='1')keys.forEach(k=>mixOpen.add(k));
     render(true);return;
   }
   /* каретка стрима — раньше среза: она стоит ВНУТРИ строки, у которой есть

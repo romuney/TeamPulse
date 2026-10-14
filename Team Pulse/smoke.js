@@ -633,10 +633,11 @@ checks.push(['марки графиков помечены data-s',
      цветами — кодировать одно и то же дважды. Цвет различает ГРУППЫ разрезов. */
   checks.push(['цвет один на разрез, а не на категорию',
     dims.every(d=>/^#[0-9a-f]{6}$/i.test(d.color)&&d.cats.every(c=>c.color==null))]);
-  checks.push(['у каждой группы разрезов свой цвет, и они разные',
+  /* 14.10: «все бары одного цвета, как квалификация, сейчас радуга» */
+  checks.push(['все группы разрезов одним цветом — тоном квалификации',
     (function(){
       const c=D.MIX_GROUPS.map(g=>D.MIX_GROUP_COLOR[g.key]);
-      return c.every(Boolean)&&new Set(c).size===c.length;
+      return c.every(Boolean)&&new Set(c).size===1&&c[0]===D.MIX_GROUP_COLOR.qual;
     })()]);
   checks.push(['разрезы одной группы красятся одинаково',
     D.MIX_GROUPS.every(g=>new Set(g.dims.map(k=>D.dimColor(k))).size===1)]);
@@ -1305,7 +1306,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['раскрытая строка: график «год к году» + «Что видно» + «О метрике», номера пунктов = отметки',
     (opened.match(/<div class="op-story" data-oplink="1">/g)||[]).length===keys.length&&
     /<div class="op-sth">Что видно<\/div>/.test(opened)&&/<div class="op-sth">О метрике<\/div>/.test(opened)&&
-    lis>=keys.length*2&&lis===mks&&!/12 мес и (база|цель)/.test(opened)]);
+    lis>=keys.length+2&&lis===mks&&!/12 мес и (база|цель)/.test(opened)]);
   /* каждый пункт подсвечивает свои месяцы: полосы связки есть на 0–11 */
   checks.push(['связка пункт ↔ график: у полотна полосы месяцев, у пунктов — их месяцы',
     (opened.match(/class="mkb" data-mi="/g)||[]).length===12*keys.length&&
@@ -1317,9 +1318,16 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* короткая динамика One-pager — одним видом: спарклайн у каждой метрики,
      баров-спарклайнов нет; у метрик с оценкой точки месяцев цветом светофора */
   const cells=[...op.matchAll(/<td class="col-spark">([\s\S]*?)<\/td>/g)].map(m=>m[1]);
-  checks.push(['короткая динамика One-pager — только спарклайны, оценка месяцев — цветом точек',
-    !G.sparkBars&&cells.length>20&&cells.every(c=>/<svg[^>]*class="spark"/.test(c)&&!/class="sb"/.test(c))&&
-    cells.some(c=>/stroke="#(80cf9a|ef8c8c)" stroke-width="4"/.test(c))&&/vector-effect="non-scaling-stroke"/.test(cells[0])]);
+  /* 14.10: точек нет ни в колонке, ни в KPI-карточках — они есть в раскрытом графике */
+  const dotRe=/<path d="M[\d. ]+h0" stroke="[^"]+" stroke-width="(4|6)"/;
+  const cardsH=(op.match(/<div class="kpis[\s\S]*?<div class="legend/)||[''])[0];
+  checks.push(['короткая динамика One-pager — только линии-спарклайны, без точек (и в KPI-карточках)',
+    !G.sparkBars&&cells.length>20&&cells.every(c=>/<svg[^>]*class="spark"/.test(c)&&!/class="sb"/.test(c)&&!dotRe.test(c))&&
+    /vector-effect="non-scaling-stroke"/.test(cells[0])&&cardsH.length>0&&!dotRe.test(cardsH)]);
+  /* сравнение с базой в KPI-карточках — только у «Проникновения AI», подпись «по компании» */
+  checks.push(['KPI-карточки: «по компании» только у «Проникновения AI», «база» нигде',
+    (cardsH.match(/по компании /g)||[]).length===(D.metricVisible('ai_penetration',S0)?1:0)&&!/>база /.test(cardsH)&&
+    !/>база /.test((A.go('ai','adoption').match(/<div class="kpis[\s\S]*?<\/div><\/div><\/div>/)||[''])[0])]);
   A.op([]);
 })();
 
