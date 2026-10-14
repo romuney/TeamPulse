@@ -142,16 +142,16 @@ checks.push(['разбивки по атрибутам — таблица',/<tab
 const rsn=SC.blocks.turnover.view({S:D.DEFAULT_STATE,sub:'reasons',lp:rl,bl:rl});
 checks.push(['причины увольнений — таблица',/<table/.test(rsn)&&!/<svg/.test(rsn)]);
 
-/* 6. дивергентный чарт: один бар, разрезанный осью, а не два рядом.
-   Ряды синтетические и без нулей: бар нулевой высоты не рисуется, и пары бы
-   разъехались. Тень прошлого года (data-s="prev") — тоже по одной вертикали. */
+/* 6. пара потоков (найм / отток) — год к году линиями (13.10, второй заход):
+   две яркие линии этого года, бледные — прошлого; баров и серой «тени» нет.
+   Ряды синтетические: у каждой линии точка на каждый закрытый месяц. */
 const yr=(a,b)=>({cur:D.MONTH_ABBR.map((_,i)=>i<D.CUR_LEN?a+i%3:null),prev:D.MONTH_ABBR.map((_,i)=>b+i%4)});
-const dv=G.chart('diverge',{yoy:true,up:yr(4,5),down:yr(2,3),upKey:'hire',downKey:'attrition'},{h:300});
-const xOf=(sid,cls)=>[...dv.matchAll(new RegExp('<path d="M([\\d.]+) [^>]*class="bar '+cls+'" data-s="'+sid+'"','g'))].map(m=>+m[1]);
-const xUp=xOf('up','up'), xDn=xOf('dn','dn'), gUp=xOf('prev','up'), gDn=xOf('prev','dn');
-checks.push(['дивергент: приход и уход на ОДНОЙ вертикали, тень прошлого года — тоже',
-  xUp.length===D.CUR_LEN&&xDn.length===D.CUR_LEN&&xUp.every((x,i)=>Math.abs(x-xDn[i])<0.01)&&
-  gUp.length===12&&gDn.length===12&&gUp.every((x,i)=>Math.abs(x-gDn[i])<0.01)]);
+const dv=G.chart('pair',{a:Object.assign({key:'hire'},yr(4,5)),b:Object.assign({key:'attrition'},yr(2,3))},
+  {h:300,legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2025',color:G.C_PREV}]});
+const dotsOf=sid=>(dv.match(new RegExp('<circle class="dot" data-s="'+sid+'"','g'))||[]).length;
+checks.push(['пара потоков: две линии этого года и бледные прошлого, без баров',
+  dotsOf('a')===D.CUR_LEN&&dotsOf('b')===D.CUR_LEN&&(dv.match(/<path class="lnb" data-s="prev"/g)||[]).length===2&&
+  !/class="bar /.test(dv)&&/data-sid="a"/.test(dv)&&/data-sid="prev"/.test(dv)]);
 
 /* 7. цифры на графиках чёрные: за смысл отвечает цвет бара, а не подписи */
 const LOUD=/fill="#(f51f1f|12b048|d11414|0a8f3c)"/;
@@ -469,9 +469,9 @@ checks.push(['подписи значений на графиках имеют h
   const lt=tipsOf(line)[0]||'';
   checks.push(['база в подсказке помечена как bench и красится серым',
     (lt.match(/t-r bench/g)||[]).length===1&&/\.tip\.t-r\.bench\.t-v\{color:var\(--muted\)/.test(css)]);
-  /* дивергент — две равнозначные метрики одного потока: ни одна не выделена */
-  const dv=G.chart('diverge',{yoy:true,up:D.yoySeries(lp,'hire'),down:D.yoySeries(lp,'attrition'),
-    upKey:'hire',downKey:'attrition'},{});
+  /* пара потоков — две равнозначные метрики одного потока: ни одна не выделена */
+  const dv=G.chart('pair',{a:Object.assign({key:'hire'},D.yoySeries(lp,'hire')),
+    b:Object.assign({key:'attrition'},D.yoySeries(lp,'attrition'))},{});
   const dt=tipsOf(dv)[0]||'';
   /* январь: оба плеча за оба года — четыре равноправные строки */
   checks.push(['равнозначные метрики в подсказке не выделяются друг перед другом',
@@ -494,23 +494,32 @@ checks.push(['легенда рисуется группами .lg с data-sid',
 checks.push(['марки графиков помечены data-s',
   (allHtml.match(/data-s="/g)||[]).length>200]);
 
-/* дивергент на одном плече: шкала перестраивается, последнюю серию не выключить */
+/* легенда кликается: серия пропадает из графика и из шкалы, пункт помечен,
+   последнюю серию выключить нельзя; у панелей — тоже (13.10: «легенды не
+   интерактивные» — у панелей кнопок не было вовсе) */
 (function(){
-  const legend=[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT}];
+  const legend=[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2025',color:G.C_PREV}];
   const yr=(a,k)=>({cur:D.MONTH_ABBR.map((_,i)=>i<D.CUR_LEN?a+i%k:null),prev:D.MONTH_ABBR.map((_,i)=>a+1+i%k)});
-  const html=G.chart('diverge',{yoy:true,up:yr(10,5),down:yr(4,3),upKey:'hired',downKey:'left'},
-    {title:'Проверка дивергента',legend,h:320});
+  const html=G.chart('pair',{a:Object.assign({key:'hire'},yr(10,5)),b:Object.assign({key:'attrition'},yr(4,3))},
+    {title:'Проверка пары',legend,h:320});
   const cid=(html.match(/data-cid="(\w+)"/)||[])[1];
   const el=pick('.svgchart[data-cid="'+cid+'"]'); el.clientWidth=900;
-  const zeroOf=s=>+((s.match(/<line x1="6" y1="([\d.]+)"[^>]*stroke="#c9cdd6"/)||[])[1]);
-  const z0=zeroOf(html);
-  G.toggleSeries(cid,'dn');
+  G.toggleSeries(cid,'b');G.toggleSeries(cid,'prev');
   const h1=el.innerHTML;
-  checks.push(['выключенное плечо дивергента исчезает, а шкала перестраивается',
-    !/class="bar dn"/.test(h1)&&/class="bar up"/.test(h1)&&zeroOf(h1)>z0]);
+  checks.push(['выключенная линия пары исчезает вместе с её прошлым годом',
+    !/data-s="b"/.test(h1)&&/data-s="a"/.test(h1)&&!/<path class="lnb" data-s="prev"/.test(h1)]);
   checks.push(['выключенный пункт легенды помечен, последнюю серию выключить нельзя',
-    /class="lg dead" data-sid="dn"/.test(h1)&&G.toggleSeries(cid,'up')===false]);
-  G.toggleSeries(cid,'dn');           /* возвращаем оба плеча */
+    /class="lg dead" data-sid="b"/.test(h1)&&G.toggleSeries(cid,'a')===false]);
+  G.toggleSeries(cid,'b');G.toggleSeries(cid,'prev');
+  /* у пункта легенды подсказка, что он нажимается */
+  checks.push(['у пункта легенды подсказка «клик — скрыть линию»',/data-sid="a"[^>]*data-tip="[^"]*Клик — скрыть линию/.test(el.innerHTML)]);
+  const ph=SC.yoyPanels(D.reportLeaves(D.DEFAULT_STATE),[{key:'turnover_m',name:'Текучесть, %'},{key:'attrition',name:'Отток, чел'}]);
+  const pc=(ph.match(/data-cid="(\w+)"/)||[])[1], pe=pick('.svgchart[data-cid="'+pc+'"]'); pe.clientWidth=900;
+  const okT=G.toggleSeries(pc,'prev'), p1=pe.innerHTML;
+  checks.push(['у панелей легенда «этот год / прошлый» кликается: прошлый год скрыт во всех панелях',
+    okT&&(ph.match(/class="lg" data-sid="prev"/g)||[]).length===2&&(p1.match(/class="lg dead" data-sid="prev"/g)||[]).length===2&&
+    !/data-s="prev"/.test(p1.replace(/<g class="lg[^>]*>/g,''))]);
+  G.toggleSeries(pc,'prev');
 })();
 
 /* календарь: сетка и шкала интенсивности не липнут к левому краю */
@@ -599,10 +608,10 @@ checks.push(['марки графиков помечены data-s',
     !!inJs&&inJs===inCss]);
   checks.push(['панели берут зазор из общей константы, а не из своего числа',
     /const GAP=STACK_GAP/.test(js)]);
-  /* ось X устроена одинаково во всех видах: подпись месяца на bot+15 везде —
-     у полотна года (yoyAxis, им рисуются и панели) и у дивергента */
+  /* ось X устроена одинаково во всех видах: одна функция оси года (yoyAxis) —
+     ею рисуются и одиночный график, и панели, и пара потоков */
   checks.push(['ось X у панелей на том же отступе, что у остальных графиков',
-    (js.match(/txt\(X\(i\),bot\+15,lb,/g)||[]).length===2&&!/bot\+13/.test(js)]);
+    (js.match(/txt\(X\(i\),bot\+15,lb,/g)||[]).length===1&&(js.match(/s\+=yoyAxis\(X,bandW,top,bot,nowI\)/g)||[]).length===2&&!/bot\+13/.test(js)]);
 })();
 
 /* ============================================================================
@@ -1246,16 +1255,26 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const rl=D.reportLeaves(st0), n12=D.aggregate(rl,'attrition').reduce((a,b)=>a+b,0);
   checks.push(['история: число уходов в выводе сходится с суммой баров графика',
     to.indexOf('<b>'+D.fmtInt(n12)+'\u00a0')>=0]);
-  /* акценты на графике: заметка «пик года», остальные бары приглушены */
-  const att=D.aggregate(rl,'attrition');
-  checks.push(['история: пик подписан на графике, прочие месяцы приглушены, текущий — полным тоном',
-    />пик года<\/text>/.test(to)&&/fill-opacity="\.38"/.test(to)]);
+  /* акценты на графике: заметка «пик года» на полосе, остальное НЕ приглушено
+     (13.10: «всё остальное стало нечитабельным») */
+  checks.push(['история: пик подписан на графике полосой, прочие месяцы не приглушены',
+    />пик года<\/text>/.test(to)&&!/fill-opacity="\.38"/.test(allHtml)]);
+  /* динамика — только линии: баров «год к году» нет нигде */
+  checks.push(['динамика год к году — только линиями: баров с «тенью» прошлого года нет',
+    !/class="bar (up|dn)" data-s="(prev|main|up|dn)"/.test(allHtml)&&!G.C_GHOST]);
   /* разрыв с базой залит светофором хотя бы на одной главе */
   checks.push(['история: разрыв линии с базой залит цветом светофора',/class="gapf"/.test(allHtml)]);
   /* палитра A: одиночные метрики — кобальтом, цвет только у потоков */
   checks.push(['палитра «смысловая»: одиночные метрики — кобальтом, потоки — насыщенными тонами',
     G.C_VAC===G.C_LINE&&G.C_UNDER===G.C_LINE&&G.C_LOWPERF===G.C_LINE&&G.C_AI===G.C_LINE&&
     G.C_HIRE==='#14A38B'&&G.C_FIRE==='#8A4FD8']);
+  /* бары и полосы — мягкие ступени (13.10): водопад, воронка, полосы таблиц */
+  const bal=A.go('movement','balance'), fun=A.go('hiring','funnel'), rsn2=A.go('turnover','reasons');
+  checks.push(['бары мягкие: водопад мятный/сиреневый, воронка одним мягким тоном, полосы таблиц мягкие',
+    G.soft(G.C_IN)==='#66C8AE'&&G.soft(G.C_OUT)==='#A88AD9'&&/fill="#66C8AE"[^>]*class="bar up"/.test(bal)&&
+    /fill="#A88AD9"[^>]*class="bar up"/.test(bal)&&!/fill="#14A38B"[^>]*class="bar/.test(bal)&&
+    new Set([...fun.matchAll(/fill="(#[0-9A-Fa-f]{6})"[^>]*class="bar fn"/g)].map(m=>m[1])).size===1&&
+    /background:#A88AD9/.test(rsn2)&&!/background:#8A4FD8/.test(rsn2)&&/--bar-soft:#7FA2E6/.test(css)]);
   /* жирное в тексте истории собирается только через richText — без сырой разметки */
   checks.push(['история: текст экранируется, жирное — только через **…**',
     U.richText('a<b>**x**')==='a&lt;b&gt;<b>x</b>']);

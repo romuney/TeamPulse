@@ -52,7 +52,7 @@ SC.blocks.tgrowth={
         'с решениями за 12 месяцев. «В карьерном росте» и «рост недоступен» в макете сгенерированы.</div>';
     }
     return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
-      SC.yoyDiverge(ctx.lp,'tgrowth_pass','tgrowth_deny',
+      SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
         {h:300,title:'Из чего она считается, чел',
          legend:[{name:'Прошли',color:G.C_IN},{name:'Отказано',color:G.C_OUT}]});
   }

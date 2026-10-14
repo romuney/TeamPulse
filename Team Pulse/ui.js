@@ -437,11 +437,12 @@ function barTable(o){
       '<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+
       (withShare?'<td>'+share.toFixed(share<10?1:0).replace('.',',')+'%</td>':'')+
       '<td class="barcell"'+tipAttr({title:x.name,
-        rows:[{label:o.valueHead||'Значение',value:D.fmtVal(key,x.value),color:x.color||G.C_LINE}]
+        rows:[{label:o.valueHead||'Значение',value:D.fmtVal(key,x.value),color:G.soft(x.color||G.C_LINE)}]
           .concat(withShare?[{label:'доля',value:share.toFixed(share<10?1:0).replace('.',',')+'%'}]:[]),
         note:x.tip||null})+
         '><span class="cellbar"><i style="width:'+(x.value/max*100).toFixed(1)+'%'+
-        (x.color?';background:'+x.color:'')+'"></i></span></td></tr>';
+        /* полоса в ячейке — мягкий тон цвета строки: это фон под числом */
+        (x.color?';background:'+G.soft(x.color):'')+'"></i></span></td></tr>';
   });
 
   return h+'</tbody></table>';

@@ -46,20 +46,20 @@ SC.blocks.movement={
   view(ctx){
     if(ctx.sub==='dynamics'){
       return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:240,title:'Общая численность, чел',ann:ctx.ann.hc_total})+
-        SC.yoyDiverge(ctx.lp,'hire','attrition',
+        SC.yoyPair(ctx.lp,'hire','attrition',
         {h:240,title:'Найм и отток, чел',
          legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT}]})+
         /* та же гамма, что у найма и оттока: человек пришёл — C_IN, ушёл — C_OUT.
            Отдельный «приглушённый» цвет для внутренних переводов заводить нельзя,
            иначе водопад рядом красит те же переводы зелёным и красным. */
-        SC.yoyDiverge(ctx.lp,'transfer_in','transfer_out',
+        SC.yoyPair(ctx.lp,'transfer_in','transfer_out',
         {h:240,title:'Переводы внутри компании, чел',
          legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]});
     }
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
     return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
         title:'Из чего сложилось изменение за год, чел',
-        legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Приход',color:G.C_IN},{name:'Уход',color:G.C_OUT}]})+
+        legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Приход',color:G.soft(G.C_IN)},{name:'Уход',color:G.soft(G.C_OUT)}]})+
       U.storyFacts(ctx.story&&ctx.story.insights,'Что нужно знать');
   }
 };

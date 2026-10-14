@@ -108,48 +108,48 @@ function selLabel(S){
    утверждённым KPI — на полотне остаются пороги цели, и вторая пунктирная
    линия рядом с ними спорила бы с ними за роль ориентира.
 
-   Счётные потоки людей и штук — барами (бар этого года перед «тенью»
-   прошлого), темпы и доли — линиями. */
-const YOY_BARS=new Set(['attrition','hire','transfer_in','transfer_out','vac_open','vac_closed',
-  'tgrowth_pass','tgrowth_deny','ai_wau']);
-/* цвет потока — тот же, что на вкладках блока: пришли — C_IN, ушли — C_OUT */
+   Все метрики — линиями (13.10, второй заход: счётные потоки барами с серой
+   «тенью» прошлого года рядом с линиями сбивали с толку). Этот год — яркая
+   линия, прошлый — бледная. */
+/* цвет линии потока — тот же, что на вкладках блока: пришли — C_IN, ушли —
+   C_OUT; одиночные метрики — кобальтом */
 const YOY_COLOR={attrition:G.C_OUT,transfer_out:G.C_OUT,tgrowth_deny:G.C_OUT,
   hire:G.C_IN,transfer_in:G.C_IN,vac_closed:G.C_IN,tgrowth_pass:G.C_IN,vac_open:G.C_VAC,ai_wau:G.C_AI};
 function yoyChart(key,lp,bl,S,opt){
   opt=opt||{};
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
   const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
-  const bar=YOY_BARS.has(key), col=opt.color||YOY_COLOR[key]||G.C_LINE;
+  const col=opt.color||YOY_COLOR[key]||G.C_LINE;
   /* у накопительной метрики с прогнозом (fc) декабрь получает точку run-rate:
      «чем закончится год, если темп сохранится» читается прямо на полотне */
   const fcK=(D.METRIC_BY_KEY[key]||{}).fc;
-  const legend=[{name:String(D.YEAR_CUR),color:col},{name:String(D.YEAR_PREV),color:bar?G.C_GHOST:G.C_PREV}]
+  const legend=[{name:String(D.YEAR_CUR),color:col},{name:String(D.YEAR_PREV),color:G.C_PREV}]
     .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
   /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
      базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
-    Object.assign({legend,benchName:bench,kpi:kpi,fc:fcK?D.lastVal(lp,fcK):null,h:300,fill:true,
-      type:bar?'bar':'line',gap:cmp&&!bar},opt,{color:col}));
+    Object.assign({legend,benchName:bench,kpi:kpi,fc:fcK?D.lastVal(lp,fcK):null,h:300,fill:true,gap:cmp},opt,{color:col}));
 }
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
 function metricLine(key,lp,bl,S,opt){return yoyChart(key,lp,bl,S,opt)}
 /* Несколько метрик одной главы — панели друг под другом, у каждой своя шкала
-   и свой «этот год / прошлый». items: [{key, name, color, ann}] */
+   и своя легенда «этот год / прошлый»; клик по ней скрывает линию во всех
+   панелях графика. items: [{key, name, color, ann}] */
 function yoyPanels(lp,items,opt){
-  return G.chart('panels',{yoy:true,panels:items.map(it=>{
+  return G.chart('panels',{panels:items.map(it=>{
     const y=D.yoySeries(lp,it.key);
-    return {name:it.name,key:it.key,type:YOY_BARS.has(it.key)?'bar':'line',cur:y.cur,prev:y.prev,
-      color:it.color||G.C_LINE,ann:it.ann||null};
-  })},Object.assign({h:520,fill:true},opt||{}));
+    return {name:it.name,key:it.key,cur:y.cur,prev:y.prev,color:it.color||YOY_COLOR[it.key]||G.C_LINE,ann:it.ann||null};
+  })},Object.assign({h:520,fill:true,
+    legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]},opt||{}));
 }
-/* Пара встречных потоков (пришли / ушли) на оси года: этот год — цветом,
-   прошлый — тенью за ним. */
-function yoyDiverge(lp,upKey,downKey,opt){
-  const u=D.yoySeries(lp,upKey), d=D.yoySeries(lp,downKey);
-  const lg=(opt&&opt.legend||[]).concat([{name:String(D.YEAR_PREV),color:G.C_GHOST}]);
-  return G.chart('diverge',{yoy:true,up:u,down:d,upKey:upKey,downKey:downKey},
-    Object.assign({h:300,fill:true},opt||{},{legend:lg}));
+/* Пара встречных потоков (пришли / ушли) на оси года — две линии на одной
+   шкале: этот год ярко, прошлый — бледно тех же цветов. opt.legend — имена
+   двух потоков, пункт прошлого года добавляется здесь. */
+function yoyPair(lp,aKey,bKey,opt){
+  const lg=(opt&&opt.legend||[]).concat([{name:String(D.YEAR_PREV)+' — бледные',color:G.C_PREV,thin:true}]);
+  return G.chart('pair',{a:Object.assign({key:aKey},D.yoySeries(lp,aKey)),b:Object.assign({key:bKey},D.yoySeries(lp,bKey))},
+    Object.assign({h:300,fill:true,aName:lg[0]&&lg[0].name,bName:lg[1]&&lg[1].name},opt||{},{legend:lg}));
 }
 
 /* Спарклайн в карточке KPI блока (рекомендация бизнес-анализа: динамика
@@ -421,5 +421,5 @@ function renderBlock(S,expanded,mixOpen,view){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,metricLine,yoyChart,yoyPanels,yoyDiverge,YOY_BARS,selLabel,yearAgo,TREE_DEPTH};
+  expandableRows,metricLine,yoyChart,yoyPanels,yoyPair,selLabel,yearAgo,TREE_DEPTH};
 })();

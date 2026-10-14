@@ -22,7 +22,7 @@
   --blue:var(--act); --blue-bg:#EEF4FF;
   /* полосы в ячейках — светлая ступень того же тона: это фон под числом, а не
      марка, за которой следят; тёмная полоса перетягивала взгляд с цифры */
-  --bar-soft:#82AAF5;
+  --bar-soft:#7FA2E6;   /* = SOFT[C_LINE] в draw.js (13.10: светлее и пыльнее, бары «не режут глаз») */
   /* фиолетовый палитры — только у AI-подсказок: единственное на экране, что
      не является ни активным состоянием, ни величиной */
   --ai:#AA77FF;    --ai-bg:#F1E9FF;   --ai-tx:#6C36C9;
@@ -1550,7 +1550,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-focus td.v{text-align:right;padding-right:var(--s5);font-weight:var(--fw-bold);color:var(--ink);white-space:nowrap}
 .st-focus td.v.bad{color:var(--red-tx)}.st-focus td.v.good{color:var(--green-tx)}
 .st-focus td.bar{width:34%}
-.st-focus td.bar i{display:block;height:6px;border-radius:3px;background:var(--act)}
+.st-focus td.bar i{display:block;height:6px;border-radius:3px;background:var(--bar-soft)}
 .st-act{padding:var(--s7);border-radius:var(--r4);background:var(--blue-bg);border:1px solid var(--act-line)}
 .st-act .st-cap{color:var(--act-ink)}
 .st-act p{margin:0;font-size:var(--fs-body);line-height:1.45;color:var(--ink)}
@@ -1718,4 +1718,29 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
      график и «Что видно» — стоит на месте в видимой части, а не уезжает
      вместе с колонками */
   .detail-row .detail-chart{position:sticky;left:0;width:var(--op-vis,calc(100vw - 68px))}
+}
+
+/* ---------- Воздух под последним блоком главы (13.10, третий заход) ----------
+   «Когда прокручиваю до конца, снизу нет паддинга — "Что сделать" прижато к
+   краю». Причина была в раскладке, а не в отступе: колонка главы стояла
+   фиксированной высотой экрана, а «Что сделать» под графиками и графики с
+   минимальной высотой вылезали за неё. Отступ панели снизу считается от
+   её прямых детей, вылезшее за них его не получает — и упиралось в край.
+   Теперь колонка главы не меньше экрана, но растёт по содержимому (её нижний
+   отступ едет вместе с ней), полотна делят свободное место от нуля (flex-basis
+   0px — иначе на ресайзе они помнили бы старую высоту), а у «Что сделать»
+   свой отступ снизу. */
+.st-main{flex:0 0 auto;min-height:100%}
+.st-main>.svgchart.fill{flex:1 1 0px}
+.st-rail{padding-bottom:var(--s9)}
+@container stp (min-width:980px){
+  /* в сетке «графики | колонка» элемент по умолчанию растягивается ровно на
+     строку и не растёт по содержимому — прижимаем к верху, высота — от
+     содержимого, но не меньше строки */
+  .st-grid.has-rail>.st-main{height:auto;min-height:100%;align-self:start}
+  .st-rail{padding-bottom:var(--s9)}
+}
+@media(max-width:1120px){
+  .st-main{min-height:0}
+  .st-rail{padding-bottom:0}
 }
