@@ -1343,17 +1343,24 @@ checks.push(['третьей палитры нет: в экранах ни од�
 (function(){
   A.mix([]);
   const pt=A.go('structure','portrait');
-  checks.push(['портрет: карта стримов, профиль против базы, пирамида; у кусков — срез',
-    /class="tm-g" data-mix="stream:dev"/.test(pt)&&/class="tm-g" data-mix="spec:be"/.test(pt)&&
-    (pt.match(/class="pf-seg" data-mix="seniority:/g)||[]).length===4&&/data-mix="age:a25,gender:f"/.test(pt)&&
-    /Типичный человек в команде — /.test(pt)&&/class="st-ins"/.test(pt)&&(pt.match(/class="pt-h"/g)||[]).length===3]);
+  /* вариант 2 (14.10): у каждого вопроса своя форма под тип данных */
+  checks.push(['портрет: шесть вопросов, у каждого свой вид графика и вывод; у кусков — срез',
+    (pt.match(/<section class="pt-s/g)||[]).length===6&&(pt.match(/<h4>/g)||[]).length===6&&
+    /class="pt-row hi" data-mix="stream:dev"/.test(pt)&&
+    (pt.match(/<span class="s\d[^"]*" data-mix="seniority:/g)||[]).length===4&&
+    (pt.match(/class="pt-man t\d"/g)||[]).length===10&&
+    (pt.match(/class="c[^"]*" data-mix="age:/g)||[]).length===4&&
+    /class="a" data-mix="gender:f"/.test(pt)&&/class="b" data-mix="gender:m"/.test(pt)&&
+    (pt.match(/<div class="[^"]*" data-mix="worksite:/g)||[]).length===3&&/class="pt-bul" data-mix="employment:tk"/.test(pt)&&
+    /Типичный человек в команде — /.test(pt)&&!/svgchart/.test(pt.split('pt-wrap')[1]||'')]);
   A.mix(['seniority:s']);
   const ps=A.go('structure','portrait');
   const n=(ps.match(/(\d+)\s+человека?<\/b>\s+в срезе/)||[])[1];
   const S0=A.st(), rl=D.reportLeaves(S0);
   const want=D.mixParts(rl,'gender',['seniority:s']).reduce((a,b)=>a+b,0);
-  checks.push(['портрет под срезом: «В срезе «Senior»», численность среза, пол в пирамиде = разбивке',
-    /В срезе «Senior» типичный человек — Senior-/.test(ps)&&+n===want&&
+  checks.push(['портрет под срезом: «В срезе «Senior»», численность среза, выбранное выделено, матрица = разбивке',
+    /В срезе «Senior» типичный человек — Senior-/.test(ps)&&+n===want&&/Выбран «Senior»/.test(ps)&&
+    /class="s2 on" data-mix="seniority:s"/.test(ps)&&!/class="s\d on"/.test(pt)&&
     (()=>{const m=D.mixMatrix(rl,'age','gender',['seniority:s']), g=D.mixParts(rl,'gender',['seniority:s']);
       return m.reduce((a,r)=>a+r[0],0)===g[0]&&m.reduce((a,r)=>a+r[1],0)===g[1]})()]);
   A.mix([]);

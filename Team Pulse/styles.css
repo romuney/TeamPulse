@@ -9,6 +9,12 @@
      Свой тон — жёлтая «строительная» лента, не светофор: это не оценка
      метрики, а статус подключения. Полосы отличают её от --warn. */
   --dev-ink:#6b4a00; --dev-bg:#fff7d9; --dev-bg2:#ffe89a; --dev-line:#f2c94c; --dev-strong:#f5b700; --dev-dark:#3b3428;
+  /* «Портрет команды» (14.10): выделенное — мягкий кобальт, остальное — серое;
+     ступени сеньорности — от светлой к густой; пол — розовый и синий (просьба
+     заказчика: две категории читаются цветом сразу); стаж — три ступени */
+  --pt-hi:#5f86c2; --pt-dim:#d3d8e0; --pt-track:#f1f3f6;
+  --pt-s0:#DCE6F8; --pt-s1:#AFC4EF; --pt-s2:#7299E3; --pt-s3:#3F6FCF;
+  --pt-f:#EE9DBA; --pt-m:#7FA2E6; --pt-t1:#b7c7e6; --pt-t2:#dfe5ef;
   /* ---------- Акцент: кобальт ----------
      Один активный тон на всё: кнопки, выбранная строка, фокус, линия
      подразделения на графиках. «Активное в интерфейсе» и «активное в данных» —
@@ -1824,20 +1830,91 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   font-weight:var(--fw-body);color:var(--muted)}
 .btable.lite td.txt .row-label{align-items:center}
 
-/* ===== 14.10: «Портрет команды» — первая глава структуры ====================
-   Вывод одной фразой над каждым графиком (обычный текст, жирное — цифры),
-   ссылки «подробно →» в главы-таблицы под ним. Куски графиков кликабельны:
-   берут срез, как строки таблиц. */
-.pt-wrap{display:flex;flex-direction:column;gap:var(--s4)}
-.pt-say{margin:var(--s6) 0 0;font-size:var(--fs-body);line-height:1.45;color:var(--ink2)}
-.pt-say:first-child{margin-top:0}
-.pt-say b{color:var(--ink);font-weight:var(--fw-bold)}
-.pt-more{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s6);margin-bottom:var(--s4)}
+/* ===== 14.10: «Портрет команды» — первая глава структуры (вариант 2) ========
+   Вопрос мелким капсом, вывод — заголовком, под ним простой график своего
+   типа. Скругления малые (6px у пилюль, 3px у полос): «пилюли слишком
+   закруглённые». Всё, что несёт data-mix, кликается и берёт срез. */
+.pt-wrap{display:flex;flex-direction:column}
+.pt-lg{display:flex;gap:16px;justify-content:flex-end;font-size:var(--fs-note);color:var(--muted)}
+.pt-lg span{display:inline-flex;align-items:center;gap:6px}
+.pt-lg i{width:16px;height:10px;border-radius:2px;background:var(--pt-hi)}
+.pt-lg s{width:2px;height:14px;background:var(--ink)}
+.pt-s{padding:14px 0 12px;min-width:0}
+.pt-q{font-size:11px;font-weight:var(--fw-bold);letter-spacing:.3px;text-transform:uppercase;color:var(--muted)}
+.pt-q.solo{margin-bottom:10px}
+.pt-s h4{margin:4px 0 12px;font-size:16px;font-weight:var(--fw-body);color:var(--ink2);line-height:1.3}
+.pt-s h4 b{color:var(--ink);font-weight:var(--fw-bold)}
+.pt-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));column-gap:36px;border-top:1px solid var(--line2)}
+.pt-2.in{border-top:0;align-items:start}
+.pt-s+.pt-s,.pt-2+.pt-s,.pt-s+.pt-2{border-top:1px solid var(--line2)}
+.pt-2 .pt-s+.pt-s{border-top:0}
+.pt-note{margin-top:8px;font-size:12px;color:var(--muted)}
+.pt-note b{color:var(--ink)}
+.pt-wrap [data-mix]{cursor:pointer}
+/* полосы */
+.pt-hb{display:grid;grid-template-columns:minmax(110px,max-content) 1fr 76px;gap:9px 12px;align-items:center;font-size:13px;color:var(--ink2)}
+.pt-row{display:contents}
+.pt-row .b{position:relative;height:14px;border-radius:3px;background:var(--pt-track)}
+.pt-row .b i{display:block;height:100%;border-radius:3px;background:var(--pt-dim)}
+.pt-row.hi .b i{background:var(--pt-hi)}
+.pt-row .b s{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--ink);border-radius:1px;text-decoration:none}
+.pt-row .v{text-align:right;font-variant-numeric:tabular-nums}
+.pt-row .v em{margin-left:6px;font-style:normal;color:var(--muted);font-size:11.5px}
+.pt-row.hi .l,.pt-row.hi .v{color:var(--ink);font-weight:var(--fw-bold)}
+.pt-row.hi .v em{font-weight:var(--fw-body)}
+.pt-row:hover .b i{filter:brightness(.93)}
+.pt-more-row{grid-column:1/-1;font-size:12px;color:var(--muted)}
+/* пилюли */
+.pt-pill{position:relative;display:flex;height:40px;border-radius:6px;font-size:12.5px}
+.pt-pill span{display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;min-width:0;padding:0 6px}
+.pt-pill span:first-child{border-radius:6px 0 0 6px}.pt-pill span:last-child{border-radius:0 6px 6px 0}
+.pt-pill span+span{border-left:2px solid var(--card)}
+.pt-pill span:hover{filter:brightness(.93)}
+.pt-pill.seg .s0{background:var(--pt-s0);color:var(--ink)}.pt-pill.seg .s1{background:var(--pt-s1);color:var(--ink)}
+.pt-pill.seg .s2{background:var(--pt-s2);color:#fff}.pt-pill.seg .s3{background:var(--pt-s3);color:#fff}
+.pt-pill.seg span b{margin-right:4px;font-weight:var(--fw-bold)}
+/* выбранная в срезе ступень — чертой снизу (цвет ступени занят порядком) */
+.pt-pill.seg span.on{box-shadow:inset 0 -3px 0 var(--ink)}
+.pt-pill.two{margin-bottom:28px}
+.pt-pill.two .a{background:var(--pt-f)}.pt-pill.two .b{background:var(--pt-m)}
+.pt-pill.two s{position:absolute;top:-8px;bottom:-8px;width:2px;margin-left:-1px;background:var(--ink);text-decoration:none}
+.pt-pill.two s em{position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);white-space:nowrap;font-style:normal;font-size:11.5px;color:var(--muted)}
+.pt-two{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;font-size:14px}
+.pt-two b{font-size:22px;letter-spacing:-.3px}
+.pt-two .a{color:var(--pt-f)}.pt-two .b{color:var(--pt-m)}
+/* люди */
+.pt-ppl{display:flex;gap:4px;flex-wrap:wrap}
+.pt-man{display:inline-flex;line-height:0}
+.pt-man.t0{color:var(--pt-hi)}.pt-man.t1{color:var(--pt-t1)}.pt-man.t2{color:var(--pt-t2)}
+.pt-man:hover{filter:brightness(.9)}
+.pt-key{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:12px;color:var(--ink2)}
+.pt-key span{display:inline-flex;align-items:center;gap:6px}
+.pt-key i{width:10px;height:10px;border-radius:2px}
+.pt-key i.t0{background:var(--pt-hi)}.pt-key i.t1{background:var(--pt-t1)}.pt-key i.t2{background:var(--pt-t2)}
+/* столбики */
+.pt-col{display:flex;gap:14px;align-items:stretch;height:160px}
+.pt-col .c{flex:1;display:flex;flex-direction:column;min-width:0}
+.pt-col .bar{position:relative;flex:1}
+.pt-col .bar i{position:absolute;left:0;right:0;bottom:0;border-radius:3px 3px 0 0;background:var(--pt-dim)}
+.pt-col .c.hi .bar i{background:var(--pt-hi)}
+.pt-col .c:hover .bar i{filter:brightness(.93)}
+.pt-col .bar s{position:absolute;left:-4px;right:-4px;height:2px;margin-bottom:-1px;background:var(--ink);border-radius:1px;text-decoration:none}
+.pt-col .v{position:absolute;left:0;right:0;text-align:center;font-size:13px;color:var(--ink2)}
+.pt-col .n{margin-top:6px;padding-top:6px;border-top:1px solid #c9cdd6;text-align:center;font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt-col .c.hi .v,.pt-col .c.hi .n{color:var(--ink);font-weight:var(--fw-bold)}
+/* три цифры */
+.pt-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pt-trio div{border:1px solid var(--line);border-radius:var(--r3);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pt-trio div:hover{border-color:var(--act-line)}
+.pt-trio b{font-size:24px;letter-spacing:-.4px;color:#9aa3b2}.pt-trio .hi b{color:var(--pt-s3)}
+.pt-trio span{font-size:13px;color:var(--ink2)}.pt-trio .hi span{color:var(--ink);font-weight:var(--fw-bold)}
+.pt-trio em{font-style:normal;font-size:11.5px;color:var(--muted)}
+/* шкала с отметкой */
+.pt-bul .t{position:relative;height:22px;border-radius:6px;background:var(--pt-track);margin-top:22px}
+.pt-bul .t i{display:block;height:100%;border-radius:6px;background:var(--pt-hi)}
+.pt-bul .t s{position:absolute;top:-6px;bottom:-6px;width:2px;margin-left:-1px;background:var(--ink);text-decoration:none}
+.pt-bul .t s em{position:absolute;bottom:calc(100% + 3px);right:-2px;white-space:nowrap;font-style:normal;font-size:11.5px;color:var(--muted)}
+/* ссылки в главы-таблицы */
+.pt-more{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s7);padding-top:var(--s6);border-top:1px solid var(--line2)}
 .pt-go{border:0;background:none;padding:0;font:inherit;font-size:var(--fs-note);color:var(--act-ink);cursor:pointer}
 .pt-go:hover{text-decoration:underline}
-.svgchart .tm-g,.svgchart .pf-seg,.svgchart .pf-go{cursor:pointer}
-.svgchart .tm-g:hover .tm,.svgchart .pf-seg:hover rect{filter:brightness(.93)}
-.svgchart .pf-go:hover text{text-decoration:underline}
-.pt-h{margin-top:var(--s8);font-size:12px;font-weight:var(--fw-bold);color:var(--ink)}
-.pt-wrap>.pt-h:first-child{margin-top:0}
-.pt-h+.pt-say{margin-top:0}

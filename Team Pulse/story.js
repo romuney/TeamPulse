@@ -475,41 +475,39 @@ CH.structure.portrait=function(c){
   const sn=mode('seniority'), ag=mode('age'), tn=mode('tenure');
   const tree=D.mixTree(c.lp,'stream',sel).slice().sort((a,b)=>b.value-a.value);
   const stQ=inSel('stream'), top=stQ&&stQ.dim.key==='stream'?tree.find(n=>n.cat.id===stQ.cat.id)||tree[0]:tree[0];
-  const spec=top.kids.slice().sort((a,b)=>b.value-a.value)[0];
   const ten=P('tenure'), tenB=B('tenure'), n0=pc(ten[0],sum(ten)), b0=pc(tenB[0],sum(tenB));
   const devs=profDevs(c,inSel), big=devs[0]&&Math.abs(devs[0].d)>=5?devs[0]:null;
-  const second=big&&devs.find(x=>x.dim.key!==big.dim.key&&x.dim.key!=='tenure'&&Math.abs(x.d)>=5);
   const g=P('gender'), gB=B('gender'), fw=pc(g[0],sum(g)), fwB=pc(gB[0],sum(gB));
-  const small=tree.filter(n=>n.value>0&&n.value<=2);
   const cmp=x=>'«'+x.cat.name+'» — **'+pp(x.t)+'** против '+pp(x.b)+' в базе';
   const role=stQ&&stQ.dim.key==='spec'?'«'+stQ.cat.name+'»':ROLE[top.cat.key];
   const who=SEN[sn.cat.key]+'-'+role+' '+AGE_OF[ag.cat.key]+', '+TEN_OF[tn.cat.key];
   const lede=[stQ?null:'**'+pc(top.value,tot)+'%** — «'+top.cat.name+'»',
     sn.fixed?null:'**'+sn.share+'%** — '+SEN[sn.cat.key],
     tn.fixed?null:'**'+n0+'%** — меньше года в компании'].filter(Boolean);
-  /* выводы — не колонкой сбоку, а блоком «Что важно» перед графиками (как в обзоре
-     «Движения»): при узкой панели колонка уходила под три графика, а графикам
-     портрета нужна вся ширина */
+  /* Вывод каждого раздела — заголовком над его графиком (вариант 2 портрета):
+     колонки «Что важно» нет, выводы стоят там, где их график. Разрез из среза
+     выводом не описывается — он выбран, и график это показывает. */
+  const ttot=sum(tree.map(n=>n.value)), trB=D.mixTree(c.bl,'stream',sel), tbtot=sum(trB.map(n=>n.value));
+  const sB=trB.find(n=>n.cat.key===top.cat.key), sp=pc(top.value,ttot), sb=pc(sB?sB.value:0,tbtot);
+  const vsB=(t,b)=>t-b>=5?', больше, чем в компании ('+b+'%)':b-t>=5?', меньше, чем в компании ('+b+'%)':'';
+  const senP=P('seniority'), slp=pc(senP[2]+senP[3],sum(senP));
+  const ten10=D.roundParts(D.mixCats('tenure').map((_,i)=>pc(ten[i],sum(ten))/10),10)[0];
+  const fm=mode('worksite'), emp=P('employment'), empB=B('employment'), ep=pc(emp[0],sum(emp)), eb=pc(empB[0],sum(empB));
+  const sel1=q=>'Выбран «'+q.cat.name+'» — выделен на графике';
   return {sum:pl(tot,PPL)+' · '+SEN[sn.cat.key],st:'n',
     head:parts.length?'В срезе «'+D.sliceLabel(sel)+'» типичный человек — '+who:'Типичный человек в команде — '+who,
     lede:'**'+pl(tot,PPL)+'**'+(parts.length?' в срезе':'')+(lede.length?': '+lede.join(', '):'')+'. '+
       (big?'Сильнее всего от базы «'+c.bench+'» отличается '+big.dim.short.toLowerCase()+': '+cmp(big)+'.'
           :'По составу команда похожа на базу «'+c.bench+'»: нигде расхождение не доходит до 5 п.п.'),
-    inFacts:[
-      tn.fixed?null:n0-b0>=5?'**'+n0+'%** команды — меньше года в компании, в базе '+b0+'%: на первом плане адаптация и наставники.'
-        :b0-n0>=5?'Новичков меньше, чем в базе: **'+n0+'%** против '+b0+'% — команда устоявшаяся.'
-        :'**'+n0+'%** команды — меньше года в компании, как в базе ('+b0+'%).',
-      second?second.dim.name+': '+cmp(second)+'.':null,
-      !stQ&&small.length?'В '+(small.length===1?'стриме ':'стримах ')+small.map(n=>'«'+n.cat.name+'»').join(', ')+' — по 1–2 человека: '+
-        'с уходом одного уйдёт и экспертиза.':null],
     says:{
-      tree:stQ?'Выбран «'+stQ.cat.name+'» — карта показывает весь состав, выбранное обведено.'
-        :'**'+pc(top.value,tot)+'%** — «'+top.cat.name+'»'+(spec&&spec.value?', больше всего — «'+spec.cat.name+'» ('+pl(spec.value,PPL)+')':'')+
-        '. Всего '+tree.filter(n=>n.value>0).length+' стримов.',
-      prof:big?'Главное отличие от базы — '+big.dim.short.toLowerCase()+': '+cmp(big)+'.'
-        :'Доли везде в пределах 5 п.п. от базы «'+c.bench+'».',
-      pyr:[ag.fixed?null:'Ядро — «'+ag.cat.name+'»: **'+ag.share+'%** команды.',
-        inSel('gender')?null:'Женщин — **'+fw+'%**'+(Math.abs(fw-fwB)>=5?', в базе '+fwB+'%':'')+'.'].filter(Boolean).join(' ')}};
+      stream:stQ?sel1(stQ):'**'+sp+'%** команды — '+top.cat.name.toLowerCase()+vsB(sp,sb),
+      sen:sn.fixed?sel1(sn):'Больше всего — **'+sn.cat.name+'**; Senior и выше — **'+slp+'%**',
+      ten:tn.fixed?sel1(tn):'**'+ten10+' из 10** пришли меньше года назад'+
+        (n0-b0>=5?' — новичков больше, чем в компании ('+b0+'%)':b0-n0>=5?' — новичков меньше, чем в компании ('+b0+'%)':''),
+      age:ag.fixed?sel1(ag):'Ядро — **'+ag.cat.name+'**: '+ag.share+'% команды',
+      gen:inSel('gender')?sel1(inSel('gender')):'Женщин **'+fw+'%**'+(Math.abs(fw-fwB)>=5?' — '+(fw<fwB?'меньше':'больше')+', чем в компании ('+fwB+'%)':''),
+      work:(fm.fixed?sel1(fm):'Чаще всего — **'+fm.cat.name.toLowerCase()+'**, '+fm.share+'%')+
+        (inSel('employment')?'':'; в штате **'+ep+'%**'+(Math.abs(ep-eb)>=5?' — '+(ep<eb?'меньше':'больше')+', чем в компании ('+eb+'%)':''))}};
 };
 
 /* ---------- Зачем смотреть и что с этим делать (итерация 32, фидбэк 12.10) ----------
