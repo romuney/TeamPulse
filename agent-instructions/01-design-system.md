@@ -197,7 +197,7 @@ button,select,input,textarea{font-family:inherit}
 | Нет данных / нечем считать | длинное тире, не ноль | `—` |
 
 ```js
-var THIN=' ', MINUS='−';
+var THIN='\u2009', MINUS='\u2212';
 function nf(v,d){ if(v==null||!isFinite(v)) return '—';
   var s=Math.abs(v).toFixed(d||0).split('.'); s[0]=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,THIN);
   return (v<0?MINUS:'')+s.join(','); }

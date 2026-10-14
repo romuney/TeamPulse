@@ -41,7 +41,7 @@ Chromium 141 на каркасе разметки 2.0.1 (стенд detail_list 
 | B11 | Канал к странице | Из песочницы — только `postMessage({type:'ECHARTS_UPDATE_DATA_URL', dataUrl, payload:{dataUrl}})`. Родитель кладёт dataUrl в `img.echarts-plugin` внутри ячейки. Это плагин форка, в 2.0.1 его нет | [бой] (борд 59922, строка ЦА Adoption) | adoption:Виджеты/pa-head.chart.js (шапка файла) |
 | B12 | Редактор CSS | Ace (brace 0.11.1). Красный «!» на `:has(` («Expected RPAREN»), 5 ошибок на `:not(.x *)`, предупреждение на `max()`. Текст сохраняется как есть, без проверки | [исходник 2.0.1] (`CssEditor`) + стенд (CSSLint ace 1.4.14) + [бой] (`:has` работает с 10-й поставки DL) | — |
 | B13 | `:has()` в браузерах | Chrome и Edge 105+, Safari 15.4+, Firefox 121+. Какие браузеры у коллег, неизвестно | [вывод] [не проверено в бою] | MDN browser-compat-data |
-| B14 | Шрифт страницы и iframe | Страница Superset 2.0.1 подключает Inter (`@fontsource/inter`). В iframe-песочнице он не виден. Вкладки и подписи CSS борда могут рисоваться Inter, а чарт — системным шрифтом | [исходник 2.0.1] + стенд | см. UI-04 (11-ui.md) |
+| B14 | Шрифт страницы и iframe | Страница Superset 2.0.1 подключает Inter (`@fontsource/inter`). В iframe-песочнице он не виден. Вкладки и подписи CSS борда могут рисоваться Inter, а чарт — Arial: задавай `Arial, Helvetica, sans-serif` явно (владелец 09.10, 14.10) | [исходник 2.0.1] + стенд | см. UI-04 (11-ui.md) |
 | B15 | `vh` по разные стороны | В CSS борда `100vh` — окно браузера. В iframe `100vh` и `innerHeight` — высота ячейки | [бой] (HRBP 07.10, фото: окно по `innerHeight` уезжало за экран) + стенд | см. SB-05 (08-sandbox.md) |
 | B16 | `is_css_scoped` | Ключ JSON-метаданных форка (`true` у бордов DL и HRBP). В апстриме его нет ни в одной версии: ванильный 2.0.1 отвергает его как «Unknown field». Что делает, неизвестно. Может ограничивать CSS областью дашборда, и тогда селекторы вне сетки (`.dashboard-header-container ~ *`, `#main-menu`) не сработают. Правила на `.grid-container` и `.resizable-container` на борде DL легли (B6, B19) | [бой] (ключ виден) + [исходник 2.0.1] (схема JSON) — эффект на селекторы вне сетки [не проверено в бою] | 17-open-questions.md |
 | B17 | Тени у краёв чартов | Владелец DL 08.10 по фото 28-й поставки: «на краях чарта какая-то тень», после 29-й — «тени есть и на самих списках». Источники: тень карточки панели — видна полосой у правого края, когда iframe развёрнут под выпадашку или подсказку, а ширина панели закреплена; тень карточки списка — вероятно, хост песочницы меньше окна iframe; тени самих ячеек форка — есть ли и на чём, неизвестно | симптом — [бой]; источники — [вывод] (стенд DL) [не проверено в бою] | detail_list:docs/analysis.md 9.29–9.30 |
@@ -259,7 +259,7 @@ div.dashboard-component.dashboard-component-tabs
   .dashboard-chart-id-000000:not(:has(iframe)) .chart-container::after {
     content: 'Загружаю список…'; position: absolute; left: 0; right: 0; top: calc(50% + 26px);
     text-align: center; pointer-events: none; color: #8a909c;
-    font: 500 13px/1.4 Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font: 400 13px/1.4 Arial, Helvetica, sans-serif;
     animation: xx-load-pulse 1.6s ease-in-out infinite;
   }
   /* низкая ячейка: подпись справа от значка */
@@ -868,7 +868,7 @@ div.dashboard-component.dashboard-component-tabs
 .dashboard-chart-id-000000:not(:has(iframe)) .chart-container::after,
 .dashboard-chart-id-111111:not(:has(iframe)) .chart-container::after {
   content: 'Загружаю…'; position: absolute; left: 0; right: 0; top: calc(50% + 26px); text-align: center;
-  font: 500 13px/1.4 Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #8a909c;
+  font: 400 13px/1.4 Arial, Helvetica, sans-serif; color: #8a909c;
   pointer-events: none; animation: xx-load-pulse 1.6s ease-in-out infinite;
 }
 @keyframes xx-load-pulse { 50% { opacity: .6; } }

@@ -61,7 +61,7 @@
   | связаться с соседним чартом | `postMessage` по `window.top.frames` | MC-12 (09-multi-chart.md) |
   | высота «по экрану» | CSS борда, внутри чарта — видимая часть | SB-05, SB-06 |
   | адрес борда для ссылки | `document.referrer`, запасной — meta датасета | SB-17 |
-  | шрифт | системный стек; Inter страницы Superset в iframe не виден | 11-ui.md |
+  | шрифт | `Arial, Helvetica, sans-serif` явно; Inter страницы Superset в iframe не виден | 11-ui.md |
   | сохранить пресет, «первый вход» | ссылка, закладка браузера, тур только кнопкой | SB-02, SB-19 |
   | спросить «Точно сбросить?», показать сообщение | своя модалка или плашка в overlay, не `confirm` / `alert` | S15 |
 - **Проверка:** на стенде чарт в iframe `sandbox="allow-scripts"` без `allow-same-origin` (SB-20): ошибок консоли 0.
