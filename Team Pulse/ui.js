@@ -482,7 +482,7 @@ function btGroup(o){
       'Все вторые уровни разом.')+(o.expAll.open?'свернуть всё':'раскрыть всё')+'</span>':'')+
     '</div>'+barTable(o)+'</div>';
 }
-function btStack(list){return '<div class="bt-stack">'+list.join('')+'</div>'}
+function btStack(list,cls){return '<div class="bt-stack'+(cls?' '+cls:'')+'">'+list.join('')+'</div>'}
 
 /* ============================================================================
    matrixTable — состав в двух разрезах сразу: строки × колонки.

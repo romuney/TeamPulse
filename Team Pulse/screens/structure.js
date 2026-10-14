@@ -6,12 +6,14 @@
    растёт. Сложить их в одну вкладку нельзя: девять таблиц подряд — это
    прокрутка на три экрана, где ни один разрез не виден целиком.
 
-   Поэтому раскладка двухслойная:
+   Поэтому раскладка трёхслойная:
 
-   1. ЧЕТЫРЕ ПРЕДНАСТРОЕННЫЕ ВКЛАДКИ по смыслу вопроса — квалификация, люди,
-      оформление, стримы. Группы объявлены в `D.MIX_GROUPS`, правило одно:
-      на вкладке не больше трёх таблиц. Так каждая вкладка отвечает на один
-      вопрос целиком и помещается в рабочую зону без прокрутки.
+   0. «ПОРТРЕТ КОМАНДЫ» (14.10) — первая глава: вся структура одним рассказом,
+      тремя графиками с выводами (см. portrait ниже). Таблицы — во второй слой.
+   1. ПРЕДНАСТРОЕННЫЕ ВКЛАДКИ по смыслу вопроса — квалификация, люди,
+      оформление и место, стримы. Группы объявлены в `D.MIX_GROUPS`, правило:
+      на вкладке не больше четырёх лёгких таблиц (без шапки и ИТОГО). Так
+      каждая вкладка отвечает на один вопрос целиком.
    2. ВКЛАДКА «СВОЙ СРЕЗ» — конструктор: две оси на выбор из всех разрезов.
       Готовые вкладки закрывают частые вопросы, конструктор — редкие, ради
       которых заводить пятую и шестую преднастроенную вкладку бессмысленно
@@ -27,7 +29,7 @@
    ========================================================================== */
 (function(){
 'use strict';
-const D=window.TPDATA, U=window.TPUI, SC=window.TPSCREENS;
+const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
 
 /* Разрез длинный (стрим — десять строк) — сортируем по убыванию: у номинального
    разреза порядка нет, и алфавит ничего не сообщает. У порядковых (грейд, стаж,
@@ -92,10 +94,59 @@ function treeTable(dim,lp,sel,mixSel,open){
     expAll:{key:dim.key,open:allOpen}});
 }
 
+/* ---------- «Портрет команды» (14.10) ----------
+   Первая глава структуры — рассказ, а не стопка таблиц: заказчик просил
+   «сторителлинг: кто эти люди, какой квалификации», и чтобы одно и то же не
+   повторялось. Три графика — три вопроса, у каждого своя форма:
+     чем заняты           — карта стримов и специализаций (treemap);
+     чем не похожи на компанию — профиль по восьми разрезам против базы;
+     возраст и пол         — пирамида с контуром базы.
+   Над каждым графиком — его вывод одной фразой (story.js, says). Клик по куску
+   берёт срез, как строка таблицы: портрет пересчитывается под «Senior», и
+   рассказ — тоже. Подробности — в главах-таблицах, ссылки «подробно →». */
+/* короткие имена категорий для подписей внутри полос профиля */
+const SHORT={'seniority:l':'Lead+','age:a0':'<25','age:a25':'25–34','age:a35':'35–44','age:a45':'45+',
+  'tenure:t0':'<1 года','tenure:t1':'1–3 года','tenure:t3':'3+ лет','employment:tk':'Штат','employment:sz':'Самозан.',
+  'employment:out':'Аутстафф','worksite:rem':'Удалённо','region:msk':'Москва','region:spb':'СПб','region:oth':'Другие',
+  'grade:g1':'G1','grade:g2':'G2','grade:g3':'G3','grade:g4':'G4','grade:g5':'G5'};
+const PROF_ROWS=[['qual','Квалификация',['seniority','grade']],['people','Люди',['tenure','age','gender']],
+  ['work','Как и где работают',['worksite','employment','region']]];
+function portrait(ctx){
+  const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), says=(ctx.story||{}).says||{};
+  /* раздел: вопрос заголовком, под ним вывод одной фразой, затем график */
+  const say=(q,t)=>'<div class="pt-h">'+U.esc(q)+'</div>'+(t?'<p class="pt-say">'+U.richText(t)+'</p>':'');
+  const go=(sub,q)=>'<button class="pt-go" data-subtab="'+sub+'">'+U.esc(q)+' →</button>';
+  const tree=D.mixTree(ctx.lp,'stream',S.mixSel);
+  let h=U.storyFacts((ctx.story||{}).inFacts,'Что важно')+say('Чем заняты: стримы и специализации',says.tree)+G.chart('treemap',{items:tree.map(n=>({id:n.cat.id,name:n.cat.name,value:n.value,on:sel.has(n.cat.id),
+    kids:n.kids.map(k=>({id:k.cat.id,name:k.cat.name,value:k.value,on:sel.has(k.cat.id)}))}))},
+    {})+'<div class="pt-more">'+go('stream','Все специализации таблицей')+'</div>';
+  const rows=[];
+  PROF_ROWS.forEach(([gk,gn,dims])=>dims.forEach(k=>{
+    const dim=D.MIX_BY_KEY[k], t=D.mixParts(ctx.lp,k,S.mixSel), b=D.mixParts(ctx.bl,k,S.mixSel), sb=b.reduce((x,y)=>x+y,0)||1;
+    const st=t.reduce((x,y)=>x+y,0)||1;
+    const cats=dim.cats.map((c,i)=>({id:c.id,name:c.name,short:SHORT[c.id]||c.name,v:t[i],b:b[i]/sb,on:sel.has(c.id)}));
+    /* самое заметное отличие строки от базы — словами справа */
+    const d=cats.map(c=>({c:c,d:(c.v/st-c.b)*100})).sort((x,y)=>Math.abs(y.d)-Math.abs(x.d))[0];
+    const big=d&&Math.abs(d.d)>=3;
+    rows.push({group:gk,groupName:gn.toUpperCase(),groupTab:gk,name:dim.short,ord:!!dim.ord,cats:cats,
+      dev:{text:big?d.c.short+' '+(d.d>0?'+':'−')+Math.round(Math.abs(d.d))+' п.п.':'как в базе',strong:Math.abs(d.d)>=5}});
+  }));
+  h+=say('Чем команда не похожа на компанию',says.prof)+G.chart('profile',{rows:rows},{baseLabel:ctx.benchLabel});
+  const m=D.mixMatrix(ctx.lp,'age','gender',S.mixSel), mb=D.mixMatrix(ctx.bl,'age','gender',S.mixSel);
+  const tot=m.reduce((x,r)=>x+r[0]+r[1],0), totB=mb.reduce((x,r)=>x+r[0]+r[1],0)||1, k=tot/totB;
+  const age=D.MIX_BY_KEY.age, gen=D.MIX_BY_KEY.gender;
+  h+=say('Возраст и пол',says.pyr)+G.chart('pyramid',{rows:age.cats.map((c,i)=>({name:c.name,l:m[i][0],r:m[i][1],bl:mb[i][0]*k,br:mb[i][1]*k,
+      idL:c.id+','+gen.cats[0].id,idR:c.id+','+gen.cats[1].id})).reverse()},
+    {left:gen.cats[0].name,right:gen.cats[1].name,baseLabel:ctx.benchLabel})+
+    '<div class="pt-more">'+go('people','Пол, возраст и стаж таблицами')+go('custom','Пол × грейд в «Своём срезе»')+'</div>';
+  return '<div class="pt-wrap">'+h+'</div>';
+}
+
 SC.blocks.structure={
-  subTabs:D.MIX_GROUPS.map(g=>[g.key,g.name]).concat([['custom','Свой срез']]),
-  defaultSub:'qual',
+  subTabs:[['portrait','Портрет']].concat(D.MIX_GROUPS.map(g=>[g.key,g.name])).concat([['custom','Свой срез']]),
+  defaultSub:'portrait',
   title(sub){
+    if(sub==='portrait')return 'Портрет команды';
     if(sub!=='custom'){
       const g=D.MIX_GROUPS.find(x=>x.key===sub);
       return g?g.title:'Состав численности по атрибутам';
@@ -103,6 +154,7 @@ SC.blocks.structure={
     return 'Свой срез состава';
   },
   view(ctx){
+    if(ctx.sub==='portrait')return portrait(ctx);
     const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id));
 
     if(ctx.sub!=='custom'){
@@ -115,7 +167,7 @@ SC.blocks.structure={
         const dim=D.MIX_BY_KEY[k];
         return dim.childDim?treeTable(dim,ctx.lp,sel,S.mixSel,open)
                            :dimTable(dim,ctx.lp,sel,S.mixSel);
-      }))+
+      }),'lite')+
         (sel.size?'':'<div class="tbl-note">Клик по строке берёт срез: численность '+
           'в карточках и в таблице подразделений пересчитается по этой категории. '+
           'Разрезы складываются — по одной категории на разрез.</div>');

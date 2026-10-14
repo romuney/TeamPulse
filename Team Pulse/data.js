@@ -936,7 +936,7 @@ const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.pai
    от вкладки к вкладке читалась как смена смысла. Теперь все группы — тоном
    квалификации; карта осталась, чтобы цвет группы можно было вернуть точечно. */
 const MIX_COLOR_DEF='#5f86c2';
-const MIX_GROUP_COLOR={qual:MIX_COLOR_DEF,people:MIX_COLOR_DEF,contract:MIX_COLOR_DEF,geo:MIX_COLOR_DEF,stream:MIX_COLOR_DEF};
+const MIX_GROUP_COLOR={qual:MIX_COLOR_DEF,people:MIX_COLOR_DEF,work:MIX_COLOR_DEF,stream:MIX_COLOR_DEF};
 function dimColor(dimKey){
   const d=MIX_BY_KEY[dimKey];
   return (d&&MIX_GROUP_COLOR[d.group])||MIX_COLOR_DEF;
@@ -971,14 +971,14 @@ const MIX_DIMS=[
 {key:'tenure',name:'Стаж в компании',short:'Стаж',ord:true,group:'people',
  cats:[{key:'t0',name:'До 1 года',w:1.00},{key:'t1',name:'1–3 года',w:1.35},
        {key:'t3',name:'Больше 3 лет',w:0.90}]},
-{key:'employment',name:'Тип занятости',short:'Занятость',group:'contract',
+{key:'employment',name:'Тип занятости',short:'Занятость',group:'work',
  hint:'Форма оформления. Штат — трудовой договор; всё остальное — не штат, и фильтр «штат / не штат» в шапке режет ровно по этой границе.',
  cats:[{key:'tk',name:'Штат (ТК РФ)'},{key:'gph',name:'ГПХ',w:1.15},{key:'ip',name:'ИП',w:0.95},
        {key:'sz',name:'Самозанятый',w:0.80},{key:'out',name:'Аутстафф',w:0.55}]},
-{key:'worksite',name:'Формат работы',short:'Формат',group:'geo',
+{key:'worksite',name:'Формат работы',short:'Формат',group:'work',
  cats:[{key:'off',name:'Офис',w:1.10},{key:'hyb',name:'Гибрид',w:1.60},
        {key:'rem',name:'Дистанционно',w:0.80}]},
-{key:'legal',name:'Юрлицо',short:'Юрлицо',group:'contract',
+{key:'legal',name:'Юрлицо',short:'Юрлицо',group:'work',
  hint:'Юрлицо у подразделения одно: доля не размазывается между несколькими.',
  cats:[{key:'l1',name:'Основное юрлицо',w:0.50},{key:'l2',name:'Технологии',w:0.24},
        {key:'l3',name:'Сервис',w:0.16},{key:'l4',name:'Регионы',w:0.10}]},
@@ -986,7 +986,7 @@ const MIX_DIMS=[
    и «регионы по специализации». Первое — разбивка на вкладке «География»,
    второе — матрица «регион × специализация» в конструкторе, без нового кода.
    Атрибут человека, а не подразделения: распределённая команда — обычное дело. */
-{key:'region',name:'Регион',short:'Регион',group:'geo',sort:true,
+{key:'region',name:'Регион',short:'Регион',group:'work',sort:true,
  hint:'Где работает сотрудник. Распределённая команда — обычное дело, поэтому регион — атрибут человека, а не подразделения.',
  cats:[{key:'msk',name:'Москва и область',wIT:1.55,wNon:0.95},
        {key:'spb',name:'Санкт-Петербург',wIT:0.55,wNon:0.35},
@@ -1053,12 +1053,12 @@ const MIX_GROUPS=[
  title:'Квалификация: грейд и сеньорность'},
 {key:'people',name:'Люди',dims:['gender','age','tenure'],
  title:'Кто эти люди: пол, возраст, стаж'},
-/* Формат работы переехал из «Оформления» в «Географию»: «где работают»
-   теперь отдельный вопрос — регион и формат вместе. */
-{key:'contract',name:'Оформление',dims:['employment','legal'],
- title:'Как оформлены: тип занятости и юрлицо'},
-{key:'geo',name:'География',dims:['region','worksite'],
- title:'Где работают: регион и формат работы'},
+/* 14.10: «Оформление» и «География» — одна глава «Как оформлены и где работают»:
+   поодиночке это были две вкладки по две короткие таблицы, а шаг степпера
+   понадобился «Портрету команды». Лёгкие таблицы (без шапки и ИТОГО) четыре
+   разреза держат на одном экране. */
+{key:'work',name:'Оформление и место',dims:['employment','worksite','region','legal'],
+ title:'Как оформлены и где работают: занятость, формат, регион, юрлицо'},
 {key:'stream',name:'Стримы',dims:['stream'],
  title:'Стримы и специализации'}
 ];
@@ -1358,7 +1358,17 @@ function mixMatrix(lp,rowKey,colKey,sel){
   /* Края берутся у ТЕХ ЖЕ разбивок, что показаны на вкладках, а не считаются
      заново: только так матрица не расходится с ними на человека. */
   const axes=[rowKey,colKey];
-  return roundMatrix(raw,mixParts(lp,rowKey,sel,axes),mixParts(lp,colKey,sel,axes));
+  const rt=mixParts(lp,rowKey,sel,axes), ct=mixParts(lp,colKey,sel,axes);
+  /* 14.10: перед округлением сырые клетки подгоняются к краям (IPF — попеременно
+     строки и колонки). Срез по разрезу, СВЯЗАННОМУ с осью (сеньорность ↔ пол),
+     края считает по совместному распределению, а клетки — независимо, и без
+     подгонки матрица под срезом «Senior» давала 14 женщин против 12 в разбивке:
+     округление умеет только добавлять людей, но не снимать. */
+  for(let it=0;it<30;it++){
+    raw.forEach((r,i)=>{const t=r.reduce((a,b)=>a+b,0);if(t>0)r.forEach((v,k)=>{r[k]=v*rt[i]/t})});
+    C.cats.forEach((_,k)=>{const t=raw.reduce((a,r)=>a+r[k],0);if(t>0)raw.forEach(r=>{r[k]=r[k]*ct[k]/t})});
+  }
+  return roundMatrix(raw,rt,ct);
 }
 
 /* ---------- Срез состава ----------

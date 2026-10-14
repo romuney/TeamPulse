@@ -1818,8 +1818,26 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .btable.lite .cellbar i{border-radius:var(--r-pill)}
 .btable.lite tbody tr:first-child td{border-top:1px solid var(--line2)}
 .btable.lite tr.lvl2 td{height:26px}
-.bt-stack:has(.btable.lite){gap:20px}
-.bt-stack:has(.btable.lite) .bt-group+.bt-group{padding-top:0}
+.bt-stack.lite{gap:20px}
+.bt-stack.lite .bt-group+.bt-group{padding-top:0}
 .bt-all{display:inline-flex;align-items:center;gap:var(--s1);margin-left:auto;font-size:var(--fs-note);
   font-weight:var(--fw-body);color:var(--muted)}
 .btable.lite td.txt .row-label{align-items:center}
+
+/* ===== 14.10: «Портрет команды» — первая глава структуры ====================
+   Вывод одной фразой над каждым графиком (обычный текст, жирное — цифры),
+   ссылки «подробно →» в главы-таблицы под ним. Куски графиков кликабельны:
+   берут срез, как строки таблиц. */
+.pt-wrap{display:flex;flex-direction:column;gap:var(--s4)}
+.pt-say{margin:var(--s6) 0 0;font-size:var(--fs-body);line-height:1.45;color:var(--ink2)}
+.pt-say:first-child{margin-top:0}
+.pt-say b{color:var(--ink);font-weight:var(--fw-bold)}
+.pt-more{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s6);margin-bottom:var(--s4)}
+.pt-go{border:0;background:none;padding:0;font:inherit;font-size:var(--fs-note);color:var(--act-ink);cursor:pointer}
+.pt-go:hover{text-decoration:underline}
+.svgchart .tm-g,.svgchart .pf-seg,.svgchart .pf-go{cursor:pointer}
+.svgchart .tm-g:hover .tm,.svgchart .pf-seg:hover rect{filter:brightness(.93)}
+.svgchart .pf-go:hover text{text-decoration:underline}
+.pt-h{margin-top:var(--s8);font-size:12px;font-weight:var(--fw-bold);color:var(--ink)}
+.pt-wrap>.pt-h:first-child{margin-top:0}
+.pt-h+.pt-say{margin-top:0}

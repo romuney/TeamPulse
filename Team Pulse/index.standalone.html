@@ -1826,11 +1826,29 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .btable.lite .cellbar i{border-radius:var(--r-pill)}
 .btable.lite tbody tr:first-child td{border-top:1px solid var(--line2)}
 .btable.lite tr.lvl2 td{height:26px}
-.bt-stack:has(.btable.lite){gap:20px}
-.bt-stack:has(.btable.lite) .bt-group+.bt-group{padding-top:0}
+.bt-stack.lite{gap:20px}
+.bt-stack.lite .bt-group+.bt-group{padding-top:0}
 .bt-all{display:inline-flex;align-items:center;gap:var(--s1);margin-left:auto;font-size:var(--fs-note);
   font-weight:var(--fw-body);color:var(--muted)}
 .btable.lite td.txt .row-label{align-items:center}
+
+/* ===== 14.10: «Портрет команды» — первая глава структуры ====================
+   Вывод одной фразой над каждым графиком (обычный текст, жирное — цифры),
+   ссылки «подробно →» в главы-таблицы под ним. Куски графиков кликабельны:
+   берут срез, как строки таблиц. */
+.pt-wrap{display:flex;flex-direction:column;gap:var(--s4)}
+.pt-say{margin:var(--s6) 0 0;font-size:var(--fs-body);line-height:1.45;color:var(--ink2)}
+.pt-say:first-child{margin-top:0}
+.pt-say b{color:var(--ink);font-weight:var(--fw-bold)}
+.pt-more{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s6);margin-bottom:var(--s4)}
+.pt-go{border:0;background:none;padding:0;font:inherit;font-size:var(--fs-note);color:var(--act-ink);cursor:pointer}
+.pt-go:hover{text-decoration:underline}
+.svgchart .tm-g,.svgchart .pf-seg,.svgchart .pf-go{cursor:pointer}
+.svgchart .tm-g:hover .tm,.svgchart .pf-seg:hover rect{filter:brightness(.93)}
+.svgchart .pf-go:hover text{text-decoration:underline}
+.pt-h{margin-top:var(--s8);font-size:12px;font-weight:var(--fw-bold);color:var(--ink)}
+.pt-wrap>.pt-h:first-child{margin-top:0}
+.pt-h+.pt-say{margin-top:0}
 
 </style>
 </head>
@@ -2919,7 +2937,7 @@ const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.pai
    от вкладки к вкладке читалась как смена смысла. Теперь все группы — тоном
    квалификации; карта осталась, чтобы цвет группы можно было вернуть точечно. */
 const MIX_COLOR_DEF='#5f86c2';
-const MIX_GROUP_COLOR={qual:MIX_COLOR_DEF,people:MIX_COLOR_DEF,contract:MIX_COLOR_DEF,geo:MIX_COLOR_DEF,stream:MIX_COLOR_DEF};
+const MIX_GROUP_COLOR={qual:MIX_COLOR_DEF,people:MIX_COLOR_DEF,work:MIX_COLOR_DEF,stream:MIX_COLOR_DEF};
 function dimColor(dimKey){
   const d=MIX_BY_KEY[dimKey];
   return (d&&MIX_GROUP_COLOR[d.group])||MIX_COLOR_DEF;
@@ -2954,14 +2972,14 @@ const MIX_DIMS=[
 {key:'tenure',name:'Стаж в компании',short:'Стаж',ord:true,group:'people',
  cats:[{key:'t0',name:'До 1 года',w:1.00},{key:'t1',name:'1–3 года',w:1.35},
        {key:'t3',name:'Больше 3 лет',w:0.90}]},
-{key:'employment',name:'Тип занятости',short:'Занятость',group:'contract',
+{key:'employment',name:'Тип занятости',short:'Занятость',group:'work',
  hint:'Форма оформления. Штат — трудовой договор; всё остальное — не штат, и фильтр «штат / не штат» в шапке режет ровно по этой границе.',
  cats:[{key:'tk',name:'Штат (ТК РФ)'},{key:'gph',name:'ГПХ',w:1.15},{key:'ip',name:'ИП',w:0.95},
        {key:'sz',name:'Самозанятый',w:0.80},{key:'out',name:'Аутстафф',w:0.55}]},
-{key:'worksite',name:'Формат работы',short:'Формат',group:'geo',
+{key:'worksite',name:'Формат работы',short:'Формат',group:'work',
  cats:[{key:'off',name:'Офис',w:1.10},{key:'hyb',name:'Гибрид',w:1.60},
        {key:'rem',name:'Дистанционно',w:0.80}]},
-{key:'legal',name:'Юрлицо',short:'Юрлицо',group:'contract',
+{key:'legal',name:'Юрлицо',short:'Юрлицо',group:'work',
  hint:'Юрлицо у подразделения одно: доля не размазывается между несколькими.',
  cats:[{key:'l1',name:'Основное юрлицо',w:0.50},{key:'l2',name:'Технологии',w:0.24},
        {key:'l3',name:'Сервис',w:0.16},{key:'l4',name:'Регионы',w:0.10}]},
@@ -2969,7 +2987,7 @@ const MIX_DIMS=[
    и «регионы по специализации». Первое — разбивка на вкладке «География»,
    второе — матрица «регион × специализация» в конструкторе, без нового кода.
    Атрибут человека, а не подразделения: распределённая команда — обычное дело. */
-{key:'region',name:'Регион',short:'Регион',group:'geo',sort:true,
+{key:'region',name:'Регион',short:'Регион',group:'work',sort:true,
  hint:'Где работает сотрудник. Распределённая команда — обычное дело, поэтому регион — атрибут человека, а не подразделения.',
  cats:[{key:'msk',name:'Москва и область',wIT:1.55,wNon:0.95},
        {key:'spb',name:'Санкт-Петербург',wIT:0.55,wNon:0.35},
@@ -3036,12 +3054,12 @@ const MIX_GROUPS=[
  title:'Квалификация: грейд и сеньорность'},
 {key:'people',name:'Люди',dims:['gender','age','tenure'],
  title:'Кто эти люди: пол, возраст, стаж'},
-/* Формат работы переехал из «Оформления» в «Географию»: «где работают»
-   теперь отдельный вопрос — регион и формат вместе. */
-{key:'contract',name:'Оформление',dims:['employment','legal'],
- title:'Как оформлены: тип занятости и юрлицо'},
-{key:'geo',name:'География',dims:['region','worksite'],
- title:'Где работают: регион и формат работы'},
+/* 14.10: «Оформление» и «География» — одна глава «Как оформлены и где работают»:
+   поодиночке это были две вкладки по две короткие таблицы, а шаг степпера
+   понадобился «Портрету команды». Лёгкие таблицы (без шапки и ИТОГО) четыре
+   разреза держат на одном экране. */
+{key:'work',name:'Оформление и место',dims:['employment','worksite','region','legal'],
+ title:'Как оформлены и где работают: занятость, формат, регион, юрлицо'},
 {key:'stream',name:'Стримы',dims:['stream'],
  title:'Стримы и специализации'}
 ];
@@ -3341,7 +3359,17 @@ function mixMatrix(lp,rowKey,colKey,sel){
   /* Края берутся у ТЕХ ЖЕ разбивок, что показаны на вкладках, а не считаются
      заново: только так матрица не расходится с ними на человека. */
   const axes=[rowKey,colKey];
-  return roundMatrix(raw,mixParts(lp,rowKey,sel,axes),mixParts(lp,colKey,sel,axes));
+  const rt=mixParts(lp,rowKey,sel,axes), ct=mixParts(lp,colKey,sel,axes);
+  /* 14.10: перед округлением сырые клетки подгоняются к краям (IPF — попеременно
+     строки и колонки). Срез по разрезу, СВЯЗАННОМУ с осью (сеньорность ↔ пол),
+     края считает по совместному распределению, а клетки — независимо, и без
+     подгонки матрица под срезом «Senior» давала 14 женщин против 12 в разбивке:
+     округление умеет только добавлять людей, но не снимать. */
+  for(let it=0;it<30;it++){
+    raw.forEach((r,i)=>{const t=r.reduce((a,b)=>a+b,0);if(t>0)r.forEach((v,k)=>{r[k]=v*rt[i]/t})});
+    C.cats.forEach((_,k)=>{const t=raw.reduce((a,r)=>a+r[k],0);if(t>0)raw.forEach(r=>{r[k]=r[k]*ct[k]/t})});
+  }
+  return roundMatrix(raw,rt,ct);
 }
 
 /* ---------- Срез состава ----------
@@ -4872,8 +4900,219 @@ function drawCalendar(a,w,h){
   return svg(w,hUsed,s);
 }
 
+/* ============================================================================
+   8. Состав команды — «Портрет команды» (14.10).
+      Заказчик: «первый лист структуры однообразный — таблица за таблицей; нужен
+      сторителлинг: кто эти люди, какой квалификации». Три вида, у каждого свой
+      вопрос и своя форма, чтобы одно и то же не повторялось:
+        treemap  — чем занимаются: стримы и специализации одной картой;
+        profile  — чем команда отличается от компании: доли по разрезам
+                   полосой 100% и под ней тонкая полоса базы в том же масштабе;
+        pyramid  — возраст и пол, с контуром базы.
+      Цвет — шкала активного тона (heat), как у матрицы и календаря: «гуще —
+      больше людей», не светофор. Клик по куску берёт срез (data-mix), как
+      клик по строке таблицы.
+   ========================================================================== */
+/* Squarified treemap (Bruls, Huizing, van Wijk): прямоугольники ближе к
+   квадрату — площадь читается, а не превращается в полоски. */
+function squarify(vals,x,y,w,h){
+  const tot=vals.reduce((a,v)=>a+v,0)||1, out=[];
+  let rest=vals.map((v,i)=>({i:i,a:v/tot*w*h})).filter(r=>r.a>0);
+  const worst=(row,s)=>{let sm=0,mx=0,mn=Infinity;
+    row.forEach(r=>{sm+=r.a;mx=Math.max(mx,r.a);mn=Math.min(mn,r.a)});
+    return Math.max(s*s*mx/(sm*sm),sm*sm/(s*s*mn))};
+  while(rest.length){
+    const s=Math.min(w,h);let k=1;
+    while(k<rest.length&&worst(rest.slice(0,k+1),s)<=worst(rest.slice(0,k),s))k++;
+    const row=rest.slice(0,k), th=row.reduce((a,r)=>a+r.a,0)/s;
+    let p=0;
+    row.forEach(r=>{const l=r.a/th;out[r.i]=w>=h?{x:x,y:y+p,w:th,h:l}:{x:x+p,y:y,w:l,h:th};p+=l});
+    if(w>=h){x+=th;w-=th}else{y+=th;h-=th}
+    rest=rest.slice(k);
+  }
+  return out;
+}
+const pctTxt=v=>(v<10&&v>0?v.toFixed(1):Math.round(v).toString()).replace('.',',')+'%';
+/* подпись влезает — пишем, нет — молчим: число есть в подсказке */
+function fitTxt(x,y,s,maxW,o){return textW(s,o.size||11)<=maxW?txt(x,y,s,o):''}
+/* перенос по словам: не больше maxL строк; слово шире места — подписи нет */
+function wrapL(s,maxW,size,maxL){
+  const out=[];let cur='';
+  String(s).split(' ').forEach(wd=>{const t=cur?cur+' '+wd:wd;
+    if(textW(t,size)<=maxW)cur=t;else{if(cur)out.push(cur);cur=wd}});
+  if(cur)out.push(cur);
+  if(out.length>maxL||out.some(l=>textW(l,size)>maxW))return [];
+  return out;
+}
+function linesTxt(x,y,lines,o){return lines.map((l,i)=>txt(x,y+i*13,l,o)).join('')}
+function selRect(r,on){return on?'<rect x="'+num(r.x+1)+'" y="'+num(r.y+1)+'" width="'+num(Math.max(0,r.w-2))+
+  '" height="'+num(Math.max(0,r.h-2))+'" rx="2" fill="none" stroke="'+C_INK+'" stroke-width="2"/>':''}
+
+function drawTreemap(a,w,h){
+  const o=a.opt||{}, hh=headH(o.title,null);
+  const items=a.items.filter(x=>x.value>0).sort((p,q)=>q.value-p.value);
+  const ph=h||o.h||(hh+Math.round(Math.min(340,Math.max(240,w*0.42))));
+  const tot=items.reduce((t,x)=>t+x.value,0)||1, big=items.length?items[0].value:1;
+  const box=squarify(items.map(x=>x.value),0,hh,w,ph-hh);
+  /* стримы, которым не хватило места на имя, перечислены строкой под картой */
+  const mute=[];
+  h=ph;
+  let s=header(w,o.title,null);
+  items.forEach((it,i)=>{
+    const r=box[i];if(!r)return;
+    const t=0.2+0.5*it.value/big, col=heat(t), ink=heatInk(t);
+    const share=it.value/tot*100;
+    const kids=(it.kids||[]).filter(k=>k.value>0).sort((p,q)=>q.value-p.value);
+    /* шапка стрима: имя (до двух строк), люди и доля; под ней — специализации */
+    const nl=r.h>40?wrapL(it.name,r.w-14,11.5,r.h>90?2:1):[];
+    const HB=nl.length&&kids.length>1&&r.h>nl.length*13+56?nl.length*13+22:0;
+    s+='<g class="tm-g" data-mix="'+esc(it.id)+'"'+tip({title:it.name,
+      rows:[{label:'Человек',value:CD.fmtInt(it.value),color:col},{label:'Доля команды',value:pctTxt(share)}],
+      note:kids.length>1?'Специализации внутри — клик по ним берёт срез по специализации.':null})+'>'+
+      rect(r.x,r.y,r.w,r.h,col,0,' class="tm" stroke="#fff" stroke-width="2"')+'</g>';
+    if(HB){
+      const kb=squarify(kids.map(k=>k.value),r.x+3,r.y+HB,r.w-6,r.h-HB-3);
+      kids.forEach((k,j)=>{
+        const q=kb[j];if(!q)return;
+        const kt=Math.max(0.06,t-0.14), kc=heat(kt), kInk=heatInk(kt);
+        const kl=q.h>24?wrapL(k.name,q.w-10,10.5,Math.max(1,Math.min(3,Math.floor((q.h-20)/13)))):[];
+        s+='<g class="tm-g" data-mix="'+esc(k.id)+'"'+tip({title:k.name,
+          rows:[{label:'Человек',value:CD.fmtInt(k.value),color:kc},
+            {label:'в стриме «'+it.name+'»',value:pctTxt(k.value/it.value*100)},{label:'в команде',value:pctTxt(k.value/tot*100)}]})+'>'+
+          rect(q.x,q.y,q.w,q.h,kc,2,' class="tm" stroke="'+col+'" stroke-width="1.5"')+
+          (kl.length?linesTxt(q.x+6,q.y+15,kl,{size:10.5,fill:kInk,anchor:'start',cls:'fade'})+
+            (q.h>kl.length*13+20?txt(q.x+6,q.y+15+kl.length*13,CD.fmtInt(k.value),{size:10.5,weight:700,fill:kInk,anchor:'start',cls:'fade'}):'')
+            /* имя не влезло — хотя бы число: пустая клетка читалась как дыра в данных */
+            :q.h>18&&q.w>18?txt(q.x+6,q.y+15,CD.fmtInt(k.value),{size:10.5,weight:700,fill:kInk,anchor:'start',cls:'fade'}):'')+
+          '</g>'+selRect(q,k.on);
+      });
+    }
+    if(!nl.length)mute.push(it);
+    if(nl.length){
+      s+=linesTxt(r.x+8,r.y+16,nl,{size:11.5,weight:700,fill:ink,anchor:'start',cls:'fade'});
+      if(r.h>nl.length*13+22)s+=fitTxt(r.x+8,r.y+16+nl.length*13,CD.fmtInt(it.value)+' · '+pctTxt(share),r.w-14,
+        {size:10.5,fill:ink,anchor:'start',cls:'fade'});
+    }
+    s+=selRect(r,it.on);
+  });
+  if(mute.length){
+    h=ph+22;
+    let x=0;
+    s+=txt(x,ph+16,'Мелкие:',{size:10.5,fill:C_AXIS,anchor:'start'});x+=textW('Мелкие:',10.5)+8;
+    mute.forEach(it=>{
+      const t2='«'+it.name+'» '+CD.fmtInt(it.value);
+      if(x+textW(t2,10.5)>w)return;
+      s+='<g class="tm-g" data-mix="'+esc(it.id)+'"'+tip({title:it.name,rows:[{label:'Человек',value:CD.fmtInt(it.value)},
+        {label:'Доля команды',value:pctTxt(it.value/tot*100)}]})+'>'+txt(x,ph+16,t2,{size:10.5,fill:C_LABEL,anchor:'start'})+'</g>';
+      x+=textW(t2,10.5)+12;
+    });
+  }
+  return svg(w,h,s);
+}
+
+/* Профиль: строка — разрез. Толстая полоса — команда, тонкая под ней — база
+   в том же масштабе: где границы разъехались, там команда не похожа на
+   компанию. Справа — самое заметное отличие словами. Порядковые разрезы
+   (грейд, стаж, возраст) идут по порядку от светлого к густому, номинальные —
+   по убыванию, самый большой кусок гуще. */
+function profTones(cats,ord){
+  const n=cats.length, t=new Array(n);
+  const rank=ord?cats.map((_,i)=>i):cats.map((_,i)=>i).sort((p,q)=>cats[q].v-cats[p].v);
+  rank.forEach((ci,k)=>{const f=n>1?k/(n-1):0;t[ci]=ord?0.14+0.56*f:0.7-0.56*f});
+  return t;
+}
+function drawProfile(a,w,h){
+  const o=a.opt||{}, rows=a.rows, hh=headH(o.title,null);
+  const LBL=Math.round(Math.min(132,Math.max(92,w*0.15))), DEV=Math.round(Math.min(170,Math.max(112,w*0.21)));
+  const x0=LBL, bw=Math.max(140,w-LBL-DEV-14), RH=44, BAR=22, BASE=5, GH=22;
+  const groups=rows.reduce((n,r,i)=>n+(i===0||r.group!==rows[i-1].group?1:0),0);
+  h=hh+16+rows.length*RH+groups*GH;
+  let s=header(w,o.title,null);
+  /* легенда: что толстая полоса, что тонкая, что справа */
+  s+=rect(x0,hh+2,14,9,heat(0.45),2)+txt(x0+19,hh+10,'команда',{size:10.5,fill:C_AXIS,anchor:'start'});
+  s+=rect(x0+82,hh+4,14,BASE,heat(0.45),1,' opacity=".8"')+txt(x0+101,hh+10,o.baseLabel||'база',{size:10.5,fill:C_AXIS,anchor:'start'});
+  s+=txt(x0+bw+14,hh+10,'отличие от базы',{size:10.5,fill:C_AXIS,anchor:'start'});
+  let y=hh+16;
+  rows.forEach((r,ri)=>{
+    if(ri===0||r.group!==rows[ri-1].group){
+      s+=txt(0,y+15,r.groupName||'',{size:10,weight:700,fill:C_AXIS,anchor:'start',cls:'pf-grp'})+
+        (r.groupTab?'<g class="pf-go" data-subtab="'+esc(r.groupTab)+'">'+
+          txt(w,y+15,'подробно →',{size:10.5,fill:C_LINE,anchor:'end'})+'</g>':'')+
+        line(0,y+GH-2,w,y+GH-2,C_DIV,1);
+      y+=GH;
+    }
+    const tot=r.cats.reduce((t,c)=>t+c.v,0)||1, tones=profTones(r.cats,r.ord);
+    s+=txt(0,y+BAR*0.68+2,r.name,{size:11.5,fill:C_INK,anchor:'start'});
+    let x=x0, xb=x0;
+    r.cats.forEach((c,i)=>{
+      const p=c.v/tot*100, sw=c.v/tot*bw, col=heat(tones[i]), ink=heatInk(tones[i]);
+      const lab=c.short||c.name;
+      if(sw>0){
+        s+='<g class="pf-seg" data-mix="'+esc(c.id)+'"'+tip({title:r.name+': '+c.name,
+          rows:[{label:'В команде',value:CD.fmtInt(c.v)+' чел · '+pctTxt(p),color:col},
+                {label:o.baseLabel||'База',value:pctTxt(c.b*100)}],
+          note:'Клик — срез по «'+c.name+'»: все графики портрета, карточки и таблица подразделений пересчитаются.'})+'>'+
+          rect(x+0.75,y+2,Math.max(0,sw-1.5),BAR,col,2,' class="bar fn" style="animation-delay:'+(ri*30)+'ms"')+
+          (textW(lab+' '+pctTxt(p),10.5)+10<=sw?txt(x+sw/2,y+BAR*0.68+2,lab+' '+pctTxt(p),{size:10.5,fill:ink,cls:'fade'})
+            :textW(pctTxt(p),10.5)+6<=sw?txt(x+sw/2,y+BAR*0.68+2,pctTxt(p),{size:10.5,fill:ink,cls:'fade'}):'')+
+          '</g>'+(c.on?selRect({x:x,y:y+2,w:sw,h:BAR},true):'');
+      }
+      const bwv=c.b*bw;
+      if(bwv>0)s+=rect(xb+0.75,y+BAR+6,Math.max(0,bwv-1.5),BASE,col,1,' opacity=".8"');
+      x+=sw;xb+=bwv;
+    });
+    if(r.dev)s+=txt(x0+bw+14,y+BAR*0.68+2,r.dev.text,{size:11,weight:r.dev.strong?700:400,
+      fill:r.dev.strong?C_LABEL:C_AXIS,anchor:'start',cls:'fade'});
+    y+=RH;
+  });
+  return svg(w,h,s);
+}
+
+/* Пирамида: возраст по строкам (старшие сверху), женщины влево, мужчины
+   вправо. Цвет у обеих сторон один — пол кодирует сторона, а не цвет: два
+   цвета здесь были бы «розовым и голубым». Пунктир — база, пересчитанная на
+   численность команды: где бар короче контура, этой группы у нас меньше. */
+function drawPyramid(a,w,h){
+  const o=a.opt||{}, rows=a.rows, hh=headH(o.title,null);
+  const MID=Math.round(Math.min(116,Math.max(88,w*0.14))), RH=30, BAR=20, TOP=24;
+  h=hh+TOP+rows.length*RH+18;
+  const half=(w-MID)/2, xL=half, xR=half+MID;
+  const max=Math.max(1,...rows.map(r=>Math.max(r.l,r.r,r.bl||0,r.br||0)));
+  const sc=(half-44)/max, col=SOFT[C_LINE];
+  const sumL=rows.reduce((t,r)=>t+r.l,0), sumR=rows.reduce((t,r)=>t+r.r,0), all=sumL+sumR||1;
+  let s=header(w,o.title,null);
+  s+=txt(xL-2,hh+12,o.left+' · '+CD.fmtInt(sumL)+' · '+pctTxt(sumL/all*100),{size:11,weight:700,fill:C_INK,anchor:'end'});
+  s+=txt(xR+2,hh+12,o.right+' · '+CD.fmtInt(sumR)+' · '+pctTxt(sumR/all*100),{size:11,weight:700,fill:C_INK,anchor:'start'});
+  let dL='', dR='';
+  rows.forEach((r,i)=>{
+    const y=hh+TOP+i*RH, lw=r.l*sc, rw=r.r*sc;
+    s+=txt(w/2,y+BAR*0.7,r.name,{size:11,fill:C_AXIS});
+    const side=(v,x0,dir,id,nm)=>{
+      const bw=v*sc, x=dir<0?x0-bw:x0;
+      return '<g class="pf-seg" data-mix="'+esc(id)+'"'+tip({title:nm+', '+r.name.toLowerCase(),
+        rows:[{label:'Человек',value:CD.fmtInt(v),color:col},{label:'Доля команды',value:pctTxt(v/all*100)}],
+        note:'Клик — срез по возрасту и полу сразу.'})+'>'+
+        rect(x,y,bw,BAR,col,2,' class="bar fn" style="animation-delay:'+(i*40)+'ms"')+'</g>'+
+        txt(dir<0?x-6:x+bw+6,y+BAR*0.72,CD.fmtInt(v),valOpt({anchor:dir<0?'end':'start',delay:150+i*40}));
+    };
+    s+=side(r.l,xL,-1,r.idL,o.left)+side(r.r,xR,1,r.idR,o.right);
+    /* контур базы — ступенькой: вертикаль на уровне строки, горизонталь — в зазоре */
+    const g=(RH-BAR)/2;
+    if(r.bl!=null){const bx=xL-r.bl*sc;dL+=(i?'H':'M'+num(bx)+' '+num(y-g)+'H')+num(bx)+'V'+num(y+BAR+g)}
+    if(r.br!=null){const bx=xR+r.br*sc;dR+=(i?'H':'M'+num(bx)+' '+num(y-g)+'H')+num(bx)+'V'+num(y+BAR+g)}
+  });
+  if(dL)s+='<path d="'+dL+'" fill="none" stroke="'+C_OTHER+'" stroke-width="1.2" stroke-dasharray="3 2" class="lnb"/>';
+  if(dR)s+='<path d="'+dR+'" fill="none" stroke="'+C_OTHER+'" stroke-width="1.2" stroke-dasharray="3 2" class="lnb"/>';
+  if(dL||dR){
+    const ly=h-6;
+    s+=line(w/2-58,ly-4,w/2-40,ly-4,C_OTHER,1.2,'3 2')+txt(w/2-34,ly,(o.baseLabel||'база')+' в масштабе команды',{size:10.5,fill:C_AXIS,anchor:'start'});
+  }
+  return svg(w,h,s);
+}
+
 const KINDS={yoy:drawYoy,pair:drawPair,panels:drawPanels,
-             waterfall:drawWaterfall,funnel:drawFunnel,calendar:drawCalendar};
+             waterfall:drawWaterfall,funnel:drawFunnel,calendar:drawCalendar,
+             treemap:drawTreemap,profile:drawProfile,pyramid:drawPyramid};
 const NOMINAL_W=900, NOMINAL_H=null;
 let _specs=new Map(), _sid=0;
 /* Какие серии выключены. Живёт ОТДЕЛЬНО от _specs и НЕ чистится в reset():
@@ -5451,7 +5690,7 @@ function btGroup(o){
       'Все вторые уровни разом.')+(o.expAll.open?'свернуть всё':'раскрыть всё')+'</span>':'')+
     '</div>'+barTable(o)+'</div>';
 }
-function btStack(list){return '<div class="bt-stack">'+list.join('')+'</div>'}
+function btStack(list,cls){return '<div class="bt-stack'+(cls?' '+cls:'')+'">'+list.join('')+'</div>'}
 
 /* ============================================================================
    matrixTable — состав в двух разрезах сразу: строки × колонки.
@@ -6531,8 +6770,8 @@ function focusRate(c,k,cap){
 
 /* ---------- главы по блокам ---------- */
 const Q={
-  structure:{qual:'Какой квалификации?',people:'Кто эти люди?',contract:'Как оформлены?',
-    geo:'Где работают?',stream:'В каких стримах?',custom:'Свой срез'},
+  structure:{portrait:'Кто в команде?',qual:'Какой квалификации?',people:'Кто эти люди?',
+    work:'Как оформлены и где?',stream:'В каких стримах?',custom:'Свой срез'},
   movement:{balance:'Растём или сжимаемся?',dynamics:'Что двигало численность?'},
   turnover:{dynamics:'Сколько уходит?',reasons:'Почему уходят?',who:'Кто уходит?'},
   hiring:{vacancies:'Успеваем закрывать вакансии?',plan:'Выполняем план?',profile:'Кого и откуда берём?',
@@ -6846,6 +7085,78 @@ D.MIX_GROUPS.forEach(g=>{
 });
 CH.structure.custom=function(){return {sum:'конструктор',st:'n'}};
 
+/* «Портрет команды» (14.10): вся структура одним рассказом — типичный человек
+   в команде, чем люди заняты, чем команда не похожа на компанию. Срез (клик по
+   куску графика) режет и рассказ: «Senior» — портрет сеньоров. */
+const ROLE={dev:'разработчик',qa:'тестировщик',ana:'аналитик',ops:'DevOps-инженер',ml:'инженер данных',
+  des:'дизайнер',prod:'менеджер продукта',sup:'специалист поддержки',back:'специалист бэк-офиса',adm:'руководитель'};
+const SEN={j:'Junior',m:'Middle',s:'Senior',l:'Lead'};
+const AGE_OF={a0:'до 25 лет',a25:'25–34 лет',a35:'35–44 лет',a45:'45 лет и старше'};
+const TEN_OF={t0:'в компании меньше года',t1:'в компании 1–3 года',t3:'в компании больше 3 лет'};
+/* разрезы, по которым команда сравнивается с базой (тот же список рисует профиль) */
+const PROF=['seniority','grade','tenure','age','gender','worksite','employment','region'];
+function profDevs(c,inSel){
+  const sel=c.S.mixSel||[], out=[];
+  PROF.forEach(k=>{
+    if(inSel(k))return;
+    const t=D.mixParts(c.lp,k,sel), b=D.mixParts(c.bl,k,sel), st=sum(t), sb=sum(b);
+    if(!st||!sb)return;
+    D.mixCats(k).forEach((cat,i)=>out.push({dim:D.MIX_BY_KEY[k],cat:cat,t:t[i]/st*100,b:b[i]/sb*100,d:(t[i]/st-b[i]/sb)*100}));
+  });
+  return out.sort((x,y)=>Math.abs(y.d)-Math.abs(x.d));
+}
+const pp=v=>Math.round(v)+'%';
+CH.structure.portrait=function(c){
+  const sel=c.S.mixSel||[], P=k=>D.mixParts(c.lp,k,sel), B=k=>D.mixParts(c.bl,k,sel);
+  /* Разрез, по которому взят срез, своей таблицей срез не режет (правило
+     перекрёстной фильтрации) — поэтому в рассказе он не «самый частый», а
+     просто тот, что выбран, и доли по нему не называются: в срезе они 100%. */
+  const parts=D.sliceParse(sel), inSel=k=>parts.find(p=>p.dim.key===k||(k==='stream'&&p.dim.key==='spec'));
+  const mode=k=>{const q=inSel(k);if(q)return {cat:q.cat,fixed:true};
+    const p=P(k), i=argmax(p);return {cat:D.mixCats(k)[i],n:p[i],share:pc(p[i],sum(p))}};
+  const tk=['gender','age','tenure','seniority','grade'].find(k=>!inSel(k));
+  const tot=tk?sum(P(tk)):0;
+  if(!tot)return {sum:'нет людей',st:'n'};
+  const sn=mode('seniority'), ag=mode('age'), tn=mode('tenure');
+  const tree=D.mixTree(c.lp,'stream',sel).slice().sort((a,b)=>b.value-a.value);
+  const stQ=inSel('stream'), top=stQ&&stQ.dim.key==='stream'?tree.find(n=>n.cat.id===stQ.cat.id)||tree[0]:tree[0];
+  const spec=top.kids.slice().sort((a,b)=>b.value-a.value)[0];
+  const ten=P('tenure'), tenB=B('tenure'), n0=pc(ten[0],sum(ten)), b0=pc(tenB[0],sum(tenB));
+  const devs=profDevs(c,inSel), big=devs[0]&&Math.abs(devs[0].d)>=5?devs[0]:null;
+  const second=big&&devs.find(x=>x.dim.key!==big.dim.key&&x.dim.key!=='tenure'&&Math.abs(x.d)>=5);
+  const g=P('gender'), gB=B('gender'), fw=pc(g[0],sum(g)), fwB=pc(gB[0],sum(gB));
+  const small=tree.filter(n=>n.value>0&&n.value<=2);
+  const cmp=x=>'«'+x.cat.name+'» — **'+pp(x.t)+'** против '+pp(x.b)+' в базе';
+  const role=stQ&&stQ.dim.key==='spec'?'«'+stQ.cat.name+'»':ROLE[top.cat.key];
+  const who=SEN[sn.cat.key]+'-'+role+' '+AGE_OF[ag.cat.key]+', '+TEN_OF[tn.cat.key];
+  const lede=[stQ?null:'**'+pc(top.value,tot)+'%** — «'+top.cat.name+'»',
+    sn.fixed?null:'**'+sn.share+'%** — '+SEN[sn.cat.key],
+    tn.fixed?null:'**'+n0+'%** — меньше года в компании'].filter(Boolean);
+  /* выводы — не колонкой сбоку, а блоком «Что важно» перед графиками (как в обзоре
+     «Движения»): при узкой панели колонка уходила под три графика, а графикам
+     портрета нужна вся ширина */
+  return {sum:pl(tot,PPL)+' · '+SEN[sn.cat.key],st:'n',
+    head:parts.length?'В срезе «'+D.sliceLabel(sel)+'» типичный человек — '+who:'Типичный человек в команде — '+who,
+    lede:'**'+pl(tot,PPL)+'**'+(parts.length?' в срезе':'')+(lede.length?': '+lede.join(', '):'')+'. '+
+      (big?'Сильнее всего от базы «'+c.bench+'» отличается '+big.dim.short.toLowerCase()+': '+cmp(big)+'.'
+          :'По составу команда похожа на базу «'+c.bench+'»: нигде расхождение не доходит до 5 п.п.'),
+    inFacts:[
+      tn.fixed?null:n0-b0>=5?'**'+n0+'%** команды — меньше года в компании, в базе '+b0+'%: на первом плане адаптация и наставники.'
+        :b0-n0>=5?'Новичков меньше, чем в базе: **'+n0+'%** против '+b0+'% — команда устоявшаяся.'
+        :'**'+n0+'%** команды — меньше года в компании, как в базе ('+b0+'%).',
+      second?second.dim.name+': '+cmp(second)+'.':null,
+      !stQ&&small.length?'В '+(small.length===1?'стриме ':'стримах ')+small.map(n=>'«'+n.cat.name+'»').join(', ')+' — по 1–2 человека: '+
+        'с уходом одного уйдёт и экспертиза.':null],
+    says:{
+      tree:stQ?'Выбран «'+stQ.cat.name+'» — карта показывает весь состав, выбранное обведено.'
+        :'**'+pc(top.value,tot)+'%** — «'+top.cat.name+'»'+(spec&&spec.value?', больше всего — «'+spec.cat.name+'» ('+pl(spec.value,PPL)+')':'')+
+        '. Всего '+tree.filter(n=>n.value>0).length+' стримов.',
+      prof:big?'Главное отличие от базы — '+big.dim.short.toLowerCase()+': '+cmp(big)+'.'
+        :'Доли везде в пределах 5 п.п. от базы «'+c.bench+'».',
+      pyr:[ag.fixed?null:'Ядро — «'+ag.cat.name+'»: **'+ag.share+'%** команды.',
+        inSel('gender')?null:'Женщин — **'+fw+'%**'+(Math.abs(fw-fwB)>=5?', в базе '+fwB+'%':'')+'.'].filter(Boolean).join(' ')}};
+};
+
 /* ---------- Зачем смотреть и что с этим делать (итерация 32, фидбэк 12.10) ----------
    «Когда я смотрю: а что мне с этим делать? Что мне это даёт? Зачем я смотрю
    на этот график?» — у каждой главы две фразы обычным текстом под выводом.
@@ -6885,14 +7196,14 @@ function glossary(term){
 }
 const WHY={
   structure:{
+    portrait:['Вся команда одним экраном: чем люди заняты, какой они квалификации и чем команда не похожа на компанию.',
+      'Клик по любому куску — срез: «Senior» покажет, чем заняты и сколько лет сеньорам, а карточки и таблица подразделений пересчитаются.'],
     qual:['Видно, на каком уровне команда: много ли людей младших {{Грейд|грейдов}} (растущих) или старших (опытных).',
       'Перекос вниз — нужны наставники и план роста; перекос вверх — дорогая команда и мало места для роста.'],
     people:['Возраст, стаж и пол показывают, насколько команда устойчива.',
       'Много людей со стажем до года — следите за адаптацией и ранним уходом. «Пол × грейд» в «Своём срезе» покажет, ровно ли распределены уровни.'],
-    contract:['От формы оформления зависят затраты и управляемость команды.',
-      'Большая доля не штата — проверьте, не держатся ли на ней ключевые роли.'],
-    geo:['Где и в каком формате работают люди: офисы, часовые пояса, найм в регионах.',
-      'Сверьте с посещаемостью офисов: гибридный формат без офиса рядом не работает.'],
+    work:['От формы оформления и места работы зависят затраты, управляемость и найм: офисы, часовые пояса, регионы.',
+      'Большая доля не штата — проверьте, не держатся ли на ней ключевые роли; гибрид без офиса рядом — сверьте с посещаемостью.'],
     stream:['Из каких {{Стрим|стримов}} состоит команда и где её основная экспертиза.',
       'Стрим из одного-двух человек — точка отказа: с их уходом уйдёт и экспертиза.'],
     custom:['Любой разрез против любого — например, {{Сеньорность|сеньорность}} × пол или грейд × стаж.',
@@ -7419,12 +7730,14 @@ window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotR
    растёт. Сложить их в одну вкладку нельзя: девять таблиц подряд — это
    прокрутка на три экрана, где ни один разрез не виден целиком.
 
-   Поэтому раскладка двухслойная:
+   Поэтому раскладка трёхслойная:
 
-   1. ЧЕТЫРЕ ПРЕДНАСТРОЕННЫЕ ВКЛАДКИ по смыслу вопроса — квалификация, люди,
-      оформление, стримы. Группы объявлены в `D.MIX_GROUPS`, правило одно:
-      на вкладке не больше трёх таблиц. Так каждая вкладка отвечает на один
-      вопрос целиком и помещается в рабочую зону без прокрутки.
+   0. «ПОРТРЕТ КОМАНДЫ» (14.10) — первая глава: вся структура одним рассказом,
+      тремя графиками с выводами (см. portrait ниже). Таблицы — во второй слой.
+   1. ПРЕДНАСТРОЕННЫЕ ВКЛАДКИ по смыслу вопроса — квалификация, люди,
+      оформление и место, стримы. Группы объявлены в `D.MIX_GROUPS`, правило:
+      на вкладке не больше четырёх лёгких таблиц (без шапки и ИТОГО). Так
+      каждая вкладка отвечает на один вопрос целиком.
    2. ВКЛАДКА «СВОЙ СРЕЗ» — конструктор: две оси на выбор из всех разрезов.
       Готовые вкладки закрывают частые вопросы, конструктор — редкие, ради
       которых заводить пятую и шестую преднастроенную вкладку бессмысленно
@@ -7440,7 +7753,7 @@ window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotR
    ========================================================================== */
 (function(){
 'use strict';
-const D=window.TPDATA, U=window.TPUI, SC=window.TPSCREENS;
+const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
 
 /* Разрез длинный (стрим — десять строк) — сортируем по убыванию: у номинального
    разреза порядка нет, и алфавит ничего не сообщает. У порядковых (грейд, стаж,
@@ -7505,10 +7818,59 @@ function treeTable(dim,lp,sel,mixSel,open){
     expAll:{key:dim.key,open:allOpen}});
 }
 
+/* ---------- «Портрет команды» (14.10) ----------
+   Первая глава структуры — рассказ, а не стопка таблиц: заказчик просил
+   «сторителлинг: кто эти люди, какой квалификации», и чтобы одно и то же не
+   повторялось. Три графика — три вопроса, у каждого своя форма:
+     чем заняты           — карта стримов и специализаций (treemap);
+     чем не похожи на компанию — профиль по восьми разрезам против базы;
+     возраст и пол         — пирамида с контуром базы.
+   Над каждым графиком — его вывод одной фразой (story.js, says). Клик по куску
+   берёт срез, как строка таблицы: портрет пересчитывается под «Senior», и
+   рассказ — тоже. Подробности — в главах-таблицах, ссылки «подробно →». */
+/* короткие имена категорий для подписей внутри полос профиля */
+const SHORT={'seniority:l':'Lead+','age:a0':'<25','age:a25':'25–34','age:a35':'35–44','age:a45':'45+',
+  'tenure:t0':'<1 года','tenure:t1':'1–3 года','tenure:t3':'3+ лет','employment:tk':'Штат','employment:sz':'Самозан.',
+  'employment:out':'Аутстафф','worksite:rem':'Удалённо','region:msk':'Москва','region:spb':'СПб','region:oth':'Другие',
+  'grade:g1':'G1','grade:g2':'G2','grade:g3':'G3','grade:g4':'G4','grade:g5':'G5'};
+const PROF_ROWS=[['qual','Квалификация',['seniority','grade']],['people','Люди',['tenure','age','gender']],
+  ['work','Как и где работают',['worksite','employment','region']]];
+function portrait(ctx){
+  const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), says=(ctx.story||{}).says||{};
+  /* раздел: вопрос заголовком, под ним вывод одной фразой, затем график */
+  const say=(q,t)=>'<div class="pt-h">'+U.esc(q)+'</div>'+(t?'<p class="pt-say">'+U.richText(t)+'</p>':'');
+  const go=(sub,q)=>'<button class="pt-go" data-subtab="'+sub+'">'+U.esc(q)+' →</button>';
+  const tree=D.mixTree(ctx.lp,'stream',S.mixSel);
+  let h=U.storyFacts((ctx.story||{}).inFacts,'Что важно')+say('Чем заняты: стримы и специализации',says.tree)+G.chart('treemap',{items:tree.map(n=>({id:n.cat.id,name:n.cat.name,value:n.value,on:sel.has(n.cat.id),
+    kids:n.kids.map(k=>({id:k.cat.id,name:k.cat.name,value:k.value,on:sel.has(k.cat.id)}))}))},
+    {})+'<div class="pt-more">'+go('stream','Все специализации таблицей')+'</div>';
+  const rows=[];
+  PROF_ROWS.forEach(([gk,gn,dims])=>dims.forEach(k=>{
+    const dim=D.MIX_BY_KEY[k], t=D.mixParts(ctx.lp,k,S.mixSel), b=D.mixParts(ctx.bl,k,S.mixSel), sb=b.reduce((x,y)=>x+y,0)||1;
+    const st=t.reduce((x,y)=>x+y,0)||1;
+    const cats=dim.cats.map((c,i)=>({id:c.id,name:c.name,short:SHORT[c.id]||c.name,v:t[i],b:b[i]/sb,on:sel.has(c.id)}));
+    /* самое заметное отличие строки от базы — словами справа */
+    const d=cats.map(c=>({c:c,d:(c.v/st-c.b)*100})).sort((x,y)=>Math.abs(y.d)-Math.abs(x.d))[0];
+    const big=d&&Math.abs(d.d)>=3;
+    rows.push({group:gk,groupName:gn.toUpperCase(),groupTab:gk,name:dim.short,ord:!!dim.ord,cats:cats,
+      dev:{text:big?d.c.short+' '+(d.d>0?'+':'−')+Math.round(Math.abs(d.d))+' п.п.':'как в базе',strong:Math.abs(d.d)>=5}});
+  }));
+  h+=say('Чем команда не похожа на компанию',says.prof)+G.chart('profile',{rows:rows},{baseLabel:ctx.benchLabel});
+  const m=D.mixMatrix(ctx.lp,'age','gender',S.mixSel), mb=D.mixMatrix(ctx.bl,'age','gender',S.mixSel);
+  const tot=m.reduce((x,r)=>x+r[0]+r[1],0), totB=mb.reduce((x,r)=>x+r[0]+r[1],0)||1, k=tot/totB;
+  const age=D.MIX_BY_KEY.age, gen=D.MIX_BY_KEY.gender;
+  h+=say('Возраст и пол',says.pyr)+G.chart('pyramid',{rows:age.cats.map((c,i)=>({name:c.name,l:m[i][0],r:m[i][1],bl:mb[i][0]*k,br:mb[i][1]*k,
+      idL:c.id+','+gen.cats[0].id,idR:c.id+','+gen.cats[1].id})).reverse()},
+    {left:gen.cats[0].name,right:gen.cats[1].name,baseLabel:ctx.benchLabel})+
+    '<div class="pt-more">'+go('people','Пол, возраст и стаж таблицами')+go('custom','Пол × грейд в «Своём срезе»')+'</div>';
+  return '<div class="pt-wrap">'+h+'</div>';
+}
+
 SC.blocks.structure={
-  subTabs:D.MIX_GROUPS.map(g=>[g.key,g.name]).concat([['custom','Свой срез']]),
-  defaultSub:'qual',
+  subTabs:[['portrait','Портрет']].concat(D.MIX_GROUPS.map(g=>[g.key,g.name])).concat([['custom','Свой срез']]),
+  defaultSub:'portrait',
   title(sub){
+    if(sub==='portrait')return 'Портрет команды';
     if(sub!=='custom'){
       const g=D.MIX_GROUPS.find(x=>x.key===sub);
       return g?g.title:'Состав численности по атрибутам';
@@ -7516,6 +7878,7 @@ SC.blocks.structure={
     return 'Свой срез состава';
   },
   view(ctx){
+    if(ctx.sub==='portrait')return portrait(ctx);
     const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id));
 
     if(ctx.sub!=='custom'){
@@ -7528,7 +7891,7 @@ SC.blocks.structure={
         const dim=D.MIX_BY_KEY[k];
         return dim.childDim?treeTable(dim,ctx.lp,sel,S.mixSel,open)
                            :dimTable(dim,ctx.lp,sel,S.mixSel);
-      }))+
+      }),'lite')+
         (sel.size?'':'<div class="tbl-note">Клик по строке берёт срез: численность '+
           'в карточках и в таблице подразделений пересчитается по этой категории. '+
           'Разрезы складываются — по одной категории на разрез.</div>');
