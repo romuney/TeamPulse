@@ -5,6 +5,10 @@
   --green:#12b048; --green-bg:#bff2cd; --green-tx:#0a8f3c;
   --red:#f51f1f;   --red-bg:#ffcccc;  --red-tx:#d11414;
   --warn:#f59300;  --warn-bg:#ffe6a0; --warn-tx:#9a6500;
+  /* «В разработке» (14.10): метрика, вкладка или блок без источника данных.
+     Свой тон — жёлтая «строительная» лента, не светофор: это не оценка
+     метрики, а статус подключения. Полосы отличают её от --warn. */
+  --dev-ink:#6b4a00; --dev-bg:#fff7d9; --dev-bg2:#ffe89a; --dev-line:#f2c94c; --dev-strong:#f5b700; --dev-dark:#3b3428;
   /* ---------- Акцент: кобальт ----------
      Один активный тон на всё: кнопки, выбранная строка, фокус, линия
      подразделения на графиках. «Активное в интерфейсе» и «активное в данных» —
@@ -1428,18 +1432,63 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .panel-h .h-txt>.unit-toggle{position:static;transform:none;margin-top:var(--s4);align-self:flex-start}}
 
 /* ===== Итерация 31: пробник Proteus ==========================================
-   Метрика или разбивка без источника — заглушка на генераторе, и это сказано у
-   её имени серой меткой «демо». Не оценка и не сигнал: ни цвета светофора, ни
-   акцента — пунктирная рамка, как у всего «ещё не настоящего». Видна только в
-   чарте Proteus (TP_REAL): в макете метка не рисуется. */
-.demo-tag{display:inline-block;margin-left:var(--s3);padding:0 var(--s3);border:1px dashed var(--muted2);
-  border-radius:var(--r-pill);font-size:var(--fs-micro);font-weight:var(--fw-body);line-height:15px;
-  color:var(--muted);background:var(--card);vertical-align:1px;text-transform:none;letter-spacing:0;white-space:nowrap}
-.demo-tag.sm{display:block;width:max-content;margin:var(--s1) auto 0;padding:0 var(--s2);line-height:13px}
-.demo-note{display:flex;gap:var(--s4);align-items:baseline;margin:0 0 var(--s6);padding:var(--s4) var(--s5);
-  border:1px dashed var(--muted2);border-radius:var(--r2);font-size:var(--fs-note);line-height:1.4;
-  color:var(--ink2);background:var(--bg)}
-.demo-note .demo-tag{margin-left:0;flex:none}
+   Метрика или разбивка без источника — заглушка на генераторе. 14.10 серая
+   пунктирная метка «демо» стала жёлтой полосатой «в разработке»: заказчик
+   просил видеть ярче, что ещё подключать. Не оценка и не сигнал — статус
+   подключения (--dev-*). Рисуется и в макете (по плану, D.isDev), и в чарте
+   Proteus (по факту заглушки, TP_REAL). */
+.dev-tag{display:inline-block;margin-left:var(--s3);padding:0 var(--s3);border:1px solid var(--dev-line);
+  border-radius:var(--r-pill);font-size:var(--fs-micro);font-weight:var(--fw-bold);line-height:15px;color:var(--dev-ink);
+  background:repeating-linear-gradient(-45deg,var(--dev-bg) 0 5px,var(--dev-bg2) 5px 10px);
+  vertical-align:1px;text-transform:none;letter-spacing:0;white-space:nowrap;cursor:help}
+.dev-tag.sm{display:block;width:max-content;margin:var(--s1) auto 0;padding:0 var(--s2);line-height:13px}
+.dev-tag.sm-in{margin-left:0;padding:0 var(--s2);line-height:14px}
+/* плашка вкладки: лента «стройки» слева, этап плана и что нужно */
+.dev-note{position:relative;margin:0 0 var(--s6);padding:var(--s4) var(--s6) var(--s4) 22px;border:1px solid var(--dev-line);
+  border-radius:var(--r2);background:var(--dev-bg);overflow:hidden;font-size:var(--fs-note);line-height:1.45;color:var(--ink2)}
+.dev-note::before{content:"";position:absolute;left:0;top:0;bottom:0;width:10px;
+  background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 6px,var(--dev-dark) 6px 12px)}
+.dev-note.part{background:var(--card)}
+.dev-note.part::before{background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 6px,var(--dev-bg) 6px 12px)}
+.dev-b{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s4);align-items:baseline}
+.dev-h{font-weight:var(--fw-bold);color:var(--dev-ink);white-space:nowrap}
+.dev-need{flex-basis:100%;color:var(--ink2)}
+.dev-need b{font-weight:var(--fw-bold);color:var(--dev-ink)}
+/* пункт навигации: блок целиком в разработке — метка; частично — полосатая точка */
+.nav-dev{margin-left:auto;flex:none}
+.nav-dev.full{padding:0 var(--s2);border:1px solid var(--dev-line);border-radius:var(--r-pill);font-size:var(--fs-micro);
+  font-weight:var(--fw-bold);line-height:14px;color:var(--dev-ink);white-space:nowrap;
+  background:repeating-linear-gradient(-45deg,var(--dev-bg) 0 4px,var(--dev-bg2) 4px 8px)}
+.nav-dev.part{width:10px;height:10px;border-radius:50%;border:1px solid var(--dev-line);
+  background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 2px,var(--dev-bg) 2px 4px)}
+/* шаг-глава в разработке: штриховка и полосатый номер */
+.st-step.dev-full{background-image:repeating-linear-gradient(-45deg,rgba(245,183,0,.10) 0 6px,transparent 6px 12px)}
+.st-step.dev-full .st-n{background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 3px,var(--dev-bg2) 3px 6px);color:var(--dev-ink)}
+.st-step.dev-full.on .st-n{background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 3px,var(--dev-dark) 3px 6px);color:#fff}
+.st-step.dev-part .st-n{background:repeating-linear-gradient(-45deg,var(--dev-bg2) 0 3px,var(--card) 3px 6px);
+  box-shadow:inset 0 0 0 1.5px var(--dev-strong);color:var(--dev-ink)}
+.st-step.dev-part.on .st-n{background:var(--dev-strong);box-shadow:none;color:var(--dev-dark)}
+.st-s.st-dev{display:block;color:var(--dev-ink);font-weight:var(--fw-bold)}
+/* «живые» в плане подключения */
+.live-tag{display:inline-block;padding:0 var(--s2);border-radius:var(--r-pill);font-size:var(--fs-micro);font-weight:var(--fw-bold);
+  line-height:14px;color:var(--green-tx);background:#e5f8eb;border:1px solid var(--green-bg);white-space:nowrap}
+/* сводка готовности к живым данным на One-pager */
+.dev-sum{margin:0 0 var(--s6);border:1px solid var(--dev-line);border-radius:var(--r3);background:var(--card);overflow:hidden}
+.dev-sum>summary{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3) var(--s6);padding:var(--s4) var(--s6) var(--s4) 22px;
+  position:relative;cursor:pointer;list-style:none;font-size:var(--fs-note);color:var(--ink2)}
+.dev-sum>summary::-webkit-details-marker{display:none}
+.dev-sum>summary::before{content:"";position:absolute;left:0;top:0;bottom:0;width:10px;
+  background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 6px,var(--dev-dark) 6px 12px)}
+.dev-sum-h{font-weight:var(--fw-bold);color:var(--ink);font-size:var(--fs-body)}
+.dev-sum-bar{width:120px;height:8px;border-radius:var(--r-pill);flex:none;overflow:hidden;
+  background:repeating-linear-gradient(-45deg,var(--dev-bg) 0 4px,var(--dev-bg2) 4px 8px);border:1px solid var(--dev-line)}
+.dev-sum-bar i{display:block;height:100%;background:var(--green)}
+.dev-sum-n b{font-weight:var(--fw-bold);color:var(--ink)}
+.dev-sum-more{margin-left:auto;color:var(--act-ink)}
+.dev-sum[open] .dev-sum-more{color:var(--muted)}
+.dev-sum-b{padding:var(--s2) var(--s6) var(--s6) 22px;border-top:1px solid var(--line2)}
+.dev-sum-b label{font-size:var(--fs-body);font-weight:var(--fw-bold)}
+.dev-sum-b .fhint{font-size:var(--fs-note);color:var(--muted)}
 /* чипы пробника в шапке: что здесь живое, ожидание ответа, предупреждение */
 .chip.pilot{background:var(--card);color:var(--ink2);border:1px dashed var(--muted2);font-weight:var(--fw-body)}
 .chip.busy{background:var(--card);color:var(--act-ink);border-color:var(--act-line);font-weight:var(--fw-body);
@@ -1451,8 +1500,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* корень отчёта внутри хоста ECharts: он и прокручивается (prelude.js) */
 .tp-overlay{background:var(--bg)}
 /* «План метрик» в справке — только в пробнике */
-.pilot-only{display:none}
-.tp-pilot .pilot-only{display:block}
 .plan-t{width:100%;border-collapse:collapse;font-size:var(--fs-note);margin-top:var(--s4)}
 .plan-t th,.plan-t td{text-align:left;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line2);vertical-align:top}
 .plan-t th{font-size:var(--fs-cap);font-weight:var(--fw-bold);color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
@@ -1759,3 +1806,20 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .unit-head{display:block;margin-top:1px;font-size:var(--fs-cap);color:var(--ink2);line-height:1.35;white-space:normal}
 /* логин переносится целиком: в узкой колонке он уходит на свою строку, а не режется */
 .unit-head .login{display:inline-block;color:var(--muted)}
+
+/* ===== 14.10: таблицы структуры — легче и плотнее ===========================
+   Фидбэк: «строки слишком широкие, ИТОГО слишком жирная, одно и то же
+   десять раз». Без шапки колонок и без ИТОГО (итог — в карточке), строка
+   30px вместо 40, число обычным начертанием, доля серым, полоса тоньше. */
+.split-r .btable.lite tbody td{height:30px;padding-top:2px;padding-bottom:2px}
+.btable.lite td.lead{font-weight:var(--fw-body);color:var(--ink)}
+.btable.lite tbody td:nth-child(3){color:var(--muted);font-size:var(--fs-note)}
+.btable.lite .cellbar{height:8px;border-radius:var(--r-pill);background:#f3f4f7}
+.btable.lite .cellbar i{border-radius:var(--r-pill)}
+.btable.lite tbody tr:first-child td{border-top:1px solid var(--line2)}
+.btable.lite tr.lvl2 td{height:26px}
+.bt-stack:has(.btable.lite){gap:20px}
+.bt-stack:has(.btable.lite) .bt-group+.bt-group{padding-top:0}
+.bt-all{display:inline-flex;align-items:center;gap:var(--s1);margin-left:auto;font-size:var(--fs-note);
+  font-weight:var(--fw-body);color:var(--muted)}
+.btable.lite td.txt .row-label{align-items:center}

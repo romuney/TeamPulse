@@ -431,7 +431,9 @@ checks.push(['обязательные метрики численности н�
 A.hide(D.metricsOfBlock('tgrowth').map(m=>m.key));
 const opNoTg=A.go('onepager',null);
 A.go('tgrowth','flow');
-checks.push(['пустой блок исчез из one-pager',!/T-рост/.test(opNoTg)]);
+/* план подключения в сводке готовности называет этапы, в том числе T-рост, — его не считаем */
+checks.push(['пустой блок исчез из one-pager',!/id="op-tgrowth"/.test(opNoTg)&&
+  !/T-рост/.test(opNoTg.replace(/<details class="dev-sum"[\s\S]*?<\/details>/,''))]);
 checks.push(['пустой блок исчез из навигации',!/T-рост/.test(A.nav())]);
 checks.push(['вкладка пустого блока уводит на one-pager',A.tab()==='onepager']);
 
@@ -838,30 +840,32 @@ checks.push(['марки графиков помечены data-s',
        на странице раньше и до правки перехватывало проверку на себя */
     const grp=(open.match(/<div class="bt-group">[\s\S]*?<\/table>/)||[''])[0];
     /* заголовок первой колонки не повторяет название разреза над таблицей */
-    checks.push(['подпись разреза не продублирована в шапке колонки',
-      /<div class="bt-cap">Стрим и специализация/.test(grp)&&
-      /<thead><tr><th class="txt"><\/th>/.test(grp)]);
+    /* 14.10: таблицы структуры «лёгкие» — без шапки колонок и без ИТОГО:
+       итог стоит в карточке над ними, повторять его у каждого разреза незачем */
+    checks.push(['таблицы структуры: подпись над таблицей, без шапки колонок и без ИТОГО',
+      /<div class="bt-cap">Стрим и специализация/.test(grp)&&!/<thead>/.test(grp)&&!/ИТОГО/.test(grp)&&
+      D.MIX_GROUPS.every(g=>{const v=A.go('structure',g.key).split('<div class="bt-stack">')[1]||'';
+        return v&&!/class="total/.test(v)&&!/<thead>/.test(v)&&/class="ptable btable dense lite"/.test(v)})]);
     /* то же правило во всех таблицах, у которых имя стоит прямо над ними */
     checks.push(['ни одна таблица не повторяет своё название в шапке колонки',
       /<thead><tr><th class="txt"><\/th>/.test(A.go('turnover','reasons'))&&
       /<thead><tr><th class="txt"><\/th>/.test(A.go('office','offices'))]);
-    checks.push(['ИТОГО двухуровневой разбивки не удваивается',
-      (grp.match(/<span class="row-body">ИТОГО<\/span><\/span><\/td><td class="lead">([\d\u2009]+)/)||[])[1]===
-      D.fmtVal('hc_total',hc)]);
-
-    /* ПРАВИЛО: у таблицы с каретками в строках обязана быть общая каретка. */
-    checks.push(['у двухуровневой разбивки есть общая каретка в строке ИТОГО',
-      /<tr class="total top"><td class="txt"><span class="row-label"><button class="caret-btn" data-btexpall="stream\|1"/.test(html)]);
-    /* ИТОГО во ВСЕХ таблицах отчёта стоит первой строкой: пока в одной он был
-       сверху, а в другой снизу, его приходилось искать заново на каждом экране */
-    checks.push(['ИТОГО стоит первой строкой и в разбивке, и в сводной таблице',
-      (function(){
-        const body=(html.match(/<div class="bt-group">[\s\S]*?<tbody>([\s\S]{0,120})/)||[])[1]||'';
-        return /^<tr class="total top"/.test(body)&&
-          /<tbody>[\s\S]{0,40}<tr class="total top"/.test(A.go('turnover','reasons'));
-      })()]);
-    checks.push(['«ИТОГО» стоит на той же вертикали, что и названия строк',
-      /data-btexpall="stream\|1"[^>]*>▸<\/button><span class="row-body">ИТОГО<\/span>/.test(html)]);
+    /* верхний уровень двухуровневой разбивки складывается в численность:
+       дети уже сидят в родительской строке и второй раз не считаются */
+    A.go('structure','stream');
+    const open2=A.mixOpen(['stream:dev']);
+    const grp2=(open2.match(/<div class="bt-group">[\s\S]*?<\/table>/)||[''])[0];
+    const topSum=[...grp2.matchAll(/<tr class="urow(?: sel)?" data-mix="stream:[^"]*"[\s\S]*?<td class="lead">([\d ]+)/g)]
+      .reduce((a,m)=>a+(+m[1].replace(/ /g,'')),0);
+    checks.push(['верхний уровень двухуровневой разбивки складывается в численность',
+      topSum===Math.round(hc)]);
+    /* ПРАВИЛО: у таблицы с каретками в строках обязана быть общая каретка —
+       без строки ИТОГО она стоит в подписи таблицы */
+    checks.push(['у двухуровневой разбивки есть общая каретка в подписи',
+      /<span class="bt-all"><button class="caret-btn" data-btexpall="stream\|1"/.test(html)]);
+    /* в остальных разбивках ИТОГО по-прежнему первой строкой */
+    checks.push(['ИТОГО стоит первой строкой в разбивках вне структуры и в сводной таблице',
+      /<tbody>[\s\S]{0,40}<tr class="total top"/.test(A.go('turnover','reasons'))]);
     /* проверка выше уходила на вкладку текучести — возвращаемся, иначе
        A.mixOpen отрисует не тот экран */
     A.go('structure','stream');
@@ -1329,6 +1333,25 @@ checks.push(['третьей палитры нет: в экранах ни од�
     (cardsH.match(/по компании /g)||[]).length===(D.metricVisible('ai_penetration',S0)?1:0)&&!/>база /.test(cardsH)&&
     !/>база /.test((A.go('ai','adoption').match(/<div class="kpis[\s\S]*?<\/div><\/div><\/div>/)||[''])[0])]);
   A.op([]);
+})();
+
+/* 14.10: «в разработке» видно в макете — метрики, главы, блоки, сводка готовности */
+(function(){
+  const op=A.op([]), nav=A.nav();
+  const devK=D.METRICS.filter(m=>D.isDev(m.key)).map(m=>m.key);
+  checks.push(['«в разработке»: у метрик без источника метка с этапом, у живых — нет',
+    devK.length>5&&devK.every(k=>D.devStage(k)!=null)&&!D.isDev('hc_total')&&!D.isDev('turnover_m')&&
+    !D.isDev('office_att')&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
+  checks.push(['«в разработке»: сводка готовности на One-pager с планом этапов',
+    /class="dev-sum"/.test(op)&&new RegExp('<b>'+(D.METRICS.length-devK.length)+' из '+D.METRICS.length+'</b>').test(op)&&
+    (op.match(/<tr><td>[^<]*<\/td>/g)||[]).length>=D.DEV_PLAN.length]);
+  checks.push(['«в разработке»: в навигации блок целиком (AI, офис нет — посещаемость живая) и частично',
+    /data-tab="ai"[^>]*>[\s\S]*?nav-dev full/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&
+    !/data-tab="movement"[^>]*>[^<]*<span class="ico[^"]*"><\/span>[^<]*<span class="nav-dev/.test(nav)&&SC.blockDev('office')==='part']);
+  const hv=A.go('hiring','vacancies'), hp=A.go('hiring','plan'), mv=A.go('movement',null);
+  checks.push(['«в разработке»: плашка вкладки с этапом и «что нужно», шаги степпера помечены',
+    /class="dev-note"[\s\S]*?этап 2 плана[\s\S]*?Что нужно:/.test(hv)&&/class="dev-note part"/.test(hp)&&
+    /st-step[^"]*dev-full/.test(hv)&&/st-step[^"]*dev-part/.test(hv)&&!/dev-note/.test(mv)]);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

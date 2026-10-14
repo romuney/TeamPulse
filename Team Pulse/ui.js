@@ -403,18 +403,22 @@ function barTable(o){
   /* share:false — для процентных метрик: доля одного процента в сумме процентов
      ничего не значит, а колонка «Доля» делает вид, что значит. */
   const withShare=o.share!==false;
-  let h='<table class="ptable btable'+(o.compact?' dense':'')+'">'+
-    '<colgroup><col style="width:'+(o.compact?'40%':'34%')+'"><col style="width:14%">'+
-    (withShare?'<col style="width:11%">':'')+'<col></colgroup>'+
-    '<thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
+  /* lite (14.10, структура): без шапки колонок и без ИТОГО — число и доля
+     понятны сами («53 · 28%»), а итог уже стоит в карточке над таблицей;
+     строки ниже, цифры без жирного. «Одно и то же десять раз» — фидбэк. */
+  const lite=!!o.lite;
+  let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+'">'+
+    '<colgroup><col style="width:'+(lite?'34%':o.compact?'40%':'34%')+'"><col style="width:'+(lite?'9%':'14%')+'">'+
+    (withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
+    (lite?'':'<thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
     '<th>'+esc(o.valueHead||'Значение')+'</th>'+(withShare?'<th>Доля</th>':'')+
-    '<th class="txt bar-th">'+esc(o.barHead||'Распределение')+'</th></tr></thead><tbody>';
+    '<th class="txt bar-th">'+esc(o.barHead||'Распределение')+'</th></tr></thead>')+'<tbody>';
 
   /* ИТОГО ПЕРВОЙ СТРОКОЙ — так же, как в сводной таблице подразделений.
      Пока итог стоял снизу в одной таблице и сверху в другой, пользователю
      приходилось искать его заново на каждом экране. Все таблицы отчёта
      считываются одинаково: сначала итог, потом из чего он сложился. */
-  if(o.total!==false){
+  if(o.total!==false&&!lite){
     const allBtn=o.expAll
       ? allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
           'Все вторые уровни разом.')
@@ -473,6 +477,9 @@ function btGroup(o){
     /* Уточнение среза стоит В ПОДПИСИ таблицы, а не только в общей плашке:
        иначе «ИТОГО 59» под заголовком «Грейд» читается как ошибка данных. */
     (o.capSub?'<span class="bt-sub">'+esc(o.capSub)+'</span>':'')+
+    /* без строки ИТОГО общая каретка двухуровневой разбивки — в подписи */
+    (o.lite&&o.expAll?'<span class="bt-all">'+allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
+      'Все вторые уровни разом.')+(o.expAll.open?'свернуть всё':'раскрыть всё')+'</span>':'')+
     '</div>'+barTable(o)+'</div>';
 }
 function btStack(list){return '<div class="bt-stack">'+list.join('')+'</div>'}
@@ -645,10 +652,16 @@ function chapters(list,active){
   if(!list||list.length<2)return'';
   return '<div class="st-steps n'+Math.min(6,list.length)+'" role="tablist">'+list.map((c,i)=>{
     const on=c.key===active;
-    return '<button class="st-step'+(on?' on':'')+'" data-subtab="'+esc(c.key)+'" data-text="'+esc(c.q)+'" role="tab" aria-selected="'+on+'"'+
-      tipAttr({title:(i+1)+'. '+c.q,text:c.sum?String(c.sum):c.name,note:c.name})+'>'+
+    /* глава в разработке (14.10): шаг заштрихован, номер — в полосу, вместо
+       ответа — «в разработке · этап N» (текстом: пилюля в узком шаге
+       обрезалась). Частично живая — ответ остаётся, номер в полосу светлее. */
+    const dev=c.dev==='full'?'<span class="st-s st-dev">в разработке'+(c.devStage!=null?' · этап '+esc(c.devStage):'')+'</span>'
+      :'';
+    return '<button class="st-step'+(on?' on':'')+(c.dev?' dev-'+c.dev:'')+'" data-subtab="'+esc(c.key)+'" data-text="'+esc(c.q)+'" role="tab" aria-selected="'+on+'"'+
+      tipAttr({title:(i+1)+'. '+c.q,text:c.dev==='full'?'В разработке: источника данных пока нет'+(c.devStage!=null?' (этап '+c.devStage+' плана)':'')+'.'
+        :c.sum?String(c.sum):c.name,note:c.dev==='part'?'Часть данных вкладки — заглушка.':c.name})+'>'+
       '<span class="st-n">'+(i+1)+'</span><span class="st-tx"><span class="st-q">'+esc(c.q)+'</span>'+
-      (c.sum?'<span class="st-s"><i class="st-dot '+esc(c.st||'n')+'"></i>'+esc(c.sum)+'</span>':'')+'</span></button>';
+      (dev||(c.sum?'<span class="st-s"><i class="st-dot '+esc(c.st||'n')+'"></i>'+esc(c.sum)+'</span>':''))+'</span></button>';
   }).join('')+'</div>';
 }
 /* act — «Что сделать» строкой под выводом. Она видна, только пока колонка
@@ -858,24 +871,55 @@ function trafficLegend(){
 
 /* ============================================================================
    Пробник Proteus (итерация 31): метрика или разбивка без источника — заглушка
-   на генераторе макета, и это сказано прямо у её имени. «Демо» — не оценка и не
-   сигнал: серая метка, а не цвет светофора. В макете (без TP_REAL) не рисуется.
+   на генераторе макета, и это сказано прямо у её имени.
    ========================================================================== */
-const DEMO_TIP={title:'Демо-данные',
-  text:'Источника для этой метрики пока нет: цифра сгенерирована по настоящей численности юнита, '+
-    'чтобы было видно, где она будет стоять. Какой источник и когда — в «Как читать отчёт» → «План метрик».'};
-function demoTag(small){return '<span class="demo-tag'+(small?' sm':'')+'"'+tipAttr(DEMO_TIP)+'>демо</span>'}
-function demoNote(text){return '<div class="demo-note">'+demoTag()+'<span>'+esc(text)+'</span></div>'}
-/* План метрик пробника в справке: этап · что · откуда · сейчас */
+/* ---------- «В разработке» (14.10) ----------
+   Заказчик: «подсветить ярче, что в разработке, — не так, как демо-данные, —
+   чтобы понимать, что ещё доработать». Серая пунктирная метка «демо» читалась
+   как сноска. Теперь это полосатая «строительная» плашка: метрика, вкладка или
+   блок без источника данных видны сразу, с номером этапа плана и тем, что
+   для него нужно. Не оценка и не светофор: свой тон (--dev-*), не красный и
+   не зелёный. Рисуется и в макете, и в пробнике (D.isDev). */
+function devTip(stage){
+  const p=stage!=null?D.devPlan(stage):null;
+  return {title:'В разработке'+(stage!=null?' · этап '+stage+' плана':''),
+    text:'Источника данных пока нет: в Proteus здесь заглушка — цифра сгенерирована по численности юнита, чтобы было видно, где она будет стоять.'+
+      (p?' Источник: '+p.src+'.':''),
+    note:p&&p.need&&p.need!=='—'?'Что нужно: '+p.need+'.':'План подключения — «Как читать отчёт» → «План подключения данных».'};
+}
+function devTag(stage,small){
+  return '<span class="dev-tag'+(small?' sm':'')+'"'+tipAttr(devTip(stage))+'>в разработке</span>';
+}
+/* Плашка вкладки: d = {stage, t — что здесь не настоящее, need — что нужно, part} */
+function devNote(d){
+  if(!d)return '';
+  const p=d.stage!=null?D.devPlan(d.stage):null, need=d.need||(p&&p.need!=='—'?p.need:'');
+  return '<div class="dev-note'+(d.part?' part':'')+'"><div class="dev-b">'+
+    '<span class="dev-h">'+(d.part?'Частично в разработке':'В разработке')+(d.stage!=null?' · этап '+esc(d.stage)+' плана':'')+'</span>'+
+    '<span class="dev-t">'+esc(d.t||'')+'</span>'+
+    (need?'<span class="dev-need"><b>Что нужно:</b> '+esc(need)+'</span>':'')+'</div></div>';
+}
+/* План подключения данных в справке и в сводке готовности: этап · что · откуда · что нужно · сейчас */
 function planTable(rows){
-  return '<label>План метрик</label><div class="fhint">Пробник показывает то, что уже есть в '+
-    'hr_structure_overall. Остальное — заглушки с пометкой «демо»; они становятся живыми по этапам:</div>'+
-    '<table class="plan-t"><thead><tr><th>Этап</th><th>Что</th><th>Источник</th><th>Сейчас</th></tr></thead><tbody>'+
-    rows.map(r=>'<tr><td>'+esc(r.stage)+'</td><td>'+esc(r.what)+'</td><td>'+esc(r.src)+'</td><td>'+
-      (r.now==='демо'?demoTag():esc(r.now))+'</td></tr>').join('')+'</tbody></table>';
+  return '<label>План подключения данных</label><div class="fhint">Живое — то, что уже есть в '+
+    'hr_structure_overall. Остальное помечено «в разработке» и становится живым по этапам:</div>'+
+    '<table class="plan-t"><thead><tr><th>Этап</th><th>Что</th><th>Источник</th><th>Что нужно</th><th>Сейчас</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td>'+esc(r.stage)+'</td><td>'+esc(r.what)+'</td><td>'+esc(r.src)+'</td><td>'+esc(r.need||'')+'</td><td>'+
+      (r.now==='живые'?'<span class="live-tag">живые</span>':devTag(r.stage==='—'?null:r.stage))+'</td></tr>').join('')+'</tbody></table>';
+}
+/* Сводка готовности на One-pager: сколько метрик на живых данных и что
+   подключать дальше. Раскрывается в полный план. o = {live, total, next:[plan]} */
+function devSummary(o){
+  const pc=o.total?Math.round(o.live/o.total*100):0;
+  return '<details class="dev-sum"><summary><span class="dev-sum-h">Готовность к живым данным</span>'+
+    '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик на живых данных"><i style="width:'+pc+'%"></i></span>'+
+    '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на живых данных · '+
+      '<span class="dev-tag sm-in">в разработке '+(o.total-o.live)+'</span></span>'+
+    '<span class="dev-sum-more">план подключения ▾</span></summary>'+
+    '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,demoTag,demoNote,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

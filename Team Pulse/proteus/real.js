@@ -40,29 +40,8 @@ const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:[
 const STUB=['vac_open','vac_closed','time_to_fill','hire_plan','junior_share',
   'tgrowth_pass','tgrowth_deny','tgrowth_conv','tgrowth_tat','underwork','review_up',
   'office_att','booking_viol','ai_penetration','ai_wau'];
-/* План подключения метрик — тот же, что в «Поставка — TeamPulse Hub/План метрик.md»:
-   справка пробника показывает его таблицей (U.planTable). Этап 0 — то, что уже живое. */
-const PLAN=[
-  {stage:'0',what:'Численность общая и активная, найм, отток, переводы, прирост с начала года, '+
-    'текучесть месячная и накопительная, прогноз, замещение, найм на 100, доля внутреннего найма, regret, '+
-    'низкая оценка; дерево юнитов, покраска, IT, штат',src:'hr_structure_overall',now:'живые'},
-  {stage:'1',what:'Разбивки состава по типу численности, типу договора, покраске и IT',
-    src:'hr_structure_overall — новые строки датасета',now:'демо'},
-  {stage:'2',what:'Вакансии, срок закрытия, план найма, воронка, доля джунов, каналы найма',
-    src:'vacancy_daily_for_digest, plan_fact_tf_rabota, atributy_nayma, junior_ratio_hr_digest',now:'демо'},
-  {stage:'3',what:'Причины и инициаторы увольнений, стаж и грейд ушедших',
-    src:'ys_all_fire_initiative, initiative_reason_unit_tekuchest',now:'демо'},
-  {stage:'4',what:'Состав: грейд, сеньорность, пол, возраст, стаж, формат работы, юрлицо, регион, стрим',
-    src:'mdm_employee_structure_d → ноут Helicopter, как в HRBP HUB',now:'демо'},
-  {stage:'5',what:'Ревью и недоработка',src:'review_digest_us, review_table_ys; недоработка — уточнить',now:'демо'},
-  {stage:'6',what:'T-рост: решения по заявкам и конверсия — из GRT-колонок hr_structure_overall (12.10); '+
-    'T@T, типы заявок и статусы по грейдам',src:'hr_structure_overall (grt_*); остальное — сервис «Рост» (дашборд 34136)',
-    now:'решения и конверсия — живые, остальное — демо'},
-  {stage:'7',what:'Посещаемость офиса — из work_day_amt и office_visit_amt (12.10); календарь по дням, офисы, '+
-    'бронирование',src:'hr_structure_overall; по дням и офисам — СКУД и система бронирования (дашборд 34136)',
-    now:'посещаемость — живая, остальное — демо'},
-  {stage:'8',what:'AI: проникновение и активные пользователи',src:'penetration_unit, penetration_company, wau',now:'демо'}
-];
+/* План подключения метрик живёт в data.js (D.DEV_PLAN, 14.10): им размечены и макет,
+   и пробник — «в разработке» у метрик, вкладок и блоков. */
 /* значения фильтров в датасете ↔ ключи фильтров макета */
 const PAINT_V={HQ:'Hq',Line:'Line',Support:'Support'};
 const IT_V={IT:'IT',Digital:'Digital',nonIT:'NonIT'};
@@ -236,5 +215,5 @@ function build(data){
   };
 }
 
-window.TPREAL={build,FIELDS,FIELDS_OPT,OPT,LIVE_WITH,STUB,PLAN,PAINT_V,IT_V,STAFF_V};
+window.TPREAL={build,FIELDS,FIELDS_OPT,OPT,LIVE_WITH,STUB,PAINT_V,IT_V,STAFF_V};
 })();

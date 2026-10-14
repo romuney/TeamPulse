@@ -37,6 +37,12 @@ const D=window.TPDATA, U=window.TPUI, SC=window.TPSCREENS;
    категории. Величину несёт длина полосы; красить строки в разные цвета —
    кодировать одно и то же дважды. Цвет при этом работает: он различает группы
    разрезов, и по нему видно, на какой вкладке стоишь. */
+/* Строки ИТОГО в таблицах структуры нет (14.10): итог стоит в карточке над
+   таблицами, и повторять «191 · 100%» над каждым разрезом незачем. Когда
+   соседний разрез режет таблицу, её сумма другая — её и пишем у среза. */
+function sliceSub(others,sum){
+  return others.length?'срез: '+others.map(p=>p.cat.name).join(' · ')+' · '+D.fmtInt(sum)+' чел':'';
+}
 function dimTable(dim,lp,sel,mixSel){
   const parts=D.mixParts(lp,dim.key,mixSel);
   /* ПЕРЕКРЁСТНАЯ ФИЛЬТРАЦИЯ. Срез, взятый в соседней таблице, режет и эту:
@@ -46,7 +52,7 @@ function dimTable(dim,lp,sel,mixSel){
      к другой категории стало бы нечем. */
   const others=D.otherParts(mixSel,[dim.key]);
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
-    capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
+    capSub:sliceSub(others,parts.reduce((a,v)=>a+v,0)),lite:true,
     /* Название разреза уже стоит подписью НАД таблицей — в шапке первой
        колонки его повторять незачем: «Грейд» и сразу под ним «ГРЕЙД» это одно
        и то же, написанное дважды. Подписаны колонки, у которых имя добавляет
@@ -81,7 +87,7 @@ function treeTable(dim,lp,sel,mixSel,open){
      состояние, что у ИТОГО в сводной таблице подразделений. */
   const allOpen=tree.length>0&&tree.every(n=>open.has(n.cat.id));
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
-    capSub:others.length?'срез: '+others.map(p=>p.cat.name).join(' · '):'',
+    capSub:sliceSub(others,tree.reduce((a,n)=>a+n.value,0)),lite:true,
     head:'',valueHead:'Человек',metricKey:'hc_total',compact:true,tree:true,items:items,
     expAll:{key:dim.key,open:allOpen}});
 }

@@ -108,6 +108,17 @@ function obsInfo(S){
       '»), тренд — от '+O.trend+' месяцев подряд. Численность, найм и переводы светофором не оцениваются.'})+' aria-label="Как отобраны факты">i</span>';
 }
 
+/* Метка у имени блока: весь блок без источника — «в разработке · этап N»,
+   часть вкладок — «частично в разработке». */
+function blockDevTag(bk){
+  const st=SC.blockDev(bk);
+  if(!st)return '';
+  if(st==='part')return '<span class="dev-tag"'+U.tipAttr({title:'Частично в разработке',
+    text:'Часть вкладок блока — заглушка: источника данных пока нет. Какие именно — отмечено в степпере блока.'})+'>частично в разработке</span>';
+  const d=(SC.blocks[bk].subTabs||[]).map(t=>SC.devOf(bk,t[0])).find(Boolean);
+  return U.devTag(d?d.stage:null);
+}
+
 /* ---------- рендер ---------- */
 function render(S,openRows){
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
@@ -125,6 +136,11 @@ function render(S,openRows){
      сводку» — её пороги и оговорки переехали в ⓘ панели. */
   h+=U.obsPanel(window.TPINSIGHTS.overview(S,rl,bl),S.aiOpen==='op',obsInfo(S));
 
+  /* Готовность к живым данным (14.10): сколько метрик уже считается из
+     источника и что подключать дальше — одной строкой, план раскрывается. */
+  const live=D.METRICS.filter(m=>!D.isDev(m.key)).length;
+  if(live<D.METRICS.length)h+=U.devSummary({live,total:D.METRICS.length,plan:D.DEV_PLAN});
+
   /* Пульс команды: счёт сигналов и главные сдвиги за год — до таблиц,
      чтобы первые пять секунд на экране отвечали «что изменилось». */
   h+=U.pulseStrip(pulse(S,rl,bl));
@@ -140,7 +156,7 @@ function render(S,openRows){
     const st=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,bv);
     /* Есть KPI — сравниваемся с ним, и базы в карточке нет вовсе: два ориентира
        рядом заставляли выбирать, по какому судить. Нет KPI — база как раньше. */
-    h+=U.kpiCard({label:D.METRIC_BY_KEY[k].name,tag:D.isStub(k)?U.demoTag():'',
+    h+=U.kpiCard({label:D.METRIC_BY_KEY[k].name,tag:D.isDev(k)?U.devTag(D.devStage(k)):'',
       q:U.infoDot(k),
       value:D.fmtVal(k,v),
       row1:U.momChip(k,dl.mom)+
@@ -158,7 +174,7 @@ function render(S,openRows){
 
   /* блоки: пропускаем те, где отключены все метрики */
   D.visibleBlocks(S).forEach(b=>{
-    h+='<div class="block-h" id="op-'+b.key+'"><span class="block-name">'+esc(b.name)+'</span>'+
+    h+='<div class="block-h" id="op-'+b.key+'"><span class="block-name">'+esc(b.name)+blockDevTag(b.key)+'</span>'+
       '<span class="block-hint">'+esc(b.hint)+'</span>'+
       '<button class="btn ghost" data-tab="'+b.key+'">Подробнее →</button></div>';
     /* Месяц сравнения подписан в шапке колонки, а не у каждой строки: «за месяц»
@@ -192,7 +208,7 @@ function render(S,openRows){
       const bser=!kpi&&D.comparable(m.key)?D.aggregate(bl,m.key):null;
       const open=openRows.has(m.key);
       t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
-        '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isStub(m.key)?U.demoTag():'')+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
+        '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
         '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:D.CMP.momTip})+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:D.CMP.yoyTip})+'</td>'+

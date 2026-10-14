@@ -184,9 +184,18 @@ function arrive(){
   ROOTEL.classList.add('tp-pilot');
   const lg=$('.logo small');if(lg)lg.textContent='Hub · пробник';
   const ph=$('#planHost');
-  if(ph&&window.TPREAL)ph.innerHTML=U.planTable(window.TPREAL.PLAN);
+  if(ph)ph.innerHTML=U.planTable(D.DEV_PLAN);
 }
 /* Чипы пробника в шапке: ожидание ответа, предупреждение и что здесь живое */
+/* Пункт меню блока в разработке (14.10): целиком — полосатая метка, частично —
+   полосатый квадратик с подсказкой, сколько вкладок ещё без источника. */
+function navDev(bk){
+  const st=SC.blockDev(bk);
+  if(!st)return '';
+  const subs=(SC.blocks[bk]||{}).subTabs||[], n=subs.filter(t=>SC.devOf(bk,t[0])).length;
+  return st==='full'?'<span class="nav-dev full"'+U.tipAttr({title:'В разработке',text:'Все вкладки блока — заглушки: источника данных пока нет.'})+'>в разработке</span>'
+    :'<span class="nav-dev part"'+U.tipAttr({title:'Частично в разработке',text:'В разработке '+n+' '+U.plural(n,['вкладка','вкладки','вкладок'])+' из '+subs.length+'.'})+'></span>';
+}
 function pilotChips(){
   let h='';
   const p=STORE.pending;
@@ -241,7 +250,8 @@ function renderNav(){
   $('#navBlocks').innerHTML=D.visibleBlocks(S).map(b=>
     /* точка у пункта — худший сигнал блока, тем же цветом, что в мини-навигации
        One-pager: в какой блок идти, видно с любой вкладки */
-    '<button class="nav-i'+(S.tab===b.key?' active':'')+'" data-tab="'+b.key+'"><span class="ico sig-'+D.blockSignal(b.key,S).state+'"></span>'+esc(b.name)+'</button>').join('');
+    '<button class="nav-i'+(S.tab===b.key?' active':'')+'" data-tab="'+b.key+'"><span class="ico sig-'+D.blockSignal(b.key,S).state+'"></span>'+esc(b.name)+
+      navDev(b.key)+'</button>').join('');
   $$('.nav-i[data-tab="onepager"]').forEach(b=>b.classList.toggle('active',S.tab==='onepager'));
 }
 

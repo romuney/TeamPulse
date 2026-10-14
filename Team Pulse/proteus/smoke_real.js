@@ -139,13 +139,13 @@ ok(R.nodes.filter(n=>n.direct&&n.hide).every(n=>!new RegExp('data-node="'+n.path
   'пустая «Напрямую» не показана, но в суммах участвует (сверка листьев выше)');
 ok(!/data-openunit="[^"]*\/·"/.test(exp),'у строки «Напрямую» нет «Открыть юнит»');
 ok(!/NaN|undefined/.test(html.replace(/data-[a-z-]+="[^"]*"/g,'')),'в разметке нет NaN и undefined');
-ok(/demo-tag/.test(html),'метрики без источника помечены «демо»');
-/* плашки «демо» по вкладкам: с колонками 12.10 у живых вкладок плашки нет */
+ok(/dev-tag/.test(html)&&/dev-sum/.test(html),'метрики без источника помечены «в разработке», сводка готовности на One-pager');
+/* плашки «в разработке» по вкладкам: с колонками 12.10 у живых вкладок плашки нет */
 const tgF=A.go('tgrowth','flow'), ofD=A.go('office','dynamics'), ofC=A.go('office','calendar');
-ok(hasNew?!/demo-note/.test(tgF)&&!/demo-note/.test(ofD)&&/посещения есть только суммой/.test(ofC)
-         :/demo-note/.test(tgF)&&/demo-note/.test(ofD),
-  hasNew?'плашки: решения T-роста и посещаемость — без «демо», календарь офиса — с уточнением'
-        :'плашки: T-рост и посещаемость — «демо»');
+ok(hasNew?!/dev-note/.test(tgF)&&!/dev-note/.test(ofD)&&/посещения есть только суммой/.test(ofC)
+         :/dev-note/.test(tgF)&&/dev-note/.test(ofD),
+  hasNew?'плашки: решения T-роста и посещаемость — без «в разработке», календарь офиса — с уточнением'
+        :'плашки: T-рост и посещаемость — «в разработке»');
 /* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
 const hv=A.go('hiring','vacancies'), td=A.go('turnover','dynamics');
 /* «Зачем смотреть» на демо-главе есть — это объяснение, а не вывод из цифр */

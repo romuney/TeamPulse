@@ -175,42 +175,51 @@ function yearAgo(lp,key){return D.aggregateExt(lp,key)[D.NEXT-13]}
    численность, движение, текучесть, regret и оценки. Разбивки по атрибутам,
    которых в таблице нет, и метрики без источника — демо на генераторе, и
    вкладка говорит об этом плашкой над содержимым. '*' — все под-вкладки блока. */
-const DEMO={
-  structure:{'*':'Доли по атрибутам — демо: грейда, пола, возраста, региона и стрима в hr_structure_overall нет. '+
-    'Численность в ИТОГО — живая.'},
-  turnover:{reasons:'Причины и инициаторы увольнений — демо: их нет в hr_structure_overall. Отток в ИТОГО — живой.',
-    who:'Стаж, грейд и стрим ушедших — демо. Отток в ИТОГО — живой.'},
-  hiring:{vacancies:'Вакансии и срок закрытия — демо: нужен источник вакансий (vacancy_daily_for_digest).',
-    plan:'План найма — демо (plan_fact_tf_rabota), факт — живой найм.',
-    profile:'Каналы, сеньорность и грейд найма — демо (atributy_nayma). Найм в ИТОГО — живой.',
-    funnel:'Воронка — демо: нужен источник вакансий.'},
-  tgrowth:{'*':'T-рост — демо: нужны заявки и решения сервиса «Рост».'},
-  monitor:{both:'Низкая оценка — живая; недоработка и улучшение оценки в ревью — демо.',
-    review:'Ревью — демо (review_digest_us).'},
-  office:{'*':'Посещаемость и бронирование — демо: нужны СКУД и система бронирования.'},
-  ai:{'*':'AI-инструменты — демо: нужна AI-витрина (penetration_unit, wau).'}
+/* ---------- Что на вкладке в разработке (14.10) ----------
+   t — что здесь не настоящее, need — что нужно (иначе — из плана этапа),
+   part — вкладка частично живая. '*' — все под-вкладки блока. Одна карта и
+   для плашки над содержимым, и для отметки шага, и для пункта меню блока. */
+const DEV_TABS={
+  structure:{'*':{stage:4,t:'Доли по грейду, сеньорности, полу, возрасту, стажу, региону, формату и стримам — заглушка: этих '+
+    'атрибутов нет в hr_structure_overall. Живая только численность.'}},
+  turnover:{reasons:{stage:3,t:'Инициаторы и причины увольнений — заглушка: их нет в hr_structure_overall. Живой только отток в ИТОГО.'},
+    who:{stage:3,t:'Стаж, грейд и стрим ушедших — заглушка. Живой только отток в ИТОГО.',need:'атрибуты ушедших на дату увольнения (витрина оттока) и ответ 0а'}},
+  hiring:{vacancies:{stage:2,t:'Вакансии и срок закрытия — заглушка: нужен источник вакансий (vacancy_daily_for_digest).'},
+    plan:{stage:2,part:true,t:'План найма — заглушка (plan_fact_tf_rabota); факт — живой найм.'},
+    profile:{stage:2,part:true,t:'Каналы, сеньорность и грейд найма — заглушка (atributy_nayma); живой только найм в ИТОГО.'},
+    funnel:{stage:2,t:'Воронка — заглушка: коэффициенты этапов — допущение, нужен источник вакансий и этапов подбора.'}},
+  tgrowth:{'*':{stage:6,t:'T-рост — заглушка: нужны заявки и решения сервиса «Рост».'}},
+  monitor:{both:{stage:5,part:true,t:'Низкая оценка — живая; недоработка и «улучшили оценку» — заглушка.'},
+    review:{stage:5,t:'Итоги ревью — заглушка (review_digest_us).'}},
+  office:{'*':{stage:7,t:'Посещаемость и бронирование — заглушка: нужны СКУД и система бронирования.'}},
+  ai:{'*':{stage:8,t:'AI-инструменты — заглушка: нужна AI-витрина (penetration_unit, wau).'}}
 };
 /* Колонки разведки 12.10 оживляют часть вкладок: решения и конверсию T-роста
-   и посещаемость за месяц. Там плашки нет, на соседних — уточнённый текст:
-   что из блока живое, а что ещё демо. Без колонок — прежние плашки DEMO. */
-const DEMO_LIVE={
+   и посещаемость за месяц. Там отметки нет, на соседних — уточнённый текст:
+   что из блока живое, а что ещё нет. Без колонок — прежние записи DEV_TABS. */
+const DEV_LIVE={
   tgrowth:{live:['tgrowth_conv'],subs:['flow'],
-    '*':'Типы заявок, T@T и статусы по грейдам — демо: в hr_structure_overall есть только решения по заявкам '+
-      '(GRT) — они и конверсия на вкладке «Растут ли люди внутри?» живые.'},
+    '*':{stage:6,t:'Типы заявок, T@T и статусы по грейдам — заглушка: в hr_structure_overall есть только решения по заявкам '+
+      '(GRT) — они и конверсия на вкладке «Растут ли люди внутри?» живые.'}},
   office:{live:['office_att'],subs:['dynamics'],
-    '*':'Календарь по дням, офисы, «кто ходит» и бронирование — демо: в hr_structure_overall посещения есть '+
-      'только суммой за месяц по юниту. Посещаемость на вкладке «Ходят больше или меньше?» — живая.'}
+    '*':{stage:7,t:'Календарь по дням, офисы, «кто ходит» и бронирование — заглушка: в hr_structure_overall посещения есть '+
+      'только суммой за месяц по юниту. Посещаемость на вкладке «Ходят больше или меньше?» — живая.'}}
 };
-function demoNoteFor(bk,sub){
-  if(!D.REAL)return '';
-  const lv=DEMO_LIVE[bk];
-  if(lv&&lv.live.every(k=>!D.isStub(k))){
-    if(lv.subs.indexOf(sub)>=0)return '';
-    return U.demoNote(lv['*']);
-  }
-  const d=DEMO[bk]||{}, t=d[sub]||d['*'];
-  return t?U.demoNote(t):'';
+function devOf(bk,sub){
+  const lv=DEV_LIVE[bk];
+  if(lv&&lv.live.every(k=>!D.isDev(k)))return lv.subs.indexOf(sub)>=0?null:lv['*'];
+  const d=DEV_TABS[bk]||{};
+  return d[sub]||d['*']||null;
 }
+/* Блок целиком: 'full' — все под-вкладки в разработке, 'part' — часть, '' — живой */
+function blockDev(bk){
+  const subs=(blocks[bk]||{}).subTabs||[], st=subs.map(t=>devOf(bk,t[0]));
+  if(!subs.length||!st.some(Boolean))return '';
+  return st.every(x=>x&&!x.part)?'full':'part';
+}
+/* Плашка над содержимым вкладки. В пробнике вывод главы по заглушке не
+   строится (book → demo): утверждать по сгенерированной цифре нельзя. */
+function demoNoteFor(bk,sub){return D.REAL&&devOf(bk,sub)?'1':''}
 
 /* ---------- рендер детальной вкладки ----------
    view — состояние показа, которое в ссылку не едет: tq — поиск по таблице. */
@@ -293,7 +302,7 @@ function renderBlock(S,expanded,mixOpen,view){
     const mom=sliced?D.sliceDeltaMoM(rl,m.key,selIds):D.deltasOf(rl,m.key).mom;
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
     const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    h+=U.kpiCard({label:m.name,tag:D.isStub(m.key)?U.demoTag():'',
+    h+=U.kpiCard({label:m.name,tag:D.isDev(m.key)?U.devTag(D.devStage(m.key)):'',
       q:U.infoDot(m.key),
       value:D.fmtVal(m.key,v),
       row1:U.momChip(m.key,mom)+cardSpark(m.key,ser,st,S,bl),
@@ -340,7 +349,7 @@ function renderBlock(S,expanded,mixOpen,view){
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'». Глубже — выберите строку и откройте её '+
       'юнит иконкой у правого края имени.'})+'>Подразделение</th>'+
     mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+
-      (D.isStub(m.key)?U.demoTag(true):'')+'</th>').join('')+
+      (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+'</th>').join('')+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
        Каретка у ИТОГО раскрывает и сворачивает ВСЁ дерево разом: раскрывать
@@ -407,10 +416,12 @@ function renderBlock(S,expanded,mixOpen,view){
     k=>!!demoNoteFor(b.key,k));
   const ch=bookC.cur;
   ctx.ann=ch.ann||{};ctx.story=ch;
+  /* шаг в разработке помечен прямо в степпере — вкладку видно, не открывая */
+  bookC.chapters.forEach(c=>{const d=devOf(b.key,c.key);c.dev=d?(d.part?'part':'full'):'';c.devStage=d?d.stage:null});
   const body=U.story({
     steps:U.chapters(bookC.chapters,S.subTab),
     head:U.storyHead(ch.head,ch.lede,ch.act,ch.why,ch.todo),
-    main:demoNoteFor(b.key,S.subTab)+mod.view(ctx),
+    main:U.devNote(devOf(b.key,S.subTab))+mod.view(ctx),
     rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act})});
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
@@ -424,5 +435,5 @@ function renderBlock(S,expanded,mixOpen,view){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,metricLine,yoyChart,yoyPanels,yoyPair,selLabel,yearAgo,TREE_DEPTH};
+  expandableRows,devOf,blockDev,metricLine,yoyChart,yoyPanels,yoyPair,selLabel,yearAgo,TREE_DEPTH};
 })();

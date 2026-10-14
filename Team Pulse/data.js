@@ -230,6 +230,47 @@ const SERVICE_DEF=REAL?{regret_m:{derived:{num:'regret_cnt',den:'hc_avg',scale:1
 function defOf(key){return METRIC_BY_KEY[key]||SERVICE_DEF[key]||{}}
 /* метрика без источника: в пробнике — заглушка на генераторе, «демо» в интерфейсе */
 function isStub(key){return !!(METRIC_BY_KEY[key]&&METRIC_BY_KEY[key].stub)}
+/* ---------- Готовность к живым данным (14.10) ----------
+   Заказчик: «ярче подсветить, что в разработке — чтобы понимать, что ещё
+   доработать, чтобы эта штука реально работала на данных». Метрика «в
+   разработке» — у неё нет источника в hr_structure_overall: в пробнике она
+   заглушка (isStub), в макете — та же разметка, иначе план не виден там, где
+   отчёт смотрят чаще всего. Число — этап плана подключения (DEV_PLAN). */
+const DEV_STAGE={vac_open:2,vac_closed:2,time_to_fill:2,hire_plan:2,junior_share:2,
+  underwork:5,review_up:5,tgrowth_tat:6,tgrowth_pass:6,tgrowth_deny:6,tgrowth_conv:6,
+  booking_viol:7,office_att:7,ai_penetration:8,ai_wau:8};
+/* живые с колонок разведки 12.10 (в датасете с восьмой поставки) */
+const DEV_LIVE_NEW=new Set(['office_att','tgrowth_pass','tgrowth_deny','tgrowth_conv']);
+function isDev(key){return REAL?isStub(key):!!DEV_STAGE[key]&&!DEV_LIVE_NEW.has(key)}
+function devStage(key){return DEV_STAGE[key]||null}
+/* План подключения: этап · что · откуда · что нужно от заказчика. Тот же план,
+   что в «Поставка — TeamPulse Hub/План метрик.md»; справка и сводка
+   готовности на One-pager показывают его и в макете, и в пробнике. */
+const DEV_PLAN=[
+  {stage:'0',what:'Численность общая и активная, найм, отток, переводы, прирост, текучесть месячная и накопительная, '+
+    'прогноз, замещение, найм на 100, доля внутреннего найма, regret, низкая оценка; посещаемость за месяц, решения '+
+    'и конверсия T-роста; дерево юнитов, покраска, IT, штат',src:'hr_structure_overall',need:'—',now:'живые'},
+  {stage:'1',what:'Разбивки состава по типу численности, типу договора, покраске и IT',
+    src:'hr_structure_overall — новые строки датасета',need:'ничего — делаем сами',now:'в разработке'},
+  {stage:'2',what:'Вакансии, срок закрытия, план найма, воронка, доля джунов, каналы найма',
+    src:'vacancy_daily_for_digest, plan_fact_tf_rabota, atributy_nayma, junior_ratio_hr_digest',
+    need:'имена таблиц ClickHouse и ответ 0а по каждой',now:'в разработке'},
+  {stage:'3',what:'Причины и инициаторы увольнений, стаж и грейд ушедших',
+    src:'ys_all_fire_initiative, initiative_reason_unit_tekuchest',need:'таблицы и ответ 0а',now:'в разработке'},
+  {stage:'4',what:'Состав: грейд, сеньорность, пол, возраст, стаж, формат работы, юрлицо, регион, стрим; портрет команды',
+    src:'mdm_employee_structure_d → ноут Helicopter, как в HRBP HUB',need:'согласовать ноут Helicopter',now:'в разработке'},
+  {stage:'5',what:'Ревью (улучшили оценку) и недоработка',src:'review_digest_us, review_table_ys; недоработка — уточнить',
+    need:'таблицы и ответ 0а; где живёт недоработка',now:'в разработке'},
+  {stage:'6',what:'T-рост: T@T, типы заявок, статусы по грейдам (решения и конверсия — уже живые)',
+    src:'сервис «Рост» (дашборд 34136)',need:'таблицы и ответ 0а',now:'в разработке'},
+  {stage:'7',what:'Офис: календарь по дням, офисы и города, «кто ходит», бронирование (посещаемость за месяц — уже живая)',
+    src:'СКУД и система бронирования (дашборд 34136)',need:'таблицы и ответ 0а',now:'в разработке'},
+  {stage:'8',what:'AI: проникновение и активные пользователи',src:'penetration_unit, penetration_company, wau',
+    need:'таблицы и ответ 0а',now:'в разработке'},
+  {stage:'—',what:'Руководитель юнита: имя, фамилия, логин',src:'таблица «юнит → руководитель» (оргструктура)',
+    need:'имя таблицы и ответ 0а',now:'в разработке'}
+];
+function devPlan(stage){return DEV_PLAN.find(x=>x.stage===String(stage))||null}
 function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
 /* hc_avg метрикой отчёта не является, но в этом наборе остаётся: он управляет
    не только сравнимостью, но и способом агрегации (сумма, а не среднее). */
@@ -1816,7 +1857,7 @@ function aiProfile(lp){
     streams:st.map((n,i)=>({key:n.cat.key,name:n.cat.name,hc:n.value,value:Math.min(98,att[i])}))};
 }
 
-window.TPDATA={REAL,isStub,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,isStub,isDev,devStage,devPlan,DEV_PLAN,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,

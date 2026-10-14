@@ -28,8 +28,8 @@ const fs = require('fs'), path = require('path');
   await page.waitForTimeout(500);
   ok(await page.$('.tp-overlay #view .kpis') !== null, 'отчёт собран внутри хоста ECharts: ' + await title());
   ok(await page.$eval('[_echarts_instance_] canvas', c => getComputedStyle(c).display === 'none'), 'холст ECharts спрятан');
-  const demo = await page.$$eval('.demo-tag', a => a.length);
-  ok(demo > 0, 'метки «демо» у заглушек на One-pager: ' + demo);
+  const demo = await page.$$eval('.dev-tag', a => a.length);
+  ok(demo > 0, 'метки «в разработке» у заглушек на One-pager: ' + demo);
   ok(await page.$('.chip.pilot') !== null, 'в шапке чип пробника');
   await shot('01-onepager');
 
