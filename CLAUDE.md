@@ -6,3 +6,4 @@
 - Правила проекта, команды и поставка — **`Team Pulse/AGENTS.md`** (читать первым).
 - Общий гайд по бордам Proteus — romuney/TeamPulse (main), папка
   proteus-playbook/: SKILL.md — вход.
+- Командные инструкции для агентов (выжимка гайда + дизайн-система) — `agent-instructions/`: README.md — вход.

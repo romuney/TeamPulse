@@ -38,7 +38,7 @@
    форка на ряду-ячейке, контейнере, react_sanbbox и iframe сняты), скругление 12, iframe = ячейке; без iframe —
    подложка того же прямоугольника и скругления, что потом iframe, «Загружаю…», картинка Proteus скрыта; маркер
    выпадашки — iframe 1352 px (100vw − 48), подсказки — ячейка + 360 px; от шапки до вкладок 12, от линии вкладок до ряда
-   16, по бокам 24, между чартами 16; вкладки — Inter 14,5 / 500, через 40 px, значок ссылки в 6 px за названием и по
+   16, по бокам 24, между чартами 16; вкладки — Arial 14,5 / 400, через 40 px, значок ссылки в 6 px за названием и по
    середине строки (без файла форк ставит его в 26 px, и он наезжает на соседнюю), черта #2b6cff, значок — шрифт иконок;
    ряд 749 px при окне 950, 560 при 700; вкладки верхнего уровня — от шапки 0, до ряда 16, вкладки с x = 24; режим
    правки — поля и высота Superset; маркер тура — поля, зазор, полоса вкладок и шапка по пикселям скриншота #7c8088,
@@ -180,7 +180,7 @@
   right: 0;
   top: calc(50% + 26px);                        /* под значком 50 px */
   text-align: center;
-  font: 500 13px/1.4 Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font: 400 13px/1.4 Arial, Helvetica, sans-serif;
   color: #8a909c;
   pointer-events: none;
   animation: xx-load-pulse 1.6s ease-in-out infinite;
@@ -281,13 +281,13 @@
 .dashboard-component-tabs:not(#xx-tabs) .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab [role="tab"],
 .dashboard-component-tabs:not(#xx-tabs) .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab .editable-title,
 .dashboard-component-tabs:not(#xx-tabs) .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab .editable-title * {
-  font-family: Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif !important;
+  font-family: Arial, Helvetica, sans-serif !important;
 }
 /* один вес у всех вкладок — при переключении названия не сдвигаются */
 .dashboard-component-tabs:not(#xx-tabs) .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab,
 .dashboard-component-tabs:not(#xx-tabs) .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab *:not(i):not(svg):not(svg *):not(.anticon):not([class*="fa-"]):not([class*="icon"]):not([class*="anchor"]):not([class*="anchor"] *) {
   font-size: 14.5px !important;
-  font-weight: 500 !important;
+  font-weight: 400 !important;
   line-height: 20px !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
