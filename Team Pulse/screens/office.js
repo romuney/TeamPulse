@@ -28,10 +28,9 @@
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 const esc=U.esc;
 
-const MOCK_NOTE='Подневные отметки и привязка людей к офисам в макете сгенерированы: '+
-  'реального источника под ними пока нет. Среднее по будням ПОЛНОГО месяца совпадает '+
-  'с метрикой «посещаемость офиса» за этот месяц; в окне последних дней месяц '+
-  'может быть захвачен частично, и тогда среднее по видимым дням от неё отличается.';
+/* 15.10: сноска «в макете сгенерировано» снята — что цифры условные, говорит
+   плашка «в разработке» над вкладкой; сноска объясняет только, как читать */
+const CAL_NOTE='Среднее по будням за полный месяц равно посещаемости этого месяца.';
 
 SC.blocks.office={
   subTabs:[['calendar','Календарь'],['offices','Города'],['people','Кто ходит'],
@@ -53,10 +52,10 @@ SC.blocks.office={
     if(ctx.sub==='offices'){
       const rows=D.officeByCity(ctx.lp);
       if(!rows.length)return U.empty('Нет данных по городам','В отборе нет сотрудников.');
-      return attTbl('Города','среднее по офисам города, взвешенное по людям',rows.map(c=>({name:c.name,
+      return attTbl('Города',D.CMP.cur,rows.map(c=>({name:c.name,
           note:D.fmtInt(c.hc)+' чел · '+c.offices+' '+U.plural(c.offices,['офис','офиса','офисов']),
           value:c.att,color:G.C_OFFICE})),'Сравнение городов')+
-        '<div class="tbl-note">'+esc(MOCK_NOTE)+' Нарушения бронирования по городам — в плане подключения.</div>';
+        '<div class="tbl-note">Среднее по офисам города с учётом числа людей.</div>';
     }
 
     if(ctx.sub==='people'){
@@ -64,11 +63,8 @@ SC.blocks.office={
         attTbl('Грейд',D.CMP.cur,D.attByGrade(ctx.lp).map(g=>({name:g.name,note:D.fmtInt(g.hc)+' чел',
           value:g.att,color:G.C_OFFICE})),'Сравнение грейдов'),
         attTbl('Роль и локация',D.CMP.cur,D.attByRoleLoc(ctx.lp).map(x=>({name:x.name,
-          note:x.code+' · '+D.fmtInt(x.hc)+' чел',value:x.att,color:G.C_OFFICE})),'Сравнение групп')])+
-        '<div class="tbl-note">Среднее по строкам, взвешенное по людям, равно посещаемости отбора за '+
-        esc(D.CMP.cur)+'. Москва — регион «Москва и область» из состава, ТЦР — остальные регионы. '+
-        'Разбивки в макете сгенерированы: в витрине посещаемости пока нет ни грейда, ни роли '+
-        '(SOURCES.md, §5.6) — для этих вкладок их нужно добавить.</div>';
+          note:D.fmtInt(x.hc)+' чел',value:x.att,color:G.C_OFFICE})),'Сравнение групп')])+
+        '<div class="tbl-note">Москва — Москва и область, ТЦР — остальные регионы.</div>';
     }
 
     if(ctx.sub==='booking'){
@@ -82,9 +78,7 @@ SC.blocks.office={
           {name:'Бронь и приход',value:bk.ok,color:G.C_OFFICE},
           {name:'Бронь без прихода',note:'нарушение: место простояло',value:bk.noshow,color:G.C_OFFICE},
           {name:'Приход без брони',note:'нарушение: место не учтено',value:bk.walkin,color:G.C_OFFICE}]})+
-        '<div class="tbl-note">Доля двух нижних строк — это и есть «Нарушения бронирования» за '+esc(D.CMP.cur)+
-        '; приходы в сумме — посещения месяца. Подневных броней в макете нет, разбор сгенерирован '+
-        'от двух метрик блока; на проде — система бронирования рядом со СКУД.</div>';
+        '<div class="tbl-note">Две нижние строки — нарушения. Их доля и есть «Нарушения бронирования» за '+esc(D.CMP.cur)+'.</div>';
     }
 
     /* календарь + дни недели: сетка отвечает «в какие дни», таблица — «в какие
@@ -109,7 +103,7 @@ SC.blocks.office={
         barHead:'Сравнение дней',share:false,total:false,compact:true,
         items:dow.map(d=>({name:d.name,value:d.value,
           color:d.weekend?G.C_FLAT:G.C_OFFICE,note:d.weekend?'выходной':''}))})+
-      '<div class="tbl-note">'+esc(MOCK_NOTE)+'</div></div>';
+      '<div class="tbl-note">'+esc(CAL_NOTE)+'</div></div>';
   }
 };
 })();

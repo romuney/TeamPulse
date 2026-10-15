@@ -37,7 +37,7 @@ function planTable(lp,S){
     {name:'Закрыто вакансий',fmt:'int',vals:pf.closed},
     {name:'Закрыто в срок',fmt:'pct',vals:pf.onTime},
     {name:'Среднее время закрытия',fmt:'days',vals:pf.days},
-    {name:'Доля закрытых',note:'закрытые от закрытых и открытых',fmt:'pct',vals:pf.share},
+    {name:'Доля закрытых',note:'среди закрытых и открытых',fmt:'pct',vals:pf.share},
     {sec:'Вакансии на конец месяца · '+D.CMP.cur},
     {name:'Открыто',fmt:'int',vals:pf.open}]
     .concat(pf.status.map(x=>({name:x.name,note:x.note,fmt:'int',vals:x.vals,sub:true})))
@@ -62,10 +62,8 @@ SC.blocks.hiring={
       return SC.metricLine('hire_plan',lp,ctx.bl,ctx.S,
           {h:250,fill:false,title:'Выполнение плана найма с начала года, %',ann:ctx.ann.hire_plan})+
         planTable(lp,ctx.S)+
-        '<div class="tbl-note">Факт плана — найм, закрытые и открытые вакансии — те же ряды, что на '+
-        'соседних вкладках. План по месяцам, тип найма, статусы, «в срок», «на замену», «джуны» и '+
-        '«просрочено» в макете сгенерированы; на проде это plan_fact_tf_rabota и vacancy_daily_for_digest '+
-        '(дашборд 34661). Пороги цели 95% / 80% — черновик, согласовать с заказчиком.</div>';
+        '<div class="tbl-note">Массовый найм — много однотипных позиций, профильный — штучный подбор специалистов. '+
+        '«В т.ч.» — часть открытых вакансий, со статусами они не складываются.</div>';
     }
     if(ctx.sub==='profile'){
       const hp=D.hiringProfile(lp,'ytd'), sub=' с начала года';
@@ -79,9 +77,8 @@ SC.blocks.hiring={
       return U.btStack([
         tbl('Откуда пришли','найм и переводы'+sub,ch),
         tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))])+
-        '<div class="tbl-note">Итог — найм с начала года ('+esc(D.YTD_RANGE)+'), в первой таблице — вместе '+
-        'с переводами в команду. Каналы и грейды в макете сгенерированы; '+
-        'на проде это mapping_channel_name и атрибуты найма из atributy_nayma (дашборд 34136).</div>';
+        '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+'). В первой таблице — вместе '+
+        'с переводами из других подразделений.</div>';
     }
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
        в блоке оттока. Барами остаются штуки вакансий. */

@@ -59,8 +59,8 @@ SC.blocks.movement={
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
     return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
         title:'Из чего сложилось изменение за год, чел',
-        legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Приход',color:G.soft(G.C_IN)},{name:'Уход',color:G.soft(G.C_OUT)}]})+
-      U.storyFacts(ctx.story&&ctx.story.insights,'Что нужно знать');
+        legend:[{name:'Начало и конец года',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
+      U.storyFacts(ctx.story&&ctx.story.insights,'Что важно');
   }
 };
 })();

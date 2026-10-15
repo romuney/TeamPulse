@@ -30,8 +30,7 @@ SC.blocks.ai={
         valueHead:'Сотрудников',barHead:barHead,share:false,total:false,compact:true,items:items});
       return tbl('Инструменты','хотя бы раз за неделю · всего '+D.fmtVal('ai_penetration',ai.pen),
           ai.tools.map(t=>({name:t.name,value:t.value,color:G.C_AI})),'Сравнение инструментов')+
-        '<div class="tbl-note">Инструменты пересекаются, поэтому их проценты не складываются в общий. Разбивка '+
-        'в макете сгенерирована; на проде — AI-витрина дашборда 34136 (penetration_unit, wau) по инструменту.</div>';
+        '<div class="tbl-note">Проценты не складываются: один человек может пользоваться несколькими инструментами.</div>';
     }
     return SC.metricLine('ai_penetration',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Проникновение AI, %',ann:ctx.ann.ai_penetration})+
       SC.yoyChart('ai_wau',ctx.lp,ctx.bl,ctx.S,

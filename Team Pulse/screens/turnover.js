@@ -57,8 +57,7 @@ SC.blocks.turnover={
           items:rs.map(r=>({name:r.name,note:initName(r.init).toLowerCase(),value:r.value,
             mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+
         '<div class="tbl-note">★ — нежелательный уход: причина, на которую компания могла повлиять. '+
-        'ИТОГО обеих таблиц — отток с начала года ('+U.esc(D.YTD_RANGE)+'); доли внутри него в макете '+
-        'сгенерированы, на проде это fire_initiative и fire_reason из витрины оттока.</div>';
+        'ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+').</div>';
     }
     if(ctx.sub==='who'){
       /* Ранний уход — первые 12 месяцев (испытательный срок и первый год): это
@@ -73,9 +72,7 @@ SC.blocks.turnover={
           U.pct(early/ex.total*100):''),ex.tenure),
         grp('Грейд',ytd,ex.grade),
         grp('Стрим',ytd,ex.stream,true)])+
-        '<div class="tbl-note">ИТОГО каждой таблицы — отток с начала года ('+U.esc(D.YTD_RANGE)+'). '+
-        'Доли в макете сгенерированы: стаж — типовым профилем, грейд и стрим — пропорционально '+
-        'численности с поправкой на склонность к уходу. На проде это атрибуты ушедшего на дату увольнения.</div>';
+        '<div class="tbl-note">ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+'). Стаж и грейд — на дату ухода.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся
        только отток, потому что отток — счётные люди за месяц. Все три — год
@@ -84,7 +81,7 @@ SC.blocks.turnover={
     return SC.yoyPanels(lp,[
       {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
       {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
-      {name:'Текучесть накопительная с января, %',key:'turnover_y',color:G.C_TURN_Y}]);
+      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}]);
   }
 };
 })();

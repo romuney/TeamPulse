@@ -127,18 +127,35 @@ function mLabel(i){const m=CD.MONTHS[i];return m.label+' '+m.y}
    не может звать ui.js. ui.js реэкспортирует это как U.tipAttr — у экранов
    одна точка входа.
 
-   {title, text, rows:[{label,value,color,dash}], note:'…'|['…','…']}
-   Все поля необязательны. Строк-значений держим не больше трёх, сносок — двух:
+   {title, text, list:['…'], rows:[{label,value,color,dash}], note:'…'|['…','…']}
+   Все поля необязательны. В text: перенос строки — новый абзац, строка с «• » —
+   пункт списка, **…** — жирное (15.10, редполитика TEXT_GUIDE.md: «не одним куском»).
+   list — тот же список массивом. Строк-значений держим не больше трёх, сносок — двух:
    подсказка объясняет точку, а не заменяет таблицу.
 
    ВАЖНО: конструктор экранирует входы САМ. Вызывающий передаёт сырой текст,
    без esc() — иначе в подсказке будут видны &quot; и &amp;. */
+const tipB=t=>esc(t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+function tipList(items){
+  return items.length?'<span class="t-ul">'+items.map(x=>'<span class="t-li">'+tipB(x)+'</span>').join('')+'</span>':'';
+}
+/* абзацы и пункты: span, а не p/ul — подсказка живёт и в SVG-атрибуте, и в HTML */
+function tipText(t){
+  let s='', li=[];
+  String(t).split('\n').forEach(l=>{
+    if(/^•\s*/.test(l)){li.push(l.replace(/^•\s*/,''));return}
+    s+=tipList(li);li=[];
+    if(l.trim())s+='<span class="t-x">'+tipB(l)+'</span>';
+  });
+  return s+tipList(li);
+}
 function tipHtml(o){
   if(o==null)return '';
   if(typeof o==='string')return o;          /* строку тоже принимаем: не все места объектные */
   let s='';
   if(o.title)s+='<span class="t-h">'+esc(o.title)+'</span>';
-  if(o.text)s+='<span class="t-x">'+esc(o.text)+'</span>';
+  if(o.text)s+=tipText(o.text);
+  if(o.list)s+=tipList(o.list.filter(Boolean));
   (o.rows||[]).forEach((r,i)=>{
     if(!r)return;
     const mk=r.color
@@ -156,7 +173,7 @@ function tipHtml(o){
        '<b class="t-v">'+esc(r.value)+'</b></span>';
   });
   const ns=o.note==null?[]:(Array.isArray(o.note)?o.note:[o.note]);
-  ns.forEach(n=>{if(n)s+='<span class="t-n">'+esc(n)+'</span>'});
+  ns.forEach(n=>{if(n)s+='<span class="t-n">'+tipB(n)+'</span>'});
   return s;
 }
 /* data-tip читает делегированный обработчик в ui.js */
@@ -538,7 +555,7 @@ function yoyPlot(p,ar){
     if(showPrev&&pv!=null)rows.push({label:String(yP),value:CD.fmtVal(key,pv),color:C_PREV});
     if(showBench&&b!=null)rows.push({label:p.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
     const note=c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
-      :c==null?'Месяц '+yC+' ещё не закрыт':null;
+      :c==null?'Месяц ещё не закрыт':null;
     const nmM=CD.MONTH_NOM[i];
     const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+(nm.name?' · '+nm.name:''),rows,note})+'>';
@@ -657,7 +674,7 @@ function drawPair(a,w,h){
       if(pb!=null)rows.push({label:nameB+' · '+yP,value:CD.fmtVal(B.key,pb),color:C_PREV})}
     const nmM=CD.MONTH_NOM[i], dly=DRAW_MS*(i/Math.max(1,nowI))*0.5;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1),rows,
-      note:va==null&&vb==null?'Месяц '+yC+' ещё не закрыт':null})+'>';
+      note:va==null&&vb==null?'Месяц ещё не закрыт':null})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
     /* вверх — приход, вниз — уход. Прошлый год — позади, шире и почти прозрачно
        тем же цветом; выключили этот год — прошлый обычными барами */
@@ -965,9 +982,8 @@ function drawCalendar(a,w,h){
       const dly=(bi*40)+di*9;
       s+='<g class="barg"'+tip({
         title:d.day+' '+CD.MONTH_GEN[b.m]+' '+b.y+', '+CD.DOW_NAME[d.dow].toLowerCase(),
-        rows:[{label:'Посещаемость',value:num1(d.val)+' %',color:fill}],
-        note:d.weekend?'выходной: офис работает по дежурствам'
-                      :'среднее по будням месяца: '+num1(b.base)+' %'})+'>';
+        rows:[{label:'Посещаемость',value:num1(d.val)+'%',color:fill}],
+        note:d.weekend?'выходной':'в среднем по будням месяца: '+num1(b.base)+'%'})+'>';
       s+=rect(x,y,cw,ch,fill,7,' class="fade" style="animation-delay:'+dly+'ms"');
       if(showDay)s+=txt(x+6,y+13,String(d.day),{size:9.5,weight:400,fill:ink,anchor:'start',
         cls:'fade',delay:dly});
@@ -984,8 +1000,8 @@ function drawCalendar(a,w,h){
   s+=txt(x,sy+9,'реже',{size:10.5,fill:C_AXIS,anchor:'start'});x+=textW('реже',10.5)+7;
   for(let i=0;i<5;i++){s+=rect(x,sy,sw,sh,mixRGB(CAL_LO,CAL_HI,i/4),2);x+=sw+3}
   x+=4;
-  s+=txt(x,sy+9,'чаще, до '+num1(max)+' %',{size:10.5,fill:C_AXIS,anchor:'start'});
-  x+=textW('чаще, до '+num1(max)+' %',10.5)+16;
+  s+=txt(x,sy+9,'чаще, до '+num1(max)+'%',{size:10.5,fill:C_AXIS,anchor:'start'});
+  x+=textW('чаще, до '+num1(max)+'%',10.5)+16;
   s+=rect(x,sy,sw,sh,'#f4f5f7',2);x+=sw+6;
   s+=txt(x,sy+9,'выходной',{size:10.5,fill:C_AXIS,anchor:'start'});
   return svg(w,hUsed,s);

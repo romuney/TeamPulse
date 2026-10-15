@@ -140,7 +140,7 @@ ok(!/NaN|undefined/.test(html.replace(/data-[a-z-]+="[^"]*"/g,'')),'в разм�
 ok(/dev-tag/.test(html)&&/dev-sum/.test(html),'метрики без источника помечены «в разработке», сводка готовности на One-pager');
 /* плашки «в разработке» по вкладкам: с колонками 12.10 у живых вкладок плашки нет */
 const tgF=A.go('tgrowth','flow'), ofD=A.go('office','dynamics'), ofC=A.go('office','calendar');
-ok(hasNew?!/dev-note/.test(tgF)&&!/dev-note/.test(ofD)&&/посещения есть только суммой/.test(ofC)
+ok(hasNew?!/dev-note/.test(tgF)&&!/dev-note/.test(ofD)&&/Посещаемость за месяц — настоящая/.test(ofC)
          :/dev-note/.test(tgF)&&/dev-note/.test(ofD),
   hasNew?'плашки: решения T-роста и посещаемость — без «в разработке», календарь офиса — с уточнением'
         :'плашки: T-рост и посещаемость — «в разработке»');
@@ -158,7 +158,7 @@ const opAll=A.op(all), stories=opAll.split('<div class="op-story"').slice(1);
 const live=all.filter(k=>!D.isStub(k)), stubs=all.filter(k=>D.isStub(k));
 const ov=window.TPINSIGHTS.overview(D.DEFAULT_STATE,D.reportLeaves(D.DEFAULT_STATE),D.benchmarkLeaves(D.DEFAULT_STATE));
 ok(stories.length===all.length&&
-   stories.filter(x=>/выводов по ней нет/.test(x)).length===stubs.length&&
+   stories.filter(x=>/поэтому выводов нет/.test(x)).length===stubs.length&&
    stories.filter(x=>/<ol class="op-ins">/.test(x)).length===live.length&&
    ov.every(x=>!D.isStub(x.key))&&A.op([])&&true,
   'one-pager: «Что видно» у '+live.length+' живых метрик, у '+stubs.length+' заглушек — «выводов нет», в сводке заглушек нет');

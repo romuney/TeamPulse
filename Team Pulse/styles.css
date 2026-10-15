@@ -608,6 +608,21 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
 .tip .t-r.bench .t-v{color:var(--muted)}
 .tip .t-n{display:block;font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);margin-top:5px}
+/* 15.10, редполитика: подсказка не одним куском — абзацы, список, жирное */
+.tip .t-x+.t-x{margin-top:5px}
+.tip .t-x b,.tip .t-li b,.tip .t-n b{font-weight:var(--fw-bold);color:var(--ink)}
+.tip .t-ul{display:block;margin:4px 0 0}
+.tip .t-li{display:block;position:relative;padding-left:12px;font-size:12px;line-height:1.45;color:var(--ink2)}
+.tip .t-li::before{content:"";position:absolute;left:2px;top:.62em;width:4px;height:4px;border-radius:50%;background:var(--muted)}
+.tip .t-li+.t-li{margin-top:2px}
+.tip .t-ul+.t-x{margin-top:5px}
+/* легенда плана: что значит каждый статус — списком, а не одной строкой */
+.plan-lg{list-style:none;margin:var(--s3) 0 0;padding:0;display:grid;gap:5px;font-size:var(--fs-note);color:var(--ink2)}
+.plan-lg li>span:first-child{margin:0 var(--s2) 0 0}
+/* списки в справке: правило не одним абзацем */
+.help-ul{margin:var(--s3) 0 0;padding-left:18px;font-size:var(--fs-note);color:var(--ink2);line-height:1.5}
+.help-ul li+li{margin-top:2px}
+.legend .lg-note{color:var(--muted);border-bottom:1px dotted var(--muted2);cursor:help}
 .tip .t-r+.t-n{margin-top:8px;padding-top:7px;border-top:1px solid var(--line2)}
 .tip .t-n+.t-n{margin-top:2px;padding-top:0;border-top:0}
 .nocmp,.rt-mark,.info,.cellbar{cursor:help}

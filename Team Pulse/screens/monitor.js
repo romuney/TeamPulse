@@ -24,16 +24,14 @@ SC.blocks.monitor={
          «у кого оценки выше», и группы читаются в одних колонках. ИТОГО — общее
          распределение оценок; края каждой группы с ним сходятся. */
       return U.btStack([
-        U.btGroup({cap:'Динамика к прошлому циклу',capSub:'оценённые в цикле',head:'',
+        U.btGroup({cap:'По сравнению с прошлым ревью',capSub:'кого оценили',head:'',
           valueHead:'Человек',metricKey:'hc_total',compact:true,
           items:rv.dyn.map(x=>({name:x.name,note:x.note,value:x.value,color:G.C_REVIEW}))}),
-        '<div class="bt-group"><div class="bt-cap">Оценки по группам<span class="bt-sub">доля в строке</span></div>'+
+        '<div class="bt-group"><div class="bt-cap">Оценки по группам<span class="bt-sub">доля людей в строке</span></div>'+
         U.heatTable({cols:rv.scores.map(x=>({name:x.name,tip:x.full})),
           total:{name:'ИТОГО',cells:rv.scores.map(x=>x.value)},
           groups:rv.groups.map(g=>({name:g.name,rows:g.rows.map((n,i)=>({name:n,cells:g.cells[i]}))}))})+
-        '</div>'])+'<div class="tbl-note">«Улучшили оценку» — метрика блока: оценённые и улучшившие считаются '+
-        'парой, как текучесть. Шкала оценок, первая оценка и разбивки по группам в макете сгенерированы; '+
-        'на проде это summary_score, year_evaluation и management_head_flg из review_digest_us (дашборд 34661).</div>';
+        '</div>'])+'<div class="tbl-note">Доли в строке складываются в 100%. Сколько это человек — в подсказке.</div>';
     }
     return SC.yoyPanels(ctx.lp,[
       {name:'Недоработчики, %',key:'underwork',color:G.C_UNDER,ann:ctx.ann.underwork},

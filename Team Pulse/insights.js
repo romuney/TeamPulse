@@ -44,18 +44,20 @@ function build(ctx){
     if((D.comparable(m.key)||kpi)&&base!=null&&isFinite(base)){
       const gap=relGap(v,base), bad=isBad(m,v,base);
       if(Math.abs(gap)>=INS_GAP){
+        /* разница — в единицах метрики (п.п., дни), а не «на 23%» от процента:
+           у долей относительный процент читается двояко (TEXT_GUIDE.md, п. 6) */
         out.push({sev:bad?(Math.abs(gap)>=25?3:2):1,metric:m,
-          text:'<b>'+esc(m.name)+'</b> '+(bad?'хуже':'лучше')+' '+(kpi?'цели KPI':'базы')+' на '+
-            Math.abs(gap).toFixed(0)+'%: '+D.fmtVal(m.key,v)+' против '+D.fmtVal(m.key,base)+'.'});
+          text:'<b>'+esc(m.name)+'</b> — '+D.fmtVal(m.key,v)+', '+(bad?'хуже':'лучше')+' '+(kpi?'цели':'базы')+' ('+
+            D.fmtVal(m.key,base)+') на '+esc(dot(absD(m.key,v-base)))});
       }
     }
     const t=trendLen(ser);
     if(t.len>=INS_TREND){
       const worsening=(m.better==='lower'&&t.dir==='up')||(m.better==='higher'&&t.dir==='dn');
       out.push({sev:worsening?2:1,metric:m,
-        text:'<b>'+esc(m.name)+'</b> '+(t.dir==='up'?'растёт':'снижается')+' '+t.len+'-й месяц подряд: '+
-          D.fmtVal(m.key,ser[D.LAST-t.len+1])+' → '+D.fmtVal(m.key,v)+
-          (worsening?' — динамика против вас.':' — динамика в вашу пользу.')});
+        text:'<b>'+esc(m.name)+'</b> '+(t.dir==='up'?'растёт':'снижается')+' '+t.len+' '+
+          U.plural(t.len,['месяц','месяца','месяцев'])+' подряд: '+
+          D.fmtVal(m.key,ser[D.LAST-t.len+1])+' → '+D.fmtVal(m.key,v)+(worsening?'. Это плохой знак.':'. Это хороший знак.')});
     }
   });
 
@@ -76,9 +78,9 @@ function build(ctx){
       if(share>=INS_CONC)out.push({sev:3,metric:mM,
         /* имя метрики — в кавычках и как есть: «по проникновение ai» ломало
            и падеж, и аббревиатуру */
-        text:'<b>'+esc(top.name)+'</b> даёт '+share.toFixed(0)+'% всего отклонения по метрике «'+esc(mM.name)+
-          '»: '+D.fmtVal(mainK,top.v)+' при '+(kpi?'цели ':'базе ')+D.fmtVal(mainK,base)+
-          ' на '+D.fmtInt(top.hc)+' чел. Начните разбор с него.'});
+        text:'Больше всего тянет вниз <b>«'+esc(top.name)+'»</b>: на него приходится '+share.toFixed(0)+'% отставания по метрике «'+
+          esc(mM.name)+'». У него '+D.fmtVal(mainK,top.v)+' при '+(kpi?'цели ':'базе ')+D.fmtVal(mainK,base)+
+          ', '+D.fmtInt(top.hc)+' чел. Начните с него.'});
     }
   }
   out.sort((a,b2)=>b2.sev-a.sev);
@@ -102,17 +104,13 @@ function html(ctx){
     const hasCmp=vis.some(m=>D.comparable(m.key));
     const nChk=vis.filter(m=>m.better!=='flat').length;
     const lead=hasCmp
-      ? 'Существенных отклонений от базы нет: все метрики блока в пределах <b>'+INS_GAP+
-        '%</b> от <b>'+esc(D.benchmarkLabel(S))+'</b>, устойчивых трендов нет.'
-      : 'Метрики блока абсолютные, с базой не сравниваются. Устойчивых трендов за период нет.';
+      ? 'Всё спокойно: метрики блока близки к базе <b>«'+esc(D.benchmarkLabel(S))+'»</b>, устойчивых трендов нет.'
+      : 'Всё спокойно: устойчивых трендов нет. Метрики блока — количества, с базой они не сравниваются.';
     const bl2=[];
-    if(hasCmp)bl2.push('Сравнение с базой: проверено метрик — <b>'+nChk+
-      '</b>, ни одна не вышла за <b>±'+INS_GAP+'%</b> от '+esc(D.benchmarkLabel(S))+'.');
-    else bl2.push('Метрики блока абсолютные: больше или меньше здесь не значит хуже или лучше, сравнение с базой для них не строится.');
-    bl2.push('Тренды: нет ни одной метрики, которая шла бы в одну сторону <b>'+INS_TREND+
-      '</b> месяца подряд и больше.');
-    bl2.push('Концентрация: ни одно подразделение не даёт <b>'+INS_CONC+
-      '%</b> и больше отклонения по главной метрике блока.');
+    if(hasCmp)bl2.push('Проверили <b>'+nChk+' '+U.plural(nChk,['метрику','метрики','метрик'])+
+      '</b>: ни одна не отличается от базы больше чем на '+INS_GAP+'%.');
+    bl2.push('Ни одна метрика не растёт и не падает '+INS_TREND+' месяца подряд.');
+    bl2.push('Нет подразделения, которое одно тянуло бы блок вниз.');
     return U.aiBlock(id,'Главное в блоке',lead,bl2,open,'insight sev-none');
   }
   const maxSev=ins[0].sev;
@@ -128,8 +126,8 @@ function html(ctx){
     '<span class="ai-caret">'+(open?'▲':'▼')+'</span></div>';
   if(open){
     h+='<div class="ai-b"><ul>'+ins.slice(0,4).map(x=>'<li>'+x.text+'</li>').join('')+'</ul>'+
-      '<div class="ins-note">Показано только то, что вышло за порог: отклонение от базы больше '+INS_GAP+
-      '%, тренд от '+INS_TREND+' месяцев или концентрация отклонения выше '+INS_CONC+'% в одном подразделении.</div></div>';
+      '<div class="ins-note">Здесь только заметное: отличие от ориентира больше '+INS_GAP+
+      '%, рост или падение '+INS_TREND+' месяца подряд, одно подразделение тянет вниз весь блок.</div></div>';
   }
   return h+'</div>';
 }
@@ -251,12 +249,9 @@ function yoyStory(key,S,rl,bl){
     out.push({i:em.pos?em.pos.i:-1,s:em.pos?em.pos.s:'main',html:'<b>'+esc(cap(trendWord(m)))+'</b>: '+
       esc(em.name)+' '+f(tr.a)+' → '+esc(D.MONTH_NOM[b])+' '+f(tr.b)+'.'});
   }
-  /* 5. Вывод без точки */
-  if(m.ytd&&b<11&&v>0){
-    const pace=m.fc?D.lastVal(rl,m.fc):v*12/(b+1), rb=ref&&!ref.kpi?ref.at(b):null;
-    out.push({mi:[11],html:'<b>К декабрю при таком темпе — ≈ '+f(pace)+'</b>.'+
-      (rb?' У базы темп ≈ '+f(rb*12/(b+1))+'.':'')});
-  }else if(FLOW.has(key)&&b>0){
+  /* 5. Вывод без точки. 15.10: «к декабрю при таком темпе» снят вместе с
+     прогнозом годовой текучести — в каталоге HQ и УС прогноза нет */
+  if(FLOW.has(key)&&b>0){
     let ys=0,yp=0;
     for(let k=0;k<=b;k++){ys+=cur[k]||0;yp+=prev[k]||0}
     const d=ys-yp;
@@ -323,7 +318,7 @@ function overview(S,rl,bl){
       out.push({key:'attrition',sev:last>=3*usual?'high':'mid',pri:0,w:last-usual,
         lead:'Всплеск уходов в '+['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'][D.MONTHS_EXT[L].m]+
           ': '+D.fmtInt(last)+' — обычно '+(usual<1?'меньше одного':'около '+D.fmtInt(Math.round(usual)))+' в месяц',
-        body:'Уходы за месяц, все причины.'});
+        body:'Уволились за месяц, по любой причине.'});
   }
   /* численность за год: найм, уходы, переводы — из чего сложилось */
   const hc=D.aggregateExt(rl,'hc_total'), from=hc[L-12], to=hc[L];
@@ -332,8 +327,8 @@ function overview(S,rl,bl){
     const dp=Math.round(Math.abs(to-from)/from*100);
     out.push({key:'hc_total',sev:'mid',pri:5,w:0,
       lead:'Численность '+(to>from?'+':'−')+dp+'% за год: '+D.fmtInt(from)+' → '+D.fmtInt(to),
-      body:'Найм '+D.fmtInt(sm('hire'))+', уходы '+D.fmtInt(sm('attrition'))+', переводы в и из команды — '+
-        D.fmtInt(sm('transfer_in'))+' и '+D.fmtInt(sm('transfer_out'))+'.'});
+      body:'Найм '+D.fmtInt(sm('hire'))+', отток '+D.fmtInt(sm('attrition'))+', переводы в команду '+
+        D.fmtInt(sm('transfer_in'))+' и из неё '+D.fmtInt(sm('transfer_out'))+'.'});
   }
   const rank={high:0,mid:1,good:2};
   out.sort((a,c)=>rank[a.sev]-rank[c.sev]||a.pri-c.pri||c.w-a.w);

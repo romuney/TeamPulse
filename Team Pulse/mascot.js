@@ -115,7 +115,7 @@ function dock(S,open){
 
 /* ---------- словарь метрик текущей вкладки ---------- */
 function metricItem(m,S){
-  const dir=m.better==='lower'?'ниже — лучше':m.better==='higher'?'выше — лучше':'нейтральная';
+  const dir=m.better==='lower'?'ниже — лучше':m.better==='higher'?'выше — лучше':'без оценки';
   const kpi=D.kpiFor(m.key,S);
   return '<div class="pp-m"><div class="pp-m-h">'+esc(m.name)+
     (kpi?'<span class="kpi-tag">KPI</span>':'')+

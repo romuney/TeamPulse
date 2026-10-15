@@ -252,7 +252,7 @@ checks.push(['минус во всех дельтах типографский, 
   /* сравнение ищем в видимом тексте карточки: слово «база» встречается ещё и
      внутри подсказки к пилюле изменения, и по нему проверять нельзя */
   const cards=opHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
-  const card=cards.filter(c=>/Regrettable/.test(c))[0]||'';
+  const card=cards.filter(c=>/Нежелательная текучесть/.test(c))[0]||'';
   const subs=(card.match(/<span class="k-sub">[^<]*</g)||[]).join('|');
   checks.push(['в hero-карточке метрики с KPI стоит цель, а базы нет',
     /цель 4,0%/.test(subs)&&!/база/.test(subs)&&/kpi-tag/.test(card)]);
@@ -406,9 +406,9 @@ checks.push(['дни недели — таблица, а не бар-чарт',
   checks.push(['при тесной клетке значение уходит в подсказку, а заливка остаётся',
     vals===0&&/class="barg"/.test(h4)&&/Посещаемость/.test(h4)]);
 })();
-checks.push(['выдуманные данные помечены сноской',
-  /реального источника под ними пока нет/.test(calHtml)&&
-  /реального источника под ними пока нет/.test(A.go('office','offices'))]);
+/* 15.10, редполитика: что цифры условные, говорит плашка «в разработке», а не сноска с кухней макета */
+checks.push(['условные данные помечены плашкой «в разработке»',
+  /class="dev-note/.test(calHtml)&&/class="dev-note/.test(A.go('office','offices'))]);
 const cities=D.officeByCity(D.reportLeaves(D.DEFAULT_STATE)), offHtml=A.go('office','offices');
 checks.push(['города: сумма людей = численность отбора, сортировка по посещаемости',
   cities.reduce((a,o)=>a+o.hc,0)===D.lastVal(D.reportLeaves(D.DEFAULT_STATE),'hc_total')&&
@@ -456,7 +456,7 @@ A.hide([]);
 
 checks.push(['подсказки собраны конструктором, а не склейкой тегов',
   (allHtml.match(/t-h/g)||[]).length>100&&(allHtml.match(/t-r/g)||[]).length>100&&
-  (allHtml.match(/t-v/g)||[]).length>100&&!/&lt;b&gt;/.test(allHtml)]);
+  (allHtml.match(/t-v/g)||[]).length>100&&!/&amp;lt;b/.test(allHtml)]);
 checks.push(['подписи значений на графиках имеют halo',
   (allHtml.match(/stroke-width="3\.2"/g)||[]).length>50]);
 
@@ -717,9 +717,9 @@ checks.push(['марки графиков помечены data-s',
       const sh=M.map(r=>r[0]/(r[0]+r[1]));
       return sh[0]>sh[3];
     })()]);
-  checks.push(['выдуманные связи названы в сноске под матрицей',
-    /Связи между атрибутами в макете/.test(A.go('structure','custom'))&&
-    D.MIX_LINK_TEXT.length>20]);
+  checks.push(['под матрицей сказано, как её читать, — без кухни макета',
+    /Сумма клеток равна численности в карточках/.test(A.go('structure','custom'))&&
+    !/в макете/.test(A.go('structure','custom'))]);
   checks.push(['матрица «сеньорность × грейд» диагональная: связь разрезов задана, а не выдумана',
     mtx[0][4]===0&&mtx[3][0]===0&&mtx[0][0]>0&&mtx[3][4]>0]);
   /* пара без заданной связи считается независимо — и это ровно то, что сказано в сноске */
@@ -1076,11 +1076,13 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /@media\(max-width:1240px\)\{\.split\.wide-l\{grid-template-columns:1fr;height:auto\}/.test(css)]);
   checks.push(['имя подразделения липкое: широкая таблица прокручивается внутри панели',
     /\.split-l\.ptable\.densetd\.txt\{position:sticky;left:0/.test(css)]);
-  checks.push(['новые экраны помечают сгенерированное сноской с источником на проде',
-    ['plan','profile'].every(sb=>/на проде/i.test(A.go('hiring',sb)))&&
-    ['reasons','who'].every(sb=>/на проде/i.test(A.go('turnover',sb)))&&
-    /на проде/i.test(A.go('monitor','review'))&&/на проде/i.test(A.go('office','booking'))&&
-    /на проде/i.test(A.go('ai','tools'))&&/сгенерированы/.test(A.go('tgrowth','statuses'))]);
+  /* 15.10, редполитика (TEXT_GUIDE.md): сноски — как читать таблицу, а не как устроены данные */
+  checks.push(['сноски вкладок без кухни: ни «на проде», ни «в макете», ни имён таблиц',
+    [['hiring','plan'],['hiring','profile'],['turnover','reasons'],['turnover','who'],['monitor','review'],
+     ['office','booking'],['ai','tools'],['tgrowth','statuses']].every(([b,sb])=>{
+      const h=A.go(b,sb), notes=(h.match(/<div class="tbl-note">[\s\S]*?<\/div>/g)||[]).join(' ');
+      return notes&&!/на проде|в макете|сгенерирован|_[a-z]+_|SOURCES|дашборд \d/i.test(notes);
+    })]);
 })();
 
 /* ============================================================================
@@ -1116,17 +1118,17 @@ checks.push(['третьей палитры нет: в экранах ни од�
     deep.length>0&&(open.match(/class="below"/g)||[]).length===deep.length&&
     new RegExp('ниже ещё '+D.childrenOf(deep[0].path).length+'<').test(open)]);
   checks.push(['каретка ИТОГО обещает все три уровня',
-    /Все три уровня подразделений сразу/.test(closed)]);
+    /Все три уровня подразделений разом/.test(closed)]);
   A.expClear();
 
   /* --- выбор и переход --- */
   checks.push(['без выбора строки кнопки перехода нет — клик по строке не уводит',
     !/data-openunit=/.test(closed)]);
   const pick=lv1[0].path, picked=A.sel(pick);
-  checks.push(['у выбранной строки и в шапке правой панели — «Открыть юнит»',
+  checks.push(['у выбранной строки и в шапке правой панели — «Открыть»',
     (picked.match(new RegExp('data-openunit="'+pick+'"','g'))||[]).length===2&&
     new RegExp('<tr class="urow[^"]* sel" data-node="'+pick+'">[\\s\\S]*?data-openunit="'+pick+'"').test(picked)&&
-    />Открыть юнит<\/button>/.test(picked)]);
+    />Открыть<\/button>/.test(picked)]);
   checks.push(['кнопки ↓ и временного корня больше нет',
     !/data-drill|data-undrill|Временный корень/.test(picked)&&!('drillRoot' in D.DEFAULT_STATE)]);
 
@@ -1177,7 +1179,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['при поиске каретки не нужны — дерево раскрыто по находкам',
     !/data-exp="/.test(found)&&!/data-expall="/.test(found)]);
   checks.push(['поиск без находок говорит, где искать дальше',
-    /Подразделений с «нетакого» в трёх уровнях вниз нет/.test(A.search('нетакого'))]);
+    /В трёх уровнях вниз нет «нетакого»/.test(A.search('нетакого'))]);
   A.home();
   checks.push(['ступени дерева держатся на любой ширине, кнопка перехода и поиск — из токенов',
     /\.split-l\.ptable\.densetr\.lvl2td\.txt\{padding-left:calc\(var\(--pad-cell\)\+16px\)\}/.test(css)&&
@@ -1272,9 +1274,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* экран: степпер на все главы, текущая отмечена, вывод и колонка на месте */
   const to=A.go('turnover','dynamics');
   const nSteps=(to.match(/class="st-step[^"]*" data-subtab=/g)||[]).length;
-  checks.push(['история: степпер на все главы блока, текущая отмечена, «глава 1 из 3» в шапке',
+  checks.push(['история: степпер на все вкладки блока, текущая отмечена, «вкладка 1 из 3» в шапке',
     nSteps===SC.blocks.turnover.subTabs.length&&/class="st-step on" data-subtab="dynamics"/.test(to)&&
-    /глава 1 из 3/.test(to)&&/<div class="st-head"><h3>/.test(to)&&/<aside class="st-rail">/.test(to)&&
+    /вкладка 1 из 3/.test(to)&&/<div class="st-head"><h3>/.test(to)&&/<aside class="st-rail">/.test(to)&&
     !/class="st-next"/.test(to)]);
   /* цифры вывода — те же, что на графике */
   const rl=D.reportLeaves(st0), n12=D.aggregate(rl,'attrition').reduce((a,b)=>a+b,0);
@@ -1406,15 +1408,44 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const pn=D.planCount();
   checks.push(['план по каталогу: у строк «для кого» и статус, есть что добавить и что решить',
     D.DEV_PLAN.every(g=>g.rows.every(r=>D.AUD_LABEL[r.aud]&&D.PLAN_NOW[r.now]&&(r.now!=='dev'||D.devPlan(r.stage))))&&
-    pn.todo>0&&pn.extra>0&&/добавить из каталога/.test(op)&&/class="aud-tag hq"/.test(op)&&/class="aud-tag us"/.test(op)&&
+    pn.todo>0&&pn.extra>0&&/ещё добавить/.test(op)&&/class="aud-tag hq"/.test(op)&&/class="aud-tag us"/.test(op)&&
     !/[Вв]оронка найма|[Лл]оу-перформ|[Пп]рогноз текучести/.test(op)]);
   checks.push(['«в разработке»: в навигации блок целиком (AI, офис нет — посещаемость живая) и частично',
     /data-tab="ai"[^>]*>[\s\S]*?nav-dev full/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&
     !/data-tab="movement"[^>]*>[^<]*<span class="ico[^"]*"><\/span>[^<]*<span class="nav-dev/.test(nav)&&SC.blockDev('office')==='part']);
   const hv=A.go('hiring','vacancies'), hp=A.go('hiring','plan'), mv=A.go('movement',null);
-  checks.push(['«в разработке»: плашка вкладки с этапом и «что нужно», шаги степпера помечены',
-    /class="dev-note"[\s\S]*?этап 2 плана[\s\S]*?Что нужно:/.test(hv)&&/class="dev-note part"/.test(hp)&&
+  checks.push(['«в разработке»: плашка вкладки — источник и «что нужно» по-человечески, шаги степпера помечены',
+    /class="dev-note"[\s\S]*?источник: данные о вакансиях[\s\S]*?Что нужно:/.test(hv)&&/class="dev-note part"/.test(hp)&&
     /st-step[^"]*dev-full/.test(hv)&&/st-step[^"]*dev-part/.test(hv)&&!/dev-note/.test(mv)]);
+})();
+
+/* ============================================================================
+   15.10 — редполитика (TEXT_GUIDE.md): тексты для руководителя. Во всём, что
+   видно на экране и в подсказках, — ни технических имён (таблицы, поля, «макет»,
+   «заглушка»), ни старых названий метрик. Сканируются все вкладки, One-pager
+   с планом, шапка и статичные окна index.html.
+   ========================================================================== */
+(function(){
+  const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8').replace(/<!--[\s\S]*?-->/g,'')
+    .replace(/<script[\s\S]*?<\/script>/g,'');
+  const text=allHtml+A.chips()+html;
+  if(process.env.TP_DUMP)fs.writeFileSync(process.env.TP_DUMP,text);
+  const BAN=[/hr_structure_overall|vacancy_daily|plan_fact_tf|atributy_nayma|junior_ratio|ys_all_fire|initiative_reason|mdm_employee|review_digest|review_table|sigareta|penetration_(unit|company)|office_visit_amt|work_day_amt|grt_[a-z]+_cnt|fire_initiative|fire_reason|mapping_channel|summary_score|management_head/,
+    /заглушк|демо-данн|в макете|на проде|сгенерирован|ответ 0а|SOURCES\.md|ClickHouse|Helicopter|датасет/i,
+    /Regrettable текучесть|Прошли T-рост|Отказано в T-росте|Тип занятости|Дистанционно|Штат \(ТК РФ\)|Time-to-fill|[Лл]оу-перформ|Прогноз (годовой )?текучести/,
+    /степпер|[Пп]озитивное направление|Снять разрез|Сбросить разрезы|глава \d+ из/];
+  const hits=[];
+  BAN.forEach(re=>{const m=text.match(new RegExp(re.source,re.flags.replace('g','')+'g'));if(m)hits.push(...new Set(m))});
+  if(hits.length)console.log('    найдено:',hits.slice(0,12).join(' | '));
+  checks.push(['тексты для руководителя: без технических имён и старых названий (TEXT_GUIDE.md)',!hits.length]);
+  /* одно понятие — одно название: имя метрики в карточке, таблице и подсказке берётся из METRICS */
+  const names=D.METRICS.map(m=>m.name);
+  checks.push(['словарь: названия метрик уникальны и совпадают с TEXT_GUIDE.md',
+    new Set(names).size===names.length&&
+    names.every(n=>fs.readFileSync(path.join(__dirname,'TEXT_GUIDE.md'),'utf8').indexOf('| '+n+' |')>=0)]);
+  /* подсказка не одним куском: абзацы и списки собираются конструктором */
+  checks.push(['подсказки умеют абзацы и списки',
+    /t-li/.test(text)&&/class=&quot;t-x&quot;&gt;[^&]*&lt;\/span&gt;&lt;span class=&quot;t-x/.test(text)]);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

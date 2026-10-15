@@ -90,7 +90,7 @@ function treeTable(dim,lp,sel,mixSel,open){
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:sliceSub(others,tree.reduce((a,n)=>a+n.value,0)),lite:true,
     head:'',valueHead:'Человек',metricKey:'hc_total',compact:true,tree:true,items:items,
-    expAll:{key:dim.key,open:allOpen}});
+    expTip:'Специализации внутри стрима.',expAll:{key:dim.key,open:allOpen}});
 }
 
 /* ---------- Обзорные главы: «Кто в команде?» и «Как оформлены и где?» ----------
@@ -198,7 +198,7 @@ function overviewWho(ctx){
   const c=ptCtx(ctx), sel=c.sel, bench=c.bench;
   const SEN=ptRows(ctx,'seniority',sel,{l:'Lead+'}), GR=ptRows(ctx,'grade',sel), TEN=ptRows(ctx,'tenure',sel),
     AGE=ptRows(ctx,'age',sel,{a0:'до 25 лет',a45:'45+ лет'}), GEN=ptRows(ctx,'gender',sel);
-  if(!sumA(SEN.map(r=>r.n)))return U.empty('Нет людей в отборе','Снимите срез или один из фильтров в шапке.');
+  if(!sumA(SEN.map(r=>r.n)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
   /* стаж: выделены новички, а не самая большая группа — история про них */
   if(!TEN.some(r=>r.on))TEN.forEach((r,i)=>{r.hi=i===0});
   const m=D.mixMatrix(ctx.lp,'age','gender',ctx.S.mixSel), gen=D.MIX_BY_KEY.gender.cats;
@@ -213,14 +213,14 @@ function overviewWho(ctx){
 /* «Как оформлены и где?» — штат, формат, регионы, юрлица */
 function overviewWork(ctx){
   const c=ptCtx(ctx), sel=c.sel, bench=c.bench;
-  const EMP=ptRows(ctx,'employment',sel,{tk:'Штат'}), FMT=ptRows(ctx,'worksite',sel,{rem:'Удалённо'}),
+  const EMP=ptRows(ctx,'employment',sel), FMT=ptRows(ctx,'worksite',sel),
     REG=ptRows(ctx,'region',sel), LEG=ptRows(ctx,'legal',sel);
-  if(!sumA(EMP.map(r=>r.n)))return U.empty('Нет людей в отборе','Снимите срез или один из фильтров в шапке.');
+  if(!sumA(EMP.map(r=>r.n)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
   /* штат / не штат — одна пилюля; не штат собран из четырёх видов оформления */
   const non=EMP.slice(1), nonN=sumA(non.map(r=>r.n)), tot=EMP[0].n+nonN;
   /* клик по «не штату» среза не берёт: это четыре категории, срез — по одной из них ниже */
   const staff=EMP[0], other={id:null,name:'Не штат',n:nonN,p:pct(nonN,tot),b:100-staff.b,
-    why:'Не штат — четыре вида оформления; срез берётся по одному из них в полосах ниже.'};
+    why:'Четыре вида оформления. Срез — по одному из них в полосах ниже.'};
   const pill=ptSplit(staff,other,bench,'emp');
   hiOf(non);
   return '<div class="pt-wrap">'+ptLegend(bench)+
@@ -259,9 +259,8 @@ SC.blocks.structure={
         return dim.childDim?treeTable(dim,ctx.lp,sel,S.mixSel,open)
                            :dimTable(dim,ctx.lp,sel,S.mixSel);
       }),'lite')+
-        (sel.size?'':'<div class="tbl-note">Клик по строке берёт срез: численность '+
-          'в карточках и в таблице подразделений пересчитается по этой категории. '+
-          'Разрезы складываются — по одной категории на разрез.</div>');
+        (sel.size?'':'<div class="tbl-note">Клик по строке — срез: карточки и таблица подразделений '+
+          'пересчитаются по этой категории.</div>');
     }
 
     /* Конструктор. Ось колонок можно снять — тогда остаётся обычная разбивка
@@ -274,8 +273,8 @@ SC.blocks.structure={
     if(!colDim){
       h+=rowDim.childDim?treeTable(rowDim,ctx.lp,sel,S.mixSel,ctx.mixOpen||new Set())
                         :dimTable(rowDim,ctx.lp,sel,S.mixSel);
-      return h+'<div class="tbl-note">Выберите колонки — и разбивка станет матрицей: '+
-        'два разреза на одних осях, чтобы сравнивать не таблицы между собой, а клетки строки.</div>';
+      return h+'<div class="tbl-note">Выберите колонки — получится таблица «разрез × разрез», '+
+        'например «грейд × пол».</div>';
     }
     /* Срез по оси матрицы её собственную ось не режет — иначе колонка «Мужчины»
        обнулилась бы и вернуться к ней стало бы нечем. Что при этом дошло до
@@ -284,15 +283,12 @@ SC.blocks.structure={
     const outer=D.otherParts(S.mixSel,axes);
     const inner=D.sliceParse(S.mixSel).filter(p=>axes.indexOf(p.dim.key)>=0);
     const cap=[outer.length?'срез: '+outer.map(p=>p.cat.name).join(' · '):'',
-      inner.length?'по осям матрицы срез не режет: '+inner.map(p=>p.cat.name).join(' · '):'']
+      inner.length?'выделено в таблице: '+inner.map(p=>p.cat.name).join(' · '):'']
       .filter(Boolean).join('  ·  ');
     h+=U.matrixTable({rowDim:rowDim,colDim:colDim,mode:S.mixMode,sel:sel,cap:cap,
       cells:D.mixMatrix(ctx.lp,rowDim.key,colDim.key,S.mixSel)});
-    return h+'<div class="tbl-note">Клик по клетке берёт срез сразу по двум атрибутам, '+
-      'по названию строки или колонки — по одному. Сумма клеток равна численности '+
-      'в карточках над таблицей. Связи между атрибутами в макете заданы только для '+
-      'нескольких пар: '+U.esc(D.MIX_LINK_TEXT)+'. Остальные пары внутри команды '+
-      'считаются независимыми, и на реальных данных клетки будут другими.</div>';
+    return h+'<div class="tbl-note">Клик по клетке — срез по двум разрезам сразу, по названию строки '+
+      'или колонки — по одному. Сумма клеток равна численности в карточках.</div>';
   }
 };
 })();

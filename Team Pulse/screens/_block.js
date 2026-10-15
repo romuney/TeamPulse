@@ -182,30 +182,31 @@ function yearAgo(lp,key){return D.aggregateExt(lp,key)[D.NEXT-13]}
    t — что здесь не настоящее, need — что нужно (иначе — из плана этапа),
    part — вкладка частично живая. '*' — все под-вкладки блока. Одна карта и
    для плашки над содержимым, и для отметки шага, и для пункта меню блока. */
+/* t — что здесь условно, для руководителя (TEXT_GUIDE.md): без таблиц и полей */
 const DEV_TABS={
-  structure:{'*':{stage:4,t:'Доли по грейду, сеньорности, полу, возрасту, стажу, региону, формату и стримам — заглушка: этих '+
-    'атрибутов нет в hr_structure_overall. Живая только численность.'}},
-  turnover:{reasons:{stage:3,t:'Инициаторы и причины увольнений — заглушка: их нет в hr_structure_overall. Живой только отток в ИТОГО.'},
-    who:{stage:3,t:'Стаж, грейд и стрим ушедших — заглушка. Живой только отток в ИТОГО.',need:'атрибуты ушедших на дату увольнения (витрина оттока) и ответ 0а'}},
-  hiring:{vacancies:{stage:2,t:'Вакансии и срок закрытия — заглушка: нужен источник вакансий (vacancy_daily_for_digest).'},
-    plan:{stage:2,part:true,t:'План найма — заглушка (plan_fact_tf_rabota); факт — живой найм.'},
-    profile:{stage:2,part:true,t:'Каналы и грейд найма — заглушка (atributy_nayma); живой только найм в ИТОГО.'}},
-  tgrowth:{'*':{stage:6,t:'T-рост — заглушка: нужны заявки и решения сервиса «Рост».'}},
-  monitor:{both:{stage:5,t:'Недоработка и «улучшили оценку» — заглушка: нужны табель и review_digest_us.'},
-    review:{stage:5,t:'Итоги ревью — заглушка (review_digest_us).'}},
-  office:{'*':{stage:7,t:'Посещаемость и бронирование — заглушка: нужны СКУД и система бронирования.'}},
-  ai:{'*':{stage:8,t:'AI-инструменты — заглушка: нужна AI-витрина (penetration_unit, wau).'}}
+  structure:{'*':{stage:4,t:'Численность — настоящая. Разбивка по грейду, сеньорности, полу, возрасту, стажу, региону, '+
+    'формату и стримам пока условная.'}},
+  turnover:{reasons:{stage:3,t:'Общий отток — настоящий. Инициаторы и причины пока условные.'},
+    who:{stage:3,t:'Общий отток — настоящий. Стаж, грейд и стрим ушедших пока условные.'}},
+  hiring:{vacancies:{stage:2,t:'Вакансии и срок закрытия пока условные.'},
+    plan:{stage:2,part:true,t:'Принятые — настоящие. План найма и статусы вакансий пока условные.'},
+    profile:{stage:2,part:true,t:'Общий найм — настоящий. Каналы и грейды принятых пока условные.'}},
+  tgrowth:{'*':{stage:6,t:'Заявки на T-рост и решения по ним пока условные.'}},
+  monitor:{both:{stage:5,t:'Недоработчики и итоги ревью пока условные.'},
+    review:{stage:5,t:'Итоги ревью пока условные.'}},
+  office:{'*':{stage:7,t:'Посещаемость и бронирование пока условные.'}},
+  ai:{'*':{stage:8,t:'Данные об AI-инструментах пока условные.'}}
 };
 /* Колонки разведки 12.10 оживляют часть вкладок: решения и конверсию T-роста
    и посещаемость за месяц. Там отметки нет, на соседних — уточнённый текст:
    что из блока живое, а что ещё нет. Без колонок — прежние записи DEV_TABS. */
 const DEV_LIVE={
   tgrowth:{live:['tgrowth_conv'],subs:['flow'],
-    '*':{stage:6,t:'Типы заявок, T@T и статусы по грейдам — заглушка: в hr_structure_overall есть только решения по заявкам '+
-      '(GRT) — они и конверсия на вкладке «Растут ли люди внутри?» живые.'}},
+    '*':{stage:6,t:'Решения по заявкам и конверсия — настоящие (вкладка «Растут ли люди внутри?»). '+
+      'Типы заявок, T@T и статусы по грейдам пока условные.'}},
   office:{live:['office_att'],subs:['dynamics'],
-    '*':{stage:7,t:'Календарь по дням, города, «кто ходит» и бронирование — заглушка: в hr_structure_overall посещения есть '+
-      'только суммой за месяц по юниту. Посещаемость на вкладке «Ходят больше или меньше?» — живая.'}}
+    '*':{stage:7,t:'Посещаемость за месяц — настоящая (вкладка «Ходят больше или меньше?»). '+
+      'Календарь по дням, города, «кто ходит» и бронирование пока условные.'}}
 };
 function devOf(bk,sub){
   const lv=DEV_LIVE[bk];
@@ -250,7 +251,7 @@ function renderBlock(S,expanded,mixOpen,view){
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
-      U.empty('Нет данных по выбранным разрезам','Снимите один из разрезов в шапке отчёта.');
+      U.empty('Под эти фильтры никто не попал','Снимите один из фильтров в шапке.');
   }
   const tq=String(view&&view.tq||'').trim();
   const isEmpty=p=>!rowLeaves(p,S).length;
@@ -269,17 +270,16 @@ function renderBlock(S,expanded,mixOpen,view){
   const kpiMets=mets.filter(m=>D.kpiFor(m.key,S));
   const cmpMets=mets.filter(m=>D.comparable(m.key)&&!D.kpiFor(m.key,S));
   const cmpTxt=(cmpMets.length
-      ? 'Сравнение с базой <b>'+esc(D.benchmarkLabel(S))+'</b>.'
-      : kpiMets.length?'':'Метрики блока абсолютные — с базой не сравниваются.')+
-    (kpiMets.length?' У метрик с утверждённым KPI сравнение идёт с целью, а не с базой.':'');
+      ? 'Сравниваем с базой <b>'+esc(D.benchmarkLabel(S))+'</b>.'
+      : kpiMets.length?'':'Здесь количества — с базой они не сравниваются.')+
+    (kpiMets.length?' Где есть цель KPI — с целью.':'');
   /* «Детальный дашборд» ведёт туда, где блок есть в Proteus: при покраске HQ —
      в HQ-версию 34136, иначе в общую 34661; HQ-блоки — всегда в 34136. */
   const dash=D.blockDash(b.key,S);
   let h='<div class="page-h"><div class="ph-row"><h2>'+esc(b.name)+'</h2>'+
     '<a class="btn dash" href="'+(dash?dash.href:b.drillUrl)+'" target="_blank" rel="noopener"'+
-    (dash?U.tipAttr({title:'Дашборд Proteus '+dash.id,text:'«'+dash.name+'» — детальный слой этого блока.',
-      note:dash.only?'Блок есть только в этой версии дашборда.'
-        :'Блок есть в обеих версиях: при покраске HQ открывается HQ-версия, иначе общая.'}):'')+
+    (dash?U.tipAttr({title:'Детальный дашборд',text:'«'+dash.name+'» в Proteus — все графики этого блока.',
+      note:dash.only?'':'Для покраски HQ откроется HQ-версия.'}):'')+
     '>Детальный дашборд'+U.icoExt()+'</a></div>'+
     '<p>'+esc(b.hint)+' '+cmpTxt+'</p></div>';
 
@@ -318,8 +318,7 @@ function renderBlock(S,expanded,mixOpen,view){
   /* 4a · что сейчас срезано. Плашка стоит под карточками, а не только в той
      таблице, по которой кликнули: без неё «191 → 59» в карточке выглядит
      поломкой отчёта, а не ответом на свой же клик. */
-  h+=U.sliceNote(slice,'в карточках и в таблице подразделений численность показана '+
-    'по срезу; база сравнения и инсайты считаются по всему отбору');
+  h+=U.sliceNote(slice,'численность в карточках и таблице — по срезу, база и выводы — по всей команде');
 
   /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
@@ -348,8 +347,7 @@ function renderBlock(S,expanded,mixOpen,view){
      KPI-карточках над таблицей и на графиках главы. */
   const totalCells=mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
-    U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'». Глубже — выберите строку и откройте её '+
-      'юнит иконкой у правого края имени.'})+'>Подразделение</th>'+
+    U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'».\nГлубже — выберите строку и нажмите значок у её названия.'})+'>Подразделение</th>'+
     mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+'</th>').join('')+
     '</tr></thead><tbody>'+
@@ -365,7 +363,7 @@ function renderBlock(S,expanded,mixOpen,view){
       ? '<button class="caret-btn"'+(allOpen?' data-open="1"':'')+
         ' data-expall="'+(allOpen?'0':'1')+'" aria-label="'+(allOpen?'Свернуть всё':'Развернуть всё')+'"'+
         U.tipAttr({title:allOpen?'Свернуть всё':'Развернуть всё',
-          text:'Все три уровня подразделений сразу.'})+'>'+
+          text:'Все три уровня подразделений разом.'})+'>'+
         (allOpen?'▾':'▸')+'</button>'
       : '<span class="caret-spacer"></span>')+
     '<span class="row-body">ИТОГО</span></span></td>'+totalCells+
@@ -385,7 +383,7 @@ function renderBlock(S,expanded,mixOpen,view){
       '<span class="unit-sub">'+esc(r.n.direct?'без подразделения':D.LEVEL_SHORT[r.n.level]||D.levelLabel(r.n.level))+' · '+
         D.fmtVal('hc_total',val(lp,'hc_total'))+' чел'+
       (below?' · <span class="below"'+U.tipAttr({title:'Ниже ещё '+below+' '+U.plural(below,['подразделение','подразделения','подразделений']),
-          text:'Таблица показывает три уровня вниз. Глубже — выберите строку и откройте её юнит иконкой у правого края имени.'})+
+          text:'Таблица показывает три уровня вниз.\nГлубже — выберите строку и нажмите значок у её названия.'})+
         '>ниже ещё '+below+'</span>':'')+'</span>'+U.unitHead(r.n)+'</span>'+
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
@@ -396,15 +394,14 @@ function renderBlock(S,expanded,mixOpen,view){
   /* пустые состояния — строкой в таблице, а не вместо неё: ИТОГО остаётся */
   const ncol=1+mets.length;
   if(!rows.length)tbl+='<tr class="tree-empty"><td class="txt" colspan="'+ncol+'">'+
-    (tq?'Подразделений с «'+esc(tq)+'» в трёх уровнях вниз нет. Глубже — откройте юнит; другое подразделение '+
-        'компании — в «Настрой свой дашборд».'
+    (tq?'В трёх уровнях вниз нет «'+esc(tq)+'». Другое подразделение компании выберите в «Настрой свой дашборд».'
       :'У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры в строке ИТОГО.')+'</td></tr>';
   tbl+='</tbody></table>';
   /* Подсказка о глубине — в подзаголовке панели: три уровня вниз, глубже —
      переходом. Пока взят срез состава, подзаголовок говорит о нём. */
   h+=U.panel({cls:'split-l',title:'Подразделения',
     subHtml:slice.length?esc('численность по срезу: '+D.sliceLabel(selIds))
-      :'три уровня вниз · глубже — откройте юнит '+U.icoOpen(),
+      :'три уровня вниз · глубже — значок '+U.icoOpen(),
     tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'}),
     body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share);
 
@@ -428,8 +425,8 @@ function renderBlock(S,expanded,mixOpen,view){
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
-    subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть юнит')):' · всё подразделение')+
-      (bookC.chapters.length>1?' · глава '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
+    subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть')):' · всё подразделение')+
+      (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
     hBtn:U.unitToggle(mode==='both'),
     body:body,bodyCls:'st-on'});
 

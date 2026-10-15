@@ -193,19 +193,19 @@ function navDev(bk){
   const st=SC.blockDev(bk);
   if(!st)return '';
   const subs=(SC.blocks[bk]||{}).subTabs||[], n=subs.filter(t=>SC.devOf(bk,t[0])).length;
-  return st==='full'?'<span class="nav-dev full"'+U.tipAttr({title:'В разработке',text:'Все вкладки блока — заглушки: источника данных пока нет.'})+'>в разраб.</span>'
-    :'<span class="nav-dev part"'+U.tipAttr({title:'Частично в разработке',text:'В разработке '+n+' '+U.plural(n,['вкладка','вкладки','вкладок'])+' из '+subs.length+'.'})+'></span>';
+  return st==='full'?'<span class="nav-dev full"'+U.tipAttr({title:'В разработке',text:'Данных по блоку пока нет: цифры условные.'})+'>в разраб.</span>'
+    :'<span class="nav-dev part"'+U.tipAttr({title:'Частично в разработке',text:'Цифры условные на '+n+' '+U.plural(n,['вкладке','вкладках','вкладках'])+' из '+subs.length+'.'})+'></span>';
 }
 function pilotChips(){
   let h='';
   const p=STORE.pending;
   if(p)h+='<span class="chip busy">Загружаю «'+esc(p.name||'…')+'»…</span>';
   if(STORE.warn)h+='<span class="chip warn">'+esc(STORE.warn)+'</span>';
-  h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на живых данных',
-    text:'Живое — из hr_structure_overall: численность, найм, увольнения, переводы, текучесть, regret '+
-      'и оценки перформанса. Метрики и вкладки с полосатой меткой «в разработке» — заглушки до подключения своих источников.',
-    note:'Данные — по '+D.CMP.cur+' включительно: текущий месяц неполный и в отчёт не идёт.'})+
-    '>Пробник · «в разработке» — заглушки</span>';
+  h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на настоящих данных',
+    text:'Настоящие цифры:',
+    list:['численность, найм, отток, переводы','текучесть и нежелательная текучесть','посещаемость офиса и T-рост — если данные уже пришли'],
+    note:'С полосатой меткой «в разработке» — условные цифры. Данные по '+D.CMP.cur+' включительно: текущий месяц ещё не закрыт.'})+
+    '>Пробник · часть данных в разработке</span>';
   return h;
 }
 
@@ -217,7 +217,7 @@ function renderHead(){
   /* «← Назад» и «↑ Уровнем выше» стоят перед путём: путь отвечает «где я»,
      кнопки — «как вернуться». Предки в пути кликабельны, как и раньше. */
   const nav=(prev?'<button class="nb" data-uback="1"'+U.tipAttr({title:'Назад',
-      text:'Вернуться к «'+prev.name+'» — подразделению до последнего перехода.'})+'>← Назад</button>':'')+
+      text:'Вернуться к «'+prev.name+'».'})+'>← Назад</button>':'')+
     (par?'<button class="nb" data-crumb="'+par.path+'"'+U.tipAttr({title:'Уровнем выше',
       text:'Перейти к «'+par.name+'».'})+'>↑ Уровнем выше</button>':'');
   $('#crumbs').innerHTML=(nav?'<span class="nbs">'+nav+'</span>':'')+D.ancestorsOf(S.unit).map((a,i,arr)=>
@@ -231,11 +231,12 @@ function renderHead(){
      чипы базы сравнения, они есть всегда. */
   const chips=D.filterChips(S);
   let html=chips.map(c=>'<span class="chip">'+esc(c.label)+'<button class="x" data-unchip="'+c.k+'"'+
-    U.tipAttr({title:'Снять разрез',text:c.label})+'>×</button></span>').join('');
-  html+='<span class="chip bench">Сравнение: <b>'+esc(D.benchmarkLabel(S))+'</b></span>';
+    U.tipAttr({title:'Снять фильтр',text:c.label})+'>×</button></span>').join('');
+  html+='<span class="chip bench"'+U.tipAttr({title:'База сравнения',text:'С этим сравниваются все метрики отчёта: та же метрика по всей компании с вашими фильтрами.'})+
+    '>База: <b>'+esc(D.benchmarkLabel(S))+'</b></span>';
   /* после перехода в отдел команд в отборе бывает одна — «1 команд» не пишем */
   const nT=D.unitsInScope(S);
-  html+='<span class="chip bench">'+D.fmtInt(nT)+' '+U.plural(nT,D.UNIT_WORDS)+(ENV?' в таблице':' в отборе')+'</span>';
+  html+='<span class="chip bench">'+D.fmtInt(nT)+' '+U.plural(nT,D.UNIT_WORDS)+(ENV?' в таблице':' в отчёте')+'</span>';
   /* Период — чипом рядом с базой, а не отдельной плашкой справа: плашка
      повторяла свежесть данных в шапке и забирала место у кнопок. Здесь он
      остаётся и в печатной версии, где шапка приложения скрыта. */
@@ -284,8 +285,7 @@ function mountStaticMascots(){
      он был вторым портретом в одном окне и отвлекал от текста правила. */
   const hp=$('#helpPulse');
   if(hp)hp.innerHTML=
-    '<span>Это — правила чтения всего отчёта. А что означает конкретная метрика — '+
-    'спросите у <b>Пульса</b>: он внизу слева и знает метрики той вкладки, где вы стоите.</span>';
+    '<span>Здесь — как читать весь отчёт. Что значит конкретная метрика, подскажет <b>Пульс</b> внизу слева.</span>';
 }
 
 /* ---------- модалка настройки ---------- */
@@ -324,9 +324,9 @@ function paintOpts(){
   metricOpts();
   const d=Object.assign({},S,DRAFT);
   const rl=D.reportLeaves(d), bl=D.benchmarkLeaves(d);
-  $('#benchPreview').innerHTML='Ваша команда: <b>'+esc(D.NODE_BY_PATH[d.unit].name)+'</b>, '+D.fmtInt(D.unitsInScope(d))+' '+U.plural(D.unitsInScope(d),D.UNIT_WORDS)+', '+
-    D.fmtVal('hc_total',D.lastVal(rl,'hc_total'))+' чел.<br>Все метрики будут сравниваться с базой <b>'+
-    esc(D.benchmarkLabel(d))+'</b> — '+D.fmtVal('hc_total',D.lastVal(bl,'hc_total'))+' чел.';
+  $('#benchPreview').innerHTML='Ваша команда: <b>'+esc(D.NODE_BY_PATH[d.unit].name)+'</b>, '+
+    D.fmtVal('hc_total',D.lastVal(rl,'hc_total'))+' чел.<br>База сравнения: <b>'+
+    esc(D.benchmarkLabel(d))+'</b>, '+D.fmtVal('hc_total',D.lastVal(bl,'hc_total'))+' чел.';
 }
 /* ---------- выбор метрик в модалке ----------
    Пресет только проставляет галочки: после него набор донастраивается руками,
@@ -340,7 +340,7 @@ function metricOpts(){
       /* обязательная метрика — та же строка, но кнопка неактивна: показать её
          в списке нужно, иначе непонятно, почему она есть в отчёте */
       if(D.LOCKED_METRICS.has(m.key))return '<button class="mp-i on lock" disabled'+
-        U.tipAttr({title:m.name,text:'Базовая метрика отчёта, отключить нельзя.'})+
+        U.tipAttr({title:m.name,text:'На ней держится весь отчёт, поэтому её не отключить.'})+
         '><span class="box"></span><span class="nm">'+esc(m.name)+'</span><span class="lk">всегда</span></button>';
       return '<button class="mp-i'+(hid.has(m.key)?'':' on')+'" data-mtoggle="'+m.key+'"'+
         U.tipAttr({title:m.name,text:m.hint||''})+
@@ -351,9 +351,8 @@ function metricOpts(){
   }).join('');
   const hidB=D.BLOCKS.length-D.visibleBlocks(DRAFT).length;
   $('#metricCount').innerHTML='Выбрано <b>'+D.visibleCount(DRAFT)+'</b> из '+D.METRICS.length+' метрик'+
-    (cur?'':' — свой набор')+'. Отключённые уходят из one-pager, KPI-карточек и столбцов сводных '+
-    'таблиц; графики в детальных листах остаются.'+
-    (hidB?' Блоков скрыто целиком: <b>'+hidB+'</b> — они исчезнут и из меню слева.':'');
+    (cur?'':' — свой набор')+'. Отключённые пропадут из One-pager, карточек и таблиц; графики в блоках останутся.'+
+    (hidB?' Скрыто блоков: <b>'+hidB+'</b> — они уйдут и из меню слева.':'');
 }
 /* ---------- Срез состава ----------
    Один срез на разрез: клик по «Senior» после «Junior» не складывает их, а

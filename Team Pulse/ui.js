@@ -140,10 +140,9 @@ function icoOpen(){
 }
 function openUnitBtn(path,name,label){
   return '<button class="open-unit'+(label?' with-label':'')+'" data-openunit="'+esc(path)+'" aria-label="Открыть «'+esc(name)+'»"'+
-    tipAttr({title:'Открыть юнит',
-      text:'Отчёт встанет на «'+name+'»: карточки, таблица на три уровня ниже него, one-pager и ссылка — по нему. '+
-        'База сравнения не меняется.',
-      note:'Вернуться — «← Назад» или путь над отчётом.'})+'>'+icoOpen()+(label?esc(label):'')+'</button>';
+    tipAttr({title:'Открыть подразделение',
+      text:'Весь отчёт перестроится на «'+name+'»: карточки, таблица и One-pager.\nБаза сравнения останется прежней.',
+      note:'Вернуться — «← Назад» над отчётом.'})+'>'+icoOpen()+(label?esc(label):'')+'</button>';
 }
 
 /* ---------- Таблица подразделений: показать / скрыть (итерация 32) ----------
@@ -157,9 +156,8 @@ function unitToggle(shown){
   const lbl=shown?'Скрыть таблицу подразделений':'Показать таблицу подразделений';
   return '<button class="unit-toggle'+(shown?' on':'')+'" data-splitmode="'+(shown?'charts':'both')+'"'+
     ' role="switch" aria-checked="'+(shown?'true':'false')+'" aria-label="'+lbl+'"'+
-    tipAttr({title:lbl,text:shown?'Графики снова займут всю ширину.'
-      :'Слева встанет таблица подразделений: клик по строке покажет графики этого подразделения.',
-      note:shown?'Ширину колонок можно тянуть за разделитель; двойной клик — как было.':''})+
+    tipAttr({title:lbl,text:shown?'Графики займут всю ширину.'
+      :'Слева появится таблица подразделений. Клик по строке — графики этого подразделения.'})+
     '><span class="ut-sw" aria-hidden="true"><i></i></span><span class="ut-l">Подразделения</span></button>';
 }
 /* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
@@ -169,7 +167,7 @@ function splitGut(share){
     'aria-label="Ширина таблицы подразделений" aria-valuemin="20" aria-valuemax="80"'+
     (share!=null?' aria-valuenow="'+Math.round(share*100)+'"':'')+' tabindex="0"'+
     tipAttr({title:'Ширина колонок',text:'Потяните, чтобы дать больше места таблице или графикам.',
-      note:'Двойной клик — как было; стрелки ← → — с клавиатуры.'})+'><i></i></div>';
+      note:'Двойной клик — вернуть как было.'})+'><i></i></div>';
 }
 
 /* ---------- Поиск по таблице ----------
@@ -200,8 +198,8 @@ function hlText(text,q){
    в то же действие только сбивала бы с толку. */
 function rowCaret(open){
   return '<span class="row-caret'+(open?' on':'')+'"'+
-    tipAttr({title:open?'Свернуть график':'Показать динамику',
-      text:'Клик по строке раскрывает график «год к году» и выводы по метрике прямо в таблице.'})+
+    tipAttr({title:open?'Свернуть':'Показать график',
+      text:'График «этот год и прошлый» и что на нём видно.'})+
     ' aria-hidden="true">'+(open?'▾':'▸')+'</span>';
 }
 
@@ -228,28 +226,29 @@ function allCaret(attr,val,open,tipText){
    ради одной строки описания — лишнее действие. Теперь везде круглая «i»,
    раскрывается наведением через общий тултип. Начертание — шрифт интерфейса
    (Georgia в прежней кнопке выбивалась из набора). */
+/* «Лучше, когда ниже» — словами, а не «позитивное направление: снижение» */
+function betterWord(m){
+  return m.better==='lower'?'Лучше, когда ниже.':m.better==='higher'?'Лучше, когда выше.':'Без оценки: больше — не значит лучше.';
+}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';
-  const dir=m.better==='lower'?'снижение':m.better==='higher'?'рост':'нейтральная метрика';
-  return '<span class="info"'+tipAttr({title:m.name,
-    text:m.hint||'Описание метрики пока не задано.',
-    note:'Единица: '+(m.unit||'—')+'. Позитивное направление: '+dir+'.'})+' aria-label="О метрике">i</span>';
+  return '<span class="info"'+tipAttr({title:m.name,text:m.hint||'',note:betterWord(m)})+' aria-label="О метрике">i</span>';
 }
 
-const NOCMP_HINT='Абсолютная величина зависит от размера подразделения: сравнение с базой здесь ничего не значит.';
-function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Сравнение отключено',text:NOCMP_HINT})+'>не сравнивается</span>'}
+const NOCMP_HINT='Это количество, а не доля: оно зависит от размера подразделения, поэтому с базой не сравнивается.';
+function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Без сравнения',text:NOCMP_HINT})+'>не сравнивается</span>'}
 /* Руководитель юнита под именем строки (14.10): «Имя Фамилия · логин».
    Нет данных (пробник без источника, строка «Напрямую в «X»») — ничего. */
 function unitHead(n){
   const h=n&&n.head;
   if(!h||!(h.name||h.login))return '';
-  return '<span class="unit-head"'+tipAttr({title:'Руководитель',text:(h.name||'')+(h.login?' · '+h.login:'')})+'>'+
+  return '<span class="unit-head"'+tipAttr({title:'Руководитель подразделения',text:(h.name||'')+(h.login?' · '+h.login:'')})+'>'+
     esc(h.name||'')+(h.login?' <span class="login">'+esc(h.login)+'</span>':'')+'</span>';
 }
 /* Строка сравнения в KPI-карточке «по компании X» (14.10: вместо «база X»;
    осталась только у «Проникновения AI»). Что именно за база — в подсказке. */
 function byCompany(key,bv,S){
-  return '<span class="k-sub"'+tipAttr({title:'По компании',text:'То же значение по всей компании под теми же фильтрами: «'+
+  return '<span class="k-sub"'+tipAttr({title:'По компании',text:'Та же метрика по всей компании с теми же фильтрами — база «'+
     D.benchmarkLabel(S)+'».'})+'>по компании '+D.fmtVal(key,bv)+'</span>';
 }
 
@@ -332,7 +331,7 @@ function aiIco(big){
    st = TPINSIGHTS.yoyStory(): html пунктов уже собран и экранирован там. */
 function opStory(chart,st,about){
   let l='';
-  if(st.stub)l='<p class="op-stp">Метрика пока на демо-данных — выводов по ней нет.</p>';
+  if(st.stub)l='<p class="op-stp">Метрика в разработке: цифры условные, поэтому выводов нет.</p>';
   else if(st.items.length)l='<ol class="op-ins">'+st.items.map(it=>
     '<li'+(it.n?' data-mk="'+it.n+'"':'')+' data-mi="'+(it.mi||[]).join(',')+'">'+
     (it.n?'<i class="op-insn'+(it.s==='prev'?' prev':'')+'">'+it.n+'</i>':'<i class="op-insb"></i>')+
@@ -345,7 +344,7 @@ function opStory(chart,st,about){
    HRBP HUB: верхнеуровневые факты, по одному на метрику, а не мешанина
    юнитов. Первые три видны сразу, остальные — по «Ещё N». Клик по факту
    раскрывает строку его метрики: там график и разбор по пунктам. */
-const OBS_SEV={high:'требует действий',mid:'стоит внимания',good:'позитив'};
+const OBS_SEV={high:'требует действий',mid:'стоит внимания',good:'хорошие новости'};
 function obsPanel(list,open,info){
   const sev=list.length?list[0].sev:'none';
   let h='<div class="ai insight obs sev-'+sev+'"><div class="obs-h">'+aiIco(false)+
@@ -437,18 +436,18 @@ function barTable(o){
       (x.node?' data-node="'+esc(x.node)+'"':'')+
       (x.pick?' data-mix="'+esc(x.pick)+'"'+
         tipAttr({title:x.name,
-          text:x.on?'Срез по этой категории уже взят. Клик снимает его.'
-                   :'Клик берёт срез: численность в карточках и в таблице подразделений пересчитается по этой категории.'}):'');
+          text:x.on?'Срез выбран. Клик — снять.'
+                   :'Клик — показать только «'+x.name+'»: карточки и таблица подразделений пересчитаются.'}):'');
     /* Двухуровневая разбивка: каретка раскрывает верхний уровень. Разметка та
        же, что в сводной таблице подразделений (`row-label` + `caret-btn`),
        чтобы раскрытие в отчёте выглядело и работало одинаково везде. */
     const caret=!o.tree?''
       :x.exp?'<button class="caret-btn"'+(x.open?' data-open="1"':'')+' data-btexp="'+esc(x.exp)+'"'+
         ' aria-label="'+(x.open?'Свернуть':'Раскрыть')+'"'+
-        tipAttr({title:x.open?'Свернуть':'Раскрыть',text:'Специализации внутри стрима.'})+
+        tipAttr({title:x.open?'Свернуть':'Раскрыть',text:o.expTip||'Что внутри этой строки.'})+
         '>'+(x.open?'▾':'▸')+'</button>'
       :'<span class="caret-spacer"></span>';
-    const nm='<span class="row-body">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять.'})+'>★</span> ':'')+esc(x.name)+
+    const nm='<span class="row-body">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять: оплата, рост, руководитель.'})+'>★</span> ':'')+esc(x.name)+
       (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span>';
     h+='<tr'+hook+'>'+
       '<td class="txt">'+(o.tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
@@ -510,8 +509,7 @@ function btStack(list,cls){return '<div class="bt-stack'+(cls?' '+cls:'')+'">'+l
 function pct(v){return v.toFixed(v<10&&v>0?1:0).replace('.',',')+'%'}
 function mxPick(id,name,on,cls){
   return '<button class="mx-pick'+(on?' on':'')+(cls?' '+cls:'')+'" data-mix="'+esc(id)+'"'+
-    tipAttr({title:name,text:on?'Срез по этой категории уже взят. Клик снимает его.'
-                               :'Клик берёт срез по этой категории.'})+
+    tipAttr({title:name,text:on?'Срез выбран. Клик — снять.':'Клик — показать только «'+name+'».'})+
     '>'+esc(name)+'</button>';
 }
 function matrixTable(o){
@@ -558,7 +556,7 @@ function matrixTable(o){
           rows:[{label:'людей',value:D.fmtVal('hc_total',v),color:G.heat(Math.max(0.35,t))},
                 {label:'от строки',value:rowSum[i]?pct(v/rowSum[i]*100):'—'},
                 {label:'от колонки',value:colSum[j]?pct(v/colSum[j]*100):'—'}],
-          note:'Клик берёт срез сразу по двум атрибутам.'})+
+          note:'Клик — срез сразу по двум разрезам.'})+
         '>'+(v?show(v,i,j):'—')+'</td>';
     });
     h+='<td class="mx-tot">'+D.fmtInt(rowSum[i])+'</td></tr>';
@@ -608,7 +606,7 @@ function sliceNote(parts,extra){
     '<span class="sl-t">Срез состава:</span>'+
     parts.map(p=>'<span class="chip sl">'+esc(p.dim.short||p.dim.name)+': <b>'+esc(p.cat.name)+'</b>'+
       '<button class="x" data-mix="'+esc(p.id)+'"'+
-      tipAttr({title:'Снять срез',text:p.dim.name+': '+p.cat.name})+'>×</button></span>').join('')+
+      tipAttr({title:'Снять срез',text:p.dim.name+': «'+p.cat.name+'»'})+'>×</button></span>').join('')+
     '<span class="sl-x">'+esc(extra||'')+'</span>'+
     '<button class="btn ghost xs" data-mixclear="1">Сбросить</button></div>';
 }
@@ -655,11 +653,12 @@ function chapters(list,active){
     /* глава в разработке (14.10): шаг заштрихован, номер — в полосу, вместо
        ответа — «в разработке · этап N» (текстом: пилюля в узком шаге
        обрезалась). Частично живая — ответ остаётся, номер в полосу светлее. */
-    const dev=c.dev==='full'?'<span class="st-s st-dev">в разраб.'+(c.devStage!=null?' · этап '+esc(c.devStage):'')+'</span>'
-      :'';
+    /* 15.10: без «этап N» — номер этапа руководителю ничего не говорит; он в подсказке */
+    const dev=c.dev==='full'?'<span class="st-s st-dev">в разработке</span>':'';
+    const dp=c.devStage!=null?D.devPlan(c.devStage):null;
     return '<button class="st-step'+(on?' on':'')+(c.dev?' dev-'+c.dev:'')+'" data-subtab="'+esc(c.key)+'" data-text="'+esc(c.q)+'" role="tab" aria-selected="'+on+'"'+
-      tipAttr({title:(i+1)+'. '+c.q,text:c.dev==='full'?'В разработке: источника данных пока нет'+(c.devStage!=null?' (этап '+c.devStage+' плана)':'')+'.'
-        :c.sum?String(c.sum):c.name,note:c.dev==='part'?'Часть данных вкладки — заглушка.':c.name})+'>'+
+      tipAttr({title:(i+1)+'. '+c.q,text:c.dev==='full'?'В разработке: цифры условные.'+(dp?'\nИсточник: '+dp.src+'.':'')
+        :c.sum?String(c.sum):c.name,note:c.dev==='part'?'Часть цифр на вкладке условная.':c.name})+'>'+
       '<span class="st-n">'+(i+1)+'</span><span class="st-tx"><span class="st-q">'+esc(c.q)+'</span>'+
       (dev||(c.sum?'<span class="st-s"><i class="st-dot '+esc(c.st||'n')+'"></i>'+esc(c.sum)+'</span>':''))+'</span></button>';
   }).join('')+'</div>';
@@ -690,7 +689,7 @@ function storyRail(o){
   const fo=o.focus;
   if(fo&&fo.rows&&fo.rows.length)h+='<div class="st-sec"><div class="st-cap">'+esc(fo.cap||'Где сосредоточено')+'</div>'+
     '<table class="st-focus"><tbody>'+fo.rows.map(r=>'<tr data-selnode="'+esc(r.path)+'"'+
-      tipAttr({title:r.name,text:'Клик — графики этой главы по «'+r.name+'».'})+'><td class="nm">'+esc(r.name)+'</td>'+
+      tipAttr({title:r.name,text:'Клик — графики этой вкладки по «'+r.name+'».'})+'><td class="nm">'+esc(r.name)+'</td>'+
       '<td class="v'+(r.st?' '+esc(r.st):'')+'">'+esc(r.val)+'</td>'+
       '<td class="bar"><i style="width:'+Math.max(4,Math.round((r.w||0)*100))+'%"></i></td></tr>').join('')+
     '</tbody></table></div>';
@@ -834,8 +833,8 @@ function empty(title,text){
 function blockNav(items){
   return '<nav class="op-nav" aria-label="Блоки сводки">'+items.map(it=>
     '<button class="op-nav-i" data-jump="'+it.key+'"'+tipAttr({title:it.name,
-      text:it.bad?it.bad+' '+plural(it.bad,['метрика','метрики','метрик'])+' хуже ориентира.'
-        :it.good?'Хуже ориентира — ничего, лучше — '+it.good+'.':'Сигналов нет: метрики на уровне или без оценки.'})+'>'+
+      text:it.bad?'Хуже ориентира: **'+it.bad+' '+plural(it.bad,['метрика','метрики','метрик'])+'**.'
+        :it.good?'Хуже ориентира — ничего. Лучше — '+it.good+'.':'Всё на уровне ориентира или без оценки.'})+'>'+
     '<span class="sig '+it.state+'"></span>'+esc(it.name)+
     (it.bad?'<span class="op-nav-n">'+it.bad+'</span>':'')+'</button>').join('')+'</nav>';
 }
@@ -853,7 +852,7 @@ function pulseStrip(o){
   if(!o.movers.length)h+='<div class="ps-empty">Сдвигов больше ±5% к прошлому году нет.</div>';
   o.movers.forEach(mv=>{
     h+='<button class="ps-mv" data-tab="'+mv.block+'"'+tipAttr({title:mv.name,
-        text:'Было '+D.fmtVal(mv.key,mv.prev)+' в '+D.CMP.yoy.replace(/^к /,'')+', стало '+D.fmtVal(mv.key,mv.cur)+'. Клик — открыть блок.'})+'>'+
+        text:'Было '+D.fmtVal(mv.key,mv.prev)+' год назад, стало **'+D.fmtVal(mv.key,mv.cur)+'**.',note:'Клик — открыть блок.'})+'>'+
       '<span class="ps-n">'+esc(mv.name)+'</span>'+
       '<span class="ps-v">'+D.fmtVal(mv.key,mv.prev)+' → <b>'+D.fmtVal(mv.key,mv.cur)+'</b></span>'+
       deltaChip(mv.key,mv.yoy)+'</button>';
@@ -863,10 +862,11 @@ function pulseStrip(o){
 function trafficLegend(){
   /* два цвета и серый: жёлтого в светофоре нет. «На уровне ±5%» и «без оценки»
      делят один серый — оба означают «повода вмешиваться нет». */
-  return '<div class="legend"><span class="sw"><span class="dot" style="background:#bff2cd"></span>лучше базы</span>'+
-    '<span class="sw"><span class="dot" style="background:#ffcccc"></span>хуже базы</span>'+
-    '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне ±5% или без оценки: '+
-    'больше не значит лучше</span></div>';
+  return '<div class="legend"><span class="sw"><span class="dot" style="background:#bff2cd"></span>лучше ориентира</span>'+
+    '<span class="sw"><span class="dot" style="background:#ffcccc"></span>хуже ориентира</span>'+
+    '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне (±5%) или без оценки</span>'+
+    '<span class="sw lg-note"'+tipAttr({title:'Ориентир',text:'Цель KPI, а где её нет — база: та же метрика по всей компании с теми же фильтрами.'})+
+    '>ориентир — цель KPI или база</span></div>';
 }
 
 /* ============================================================================
@@ -882,10 +882,9 @@ function trafficLegend(){
    не зелёный. Рисуется и в макете, и в пробнике (D.isDev). */
 function devTip(stage){
   const p=stage!=null?D.devPlan(stage):null;
-  return {title:'В разработке'+(stage!=null&&stage!=='—'?' · этап '+stage+' плана':''),
-    text:'Источника данных пока нет: в Proteus здесь заглушка — цифра сгенерирована по численности юнита, чтобы было видно, где она будет стоять.'+
-      (p?' Источник: '+p.src+'.':''),
-    note:p&&p.need&&p.need!=='—'?'Что нужно: '+p.need+'.':'План подключения — «Как читать отчёт» → «План подключения данных».'};
+  return {title:'В разработке'+(stage!=null&&stage!=='—'&&stage!=='0'?' · этап '+stage+' из 8':''),
+    text:'Данных пока нет: цифры условные и показывают, где появится показатель.'+(p?'\nИсточник: **'+p.src+'**.':''),
+    note:'Весь план — на One-pager, «Готовность данных».'};
 }
 function devTag(stage,small){
   /* 15.10: «в разраб.» — полная «в разработке» раздувала шапки колонок и карточки;
@@ -898,45 +897,46 @@ function devNote(d){
   const p=d.stage!=null?D.devPlan(d.stage):null, need=d.need||(p&&p.need!=='—'?p.need:'');
   /* 15.10: плашка — одной строкой («очень много места занимает»): статус и что
      нужно; что именно здесь заглушка — в подсказке по «i» */
-  return '<div class="dev-note'+(d.part?' part':'')+'"><span class="dev-h">'+(d.part?'Частично в разраб.':'В разраб.')+
-    (d.stage!=null?' · этап '+esc(d.stage):'')+'</span>'+
-    (need?'<span class="dev-need">нужно: '+esc(need)+'</span>':'')+
-    (d.t?'<span class="info"'+tipAttr({title:d.part?'Частично в разработке':'В разработке'+(d.stage!=null?' · этап '+d.stage+' плана':''),
-      text:d.t,note:need?'Что нужно: '+need+'.':null})+' aria-label="Что здесь заглушка">i</span>':'')+'</div>';
+  /* 15.10, редполитика: «ждём: данные о вакансиях», а не «нужно: имена таблиц и ответ 0а» */
+  return '<div class="dev-note'+(d.part?' part':'')+'"><span class="dev-h">'+(d.part?'Частично в разработке':'В разработке')+'</span>'+
+    (p?'<span class="dev-need">источник: '+esc(p.src)+'</span>':'')+
+    (d.t?'<span class="info"'+tipAttr({title:d.part?'Частично в разработке':'В разработке',
+      text:d.t,note:need?'Что нужно: '+need+'.':null})+' aria-label="Что здесь условно">i</span>':'')+'</div>';
 }
 /* План по каталогу (15.10): графики HQ и УС, сгруппированные по блокам борта.
    Что · для кого · где сейчас · откуда и что нужно. Тот же план — в справке
    и в сводке готовности на One-pager. */
 function planNow(r){
-  return r.now==='live'?'<span class="live-tag">живые</span>'
+  return r.now==='live'?'<span class="live-tag">настоящие</span>'
     :r.now==='dev'?devTag(r.stage)
     :'<span class="plan-tag '+r.now+'">'+esc(D.PLAN_NOW[r.now])+'</span>';
 }
 function planTable(groups){
   const n=D.planCount();
-  return '<label>План Team Pulse 2.0 по каталогу графиков</label><div class="fhint">Всё, что есть в дашбордах HQ (34136) '+
-    'и УС (34661). <span class="live-tag">живые</span> — уже считаются из hr_structure_overall; '+devTag(null,false)+
-    ' — на борте с заглушкой, ждут источник; <span class="plan-tag todo">добавить</span> — на борте ещё нет; '+
-    '<span class="plan-tag extra">вне каталога</span> — на борте есть, в каталоге нет: решить. Сейчас: живых '+n.live+
-    ', в разработке '+n.dev+', добавить '+n.todo+', вне каталога '+n.extra+'.</div>'+
+  return '<label>План Team Pulse 2.0</label><div class="fhint">Всё, что есть в дашбордах HQ и УС, — по блокам отчёта.</div>'+
+    '<ul class="plan-lg">'+
+      '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+n.live+'</li>'+
+      '<li>'+devTag(null,false)+' в отчёте есть, цифры пока условные — '+n.dev+'</li>'+
+      '<li><span class="plan-tag todo">добавить</span> в отчёте ещё нет — '+n.todo+'</li>'+
+      '<li><span class="plan-tag extra">решить</span> в отчёте есть, в дашбордах HQ и УС нет — '+n.extra+'</li></ul>'+
     '<table class="plan-t"><thead><tr><th>Что</th><th>Для кого</th><th>Сейчас</th><th>Откуда · что нужно</th></tr></thead><tbody>'+
     groups.map(g=>'<tr class="plan-g"><td colspan="4">'+esc(g.blk)+'</td></tr>'+g.rows.map(r=>{
       const st=D.devPlan(r.stage), src=r.src||(st?st.src:''), need=r.need||(r.now!=='live'&&st&&st.need!=='—'?st.need:'');
       return '<tr class="plan-'+r.now+'"><td>'+esc(r.what)+'</td><td><span class="aud-tag '+r.aud+'">'+esc(D.AUD_LABEL[r.aud])+
         '</span></td><td>'+planNow(r)+'</td><td>'+(r.stage&&r.stage!=='0'&&r.stage!=='—'&&r.now!=='live'?'<b>этап '+esc(r.stage)+'</b> · ':'')+
-        esc(src)+(need?'<span class="plan-need">нужно: '+esc(need)+'</span>':'')+'</td></tr>';
+        esc(src)+(need?'<span class="plan-need">'+esc(need)+'</span>':'')+'</td></tr>';
     }).join('')).join('')+'</tbody></table>';
 }
 /* Сводка готовности на One-pager: сколько метрик на живых данных, сколько
    графиков каталога ещё добавить. Раскрывается в полный план. o = {live, total, plan} */
 function devSummary(o){
   const pc=o.total?Math.round(o.live/o.total*100):0, n=D.planCount();
-  return '<details class="dev-sum"><summary><span class="dev-sum-h">Готовность к живым данным</span>'+
+  return '<details class="dev-sum"><summary><span class="dev-sum-h">Готовность данных</span>'+
     '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик на живых данных"><i style="width:'+pc+'%"></i></span>'+
-    '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на живых данных · '+
+    '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на настоящих данных · '+
       '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>'+
-      (n.todo?' · <span class="plan-tag todo">добавить из каталога '+n.todo+'</span>':'')+'</span>'+
-    '<span class="dev-sum-more">план подключения ▾</span></summary>'+
+      (n.todo?' · <span class="plan-tag todo">ещё добавить '+n.todo+'</span>':'')+'</span>'+
+    '<span class="dev-sum-more">весь план ▾</span></summary>'+
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
