@@ -4588,10 +4588,9 @@ function valOpt(o){return Object.assign({size:VAL_SZ,weight:VAL_W,halo:true,cls:
    Глава истории называет на графике то, о чём говорит её заголовок: пик года,
    максимум, текущий месяц. ann = {hi:[i…], notes:[{i, t}]} приходит из
    story.js через экран — индексами окна отчёта; на ось года их переводит
-   yoyAnn. Месяцы из hi рисуются полным тоном, остальные бары — приглушённо
-   (fill-opacity, а не другой класс: smoke сверяет class="bar up"
-   посимвольно); у приглушённых подпись значения серая и обычного веса, но
-   стоит — правило «подпись у каждого бара» не отменяется. Заметка — короткая
+   yoyAnn. Месяцы из hi у линии — залитой точкой, у баров — светлой полосой за
+   месяцем и контуром бара; бары этого года все одного тона (16.10: «не нужно затенять 2026 год»),
+   подпись у каждого бара. Заметка — короткая
    подпись над значением месяца на светлой полосе; под неё у полотна
    резервируется ANN_ROOM сверху, чтобы она не уходила в заголовок. */
 const ANN_ROOM=16, C_BAND='#f3f4f7';
@@ -4767,6 +4766,11 @@ function yoyPlot(p,ar){
   const mkAt=(i,s)=>marks.find(z=>z.i===i&&z.s===s);
   let s='';
   (ya?ya.notes:[]).forEach(n=>{s+=rect(x0+bandW*n.i+2,top-ANN_ROOM-4,bandW-4,bot-top+ANN_ROOM+4,C_BAND,6)});
+  /* Бары: акцент главы — светлая полоса за месяцем и контур бара, а не другой тон
+     (16.10, заказчик: «не нужно затенять 2026 год — он весь одного цвета, инсайты
+     выделяй по-другому»). У заметки полоса уже есть — второй не рисуем. */
+  if(nm.flow&&ya&&ya.hi)ya.hi.forEach(z=>{if(z.s==='main'&&!ya.notes.some(n=>n.i===z.i))
+    s+=rect(x0+bandW*z.i+2,top-4,bandW-4,bot-top+4,C_BAND,6)});
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
   s+=yoyAxis(X,bandW,top,bot,nowI,!!nm.flow);
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
@@ -4796,18 +4800,20 @@ function yoyPlot(p,ar){
     const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+(nm.name?' · '+nm.name:''),rows,note})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(ar.hitTop)+'" width="'+num(bandW)+'" height="'+num(bot-ar.hitTop)+'"/>';
-    /* акцент главы — крупная залитая точка; остальные точки и подписи не
-       приглушаются (13.10: «всё остальное стало нечитабельным»), месяц
-       заметки выделяет светлая полоса за ним */
+    /* акцент главы — крупная залитая точка у линии и светлая полоса за месяцем
+       у баров; остальные точки, бары и подписи не приглушаются (13.10: «всё
+       остальное стало нечитабельным»; 16.10: «год весь одного цвета») */
     const bp=big(i,'prev')||!!noteAt(i,'prev');
     const bm=big(i,'main');
     if(flow){
       /* прошлый год — позади, шире и почти прозрачно тем же цветом; без этого
-         года — обычным баром. Акцент главы — бар насыщенным цветом. */
+         года — обычным баром */
       if(showPrev&&pv!=null)s+=showMain
         ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),col,' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
         :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
-      if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),bm?col:soft(col),' class="bar up"'+sAttr('main')+' style="animation-delay:'+num(dly*0.5)+'ms"');
+      /* этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
+         и контуром основным цветом, заливка та же */
+      if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),soft(col),' class="bar up"'+sAttr('main')+(bm?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
       if(showPrev&&pv!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
       if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm?col:'#fff')+'" stroke="'+col+'"'
