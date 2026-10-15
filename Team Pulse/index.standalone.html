@@ -1863,10 +1863,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-q.solo{margin-bottom:10px}
 .pt-s h4{margin:4px 0 12px;font-size:16px;font-weight:var(--fw-body);color:var(--ink2);line-height:1.3}
 .pt-s h4 b{color:var(--ink);font-weight:var(--fw-bold)}
-.pt-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));column-gap:36px;border-top:1px solid var(--line2)}
-.pt-2.in{border-top:0;align-items:start}
-.pt-s+.pt-s,.pt-2+.pt-s,.pt-s+.pt-2{border-top:1px solid var(--line2)}
-.pt-2 .pt-s+.pt-s{border-top:0}
+.pt-s+.pt-s{border-top:1px solid var(--line2)}
 .pt-note{margin-top:8px;font-size:12px;color:var(--muted)}
 .pt-note b{color:var(--ink)}
 .pt-wrap [data-mix]{cursor:pointer}
@@ -1949,7 +1946,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    Поверх стилей портрета: подпись разбивки под обзором, столбики возраста,
    разложенные по полу, стоят на оси (раньше между столбиком и чертой оси был
    зазор — «барчарт оторван от рисочки»), пилюля «штат / не штат». */
-.pt-2.in>div{min-width:0}
 .pt-col .bar{border-bottom:1px solid #c9cdd6}
 .pt-col .n{margin-top:6px;padding-top:0;border-top:0}
 .pt-col .bar .stk{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;flex-direction:column-reverse;gap:1px}
@@ -2020,14 +2016,14 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 #view .pt-tb tr.hi .cellbar i{background:var(--pt-hi)}
 #view .pt-tb tr.hi td.txt .row-body{font-weight:var(--fw-bold)}
 #view .pt-tb{table-layout:fixed}
-#view .pt-tb col.c-n{width:52px}#view .pt-tb col.c-p{width:44px}
+#view .pt-tb col.c-n{width:44px}#view .pt-tb col.c-p{width:44px}
 #view .st-focus{table-layout:fixed}
 #view .st-focus col.c-v{width:64px}#view .st-focus col.c-bar{width:38%}
 #view .hxtable td.txt{color:var(--ink)}
 /* таблица подразделений: название забирает всё, что не нужно числам, — числа
    по своей ширине; имя и вторая строка режутся реже */
 #view .split-l .ptable.dense th.txt{width:100%}
-#view .pt-tb col.c-bar{width:34%}
+#view .pt-tb col.c-bar{width:30%}
 #view .pt-cap{margin:var(--s7) 0 var(--s4)}
 /* One-pager: строка метрики — название, пояснение и спарклайн, поэтому своя
    высота, но одна на всю таблицу: 64px. Пояснение — не больше двух строк
@@ -2036,6 +2032,12 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 #view .mtable .m-sub{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
 #view .mtable .tgt b{display:inline}
 #view .mtable .tgt .sig-chip{display:block;width:max-content;margin:3px auto 0}
+/* Обзоры структуры: разделы — две колонки, выровненные по высоте (ptCols) */
+#view .pt-cols{columns:2 290px;column-gap:36px}
+#view .pt-cols>.pt-s{break-inside:avoid;border-top:1px solid var(--line2)}
+/* возраст в полколонки — выше (220px вместо 160): столбики читаются, а правая
+   колонка обзора сходится по высоте с левой (квалификация + пол) */
+#view .pt-cols .pt-col{height:220px}
 
 </style>
 </head>
@@ -7316,8 +7318,8 @@ CH.structure.portrait=function(c){
         (gr.fixed?'':', чаще всего — '+gr.cat.name.toLowerCase()),
       ten:tn.fixed?sel1(tn):'**'+ten10+' из 10** пришли меньше года назад'+
         (n0-b0>=5?' — новичков больше, чем в компании ('+b0+'%)':b0-n0>=5?' — новичков меньше, чем в компании ('+b0+'%)':''),
-      gen:(inSel('gender')?sel1(inSel('gender')):'Женщин **'+fw+'%**'+(Math.abs(fw-fwB)>=5?' — '+(fw<fwB?'меньше':'больше')+', чем в компании ('+fwB+'%)':''))+
-        (ag.fixed?'':'; ядро — **'+ag.cat.name+'**, '+ag.share+'%')}};
+      gen:inSel('gender')?sel1(inSel('gender')):'Женщин **'+fw+'%**'+(Math.abs(fw-fwB)>=5?' — '+(fw<fwB?'меньше':'больше')+', чем в компании ('+fwB+'%)':''),
+      age:ag.fixed?sel1(ag):'Ядро — **'+ag.cat.name+'**, '+ag.share+'%'}};
 };
 
 /* «Как оформлены и где?» (15.10): штат, формат, регионы, юрлица — тем же языком,
@@ -7332,7 +7334,8 @@ CH.structure.work=function(c){
   if(!st.n)return {sum:'нет людей',st:'n'};
   /* в пробнике формата работы и региона нет — о них не говорим */
   const has=k=>!!D.MIX_BY_KEY[k];
-  const fm=has('worksite')?mode('worksite'):null, rg=has('region')?mode('region'):null, lg=has('legal')?mode('legal'):null;
+  const fm=has('worksite')?mode('worksite'):null, rg=has('region')?mode('region'):null, lg=has('legal')?mode('legal'):null,
+    cn=has('contract')?mode('contract'):null;
   const vsB=(t,b)=>t-b>=5?' — больше, чем в компании ('+b+'%)':b-t>=5?' — меньше, чем в компании ('+b+'%)':'';
   const sel1=q=>'Выбран «'+q.cat.name+'» — выделен на графике';
   const rgB=!rg||rg.fixed?null:sh('region',rg.i);
@@ -7345,7 +7348,9 @@ CH.structure.work=function(c){
       emp:inSel('employment')?sel1(inSel('employment')):'В штате **'+st.t+'%**'+vsB(st.t,st.b),
       fmt:!fm?null:fm.fixed?sel1(fm):'Чаще всего — **'+fm.cat.name.toLowerCase()+'**, '+fm.share+'%',
       reg:!rg?null:rg.fixed?sel1(rg):'**'+rg.cat.name+'** — '+rgB.t+'%'+vsB(rgB.t,rgB.b).replace(' — ',', '),
-      legal:!lg?null:lg.fixed?sel1(lg):'Больше всего — «'+lg.cat.name+'», '+lg.share+'%'}};
+      legal:!lg?null:lg.fixed?sel1(lg):'Больше всего — «'+lg.cat.name+'», '+lg.share+'%',
+      con:!cn?null:cn.fixed?sel1(cn):(()=>{const x=sh('contract',cn.i);
+        return 'Чаще всего — **'+cn.cat.name.toLowerCase()+'**, '+x.t+'%'+vsB(x.t,x.b)})()}};
 };
 
 /* ---------- Зачем смотреть и что с этим делать (итерация 32, фидбэк 12.10) ----------
@@ -8112,6 +8117,11 @@ function ptSec(says,q,k,body,cls){
   return '<section class="pt-s'+(cls?' '+cls:'')+'"><div class="pt-q'+(says[k]?'':' solo')+'">'+U.esc(q)+'</div>'+
     (says[k]?'<h4>'+U.richText(says[k])+'</h4>':'')+body+'</section>';
 }
+/* Разделы обзора — две колонки, выровненные по высоте браузером (CSS columns,
+   раздел не рвётся): порядок — сверху вниз по левой, затем по правой. Раньше
+   разделы стояли парами по строкам, и короткий рядом с высоким оставлял пустоту
+   (16.10, «не нравится пустое место»). Узко — одна колонка. */
+const ptCols=secs=>'<div class="pt-cols">'+secs.filter(Boolean).join('')+'</div>';
 const ptLegend=bench=>'<div class="pt-lg"><span><i></i>команда</span><span><s></s>'+U.esc(bench)+'</span></div>';
 function ptCtx(ctx){
   return {S:ctx.S,sel:new Set(D.sliceParse(ctx.S.mixSel).map(p=>p.id)),says:(ctx.story||{}).says||{},bench:ctx.benchLabel};
@@ -8127,13 +8137,16 @@ function overviewWho(ctx){
   const m=D.mixMatrix(ctx.lp,'age','gender',ctx.S.mixSel), gen=D.MIX_BY_KEY.gender.cats;
   /* пол — пилюлей, только если категорий ровно две; в пробнике может быть ещё «не указано» */
   const two=GEN.length===2;
-  return '<div class="pt-wrap">'+ptLegend(bench)+
-    '<div class="pt-2">'+ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptBars(GR,bench,{cap:'по грейдам'}))+
-      ptSec(c.says,'Опыт в компании','ten',ptPeople(TEN,bench))+'</div>'+
-    /* сверху пилюлька — пол, ниже разбивка — возраст, разложенный по полу */
-    ptSec(c.says,'Пол и возраст','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+
-      (two?'<div class="bt-cap pt-cap">возраст — женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench)
-          :ptBars(AGE,bench,{cap:'по возрасту'}))+'</div>')+
+  /* разделы — в две колонки, которые выравниваются по высоте сами (ptCols):
+     короткий «Опыт» больше не оставляет дыру рядом с высокой «Квалификацией» */
+  /* порядок для колонок: слева квалификация и пол, справа опыт и возраст —
+     так высоты сходятся лучше всего; возраст разложен по полу, цвета те же */
+  return '<div class="pt-wrap">'+ptLegend(bench)+ptCols([
+    ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptBars(GR,bench,{cap:'по грейдам'})),
+    ptSec(c.says,'Пол','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+'</div>'),
+    ptSec(c.says,'Опыт в компании','ten',ptPeople(TEN,bench)),
+    ptSec(c.says,'Возраст','age','<div class="pt-gen">'+
+      (two?'<div class="bt-cap pt-cap">женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench):ptBars(AGE,bench))+'</div>')])+
     '<div class="pt-more"><button class="pt-go" data-subtab="custom">Пол × грейд и другие пары — в «Своём срезе» →</button></div></div>';
 }
 /* «Как оформлены и где?» — штат и договор, формат, регионы, юрлица. В пробнике
@@ -8152,16 +8165,15 @@ function overviewWork(ctx){
     why:non.length+' '+U.plural(non.length,['вид','вида','видов'])+' оформления. Срез — по одному из них в полосах ниже.'};
   const pill=ptSplit(staff,other,bench,'emp');
   hiOf(non);
-  /* тип договора — второй пилюлей в «Оформлении»: тот же вопрос «как оформлены» */
-  const con=CON?(CON.length===2?'<div class="bt-cap pt-cap">тип договора</div>'+ptSplit(CON[0],CON[1],bench,'emp')
-    :ptBars(CON,bench,{cap:'тип договора'})):'';
-  const secs=[ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'})+con),
+  /* тип договора — своим разделом (16.10): внутри «Оформления» он делал его втрое
+     выше соседа, и рядом с «Форматом работы» зияла пустота */
+  const con=CON?(CON.length===2?ptSplit(CON[0],CON[1],bench,'emp'):ptBars(CON,bench,{sort:true})):'';
+  return '<div class="pt-wrap">'+ptLegend(bench)+ptCols([
+    ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'})),
+    CON?ptSec(c.says,'Тип договора','con',con):'',
     FMT?ptSec(c.says,'Формат работы','fmt',ptTrio(FMT,bench)):'',
     REG?ptSec(c.says,'Где работают','reg',ptBars(REG,bench,{sort:true})):'',
-    LEG?ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true})):''].filter(Boolean);
-  let h='';
-  for(let i=0;i<secs.length;i+=2)h+='<div class="pt-2">'+secs[i]+(secs[i+1]||'')+'</div>';
-  return '<div class="pt-wrap">'+ptLegend(bench)+h+'</div>';
+    LEG?ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true})):''])+'</div>';
 }
 
 SC.blocks.structure={

@@ -1368,14 +1368,18 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const pt=A.go('structure','portrait');
   /* 15.10: два обзора в стиле портрета — сверху обзор (пилюля), ниже разбивка */
   const wk=A.go('structure','work');
-  checks.push(['обзоры: «Кто в команде?» — 3 раздела, «Как оформлены и где?» — 4; у каждого вывод; куски кликаются',
-    (pt.match(/<section class="pt-s/g)||[]).length===3&&(pt.match(/<h4>/g)||[]).length===3&&
+  /* 16.10: разделы — в двух колонках, выровненных по высоте (pt-cols), без пустот между
+     ними; «Пол» и «Возраст» — отдельными разделами, «Тип договора» — своим */
+  checks.push(['обзоры: «Кто в команде?» — 4 раздела, «Как оформлены и где?» — 5; у каждого вывод; колонки без пар; куски кликаются',
+    (pt.match(/<section class="pt-s/g)||[]).length===4&&(pt.match(/<h4>/g)||[]).length===4&&
+    /<div class="pt-cols"><section/.test(pt)&&/<div class="pt-cols"><section/.test(wk)&&!/class="pt-2"/.test(pt+wk)&&
+    /data-mix="contract:/.test(wk)&&
     (pt.match(/<span class="s\d[^"]*" data-mix="seniority:/g)||[]).length===4&&
     (pt.match(/<tr class="urow[^"]*" data-mix="grade:/g)||[]).length===5&&
     (pt.match(/class="pt-man t\d"/g)||[]).length===10&&
     /class="a" data-mix="gender:f"/.test(pt)&&(pt.match(/<i class="[fm]" data-mix="age:a\d+,gender:[fm]"/g)||[]).length===8&&
     /Типичный человек в команде — /.test(pt)&&
-    (wk.match(/<section class="pt-s/g)||[]).length===4&&(wk.match(/<h4>/g)||[]).length===4&&
+    (wk.match(/<section class="pt-s/g)||[]).length===5&&(wk.match(/<h4>/g)||[]).length===5&&
     /<span class="a" data-mix="employment:tk"/.test(wk)&&/<span class="b" style/.test(wk)&&
     (wk.match(/<tr class="urow[^"]*" data-mix="employment:/g)||[]).length===4&&
     (wk.match(/<div class="[^"]*" data-mix="worksite:/g)||[]).length===3&&

@@ -196,6 +196,11 @@ function ptSec(says,q,k,body,cls){
   return '<section class="pt-s'+(cls?' '+cls:'')+'"><div class="pt-q'+(says[k]?'':' solo')+'">'+U.esc(q)+'</div>'+
     (says[k]?'<h4>'+U.richText(says[k])+'</h4>':'')+body+'</section>';
 }
+/* Разделы обзора — две колонки, выровненные по высоте браузером (CSS columns,
+   раздел не рвётся): порядок — сверху вниз по левой, затем по правой. Раньше
+   разделы стояли парами по строкам, и короткий рядом с высоким оставлял пустоту
+   (16.10, «не нравится пустое место»). Узко — одна колонка. */
+const ptCols=secs=>'<div class="pt-cols">'+secs.filter(Boolean).join('')+'</div>';
 const ptLegend=bench=>'<div class="pt-lg"><span><i></i>команда</span><span><s></s>'+U.esc(bench)+'</span></div>';
 function ptCtx(ctx){
   return {S:ctx.S,sel:new Set(D.sliceParse(ctx.S.mixSel).map(p=>p.id)),says:(ctx.story||{}).says||{},bench:ctx.benchLabel};
@@ -211,13 +216,16 @@ function overviewWho(ctx){
   const m=D.mixMatrix(ctx.lp,'age','gender',ctx.S.mixSel), gen=D.MIX_BY_KEY.gender.cats;
   /* пол — пилюлей, только если категорий ровно две; в пробнике может быть ещё «не указано» */
   const two=GEN.length===2;
-  return '<div class="pt-wrap">'+ptLegend(bench)+
-    '<div class="pt-2">'+ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptBars(GR,bench,{cap:'по грейдам'}))+
-      ptSec(c.says,'Опыт в компании','ten',ptPeople(TEN,bench))+'</div>'+
-    /* сверху пилюлька — пол, ниже разбивка — возраст, разложенный по полу */
-    ptSec(c.says,'Пол и возраст','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+
-      (two?'<div class="bt-cap pt-cap">возраст — женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench)
-          :ptBars(AGE,bench,{cap:'по возрасту'}))+'</div>')+
+  /* разделы — в две колонки, которые выравниваются по высоте сами (ptCols):
+     короткий «Опыт» больше не оставляет дыру рядом с высокой «Квалификацией» */
+  /* порядок для колонок: слева квалификация и пол, справа опыт и возраст —
+     так высоты сходятся лучше всего; возраст разложен по полу, цвета те же */
+  return '<div class="pt-wrap">'+ptLegend(bench)+ptCols([
+    ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptBars(GR,bench,{cap:'по грейдам'})),
+    ptSec(c.says,'Пол','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+'</div>'),
+    ptSec(c.says,'Опыт в компании','ten',ptPeople(TEN,bench)),
+    ptSec(c.says,'Возраст','age','<div class="pt-gen">'+
+      (two?'<div class="bt-cap pt-cap">женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench):ptBars(AGE,bench))+'</div>')])+
     '<div class="pt-more"><button class="pt-go" data-subtab="custom">Пол × грейд и другие пары — в «Своём срезе» →</button></div></div>';
 }
 /* «Как оформлены и где?» — штат и договор, формат, регионы, юрлица. В пробнике
@@ -236,16 +244,15 @@ function overviewWork(ctx){
     why:non.length+' '+U.plural(non.length,['вид','вида','видов'])+' оформления. Срез — по одному из них в полосах ниже.'};
   const pill=ptSplit(staff,other,bench,'emp');
   hiOf(non);
-  /* тип договора — второй пилюлей в «Оформлении»: тот же вопрос «как оформлены» */
-  const con=CON?(CON.length===2?'<div class="bt-cap pt-cap">тип договора</div>'+ptSplit(CON[0],CON[1],bench,'emp')
-    :ptBars(CON,bench,{cap:'тип договора'})):'';
-  const secs=[ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'})+con),
+  /* тип договора — своим разделом (16.10): внутри «Оформления» он делал его втрое
+     выше соседа, и рядом с «Форматом работы» зияла пустота */
+  const con=CON?(CON.length===2?ptSplit(CON[0],CON[1],bench,'emp'):ptBars(CON,bench,{sort:true})):'';
+  return '<div class="pt-wrap">'+ptLegend(bench)+ptCols([
+    ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'})),
+    CON?ptSec(c.says,'Тип договора','con',con):'',
     FMT?ptSec(c.says,'Формат работы','fmt',ptTrio(FMT,bench)):'',
     REG?ptSec(c.says,'Где работают','reg',ptBars(REG,bench,{sort:true})):'',
-    LEG?ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true})):''].filter(Boolean);
-  let h='';
-  for(let i=0;i<secs.length;i+=2)h+='<div class="pt-2">'+secs[i]+(secs[i+1]||'')+'</div>';
-  return '<div class="pt-wrap">'+ptLegend(bench)+h+'</div>';
+    LEG?ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true})):''])+'</div>';
 }
 
 SC.blocks.structure={

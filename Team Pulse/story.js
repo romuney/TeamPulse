@@ -507,8 +507,8 @@ CH.structure.portrait=function(c){
         (gr.fixed?'':', чаще всего — '+gr.cat.name.toLowerCase()),
       ten:tn.fixed?sel1(tn):'**'+ten10+' из 10** пришли меньше года назад'+
         (n0-b0>=5?' — новичков больше, чем в компании ('+b0+'%)':b0-n0>=5?' — новичков меньше, чем в компании ('+b0+'%)':''),
-      gen:(inSel('gender')?sel1(inSel('gender')):'Женщин **'+fw+'%**'+(Math.abs(fw-fwB)>=5?' — '+(fw<fwB?'меньше':'больше')+', чем в компании ('+fwB+'%)':''))+
-        (ag.fixed?'':'; ядро — **'+ag.cat.name+'**, '+ag.share+'%')}};
+      gen:inSel('gender')?sel1(inSel('gender')):'Женщин **'+fw+'%**'+(Math.abs(fw-fwB)>=5?' — '+(fw<fwB?'меньше':'больше')+', чем в компании ('+fwB+'%)':''),
+      age:ag.fixed?sel1(ag):'Ядро — **'+ag.cat.name+'**, '+ag.share+'%'}};
 };
 
 /* «Как оформлены и где?» (15.10): штат, формат, регионы, юрлица — тем же языком,
@@ -523,7 +523,8 @@ CH.structure.work=function(c){
   if(!st.n)return {sum:'нет людей',st:'n'};
   /* в пробнике формата работы и региона нет — о них не говорим */
   const has=k=>!!D.MIX_BY_KEY[k];
-  const fm=has('worksite')?mode('worksite'):null, rg=has('region')?mode('region'):null, lg=has('legal')?mode('legal'):null;
+  const fm=has('worksite')?mode('worksite'):null, rg=has('region')?mode('region'):null, lg=has('legal')?mode('legal'):null,
+    cn=has('contract')?mode('contract'):null;
   const vsB=(t,b)=>t-b>=5?' — больше, чем в компании ('+b+'%)':b-t>=5?' — меньше, чем в компании ('+b+'%)':'';
   const sel1=q=>'Выбран «'+q.cat.name+'» — выделен на графике';
   const rgB=!rg||rg.fixed?null:sh('region',rg.i);
@@ -536,7 +537,9 @@ CH.structure.work=function(c){
       emp:inSel('employment')?sel1(inSel('employment')):'В штате **'+st.t+'%**'+vsB(st.t,st.b),
       fmt:!fm?null:fm.fixed?sel1(fm):'Чаще всего — **'+fm.cat.name.toLowerCase()+'**, '+fm.share+'%',
       reg:!rg?null:rg.fixed?sel1(rg):'**'+rg.cat.name+'** — '+rgB.t+'%'+vsB(rgB.t,rgB.b).replace(' — ',', '),
-      legal:!lg?null:lg.fixed?sel1(lg):'Больше всего — «'+lg.cat.name+'», '+lg.share+'%'}};
+      legal:!lg?null:lg.fixed?sel1(lg):'Больше всего — «'+lg.cat.name+'», '+lg.share+'%',
+      con:!cn?null:cn.fixed?sel1(cn):(()=>{const x=sh('contract',cn.i);
+        return 'Чаще всего — **'+cn.cat.name.toLowerCase()+'**, '+x.t+'%'+vsB(x.t,x.b)})()}};
 };
 
 /* ---------- Зачем смотреть и что с этим делать (итерация 32, фидбэк 12.10) ----------
