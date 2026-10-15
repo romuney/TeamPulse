@@ -8,13 +8,11 @@
 
    Поэтому раскладка трёхслойная:
 
-   0. «ПОРТРЕТ КОМАНДЫ» (14.10) — первая глава: вся структура одним рассказом,
-      шесть вопросов с выводами и простыми графиками (см. portrait ниже).
-      Таблицы — во второй слой.
-   1. ПРЕДНАСТРОЕННЫЕ ВКЛАДКИ по смыслу вопроса — квалификация, люди,
-      оформление и место, стримы. Группы объявлены в `D.MIX_GROUPS`, правило:
-      на вкладке не больше четырёх лёгких таблиц (без шапки и ИТОГО). Так
-      каждая вкладка отвечает на один вопрос целиком.
+   0. ДВА ОБЗОРА (15.10) — «Кто в команде?» и «Как оформлены и где?»: вопрос,
+      вывод одной фразой, простой график под тип данных, сверху обзор —
+      ниже разбивка (см. overviewWho / overviewWork). Каждый разрез — ровно
+      в одном месте отчёта.
+   1. СТРИМЫ ТАБЛИЦЕЙ — двухуровневый разрез с кареткой (`D.MIX_GROUPS`).
    2. ВКЛАДКА «СВОЙ СРЕЗ» — конструктор: две оси на выбор из всех разрезов.
       Готовые вкладки закрывают частые вопросы, конструктор — редкие, ради
       которых заводить пятую и шестую преднастроенную вкладку бессмысленно
@@ -95,20 +93,21 @@ function treeTable(dim,lp,sel,mixSel,open){
     expAll:{key:dim.key,open:allOpen}});
 }
 
-/* ---------- «Портрет команды» (14.10, вариант 2 по выбору заказчика) ----------
-   Первая глава структуры — рассказ сверху вниз: вопрос, вывод одной фразой,
-   простой график. Первый вариант (карта стримов, профиль из восьми полос,
-   пирамида) заказчик не принял: «сложно считывается». Теперь у каждого
-   вопроса своя форма — под тип данных, а не одна на всех:
-     чем заняты (много категорий)        — горизонтальные полосы, топ-6;
-     квалификация (несколько ступеней)   — одна пилюля, разрезанная по ступеням;
-     стаж (доля)                         — «из каждых 10 человек» человечками;
-     возраст (шкала)                     — столбики;
-     пол (две категории)                 — одна пилюля на два цвета;
-     формат работы и штат                — три крупные цифры и шкала с отметкой.
-   Цветом выделено одно — главное (или выбранное в срезе), остальное серое.
-   База компании везде одним языком: чёрная засечка или строка «в компании».
-   Клик по куску берёт срез, как строка таблицы; выводы — story.js (says). */
+/* ---------- Обзорные главы: «Кто в команде?» и «Как оформлены и где?» ----------
+   14.10 — портрет команды (вариант 2 по выбору заказчика): вопрос, вывод одной
+   фразой, простой график под тип данных. 15.10 — заказчик: «вкладок перебор,
+   портрет и „Какой квалификации? / Кто эти люди?“ дублируют одно и то же;
+   сгруппируй в два больших вопроса в стиле портрета: сверху пилюлька —
+   обзор, ниже — разбивка». Отсюда две главы вместо четырёх:
+     «Кто в команде?»       — квалификация: сеньорность пилюлей, под ней грейды;
+                              опыт: «из каждых 10 человек»; пол пилюлей, под
+                              ней возраст столбиками, разложенными по полу;
+     «Как оформлены и где?» — штат / не штат пилюлей, под ней виды не штата;
+                              формат — три цифры; регионы и юрлица — полосами.
+   Каждый разрез стоит ровно в одном месте отчёта: стримы — своей главой-
+   таблицей, остальное — здесь. Выделено одно — главное или выбранное в
+   срезе, остальное серое; база компании — чёрной засечкой или строкой
+   «в компании». Клик по куску берёт срез; выводы — story.js (says). */
 const pct=(a,b)=>b?Math.round(a/b*100):0;
 const sumA=a=>a.reduce((x,y)=>x+y,0);
 function ptRows(ctx,k,sel,ren){
@@ -123,23 +122,25 @@ function hiOf(rows){
   rows.forEach(r=>{r.hi=on?r===on:r===top});
   return rows;
 }
-function ptTip(r,bench,what){
+const NOTE_CUT=': карточки, таблица подразделений и обзор пересчитаются';
+function ptTip(r,bench){
   return U.tipAttr({title:r.name,rows:[{label:'Команда',value:D.fmtInt(r.n)+' чел · '+r.p+'%'},{label:bench,value:r.b+'%'}],
-    note:r.on?'Срез по «'+r.name+'» взят. Клик снимает его.':'Клик — срез по «'+r.name+'»'+(what||'')+'.'});
+    note:!r.id?r.why||null:r.on?'Срез по «'+r.name+'» взят. Клик снимает его.':'Клик — срез по «'+r.name+'»'+NOTE_CUT+'.'});
 }
-const NOTE_CUT=': карточки, таблица подразделений и портрет пересчитаются';
-/* полосы: подпись · полоса с засечкой базы · доля и люди */
-function ptBars(rows,bench,more){
-  const max=Math.max(1,...rows.map(r=>Math.max(r.p,r.b)));
-  return '<div class="pt-hb">'+rows.map(r=>'<div class="pt-row'+(r.hi?' hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench,NOTE_CUT)+'>'+
+const mixAt=r=>r.id?' data-mix="'+U.esc(r.id)+'"':'';
+/* полосы: подпись · полоса с засечкой базы · доля и люди; sort — по убыванию */
+function ptBars(rows,bench,o){
+  o=o||{};
+  const list=o.sort?rows.slice().sort((x,y)=>y.n-x.n):rows;
+  const max=Math.max(1,...list.map(r=>Math.max(r.p,r.b)));
+  return (o.cap?'<div class="pt-sub">'+U.esc(o.cap)+'</div>':'')+'<div class="pt-hb">'+list.map(r=>'<div class="pt-row'+(r.hi?' hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
     '<span class="l">'+U.esc(r.name)+'</span><span class="b"><i style="width:'+(r.p/max*100).toFixed(1)+'%"></i>'+
-    '<s style="left:'+(r.b/max*100).toFixed(1)+'%"></s></span><span class="v">'+r.p+'%<em>'+D.fmtInt(r.n)+'</em></span></div>').join('')+
-    (more?'<div class="pt-more-row">'+U.esc(more)+'</div>':'')+'</div>';
+    '<s style="left:'+(r.b/max*100).toFixed(1)+'%"></s></span><span class="v">'+r.p+'%<em>'+D.fmtInt(r.n)+'</em></span></div>').join('')+'</div>';
 }
 /* пилюля по ступеням: ступени — от светлой к густой, база строкой под ней */
 function ptSteps(rows,bench){
   return '<div class="pt-pill seg">'+rows.map((r,i)=>'<span class="s'+i+(r.on?' on':'')+'" data-mix="'+U.esc(r.id)+'" style="flex:'+r.p+' 1 0"'+
-    ptTip(r,bench,NOTE_CUT)+'>'+(r.p>=12?'<b>'+U.esc(r.name)+'</b> '+r.p+'%':r.p>=5?r.p+'%':'')+'</span>').join('')+'</div>'+
+    ptTip(r,bench)+'>'+(r.p>=12?'<b>'+U.esc(r.name)+'</b> '+r.p+'%':r.p>=5?r.p+'%':'')+'</span>').join('')+'</div>'+
     '<div class="pt-note">в компании: '+rows.map(r=>U.esc(r.name)+' '+r.b+'%').join(' · ')+'</div>';
 }
 /* «из каждых 10 человек»: людей раскладываем методом наибольших остатков */
@@ -148,71 +149,94 @@ const MAN='<svg viewBox="0 0 16 30" width="22" height="40" aria-hidden="true"><c
 function ptPeople(rows,bench){
   const ten=D.roundParts(rows.map(r=>r.p/10),10);
   let h='<div class="pt-ppl">';
-  rows.forEach((r,i)=>{for(let k=0;k<ten[i];k++)h+='<span class="pt-man t'+i+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench,NOTE_CUT)+'>'+MAN+'</span>'});
-  return h+'</div><div class="pt-key">'+rows.map((r,i)=>'<span data-mix="'+U.esc(r.id)+'"><i class="t'+i+'"></i>'+U.esc(r.name)+' — <b>'+ten[i]+'</b> из 10</span>').join('')+
+  rows.forEach((r,i)=>{for(let k=0;k<ten[i];k++)h+='<span class="pt-man t'+i+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+MAN+'</span>'});
+  return h+'</div><div class="pt-key">'+rows.map((r,i)=>'<span data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'><i class="t'+i+'"></i>'+
+    U.esc(r.name)+' — <b>'+ten[i]+'</b> из 10</span>').join('')+
     '</div><div class="pt-note">в компании '+U.esc(rows[0].name.toLowerCase())+' — '+rows[0].b+'%</div>';
 }
-/* столбики по шкале, база — чертой; подпись — над столбиком или чертой */
-function ptCols(rows,bench){
-  const max=Math.max(1,...rows.map(r=>Math.max(r.p,r.b)))*1.12;
-  return '<div class="pt-col">'+rows.map(r=>{const h=r.p/max*100, bh=r.b/max*100;
-    return '<div class="c'+(r.hi?' hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench,NOTE_CUT)+'><div class="bar">'+
-      '<div class="v" style="bottom:calc('+Math.max(h,bh).toFixed(1)+'% + 5px)">'+r.p+'%</div>'+
-      '<i style="height:'+h.toFixed(1)+'%"></i><s style="bottom:'+bh.toFixed(1)+'%"></s></div>'+
-      '<div class="n">'+U.esc(r.name)+'</div></div>'}).join('')+'</div>';
-}
-/* две категории — одна пилюля на два цвета, доли крупно над ней */
-function ptSplit(a,b,bench){
-  return '<div class="pt-two"><span class="a"><b>'+a.p+'%</b> '+U.esc(a.name.toLowerCase())+'</span>'+
+/* две категории — одна пилюля на два цвета, доли крупно над ней; кls — палитра
+   ('gen' — розовый и синий по просьбе заказчика, 'emp' — выделенное и серое).
+   Подпись базы прижимается к краю, если засечка у края: иначе она вылезала
+   за пилюлю и наезжала на соседний график (15.10, фото заказчика). */
+function ptSplit(a,b,bench,cls){
+  const at=a.b<18?' l':a.b>82?' r':'';
+  return '<div class="pt-two '+cls+'"><span class="a"><b>'+a.p+'%</b> '+U.esc(a.name.toLowerCase())+'</span>'+
     '<span class="b">'+U.esc(b.name.toLowerCase())+' <b>'+b.p+'%</b></span></div>'+
-    '<div class="pt-pill two"><span class="a" data-mix="'+U.esc(a.id)+'" style="flex:'+a.p+' 1 0"'+ptTip(a,bench,NOTE_CUT)+'></span>'+
-    '<span class="b" data-mix="'+U.esc(b.id)+'" style="flex:'+b.p+' 1 0"'+ptTip(b,bench,NOTE_CUT)+'></span>'+
-    '<s style="left:'+a.b+'%"><em>в компании '+a.b+' / '+b.b+'</em></s></div>';
+    '<div class="pt-pill two '+cls+'"><span class="a"'+mixAt(a)+' style="flex:'+a.p+' 1 0"'+ptTip(a,bench)+'></span>'+
+    '<span class="b"'+mixAt(b)+' style="flex:'+b.p+' 1 0"'+ptTip(b,bench)+'></span>'+
+    '<s class="'+at.trim()+'" style="left:'+a.b+'%"><em>в компании '+a.b+' / '+b.b+'</em></s></div>';
+}
+/* возраст столбиками, каждый разложен по полу (женщины снизу); база — чертой;
+   подпись доли — над столбиком или чертой. m — матрица «возраст × пол». */
+function ptAgeSex(rows,m,gen,bench){
+  const max=Math.max(1,...rows.map(r=>Math.max(r.p,r.b)))*1.12, tot=sumA(m.map(r=>r[0]+r[1]))||1;
+  return '<div class="pt-col">'+rows.map((r,i)=>{const h=r.p/max*100, bh=r.b/max*100, f=m[i][0], mm=m[i][1];
+    const seg=(v,g,c)=>'<i class="'+c+'" data-mix="'+U.esc(r.id+','+g.id)+'" style="height:'+(v/tot*100/max*100).toFixed(2)+'%"'+
+      U.tipAttr({title:r.name+' · '+g.name.toLowerCase(),rows:[{label:'Человек',value:D.fmtInt(v)},{label:'Доля команды',value:pct(v,tot)+'%'}],
+        note:'Клик — срез по возрасту и полу сразу.'})+'></i>';
+    return '<div class="c'+(r.hi?' hi':'')+'"><div class="bar" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
+      '<div class="v" style="bottom:calc('+Math.max(h,bh).toFixed(1)+'% + 5px)">'+r.p+'%</div>'+
+      '<div class="stk">'+seg(f,gen[0],'f')+seg(mm,gen[1],'m')+'</div><s style="bottom:'+bh.toFixed(1)+'%"></s></div>'+
+      '<div class="n">'+U.esc(r.name)+'</div></div>'}).join('')+'</div>';
 }
 /* три категории без порядка — три крупные цифры */
 function ptTrio(rows,bench){
-  return '<div class="pt-trio">'+rows.map(r=>'<div class="'+(r.hi?'hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench,NOTE_CUT)+'>'+
+  return '<div class="pt-trio">'+rows.map(r=>'<div class="'+(r.hi?'hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
     '<b>'+r.p+'%</b><span>'+U.esc(r.name)+'</span><em>компания '+r.b+'%</em></div>').join('')+'</div>';
 }
-/* одна доля против ориентира — шкала с отметкой компании */
-function ptBullet(r,label,bench){
-  return '<div class="pt-bul" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench,NOTE_CUT)+'><div class="t"><i style="width:'+r.p+'%"></i>'+
-    '<s style="left:'+r.b+'%"><em>в компании '+r.b+'%</em></s></div><div class="pt-note"><b>'+r.p+'%</b> '+U.esc(label)+'</div></div>';
-}
-function portrait(ctx){
-  const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), says=(ctx.story||{}).says||{}, bench=ctx.benchLabel;
+function ptSec(says,q,k,body,cls){
   /* в пробнике у заглушки вывода нет (story.js) — тогда подпись вопроса отступает от графика сама */
-  const sec=(q,k,body,cls)=>'<section class="pt-s'+(cls?' '+cls:'')+'"><div class="pt-q'+(says[k]?'':' solo')+'">'+U.esc(q)+'</div>'+
+  return '<section class="pt-s'+(cls?' '+cls:'')+'"><div class="pt-q'+(says[k]?'':' solo')+'">'+U.esc(q)+'</div>'+
     (says[k]?'<h4>'+U.richText(says[k])+'</h4>':'')+body+'</section>';
-  /* стримы — верхний уровень дерева: те же числа, что в главе «В каких стримах?» */
-  const tr=D.mixTree(ctx.lp,'stream',S.mixSel), trB=D.mixTree(ctx.bl,'stream',S.mixSel);
-  const tot=sumA(tr.map(n=>n.value)), totB=sumA(trB.map(n=>n.value));
-  if(!tot)return U.empty('Нет людей в отборе','Снимите срез или один из фильтров в шапке.');
-  const ST=hiOf(tr.map((n,i)=>({id:n.cat.id,name:n.cat.name,n:n.value,p:pct(n.value,tot),b:pct(trB[i].value,totB),on:sel.has(n.cat.id)}))
-    .sort((x,y)=>y.n-x.n));
-  const top6=ST.slice(0,6), rest=ST.slice(6).filter(r=>!r.hi), restN=sumA(rest.map(r=>r.n));
-  if(ST.slice(6).some(r=>r.hi))top6.push(ST.slice(6).find(r=>r.hi));
-  const more=rest.length?'ещё '+rest.length+' '+U.plural(rest.length,['стрим','стрима','стримов'])+' — '+pct(restN,tot)+'%':'';
-  const SEN=ptRows(ctx,'seniority',sel,{l:'Lead+'}), TEN=ptRows(ctx,'tenure',sel), AGE=ptRows(ctx,'age',sel,{a0:'до 25 лет',a45:'45+ лет'}),
-    GEN=ptRows(ctx,'gender',sel), FMT=ptRows(ctx,'worksite',sel,{rem:'Удалённо'}), EMP=ptRows(ctx,'employment',sel);
+}
+const ptLegend=bench=>'<div class="pt-lg"><span><i></i>команда</span><span><s></s>'+U.esc(bench)+'</span></div>';
+function ptCtx(ctx){
+  return {S:ctx.S,sel:new Set(D.sliceParse(ctx.S.mixSel).map(p=>p.id)),says:(ctx.story||{}).says||{},bench:ctx.benchLabel};
+}
+/* «Кто в команде?» — квалификация, опыт, пол и возраст */
+function overviewWho(ctx){
+  const c=ptCtx(ctx), sel=c.sel, bench=c.bench;
+  const SEN=ptRows(ctx,'seniority',sel,{l:'Lead+'}), GR=ptRows(ctx,'grade',sel), TEN=ptRows(ctx,'tenure',sel),
+    AGE=ptRows(ctx,'age',sel,{a0:'до 25 лет',a45:'45+ лет'}), GEN=ptRows(ctx,'gender',sel);
+  if(!sumA(SEN.map(r=>r.n)))return U.empty('Нет людей в отборе','Снимите срез или один из фильтров в шапке.');
   /* стаж: выделены новички, а не самая большая группа — история про них */
   if(!TEN.some(r=>r.on))TEN.forEach((r,i)=>{r.hi=i===0});
-  return '<div class="pt-wrap"><div class="pt-lg"><span><i></i>команда</span><span><s></s>'+U.esc(bench)+'</span></div>'+
-    sec('Чем заняты','stream',ptBars(top6,bench,more))+
-    '<div class="pt-2">'+sec('Какой квалификации','sen',ptSteps(SEN,bench))+sec('Как давно в компании','ten',ptPeople(TEN,bench))+'</div>'+
-    '<div class="pt-2">'+sec('Возраст','age',ptCols(AGE,bench))+sec('Пол','gen',ptSplit(GEN[0],GEN[1],bench))+'</div>'+
-    sec('Как работают','work','<div class="pt-2 in">'+ptTrio(FMT,bench)+
-      ptBullet(EMP[0],'в штате (ТК РФ), остальные — ГПХ, ИП, самозанятые и аутстафф',bench)+'</div>')+
-    '<div class="pt-more"><button class="pt-go" data-subtab="stream">Все стримы и специализации →</button>'+
-      '<button class="pt-go" data-subtab="people">Пол, возраст и стаж таблицами →</button>'+
-      '<button class="pt-go" data-subtab="custom">Пол × грейд в «Своём срезе» →</button></div></div>';
+  const m=D.mixMatrix(ctx.lp,'age','gender',ctx.S.mixSel), gen=D.MIX_BY_KEY.gender.cats;
+  return '<div class="pt-wrap">'+ptLegend(bench)+
+    '<div class="pt-2">'+ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptBars(GR,bench,{cap:'по грейдам'}))+
+      ptSec(c.says,'Опыт в компании','ten',ptPeople(TEN,bench))+'</div>'+
+    /* сверху пилюлька — пол, ниже разбивка — возраст, разложенный по полу */
+    ptSec(c.says,'Пол и возраст','gen','<div class="pt-gen">'+ptSplit(GEN[0],GEN[1],bench,'gen')+
+      '<div class="pt-sub">возраст — женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench)+'</div>')+
+    '<div class="pt-more"><button class="pt-go" data-subtab="custom">Пол × грейд и другие пары — в «Своём срезе» →</button></div></div>';
+}
+/* «Как оформлены и где?» — штат, формат, регионы, юрлица */
+function overviewWork(ctx){
+  const c=ptCtx(ctx), sel=c.sel, bench=c.bench;
+  const EMP=ptRows(ctx,'employment',sel,{tk:'Штат'}), FMT=ptRows(ctx,'worksite',sel,{rem:'Удалённо'}),
+    REG=ptRows(ctx,'region',sel), LEG=ptRows(ctx,'legal',sel);
+  if(!sumA(EMP.map(r=>r.n)))return U.empty('Нет людей в отборе','Снимите срез или один из фильтров в шапке.');
+  /* штат / не штат — одна пилюля; не штат собран из четырёх видов оформления */
+  const non=EMP.slice(1), nonN=sumA(non.map(r=>r.n)), tot=EMP[0].n+nonN;
+  /* клик по «не штату» среза не берёт: это четыре категории, срез — по одной из них ниже */
+  const staff=EMP[0], other={id:null,name:'Не штат',n:nonN,p:pct(nonN,tot),b:100-staff.b,
+    why:'Не штат — четыре вида оформления; срез берётся по одному из них в полосах ниже.'};
+  const pill=ptSplit(staff,other,bench,'emp');
+  hiOf(non);
+  return '<div class="pt-wrap">'+ptLegend(bench)+
+    '<div class="pt-2">'+ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'}))+
+      ptSec(c.says,'Формат работы','fmt',ptTrio(FMT,bench))+'</div>'+
+    '<div class="pt-2">'+ptSec(c.says,'Где работают','reg',ptBars(REG,bench,{sort:true}))+
+      ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true}))+'</div></div>';
 }
 
 SC.blocks.structure={
-  subTabs:[['portrait','Портрет']].concat(D.MIX_GROUPS.map(g=>[g.key,g.name])).concat([['custom','Свой срез']]),
+  /* 15.10: четыре главы вместо шести — два обзора, стримы таблицей и конструктор */
+  subTabs:[['portrait','Кто в команде'],['work','Оформление и место']].concat(D.MIX_GROUPS.map(g=>[g.key,g.name])).concat([['custom','Свой срез']]),
   defaultSub:'portrait',
   title(sub){
-    if(sub==='portrait')return 'Портрет команды';
+    if(sub==='portrait')return 'Кто в команде: квалификация, опыт, пол и возраст';
+    if(sub==='work')return 'Как оформлены и где работают';
     if(sub!=='custom'){
       const g=D.MIX_GROUPS.find(x=>x.key===sub);
       return g?g.title:'Состав численности по атрибутам';
@@ -220,7 +244,8 @@ SC.blocks.structure={
     return 'Свой срез состава';
   },
   view(ctx){
-    if(ctx.sub==='portrait')return portrait(ctx);
+    if(ctx.sub==='portrait')return overviewWho(ctx);
+    if(ctx.sub==='work')return overviewWork(ctx);
     const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id));
 
     if(ctx.sub!=='custom'){

@@ -146,12 +146,14 @@ checks.push(['причины увольнений — таблица',/<table/.t
    две яркие линии этого года, бледные — прошлого; баров и серой «тени» нет.
    Ряды синтетические: у каждой линии точка на каждый закрытый месяц. */
 const yr=(a,b)=>({cur:D.MONTH_ABBR.map((_,i)=>i<D.CUR_LEN?a+i%3:null),prev:D.MONTH_ABBR.map((_,i)=>b+i%4)});
+/* 14.10: пара — «ежики»: приход барами вверх, уход вниз, прошлый год — засечками;
+   линий нет («четыре линии на одном графике — жесть») */
 const dv=G.chart('pair',{a:Object.assign({key:'hire'},yr(4,5)),b:Object.assign({key:'attrition'},yr(2,3))},
-  {h:300,legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2025',color:G.C_PREV}]});
-const dotsOf=sid=>(dv.match(new RegExp('<circle class="dot" data-s="'+sid+'"','g'))||[]).length;
-checks.push(['пара потоков: две линии этого года и бледные прошлого, без баров',
-  dotsOf('a')===D.CUR_LEN&&dotsOf('b')===D.CUR_LEN&&(dv.match(/<path class="lnb" data-s="prev"/g)||[]).length===2&&
-  !/class="bar /.test(dv)&&/data-sid="a"/.test(dv)&&/data-sid="prev"/.test(dv)]);
+  {h:300,legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2026'},{name:'2025',tick:true}]});
+const barsOf=(cls,sid)=>(dv.match(new RegExp('class="bar '+cls+'" data-s="'+sid+'"','g'))||[]).length;
+checks.push(['пара потоков — «ежики»: бары вверх и вниз, прошлый год засечками, без линий',
+  barsOf('up','a')===D.CUR_LEN&&barsOf('dn','b')===D.CUR_LEN&&(dv.match(/<path class="tick" data-s="prev"/g)||[]).length===24&&
+  !/class="ln/.test(dv)&&/data-sid="a"/.test(dv)&&/data-sid="cur"/.test(dv)&&/data-sid="prev"/.test(dv)]);
 
 /* 7. цифры на графиках чёрные: за смысл отвечает цвет бара, а не подписи */
 const LOUD=/fill="#(f51f1f|12b048|d11414|0a8f3c)"/;
@@ -293,8 +295,9 @@ checks.push(['ряд hc_avg жив: текучесть по-прежнему с�
 /* 10. перекомпоновка под-вкладок: что где лежит после итерации 20 */
 const subsOf=k=>SC.blocks[k].subTabs.map(t=>t[0]).join(',');
 /* 14.10: первым — «Портрет команды», «Оформление» и «География» — одна глава */
-checks.push(['состав: портрет, группы разрезов и конструктор',
-  subsOf('structure')==='portrait,qual,people,work,stream,custom'&&SC.blocks.structure.defaultSub==='portrait']);
+/* 15.10: четыре главы — два обзора, стримы таблицей и конструктор («вкладок перебор») */
+checks.push(['состав: два обзора, стримы таблицей и конструктор',
+  subsOf('structure')==='portrait,work,stream,custom'&&SC.blocks.structure.defaultSub==='portrait']);
 /* итерация 28 (бизнес-анализ): план-факт и профиль найма, заявки и статусы
    роста, бронирование и «кто ходит» встали своими вкладками; срок закрытия
    по-прежнему панелью к вакансиям, конверсия T-роста — рядом с решениями */
@@ -501,7 +504,7 @@ checks.push(['марки графиков помечены data-s',
    последнюю серию выключить нельзя; у панелей — тоже (13.10: «легенды не
    интерактивные» — у панелей кнопок не было вовсе) */
 (function(){
-  const legend=[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2025',color:G.C_PREV}];
+  const legend=[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2026'},{name:'2025',tick:true}];
   const yr=(a,k)=>({cur:D.MONTH_ABBR.map((_,i)=>i<D.CUR_LEN?a+i%k:null),prev:D.MONTH_ABBR.map((_,i)=>a+1+i%k)});
   const html=G.chart('pair',{a:Object.assign({key:'hire'},yr(10,5)),b:Object.assign({key:'attrition'},yr(4,3))},
     {title:'Проверка пары',legend,h:320});
@@ -509,13 +512,20 @@ checks.push(['марки графиков помечены data-s',
   const el=pick('.svgchart[data-cid="'+cid+'"]'); el.clientWidth=900;
   G.toggleSeries(cid,'b');G.toggleSeries(cid,'prev');
   const h1=el.innerHTML;
-  checks.push(['выключенная линия пары исчезает вместе с её прошлым годом',
-    !/data-s="b"/.test(h1)&&/data-s="a"/.test(h1)&&!/<path class="lnb" data-s="prev"/.test(h1)]);
+  checks.push(['выключенный поток пары исчезает, выключенный прошлый год — засечки тоже',
+    !/data-s="b"/.test(h1)&&/data-s="a"/.test(h1)&&!/class="tick"/.test(h1)]);
+  /* выключили этот год — бары прошлого дорисованы до засечек, бледнее */
+  G.toggleSeries(cid,'prev');G.toggleSeries(cid,'cur');
+  const hc=el.innerHTML;
+  checks.push(['пара: без этого года бары прошлого до засечек; год и поток не выключить оба',
+    /class="bar up" fill-opacity="\.45" data-s="prev"/.test(hc)&&/class="tick" data-s="prev"/.test(hc)&&
+    G.toggleSeries(cid,'prev')===false]);
+  G.toggleSeries(cid,'cur');G.toggleSeries(cid,'prev');
   checks.push(['выключенный пункт легенды помечен, последнюю серию выключить нельзя',
     /class="lg dead" data-sid="b"/.test(h1)&&G.toggleSeries(cid,'a')===false]);
   G.toggleSeries(cid,'b');G.toggleSeries(cid,'prev');
   /* у пункта легенды подсказка, что он нажимается */
-  checks.push(['у пункта легенды подсказка «клик — скрыть линию»',/data-sid="a"[^>]*data-tip="[^"]*Клик — скрыть линию/.test(el.innerHTML)]);
+  checks.push(['у пункта легенды подсказка «клик — скрыть»',/data-sid="a"[^>]*data-tip="[^"]*Клик — скрыть/.test(el.innerHTML)]);
   const ph=SC.yoyPanels(D.reportLeaves(D.DEFAULT_STATE),[{key:'turnover_m',name:'Текучесть, %'},{key:'attrition',name:'Отток, чел'}]);
   const pc=(ph.match(/data-cid="(\w+)"/)||[])[1], pe=pick('.svgchart[data-cid="'+pc+'"]'); pe.clientWidth=900;
   const okT=G.toggleSeries(pc,'prev'), p1=pe.innerHTML;
@@ -613,8 +623,9 @@ checks.push(['марки графиков помечены data-s',
     /const GAP=STACK_GAP/.test(js)]);
   /* ось X устроена одинаково во всех видах: одна функция оси года (yoyAxis) —
      ею рисуются и одиночный график, и панели, и пара потоков */
+  /* 14.10: у «ежиков» месяцы под нижними барами — своя строка, остальное — yoyAxis */
   checks.push(['ось X у панелей на том же отступе, что у остальных графиков',
-    (js.match(/txt\(X\(i\),bot\+15,lb,/g)||[]).length===1&&(js.match(/s\+=yoyAxis\(X,bandW,top,bot,nowI\)/g)||[]).length===2&&!/bot\+13/.test(js)]);
+    (js.match(/txt\(X\(i\),bot\+15,lb,/g)||[]).length===1&&(js.match(/s\+=yoyAxis\(X,bandW,top,bot,nowI\)/g)||[]).length===1&&!/bot\+13/.test(js)]);
 })();
 
 /* ============================================================================
@@ -639,17 +650,17 @@ checks.push(['марки графиков помечены data-s',
   /* 14.10: «все бары одного цвета, как квалификация, сейчас радуга» */
   checks.push(['все группы разрезов одним цветом — тоном квалификации',
     (function(){
-      const c=D.MIX_GROUPS.map(g=>D.MIX_GROUP_COLOR[g.key]);
+      const c=Object.keys(D.MIX_GROUP_COLOR).map(k=>D.MIX_GROUP_COLOR[k]);
       return c.every(Boolean)&&new Set(c).size===1&&c[0]===D.MIX_GROUP_COLOR.qual;
     })()]);
   checks.push(['разрезы одной группы красятся одинаково',
     D.MIX_GROUPS.every(g=>new Set(g.dims.map(k=>D.dimColor(k))).size===1)]);
   /* в собранной разбивке ровно один цвет полосы на таблицу */
   (function(){
-    const html=A.go('structure','people');
+    const html=A.go('structure','stream');
     const groups=html.split('<div class="bt-group">').slice(1);
     checks.push(['в собранной разбивке полосы одного цвета',
-      groups.length===3&&groups.every(g=>{
+      groups.length===1&&groups.every(g=>{
         const cols=[...g.matchAll(/;background:(#[0-9a-f]{6})/gi)].map(m=>m[1].toLowerCase());
         return cols.length>1&&new Set(cols).size===1;
       })]);
@@ -657,8 +668,14 @@ checks.push(['марки графиков помечены data-s',
 
   /* 2. Раскладка по вкладкам: не больше четырёх разбивок на одной (14.10: лёгкие
      таблицы без шапки и ИТОГО — «Как оформлены и где» держит четыре разреза) */
-  checks.push(['на вкладке состава не больше четырёх разбивок',
-    D.MIX_GROUPS.every(g=>g.dims.length<=4&&g.dims.length>0)]);
+  /* 15.10: каждый разрез — ровно в одном месте: стримы таблицей, остальное в двух обзорах */
+  checks.push(['каждый разрез состава стоит ровно в одной главе',
+    (function(){
+      const who=A.go('structure','portrait'), work=A.go('structure','work'), str=A.go('structure','stream');
+      const at=k=>[who,work,str].filter(h=>new RegExp('data-mix="'+k+':').test(h)).length;
+      return ['seniority','grade','tenure','age','gender','employment','worksite','region','legal','stream'].every(k=>at(k)===1)&&
+        !/data-mix="seniority:/.test(work)&&!/data-mix="stream:/.test(who);
+    })()]);
   checks.push(['каждая группа ссылается на существующие разрезы',
     D.MIX_GROUPS.every(g=>g.dims.every(k=>!!byKey[k]))]);
   checks.push(['длинный разрез стоит на своей вкладке один',
@@ -718,10 +735,10 @@ checks.push(['марки графиков помечены data-s',
   })();
 
   /* 5. Клик по строке разбивки берёт срез */
-  const qual=A.go('structure','qual');
-  checks.push(['строка разбивки кликается: у неё есть data-mix',
-    /<tr class="urow" data-mix="seniority:s"/.test(qual)&&
-    /<tr class="urow" data-mix="grade:g1"/.test(qual)]);
+  const qual=A.go('structure','portrait');
+  checks.push(['куски обзора кликаются: у них есть data-mix',
+    /<span class="s2" data-mix="seniority:s"/.test(qual)&&
+    /<div class="pt-row[^"]*" data-mix="grade:g1"/.test(qual)]);
   const hcAll=D.lastVal(rl,'hc_total'), hcSen=D.lastValSlice(rl,'hc_total',['seniority:s']);
   checks.push(['срез режет численность, а не оставляет её прежней',
     hcSen>0&&hcSen<hcAll]);
@@ -753,7 +770,7 @@ checks.push(['марки графиков помечены data-s',
 
   /* 6. Срез виден в карточках, в таблице подразделений и в плашке */
   A.mix(['seniority:s']);
-  const sliced=A.go('structure','qual');
+  const sliced=A.go('structure','portrait');
   checks.push(['срез подписан плашкой под карточками KPI',
     /note-inline slice/.test(sliced)&&/Срез состава/.test(sliced)&&
     /data-mixclear="1"/.test(sliced)]);
@@ -763,8 +780,8 @@ checks.push(['марки графиков помечены data-s',
   checks.push(['ИТОГО таблицы подразделений тоже по срезу',
     totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
     totRow.indexOf('>'+D.fmtVal('hc_total',hcAll)+'<')<0]);
-  checks.push(['выбранная строка разбивки помечена',
-    /<tr class="urow sel" data-mix="seniority:s"/.test(sliced)]);
+  checks.push(['выбранный кусок обзора помечен',
+    /<span class="s2 on" data-mix="seniority:s"/.test(sliced)]);
 
   /* 7. Срез НЕ протекает на другие вкладки: подпись «N чел» стоит везде */
   const movSliced=A.go('movement','balance');
@@ -898,7 +915,7 @@ checks.push(['марки графиков помечены data-s',
   A.op([]);
   /* и в сводной таблице подразделений — она была первой, правило пришло оттуда */
   checks.push(['общая каретка есть во всех трёх таблицах с каретками',
-    /data-expall="1"/.test(A.go('structure','qual'))&&
+    /data-expall="1"/.test(A.go('structure','portrait'))&&
     /data-btexpall="stream\|1"/.test(A.go('structure','stream'))&&
     /data-opexpall="/.test(A.op([]))]);
 })();
@@ -1030,7 +1047,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     ai.tools.every(t=>t.value<=ai.pen)]);
   /* 14.10: «Оформление» и «География» — одна глава «Как оформлены и где работают» */
   checks.push(['регион — разрез главы «Как оформлены и где», матрица «регион × специализация» сходится',
-    D.MIX_GROUPS.find(g=>g.key==='work').dims.join()==='employment,worksite,region,legal'&&
+    /data-mix="region:msk"/.test(A.go('structure','work'))&&
     sum([].concat(...D.mixMatrix(rl0,'region','spec')))===Math.round(e('hc_total'))&&
     /Москва и область/.test(A.go('structure','work'))]);
 
@@ -1268,8 +1285,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['история: пик подписан на графике полосой, прочие месяцы не приглушены',
     />пик года<\/text>/.test(to)&&!/fill-opacity="\.38"/.test(allHtml)]);
   /* динамика — только линии: баров «год к году» нет нигде */
-  checks.push(['динамика год к году — только линиями: баров с «тенью» прошлого года нет',
-    !/class="bar (up|dn)" data-s="(prev|main|up|dn)"/.test(allHtml)&&!G.C_GHOST]);
+  /* 14.10: счётные потоки — барами этого года с засечкой прошлого; серого бара-«тени»
+     прошлого года за баром этого нет нигде (он появляется, только если этот год выключен) */
+  checks.push(['потоки год к году — бары с засечкой прошлого года, без баров-«теней»',
+    /class="bar up" data-s="main"/.test(allHtml)&&/class="tick" data-s="prev"/.test(allHtml)&&
+    !/class="bar (up|dn)"[^>]*data-s="prev"/.test(allHtml)&&!G.C_GHOST&&
+    D.METRICS.filter(m=>m.flow).map(m=>m.key).sort().join()==='attrition,hire,tgrowth_deny,tgrowth_pass,transfer_in,transfer_out,vac_closed']);
   /* разрыв с базой залит светофором хотя бы на одной главе */
   checks.push(['история: разрыв линии с базой залит цветом светофора',/class="gapf"/.test(allHtml)]);
   /* палитра A: одиночные метрики — кобальтом, цвет только у потоков */
@@ -1343,16 +1364,21 @@ checks.push(['третьей палитры нет: в экранах ни од�
 (function(){
   A.mix([]);
   const pt=A.go('structure','portrait');
-  /* вариант 2 (14.10): у каждого вопроса своя форма под тип данных */
-  checks.push(['портрет: шесть вопросов, у каждого свой вид графика и вывод; у кусков — срез',
-    (pt.match(/<section class="pt-s/g)||[]).length===6&&(pt.match(/<h4>/g)||[]).length===6&&
-    /class="pt-row hi" data-mix="stream:dev"/.test(pt)&&
+  /* 15.10: два обзора в стиле портрета — сверху обзор (пилюля), ниже разбивка */
+  const wk=A.go('structure','work');
+  checks.push(['обзоры: «Кто в команде?» — 3 раздела, «Как оформлены и где?» — 4; у каждого вывод; куски кликаются',
+    (pt.match(/<section class="pt-s/g)||[]).length===3&&(pt.match(/<h4>/g)||[]).length===3&&
     (pt.match(/<span class="s\d[^"]*" data-mix="seniority:/g)||[]).length===4&&
+    (pt.match(/class="pt-row[^"]*" data-mix="grade:/g)||[]).length===5&&
     (pt.match(/class="pt-man t\d"/g)||[]).length===10&&
-    (pt.match(/class="c[^"]*" data-mix="age:/g)||[]).length===4&&
-    /class="a" data-mix="gender:f"/.test(pt)&&/class="b" data-mix="gender:m"/.test(pt)&&
-    (pt.match(/<div class="[^"]*" data-mix="worksite:/g)||[]).length===3&&/class="pt-bul" data-mix="employment:tk"/.test(pt)&&
-    /Типичный человек в команде — /.test(pt)&&!/svgchart/.test(pt.split('pt-wrap')[1]||'')]);
+    /class="a" data-mix="gender:f"/.test(pt)&&(pt.match(/<i class="[fm]" data-mix="age:a\d+,gender:[fm]"/g)||[]).length===8&&
+    /Типичный человек в команде — /.test(pt)&&
+    (wk.match(/<section class="pt-s/g)||[]).length===4&&(wk.match(/<h4>/g)||[]).length===4&&
+    /<span class="a" data-mix="employment:tk"/.test(wk)&&/<span class="b" style/.test(wk)&&
+    (wk.match(/class="pt-row[^"]*" data-mix="employment:/g)||[]).length===4&&
+    (wk.match(/<div class="[^"]*" data-mix="worksite:/g)||[]).length===3&&
+    (wk.match(/class="pt-row[^"]*" data-mix="region:/g)||[]).length===7&&
+    (wk.match(/class="pt-row[^"]*" data-mix="legal:/g)||[]).length===4]);
   A.mix(['seniority:s']);
   const ps=A.go('structure','portrait');
   const n=(ps.match(/(\d+)\s+человека?<\/b>\s+в срезе/)||[])[1];

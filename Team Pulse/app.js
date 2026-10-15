@@ -193,7 +193,7 @@ function navDev(bk){
   const st=SC.blockDev(bk);
   if(!st)return '';
   const subs=(SC.blocks[bk]||{}).subTabs||[], n=subs.filter(t=>SC.devOf(bk,t[0])).length;
-  return st==='full'?'<span class="nav-dev full"'+U.tipAttr({title:'В разработке',text:'Все вкладки блока — заглушки: источника данных пока нет.'})+'>в разработке</span>'
+  return st==='full'?'<span class="nav-dev full"'+U.tipAttr({title:'В разработке',text:'Все вкладки блока — заглушки: источника данных пока нет.'})+'>в разраб.</span>'
     :'<span class="nav-dev part"'+U.tipAttr({title:'Частично в разработке',text:'В разработке '+n+' '+U.plural(n,['вкладка','вкладки','вкладок'])+' из '+subs.length+'.'})+'></span>';
 }
 function pilotChips(){

@@ -39,7 +39,8 @@ const fs = require('fs'), path = require('path');
   for (const t of tabs) {
     await page.click('#navBlocks .nav-i[data-tab="' + t + '"]');
     await page.waitForTimeout(250);
-    const subs = await page.$$eval('[data-subtab]', a => a.map(b => b.dataset.subtab));
+    /* только шаги степпера: ссылки «→» внутри глав тоже несут data-subtab */
+    const subs = await page.$$eval('.st-step[data-subtab]', a => [...new Set(a.map(b => b.dataset.subtab))]);
     for (const s of subs) {
       await page.click('[data-subtab="' + s + '"]');
       await page.waitForTimeout(150);
@@ -48,8 +49,9 @@ const fs = require('fs'), path = require('path');
     if (t === 'turnover') await shot('02-turnover');
     if (t === 'hiring') await shot('03-hiring-demo');
   }
-  /* 27: с 12.10 «Движение персонала» — две главы (обзор и динамика), «Замещение и темпы» снята */
-  ok(screens >= 27, 'пройдено под-вкладок: ' + screens);
+  /* 25 глав (15.10): структура 4 (два обзора, стримы, свой срез), движение 2, отток 3,
+     найм 4, T-рост 3, мониторинг 2, офис 5, AI 2 */
+  ok(screens >= 25, 'пройдено под-вкладок: ' + screens);
 
   /* переход в юнит: выбрать первую строку и открыть её — кросс-фильтр и новый ответ */
   await page.click('#navBlocks .nav-i[data-tab="turnover"]');

@@ -114,7 +114,7 @@ function blockDevTag(bk){
   const st=SC.blockDev(bk);
   if(!st)return '';
   if(st==='part')return '<span class="dev-tag"'+U.tipAttr({title:'Частично в разработке',
-    text:'Часть вкладок блока — заглушка: источника данных пока нет. Какие именно — отмечено в степпере блока.'})+'>частично в разработке</span>';
+    text:'Часть вкладок блока — заглушка: источника данных пока нет. Какие именно — отмечено в степпере блока.'})+'>частично в разраб.</span>';
   const d=(SC.blocks[bk].subTabs||[]).map(t=>SC.devOf(bk,t[0])).find(Boolean);
   return U.devTag(d?d.stage:null);
 }

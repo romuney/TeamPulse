@@ -655,7 +655,7 @@ function chapters(list,active){
     /* глава в разработке (14.10): шаг заштрихован, номер — в полосу, вместо
        ответа — «в разработке · этап N» (текстом: пилюля в узком шаге
        обрезалась). Частично живая — ответ остаётся, номер в полосу светлее. */
-    const dev=c.dev==='full'?'<span class="st-s st-dev">в разработке'+(c.devStage!=null?' · этап '+esc(c.devStage):'')+'</span>'
+    const dev=c.dev==='full'?'<span class="st-s st-dev">в разраб.'+(c.devStage!=null?' · этап '+esc(c.devStage):'')+'</span>'
       :'';
     return '<button class="st-step'+(on?' on':'')+(c.dev?' dev-'+c.dev:'')+'" data-subtab="'+esc(c.key)+'" data-text="'+esc(c.q)+'" role="tab" aria-selected="'+on+'"'+
       tipAttr({title:(i+1)+'. '+c.q,text:c.dev==='full'?'В разработке: источника данных пока нет'+(c.devStage!=null?' (этап '+c.devStage+' плана)':'')+'.'
@@ -888,16 +888,21 @@ function devTip(stage){
     note:p&&p.need&&p.need!=='—'?'Что нужно: '+p.need+'.':'План подключения — «Как читать отчёт» → «План подключения данных».'};
 }
 function devTag(stage,small){
-  return '<span class="dev-tag'+(small?' sm':'')+'"'+tipAttr(devTip(stage))+'>в разработке</span>';
+  /* 15.10: «в разраб.» — полная «в разработке» раздувала шапки колонок и карточки;
+     полностью — в подсказке, на плашке вкладки и в меню */
+  return '<span class="dev-tag'+(small?' sm':'')+'"'+tipAttr(devTip(stage))+'>в разраб.</span>';
 }
 /* Плашка вкладки: d = {stage, t — что здесь не настоящее, need — что нужно, part} */
 function devNote(d){
   if(!d)return '';
   const p=d.stage!=null?D.devPlan(d.stage):null, need=d.need||(p&&p.need!=='—'?p.need:'');
-  return '<div class="dev-note'+(d.part?' part':'')+'"><div class="dev-b">'+
-    '<span class="dev-h">'+(d.part?'Частично в разработке':'В разработке')+(d.stage!=null?' · этап '+esc(d.stage)+' плана':'')+'</span>'+
-    '<span class="dev-t">'+esc(d.t||'')+'</span>'+
-    (need?'<span class="dev-need"><b>Что нужно:</b> '+esc(need)+'</span>':'')+'</div></div>';
+  /* 15.10: плашка — одной строкой («очень много места занимает»): статус и что
+     нужно; что именно здесь заглушка — в подсказке по «i» */
+  return '<div class="dev-note'+(d.part?' part':'')+'"><span class="dev-h">'+(d.part?'Частично в разраб.':'В разраб.')+
+    (d.stage!=null?' · этап '+esc(d.stage):'')+'</span>'+
+    (need?'<span class="dev-need">нужно: '+esc(need)+'</span>':'')+
+    (d.t?'<span class="info"'+tipAttr({title:d.part?'Частично в разработке':'В разработке'+(d.stage!=null?' · этап '+d.stage+' плана':''),
+      text:d.t,note:need?'Что нужно: '+need+'.':null})+' aria-label="Что здесь заглушка">i</span>':'')+'</div>';
 }
 /* План подключения данных в справке и в сводке готовности: этап · что · откуда · что нужно · сейчас */
 function planTable(rows){
@@ -914,7 +919,7 @@ function devSummary(o){
   return '<details class="dev-sum"><summary><span class="dev-sum-h">Готовность к живым данным</span>'+
     '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик на живых данных"><i style="width:'+pc+'%"></i></span>'+
     '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на живых данных · '+
-      '<span class="dev-tag sm-in">в разработке '+(o.total-o.live)+'</span></span>'+
+      '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span></span>'+
     '<span class="dev-sum-more">план подключения ▾</span></summary>'+
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }

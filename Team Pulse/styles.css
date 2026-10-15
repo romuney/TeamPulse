@@ -1449,17 +1449,18 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   vertical-align:1px;text-transform:none;letter-spacing:0;white-space:nowrap;cursor:help}
 .dev-tag.sm{display:block;width:max-content;margin:var(--s1) auto 0;padding:0 var(--s2);line-height:13px}
 .dev-tag.sm-in{margin-left:0;padding:0 var(--s2);line-height:14px}
-/* плашка вкладки: лента «стройки» слева, этап плана и что нужно */
-.dev-note{position:relative;margin:0 0 var(--s6);padding:var(--s4) var(--s6) var(--s4) 22px;border:1px solid var(--dev-line);
-  border-radius:var(--r2);background:var(--dev-bg);overflow:hidden;font-size:var(--fs-note);line-height:1.45;color:var(--ink2)}
-.dev-note::before{content:"";position:absolute;left:0;top:0;bottom:0;width:10px;
-  background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 6px,var(--dev-dark) 6px 12px)}
+/* плашка вкладки (15.10 — одной строкой): лента «стройки» слева, этап и что нужно,
+   что именно заглушка — в подсказке «i» */
+.dev-note{position:relative;display:flex;align-items:center;gap:var(--s3) var(--s5);flex-wrap:wrap;margin:0 0 var(--s6);
+  padding:var(--s3) var(--s5) var(--s3) 20px;border:1px solid var(--dev-line);border-radius:var(--r2);background:var(--dev-bg);
+  overflow:hidden;font-size:var(--fs-note);line-height:1.35;color:var(--ink2)}
+.dev-note::before{content:"";position:absolute;left:0;top:0;bottom:0;width:8px;
+  background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 5px,var(--dev-dark) 5px 10px)}
 .dev-note.part{background:var(--card)}
-.dev-note.part::before{background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 6px,var(--dev-bg) 6px 12px)}
-.dev-b{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s4);align-items:baseline}
+.dev-note.part::before{background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 5px,var(--dev-bg) 5px 10px)}
 .dev-h{font-weight:var(--fw-bold);color:var(--dev-ink);white-space:nowrap}
-.dev-need{flex-basis:100%;color:var(--ink2)}
-.dev-need b{font-weight:var(--fw-bold);color:var(--dev-ink)}
+.dev-need{color:var(--ink2)}
+.dev-note .info{margin-left:auto}
 /* пункт навигации: блок целиком в разработке — метка; частично — полосатая точка */
 .nav-dev{margin-left:auto;flex:none}
 .nav-dev.full{padding:0 var(--s2);border:1px solid var(--dev-line);border-radius:var(--r-pill);font-size:var(--fs-micro);
@@ -1909,12 +1910,48 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-trio b{font-size:24px;letter-spacing:-.4px;color:#9aa3b2}.pt-trio .hi b{color:var(--pt-s3)}
 .pt-trio span{font-size:13px;color:var(--ink2)}.pt-trio .hi span{color:var(--ink);font-weight:var(--fw-bold)}
 .pt-trio em{font-style:normal;font-size:11.5px;color:var(--muted)}
-/* шкала с отметкой */
-.pt-bul .t{position:relative;height:22px;border-radius:6px;background:var(--pt-track);margin-top:22px}
-.pt-bul .t i{display:block;height:100%;border-radius:6px;background:var(--pt-hi)}
-.pt-bul .t s{position:absolute;top:-6px;bottom:-6px;width:2px;margin-left:-1px;background:var(--ink);text-decoration:none}
-.pt-bul .t s em{position:absolute;bottom:calc(100% + 3px);right:-2px;white-space:nowrap;font-style:normal;font-size:11.5px;color:var(--muted)}
 /* ссылки в главы-таблицы */
 .pt-more{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s7);padding-top:var(--s6);border-top:1px solid var(--line2)}
 .pt-go{border:0;background:none;padding:0;font:inherit;font-size:var(--fs-note);color:var(--act-ink);cursor:pointer}
 .pt-go:hover{text-decoration:underline}
+
+/* 15.10: имя юнита в таблице подразделений — не уже 220px. Колонку держало
+   max-width 176px, и на вкладках с шестью колонками метрик имя рвалось на
+   5–6 строк; теперь имя, «Деп. · N чел» и руководитель — три строки. */
+.ptable.tree th.txt,.ptable.tree td.txt{min-width:220px}
+.ptable.dense.tree td.txt{max-width:300px}
+
+/* ===== 15.10: «полужирный» обводкой — профиль Adoption (гайд, UI-03) ========
+   У Arial в бою два начертания — 400 и 700, а 500/600 рисуются как 400/700.
+   Ступень между ними для названия строки — обводка цветом текста .25px:
+   название юнита, метрики, категории разбивки читаются «полужирными», а логин,
+   «Деп. · N чел», числа и пометки под ними — обычными. Выбранная строка —
+   700 без обводки; ИТОГО — 700, тоже без неё. Толще .3px не делать:
+   на 12,5px забиваются «е» и «а». */
+.ptable td.txt .row-body,.m-name,.pt-row .l{-webkit-text-stroke:.25px currentColor}
+.ptable td.txt .row-body *,.m-name *{-webkit-text-stroke:0}
+.ptable tr.total .row-body,.ptable tr.urow.empty .row-body,.ptable tr.urow.anc td.txt .row-body,
+.pt-row.hi .l{-webkit-text-stroke:0}
+.ptable tr.urow.sel td.txt .row-body{font-weight:var(--fw-bold);-webkit-text-stroke:0}
+
+/* ===== 15.10: обзорные главы структуры («Кто в команде?», «Как оформлены и где?») ===
+   Поверх стилей портрета: подпись разбивки под обзором, столбики возраста,
+   разложенные по полу, стоят на оси (раньше между столбиком и чертой оси был
+   зазор — «барчарт оторван от рисочки»), пилюля «штат / не штат». */
+.pt-sub{margin:12px 0 8px;font-size:11.5px;color:var(--muted)}
+.pt-2.in>div{min-width:0}
+.pt-col .bar{border-bottom:1px solid #c9cdd6}
+.pt-col .n{margin-top:6px;padding-top:0;border-top:0}
+.pt-col .bar .stk{position:absolute;left:0;right:0;top:0;bottom:0;display:flex;flex-direction:column-reverse;gap:1px}
+.pt-col .bar .stk i{position:static;display:block;border-radius:0;background:none}
+.pt-col .bar .stk i.f{background:var(--pt-f)}.pt-col .bar .stk i.m{background:var(--pt-m)}
+.pt-col .bar .stk i:last-child{border-radius:3px 3px 0 0}
+.pt-col .c:not(.hi) .bar .stk{opacity:.55}
+.pt-col .bar .stk i:hover{filter:brightness(.93)}
+.pt-pill.two.emp .a{background:var(--pt-hi)}.pt-pill.two.emp .b{background:var(--pt-dim)}
+.pt-two.emp .a{color:var(--pt-s3)}.pt-two.emp .b{color:#8a909c}
+.pt-pill.two s.l em{left:-2px;transform:none}
+.pt-pill.two s.r em{left:auto;right:-2px;transform:none}
+.pt-trio{grid-template-columns:repeat(3,minmax(0,1fr))}
+.pt-trio span,.pt-trio em{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt-gen{max-width:760px}

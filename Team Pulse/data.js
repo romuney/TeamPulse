@@ -123,10 +123,10 @@ const METRICS=[
    ничего не сообщала руководителю (это всегда полусумма двух соседних значений
    численности), а место в таблице и карточку занимала. Ряд `hc_avg` остался —
    он знаменатель текучести и считается в seriesExt по ключу. */
-{key:'hire',block:'movement',name:'Найм',short:'Найм',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Принятые за месяц.'},
-{key:'attrition',block:'movement',name:'Отток',short:'Отток',fmt:'int',better:'lower',unit:'чел',anchor:null,hint:'Уволившиеся за месяц (все причины).'},
-{key:'transfer_in',block:'movement',name:'Переводы в команду',short:'Перев. в',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы из других команд.'},
-{key:'transfer_out',block:'movement',name:'Переводы из команды',short:'Перев. из',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы в другие команды.'},
+{key:'hire',block:'movement',name:'Найм',short:'Найм',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Принятые за месяц.'},
+{key:'attrition',block:'movement',name:'Отток',short:'Отток',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Уволившиеся за месяц (все причины).'},
+{key:'transfer_in',block:'movement',name:'Переводы в команду',short:'Перев. в',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы из других команд.'},
+{key:'transfer_out',block:'movement',name:'Переводы из команды',short:'Перев. из',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы в другие команды.'},
 /* Итог движения персонала: найм + переводы в − отток − переводы из за вычетом
    прочих изменений. Пять потоков без итога не отвечали на вопрос «команда
    выросла или нет» — считать в уме четыре числа приходилось самому. */
@@ -155,7 +155,7 @@ const METRICS=[
 {key:'turnover_fc',block:'turnover',name:'Прогноз годовой текучести',short:'Прогноз',fmt:'pct',better:'lower',unit:'%',anchor:null,
   runRate:'turnover_y',hint:'Накопительная текучесть с начала года, пересчитанная на 12 месяцев: чем закончится год, если темп увольнений сохранится.'},
 {key:'vac_open',block:'hiring',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
-{key:'vac_closed',block:'hiring',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
+{key:'vac_closed',block:'hiring',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
 {key:'time_to_fill',block:'hiring',name:'Срок закрытия вакансии',short:'Time-to-fill',fmt:'days',better:'lower',unit:'дн',anchor:47,hint:'Среднее время от открытия до закрытия вакансии.'},
 /* План-факт подбора, доля джунов и внутренний найм — пробелы бизнес-анализа:
    в дашборде 34661 они есть, в Hub не было. Все три — доли потока, поэтому
@@ -172,8 +172,8 @@ const METRICS=[
 {key:'internal_share',block:'hiring',name:'Доля внутреннего найма',short:'Внутр.',fmt:'pct',better:'flat',unit:'%',anchor:null,
   derived:{num:'transfer_in',den:['hire','transfer_in'],scale:100,win:'ytd'},
   hint:'Доля пришедших переводом из других команд среди всех пришедших с начала года: какая часть позиций закрыта людьми изнутри компании.'},
-{key:'tgrowth_pass',block:'tgrowth',name:'Прошли T-рост',short:'Прошли',fmt:'int',better:'higher',unit:'чел',anchor:null,hint:'Сотрудники с положительным решением по T-росту.'},
-{key:'tgrowth_deny',block:'tgrowth',name:'Отказано в T-росте',short:'Отказано',fmt:'int',better:'lower',unit:'чел',anchor:null,hint:'Заявки с отрицательным решением.'},
+{key:'tgrowth_pass',block:'tgrowth',name:'Прошли T-рост',short:'Прошли',fmt:'int',flow:true,better:'higher',unit:'чел',anchor:null,hint:'Сотрудники с положительным решением по T-росту.'},
+{key:'tgrowth_deny',block:'tgrowth',name:'Отказано в T-росте',short:'Отказано',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Заявки с отрицательным решением.'},
 {key:'tgrowth_conv',block:'tgrowth',name:'Конверсия T-роста',short:'Конверсия',fmt:'pct',better:'higher',unit:'%',anchor:68,hint:'Доля положительных решений от всех заявок.'},
 /* T@T — время до повышения из сервиса «Рост» (дашборд HQ 34136) */
 {key:'tgrowth_tat',block:'tgrowth',name:'Время до повышения (T@T)',short:'T@T',fmt:'mon',better:'lower',unit:'мес',anchor:16,
@@ -1048,17 +1048,11 @@ MIX_DIMS.forEach(d=>{
 /* Группы разрезов = под-вкладки состава. Правило раскладки одно: на вкладке
    не больше трёх таблиц. Четвёртая уже не влезает в рабочую зону ноутбука,
    а вкладка с прокруткой на два экрана перестаёт быть вкладкой. */
+/* Табличные главы структуры. 15.10: квалификация, люди, оформление и место
+   переехали в две обзорные главы («Кто в команде?», «Как оформлены и где?» —
+   screens/structure.js): заказчик — «вкладок перебор, и одно дублирует другое».
+   Таблицей остались стримы: двухуровневый разрез с кареткой обзором не заменить. */
 const MIX_GROUPS=[
-{key:'qual',name:'Квалификация',dims:['grade','seniority'],
- title:'Квалификация: грейд и сеньорность'},
-{key:'people',name:'Люди',dims:['gender','age','tenure'],
- title:'Кто эти люди: пол, возраст, стаж'},
-/* 14.10: «Оформление» и «География» — одна глава «Как оформлены и где работают»:
-   поодиночке это были две вкладки по две короткие таблицы, а шаг степпера
-   понадобился «Портрету команды». Лёгкие таблицы (без шапки и ИТОГО) четыре
-   разреза держат на одном экране. */
-{key:'work',name:'Оформление и место',dims:['employment','worksite','region','legal'],
- title:'Как оформлены и где работают: занятость, формат, регион, юрлицо'},
 {key:'stream',name:'Стримы',dims:['stream'],
  title:'Стримы и специализации'}
 ];
@@ -1086,8 +1080,12 @@ function mixWeights(leafPath,dimKey){
     /* Согласовано с фильтром «штат / не штат» в шапке: штатный лист весь в ТК,
        нештатный делится между ГПХ, ИП, самозанятыми и аутстаффом. Иначе отбор
        «только штат» показывал бы людей на ГПХ. */
+    /* У юнитов пробника признака штата нет (это фильтр датасета, а не атрибут
+       юнита): там заглушка — смесь, где штат большинство. До 14.10 такой юнит
+       целиком считался нештатным, и «в штате» показывало 0%. */
     w=dim.cats.map((c,i)=>n.staff==='staff'?(i===0?1:0)
-                        :(i===0?0:Math.max(0.02,(c.w||1)*(0.6+r()*0.8))));
+                        :n.staff==='nonstaff'?(i===0?0:Math.max(0.02,(c.w||1)*(0.6+r()*0.8)))
+                        :(i===0?4:Math.max(0.02,(c.w||1)*(0.6+r()*0.8))));
   } else if(dimKey==='legal'){
     /* Юрлицо одно на подразделение: единица в одной категории, а не доли. */
     const acc=[];let s=0;
