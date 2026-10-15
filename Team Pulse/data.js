@@ -146,7 +146,7 @@ const METRICS=[
   derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Какая доля команды уволилась за месяц: отток к средней численности месяца.'},
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с января',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую.'},
-{key:'regret',block:'turnover',aud:'hq',name:'Нежелательная текучесть',short:'Нежелательная',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7},hint:'Доля ушедших, которых компания хотела бы удержать (regrettable), с 1 января. Для HQ есть цель KPI.'},
+{key:'regret',block:'turnover',aud:'hq',name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7},hint:'Доля ушедших, которых компания хотела бы удержать, с 1 января. Для HQ есть цель KPI.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
@@ -271,7 +271,7 @@ const DEV_PLAN=[
     {what:'Движение по специализациям',aud:'hq',stage:'4',now:'todo'}]},
   {blk:'Отток и текучесть',rows:[
     {what:'Отток за месяц и с начала года, текучесть месячная и накопительная',aud:'all',stage:'0',now:'live'},
-    {what:'Нежелательная текучесть',aud:'hq',stage:'0',now:'live'},
+    {what:'Regrettable текучесть',aud:'hq',stage:'0',now:'live'},
     {what:'Светофор текучести: нежелательная и обычная с порогами, списки ушедших',aud:'hq',stage:'0',now:'todo',
       need:'утвердить пороги светофора'},
     {what:'Инициатор увольнения и текучесть по инициативе сотрудника и работодателя',aud:'all',stage:'3',now:'dev'},
