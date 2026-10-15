@@ -649,7 +649,11 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Работает это только вместе с pathLength="1" в draw.js — там длина любой
    ломаной приведена к единице, поэтому dasharray/dashoffset тут константы. */
 @keyframes tp-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
-.svgchart.anim .ln{stroke-dasharray:1;stroke-dashoffset:1;
+/* Скрытая линия — ТОЛЬКО кадр анимации (fill-mode both держит его на время
+   задержки), а не постоянное свойство: при stroke-dashoffset:1 в самом правиле
+   линия пропадала везде, где анимация не идёт (скриншот, печать, PDF,
+   миниатюра борда), и от года оставались пустые кружки без линии (16.10). */
+.svgchart.anim .ln{stroke-dasharray:1;
   animation:tp-draw .76s cubic-bezier(.4,0,.2,1) both}
 /* Пунктирная база рисоваться не может — dasharray у неё занят рисунком штриха */
 .svgchart.anim .lnb{animation:tp-fade .5s ease-out both;animation-delay:.1s}

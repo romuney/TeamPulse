@@ -1381,6 +1381,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
     (wk.match(/<div class="[^"]*" data-mix="worksite:/g)||[]).length===3&&
     (wk.match(/<tr class="urow[^"]*" data-mix="region:/g)||[]).length===7&&
     (wk.match(/<tr class="urow[^"]*" data-mix="legal:/g)||[]).length===4]);
+  /* 16.10, заказчик: «почему тут пустые точки без линии?» — скрытая линия была
+     постоянным свойством .ln, а не кадром анимации: без анимации (скриншот, печать,
+     PDF) год оставался кружками без линии. Скрыта — только в @keyframes. */
+  checks.push(['линия года видна и без анимации: stroke-dashoffset:1 только в @keyframes',
+    /\.svgchart\.anim\.ln\{stroke-dasharray:1;animation:tp-draw/.test(css)&&
+    (css.replace(/\/\*[\s\S]*?\*\//g,'').match(/stroke-dashoffset:1/g)||[]).length===1&&/@keyframestp-draw\{from\{stroke-dashoffset:1\}/.test(css)]);
   /* 16.10, заказчик: «все таблицы и вертикальные списки с барчартами — одинаковая
      высота строки и одинаковое форматирование». Списки портрета и «Где сосредоточено» —
      та же таблица-разбивка; строка, полоса и шрифт — один стандарт в конце styles.css. */
