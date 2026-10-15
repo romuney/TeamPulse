@@ -644,9 +644,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    иначе элемент не участвует в hit-тесте. */
 .hit{fill:#245FD4;fill-opacity:0;transition:fill-opacity .12s}
 .barg:hover .hit,.ptg:hover .hit,.sbg:hover .hit{fill-opacity:.05}
-/* наведение на бар чуть ТЕМНИТ его: осветление мягкого бара на светлом фоне
-   делало его почти невидимым — «при наведении исчезает бар» (14.10) */
-.barg:hover .bar{filter:brightness(.93)}
+/* наведение на бар делает его чуть ЯРЧЕ — насыщеннее (15.10); осветлять нельзя:
+   мягкий бар на светлом фоне почти исчезал — «при наведении исчезает бар» (14.10) */
+.barg:hover .bar{filter:saturate(1.6) brightness(.97)}
 .ptg:hover .dot{r:5.2;stroke-width:2.6}
 .ptg:hover .dotb{r:3.4}
 /* Спарклайн: под курсором подсвечивается конкретный месяц — иначе непонятно,
@@ -1863,14 +1863,14 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-row .v em{margin-left:6px;font-style:normal;color:var(--muted);font-size:11.5px}
 .pt-row.hi .l,.pt-row.hi .v{color:var(--ink);font-weight:var(--fw-bold)}
 .pt-row.hi .v em{font-weight:var(--fw-body)}
-.pt-row:hover .b i{filter:brightness(.93)}
+.pt-row:hover .b i{filter:saturate(1.6) brightness(.97)}
 .pt-more-row{grid-column:1/-1;font-size:12px;color:var(--muted)}
 /* пилюли */
 .pt-pill{position:relative;display:flex;height:40px;border-radius:6px;font-size:12.5px}
 .pt-pill span{display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;min-width:0;padding:0 6px}
 .pt-pill span:first-child{border-radius:6px 0 0 6px}.pt-pill span:last-child{border-radius:0 6px 6px 0}
 .pt-pill span+span{border-left:2px solid var(--card)}
-.pt-pill span:hover{filter:brightness(.93)}
+.pt-pill span:hover{filter:saturate(1.6) brightness(.97)}
 .pt-pill.seg .s0{background:var(--pt-s0);color:var(--ink)}.pt-pill.seg .s1{background:var(--pt-s1);color:var(--ink)}
 .pt-pill.seg .s2{background:var(--pt-s2);color:#fff}.pt-pill.seg .s3{background:var(--pt-s3);color:#fff}
 .pt-pill.seg span b{margin-right:4px;font-weight:var(--fw-bold)}
@@ -1898,7 +1898,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-col .bar{position:relative;flex:1}
 .pt-col .bar i{position:absolute;left:0;right:0;bottom:0;border-radius:3px 3px 0 0;background:var(--pt-dim)}
 .pt-col .c.hi .bar i{background:var(--pt-hi)}
-.pt-col .c:hover .bar i{filter:brightness(.93)}
+.pt-col .c:hover .bar i{filter:saturate(1.6) brightness(.97)}
 .pt-col .bar s{position:absolute;left:-4px;right:-4px;height:2px;margin-bottom:-1px;background:var(--ink);border-radius:1px;text-decoration:none}
 .pt-col .v{position:absolute;left:0;right:0;text-align:center;font-size:13px;color:var(--ink2)}
 .pt-col .n{margin-top:6px;padding-top:6px;border-top:1px solid #c9cdd6;text-align:center;font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1947,7 +1947,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-col .bar .stk i.f{background:var(--pt-f)}.pt-col .bar .stk i.m{background:var(--pt-m)}
 .pt-col .bar .stk i:last-child{border-radius:3px 3px 0 0}
 .pt-col .c:not(.hi) .bar .stk{opacity:.55}
-.pt-col .bar .stk i:hover{filter:brightness(.93)}
+.pt-col .bar .stk i:hover{filter:saturate(1.6) brightness(.97)}
 .pt-pill.two.emp .a{background:var(--pt-hi)}.pt-pill.two.emp .b{background:var(--pt-dim)}
 .pt-two.emp .a{color:var(--pt-s3)}.pt-two.emp .b{color:#8a909c}
 .pt-pill.two s.l em{left:-2px;transform:none}
@@ -1955,3 +1955,9 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-trio{grid-template-columns:repeat(3,minmax(0,1fr))}
 .pt-trio span,.pt-trio em{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pt-gen{max-width:760px}
+
+/* 15.10: наведение на месяц у баров потоков — бар ярче (насыщеннее), а не темнее;
+   прозрачный бар прошлого года проступает сильнее. Осветлять нельзя: мягкий бар
+   на белом от brightness(>1) почти исчезал (14.10). */
+.ptg:hover .bar.up:not(.ghost),.ptg:hover .bar.dn:not(.ghost){filter:saturate(1.6) brightness(.97)}
+.ptg:hover .bar.ghost{fill-opacity:.3}

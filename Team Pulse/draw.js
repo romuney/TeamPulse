@@ -448,8 +448,9 @@ function yoyKey(w,y,col,off,lock,flow){
 }
 /* Месяцы оси года: на узком полотне — через один от января, текущий подписан
    всегда и жирно. «Вы здесь» — тонкая сплошная: пунктиром уже сказаны цель и база. */
-function yoyAxis(X,bandW,top,bot,nowI){
-  let s=line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
+function yoyAxis(X,bandW,top,bot,nowI,bars){
+  /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
+  let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
     if(bandW>=31||i%2===0||i===nowI)
       s+=txt(X(i),bot+15,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
@@ -519,7 +520,7 @@ function yoyPlot(p,ar){
   let s='';
   (ya?ya.notes:[]).forEach(n=>{s+=rect(x0+bandW*n.i+2,top-ANN_ROOM-4,bandW-4,bot-top+ANN_ROOM+4,C_BAND,6)});
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
-  s+=yoyAxis(X,bandW,top,bot,nowI);
+  s+=yoyAxis(X,bandW,top,bot,nowI,!!nm.flow);
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
   if(p.gap&&showMain&&showBench)s+=gapFill(key,cur,bench,X,Y);
   /* Счётный поток (найм, уход, переводы, решения) — барами (14.10, заказчик:
@@ -655,7 +656,6 @@ function drawPair(a,w,h){
   const u=(bot-top)/((mA+mB)||1), y0=top+mA*u;
   const bw=Math.max(6,Math.min(28,bandW*0.56)), gw=ghostW(bw,bandW);
   let s=header(w,o.title,o.legend,{kind:'pair',off:o.off});
-  s+=line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
     if(bandW>=31||i%2===0||i===nowI)
       s+=txt(X(i),h-6,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
