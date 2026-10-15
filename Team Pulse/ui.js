@@ -56,14 +56,27 @@ function placeTip(el,x,y){
 }
 function showTip(target,x,y){
   const el=tipNode();
-  if(_tipFor!==target){_tipFor=target;el.innerHTML=target.getAttribute('data-tip')||''}
+  if(_tipFor!==target){_tipFor=target;el.innerHTML=target.getAttribute('data-tip')||target.getAttribute('data-ell')||''}
   el.classList.add('on');
   placeTip(el,x,y);
 }
 function hideTip(){if(_tipEl){_tipEl.classList.remove('on')}_tipFor=null}
+/* Название в строке таблицы всегда в одну строку (16.10): не влезло — многоточие,
+   а полный текст — та же подсказка, что везде, если своей у строки нет. */
+const ELL='.ptable td.txt .row-body,.ptable td.txt .unit-sub,.mtable .m-sub';
 function tipTarget(e){
   const t=e.target;
-  return t&&t.closest?t.closest('[data-tip]'):null;
+  if(!t||!t.closest)return null;
+  const d=t.closest('[data-tip]');
+  if(d)return d;
+  const c=t.closest(ELL);
+  if(c&&(c.scrollWidth>c.clientWidth+1||c.scrollHeight>c.clientHeight+1)){
+    /* у названия — только оно само, без второй строки под ним */
+    const txt=[...c.childNodes].filter(n=>!(n.classList&&n.classList.contains('unit-sub'))).map(n=>n.textContent).join('').trim();
+    c.setAttribute('data-ell',G.tipHtml({title:txt}));
+    return c;
+  }
+  return null;
 }
 function bindTips(){
   if(!document.addEventListener)return;
@@ -688,10 +701,13 @@ function storyRail(o){
     facts.map(x=>'<li>'+richText(x)+'</li>').join('')+'</ul></div>';
   const fo=o.focus;
   if(fo&&fo.rows&&fo.rows.length)h+='<div class="st-sec"><div class="st-cap">'+esc(fo.cap||'Где сосредоточено')+'</div>'+
-    '<table class="st-focus"><tbody>'+fo.rows.map(r=>'<tr data-selnode="'+esc(r.path)+'"'+
-      tipAttr({title:r.name,text:'Клик — графики этой вкладки по «'+r.name+'».'})+'><td class="nm">'+esc(r.name)+'</td>'+
-      '<td class="v'+(r.st?' '+esc(r.st):'')+'">'+esc(r.val)+'</td>'+
-      '<td class="bar"><i style="width:'+Math.max(4,Math.round((r.w||0)*100))+'%"></i></td></tr>').join('')+
+    /* та же таблица-разбивка, что во всём отчёте: строка, шрифт и полоса — общие */
+    '<table class="ptable btable lite st-focus"><colgroup><col><col class="c-v"><col class="c-bar"></colgroup><tbody>'+
+      fo.rows.map(r=>'<tr class="urow" data-selnode="'+esc(r.path)+'"'+
+      tipAttr({title:r.name,text:'Клик — графики этой вкладки по «'+r.name+'».'})+'><td class="txt"><span class="row-label">'+
+      '<span class="row-body">'+esc(r.name)+'</span></span></td>'+
+      '<td class="lead'+(r.st?' '+esc(r.st):'')+'">'+esc(r.val)+'</td>'+
+      '<td class="barcell"><span class="cellbar"><i style="width:'+Math.max(4,Math.round((r.w||0)*100))+'%"></i></span></td></tr>').join('')+
     '</tbody></table></div>';
   if(o.act)h+='<div class="st-act"><div class="st-cap">Что сделать</div><p>'+richText(o.act.text)+'</p>'+
     (o.act.node?'<button class="btn xs" data-selnode="'+esc(o.act.node)+'">Показать «'+esc(o.act.name)+'»</button>':'')+'</div>';

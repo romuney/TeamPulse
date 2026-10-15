@@ -1260,7 +1260,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .hxtable tr.total td.txt{color:var(--ink)}
 .hxtable tr.hx-sec td{padding:var(--s6) 0 var(--s2) 7px;font-size:var(--fs-cap);text-transform:uppercase;
   letter-spacing:.3px;color:var(--muted);font-weight:var(--fw-bold);background:transparent}
-@media(max-width:1300px){.hxtable td.txt{white-space:normal;max-width:132px}}
 
 /* ---------- Сводная таблица с шестью и больше колонками ----------
    Шапки колонок переносятся по словам: колонка ужимается до самого длинного
@@ -1329,10 +1328,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* ИТОГО тепловой таблицы стоит сверху: линия под ним, отступы клеток — как
    у остальных строк, иначе число съезжало к верхнему краю клетки */
 .hxtable tr.total td.mx-cell{padding:7px var(--s2)}
-/* Таблицы правой панели: на суженной панели имя и пояснение переносятся,
-   а не выталкивают полосу распределения или колонку за край */
-.split-r .btable td.txt,.split-r .btable td.txt .unit-sub,
-.split-r .stable td.txt,.split-r .stable td.txt .unit-sub{white-space:normal}
 
 /* ============================================================================
    Итерация 29: дерево подразделений на три уровня и переход в юнит
@@ -1625,15 +1620,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-facts{margin:0;padding:0 0 0 var(--s8);font-size:var(--fs-body);line-height:1.5;color:var(--ink2)}
 .st-facts li+li{margin-top:var(--s3)}
 .st-facts b{color:var(--ink)}
-.st-focus{width:100%;border-collapse:collapse;font-size:var(--fs-body)}
-.st-focus tr{cursor:pointer}
-.st-focus tr:hover td{background:var(--blue-bg)}
-.st-focus td{padding:5px 0;border-bottom:1px solid var(--line2);color:var(--ink2);vertical-align:middle}
-.st-focus td.nm{padding-right:var(--s4);line-height:1.25}
-.st-focus td.v{text-align:right;padding-right:var(--s5);font-weight:var(--fw-bold);color:var(--ink);white-space:nowrap}
-.st-focus td.v.bad{color:var(--red-tx)}.st-focus td.v.good{color:var(--green-tx)}
-.st-focus td.bar{width:34%}
-.st-focus td.bar i{display:block;height:6px;border-radius:3px;background:var(--bar-soft)}
+.st-focus td.lead.bad{color:var(--red-tx)}.st-focus td.lead.good{color:var(--green-tx)}
 .st-act{padding:var(--s7);border-radius:var(--r4);background:var(--blue-bg);border:1px solid var(--act-line)}
 .st-act .st-cap{color:var(--act-ink)}
 .st-act p{margin:0;font-size:var(--fs-body);line-height:1.45;color:var(--ink)}
@@ -1700,8 +1687,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .mxtable th.mx-tot,.mxtable td.mx-tot{width:64px}
 .mxtable td.mx-cell{height:36px}
 
-.split-r .btable tbody td,.split-r .stable tbody tr:not(.st-sec) td{height:40px;padding-top:4px;padding-bottom:4px}
-.split-r .btable .unit-sub,.split-r .stable .unit-sub{line-height:1.25}
 
 .ptable tbody tr.urow:hover>td,
 .split-r .btable tbody tr:not(.total):hover>td,
@@ -1837,21 +1822,15 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 
 /* Руководитель юнита под именем строки таблицы подразделений (14.10):
    третья строка подписи — тише имени, логин ещё тише */
-.unit-head{display:block;margin-top:1px;font-size:var(--fs-cap);color:var(--ink2);line-height:1.35;white-space:normal}
-/* логин переносится целиком: в узкой колонке он уходит на свою строку, а не режется */
-.unit-head .login{display:inline-block;color:var(--muted)}
+.unit-head{color:var(--ink2)}
+.unit-head .login{color:var(--muted)}
 
 /* ===== 14.10: таблицы структуры — легче и плотнее ===========================
    Фидбэк: «строки слишком широкие, ИТОГО слишком жирная, одно и то же
-   десять раз». Без шапки колонок и без ИТОГО (итог — в карточке), строка
-   30px вместо 40, число обычным начертанием, доля серым, полоса тоньше. */
-.split-r .btable.lite tbody td{height:30px;padding-top:2px;padding-bottom:2px}
-.btable.lite td.lead{font-weight:var(--fw-body);color:var(--ink)}
-.btable.lite tbody td:nth-child(3){color:var(--muted);font-size:var(--fs-note)}
-.btable.lite .cellbar{height:8px;border-radius:var(--r-pill);background:#f3f4f7}
-.btable.lite .cellbar i{border-radius:var(--r-pill)}
+   десять раз». Без шапки колонок и без ИТОГО (итог — в карточке).
+   Высота строки, начертание чисел и полоса с 16.10 — общий стандарт строки
+   (конец файла): «одна высота и одно форматирование у всех таблиц». */
 .btable.lite tbody tr:first-child td{border-top:1px solid var(--line2)}
-.btable.lite tr.lvl2 td{height:26px}
 .bt-stack.lite{gap:20px}
 .bt-stack.lite .bt-group+.bt-group{padding-top:0}
 .bt-all{display:inline-flex;align-items:center;gap:var(--s1);margin-left:auto;font-size:var(--fs-note);
@@ -1880,17 +1859,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-note b{color:var(--ink)}
 .pt-wrap [data-mix]{cursor:pointer}
 /* полосы */
-.pt-hb{display:grid;grid-template-columns:minmax(110px,max-content) 1fr 76px;gap:9px 12px;align-items:center;font-size:13px;color:var(--ink2)}
-.pt-row{display:contents}
-.pt-row .b{position:relative;height:14px;border-radius:3px;background:var(--pt-track)}
-.pt-row .b i{display:block;height:100%;border-radius:3px;background:var(--pt-dim)}
-.pt-row.hi .b i{background:var(--pt-hi)}
-.pt-row .b s{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--ink);border-radius:1px;text-decoration:none}
-.pt-row .v{text-align:right;font-variant-numeric:tabular-nums}
-.pt-row .v em{margin-left:6px;font-style:normal;color:var(--muted);font-size:11.5px}
-.pt-row.hi .l,.pt-row.hi .v{color:var(--ink);font-weight:var(--fw-bold)}
-.pt-row.hi .v em{font-weight:var(--fw-body)}
-.pt-row:hover .b i{filter:saturate(1.6) brightness(.97)}
 .pt-more-row{grid-column:1/-1;font-size:12px;color:var(--muted)}
 /* пилюли */
 .pt-pill{position:relative;display:flex;height:40px;border-radius:6px;font-size:12.5px}
@@ -1959,17 +1927,16 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    «Деп. · N чел», числа и пометки под ними — обычными. Выбранная строка —
    700 без обводки; ИТОГО — 700, тоже без неё. Толще .3px не делать:
    на 12,5px забиваются «е» и «а». */
-.ptable td.txt .row-body,.m-name,.pt-row .l{-webkit-text-stroke:.25px currentColor}
+.ptable td.txt .row-body,.m-name{-webkit-text-stroke:.25px currentColor}
 .ptable td.txt .row-body *,.m-name *{-webkit-text-stroke:0}
 .ptable tr.total .row-body,.ptable tr.urow.empty .row-body,.ptable tr.urow.anc td.txt .row-body,
-.pt-row.hi .l{-webkit-text-stroke:0}
+.pt-tb tr.hi td.txt .row-body{-webkit-text-stroke:0}
 .ptable tr.urow.sel td.txt .row-body{font-weight:var(--fw-bold);-webkit-text-stroke:0}
 
 /* ===== 15.10: обзорные главы структуры («Кто в команде?», «Как оформлены и где?») ===
    Поверх стилей портрета: подпись разбивки под обзором, столбики возраста,
    разложенные по полу, стоят на оси (раньше между столбиком и чертой оси был
    зазор — «барчарт оторван от рисочки»), пилюля «штат / не штат». */
-.pt-sub{margin:12px 0 8px;font-size:11.5px;color:var(--muted)}
 .pt-2.in>div{min-width:0}
 .pt-col .bar{border-bottom:1px solid #c9cdd6}
 .pt-col .n{margin-top:6px;padding-top:0;border-top:0}
@@ -1992,3 +1959,68 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    на белом от brightness(>1) почти исчезал (14.10). */
 .ptg:hover .bar.up:not(.ghost),.ptg:hover .bar.dn:not(.ghost){filter:saturate(1.6) brightness(.97)}
 .ptg:hover .bar.ghost{fill-opacity:.3}
+
+/* ============================================================================
+   16.10: ОДНА СТРОКА НА ВЕСЬ ОТЧЁТ. Заказчик: «все таблицы и вертикальные
+   списки с барчартами — одинаковая высота строки и одинаковое форматирование».
+   До этого строк было семь видов: 57px у подразделений (имя, «Деп. · N чел»
+   и руководитель — тремя строками), 40 у разбивок, 30–47 у таблиц структуры,
+   36 у матриц, 26 у «Где сосредоточено», 24 у списков портрета; полос — пять
+   (6, 8, 13, 14px, пилюлей и без подложки).
+   Теперь:
+   - строка данных и ИТОГО — 36px (--row-h): две строки текста — название и
+     пояснение под ним; подзаголовок внутри таблицы — 28px (--row-sec-h);
+   - название и пояснение — по одной строке; не влезло — многоточие, полный
+     текст в подсказке (ui.js, tipTarget); переносов нет — и высота не скачет;
+   - название 12,5px, пояснение 11px серым; первое число — жирным, остальные
+     обычным; разделитель 1px; наведение — вся строка;
+   - полоса одна: 10px, скругление 2px, серая подложка; засечка базы — 2px.
+   Списки портрета и «Где сосредоточено» — та же таблица-разбивка (`btable`).
+   One-pager (метрика с описанием и спарклайном) и план метрик (каталог
+   текстом) — не разбивки: у них своя строка.
+   ========================================================================== */
+:root{--row-h:36px;--row-sec-h:28px;--bar-h:10px;--bar-r:2px;--bar-track:#f1f3f6}
+#view .ptable>tbody>tr>td{height:var(--row-h);padding-top:0;padding-bottom:0;vertical-align:middle;line-height:1.25}
+#view .ptable>tbody>tr.st-sec>td,#view .ptable>tbody>tr.hx-sec>td{height:var(--row-sec-h);padding-top:0;padding-bottom:var(--s2);vertical-align:bottom}
+#view .ptable>tbody>tr.tree-empty>td{height:auto;padding-top:var(--s6);padding-bottom:var(--s6);white-space:normal}
+/* матрица: клетки с зазором 2px — сама клетка на 2px ниже, шаг строки тот же */
+#view .mxtable>tbody>tr>td{height:calc(var(--row-h) - 2px)}
+#view .mxtable>tbody>tr.hx-sec>td{height:calc(var(--row-sec-h) - 2px)}
+#view .mxtable tr.total td,#view .mxtable tr.total td.mx-sum,#view .hxtable tr.total td.mx-cell{padding-top:0;padding-bottom:0}
+/* название и пояснение — по одной строке */
+#view .ptable td.txt .row-label{align-items:center;width:0;min-width:100%}
+#view .ptable td.txt .row-body{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#view .ptable td.txt .unit-sub{display:block;margin-top:1px;line-height:1.25;font-size:var(--fs-cap);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#view .mxtable td.txt,#view .hxtable td.txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* числа: первое — жирным, остальные обычным, все одним кеглем */
+#view .ptable td{font-size:var(--fs-body)}
+#view .btable td.lead,#view .stable td.lead{font-weight:var(--fw-bold);color:var(--ink)}
+#view .btable td:not(.txt):not(.lead):not(.barcell){font-weight:var(--fw-body);color:var(--ink)}
+/* полоса */
+#view .cellbar{position:relative;display:block;width:100%;height:var(--bar-h);background:var(--bar-track);
+  border-radius:var(--bar-r);overflow:visible}
+#view .cellbar i{display:block;height:100%;min-width:2px;border-radius:var(--bar-r);background:var(--bar-soft)}
+#view .cellbar s{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--ink);
+  border-radius:1px;text-decoration:none}
+/* списки портрета: выделенная строка — синяя полоса и полужирное название, остальные серые */
+#view .pt-tb .cellbar i{background:var(--pt-dim)}
+#view .pt-tb tr.hi .cellbar i{background:var(--pt-hi)}
+#view .pt-tb tr.hi td.txt .row-body{font-weight:var(--fw-bold)}
+#view .pt-tb{table-layout:fixed}
+#view .pt-tb col.c-n{width:52px}#view .pt-tb col.c-p{width:44px}
+#view .st-focus{table-layout:fixed}
+#view .st-focus col.c-v{width:64px}#view .st-focus col.c-bar{width:38%}
+#view .hxtable td.txt{color:var(--ink)}
+/* таблица подразделений: название забирает всё, что не нужно числам, — числа
+   по своей ширине; имя и вторая строка режутся реже */
+#view .split-l .ptable.dense th.txt{width:100%}
+#view .pt-tb col.c-bar{width:34%}
+#view .pt-cap{margin:var(--s7) 0 var(--s4)}
+/* One-pager: строка метрики — название, пояснение и спарклайн, поэтому своя
+   высота, но одна на всю таблицу: 64px. Пояснение — не больше двух строк
+   (целиком — в подсказке), ориентир — в две: «KPI цель 4,0%» и оценка под ней. */
+#view .mtable>tbody>tr.mrow>td{height:64px;padding-top:0;padding-bottom:0}
+#view .mtable .m-sub{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3}
+#view .mtable .tgt b{display:inline}
+#view .mtable .tgt .sig-chip{display:block;width:max-content;margin:3px auto 0}

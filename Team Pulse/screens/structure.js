@@ -128,14 +128,21 @@ function ptTip(r,bench){
     note:!r.id?r.why||null:r.on?'Срез по «'+r.name+'» взят. Клик снимает его.':'Клик — срез по «'+r.name+'»'+NOTE_CUT+'.'});
 }
 const mixAt=r=>r.id?' data-mix="'+U.esc(r.id)+'"':'';
-/* полосы: подпись · полоса с засечкой базы · доля и люди; sort — по убыванию */
+/* полосы — та же таблица-разбивка, что во всём отчёте (16.10, «одна высота строки
+   и одно форматирование у всех таблиц и списков с полосами»): название · люди ·
+   доля · полоса с засечкой базы; sort — по убыванию */
 function ptBars(rows,bench,o){
   o=o||{};
   const list=o.sort?rows.slice().sort((x,y)=>y.n-x.n):rows;
   const max=Math.max(1,...list.map(r=>Math.max(r.p,r.b)));
-  return (o.cap?'<div class="pt-sub">'+U.esc(o.cap)+'</div>':'')+'<div class="pt-hb">'+list.map(r=>'<div class="pt-row'+(r.hi?' hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
-    '<span class="l">'+U.esc(r.name)+'</span><span class="b"><i style="width:'+(r.p/max*100).toFixed(1)+'%"></i>'+
-    '<s style="left:'+(r.b/max*100).toFixed(1)+'%"></s></span><span class="v">'+r.p+'%<em>'+D.fmtInt(r.n)+'</em></span></div>').join('')+'</div>';
+  /* подпись таблицы — как у всех разбивок (bt-cap), а не серой сноской */
+  return (o.cap?'<div class="bt-cap pt-cap">'+U.esc(o.cap)+'</div>':'')+
+    '<table class="ptable btable lite pt-tb"><colgroup><col><col class="c-n"><col class="c-p"><col class="c-bar"></colgroup><tbody>'+
+    list.map(r=>'<tr class="'+(r.id?'urow':'')+(r.hi?' hi':'')+(r.on?' sel':'')+'"'+mixAt(r)+ptTip(r,bench)+'>'+
+      '<td class="txt"><span class="row-label"><span class="row-body">'+U.esc(r.name)+'</span></span></td>'+
+      '<td class="lead">'+D.fmtInt(r.n)+'</td><td>'+r.p+'%</td>'+
+      '<td class="barcell"><span class="cellbar"><i style="width:'+(r.p/max*100).toFixed(1)+'%"></i>'+
+      '<s style="left:'+(r.b/max*100).toFixed(1)+'%"></s></span></td></tr>').join('')+'</tbody></table>';
 }
 /* пилюля по ступеням: ступени — от светлой к густой, база строкой под ней */
 function ptSteps(rows,bench){
@@ -209,7 +216,7 @@ function overviewWho(ctx){
       ptSec(c.says,'Опыт в компании','ten',ptPeople(TEN,bench))+'</div>'+
     /* сверху пилюлька — пол, ниже разбивка — возраст, разложенный по полу */
     ptSec(c.says,'Пол и возраст','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+
-      (two?'<div class="pt-sub">возраст — женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench)
+      (two?'<div class="bt-cap pt-cap">возраст — женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench)
           :ptBars(AGE,bench,{cap:'по возрасту'}))+'</div>')+
     '<div class="pt-more"><button class="pt-go" data-subtab="custom">Пол × грейд и другие пары — в «Своём срезе» →</button></div></div>';
 }
@@ -230,7 +237,7 @@ function overviewWork(ctx){
   const pill=ptSplit(staff,other,bench,'emp');
   hiOf(non);
   /* тип договора — второй пилюлей в «Оформлении»: тот же вопрос «как оформлены» */
-  const con=CON?(CON.length===2?'<div class="pt-sub">тип договора</div>'+ptSplit(CON[0],CON[1],bench,'emp')
+  const con=CON?(CON.length===2?'<div class="bt-cap pt-cap">тип договора</div>'+ptSplit(CON[0],CON[1],bench,'emp')
     :ptBars(CON,bench,{cap:'тип договора'})):'';
   const secs=[ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'})+con),
     FMT?ptSec(c.says,'Формат работы','fmt',ptTrio(FMT,bench)):'',

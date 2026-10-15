@@ -387,7 +387,9 @@ function renderBlock(S,expanded,mixOpen,view){
         D.fmtVal('hc_total',val(lp,'hc_total'))+' чел'+
       (below?' · <span class="below"'+U.tipAttr({title:'Ниже ещё '+below+' '+U.plural(below,['подразделение','подразделения','подразделений']),
           text:'Таблица показывает три уровня вниз.\nГлубже — выберите строку и нажмите значок у её названия.'})+
-        '>ниже ещё '+below+'</span>':'')+'</span>'+U.unitHead(r.n)+'</span>'+
+        '>ниже ещё '+below+'</span>':'')+
+      /* руководитель — в той же второй строке: строка таблицы везде в две строки текста (16.10) */
+      (U.unitHead(r.n)?' · '+U.unitHead(r.n):'')+'</span></span>'+
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+

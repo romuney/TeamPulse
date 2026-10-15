@@ -739,7 +739,7 @@ checks.push(['марки графиков помечены data-s',
   const qual=A.go('structure','portrait');
   checks.push(['куски обзора кликаются: у них есть data-mix',
     /<span class="s2" data-mix="seniority:s"/.test(qual)&&
-    /<div class="pt-row[^"]*" data-mix="grade:g1"/.test(qual)]);
+    /<tr class="urow[^"]*" data-mix="grade:g1"/.test(qual)]);
   const hcAll=D.lastVal(rl,'hc_total'), hcSen=D.lastValSlice(rl,'hc_total',['seniority:s']);
   checks.push(['срез режет численность, а не оставляет её прежней',
     hcSen>0&&hcSen<hcAll]);
@@ -1371,16 +1371,25 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['обзоры: «Кто в команде?» — 3 раздела, «Как оформлены и где?» — 4; у каждого вывод; куски кликаются',
     (pt.match(/<section class="pt-s/g)||[]).length===3&&(pt.match(/<h4>/g)||[]).length===3&&
     (pt.match(/<span class="s\d[^"]*" data-mix="seniority:/g)||[]).length===4&&
-    (pt.match(/class="pt-row[^"]*" data-mix="grade:/g)||[]).length===5&&
+    (pt.match(/<tr class="urow[^"]*" data-mix="grade:/g)||[]).length===5&&
     (pt.match(/class="pt-man t\d"/g)||[]).length===10&&
     /class="a" data-mix="gender:f"/.test(pt)&&(pt.match(/<i class="[fm]" data-mix="age:a\d+,gender:[fm]"/g)||[]).length===8&&
     /Типичный человек в команде — /.test(pt)&&
     (wk.match(/<section class="pt-s/g)||[]).length===4&&(wk.match(/<h4>/g)||[]).length===4&&
     /<span class="a" data-mix="employment:tk"/.test(wk)&&/<span class="b" style/.test(wk)&&
-    (wk.match(/class="pt-row[^"]*" data-mix="employment:/g)||[]).length===4&&
+    (wk.match(/<tr class="urow[^"]*" data-mix="employment:/g)||[]).length===4&&
     (wk.match(/<div class="[^"]*" data-mix="worksite:/g)||[]).length===3&&
-    (wk.match(/class="pt-row[^"]*" data-mix="region:/g)||[]).length===7&&
-    (wk.match(/class="pt-row[^"]*" data-mix="legal:/g)||[]).length===4]);
+    (wk.match(/<tr class="urow[^"]*" data-mix="region:/g)||[]).length===7&&
+    (wk.match(/<tr class="urow[^"]*" data-mix="legal:/g)||[]).length===4]);
+  /* 16.10, заказчик: «все таблицы и вертикальные списки с барчартами — одинаковая
+     высота строки и одинаковое форматирование». Списки портрета и «Где сосредоточено» —
+     та же таблица-разбивка; строка, полоса и шрифт — один стандарт в конце styles.css. */
+  const cssStd=css.replace(/\s+/g,'');
+  checks.push(['одна строка на весь отчёт: списки с полосами — таблица-разбивка, высота 36px, полоса одна, старых правил нет',
+    /<table class="ptable btable lite pt-tb">/.test(pt)&&/<table class="ptable btable lite st-focus">/.test(A.go('turnover','dynamics'))&&
+    /:root\{--row-h:36px;--row-sec-h:28px;--bar-h:10px;--bar-r:2px;/.test(cssStd)&&
+    /#view\.ptable>tbody>tr>td\{height:var\(--row-h\)/.test(cssStd)&&
+    !/\.pt-hb\{|\.pt-row|height:40px;padding-top:4px|\.btable\.lite\.cellbar\{height:8px|\.st-focustd\.bari/.test(cssStd)]);
   A.mix(['seniority:s']);
   const ps=A.go('structure','portrait');
   const n=(ps.match(/(\d+)\s+человека?<\/b>\s+в срезе/)||[])[1];

@@ -34,7 +34,7 @@ SC.blocks.tgrowth={
       return SC.metricLine('tgrowth_tat',ctx.lp,ctx.bl,ctx.S,
           {h:250,fill:false,title:'Время до повышения (T@T), мес',ann:ctx.ann.tgrowth_tat})+
         '<div class="bt-group"><div class="bt-cap">Заявки на T-рост по типу<span class="bt-sub">за 12 месяцев</span></div>'+
-        U.statTable({cols:['Заявок','Одобрено','Отклонено','Конверсия'],fmts:['int','int','int','pct'],firstTotal:false,
+        U.statTable({cols:['Заявок','Одобрено','Отклонено','Конверсия'],fmts:['int','int','int','pct'],
           rows:[{name:'ИТОГО',total:true,vals:[tg.pass+tg.deny,tg.pass,tg.deny,pct(tg.pass,tg.pass+tg.deny)]}]
             .concat(tg.types.map(t=>({name:t.name,vals:[t.pass+t.deny,t.pass,t.deny,pct(t.pass,t.pass+t.deny)]})))})+
         '</div><div class="tbl-note">Те же решения, что на вкладке «Растут ли люди внутри?», за 12 месяцев.</div>';
