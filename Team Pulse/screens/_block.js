@@ -120,9 +120,6 @@ function yoyChart(key,lp,bl,S,opt){
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
   const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
   const col=opt.color||YOY_COLOR[key]||G.C_LINE;
-  /* у накопительной метрики с прогнозом (fc) декабрь получает точку run-rate:
-     «чем закончится год, если темп сохранится» читается прямо на полотне */
-  const fcK=(D.METRIC_BY_KEY[key]||{}).fc;
   /* счётный поток (найм, уход…) — бар этого года, позади прозрачный бар прошлого (15.10) */
   const flow=!!(D.METRIC_BY_KEY[key]||{}).flow;
   const legend=(flow?[{name:String(D.YEAR_CUR),color:G.soft(col)},{name:String(D.YEAR_PREV),color:col,ghost:true}]
@@ -131,7 +128,7 @@ function yoyChart(key,lp,bl,S,opt){
   /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
      базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
-    Object.assign({legend,benchName:bench,kpi:kpi,fc:fcK?D.lastVal(lp,fcK):null,h:300,fill:true,gap:cmp},opt,{color:col}));
+    Object.assign({legend,benchName:bench,kpi:kpi,h:300,fill:true,gap:cmp},opt,{color:col}));
 }
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
@@ -192,10 +189,9 @@ const DEV_TABS={
     who:{stage:3,t:'Стаж, грейд и стрим ушедших — заглушка. Живой только отток в ИТОГО.',need:'атрибуты ушедших на дату увольнения (витрина оттока) и ответ 0а'}},
   hiring:{vacancies:{stage:2,t:'Вакансии и срок закрытия — заглушка: нужен источник вакансий (vacancy_daily_for_digest).'},
     plan:{stage:2,part:true,t:'План найма — заглушка (plan_fact_tf_rabota); факт — живой найм.'},
-    profile:{stage:2,part:true,t:'Каналы, сеньорность и грейд найма — заглушка (atributy_nayma); живой только найм в ИТОГО.'},
-    funnel:{stage:2,t:'Воронка — заглушка: коэффициенты этапов — допущение, нужен источник вакансий и этапов подбора.'}},
+    profile:{stage:2,part:true,t:'Каналы и грейд найма — заглушка (atributy_nayma); живой только найм в ИТОГО.'}},
   tgrowth:{'*':{stage:6,t:'T-рост — заглушка: нужны заявки и решения сервиса «Рост».'}},
-  monitor:{both:{stage:5,part:true,t:'Низкая оценка — живая; недоработка и «улучшили оценку» — заглушка.'},
+  monitor:{both:{stage:5,t:'Недоработка и «улучшили оценку» — заглушка: нужны табель и review_digest_us.'},
     review:{stage:5,t:'Итоги ревью — заглушка (review_digest_us).'}},
   office:{'*':{stage:7,t:'Посещаемость и бронирование — заглушка: нужны СКУД и система бронирования.'}},
   ai:{'*':{stage:8,t:'AI-инструменты — заглушка: нужна AI-витрина (penetration_unit, wau).'}}
@@ -208,7 +204,7 @@ const DEV_LIVE={
     '*':{stage:6,t:'Типы заявок, T@T и статусы по грейдам — заглушка: в hr_structure_overall есть только решения по заявкам '+
       '(GRT) — они и конверсия на вкладке «Растут ли люди внутри?» живые.'}},
   office:{live:['office_att'],subs:['dynamics'],
-    '*':{stage:7,t:'Календарь по дням, офисы, «кто ходит» и бронирование — заглушка: в hr_structure_overall посещения есть '+
+    '*':{stage:7,t:'Календарь по дням, города, «кто ходит» и бронирование — заглушка: в hr_structure_overall посещения есть '+
       'только суммой за месяц по юниту. Посещаемость на вкладке «Ходят больше или меньше?» — живая.'}}
 };
 function devOf(bk,sub){

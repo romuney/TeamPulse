@@ -236,7 +236,7 @@ checks.push(['минус во всех дельтах типографский, 
     /\.kpi\{display:grid;grid-template-rows:subgrid;grid-row:span5;row-gap:0\}/.test(css)&&
     /@supports\(grid-template-rows:subgrid\)/.test(css)]);
   checks.push(['метрики движения персонала стоят своим числом колонок',
-    nMv===7&&new RegExp('class="kpis compact n'+nMv+'"').test(mvHtml)&&
+    nMv===5&&new RegExp('class="kpis compact n'+nMv+'"').test(mvHtml)&&
     new RegExp('\\.kpis\\.n'+nMv+'\\{grid-template-columns:repeat\\('+nMv).test(css)]);
 })();
 
@@ -269,7 +269,7 @@ checks.push(['минус во всех дельтах типографский, 
 /* Среднесписочная ушла из отчёта, но осталась знаменателем текучести;
    на её место в движении персонала встал прирост с начала года. */
 checks.push(['среднесписочной численности нет среди метрик отчёта',
-  !D.METRIC_BY_KEY['hc_avg']&&!/Среднесписочная/.test(allHtml)&&D.METRICS.length===30]);
+  !D.METRIC_BY_KEY['hc_avg']&&!/Среднесписочная/.test(allHtml)&&D.METRICS.length===26]);
 checks.push(['ряд hc_avg жив: текучесть по-прежнему считается',
   D.aggregate(rl,'hc_avg')[D.LAST]>0]);
 (function(){
@@ -302,11 +302,11 @@ checks.push(['состав: два обзора, стримы таблицей �
 /* итерация 28 (бизнес-анализ): план-факт и профиль найма, заявки и статусы
    роста, бронирование и «кто ходит» встали своими вкладками; срок закрытия
    по-прежнему панелью к вакансиям, конверсия T-роста — рядом с решениями */
-checks.push(['срок закрытия не отдельная вкладка, план-факт и профиль найма — свои',
-  subsOf('hiring')==='vacancies,plan,profile,funnel']);
+checks.push(['срок закрытия не отдельная вкладка, план-факт и профиль найма — свои; воронки нет (15.10)',
+  subsOf('hiring')==='vacancies,plan,profile']);
 checks.push(['T-рост: конверсия с решениями на одной вкладке, заявки и статусы — на своих',
   subsOf('tgrowth')==='flow,requests,statuses']);
-checks.push(['офис — календарь, офисы и города, кто ходит, бронирование, динамика',
+checks.push(['офис — календарь, города, кто ходит, бронирование, динамика',
   subsOf('office')==='calendar,offices,people,booking,dynamics']);
 checks.push(['AI — проникновение, инструменты и стримы',subsOf('ai')==='adoption,tools']);
 /* неизвестная под-вкладка из старой ссылки не должна ломать экран */
@@ -409,12 +409,12 @@ checks.push(['дни недели — таблица, а не бар-чарт',
 checks.push(['выдуманные данные помечены сноской',
   /реального источника под ними пока нет/.test(calHtml)&&
   /реального источника под ними пока нет/.test(A.go('office','offices'))]);
-const rank=D.officeRank(D.reportLeaves(D.DEFAULT_STATE));
-checks.push(['рейтинг офисов: сумма людей = численность отбора, сортировка по посещаемости',
-  rank.reduce((a,o)=>a+o.hc,0)===D.lastVal(D.reportLeaves(D.DEFAULT_STATE),'hc_total')&&
-  rank.every((o,i)=>!i||rank[i-1].att>=o.att)]);
-checks.push(['в рейтинге нет колонки «Доля»: доля процента в сумме процентов не считается',
-  !/<th>Доля<\/th>/.test(A.go('office','offices'))]);
+const cities=D.officeByCity(D.reportLeaves(D.DEFAULT_STATE)), offHtml=A.go('office','offices');
+checks.push(['города: сумма людей = численность отбора, сортировка по посещаемости',
+  cities.reduce((a,o)=>a+o.hc,0)===D.lastVal(D.reportLeaves(D.DEFAULT_STATE),'hc_total')&&
+  cities.every((o,i)=>!i||cities[i-1].att>=o.att)]);
+checks.push(['рейтинга офисов нет (15.10), в таблице городов нет колонки «Доля»',
+  !/Сравнение офисов/.test(offHtml)&&/Сравнение городов/.test(offHtml)&&!/<th>Доля<\/th>/.test(offHtml)]);
 
 /* 12. выбор метрик пользователем: отключённое не должно попадать ни в строки
    one-pager, ни в столбцы сводной таблицы, ни в KPI-карточки */
@@ -988,27 +988,25 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const sum=a=>a.reduce((x,y)=>x+y,0);
   const ytd=k=>D.sumWin(D.aggregate(rl0,k),'ytd');
 
-  checks.push(['восемь блоков: AI-инструменты — восьмой, тридцать метрик, сравнимых восемнадцать',
+  checks.push(['восемь блоков: AI-инструменты — восьмой, двадцать шесть метрик (15.10, по каталогу), сравнимых четырнадцать',
     D.BLOCKS.length===8&&D.BLOCKS[7].key==='ai'&&D.metricsOfBlock('ai').length===2&&
-    D.METRICS.length===30&&D.METRICS.filter(m=>D.comparable(m.key)).length===18]);
+    D.METRICS.length===26&&D.METRICS.filter(m=>D.comparable(m.key)).length===14]);
 
   /* --- производные метрики: формулы --- */
   const e=k=>D.aggregate(rl0,k)[D.LAST];
-  checks.push(['коэффициент замещения = найм к оттоку с начала года',
-    near(e('replace_ratio'),ytd('hire')/ytd('attrition'),0.0001)]);
-  checks.push(['найм на 100 человек = найм / среднесписочная × 100',
-    near(e('hire_rate'),e('hire')/e('hc_avg')*100,0.006)]);
-  checks.push(['прогноз годовой текучести = накопительная / месяцев года × 12',
-    near(e('turnover_fc'),e('turnover_y')/(D.MONTHS[D.LAST].m+1)*12,0.006)]);
+  /* 15.10: замещение, найм на 100, прогноз текучести и лоу-перформеры сняты —
+     их нет в каталоге графиков HQ и УС */
+  checks.push(['выдуманных метрик нет: только то, что есть в каталоге HQ и УС',
+    ['replace_ratio','hire_rate','turnover_fc','low_perf'].every(k=>!D.METRIC_BY_KEY[k])&&
+    D.METRICS.every(m=>D.AUD_LABEL[m.aud])]);
   checks.push(['проникновение AI = активные пользователи / активная численность',
     near(e('ai_penetration'),e('ai_wau')/e('hc_active')*100,0.006)]);
-  checks.push(['на «год к году» накопительной текучести стоит прогноз на декабрь',
-    /прогноз [\d,]+%/.test(SC.yoyChart('turnover_y',rl0,bl0,S0,{}))&&
-    !/прогноз/.test(SC.yoyChart('turnover_m',rl0,bl0,S0,{}))]);
+  checks.push(['прогноза на декабрь нет: run-rate снят вместе с метрикой',
+    !/прогноз/.test(SC.yoyChart('turnover_y',rl0,bl0,S0,{}))]);
 
   /* --- разбивки сходятся со своими метриками --- */
   const hp=D.hiringProfile(rl0,'ytd');
-  checks.push(['профиль найма: строка Junior = доля джунов, переводы = доля внутреннего найма',
+  checks.push(['профиль найма: джуны = доля джунов, переводы = доля внутреннего найма',
     hp.total===ytd('hire')&&sum(hp.seniority.map(x=>x.value))===hp.total&&
     sum(hp.grade.map(x=>x.value))===hp.total&&sum(hp.channels.map(x=>x.value))===hp.total&&
     near(hp.jun/hp.total*100,e('junior_share'))&&near(hp.tin/(hp.total+hp.tin)*100,e('internal_share'))]);
@@ -1043,9 +1041,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     near(wavg(D.attByGrade(rl0)),e('office_att'),0.11)&&near(wavg(D.attByRoleLoc(rl0)),e('office_att'),0.11)&&
     sum(D.attByRoleLoc(rl0).map(r=>r.hc))===Math.round(e('hc_total'))]);
   const ai=D.aiProfile(rl0);
-  checks.push(['AI: по стримам в среднем = проникновению, ни один инструмент не выше общего',
-    near(sum(ai.streams.map(x=>x.hc*x.value))/sum(ai.streams.map(x=>x.hc)),ai.pen,0.11)&&
-    ai.tools.every(t=>t.value<=ai.pen)]);
+  checks.push(['AI: ни один инструмент не выше общего проникновения, стримов нет (15.10)',
+    !ai.streams&&ai.tools.every(t=>t.value<=ai.pen)&&!/Сравнение стримов/.test(A.go('ai','tools'))]);
   /* 14.10: «Оформление» и «География» — одна глава «Как оформлены и где работают» */
   checks.push(['регион — разрез главы «Как оформлены и где», матрица «регион × специализация» сходится',
     /data-mix="region:msk"/.test(A.go('structure','work'))&&
@@ -1070,9 +1067,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
     SC.onepager.HERO.indexOf('ai_penetration')>=0&&/<div class="kpis n4">/.test(op)]);
   const mv=A.go('movement','balance');
   checks.push(['в карточках KPI блока есть спарклайн',
-    (mv.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[]).filter(c=>/class="spark"/.test(c)).length===7]);
-  checks.push(['у широкой сводной таблицы левая колонка шире, а ниже 1240px она встаёт над графиком',
-    /class="split wide-l[ "]/.test(mv)&&!/class="split wide-l/.test(A.go('turnover','dynamics'))&&
+    (mv.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[]).filter(c=>/class="spark"/.test(c)).length===D.metricsOfBlock('movement').length]);
+  /* 15.10: после чистки по каталогу ни в одном блоке нет 7 метрик — широкой
+     таблицы нет, но правило раскладки остаётся на случай новых метрик */
+  checks.push(['широкая сводная таблица — от 7 метрик (сейчас таких блоков нет), ниже 1240px встаёт над графиком',
+    D.BLOCKS.every(b=>D.metricsOfBlock(b.key).length<7)&&!/class="split wide-l/.test(mv)&&
     /\.split\.wide-l\{grid-template-columns:minmax\(min-content,\.9fr\)/.test(css)&&
     /@media\(max-width:1240px\)\{\.split\.wide-l\{grid-template-columns:1fr;height:auto\}/.test(css)]);
   checks.push(['имя подразделения липкое: широкая таблица прокручивается внутри панели',
@@ -1297,14 +1296,13 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['история: разрыв линии с базой залит цветом светофора',/class="gapf"/.test(allHtml)]);
   /* палитра A: одиночные метрики — кобальтом, цвет только у потоков */
   checks.push(['палитра «смысловая»: одиночные метрики — кобальтом, потоки — насыщенными тонами',
-    G.C_VAC===G.C_LINE&&G.C_UNDER===G.C_LINE&&G.C_LOWPERF===G.C_LINE&&G.C_AI===G.C_LINE&&
+    G.C_VAC===G.C_LINE&&G.C_UNDER===G.C_LINE&&G.C_REVIEW===G.C_LINE&&G.C_AI===G.C_LINE&&
     G.C_HIRE==='#14A38B'&&G.C_FIRE==='#8A4FD8']);
-  /* бары и полосы — мягкие ступени (13.10): водопад, воронка, полосы таблиц */
-  const bal=A.go('movement','balance'), fun=A.go('hiring','funnel'), rsn2=A.go('turnover','reasons');
-  checks.push(['бары мягкие: водопад мятный/сиреневый, воронка одним мягким тоном, полосы таблиц мягкие',
+  /* бары и полосы — мягкие ступени (13.10): водопад, полосы таблиц */
+  const bal=A.go('movement','balance'), rsn2=A.go('turnover','reasons');
+  checks.push(['бары мягкие: водопад мятный/сиреневый, полосы таблиц мягкие',
     G.soft(G.C_IN)==='#66C8AE'&&G.soft(G.C_OUT)==='#A88AD9'&&/fill="#66C8AE"[^>]*class="bar up"/.test(bal)&&
     /fill="#A88AD9"[^>]*class="bar up"/.test(bal)&&!/fill="#14A38B"[^>]*class="bar/.test(bal)&&
-    new Set([...fun.matchAll(/fill="(#[0-9A-Fa-f]{6})"[^>]*class="bar fn"/g)].map(m=>m[1])).size===1&&
     /background:#A88AD9/.test(rsn2)&&!/background:#8A4FD8/.test(rsn2)&&/--bar-soft:#7FA2E6/.test(css)]);
   /* жирное в тексте истории собирается только через richText — без сырой разметки */
   checks.push(['история: текст экранируется, жирное — только через **…**',
@@ -1319,8 +1317,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !/data-dyn=|dyn-switch/.test(allHtml)&&!/dyn-switch/.test(css)&&!('dyn' in D.DEFAULT_STATE)&&!U.dynSwitch]);
   /* все графики динамики детальных вкладок стоят на оси года: у колонок месяца
      data-mi 0–11, скользящих видов в движке больше нет */
-  checks.push(['скользящих графиков в движке нет: только год к году, водопад, воронка, календарь',
-    !G.SERIES.line&&!G.SERIES.bars&&/data-mi="11"/.test(A.go('turnover','dynamics'))&&
+  checks.push(['скользящих графиков в движке нет: только год к году, водопад, календарь',
+    !G.SERIES.line&&!G.SERIES.bars&&!G.SERIES.funnel&&/data-mi="11"/.test(A.go('turnover','dynamics'))&&
     /data-mi="11"/.test(A.go('movement','dynamics'))&&/data-mi="11"/.test(A.go('hiring','vacancies'))]);
   const S0=D.DEFAULT_STATE, rl0=D.reportLeaves(S0), bl0=D.benchmarkLeaves(S0);
   const ov=I.overview(S0,rl0,bl0), op=A.op([]);
@@ -1403,7 +1401,13 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !D.isDev('office_att')&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
   checks.push(['«в разработке»: сводка готовности на One-pager с планом этапов',
     /class="dev-sum"/.test(op)&&new RegExp('<b>'+(D.METRICS.length-devK.length)+' из '+D.METRICS.length+'</b>').test(op)&&
-    (op.match(/<tr><td>[^<]*<\/td>/g)||[]).length>=D.DEV_PLAN.length]);
+    (op.match(/<tr class="plan-(live|dev|todo|extra)">/g)||[]).length===D.DEV_PLAN.reduce((a,g)=>a+g.rows.length,0)]);
+  /* 15.10: план — каталог графиков HQ и УС; у каждой строки «для кого» и статус */
+  const pn=D.planCount();
+  checks.push(['план по каталогу: у строк «для кого» и статус, есть что добавить и что решить',
+    D.DEV_PLAN.every(g=>g.rows.every(r=>D.AUD_LABEL[r.aud]&&D.PLAN_NOW[r.now]&&(r.now!=='dev'||D.devPlan(r.stage))))&&
+    pn.todo>0&&pn.extra>0&&/добавить из каталога/.test(op)&&/class="aud-tag hq"/.test(op)&&/class="aud-tag us"/.test(op)&&
+    !/[Вв]оронка найма|[Лл]оу-перформ|[Пп]рогноз текучести/.test(op)]);
   checks.push(['«в разработке»: в навигации блок целиком (AI, офис нет — посещаемость живая) и частично',
     /data-tab="ai"[^>]*>[\s\S]*?nav-dev full/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&
     !/data-tab="movement"[^>]*>[^<]*<span class="ico[^"]*"><\/span>[^<]*<span class="nav-dev/.test(nav)&&SC.blockDev('office')==='part']);

@@ -23,7 +23,7 @@
 | Файл | Неймспейс | Ответственность |
 |---|---|---|
 | `data.js` | `TPDATA` | Оргдерево, метрики, генератор моков, агрегация, текучесть, формат, светофор |
-| `draw.js` | `TPDRAW` | SVG: line, yoy, bars, diverge, panels, waterfall, funnel, calendar, 2 спарклайна |
+| `draw.js` | `TPDRAW` | SVG: line, yoy, bars, diverge, panels, waterfall, calendar, 2 спарклайна |
 | `ui.js` | `TPUI` | KPI-карточка, чипы, ячейка сравнения, плашка инсайта, `barTable`, `matrixTable`, `statTable`, `heatTable`, тултип |
 | `mascot.js` | `TPMASCOT` | Пульс: картинки WebP в base64, эмоция вкладки, словарь метрик |
 | `insights.js` | `TPINSIGHTS` | Отбор фактов по порогам `INS_GAP` / `INS_TREND` / `INS_CONC` |
@@ -74,10 +74,11 @@ benchmarkLeaves(st) = ВСЕ листья компании, прошедшие p
 Раньше «+3» без подписи читалось как отклонение от базы.
 
 ## ВТОРОЕ ПРАВИЛО — сравнимость метрик
-`D.comparable(key)` — с базой сравниваются только относительные метрики, 18 из 30:
-`replace_ratio`, `hire_rate`, `turnover_m`, `turnover_y`, `regret`, `turnover_fc`,
+`D.comparable(key)` — с базой сравниваются только относительные метрики, 14 из 26
+(15.10 сняты `replace_ratio`, `hire_rate`, `turnover_fc`, `low_perf` — их нет в каталоге
+графиков HQ и УС): `turnover_m`, `turnover_y`, `regret`,
 `time_to_fill`, `hire_plan`, `junior_share`, `internal_share`, `tgrowth_conv`,
-`tgrowth_tat`, `low_perf`, `underwork`, `review_up`, `office_att`, `booking_viol`,
+`tgrowth_tat`, `underwork`, `review_up`, `office_att`, `booking_viol`,
 `ai_penetration`. Счётные из `COUNT_METRICS` — никогда: 212 человек против
 2 968 по компании это масштаб, а не оценка.
 
@@ -112,12 +113,9 @@ benchmarkLeaves(st) = ВСЕ листья компании, прошедшие p
    и не сравниваются с базой. Цвет полосы задаётся разрезом, а не категорией:
    внутри одной разбивки он один.
 2. `movement` — Движение: `hire`, `attrition`, `transfer_in`, `transfer_out`,
-   `net_ytd` — прирост с начала года (int, flat, `ytdDelta:'hc_total'`),
-   `replace_ratio` — коэффициент замещения, найм к оттоку с начала года (ratio, flat),
-   `hire_rate` — найм на 100 человек (pct, flat)
+   `net_ytd` — прирост с начала года (int, flat, `ytdDelta:'hc_total'`)
 3. `turnover` — Отток и текучесть: `turnover_m`, `turnover_y` (pct, lower),
-   `regret` (pct, lower, KPI по HQ), `turnover_fc` — прогноз годовой текучести,
-   run-rate накопительной (pct, lower); разбивки причин, инициатора, стажа,
+   `regret` (pct, lower, KPI по HQ); разбивки причин, инициатора, стажа,
    грейда и стрима ушедших — не метрики
 4. `hiring` — Найм и вакансии: `vac_open`, `vac_closed` (int), `time_to_fill` (days, lower),
    `hire_plan` — выполнение плана найма с начала года (pct, higher, KPI 95 / 80 —
@@ -125,7 +123,7 @@ benchmarkLeaves(st) = ВСЕ листья компании, прошедшие p
    с начала года (pct, flat)
 5. `tgrowth` — T-рост: `tgrowth_pass`, `tgrowth_deny` (int), `tgrowth_conv` (pct, higher),
    `tgrowth_tat` — время до повышения (mon, lower)
-6. `monitor` — Мониторинг работы: `low_perf`, `underwork` (pct, lower),
+6. `monitor` — Мониторинг работы: `underwork` (pct, lower),
    `review_up` — улучшили оценку в ревью, цикл раз в полгода (pct, higher)
 7. `office` — Посещаемость офисов: `office_att` (pct, higher),
    `booking_viol` — нарушения бронирования (pct, lower)

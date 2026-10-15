@@ -557,7 +557,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   font-weight:var(--fw-bold);margin:0 0 6px}
 .bt-group .ptable th{padding-top:6px;padding-bottom:8px}
 
-/* Сноска под таблицей или воронкой: помечаем допущения макета честно */
+/* Сноска под таблицей или графиком: помечаем допущения макета честно */
 .tbl-note{margin-top:var(--s4);font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);line-height:1.45}
 /* в правой панели сноска — прямой ребёнок flex-колонки с gap:10px, и её собственный
    margin-top складывался с gap: 19px вместо 9px, как везде */
@@ -617,12 +617,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    при рендере экрана. На resize класс не ставится: дёргаться при каждом
    изменении ширины окна график не должен. */
 @keyframes tp-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-@keyframes tp-growx{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes tp-fade{from{opacity:0}to{opacity:1}}
 .svgchart.anim .bar{transform-box:fill-box;animation:tp-grow .48s cubic-bezier(.22,.61,.36,1) both}
 .svgchart.anim .bar.up{transform-origin:50% 100%}
 .svgchart.anim .bar.dn{transform-origin:50% 0}
-.svgchart.anim .bar.fn{transform-origin:50% 50%;animation-name:tp-growx}
 /* Линия РИСУЕТСЯ слева направо, а не проявляется целиком: у графика есть
    направление времени, и глаз должен пройти по нему вместе с линией.
    Работает это только вместе с pathLength="1" в draw.js — там длина любой
@@ -637,7 +635,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .svgchart.anim .fade{animation:tp-fade .3s ease-out both}
 /* Точки вспыхивают по мере того, как до них доходит линия (задержка в draw.js) */
 .svgchart.anim .dot,.svgchart.anim .dotb{animation:tp-fade .3s ease-out both}
-.svgchart.anim .fnlink{animation:tp-fade .4s ease-out both;animation-delay:.3s}
 
 /* Прозрачный прямоугольник-ловушка на всю полосу месяца: попасть в тонкий бар
    мышью тяжело, а в полосу — легко. fill-opacity:0 вместо fill:none —
@@ -1509,8 +1506,23 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* «План метрик» в справке — только в пробнике */
 .plan-t{width:100%;border-collapse:collapse;font-size:var(--fs-note);margin-top:var(--s4)}
 .plan-t th,.plan-t td{text-align:left;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line2);vertical-align:top}
-.plan-t th{font-size:var(--fs-cap);font-weight:var(--fw-bold);color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
-.plan-t td:first-child{font-weight:var(--fw-bold);white-space:nowrap}
+.plan-t th{font-size:var(--fs-cap);font-weight:var(--fw-bold);color:var(--muted);text-transform:uppercase;letter-spacing:.02em;white-space:nowrap}
+.plan-t td:nth-child(2),.plan-t td:nth-child(3){white-space:nowrap}
+.plan-t td:last-child{color:var(--ink2);min-width:220px}
+.plan-t td:first-child{color:var(--ink)}
+.plan-t tr.plan-g td{padding-top:var(--s5);font-weight:var(--fw-bold);color:var(--ink);border-bottom-color:var(--line)}
+.plan-t tr.plan-todo td:first-child{font-weight:var(--fw-bold)}
+.plan-need{display:block;color:var(--muted)}
+/* «добавить» — графика из каталога на борте нет; «вне каталога» — есть, но в каталоге нет.
+   Не светофор и не «в разработке»: свои нейтральные тона (15.10) */
+.plan-tag{display:inline-block;padding:0 var(--s2);border-radius:var(--r-pill);font-size:var(--fs-micro);font-weight:var(--fw-bold);
+  line-height:14px;white-space:nowrap;border:1px solid}
+.plan-tag.todo{color:var(--act-ink);background:var(--card);border-color:var(--act-line);border-style:dashed}
+.plan-tag.extra{color:var(--muted);background:var(--bg);border-color:var(--line)}
+/* для кого: все / HQ / УС — подпись, не цветовая категория */
+.aud-tag{display:inline-block;min-width:28px;padding:0 var(--s2);border-radius:var(--r1);font-size:var(--fs-micro);
+  font-weight:var(--fw-bold);line-height:16px;text-align:center;color:var(--ink2);background:var(--line2)}
+.aud-tag.all{color:var(--muted);background:transparent;border:1px solid var(--line)}
 
 /* ============================================================================
    Итерация 32: максимальная ширина борда (12.10.2026)

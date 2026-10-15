@@ -8,17 +8,18 @@
 
    «Проникновение»        — доля сотрудников с AI за неделю против базы и
                             активные пользователи (WAU) по месяцам.
-   «Инструменты и стримы» — чем пользуются и где: по инструментам и по стримам.
+   «Инструменты»          — чем пользуются. Разбивка по стримам снята 15.10:
+                            в каталоге HQ — «по покраске в разрезе инструментов»
+                            (в плане подключения).
    ========================================================================== */
 (function(){
 'use strict';
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
-const esc=U.esc;
 
 SC.blocks.ai={
-  subTabs:[['adoption','Проникновение'],['tools','Инструменты и стримы']],
+  subTabs:[['adoption','Проникновение'],['tools','Инструменты']],
   defaultSub:'adoption',
-  title(sub){return sub==='tools'?'Чем пользуются и в каких стримах':'Внедрение AI-инструментов'},
+  title(sub){return sub==='tools'?'Какими AI-инструментами пользуются':'Внедрение AI-инструментов'},
   view(ctx){
     if(ctx.sub==='tools'){
       const ai=D.aiProfile(ctx.lp);
@@ -27,15 +28,10 @@ SC.blocks.ai={
          назван в подписи таблицы. */
       const tbl=(cap,capSub,items,barHead)=>U.btGroup({cap:cap,capSub:capSub,head:'',metricKey:'ai_penetration',
         valueHead:'Сотрудников',barHead:barHead,share:false,total:false,compact:true,items:items});
-      return U.btStack([
-        tbl('Инструменты','хотя бы раз за неделю · всего '+D.fmtVal('ai_penetration',ai.pen),
-          ai.tools.map(t=>({name:t.name,value:t.value,color:G.C_AI})),'Сравнение инструментов'),
-        tbl('Стримы',D.CMP.cur,ai.streams.slice().sort((a,b)=>b.value-a.value)
-          .map(x=>({name:x.name,note:D.fmtInt(x.hc)+' чел',value:x.value,color:G.C_AI})),'Сравнение стримов')])+
-        '<div class="tbl-note">Среднее по стримам, взвешенное по людям, равно проникновению отбора. '+
-        'Инструменты пересекаются, поэтому их проценты не складываются в общий. Разбивки в макете '+
-        'сгенерированы; на проде — penetration_unit, penetration_company и wau из AI-витрины '+
-        'дашборда 34136, по инструменту и стриму сотрудника.</div>';
+      return tbl('Инструменты','хотя бы раз за неделю · всего '+D.fmtVal('ai_penetration',ai.pen),
+          ai.tools.map(t=>({name:t.name,value:t.value,color:G.C_AI})),'Сравнение инструментов')+
+        '<div class="tbl-note">Инструменты пересекаются, поэтому их проценты не складываются в общий. Разбивка '+
+        'в макете сгенерирована; на проде — AI-витрина дашборда 34136 (penetration_unit, wau) по инструменту.</div>';
     }
     return SC.metricLine('ai_penetration',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Проникновение AI, %',ann:ctx.ann.ai_penetration})+
       SC.yoyChart('ai_wau',ctx.lp,ctx.bl,ctx.S,

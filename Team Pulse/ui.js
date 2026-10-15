@@ -882,7 +882,7 @@ function trafficLegend(){
    не зелёный. Рисуется и в макете, и в пробнике (D.isDev). */
 function devTip(stage){
   const p=stage!=null?D.devPlan(stage):null;
-  return {title:'В разработке'+(stage!=null?' · этап '+stage+' плана':''),
+  return {title:'В разработке'+(stage!=null&&stage!=='—'?' · этап '+stage+' плана':''),
     text:'Источника данных пока нет: в Proteus здесь заглушка — цифра сгенерирована по численности юнита, чтобы было видно, где она будет стоять.'+
       (p?' Источник: '+p.src+'.':''),
     note:p&&p.need&&p.need!=='—'?'Что нужно: '+p.need+'.':'План подключения — «Как читать отчёт» → «План подключения данных».'};
@@ -904,22 +904,38 @@ function devNote(d){
     (d.t?'<span class="info"'+tipAttr({title:d.part?'Частично в разработке':'В разработке'+(d.stage!=null?' · этап '+d.stage+' плана':''),
       text:d.t,note:need?'Что нужно: '+need+'.':null})+' aria-label="Что здесь заглушка">i</span>':'')+'</div>';
 }
-/* План подключения данных в справке и в сводке готовности: этап · что · откуда · что нужно · сейчас */
-function planTable(rows){
-  return '<label>План подключения данных</label><div class="fhint">Живое — то, что уже есть в '+
-    'hr_structure_overall. Остальное помечено «в разработке» и становится живым по этапам:</div>'+
-    '<table class="plan-t"><thead><tr><th>Этап</th><th>Что</th><th>Источник</th><th>Что нужно</th><th>Сейчас</th></tr></thead><tbody>'+
-    rows.map(r=>'<tr><td>'+esc(r.stage)+'</td><td>'+esc(r.what)+'</td><td>'+esc(r.src)+'</td><td>'+esc(r.need||'')+'</td><td>'+
-      (r.now==='живые'?'<span class="live-tag">живые</span>':devTag(r.stage==='—'?null:r.stage))+'</td></tr>').join('')+'</tbody></table>';
+/* План по каталогу (15.10): графики HQ и УС, сгруппированные по блокам борта.
+   Что · для кого · где сейчас · откуда и что нужно. Тот же план — в справке
+   и в сводке готовности на One-pager. */
+function planNow(r){
+  return r.now==='live'?'<span class="live-tag">живые</span>'
+    :r.now==='dev'?devTag(r.stage)
+    :'<span class="plan-tag '+r.now+'">'+esc(D.PLAN_NOW[r.now])+'</span>';
 }
-/* Сводка готовности на One-pager: сколько метрик на живых данных и что
-   подключать дальше. Раскрывается в полный план. o = {live, total, next:[plan]} */
+function planTable(groups){
+  const n=D.planCount();
+  return '<label>План Team Pulse 2.0 по каталогу графиков</label><div class="fhint">Всё, что есть в дашбордах HQ (34136) '+
+    'и УС (34661). <span class="live-tag">живые</span> — уже считаются из hr_structure_overall; '+devTag(null,false)+
+    ' — на борте с заглушкой, ждут источник; <span class="plan-tag todo">добавить</span> — на борте ещё нет; '+
+    '<span class="plan-tag extra">вне каталога</span> — на борте есть, в каталоге нет: решить. Сейчас: живых '+n.live+
+    ', в разработке '+n.dev+', добавить '+n.todo+', вне каталога '+n.extra+'.</div>'+
+    '<table class="plan-t"><thead><tr><th>Что</th><th>Для кого</th><th>Сейчас</th><th>Откуда · что нужно</th></tr></thead><tbody>'+
+    groups.map(g=>'<tr class="plan-g"><td colspan="4">'+esc(g.blk)+'</td></tr>'+g.rows.map(r=>{
+      const st=D.devPlan(r.stage), src=r.src||(st?st.src:''), need=r.need||(r.now!=='live'&&st&&st.need!=='—'?st.need:'');
+      return '<tr class="plan-'+r.now+'"><td>'+esc(r.what)+'</td><td><span class="aud-tag '+r.aud+'">'+esc(D.AUD_LABEL[r.aud])+
+        '</span></td><td>'+planNow(r)+'</td><td>'+(r.stage&&r.stage!=='0'&&r.stage!=='—'&&r.now!=='live'?'<b>этап '+esc(r.stage)+'</b> · ':'')+
+        esc(src)+(need?'<span class="plan-need">нужно: '+esc(need)+'</span>':'')+'</td></tr>';
+    }).join('')).join('')+'</tbody></table>';
+}
+/* Сводка готовности на One-pager: сколько метрик на живых данных, сколько
+   графиков каталога ещё добавить. Раскрывается в полный план. o = {live, total, plan} */
 function devSummary(o){
-  const pc=o.total?Math.round(o.live/o.total*100):0;
+  const pc=o.total?Math.round(o.live/o.total*100):0, n=D.planCount();
   return '<details class="dev-sum"><summary><span class="dev-sum-h">Готовность к живым данным</span>'+
     '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик на живых данных"><i style="width:'+pc+'%"></i></span>'+
     '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на живых данных · '+
-      '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span></span>'+
+      '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>'+
+      (n.todo?' · <span class="plan-tag todo">добавить из каталога '+n.todo+'</span>':'')+'</span>'+
     '<span class="dev-sum-more">план подключения ▾</span></summary>'+
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }

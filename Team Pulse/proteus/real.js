@@ -23,14 +23,16 @@ const MONTH_ABBR=['янв.','февр.','март','апр.','май','июнь'
 const MONTH_NOM=['январь','февраль','март','апрель','май','июнь','июль','август',
                  'сентябрь','октябрь','ноябрь','декабрь'];
 /* колонка датасета → ключ ряда макета (ключи метрик и служебных рядов data.js) */
-const COLS=['hc','act','avg','hire','fire','reg','tin','tout','plow','prat'];
+/* m_plow / m_prat (оценка «низкая» и оценённые) больше не читаем: «лоу-перформеры»
+   сняты 15.10 — в каталоге HQ и УС такого понятия нет. Датасет может их везти. */
+const COLS=['hc','act','avg','hire','fire','reg','tin','tout'];
 /* Ряды из колонок, добавленных в таблицу к 12.10.2026 (разведка 2): отработанные
    человеко-дни, посещения офиса и решения по заявкам T-роста (GRT). Они
    НЕОБЯЗАТЕЛЬНЫЕ: датасет прежней версии их не везёт, и тогда посещаемость
    и T-рост остаются заглушками «демо», а не падают и не встают нулями. */
 const OPT=['wday','ovis','gapr','gdec'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
-  transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',plow:'plow',prated:'prat',
+  transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   wday:'wday',ovis:'ovis',tgrowth_pass:'gapr',tgrowth_deny:'gdec'};
 /* метрики, которые оживают, когда в ответе есть их колонки */
 const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec']};
@@ -40,8 +42,8 @@ const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:[
 const STUB=['vac_open','vac_closed','time_to_fill','hire_plan','junior_share',
   'tgrowth_pass','tgrowth_deny','tgrowth_conv','tgrowth_tat','underwork','review_up',
   'office_att','booking_viol','ai_penetration','ai_wau'];
-/* План подключения метрик живёт в data.js (D.DEV_PLAN, 14.10): им размечены и макет,
-   и пробник — «в разработке» у метрик, вкладок и блоков. */
+/* План подключения живёт в data.js (D.DEV_PLAN; 15.10 — по каталогу графиков HQ и УС):
+   им размечены и макет, и пробник — «в разработке» у метрик, вкладок и блоков. */
 /* значения фильтров в датасете ↔ ключи фильтров макета */
 const PAINT_V={HQ:'Hq',Line:'Line',Support:'Support'};
 const IT_V={IT:'IT',Digital:'Digital',nonIT:'NonIT'};

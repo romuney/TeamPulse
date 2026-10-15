@@ -1,8 +1,9 @@
 /* ============================================================================
    screens/monitor.js — Мониторинг работы.
 
-   «Динамика» — недоработчики, лоу-перформеры и доля улучшивших оценку в ревью
-   панелями. Все шкалы от нуля: раньше ось резалась под диапазон значений, и
+   «Динамика» — недоработчики и доля улучшивших оценку в ревью панелями.
+   «Лоу-перформеры» сняты 15.10: такого понятия в компании нет; мониторинг по
+   каталогу HQ — недоработка, переработка, звонки, прогулы, выходные (план). Все шкалы от нуля: раньше ось резалась под диапазон значений, и
    колебание 6,1→6,9% выглядело обвалом. Ревью — ступенька: цикл раз в полгода.
    «Ревью» (итерация 28, дашборд 34661) — итоги последнего цикла: динамика
    оценок к прошлому циклу и оценки по грейду, стажу и роли.
@@ -15,7 +16,7 @@ SC.blocks.monitor={
   subTabs:[['both','Динамика'],['review','Ревью']],
   defaultSub:'both',
   title(sub){return sub==='review'?'Итоги ревью: последний цикл, '+D.CMP.cur
-    :'Недоработчики, лоу-перформеры и ревью'},
+    :'Недоработчики и ревью'},
   view(ctx){
     if(ctx.sub==='review'){
       const rv=D.reviewProfile(ctx.lp);
@@ -25,7 +26,7 @@ SC.blocks.monitor={
       return U.btStack([
         U.btGroup({cap:'Динамика к прошлому циклу',capSub:'оценённые в цикле',head:'',
           valueHead:'Человек',metricKey:'hc_total',compact:true,
-          items:rv.dyn.map(x=>({name:x.name,note:x.note,value:x.value,color:G.C_LOWPERF}))}),
+          items:rv.dyn.map(x=>({name:x.name,note:x.note,value:x.value,color:G.C_REVIEW}))}),
         '<div class="bt-group"><div class="bt-cap">Оценки по группам<span class="bt-sub">доля в строке</span></div>'+
         U.heatTable({cols:rv.scores.map(x=>({name:x.name,tip:x.full})),
           total:{name:'ИТОГО',cells:rv.scores.map(x=>x.value)},
@@ -36,7 +37,6 @@ SC.blocks.monitor={
     }
     return SC.yoyPanels(ctx.lp,[
       {name:'Недоработчики, %',key:'underwork',color:G.C_UNDER,ann:ctx.ann.underwork},
-      {name:'Лоу-перформеры, %',key:'low_perf',color:G.C_LOWPERF,ann:ctx.ann.low_perf},
       {name:'Улучшили оценку в ревью, %',key:'review_up',color:G.C_LINE,ann:ctx.ann.review_up}]);
   }
 };

@@ -92,11 +92,11 @@ function ytdBase(i){const j=YEAR_START_EXT[i];return j>0?j-1:0}
 const BLOCKS=[
 {key:'structure',name:'Структура численности',hint:'Сколько людей в команде, кто они и где работают.',drillUrl:'#/detail/structure',dash:['34661','34136']},
 {key:'movement',name:'Движение персонала',hint:'Найм, отток и переводы в команду и из неё; растёт ли команда.',drillUrl:'#/detail/movement',dash:['34661','34136']},
-{key:'turnover',name:'Отток и текучесть',hint:'Темпы увольнений, прогноз на год, кто и почему уходит.',drillUrl:'#/detail/turnover',dash:['34661','34136']},
-{key:'hiring',name:'Найм и вакансии',hint:'Вакансии, план-факт подбора, каналы и профиль найма.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
+{key:'turnover',name:'Отток и текучесть',hint:'Темпы увольнений, кто и почему уходит.',drillUrl:'#/detail/turnover',dash:['34661','34136']},
+{key:'hiring',name:'Найм и вакансии',hint:'Вакансии, план-факт подбора, каналы и грейды найма.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
 {key:'tgrowth',name:'T-рост',hint:'Заявки на рост, решения по ним, время до повышения и статусы по грейдам.',drillUrl:'#/detail/tgrowth',dash:['34136']},
-{key:'monitor',name:'Мониторинг работы',hint:'Лоу-перформеры, недоработка и итоги ревью.',drillUrl:'#/detail/monitor',dash:['34661']},
-{key:'office',name:'Посещаемость офисов',hint:'Посещаемость, офисы и города, качество бронирования.',drillUrl:'#/detail/office',dash:['34136']},
+{key:'monitor',name:'Мониторинг работы',hint:'Недоработка и итоги ревью.',drillUrl:'#/detail/monitor',dash:['34661']},
+{key:'office',name:'Посещаемость офисов',hint:'Посещаемость по дням, городам и группам, качество бронирования.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
    У Hub были AI-подсказки, но не было метрик внедрения AI. */
 {key:'ai',name:'AI-инструменты',hint:'Проникновение AI-инструментов и активные пользователи.',drillUrl:'#/detail/ai',dash:['34136']}
@@ -116,101 +116,93 @@ function blockDash(bk,st){
    better: 'lower'|'higher'|'flat'   fmt: 'int'|'pct'|'days'
    kpi: только для метрик с жёстким KPI (сравнение с KPI, а не со средней)
    anchor: базовый уровень по компании на последний месяц (для генерации) */
+/* aud (15.10) — для кого метрика в каталоге графиков Team Pulse 2.0
+   («Team Pulse — сводка графиков.md»): all — в обоих дашбордах (HQ 34136 и
+   УС 34661), hq — только HQ, us — только УС. Team Pulse 2.0 объединяет оба:
+   показываем всё, а развести по аудитории в интерфейсе — следующий шаг. */
+const AUD_LABEL={all:'все',hq:'HQ',us:'УС'};
 const METRICS=[
-{key:'hc_active',block:'structure',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники без длительных отсутствий на конец месяца.'},
-{key:'hc_total',block:'structure',name:'Общая численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Списочная численность на конец месяца, включая декреты и длительные отсутствия.'},
+{key:'hc_active',block:'structure',aud:'all',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники без длительных отсутствий на конец месяца.'},
+{key:'hc_total',block:'structure',aud:'all',name:'Общая численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Списочная численность на конец месяца, включая декреты и длительные отсутствия.'},
 /* Среднесписочная численность в списке метрик не стоит: как строка отчёта она
    ничего не сообщала руководителю (это всегда полусумма двух соседних значений
    численности), а место в таблице и карточку занимала. Ряд `hc_avg` остался —
    он знаменатель текучести и считается в seriesExt по ключу. */
-{key:'hire',block:'movement',name:'Найм',short:'Найм',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Принятые за месяц.'},
-{key:'attrition',block:'movement',name:'Отток',short:'Отток',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Уволившиеся за месяц (все причины).'},
-{key:'transfer_in',block:'movement',name:'Переводы в команду',short:'Перев. в',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы из других команд.'},
-{key:'transfer_out',block:'movement',name:'Переводы из команды',short:'Перев. из',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы в другие команды.'},
+{key:'hire',block:'movement',aud:'all',name:'Найм',short:'Найм',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Принятые за месяц.'},
+{key:'attrition',block:'movement',aud:'all',name:'Отток',short:'Отток',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Уволившиеся за месяц (все причины).'},
+{key:'transfer_in',block:'movement',aud:'all',name:'Переводы в команду',short:'Перев. в',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы из других команд.'},
+{key:'transfer_out',block:'movement',aud:'all',name:'Переводы из команды',short:'Перев. из',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Внутренние переходы в другие команды.'},
 /* Итог движения персонала: найм + переводы в − отток − переводы из за вычетом
    прочих изменений. Пять потоков без итога не отвечали на вопрос «команда
    выросла или нет» — считать в уме четыре числа приходилось самому. */
 /* short'ы блока движения держим короткими намеренно: колонок в сводной таблице
    стало пять, и «Прирост с НГ» отправлял последнюю колонку под горизонтальный
    скролл на ноутбучной ширине. Полное имя и пояснение живут в подсказке шапки. */
-{key:'net_ytd',block:'movement',name:'Прирост с начала года',short:'Прирост',fmt:'int',better:'flat',unit:'чел',anchor:null,
+{key:'net_ytd',block:'movement',aud:'all',name:'Прирост с начала года',short:'Прирост',fmt:'int',better:'flat',unit:'чел',anchor:null,
   ytdDelta:'hc_total',hint:'Изменение общей численности с начала календарного года: значение на конец месяца минус численность на 31 декабря.'},
-/* Производные движения (бизнес-анализ, итерация 28). Отвечают на «растём или
-   держимся» и делают поток сравнимым с базой: найм в людях — масштаб, а не
-   оценка, найм на 100 человек — уже темп. Отток на 100 человек отдельной
-   метрикой не заводим: это ровно текучесть месячная, та же формула. */
-{key:'replace_ratio',block:'movement',name:'Коэффициент замещения',short:'Замещ.',fmt:'ratio',better:'flat',unit:'×',anchor:null,
-  derived:{num:'hire',den:'attrition',win:'ytd',dp:4},
-  hint:'Найм к оттоку с начала года. Больше 1 — приходит больше людей, чем уходит; меньше 1 — команда не восполняет уходы внешним наймом.'},
-{key:'hire_rate',block:'movement',name:'Найм на 100 человек',short:'Найм /100',fmt:'pct',better:'flat',unit:'%',anchor:null,
-  derived:{num:'hire',den:'hc_avg',scale:100},
-  hint:'Принятые за месяц на 100 человек среднесписочной численности. В отличие от найма в людях, сравнивается с базой. Отток на 100 человек — это текучесть месячная.'},
-{key:'turnover_m',block:'turnover',name:'Текучесть месячная',short:'Тек. мес',fmt:'pct',better:'lower',unit:'%',anchor:null,
+/* 15.10: «Коэффициент замещения» и «Найм на 100 человек» сняты — в каталоге
+   графиков HQ и УС («Team Pulse — сводка графиков.md») их нет, это производные,
+   придуманные для макета. */
+{key:'turnover_m',block:'turnover',aud:'all',name:'Текучесть месячная',short:'Тек. мес',fmt:'pct',better:'lower',unit:'%',anchor:null,
   derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Отток за месяц к среднесписочной численности этого месяца, в процентах.'},
-{key:'turnover_y',block:'turnover',name:'Текучесть накопительная',short:'Тек. накоп.',fmt:'pct',better:'lower',unit:'%',anchor:null,
-  ytd:'turnover_m',fc:'turnover_fc',hint:'Сумма месячной текучести с января текущего года. Обнуляется каждый январь и растёт до декабря.'},
-{key:'regret',block:'turnover',name:'Regrettable текучесть',short:'Regret',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7},hint:'Нежелательные уходы ценных сотрудников. По HQ есть KPI.'},
-/* Run-rate: чем закончится год, если темп сохранится. На полотне «год
-   к году» накопительной текучести он стоит точкой на декабре (fc у turnover_y). */
-{key:'turnover_fc',block:'turnover',name:'Прогноз годовой текучести',short:'Прогноз',fmt:'pct',better:'lower',unit:'%',anchor:null,
-  runRate:'turnover_y',hint:'Накопительная текучесть с начала года, пересчитанная на 12 месяцев: чем закончится год, если темп увольнений сохранится.'},
-{key:'vac_open',block:'hiring',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
-{key:'vac_closed',block:'hiring',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
-{key:'time_to_fill',block:'hiring',name:'Срок закрытия вакансии',short:'Time-to-fill',fmt:'days',better:'lower',unit:'дн',anchor:47,hint:'Среднее время от открытия до закрытия вакансии.'},
+{key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. накоп.',fmt:'pct',better:'lower',unit:'%',anchor:null,
+  ytd:'turnover_m',hint:'Сумма месячной текучести с января текущего года. Обнуляется каждый январь и растёт до декабря.'},
+{key:'regret',block:'turnover',aud:'hq',name:'Regrettable текучесть',short:'Regret',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7},hint:'Нежелательные уходы ценных сотрудников. По HQ есть KPI.'},
+/* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
+{key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
+{key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
+{key:'time_to_fill',block:'hiring',aud:'us',name:'Срок закрытия вакансии',short:'Time-to-fill',fmt:'days',better:'lower',unit:'дн',anchor:47,hint:'Среднее время от открытия до закрытия вакансии.'},
 /* План-факт подбора, доля джунов и внутренний найм — пробелы бизнес-анализа:
    в дашборде 34661 они есть, в Hub не было. Все три — доли потока, поэтому
    считаются с начала года: за один месяц у команды из десяти человек
    знаменатель часто ноль или единица, и процент прыгал бы на десятки пунктов.
    У выполнения плана есть цель: сам план и есть ориентир, сравнивать его со
    средней по компании — мерить не тем. Пороги 95 / 80 — черновик. */
-{key:'hire_plan',block:'hiring',name:'Выполнение плана найма',short:'План',fmt:'pct',better:'higher',unit:'%',anchor:null,
+{key:'hire_plan',block:'hiring',aud:'us',name:'Выполнение плана найма',short:'План',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'hire',den:'pf_plan',scale:100,win:'ytd'},kpi:{green:95,red:80},
   hint:'Принятые к плану найма с начала года — массовый и профильный найм вместе. Факт — тот же найм, что в «Движении персонала». Цель KPI — 95% плана.'},
-{key:'junior_share',block:'hiring',name:'Доля джунов в найме',short:'Джуны',fmt:'pct',better:'flat',unit:'%',anchor:null,
+{key:'junior_share',block:'hiring',aud:'all',name:'Доля джунов в найме',short:'Джуны',fmt:'pct',better:'flat',unit:'%',anchor:null,
   derived:{num:'hire_jun',den:'hire',scale:100,win:'ytd'},
   hint:'Junior среди принятых с начала года. Больше — дешевле найм и больше нагрузка на наставников; меньше — дороже и дольше подбор. Оценки нет: это выбор стратегии, а не результат.'},
-{key:'internal_share',block:'hiring',name:'Доля внутреннего найма',short:'Внутр.',fmt:'pct',better:'flat',unit:'%',anchor:null,
+{key:'internal_share',block:'hiring',aud:'all',name:'Доля внутреннего найма',short:'Внутр.',fmt:'pct',better:'flat',unit:'%',anchor:null,
   derived:{num:'transfer_in',den:['hire','transfer_in'],scale:100,win:'ytd'},
   hint:'Доля пришедших переводом из других команд среди всех пришедших с начала года: какая часть позиций закрыта людьми изнутри компании.'},
-{key:'tgrowth_pass',block:'tgrowth',name:'Прошли T-рост',short:'Прошли',fmt:'int',flow:true,better:'higher',unit:'чел',anchor:null,hint:'Сотрудники с положительным решением по T-росту.'},
-{key:'tgrowth_deny',block:'tgrowth',name:'Отказано в T-росте',short:'Отказано',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Заявки с отрицательным решением.'},
-{key:'tgrowth_conv',block:'tgrowth',name:'Конверсия T-роста',short:'Конверсия',fmt:'pct',better:'higher',unit:'%',anchor:68,hint:'Доля положительных решений от всех заявок.'},
+{key:'tgrowth_pass',block:'tgrowth',aud:'hq',name:'Прошли T-рост',short:'Прошли',fmt:'int',flow:true,better:'higher',unit:'чел',anchor:null,hint:'Сотрудники с положительным решением по T-росту.'},
+{key:'tgrowth_deny',block:'tgrowth',aud:'hq',name:'Отказано в T-росте',short:'Отказано',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Заявки с отрицательным решением.'},
+{key:'tgrowth_conv',block:'tgrowth',aud:'hq',name:'Конверсия T-роста',short:'Конверсия',fmt:'pct',better:'higher',unit:'%',anchor:68,hint:'Доля положительных решений от всех заявок.'},
 /* T@T — время до повышения из сервиса «Рост» (дашборд HQ 34136) */
-{key:'tgrowth_tat',block:'tgrowth',name:'Время до повышения (T@T)',short:'T@T',fmt:'mon',better:'lower',unit:'мес',anchor:16,
+{key:'tgrowth_tat',block:'tgrowth',aud:'hq',name:'Время до повышения (T@T)',short:'T@T',fmt:'mon',better:'lower',unit:'мес',anchor:16,
   hint:'Сколько месяцев в среднем прошло от прошлого повышения до нового у тех, кто прошёл T-рост в этом месяце.'},
-{key:'low_perf',block:'monitor',name:'Лоу-перформеры',short:'Лоу-перф',fmt:'pct',better:'lower',unit:'%',anchor:4.2,hint:'Доля сотрудников с низкой результативностью.'},
-{key:'underwork',block:'monitor',name:'Недоработчики',short:'Недораб.',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников с недоработкой нормы времени.'},
+/* 15.10: «Лоу-перформеры» сняты: такого понятия в компании нет (владелец борда,
+   «Team Pulse 2.0 — сверка с каталогом.md»). Оценки ревью — в «Статусе ревью». */
+{key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недораб.',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников с недоработкой нормы времени.'},
 /* Ревью из дашборда 34661. Цикл — раз в полгода (июнь и декабрь), поэтому
    ряд ступенчатый: между циклами значение стоит, а изменение «к маю» в июне —
    это и есть сдвиг к прошлому циклу. Считается парой «улучшили / оценены». */
-{key:'review_up',block:'monitor',name:'Улучшили оценку в ревью',short:'Улучшили',fmt:'pct',better:'higher',unit:'%',anchor:null,
+{key:'review_up',block:'monitor',aud:'us',name:'Улучшили оценку в ревью',short:'Улучшили',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'rev_up',den:'rev_eval',scale:100},
   hint:'Доля сотрудников, у которых оценка последнего цикла ревью выше прошлой. Ревью — раз в полгода, между циклами значение не меняется.'},
-{key:'office_att',block:'office',name:'Посещаемость офиса',short:'Офис',fmt:'pct',better:'higher',unit:'%',anchor:58,hint:'Средняя доля рабочих дней в офисе.'},
+{key:'office_att',block:'office',aud:'hq',name:'Посещаемость офиса',short:'Офис',fmt:'pct',better:'higher',unit:'%',anchor:58,hint:'Средняя доля рабочих дней в офисе.'},
 /* Качество бронирования из дашборда HQ 34136 */
-{key:'booking_viol',block:'office',name:'Нарушения бронирования',short:'Нарушения',fmt:'pct',better:'lower',unit:'%',anchor:17,
+{key:'booking_viol',block:'office',aud:'hq',name:'Нарушения бронирования',short:'Нарушения',fmt:'pct',better:'lower',unit:'%',anchor:17,
   hint:'Доля офисных дней с нарушением — бронь без прихода или приход без брони — от всех дней с бронью или посещением.'},
 /* AI-метрики из дашборда HQ 34136. Проникновение — доля, поэтому едет парой
    «активные пользователи / активная численность» и сравнивается с базой:
    ровно то сравнение «по команде против компании», что было в Proteus. */
-{key:'ai_penetration',block:'ai',name:'Проникновение AI',short:'Проникн.',fmt:'pct',better:'higher',unit:'%',anchor:null,
+{key:'ai_penetration',block:'ai',aud:'hq',name:'Проникновение AI',short:'Проникн.',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'ai_wau',den:'hc_active',scale:100},
   hint:'Доля сотрудников, которые хотя бы раз за неделю пользовались AI-инструментом, в среднем по неделям месяца.'},
-{key:'ai_wau',block:'ai',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
+{key:'ai_wau',block:'ai',aud:'hq',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
   hint:'Уникальные пользователи AI-инструментов за неделю, в среднем по неделям месяца.'}
 ];
-/* Пробник: две метрики считаются из настоящих рядов, а не из генератора.
-   regret — как текучесть накопительная: сумма месячных долей нежелательных
-   увольнений к ССЧ с января (служебный ряд regret_m). low_perf — оценка
-   «низкая» среди оценённых (норма + низкая + высокая): «без оценки» в
-   знаменатель не идёт, иначе доля зависела бы от охвата ревью, а не от
-   результата. Остальным метрикам без источника — флаг stub («демо»). */
+/* Пробник: regret считается из настоящих рядов, а не из генератора — как
+   текучесть накопительная: сумма месячных долей нежелательных увольнений к ССЧ
+   с января (служебный ряд regret_m). Остальным метрикам без источника — флаг
+   stub («в разработке»). */
 if(REAL){
   const ov={
     regret:{ytd:'regret_m',anchor:null,
-      hint:'Нежелательные увольнения к среднесписочной численности, накопительно с января. По HQ есть KPI.'},
-    low_perf:{derived:{num:'plow',den:'prated',scale:100},anchor:null,
-      hint:'Доля оценки «низкая» среди оценённых в последнем цикле: норма, низкая и высокая. Без оценки — не в счёт.'}
+      hint:'Нежелательные увольнения к среднесписочной численности, накопительно с января. По HQ есть KPI.'}
   };
   /* Колонки разведки 12.10 (необязательные — REAL.has): посещаемость — посещения офиса
      к отработанным человеко-дням; T-рост — решения по заявкам GRT. Смысл колонок
@@ -243,34 +235,95 @@ const DEV_STAGE={vac_open:2,vac_closed:2,time_to_fill:2,hire_plan:2,junior_share
 const DEV_LIVE_NEW=new Set(['office_att','tgrowth_pass','tgrowth_deny','tgrowth_conv']);
 function isDev(key){return REAL?isStub(key):!!DEV_STAGE[key]&&!DEV_LIVE_NEW.has(key)}
 function devStage(key){return DEV_STAGE[key]||null}
-/* План подключения: этап · что · откуда · что нужно от заказчика. Тот же план,
-   что в «Поставка — TeamPulse Hub/План метрик.md»; справка и сводка
-   готовности на One-pager показывают его и в макете, и в пробнике. */
+/* Этапы подключения: откуда берём и что нужно от заказчика. По номеру этапа
+   их показывают подсказки «в разраб.» и плашки вкладок (devPlan). */
+const DEV_STAGES={
+  '0':{src:'hr_structure_overall',need:'—'},
+  '1':{src:'hr_structure_overall — новые строки датасета',need:'ничего — делаем сами'},
+  '2':{src:'vacancy_daily_for_digest, plan_fact_tf_rabota, atributy_nayma, junior_ratio_hr_digest',
+    need:'имена таблиц ClickHouse и ответ 0а по каждой'},
+  '3':{src:'ys_all_fire_initiative, initiative_reason_unit_tekuchest',need:'таблицы и ответ 0а'},
+  '4':{src:'mdm_employee_structure_d → ноут Helicopter, как в HRBP HUB',need:'согласовать ноут Helicopter'},
+  '5':{src:'review_digest_us, review_table_ys; табель и активность — витрина мониторинга HQ (34136)',
+    need:'таблицы и ответ 0а; где живут недоработка, переработка и звонки'},
+  '6':{src:'сервис «Рост» (дашборд 34136)',need:'таблицы и ответ 0а'},
+  '7':{src:'СКУД и система бронирования (дашборд 34136)',need:'таблицы и ответ 0а'},
+  '8':{src:'penetration_unit, penetration_company, wau',need:'таблицы и ответ 0а'},
+  '—':{src:'таблица «юнит → руководитель» (оргструктура)',need:'имя таблицы и ответ 0а'}
+};
+function devPlan(stage){return stage!=null&&DEV_STAGES[String(stage)]||null}
+/* План по каталогу (15.10). Заказчик: «чтобы, заходя в «в разработке», я видел,
+   что реально нужно добавить, а не то, что выдумано». Строки — графики из
+   каталога «Team Pulse — сводка графиков.md» (HQ 34136 + УС 34661), сгруппированные
+   по блокам борта. aud — для кого (AUD_LABEL), now — где это сейчас:
+     live  — на борте, живые данные из hr_structure_overall;
+     dev   — на борте, но заглушка: ждёт источник (этап stage);
+     todo  — есть в каталоге, на борте ещё нет: добавить;
+     extra — на борте, но в каталоге нет: решить, оставлять ли.
+   src у строки — где это сейчас в Proteus, если своей таблицы ещё нет. */
+const PLAN_NOW={live:'живые',dev:'в разраб.',todo:'добавить',extra:'вне каталога'};
 const DEV_PLAN=[
-  {stage:'0',what:'Численность общая и активная, найм, отток, переводы, прирост, текучесть месячная и накопительная, '+
-    'прогноз, замещение, найм на 100, доля внутреннего найма, regret, низкая оценка; посещаемость за месяц, решения '+
-    'и конверсия T-роста; дерево юнитов, покраска, IT, штат',src:'hr_structure_overall',need:'—',now:'живые'},
-  {stage:'1',what:'Разбивки состава по типу численности, типу договора, покраске и IT',
-    src:'hr_structure_overall — новые строки датасета',need:'ничего — делаем сами',now:'в разработке'},
-  {stage:'2',what:'Вакансии, срок закрытия, план найма, воронка, доля джунов, каналы найма',
-    src:'vacancy_daily_for_digest, plan_fact_tf_rabota, atributy_nayma, junior_ratio_hr_digest',
-    need:'имена таблиц ClickHouse и ответ 0а по каждой',now:'в разработке'},
-  {stage:'3',what:'Причины и инициаторы увольнений, стаж и грейд ушедших',
-    src:'ys_all_fire_initiative, initiative_reason_unit_tekuchest',need:'таблицы и ответ 0а',now:'в разработке'},
-  {stage:'4',what:'Состав: грейд, сеньорность, пол, возраст, стаж, формат работы, юрлицо, регион, стрим; портрет команды',
-    src:'mdm_employee_structure_d → ноут Helicopter, как в HRBP HUB',need:'согласовать ноут Helicopter',now:'в разработке'},
-  {stage:'5',what:'Ревью (улучшили оценку) и недоработка',src:'review_digest_us, review_table_ys; недоработка — уточнить',
-    need:'таблицы и ответ 0а; где живёт недоработка',now:'в разработке'},
-  {stage:'6',what:'T-рост: T@T, типы заявок, статусы по грейдам (решения и конверсия — уже живые)',
-    src:'сервис «Рост» (дашборд 34136)',need:'таблицы и ответ 0а',now:'в разработке'},
-  {stage:'7',what:'Офис: календарь по дням, офисы и города, «кто ходит», бронирование (посещаемость за месяц — уже живая)',
-    src:'СКУД и система бронирования (дашборд 34136)',need:'таблицы и ответ 0а',now:'в разработке'},
-  {stage:'8',what:'AI: проникновение и активные пользователи',src:'penetration_unit, penetration_company, wau',
-    need:'таблицы и ответ 0а',now:'в разработке'},
-  {stage:'—',what:'Руководитель юнита: имя, фамилия, логин',src:'таблица «юнит → руководитель» (оргструктура)',
-    need:'имя таблицы и ответ 0а',now:'в разработке'}
+  {blk:'Структура численности',rows:[
+    {what:'Численность общая и активная, водопад изменения за период; дерево юнитов, покраска, IT, штат',aud:'all',stage:'0',now:'live'},
+    {what:'Юр. / активная / HQ-численность воронкой',aud:'all',now:'todo',src:'дашборды 34136 и 34661',need:'какая колонка даёт HQ-численность'},
+    {what:'Разрезы: тип оформления и тип договора',aud:'all',stage:'1',now:'dev'},
+    {what:'Разрезы: сеньорность, грейд, стаж, юрлицо, стримы и специализации',aud:'all',stage:'4',now:'dev'},
+    {what:'Пол, возраст, формат работы, регион сотрудника',aud:'all',stage:'4',now:'extra',
+      need:'в каталоге структуры их нет — оставить или убрать'}]},
+  {blk:'Движение персонала',rows:[
+    {what:'Численность, найм, отток, переводы ± с дельтой; динамика, водопад, движение по подразделениям; найм год к году',aud:'all',stage:'0',now:'live'},
+    {what:'Движение по специализациям',aud:'hq',stage:'4',now:'todo'}]},
+  {blk:'Отток и текучесть',rows:[
+    {what:'Отток MTD и YTD, текучесть месячная и накопительная, год к году',aud:'all',stage:'0',now:'live'},
+    {what:'Нежелательный уход (regrettable)',aud:'hq',stage:'0',now:'live'},
+    {what:'Светофор текучести: итого, regrettable и non-regrettable с порогами, наборы ушедших',aud:'hq',now:'todo',
+      src:'hr_structure_overall (regret) + дашборд 34136',need:'пороги светофора'},
+    {what:'Инициатор увольнения (сотрудник / работодатель / другое), текучесть по инициатору',aud:'all',stage:'3',now:'dev'},
+    {what:'Причины увольнения: состав оттока (HQ), топ-7 причин (УС)',aud:'all',stage:'3',now:'dev'},
+    {what:'Отток и текучесть по стажу и по специализации',aud:'all',stage:'3',now:'dev'},
+    {what:'Отток и текучесть по грейду',aud:'hq',stage:'3',now:'dev'},
+    {what:'AI-рекомендации по оттоку и текучести для команды',aud:'us',now:'todo',src:'дашборд 34661',
+      need:'как их строит УС; на борте пока свои выводы «Что видно»'}]},
+  {blk:'Найм и вакансии',rows:[
+    {what:'Открытые вакансии: всего, на замену, джунов; динамика по типу поиска (новый / замена)',aud:'all',stage:'2',now:'dev'},
+    {what:'Активные вакансии по специализациям, статусам (всего / замена / новый) и уровню',aud:'all',stage:'2',now:'todo'},
+    {what:'Закрытые вакансии: по типам (ротация / внешний / Т-Образование), на замену, джунов; по каналам',aud:'all',stage:'2',now:'dev'},
+    {what:'Доля джунов в найме',aud:'all',stage:'2',now:'dev'},
+    {what:'Соотношение кандидатов: внешний найм и Т-Образование к ротации (доля внутреннего найма)',aud:'all',stage:'0',now:'live'},
+    {what:'Структура найма: по грейдам и каналам привлечения (топ-7)',aud:'hq',stage:'2',now:'dev'},
+    {what:'Структура найма: стажёры, Digital / Non-Digital, тип компании, возраст, специализация и стрим',aud:'hq',stage:'2',now:'todo'},
+    {what:'Доля найма по регионам против плана; план найма по специализациям в регионах (IT / Digital / Non-IT)',aud:'hq',stage:'2',now:'todo'},
+    {what:'HCO BigOps Mass: план-факт по целевым действиям и по оформленным',aud:'us',stage:'2',now:'dev',
+      need:'на борте общий план-факт — развести ЦД и оформленные'},
+    {what:'HCO BigOps Proff: заказы по статусам, в срок, просрочка SLA, доля закрытых, время закрытия',aud:'us',stage:'2',now:'dev'}]},
+  {blk:'T-рост',rows:[
+    {what:'Решения по заявкам и конверсия',aud:'hq',stage:'0',now:'live'},
+    {what:'Статус роста (состоялся / нет заявки / отклонена / в росте), тепловые карты по типам роста',aud:'hq',stage:'6',now:'dev'},
+    {what:'Повысить грейд и сменить специализацию: Рост и T@T',aud:'hq',stage:'6',now:'dev'}]},
+  {blk:'Мониторинг работы',rows:[
+    {what:'Недоработка',aud:'hq',stage:'5',now:'dev'},
+    {what:'Переработка, % звонков в толк, прогулы, работа в выходные; категории (grey / недоработка / норма / переработка); по подразделениям',aud:'hq',stage:'5',now:'todo'},
+    {what:'Активность сотрудников и звонки по месяцам; сегментация команды (низкий / норма / высокий)',aud:'hq',stage:'5',now:'todo'},
+    {what:'Статус ревью: распределение оценок, по уровням, руководители / сотрудники, улучшение и ухудшение год к году, по УС, специализации, грейду, стажу',aud:'us',stage:'5',now:'dev'}]},
+  {blk:'Посещаемость офисов',rows:[
+    {what:'Общая посещаемость по месяцам',aud:'hq',stage:'0',now:'live'},
+    {what:'Брони без посещений и посещения без брони',aud:'hq',stage:'7',now:'dev'},
+    {what:'Руководители и линейные МСК / ТЦР, по юнитам, по грейду',aud:'hq',stage:'7',now:'dev'},
+    {what:'Офисы по городам и нарушения бронирования',aud:'hq',stage:'7',now:'dev',need:'нарушения по городам на борт ещё не выведены'},
+    {what:'Календарь посещаемости по дням',aud:'hq',stage:'7',now:'extra',need:'решение владельца — оставить; нужны подневные отметки'}]},
+  {blk:'AI-инструменты',rows:[
+    {what:'Проникновение AI (команда и компания) и средний WAU',aud:'hq',stage:'8',now:'dev'},
+    {what:'Использование: частота в неделю, количество и топ инструментов',aud:'hq',stage:'8',now:'dev'},
+    {what:'По покраске в разрезе инструментов; стажёры: используют ли, инструменты, частота',aud:'hq',stage:'8',now:'todo'}]},
+  {blk:'Весь борт',rows:[
+    {what:'Руководитель юнита: имя, фамилия, логин',aud:'all',stage:'—',now:'dev'}]}
 ];
-function devPlan(stage){return DEV_PLAN.find(x=>x.stage===String(stage))||null}
+/* сколько строк плана в каком статусе — для сводки готовности */
+function planCount(){
+  const n={live:0,dev:0,todo:0,extra:0};
+  DEV_PLAN.forEach(g=>g.rows.forEach(r=>{n[r.now]++}));
+  return n;
+}
 function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
 /* hc_avg метрикой отчёта не является, но в этом наборе остаётся: он управляет
    не только сравнимостью, но и способом агрегации (сумма, а не среднее). */
@@ -279,9 +332,9 @@ function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
    rev_eval / rev_up — оценённые в цикле ревью и улучшившие оценку. */
 const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny',
   'ai_wau','pf_plan','hire_jun','rev_eval','rev_up',
-  /* пробник: нежелательные увольнения, оценка «низкая» и оценённые — слагаемые;
+  /* пробник: нежелательные увольнения — слагаемое regret;
      отработанные человеко-дни и посещения офиса — слагаемые посещаемости */
-  'regret_cnt','plow','prated','wday','ovis']);
+  'regret_cnt','wday','ovis']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -308,8 +361,8 @@ const LOCKED_METRICS=new Set(['hc_active','hc_total']);
    `keys:null` — весь список; остальные перечисляют показанные метрики. */
 const METRIC_PRESETS=[
 {key:'all',name:'Всё',keys:null},
-{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','attrition','turnover_m','turnover_y','regret','turnover_fc']},
-{key:'hiring',name:'Найм',keys:['hc_active','hc_total','hire','hire_rate','vac_open','vac_closed','time_to_fill','hire_plan','junior_share','internal_share']},
+{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','attrition','turnover_m','turnover_y','regret']},
+{key:'hiring',name:'Найм',keys:['hc_active','hc_total','hire','vac_open','vac_closed','time_to_fill','hire_plan','junior_share','internal_share']},
 {key:'min',name:'Минимум',keys:['hc_active','hc_total','turnover_m','regret']}
 ];
 
@@ -1443,9 +1496,9 @@ function sliceDeltaMoM(lp,key,sel){
   return +(s[LAST]-s[LAST-1]).toFixed(1);
 }
 
-/* ---------- Посещаемость офисов: подневно, по дням недели, по офисам ----------
+/* ---------- Посещаемость офисов: подневно, по дням недели, по городам ----------
    ВАЖНО: ни подневных отметок, ни привязки людей к офисам в модели нет — здесь
-   они выдуманы так же, как коэффициенты воронки найма. Соблюдается строго одно:
+   они выдуманы. Соблюдается строго одно:
    среднее по будням календаря равно метрике `office_att` за тот же месяц. Иначе
    календарь и линия динамики противоречили бы друг другу на соседних вкладках.
    При подключении к хранилищу это первое, что заменяется фактами. */
@@ -1515,8 +1568,8 @@ const CAL_MONTHS=2;
    «календарный месяц», а смысл правки пропал бы.
 
    ДОПУЩЕНИЕ: месячные метрики июня при этом остаются полными — генератор считает
-   их по месяцу целиком. Подневный слой и месячный расходятся на этом ровно так же,
-   как расходятся воронка найма и реальные этапы: это макет, и в UI сказано. */
+   их по месяцу целиком. Подневный слой и месячный на этом расходятся: это макет,
+   и в UI сказано (до показа — подключить подневный источник, см. план). */
 const CAL_TODAY=15;
 function attLast(lp,months){
   months=months||CAL_MONTHS;
@@ -1543,8 +1596,9 @@ function attByDow(lp,months){
   return acc.map((a,i)=>({name:DOW_NAME[i],value:a.n?+(a.s/a.n).toFixed(1):0,weekend:i>=5}));
 }
 
-/* Рейтинг офисов: доли людей и посещаемость по офису выдуманы, но численность
-   в сумме равна численности отбора — иначе таблица спорила бы с KPI-карточкой. */
+/* Офисы — только как слагаемые городов (officeByCity): рейтинг офисов снят
+   15.10 — в каталоге HQ «офисы по городам». Доли людей и посещаемость по офису
+   выдуманы, но численность в сумме равна численности отбора. */
 function officeRank(lp){
   const r=rng(lpSeed(lp,'rank'));
   const hc=lastVal(lp,'hc_total'), base=lastVal(lp,'office_att');
@@ -1854,18 +1908,14 @@ const AI_TOOLS=[{key:'chat',name:'Корпоративный AI-ассистен
   {key:'kb',name:'AI-поиск по базе знаний',k:0.38},
   {key:'docs',name:'Генерация документов и писем',k:0.27},
   {key:'data',name:'AI в аналитике данных',k:0.15}];
-const AI_STREAM_K={dev:1.5,qa:1.25,ana:1.2,ops:1.15,ml:1.6,des:1.1,prod:1.05,sup:0.45,back:0.5,adm:0.8};
 function aiProfile(lp){
   const pen=lastVal(lp,'ai_penetration')||0, wau=lastVal(lp,'ai_wau'), r=rng(lpSeed(lp,'ai')), it=hcIT(lp);
   const tools=AI_TOOLS.map(t=>({key:t.key,name:t.name,
     value:+Math.min(pen,pen*t.k*(t.it?Math.min(1,it*1.2):1)*(0.9+r()*0.2)).toFixed(1)}));
-  const st=mixTree(lp,'stream').filter(n=>n.value>0);
-  const att=normAtt(pen,st.map(n=>n.value),st.map(n=>(AI_STREAM_K[n.cat.key]||1)*(0.92+r()*0.16)));
-  return {pen:pen,wau:wau,tools:tools,
-    streams:st.map((n,i)=>({key:n.cat.key,name:n.cat.name,hc:n.value,value:Math.min(98,att[i])}))};
+  return {pen:pen,wau:wau,tools:tools};
 }
 
-window.TPDATA={REAL,isStub,isDev,devStage,devPlan,DEV_PLAN,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,

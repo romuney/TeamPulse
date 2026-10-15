@@ -71,7 +71,7 @@ console.log('— '+name+': '+D.NODE_BY_PATH[D.DEFAULT_STATE.unit].name+', '+D.PE
 const scopeRow=rows.find(r=>r.role==='scope'), baseRow=rows.find(r=>r.role==='base');
 const arr=(r,c)=>String(r['m_'+c]).split(',').map(Number);
 const KEYS=[['hc_total','hc'],['hc_active','act'],['hc_avg','avg'],['hire','hire'],['attrition','fire'],
-  ['transfer_in','tin'],['transfer_out','tout'],['regret_cnt','reg'],['plow','plow'],['prated','prat']]
+  ['transfer_in','tin'],['transfer_out','tout'],['regret_cnt','reg']]
   /* колонки разведки 12.10 — если ответ их везёт */
   .concat([['wday','wday'],['ovis','ovis'],['tgrowth_pass','gapr'],['tgrowth_deny','gdec']].filter(([,c])=>R.has(c)));
 let treeOk=true, checked=0;
@@ -101,8 +101,6 @@ let ty=0;for(let k=jan;k<=i;k++)ty+=avg[k]?+(fire[k]/avg[k]*100).toFixed(2):0;
 ok(near(D.lastVal(rl,'turnover_y'),+ty.toFixed(2)),'текучесть накопительная = сумма месячных с января');
 let ry=0;for(let k=jan;k<=i;k++)ry+=avg[k]?+(reg[k]/avg[k]*100).toFixed(2):0;
 ok(near(D.lastVal(rl,'regret'),+ry.toFixed(2)),'regret = накопительная доля нежелательных увольнений к ССЧ');
-const pl=arr(scopeRow,'plow')[i], pr=arr(scopeRow,'prat')[i];
-ok(near(D.lastVal(rl,'low_perf'),pr?+(pl/pr*100).toFixed(2):null),'низкая оценка = «низкая» / оценённые');
 ok(D.isStub('vac_open')&&D.isStub('ai_penetration')&&!D.isStub('turnover_m')&&!D.isStub('hc_total'),
   'заглушки помечены: вакансии и AI — демо, численность и текучесть — живые');
 /* колонки разведки 12.10: с ними посещаемость и T-рост живые, без них — «демо», и

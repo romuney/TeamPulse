@@ -75,12 +75,12 @@ const C_IN=C_HIRE, C_OUT=C_FIRE, C_TOTAL=C_CNT;   /* старые имена —
    это была третья палитра помимо :root и этого файла, и при смене оттенка
    приходилось искать по всем экранам. Контроль: grep по screens/*.js — пусто. */
 /* С итерации 32 одиночные метрики — кобальтом C_LINE: отдельный «свой» цвет
-   у каждой (горчичный у недоработчиков, пыльно-розовый у лоу-перформеров)
+   у каждой (горчичный у недоработчиков, пыльно-розовый у оценок ревью)
    ничего не кодировал, а заказчик читал их как блёклые и случайные. Имена
    оставлены — экраны ссылаются на них, и смена тона не требует правок там. */
 const C_VAC=C_LINE,            /* открытые вакансии */
       C_UNDER=C_LINE,          /* недоработчики */
-      C_LOWPERF=C_LINE,        /* лоу-перформеры */
+      C_REVIEW=C_LINE,         /* ревью (лоу-перформеры сняты 15.10) */
       C_OFFICE=C_LINE,         /* посещаемость офиса в таблицах */
       C_REGRET='#8A4FD8',      /* нежелательный уход — тон ухода */
       C_NOREG='#CDBEF0',       /* обычный уход — светлый тон ухода */
@@ -94,7 +94,7 @@ const PALETTE=[C_TR_IN,C_HIRE_I,C_HIRE_D,C_HIRE,C_FIRE,C_TR_OUT,C_CNT,C_OTHER];
    13.10, заказчик: «барчарт занимает много места и краски — сделаешь супер
    ярким, режет глаз; линия тонкая, ей яркость нужна, пастельная линия
    некрасива». Поэтому у одного потока два тона: насыщенный — для линии,
-   мягкий — для бара, полосы в ячейке, водопада, воронки. Мятный и сиреневый —
+   мягкий — для бара, полосы в ячейке, водопада. Мятный и сиреневый —
    как в исходной гамме отчёта, но с насыщенностью выше порога «читается
    серым»: пара найм/уход проходит валидатор палитры (светлота, насыщенность,
    различимость в т. ч. при дальтонизме); контраст с белым ниже 3:1, поэтому
@@ -495,7 +495,7 @@ function mkMark(cx,cy,m,dly){
 
    Одна функция рисует полотно в заданной области — её зовут и отдельный
    график (drawYoy), и панели друг под другом (drawPanels с yoy).
-     p  = {key, cur[12], prev[12], bench?, color, kpi, fc,
+     p  = {key, cur[12], prev[12], bench?, color, kpi,
            ann (уже на оси года), marks:[{i, s, n}], gap, off, benchName, link}
      ar = {x0, plotW, top, bot, hitTop, delay}
    ========================================================================== */
@@ -507,11 +507,6 @@ function yoyPlot(p,ar){
   const nowI=CD.CUR_LEN-1, ya=p.ann||null, marks=p.marks||[];
   const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
   if(p.kpi){all.push(p.kpi.green);all.push(p.kpi.red)}
-  /* p.fc — прогноз на декабрь (run-rate): пунктир от последнего закрытого
-     месяца до декабря. Рисуется только у накопительной метрики и только пока
-     год не закрыт — в декабре прогноз совпал бы с фактом. */
-  const fc=showMain&&p.fc!=null&&nowI<11&&cur[nowI]!=null?p.fc:null;
-  if(fc!=null)all.push(fc);
   const max=niceMax(all);
   const Y=v=>bot-(v/max)*(bot-top), X=i=>x0+bandW*(i+0.5);
   const big=(i,s)=>!!(ya&&ya.hi&&ya.hi.some(z=>z.i===i&&z.s===s));
@@ -534,14 +529,6 @@ function yoyPlot(p,ar){
     +' stroke-width="2" stroke-dasharray="5 3"/>';
   if(showMain&&!flow)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+polyD(cur,X,Y)+'" fill="none" stroke="'+col+'"'
     +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"'+(d0?' style="animation-delay:'+d0+'ms"':'')+'/>';
-  if(fc!=null){
-    /* прогноз — не факт: тонкий пунктир того же цвета и полая точка, подпись
-       прижата к правому краю, чтобы не вылезать за полотно */
-    s+='<path class="lnb"'+sAttr('main')+' d="M'+num(X(nowI))+' '+num(Y(cur[nowI]))+'L'+num(X(11))+' '+num(Y(fc))+'"'
-      +' fill="none" stroke="'+col+'" stroke-width="1.6" stroke-dasharray="2 4" stroke-linecap="round"/>';
-    s+='<circle class="dotb"'+sAttr('main')+' cx="'+num(X(11))+'" cy="'+num(Y(fc))+'" r="3.4" fill="#fff" stroke="'+col+'" stroke-width="1.6" stroke-dasharray="2 2"/>';
-    s+=txt(X(11)+bandW*0.45,Y(fc)-VAL_DY,'прогноз '+CD.fmtVal(key,fc),valOpt({anchor:'end',s:'main',fill:col}));
-  }
   const yC=CD.YEAR_CUR, yP=CD.YEAR_PREV, step=labelStep(cur,key,bandW);
   let lbl='', mk='';
   for(let i=0;i<12;i++){
@@ -550,10 +537,8 @@ function yoyPlot(p,ar){
     if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:col});
     if(showPrev&&pv!=null)rows.push({label:String(yP),value:CD.fmtVal(key,pv),color:C_PREV});
     if(showBench&&b!=null)rows.push({label:p.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
-    if(fc!=null&&i===11)rows.push({label:'прогноз на декабрь',value:CD.fmtVal(key,fc),color:col,dash:true});
     const note=c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
-      :c==null?(fc!=null&&i===11?'Прогноз — run-rate: темп с начала года, пересчитанный на 12 месяцев'
-        :'Месяц '+yC+' ещё не закрыт'):null;
+      :c==null?'Месяц '+yC+' ещё не закрыт':null;
     const nmM=CD.MONTH_NOM[i];
     const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+(nm.name?' · '+nm.name:''),rows,note})+'>';
@@ -624,7 +609,7 @@ function drawYoy(a,w,h){
   const plotTop=hh+LBL_ROOM+yoyRoom(ya,o.marks), plotBot=h-AXIS_H+12;
   const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(a.metricKey,o.kpi);
   return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+
-    yoyPlot({key:a.metricKey,cur:a.cur,prev:a.prev,bench:a.bench,color:o.color,kpi:o.kpi,fc:o.fc,
+    yoyPlot({key:a.metricKey,cur:a.cur,prev:a.prev,bench:a.bench,color:o.color,kpi:o.kpi,
       ann:ya,marks:o.marks,gap:o.gap,off:offOf(o),benchName:o.benchName,link:o.link},
       {x0:x0,plotW:plotW,top:plotTop,bot:plotBot,hitTop:hh}));
 }
@@ -770,53 +755,7 @@ function drawWaterfall(a,w,h){
 }
 
 /* ============================================================================
-   5. Воронка. Полосы центрированы по вертикальной оси, поэтому силуэт
-      действительно сужается — это воронка, а не столбик горизонтальных баров.
-      Слева от полосы — фактическое значение, справа — конверсия к предыдущему
-      этапу. Названия этапов над полосой.
-   ========================================================================== */
-/* Воронка — одна величина по этапам, поэтому один цвет — мягкий мятный найма
-   (13.10: разноцветные этапы читались как разные категории, а яркие бары
-   «резали глаз»). Сужение несёт форма, а не смена цвета. */
-const FUNNEL_C=SOFT[C_HIRE];
-function drawFunnel(a,w,h){
-  const items=a.items, o=a.opt||{};
-  const hh=headH(o.title,o.legend);
-  const n=items.length;
-  h=h||o.h||(hh+n*62+16);
-  const rowH=(h-hh-12)/n;
-  const max=niceMax(items.map(x=>x.value));
-  const cx=w/2;
-  const sideW=64;                                  /* колонки под цифры слева и справа */
-  const maxBar=Math.max(60,w-sideW*2-20);
-  let s=header(w,o.title,o.legend);
-  items.forEach((it,i)=>{
-    const y=hh+i*rowH+16, bh=Math.max(14,rowH-26);
-    const bwv=(it.value/max)*maxBar;
-    const conv=i>0&&items[i-1].value?(it.value/items[i-1].value*100):null;
-    const t={title:it.name,
-      rows:[{label:'Значение',value:CD.fmtInt(it.value),color:FUNNEL_C}],
-      note:[conv!=null?'конверсия с предыдущего этапа: '+conv.toFixed(0)+'%':null,
-            'от первого этапа: '+(items[0].value?(it.value/items[0].value*100).toFixed(0):'—')+'%']};
-    s+=txt(cx,y-4,it.name,{size:11,weight:400,fill:C_AXIS});
-    s+='<g class="barg"'+tip(t)+'>';
-    s+='<rect class="hit" x="0" y="'+num(y-14)+'" width="'+num(w)+'" height="'+num(bh+18)+'"/>';
-    s+=rect(cx-bwv/2,y,bwv,bh,FUNNEL_C,3,' class="bar fn" style="animation-delay:'+(i*40)+'ms"');
-    s+='</g>';
-    s+=txt(cx-bwv/2-8,y+bh*0.72,CD.fmtInt(it.value),valOpt({anchor:'end',delay:200+i*40}));
-    if(conv!=null)s+=txt(cx+bwv/2+8,y+bh*0.72,conv.toFixed(0)+'%',valOpt({anchor:'start',delay:200+i*40}));
-    /* соединители, подчёркивающие сужение */
-    if(i<n-1){
-      const nb=(items[i+1].value/max)*maxBar, ny=hh+(i+1)*rowH+16;
-      s+='<path class="fnlink" d="M'+num(cx-bwv/2)+' '+num(y+bh)+'L'+num(cx-nb/2)+' '+num(ny)
-        +'M'+num(cx+bwv/2)+' '+num(y+bh)+'L'+num(cx+nb/2)+' '+num(ny)+'" fill="none" stroke="'+C_DIV+'" stroke-width="1"/>';
-    }
-  });
-  return svg(w,h,s);
-}
-
-/* ============================================================================
-   6. Спарклайны.
+   5. Спарклайны.
       Ширина 100% с preserveAspectRatio="none": в таблице OnePager колонка
       «12 мес» тянется вместе с окном, и спарклайн должен тянуться с ней.
       Текста внутри нет, поэтому растяжение ничего не искажает.
@@ -1053,7 +992,7 @@ function drawCalendar(a,w,h){
 }
 
 const KINDS={yoy:drawYoy,pair:drawPair,panels:drawPanels,
-             waterfall:drawWaterfall,funnel:drawFunnel,calendar:drawCalendar};
+             waterfall:drawWaterfall,calendar:drawCalendar};
 const NOMINAL_W=900, NOMINAL_H=null;
 let _specs=new Map(), _sid=0;
 /* Какие серии выключены. Живёт ОТДЕЛЬНО от _specs и НЕ чистится в reset():
@@ -1072,8 +1011,7 @@ function chart(kind,args,opt){
   opt.off=_off.get(opt._key)||new Set();
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
-  /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px
-     (воронка: растянутая на всю панель, она читалась «сумасшедшей») */
+  /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px */
   const mh=kind==='panels'?panelsMin(args.panels):0;
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
     (mh?' style="min-height:'+mh+'px"':'')+'>'+build(spec,NOMINAL_W,NOMINAL_H)+'</div>';
@@ -1145,5 +1083,5 @@ window.TPDRAW={chart,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERI
   sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
-  C_VAC,C_UNDER,C_LOWPERF,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y,C_AI};
+  C_VAC,C_UNDER,C_REVIEW,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y,C_AI};
 })();
