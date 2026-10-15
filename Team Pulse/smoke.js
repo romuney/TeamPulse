@@ -269,7 +269,7 @@ checks.push(['минус во всех дельтах типографский, 
 /* Среднесписочная ушла из отчёта, но осталась знаменателем текучести;
    на её место в движении персонала встал прирост с начала года. */
 checks.push(['среднесписочной численности нет среди метрик отчёта',
-  !D.METRIC_BY_KEY['hc_avg']&&!/Среднесписочная/.test(allHtml)&&D.METRICS.length===26]);
+  !D.METRIC_BY_KEY['hc_avg']&&!/Среднесписочная/.test(allHtml)&&D.METRICS.length===27]);
 checks.push(['ряд hc_avg жив: текучесть по-прежнему считается',
   D.aggregate(rl,'hc_avg')[D.LAST]>0]);
 (function(){
@@ -638,7 +638,7 @@ checks.push(['марки графиков помечены data-s',
   /* 1. Разрезов девять, и это реестр, а не ветки в if */
   checks.push(['разрезы состава объявлены списком: от грейда до специализации',
     dims.map(d=>d.key).join(',')===
-    'grade,seniority,gender,age,tenure,employment,worksite,legal,region,stream,spec']);
+    'grade,seniority,gender,age,tenure,employment,contract,worksite,legal,region,stream,spec']);
   checks.push(['грейд и сеньорность — РАЗНЫЕ разрезы: числовой и текстовый',
     byKey.grade.cats.every(c=>/^Грейд \d$/.test(c.name))&&
     byKey.seniority.cats.map(c=>c.name).join(',')==='Junior,Middle,Senior,Lead и выше']);
@@ -988,9 +988,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const sum=a=>a.reduce((x,y)=>x+y,0);
   const ytd=k=>D.sumWin(D.aggregate(rl0,k),'ytd');
 
-  checks.push(['восемь блоков: AI-инструменты — восьмой, двадцать шесть метрик (15.10, по каталогу), сравнимых четырнадцать',
+  checks.push(['восемь блоков: AI-инструменты — восьмой, двадцать семь метрик (15.10: + «Переработчики»), сравнимых пятнадцать',
     D.BLOCKS.length===8&&D.BLOCKS[7].key==='ai'&&D.metricsOfBlock('ai').length===2&&
-    D.METRICS.length===26&&D.METRICS.filter(m=>D.comparable(m.key)).length===14]);
+    D.METRICS.length===27&&D.METRICS.filter(m=>D.comparable(m.key)).length===15]);
 
   /* --- производные метрики: формулы --- */
   const e=k=>D.aggregate(rl0,k)[D.LAST];
@@ -1260,7 +1260,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
      каждый размеченный термин есть в словаре и объяснён */
   const whyMiss=[], termBad=[];
   D.BLOCKS.forEach(b=>SC.blocks[b.key].subTabs.forEach(t=>{
-    const w=(STY.WHY[b.key]||{})[t[0]];
+    const w0=(STY.WHY[b.key]||{})[t[0]], w=typeof w0==='function'?w0():w0;
     if(!w||!w[0]||!w[1])whyMiss.push(b.key+'/'+t[0]);
     (w||[]).join(' ').replace(/\{\{([^}|]+)(?:\|[^}]+)?\}\}/g,(m,term)=>{if(!STY.glossary(term))termBad.push(term)});
   }));

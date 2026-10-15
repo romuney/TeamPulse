@@ -172,14 +172,17 @@ CH.turnover={
     const tot=sum(rs.map(r=>r.value));
     if(!tot)return {sum:'уходов не было',st:'n',head:'С января никто не ушёл'};
     const top=rs.slice().sort((a,b)=>b.value-a.value)[0];
-    const reg=sum(rs.filter(r=>r.regret).map(r=>r.value)), rp=pc(reg,tot);
+    /* пробник: нежелательные считаются по людям (regretN), ★ — причина, где их большинство */
+    const exact=rs.some(r=>r.regretN!=null);
+    const reg=exact?sum(rs.map(r=>r.regretN||0)):sum(rs.filter(r=>r.regret).map(r=>r.value)), rp=pc(reg,tot);
     const by=k=>(ini.find(x=>x.key===k)||{value:0}).value;
     const rg=judge('regret',c);
     return {sum:rp+'% — нежелательные',st:rg.st,
       head:(rp>=50?rp+'% уходов — нежелательные':'Большинство уходов — не из-за компании')+
         ': главная причина — «'+top.name+'»',
       lede:'С января ушли **'+pl(tot,PPL)+'**: '+by('emp')+' — по своей инициативе, '+by('org')+
-        ' — по инициативе работодателя. Нежелательных уходов (★), на которые компания могла повлиять, — **'+reg+'**.',
+        ' — по инициативе работодателя. Нежелательных уходов'+(exact?'':' (★)')+', на которые компания могла повлиять, — **'+reg+'**'+
+        (exact&&rs.some(r=>r.regret)?'; ★ — причины, где таких большинство':'')+'.',
       facts:rs.slice().sort((a,b)=>b.value-a.value).slice(0,3).map(r=>'«'+r.name+'» — **'+r.value+'**'+(r.regret?' ★':'')),
       act:top.regret&&top.value>=2?{text:'Разберите «'+top.name+'»: **'+top.value+' из '+tot+'** уходов с января.'}:null};
   },
@@ -317,7 +320,7 @@ CH.tgrowth={
 /* ===== Мониторинг работы ===== */
 CH.monitor={
   both(c){
-    const m=[['underwork','Недоработчиков','больше','меньше'],
+    const m=[['underwork','Недоработчиков','больше','меньше'],['overwork','Переработчиков','больше','меньше'],
       ['review_up','Улучшивших оценку','больше','меньше']].map(x=>({key:x[0],who:x[1],j:judge(x[0],c)}));
     const bad=m.filter(x=>x.j.st==='bad'), good=m.filter(x=>x.j.st==='good');
     const b0=bad[0];
@@ -327,9 +330,10 @@ CH.monitor={
       st:bad.length?'bad':good.length?'good':'n',
       head:b0?b0.who+' '+(b0.j.v>b0.j.base?'больше':'меньше')+', чем '+inBase(c)+': '+f(b0.key,b0.j.v)+' против '+f(b0.key,b0.j.base)
         :'Проседания нет: показатели '+(good.length?'на уровне базы или лучше':'на уровне базы «'+c.bench+'»'),
-      lede:'Недоработчики — **'+f('underwork',m[0].j.v)+'**, улучшили оценку в ревью — **'+f('review_up',m[1].j.v)+'**.',
+      lede:'Недоработчики — **'+f('underwork',m[0].j.v)+'**, переработчики — **'+f('overwork',m[1].j.v)+
+        '**, улучшили оценку в ревью — **'+f('review_up',m[2].j.v)+'**.',
       focus:fo.focus,act:fo.act,
-      ann:{underwork:annFor(note,'пик'),review_up:{hi:[D.LAST]}}};
+      ann:{underwork:annFor(note,'пик'),overwork:{hi:[D.LAST]},review_up:{hi:[D.LAST]}}};
   },
   review(c){
     const rv=D.reviewProfile(c.lp), by=k=>(rv.dyn.find(x=>x.key===k)||{value:0}).value;
@@ -454,6 +458,13 @@ function profDevs(c,inSel){
   return out.sort((x,y)=>Math.abs(y.d)-Math.abs(x.d));
 }
 const pp=v=>Math.round(v)+'%';
+/* Пробник (схема 15.10): категории — значения из таблицы, их ключи не совпадают с
+   ключами макета. Подписи — по ключу, если он известен, иначе по имени категории. */
+const senOf=c=>SEN[c.key]||c.name;
+const roleOf=c=>ROLE[c.key]||'сотрудник стрима «'+c.name+'»';
+const ageOf=c=>AGE_OF[c.key]||c.name.toLowerCase();
+const tenOf=c=>TEN_OF[c.key]||'в компании: '+c.name.toLowerCase();
+const SENIOR_UP=/senior|lead|head|сеньор|лид|ведущ|руковод|expert|эксперт|principal/i;
 CH.structure.portrait=function(c){
   const sel=c.S.mixSel||[], P=k=>D.mixParts(c.lp,k,sel), B=k=>D.mixParts(c.bl,k,sel);
   /* Разрез, по которому взят срез, своей таблицей срез не режет (правило
@@ -472,19 +483,21 @@ CH.structure.portrait=function(c){
   const devs=profDevs(c,inSel), big=devs[0]&&Math.abs(devs[0].d)>=5?devs[0]:null;
   const g=P('gender'), gB=B('gender'), fw=pc(g[0],sum(g)), fwB=pc(gB[0],sum(gB));
   const cmp=x=>'«'+x.cat.name+'» — **'+pp(x.t)+'** против '+pp(x.b)+' в базе';
-  const role=stQ&&stQ.dim.key==='spec'?'«'+stQ.cat.name+'»':ROLE[top.cat.key];
-  const who=SEN[sn.cat.key]+'-'+role+' '+AGE_OF[ag.cat.key]+', '+TEN_OF[tn.cat.key];
+  const role=stQ&&stQ.dim.key==='spec'?'«'+stQ.cat.name+'»':roleOf(top.cat);
+  const who=SEN[sn.cat.key]&&ROLE[top.cat.key]?SEN[sn.cat.key]+'-'+role+' '+ageOf(ag.cat)+', '+tenOf(tn.cat)
+    :senOf(sn.cat)+', '+role+', '+ageOf(ag.cat)+', '+tenOf(tn.cat);
   const lede=[stQ?null:'**'+pc(top.value,tot)+'%** — «'+top.cat.name+'»',
-    sn.fixed?null:'**'+sn.share+'%** — '+SEN[sn.cat.key],
+    sn.fixed?null:'**'+sn.share+'%** — '+senOf(sn.cat),
     tn.fixed?null:'**'+n0+'%** — меньше года в компании'].filter(Boolean);
   /* Вывод каждого раздела — заголовком над его графиком (вариант 2 портрета):
      колонки «Что важно» нет, выводы стоят там, где их график. Разрез из среза
      выводом не описывается — он выбран, и график это показывает. */
-  const senP=P('seniority'), slp=pc(senP[2]+senP[3],sum(senP));
+  const senP=P('seniority'), senC=D.mixCats('seniority');
+  const slp=pc(sum(senP.filter((_,i)=>SENIOR_UP.test(senC[i].name))),sum(senP));
   const gr=mode('grade');
   const ten10=D.roundParts(D.mixCats('tenure').map((_,i)=>pc(ten[i],sum(ten))/10),10)[0];
   const sel1=q=>'Выбран «'+q.cat.name+'» — выделен на графике';
-  return {sum:pl(tot,PPL)+' · '+SEN[sn.cat.key],st:'n',
+  return {sum:pl(tot,PPL)+' · '+senOf(sn.cat),st:'n',
     head:parts.length?'В срезе «'+D.sliceLabel(sel)+'» типичный человек — '+who:'Типичный человек в команде — '+who,
     lede:'**'+pl(tot,PPL)+'**'+(parts.length?' в срезе':'')+(lede.length?': '+lede.join(', '):'')+'. '+
       (big?'Сильнее всего от базы «'+c.bench+'» отличается '+big.dim.short.toLowerCase()+': '+cmp(big)+'.'
@@ -508,20 +521,22 @@ CH.structure.work=function(c){
     const p=P(k), i=argmax(p);return {cat:D.mixCats(k)[i],share:pc(p[i],sum(p)),i:i}};
   const st=sh('employment',0);
   if(!st.n)return {sum:'нет людей',st:'n'};
-  const fm=mode('worksite'), rg=mode('region'), lg=mode('legal');
+  /* в пробнике формата работы и региона нет — о них не говорим */
+  const has=k=>!!D.MIX_BY_KEY[k];
+  const fm=has('worksite')?mode('worksite'):null, rg=has('region')?mode('region'):null, lg=has('legal')?mode('legal'):null;
   const vsB=(t,b)=>t-b>=5?' — больше, чем в компании ('+b+'%)':b-t>=5?' — меньше, чем в компании ('+b+'%)':'';
   const sel1=q=>'Выбран «'+q.cat.name+'» — выделен на графике';
-  const rgB=rg.fixed?null:sh('region',rg.i);
+  const rgB=!rg||rg.fixed?null:sh('region',rg.i);
   return {sum:'штат '+st.t+'%',st:'n',
-    head:'В штате '+st.t+'% команды'+(fm.fixed?'':', чаще всего — '+fm.cat.name.toLowerCase())+
-      (rg.fixed?'':'; больше всего людей — '+(rg.cat.key==='msk'?'в Москве и области':'в регионе «'+rg.cat.name+'»')),
+    head:'В штате '+st.t+'% команды'+(!fm||fm.fixed?'':', чаще всего — '+fm.cat.name.toLowerCase())+
+      (!rg||rg.fixed?'':'; больше всего людей — '+(rg.cat.key==='msk'?'в Москве и области':'в регионе «'+rg.cat.name+'»')),
     lede:'**'+pl(st.n,PPL)+'**'+(parts.length?' в срезе':'')+'. Штат — **'+st.t+'%**'+(Math.abs(st.t-st.b)>=5?' при '+st.b+'% в базе «'+c.bench+'»':', как в базе «'+c.bench+'»')+
       (rgB?'; «'+rg.cat.name+'» — **'+rgB.t+'%**'+(Math.abs(rgB.t-rgB.b)>=5?' против '+rgB.b+'% в базе':''):'')+'.',
     says:{
       emp:inSel('employment')?sel1(inSel('employment')):'В штате **'+st.t+'%**'+vsB(st.t,st.b),
-      fmt:fm.fixed?sel1(fm):'Чаще всего — **'+fm.cat.name.toLowerCase()+'**, '+fm.share+'%',
-      reg:rg.fixed?sel1(rg):'**'+rg.cat.name+'** — '+rgB.t+'%'+vsB(rgB.t,rgB.b).replace(' — ',', '),
-      legal:lg.fixed?sel1(lg):'Больше всего — «'+lg.cat.name+'», '+lg.share+'%'}};
+      fmt:!fm?null:fm.fixed?sel1(fm):'Чаще всего — **'+fm.cat.name.toLowerCase()+'**, '+fm.share+'%',
+      reg:!rg?null:rg.fixed?sel1(rg):'**'+rg.cat.name+'** — '+rgB.t+'%'+vsB(rgB.t,rgB.b).replace(' — ',', '),
+      legal:!lg?null:lg.fixed?sel1(lg):'Больше всего — «'+lg.cat.name+'», '+lg.share+'%'}};
 };
 
 /* ---------- Зачем смотреть и что с этим делать (итерация 32, фидбэк 12.10) ----------
@@ -546,6 +561,7 @@ const GL={
   'Конверсия T-роста':{metric:'tgrowth_conv'},
   'T@T':{metric:'tgrowth_tat'},
   'Недоработчики':{metric:'underwork'},
+  'Переработчики':{metric:'overwork'},
   'Ревью':{text:'Оценка результатов работы, раз в полгода. Между ревью значения не меняются.'},
   'Нарушения бронирования':{metric:'booking_viol'},
   'Посещаемость офиса':{metric:'office_att'},
@@ -564,8 +580,11 @@ const WHY={
   structure:{
     portrait:['Кто в команде: уровень, опыт в компании, пол и возраст.',
       'Кликните на любую часть графика — например, «Senior»: отчёт покажет, сколько лет сеньорам и как давно они в компании.'],
-    work:['От оформления и места работы зависят затраты, управляемость и найм.',
-      'Много не штата — проверьте, не держатся ли на нём ключевые роли. Гибрид без офиса рядом — сверьте с посещаемостью.'],
+    /* формата работы нет в данных пробника (схема 15.10) — тогда и про гибрид молчим */
+    work:()=>D.MIX_BY_KEY.worksite?['От оформления и места работы зависят затраты, управляемость и найм.',
+      'Много не штата — проверьте, не держатся ли на нём ключевые роли. Гибрид без офиса рядом — сверьте с посещаемостью.']
+      :['От оформления зависят затраты, управляемость и найм.',
+      'Много не штата — проверьте, не держатся ли на нём ключевые роли.'],
     stream:['Из каких {{Стрим|стримов}} состоит команда и где её основная экспертиза.',
       'Стрим из одного-двух человек — точка отказа: с их уходом уйдёт и экспертиза.'],
     custom:['Любые два разреза рядом — например, {{Сеньорность|сеньорность}} × пол или грейд × стаж.',
@@ -597,8 +616,8 @@ const WHY={
     statuses:['У кого есть движение по росту, а у кого его нет уже год.',
       'Большая доля «нет развития» в грейде — обсудите с руководителями планы роста этих людей.']},
   monitor:{
-    both:['{{Недоработчики}} — ранний сигнал проблем с нагрузкой, {{Ревью|ревью}} — как меняются оценки.',
-      'Растёт доля недоработчиков — разберите подразделение, которое даёт рост.'],
+    both:['{{Недоработчики}} и {{Переработчики|переработчики}} — ранние сигналы проблем с нагрузкой, {{Ревью|ревью}} — как меняются оценки.',
+      'Растёт любая из двух долей — разберите подразделение, которое даёт рост: недогруз и перегруз одинаково ведут к уходам.'],
     review:['Итоги последнего {{Ревью|ревью}}: у кого оценка выросла, у кого упала.',
       'Ухудшивших больше, чем улучшивших, — проверьте нагрузку и цели в этих группах.']},
   office:{
@@ -628,7 +647,7 @@ function book(bk,subTabs,cur,c,demo){
   const chapters=subTabs.map(([key,name])=>{
     let s={};
     if(!(demo&&demo(key))&&defs[key]){try{s=defs[key](c)||{}}catch(e){s={}}}
-    const w=(WHY[bk]||{})[key];
+    const w0=(WHY[bk]||{})[key], w=typeof w0==='function'?w0():w0;
     return Object.assign({key:key,name:name,q:q[key]||name,st:'n',why:w?w[0]:null,todo:w?w[1]:null},s);
   });
   const i=Math.max(0,chapters.findIndex(x=>x.key===cur));

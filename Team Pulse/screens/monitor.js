@@ -16,7 +16,7 @@ SC.blocks.monitor={
   subTabs:[['both','Динамика'],['review','Ревью']],
   defaultSub:'both',
   title(sub){return sub==='review'?'Итоги ревью: последний цикл, '+D.CMP.cur
-    :'Недоработчики и ревью'},
+    :'Недоработка, переработка и ревью'},
   view(ctx){
     if(ctx.sub==='review'){
       const rv=D.reviewProfile(ctx.lp);
@@ -35,6 +35,7 @@ SC.blocks.monitor={
     }
     return SC.yoyPanels(ctx.lp,[
       {name:'Недоработчики, %',key:'underwork',color:G.C_UNDER,ann:ctx.ann.underwork},
+      {name:'Переработчики, %',key:'overwork',color:G.C_UNDER,ann:ctx.ann.overwork},
       {name:'Улучшили оценку в ревью, %',key:'review_up',color:G.C_LINE,ann:ctx.ann.review_up}]);
   }
 };

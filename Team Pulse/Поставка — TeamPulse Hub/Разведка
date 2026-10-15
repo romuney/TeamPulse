@@ -1,3 +1,83 @@
+prod_proteus.hr_structure_overall — схема и главное (разведка 3, 15.10.2026: describe физического датасета 175625)
+Разведка 2 (12.10, 32 колонки, датасет 174609) УСТАРЕЛА — она ниже, для истории. Первая — 08.10 (SOURCES.md §18).
+Проверка значений и смысла новых колонок — запрос 0д: ответ дописать в конец этого файла.
+
+Физическая таблица, 46 колонок, schema prod_proteus, is_virtual false. 2 533 026 строк,
+34 точки месяца: 2024-01 — 2026-10 (последний, вероятно, неполный). В каталоге DataDetective нет (404).
+Строка: месяц × юнит управленческой структуры × атрибуты человека. Людей нет, только суммы.
+ЦИФРЫ ЮНИТА ВКЛЮЧАЮТ ВСЁ ЕГО ПОДДЕРЕВО: юнит — только своими строками, детей не складывать никогда;
+«Напрямую в X» = X − Σ прямых детей.
+
+ЧТО ИЗМЕНИЛОСЬ К 15.10 (против разведки 12.10)
+- Дерево денормализовано: пары parent_mngt_unit_rk + lvl / parent_lvl больше нет — путь юнита
+  задан именами уровней lvl1_nm … lvl11_nm, глубина — leaf_lvl. Ключ — mng_unit_rk (было mngt_).
+  Имени юнита отдельной колонкой нет: это lvl{leaf_lvl}_nm. Родитель — юнит с путём без последнего
+  имени (имена в ветках повторяются, полный путь — нет).
+- Месяц — report_month (было month). Период: 2024-01 … 2026-10 (было 2025-01 … 2026-10).
+- Численность: employee_amt → hc_total_cnt; «Активная» больше не тип строки, а своя колонка
+  hc_active_cnt; лаг и ССЧ — по активной: lag_hc_active_cnt, ssch_hc_active_cnt.
+- Не видны: active_type_gr_nm, emp_specialization_oper_code (покраска Hq / Line / Support),
+  emp_specialization_it_code (IT / Digital / NonIT), hire_to_active_amt. ФИЛЬТРОВ ПОКРАСКИ И IT
+  В ПРОБНИКЕ БОЛЬШЕ НЕТ — остался штат / не штат.
+- Добавлены атрибуты человека: gender, type_age, experience_group_nm, grade, seniority,
+  employee_contract_type, legal_organization, employee_stream; увольнения: fire_reason_group,
+  fire_initiative.
+
+АТРИБУТЫ
+report_month	Nullable(Date)	месяц, первое число
+mng_unit_rk	Nullable(String)	ключ юнита
+leaf_lvl	Nullable(Int32)	уровень юнита (глубина в дереве)
+lvl1_nm … lvl11_nm	Nullable(String)	имя юнита на каждом уровне пути от корня
+gender	Nullable(String)	пол
+type_age	Nullable(String)	возрастная группа
+experience_group_nm	Nullable(String)	группа по опыту (стаж) → разрез «Стаж в компании»
+grade	Nullable(String)	грейд
+seniority	Nullable(String)	сеньорность (в описании «стаж/старшинство» — уточняет 0д)
+employee_contract_type	Nullable(String)	тип договора → разрез «Тип договора»
+legal_organization	Nullable(String)	юрлицо
+employee_stream	Nullable(String)	стрим → разрез «Стрим» (специализаций внутри нет)
+employment_relation_type	Nullable(String)	тип отношений, 10 значений; «Штатный сотрудник» — штат
+fire_reason_group	Nullable(String)	группа причины увольнения — только у строк увольнения
+fire_initiative	Nullable(String)	инициатива увольнения — только у строк увольнения
+
+ЧИСЛЕННОСТЬ И ССЧ
+hc_total_cnt	Nullable(Int64)	численность на конец месяца, всего
+hc_active_cnt	Nullable(Int64)	численность на конец месяца, «Активная»
+lag_hc_active_cnt	Nullable(Int64)	активная месяцем раньше
+ssch_hc_active_cnt	Nullable(Float64)	ССЧ активной = (активная + лаг) / 2 → знаменатель текучести
+
+ПОТОКИ
+hire_amt	Nullable(Int64)	найм
+fire_amt	Nullable(Int64)	увольнения
+regret_fire_amt	Nullable(Int64)	нежелательные увольнения, ≤ fire_amt
+transfer_in_amt / transfer_out_amt	Nullable(Int64)	переводы в юнит / из юнита
+transfer_candidate_amt / transfer_internal_amt	Nullable(Int64)	переводы кандидатов / внутренние — в отчёт не идут
+
+PERF — МОНИТОРИНГ РАБОТЫ (с 15.10: категории, а не оценки)
+perf_normal / perf_low / perf_high / perf_gray	Nullable(Float64)	нормал · недоработка · переработка · Gray
+→ «Недоработчики» = perf_low / (normal + low + high + gray); «Переработчики» = perf_high / то же.
+Что такое Gray и входит ли он в знаменатель — проверяет 0д, раздел 5.
+
+ПОСЕЩАЕМОСТЬ И T-РОСТ — как в разведке 2
+work_day_amt / office_visit_amt	Nullable(Float64)	отработанные человеко-дни / дни в офисе → посещаемость
+grt_approve_cnt / grt_decline_cnt	Nullable(Int64)	заявки T-роста: одобрено / отклонено → конверсия
+grt_cancel_cnt / grt_inprogress_cnt	Nullable(Int64)	отменено / в процессе — в отчёт пока не идут
+
+ЧТО ЭТО ДАЁТ ОТЧЁТУ (поставка 17)
+- Живыми стали: разрезы состава (грейд, сеньорность, стаж, пол, возраст, тип оформления, тип
+  договора, юрлицо, стрим), причины и инициаторы увольнений, кто уходит (стаж, грейд, стрим),
+  недоработчики и новая метрика «Переработчики».
+- Оценочными остались пересечения разрезов (срез по клику, «разрез × разрез»): в ответе — каждый
+  разрез отдельно, пересечение считается по подразделениям.
+- Нет в данных: формат работы, регион, специализации внутри стримов, покраска, IT.
+
+Примечания. Метрика Superset у датасета — только count. Распределения (distinct) подтверждены для
+hire / fire / regret / transfer_* и employment_relation_type; смысл демографии и потоков восстановлен
+из названий — проверяет 0д.
+
+================================================================================================
+ИСТОРИЯ: РАЗВЕДКА 2 (12.10.2026) — УСТАРЕЛА
+================================================================================================
 prod_proteus.hr_structure_overall — схема и главное (разведка 2, 12.10.2026: describe датасета 174609)
 Первая разведка — 08.10.2026 (DESCRIBE и ответ 0б); подробно — SOURCES.md §18.
 Проверка смысла новых колонок — запрос 0г: ответ дописать в конец этого файла.

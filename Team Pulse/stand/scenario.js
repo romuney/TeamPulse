@@ -2,7 +2,8 @@
    Сценарий стенда в Chromium: node stand/scenario.js [порт] [папка-скриншотов]
    Стенд (serve.py) уже запущен. Проверяет пробник так, как его увидит владелец:
    первый ответ датасета, все вкладки, переход в юнит кросс-фильтром и «← Назад»,
-   фильтр «HQ» через модалку, «План метрик» в справке, метки «демо», ошибки JS
+   фильтр «штат» через модалку (покраски и IT в схеме 15.10 нет), «План метрик» в справке,
+   метки «в разработке», ошибки JS
    и то, что слушатели не копятся от прогона к прогону.
    ========================================================================== */
 const { chromium } = require(process.env.PLAYWRIGHT || '/opt/node-tools/node_modules/playwright');
@@ -80,22 +81,26 @@ const fs = require('fs'), path = require('path');
   await settle(r1);
   ok(await title() === t0, '«← Назад» вернул «' + t0 + '»');
 
-  /* фильтр HQ через модалку */
+  /* фильтр «штат» через модалку; покраски и IT в схеме 15.10 нет — их групп в окне не видно */
   const r2 = await runs();
   await page.click('#btnSetup');
-  await page.click('#optPaint .opt[data-v="HQ"]');
+  const hidden = await page.evaluate(() => ['#optPaint', '#optIt'].every(sel => {
+    const el = document.querySelector(sel); return !el || el.closest('.fgrp').offsetParent === null; }));
+  ok(hidden, 'фильтров покраски и IT в окне настройки нет: в данных их нет');
+  await page.click('#optStaff .opt[data-v="staff"]');
   await page.click('#btnApply');
   await settle(r2);
   const m2 = await page.evaluate(() => window.__masks[window.__masks.length - 1]);
-  ok(m2.some(x => x.column === 'paint_f' && x.value[0] === 'Hq'), 'фильтр HQ ушёл как paint_f = Hq');
-  ok(/HQ/.test(await page.$eval('#chips', el => el.textContent)), 'в шапке чип HQ и база «всё HQ»');
-  await shot('05-hq');
+  ok(m2.some(x => x.column === 'staff_f' && x.value[0] === 'Штат') && !m2.some(x => /paint_f|it_f/.test(x.column)),
+    'фильтр «штат» ушёл как staff_f = Штат, без paint_f / it_f: ' + JSON.stringify(m2));
+  ok(/штат/.test(await page.$eval('#chips', el => el.textContent)), 'в шапке чип «штат» и база «всё штат»');
+  await shot('05-staff');
 
   /* снять фильтр крестиком в чипе */
   const r3 = await runs();
-  await page.click('[data-unchip="paint"]');
+  await page.click('[data-unchip="staffType"]');
   await settle(r3);
-  ok(!/Сравнение: всё HQ/.test(await page.$eval('#chips', el => el.textContent)), 'крестик в чипе снял HQ');
+  ok(!/всё штат/.test(await page.$eval('#chips', el => el.textContent)), 'крестик в чипе снял «штат»');
 
   /* юнит из списка в окне настройки — тоже кросс-фильтр */
   await page.click('#btnSetup');

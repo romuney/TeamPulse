@@ -129,7 +129,7 @@ function request(next){
   /* юнит по умолчанию не шлём: ответ без фильтра юнита общий для всех */
   if(id!==D.REAL.defId)mask.push({column:'unit_f',operator:'IN',value:[id]});
   [['paint','paint_f'],['itSeg','it_f'],['staffType','staff_f']].forEach(([k,col])=>{
-    const v=next[k]!=='all'?D.REAL.filterValue(k,next[k]):null;
+    const v=next[k]!=='all'&&D.REAL.cuts.has(col.replace('_f',''))?D.REAL.filterValue(k,next[k]):null;
     if(v)mask.push({column:col,operator:'IN',value:[v]});
   });
   const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
@@ -321,6 +321,10 @@ function paintOpts(){
   row('#optPaint',D.PAINTS,'paint');
   row('#optIt',D.ITSEGS,'itSeg');
   row('#optStaff',D.STAFFTYPES,'staffType');
+  /* пробник, схема 15.10: покраски и IT в таблице нет — этих фильтров в окне нет */
+  if(ENV)[['#optPaint','paint'],['#optIt','it']].forEach(([id,c])=>{
+    const g=$(id)&&$(id).closest('.fgrp');if(g)g.style.display=D.REAL.cuts.has(c)?'':'none';
+  });
   metricOpts();
   const d=Object.assign({},S,DRAFT);
   const rl=D.reportLeaves(d), bl=D.benchmarkLeaves(d);

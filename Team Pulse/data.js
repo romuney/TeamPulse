@@ -175,6 +175,9 @@ const METRICS=[
 /* 15.10: «Лоу-перформеры» сняты: такого понятия в компании нет (владелец борда,
    «Team Pulse 2.0 — сверка с каталогом.md»). Оценки ревью — в «Статусе ревью». */
 {key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.'},
+/* 15.10, разведка 3: в таблице есть категории мониторинга (perf_*: нормал, недоработка,
+   переработка, Gray) — «Переработка» из каталога HQ (раздел 9) встаёт рядом с недоработкой */
+{key:'overwork',block:'monitor',aud:'hq',name:'Переработчики',short:'Переработчики',fmt:'pct',better:'lower',unit:'%',anchor:14,hint:'Доля сотрудников, которые отработали за месяц больше нормы рабочего времени.'},
 /* Ревью из дашборда 34661. Цикл — раз в полгода (июнь и декабрь), поэтому
    ряд ступенчатый: между циклами значение стоит, а изменение «к маю» в июне —
    это и есть сдвиг к прошлому циклу. Считается парой «улучшили / оценены». */
@@ -205,6 +208,11 @@ if(REAL){
   /* Колонки разведки 12.10 (необязательные — REAL.has): посещаемость — посещения офиса
      к отработанным человеко-дням; T-рост — решения по заявкам GRT. Смысл колонок
      предварительный, проверяет запрос 0г; без колонок метрики остаются «демо». */
+  /* мониторинг (схема 15.10): доля категории среди всех четырёх — нормал, недоработка,
+     переработка, Gray; знаменатель уточняет запрос 0д */
+  const PERF=['perf_norm','perf_low','perf_high','perf_gray'];
+  ov.underwork={derived:{num:'perf_low',den:PERF,scale:100},anchor:null};
+  ov.overwork={derived:{num:'perf_high',den:PERF,scale:100},anchor:null};
   if(REAL.has('wday')&&REAL.has('ovis'))ov.office_att={derived:{num:'ovis',den:'wday',scale:100},anchor:null};
   if(REAL.has('gapr')&&REAL.has('gdec'))ov.tgrowth_conv={derived:{num:'tgrowth_pass',den:['tgrowth_pass','tgrowth_deny'],scale:100},
     anchor:null};
@@ -224,10 +232,10 @@ function isStub(key){return !!(METRIC_BY_KEY[key]&&METRIC_BY_KEY[key].stub)}
    заглушка (isStub), в макете — та же разметка, иначе план не виден там, где
    отчёт смотрят чаще всего. Число — этап плана подключения (DEV_PLAN). */
 const DEV_STAGE={vac_open:2,vac_closed:2,time_to_fill:2,hire_plan:2,junior_share:2,
-  underwork:5,review_up:5,tgrowth_tat:6,tgrowth_pass:6,tgrowth_deny:6,tgrowth_conv:6,
+  underwork:5,overwork:5,review_up:5,tgrowth_tat:6,tgrowth_pass:6,tgrowth_deny:6,tgrowth_conv:6,
   booking_viol:7,office_att:7,ai_penetration:8,ai_wau:8};
 /* живые с колонок разведки 12.10 (в датасете с восьмой поставки) */
-const DEV_LIVE_NEW=new Set(['office_att','tgrowth_pass','tgrowth_deny','tgrowth_conv']);
+const DEV_LIVE_NEW=new Set(['office_att','tgrowth_pass','tgrowth_deny','tgrowth_conv','underwork','overwork']);
 function isDev(key){return REAL?isStub(key):!!DEV_STAGE[key]&&!DEV_LIVE_NEW.has(key)}
 function devStage(key){return DEV_STAGE[key]||null}
 /* Этапы подключения: откуда берём и что нужно от заказчика. По номеру этапа
@@ -239,8 +247,8 @@ const DEV_STAGES={
   '1':{src:'основные данные о численности, новые разрезы',need:'ничего — делаем сами'},
   '2':{src:'данные о вакансиях и подборе',need:'доступ к данным подбора'},
   '3':{src:'данные об увольнениях',need:'доступ к данным об увольнениях'},
-  '4':{src:'профиль сотрудников',need:'согласовать выгрузку профиля сотрудников'},
-  '5':{src:'итоги ревью и табель',need:'доступ к ревью и табелю'},
+  '4':{src:'профиль сотрудников: специализации, формат работы, регион',need:'согласовать выгрузку профиля сотрудников'},
+  '5':{src:'итоги ревью и табель: звонки, прогулы, выходные',need:'доступ к ревью и табелю'},
   '6':{src:'сервис «Рост»',need:'доступ к данным сервиса «Рост»'},
   '7':{src:'пропуска в офис и бронирование',need:'доступ к пропускам и бронированию'},
   '8':{src:'статистика AI-инструментов',need:'доступ к статистике AI-инструментов'},
@@ -262,10 +270,12 @@ const DEV_PLAN=[
   {blk:'Структура численности',rows:[
     {what:'Общая и активная численность, водопад за год; дерево подразделений и фильтры',aud:'all',stage:'0',now:'live'},
     {what:'Юридическая, активная и HQ-численность одной воронкой',aud:'all',now:'todo',src:'дашборды HQ и УС',need:'договориться, как считать HQ-численность'},
-    {what:'Тип оформления и тип договора',aud:'all',stage:'1',now:'dev'},
-    {what:'Сеньорность, грейд, стаж, юрлицо, стримы и специализации',aud:'all',stage:'4',now:'dev'},
-    {what:'Пол, возраст, формат работы, регион сотрудника',aud:'all',stage:'4',now:'extra',
-      need:'в дашбордах HQ и УС их нет'}]},
+    {what:'Тип оформления, тип договора, сеньорность, грейд, стаж, юрлицо, стримы',aud:'all',stage:'0',now:'live'},
+    {what:'Специализации внутри стримов',aud:'all',stage:'4',now:'dev'},
+    {what:'Пересечения разрезов: срез по клику, «разрез × разрез»',aud:'all',stage:'0',now:'dev',
+      need:'пока оценка по подразделениям; точные — отдельной выгрузкой'},
+    {what:'Пол и возраст',aud:'all',stage:'0',now:'extra',need:'данные есть; в дашбордах HQ и УС их нет'},
+    {what:'Формат работы и регион сотрудника',aud:'all',stage:'4',now:'extra',need:'в дашбордах HQ и УС их нет'}]},
   {blk:'Движение персонала',rows:[
     {what:'Найм, отток и переводы: за месяц, год к году, водопадом и по подразделениям',aud:'all',stage:'0',now:'live'},
     {what:'Движение по специализациям',aud:'hq',stage:'4',now:'todo'}]},
@@ -274,10 +284,10 @@ const DEV_PLAN=[
     {what:'Regrettable текучесть',aud:'hq',stage:'0',now:'live'},
     {what:'Светофор текучести: нежелательная и обычная с порогами, списки ушедших',aud:'hq',stage:'0',now:'todo',
       need:'утвердить пороги светофора'},
-    {what:'Инициатор увольнения и текучесть по инициативе сотрудника и работодателя',aud:'all',stage:'3',now:'dev'},
-    {what:'Причины увольнения',aud:'all',stage:'3',now:'dev'},
-    {what:'Отток и текучесть по стажу и по специализации',aud:'all',stage:'3',now:'dev'},
-    {what:'Отток и текучесть по грейду',aud:'hq',stage:'3',now:'dev'},
+    {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live'},
+    {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live'},
+    {what:'Текучесть (а не отток) по инициатору, стажу, специализации и грейду',aud:'all',stage:'0',now:'todo',
+      need:'данные есть, нужен график'},
     {what:'AI-рекомендации по оттоку для команды',aud:'us',now:'todo',src:'дашборд УС',
       need:'понять, как их строят в УС'}]},
   {blk:'Найм и вакансии',rows:[
@@ -297,8 +307,9 @@ const DEV_PLAN=[
     {what:'Статусы роста по грейдам и типам роста',aud:'hq',stage:'6',now:'dev'},
     {what:'Повышение грейда и смена специализации, время до повышения (T@T)',aud:'hq',stage:'6',now:'dev'}]},
   {blk:'Мониторинг работы',rows:[
-    {what:'Недоработчики',aud:'hq',stage:'5',now:'dev'},
-    {what:'Переработка, звонки, прогулы, работа в выходные; по подразделениям',aud:'hq',stage:'5',now:'todo'},
+    {what:'Недоработчики и переработчики',aud:'hq',stage:'0',now:'live'},
+    {what:'Состав по категориям: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'todo',need:'данные есть, нужен график'},
+    {what:'Звонки, прогулы, работа в выходные',aud:'hq',stage:'5',now:'todo'},
     {what:'Активность и звонки по месяцам, сегментация команды по нагрузке',aud:'hq',stage:'5',now:'todo'},
     {what:'Итоги ревью: распределение оценок, улучшили и ухудшили, по группам',aud:'us',stage:'5',now:'dev'}]},
   {blk:'Посещаемость офисов',rows:[
@@ -330,7 +341,7 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
   'ai_wau','pf_plan','hire_jun','rev_eval','rev_up',
   /* пробник: нежелательные увольнения — слагаемое regret;
      отработанные человеко-дни и посещения офиса — слагаемые посещаемости */
-  'regret_cnt','wday','ovis']);
+  'regret_cnt','wday','ovis','perf_norm','perf_low','perf_high','perf_gray']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -1024,6 +1035,9 @@ const MIX_DIMS=[
  hint:'Штат — трудовой договор. Всё остальное — не штат: ГПХ, ИП, самозанятые, аутстафф.',
  cats:[{key:'tk',name:'Штат'},{key:'gph',name:'ГПХ',w:1.15},{key:'ip',name:'ИП',w:0.95},
        {key:'sz',name:'Самозанятый',w:0.80},{key:'out',name:'Аутстафф',w:0.55}]},
+{key:'contract',name:'Тип договора',short:'Договор',group:'work',
+ hint:'Бессрочный или срочный трудовой договор.',
+ cats:[{key:'perm',name:'Бессрочный',w:1.0},{key:'fix',name:'Срочный',w:0.16}]},
 {key:'worksite',name:'Формат работы',short:'Формат',group:'work',
  cats:[{key:'off',name:'Офис',w:1.10},{key:'hyb',name:'Гибрид',w:1.60},
        {key:'rem',name:'Удалённо',w:0.80}]},
@@ -1088,6 +1102,47 @@ const MIX_DIMS=[
        {key:'lead',name:'Руководители',parent:'adm',wIT:0.18,wNon:0.30},
        {key:'adf',name:'Административные функции',parent:'adm',wIT:0.12,wNon:0.30}]}
 ];
+/* ---------- Пробник, схема 15.10: разрезы состава — из данных ----------
+   Колонка mx датасета везёт численность последнего месяца по атрибутам человека.
+   Категории — значения из таблицы, порядок — по смыслу разреза (возраст и стаж —
+   по возрастанию, сеньорность — от Junior к Lead, штат — первым), остальное — по
+   численности. Формата работы, региона и специализаций в таблице нет — этих
+   разрезов в пробнике нет; экраны это переносят (structure.js, story.js). */
+const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',contract:'c',legal:'o',stream:'w',employment:'r'};
+const NONE_NAME='Не указано';
+/* «до 25 лет» → 24,5; «1-3 года» → 12 мес; «более 5 лет» → 60,5 мес: число и сторона */
+function bound(v,unit){
+  const t=String(v).toLowerCase(), m=t.match(/\d+([.,]\d+)?/);
+  if(!m)return Infinity;
+  let x=parseFloat(m[0].replace(',','.'));
+  if(unit==='mon'&&!/мес/.test(t.slice(m.index,m.index+12))&&/год|лет/.test(t))x*=12;
+  if(/^\s*(до|меньше|менее|младше|<)/.test(t))x-=0.5;
+  else if(/(более|больше|свыше|старше|\+|>)/.test(t))x+=0.5;
+  return x;
+}
+const SEN_RANK=[/стаж|intern|trainee/i,/junior|джун|младш/i,/middle|мидл/i,/senior|сеньор|старш/i,/lead|лид|ведущ/i,/head|руковод|principal|expert|эксперт|chief/i];
+function realOrder(dimKey,vals){
+  const keys=Object.keys(vals), byN=(a,b)=>vals[b]-vals[a];
+  const rank=v=>{const i=SEN_RANK.findIndex(re=>re.test(v));return i<0?99:i};
+  const sorted=keys.filter(v=>v!=='').sort(
+    dimKey==='age'?(a,b)=>bound(a,'yr')-bound(b,'yr')||byN(a,b)
+    :dimKey==='tenure'?(a,b)=>bound(a,'mon')-bound(b,'mon')||byN(a,b)
+    :dimKey==='grade'?(a,b)=>bound(a,'yr')-bound(b,'yr')||a.localeCompare(b)
+    :dimKey==='seniority'?(a,b)=>rank(a)-rank(b)||byN(a,b)
+    :dimKey==='gender'?(a,b)=>(/^ж|жен|female|^f$/i.test(b)?1:0)-(/^ж|жен|female|^f$/i.test(a)?1:0)||byN(a,b)
+    :dimKey==='employment'?(a,b)=>(b==='Штатный сотрудник')-(a==='Штатный сотрудник')||byN(a,b)
+    :byN);
+  return keys.indexOf('')>=0?sorted.concat(['']):sorted;
+}
+if(REAL){
+  for(let i=MIX_DIMS.length-1;i>=0;i--){
+    const d=MIX_DIMS[i], k=REAL_DIM[d.key], vals=k?REAL.mixVals(k):{};
+    if(!k||!Object.keys(vals).length){MIX_DIMS.splice(i,1);continue}
+    d.cats=realOrder(d.key,vals).map((v,j)=>({key:'v'+j,name:v||NONE_NAME,raw:v}));
+    delete d.childDim;delete d.parentDim;
+    if(d.key==='stream'){d.name='Стрим';d.hint='Чем люди занимаются.'}
+  }
+}
 const MIX_BY_KEY=Object.fromEntries(MIX_DIMS.map(d=>[d.key,d]));
 MIX_DIMS.forEach(d=>{
   d.color=MIX_GROUP_COLOR[d.group]||MIX_COLOR_DEF;
@@ -1103,7 +1158,7 @@ MIX_DIMS.forEach(d=>{
    Таблицей остались стримы: двухуровневый разрез с кареткой обзором не заменить. */
 const MIX_GROUPS=[
 {key:'stream',name:'Стримы',dims:['stream'],
- title:'Стримы и специализации'}
+ title:REAL?'Стримы':'Стримы и специализации'}
 ];
 
 /* Доли категорий внутри одного листа. Считаются лениво и кешируются: держать
@@ -1114,6 +1169,12 @@ function mixWeights(leafPath,dimKey){
   const ck=leafPath+'|'+dimKey;
   if(_mixW.has(ck))return _mixW.get(ck);
   const dim=MIX_BY_KEY[dimKey], n=NODE_BY_PATH[leafPath]||{};
+  if(REAL){
+    const m=REAL.mix(leafPath), src=(m&&m[REAL_DIM[dimKey]])||{};
+    const c=dim.cats.map(x=>src[x.raw]||0), t=c.reduce((a,b)=>a+b,0);
+    const out=c.map(x=>t?x/t:0);
+    _mixW.set(ck,out);return out;
+  }
   const r=rng('mixw'+dimKey+leafPath);
   let w;
   if(dim.childDim){
@@ -1166,7 +1227,8 @@ function mixWeights(leafPath,dimKey){
    ВТОРОЙ категории второго: плюс — к первой в его списке, минус — к последней. */
 const SEN_GENDER_TILT=[0.30,0.05,-0.18,-0.40];   /* + к женщинам (первая), − к мужчинам */
 const AGE_TENURE_TILT=[0.45,0.10,-0.22,-0.40];   /* + к «до 1 года», − к «больше 3 лет» */
-const MIX_LINKS=[
+/* в пробнике связей нет: категории из данных, пересечения — по листьям (независимо внутри) */
+const MIX_LINKS=REAL?[]:[
 {a:'seniority',b:'grade',exact:GRADE_BY_SEN,
  label:'сеньорность и грейд (Junior не сидит на пятом грейде)'},
 {a:'seniority',b:'gender',tilt:SEN_GENDER_TILT,
@@ -1317,6 +1379,8 @@ function mixRaw(lp,dimKey,sel,skip){
 }
 function mixTree(lp,dimKey,sel,skipExtra){
   const dim=MIX_BY_KEY[dimKey], kid=MIX_BY_KEY[dim.childDim];
+  if(!kid)return mixParts(lp,dimKey,sel,skipExtra?[dimKey].concat(skipExtra):null)
+    .map((v,i)=>({cat:dim.cats[i],value:v,kids:[]}));
   /* Оба уровня исключаются из среза одинаково: они живут в одной таблице,
      и отфильтруй нижний по «Разработке» — дети остальных стримов обнулятся,
      а сами стримы останутся, и сумма детей перестанет равняться родителю. */
@@ -1662,8 +1726,37 @@ function hcIT(lp){
    Причины делятся от оттока за окно точно (сумма = отток), а инициатор —
    сумма причин. В прежнем reasonSeries сумма причин с оттоком не сходилась:
    каждая причина шумела отдельно. */
+/* Пробник, схема 15.10: увольнения с начала года из колонки mx — по причине (xr),
+   нежелательные по причине (xq), причина|инициатива (xp), опыт (xt), грейд (xg),
+   стрим (xs). Списки значений — по базе, одинаковые у всех подразделений. */
+function realExit(lp,k){
+  const acc={};
+  lp.forEach(p=>{const m=REAL.mix(p), x=m&&m[k];if(x)Object.keys(x).forEach(v=>{acc[v]=(acc[v]||0)+x[v]})});
+  return acc;
+}
+/* инициатива из таблицы → три корзины отчёта; формулировки уточнит запрос 0д */
+function initKey(t){
+  return /сотрудн|работник|собствен|желани/i.test(t)?'emp':/работодат|компани|организац/i.test(t)?'org':'oth';
+}
+function realExitList(k,dimKey){
+  const vals=REAL.mixVals(k);
+  return dimKey?realOrder(dimKey,vals):Object.keys(vals).sort((a,b)=>vals[b]-vals[a]||a.localeCompare(b));
+}
 function exitReasons(lp,win){
   win=win||'ytd';
+  if(REAL){
+    const xr=realExit(lp,'xr'), xq=realExit(lp,'xq'), xp=realExit(lp,'xp'), base=REAL.mixVals('xp');
+    return realExitList('xr').map((v,i)=>{
+      /* инициатор причины — тот, что чаще всего стоит при ней по всей компании */
+      const ini={};
+      Object.keys(base).forEach(pv=>{const j=pv.lastIndexOf('|');if(pv.slice(0,j)===v){const k=initKey(pv.slice(j+1));ini[k]=(ini[k]||0)+base[pv]}});
+      const init=Object.keys(ini).sort((a,b)=>ini[b]-ini[a])[0]||'oth';
+      const n=Math.round(xr[v]||0);
+      /* regret в таблице — у каждого ухода, а не у причины: ★ — причина, где таких
+         большинство, а счёт нежелательных — точный (regretN) */
+      return {key:'r'+i,name:v||NONE_NAME,regret:(xq[v]||0)>0&&(xq[v]||0)*2>=n,regretN:Math.round(xq[v]||0),init:init,value:n};
+    });
+  }
   const total=sumWin(aggregate(lp,'attrition'),win), r=rng(lpSeed(lp,'rsn'+win));
   const parts=splitBy(total,jitter(r,EXIT_REASONS.map(x=>x.share),0.25));
   return EXIT_REASONS.map((x,i)=>({key:x.key,name:x.name,regret:x.regret,init:x.init,value:parts[i]}));
@@ -1685,6 +1778,12 @@ const EXIT_GRADE_K=[1.35,1.15,1.0,0.78,0.6];
 const EXIT_STREAM_K={dev:1.0,qa:1.1,ana:0.9,ops:0.85,ml:0.95,des:1.0,prod:0.9,sup:1.45,back:1.2,adm:0.6};
 function exitProfile(lp,win){
   win=win||'ytd';
+  if(REAL){
+    const list=(k,dimKey)=>{const x=realExit(lp,k);return realExitList(k,dimKey).map((v,i)=>({key:k+i,name:v||NONE_NAME,value:Math.round(x[v]||0)}))};
+    const ten=list('xt','tenure');
+    ten.forEach(t=>{t.early=bound(t.name,'mon')<12});
+    return {total:sumWin(aggregate(lp,'attrition'),win),tenure:ten,grade:list('xg','grade'),stream:list('xs')};
+  }
   const total=sumWin(aggregate(lp,'attrition'),win), r=rng(lpSeed(lp,'exp'+win));
   const ten=splitBy(total,jitter(r,EXIT_TENURE.map(x=>x.w),0.3));
   const gr=splitBy(total,mixParts(lp,'grade').map((v,i)=>v*EXIT_GRADE_K[i]+1e-6));
@@ -1717,8 +1816,9 @@ function hiringProfile(lp,win){
   const tin=sumWin(aggregate(lp,'transfer_in'),win);
   const r=rng(lpSeed(lp,'hpr'+win)), it=hcIT(lp);
   const ch=splitBy(total,jitter(r,HIRE_CHANNELS.map(c=>c.wIT*it+c.wNon*(1-it)),0.25));
-  const sen=[jun].concat(splitBy(total-jun,jitter(r,[0.56,0.32,0.12],0.2)));
-  const gr=roundParts(MIX_BY_KEY.grade.cats.map((c,j)=>sen.reduce((a,v,i)=>a+v*GRADE_BY_SEN[i][j],0)),total);
+  const sen=REAL?splitBy(total,mixParts(lp,'seniority').map(v=>v+1e-6)):[jun].concat(splitBy(total-jun,jitter(r,[0.56,0.32,0.12],0.2)));
+  const gr=REAL?splitBy(total,mixParts(lp,'grade').map(v=>v+1e-6))
+    :roundParts(MIX_BY_KEY.grade.cats.map((c,j)=>sen.reduce((a,v,i)=>a+v*GRADE_BY_SEN[i][j],0)),total);
   return {total:total,jun:jun,tin:tin,
     channels:HIRE_CHANNELS.map((c,i)=>({key:c.key,name:c.name,value:ch[i]})),
     seniority:MIX_BY_KEY.seniority.cats.map((c,i)=>({key:c.key,name:c.name,value:sen[i]})),
@@ -1803,8 +1903,10 @@ function tgrowthProfile(lp){
   const inprog=Math.min(hc-done-denied,Math.round(hc*(0.05+r()*0.03)));
   const na=Math.min(hc-done-denied-inprog,Math.round(hc*(0.10+r()*0.04)));
   /* строки — грейды 1…5: младшие растут чаще, на пятом грейде рост чаще недоступен */
-  const bias=[[1.25,1.2,1.0,0.85,0.25],[1.2,1.15,1.05,0.9,0.45],[1.0,1.0,1.0,1.0,0.8],
+  const B5=[[1.25,1.2,1.0,0.85,0.25],[1.2,1.15,1.05,0.9,0.45],[1.0,1.0,1.0,1.0,0.8],
               [0.75,0.8,0.95,1.1,1.5],[0.45,0.5,0.8,1.05,3.2]];
+  /* грейдов в пробнике сколько угодно: строка смещения — ближайшая из пяти по месту грейда */
+  const bias=gp.map((_,i)=>B5[gp.length>1?Math.round(i*4/(gp.length-1)):2]);
   const cells=jointRound(gp,[done,inprog,denied,hc-done-denied-inprog-na,na],bias);
   return {pass:P,deny:Dn,hc:hc,
     types:TG_TYPES.map((t,i)=>({key:t.key,name:t.name,pass:types[i][0],deny:types[i][1]})),
@@ -1825,6 +1927,8 @@ const REVIEW_SCORES=[{key:'a',name:'Выдающийся',full:'Выдающий
   {key:'e',name:'Не соответствует',full:'Не соответствует ожиданиям',w:0.07}];
 const REVIEW_DYN=[{key:'up',name:'Улучшили оценку'},{key:'same',name:'Без изменений'},
   {key:'down',name:'Ухудшили оценку'},{key:'first',name:'Первая оценка',note:'в прошлом цикле ещё не работали'}];
+/* n чисел от a до b — наклон для любого числа категорий */
+function lin(n,a,b){return Array.from({length:n},(_,i)=>n>1?a+(b-a)*i/(n-1):(a+b)/2)}
 function reviewProfile(lp){
   const E=lastVal(lp,'rev_eval'), U=Math.min(E,lastVal(lp,'rev_up')), r=rng(lpSeed(lp,'rv'));
   const first=Math.min(E-U,Math.round(E*(0.09+r()*0.05)));
@@ -1833,8 +1937,8 @@ function reviewProfile(lp){
   const toE=parts=>{const t=parts.reduce((a,b)=>a+b,0);return t?roundParts(parts.map(v=>v/t*E),E):parts.map(()=>0)};
   const ms=0.09+r()*0.05;
   const groups=[
-    {key:'grade',name:'Грейд',rows:MIX_BY_KEY.grade.cats.map(c=>c.name),tot:toE(mixParts(lp,'grade')),tilt:[-0.25,-0.1,0,0.15,0.3]},
-    {key:'tenure',name:'Стаж в компании',rows:MIX_BY_KEY.tenure.cats.map(c=>c.name),tot:toE(mixParts(lp,'tenure')),tilt:[-0.15,0.05,0.12]},
+    {key:'grade',name:'Грейд',rows:MIX_BY_KEY.grade.cats.map(c=>c.name),tot:toE(mixParts(lp,'grade')),tilt:lin(MIX_BY_KEY.grade.cats.length,-0.25,0.3)},
+    {key:'tenure',name:'Стаж в компании',rows:MIX_BY_KEY.tenure.cats.map(c=>c.name),tot:toE(mixParts(lp,'tenure')),tilt:lin(MIX_BY_KEY.tenure.cats.length,-0.15,0.12)},
     {key:'role',name:'Роль',rows:['Руководители','Сотрудники'],tot:splitBy(E,[ms,1-ms]),tilt:[0.3,-0.03]}];
   groups.forEach(g=>{g.cells=jointRound(g.tot,sc,tiltBias(g.tilt,sc.length))});
   return {E:E,U:U,
@@ -1874,7 +1978,7 @@ function normAtt(base,hcs,f){
 }
 function attByGrade(lp){
   const gp=mixParts(lp,'grade'), r=rng(lpSeed(lp,'ag'));
-  const att=normAtt(lastVal(lp,'office_att'),gp,[1.08,1.04,1.0,0.95,0.9].map(x=>x*(0.94+r()*0.12)));
+  const att=normAtt(lastVal(lp,'office_att'),gp,lin(gp.length,1.08,0.9).map(x=>x*(0.94+r()*0.12)));
   return MIX_BY_KEY.grade.cats.map((c,i)=>({key:c.key,name:c.name,hc:gp[i],att:att[i]}));
 }
 /* РУК / ЛИН × МСК / ТЦР — разрез из HQ-дашборда: руководители и линейные
@@ -1885,7 +1989,9 @@ const ROLE_LOC=[{key:'rm',name:'Руководители, Москва',code:'Р
   {key:'rt',name:'Руководители, ТЦР',code:'РУК-ТЦР',f:1.06},
   {key:'lt',name:'Сотрудники, ТЦР',code:'ЛИН-ТЦР',f:0.9}];
 function attByRoleLoc(lp){
-  const reg=mixParts(lp,'region'), hc=reg.reduce((a,b)=>a+b,0), r=rng(lpSeed(lp,'arl'));
+  /* региона в пробнике нет — Москва условно половина */
+  const reg0=mixParts(lp,'region'), hc=reg0.length?reg0.reduce((a,b)=>a+b,0):Math.round(lastVal(lp,'hc_total')), r=rng(lpSeed(lp,'arl'));
+  const reg=reg0.length?reg0:[Math.round(hc/2)];
   const ms=0.09+r()*0.05;
   const c=jointRound([reg[0],hc-reg[0]],splitBy(hc,[ms,1-ms]),[[1,1],[1,1]]);
   const hcs=[c[0][0],c[0][1],c[1][0],c[1][1]];

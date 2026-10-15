@@ -16,6 +16,11 @@
      подразделений («ниже ещё N»).
    База сравнения — отдельный лист 'BASE': строка base ответа (вся компания
    под теми же фильтрами).
+
+   Схема таблицы 15.10.2026 (разведка 3): perf_* — мониторинг (нормал, недоработка,
+   переработка, Gray), mx — разрезы юнита: состав последнего месяца по атрибутам
+   человека и увольнения с начала года по причине, инициативе, опыту, грейду,
+   стриму. Разрез «Напрямую в «X»» — тоже юнит минус дети, по каждому значению.
    ========================================================================== */
 (function(){
 'use strict';
@@ -23,9 +28,9 @@ const MONTH_ABBR=['янв.','февр.','март','апр.','май','июнь'
 const MONTH_NOM=['январь','февраль','март','апрель','май','июнь','июль','август',
                  'сентябрь','октябрь','ноябрь','декабрь'];
 /* колонка датасета → ключ ряда макета (ключи метрик и служебных рядов data.js) */
-/* m_plow / m_prat (оценка «низкая» и оценённые) больше не читаем: «лоу-перформеры»
-   сняты 15.10 — в каталоге HQ и УС такого понятия нет. Датасет может их везти. */
-const COLS=['hc','act','avg','hire','fire','reg','tin','tout'];
+/* 15.10, схема 3: perf_* — категории мониторинга работы (недоработка и переработка
+   живые); m_plow прежней схемы (оценка «низкая») значит теперь «недоработка». */
+const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phig','pgry'];
 /* Ряды из колонок, добавленных в таблицу к 12.10.2026 (разведка 2): отработанные
    человеко-дни, посещения офиса и решения по заявкам T-роста (GRT). Они
    НЕОБЯЗАТЕЛЬНЫЕ: датасет прежней версии их не везёт, и тогда посещаемость
@@ -33,6 +38,7 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout'];
 const OPT=['wday','ovis','gapr','gdec'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
+  perf_norm:'pnor',perf_low:'plow',perf_high:'phig',perf_gray:'pgry',
   wday:'wday',ovis:'ovis',tgrowth_pass:'gapr',tgrowth_deny:'gdec'};
 /* метрики, которые оживают, когда в ответе есть их колонки */
 const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec']};
@@ -40,7 +46,7 @@ const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:[
    макета (по численности юнита), с пометкой «демо». План подключения —
    «Поставка — TeamPulse Hub/План метрик.md». */
 const STUB=['vac_open','vac_closed','time_to_fill','hire_plan','junior_share',
-  'tgrowth_pass','tgrowth_deny','tgrowth_conv','tgrowth_tat','underwork','review_up',
+  'tgrowth_pass','tgrowth_deny','tgrowth_conv','tgrowth_tat','review_up',
   'office_att','booking_viol','ai_penetration','ai_wau'];
 /* План подключения живёт в data.js (D.DEV_PLAN; 15.10 — по каталогу графиков HQ и УС):
    им размечены и макет, и пробник — «в разработке» у метрик, вкладок и блоков. */
@@ -58,6 +64,30 @@ function parseArr(s,n){
 }
 function ym(s){const p=str(s).split('-');return {y:+p[0]||1970,m:(+p[1]||1)-1}}
 function invert(o){const r={};Object.keys(o).forEach(k=>{r[o[k]]=k});return r}
+/* разрезы юнита: «ключ \t значение \t число» через \n → {ключ:{значение:число}} */
+function parseMx(s){
+  const out={};
+  str(s).split('\n').forEach(line=>{
+    if(!line)return;
+    const f=line.split('\t');
+    if(f.length<3)return;
+    (out[f[0]]=out[f[0]]||{})[f[1]]=num(f[2]);
+  });
+  return out;
+}
+/* «Напрямую в «X»»: юнит минус прямые дети по каждому значению каждого разреза */
+function mxMinus(u,kids){
+  const out={};
+  Object.keys(u).forEach(k=>{
+    Object.keys(u[k]).forEach(v=>{
+      let s=u[k][v];
+      kids.forEach(c=>{s-=((c[k]||{})[v]||0)});
+      s=Math.round(s*10)/10;
+      if(s>0)(out[k]=out[k]||{})[v]=s;
+    });
+  });
+  return out;
+}
 /* пары «значение, численность» из meta.vals: toJSONString отдаёт и объекты, и массивы */
 function pairs(list){
   return (list||[]).map(x=>Array.isArray(x)?{v:str(x[0]),n:num(x[1])}:{v:str(x.v),n:num(x.e)});
@@ -65,7 +95,7 @@ function pairs(list){
 
 /* все колонки датасета: каждую нужно добавить в «Измерения» чарта. Необязательные
    (OPT) в список «нет колонок» не попадают — без них метрики остаются «демо». */
-const FIELDS=['role','id','pid','lvl','nm','kids','j'].concat(COLS.map(c=>'m_'+c));
+const FIELDS=['role','id','pid','lvl','nm','kids','j'].concat(COLS.map(c=>'m_'+c)).concat(['mx']);
 const FIELDS_OPT=OPT.map(c=>'m_'+c);
 
 function build(data){
@@ -105,7 +135,8 @@ function build(data){
   rows.forEach(r=>{
     const role=str(r.role);
     if(!(role in DEPTH))return;
-    const u={id:str(r.id),pid:str(r.pid),lvl:num(r.lvl),kids:num(r.kids),name:str(r.nm),depth:DEPTH[role],ser:{}};
+    const u={id:str(r.id),pid:str(r.pid),lvl:num(r.lvl),kids:num(r.kids),name:str(r.nm),depth:DEPTH[role],ser:{},
+      mx:parseMx(r.mx)};
     cols.forEach(c=>{u.ser[c]=parseArr(r['m_'+c],n)});
     units.push(u);
     byId[u.id]=Object.assign(byId[u.id]||{},{id:u.id,pid:u.pid,lvl:u.lvl,kids:u.kids,name:u.name});
@@ -130,7 +161,7 @@ function build(data){
   }
 
   const lastOf=a=>a[n-1]||0;
-  const nodes=[], series={};
+  const nodes=[], series={}, mixes={};
   Object.keys(byId).forEach(id=>{
     const u=byId[id], p=pathOf(id);
     if(p==null)return;
@@ -154,7 +185,7 @@ function build(data){
     if(!ch.length){
       node.leaf=true;
       if(u.depth===3)node.below=u.kids;
-      series[p]=u.ser;
+      series[p]=u.ser;mixes[p]=u.mx;
       return;
     }
     const own={};
@@ -176,14 +207,14 @@ function build(data){
       const dn={id:u.id+'·',path:dp,parent:p,level:(u.lvl||0)+1,name:'Напрямую в «'+u.name+'»',
         sort:Infinity,leaf:true,direct:true,kids:0,outside:false,hide:!(own.hc[n-1]>0)};
       nodes.push(dn);nodeBy[dp]=dn;
-      series[dp]=own;
+      series[dp]=own;mixes[dp]=mxMinus(u.mx,ch.map(k=>k.mx));
     }
   });
   const baseRow=by('base')[0];
   if(baseRow){
     const b={};
     cols.forEach(c=>{b[c]=parseArr(baseRow['m_'+c],n)});
-    series.BASE=b;
+    series.BASE=b;mixes.BASE=parseMx(baseRow.mx);
   }
 
   const pv=invert(PAINT_V), iv=invert(IT_V), sv=invert(STAFF_V);
@@ -200,6 +231,8 @@ function build(data){
     empty:!scopeU,
     nodes,
     applied:{paint:one(meta.paint,pv),itSeg:one(meta.it,iv),staffType:one(meta.staff,sv)},
+    /* какие фильтры датасет умеет: с 15.10 покраски и IT в таблице нет — только штат */
+    cuts:new Set(Array.isArray(meta.cuts)?meta.cuts.map(str):['paint','it','staff']),
     vals:{paint:pairs(vals.paint),it:pairs(vals.it),staff:pairs(vals.staff)},
     stub,
     /* есть ли в ответе необязательная колонка (без m_) */
@@ -210,6 +243,15 @@ function build(data){
       return s&&c&&s[c]?s[c]:null;
     },
     hasSeries(path){return !!series[path]},
+    /* разрезы листа (или 'BASE'): {ключ:{значение:число}}; null — нет данных */
+    mix(path){return mixes[path]||null},
+    /* значения разреза с числом по базе — для категорий; значение, которого в базе
+       нет (не должно быть: листья внутри компании), добавляется с числом листа */
+    mixVals(k){
+      const acc=Object.assign({},(mixes.BASE||{})[k]||{});
+      Object.keys(mixes).forEach(p=>{const m=mixes[p][k];if(m)Object.keys(m).forEach(v=>{if(!(v in acc))acc[v]=m[v]})});
+      return acc;
+    },
     lastHc(path){const s=series[path];return s?lastOf(s.hc):0},
     idOf(path){const node=nodeBy[path];return node?node.id:null},
     /* значения фильтров для кросс-фильтра: ключ макета → значение колонки датасета */

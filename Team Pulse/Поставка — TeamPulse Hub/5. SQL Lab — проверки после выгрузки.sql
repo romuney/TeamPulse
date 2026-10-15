@@ -7,30 +7,51 @@
 -- ============================================================================
 
 
+-- Схема таблицы — от 15.10.2026: месяц `report_month`, юнит `mng_unit_rk`, его уровень
+-- `leaf_lvl`, путь `lvl1_nm`…`lvl11_nm`. Юнит с двумя путями лежит в таблице дважды —
+-- запросы, как и датасет, берут каждую строку «месяц × юнит × атрибуты» один раз (max).
+
+
 -- 1. Численность компании по месяцам — верхний юнит, без фильтров. «Ждали»: ровно
 --    те же числа, что карточка «Общая численность» на One-pager пробника по месяцам
 --    (наведите на спарклайн), и то, что вы знаете из HR-отчётности. Последний месяц
 --    в таблице может быть неполным — в отчёт он не идёт.
-SELECT month,
-       sum(ifNull(employee_amt, 0)) AS hc_total,
-       sumIf(ifNull(employee_amt, 0), active_type_gr_nm = 'Активная') AS hc_active,
-       sum(ifNull(hire_amt, 0)) AS hire,
-       sum(ifNull(fire_amt, 0)) AS fire,
-       round(sum(ifNull(fire_amt, 0)) / greatest(sum(ifNull(ssch_employee_amt, 0)), 1) * 100, 2) AS turnover_m_pct
-FROM prod_proteus.hr_structure_overall
-WHERE lvl = (SELECT min(lvl) FROM prod_proteus.hr_structure_overall)
-GROUP BY month
-ORDER BY month;
+SELECT report_month,
+       sum(e) AS hc_total,
+       sum(ea) AS hc_active,
+       sum(hi) AS hire,
+       sum(fi) AS fire,
+       round(sum(fi) / greatest(sum(sa), 1) * 100, 2) AS turnover_m_pct
+FROM (
+  SELECT report_month, gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
+           legal_organization, employee_stream, employment_relation_type, fire_reason_group, fire_initiative,
+         max(ifNull(hc_total_cnt, 0)) AS e, max(ifNull(hc_active_cnt, 0)) AS ea,
+         max(ifNull(ssch_hc_active_cnt, 0)) AS sa, max(ifNull(hire_amt, 0)) AS hi, max(ifNull(fire_amt, 0)) AS fi
+  FROM prod_proteus.hr_structure_overall
+  WHERE mng_unit_rk = (SELECT argMin(mng_unit_rk, leaf_lvl) FROM prod_proteus.hr_structure_overall WHERE leaf_lvl > 0)
+  GROUP BY report_month, gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
+           legal_organization, employee_stream, employment_relation_type, fire_reason_group, fire_initiative
+) AS t
+GROUP BY report_month
+ORDER BY report_month;
 
 
 -- 2. Юниты третьего уровня в последнем полном месяце. «Ждали»: те же юниты и та же
 --    численность, что в таблице «Подразделения» пробника на уровне ниже «Компании».
-SELECT mngt_unit_nm, sum(ifNull(employee_amt, 0)) AS hc_total
-FROM prod_proteus.hr_structure_overall
-WHERE lvl = (SELECT min(lvl) FROM prod_proteus.hr_structure_overall) + 2
-  AND month = (SELECT if(max(month) >= toStartOfMonth(today()), addMonths(max(month), -1), max(month))
-               FROM prod_proteus.hr_structure_overall)
-GROUP BY mngt_unit_nm
+SELECT nm, sum(e) AS hc_total
+FROM (
+  SELECT mng_unit_rk, gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
+           legal_organization, employee_stream, employment_relation_type, fire_reason_group, fire_initiative,
+         any(arrayElement([lvl1_nm, lvl2_nm, lvl3_nm, lvl4_nm, lvl5_nm, lvl6_nm, lvl7_nm, lvl8_nm, lvl9_nm, lvl10_nm, lvl11_nm], ifNull(leaf_lvl, 0))) AS nm,
+         max(ifNull(hc_total_cnt, 0)) AS e
+  FROM prod_proteus.hr_structure_overall
+  WHERE leaf_lvl = (SELECT min(leaf_lvl) FROM prod_proteus.hr_structure_overall WHERE leaf_lvl > 0) + 2
+    AND report_month = (SELECT if(max(report_month) >= toStartOfMonth(today()), addMonths(max(report_month), -1), max(report_month))
+                        FROM prod_proteus.hr_structure_overall)
+  GROUP BY mng_unit_rk, gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
+           legal_organization, employee_stream, employment_relation_type, fire_reason_group, fire_initiative
+) AS t
+GROUP BY mng_unit_rk, nm
 ORDER BY hc_total DESC;
 
 
@@ -41,7 +62,9 @@ ORDER BY hc_total DESC;
 SELECT role, count() AS rows_n,
        round(sum(length(id) + length(pid) + length(nm) + length(j)
          + length(m_hc) + length(m_act) + length(m_avg) + length(m_hire) + length(m_fire)
-         + length(m_reg) + length(m_tin) + length(m_tout) + length(m_plow) + length(m_prat)) / 1024) AS kb
+         + length(m_reg) + length(m_tin) + length(m_tout)
+         + length(m_pnor) + length(m_plow) + length(m_phig) + length(m_pgry)
+         + length(m_wday) + length(m_ovis) + length(m_gapr) + length(m_gdec) + length(mx)) / 1024) AS kb
 FROM (
   -- сюда — SQL датасета (файл 2) целиком
 ) AS t

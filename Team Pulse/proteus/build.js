@@ -66,12 +66,12 @@ const HEAD=`// =================================================================
 // TeamPulse Hub — чарт Proteus (тип ECHARTS), пробник. СОБРАН АВТОМАТИЧЕСКИ:
 // не правьте здесь — правка живёт в исходниках макета (папка «Team Pulse»),
 // сборка: cd "Team Pulse/proteus" && node build.js.
-// Данные — датасет teampulse_hub (файл 2). «Измерения» чарта — все колонки
-// датасета: role, id, pid, lvl, nm, kids, j, m_hc, m_act, m_avg, m_hire, m_fire,
-// m_reg, m_tin, m_tout (+ необязательные m_wday, m_ovis, m_gapr, m_gdec).
-// Метрик нет, сортировки нет.
+// Данные — датасет teampulse_hub (файл 2, схема таблицы 15.10.2026). «Измерения» чарта —
+// все колонки датасета: role, id, pid, lvl, nm, kids, j, m_hc, m_act, m_avg, m_hire, m_fire,
+// m_reg, m_tin, m_tout, m_pnor, m_plow, m_phig, m_pgry, mx
+// (+ необязательные m_wday, m_ovis, m_gapr, m_gdec). Метрик нет, сортировки нет.
 // Визуализация — HTML и SVG поверх хоста ECharts; холст пустой (option ниже).
-// Кросс-фильтры чарт шлёт сам себе: unit_f, paint_f, it_f, staff_f.
+// Кросс-фильтры чарт шлёт сам себе: unit_f и staff_f (покраски и IT в таблице с 15.10 нет).
 // ============================================================================
 `;
 let src='var TP_CSS='+JSON.stringify(css)+';\nvar TP_HTML='+JSON.stringify(body)+';\n'+

@@ -1900,6 +1900,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-pill span:hover{filter:saturate(1.6) brightness(.97)}
 .pt-pill.seg .s0{background:var(--pt-s0);color:var(--ink)}.pt-pill.seg .s1{background:var(--pt-s1);color:var(--ink)}
 .pt-pill.seg .s2{background:var(--pt-s2);color:#fff}.pt-pill.seg .s3{background:var(--pt-s3);color:#fff}
+/* пробник: ступеней и групп стажа бывает больше четырёх — следующие темнее и светлее */
+.pt-pill.seg .s4{background:#2d56a8;color:#fff}.pt-pill.seg .s5{background:#203f7c;color:#fff}
 .pt-pill.seg span b{margin-right:4px;font-weight:var(--fw-bold)}
 /* выбранная в срезе ступень — чертой снизу (цвет ступени занят порядком) */
 .pt-pill.seg span.on{box-shadow:inset 0 -3px 0 var(--ink)}
@@ -1914,11 +1916,13 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-ppl{display:flex;gap:4px;flex-wrap:wrap}
 .pt-man{display:inline-flex;line-height:0}
 .pt-man.t0{color:var(--pt-hi)}.pt-man.t1{color:var(--pt-t1)}.pt-man.t2{color:var(--pt-t2)}
+.pt-man.t3{color:#eceff4}.pt-man.t4{color:#f4f6f9}
 .pt-man:hover{filter:brightness(.9)}
 .pt-key{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:10px;font-size:12px;color:var(--ink2)}
 .pt-key span{display:inline-flex;align-items:center;gap:6px}
 .pt-key i{width:10px;height:10px;border-radius:2px}
 .pt-key i.t0{background:var(--pt-hi)}.pt-key i.t1{background:var(--pt-t1)}.pt-key i.t2{background:var(--pt-t2)}
+.pt-key i.t3{background:#eceff4}.pt-key i.t4{background:#f4f6f9}
 /* столбики */
 .pt-col{display:flex;gap:14px;align-items:stretch;height:160px}
 .pt-col .c{flex:1;display:flex;flex-direction:column;min-width:0}

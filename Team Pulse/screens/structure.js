@@ -202,32 +202,43 @@ function overviewWho(ctx){
   /* стаж: выделены новички, а не самая большая группа — история про них */
   if(!TEN.some(r=>r.on))TEN.forEach((r,i)=>{r.hi=i===0});
   const m=D.mixMatrix(ctx.lp,'age','gender',ctx.S.mixSel), gen=D.MIX_BY_KEY.gender.cats;
+  /* пол — пилюлей, только если категорий ровно две; в пробнике может быть ещё «не указано» */
+  const two=GEN.length===2;
   return '<div class="pt-wrap">'+ptLegend(bench)+
     '<div class="pt-2">'+ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptBars(GR,bench,{cap:'по грейдам'}))+
       ptSec(c.says,'Опыт в компании','ten',ptPeople(TEN,bench))+'</div>'+
     /* сверху пилюлька — пол, ниже разбивка — возраст, разложенный по полу */
-    ptSec(c.says,'Пол и возраст','gen','<div class="pt-gen">'+ptSplit(GEN[0],GEN[1],bench,'gen')+
-      '<div class="pt-sub">возраст — женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench)+'</div>')+
+    ptSec(c.says,'Пол и возраст','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+
+      (two?'<div class="pt-sub">возраст — женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench)
+          :ptBars(AGE,bench,{cap:'по возрасту'}))+'</div>')+
     '<div class="pt-more"><button class="pt-go" data-subtab="custom">Пол × грейд и другие пары — в «Своём срезе» →</button></div></div>';
 }
-/* «Как оформлены и где?» — штат, формат, регионы, юрлица */
+/* «Как оформлены и где?» — штат и договор, формат, регионы, юрлица. В пробнике
+   (схема 15.10) формата работы и региона нет — их разделы не рисуются, остальные
+   встают парами по порядку. */
 function overviewWork(ctx){
-  const c=ptCtx(ctx), sel=c.sel, bench=c.bench;
-  const EMP=ptRows(ctx,'employment',sel), FMT=ptRows(ctx,'worksite',sel),
-    REG=ptRows(ctx,'region',sel), LEG=ptRows(ctx,'legal',sel);
+  const c=ptCtx(ctx), sel=c.sel, bench=c.bench, has=k=>!!D.MIX_BY_KEY[k];
+  const EMP=ptRows(ctx,'employment',sel), LEG=has('legal')?ptRows(ctx,'legal',sel):null,
+    FMT=has('worksite')?ptRows(ctx,'worksite',sel):null, REG=has('region')?ptRows(ctx,'region',sel):null,
+    CON=has('contract')?ptRows(ctx,'contract',sel):null;
   if(!sumA(EMP.map(r=>r.n)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
   /* штат / не штат — одна пилюля; не штат собран из четырёх видов оформления */
   const non=EMP.slice(1), nonN=sumA(non.map(r=>r.n)), tot=EMP[0].n+nonN;
   /* клик по «не штату» среза не берёт: это четыре категории, срез — по одной из них ниже */
   const staff=EMP[0], other={id:null,name:'Не штат',n:nonN,p:pct(nonN,tot),b:100-staff.b,
-    why:'Четыре вида оформления. Срез — по одному из них в полосах ниже.'};
+    why:non.length+' '+U.plural(non.length,['вид','вида','видов'])+' оформления. Срез — по одному из них в полосах ниже.'};
   const pill=ptSplit(staff,other,bench,'emp');
   hiOf(non);
-  return '<div class="pt-wrap">'+ptLegend(bench)+
-    '<div class="pt-2">'+ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'}))+
-      ptSec(c.says,'Формат работы','fmt',ptTrio(FMT,bench))+'</div>'+
-    '<div class="pt-2">'+ptSec(c.says,'Где работают','reg',ptBars(REG,bench,{sort:true}))+
-      ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true}))+'</div></div>';
+  /* тип договора — второй пилюлей в «Оформлении»: тот же вопрос «как оформлены» */
+  const con=CON?(CON.length===2?'<div class="pt-sub">тип договора</div>'+ptSplit(CON[0],CON[1],bench,'emp')
+    :ptBars(CON,bench,{cap:'тип договора'})):'';
+  const secs=[ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'})+con),
+    FMT?ptSec(c.says,'Формат работы','fmt',ptTrio(FMT,bench)):'',
+    REG?ptSec(c.says,'Где работают','reg',ptBars(REG,bench,{sort:true})):'',
+    LEG?ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true})):''].filter(Boolean);
+  let h='';
+  for(let i=0;i<secs.length;i+=2)h+='<div class="pt-2">'+secs[i]+(secs[i+1]||'')+'</div>';
+  return '<div class="pt-wrap">'+ptLegend(bench)+h+'</div>';
 }
 
 SC.blocks.structure={
@@ -236,7 +247,7 @@ SC.blocks.structure={
   defaultSub:'portrait',
   title(sub){
     if(sub==='portrait')return 'Кто в команде: квалификация, опыт, пол и возраст';
-    if(sub==='work')return 'Как оформлены и где работают';
+    if(sub==='work')return D.MIX_BY_KEY.region?'Как оформлены и где работают':'Как оформлены';
     if(sub!=='custom'){
       const g=D.MIX_GROUPS.find(x=>x.key===sub);
       return g?g.title:'Состав численности по атрибутам';

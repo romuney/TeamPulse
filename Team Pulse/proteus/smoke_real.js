@@ -7,7 +7,8 @@
    - лист «Напрямую в «X»» плюс дети ровно дают юнит — по каждому ряду и месяцу,
      поэтому агрегация макета (сумма листьев, потом деление) остаётся верной;
    - ИТОГО отчёта — строка выбранного юнита, база — строка base;
-   - текучесть, regret и низкая оценка — по формулам из настоящих рядов;
+   - текучесть, regret, недоработка и переработка — по формулам из настоящих рядов;
+   - разрезы состава и увольнений (колонка mx, схема 15.10) — те же числа, что в ответе;
    - все 29 экранов собираются, заглушки помечены «демо», живые метрики — нет.
    Каждый ответ — в отдельном процессе: модули читают модель один раз при загрузке.
    ========================================================================== */
@@ -71,7 +72,8 @@ console.log('— '+name+': '+D.NODE_BY_PATH[D.DEFAULT_STATE.unit].name+', '+D.PE
 const scopeRow=rows.find(r=>r.role==='scope'), baseRow=rows.find(r=>r.role==='base');
 const arr=(r,c)=>String(r['m_'+c]).split(',').map(Number);
 const KEYS=[['hc_total','hc'],['hc_active','act'],['hc_avg','avg'],['hire','hire'],['attrition','fire'],
-  ['transfer_in','tin'],['transfer_out','tout'],['regret_cnt','reg']]
+  ['transfer_in','tin'],['transfer_out','tout'],['regret_cnt','reg'],
+  ['perf_norm','pnor'],['perf_low','plow'],['perf_high','phig'],['perf_gray','pgry']]
   /* колонки разведки 12.10 — если ответ их везёт */
   .concat([['wday','wday'],['ovis','ovis'],['tgrowth_pass','gapr'],['tgrowth_deny','gdec']].filter(([,c])=>R.has(c)));
 let treeOk=true, checked=0;
@@ -93,7 +95,37 @@ ok(D.MONTHS.length===12&&D.MONTHS_EXT.length===R.n&&D.MONTHS[11].y*12+D.MONTHS[1
   'окно — 12 месяцев до последнего полного ('+R.lm+'), сетка — с января прошлого года');
 
 /* 2. формулы из настоящих рядов */
-const i=R.n-1, fire=arr(scopeRow,'fire'), avg=arr(scopeRow,'avg'), reg=arr(scopeRow,'reg');
+const i=R.n-1;
+{
+  const pn=arr(scopeRow,'pnor')[i], pl=arr(scopeRow,'plow')[i], ph=arr(scopeRow,'phig')[i], pg=arr(scopeRow,'pgry')[i], t=pn+pl+ph+pg;
+  ok(near(D.lastVal(rl,'underwork'),t?+(pl/t*100).toFixed(2):null)&&near(D.lastVal(rl,'overwork'),t?+(ph/t*100).toFixed(2):null)&&
+    !D.isStub('underwork')&&!D.isStub('overwork'),
+    'недоработчики и переработчики = недоработка / переработка ко всем четырём категориям мониторинга — живые');
+}
+/* разрезы (схема 15.10): численность по разрезу за последний месяц и увольнения
+   с начала года — ровно числа колонки mx выбранного юнита */
+{
+  const mx={};
+  String(scopeRow.mx||'').split('\n').forEach(l=>{if(!l)return;const f=l.split('\t');(mx[f[0]]=mx[f[0]]||{})[f[1]]=+f[2]});
+  const hcL=arr(scopeRow,'hc')[i];
+  const dimOk=['gender','grade','seniority','tenure','employment'].every(k=>{
+    const parts=D.mixParts(rl,k), cats=D.mixCats(k), src=mx[{gender:'g',grade:'gr',seniority:'s',tenure:'t',employment:'r'}[k]]||{};
+    return Math.abs(parts.reduce((a,b)=>a+b,0)-hcL)<0.5&&cats.every((c,j)=>Math.abs(parts[j]-(src[c.raw]||0))<0.5);
+  });
+  ok(dimOk,'разрезы состава — числа из данных: пол, грейд, сеньорность, стаж, тип оформления (сумма = численность)');
+  const ytd=D.sumWin(D.aggregate(rl,'attrition'),'ytd'), rs=D.exitReasons(rl,'ytd'), ini=D.exitInitiators(rl,'ytd'), ex=D.exitProfile(rl,'ytd');
+  const sum=a=>a.reduce((x,y)=>x+y.value,0);
+  ok(sum(rs)===ytd&&sum(ini)===ytd&&['tenure','grade','stream'].every(k=>sum(ex[k])===ytd)&&
+    rs.every(r=>r.value===Math.round((mx.xr||{})[r.name==='Не указано'?'':r.name]||0)),
+    'увольнения с начала года по причине, инициатору, стажу, грейду, стриму — из данных, в сумме = отток ('+ytd+')');
+  const regY=D.sumWin(D.aggregate(rl,'regret_cnt'),'ytd'), regN=rs.reduce((x,r)=>x+(r.regretN||0),0);
+  ok(Math.abs(regN-regY)<=rs.length*0.5,'нежелательные уходы по причинам — по людям, в сумме = regret с начала года ('+regN+' / '+regY+')');
+  ok(!D.MIX_BY_KEY.worksite&&!D.MIX_BY_KEY.region&&!D.MIX_BY_KEY.spec&&!!D.MIX_BY_KEY.contract,
+    'формата работы, региона и специализаций в данных нет — разрезов нет; тип договора есть');
+  ok(!R.cuts.has('paint')&&!R.cuts.has('it')&&R.cuts.has('staff')&&D.DEFAULT_STATE.paint==='all'&&D.DEFAULT_STATE.itSeg==='all',
+    'фильтры: покраски и IT в таблице нет — только штат');
+}
+const fire=arr(scopeRow,'fire'), avg=arr(scopeRow,'avg'), reg=arr(scopeRow,'reg');
 const tm=avg[i]?+(fire[i]/avg[i]*100).toFixed(2):null;
 ok(near(D.lastVal(rl,'turnover_m'),tm),'текучесть месячная = увольнения / ССЧ × 100 ('+tm+'%)');
 const jan=D.MONTHS_EXT.findIndex((m,k)=>k<=i&&m.m===0&&m.y===D.MONTHS_EXT[i].y);
