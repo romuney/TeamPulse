@@ -123,9 +123,9 @@ function yoyChart(key,lp,bl,S,opt){
   /* у накопительной метрики с прогнозом (fc) декабрь получает точку run-rate:
      «чем закончится год, если темп сохранится» читается прямо на полотне */
   const fcK=(D.METRIC_BY_KEY[key]||{}).fc;
-  /* счётный поток (найм, уход…) — бар этого года и засечка прошлого (14.10) */
+  /* счётный поток (найм, уход…) — бар этого года, позади прозрачный бар прошлого (15.10) */
   const flow=!!(D.METRIC_BY_KEY[key]||{}).flow;
-  const legend=(flow?[{name:String(D.YEAR_CUR),color:G.soft(col)},{name:String(D.YEAR_PREV),tick:true}]
+  const legend=(flow?[{name:String(D.YEAR_CUR),color:G.soft(col)},{name:String(D.YEAR_PREV),color:col,ghost:true}]
       :[{name:String(D.YEAR_CUR),color:col},{name:String(D.YEAR_PREV),color:G.C_PREV}])
     .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
   /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
@@ -147,12 +147,13 @@ function yoyPanels(lp,items,opt){
     legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]},opt||{}));
 }
 /* Пара встречных потоков (пришли / ушли) на оси года — «ежики»: приход
-   барами вверх, уход вниз, прошлый год засечками (14.10). opt.legend — имена
+   барами вверх, уход вниз, прошлый год — прозрачными барами позади (15.10). opt.legend — имена
    двух потоков; пункты «этот год» и «прошлый» добавляются здесь. */
 function yoyPair(lp,aKey,bKey,opt){
-  const src=(opt&&opt.legend||[]).map(it=>Object.assign({},it,{color:G.soft(it.color)}));
-  const lg=src.concat([{name:String(D.YEAR_CUR),split:[src[0]?src[0].color:G.soft(G.C_IN),src[1]?src[1].color:G.soft(G.C_OUT)]},
-    {name:String(D.YEAR_PREV),tick:true}]);
+  const raw=opt&&opt.legend||[], src=raw.map(it=>Object.assign({},it,{color:G.soft(it.color)}));
+  const cA=raw[0]?raw[0].color:G.C_IN, cB=raw[1]?raw[1].color:G.C_OUT;
+  const lg=src.concat([{name:String(D.YEAR_CUR),split:[G.soft(cA),G.soft(cB)]},
+    {name:String(D.YEAR_PREV),split:[cA,cB],ghost:true}]);
   return G.chart('pair',{a:Object.assign({key:aKey},D.yoySeries(lp,aKey)),b:Object.assign({key:bKey},D.yoySeries(lp,bKey))},
     Object.assign({h:300,fill:true,aName:lg[0]&&lg[0].name,bName:lg[1]&&lg[1].name},opt||{},{legend:lg}));
 }

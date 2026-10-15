@@ -4229,11 +4229,6 @@ function barDn(x,y,w,h,fill,extra){
     +'H'+num(x+w-r)+'Q'+num(x+w)+' '+num(y+h)+' '+num(x+w)+' '+num(y+h-r)+'V'+num(y)+'Z"'
     +' fill="'+fill+'"'+(extra||'')+'/>';
 }
-/* засечка прошлого года поперёк бара */
-function tickMark(cx,y,bw,sid){
-  return '<path class="tick"'+sAttr(sid)+' d="M'+num(cx-bw/2-3)+' '+num(y)+'H'+num(cx+bw/2+3)+'" stroke="'+C_TICK+'"'
-    +' stroke-width="2.2" stroke-linecap="round" fill="none"/>';
-}
 function svg(w,h,body,cls){
   return '<svg viewBox="0 0 '+num(w)+' '+num(h)+'" width="'+num(w)+'" height="'+num(h)+'"'
     +' class="chart'+(cls?' '+cls:'')+'" font-family="'+FONT+'"'
@@ -4280,12 +4275,12 @@ function lgItem(x,y,it,sid,off,lock){
   const tx=x, mx=x-6-16;
   let g=txt(tx,y+12,it.name,{size:11.5,fill:dead?C_AXIS:C_LABEL,anchor:'start'});
   /* thin — линия прошлого года у пары потоков: бледная линия, а не плашка */
-  /* tick — засечка прошлого года на барах потоков; split — год у пары потоков:
-     верх цветом прихода, низ цветом ухода (14.10) */
+  /* split — год у пары потоков: верх цветом прихода, низ цветом ухода (14.10);
+     ghost — прошлый год у потоков: тот же цвет, почти прозрачный (15.10) */
+  const go=it.ghost&&!dead?' fill-opacity="'+GHOST_OP+'"':'';
   g+=it.dash?line(mx,y+8.5,mx+16,y+8.5,col,2.2,'5 3'):it.thin?line(mx,y+8.5,mx+16,y+8.5,col,2.2)
-    :it.tick?line(mx+1,y+8.5,mx+15,y+8.5,dead?C_OFF:C_TICK,2.4)
-    :it.split?rect(mx,y+4.5,16,4,dead?C_OFF:it.split[0],1)+rect(mx,y+8.5,16,4,dead?C_OFF:it.split[1],1)
-    :rect(mx,y+4.5,16,8,col,2);
+    :it.split?rect(mx,y+4.5,16,4,dead?C_OFF:it.split[0],1,go)+rect(mx,y+8.5,16,4,dead?C_OFF:it.split[1],1,go)
+    :rect(mx,y+4.5,16,8,col,2,go);
   /* выключенная серия — не просто бледнее: бледное читается как «малое
      значение». Перечёркиваем подпись — это однозначное «скрыто». */
   if(dead)g+=line(tx-1,y+8.5,tx+tw+1,y+8.5,C_AXIS,1.2);
@@ -4422,10 +4417,12 @@ const C_SPARK_INK='#8a909c';   /* спарклайн метрики без оц�
 /* Номерная отметка факта «Что видно» (One-pager, механика HRBP HUB): кружок
    с номером на точке, о которой говорит пункт списка рядом с графиком. */
 const C_MK='#1f1f1f', C_MK_PREV='#7d8494';
-/* Засечка прошлого года на барах потоков (14.10): найм и отток — барами, а
-   прошлый год — короткой тёмной чертой поперёк бара. Тень-бар прошлого года
-   читался «вторым столбиком», линия поверх баров — «четвёртой линией». */
-const C_TICK='#1f1f1f';
+/* Прошлый год у баров потоков (15.10): бар того же цвета, чуть шире и почти
+   прозрачный — позади бара этого года. Засечки (14.10) заказчику не легли:
+   «выглядят стрёмно, особенно на пустых месяцах». Выключили этот год в
+   легенде — прошлый становится обычным баром. */
+const GHOST_OP=.18;
+const ghostW=(bw,bandW)=>Math.min(bandW*0.86,bw*1.5);
 
 /* Месяц скользящего окна на оси года: {i: месяц 0–11, s: серия}. Акценты
    историй (story.js) считают индексы по окну отчёта, а ось года календарная:
@@ -4448,7 +4445,7 @@ function yoyRoom(ya,marks){return (ya&&ya.notes.length?ANN_ROOM:0)+(marks&&marks
    Пункты — те же кнопки, что в шапке графика (lgItem): клик скрывает линию
    во всех панелях графика, наведение подсвечивает её. */
 function yoyKey(w,y,col,off,lock,flow){
-  const it=flow?[{name:String(CD.YEAR_CUR),color:soft(col)},{name:String(CD.YEAR_PREV),tick:true}]
+  const it=flow?[{name:String(CD.YEAR_CUR),color:soft(col)},{name:String(CD.YEAR_PREV),color:col,ghost:true}]
     :[{name:String(CD.YEAR_CUR),color:col},{name:String(CD.YEAR_PREV),color:C_PREV}], ids=['main','prev'];
   let x=w,s='';
   for(let i=it.length-1;i>=0;i--){const r=lgItem(x,y,it[i],ids[i],off,lock);s+=r.s;x=r.x}
@@ -4532,9 +4529,9 @@ function yoyPlot(p,ar){
   if(p.gap&&showMain&&showBench)s+=gapFill(key,cur,bench,X,Y);
   /* Счётный поток (найм, уход, переводы, решения) — барами (14.10, заказчик:
      «всё, что связано с наймом и оттоком, — обязательно барчарты»): этот год —
-     мягким баром, прошлый — засечкой поперёк него. Выключили этот год —
-     бары прошлого дорисованы до засечек, бледнее. */
-  const flow=!!nm.flow, bw=Math.max(6,Math.min(30,bandW*0.58));
+     мягким баром, прошлый — позади него тем же цветом, шире и почти прозрачно
+     (15.10). Выключили этот год — прошлый становится обычным баром. */
+  const flow=!!nm.flow, bw=Math.max(6,Math.min(30,bandW*0.58)), gw=ghostW(bw,bandW);
   if(showPrev&&!flow)s+='<path class="lnb"'+sAttr('prev')+' d="'+polyD(prev,X,Y)+'" fill="none" stroke="'+C_PREV+'"'
     +' stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
   if(showBench)s+='<path class="lnb"'+sAttr('bench')+' d="'+polyD(bench,X,Y)+'" fill="none" stroke="'+C_BENCH+'"'
@@ -4571,10 +4568,12 @@ function yoyPlot(p,ar){
     const bp=big(i,'prev')||!!noteAt(i,'prev');
     const bm=big(i,'main');
     if(flow){
-      /* акцент главы — бар насыщенным цветом вместо мягкого */
+      /* прошлый год — позади, шире и почти прозрачно тем же цветом; без этого
+         года — обычным баром. Акцент главы — бар насыщенным цветом. */
+      if(showPrev&&pv!=null)s+=showMain
+        ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),col,' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
+        :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
       if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),bm?col:soft(col),' class="bar up"'+sAttr('main')+' style="animation-delay:'+num(dly*0.5)+'ms"');
-      else if(!showMain&&showPrev&&pv!=null)s+=barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up" fill-opacity=".45"'+sAttr('prev'));
-      if(showPrev&&pv!=null)s+=tickMark(cx,Y(pv),bw,'prev');
     }else{
       if(showPrev&&pv!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
       if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm?col:'#fff')+'" stroke="'+col+'"'
@@ -4586,11 +4585,12 @@ function yoyPlot(p,ar){
        собой. Иначе на близких значениях цифры легли бы одна на другую.
        У точки с номерной отметкой подпись отодвинута от кружка. */
     if(flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
-      /* у бара подпись над ним — или над засечкой, если она выше бара */
-      const yTop=showPrev&&pv!=null?Math.min(Y(c),Y(pv)):Y(c);
-      lbl+=txt(cx,yTop-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
+      /* подпись — над баром этого года, даже если прозрачный бар прошлого выше:
+         над ним цифра читалась как его значение */
+      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
     }else if(flow&&!showMain&&showPrev&&pv!=null&&lblAt(i,nowI,step)){
-      lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev',fill:C_AXIS,weight:400}));
+      /* этот год выключен — прошлый показан обычными барами и подписан так же */
+      lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));
     }else if(!flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
       const both=i===nowI&&showPrev&&pv!=null, below=both&&pv>c;
       const sh=mkAt(i,'main')?5:0;
@@ -4638,9 +4638,10 @@ function drawYoy(a,w,h){
       T-роста) — год к году «ежиками»: приход барами вверх от нуля, уход —
       вниз (14.10, заказчик: «барчарты вверх-вниз, как ежики были, которые ты
       зачем-то убрал»; две линии этого года и две прошлого — «четыре линии на
-      одном графике, это жесть»). Прошлый год — засечками поперёк баров.
-      Легенда: два потока, этот год и прошлый. Выключили этот год — бары
-      прошлого дорисованы до засечек, бледнее.
+      одном графике, это жесть»). Прошлый год — позади баров этого, тем же
+      цветом, шире и почти прозрачно (15.10: засечки «выглядят стрёмно»).
+      Легенда: два потока, этот год и прошлый. Выключили этот год — прошлый
+      становится обычными барами.
       Шкала одна на оба потока: высота бара — люди, ноль между ними сдвигается
       так, чтобы большему потоку хватило места.
       a.a / a.b = {key, cur[12], prev[12]}; серии легенды — a, b, cur, prev.
@@ -4657,7 +4658,7 @@ function drawPair(a,w,h){
   const mA=sA?niceMax(vals(A)):0, mB=sB?niceMax(vals(B)):0;
   const top=hh+LBL_ROOM, bot=h-22-LBL_ROOM+6;
   const u=(bot-top)/((mA+mB)||1), y0=top+mA*u;
-  const bw=Math.max(6,Math.min(28,bandW*0.56));
+  const bw=Math.max(6,Math.min(28,bandW*0.56)), gw=ghostW(bw,bandW);
   let s=header(w,o.title,o.legend,{kind:'pair',off:o.off});
   s+=line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
@@ -4671,26 +4672,27 @@ function drawPair(a,w,h){
     const cx=X(i), va=A.cur[i], vb=B.cur[i], pa=A.prev[i], pb=B.prev[i];
     const rows=[];
     if(sA){if(va!=null)rows.push({label:nameA+' · '+yC,value:CD.fmtVal(A.key,va),color:fA});
-      if(pa!=null)rows.push({label:nameA+' · '+yP,value:CD.fmtVal(A.key,pa),color:C_TICK})}
+      if(pa!=null)rows.push({label:nameA+' · '+yP,value:CD.fmtVal(A.key,pa),color:C_PREV})}
     if(sB){if(vb!=null)rows.push({label:nameB+' · '+yC,value:CD.fmtVal(B.key,vb),color:fB});
-      if(pb!=null)rows.push({label:nameB+' · '+yP,value:CD.fmtVal(B.key,pb),color:C_TICK})}
+      if(pb!=null)rows.push({label:nameB+' · '+yP,value:CD.fmtVal(B.key,pb),color:C_PREV})}
     const nmM=CD.MONTH_NOM[i], dly=DRAW_MS*(i/Math.max(1,nowI))*0.5;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1),rows,
       note:va==null&&vb==null?'Месяц '+yC+' ещё не закрыт':null})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
-    /* вверх — приход, вниз — уход; бар этого года или (год выключен) прошлого */
-    const up=sC?va:(sP?pa:null), dn=sC?vb:(sP?pb:null), pale=sC?'':' fill-opacity=".45"';
-    if(sA&&up!=null)s+=barUp(cx-bw/2,y0-up*u,bw,up*u,fA,' class="bar up"'+pale+sAttr(sC?'a':'prev')+' style="animation-delay:'+num(dly)+'ms"');
-    if(sB&&dn!=null)s+=barDn(cx-bw/2,y0,bw,dn*u,fB,' class="bar dn"'+pale+sAttr(sC?'b':'prev')+' style="animation-delay:'+num(dly)+'ms"');
-    if(sP&&sA&&pa!=null)s+=tickMark(cx,y0-pa*u,bw,'prev');
-    if(sP&&sB&&pb!=null)s+=tickMark(cx,y0+pb*u,bw,'prev');
+    /* вверх — приход, вниз — уход. Прошлый год — позади, шире и почти прозрачно
+       тем же цветом; выключили этот год — прошлый обычными барами */
+    const up=sC?va:(sP?pa:null), dn=sC?vb:(sP?pb:null), go=' fill-opacity="'+GHOST_OP+'"';
+    if(sC&&sP&&sA&&pa!=null)s+=barUp(cx-gw/2,y0-pa*u,gw,pa*u,cA,' class="bar up ghost"'+go+sAttr('prev'));
+    if(sC&&sP&&sB&&pb!=null)s+=barDn(cx-gw/2,y0,gw,pb*u,cB,' class="bar dn ghost"'+go+sAttr('prev'));
+    if(sA&&up!=null)s+=barUp(cx-bw/2,y0-up*u,bw,up*u,fA,' class="bar up"'+sAttr(sC?'a':'prev')+' style="animation-delay:'+num(dly)+'ms"');
+    if(sB&&dn!=null)s+=barDn(cx-bw/2,y0,bw,dn*u,fB,' class="bar dn"'+sAttr(sC?'b':'prev')+' style="animation-delay:'+num(dly)+'ms"');
     s+='</g>';
     if(!lblAt(i,nowI,step))continue;
     /* ноль не подписываем: у переводов он в каждом втором месяце и забивает полотно */
-    if(sA&&up){const yT=Math.min(y0-up*u,sP&&pa!=null?y0-pa*u:Infinity);
-      lbl+=txt(cx,yT-VAL_DY,CD.fmtVal(A.key,up),valOpt({delay:dly,s:sC?'a':'prev',fill:sC?C_LABEL:C_AXIS,weight:sC?VAL_W:400}))}
-    if(sB&&dn){const yB=Math.max(y0+dn*u,sP&&pb!=null?y0+pb*u:-Infinity);
-      lbl+=txt(cx,yB+VAL_DY+VAL_ASC,CD.fmtVal(B.key,dn),valOpt({delay:dly,s:sC?'b':'prev',fill:sC?C_LABEL:C_AXIS,weight:sC?VAL_W:400}))}
+    /* подпись — у конца бара, который показан обычным: прозрачный бар прошлого
+       года позади её не сдвигает */
+    if(sA&&up)lbl+=txt(cx,y0-up*u-VAL_DY,CD.fmtVal(A.key,up),valOpt({delay:dly,s:sC?'a':'prev'}));
+    if(sB&&dn)lbl+=txt(cx,y0+dn*u+VAL_DY+VAL_ASC,CD.fmtVal(B.key,dn),valOpt({delay:dly,s:sC?'b':'prev'}));
   }
   /* ноль — поверх баров: от него растут оба потока */
   s+=line(x0,y0,x0+plotW,y0,C_ZERO,1);
@@ -5145,7 +5147,7 @@ function toggleSeries(cid,sid){
 function reset(){_specs=new Map();_sid=0}
 
 window.TPDRAW={chart,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
-  sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,C_TICK,
+  sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
   C_VAC,C_UNDER,C_LOWPERF,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y,C_AI};
@@ -7372,9 +7374,9 @@ function yoyChart(key,lp,bl,S,opt){
   /* у накопительной метрики с прогнозом (fc) декабрь получает точку run-rate:
      «чем закончится год, если темп сохранится» читается прямо на полотне */
   const fcK=(D.METRIC_BY_KEY[key]||{}).fc;
-  /* счётный поток (найм, уход…) — бар этого года и засечка прошлого (14.10) */
+  /* счётный поток (найм, уход…) — бар этого года, позади прозрачный бар прошлого (15.10) */
   const flow=!!(D.METRIC_BY_KEY[key]||{}).flow;
-  const legend=(flow?[{name:String(D.YEAR_CUR),color:G.soft(col)},{name:String(D.YEAR_PREV),tick:true}]
+  const legend=(flow?[{name:String(D.YEAR_CUR),color:G.soft(col)},{name:String(D.YEAR_PREV),color:col,ghost:true}]
       :[{name:String(D.YEAR_CUR),color:col},{name:String(D.YEAR_PREV),color:G.C_PREV}])
     .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
   /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
@@ -7396,12 +7398,13 @@ function yoyPanels(lp,items,opt){
     legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]},opt||{}));
 }
 /* Пара встречных потоков (пришли / ушли) на оси года — «ежики»: приход
-   барами вверх, уход вниз, прошлый год засечками (14.10). opt.legend — имена
+   барами вверх, уход вниз, прошлый год — прозрачными барами позади (15.10). opt.legend — имена
    двух потоков; пункты «этот год» и «прошлый» добавляются здесь. */
 function yoyPair(lp,aKey,bKey,opt){
-  const src=(opt&&opt.legend||[]).map(it=>Object.assign({},it,{color:G.soft(it.color)}));
-  const lg=src.concat([{name:String(D.YEAR_CUR),split:[src[0]?src[0].color:G.soft(G.C_IN),src[1]?src[1].color:G.soft(G.C_OUT)]},
-    {name:String(D.YEAR_PREV),tick:true}]);
+  const raw=opt&&opt.legend||[], src=raw.map(it=>Object.assign({},it,{color:G.soft(it.color)}));
+  const cA=raw[0]?raw[0].color:G.C_IN, cB=raw[1]?raw[1].color:G.C_OUT;
+  const lg=src.concat([{name:String(D.YEAR_CUR),split:[G.soft(cA),G.soft(cB)]},
+    {name:String(D.YEAR_PREV),split:[cA,cB],ghost:true}]);
   return G.chart('pair',{a:Object.assign({key:aKey},D.yoySeries(lp,aKey)),b:Object.assign({key:bKey},D.yoySeries(lp,bKey))},
     Object.assign({h:300,fill:true,aName:lg[0]&&lg[0].name,bName:lg[1]&&lg[1].name},opt||{},{legend:lg}));
 }

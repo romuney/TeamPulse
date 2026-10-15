@@ -146,13 +146,14 @@ checks.push(['причины увольнений — таблица',/<table/.t
    две яркие линии этого года, бледные — прошлого; баров и серой «тени» нет.
    Ряды синтетические: у каждой линии точка на каждый закрытый месяц. */
 const yr=(a,b)=>({cur:D.MONTH_ABBR.map((_,i)=>i<D.CUR_LEN?a+i%3:null),prev:D.MONTH_ABBR.map((_,i)=>b+i%4)});
-/* 14.10: пара — «ежики»: приход барами вверх, уход вниз, прошлый год — засечками;
-   линий нет («четыре линии на одном графике — жесть») */
+/* 14.10: пара — «ежики»: приход барами вверх, уход вниз; линий нет («четыре линии на
+   одном графике — жесть»); 15.10: прошлый год — прозрачные бары позади, без засечек */
 const dv=G.chart('pair',{a:Object.assign({key:'hire'},yr(4,5)),b:Object.assign({key:'attrition'},yr(2,3))},
-  {h:300,legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2026'},{name:'2025',tick:true}]});
+  {h:300,legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2026'},{name:'2025',ghost:true}]});
 const barsOf=(cls,sid)=>(dv.match(new RegExp('class="bar '+cls+'" data-s="'+sid+'"','g'))||[]).length;
-checks.push(['пара потоков — «ежики»: бары вверх и вниз, прошлый год засечками, без линий',
-  barsOf('up','a')===D.CUR_LEN&&barsOf('dn','b')===D.CUR_LEN&&(dv.match(/<path class="tick" data-s="prev"/g)||[]).length===24&&
+checks.push(['пара потоков — «ежики»: бары вверх и вниз, прошлый год прозрачными барами позади, без линий и засечек',
+  barsOf('up','a')===D.CUR_LEN&&barsOf('dn','b')===D.CUR_LEN&&(dv.match(/class="bar (up|dn) ghost"[^>]*data-s="prev"/g)||[]).length===24&&
+  !/class="tick"/.test(dv)&&
   !/class="ln/.test(dv)&&/data-sid="a"/.test(dv)&&/data-sid="cur"/.test(dv)&&/data-sid="prev"/.test(dv)]);
 
 /* 7. цифры на графиках чёрные: за смысл отвечает цвет бара, а не подписи */
@@ -504,7 +505,7 @@ checks.push(['марки графиков помечены data-s',
    последнюю серию выключить нельзя; у панелей — тоже (13.10: «легенды не
    интерактивные» — у панелей кнопок не было вовсе) */
 (function(){
-  const legend=[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2026'},{name:'2025',tick:true}];
+  const legend=[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2026'},{name:'2025',ghost:true}];
   const yr=(a,k)=>({cur:D.MONTH_ABBR.map((_,i)=>i<D.CUR_LEN?a+i%k:null),prev:D.MONTH_ABBR.map((_,i)=>a+1+i%k)});
   const html=G.chart('pair',{a:Object.assign({key:'hire'},yr(10,5)),b:Object.assign({key:'attrition'},yr(4,3))},
     {title:'Проверка пары',legend,h:320});
@@ -512,13 +513,13 @@ checks.push(['марки графиков помечены data-s',
   const el=pick('.svgchart[data-cid="'+cid+'"]'); el.clientWidth=900;
   G.toggleSeries(cid,'b');G.toggleSeries(cid,'prev');
   const h1=el.innerHTML;
-  checks.push(['выключенный поток пары исчезает, выключенный прошлый год — засечки тоже',
-    !/data-s="b"/.test(h1)&&/data-s="a"/.test(h1)&&!/class="tick"/.test(h1)]);
-  /* выключили этот год — бары прошлого дорисованы до засечек, бледнее */
+  checks.push(['выключенный поток пары исчезает, выключенный прошлый год — его бары тоже',
+    !/data-s="b"/.test(h1)&&/data-s="a"/.test(h1)&&!/ghost/.test(h1)]);
+  /* выключили этот год — прошлый становится обычными барами */
   G.toggleSeries(cid,'prev');G.toggleSeries(cid,'cur');
   const hc=el.innerHTML;
-  checks.push(['пара: без этого года бары прошлого до засечек; год и поток не выключить оба',
-    /class="bar up" fill-opacity="\.45" data-s="prev"/.test(hc)&&/class="tick" data-s="prev"/.test(hc)&&
+  checks.push(['пара: без этого года прошлый — обычными барами; год и поток не выключить оба',
+    /class="bar up" data-s="prev"/.test(hc)&&!/ghost/.test(hc)&&
     G.toggleSeries(cid,'prev')===false]);
   G.toggleSeries(cid,'cur');G.toggleSeries(cid,'prev');
   checks.push(['выключенный пункт легенды помечен, последнюю серию выключить нельзя',
@@ -1285,10 +1286,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['история: пик подписан на графике полосой, прочие месяцы не приглушены',
     />пик года<\/text>/.test(to)&&!/fill-opacity="\.38"/.test(allHtml)]);
   /* динамика — только линии: баров «год к году» нет нигде */
-  /* 14.10: счётные потоки — барами этого года с засечкой прошлого; серого бара-«тени»
-     прошлого года за баром этого нет нигде (он появляется, только если этот год выключен) */
-  checks.push(['потоки год к году — бары с засечкой прошлого года, без баров-«теней»',
-    /class="bar up" data-s="main"/.test(allHtml)&&/class="tick" data-s="prev"/.test(allHtml)&&
+  /* 14.10: счётные потоки — барами; 15.10: прошлый год — тем же цветом, шире и почти
+     прозрачно позади бара этого года; обычный бар прошлого — только если этот год выключен */
+  checks.push(['потоки год к году — бары этого года, прошлый — прозрачный бар позади',
+    /class="bar up" data-s="main"/.test(allHtml)&&/class="bar up ghost" fill-opacity="0?\.18" data-s="prev"/.test(allHtml)&&
+    !/class="tick"/.test(allHtml)&&
     !/class="bar (up|dn)"[^>]*data-s="prev"/.test(allHtml)&&!G.C_GHOST&&
     D.METRICS.filter(m=>m.flow).map(m=>m.key).sort().join()==='attrition,hire,tgrowth_deny,tgrowth_pass,transfer_in,transfer_out,vac_closed']);
   /* разрыв с базой залит светофором хотя бы на одной главе */
