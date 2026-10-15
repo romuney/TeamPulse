@@ -65,13 +65,15 @@ SC.blocks.turnover={
          в подписи, чтобы не складывать две строки в уме. */
       const ex=D.exitProfile(lp,'ytd');
       const early=ex.tenure.filter(t=>t.early).reduce((a,t)=>a+t.value,0);
-      const grp=(cap,sub,items,sort)=>U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'Человек',
-        metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>({name:x.name,value:x.value,color:G.C_OUT}))});
+      const grp=(cap,sub,items,sort,top)=>U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'Человек',
+        metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>({name:x.name,value:x.value,color:G.C_OUT})),
+        top:top?top.n:0,restWord:top?top.word:null});
       return U.btStack([
         grp('Стаж на момент ухода',ytd+(ex.total?' · ранний уход, до года: '+D.fmtInt(early)+' чел, '+
           U.pct(early/ex.total*100):''),ex.tenure),
         grp('Грейд',ytd,ex.grade),
-        grp('Стрим',ytd,ex.stream,true)])+
+        /* стримов на верхних уровнях десятки — первые 8 и «Остальные» (16.10) */
+        grp('Стрим',ytd,ex.stream,true,{n:8,word:['стрим','стрима','стримов']})])+
         '<div class="tbl-note">ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+'). Стаж и грейд — на дату ухода.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся

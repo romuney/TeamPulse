@@ -1392,6 +1392,21 @@ checks.push(['третьей палитры нет: в экранах ни од�
     (wk.match(/<div class="[^"]*" data-mix="worksite:/g)||[]).length===3&&
     (wk.match(/<tr class="urow[^"]*" data-mix="region:/g)||[]).length===7&&
     (wk.match(/<tr class="urow[^"]*" data-mix="legal:/g)||[]).length===4]);
+  /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
+     Матрица: длинная ось — 8 + «Остальные» (не срез), сумма та же; стримы ушедших — 8 строк. */
+  {
+    const S0=A.st(), r0=S0.mixRows, c0=S0.mixCols;
+    S0.mixRows='spec';S0.mixCols='stream';
+    const cu=A.go('structure','custom');
+    S0.mixRows=r0;S0.mixCols=c0;
+    const body=((cu.split('class="ptable mxtable')[1]||'').split('<tbody>')[1]||'').split('</tbody>')[0], nRows=(body.match(/<tr/g)||[]).length;
+    const tot=(cu.match(/<tr class="total">[\s\S]*?<td class="mx-tot">([^<]+)</)||[])[1];
+    const hcAll=D.fmtInt(Math.round(D.lastVal(D.reportLeaves(A.st()),'hc_total')));
+    const who=A.go('turnover','who'), st=(who.split('bt-group').find(x=>/>Стрим</.test(x))||'');
+    checks.push(['длинные разрезы — топ: матрица 8 + «Остальные» (не срез), сумма та же; стримы ушедших — не больше 8',
+      D.MIX_BY_KEY.spec.cats.length>9&&nRows===10&&/class="mx-pick mx-rest row"/.test(cu)&&!/data-mix="null/.test(cu)&&
+      tot===hcAll&&(st.match(/<tr/g)||[]).length<=10]);
+  }
   /* 16.10, заказчик: «почему тут пустые точки без линии?» — скрытая линия была
      постоянным свойством .ln, а не кадром анимации: без анимации (скриншот, печать,
      PDF) год оставался кружками без линии. Скрыта — только в @keyframes. */

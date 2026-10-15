@@ -2030,3 +2030,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* возраст в полколонки — выше (220px вместо 160): столбики читаются, а правая
    колонка обзора сходится по высоте с левой (квалификация + пол) */
 #view .pt-cols .pt-col{height:220px}
+/* «Остальные» длинной оси матрицы — не кнопка и не срез */
+#view .mx-pick.mx-rest{cursor:help;color:var(--muted);background:transparent}
+#view .mxtable td.mx-cell.rest{cursor:default}

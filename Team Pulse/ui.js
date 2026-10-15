@@ -405,6 +405,18 @@ function kpiCard(o){
 function barTable(o){
   let items=o.items.slice();
   if(o.sort)items.sort((a,b)=>b.value-a.value);
+  /* o.top — длинный плоский список (стримы на верхних уровнях, 16.10): первые
+     o.top и строка «Остальные»; кто в ней — в подсказке полосы. Одну лишнюю
+     строку не сворачиваем, выбранное в срезе остаётся на виду. */
+  if(o.top&&!o.tree&&items.length>o.top+1){
+    const keep=items.slice(0,o.top).concat(items.slice(o.top).filter(x=>x.on));
+    const rest=items.filter(x=>keep.indexOf(x)<0), shown=rest.slice().sort((a,b)=>b.value-a.value).slice(0,8);
+    /* в остальных никого — строку «Остальные 0» не рисуем */
+    items=!rest.some(x=>x.value)?keep:keep.concat([{name:'Остальные',note:rest.length+' '+plural(rest.length,o.restWord||['значение','значения','значений']),
+      value:rest.reduce((a,x)=>a+x.value,0),color:rest[0].color,
+      tip:shown.map(x=>x.name+' — '+D.fmtVal(o.metricKey||'hc_total',x.value)).join(', ')+
+        (rest.length>shown.length?' и ещё '+(rest.length-shown.length):'')}]);
+  }
   const key=o.metricKey||'hc_total';
   /* Итог и масштаб полосы считаются по ВЕРХНЕМУ уровню: дочерние строки уже
      учтены в родительской, и складывать их второй раз — удвоить ИТОГО. */
@@ -520,7 +532,9 @@ function btStack(list,cls){return '<div class="bt-stack'+(cls?' '+cls:'')+'">'+l
    o.sel             — Set взятых срезов (id вида 'grade:g2')
    ========================================================================== */
 function pct(v){return v.toFixed(v<10&&v>0?1:0).replace('.',',')+'%'}
-function mxPick(id,name,on,cls){
+function mxPick(id,name,on,cls,cat){
+  /* «Остальные» длинной оси — не категория, срезом не берётся: кто в ней — в подсказке */
+  if(cat&&cat.other)return '<span class="mx-pick mx-rest'+(cls?' '+cls:'')+'"'+tipAttr({title:'Остальные',text:cat.note||''})+'>'+esc(name)+'</span>';
   return '<button class="mx-pick'+(on?' on':'')+(cls?' '+cls:'')+'" data-mix="'+esc(id)+'"'+
     tipAttr({title:name,text:on?'Срез выбран. Клик — снять.':'Клик — показать только «'+name+'».'})+
     '>'+esc(name)+'</button>';
@@ -555,21 +569,22 @@ function matrixTable(o){
     '<div class="mx-wrap"><table class="ptable mxtable dense">'+
     '<thead><tr><th class="txt mx-corner"><span class="mx-r">'+esc(R.short||R.name)+'</span>'+
     '<span class="mx-c">'+esc(C.short||C.name)+' →</span></th>'+
-    C.cats.map(c=>'<th class="mx-h">'+mxPick(c.id,c.name,sel.has(c.id))+'</th>').join('')+
+    C.cats.map(c=>'<th class="mx-h">'+mxPick(c.id,c.name,sel.has(c.id),'',c)+'</th>').join('')+
     '<th class="mx-tot">Всего</th></tr></thead><tbody>';
 
   R.cats.forEach((rc,i)=>{
     h+='<tr'+(sel.has(rc.id)?' class="mx-on"':'')+'>'+
-      '<td class="txt">'+mxPick(rc.id,rc.name,sel.has(rc.id),'row')+'</td>';
+      '<td class="txt">'+mxPick(rc.id,rc.name,sel.has(rc.id),'row',rc)+'</td>';
     C.cats.forEach((cc,j)=>{
       const v=cells[i][j], t=shade(v,i,j);
-      h+='<td class="mx-cell'+(v?'':' zero')+'" data-mix="'+esc(rc.id+','+cc.id)+'"'+
+      const rest=rc.other||cc.other;
+      h+='<td class="mx-cell'+(v?'':' zero')+(rest?' rest':'')+'"'+(rest?'':' data-mix="'+esc(rc.id+','+cc.id)+'"')+
         (v?' style="background:'+G.heat(t)+';color:'+G.heatInk(t)+'"':'')+
         tipAttr({title:rc.name+' · '+cc.name,
           rows:[{label:'людей',value:D.fmtVal('hc_total',v),color:G.heat(Math.max(0.35,t))},
                 {label:'от строки',value:rowSum[i]?pct(v/rowSum[i]*100):'—'},
                 {label:'от колонки',value:colSum[j]?pct(v/colSum[j]*100):'—'}],
-          note:'Клик — срез сразу по двум разрезам.'})+
+          note:rest?'«Остальные» — несколько категорий сразу, срезом не берётся.':'Клик — срез сразу по двум разрезам.'})+
         '>'+(v?show(v,i,j):'—')+'</td>';
     });
     h+='<td class="mx-tot">'+D.fmtInt(rowSum[i])+'</td></tr>';

@@ -94,8 +94,13 @@ SEN = [('Junior', .30), ('Middle', .38), ('Senior', .24), ('Lead', .08)]
 GRADE_OF = {'Junior': ['10', '11'], 'Middle': ['11', '12'], 'Senior': ['12', '13'], 'Lead': ['13', '14']}
 CONTRACT = [('Бессрочный', .86), ('Срочный', .14)]
 LEGAL = ['АО «Банк»', 'ООО «Технологии»', 'ООО «Сервис»']
-STREAM = [('Разработка', .22), ('Аналитика', .12), ('Тестирование', .08), ('Продажи', .25),
-          ('Клиентский сервис', .23), ('Бэк-офис', .10)]
+# 16.10: на верхних уровнях юрлиц и стримов — десятки, отчёт берёт топ. Длинный хвост:
+# 21 мелкое юрлицо (у 25% людей) и 14 стримов с убывающими долями.
+LEGAL_TAIL = [('ООО «Регион-%02d»' % i, 1 / (i + 1)) for i in range(1, 22)]
+STREAM = [('Разработка', .20), ('Аналитика', .11), ('Тестирование', .07), ('Продажи', .22),
+          ('Клиентский сервис', .20), ('Бэк-офис', .08), ('Маркетинг', .03), ('Риски', .025),
+          ('Юристы', .015), ('Закупки', .012), ('Безопасность', .01), ('HR', .01), ('Финансы', .008),
+          ('Дизайн', .006)]
 REASONS = [('Лучшее предложение', .26, True), ('Нет роста', .14, True), ('Отношения с руководителем', .10, True),
            ('Выгорание', .08, True), ('Не справился', .12, False), ('Личные обстоятельства', .18, False),
            ('Окончание договора', .12, False)]
@@ -108,11 +113,12 @@ def pick(opts):
         if r <= acc:
             return o[0]
     return opts[-1][0]
-UNIT_LEGAL = {rk: LEGAL[int(hashlib.md5(rk.encode()).hexdigest(), 16) % 3] for rk in units}   # юрлицо — у подразделения
+UNIT_LEGAL = {rk: LEGAL[int(hashlib.md5(rk.encode()).hexdigest(), 16) % 3] for rk in units}   # основное юрлицо подразделения
 def new_person(unit, mi):
     sen = pick(SEN)
     return dict(unit=unit, type=pick(TYPES), oper=pick(OPER), rel=pick(REL), gender=pick(GENDER), age=pick(AGE),
                 sen=sen, grade=random.choice(GRADE_OF[sen]), contract=pick(CONTRACT), stream=pick(STREAM),
+                legal=pick(LEGAL_TAIL) if random.random() < .25 else None,
                 hired=mi - random.randint(0, 80) if mi == 0 else mi,
                 perf=pick([('normal', .7), ('low', .05), ('high', .15), ('gray', .10)]), app=None)
 def tenure(p, mi):
@@ -128,7 +134,7 @@ def place(m):
 people = [new_person(place(0), 0) for _ in range(2500)]
 
 def key_attrs(p, mi, reason=None, init=None):
-    return (p['gender'], p['age'], tenure(p, mi), p['grade'], p['sen'], p['contract'], UNIT_LEGAL[p['unit']],
+    return (p['gender'], p['age'], tenure(p, mi), p['grade'], p['sen'], p['contract'], p.get('legal') or UNIT_LEGAL[p['unit']],
             p['stream'], p['rel'], reason, init)
 def perf_of(p):
     return p['perf'] if (p['type'] == 'Активная' and p['oper'] == 'Hq') else 'gray'

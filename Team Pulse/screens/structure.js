@@ -133,16 +133,34 @@ const mixAt=r=>r.id?' data-mix="'+U.esc(r.id)+'"':'';
    доля · полоса с засечкой базы; sort — по убыванию */
 function ptBars(rows,bench,o){
   o=o||{};
-  const list=o.sort?rows.slice().sort((x,y)=>y.n-x.n):rows;
+  const list=ptTop(o.sort?rows.slice().sort((x,y)=>y.n-x.n):rows,o);
   const max=Math.max(1,...list.map(r=>Math.max(r.p,r.b)));
   /* подпись таблицы — как у всех разбивок (bt-cap), а не серой сноской */
   return (o.cap?'<div class="bt-cap pt-cap">'+U.esc(o.cap)+'</div>':'')+
     '<table class="ptable btable lite pt-tb"><colgroup><col><col class="c-n"><col class="c-p"><col class="c-bar"></colgroup><tbody>'+
     list.map(r=>'<tr class="'+(r.id?'urow':'')+(r.hi?' hi':'')+(r.on?' sel':'')+'"'+mixAt(r)+ptTip(r,bench)+'>'+
-      '<td class="txt"><span class="row-label"><span class="row-body">'+U.esc(r.name)+'</span></span></td>'+
+      '<td class="txt"><span class="row-label"><span class="row-body">'+U.esc(r.name)+
+        (r.sub?'<span class="unit-sub">'+U.esc(r.sub)+'</span>':'')+'</span></span></td>'+
       '<td class="lead">'+D.fmtInt(r.n)+'</td><td>'+r.p+'%</td>'+
       '<td class="barcell"><span class="cellbar"><i style="width:'+(r.p/max*100).toFixed(1)+'%"></i>'+
       '<s style="left:'+(r.b/max*100).toFixed(1)+'%"></s></span></td></tr>').join('')+'</tbody></table>';
+}
+/* Длинный список (юрлица, регионы — на верхних уровнях их десятки, 16.10) —
+   первые PT_TOP по численности и строка «Остальные»: сколько их и сколько в
+   них людей, кто именно — в подсказке. Выбранное в срезе остаётся на виду,
+   даже если оно не в топе. Одну лишнюю строку не сворачиваем. */
+const PT_TOP=6;
+function ptTop(list,o){
+  const n=o.top||0;
+  if(!n||list.length<=n+1)return list;
+  const keep=list.slice(0,n).concat(list.slice(n).filter(r=>r.on));
+  const rest=list.filter(r=>keep.indexOf(r)<0), tot=sumA(list.map(r=>r.n)), rn=sumA(rest.map(r=>r.n));
+  const shown=rest.slice().sort((x,y)=>y.n-x.n).slice(0,8);
+  if(!rn)return keep;
+  return keep.concat([{id:null,name:'Остальные',sub:rest.length+' '+U.plural(rest.length,o.word||['значение','значения','значений']),
+    n:rn,p:pct(rn,tot),b:sumA(rest.map(r=>r.b)),hi:false,
+    why:'Сложены по численности после первых '+n+': '+shown.map(r=>r.name+' — '+r.p+'%').join(', ')+
+      (rest.length>shown.length?' и ещё '+(rest.length-shown.length):'')+'. Срез — по каждому из них в «Своём срезе».'}]);
 }
 /* пилюля по ступеням: ступени — от светлой к густой, база строкой под ней */
 function ptSteps(rows,bench){
@@ -190,6 +208,26 @@ function ptAgeSex(rows,m,gen,bench){
 function ptTrio(rows,bench){
   return '<div class="pt-trio">'+rows.map(r=>'<div class="'+(r.hi?'hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
     '<b>'+r.p+'%</b><span>'+U.esc(r.name)+'</span><em>компания '+r.b+'%</em></div>').join('')+'</div>';
+}
+/* Матрица «разрез × разрез»: длинная ось (юрлица, регионы, стримы) — первые MX_TOP
+   по численности и «Остальные» одной строкой или колонкой; без этого юрлица
+   верхнего уровня растягивали таблицу на десятки колонок (16.10). Порядок
+   остальных категорий — как в разрезе; выбранное в срезе остаётся на виду. */
+const MX_TOP=8;
+function mxAxis(dim,tot,sel){
+  const all=dim.cats.map((_,i)=>i);
+  if(all.length<=MX_TOP+1)return {dim:dim,grp:all.map(i=>[i])};
+  const top=all.slice().sort((a,b)=>tot[b]-tot[a]).slice(0,MX_TOP);
+  all.forEach(i=>{if(sel.has(dim.cats[i].id)&&top.indexOf(i)<0)top.push(i)});
+  const keep=dim.sort?top.sort((a,b)=>tot[b]-tot[a]):top.sort((a,b)=>a-b), rest=all.filter(i=>keep.indexOf(i)<0);
+  return {dim:Object.assign({},dim,{cats:keep.map(i=>dim.cats[i]).concat([{id:null,key:'_rest',other:true,
+      name:'Остальные',note:rest.length+' · '+rest.map(i=>dim.cats[i].name).slice(0,8).join(', ')+(rest.length>8?' и ещё '+(rest.length-8):'')}])}),
+    grp:keep.map(i=>[i]).concat([rest])};
+}
+function mxCap(R,C,cells,sel){
+  const rt=cells.map(r=>sumA(r)), ct=C.cats.map((_,j)=>sumA(cells.map(r=>r[j])));
+  const a=mxAxis(R,rt,sel), b=mxAxis(C,ct,sel);
+  return {rowDim:a.dim,colDim:b.dim,cells:a.grp.map(gi=>b.grp.map(gj=>sumA(gi.map(i=>sumA(gj.map(j=>cells[i][j]))))))};
 }
 function ptSec(says,q,k,body,cls){
   /* в пробнике у заглушки вывода нет (story.js) — тогда подпись вопроса отступает от графика сама */
@@ -251,8 +289,8 @@ function overviewWork(ctx){
     ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'})),
     CON?ptSec(c.says,'Тип договора','con',con):'',
     FMT?ptSec(c.says,'Формат работы','fmt',ptTrio(FMT,bench)):'',
-    REG?ptSec(c.says,'Где работают','reg',ptBars(REG,bench,{sort:true})):'',
-    LEG?ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true})):''])+'</div>';
+    REG?ptSec(c.says,'Где работают','reg',ptBars(REG,bench,{sort:true,top:PT_TOP,word:['регион','региона','регионов']})):'',
+    LEG?ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true,top:PT_TOP,word:['юрлицо','юрлица','юрлиц']})):''])+'</div>';
 }
 
 SC.blocks.structure={
@@ -310,8 +348,8 @@ SC.blocks.structure={
     const cap=[outer.length?'срез: '+outer.map(p=>p.cat.name).join(' · '):'',
       inner.length?'выделено в таблице: '+inner.map(p=>p.cat.name).join(' · '):'']
       .filter(Boolean).join('  ·  ');
-    h+=U.matrixTable({rowDim:rowDim,colDim:colDim,mode:S.mixMode,sel:sel,cap:cap,
-      cells:D.mixMatrix(ctx.lp,rowDim.key,colDim.key,S.mixSel)});
+    const mx=mxCap(rowDim,colDim,D.mixMatrix(ctx.lp,rowDim.key,colDim.key,S.mixSel),sel);
+    h+=U.matrixTable({rowDim:mx.rowDim,colDim:mx.colDim,mode:S.mixMode,sel:sel,cap:cap,cells:mx.cells});
     return h+'<div class="tbl-note">Клик по клетке — срез по двум разрезам сразу, по названию строки '+
       'или колонки — по одному. Сумма клеток равна численности в карточках.</div>';
   }

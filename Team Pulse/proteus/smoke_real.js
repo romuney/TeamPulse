@@ -160,6 +160,18 @@ CASES.forEach(([t,s])=>{
   catch(e){scrOk=false;console.log('    падает',t,s,e.message)}
 });
 ok(scrOk,'все '+CASES.length+' экранов собираются на модели пробника');
+/* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
+   В обзоре длинный список — 6 строк и «Остальные», у стримов ушедших — 8 и «Остальные». */
+{
+  const nLeg=Object.keys(R.mix('BASE')&&R.mixVals('o')||{}).length, wk=A.go('structure','work');
+  const sec=(wk.split('<section').find(x=>/>Юрлицо</.test(x))||'');
+  const rows=(sec.match(/<tr /g)||[]).length, rest=/>Остальные<span class="unit-sub">\d+ юрлиц/.test(sec);
+  ok(nLeg<=7?rows===nLeg&&!rest:rows===7&&rest,'юрлица в обзоре: '+(nLeg<=7?'все '+nLeg:'6 из '+nLeg+' и «Остальные»'));
+  const nSt=Object.keys(R.mixVals('xs')||{}).length, who=A.go('turnover','who');
+  const st=(who.split('bt-group').find(x=>/>Стрим</.test(x))||'');
+  ok(nSt<=9||/>Остальные<span class="unit-sub">\d+ стрим/.test(st)||(st.match(/<tr/g)||[]).length<=10,
+    'стримы ушедших: '+(nSt<=9?'все '+nSt:'8 из '+nSt+' и «Остальные»'));
+}
 let exp='';
 try{A.go('turnover','dynamics');exp=A.expAll();ok(true,'«раскрыть всё» на дереве пробника')}
 catch(e){ok(false,'«раскрыть всё» падает: '+e.message)}
