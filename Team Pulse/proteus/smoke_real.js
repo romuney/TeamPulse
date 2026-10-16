@@ -123,10 +123,12 @@ const i=R.n-1;
   /* 16.10, ответ 0д: employee_contract_type — формат работы («Гибридный»), а не тип договора */
   ok(!!D.MIX_BY_KEY.worksite&&!D.MIX_BY_KEY.contract&&!D.MIX_BY_KEY.region&&!D.MIX_BY_KEY.spec,
     'формат работы — из employee_contract_type; типа договора, региона и специализаций нет');
-  /* 16.10: IT-специализация вернулась в таблицу — фильтр IT снова работает, покраски нет */
-  ok(!R.cuts.has('paint')&&R.cuts.has('it')&&R.cuts.has('staff')&&R.vals.it.length>0&&
-    D.DEFAULT_STATE.paint==='all'&&D.DEFAULT_STATE.itSeg===(R.applied.itSeg||'all'),
-    'фильтры: IT и штат — есть, покраски нет; значения IT пришли в meta');
+  /* 16.10: IT-специализация вернулась в таблицу — фильтр IT снова работает. Покраска — только
+     в датасете 2а (таблицы ноутбука): тогда и её значения приходят в meta */
+  const hub=R.cuts.has('paint');
+  ok(R.cuts.has('it')&&R.cuts.has('staff')&&R.vals.it.length>0&&(!hub||R.vals.paint.length>0)&&
+    D.DEFAULT_STATE.paint===(R.applied.paint||'all')&&D.DEFAULT_STATE.itSeg===(R.applied.itSeg||'all'),
+    'фильтры: IT и штат — есть, покраска — '+(hub?'есть (датасет 2а)':'нет')+'; значения пришли в meta');
 }
 const fire=arr(scopeRow,'fire'), avg=arr(scopeRow,'avg'), reg=arr(scopeRow,'reg');
 const tm=avg[i]?+(fire[i]/avg[i]*100).toFixed(2):null;

@@ -18,10 +18,12 @@ SELECT section, item, value
 --   2 дерево      — глубины, юниты с двумя путями, одинаковые пути у разных ключей,
 --                   юниты без родителя по пути;
 --   3 поддерево   — подтверждение 16.10: строки юнита — только его люди (юнит меньше суммы детей по пути);
---   4 численность — активная ≤ общей, ССЧ = (активная + лаг) / 2, regret ≤ увольнений;
+--   4 численность — активная ≤ общей, ССЧ = (активная + лаг) / 2, regret ≤ увольнений, ССЧ
+--                   компании против полусуммы активной за два месяца;
 --   5 мониторинг  — perf_normal + low + high + gray против численности: на ком
 --                   считается мониторинг и что такое Gray (знаменатель недоработки);
---   6 увольнения  — у всех ли строк увольнения есть причина и инициатива;
+--   6 увольнения  — у всех ли строк увольнения есть причина и инициатива и не стоят ли
+--                   ушедшие в численности конца месяца («-» — пустое значение ноутбука сборки);
 --   7 колонки 16.10 — делят ли active_type_gr_nm, IT-код и группа типа отношений строки
 --                   «месяц × юнит × атрибуты» (если да — датасет поставки 17 занижал
 --                   численность, поставка 22 это чинит), что значит тип активности
@@ -40,28 +42,50 @@ WITH
     FROM prod_proteus.hr_structure_overall
   ),
   top AS (SELECT min(leaf_lvl) AS tl FROM prod_proteus.hr_structure_overall WHERE leaf_lvl > 0),
-  -- компания, последний полный месяц: все строки (копии путей одного юнита — один раз)
+  -- компания, последний полный месяц: все строки; юнит с двумя путями — строки меньшего пути
+  -- простой суммой (как в датасете с поставки 25)
   co AS (
     SELECT u, g, a, t, gr, s, c, o, w, r, rq, ag, ic, fr, fi,
-           max(toFloat64(ifNull(hc_total_cnt, 0))) AS e, max(toFloat64(ifNull(hc_active_cnt, 0))) AS ea,
-           max(toFloat64(ifNull(lag_hc_active_cnt, 0))) AS lg, max(ifNull(ssch_hc_active_cnt, 0)) AS ss,
-           max(toFloat64(ifNull(fire_amt, 0))) AS f, max(toFloat64(ifNull(regret_fire_amt, 0))) AS rg,
-           max(ifNull(perf_normal, 0)) AS pn, max(ifNull(perf_low, 0)) AS pl, max(ifNull(perf_high, 0)) AS ph,
-           max(ifNull(perf_gray, 0)) AS pg
+           sum(toFloat64(ifNull(hc_total_cnt, 0))) AS e, sum(toFloat64(ifNull(hc_active_cnt, 0))) AS ea,
+           sum(toFloat64(ifNull(lag_hc_active_cnt, 0))) AS lg, sum(ifNull(ssch_hc_active_cnt, 0)) AS ss,
+           sum(toFloat64(ifNull(fire_amt, 0))) AS f, sum(toFloat64(ifNull(regret_fire_amt, 0))) AS rg,
+           sum(ifNull(perf_normal, 0)) AS pn, sum(ifNull(perf_low, 0)) AS pl, sum(ifNull(perf_high, 0)) AS ph,
+           sum(ifNull(perf_gray, 0)) AS pg
     FROM
     (
-      SELECT *, ifNull(mng_unit_rk, '') AS u, ifNull(gender, '∅') AS g, ifNull(type_age, '∅') AS a, ifNull(experience_group_nm, '∅') AS t,
-             ifNull(grade, '∅') AS gr, ifNull(seniority, '∅') AS s, ifNull(employee_contract_type, '∅') AS c,
-             ifNull(legal_organization, '∅') AS o, ifNull(employee_stream, '∅') AS w,
-             ifNull(employment_relation_type, '∅') AS r, ifNull(employment_relation_type_gr_nm, '∅') AS rq,
-             ifNull(active_type_gr_nm, '∅') AS ag, ifNull(emp_specialization_it_code, '∅') AS ic,
-             ifNull(fire_reason_group, '∅') AS fr, ifNull(fire_initiative, '∅') AS fi
-      FROM prod_proteus.hr_structure_overall
-      WHERE report_month = (SELECT lm FROM cal)
+      SELECT *, min(p7) OVER (PARTITION BY u) AS pm7
+      FROM
+      (
+        SELECT *, ifNull(mng_unit_rk, '') AS u, ifNull(gender, '∅') AS g, ifNull(type_age, '∅') AS a, ifNull(experience_group_nm, '∅') AS t,
+               ifNull(grade, '∅') AS gr, ifNull(seniority, '∅') AS s, ifNull(employee_contract_type, '∅') AS c,
+               ifNull(legal_organization, '∅') AS o, ifNull(employee_stream, '∅') AS w,
+               ifNull(employment_relation_type, '∅') AS r, ifNull(employment_relation_type_gr_nm, '∅') AS rq,
+               ifNull(active_type_gr_nm, '∅') AS ag, ifNull(emp_specialization_it_code, '∅') AS ic,
+               ifNull(fire_reason_group, '∅') AS fr, ifNull(fire_initiative, '∅') AS fi,
+               arrayStringConcat(arraySlice(arrayMap(x -> ifNull(x, ''), [lvl1_nm, lvl2_nm, lvl3_nm, lvl4_nm, lvl5_nm, lvl6_nm, lvl7_nm, lvl8_nm, lvl9_nm, lvl10_nm, lvl11_nm]), 1, toInt32(ifNull(leaf_lvl, 0))), '\t') AS p7
+        FROM prod_proteus.hr_structure_overall
+        WHERE report_month = (SELECT lm FROM cal)
+      )
     )
+    WHERE p7 = pm7
     GROUP BY u, g, a, t, gr, s, c, o, w, r, rq, ag, ic, fr, fi
   ),
   base AS (SELECT greatest(sum(e), 1) AS b FROM co),
+  -- активная компании в прошлом месяце (юнит с двумя путями — строки меньшего пути)
+  pa AS (
+    SELECT sum(x0) AS a0
+    FROM
+    (
+      SELECT x0, p8, min(p8) OVER (PARTITION BY u8) AS pm8
+      FROM
+      (
+        SELECT toFloat64(ifNull(hc_active_cnt, 0)) AS x0, ifNull(mng_unit_rk, '') AS u8, arrayStringConcat(arraySlice(arrayMap(x -> ifNull(x, ''), [lvl1_nm, lvl2_nm, lvl3_nm, lvl4_nm, lvl5_nm, lvl6_nm, lvl7_nm, lvl8_nm, lvl9_nm, lvl10_nm, lvl11_nm]), 1, toInt32(ifNull(leaf_lvl, 0))), '\t') AS p8
+        FROM prod_proteus.hr_structure_overall
+        WHERE report_month = addMonths((SELECT lm FROM cal), -1)
+      )
+    )
+    WHERE p8 = pm8
+  ),
   -- увольнения компании с начала года — по причине и инициативе
   fy AS (
     SELECT fr, fi, sum(f) AS f
@@ -180,6 +204,10 @@ SELECT * FROM
   SELECT 6 AS o, '4 численность' AS section, 'активная / общая' AS item, toString(round(sum(ea) / greatest(sum(e), 1), 3)) AS value FROM co
   UNION ALL SELECT 6 AS o, '4 численность' AS section, 'ССЧ / ((активная + лаг) / 2)' AS item, toString(round(sum(ss) / greatest(sum(ea + lg) / 2, 1), 3)) AS value FROM co
   UNION ALL SELECT 6 AS o, '4 численность' AS section, 'строк, где ССЧ ≠ (активная + лаг) / 2' AS item, toString(countIf(abs(ss - (ea + lg) / 2) > 0.01)) AS value FROM co
+  -- ССЧ таблицы против полусуммы активной компании за этот и прошлый месяц: ≠ 1 — LAG ноутбука
+  -- по сочетаниям атрибутов не сходится с численностью (датасет с поставки 25 считает ССЧ сам)
+  UNION ALL SELECT 6 AS o, '4 численность' AS section, 'ССЧ компании из таблицы / ((активная + активная прошлого месяца) / 2)' AS item,
+         toString(round(sum(ss) / greatest((sum(ea) + (SELECT a0 FROM pa)) / 2, 1), 4)) AS value FROM co
   UNION ALL SELECT 6 AS o, '4 численность' AS section, 'regret / увольнения за месяц' AS item, toString(round(sum(rg) / greatest(sum(f), 1), 3)) AS value FROM co
   UNION ALL
   -- 5. мониторинг: сумма четырёх категорий против численности
@@ -194,10 +222,15 @@ SELECT * FROM
          toString(round(sumIf(pg, r != 'Штатный сотрудник') / greatest(sumIf(pn + pl + ph + pg, r != 'Штатный сотрудник'), 1), 3)) AS value FROM co
   UNION ALL
   -- 6. увольнения: причина и инициатива есть у строк увольнения
-  SELECT 8 AS o, '6 увольнения' AS section, 'доля увольнений без причины (∅)' AS item, toString(round(sumIf(f, fr = '∅') / greatest(sum(f), 1), 3)) AS value FROM fy
-  UNION ALL SELECT 8 AS o, '6 увольнения' AS section, 'доля увольнений без инициативы (∅)' AS item, toString(round(sumIf(f, fi = '∅') / greatest(sum(f), 1), 3)) AS value FROM fy
+  -- («-» — пустое значение: ноутбук сборки TP 2.0 пишет coalesce(…, '-'))
+  SELECT 8 AS o, '6 увольнения' AS section, 'доля увольнений без причины (∅ или «-»)' AS item, toString(round(sumIf(f, fr IN ('∅', '-')) / greatest(sum(f), 1), 3)) AS value FROM fy
+  UNION ALL SELECT 8 AS o, '6 увольнения' AS section, 'доля увольнений без инициативы (∅ или «-»)' AS item, toString(round(sumIf(f, fi IN ('∅', '-')) / greatest(sum(f), 1), 3)) AS value FROM fy
   UNION ALL SELECT 8 AS o, '6 увольнения' AS section, 'численность в строках с причиной увольнения, ‰' AS item,
-         toString(round(sumIf(e, fr != '∅') / (SELECT b FROM base) * 1000, 1)) AS value FROM co
+         toString(round(sumIf(e, fr NOT IN ('∅', '-')) / (SELECT b FROM base) * 1000, 1)) AS value FROM co
+  -- строки с причиной — только ушедшие. Их численность на конец месяца должна быть 0; ≈ 1 — ноутбук
+  -- считает в численности месяца всех, у кого в нём была последняя строка, и уволенных тоже
+  UNION ALL SELECT 8 AS o, '6 увольнения' AS section, 'ушедшие в численности конца месяца: численность / увольнения (строки с причиной)' AS item,
+         toString(round(sumIf(e, fr NOT IN ('∅', '-')) / greatest(sumIf(f, fr NOT IN ('∅', '-')), 1), 3)) AS value FROM co
   UNION ALL
   -- 7. колонки 16.10: делят ли строки, тип активности, группа типа отношений
   SELECT 9 AS o, '7 колонки 16.10' AS section, 'строк компании: ключ без новых колонок / все (один путь юнита)' AS item,

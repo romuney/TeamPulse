@@ -10,32 +10,32 @@
 -- Схема таблицы — от 16.10.2026 (49 колонок): месяц `report_month`, юнит `mng_unit_rk`, его уровень
 -- `leaf_lvl`, путь `lvl1_nm`…`lvl11_nm`. СТРОКА — ЛЮДИ СВОЕГО ЮНИТА, НЕ ПОДДЕРЕВА (ответ 0д, 16.10):
 -- компания — сумма всех строк месяца, подразделение — сумма строк, чей путь с него начинается.
--- Юнит с двумя путями лежит в таблице дважды — копии берутся один раз (max по ключу
--- «месяц × юнит × все атрибуты»), как в датасете.
+-- Юнит с двумя путями лежит в таблице дважды — берутся строки его меньшего пути в месяце,
+-- простой суммой, как в датасете.
 
 
 -- 1. Численность компании по месяцам, без фильтров. «Ждали»: ровно те же числа, что
 --    карточка «Общая численность» на One-pager пробника по месяцам (наведите на
 --    спарклайн), и то, что вы знаете из HR-отчётности. Последний месяц в таблице может
---    быть неполным — в отчёт он не идёт.
-SELECT report_month,
-       sum(e) AS hc_total,
-       sum(ea) AS hc_active,
-       sum(hi) AS hire,
-       sum(fi) AS fire,
-       round(sum(fi) / greatest(sum(sa), 1) * 100, 2) AS turnover_m_pct
+--    быть неполным — в отчёт он не идёт. ССЧ — полусумма активной с прошлым месяцем, как
+--    в датасете; ssch_table — колонка таблицы, для сравнения.
+SELECT report_month, hc_total, hc_active,
+       (hc_active + lagInFrame(hc_active, 1, hc_active) OVER (ORDER BY report_month
+          ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)) / 2 AS ssch,
+       ssch_table, hire, fire,
+       round(fire / greatest(ssch, 1) * 100, 2) AS turnover_m_pct
 FROM (
-  SELECT report_month, mng_unit_rk, gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
-           legal_organization, employee_stream, employment_relation_type, employment_relation_type_gr_nm,
-           active_type_gr_nm, emp_specialization_it_code, fire_reason_group, fire_initiative,
-         max(ifNull(hc_total_cnt, 0)) AS e, max(ifNull(hc_active_cnt, 0)) AS ea,
-         max(ifNull(ssch_hc_active_cnt, 0)) AS sa, max(ifNull(hire_amt, 0)) AS hi, max(ifNull(fire_amt, 0)) AS fi
-  FROM prod_proteus.hr_structure_overall
-  GROUP BY report_month, mng_unit_rk, gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
-           legal_organization, employee_stream, employment_relation_type, employment_relation_type_gr_nm,
-           active_type_gr_nm, emp_specialization_it_code, fire_reason_group, fire_initiative
-) AS t
-GROUP BY report_month
+  SELECT report_month, sum(e) AS hc_total, sum(ea) AS hc_active, sum(sa) AS ssch_table,
+         sum(hi) AS hire, sum(fi) AS fire
+  FROM (
+    SELECT report_month, ifNull(hc_total_cnt, 0) AS e, ifNull(hc_active_cnt, 0) AS ea,
+           ifNull(ssch_hc_active_cnt, 0) AS sa, ifNull(hire_amt, 0) AS hi, ifNull(fire_amt, 0) AS fi,
+           arrayStringConcat(arraySlice(arrayMap(x -> ifNull(x, ''), [lvl1_nm, lvl2_nm, lvl3_nm, lvl4_nm, lvl5_nm, lvl6_nm, lvl7_nm, lvl8_nm, lvl9_nm, lvl10_nm, lvl11_nm]), 1, toInt32(ifNull(leaf_lvl, 0))), '\t') AS p, min(p) OVER (PARTITION BY report_month, mng_unit_rk) AS pm
+    FROM prod_proteus.hr_structure_overall
+  ) AS t
+  WHERE p = pm
+  GROUP BY report_month
+) AS c
 ORDER BY report_month;
 
 
@@ -46,20 +46,14 @@ SELECT d AS lvl, arrayElement(splitByChar('\t', pf), d) AS nm, sum(e) AS hc_tota
 FROM (
   SELECT d, arrayStringConcat(arraySlice(splitByChar('\t', p), 1, d), '\t') AS pf, e
   FROM (
-    SELECT mng_unit_rk, gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
-           legal_organization, employee_stream, employment_relation_type, employment_relation_type_gr_nm,
-           active_type_gr_nm, emp_specialization_it_code, fire_reason_group, fire_initiative,
-           min(arrayStringConcat(arraySlice(arrayMap(x -> ifNull(x, ''), [lvl1_nm, lvl2_nm, lvl3_nm, lvl4_nm, lvl5_nm, lvl6_nm, lvl7_nm, lvl8_nm, lvl9_nm, lvl10_nm, lvl11_nm]), 1, toInt32(ifNull(leaf_lvl, 0))), '\t')) AS p,
-           max(ifNull(hc_total_cnt, 0)) AS e
+    SELECT ifNull(hc_total_cnt, 0) AS e, arrayStringConcat(arraySlice(arrayMap(x -> ifNull(x, ''), [lvl1_nm, lvl2_nm, lvl3_nm, lvl4_nm, lvl5_nm, lvl6_nm, lvl7_nm, lvl8_nm, lvl9_nm, lvl10_nm, lvl11_nm]), 1, toInt32(ifNull(leaf_lvl, 0))), '\t') AS p,
+           min(p) OVER (PARTITION BY mng_unit_rk) AS pm
     FROM prod_proteus.hr_structure_overall
     WHERE report_month = (SELECT if(max(report_month) >= toStartOfMonth(today()), addMonths(max(report_month), -1), max(report_month))
                           FROM prod_proteus.hr_structure_overall)
-    GROUP BY mng_unit_rk, gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
-           legal_organization, employee_stream, employment_relation_type, employment_relation_type_gr_nm,
-           active_type_gr_nm, emp_specialization_it_code, fire_reason_group, fire_initiative
   ) AS u
   ARRAY JOIN [2, 3] AS d
-  WHERE length(splitByChar('\t', p)) >= d
+  WHERE p = pm AND length(splitByChar('\t', p)) >= d
 ) AS t
 GROUP BY d, pf
 ORDER BY d, hc_total DESC;

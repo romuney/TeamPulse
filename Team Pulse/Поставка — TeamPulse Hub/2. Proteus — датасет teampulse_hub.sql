@@ -15,10 +15,9 @@
     повторяются, а полный путь — нет. История приводится к структуре последнего месяца:
     строки юнита за все месяцы едут по его пути последнего месяца (юнит переехал —
     его прошлое переезжает с ним); юнита в последнем месяце нет — по своему пути.
-    Юнит с двумя путями берёт меньший; копии строк считаются один раз (max по ключу
-    «месяц × юнит × атрибуты»). В ключе — ВСЕ атрибуты строки: колонка, которой нет
-    в ключе, но которая делит строки (16.10: active_type_gr_nm, IT-код, группа типа
-    отношений), склеила бы разных людей в одну строку и занизила численность.
+    Юнит с двумя путями едет двумя копиями строк — берутся строки его меньшего пути в
+    месяце, простой суммой (поставка 25; раньше — max по ключу «месяц × юнит × атрибуты»:
+    колонка, которой нет в ключе, но которая делит строки, склеивала разных людей).
     Переводы на верхних уровнях включают переходы между своими же подразделениями
     (в таблице только юнит «из» и юнит «в» по отдельности) — сальдо верное, в и из
     по отдельности завышены.
@@ -47,7 +46,10 @@
     Массивы m_* — месяцы от января прошлого года до последнего полного (n штук),
     строкой через запятую. Процентов нет: чарт делит числитель на знаменатель.
       m_hc   численность на конец месяца (hc_total_cnt)     m_act  активная (hc_active_cnt)
-      m_avg  ССЧ активной (ssch_hc_active_cnt)              m_hire найм     m_fire увольнения
+      m_avg  ССЧ активной = (активная месяца + прошлого) / 2 по ряду узла; колонку
+             ssch_hc_active_cnt датасет не читает: ноутбук сборки считает её LAG по дробным
+             сочетаниям атрибутов, и новое сочетание (найм) берёт ССЧ целиком (стенд: +5%)
+                                                             m_hire найм     m_fire увольнения
       m_reg  нежелательные увольнения                        m_tin  переводы в   m_tout переводы из
       m_pnor мониторинг: нормал   m_plow недоработка   m_phig переработка   m_pgry Gray (perf_*)
       m_wday отработанные человеко-дни   m_ovis посещения офиса, человеко-дни
@@ -61,7 +63,8 @@
       увольнения с начала года (fire_amt) —
         xr по причине · xq нежелательные по причине (regret_fire_amt) · xi по инициативе ·
         xp причина|инициатива · xt по опыту · xg по грейду · xs по стриму.
-    Пустое значение атрибута — пустая строка; чарт подписывает его «Не указано».
+    Пустое значение атрибута (NULL или «-», как пишет ноутбук сборки) — пустая строка; чарт
+    подписывает его «Не указано».
 
     Текущий месяц неполный и в ответ не едет: если в таблице уже есть строки
     текущего календарного месяца, последний полный — прошлый.
@@ -97,10 +100,11 @@
 {% set CUTS = [['it', 'it_f', "ifNull(emp_specialization_it_code, '-')"], ['staff', 'staff_f', "if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат')"]] %}
 {% set F = {} %}
 {% for c in CUTS %}{% set vals = [] %}{% for v in (filter_values(c[1]) or []) %}{% if v|string != '' and vals|length < 20 %}{% set _ = vals.append(v|string) %}{% endif %}{% endfor %}{% set _ = F.update({c[0]: vals}) %}{% endfor %}
-{#- Строка проходит фильтры: значение в выбранном списке; фильтр не выбран — 1. -#}
+{#- Строка проходит фильтры: значение в выбранном списке; фильтр не выбран — 1. Без учёта
+    регистра: ноутбук сборки пишет IT-код «nonIT», чарт шлёт «NonIT». -#}
 {% macro cond() -%}
 {%- set parts = [] -%}
-{%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set _ = parts.append('has(' ~ qa(F[c[0]]) ~ ', ' ~ c[2] ~ ')') -%}{%- endif -%}{%- endfor -%}
+{%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set _ = parts.append('has(arrayMap(x -> lowerUTF8(x), ' ~ qa(F[c[0]]) ~ '), lowerUTF8(' ~ c[2] ~ '))') -%}{%- endif -%}{%- endfor -%}
 {{- parts|join(' AND ') if parts else '1' -}}
 {%- endmacro %}
 {#- Массив месяцев строкой: дроби только у ССЧ (полусумма) и мониторинга. -#}
@@ -109,6 +113,9 @@
 {% macro at(col) -%}translate(ifNull({{ col }}, ''), '\t\n|', '  /'){%- endmacro %}
 {% set M = [['hc', 'e'], ['act', 'ea'], ['avg', 'sa'], ['hire', 'hi'], ['fire', 'fi'], ['reg', 'rg'], ['tin', 'ti'], ['tout', 'tu'], ['pnor', 'pn'], ['plow', 'pl'], ['phig', 'ph'], ['pgry', 'pg'], ['wday', 'wd'], ['ovis', 'ov'], ['gapr', 'ga'], ['gdec', 'gd']] %}
 {% set LV = ['lvl1_nm', 'lvl2_nm', 'lvl3_nm', 'lvl4_nm', 'lvl5_nm', 'lvl6_nm', 'lvl7_nm', 'lvl8_nm', 'lvl9_nm', 'lvl10_nm', 'lvl11_nm'] %}
+{#- Значение разреза в ответе: «-» — пустое (ноутбук сборки TP 2.0 пишет coalesce(…, '-')),
+    отдаётся пустой строкой — чарт подписывает её «Не указано». Меняется только в ответе (mx). -#}
+{% macro nd(c) -%}if({{ c }} = '-', '', {{ c }}){%- endmacro %}
 {#- Путь юнита строки: имена уровней от корня через таб (табы и переводы строк в именах — пробелы). -#}
 {% macro pth() -%}arrayStringConcat(arraySlice(arrayMap(x -> translate(ifNull(x, ''), '\t\n', '  '), [{{ LV|join(', ') }}]), 1, toInt32(ifNull(leaf_lvl, 0))), '\t'){%- endmacro %}
 {#- Пустые колонки для служебных строк (meta, dict, end). -#}
@@ -120,13 +127,16 @@ SELECT role, id, pid, lvl, nm, kids, j,
 FROM
 (
 WITH
-  -- Календарь: последний полный месяц и сетка от января прошлого года
+  -- Календарь: последний полный месяц, сетка от января прошлого года и месяц перед ней
+  -- (mp: ССЧ января — полусумма с декабрём; hp — есть ли он в таблице)
   cal AS (
     SELECT toDate(ifNull(max(report_month), toDate('1970-01-01'))) AS mx0,
            if(mx0 >= toStartOfMonth(today()), addMonths(mx0, -1), mx0) AS lm,
            toStartOfYear(addYears(lm, -1)) AS m0,
            toUInt32(dateDiff('month', m0, lm) + 1) AS n,
-           toUInt32(dateDiff('month', m0, toStartOfYear(lm))) AS iy
+           toUInt32(dateDiff('month', m0, toStartOfYear(lm))) AS iy,
+           addMonths(m0, -1) AS mp,
+           toUInt8(toDate(ifNull(min(report_month), toDate('2100-01-01'))) <= mp) AS hp
     FROM prod_proteus.hr_structure_overall
   ),
   -- Ключ юнита → его путь в последнем полном месяце (имена уровней от корня через таб;
@@ -184,43 +194,43 @@ WITH
     UNION ALL SELECT rk, toUInt8(6) AS o FROM d2
     UNION ALL SELECT rk, toUInt8(7) AS o FROM d3
   ),
-  -- Строки под фильтрами на ключе «месяц × юнит × атрибуты»: копии строк юнита с двумя
-  -- родителями (одинаковые, разные только пути) считаются один раз; путь строки — меньший
+  -- Строки под фильтрами. Юнит с двумя родителями едет двумя путями — те же люди дважды:
+  -- берутся строки одного пути юнита в месяце (меньшего) простой суммой. Ключа из атрибутов
+  -- нет: колонка, которой датасет не знает и которая делит строки (16.10 — тип активности,
+  -- IT-код; дальше — уровень перевода), разных людей не склеит. Меньший путь — подзапросом
+  -- «юнит × месяц», а не окном: окно сортирует все строки (на стенде в масштабе боя +4 с)
   b00 AS (
-    SELECT u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, rq1, ag1, ic1, fr1, fi1, min(pr0) AS pr1,
-           max(toFloat64(ifNull(hc_total_cnt, 0))) AS e,
-           max(toFloat64(ifNull(hc_active_cnt, 0))) AS ea,
-           max(ifNull(ssch_hc_active_cnt, 0)) AS sa,
-           max(toFloat64(ifNull(hire_amt, 0))) AS hi,
-           max(toFloat64(ifNull(fire_amt, 0))) AS fi,
-           max(toFloat64(ifNull(regret_fire_amt, 0))) AS rg,
-           max(toFloat64(ifNull(transfer_in_amt, 0))) AS ti,
-           max(toFloat64(ifNull(transfer_out_amt, 0))) AS tu,
-           max(ifNull(perf_normal, 0)) AS pn,
-           max(ifNull(perf_low, 0)) AS pl,
-           max(ifNull(perf_high, 0)) AS ph,
-           max(ifNull(perf_gray, 0)) AS pg,
-           max(ifNull(work_day_amt, 0)) AS wd,
-           max(ifNull(office_visit_amt, 0)) AS ov,
-           max(toFloat64(ifNull(grt_approve_cnt, 0))) AS ga,
-           max(toFloat64(ifNull(grt_decline_cnt, 0))) AS gd
+    SELECT u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, rq1, ag1, ic1, fr1, fi1, pr0 AS pr1,
+           sum(e0) AS e, sum(ea0) AS ea, toFloat64(0) AS sa, sum(hi0) AS hi, sum(fi0) AS fi, sum(rg0) AS rg,
+           sum(ti0) AS ti, sum(tu0) AS tu, sum(pn0) AS pn, sum(pl0) AS pl, sum(ph0) AS ph, sum(pg0) AS pg,
+           sum(wd0) AS wd, sum(ov0) AS ov, sum(ga0) AS ga, sum(gd0) AS gd
     FROM
     (
-      SELECT *, ifNull(mng_unit_rk, '') AS u1,
-             {{ pth() }} AS pr0,
-             toUInt32(dateDiff('month', (SELECT m0 FROM cal), toDate(assumeNotNull(report_month)))) AS i1,
+      SELECT ifNull(mng_unit_rk, '') AS u1, {{ pth() }} AS pr0,
+             toInt32(dateDiff('month', (SELECT m0 FROM cal), toDate(assumeNotNull(report_month)))) AS i1,
              {{ at('gender') }} AS g1, {{ at('type_age') }} AS a1, {{ at('experience_group_nm') }} AS t1,
              {{ at('grade') }} AS gr1, {{ at('seniority') }} AS s1, {{ at('employee_contract_type') }} AS c1,
              {{ at('legal_organization') }} AS o1, {{ at('employee_stream') }} AS w1,
              {{ at('employment_relation_type') }} AS r1, {{ at('employment_relation_type_gr_nm') }} AS rq1,
              {{ at('active_type_gr_nm') }} AS ag1, {{ at('emp_specialization_it_code') }} AS ic1,
-             {{ at('fire_reason_group') }} AS fr1,
-             {{ at('fire_initiative') }} AS fi1
+             {{ at('fire_reason_group') }} AS fr1, {{ at('fire_initiative') }} AS fi1,
+             toFloat64(ifNull(hc_total_cnt, 0)) AS e0, toFloat64(ifNull(hc_active_cnt, 0)) AS ea0,
+             toFloat64(ifNull(hire_amt, 0)) AS hi0, toFloat64(ifNull(fire_amt, 0)) AS fi0,
+             toFloat64(ifNull(regret_fire_amt, 0)) AS rg0, toFloat64(ifNull(transfer_in_amt, 0)) AS ti0,
+             toFloat64(ifNull(transfer_out_amt, 0)) AS tu0, ifNull(perf_normal, 0) AS pn0, ifNull(perf_low, 0) AS pl0,
+             ifNull(perf_high, 0) AS ph0, ifNull(perf_gray, 0) AS pg0, ifNull(work_day_amt, 0) AS wd0,
+             ifNull(office_visit_amt, 0) AS ov0, toFloat64(ifNull(grt_approve_cnt, 0)) AS ga0,
+             toFloat64(ifNull(grt_decline_cnt, 0)) AS gd0
       FROM prod_proteus.hr_structure_overall
-      WHERE report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal)
+      WHERE report_month BETWEEN (SELECT mp FROM cal) AND (SELECT lm FROM cal)
         AND {{ cond() }}
+        AND (ifNull(mng_unit_rk, ''), report_month, {{ pth() }}) IN (
+          SELECT ifNull(mng_unit_rk, '') AS u9, report_month AS m9, min({{ pth() }}) AS p9
+          FROM prod_proteus.hr_structure_overall
+          WHERE report_month BETWEEN (SELECT mp FROM cal) AND (SELECT lm FROM cal)
+          GROUP BY u9, m9)
     )
-    GROUP BY u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, rq1, ag1, ic1, fr1, fi1
+    GROUP BY u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, rq1, ag1, ic1, fr1, fi1, pr0
   ),
   -- Путь строки — нынешний путь её юнита (юнита больше нет — путь из самой строки);
   -- строка входит в каждый узел, с которого её путь начинается: в корень и в выбранный
@@ -249,7 +259,7 @@ WITH
              tu AS tu0, pn AS pn0, pl AS pl0, ph AS ph0, pg AS pg0, wd AS wd0, ov AS ov0, ga AS ga0, gd AS gd0
       FROM b0
       UNION ALL
-      SELECT rk AS u2, toUInt32(0) AS i2, toFloat64(0) AS e0, toFloat64(0) AS ea0, toFloat64(0) AS sa0,
+      SELECT rk AS u2, toInt32(0) AS i2, toFloat64(0) AS e0, toFloat64(0) AS ea0, toFloat64(0) AS sa0,
              toFloat64(0) AS hi0, toFloat64(0) AS fi0, toFloat64(0) AS rg0, toFloat64(0) AS ti0,
              toFloat64(0) AS tu0, toFloat64(0) AS pn0, toFloat64(0) AS pl0, toFloat64(0) AS ph0,
              toFloat64(0) AS pg0, toFloat64(0) AS wd0, toFloat64(0) AS ov0, toFloat64(0) AS ga0, toFloat64(0) AS gd0
@@ -260,8 +270,9 @@ WITH
   arr AS (
     SELECT rk,
 {%- for m in M %}
-           sumForEach(arrayMap(i -> if(i = idx, {{ m[1] }}, 0), range((SELECT n FROM cal)))) AS a_{{ m[0] }}{% if not loop.last %},{% endif %}
+           sumForEach(arrayMap(i -> if(i = idx, {{ m[1] }}, 0), range((SELECT n FROM cal)))) AS a_{{ m[0] }},
 {%- endfor %}
+           sumIf(ea, idx = -1) AS p_act
     FROM mm
     GROUP BY rk
   ),
@@ -274,8 +285,9 @@ WITH
       SELECT u1 AS u3, tupleElement(t3, 1) AS k3, tupleElement(t3, 2) AS v3, tupleElement(t3, 3) AS n3
       FROM
       (
-        SELECT u1, arrayJoin([('g', g1, e), ('a', a1, e), ('t', t1, e), ('gr', gr1, e), ('s', s1, e),
-                              ('c', c1, e), ('o', o1, e), ('w', w1, e), ('r', r1, e)]) AS t3
+        SELECT u1, arrayJoin([('g', {{ nd('g1') }}, e), ('a', {{ nd('a1') }}, e), ('t', {{ nd('t1') }}, e),
+                              ('gr', {{ nd('gr1') }}, e), ('s', {{ nd('s1') }}, e), ('c', {{ nd('c1') }}, e),
+                              ('o', {{ nd('o1') }}, e), ('w', {{ nd('w1') }}, e), ('r', {{ nd('r1') }}, e)]) AS t3
         FROM b0
         WHERE i1 = (SELECT n FROM cal) - 1 AND e > 0
       )
@@ -283,8 +295,9 @@ WITH
       SELECT u1 AS u3, tupleElement(t4, 1) AS k3, tupleElement(t4, 2) AS v3, tupleElement(t4, 3) AS n3
       FROM
       (
-        SELECT u1, arrayJoin([('xr', fr1, fi), ('xq', fr1, rg), ('xi', fi1, fi), ('xp', concat(fr1, '|', fi1), fi),
-                              ('xt', t1, fi), ('xg', gr1, fi), ('xs', w1, fi)]) AS t4
+        SELECT u1, arrayJoin([('xr', {{ nd('fr1') }}, fi), ('xq', {{ nd('fr1') }}, rg), ('xi', {{ nd('fi1') }}, fi),
+                              ('xp', concat({{ nd('fr1') }}, '|', {{ nd('fi1') }}), fi),
+                              ('xt', {{ nd('t1') }}, fi), ('xg', {{ nd('gr1') }}, fi), ('xs', {{ nd('w1') }}, fi)]) AS t4
         FROM b0
         WHERE i1 >= (SELECT iy FROM cal) AND fi > 0
       )
@@ -331,7 +344,11 @@ FROM
   SELECT p.o AS o, multiIf(p.o = 1, 'scope', p.o = 2, 'base', p.o = 5, 'c', p.o = 6, 'g', 'x') AS role,
          s.id AS id, s.pid AS pid, s.lv AS lvl, s.nm AS nm, toUInt32(ifNull(k.k, 0)) AS kids, '' AS j,
 {%- for m in M %}
+{%- if m[0] == 'avg' %}
+         {{ out("arrayMap(i -> (a.a_act[i] + if(i = 1, if((SELECT hp FROM cal) = 1, a.p_act, a.a_act[1]), a.a_act[i - 1])) / 2, arrayEnumerate(a.a_act))") }} AS m_avg,
+{%- else %}
          {{ out('a.a_' ~ m[0]) }} AS m_{{ m[0] }},
+{%- endif %}
 {%- endfor %}
          ifNull(x.mxs, '') AS mx
   FROM pick AS p

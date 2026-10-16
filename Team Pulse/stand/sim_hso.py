@@ -10,14 +10,16 @@
 #   - покраски и IT-специализации нет; тип численности — только внутри симуляции;
 #   - атрибуты человека: gender, type_age, experience_group_nm, grade, seniority,
 #     employee_contract_type, legal_organization, employee_stream, employment_relation_type;
-#   - атрибуты увольнения: fire_reason_group, fire_initiative — только у строк увольнения;
+#   - атрибуты увольнения: fire_reason_group, fire_initiative — у строк увольнения (у остальных «-»);
 #   - период — 34 точки: 2024-01 … 2026-10 (последний неполный).
 # С 16.10 (ответ 0д) строка — люди СВОЕГО юнита: месяц × юнит × путь × атрибуты, предки строк
 # не получают (LEAF_ONLY). Перевод из A в B — transfer_out у A, transfer_in у B. Итог ветки —
 # сумма строк, чей путь начинается с пути юнита (так и считает датасет). LEAF_ONLY = False —
 # прежняя накопительная таблица (до 15.10): строка у юнита и у всех его предков.
 # Юнит с двумя родителями (последние три месяца) едет двумя путями — копии строк.
-# Значения атрибутов — правдоподобная выдумка: настоящие покажет запрос 0д.
+# Значения атрибутов — правдоподобная выдумка: настоящие покажет запрос 0д. Пустое значение —
+# «-», как в ноутбуке сборки TP 2.0 (coalesce(…, '-')): у причины и инициативы тех, кто не
+# уходил, и у части стримов.
 # Пишет hso.csv (строки таблицы) и truth.json (правда по людям для сверок).
 import calendar, csv, hashlib, json, random, sys
 from collections import defaultdict
@@ -131,7 +133,7 @@ UNIT_LEGAL = {rk: LEGAL[int(hashlib.md5(rk.encode()).hexdigest(), 16) % 3] for r
 def new_person(unit, mi):
     sen = pick(SEN)
     return dict(unit=unit, type=pick(TYPES), oper=pick(OPER), it=pick(IT), rel=pick(REL), gender=pick(GENDER), age=pick(AGE),
-                sen=sen, grade=random.choice(GRADE_OF[sen]), contract=pick(CONTRACT), stream=pick(STREAM),
+                sen=sen, grade=random.choice(GRADE_OF[sen]), contract=pick(CONTRACT), stream=pick(STREAM) if random.random() > .03 else '-',
                 legal=pick(LEGAL_TAIL) if random.random() < .25 else None,
                 hired=mi - random.randint(0, 80) if mi == 0 else mi,
                 perf=pick([('normal', .7), ('low', .05), ('high', .15), ('gray', .10)]), app=None)
@@ -150,7 +152,7 @@ people = [new_person(place(0), 0) for _ in range(2500)]
 def key_attrs(p, mi, reason=None, init=None):
     return (p['gender'], p['age'], tenure(p, mi), p['grade'], p['sen'], p['contract'], p.get('legal') or UNIT_LEGAL[p['unit']],
             p['stream'], p['rel'], rel_group(p['rel']), 'Активная' if p['type'] == 'Активная' else 'Прочие', p['it'],
-            reason, init)
+            reason or '-', init or '-')
 def perf_of(p):
     return p['perf'] if (p['type'] == 'Активная' and p['oper'] == 'Hq') else 'gray'
 

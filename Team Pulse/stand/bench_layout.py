@@ -55,18 +55,19 @@ def build(s):
         print(f'  {name:30} {time.time() - t:5.1f} с · строк {n}')
 
 
-COLS = """toUInt32(dateDiff('month', (SELECT m0 FROM cal), report_month)) AS i1,
+COLS = """toInt32(dateDiff('month', (SELECT m0 FROM cal), report_month)) AS i1,
            gender AS g1, type_age AS a1, experience_group_nm AS t1, grade AS gr1, seniority AS s1,
            employee_contract_type AS c1, legal_organization AS o1, employee_stream AS w1,
            employment_relation_type AS r1, fire_reason_group AS fr1, fire_initiative AS fi1,
-           hc_total_cnt AS e, hc_active_cnt AS ea, ssch_hc_active_cnt AS sa, hire_amt AS hi, fire_amt AS fi,
+           hc_total_cnt AS e, hc_active_cnt AS ea, toFloat64(0) AS sa, hire_amt AS hi, fire_amt AS fi,
            regret_fire_amt AS rg, transfer_in_amt AS ti, transfer_out_amt AS tu, perf_normal AS pn, perf_low AS pl,
            perf_high AS ph, perf_gray AS pg, work_day_amt AS wd, office_visit_amt AS ov,
            grt_approve_cnt AS ga, grt_decline_cnt AS gd"""
 HEAD = """  cal AS (
-    SELECT toDate(max(report_month)) AS lm, toStartOfYear(addYears(lm, -1)) AS m0,
-           toUInt32(dateDiff('month', m0, lm) + 1) AS n, toUInt32(dateDiff('month', m0, toStartOfYear(lm))) AS iy
-    FROM prod_proteus.hr_calendar WHERE is_closed = 1
+    SELECT toDate(maxIf(report_month, is_closed = 1)) AS lm, toStartOfYear(addYears(lm, -1)) AS m0,
+           toUInt32(dateDiff('month', m0, lm) + 1) AS n, toUInt32(dateDiff('month', m0, toStartOfYear(lm))) AS iy,
+           addMonths(m0, -1) AS mp, toUInt8(min(report_month) <= mp) AS hp
+    FROM prod_proteus.hr_calendar
   ),
   st AS (SELECT rk, prk, lv, nm FROM prod_proteus.hr_unit),
   st2 AS (SELECT rk, prk, lv, nm, rk AS id, prk AS pid FROM st),
@@ -92,14 +93,14 @@ B0 = {
     SELECT u1, {COLS}
     FROM prod_proteus.hr_fact
     ARRAY JOIN arrayFilter(x -> has((SELECT groupArray(rk) FROM pick), x), cur_path) AS u1
-    WHERE report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal) AND {{{{ cond() }}}}
+    WHERE report_month BETWEEN (SELECT mp FROM cal) AND (SELECT lm FROM cal) AND {{{{ cond() }}}}
   ),
 """,
     'B': f"""  b0 AS (
     SELECT node_rk AS u1, {COLS}
     FROM prod_proteus.hr_fact_node
     WHERE node_rk IN (SELECT rk FROM pick)
-      AND report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal) AND {{{{ cond() }}}}
+      AND report_month BETWEEN (SELECT mp FROM cal) AND (SELECT lm FROM cal) AND {{{{ cond() }}}}
   ),
 """}
 

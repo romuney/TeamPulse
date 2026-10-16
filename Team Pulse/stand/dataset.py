@@ -82,14 +82,20 @@ COLS = ['hc_total_cnt', 'hc_active_cnt', 'ssch_hc_active_cnt', 'hire_amt', 'fire
 PATHX = f"arrayStringConcat(arraySlice([{LV}], 1, toInt32(ifNull(leaf_lvl, 0))), '‖')"
 
 
+def nd(v):
+    """«-» — пустое значение (ноутбук сборки TP 2.0: coalesce(…, '-')): в ответе — пустая строка"""
+    return '' if v == '-' else v
+
+
 def load_rows(s, lm):
-    """строки окна прямо из таблицы — правда считается в Python, без SQL датасета:
-    копии строк (юнит с двумя путями) — один раз по ключу «месяц × юнит × атрибуты», путь — меньший"""
+    """строки окна прямо из таблицы — правда считается в Python, без SQL датасета: юнит с двумя
+    путями — строки его меньшего пути в месяце, простой суммой (строки с одинаковым ключом в одном
+    пути — разные люди: их делит колонка, которой в ключе нет)"""
     q = f"""SELECT toString(report_month), ifNull(mng_unit_rk, ''), {PATHX},
                    {', '.join(f"ifNull({a}, '')" for a in ALL_ATTRS)},
                    {', '.join(f'toFloat64(ifNull({c}, 0))' for c in COLS)}
-            FROM {T} WHERE report_month BETWEEN toStartOfYear(addYears(toDate('{lm}'), -1)) AND '{lm}'"""
-    rows = {}
+            FROM {T} WHERE report_month BETWEEN addMonths(toStartOfYear(addYears(toDate('{lm}'), -1)), -1) AND '{lm}'"""
+    rows, best = {}, {}
     na = len(ALL_ATTRS)
     for line in str(s.query(q, 'TSV')).splitlines():
         f = line.split('\t')
@@ -100,14 +106,13 @@ def load_rows(s, lm):
         path = f[2].replace('‖', '\t')
         attrs = tuple(tail[:na])
         vals = [float(x) for x in tail[na:]]
-        key = (m, rk, attrs)
+        best[(m, rk)] = min(best.get((m, rk), path), path)
+        key = (m, rk, path, attrs)
         if key in rows:
-            old = rows[key]
-            old['v'] = [max(a, b) for a, b in zip(old['v'], vals)]
-            old['path'] = min(old['path'], path)
+            rows[key]['v'] = [a + b for a, b in zip(rows[key]['v'], vals)]
         else:
             rows[key] = dict(m=m, rk=rk, path=path, a=dict(zip(ALL_ATTRS, attrs)), v=vals)
-    return list(rows.values())
+    return [r for r in rows.values() if r['path'] == best[(r['m'], r['rk'])]]
 
 
 def tree(rows, lm):
@@ -149,7 +154,8 @@ def check(db):
     mid = next(p for p in sorted(kids.get(dflt, [])) if kids.get(p))
     own = sum(1 for p in st if any(r['cp'] == p for r in allrows if r['m'] == lm))
     print(f'дерево: {len(st)} узлов, из них со своими строками {own} — итог узла по пути')
-    months = sorted({r['m'] for r in allrows})
+    mp = sorted({r['m'] for r in allrows})
+    months, mp = (mp[1:], mp[0]) if len(mp) > 1 and mp[0] < str(int(lm[:4]) - 1) + '-01-01' else (mp, None)
     KI = {k: COLS.index(c) for k, c in zip(KEYS, COLS)}
 
     def under(r, p):
@@ -159,9 +165,16 @@ def check(db):
         sub = [r for r in allrows if under(r, p) and pred(r)]
         ser = {k: [0.0] * len(months) for k in KEYS}
         mi = {m: i for i, m in enumerate(months)}
+        prev = 0.0
         for r in sub:
+            if r['m'] == mp:
+                prev += r['v'][KI['act']]
+                continue
             for k in KEYS:
                 ser[k][mi[r['m']]] += r['v'][KI[k]]
+        # ССЧ — полусумма активной с прошлым месяцем; у первого месяца — с месяцем перед сеткой
+        act = ser['act']
+        ser['avg'] = [(act[i] + (act[i - 1] if i else (prev if mp else act[0]))) / 2 for i in range(len(act))]
         ser = {k: [round(x, 1) for x in v] for k, v in ser.items()}
         mx = {}
         y0 = lm[:4] + '-01-01'
@@ -169,13 +182,16 @@ def check(db):
             if r['m'] == lm and r['v'][0] > 0:
                 for k, a in (('g', 'gender'), ('gr', 'grade'), ('r', 'employment_relation_type'), ('c', 'employee_contract_type'),
                              ('o', 'legal_organization'), ('w', 'employee_stream')):
-                    mx.setdefault(k, {}).setdefault(r['a'][a], 0.0)
-                    mx[k][r['a'][a]] += r['v'][0]
+                    v = nd(r['a'][a])
+                    mx.setdefault(k, {}).setdefault(v, 0.0)
+                    mx[k][v] += r['v'][0]
             if r['m'] >= y0 and r['v'][4] > 0:
-                for k, a, col in (('xr', 'fire_reason_group', 4), ('xq', 'fire_reason_group', 5), ('xt', 'experience_group_nm', 4)):
+                for k, a, col in (('xr', 'fire_reason_group', 4), ('xq', 'fire_reason_group', 5), ('xt', 'experience_group_nm', 4),
+                                  ('xs', 'employee_stream', 4)):
                     if r['v'][col] > 0:
-                        mx.setdefault(k, {}).setdefault(r['a'][a], 0.0)
-                        mx[k][r['a'][a]] += r['v'][col]
+                        v = nd(r['a'][a])
+                        mx.setdefault(k, {}).setdefault(v, 0.0)
+                        mx[k][v] += r['v'][col]
         mx = {k: {v: round(n, 1) for v, n in d.items() if n > 0} for k, d in mx.items()}
         return ser, mx, sub
 
@@ -186,6 +202,7 @@ def check(db):
         ('штат', {'staff_f': ['Штат']}, dflt, STAFF),
         ('не штат, уровнем ниже', {'staff_f': ['Не штат'], 'unit_f': [uid(mid)]}, mid, lambda r: not STAFF(r)),
         ('IT и Digital, покраска пропускается', {'paint_f': ['Hq'], 'it_f': ['IT', 'Digital']}, dflt, lambda r: ITC(r) in ('IT', 'Digital')),
+        ('IT строчными (регистр не важен)', {'it_f': ['it']}, dflt, lambda r: ITC(r) == 'IT'),
         ('IT + штат, уровнем ниже', {'it_f': ['IT'], 'staff_f': ['Штат'], 'unit_f': [uid(mid)]}, mid, lambda r: ITC(r) == 'IT' and STAFF(r)),
         ('самый глубокий юнит', {'unit_f': [uid(deep)]}, deep, lambda r: True),
         ('корень (своих строк нет)', {'unit_f': [uid(root)]}, root, lambda r: True),
