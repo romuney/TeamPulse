@@ -9384,7 +9384,7 @@ function paintOpts(){
   row('#optPaint',D.PAINTS,'paint');
   row('#optIt',D.ITSEGS,'itSeg');
   row('#optStaff',D.STAFFTYPES,'staffType');
-  /* пробник, схема 15.10: покраски и IT в таблице нет — этих фильтров в окне нет */
+  /* пробник: фильтра, которого нет в meta.cuts, в окне нет (с 16.10 — только покраски) */
   if(ENV)[['#optPaint','paint'],['#optIt','it']].forEach(([id,c])=>{
     const g=$(id)&&$(id).closest('.fgrp');if(g)g.style.display=D.REAL.cuts.has(c)?'':'none';
   });

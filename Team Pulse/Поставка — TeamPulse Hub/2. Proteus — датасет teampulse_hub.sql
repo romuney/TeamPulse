@@ -1,7 +1,7 @@
 {#- ============================================================================
     teampulse_hub — датасет единственного чарта TeamPulse Hub (Proteus, база CROSS).
     Пробник: всё, что даёт prod_proteus.hr_structure_overall (SOURCES.md §18).
-    Схема таблицы — разведка 15.10.2026 (describe физического датасета 175625, 46 колонок).
+    Схема таблицы — разведка 16.10.2026 (describe физического датасета 175625, 49 колонок).
 
     В этой таблице цифры юнита УЖЕ включают всё его поддерево. Поэтому юнит
     берётся своими строками, а подразделения не складываются никогда: сумма
@@ -12,7 +12,9 @@
     глубина — leaf_lvl. Родителя ищем по пути без последнего имени: имена в
     разных ветках повторяются, а полный путь — нет. Юнит с двумя родителями едет
     двумя путями — берём меньший путь, копии строк считаем один раз (max по ключу
-    «месяц × юнит × атрибуты»).
+    «месяц × юнит × атрибуты»). В ключе — ВСЕ атрибуты строки, и новые тоже: колонка,
+    которой нет в ключе, но которая делит строки (16.10: active_type_gr_nm, IT-код,
+    группа типа отношений), склеила бы разных людей в одну строку и занизила численность.
 
     Один ответ везёт всё, что чарту нужно до следующей смены юнита или фильтров:
     выбранный юнит, три уровня подразделений под ним, всю компанию под теми же
@@ -56,10 +58,11 @@
     Текущий месяц неполный и в ответ не едет: если в таблице уже есть строки
     текущего календарного месяца, последний полный — прошлый.
 
-    Фильтры. Покраски (Hq / Line / Support) и IT-специализации в таблице с 15.10 нет —
-    кросс-фильтры paint_f и it_f датасет пропускает, в meta.cuts только staff.
-    Кросс-фильтры эмитит сам чарт (самовлияние включено): unit_f — id юнита,
-    staff_f — «Штат» / «Не штат» (employment_relation_type = 'Штатный сотрудник').
+    Фильтры. Покраски (Hq / Line / Support) в таблице нет — кросс-фильтр paint_f датасет
+    пропускает. IT-специализация (emp_specialization_it_code) вернулась 16.10 — it_f снова
+    работает, в meta.cuts — it и staff. Кросс-фильтры эмитит сам чарт (самовлияние включено):
+    unit_f — id юнита, it_f — IT / Digital / NonIT / «-», staff_f — «Штат» / «Не штат»
+    (employment_relation_type = 'Штатный сотрудник').
     Колонки-носители в SELECT не выводятся, иначе Superset повесит авто-IN на
     внешний запрос. id юнита — 12 знаков md5 ключа.
 
@@ -83,7 +86,7 @@
 {#- Значения фильтров собираются циклом: при сохранении датасета Proteus отдаёт
     вместо списка AlwaysTrueObject — у него нет ни длины, ни «+». -#}
 {% set unit_req = [] %}{% for v in (filter_values('unit_f') or []) %}{% if v|string|trim != '' and unit_req|length < 1 %}{% set _ = unit_req.append(v|string|trim|lower) %}{% endif %}{% endfor %}
-{% set CUTS = [['staff', 'staff_f', "if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат')"]] %}
+{% set CUTS = [['it', 'it_f', "ifNull(emp_specialization_it_code, '-')"], ['staff', 'staff_f', "if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат')"]] %}
 {% set F = {} %}
 {% for c in CUTS %}{% set vals = [] %}{% for v in (filter_values(c[1]) or []) %}{% if v|string != '' and vals|length < 20 %}{% set _ = vals.append(v|string) %}{% endif %}{% endfor %}{% set _ = F.update({c[0]: vals}) %}{% endfor %}
 {#- Строка проходит фильтры: значение в выбранном списке; фильтр не выбран — 1. -#}
@@ -178,7 +181,7 @@ WITH
   -- Строки юнитов под фильтрами на зерне «месяц × юнит × атрибуты»: копии строк
   -- юнита с двумя родителями (одинаковые, разные только пути) считаются один раз
   b0 AS (
-    SELECT u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, fr1, fi1,
+    SELECT u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, rq1, ag1, ic1, fr1, fi1,
            max(toFloat64(ifNull(hc_total_cnt, 0))) AS e,
            max(toFloat64(ifNull(hc_active_cnt, 0))) AS ea,
            max(ifNull(ssch_hc_active_cnt, 0)) AS sa,
@@ -202,14 +205,16 @@ WITH
              {{ at('gender') }} AS g1, {{ at('type_age') }} AS a1, {{ at('experience_group_nm') }} AS t1,
              {{ at('grade') }} AS gr1, {{ at('seniority') }} AS s1, {{ at('employee_contract_type') }} AS c1,
              {{ at('legal_organization') }} AS o1, {{ at('employee_stream') }} AS w1,
-             {{ at('employment_relation_type') }} AS r1, {{ at('fire_reason_group') }} AS fr1,
+             {{ at('employment_relation_type') }} AS r1, {{ at('employment_relation_type_gr_nm') }} AS rq1,
+             {{ at('active_type_gr_nm') }} AS ag1, {{ at('emp_specialization_it_code') }} AS ic1,
+             {{ at('fire_reason_group') }} AS fr1,
              {{ at('fire_initiative') }} AS fi1
       FROM prod_proteus.hr_structure_overall
       WHERE report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal)
         AND ifNull(mng_unit_rk, '') IN (SELECT rk FROM pick)
         AND {{ cond() }}
     )
-    GROUP BY u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, fr1, fi1
+    GROUP BY u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, rq1, ag1, ic1, fr1, fi1
   ),
   -- Месяц × юнит; нулевая строка — чтобы юнит без людей под фильтрами всё равно получил массивы
   mm AS (
@@ -279,11 +284,16 @@ FROM
                 '","root":"', ifNull((SELECT id FROM st2 WHERE rk = (SELECT r FROM rt)), ''),
                 '","scope":"', ifNull((SELECT id FROM st2 WHERE rk = (SELECT s FROM sc)), ''),
                 '","def":"', ifNull((SELECT id FROM st2 WHERE rk = (SELECT d FROM dflt)), ''),
-                '","schema":"2026-10-15","cuts":["staff"]',
+                '","schema":"2026-10-16","cuts":["it","staff"]',
                 ',"req":', toJSONString({{ qa(unit_req) }}),
-                ',"paint":[],"it":[]',
+                ',"paint":[],"it":', toJSONString({{ qa(F['it']) }}),
                 ',"staff":', toJSONString({{ qa(F['staff']) }}),
-                ',"vals":{"paint":[],"it":[],"staff":', (SELECT toJSONString(groupArray((v, e))) FROM (
+                ',"vals":{"paint":[],"it":', (SELECT toJSONString(groupArray((v, e))) FROM (
+                    SELECT ifNull(emp_specialization_it_code, '-') AS v, sum(toFloat64(ifNull(hc_total_cnt, 0))) AS e
+                    FROM prod_proteus.hr_structure_overall
+                    WHERE report_month = (SELECT lm FROM cal) AND ifNull(mng_unit_rk, '') = (SELECT r FROM rt)
+                    GROUP BY v ORDER BY e DESC, v)),
+                ',"staff":', (SELECT toJSONString(groupArray((v, e))) FROM (
                     SELECT if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат') AS v,
                            sum(toFloat64(ifNull(hc_total_cnt, 0))) AS e
                     FROM prod_proteus.hr_structure_overall

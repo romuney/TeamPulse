@@ -1,6 +1,6 @@
 SELECT section, item, value
 -- ============================================================================
--- 0д. prod_proteus.hr_structure_overall, схема 15.10.2026 (разведка 3, 46 колонок) —
+-- 0д. prod_proteus.hr_structure_overall, схема 16.10.2026 (разведка 4, 49 колонок) —
 -- ОДИН запрос. SQL Lab: вставить целиком, выполнить (Ctrl+Enter), ответ —
 -- «Скопировать в буфер» или CSV. Строк в ответе — около 150.
 --
@@ -18,7 +18,11 @@ SELECT section, item, value
 --   4 численность — активная ≤ общей, ССЧ = (активная + лаг) / 2, regret ≤ увольнений;
 --   5 мониторинг  — perf_normal + low + high + gray против численности: на ком
 --                   считается мониторинг и что такое Gray (знаменатель недоработки);
---   6 увольнения  — у всех ли строк увольнения есть причина и инициатива.
+--   6 увольнения  — у всех ли строк увольнения есть причина и инициатива;
+--   7 колонки 16.10 — делят ли active_type_gr_nm, IT-код и группа типа отношений строки
+--                   «месяц × юнит × атрибуты» (если да — датасет поставки 17 занижал
+--                   численность, поставка 22 это чинит), что значит тип активности
+--                   рядом с hc_active_cnt и из каких типов отношений состоит группа.
 --
 -- ОТВЕТ МАСКИРОВАН, как 0б–0г: имён и ключей юнитов нет; численность — в промилле (‰)
 -- от численности компании (верхний юнит) в последнем полном месяце. «Последний
@@ -35,7 +39,7 @@ WITH
   top AS (SELECT min(leaf_lvl) AS tl FROM prod_proteus.hr_structure_overall WHERE leaf_lvl > 0),
   -- верхний юнит, последний полный месяц: строки атрибутов (копии путей — один раз)
   co AS (
-    SELECT g, a, t, gr, s, c, o, w, r, fr, fi,
+    SELECT g, a, t, gr, s, c, o, w, r, rq, ag, ic, fr, fi,
            max(toFloat64(ifNull(hc_total_cnt, 0))) AS e, max(toFloat64(ifNull(hc_active_cnt, 0))) AS ea,
            max(toFloat64(ifNull(lag_hc_active_cnt, 0))) AS lg, max(ifNull(ssch_hc_active_cnt, 0)) AS ss,
            max(toFloat64(ifNull(fire_amt, 0))) AS f, max(toFloat64(ifNull(regret_fire_amt, 0))) AS rg,
@@ -46,12 +50,13 @@ WITH
       SELECT *, ifNull(gender, '∅') AS g, ifNull(type_age, '∅') AS a, ifNull(experience_group_nm, '∅') AS t,
              ifNull(grade, '∅') AS gr, ifNull(seniority, '∅') AS s, ifNull(employee_contract_type, '∅') AS c,
              ifNull(legal_organization, '∅') AS o, ifNull(employee_stream, '∅') AS w,
-             ifNull(employment_relation_type, '∅') AS r, ifNull(fire_reason_group, '∅') AS fr,
-             ifNull(fire_initiative, '∅') AS fi
+             ifNull(employment_relation_type, '∅') AS r, ifNull(employment_relation_type_gr_nm, '∅') AS rq,
+             ifNull(active_type_gr_nm, '∅') AS ag, ifNull(emp_specialization_it_code, '∅') AS ic,
+             ifNull(fire_reason_group, '∅') AS fr, ifNull(fire_initiative, '∅') AS fi
       FROM prod_proteus.hr_structure_overall
       WHERE report_month = (SELECT lm FROM cal) AND leaf_lvl = (SELECT tl FROM top)
     )
-    GROUP BY g, a, t, gr, s, c, o, w, r, fr, fi
+    GROUP BY g, a, t, gr, s, c, o, w, r, rq, ag, ic, fr, fi
   ),
   base AS (SELECT greatest(sum(e), 1) AS b FROM co),
   -- увольнения верхнего юнита с начала года — по причине и инициативе
@@ -62,12 +67,14 @@ WITH
       SELECT report_month, ifNull(fire_reason_group, '∅') AS fr, ifNull(fire_initiative, '∅') AS fi,
              gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
              legal_organization, employee_stream, employment_relation_type,
+             employment_relation_type_gr_nm, active_type_gr_nm, emp_specialization_it_code,
              max(toFloat64(ifNull(fire_amt, 0))) AS f
       FROM prod_proteus.hr_structure_overall
       WHERE leaf_lvl = (SELECT tl FROM top)
         AND report_month BETWEEN toStartOfYear((SELECT lm FROM cal)) AND (SELECT lm FROM cal)
       GROUP BY report_month, fr, fi, gender, type_age, experience_group_nm, grade, seniority,
-               employee_contract_type, legal_organization, employee_stream, employment_relation_type
+               employee_contract_type, legal_organization, employee_stream, employment_relation_type,
+               employment_relation_type_gr_nm, active_type_gr_nm, emp_specialization_it_code
     )
     GROUP BY fr, fi
   ),
@@ -89,7 +96,8 @@ WITH
       FROM prod_proteus.hr_structure_overall
       WHERE report_month = (SELECT lm FROM cal)
       GROUP BY u1, gender, type_age, experience_group_nm, grade, seniority, employee_contract_type,
-               legal_organization, employee_stream, employment_relation_type, fire_reason_group, fire_initiative
+               legal_organization, employee_stream, employment_relation_type, employment_relation_type_gr_nm,
+               active_type_gr_nm, emp_specialization_it_code, fire_reason_group, fire_initiative
     )
     GROUP BY u1
   ),
@@ -100,7 +108,16 @@ WITH
     LEFT JOIN (SELECT p0 AS pk, min(u0) AS u0 FROM tp GROUP BY p0) AS p
       ON p.pk = if(s.lv > 1, arrayStringConcat(arraySlice(splitByChar('\t', s.ps), 1, s.lv - 1), '\t'), '#root')
   ),
-  kidsum AS (SELECT pu, sum(e) AS ke FROM par AS x INNER JOIN ue AS y ON y.u1 = x.u WHERE pu != '' GROUP BY pu)
+  kidsum AS (SELECT pu, sum(e) AS ke FROM par AS x INNER JOIN ue AS y ON y.u1 = x.u WHERE pu != '' GROUP BY pu),
+  -- 7. верхний юнит, последний месяц, СЫРЫЕ строки (у верхнего юнита один путь — копий нет)
+  raw7 AS (
+    SELECT toFloat64(ifNull(hc_total_cnt, 0)) AS e7,
+           tuple(gender, type_age, experience_group_nm, grade, seniority, employee_contract_type, legal_organization,
+                 employee_stream, employment_relation_type, fire_reason_group, fire_initiative) AS k46
+    FROM prod_proteus.hr_structure_overall
+    WHERE report_month = (SELECT lm FROM cal) AND leaf_lvl = (SELECT tl FROM top)
+  ),
+  old7 AS (SELECT sum(m7) AS e46 FROM (SELECT k46, max(e7) AS m7 FROM raw7 GROUP BY k46))
 SELECT * FROM
 (
   -- 1. значения атрибутов: доля численности компании, ‰
@@ -111,7 +128,9 @@ SELECT * FROM
     SELECT tupleElement(x, 1) AS k, tupleElement(x, 2) AS v, sum(tupleElement(x, 3)) AS n
     FROM (SELECT arrayJoin([('gender', g, e), ('type_age', a, e), ('experience_group_nm', t, e), ('grade', gr, e),
                             ('seniority', s, e), ('employee_contract_type', c, e), ('legal_organization', o, e),
-                            ('employee_stream', w, e), ('employment_relation_type', r, e)]) AS x FROM co)
+                            ('employee_stream', w, e), ('employment_relation_type', r, e),
+                            ('employment_relation_type_gr_nm', rq, e), ('active_type_gr_nm', ag, e),
+                            ('emp_specialization_it_code', ic, e)]) AS x FROM co)
     GROUP BY k, v
   )
   UNION ALL
@@ -168,6 +187,16 @@ SELECT * FROM
   UNION ALL SELECT 8 AS o, '6 увольнения' AS section, 'доля увольнений без инициативы (∅)' AS item, toString(round(sumIf(f, fi = '∅') / greatest(sum(f), 1), 3)) AS value FROM fy
   UNION ALL SELECT 8 AS o, '6 увольнения' AS section, 'численность в строках с причиной увольнения, ‰' AS item,
          toString(round(sumIf(e, fr != '∅') / (SELECT b FROM base) * 1000, 1)) AS value FROM co
+  UNION ALL
+  -- 7. колонки 16.10: делят ли строки, тип активности, группа типа отношений
+  SELECT 9 AS o, '7 колонки 16.10' AS section, 'строк верхнего юнита: зерно без новых колонок / все строки' AS item,
+         toString(uniqExact(k46)) || ' / ' || toString(count()) AS value FROM raw7
+  UNION ALL SELECT 9 AS o, '7 колонки 16.10' AS section, 'численность: склейка без новых колонок (поставка 17) / сумма строк' AS item,
+         toString(round((SELECT e46 FROM old7) / greatest(sum(e7), 1), 4)) AS value FROM raw7
+  UNION ALL SELECT 9 AS o, '7 колонки 16.10' AS section, 'active_type_gr_nm «' || ag || '»: активная / общая' AS item,
+         toString(round(sum(ea) / greatest(sum(e), 1), 3)) AS value FROM co GROUP BY ag
+  UNION ALL SELECT 9 AS o, '7 колонки 16.10' AS section, 'группа «' || rq || '»: типы отношений' AS item,
+         arrayStringConcat(arraySort(groupUniqArray(r)), ' · ') AS value FROM co GROUP BY rq
 )
 ORDER BY o, section, item
 )

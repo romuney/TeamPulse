@@ -3,7 +3,9 @@
 #   python dataset.py DB [--unit ID] [--staff Штат]                         — ответ строками
 #   python dataset.py DB --check                                            — полная сверка
 #
-# DB — папка chdb с prod_proteus.hr_structure_overall (sim_hso.py + load_hso.py), схема 15.10.2026.
+# DB — папка chdb с prod_proteus.hr_structure_overall (sim_hso.py + load_hso.py), схема 16.10.2026 (49 колонок).
+# Правда «прямо по таблице» склейки не повторяет: юнит — строки ОДНОГО его пути, простая сумма.
+# Так сверка ловит и копии строк юнита с двумя родителями, и атрибут, которого нет в зерне склейки.
 # Как в Proteus: filter_values(колонка) — значения кросс-фильтра, current_username() — логин.
 # --check гоняет ответ при обоих анализаторах и при join_use_nulls / prefer_column_name_to_alias,
 # в том числе в профиле боя (новый анализатор + prefer_column_name_to_alias = 1)
@@ -54,6 +56,7 @@ KEYS = ['hc', 'act', 'avg', 'hire', 'fire', 'reg', 'tin', 'tout', 'pnor', 'plow'
 ATTRS = ['gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
          'legal_organization', 'employee_stream', 'employment_relation_type', 'fire_reason_group', 'fire_initiative']
 LV = ', '.join(f"ifNull(lvl{i}_nm, '')" for i in range(1, 12))
+PATH = f"concat({', '.join(f'ifNull(lvl{i}_nm, ' + chr(39) + chr(39) + '), ' + chr(39) + '/' + chr(39) for i in range(1, 12))})"
 
 
 def arrays(row):
@@ -116,26 +119,32 @@ def check(db):
               'plow': 'perf_low', 'pgry': 'perf_gray', 'wday': 'work_day_amt', 'gapr': 'grt_approve_cnt'}
     grp = ', '.join(ATTRS)
 
+    def one_path(rk, cond, when):
+        """строки юнита одного пути (меньшего в каждом месяце) — без склейки по атрибутам"""
+        return f"""(SELECT * FROM (SELECT *, {PATH} AS pth_, min({PATH}) OVER (PARTITION BY report_month) AS mp_ FROM {T}
+                   WHERE mng_unit_rk = '{rk}' AND ({cond}) AND {when}) WHERE pth_ = mp_)"""
+
     def direct(rk, cond='1', col='hc_total_cnt'):
-        """ряд юнита прямо по таблице: копии строк юнита с двумя родителями — один раз"""
-        q = f"""SELECT m, sum(e) FROM (SELECT report_month AS m, max(toFloat64(ifNull({col}, 0))) AS e FROM {T}
-                WHERE mng_unit_rk = '{rk}' AND ({cond}) AND report_month BETWEEN toStartOfYear(addYears(toDate('{lm}'), -1)) AND '{lm}'
-                GROUP BY m, {grp}) GROUP BY m ORDER BY m"""
+        """ряд юнита прямо по таблице: строки одного пути, простая сумма"""
+        when = f"report_month BETWEEN toStartOfYear(addYears(toDate('{lm}'), -1)) AND '{lm}'"
+        q = f"""SELECT report_month, sum(toFloat64(ifNull({col}, 0))) FROM {one_path(rk, cond, when)} GROUP BY report_month ORDER BY report_month"""
         return {l.split('\t')[0]: float(l.split('\t')[1]) for l in str(s.query(q, 'TSV')).strip().splitlines() if l}
 
     def direct_by(rk, attr, col, cond, win):
         """разрез прямо по таблице: численность за последний месяц или увольнения с начала года"""
         when = f"report_month = '{lm}'" if win == 'last' else f"report_month BETWEEN toStartOfYear(toDate('{lm}')) AND '{lm}'"
-        q = f"""SELECT v, sum(e) FROM (SELECT ifNull({attr}, '') AS v, max(toFloat64(ifNull({col}, 0))) AS e FROM {T}
-                WHERE mng_unit_rk = '{rk}' AND ({cond}) AND {when} GROUP BY report_month, {grp}) GROUP BY v HAVING sum(e) > 0"""
+        q = f"""SELECT ifNull({attr}, '') AS v, sum(toFloat64(ifNull({col}, 0))) AS e FROM {one_path(rk, cond, when)} GROUP BY v HAVING e > 0"""
         return {l.split('\t')[0]: float(l.split('\t')[1]) for l in str(s.query(q, 'TSV')).strip().splitlines() if l}
 
     STAFF = "employment_relation_type = 'Штатный сотрудник'"
+    IT = "ifNull(emp_specialization_it_code, '-') IN ('IT', 'Digital')"
     cases = [
         ('без фильтров', {}, dflt, '1'),
         ('штат', {'staff_f': ['Штат']}, dflt, STAFF),
         ('не штат, уровнем ниже', {'staff_f': ['Не штат'], 'unit_f': [uid(mid)]}, mid, f"NOT ({STAFF}) OR employment_relation_type IS NULL"),
-        ('устаревший фильтр покраски пропускается', {'paint_f': ['Hq'], 'it_f': ['IT']}, dflt, '1'),
+        ('IT и Digital (с 16.10), покраска пропускается', {'paint_f': ['Hq'], 'it_f': ['IT', 'Digital']}, dflt, IT),
+        ('IT + штат, уровнем ниже', {'it_f': ['IT'], 'staff_f': ['Штат'], 'unit_f': [uid(mid)]}, mid,
+         f"ifNull(emp_specialization_it_code, '-') = 'IT' AND {STAFF}"),
         ('самый глубокий юнит', {'unit_f': [uid(deep)]}, deep, '1'),
         ('корень', {'unit_f': [uid(root)]}, root, '1'),
         ('чужой id', {'unit_f': ['ffffffffffff']}, dflt, '1'),
@@ -164,8 +173,10 @@ def check(db):
         meta = json.loads(rows[0]['j'])
         if meta['lm'] != lm or meta['n'] != len(arrays(rows[1])['hc']):
             fail(f"календарь: lm {meta['lm']} против {lm}, n {meta['n']}")
-        if meta['cuts'] != ['staff'] or meta['paint'] != [] or meta['it'] != []:
-            fail('meta: cuts / paint / it')
+        if meta['cuts'] != ['it', 'staff'] or meta['paint'] != [] or meta['it'] != flt.get('it_f', []):
+            fail(f"meta: cuts {meta['cuts']} / paint {meta['paint']} / it {meta['it']}")
+        if not meta['vals'].get('it'):
+            fail('meta: нет значений фильтра IT')
         sc = rows[1]
         if sc['id'] != uid(want):
             fail(f"выбран {sc['id']}, ждали {uid(want)} ({st[want]['nm']})")

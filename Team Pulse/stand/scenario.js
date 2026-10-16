@@ -2,7 +2,7 @@
    Сценарий стенда в Chromium: node stand/scenario.js [порт] [папка-скриншотов]
    Стенд (serve.py) уже запущен. Проверяет пробник так, как его увидит владелец:
    первый ответ датасета, все вкладки, переход в юнит кросс-фильтром и «← Назад»,
-   фильтр «штат» через модалку (покраски и IT в схеме 15.10 нет), «План метрик» в справке,
+   фильтры «штат» и IT через модалку (покраски в таблице нет), «План метрик» в справке,
    метки «в разработке», ошибки JS
    и то, что слушатели не копятся от прогона к прогону.
    ========================================================================== */
@@ -81,12 +81,13 @@ const fs = require('fs'), path = require('path');
   await settle(r1);
   ok(await title() === t0, '«← Назад» вернул «' + t0 + '»');
 
-  /* фильтр «штат» через модалку; покраски и IT в схеме 15.10 нет — их групп в окне не видно */
+  /* фильтр «штат» через модалку; покраски в таблице нет — её группы в окне не видно,
+     IT-специализация вернулась 16.10 — её группа на месте */
   const r2 = await runs();
   await page.click('#btnSetup');
-  const hidden = await page.evaluate(() => ['#optPaint', '#optIt'].every(sel => {
-    const el = document.querySelector(sel); return !el || el.closest('.fgrp').offsetParent === null; }));
-  ok(hidden, 'фильтров покраски и IT в окне настройки нет: в данных их нет');
+  const vis = await page.evaluate(() => Object.fromEntries(['#optPaint', '#optIt'].map(sel => {
+    const el = document.querySelector(sel); return [sel, !!el && el.closest('.fgrp').offsetParent !== null]; })));
+  ok(!vis['#optPaint'] && vis['#optIt'], 'в окне настройки: покраски нет, IT есть: ' + JSON.stringify(vis));
   await page.click('#optStaff .opt[data-v="staff"]');
   await page.click('#btnApply');
   await settle(r2);
@@ -101,6 +102,19 @@ const fs = require('fs'), path = require('path');
   await page.click('[data-unchip="staffType"]');
   await settle(r3);
   ok(!/всё штат/.test(await page.$eval('#chips', el => el.textContent)), 'крестик в чипе снял «штат»');
+
+  /* фильтр IT (16.10) — кросс-фильтр it_f со значением таблицы */
+  const r3b = await runs();
+  await page.click('#btnSetup');
+  await page.click('#optIt .opt[data-v="IT"]');
+  await page.click('#btnApply');
+  await settle(r3b);
+  const m3 = await page.evaluate(() => window.__masks[window.__masks.length - 1]);
+  ok(m3.some(x => x.column === 'it_f' && x.value[0] === 'IT'), 'фильтр IT ушёл как it_f = IT: ' + JSON.stringify(m3));
+  ok(/IT/.test(await page.$eval('#chips', el => el.textContent)), 'в шапке чип IT');
+  const r3c = await runs();
+  await page.click('[data-unchip="itSeg"]');
+  await settle(r3c);
 
   /* юнит из списка в окне настройки — тоже кросс-фильтр */
   await page.click('#btnSetup');

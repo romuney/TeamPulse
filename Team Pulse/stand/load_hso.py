@@ -1,5 +1,5 @@
-# Загрузка симуляции в chdb: схема — разведка 15.10.2026 (describe физического датасета
-# 175625, файл «Разведка»): 46 колонок, денормализованное дерево lvl1_nm … lvl11_nm + leaf_lvl.
+# Загрузка симуляции в chdb: схема — разведка 16.10.2026 (describe физического датасета
+# 175625, файл «Разведка»): 49 колонок, денормализованное дерево lvl1_nm … lvl11_nm + leaf_lvl.
 import sys
 from chdb import session
 db, csv_path = sys.argv[1], sys.argv[2]
@@ -8,6 +8,7 @@ SCHEMA = f"""report_month Nullable(Date), mng_unit_rk Nullable(String), leaf_lvl
  gender Nullable(String), type_age Nullable(String), experience_group_nm Nullable(String), grade Nullable(String),
  seniority Nullable(String), employee_contract_type Nullable(String), legal_organization Nullable(String),
  employee_stream Nullable(String), employment_relation_type Nullable(String),
+ employment_relation_type_gr_nm Nullable(String), active_type_gr_nm Nullable(String), emp_specialization_it_code Nullable(String),
  fire_reason_group Nullable(String), fire_initiative Nullable(String),
  hc_total_cnt Nullable(Int64), hc_active_cnt Nullable(Int64), lag_hc_active_cnt Nullable(Int64),
  ssch_hc_active_cnt Nullable(Float64),

@@ -1,5 +1,5 @@
 # Симулятор prod_proteus.hr_structure_overall по людям — схема разведки 15.10.2026
-# (describe физического датасета 175625, 46 колонок).
+# (describe физического датасета 175625; с 16.10 — 49 колонок).
 #
 # Что изменилось против разведки 12.10 (и против прежнего симулятора):
 #   - дерево денормализовано: пути юнита — имена уровней lvl1_nm … lvl11_nm и глубина
@@ -85,6 +85,12 @@ def paths_for_rows(rk, m):
 TYPES = [('Активная', .78), ('Декрет', .05), ('Подрядчики', .05), ('Стажеры', .04),
          ('Кандидаты в учебных юнитах', .04), ('Разовые услуги', .02), ('Прогульщики', .02)]
 OPER = [('Line', .65), ('Hq', .20), ('Support', .15)]           # только внутри симуляции
+# 16.10 (разведка 4, 49 колонок): вернулись active_type_gr_nm и emp_specialization_it_code,
+# добавилась employment_relation_type_gr_nm. В симуляции IT-код и тип активности — у человека,
+# поэтому ДЕЛЯТ строки «месяц × юнит × атрибуты»: датасет обязан брать их в зерно склейки.
+IT = [('NonIT', .42), ('IT', .33), ('Digital', .20), ('-', .05)]
+def rel_group(rel):
+    return 'Штат' if rel == 'Штатный сотрудник' else 'ГПД' if rel.startswith('ГПД') else 'Прочие'
 REL = [('Штатный сотрудник', .58), ('ГПД ФЛ', .25), ('ГПД ФЛ СМЗ', .06), ('Сотрудник партнерской организации', .03),
        ('Аутсорс', .02), ('ГПД ИП', .015), ('Сотрудник иностранной организации', .01), ('Стажер', .02),
        ('Совместитель', .01), ('Надомник', .005)]                  # 10 значений, как в разведке
@@ -116,7 +122,7 @@ def pick(opts):
 UNIT_LEGAL = {rk: LEGAL[int(hashlib.md5(rk.encode()).hexdigest(), 16) % 3] for rk in units}   # основное юрлицо подразделения
 def new_person(unit, mi):
     sen = pick(SEN)
-    return dict(unit=unit, type=pick(TYPES), oper=pick(OPER), rel=pick(REL), gender=pick(GENDER), age=pick(AGE),
+    return dict(unit=unit, type=pick(TYPES), oper=pick(OPER), it=pick(IT), rel=pick(REL), gender=pick(GENDER), age=pick(AGE),
                 sen=sen, grade=random.choice(GRADE_OF[sen]), contract=pick(CONTRACT), stream=pick(STREAM),
                 legal=pick(LEGAL_TAIL) if random.random() < .25 else None,
                 hired=mi - random.randint(0, 80) if mi == 0 else mi,
@@ -135,7 +141,8 @@ people = [new_person(place(0), 0) for _ in range(2500)]
 
 def key_attrs(p, mi, reason=None, init=None):
     return (p['gender'], p['age'], tenure(p, mi), p['grade'], p['sen'], p['contract'], p.get('legal') or UNIT_LEGAL[p['unit']],
-            p['stream'], p['rel'], reason, init)
+            p['stream'], p['rel'], rel_group(p['rel']), 'Активная' if p['type'] == 'Активная' else 'Прочие', p['it'],
+            reason, init)
 def perf_of(p):
     return p['perf'] if (p['type'] == 'Активная' and p['oper'] == 'Hq') else 'gray'
 
