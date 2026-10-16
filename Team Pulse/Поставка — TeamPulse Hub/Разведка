@@ -1,162 +1,190 @@
-Разведка
-prod_proteus.hr_structure_overall — схема и главное
-Физическая таблица витрины TeamPulse (база CROSS, Proteus). Актуальная схема на 16.10.2026 — describe физического датасета 175625 (schema: prod_proteus, is_virtual: false). Разведка 12.10.2026 (32 колонки, датасет 174609) УСТАРЕЛА — таблица денормализована и дополнена. В каталоге DataDetective не найдена (404), источник только Proteus.
-Первая разведка — 08.10.2026; подробно — SOURCES.md §18.
-Физическая таблица
-Физическая таблица, 49 колонок. 2 557 718 строк, 34 точки месяца: 2024-01 — 2026-10 (последний, вероятно, неполный).
-Строка: месяц × юнит управленческой структуры × атрибуты человека. В отличие от старой версии дерево денормализовано: путь юнита задан именами уровней lvl1_nm..lvl11_nm, отдельной пары parent / lvl больше нет. Людей нет, только суммы.
-ЦИФРЫ ЮНИТА ВКЛЮЧАЮТ ВСЁ ЕГО ПОДДЕРЕВО: юнит — только своими строками, детей не складывать никогда.
-Изменения к 15.10 (против разведки 12.10)
-Структура дерева денормализована: пара parent_mngt_unit_rk + lvl/parent_lvl заменена на leaf_lvl (уровень листа) + lvl1_nm..lvl11_nm (имена юнитов по уровням пути).
-Период расширен: было 2025-01..2026-10 (22 месяца), стало 2024-01..2026-10 (34 точки).
-Численность переименована: employee_amt → hc_total_cnt, active_type_gr_nm+employee_amt → hc_active_cnt, lag_employee_amt → lag_hc_active_cnt, ssch_employee_amt → ssch_hc_active_cnt.
-active_type_gr_nm, emp_specialization_oper_code/it_code, hire_to_active_amt в текущей схеме не видны.
-Добавлены демографические атрибуты: gender, type_age, experience_group_nm, grade, seniority.
-Добавлены атрибуты увольнения и договора: fire_reason_group, fire_initiative, employee_contract_type, legal_organization, employee_stream.
-Изменения к 16.10 (против разведки 15.10)
-Колонок стало 49 (было 46): вернулись/добавлены 3 атрибута — active_type_gr_nm, emp_specialization_it_code, employment_relation_type_gr_nm.
-active_type_gr_nm и emp_specialization_it_code вернулись в схему (на 15.10 числились «не видны»); emp_specialization_oper_code и hire_to_active_amt по-прежнему отсутствуют.
-employment_relation_type_gr_nm — новая колонка (группа типа отношений).
-Строк: 2 533 026 → 2 557 718 (дрейф данных, состав колонок не менялся).
-distinct: fire_amt 237→236, transfer_in_amt 186→179, transfer_out_amt 206→202, transfer_internal_amt 7→6.
-АТРИБУТЫ
-колонка
-тип
-смысл
-report_month
-Nullable(Date)
-месяц, первое число (основная временная колонка)
-mng_unit_rk
-Nullable(String)
-ключ юнита
-leaf_lvl
-Nullable(Int32)
-уровень юнита (глубина листа в дереве)
-lvl1_nm … lvl11_nm
-Nullable(String)
-имя юнита по каждому уровню пути от корня (денормализованное дерево)
-gender
-Nullable(String)
-пол
-type_age
-Nullable(String)
-возрастная группа
-experience_group_nm
-Nullable(String)
-группа по опыту
-grade
-Nullable(String)
-грейд
-seniority
-Nullable(String)
-сеньорность
-employee_contract_type
-Nullable(String)
-тип договора с сотрудником
-legal_organization
-Nullable(String)
-юрлицо
-employee_stream
-Nullable(String)
-поток/направление сотрудника
-employment_relation_type
-Nullable(String)
-тип отношений (штат/не штат; 10 distinct)
-employment_relation_type_gr_nm
-Nullable(String)
-группа типа отношений (новая с 16.10, смысл предварительный)
-active_type_gr_nm
-Nullable(String)
-тип активности (вернулась в схему с 16.10, смысл предварительный)
-emp_specialization_it_code
-Nullable(String)
-код ИТ-специализации (вернулась в схему с 16.10, только it_code; смысл предварительный)
-fire_reason_group
-Nullable(String)
-группа причины увольнения
-fire_initiative
-Nullable(String)
-инициатива увольнения
-ЧИСЛЕННОСТЬ И ССЧ
-колонка
-тип
-смысл
-hc_total_cnt
-Nullable(Int64)
-численность на конец месяца, всего
-hc_active_cnt
-Nullable(Int64)
-численность на конец месяца, «Активная»
-lag_hc_active_cnt
-Nullable(Int64)
-активная численность месяцем раньше
-ssch_hc_active_cnt
-Nullable(Float64)
-ССЧ активной = (активная + лаг) / 2
-ПОТОКИ
-колонка
-тип
-смысл
-hire_amt
-Nullable(Int64)
-найм (64 distinct)
-fire_amt
-Nullable(Int64)
-увольнения (236 distinct)
-regret_fire_amt
-Nullable(Int64)
-нежелательные увольнения, ≤ fire_amt (3 distinct)
-transfer_in_amt
-Nullable(Int64)
-переводы в юнит (179 distinct)
-transfer_out_amt
-Nullable(Int64)
-переводы из юнита (202 distinct)
-transfer_candidate_amt
-Nullable(Int64)
-переводы кандидатов (38 distinct)
-transfer_internal_amt
-Nullable(Int64)
-внутренние переводы (6 distinct)
-PERF (мониторинг)
-колонка
-тип
-смысл
-perf_normal
-Nullable(Float64)
-нормал
-perf_low
-Nullable(Float64)
-недоработка
-perf_high
-Nullable(Float64)
-переработка
-perf_gray
-Nullable(Float64)
-Gray
-ПОСЕЩАЕМОСТЬ И T-РОСТ
-колонка
-тип
-смысл
-work_day_amt
-Nullable(Float64)
-отработанные человеко-дни за месяц
-office_visit_amt
-Nullable(Float64)
-посещения офиса, человеко-дни → посещаемость = office_visit / work_day
-grt_approve_cnt
-Nullable(Int64)
-заявки T-роста (GRT): одобрено → «Прошли T-рост»
-grt_decline_cnt
-Nullable(Int64)
-отклонено → «Отказано»; конверсия = одобрено / (одобрено + отклонено)
-grt_cancel_cnt
-Nullable(Int64)
-отменено
-grt_inprogress_cnt
-Nullable(Int64)
-в процессе
-Примечания
-Метрика Superset у датасета — только count.
-Данные профиля (distinct) подтверждены для hire_amt/fire_amt/regret_fire_amt/transfer_* и employment_relation_type; по остальным колонкам distinct не снимался.
-Смысл колонок восстановлен из названий — описания в DD отсутствуют; семантику демографии (gender/type_age/grade/seniority) и потоков стоит подтвердить источником витрины.
+# prod_proteus.hr_structure_overall — схема и главное
+
+> Физическая таблица витрины TeamPulse (база CROSS, Proteus). Актуальная схема на 16.10.2026 — describe физического датасета **175625** (`schema: prod_proteus`, `is_virtual: false`). Разведка 12.10.2026 (32 колонки, датасет 174609) УСТАРЕЛА — таблица денормализована и дополнена. В каталоге DataDetective не найдена (404), источник только Proteus.
+>
+> Первая разведка — 08.10.2026; подробно — SOURCES.md §18.
+
+## Физическая таблица
+
+Физическая таблица, **49 колонок**. **2 557 718 строк**, 34 точки месяца: **2024-01 — 2026-10** (последний, вероятно, неполный).
+
+**Строка**: месяц × юнит управленческой структуры × атрибуты человека. В отличие от старой версии дерево **денормализовано**: путь юнита задан именами уровней `lvl1_nm..lvl11_nm`, отдельной пары `parent / lvl` больше нет. Людей нет, только суммы.
+
+> **ЦИФРЫ ЮНИТА ВКЛЮЧАЮТ ВСЁ ЕГО ПОДДЕРЕВО**: юнит — только своими строками, детей не складывать никогда.
+
+## Изменения к 15.10 (против разведки 12.10)
+
+- Структура дерева денормализована: пара `parent_mngt_unit_rk` + `lvl`/`parent_lvl` заменена на **`leaf_lvl`** (уровень листа) + **`lvl1_nm..lvl11_nm`** (имена юнитов по уровням пути).
+- Период расширен: было 2025-01..2026-10 (22 месяца), стало 2024-01..2026-10 (34 точки).
+- Численность переименована: `employee_amt` → **`hc_total_cnt`**, `active_type_gr_nm`+`employee_amt` → **`hc_active_cnt`**, `lag_employee_amt` → **`lag_hc_active_cnt`**, `ssch_employee_amt` → **`ssch_hc_active_cnt`**.
+- `active_type_gr_nm`, `emp_specialization_oper_code`/`it_code`, `hire_to_active_amt` в текущей схеме не видны.
+- Добавлены демографические атрибуты: `gender`, `type_age`, `experience_group_nm`, `grade`, `seniority`.
+- Добавлены атрибуты увольнения и договора: `fire_reason_group`, `fire_initiative`, `employee_contract_type`, `legal_organization`, `employee_stream`.
+
+## Изменения к 16.10 (против разведки 15.10)
+
+- Колонок стало **49** (было 46): вернулись/добавлены 3 атрибута — `active_type_gr_nm`, `emp_specialization_it_code`, `employment_relation_type_gr_nm`.
+- `active_type_gr_nm` и `emp_specialization_it_code` вернулись в схему (на 15.10 числились «не видны»); `emp_specialization_oper_code` и `hire_to_active_amt` по-прежнему отсутствуют.
+- `employment_relation_type_gr_nm` — новая колонка (группа типа отношений).
+- Строк: 2 533 026 → 2 557 718 (дрейф данных, состав колонок не менялся).
+- distinct: `fire_amt` 237→236, `transfer_in_amt` 186→179, `transfer_out_amt` 206→202, `transfer_internal_amt` 7→6.
+
+## АТРИБУТЫ
+
+| колонка | тип | смысл |
+|---|---|---|
+| `report_month` | Nullable(Date) | месяц, первое число (основная временная колонка) |
+| `mng_unit_rk` | Nullable(String) | ключ юнита |
+| `leaf_lvl` | Nullable(Int32) | уровень юнита (глубина листа в дереве) |
+| `lvl1_nm` … `lvl11_nm` | Nullable(String) | имя юнита по каждому уровню пути от корня (денормализованное дерево) |
+| `gender` | Nullable(String) | пол |
+| `type_age` | Nullable(String) | возрастная группа |
+| `experience_group_nm` | Nullable(String) | группа по опыту |
+| `grade` | Nullable(String) | грейд |
+| `seniority` | Nullable(String) | сеньорность |
+| `employee_contract_type` | Nullable(String) | тип договора с сотрудником |
+| `legal_organization` | Nullable(String) | юрлицо |
+| `employee_stream` | Nullable(String) | поток/направление сотрудника |
+| `employment_relation_type` | Nullable(String) | тип отношений (штат/не штат; 10 distinct) |
+| `employment_relation_type_gr_nm` | Nullable(String) | группа типа отношений (новая с 16.10, смысл предварительный) |
+| `active_type_gr_nm` | Nullable(String) | тип активности (вернулась в схему с 16.10, смысл предварительный) |
+| `emp_specialization_it_code` | Nullable(String) | код ИТ-специализации (вернулась в схему с 16.10, только it_code; смысл предварительный) |
+| `fire_reason_group` | Nullable(String) | группа причины увольнения |
+| `fire_initiative` | Nullable(String) | инициатива увольнения |
+
+## ЧИСЛЕННОСТЬ И ССЧ
+
+| колонка | тип | смысл |
+|---|---|---|
+| `hc_total_cnt` | Nullable(Int64) | численность на конец месяца, всего |
+| `hc_active_cnt` | Nullable(Int64) | численность на конец месяца, «Активная» |
+| `lag_hc_active_cnt` | Nullable(Int64) | активная численность месяцем раньше |
+| `ssch_hc_active_cnt` | Nullable(Float64) | ССЧ активной = (активная + лаг) / 2 |
+
+## ПОТОКИ
+
+| колонка | тип | смысл |
+|---|---|---|
+| `hire_amt` | Nullable(Int64) | найм (64 distinct) |
+| `fire_amt` | Nullable(Int64) | увольнения (236 distinct) |
+| `regret_fire_amt` | Nullable(Int64) | нежелательные увольнения, ≤ `fire_amt` (3 distinct) |
+| `transfer_in_amt` | Nullable(Int64) | переводы в юнит (179 distinct) |
+| `transfer_out_amt` | Nullable(Int64) | переводы из юнита (202 distinct) |
+| `transfer_candidate_amt` | Nullable(Int64) | переводы кандидатов (38 distinct) |
+| `transfer_internal_amt` | Nullable(Int64) | внутренние переводы (6 distinct) |
+
+## PERF (мониторинг)
+
+| колонка | тип | смысл |
+|---|---|---|
+| `perf_normal` | Nullable(Float64) | нормал |
+| `perf_low` | Nullable(Float64) | недоработка |
+| `perf_high` | Nullable(Float64) | переработка |
+| `perf_gray` | Nullable(Float64) | Gray |
+
+## ПОСЕЩАЕМОСТЬ И T-РОСТ
+
+| колонка | тип | смысл |
+|---|---|---|
+| `work_day_amt` | Nullable(Float64) | отработанные человеко-дни за месяц |
+| `office_visit_amt` | Nullable(Float64) | посещения офиса, человеко-дни → посещаемость = office_visit / work_day |
+| `grt_approve_cnt` | Nullable(Int64) | заявки T-роста (GRT): одобрено → «Прошли T-рост» |
+| `grt_decline_cnt` | Nullable(Int64) | отклонено → «Отказано»; конверсия = одобрено / (одобрено + отклонено) |
+| `grt_cancel_cnt` | Nullable(Int64) | отменено |
+| `grt_inprogress_cnt` | Nullable(Int64) | в процессе |
+
+## Примечания
+
+- Метрика Superset у датасета — только `count`.
+- Данные профиля (distinct) подтверждены для `hire_amt`/`fire_amt`/`regret_fire_amt`/`transfer_*` и `employment_relation_type`; по остальным колонкам distinct не снимался.
+- Смысл колонок восстановлен из названий — описания в DD отсутствуют; семантику демографии (gender/type_age/grade/seniority) и потоков стоит подтвердить источником витрины.
+
+## Полная схема (все 49 колонок)
+
+DDL-вид на 16.10.2026. Порядок колонок — по физическому датасету **175625** (describe).
+
+```sql
+CREATE TABLE prod_proteus.hr_structure_overall (
+    -- КЛЮЧ И ДЕРЕВО
+    report_month                  Nullable(Date),     -- месяц, первое число
+    mng_unit_rk                   Nullable(String),   -- ключ юнита
+    leaf_lvl                      Nullable(Int32),    -- уровень юнита (глубина листа)
+    lvl1_nm                       Nullable(String),   -- имя юнита, уровень 1 (корень)
+    lvl2_nm                       Nullable(String),
+    lvl3_nm                       Nullable(String),
+    lvl4_nm                       Nullable(String),
+    lvl5_nm                       Nullable(String),
+    lvl6_nm                       Nullable(String),
+    lvl7_nm                       Nullable(String),
+    lvl8_nm                       Nullable(String),
+    lvl9_nm                       Nullable(String),
+    lvl10_nm                      Nullable(String),
+    lvl11_nm                      Nullable(String),   -- имя юнита, уровень 11 (лист)
+
+    -- ДЕМОГРАФИЯ И АТРИБУТЫ ЧЕЛОВЕКА
+    gender                        Nullable(String),   -- пол
+    type_age                      Nullable(String),   -- возрастная группа
+    experience_group_nm           Nullable(String),   -- группа по опыту
+    grade                         Nullable(String),   -- грейд
+    seniority                     Nullable(String),   -- сеньорность
+    employee_contract_type        Nullable(String),   -- тип договора
+    legal_organization            Nullable(String),   -- юрлицо
+    employee_stream               Nullable(String),   -- поток/направление
+    employment_relation_type      Nullable(String),   -- тип отношений (штат/не штат)
+    employment_relation_type_gr_nm Nullable(String),  -- группа типа отношений
+    active_type_gr_nm             Nullable(String),   -- тип активности
+    emp_specialization_it_code    Nullable(String),   -- код ИТ-специализации
+    fire_reason_group             Nullable(String),   -- группа причины увольнения
+    fire_initiative               Nullable(String),   -- инициатива увольнения
+
+    -- ЧИСЛЕННОСТЬ И ССЧ
+    hc_total_cnt                  Nullable(Int64),    -- численность, всего
+    hc_active_cnt                 Nullable(Int64),    -- численность, «Активная»
+    lag_hc_active_cnt             Nullable(Int64),    -- активная месяцем раньше
+    ssch_hc_active_cnt            Nullable(Float64),  -- ССЧ активной = (активная + лаг) / 2
+
+    -- ПОТОКИ
+    hire_amt                      Nullable(Int64),    -- найм
+    fire_amt                      Nullable(Int64),    -- увольнения
+    regret_fire_amt               Nullable(Int64),    -- нежелательные увольнения
+    transfer_in_amt               Nullable(Int64),    -- переводы в юнит
+    transfer_out_amt              Nullable(Int64),    -- переводы из юнита
+    transfer_candidate_amt        Nullable(Int64),    -- переводы кандидатов
+    transfer_internal_amt         Nullable(Int64),    -- внутренние переводы
+
+    -- PERF
+    perf_normal                   Nullable(Float64),  -- норма
+    perf_low                      Nullable(Float64),  -- недоработка
+    perf_high                     Nullable(Float64),  -- переработка
+    perf_gray                     Nullable(Float64),  -- Gray (без оценки)
+
+    -- ПОСЕЩАЕМОСТЬ И T-РОСТ
+    work_day_amt                  Nullable(Float64),  -- отработанные человеко-дни
+    office_visit_amt              Nullable(Float64),  -- посещения офиса, человеко-дни
+    grt_approve_cnt               Nullable(Int64),    -- GRT одобрено
+    grt_decline_cnt               Nullable(Int64),    -- GRT отклонено
+    grt_cancel_cnt                Nullable(Int64),    -- GRT отменено
+    grt_inprogress_cnt            Nullable(Int64)     -- GRT в процессе
+);
+```
+
+Итог по типам: 1×Date, 1×Int32, 1×Float64 vs Int64 — `hc_*` и потоки целочисленные, ССЧ/perf/посещаемость — дробные. Все колонки `Nullable`.
+
+## Инструкция для модели: что исправить и как отдавать входные данные
+
+Раздел для LLM/дашборд-модели, которая строит срезы по этой витрине.
+
+### Что исправить в структуре (признать и обойти)
+
+1. **Дерево денормализовано, уровня-ключей нет.** Путь юнита — это имена `lvl1_nm..lvl11_nm`, а не ключи. У одного юнита имена уровней могут повторяться (`mng_unit_rk` — единственный надёжный ключ). Для среза «по уровню» опираться на `leaf_lvl`, для пути — на `lvl{leaf_lvl}_nm`.
+2. **Цифры юнита уже содержат поддерево.** Суммировать детей к родителю. Агрегат «по уровню» = сумма по юнитам этого `leaf_lvl`, НЕ по строкам пути.
+3. **`active_type_gr_nm` и `employment_relation_type_gr_nm` — смысл предварительный** (вернулись/добавлены 16.10). Не строить на них жёстких правил до проверки источником.
+4. **`hc_total_cnt` / `hc_active_cnt`** — связка «Активная · Прочие» теперь выражена двумя колонками, а не одним типом активности. Срез «Прочие» = `hc_total_cnt − hc_active_cnt` (только если нужно именно разложение; иначе брать колонки напрямую).
+5. **`emp_specialization_it_code` без `oper_code`** — операционный код отсутствует, покраска Hq/Line/Support на 16.10 недоступна.
+6. **`hire_to_active_amt` и `emp_specialization_oper_code` отсутствуют** — любые формулы, которые их используют, на текущей схеме падают. Не использовать.
+7. **`lag_hc_active_cnt` = NULL** у новых юнитов и в первом месяце периода → `ssch_hc_active_cnt` тогда просто равен `hc_active_cnt` (без /2 лага). Учитывать при срезе по месяцу: для 2024-01 лага нет.
+8. **Несходимость потоков:** увольнения в разы больше найма при медленно падающей численности — часть притока идёт не через `hire_amt`. Текучесть считать как `fire_amt / ssch_hc_active_cnt`, но помнить про погрешность источника.
+
+### В каком виде отдавать входные данные, чтобы все срезы считались
+
+Создай файл и опиши в каком виде лучше отдававть входные данные, чтобы проще их считать в виртуальном датасете 
