@@ -32,7 +32,7 @@
       meta   1 строка, j — JSON: последний полный месяц (lm), первый месяц сетки (m0),
              число месяцев (n), сегодня, корень, выбранный юнит, юнит по умолчанию,
              какие фильтры датасет умеет (cuts), эхо применённых фильтров и значения
-             фильтра штата с численностью компании
+             фильтров IT и штата с численностью компании (копии путей — один раз)
       scope  выбранный юнит
       base   вся компания под теми же фильтрами — база сравнения
       dict   1 строка, j — юниты для пути и выбора: «id \t pid \t уровень \t детей \t имя»
@@ -109,6 +109,8 @@
 {% macro at(col) -%}translate(ifNull({{ col }}, ''), '\t\n|', '  /'){%- endmacro %}
 {% set M = [['hc', 'e'], ['act', 'ea'], ['avg', 'sa'], ['hire', 'hi'], ['fire', 'fi'], ['reg', 'rg'], ['tin', 'ti'], ['tout', 'tu'], ['pnor', 'pn'], ['plow', 'pl'], ['phig', 'ph'], ['pgry', 'pg'], ['wday', 'wd'], ['ovis', 'ov'], ['gapr', 'ga'], ['gdec', 'gd']] %}
 {% set LV = ['lvl1_nm', 'lvl2_nm', 'lvl3_nm', 'lvl4_nm', 'lvl5_nm', 'lvl6_nm', 'lvl7_nm', 'lvl8_nm', 'lvl9_nm', 'lvl10_nm', 'lvl11_nm'] %}
+{#- Путь юнита строки: имена уровней от корня через таб (табы и переводы строк в именах — пробелы). -#}
+{% macro pth() -%}arrayStringConcat(arraySlice(arrayMap(x -> translate(ifNull(x, ''), '\t\n', '  '), [{{ LV|join(', ') }}]), 1, toInt32(ifNull(leaf_lvl, 0))), '\t'){%- endmacro %}
 {#- Пустые колонки для служебных строк (meta, dict, end). -#}
 {% macro blank() -%}{% for m in M %}'' AS m_{{ m[0] }}, {% endfor %}'' AS mx{%- endmacro %}
 {#- Запрос начинается с SELECT, цепочка CTE — внутри: так его без правок принимает и SQL Lab
@@ -132,8 +134,7 @@ WITH
   -- переименование не рвут ряды — история пересчитана на нынешнюю структуру
   lmr AS (
     SELECT ifNull(mng_unit_rk, '') AS u0,
-           min(arrayStringConcat(arraySlice(arrayMap(x -> translate(ifNull(x, ''), '\t\n', '  '), [{{ LV|join(', ') }}]),
-                                            1, toInt32(ifNull(leaf_lvl, 0))), '\t')) AS pk0
+           min({{ pth() }}) AS pk0
     FROM prod_proteus.hr_structure_overall
     WHERE report_month = (SELECT lm FROM cal) AND mng_unit_rk IS NOT NULL AND ifNull(leaf_lvl, 0) > 0
     GROUP BY u0
@@ -206,8 +207,7 @@ WITH
     FROM
     (
       SELECT *, ifNull(mng_unit_rk, '') AS u1,
-             arrayStringConcat(arraySlice(arrayMap(x -> translate(ifNull(x, ''), '\t\n', '  '), [{{ LV|join(', ') }}]),
-                                          1, toInt32(ifNull(leaf_lvl, 0))), '\t') AS pr0,
+             {{ pth() }} AS pr0,
              toUInt32(dateDiff('month', (SELECT m0 FROM cal), toDate(assumeNotNull(report_month)))) AS i1,
              {{ at('gender') }} AS g1, {{ at('type_age') }} AS a1, {{ at('experience_group_nm') }} AS t1,
              {{ at('grade') }} AS gr1, {{ at('seniority') }} AS s1, {{ at('employee_contract_type') }} AS c1,
@@ -314,12 +314,14 @@ FROM
                     SELECT ifNull(emp_specialization_it_code, '-') AS v, sum(toFloat64(ifNull(hc_total_cnt, 0))) AS e
                     FROM prod_proteus.hr_structure_overall
                     WHERE report_month = (SELECT lm FROM cal)
+                      AND (ifNull(mng_unit_rk, ''), {{ pth() }}) IN (SELECT u0, pk0 FROM lmr)
                     GROUP BY v ORDER BY e DESC, v)),
                 ',"staff":', (SELECT toJSONString(groupArray((v, e))) FROM (
                     SELECT if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат') AS v,
                            sum(toFloat64(ifNull(hc_total_cnt, 0))) AS e
                     FROM prod_proteus.hr_structure_overall
                     WHERE report_month = (SELECT lm FROM cal)
+                      AND (ifNull(mng_unit_rk, ''), {{ pth() }}) IN (SELECT u0, pk0 FROM lmr)
                     GROUP BY v ORDER BY e DESC, v)),
                 '}}') AS j,
          {{ blank() }}

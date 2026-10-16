@@ -224,6 +224,15 @@ def check(db):
             fail('meta: scope / root / def')
         if meta['staff'] != flt.get('staff_f', []):
             fail(f"эхо фильтра штата: {meta['staff']}")
+        # значения фильтров — численность компании без копий путей, фильтры их не режут
+        for key, lab in (('it', ITC), ('staff', lambda r: 'Штат' if STAFF(r) else 'Не штат')):
+            exp = {}
+            for r in allrows:
+                if r['m'] == lm and r['rk'] and r['path']:
+                    exp[lab(r)] = exp.get(lab(r), 0.0) + r['v'][0]
+            got = {x['v']: x['e'] for x in meta['vals'][key]}
+            if {k: round(v, 1) for k, v in got.items()} != {k: round(v, 1) for k, v in exp.items() if v or k in got}:
+                fail(f"meta.vals.{key}: {got} против {exp}")
         # ряды и разрезы выбранного юнита и базы — как прямо по строкам таблицы
         for row, p in ((sc, want), (rows[2], root)):
             ser, mx_t, _ = truth(p, pred)
