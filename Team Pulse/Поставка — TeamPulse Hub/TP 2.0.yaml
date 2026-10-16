@@ -1,0 +1,2112 @@
+title: TP 2.0
+formElements:
+  - type: MULTISELECT
+    label: multiselect_1
+    key: form_multiselect_1
+    value: "[\"current_date\"]"
+    defaultValue: "[\"current_date\"]"
+    isRequired: false
+    options:
+      - current_date
+    settings:
+      wrapInQuotes: false
+      mode: CHECKBOX
+paragraphs:
+  - sid: 019fb715-49f0-7ac4-9eb6-3419c8032825
+    title: Структура численности
+    shebang: md
+    code: |2-
+
+      | Поле | Что означает | Значения |
+      | --- | --- | --- |
+      | `emp_specialization_oper_code` | Операционная специализация | HQ / nonHQ |
+      | `emp_specialization_it_code` | IT-специализация | IT / nonIT |
+      | `active_type_nm` | Тип активности | Активная / Прочая |
+      | `employee_stream_desc` | Стрим направления | Back-end, Front-end, Analytics, и т.д. |
+      | `experience_group_nm` | Группа стажа | Например: 0-1 год, 1-3 года, 3+ лет |
+      | `employment_relation_type_desc` |  | Штат / ГПД |
+
+      hr_digest_office - посещаемость офиса
+    isEnabled: true
+  - sid: 01a0d388-8101-70b1-b14b-4d0cb0a52d9b
+    title: Схема
+    shebang: md
+    code: |-
+      # Схема выполнения ноутбука Team Pulse (TP 2.0)
+
+      ```
+      [Подготовка]  →  [Структура]  →  [Динамика численности]  →  [Отток накопительно]
+              ↘  [инициатива-причины] → [стаж+причины] → [Атрибуты оттока]
+              ↘  [Изменения по подразделениям] → [По специализации] → [Выгрузка в ClickHouse]
+      ```
+
+      ## 1. Подготовка `[0–7]`
+      - `tables_wait` — ожидание готовности источников (`tactuality`)
+      - `Проверка готовности таблиц` (dal)
+      - **`get_hr_structure`** — определение функций:
+        `get_hr_structure` · `get_hr_transfers` · `get_type_flg`
+      - **`last_day`** — контейнер «базовая структура» (11 вызовов):
+        `last_day`, `last_day_flg`, `ottok_em`, `naym_em`, `plus_deet`, `minus_deet`,
+        `izmen_last_day_flg1`, `izmen_ottok_em`, `izmen_naym_em`, `izmen_plus_deet`, `izmen_minus_deet`
+      - `ys_all_last_day_ottok_naym` → **ClickHouse**
+
+      ## 2. Динамика численности `[8–38]`
+      - **`last_day_of_month`** — контейнер «type_flg» (9 вызовов):
+        `last_day_of_month`, `ottok_employee`, `naym_employee` (осн.), izmen-варианты, спец-варианты
+      - `skeleton` → `last_day_ottok_naym_all`
+      - `pre_perevody_plus` → `perevody_plus`
+      - `pre_perevody_minus` → `perevody_minus`
+      - `dinamika_aktivnoy_chislennosti` → `ys_all_dinamika_aktivnoy_chislennosti` → **CH**
+      - `ys_all_waterfall_chislennosti` → **CH**
+      - Переводы по типам: `shtat/gpd/all_employees(_perevody_plus)` → `union_perevody_plus`
+        `shtat_pl/gpd_pl/all(_perevody_minus)` → `union_perevody_minus`
+      - `ys_all_waterfall_perevody` → **CH**
+
+      ## 3. Отток накопительно `[39–45]`
+      - `dett` (детализация по сотрудникам)
+      - `fire_initiative` → `ys_all_fire_initiative` → **CH**
+      - `ML` (userlabs_tools — тестовая модель текучести)
+
+      ## 4. инициатива-причины оттока `[46–59]`
+      - `sl_gpd_ottok_count_reason_group` + `sl_gpd_employee_count_reason_group` → `sl_gpd_fire_reason_a_reason_group`
+      - `initiative_reason`
+      - `ottok_initiative` → `initiative`
+      - `fire_initiative`
+      - `ottok_unit` → `unit_t` → `unit_tekuchest_ottok_all`
+      - `initiative_reason_unit_tekuchest` → **CH**
+
+      ## 5. стаж+причины `[60–71]`
+      - `experience_sl_gpd_ottok/employee_count_reason_group` → `experience_sl_gpd_fire_reason_a_reason_group`
+      - `experience_initiative_reason`
+      - `experience_ottok_initiative` → `experience_initiative`
+      - `experience_fire_initiative`
+      - `experience_initiative_reason_unit_tekuchest` → **CH**
+
+      ## 6. Атрибуты оттока `[72–79]`
+      - `atribyti_ottoka_det`
+      - `type_atributy_ottoka1` → `type_atributy_ottoka` → **CH**
+      - `type_atributy_ottoka12` → `type_atributy_ottoka_year` → **CH**
+
+      ## 7. Изменения по подразделениям `[80–94]`
+      - `izmen_skeleton` → `izmen_last_day_ottok_naym_all`
+      - `izmen_pre_perevody_plus` → `izmen_perevody_plus`
+      - `izmen_pre_perevody_minus` → `izmen_perevody_minus`
+      - `izmen_scelet`
+      - `ys_all_dinamika_aktivnoy_chislennosti`
+      - `izmeneniye_po_podrazdeleniyam1` → `type_flg_izmeneniye_po_podrazdeleniyam` → **CH**
+
+      ## 8. По специализации `[95–99]`
+      - `skeleton`
+      - `last_day_ottok_naym_all`
+      - `type_flg_stream_ottoka_year` → **CH**
+
+      ## 9. Финал `[100–101]`
+      - `owners` (`get_table_owners`) — проставление владельцев
+      - `Untitled 3` — отладочный `select type_hire`
+
+      ---
+
+      ## Граф зависимостей (упрощённо)
+
+      ```
+                       ┌─────────────── get_hr_structure (функции) ───────────────┐
+                       ▼                                                        ▼
+         last_day (структура: 11 таблиц)                        last_day_of_month (type_flg: 9 таблиц)
+                       │                                                        │
+         ┌─────────────┼──────────────┬───────────────┐                         ▼
+         ▼              ▼               skeleton → last_day_ottok_naym_all
+       dett      pre_perevody   initiat-reason   experience-*                ▼
+         │                ys_all_waterfall_* / dinamika → CH
+         ▼             ▼              ▼               ▼
+       ys_all_* → CH  perevody_*   unit_tekuchest   experience_..._unit_tekuchest
+                       ▼              │               │
+                   waterfall → CH     ▼               ▼
+                                   → CH            → CH
+      ```
+
+      > **Обозначения:** `→ CH` — выгрузка в ClickHouse; `[a–b]` — номера параграфов; отключённые блоки (`isEnabled=false`) не выполняются.
+    isEnabled: true
+  - sid: 019f26e1-05d1-7577-8ea5-0700ff1dc555
+    title: "step1: tables_wait"
+    shebang: python_condition
+    code: "from tactuality import tables_wait\r\n\r\ntables_wait(\r\n    tables=[\"usr_cross_data.hr_executive_proteus\"],\r\n    gp_service=\"cross\"\r\n)"
+    isEnabled: true
+  - sid: 019f2299-40f1-7b64-9455-eb733df5e8de
+    title: "step2: Проверка готовности таблиц через DAL"
+    shebang: python_condition
+    code: "from dal_client import query as dal\r\n\r\ntables = [\r\n    'usr_cross_data.hr_executive_proteus'\r\n\r\n]\r\n\r\n# Проверка готовности таблиц через DAL\r\nfor table in tables:\r\n    try:\r\n        df = dal.get_df(\r\n            datasource='gp',\r\n            query=f'SELECT 1 FROM {table} LIMIT 1',\r\n        )\r\n        if df.empty:\r\n            raise Exception(f'Table {table} is empty or not ready')\r\n    except Exception as e:\r\n        raise Exception(f'Table {table} is not ready: {str(e)}')\r\n\r\nprint('All tables are ready')"
+    isEnabled: true
+  - sid: 01a13a77-0eca-76de-aca8-e9c0a7e215f1
+    title: _PARAMS_
+    shebang: python
+    code: |-
+      # =============================================================================
+      # Блок 1 — конфигурация
+      # =============================================================================
+
+      UNIT_NA = '-'          # заглушка отсутствующего юнита
+      DIM_SRC = 'eom'        # 'eom' — измерения на конец месяца, 'day' — по дням
+
+      # ── измерения с фиксированной трансформацией ────────────────────────────────
+      FIXED_DIMS = [
+          {'alias': 'active_type_gr_nm',
+           'cols': ['active_type_nm'],
+           'expr': "CASE WHEN active_type_nm IN ('Активная','Подрядчики') "
+                   "THEN 'Активная' ELSE 'Прочие' END"},
+          {'alias': 'emp_specialization_it_code',
+           'cols': ['emp_specialization_it_code'],
+           'expr': "CASE WHEN emp_specialization_it_code = 'IT' "
+                   "THEN 'IT' ELSE 'nonIT' END"},
+          {'alias': 'employment_relation_type_gr_nm',
+           'cols': ['employment_relation_type_desc'],
+           'expr': "CASE WHEN employment_relation_type_desc = 'Штатный сотрудник' "
+                   "THEN 'штат' ELSE 'не штат' END"},
+      ]
+
+      # ── найм ────────────────────────────────────────────────────────────────────
+      HIRE_PARAMS = {
+          'cols': ['hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg'],
+          'active_dim': 'active_type_gr_nm',   # ссылка на FIXED_DIMS, не на сырую колонку
+          'active_value': 'Активная',          # значение после трансформации
+      }
+
+      # ── отток ───────────────────────────────────────────────────────────────────
+      OUTFLOW_PARAMS = {
+          'cols': ['fire_flg', 'regrettable_fire_flg'],
+      }
+
+      # ── переводы ────────────────────────────────────────────────────────────────
+      TRANSFER_PARAMS = {
+          # детектор события: флаги источника
+          'use_lvl_flag':  True,          # lvlN_mngt_unit_in/out_trsf_flg
+          'use_type_flag': True,          # transfer_to_* / transfer_out_*
+          'type_in_flags': [
+              'transfer_to_active_type_flg', 'transfer_to_hq_flg',
+              'transfer_to_it_flg', 'transfer_to_specialization_flg',
+              'transfer_to_stream_flg', 'transfer_to_employment_relation_type_flg',
+          ],
+          'type_out_flags': [
+              'transfer_out_active_type_flg', 'transfer_out_hq_flg',
+              'transfer_out_it_flg', 'transfer_out_specialization_flg',
+              'transfer_out_stream_flg', 'transfer_out_employment_relation_type_flg',
+          ],
+          # уровень перевода: сравнение путей юнитов
+          'use_unit_path': True,          # out только если старый юнит реальный и сменился
+          'type_flag_lvl': 1,             # неюнитовый перевод виден на всех уровнях
+          'unit_only': False,             # True — игнорировать type-флаги без смены юнита
+          # исключения
+          'exclude_candidate': True,
+          'exclude_internal':  True,
+          'exclude_hire':      True,
+          'exclude_fire':      True,
+          # имена колонок результата
+          'in_metric':  'transfer_in_amt',
+          'out_metric': 'transfer_out_amt',
+          'in_lvl_col':  'transfer_in_lvl',
+          'out_lvl_col': 'transfer_out_lvl',
+      }
+    isEnabled: true
+  - sid: 01a13a78-705f-77aa-8375-255b6006d1ed
+    title: build_all_metrics
+    shebang: python
+    code: |-
+      # =============================================================================
+      # Блок 2 — build_all_metrics
+      #   юнит          — по дням (разрывает строки: уход и приход видны раздельно)
+      #   измерения     — на конец месяца (не дробят строки при смене стажа/грейда)
+      #   события       — по дням, max() за месяц
+      #   hc            — только последний день месяца
+      #   уровень перевода — сравнение пути юнитов с соседним снимком
+      #   результат     — один mng_unit_rk (лист) + полная цепочка lvl1_nm..lvlN_nm
+      # =============================================================================
+      from dal_client import query as dal
+      import re as _re
+      _IDENT_RE = _re.compile(r'^[A-Za-z_][A-Za-z0-9_$]*$')
+      _W_EOM = ("PARTITION BY date_trunc('month', calendar_dt), mdm_employee_rk "
+                "ORDER BY calendar_dt::date DESC")
+      _W_HIST = "PARTITION BY mdm_employee_rk ORDER BY calendar_dt"
+
+      def _ident(n: str) -> str:
+          if not _IDENT_RE.match(n):
+              raise ValueError(f'bad ident: {n!r}')
+          return n
+
+      def _qualified(t: str) -> str:
+          return '.'.join(_ident(p) for p in t.split('.'))
+
+      def _lit(v) -> str:
+          return "'" + str(v).replace("'", "''") + "'"
+
+      def _in_list(vals) -> str:
+          return ', '.join(_lit(v) for v in vals)
+
+      def _source_cols(table: str) -> set:
+          parts = table.split('.')
+          tbl = _ident(parts[-1])
+          sch = (f"table_schema = '{_ident(parts[0])}'" if len(parts) == 2
+                 else "table_schema not in ('pg_catalog','information_schema','pg_toast')")
+          df = dal.get_df(datasource='gp', query=f"""
+              select column_name from information_schema.columns
+              where {sch} and table_name = '{tbl}'""")
+          if df.empty:
+              raise ValueError(f'table {table!r} not found')
+          return {c.lower() for c in df['column_name']}
+
+      def _flg(col: str) -> str:
+          """'0'/'1'/'-'/NULL → int 0/1 без каста в numeric."""
+          return f"(coalesce({col}::text,'0') = '1')::int"
+
+      def _unit(i: int) -> str:
+          return f"coalesce(lvl{i}_mapped_management_unit_rk::text,{_lit(UNIT_NA)})"
+
+      def _lvl_ladder(levels, cur: str, other: str) -> str:
+          """Самый верхний уровень, где cur — реальный юнит и отличается от other."""
+          whens = ' '.join(
+              f"WHEN {cur}[{pos}] <> {_lit(UNIT_NA)} AND {other}[{pos}] IS NOT NULL "
+              f"AND {cur}[{pos}] <> {other}[{pos}] THEN {n}"
+              for pos, n in enumerate(levels, start=1))
+          return f'CASE {whens} END'
+
+      # ─────────────────────────────────────────────────────────────────────────────
+      def build_all_metrics(
+          res_table_name: str,
+          source_table: str = 'usr_cross_data.hr_executive_proteus',
+          fields=None,
+          date_from: str | None = None,
+          n_levels: int = 11,
+          hire: bool = True,
+          outflow: bool = True,
+          transfers: bool = True,
+          transfer_params: dict | None = None,
+          where: str = '',
+          distributed_by=None,
+          debug: bool = False,
+      ):
+          source_table = _qualified(source_table)
+          res_table_name = _qualified(res_table_name)
+          src = _source_cols(source_table)
+          has = lambda c: bool(c) and c.lower() in src
+          date_from = date_from or \
+              "date_trunc('year', (current_date - interval '2 year')::date)"
+          tp = {**TRANSFER_PARAMS, **(transfer_params or {})}
+          hp, op = HIRE_PARAMS, OUTFLOW_PARAMS
+          levels = [i for i in range(1, n_levels + 1)
+                    if has(f'lvl{i}_mapped_management_unit_rk')]
+          if not levels:
+              raise ValueError('no lvlN_mapped_management_unit_rk columns')
+
+          snap, nm_agg, events = [], [], []
+          id_keys  = ['report_month', 'mdm_employee_rk']   # идентификация
+          unit_keys = ['mng_unit_rk', 'leaf_lvl']          # цепочка (ключевая часть)
+          dim_keys  = []                                   # разрезы
+
+          snap.append("date_trunc('month', calendar_dt)::date AS report_month")
+          snap.append('mdm_employee_rk')
+
+          # ── юниты: по дням (rk нужны только для вычисления листа и имён) ────────
+          for i in levels:
+              snap.append(f'{_unit(i)} AS lvl{i}_rk')
+              if has(f'lvl{i}_mapped_management_unit_nm'):
+                  snap.append(f"coalesce(lvl{i}_mapped_management_unit_nm::text,"
+                              f"{_lit(UNIT_NA)}) AS lvl{i}_nm")
+                  nm_agg.append(f'max(lvl{i}_nm) AS lvl{i}_nm')
+
+          # ── измерения: на конец месяца ──────────────────────────────────────────
+          def add_dim(expr: str, alias: str):
+              snap.append(f'first_value({expr}) OVER w_eom AS {alias}'
+                          if DIM_SRC == 'eom' else f'{expr} AS {alias}')
+              dim_keys.append(alias)
+
+          for d_ in FIXED_DIMS:
+              if all(has(c) for c in d_['cols']):
+                  add_dim(d_['expr'], _ident(d_['alias']))
+              else:
+                  print(f"[WARN] {d_['alias']}: нет колонок {d_['cols']}, пропущено")
+
+          for f in (fields or []):
+              if isinstance(f, str):
+                  f = {'name': f}
+              name, alias = f['name'], _ident(f.get('alias') or f['name'])
+              if not has(name):
+                  print(f'[WARN] {name} нет в источнике, пропущен'); continue
+              if alias in id_keys + unit_keys + dim_keys:
+                  print(f'[SKIP] {alias} уже в ключах'); continue
+              if 'match' in f:
+                  vals = f['match'] if isinstance(f['match'], (list, tuple, set)) else [f['match']]
+                  expr = (f'CASE WHEN {name} IN ({_in_list(vals)}) '
+                          f"THEN {_lit(f['match_label'])} ELSE {_lit(f['other_label'])} END")
+              else:
+                  expr = f'coalesce({name}::text,{_lit(UNIT_NA)})'
+              add_dim(expr, alias)
+
+          # ── флаги событий: по дням ──────────────────────────────────────────────
+          if hire:
+              for c in ('hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg'):
+                  if has(c):
+                      snap.append(f'{_flg(c)} AS {c}')
+                      events.append(c)
+          if outflow:
+              for c in ('fire_flg', 'regrettable_fire_flg'):
+                  if has(c):
+                      snap.append(f'{_flg(c)} AS {c}')
+              if has('fire_flg'):
+                  events.append('fire_flg')
+
+          # ── переводы: детектор события + путь юнитов ────────────────────────────
+          if transfers:
+              for kind, flag_key in (('in', 'type_in_flags'), ('out', 'type_out_flags')):
+                  lvl_parts, type_parts = [], []
+                  if tp.get('use_lvl_flag', True):
+                      lvl_parts = [f"coalesce(lvl{i}_mngt_unit_{kind}_trsf_flg::text,'0')='1'"
+                                   for i in levels
+                                   if has(f'lvl{i}_mngt_unit_{kind}_trsf_flg')]
+                  if tp.get('use_type_flag', True):
+                      type_parts = [f"coalesce({c}::text,'0')='1'"
+                                    for c in tp.get(flag_key, []) if has(c)]
+                  if lvl_parts:
+                      snap.append(f"({' OR '.join(lvl_parts)})::int AS {kind}_unit_evt")
+                  if type_parts:
+                      snap.append(f"({' OR '.join(type_parts)})::int AS {kind}_type_evt")
+              arr = 'ARRAY[' + ', '.join(_unit(i) for i in levels) + ']'
+              snap.append(f'{arr} AS path_cur')
+              snap.append(f'lag({arr}) OVER w_hist  AS path_prev')
+              snap.append(f'lead({arr}) OVER w_hist AS path_next')
+          snap.append('row_number() OVER w_eom AS rn')
+
+          # ── CTE d: leaf_lvl, mng_unit_rk, уровни переводов, исключения ──────────
+          leaf = ' '.join(f"WHEN lvl{i}_rk <> {_lit(UNIT_NA)} THEN {i}"
+                          for i in reversed(levels))
+          pick = ' '.join(f"WHEN lvl{i}_rk <> {_lit(UNIT_NA)} THEN lvl{i}_rk"
+                          for i in reversed(levels))
+          d = [f'CASE {pick} ELSE lvl{levels[0]}_rk END AS mng_unit_rk',
+               f'CASE {leaf} ELSE {levels[0]} END AS leaf_lvl']
+          if transfers:
+              excl = {
+                  'in': [f'{c} = 0' for c, k in (
+                      ('transfer_candidate_flg', 'exclude_candidate'),
+                      ('transfer_internal_flg', 'exclude_internal'),
+                      ('hire_flg', 'exclude_hire')) if tp.get(k, True) and has(c)],
+                  'out': [f'{c} = 0' for c, k in (('fire_flg', 'exclude_fire'),)
+                          if tp.get(k, True) and has(c)],
+              }
+              for kind in ('in', 'out'):
+                  other = 'path_prev' if kind == 'in' else 'path_next'
+                  unit_lvl = (_lvl_ladder(levels, 'path_cur', other)
+                              if tp.get('use_unit_path', True) else 'NULL::int')
+                  src_parts = [f'CASE WHEN {kind}_unit_evt = 1 THEN {unit_lvl} END']
+                  if not tp.get('unit_only', False):
+                      src_parts.append(
+                          f"CASE WHEN {kind}_type_evt = 1 THEN {tp.get('type_flag_lvl', 1)} END")
+                  lvl_expr = f"least({', '.join(src_parts)})" if len(src_parts) > 1 \
+                      else src_parts[0]
+                  guard = ' AND '.join(excl[kind]) if excl[kind] else None
+                  if guard:
+                      lvl_expr = f'CASE WHEN {guard} THEN {lvl_expr} END'
+                  d.append(f'({lvl_expr}) AS {kind}_lvl')
+                  events.append(f'({kind}_lvl IS NOT NULL)::int')
+
+          # ── метрики ─────────────────────────────────────────────────────────────
+          m = ['max((rn = 1)::int) AS hc_total_cnt']
+          if 'active_type_gr_nm' in dim_keys:
+              m.append("max((rn = 1 AND active_type_gr_nm = 'Активная')::int) "
+                       'AS hc_active_cnt')
+          if hire:
+              adim = hp.get('active_dim')
+              aval = hp.get('active_value')
+              if has('hire_flg'):
+                  if adim and adim in dim_keys and aval:
+                      m.append(f"max((hire_flg = 1 AND {adim} = {_lit(aval)})::int) "
+                               f"AS hire_amt")
+                  else:
+                      m.append('max(hire_flg) AS hire_amt')
+              if has('transfer_candidate_flg'):
+                  m.append('max(transfer_candidate_flg) AS transfer_candidate_amt')
+              if has('transfer_internal_flg'):
+                  m.append('max(transfer_internal_flg) AS transfer_internal_amt')
+          if outflow and has('fire_flg'):
+              m.append('max(fire_flg) AS fire_amt')
+              if has('regrettable_fire_flg'):
+                  m.append('max((fire_flg = 1 AND regrettable_fire_flg = 1)::int) '
+                           'AS regret_fire_amt')
+          if transfers:
+              for kind, mk, lk, ek in (('in',  'in_metric',  'in_lvl_col',  'emit_in_lvl'),
+                                       ('out', 'out_metric', 'out_lvl_col', 'emit_out_lvl')):
+                  m.append(f'max(({kind}_lvl IS NOT NULL)::int) AS {tp[mk]}')
+                  if tp.get(ek, True):
+                      m.append(f'coalesce(min({kind}_lvl), 0) AS {tp[lk]}')
+
+          having = f'HAVING max({" + ".join(["(rn = 1)::int"] + events)}) > 0'
+
+          # ── порядок вывода: id → цепочка → разрезы → метрики ────────────────────
+          group_keys  = id_keys + unit_keys + dim_keys
+          select_cols = id_keys + unit_keys + nm_agg + dim_keys + m
+
+          sql = f"""
+      WITH snap AS (
+          SELECT
+              {(',' + chr(10) + '        ').join(snap)}
+          FROM {source_table}
+          WHERE calendar_dt::date >= {date_from}
+            {f'AND ({where})' if where else ''}
+          WINDOW w_eom  AS ({_W_EOM}),
+                 w_hist AS ({_W_HIST})
+      ),
+      d AS (
+          SELECT
+              {(',' + chr(10) + '        ').join(['s.*'] + d)}
+          FROM snap s
+      )
+      SELECT
+          {(',' + chr(10) + '    ').join(select_cols)}
+      FROM d
+      GROUP BY {', '.join(group_keys)}
+      {having}"""
+          print(f'[INFO] levels={len(levels)} group_keys={len(group_keys)} '
+                f'dims={len(dim_keys)} metrics={len(m)} nm={len(nm_agg)}')
+          if debug:
+              print(sql)
+              return sql
+          dist = (f"distributed by ({', '.join(_ident(c) for c in distributed_by)})"
+                  if distributed_by else 'distributed randomly')
+          dal.get_df(datasource='gp', query=f'drop table if exists {res_table_name}')
+          dal.get_df(datasource='gp',
+                     query=f'create table {res_table_name} as\n{sql}\n{dist}')
+          dal.get_df(datasource='gp', query=f'analyze {res_table_name}')
+          cnt = dal.get_df(datasource='gp',
+                           query=f'select count(*) as cnt from {res_table_name}')['cnt'].iloc[0]
+          print(f'[OK] {res_table_name}: {cnt} rows')
+    isEnabled: true
+  - sid: 01a13a78-bc3c-74f0-bbe9-c731727882be
+    title: EXEC build_all_metrics
+    shebang: python
+    code: "fields = [\n    # простая строка — coalesce(col::text, '-')\n    'gender',\n    'type_age',\n    'experience_group_nm',\n    'grade',\n    'seniority',\n    # 'active_count_flg',\n    # 'fire_reason',\n    'fire_reason_group',\n    'fire_initiative',\n    # dict без match — то же самое, но с явным alias\n    {'name': 'employment_relation_type_desc', 'alias': 'employment_relation_type'},\n    {'name': 'employee_contract_type_desc',   'alias': 'employee_contract_type'},\n    {'name': 'lvl1_legal_unit_nm',            'alias': 'legal_organization'},\n    {'name': 'employee_stream_desc',          'alias': 'employee_stream'},\n    # dict с match — CASE WHEN ... IN (...) THEN ... ELSE ...\n    # новый разрез добавляется сюда, код функции не трогаем\n    # {'name': 'work_format_desc', 'alias': 'work_format',\n    #  'match': 'Офис', 'match_label': 'офис', 'other_label': 'не офис'},\n]\n\nbuild_all_metrics(\n    res_table_name='all_metrics',\n    source_table='usr_cross_data.hr_executive_proteus',\n    fields=fields,\n    \n    hire=True,\n    outflow=True,\n    transfers=True,\n    # debug = True\n)"
+    isEnabled: true
+  - sid: 01a14071-83c6-7170-a4b7-362cee053d9d
+    title: org_structure
+    shebang: gp
+    code: |-
+      DROP TABLE IF EXISTS org_structure;
+      CREATE TABLE org_structure AS
+
+      SELECT
+          report_month,
+          mng_unit_rk,
+          leaf_lvl,
+          lvl1_nm,
+          lvl2_nm,
+          lvl3_nm,
+          lvl4_nm,
+          lvl5_nm,
+          lvl6_nm,
+          lvl7_nm,
+          lvl8_nm,
+          lvl9_nm,
+          lvl10_nm,
+          lvl11_nm
+          -- ── метрики: сумма по всем разрезам внутри юнита ──
+      FROM all_metrics
+      GROUP BY
+          report_month,
+          mng_unit_rk,
+          leaf_lvl,
+          lvl1_nm, lvl2_nm, lvl3_nm, lvl4_nm, lvl5_nm,
+          lvl6_nm, lvl7_nm, lvl8_nm, lvl9_nm, lvl10_nm, lvl11_nm
+
+      DISTRIBUTED BY (mng_unit_rk);
+
+      ANALYZE org_structure;
+    isEnabled: true
+  - sid: 01a139e2-b97a-77a8-b50f-09ccb3f6b61f
+    title: Untitled 2
+    shebang: gp
+    code: "-- drop table if exists all_metrics ;\n-- create table all_metrics as\n\n\nWITH snap AS (\n        SELECT\n            date_trunc('month', calendar_dt::date)::date AS report_month,\n        mdm_employee_rk,\n        coalesce(lvl1_mapped_management_unit_rk::text,'-') AS lvl1_rk,\n        coalesce(lvl1_mapped_management_unit_nm::text,'-') AS lvl1_nm,\n        coalesce(lvl2_mapped_management_unit_rk::text,'-') AS lvl2_rk,\n        coalesce(lvl2_mapped_management_unit_nm::text,'-') AS lvl2_nm,\n        coalesce(lvl3_mapped_management_unit_rk::text,'-') AS lvl3_rk,\n        coalesce(lvl3_mapped_management_unit_nm::text,'-') AS lvl3_nm,\n        coalesce(lvl4_mapped_management_unit_rk::text,'-') AS lvl4_rk,\n        coalesce(lvl4_mapped_management_unit_nm::text,'-') AS lvl4_nm,\n        coalesce(lvl5_mapped_management_unit_rk::text,'-') AS lvl5_rk,\n        coalesce(lvl5_mapped_management_unit_nm::text,'-') AS lvl5_nm,\n        coalesce(lvl6_mapped_management_unit_rk::text,'-') AS lvl6_rk,\n        coalesce(lvl6_mapped_management_unit_nm::text,'-') AS lvl6_nm,\n        coalesce(lvl7_mapped_management_unit_rk::text,'-') AS lvl7_rk,\n        coalesce(lvl7_mapped_management_unit_nm::text,'-') AS lvl7_nm,\n        coalesce(lvl8_mapped_management_unit_rk::text,'-') AS lvl8_rk,\n        coalesce(lvl8_mapped_management_unit_nm::text,'-') AS lvl8_nm,\n        coalesce(lvl9_mapped_management_unit_rk::text,'-') AS lvl9_rk,\n        coalesce(lvl9_mapped_management_unit_nm::text,'-') AS lvl9_nm,\n        coalesce(lvl10_mapped_management_unit_rk::text,'-') AS lvl10_rk,\n        coalesce(lvl10_mapped_management_unit_nm::text,'-') AS lvl10_nm,\n        coalesce(lvl11_mapped_management_unit_rk::text,'-') AS lvl11_rk,\n        coalesce(lvl11_mapped_management_unit_nm::text,'-') AS lvl11_nm,\n        CASE WHEN active_type_nm IN ('Активная','Подрядчики') THEN 'Активная' ELSE 'Прочие' END AS active_type_gr_nm,\n        CASE WHEN emp_specialization_it_code = 'IT' THEN 'IT' ELSE 'nonIT' END AS emp_specialization_it_code,\n        CASE WHEN employment_relation_type_desc = 'Штатный сотрудник' THEN 'штат' ELSE 'не штат' END AS employment_relation_type_gr_nm,\n        coalesce(gender::text,'-') AS gender,\n        coalesce(type_age::text,'-') AS type_age,\n        coalesce(experience_group_nm::text,'-') AS experience_group_nm,\n        coalesce(grade::text,'-') AS grade,\n        coalesce(seniority::text,'-') AS seniority,\n        coalesce(employment_relation_type_desc::text,'-') AS employment_relation_type,\n        coalesce(employee_contract_type_desc::text,'-') AS employee_contract_type,\n        coalesce(lvl1_legal_unit_nm::text,'-') AS legal_organization,\n        coalesce(employee_stream_desc::text,'-') AS employee_stream,\n        hire_flg,\n        transfer_candidate_flg,\n        transfer_internal_flg,\n        fire_flg,\n        regrettable_fire_flg,\n        coalesce(active_type_nm::text,'-') AS active_type_nm,\n        (coalesce(lvl1_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl2_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl3_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl4_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl5_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl6_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl7_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl8_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl9_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl10_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl11_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(transfer_to_active_type_flg::text,'0')='1' OR coalesce(transfer_to_hq_flg::text,'0')='1' OR coalesce(transfer_to_it_flg::text,'0')='1' OR coalesce(transfer_to_specialization_flg::text,'0')='1' OR coalesce(transfer_to_stream_flg::text,'0')='1' OR coalesce(transfer_to_employment_relation_type_flg::text,'0')='1')::int AS in_flg,\n        (coalesce(lvl1_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl2_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl3_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl4_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl5_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl6_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl7_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl8_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl9_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl10_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl11_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(transfer_out_active_type_flg::text,'0')='1' OR coalesce(transfer_out_hq_flg::text,'0')='1' OR coalesce(transfer_out_it_flg::text,'0')='1' OR coalesce(transfer_out_specialization_flg::text,'0')='1' OR coalesce(transfer_out_stream_flg::text,'0')='1' OR coalesce(transfer_out_employment_relation_type_flg::text,'0')='1')::int AS out_flg,\n        row_number() OVER (PARTITION BY date_trunc('month', calendar_dt::date), mdm_employee_rk ORDER BY calendar_dt DESC) AS rn\n        FROM usr_cross_data.hr_executive_proteus\n        WHERE calendar_dt::date >= date_trunc('year', (current_date - interval '2 year')::date)\n        and mdm_employee_rk = 614029\n          \n    ),\n    d AS (\n        SELECT\n            s.*,\n        CASE WHEN lvl11_rk <> '-' THEN 11 WHEN lvl10_rk <> '-' THEN 10 WHEN lvl9_rk <> '-' THEN 9 WHEN lvl8_rk <> '-' THEN 8 WHEN lvl7_rk <> '-' THEN 7 WHEN lvl6_rk <> '-' THEN 6 WHEN lvl5_rk <> '-' THEN 5 WHEN lvl4_rk <> '-' THEN 4 WHEN lvl3_rk <> '-' THEN 3 WHEN lvl2_rk <> '-' THEN 2 WHEN lvl1_rk <> '-' THEN 1 ELSE 1 END AS leaf_lvl,\n        (in_flg = 1 AND transfer_candidate_flg = 0 AND transfer_internal_flg = 0 AND hire_flg = 0)::int AS trsf_in_flg,\n        (out_flg = 1 AND fire_flg = 0)::int AS trsf_out_flg\n        FROM snap s\n    )\n    SELECT\n        report_month,\n    mdm_employee_rk,\n    lvl1_rk,\n    lvl2_rk,\n    lvl3_rk,\n    lvl4_rk,\n    lvl5_rk,\n    lvl6_rk,\n    lvl7_rk,\n    lvl8_rk,\n    lvl9_rk,\n    lvl10_rk,\n    lvl11_rk,\n    active_type_gr_nm,\n    emp_specialization_it_code,\n    employment_relation_type_gr_nm,\n    gender,\n    type_age,\n    experience_group_nm,\n    grade,\n    seniority,\n    employment_relation_type,\n    employee_contract_type,\n    legal_organization,\n    employee_stream,\n    leaf_lvl,\n    max(lvl1_nm) AS lvl1_nm,\n    max(lvl2_nm) AS lvl2_nm,\n    max(lvl3_nm) AS lvl3_nm,\n    max(lvl4_nm) AS lvl4_nm,\n    max(lvl5_nm) AS lvl5_nm,\n    max(lvl6_nm) AS lvl6_nm,\n    max(lvl7_nm) AS lvl7_nm,\n    max(lvl8_nm) AS lvl8_nm,\n    max(lvl9_nm) AS lvl9_nm,\n    max(lvl10_nm) AS lvl10_nm,\n    max(lvl11_nm) AS lvl11_nm,\n    max((rn = 1)::int) AS hc_total_cnt,\n    max((rn = 1 AND active_type_gr_nm = 'Активная')::int) AS hc_active_cnt,\n    max(hire_flg) AS hire_cnt,\n    max((hire_flg = 1 AND active_type_nm = 'Активная')::int) AS hire_amt,\n    max((hire_flg = 1 AND active_type_nm IN ('Активная','Подрядчики'))::int) AS hire_to_active_amt,\n    max(transfer_candidate_flg) AS transfer_candidate_amt,\n    max(transfer_internal_flg) AS transfer_internal_amt,\n    max(fire_flg) AS fire_amt,\n    max((fire_flg = 1 AND regrettable_fire_flg = 1)::int) AS regret_fire_amt,\n    max(trsf_in_flg) AS transfer_in_amt,\n    max(trsf_out_flg) AS transfer_out_amt\n    FROM d\n    GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26\n    HAVING max((rn = 1)::int + hire_flg + transfer_candidate_flg + transfer_internal_flg + fire_flg + trsf_in_flg + trsf_out_flg) > 0\n\"\\n    WITH snap AS (\\n        SELECT\\n            date_trunc('month', calendar_dt::date)::date AS report_month,\\n        mdm_employee_rk,\\n        coalesce(lvl1_mapped_management_unit_rk::text,'-') AS lvl1_rk,\\n        coalesce(lvl1_mapped_management_unit_nm::text,'-') AS lvl1_nm,\\n        coalesce(lvl2_mapped_management_unit_rk::text,'-') AS lvl2_rk,\\n        coalesce(lvl2_mapped_management_unit_nm::text,'-') AS lvl2_nm,\\n        coalesce(lvl3_mapped_management_unit_rk::text,'-') AS lvl3_rk,\\n        coalesce(lvl3_mapped_management_unit_nm::text,'-') AS lvl3_nm,\\n        coalesce(lvl4_mapped_management_unit_rk::text,'-') AS lvl4_rk,\\n        coalesce(lvl4_mapped_management_unit_nm::text,'-') AS lvl4_nm,\\n        coalesce(lvl5_mapped_management_unit_rk::text,'-') AS lvl5_rk,\\n        coalesce(lvl5_mapped_management_unit_nm::text,'-') AS lvl5_nm,\\n        coalesce(lvl6_mapped_management_unit_rk::text,'-') AS lvl6_rk,\\n        coalesce(lvl6_mapped_management_unit_nm::text,'-') AS lvl6_nm,\\n        coalesce(lvl7_mapped_management_unit_rk::text,'-') AS lvl7_rk,\\n        coalesce(lvl7_mapped_management_unit_nm::text,'-') AS lvl7_nm,\\n        coalesce(lvl8_mapped_management_unit_rk::text,'-') AS lvl8_rk,\\n        coalesce(lvl8_mapped_management_unit_nm::text,'-') AS lvl8_nm,\\n        coalesce(lvl9_mapped_management_unit_rk::text,'-') AS lvl9_rk,\\n        coalesce(lvl9_mapped_management_unit_nm::text,'-') AS lvl9_nm,\\n        coalesce(lvl10_mapped_management_unit_rk::text,'-') AS lvl10_rk,\\n        coalesce(lvl10_mapped_management_unit_nm::text,'-') AS lvl10_nm,\\n        coalesce(lvl11_mapped_management_unit_rk::text,'-') AS lvl11_rk,\\n        coalesce(lvl11_mapped_management_unit_nm::text,'-') AS lvl11_nm,\\n        CASE WHEN active_type_nm IN ('Активная','Подрядчики') THEN 'Активная' ELSE 'Прочие' END AS active_type_gr_nm,\\n        CASE WHEN emp_specialization_it_code = 'IT' THEN 'IT' ELSE 'nonIT' END AS emp_specialization_it_code,\\n        CASE WHEN employment_relation_type_desc = 'Штатный сотрудник' THEN 'штат' ELSE 'не штат' END AS employment_relation_type_gr_nm,\\n        coalesce(gender::text,'-') AS gender,\\n        coalesce(type_age::text,'-') AS type_age,\\n        coalesce(experience_group_nm::text,'-') AS experience_group_nm,\\n        coalesce(grade::text,'-') AS grade,\\n        coalesce(seniority::text,'-') AS seniority,\\n        coalesce(employment_relation_type_desc::text,'-') AS employment_relation_type,\\n        coalesce(employee_contract_type_desc::text,'-') AS employee_contract_type,\\n        coalesce(lvl1_legal_unit_nm::text,'-') AS legal_organization,\\n        coalesce(employee_stream_desc::text,'-') AS employee_stream,\\n        (coalesce(hire_flg::text,'0') = '1')::int AS hire_flg,\\n        (coalesce(transfer_candidate_flg::text,'0') = '1')::int AS transfer_candidate_flg,\\n        (coalesce(transfer_internal_flg::text,'0') = '1')::int AS transfer_internal_flg,\\n        (coalesce(fire_flg::text,'0') = '1')::int AS fire_flg,\\n        (coalesce(regrettable_fire_flg::text,'0') = '1')::int AS regrettable_fire_flg,\\n        coalesce(active_type_nm::text,'-') AS active_type_nm,\\n        (coalesce(lvl1_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl2_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl3_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl4_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl5_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl6_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl7_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl8_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl9_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl10_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(lvl11_mngt_unit_in_trsf_flg::text,'0')='1' OR coalesce(transfer_to_active_type_flg::text,'0')='1' OR coalesce(transfer_to_hq_flg::text,'0')='1' OR coalesce(transfer_to_it_flg::text,'0')='1' OR coalesce(transfer_to_specialization_flg::text,'0')='1' OR coalesce(transfer_to_stream_flg::text,'0')='1' OR coalesce(transfer_to_employment_relation_type_flg::text,'0')='1')::int AS in_flg,\\n        (coalesce(lvl1_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl2_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl3_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl4_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl5_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl6_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl7_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl8_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl9_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl10_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(lvl11_mngt_unit_out_trsf_flg::text,'0')='1' OR coalesce(transfer_out_active_type_flg::text,'0')='1' OR coalesce(transfer_out_hq_flg::text,'0')='1' OR coalesce(transfer_out_it_flg::text,'0')='1' OR coalesce(transfer_out_specialization_flg::text,'0')='1' OR coalesce(transfer_out_stream_flg::text,'0')='1' OR coalesce(transfer_out_employment_relation_type_flg::text,'0')='1')::int AS out_flg,\\n        row_number() OVER (PARTITION BY date_trunc('month', calendar_dt::date), mdm_employee_rk ORDER BY calendar_dt DESC) AS rn\\n        FROM usr_cross_data.hr_executive_proteus\\n        WHERE calendar_dt::date >= date_trunc('year', (current_date - interval '2 year')::date)\\n          \\n    ),\\n    d AS (\\n        SELECT\\n            s.*,\\n        CASE WHEN lvl11_rk <> '-' THEN 11 WHEN lvl10_rk <> '-' THEN 10 WHEN lvl9_rk <> '-' THEN 9 WHEN lvl8_rk <> '-' THEN 8 WHEN lvl7_rk <> '-' THEN 7 WHEN lvl6_rk <> '-' THEN 6 WHEN lvl5_rk <> '-' THEN 5 WHEN lvl4_rk <> '-' THEN 4 WHEN lvl3_rk <> '-' THEN 3 WHEN lvl2_rk <> '-' THEN 2 WHEN lvl1_rk <> '-' THEN 1 ELSE 1 END AS leaf_lvl,\\n        (in_flg = 1 AND transfer_candidate_flg = 0 AND transfer_internal_flg = 0 AND hire_flg = 0)::int AS trsf_in_flg,\\n        (out_flg = 1 AND fire_flg = 0)::int AS trsf_out_flg\\n        FROM snap s\\n    )\\n    SELECT\\n        report_month,\\n    mdm_employee_rk,\\n    lvl1_rk,\\n    lvl2_rk,\\n    lvl3_rk,\\n    lvl4_rk,\\n    lvl5_rk,\\n    lvl6_rk,\\n    lvl7_rk,\\n    lvl8_rk,\\n    lvl9_rk,\\n    lvl10_rk,\\n    lvl11_rk,\\n    active_type_gr_nm,\\n    emp_specialization_it_code,\\n    employment_relation_type_gr_nm,\\n    gender,\\n    type_age,\\n    experience_group_nm,\\n    grade,\\n    seniority,\\n    employment_relation_type,\\n    employee_contract_type,\\n    legal_organization,\\n    employee_stream,\\n    leaf_lvl,\\n    max(lvl1_nm) AS lvl1_nm,\\n    max(lvl2_nm) AS lvl2_nm,\\n    max(lvl3_nm) AS lvl3_nm,\\n    max(lvl4_nm) AS lvl4_nm,\\n    max(lvl5_nm) AS lvl5_nm,\\n    max(lvl6_nm) AS lvl6_nm,\\n    max(lvl7_nm) AS lvl7_nm,\\n    max(lvl8_nm) AS lvl8_nm,\\n    max(lvl9_nm) AS lvl9_nm,\\n    max(lvl10_nm) AS lvl10_nm,\\n    max(lvl11_nm) AS lvl11_nm,\\n    max((rn = 1)::int) AS hc_total_cnt,\\n    max((rn = 1 AND active_type_gr_nm = 'Активная')::int) AS hc_active_cnt,\\n    max(hire_flg) AS hire_cnt,\\n    max((hire_flg = 1 AND active_type_nm = 'Активная')::int) AS hire_amt,\\n    max((hire_flg = 1 AND active_type_nm IN ('Активная','Подрядчики'))::int) AS hire_to_active_amt,\\n    max(transfer_candidate_flg) AS transfer_candidate_amt,\\n    max(transfer_internal_flg) AS transfer_internal_amt,\\n    max(fire_flg) AS fire_amt,\\n    max((fire_flg = 1 AND regrettable_fire_flg = 1)::int) AS regret_fire_amt,\\n    max(trsf_in_flg) AS transfer_in_amt,\\n    max(trsf_out_flg) AS transfer_out_amt\\n    FROM d\\n    GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26\\n    HAVING max((rn = 1)::int + hire_flg + transfer_candidate_flg + transfer_internal_flg + fire_flg + trsf_in_flg + trsf_out_flg) > 0\"\n\n\n\n\n\n\nParagraphs\n\n\nShow all\nNote’s settings\n\n\n\n\n\n\n\n\n\n\n\n\n6_mngt_unit_nm"
+    isEnabled: false
+  - sid: 01a13a2c-bf3e-7937-afd5-416b7e855d88
+    title: Untitled 3
+    shebang: gp
+    code: |
+      select * from all_metrics
+      where mdm_employee_rk = 614029
+      order by report_month desc
+      ;
+
+      select * from usr_cross_data.hr_executive_proteus
+      where mdm_employee_rk = 875220
+      --and calendar_dt>'2026-08-01'
+      ;
+    isEnabled: true
+  - sid: 01a0e79f-31ce-71d3-adf5-509837b04124
+    title: PARAMS
+    shebang: python
+    code: |2-
+
+      # =============================================================================
+      # Пакет метрик: найм
+      # =============================================================================
+
+      HIRE_PARAMS = {
+          "cols": [
+              "hire_flg",
+              "active_type_nm",
+              "transfer_candidate_flg",
+              "transfer_internal_flg",
+          ],
+          "metrics": {
+              "transfer_candidate_amt": """
+                  COUNT(DISTINCT mdm_employee_rk)
+                  FILTER (
+                      WHERE COALESCE(transfer_candidate_flg::NUMERIC, 0) = 1
+                  )
+              """,
+
+              "transfer_internal_amt": """
+                  COUNT(DISTINCT mdm_employee_rk)
+                  FILTER (
+                      WHERE COALESCE(transfer_internal_flg::NUMERIC, 0) = 1
+                  )
+              """,
+
+              "hire_amt": """
+                  COUNT(DISTINCT mdm_employee_rk)
+                  FILTER (
+                      WHERE COALESCE(hire_flg::NUMERIC, 0) = 1
+                        AND active_type_nm = 'Активная'
+                  )
+              """,
+
+              "hire_to_active_amt": """
+                  COUNT(DISTINCT mdm_employee_rk)
+                  FILTER (
+                      WHERE COALESCE(hire_flg::NUMERIC, 0) = 1
+                        AND active_type_nm IN ('Активная', 'Подрядчики')
+                  )
+              """,
+          },
+      }
+
+
+      # =============================================================================
+      # Пакет метрик: отток
+      # =============================================================================
+
+      OUTFLOW_PARAMS = {
+          "cols": [
+              "fire_flg",
+              "regrettable_fire_flg"
+          ],
+          "metrics": {
+              "fire_amt": """
+                  COUNT(DISTINCT mdm_employee_rk)
+                  FILTER (
+                      WHERE COALESCE(fire_flg::NUMERIC, 0) = 1
+                  )
+              """,
+              "regret_fire_amt": """
+                  COUNT(DISTINCT mdm_employee_rk)
+                  FILTER (
+                      WHERE fire_flg = 1 AND regrettable_fire_flg = 1
+                  )
+              """,
+          },
+      }
+
+      # =============================================================================
+      # Пакет метрик: переводы (для get_hr_structure)
+      # =============================================================================
+
+      TRANSFER_PARAMS = {
+          # Флаги типа перевода (входящие)
+          "type_in_flags": [
+              "transfer_to_active_type_flg",
+              "transfer_to_hq_flg",
+              "transfer_to_it_flg",
+              "transfer_to_specialization_flg",
+              "transfer_to_stream_flg",
+              "transfer_to_employment_relation_type_flg",
+          ],
+          # Флаги типа перевода (исходящие)
+          "type_out_flags": [
+              "transfer_out_active_type_flg",
+              "transfer_out_hq_flg",
+              "transfer_out_it_flg",
+              "transfer_out_specialization_flg",
+              "transfer_out_stream_flg",
+              "transfer_out_employment_relation_type_flg",
+          ],
+          # Фильтры (исключают из переводов)
+          "exclude_candidate": True,      # transfer_candidate_flg = 0
+          "exclude_internal": True,       # transfer_internal_flg = 0
+          "exclude_hire": True,           # hire_flg = 0 (для incoming)
+          "exclude_fire": True,           # fire_flg = 0 (для outgoing)
+          # Логика: lvl флаг ИЛИ type флаг
+          "use_lvl_flag": True,           # Проверять lvl{i}_mngt_unit_in/out_trsf_flg
+          "use_type_flag": True,          # Проверять transfer_to_*_flg
+          "logic": "OR",                  # "OR" = хотя бы один, "AND" = оба должны быть
+      }
+    isEnabled: false
+  - sid: 01a0d7ed-892b-7ca8-8434-d668261ef044
+    title: get_hr_structure
+    shebang: python
+    code: |-
+      from dal_client import query as dal
+
+      SRC_TABLE = 'usr_cross_data.hr_executive_proteus'
+      LVLS_CNT = 12
+
+      RESERVED_COLS = {
+          'mdm_employee_rk', 'calendar_dt', 'month',
+          'mngt_unit_rk', 'mngt_unit_nm', 'lvl', 'snapshot_flg',
+          'parent_mngt_unit_rk', 'parent_mngt_unit_nm', 'parent_lvl',
+          'child_mngt_unit_rk', 'sub_units_amt',
+          'employee_amt', 'hire_amt', 'fire_amt',
+          'transfer_in_amt', 'transfer_out_amt',
+      }
+
+      CAST_OVERRIDES = {'mdm_employee_rk': 'INT'}
+
+      EXCLUDE_FLAGS = {
+          'transfer_candidate_flg': 'exclude_candidate',
+          'transfer_internal_flg':  'exclude_internal',
+          'hire_flg':               'exclude_hire',
+          'fire_flg':               'exclude_fire',
+      }
+
+      _SRC_COLS = None
+
+
+      def source_columns(refresh=False):
+          global _SRC_COLS
+          if _SRC_COLS is None or refresh:
+              schema, table = SRC_TABLE.split('.')
+              df = dal.get_df(datasource='gp', query=f"""
+                  select column_name
+                  from information_schema.columns
+                  where table_schema = '{schema}' and table_name = '{table}'
+              """)
+              _SRC_COLS = {c.lower() for c in df['column_name']}
+              print(f'[SCHEMA] {SRC_TABLE}: {len(_SRC_COLS)} колонок')
+          return _SRC_COLS
+
+
+      def _lit(s):
+          return "'" + str(s).replace("'", "''") + "'"
+
+
+      def _build_field_expr(f):
+          if isinstance(f, str):
+              f = {'name': f}
+          if not isinstance(f, dict):
+              raise TypeError(f'add_fields: str or dict expected, got {f!r}')
+          if 'expr' in f:
+              orig = f['alias']
+              alias = f'{orig}_1' if orig in RESERVED_COLS else orig
+              return f"{f['expr']} AS {alias}", alias, list(f.get('cols', []))
+          if 'name' in f:
+              name = f['name']
+              orig = f.get('alias') or name
+              alias = f'{orig}_1' if orig in RESERVED_COLS else orig
+              if 'match' in f:
+                  vals = f['match'] if isinstance(f['match'], (list, tuple, set)) else [f['match']]
+                  in_list = ', '.join(_lit(v) for v in vals)
+                  expr = (f'CASE WHEN {name} IN ({in_list}) '
+                          f"THEN {_lit(f['match_label'])} ELSE {_lit(f['other_label'])} END")
+              else:
+                  cast = f.get('cast') or CAST_OVERRIDES.get(name)
+                  expr = f'{name}::{cast}' if cast else f"COALESCE({name}::TEXT,'n/a')"
+              return f'{expr} AS {alias}', alias, [name]
+          raise TypeError(f'add_fields: dict needs "name" or "expr", got {f!r}')
+
+
+      def get_hr_structure(
+          res_table_name,
+          add_fields=None,
+          hire=False,
+          outflow=False,
+          transfers=False,
+          transfer_params=None,
+          extra_metric_packs=None,
+          where='',
+          parent=False,
+          include_sub_units=False,
+          snapshot_mode='last_available',
+          date_from=None,
+          start_lvl=1,
+          end_lvl=LVLS_CNT,
+          base_metric='employee_amt',
+          distributed_by=None,          # None -> distributed randomly
+          only_levels=None,             # [1] чтобы прогнать один уровень
+          debug=False,
+      ):
+          if snapshot_mode not in ('last_available', 'last_day'):
+              raise ValueError("snapshot_mode: 'last_available' | 'last_day'")
+
+          add_fields = add_fields or []
+          extra_metric_packs = extra_metric_packs or []
+          transfer_config = {**TRANSFER_PARAMS, **(transfer_params or {})}
+          date_from = date_from or \
+              "DATE_TRUNC('year', CURRENT_DATE::DATE - INTERVAL '1 year')::DATE"
+
+          src = source_columns()
+
+          def has(col):
+              return bool(col) and col.lower() in src
+
+          levels = [i for i in range(start_lvl, end_lvl)
+                    if has(f'lvl{i}_mapped_management_unit_rk')]
+          if only_levels:
+              levels = [i for i in levels if i in set(only_levels)]
+          if not levels:
+              raise ValueError(f'нет уровней {start_lvl}..{end_lvl - 1} в {SRC_TABLE}')
+          skipped = [i for i in range(start_lvl, end_lvl)
+                     if i not in levels and not only_levels]
+          if skipped:
+              print(f'[WARN] пропущены уровни без mapped_management_unit_rk: {skipped}')
+
+          metric_packs = []
+          if hire:
+              metric_packs.append(HIRE_PARAMS)
+          if outflow:
+              metric_packs.append(OUTFLOW_PARAMS)
+          metric_packs.extend(extra_metric_packs)
+
+          add_exprs, src_cols, rename = [], set(), {}
+          for f in add_fields:
+              expr, alias, cols = _build_field_expr(f)
+              absent = [c for c in cols if not has(c)]
+              if absent:
+                  raise ValueError(f'add_fields: нет в {SRC_TABLE}: {absent}')
+              orig = f if isinstance(f, str) else (f.get('alias') or f.get('name'))
+              if alias != orig:
+                  rename[alias] = orig
+                  print(f'[INFO] {orig} -> {alias}, в результате вернётся как {orig}')
+              add_exprs.append(expr)
+              src_cols.update(c for c in cols if c not in RESERVED_COLS)
+
+          for p in metric_packs:
+              for c in p.get('cols', []):
+                  if has(c):
+                      src_cols.add(c)
+                  else:
+                      print(f'[WARN] нет колонки пакета метрик: {c}')
+
+          if snapshot_mode == 'last_day':
+              if not has('last_day_of_month_flg'):
+                  raise ValueError("snapshot_mode='last_day': нет last_day_of_month_flg")
+              src_cols.add('last_day_of_month_flg')
+
+          metrics_sql = {
+              base_metric: 'COUNT(DISTINCT mdm_employee_rk) FILTER (WHERE snapshot_flg = 1)'
+          }
+          for p in metric_packs:
+              metrics_sql.update(p.get('metrics', {}))
+
+          common_transfer_cols = set()
+          if transfers:
+              if transfer_config.get('use_type_flag', True):
+                  for c in (transfer_config.get('type_in_flags', []) +
+                            transfer_config.get('type_out_flags', [])):
+                      if has(c):
+                          common_transfer_cols.add(c)
+                      else:
+                          print(f'[WARN] нет type-флага: {c}')
+              for col, key in EXCLUDE_FLAGS.items():
+                  if transfer_config.get(key, True):
+                      if has(col):
+                          common_transfer_cols.add(col)
+                      else:
+                          print(f'[WARN] нет exclude-флага: {col}')
+
+          where_sql = f'AND ({where})' if where else ''
+          selects = []
+
+          for i in levels:
+              unit_rk = f'lvl{i}_mapped_management_unit_rk'
+              unit_nm = f'lvl{i}_mapped_management_unit_nm'
+
+              if snapshot_mode == 'last_available':
+                  snapshot_sql = (
+                      'CASE WHEN calendar_dt::DATE = MAX(calendar_dt::DATE) OVER '
+                      "(PARTITION BY DATE_TRUNC('month', calendar_dt::DATE)::DATE, "
+                      f'{unit_rk}) THEN 1 ELSE 0 END AS snapshot_flg'
+                  )
+              else:
+                  snapshot_sql = (
+                      "CASE WHEN COALESCE(NULLIF(last_day_of_month_flg::TEXT,'-')::NUMERIC, 0) = 1 "
+                      'THEN 1 ELSE 0 END AS snapshot_flg'
+                  )
+
+              parent_inner, parent_outer = [], []
+              if parent:
+                  parent_outer = ['parent_mngt_unit_rk', 'parent_mngt_unit_nm', 'parent_lvl']
+                  p_rk = f'lvl{i-1}_mapped_management_unit_rk'
+                  p_nm = f'lvl{i-1}_mapped_management_unit_nm'
+                  if i > 1 and has(p_rk) and has(p_nm):
+                      parent_inner = [
+                          f'{p_rk}::TEXT AS parent_mngt_unit_rk',
+                          f'{p_nm}::TEXT AS parent_mngt_unit_nm',
+                          f'{i-1}::INT  AS parent_lvl',
+                      ]
+                  else:
+                      parent_inner = [
+                          'NULL::TEXT AS parent_mngt_unit_rk',
+                          'NULL::TEXT AS parent_mngt_unit_nm',
+                          'NULL::INT  AS parent_lvl',
+                      ]
+
+              child_inner, sub_units_expr = [], []
+              if include_sub_units:
+                  c_rk = f'lvl{i+1}_mapped_management_unit_rk'
+                  if has(c_rk):
+                      child_inner = [f'{c_rk}::TEXT AS child_mngt_unit_rk']
+                      sub_units_expr = [
+                          'COUNT(DISTINCT child_mngt_unit_rk) FILTER ('
+                          "WHERE snapshot_flg = 1 AND child_mngt_unit_rk IS NOT NULL "
+                          "AND child_mngt_unit_rk <> '-')::NUMERIC AS sub_units_amt"
+                      ]
+                  else:
+                      sub_units_expr = ['0::NUMERIC AS sub_units_amt']
+
+              lvl_transfer_cols = set()
+              transfer_metrics = {}
+              if transfers:
+                  fin = f'lvl{i}_mngt_unit_in_trsf_flg'
+                  fout = f'lvl{i}_mngt_unit_out_trsf_flg'
+                  use_lvl = (transfer_config.get('use_lvl_flag', True)
+                             and has(fin) and has(fout))
+                  if use_lvl:
+                      lvl_transfer_cols.update((fin, fout))
+                  elif transfer_config.get('use_lvl_flag', True):
+                      print(f'[WARN] lvl{i}: нет {fin} / {fout}, только type-флаги')
+
+                  lvl_in = (f"COALESCE(NULLIF({fin}::TEXT,'-')::NUMERIC, 0) = 1"
+                            if use_lvl else 'FALSE')
+                  lvl_out = (f"COALESCE(NULLIF({fout}::TEXT,'-')::NUMERIC, 0) = 1"
+                             if use_lvl else 'FALSE')
+
+                  in_flags = [c for c in transfer_config.get('type_in_flags', [])
+                              if c in common_transfer_cols]
+                  out_flags = [c for c in transfer_config.get('type_out_flags', [])
+                               if c in common_transfer_cols]
+                  type_in = ('(' + ' + '.join(f'COALESCE({c}::NUMERIC, 0)' for c in in_flags)
+                             + ') > 0' if in_flags else 'FALSE')
+                  type_out = ('(' + ' + '.join(f'COALESCE({c}::NUMERIC, 0)' for c in out_flags)
+                              + ') > 0' if out_flags else 'FALSE')
+
+                  logic = 'AND' if transfer_config.get('logic') == 'AND' else 'OR'
+                  in_cond = f'({lvl_in} {logic} {type_in})'
+                  out_cond = f'({lvl_out} {logic} {type_out})'
+
+                  excl_in = [f'COALESCE({c}::NUMERIC, 0) = 0'
+                             for c in ('transfer_candidate_flg', 'transfer_internal_flg', 'hire_flg')
+                             if c in common_transfer_cols]
+                  excl_out = [f'COALESCE({c}::NUMERIC, 0) = 0'
+                              for c in ('fire_flg',) if c in common_transfer_cols]
+                  excl_in_sql = ' AND '.join(excl_in) or 'TRUE'
+                  excl_out_sql = ' AND '.join(excl_out) or 'TRUE'
+
+                  same_month = "DATE_TRUNC('month', calendar_dt::DATE)::DATE = month"
+                  no_cond = (lvl_in == 'FALSE' and type_in == 'FALSE')
+                  transfer_metrics = {
+                      'transfer_in_amt': '0::BIGINT' if no_cond else
+                          f'COUNT(DISTINCT mdm_employee_rk) FILTER (WHERE {in_cond} '
+                          f'AND {excl_in_sql} AND {same_month})',
+                      'transfer_out_amt': '0::BIGINT' if no_cond else
+                          f'COUNT(DISTINCT mdm_employee_rk) FILTER (WHERE {out_cond} '
+                          f'AND {excl_out_sql} AND {same_month})',
+                  }
+
+              all_metrics = {**metrics_sql, **transfer_metrics}
+
+              inner = ',\n                '.join([
+                  "DATE_TRUNC('month', calendar_dt::DATE)::DATE AS month",
+                  'calendar_dt::DATE AS calendar_dt',
+                  snapshot_sql,
+                  'mdm_employee_rk',
+                  f'{unit_rk}::TEXT AS mngt_unit_rk',
+                  f'{unit_nm}::TEXT AS mngt_unit_nm',
+                  f'{i}::INT AS lvl',
+                  *parent_inner,
+                  *child_inner,
+                  *sorted(src_cols | common_transfer_cols | lvl_transfer_cols),
+              ])
+
+              dims = ['month', 'mngt_unit_rk', 'mngt_unit_nm', 'lvl', *parent_outer]
+              outer = ',\n            '.join([
+                  *dims,
+                  *add_exprs,
+                  *sub_units_expr,
+                  *(f'{expr} AS {alias}' for alias, expr in all_metrics.items()),
+              ])
+              group_by = ', '.join(str(n) for n in range(1, len(dims) + len(add_exprs) + 1))
+
+              selects.append((i, f"""
+              SELECT
+                  {outer}
+              FROM (
+                  SELECT
+                      {inner}
+                  FROM {SRC_TABLE}
+                  WHERE calendar_dt::DATE >= {date_from}
+                    AND {unit_rk} IS NOT NULL
+                    AND {unit_rk} <> '-'
+                    {where_sql}
+              ) t
+              GROUP BY {group_by}"""))
+
+          if debug:
+              for i, sel in selects:
+                  print(f'-- lvl {i}\n{sel}\n')
+              return selects
+
+          dist = (f"distributed by ({', '.join(distributed_by)})"
+                  if distributed_by else 'distributed randomly')
+
+          dal.get_df(datasource='gp', query=f'drop table if exists {res_table_name}')
+          for n, (i, sel) in enumerate(selects):
+              print(f'[RUN] lvl{i} ...', flush=True)
+              if n == 0:
+                  q = f'create table {res_table_name} as\n{sel}\n{dist}'
+              else:
+                  q = f'insert into {res_table_name}\n{sel}'
+              dal.get_df(datasource='gp', query=q)
+              c = dal.get_df(datasource='gp', query=f"""
+                  select count(*) as cnt from {res_table_name} where lvl = {i}
+              """)['cnt'].iloc[0]
+              print(f'[RUN] lvl{i}: {c} строк', flush=True)
+
+          for alias, orig in rename.items():
+              dal.get_df(datasource='gp',
+                         query=f'alter table {res_table_name} rename column {alias} to {orig}')
+          dal.get_df(datasource='gp', query=f'analyze {res_table_name}')
+
+          cnt = dal.get_df(datasource='gp',
+                           query=f'select count(*) as cnt from {res_table_name}')['cnt'].iloc[0]
+          print(f'[OK] {res_table_name}: {cnt} строк, уровни {levels}')
+    isEnabled: false
+  - sid: 01a10b27-dc88-7c84-ade6-f1b5a5ec2e67
+    title: EXEC get_hr_structure
+    shebang: python
+    code: "\nfields = [\n        {\n            'name': 'active_type_nm',\n            'alias': 'active_type_gr_nm',\n            'match': ['Активная', 'Подрядчики'],\n            'match_label': 'Активная',\n            'other_label': 'Прочие',\n        },\n        'emp_specialization_oper_code',\n        {\n            'name': 'emp_specialization_it_code',\n            'alias': 'emp_specialization_it_code',\n            'match': 'IT',\n            'match_label': 'IT',\n            'other_label': 'nonIT',\n        },\n        {\n            'name': 'employment_relation_type_desc',\n            'alias': 'employment_relation_type',\n            'match': 'Штатный сотрудник',\n            'match_label': 'штат',\n            'other_label': 'не штат',\n        },\n        # 'gender',\n        # 'grade',\n        # 'type_age',\n        'type_age',\n        'experience_group_nm',\n        'grade',\n        'seniority',\n        'employment_relation_type',\n        'employee_contract_type', \n        'legal_organization',\n        'employee_stream',\n    ]\n\n# get_hr_structure(\n#     res_table_name='hr_structure_all_metrics',\n#     add_fields=fields,\n#     hire=True,\n#     outflow=True,\n#     transfers=True,\n#     parent=True,\n#     snapshot_mode='last_available',\n\n#     #start_lvl=2,  #test\n#     # end_lvl=6,   #test\n# )\n\n\n# get_hr_structure(\n#     res_table_name='hr_structure_no_metrics',\n#     add_fields = ['mdm_employee_rk'],\n#     parent=False,\n#     snapshot_mode='last_available',\n# )"
+    isEnabled: false
+  - sid: 01a1304f-a03f-7a85-9e28-16374a0984c6
+    title: tst
+    shebang: gp
+    code: |2
+
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE 1=1 --table_schema = 'usr_cross_data'
+        AND table_name = 'all_metrics';
+
+
+      SELECT * from usr_cross_data.hr_executive_proteus
+      limit 30;
+
+        --lvl2_mngt_unit_in_trsf_flg
+    isEnabled: true
+  - sid: 01a10b30-93ff-7a61-a11d-d34cf32768d2
+    title: with_performance
+    shebang: gp
+    code: "drop table if exists all_metrics_with_performance_added ;\ncreate table all_metrics_with_performance_added as\n\nwith performance_category (val, mapped_val) as(\n    select * from (values\n        ('normal',      'normal'),\n        ('super_low',   'low'),\n        ('low',         'low'),\n        ('high',        'high'),\n        ('super_high',  'high')\n    )t (val, mapped_val)\n)\n, performance_base as(\n    select \n        mdm_employee_rk\n        , calendar_dt\n        , coalesce(pc.mapped_val, 'gray') as performance_category_mapped\n    from prod_v_sse_crossdata.performance_metric_m pmm\n    left join performance_category pc on pmm.performance_category = pc.val\n    where pmm.calendar_dt >= DATE_TRUNC('year', current_date) - interval '1 year'\n    --and mdm_employee_rk = 614029\n)\n, performance as(\n    select mdm_employee_rk::int\n        , calendar_dt,\n        count(*) filter (where performance_category_mapped = 'normal') as perf_normal,\n        count(*) filter (where performance_category_mapped = 'low')    as perf_low,\n        count(*) filter (where performance_category_mapped = 'high')   as perf_high,\n        count(*) filter (where performance_category_mapped = 'gray')   as perf_gray\n    from performance_base\n    group by 1,2\n)\n\n\n\n\nselect nm.*\n    , coalesce(perf.perf_normal, 0)     as perf_normal\n    , coalesce(perf.perf_low, 0)        as perf_low\n    , coalesce(perf.perf_high, 0)       as perf_high\n    , coalesce(perf.perf_gray, 0)       as perf_gray\nfrom all_metrics nm\nleft join performance perf \n    on nm.mdm_employee_rk = perf.mdm_employee_rk and perf.calendar_dt = nm.report_month--::date\n\ndistributed by (mdm_employee_rk, report_month);\n\n\nselect * from all_metrics_with_performance_added limit 100;\n\n\n"
+    isEnabled: true
+  - sid: 01a116a2-eb04-701e-b7ff-ad50aeaccba1
+    title: with_office_traffic
+    shebang: gp
+    code: "drop table if exists all_metrics_with_performance_and_office_traffic ;\ncreate table all_metrics_with_performance_and_office_traffic as\n\nwith office_traffic as (\n    select date_trunc('month', calendar_dt) as month\n        , mdm_employee_rk\n        , count(work_day_flg) as work_day_amt\n        , sum(office_visit_flg) as office_visit_amt\n    from usr_cross_data.office_traffic_attendance --usr_cross_data.hr_digest_office\n    where 1=1 --mdm_employee_rk = 614029\n        and work_day_flg=1\n    group by date_trunc('month', calendar_dt), mdm_employee_rk\n)\n\nselect m.* \n    , o.work_day_amt\n    , o.office_visit_amt\nfrom all_metrics_with_performance_added m\nleft join office_traffic o \n    on o.month = m.report_month \n    and o.mdm_employee_rk = m.mdm_employee_rk\n    \ndistributed by (mdm_employee_rk, report_month)\n;"
+    isEnabled: true
+  - sid: 01a12f3d-6f51-7368-a487-e3b92bb76128
+    title: with_TRost
+    shebang: gp
+    code: "drop table if exists all_metrics_with_performance_and_office_traffic_and_grt ;\ncreate table all_metrics_with_performance_and_office_traffic_and_grt as\n\n\nwith grt_application as (\n    SELECT \n        ap.mdm_employee_application_rk as mdm_employee_rk,\n        date_trunc('month', ap.create_dttm) as month,\n        ap.create_dttm,\n        ap.current_grade_num,\n        ap.required_grade_num,\n        ap.head_approve_flg,\n        ap.mdm_employee_appl_status_cd,\n        mdm_employee_appl_status_desc,\n        case when ap.mdm_employee_appl_status_cd in ('FNS') then 1 else 0 end as is_approved,\n        case when ap.mdm_employee_appl_status_cd in ('DCL') then 1 else 0 end as is_declined,\n        case when ap.mdm_employee_appl_status_cd in ('CNL') then 1 else 0 end as is_cancelled,\n        case when ap.mdm_employee_appl_status_cd not in ('DCL', 'FNS', 'CNL') then 1 else 0 end as is_inprogress,\n        ap.deleted_flg,\n        ap.valid_to_dttm\n    from prod_v_dds.mdm_employee_application_grt ap\n    join prod_v_dds_dic.mdm_employee_appl_status s \n        on ap.mdm_employee_appl_status_cd= s.mdm_employee_appl_status_cd\n    where valid_to_dttm = '5999-01-01'\n        --and mdm_employee_appl_status_cd in ('FNS', 'CNL', 'DCL')\n        and ap.mdm_employee_appl_status_cd not in ('DRT') -- draft\n        and ap.deleted_flg = 0 \n)\nselect m.* \n    , coalesce(o.is_approved, 0) as grt_approve_cnt\n    , coalesce(o.is_declined, 0) as grt_decline_cnt\n    , coalesce(o.is_cancelled, 0) as grt_cancel_cnt\n    , coalesce(o.is_inprogress, 0) as grt_inprogress_cnt\nfrom all_metrics_with_performance_and_office_traffic m\nleft join grt_application o \n    on o.month = m.report_month \n    and o.mdm_employee_rk = m.mdm_employee_rk\n    \ndistributed by (mdm_employee_rk, report_month)\n;\n\nselect * from all_metrics_with_performance_and_office_traffic_and_grt\nlimit 100;"
+    isEnabled: true
+  - sid: 01a1441a-283a-79a1-8b2b-f79ca3c1d18b
+    title: review
+    shebang: gp
+    code: "drop table if exists review;\ncreate table review as \n\nselect\n    e.mdm_employee_rk\n    , max(summary_score)    filter (where business_dt = '01.01.2023') as summary_satisfaction_23 \n    , max(summary_score)    filter (where business_dt = '01.01.2024') as summary_satisfaction_24 \n    , max(summary_score)    filter (where business_dt = '01.01.2025') as summary_satisfaction_25\n \nfrom prod_v_hrmart.summary_evaluation e  \nwhere true \nand valid_to_dttm = '5999-01-01 00:00:00'\nand deleted_flg=0\ngroup by e.mdm_employee_rk\nlimit 100\n\ndistributed by (mdm_employee_rk)"
+    isEnabled: false
+  - sid: 01a12fb8-46ae-7600-b298-b2ebe7cd6e1a
+    title: vacancy_daily
+    shebang: gp
+    code: |
+      DROP TABLE IF EXISTS vacancy_by_unit;
+      CREATE TABLE vacancy_by_unit AS
+
+      WITH lvl AS (
+          SELECT
+              vd.*,
+              date_trunc('month', issue_day)::date AS month_dt,
+              CASE
+                  WHEN nullif(resource_level_11_rk, '-') IS NOT NULL THEN 11
+                  WHEN nullif(resource_level_10_rk, '-') IS NOT NULL THEN 10
+                  WHEN nullif(resource_level_9_rk, '-') IS NOT NULL THEN 9
+                  WHEN nullif(resource_level_8_rk, '-') IS NOT NULL THEN 8
+                  WHEN nullif(resource_level_7_rk, '-') IS NOT NULL THEN 7
+                  WHEN nullif(resource_level_6_rk, '-') IS NOT NULL THEN 6
+                  WHEN nullif(resource_level_5_rk, '-') IS NOT NULL THEN 5
+                  WHEN nullif(resource_level_4_rk, '-') IS NOT NULL THEN 4
+                  WHEN nullif(resource_level_3_rk, '-') IS NOT NULL THEN 3
+                  WHEN nullif(resource_level_2_rk, '-') IS NOT NULL THEN 2
+                  WHEN nullif(resource_level_1_rk, '-') IS NOT NULL THEN 1
+              END AS leaf_lvl,
+              CASE
+                  WHEN nullif(resource_level_11_rk, '-') IS NOT NULL THEN resource_level_11_rk
+                  WHEN nullif(resource_level_10_rk, '-') IS NOT NULL THEN resource_level_10_rk
+                  WHEN nullif(resource_level_9_rk, '-') IS NOT NULL THEN resource_level_9_rk
+                  WHEN nullif(resource_level_8_rk, '-') IS NOT NULL THEN resource_level_8_rk
+                  WHEN nullif(resource_level_7_rk, '-') IS NOT NULL THEN resource_level_7_rk
+                  WHEN nullif(resource_level_6_rk, '-') IS NOT NULL THEN resource_level_6_rk
+                  WHEN nullif(resource_level_5_rk, '-') IS NOT NULL THEN resource_level_5_rk
+                  WHEN nullif(resource_level_4_rk, '-') IS NOT NULL THEN resource_level_4_rk
+                  WHEN nullif(resource_level_3_rk, '-') IS NOT NULL THEN resource_level_3_rk
+                  WHEN nullif(resource_level_2_rk, '-') IS NOT NULL THEN resource_level_2_rk
+                  WHEN nullif(resource_level_1_rk, '-') IS NOT NULL THEN resource_level_1_rk
+              END AS mng_unit_rk
+          FROM usr_cross_data.vacancy_daily vd
+          WHERE (close_flg = 1 OR end_of_month_flg = 1 OR issue_day = approved_dt)
+            --AND leaf_lvl IS NOT NULL                -- отсекаем строки без юнита
+      ),
+
+      -- 2. разрезы + метрики на уровне детали
+      detail AS (
+          SELECT
+              month_dt,
+              mng_unit_rk,
+              leaf_lvl,
+              mapping_channel_name,
+              act_month,
+              specialization,
+              lvl_position_adj,
+              CASE WHEN finalist_level_candy ILIKE '%Jun%'    THEN 'Junior'
+                   WHEN finalist_level_candy ILIKE '%Middl%'  THEN 'Middle'
+                   WHEN finalist_level_candy ILIKE '%Senior%' THEN 'Senior'
+                   WHEN finalist_level_candy IS NULL           THEN 'Other'
+                   ELSE finalist_level_candy
+              END AS finalist_level_candy,
+              CASE WHEN last_dt_flg = 1 AND status_name_chng_group = 'Согласованные'
+                   THEN status_name
+              END AS status_name,
+              CASE WHEN search_reason ILIKE '%замена%' THEN 'Замена'
+                   WHEN search_reason ILIKE '%новый%'  THEN 'Новый'
+                   ELSE 'Прочее'
+              END AS search_reason,
+              count(DISTINCT issue_full_nm) FILTER (WHERE close_flg = 1)                                            AS close_hrs,
+              count(DISTINCT issue_full_nm) FILTER (WHERE end_of_month_flg = 1 AND status_name_chng_group = 'Согласованные') AS in_work_hrs,
+              count(DISTINCT issue_full_nm) FILTER (WHERE issue_day = approved_dt)                                   AS approved_hrs
+          FROM lvl
+          WHERE leaf_lvl IS NOT NULL
+          GROUP BY 1,2,3,4,5,6,7,8,9,10
+          HAVING count(DISTINCT issue_full_nm) FILTER (WHERE close_flg = 1) <> 0
+              OR count(DISTINCT issue_full_nm) FILTER (WHERE end_of_month_flg = 1 AND status_name_chng_group = 'Согласованные') <> 0
+              OR count(DISTINCT issue_full_nm) FILTER (WHERE issue_day = approved_dt) <> 0
+      )
+
+      -- 3. сворачиваем до юнит × месяц: итоги + JSON-массив деталей
+      SELECT
+          month_dt,
+          mng_unit_rk,
+          leaf_lvl,
+          -- ── плоские итоги (для KPI без разбора JSON) ──
+          sum(close_hrs)    AS total_close_hrs,
+          sum(in_work_hrs)  AS total_in_work_hrs,
+          sum(approved_hrs) AS total_approved_hrs,
+          -- ── JSON с детализацией по разрезам вакансий ──
+          json_agg(
+              json_build_object(
+                  'channel',        mapping_channel_name,
+                  'act_month',      act_month,
+                  'specialization', specialization,
+                  'position_lvl',   lvl_position_adj,
+                  'candidate_lvl',  finalist_level_candy,
+                  'status',         status_name,
+                  'search_reason',  search_reason,
+                  'close_hrs',      close_hrs,
+                  'in_work_hrs',    in_work_hrs,
+                  'approved_hrs',   approved_hrs
+              )
+          ) AS vacancy_details
+      FROM detail
+      GROUP BY 1, 2, 3
+
+      DISTRIBUTED BY (mng_unit_rk);
+
+
+
+
+
+      drop table if exists all_metrics_with_performance_and_office_traffic_and_grt_and_vacancy ;
+      create table all_metrics_with_performance_and_office_traffic_and_grt_and_vacancy as
+
+
+      SELECT
+          s.*,
+          coalesce(v.total_close_hrs,    0) AS vacancy_close_hrs,
+          coalesce(v.total_in_work_hrs,  0) AS vacancy_in_work_hrs,
+          coalesce(v.total_approved_hrs, 0) AS vacancy_approved_hrs,
+          v.vacancy_details
+      FROM org_structure s
+      LEFT JOIN vacancy_by_unit v
+             ON v.month_dt    = s.report_month
+            AND v.mng_unit_rk = s.mng_unit_rk;
+    isEnabled: true
+  - sid: 01a1121c-8474-768c-bb23-4b3cb59a1e1f
+    title: group_and_sum_metrics
+    shebang: python
+    code: |-
+      # =============================================================================
+      # Блок 3 — group_and_sum_metrics + calc_ssch
+      # =============================================================================
+      from dal_client import query as dal
+      import re as _re
+
+      # ── регулярки ────────────────────────────────────────────────────────────────
+      _IDENT_RE = _re.compile(r'^[A-Za-z_][A-Za-z0-9_$]*$')
+      _LVL_RK = _re.compile(r'^lvl(\d+)_rk$')
+      _LVL_NM = _re.compile(r'^lvl(\d+)_nm$')
+      _NM_RE = _re.compile(r'^lvl\d+_nm$')
+      _NOT_METRIC_RE = _re.compile(r'(_lvl|_rk|_id)$')
+      _NON_ADDITIVE_RE = _re.compile(r'(_rate|_pct|_share|_ratio|^avg_|_avg|_fte)$')
+
+      # ── типы, которые считаем числовыми ─────────────────────────────────────────
+      _NUMERIC_TYPES = {
+          'smallint', 'integer', 'bigint', 'decimal', 'numeric',
+          'real', 'double precision',
+      }
+
+      # ── числовые колонки, которые НЕ метрики ────────────────────────────────────
+      _NOT_METRICS = {
+          'mdm_employee_rk', 'leaf_lvl', 'lvl', 'parent_lvl', 'rn',
+          'employee_rk', 'person_rk',
+          'mng_unit_rk',
+          'transfer_in_lvl', 'transfer_out_lvl',
+      }
+
+      # ── метрики по умолчанию (для фолбэка в partition_cols_from_table) ───────────
+      DEFAULT_METRICS = {
+          'hc_total_cnt', 'hc_active_cnt', 'hire_cnt', 'hire_amt',
+          'hire_to_active_amt', 'transfer_candidate_amt', 'transfer_internal_amt',
+          'fire_amt', 'regret_fire_amt',
+          'transfer_in_amt', 'transfer_in_lvl', 'transfer_out_amt', 'transfer_out_lvl',
+          'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
+          'work_day_amt', 'office_visit_amt',
+          'grt_approve_cnt', 'grt_decline_cnt', 'grt_cancel_cnt', 'grt_inprogress_cnt',
+          'ssch', 'lag_hc_total_cnt', 'lag_hc_active_cnt',
+          'ssch_hc_total_cnt', 'ssch_hc_active_cnt',
+      }
+
+      # ── кэш схемы таблиц ────────────────────────────────────────────────────────
+      _TABLE_CACHE: dict = {}
+
+      # ═════════════════════════════════════════════════════════════════════════════
+      # Утилиты
+      # ═════════════════════════════════════════════════════════════════════════════
+
+      def _ident(n: str) -> str:
+          if not isinstance(n, str) or not _IDENT_RE.match(n):
+              raise ValueError(f'bad ident: {n!r}')
+          return n
+
+      def _qualified(t: str) -> str:
+          parts = t.split('.')
+          if len(parts) > 2:
+              raise ValueError(f'bad table: {t!r}')
+          return '.'.join(_ident(p) for p in parts)
+
+      def _key_of(field) -> str:
+          if isinstance(field, dict):
+              return field.get('alias') or field['name']
+          return field
+
+      def _resolve_col(all_cols, name, alternatives=()):
+          """Возвращает реальное имя колонки с автофолбэком."""
+          all_set = set(all_cols) if not isinstance(all_cols, set) else all_cols
+          if name in all_set:
+              return name
+          for alt in alternatives:
+              if alt in all_set:
+                  print(f'[INFO] {name} → {alt}')
+                  return alt
+          raise ValueError(f'{name} нет в таблице (и альтернатив нет)')
+
+      # ═════════════════════════════════════════════════════════════════════════════
+      # Схема таблицы
+      # ═════════════════════════════════════════════════════════════════════════════
+
+      def table_schema_info(table: str) -> list[tuple[str, str]]:
+          """[(column_name, data_type), ...] — всегда свежие данные."""
+          parts = table.split('.')
+          tbl = _ident(parts[-1])
+          sch = (f"table_schema = '{_ident(parts[0])}'" if len(parts) == 2
+                 else "table_schema not in ('pg_catalog','information_schema','pg_toast')")
+          df = dal.get_df(datasource='gp', query=f"""
+              select column_name, data_type
+              from information_schema.columns
+              where {sch} and table_name = '{tbl}'
+              order by ordinal_position""")
+          if df.empty:
+              raise ValueError(f'Таблица {table!r} не найдена')
+          info = list(zip(df['column_name'], df['data_type']))
+          _TABLE_CACHE[table] = info
+          return info
+
+      def table_columns(table: str) -> list[str]:
+          if table in _TABLE_CACHE:
+              return [c for c, _ in _TABLE_CACHE[table]]
+          return [c for c, _ in table_schema_info(table)]
+
+      def numeric_columns(table: str) -> list[str]:
+          out = []
+          for c, t in table_schema_info(table):
+              if t not in _NUMERIC_TYPES:
+                  continue
+              if c in _NOT_METRICS or _NOT_METRIC_RE.search(c):
+                  continue
+              if _NON_ADDITIVE_RE.search(c):
+                  print(f'[WARN] {c} похоже на неаддитивную метрику — '
+                        f'sum() может быть бессмысленным; добавь в exclude=')
+              out.append(c)
+          return out
+
+      # ═════════════════════════════════════════════════════════════════════════════
+      # Детект схемы и путевые ключи
+      # ═════════════════════════════════════════════════════════════════════════════
+
+      def _detect_schema(all_cols: list) -> str:
+          all_set = set(all_cols)
+          if 'mng_unit_rk' in all_set and any(_LVL_NM.match(c) for c in all_cols):
+              return 'chain'
+          if any(_LVL_RK.match(c) for c in all_cols):
+              return 'new'
+          if 'mngt_unit_rk' in all_set and 'lvl' in all_set:
+              return 'old'
+          raise ValueError(
+              'Не удалось определить схему: нет ни mng_unit_rk+lvlN_nm, '
+              'ни lvlN_rk, ни mngt_unit_rk+lvl')
+
+      def _build_path_keys(all_cols: list, schema: str, target_lvl: int | None) -> list[str]:
+          all_set = set(all_cols)
+
+          if schema == 'chain':
+              found = sorted(int(m.group(1)) for c in all_cols if (m := _LVL_NM.match(c)))
+              path = ['report_month'] if 'report_month' in all_set else []
+              if not path:
+                  print('[WARN] report_month не найден — агрегация по всей истории!')
+              if target_lvl is None:
+                  path += [c for c in ('mng_unit_rk', 'leaf_lvl') if c in all_set]
+                  path += [f'lvl{n}_nm' for n in found]
+              else:
+                  use_up_to = min(target_lvl, found[-1]) if found else 0
+                  path += [f'lvl{n}_nm' for n in found if n <= use_up_to]
+                  print(f'[INFO] rollup до lvl{use_up_to} по наименованиям')
+              return path
+
+          if schema == 'new':
+              found = sorted(int(m.group(1)) for c in all_cols if (m := _LVL_RK.match(c)))
+              use_up_to = min(target_lvl, found[-1]) if target_lvl else found[-1]
+              path = ['report_month'] if 'report_month' in all_set else []
+              for n in range(1, use_up_to + 1):
+                  for col in (f'lvl{n}_rk', f'lvl{n}_nm'):
+                      if col in all_set:
+                          path.append(col)
+              return path
+
+          # old
+          if target_lvl is not None:
+              print(f'[INFO] старая схема: target_lvl игнорируется')
+          path = []
+          for col in ('month', 'mngt_unit_rk', 'mngt_unit_nm', 'lvl',
+                      'parent_mngt_unit_rk', 'parent_mngt_unit_nm', 'parent_lvl'):
+              if col in all_set:
+                  path.append(col)
+          return path
+
+      # ═════════════════════════════════════════════════════════════════════════════
+      # partition_cols_from_table
+      # ═════════════════════════════════════════════════════════════════════════════
+
+      def partition_cols_from_table(table, order_col='month', fields=None):
+          """
+          Ключи партиционирования = путевые ключи + FIXED_DIMS + разрезы из fields,
+          минус order_col, минус lvlN_nm.
+          """
+          all_cols = table_columns(table)
+          all_set = set(all_cols)
+          schema = _detect_schema(all_cols)
+          order_col = _resolve_col(all_set, order_col, ('report_month', 'month'))
+
+          path_keys = _build_path_keys(all_cols, schema, target_lvl=None)
+
+          cols = [c for c in path_keys
+                  if c != order_col and not _NM_RE.match(c)]
+          seen = set(cols)
+
+          # ── FIXED_DIMS: всегда ──
+          for d in FIXED_DIMS:
+              alias = d['alias']
+              if alias in all_set and alias not in seen:
+                  cols.append(alias)
+                  seen.add(alias)
+
+          # ── пользовательские разрезы ──
+          if fields is not None:
+              for f in (fields or []):
+                  k = _key_of(f)
+                  if k not in all_set:
+                      print(f'[SKIP] {k} нет в {table}')
+                      continue
+                  if k not in seen and not _NM_RE.match(k):
+                      cols.append(k)
+                      seen.add(k)
+          else:
+              for c in all_cols:
+                  if (c not in seen and c not in DEFAULT_METRICS
+                          and c != order_col and not _NM_RE.match(c)):
+                      cols.append(c)
+                      seen.add(c)
+
+          if not cols:
+              raise ValueError(f'Пустой partition_cols для {table}')
+
+          nm_cols = [c for c in path_keys if _NM_RE.match(c)]
+          if nm_cols:
+              print(f'[INFO] lvlN_nm исключены из PARTITION BY: {nm_cols}')
+          print(f'[INFO] схема: {schema}, order: {order_col}, '
+                f'partition_cols ({len(cols)}): {cols}')
+          return cols, order_col
+
+      # ═════════════════════════════════════════════════════════════════════════════
+      # group_and_sum_metrics
+      # ═════════════════════════════════════════════════════════════════════════════
+
+      def group_and_sum_metrics(
+          fields,
+          source_table: str = 'f_person_month',
+          target_lvl: int | None = None,
+          metrics: list | None = None,
+          target_table: str | None = None,
+          where: str | None = None,
+          exclude: tuple = (),
+          coalesce_nulls: bool = True,
+          return_df: bool = False,
+          distributed_by=None,
+          debug: bool = False,
+      ):
+          source_table = _qualified(source_table)
+
+          # ── свежая схема ──
+          _TABLE_CACHE.pop(source_table, None)
+          all_cols = table_columns(source_table)
+          all_set = set(all_cols)
+          schema = _detect_schema(all_cols)
+          print(f'[INFO] схема: {schema}')
+
+          # 1. путевые ключи
+          path_keys = _build_path_keys(all_cols, schema, target_lvl)
+          path_set = set(path_keys)
+
+          # 2. FIXED_DIMS — всегда
+          fixed_keys: list[str] = []
+          for d in FIXED_DIMS:
+              alias = d['alias']
+              if alias in all_set and alias not in path_set:
+                  fixed_keys.append(alias)
+
+          # 3. пользовательские разрезы
+          user_keys: list[str] = []
+          seen = path_set | set(fixed_keys)
+          for f in (fields or []):
+              k = _key_of(f)
+              if k not in all_set:
+                  print(f'[WARN] {k} нет в {source_table}, пропущена')
+                  continue
+              if k not in seen:
+                  user_keys.append(k)
+                  seen.add(k)
+
+          keys = [_ident(k) for k in path_keys + fixed_keys + user_keys]
+          if not keys:
+              raise ValueError('Пустой GROUP BY')
+          keys_set = set(keys)
+          exclude_set = set(exclude)
+
+          # 4. метрики
+          if metrics is None:
+              chosen = numeric_columns(source_table)
+              print(f'[INFO] метрики определены автоматически: {len(chosen)} шт.')
+          else:
+              chosen = list(metrics)
+              absent = [m for m in chosen if m not in all_set]
+              if absent:
+                  print(f'[WARN] метрик нет в таблице, пропущены: {absent}')
+
+          metric_names = [
+              _ident(m) for m in chosen
+              if m in all_set and m not in keys_set and m not in exclude_set
+          ]
+          if not metric_names:
+              raise ValueError('Нет ни одной метрики для суммирования')
+
+          print(f'[INFO] fixed_dims: {fixed_keys}')
+          print(f'[INFO] user_dims:  {user_keys}')
+          print(f'[INFO] суммируются ({len(metric_names)}): {metric_names}')
+
+          # 5. SQL
+          keys_sql = ',\n       '.join(keys)
+          sum_sql = ',\n       '.join(
+              f'coalesce(sum({m}), 0) AS {m}' if coalesce_nulls
+              else f'sum({m}) AS {m}'
+              for m in metric_names
+          )
+          group_by = ', '.join(str(i) for i in range(1, len(keys) + 1))
+
+          select_sql = f"""
+      SELECT {keys_sql},
+             {sum_sql}
+      FROM {source_table}
+      {('WHERE ' + where) if where else ''}
+      GROUP BY {group_by}"""
+
+          if debug:
+              print(select_sql)
+              return select_sql
+
+          if target_table:
+              target_table = _qualified(target_table)
+              dist = (f"distributed by ({', '.join(_ident(c) for c in distributed_by)})"
+                      if distributed_by else 'distributed randomly')
+              dal.get_df(datasource='gp', query=f'drop table if exists {target_table}')
+              dal.get_df(datasource='gp',
+                         query=f'create table {target_table} as\n{select_sql}\n{dist}')
+              dal.get_df(datasource='gp', query=f'analyze {target_table}')
+              cnt = dal.get_df(datasource='gp',
+                               query=f'select count(*) as cnt from {target_table}')['cnt'].iloc[0]
+              print(f'[OK] {target_table}: {cnt} строк')
+              if not return_df:
+                  return None
+
+          return dal.get_df(datasource='gp', query=select_sql)
+
+      # ═════════════════════════════════════════════════════════════════════════════
+      # calc_ssch
+      # ═════════════════════════════════════════════════════════════════════════════
+
+      def calc_ssch(
+          source_table,
+          res_table_name,
+          metric_col='hc_active_cnt',
+          ssch_col_name='ssch',
+          emit_lag=False,
+          lag_col_name=None,
+          partition_cols=None,
+          order_col='month',
+          fill_first=True,
+          additional_metrics=None,
+          where_clause='',
+          fields=None,
+          distributed_by=None,
+          return_df=False,
+      ):
+          source_table = _qualified(source_table)
+          res_table_name = _qualified(res_table_name)
+
+          _TABLE_CACHE.pop(source_table, None)
+          all_cols = table_columns(source_table)
+          all_set = set(all_cols)
+
+          order_col = _resolve_col(all_set, order_col, ('report_month', 'month'))
+
+          if metric_col not in all_set:
+              cands = [c for c in DEFAULT_METRICS if c in all_set]
+              raise ValueError(f'{metric_col} нет в {source_table}. Кандидаты: {cands[:5]}')
+
+          _ident(ssch_col_name)
+          if lag_col_name is None:
+              lag_col_name = f'lag_{metric_col}'
+          _ident(lag_col_name)
+
+          if partition_cols is None:
+              partition_cols, order_col = partition_cols_from_table(
+                  source_table, order_col=order_col, fields=fields)
+          else:
+              missing = [c for c in partition_cols if c not in all_set]
+              if missing:
+                  raise ValueError(f'partition_cols: нет в {source_table}: {missing}')
+
+          partition_sql = ', '.join(_ident(c) for c in partition_cols)
+          over = f'PARTITION BY {partition_sql} ORDER BY {_ident(order_col)}'
+          lag_expr = f'LAG({_ident(metric_col)}) OVER ({over})'
+
+          if fill_first:
+              ssch_formula = (
+                  f'CASE WHEN {lag_expr} IS NULL '
+                  f'THEN {_ident(metric_col)}::NUMERIC '
+                  f'ELSE ({lag_expr} + {_ident(metric_col)}) / 2.0 END')
+          else:
+              ssch_formula = f'({lag_expr} + {_ident(metric_col)}) / 2.0'
+
+          # ── защита от дублей колонок ──
+          new_cols = {ssch_col_name}
+          if emit_lag:
+              new_cols.add(lag_col_name)
+          if additional_metrics:
+              new_cols |= set(additional_metrics.keys())
+          base_cols = [c for c in all_cols if c not in new_cols]
+          base_sql = ', '.join(_ident(c) for c in base_cols)
+
+          lag_sql = f',\n       {lag_expr} AS {_ident(lag_col_name)}' if emit_lag else ''
+
+          additional_sql = ''
+          if additional_metrics:
+              parts = [
+                  f"{formula.replace('{ssch}', f'({ssch_formula})')} AS {_ident(name)}"
+                  for name, formula in additional_metrics.items()
+              ]
+              additional_sql = ',\n       ' + ',\n       '.join(parts)
+
+          where_sql = f'WHERE 1=1 {where_clause}' if where_clause else ''
+
+          select_sql = f"""
+      SELECT {base_sql}{lag_sql},
+             {ssch_formula} AS {_ident(ssch_col_name)}{additional_sql}
+      FROM {source_table}
+      {where_sql}"""
+
+          print(select_sql)
+
+          dist = (f'distributed by ({", ".join(_ident(c) for c in distributed_by)})'
+                  if distributed_by else 'distributed randomly')
+
+          dal.get_df(datasource='gp', query=f'drop table if exists {res_table_name}')
+          dal.get_df(datasource='gp',
+                     query=f'create table {res_table_name} as\n{select_sql}\n{dist}')
+          dal.get_df(datasource='gp', query=f'analyze {res_table_name}')
+
+          cnt = dal.get_df(datasource='gp',
+                           query=f'select count(*) as cnt from {res_table_name}')['cnt'].iloc[0]
+          print(f'[OK] SSCH → {res_table_name}: {cnt} строк')
+
+          return dal.get_df(datasource='gp', query=select_sql) if return_df else None
+    isEnabled: true
+  - sid: 01a1121d-0c10-7995-96f8-1bad85fc84b0
+    title: EXEC group
+    shebang: python
+    code: |-
+      group_and_sum_metrics(
+          fields=fields,
+          source_table='all_metrics_with_performance_and_office_traffic_and_grt',
+          target_table='hr_structure_grouped',
+          #distributed_by=['mngt_unit_rk'],
+      )
+    isEnabled: true
+  - sid: 01a1154e-154c-77d9-9cf5-8c83b6e35812
+    title: select grouped
+    shebang: gp
+    code: |-
+      SELECT * from hr_structure_grouped nm
+      WHERE lvl5_nm = 'Executive отчеты для команд и руководителей'--'Executive отчеты для команд и руководителей'
+      --and  = '2026-10-01'
+      limit 200;
+
+      select count(*) from hr_structure_grouped;
+    isEnabled: true
+  - sid: 01a0ecec-ca2a-7f2f-8292-9f492af736b2
+    title: calc_ssch
+    shebang: python
+    code: |-
+      # ── константы ────────────────────────────────────────────────────────────────
+      # колонки, которые точно метрики (не ключи партиционирования)
+      DEFAULT_METRICS = {
+          'hc_total_cnt', 'hc_active_cnt', 'hire_cnt', 'hire_amt',
+          'hire_to_active_amt', 'transfer_candidate_amt', 'transfer_internal_amt',
+          'fire_amt', 'regret_fire_amt',
+          'transfer_in_amt', 'transfer_in_lvl', 'transfer_out_amt', 'transfer_out_lvl',
+          'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
+          'work_day_amt', 'office_visit_amt',
+          'grt_approve_cnt', 'grt_decline_cnt', 'grt_cancel_cnt', 'grt_inprogress_cnt',
+      }
+
+      # колонки-наименования: нужны в выводе, но НЕ в PARTITION BY
+      _NM_RE = _re.compile(r'^lvl\d+_nm$')
+
+
+      def _resolve_col(all_cols, name, alternatives=()):
+          """Возвращает реальное имя колонки с автофолбэком month/report_month."""
+          if name in all_cols:
+              return name
+          for alt in alternatives:
+              if alt in all_cols:
+                  print(f'[INFO] {name} нет в таблице, использую {alt}')
+                  return alt
+          raise ValueError(f'{name} нет в таблице. Есть: {all_cols}')
+
+
+      def partition_cols_from_table(table, order_col='month', fields=None):
+          """
+          Ключи партиционирования = идентификационные ключи (юниты) + разрезы,
+          БЕЗ наименований (lvlN_nm) и БЕЗ order_col.
+          """
+          all_cols = table_columns(table)
+          all_set = set(all_cols)
+          schema = _detect_schema(all_cols)
+          order_col = _resolve_col(all_cols, order_col, ('report_month', 'month'))
+
+          path_keys = _build_path_keys(all_cols, schema, target_lvl=None)
+          path_set = set(path_keys)
+
+          # ── отсеиваем наименования: они не стабильны между месяцами ──
+          cols = [c for c in path_keys
+                  if c != order_col and not _NM_RE.match(c)]
+
+          if fields:
+              for f in fields:
+                  k = _key_of(f)
+                  if k not in all_set:
+                      print(f'[SKIP] {k} нет в {table} — не партиционируем')
+                      continue
+                  if k not in path_set and k not in cols and not _NM_RE.match(k):
+                      cols.append(k)
+          else:
+              metric_set = DEFAULT_METRICS
+              for c in all_cols:
+                  if (c not in cols and c not in metric_set
+                          and c != order_col and not _NM_RE.match(c)):
+                      cols.append(c)
+
+          cols = [c for c in cols if c != order_col]
+          if not cols:
+              raise ValueError(f'Не удалось определить partition_cols для {table}')
+
+          nm_cols = [c for c in path_keys if _NM_RE.match(c)]
+          if nm_cols:
+              print(f'[INFO] lvlN_nm исключены из PARTITION BY: {nm_cols}')
+          print(f'[INFO] схема: {schema}, order: {order_col}, partition_cols: {cols}')
+          return cols, order_col
+
+
+      def calc_ssch(
+          source_table,
+          res_table_name,
+          metric_col='hc_total_cnt',
+          ssch_col_name=None,
+          lag_col_name=None,
+          partition_cols=None,
+          order_col='month',
+          fill_first=True,
+          additional_metrics=None,
+          where_clause='',
+          fields=None,
+          distributed_by=None,
+          return_df=False,
+      ):
+          """
+          SSCH = (lag + текущ) / 2, для первого месяца = текущ (fill_first=True).
+          PARTITION BY = идентификационные ключи (юниты rk + разрезы), ORDER BY = месяц.
+          lvlN_nm выносятся в SELECT, но НЕ в PARTITION BY.
+          """
+          source_table = _qualified(source_table)
+          res_table_name = _qualified(res_table_name)
+
+          # ── кэш сбрасываем, чтобы читать актуальную схему ──
+          _TABLE_CACHE.pop(source_table, None)
+          all_cols = table_columns(source_table)
+          all_set = set(all_cols)
+
+          order_col = _resolve_col(all_cols, order_col, ('report_month', 'month'))
+
+          if metric_col not in all_set:
+              cands = [c for c in DEFAULT_METRICS if c in all_set]
+              raise ValueError(
+                  f'{metric_col} нет в {source_table}. '
+                  f'Кандидаты: {cands[:5]}'
+              )
+
+          if ssch_col_name is None:
+              ssch_col_name = f'ssch_{metric_col}'
+          if lag_col_name is None:
+              lag_col_name = f'lag_{metric_col}'
+          _ident(ssch_col_name)
+          _ident(lag_col_name)
+
+          # ── partition_cols ──
+          if partition_cols is None:
+              partition_cols, order_col = partition_cols_from_table(
+                  source_table, order_col=order_col, fields=fields,
+              )
+          else:
+              missing = [c for c in partition_cols if c not in all_set]
+              if missing:
+                  raise ValueError(f'partition_cols: нет в {source_table}: {missing}')
+
+          partition_sql = ', '.join(_ident(c) for c in partition_cols)
+          over = f'PARTITION BY {partition_sql} ORDER BY {_ident(order_col)}'
+
+          # ── исключаем из SELECT * колонки, которые будут пересозданы ──
+          # (защита от дублей при повторном прогоне)
+          new_cols = {lag_col_name, ssch_col_name}
+          if additional_metrics:
+              new_cols |= set(additional_metrics.keys())
+          base_cols = [c for c in all_cols if c not in new_cols]
+          base_sql = ', '.join(_ident(c) for c in base_cols)
+
+          # ── LAG / SSCH ──
+          lag_expr = f'LAG({_ident(metric_col)}) OVER ({over})'
+
+          if fill_first:
+              ssch_formula = (
+                  f'CASE WHEN {lag_expr} IS NULL '
+                  f'THEN {_ident(metric_col)}::NUMERIC '
+                  f'ELSE ({lag_expr} + {_ident(metric_col)}) / 2.0 END'
+              )
+          else:
+              ssch_formula = f'({lag_expr} + {_ident(metric_col)}) / 2.0'
+
+          # ── additional_metrics ──
+          additional_sql = ''
+          if additional_metrics:
+              parts = [
+                  f"{formula.replace('{ssch}', f'({ssch_formula})')} AS {_ident(name)}"
+                  for name, formula in additional_metrics.items()
+              ]
+              additional_sql = ',\n       ' + ',\n       '.join(parts)
+
+          where_sql = f'WHERE 1=1 {where_clause}' if where_clause else ''
+
+          select_sql = f"""
+      SELECT {base_sql},
+             {lag_expr} AS {_ident(lag_col_name)},
+             {ssch_formula} AS {_ident(ssch_col_name)}{additional_sql}
+      FROM {source_table}
+      {where_sql}"""
+
+          print(select_sql)
+
+          dist = (f'distributed by ({", ".join(_ident(c) for c in distributed_by)})'
+                  if distributed_by else 'distributed randomly')
+
+          dal.get_df(datasource='gp', query=f'drop table if exists {res_table_name}')
+          dal.get_df(datasource='gp',
+                     query=f'create table {res_table_name} as\n{select_sql}\n{dist}')
+          dal.get_df(datasource='gp', query=f'analyze {res_table_name}')
+
+          cnt = dal.get_df(datasource='gp',
+                           query=f'select count(*) as cnt from {res_table_name}')['cnt'].iloc[0]
+          print(f'[OK] SSCH сохранено в {res_table_name}: {cnt} строк')
+
+          return dal.get_df(datasource='gp', query=select_sql) if return_df else None
+    isEnabled: true
+  - sid: 01a0b503-8d84-7c42-a699-d7a255a1d114
+    title: EXEC calc_ssch
+    shebang: python
+    code: |-
+      calc_ssch(
+          source_table='hr_structure_grouped',
+          res_table_name='hr_structure_with_ssch',
+          metric_col='hc_active_cnt',
+          fields=fields,                        # те же разрезы, что в group_and_sum_metrics
+          order_col='month'
+      )
+    isEnabled: true
+  - sid: 01a115ba-524b-7463-90f4-b5eed4a3f527
+    title: select ssch
+    shebang: gp
+    code: |-
+      select * from hr_structure_with_ssch
+      where 1=1 -- mngt_unit_nm = 'Сервис линии'--'Executive отчеты для команд и руководителей'
+      and lvl6_nm = 'Управление продаж'
+      and report_month = '2026-10-01'
+      limit 20
+    isEnabled: true
+  - sid: 01a11727-8f67-7675-8277-a170d27d8d53
+    title: Структура численности
+    shebang: python
+    code: |2-
+
+      fields = [
+              {
+                  'name': 'active_type_nm',
+                  'alias': 'active_type_gr_nm',
+                  'match': ['Активная', 'Подрядчики'],
+                  'match_label': 'Активная',
+                  'other_label': 'Прочие',
+              },
+              'emp_specialization_oper_code',
+              {
+                  'name': 'emp_specialization_it_code',
+                  'alias': 'emp_specialization_it_code',
+                  'match': 'IT',
+                  'match_label': 'IT',
+                  'other_label': 'nonIT',
+              },
+              {
+                  'name': 'employment_relation_type_desc',
+                  'alias': 'employment_relation_type',
+                  'match': 'Штатный сотрудник',
+                  'match_label': 'штат',
+                  'other_label': 'не штат',
+              },
+              'gender',
+              'type_age',
+              'experience_group_nm',
+              'grade',
+              'seniority',
+              'employment_relation_type_desc',
+              'lvl1_legal_unit_nm',
+              'employee_contract_type_desc',
+              'employee_stream_desc',
+          ]
+
+      get_hr_structure(
+          res_table_name='hr_structure_amt_structure',
+          add_fields=fields,
+          hire=False,
+          outflow=False,
+          transfers=False,
+          parent=False,
+          snapshot_mode='last_available',
+
+          # start_lvl=4, #test
+          # end_lvl=6,   #test
+      )
+    isEnabled: false
+    color: "#F4BDB9"
+  - sid: 01a134d9-95a8-74ef-8073-4cb2cfcf6c54
+    title: Untitled 1
+    shebang: gp
+    code: |-
+      select * from hr_structure_amt_structure
+      where mngt_unit_nm = 'Сервис линии'--'Executive отчеты для команд и руководителей'
+      and month = '2026-10-01' and lvl = 4
+      limit 100
+    isEnabled: false
+    color: "#F4BDB9"
+  - sid: 01a13522-79ca-7172-b5ea-9d78864f952b
+    title: join_structure_combos
+    shebang: python
+    code: |-
+      from dal_client import query as dal
+
+      JOIN_KEYS = [
+          'month',
+          'mngt_unit_rk',
+          'lvl',
+          'active_type_gr_nm',
+          'emp_specialization_oper_code',
+          'emp_specialization_it_code',
+          'employment_relation_type',
+      ]
+
+      COMBO_GROUPS = {
+          'gender_exp_age':  ['gender', 'experience_group_nm', 'type_age'],
+          'grade_seniority': ['grade', 'seniority'],
+          # 'employment_legal': ['work_format', 'lvl2_legal_unit_nm'],
+      }
+
+
+      def _cols(table):
+          t = table.split('.')[-1]
+          df = dal.get_df(datasource='gp', query=f"""
+              select column_name from information_schema.columns
+              where table_name = '{t}'
+          """)
+          if df.empty:
+              raise ValueError(f'таблица не найдена: {table}')
+          return {c.lower() for c in df['column_name']}
+
+
+      def join_structure_combos(
+          res_table_name='hr_structure_with_combos',
+          metrics_table='hr_structure_all_metrics',
+          structure_table='hr_structure_amt_structure',
+          combo_groups=None,
+          join_keys=None,
+          amt_col='employee_amt',
+          include_zeros=True,
+          distributed_by=('mngt_unit_rk',),
+          debug=False,
+      ):
+          groups = combo_groups or COMBO_GROUPS
+          keys = join_keys or JOIN_KEYS
+
+          m_cols, s_cols = _cols(metrics_table), _cols(structure_table)
+          bad = [k for k in keys if k not in m_cols or k not in s_cols]
+          if bad:
+              raise ValueError(f'ключей нет в одной из таблиц: {bad}')
+          for g, attrs in groups.items():
+              absent = [a for a in attrs if a not in s_cols]
+              if absent:
+                  raise ValueError(f'группа {g}: нет в {structure_table}: {absent}')
+
+          key_sql = ', '.join(keys)
+          key_nums = ', '.join(str(n) for n in range(1, len(keys) + 1))
+          nl = chr(10)
+
+          ctes, selects, joins = [], [], []
+
+          for g, attrs in groups.items():
+              norm = ', '.join(f"coalesce({a}::text, 'n/a') as {a}" for a in attrs)
+              attr_sql = ', '.join(attrs)
+              all_nums = ', '.join(str(n) for n in range(1, len(keys) + len(attrs) + 1))
+
+              # json с именованными ключами: {"gender": "...", ..., "cnt": N}
+              obj_pairs = ', '.join(f"'{a}', {a}" for a in attrs)
+              obj = f"json_build_object({obj_pairs}, 'cnt', cnt)"
+
+              ctes.append(f"""{g}_cnt as (
+          select {key_sql}, {norm}, sum({amt_col})::bigint as cnt
+          from {structure_table}
+          group by {all_nums}
+      )""")
+
+              if include_zeros:
+                  # домены атрибутов
+                  for a in attrs:
+                      ctes.append(f"""{g}_dom_{a} as (
+          select distinct coalesce({a}::text, 'n/a') as {a}
+          from {structure_table}
+      )""")
+                  # существующие ячейки
+                  ctes.append(f"""{g}_keys as (
+          select {key_sql} from {structure_table} group by {key_nums}
+      )""")
+                  # полная сетка: ячейки x домены
+                  cross = nl + nl.join(f'    cross join {g}_dom_{a}' for a in attrs)
+                  ctes.append(f"""{g}_grid as (
+          select k.*, {attr_sql}
+          from {g}_keys k{cross}
+      )""")
+                  on_full = ' and '.join(
+                      [f'coalesce(gr.{k}::text, chr(1)) = coalesce(c.{k}::text, chr(1))'
+                       for k in keys] +
+                      [f'gr.{a} = c.{a}' for a in attrs]
+                  )
+                  gr_keys = ', '.join(f'gr.{k}' for k in keys)
+                  gr_attrs = ', '.join(f'gr.{a}' for a in attrs)
+                  ctes.append(f"""{g}_full as (
+          select {gr_keys}, {gr_attrs}, coalesce(c.cnt, 0)::bigint as cnt
+          from {g}_grid gr
+          left join {g}_cnt c on {on_full}
+      )""")
+                  src = f'{g}_full'
+              else:
+                  src = f'{g}_cnt'
+
+              ctes.append(f"""{g}_agg as (
+          select {key_sql},
+                 json_agg({obj} order by cnt desc, {attr_sql}) as combo_{g},
+                 sum(cnt)::bigint as amt_{g},
+                 count(*)::int    as combos_{g}
+          from {src}
+          group by {key_nums}
+      )""")
+
+              selects += [f'{g}_agg.combo_{g}', f'{g}_agg.amt_{g}', f'{g}_agg.combos_{g}']
+              on = ' and '.join(
+                  f'coalesce(m.{k}::text, chr(1)) = coalesce({g}_agg.{k}::text, chr(1))'
+                  for k in keys
+              )
+              joins.append(f'left join {g}_agg on {on}')
+
+          sel_sql = (',' + nl + '       ').join(selects)
+          sql = f"""
+      create table {res_table_name} as
+      with
+      {(',' + nl).join(ctes)}
+      select m.*,
+             {sel_sql}
+      from {metrics_table} m
+      {nl.join(joins)}
+      distributed by ({', '.join(distributed_by)})
+      """
+
+          if debug:
+              print(sql)
+              return sql
+
+          dal.get_df(datasource='gp', query=f'drop table if exists {res_table_name}')
+          dal.get_df(datasource='gp', query=sql)
+          dal.get_df(datasource='gp', query=f'analyze {res_table_name}')
+
+          checks = ', '.join(
+              f'count(*) filter (where combo_{g} is not null and amt_{g} <> {amt_col}) as bad_{g}, '
+              f'max(combos_{g}) as max_combos_{g}'
+              for g in groups
+          )
+          r = dal.get_df(datasource='gp', query=f"""
+              select count(*) as rows_total, {checks} from {res_table_name}
+          """).iloc[0]
+          print(f'[OK] {res_table_name}: {r.rows_total} строк, zeros={include_zeros}')
+          for g in groups:
+              n = int(r[f'bad_{g}'])
+              print(f'  {g}: макс кортежей в ячейке {int(r["max_combos_" + g])}, '
+                    f'расхождений с {amt_col} — {n}' + ('  <-- разобрать' if n else ''))
+    isEnabled: false
+    color: "#F4BDB9"
+  - sid: 01a13523-654a-7c25-b440-13cb8d200e40
+    title: EXEC
+    shebang: python
+    code: |-
+      join_structure_combos(
+          res_table_name='hr_structure_with_combos',
+          metrics_table='hr_structure_grouped',
+          structure_table='hr_structure_amt_structure',
+          include_zeros=True,
+      )
+    isEnabled: false
+    color: "#F4BDB9"
+  - sid: 01a13528-c978-708d-8fa4-68865b37d8a1
+    title: select
+    shebang: gp
+    code: |+
+      select * from hr_structure_with_combos
+      where lvl between 4 and 5
+      limit 100
+
+    isEnabled: true
+    color: "#F4BDB9"
+  - sid: 01a115c9-17de-7df0-9e14-851bf502d805
+    title: to click
+    shebang: python
+    code: |-
+      import time
+      import proteus_py.database.clickhouse as pp
+      #from proteus_py.database.clickhouse import get_table_owners, set_table_owners, delete_table_owners
+
+
+      tables_dict = {
+          'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',
+      }
+
+      OWNERS = ['d.i.dyachenko', 'a.a.varnavskiy', 'r.kazantsev', 'a.khisamova']
+      MAX_RETRIES = 3
+      DEFAULT_DELAY = 5
+
+      for source, target in tables_dict.items():
+          print(f"{source} -> {target}")
+          for attempt in range(1, MAX_RETRIES + 1):
+              try:
+                  pp.gp_to_click(
+                      gp_table=source,
+                      clickhouse_table=target)
+                  print(f"[OK] {target}")
+                  break
+              except Exception as e:
+                  print(f"[{attempt}/{MAX_RETRIES}] {e}")
+                  if attempt == MAX_RETRIES:
+                      raise
+                  time.sleep(DEFAULT_DELAY * 2 ** (attempt - 1))
+
+          database, _, table = target.rpartition('.')
+          pp.set_table_owners(database=database, table=table, usernames=OWNERS)
+          print(f"[OWNERS] {target}: {', '.join(OWNERS)}")
+    isEnabled: true
+  - sid: 01a1121e-50b3-7299-8609-6b2bd95c2ff4
+    title: ====================
+    shebang: md
+    code: ""
+    isEnabled: true
+  - sid: 01a1121e-5dcf-7fec-8220-0e53b03bfc51
+    title: ==================
+    shebang: md
+    code: ""
+    isEnabled: true
+aiProperties:
+  context: ""
