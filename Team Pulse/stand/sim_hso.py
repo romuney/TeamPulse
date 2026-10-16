@@ -12,9 +12,10 @@
 #     employee_contract_type, legal_organization, employee_stream, employment_relation_type;
 #   - атрибуты увольнения: fire_reason_group, fire_initiative — только у строк увольнения;
 #   - период — 34 точки: 2024-01 … 2026-10 (последний неполный).
-# Как и раньше, ЮНИТ ВКЛЮЧАЕТ ВСЁ СВОЁ ПОДДЕРЕВО: строка = месяц × юнит × путь × атрибуты.
-#   переводы считаются на границе юнита: уход из A в B — transfer_out у предков A,
-#   которые не предки B, transfer_in — наоборот (общий предок перевода не видит).
+# С 16.10 (ответ 0д) строка — люди СВОЕГО юнита: месяц × юнит × путь × атрибуты, предки строк
+# не получают (LEAF_ONLY). Перевод из A в B — transfer_out у A, transfer_in у B. Итог ветки —
+# сумма строк, чей путь начинается с пути юнита (так и считает датасет). LEAF_ONLY = False —
+# прежняя накопительная таблица (до 15.10): строка у юнита и у всех его предков.
 # Юнит с двумя родителями (последние три месяца) едет двумя путями — копии строк.
 # Значения атрибутов — правдоподобная выдумка: настоящие покажет запрос 0д.
 # Пишет hso.csv (строки таблицы) и truth.json (правда по людям для сверок).
@@ -66,6 +67,12 @@ def ancestors(rk, m):          # сам юнит и все предки
     while rk:
         out.append(rk); rk = parent_of(rk, m)
     return out
+# 16.10, ответ 0д: в боевой таблице строка — люди СВОЕГО юнита (не поддерева): верхний юнит —
+# 3 человека, у 2 705 из 3 095 юнитов дети больше родителя. LEAF_ONLY = True — так же:
+# событие и численность пишутся только юниту человека; итог ветки датасет собирает по пути.
+LEAF_ONLY = True
+def scope(rk, m):              # куда пишется строка человека
+    return [rk] if LEAF_ONLY else ancestors(rk, m)
 def depth_of(rk, m):
     return len(ancestors(rk, m))
 def name_path(rk, m, via=None):
@@ -98,7 +105,8 @@ GENDER = [('Мужской', .52), ('Женский', .48)]
 AGE = [('До 25 лет', .18), ('25-34 лет', .42), ('35-44 лет', .27), ('45 лет и старше', .13)]
 SEN = [('Junior', .30), ('Middle', .38), ('Senior', .24), ('Lead', .08)]
 GRADE_OF = {'Junior': ['10', '11'], 'Middle': ['11', '12'], 'Senior': ['12', '13'], 'Lead': ['13', '14']}
-CONTRACT = [('Бессрочный', .86), ('Срочный', .14)]
+# employee_contract_type — формат работы (ответ 0д: «Гибридный»), не тип договора
+CONTRACT = [('Гибридный', .52), ('Офисный', .33), ('Удалённый', .15)]
 LEGAL = ['АО «Банк»', 'ООО «Технологии»', 'ООО «Сервис»']
 # 16.10: на верхних уровнях юрлиц и стримов — десятки, отчёт берёт топ. Длинный хвост:
 # 21 мелкое юрлицо (у 25% людей) и 14 стримов с убывающими долями.
@@ -161,7 +169,7 @@ for mi in range(len(MONTHS)):
         for p in people:
             if p['unit'] == CLOSE_UNIT:
                 old = p['unit']; p['unit'] = parent_of(old, mi)
-                a_old, a_new = set(ancestors(old, mi - 1)), set(ancestors(p['unit'], mi))
+                a_old, a_new = set(scope(old, mi - 1)), set(scope(p['unit'], mi))
                 for u in a_old - a_new: bump(mi, u, key_attrs(p, mi), 'tout')
                 for u in a_new - a_old: bump(mi, u, key_attrs(p, mi), 'tin')
     nxt = []
@@ -172,33 +180,33 @@ for mi in range(len(MONTHS)):
             reason = pick(REASONS)
             init = INIT_OF.get(reason, 'Работник')
             regret = p['type'] == 'Активная' and dict((x[0], x[2]) for x in REASONS)[reason] and random.random() < .5
-            for u in ancestors(p['unit'], mi):
+            for u in scope(p['unit'], mi):
                 bump(mi, u, key_attrs(p, mi, reason, init), 'fire')
                 if regret: bump(mi, u, key_attrs(p, mi, reason, init), 'regret')
             fires += 1; regrets += regret
             continue
         if mi > 0 and r < rate + .02:                            # перевод в другой юнит
             old = p['unit']; p['unit'] = place(mi)
-            a_old, a_new = set(ancestors(old, mi)), set(ancestors(p['unit'], mi))
+            a_old, a_new = set(scope(old, mi)), set(scope(p['unit'], mi))
             for u in a_old - a_new: bump(mi, u, key_attrs(p, mi), 'tout')
             for u in a_new - a_old: bump(mi, u, key_attrs(p, mi), 'tin')
         if mi > 0 and random.random() < .002:                    # перевод внутри юнита
-            for u in ancestors(p['unit'], mi): bump(mi, u, key_attrs(p, mi), 'tint')
+            for u in scope(p['unit'], mi): bump(mi, u, key_attrs(p, mi), 'tint')
         if mi > 0 and random.random() < .005:                    # смена типа: декрет ↔ работа
             p['type'] = 'Декрет' if p['type'] == 'Активная' else ('Активная' if p['type'] == 'Декрет' else p['type'])
         if mi > 0 and p['type'] == 'Кандидаты в учебных юнитах' and random.random() < .3:
             p['type'] = 'Активная'
-            for u in ancestors(p['unit'], mi): bump(mi, u, key_attrs(p, mi), 'tcand')
+            for u in scope(p['unit'], mi): bump(mi, u, key_attrs(p, mi), 'tcand')
         nxt.append(p)
     people = nxt
     if mi > 0:                                                   # найм
         for _ in range(int(len(people) * random.uniform(.02, .035))):
             p = new_person(place(mi), mi); people.append(p); hires += 1
-            for u in ancestors(p['unit'], mi):
+            for u in scope(p['unit'], mi):
                 bump(mi, u, key_attrs(p, mi), 'hire')
     wdn, grt = workdays(mi), dict(ga=0, gd=0, gc=0, gi=0)
     for p in people:                                             # численность на конец месяца
-        anc = ancestors(p['unit'], mi)
+        anc = scope(p['unit'], mi)
         ka = key_attrs(p, mi)
         for u in anc:
             bump(mi, u, ka, 'emp')

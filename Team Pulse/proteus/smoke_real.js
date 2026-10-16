@@ -120,8 +120,9 @@ const i=R.n-1;
     'увольнения с начала года по причине, инициатору, стажу, грейду, стриму — из данных, в сумме = отток ('+ytd+')');
   const regY=D.sumWin(D.aggregate(rl,'regret_cnt'),'ytd'), regN=rs.reduce((x,r)=>x+(r.regretN||0),0);
   ok(Math.abs(regN-regY)<=rs.length*0.5,'нежелательные уходы по причинам — по людям, в сумме = regret с начала года ('+regN+' / '+regY+')');
-  ok(!D.MIX_BY_KEY.worksite&&!D.MIX_BY_KEY.region&&!D.MIX_BY_KEY.spec&&!!D.MIX_BY_KEY.contract,
-    'формата работы, региона и специализаций в данных нет — разрезов нет; тип договора есть');
+  /* 16.10, ответ 0д: employee_contract_type — формат работы («Гибридный»), а не тип договора */
+  ok(!!D.MIX_BY_KEY.worksite&&!D.MIX_BY_KEY.contract&&!D.MIX_BY_KEY.region&&!D.MIX_BY_KEY.spec,
+    'формат работы — из employee_contract_type; типа договора, региона и специализаций нет');
   /* 16.10: IT-специализация вернулась в таблицу — фильтр IT снова работает, покраски нет */
   ok(!R.cuts.has('paint')&&R.cuts.has('it')&&R.cuts.has('staff')&&R.vals.it.length>0&&
     D.DEFAULT_STATE.paint==='all'&&D.DEFAULT_STATE.itSeg===(R.applied.itSeg||'all'),

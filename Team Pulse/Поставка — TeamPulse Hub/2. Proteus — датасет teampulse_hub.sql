@@ -3,18 +3,25 @@
     Пробник: всё, что даёт prod_proteus.hr_structure_overall (SOURCES.md §18).
     Схема таблицы — разведка 16.10.2026 (describe физического датасета 175625, 49 колонок).
 
-    В этой таблице цифры юнита УЖЕ включают всё его поддерево. Поэтому юнит
-    берётся своими строками, а подразделения не складываются никогда: сумма
-    детей дала бы двойной счёт. Люди прямо в юните («Напрямую в «X»») — это
-    юнит минус его прямые подразделения; разницу считает чарт.
+    Строка таблицы — люди СВОЕГО юнита, не поддерева (ответ 0д, 16.10: верхний юнит —
+    3 человека, у 2 705 из 3 095 юнитов дети больше родителя). Поэтому итог узла —
+    сумма строк, чей путь начинается с пути узла: сам юнит и всё под ним. Дерево —
+    все начала путей последнего месяца, включая уровни без своих строк (корень,
+    промежуточные звенья). Люди прямо в юните («Напрямую в «X»») — узел минус его
+    прямые подразделения, то есть его свои строки; разницу считает чарт.
 
-    Дерево в таблице денормализовано: путь юнита — имена уровней lvl1_nm … lvl11_nm,
-    глубина — leaf_lvl. Родителя ищем по пути без последнего имени: имена в
-    разных ветках повторяются, а полный путь — нет. Юнит с двумя родителями едет
-    двумя путями — берём меньший путь, копии строк считаем один раз (max по ключу
-    «месяц × юнит × атрибуты»). В ключе — ВСЕ атрибуты строки, и новые тоже: колонка,
-    которой нет в ключе, но которая делит строки (16.10: active_type_gr_nm, IT-код,
-    группа типа отношений), склеила бы разных людей в одну строку и занизила численность.
+    Дерево денормализовано: путь юнита — имена уровней lvl1_nm … lvl11_nm, глубина —
+    leaf_lvl. Узел — путь целиком (id — 12 знаков md5 пути): имена в разных ветках
+    повторяются, а полный путь — нет. История приводится к структуре последнего месяца:
+    строки юнита за все месяцы едут по его пути последнего месяца (юнит переехал —
+    его прошлое переезжает с ним); юнита в последнем месяце нет — по своему пути.
+    Юнит с двумя путями берёт меньший; копии строк считаются один раз (max по ключу
+    «месяц × юнит × атрибуты»). В ключе — ВСЕ атрибуты строки: колонка, которой нет
+    в ключе, но которая делит строки (16.10: active_type_gr_nm, IT-код, группа типа
+    отношений), склеила бы разных людей в одну строку и занизила численность.
+    Переводы на верхних уровнях включают переходы между своими же подразделениями
+    (в таблице только юнит «из» и юнит «в» по отдельности) — сальдо верное, в и из
+    по отдельности завышены.
 
     Один ответ везёт всё, что чарту нужно до следующей смены юнита или фильтров:
     выбранный юнит, три уровня подразделений под ним, всю компанию под теми же
@@ -49,7 +56,8 @@
     mx — разрезы юнита строками «ключ \t значение \t число» через \n:
       численность последнего полного месяца (hc_total_cnt) по атрибуту человека —
         g пол · a возраст · t опыт (experience_group_nm) · gr грейд · s сеньорность ·
-        c тип договора · o юрлицо · w стрим · r тип отношений (штат / не штат);
+        c формат работы (employee_contract_type: гибрид / офис / удалённо) · o юрлицо ·
+        w стрим · r тип отношений (штат / не штат);
       увольнения с начала года (fire_amt) —
         xr по причине · xq нежелательные по причине (regret_fire_amt) · xi по инициативе ·
         xp причина|инициатива · xt по опыту · xg по грейду · xs по стриму.
@@ -64,7 +72,7 @@
     unit_f — id юнита, it_f — IT / Digital / NonIT / «-», staff_f — «Штат» / «Не штат»
     (employment_relation_type = 'Штатный сотрудник').
     Колонки-носители в SELECT не выводятся, иначе Superset повесит авто-IN на
-    внешний запрос. id юнита — 12 знаков md5 ключа.
+    внешний запрос. id юнита — 12 знаков md5 его пути.
 
     Порядок строк однозначен (ORDER BY … id: имена юнитов повторяются), списки в j и mx
     отсортированы — ответ не зависит от плана запроса.
@@ -119,26 +127,27 @@ WITH
            toUInt32(dateDiff('month', m0, toStartOfYear(lm))) AS iy
     FROM prod_proteus.hr_structure_overall
   ),
-  -- Пути юнитов последнего полного месяца: имена уровней от корня до юнита
-  tp AS (
-    SELECT DISTINCT ifNull(mng_unit_rk, '') AS u0, toInt32(ifNull(leaf_lvl, 0)) AS l0,
-           arrayMap(x -> translate(ifNull(x, ''), '\t\n', '  '), [{{ LV|join(', ') }}]) AS a0
+  -- Ключ юнита → его путь в последнем полном месяце (имена уровней от корня через таб;
+  -- путей два — меньший). Строки юнита за прошлые месяцы пойдут по этому пути: переезд и
+  -- переименование не рвут ряды — история пересчитана на нынешнюю структуру
+  lmr AS (
+    SELECT ifNull(mng_unit_rk, '') AS u0,
+           min(arrayStringConcat(arraySlice(arrayMap(x -> translate(ifNull(x, ''), '\t\n', '  '), [{{ LV|join(', ') }}]),
+                                            1, toInt32(ifNull(leaf_lvl, 0))), '\t')) AS pk0
     FROM prod_proteus.hr_structure_overall
     WHERE report_month = (SELECT lm FROM cal) AND mng_unit_rk IS NOT NULL AND ifNull(leaf_lvl, 0) > 0
+    GROUP BY u0
   ),
-  tq AS (
-    SELECT u0, l0, arrayStringConcat(arraySlice(a0, 1, l0), '\t') AS p1,
-           arrayStringConcat(arraySlice(a0, 1, l0 - 1), '\t') AS q1, a0[l0] AS n1
-    FROM tp
-  ),
-  -- Юнит с двумя родителями — один путь, меньший (псевдонимы нигде не совпадают с
-  -- колонками, из которых считаются: на таком совпадении новый анализатор ClickHouse 24.8
+  -- Узлы дерева — все начала путей: и юниты со своими людьми, и уровни над ними без своих
+  -- строк (в таблице строка — люди СВОЕГО юнита, у верхних уровней строк может не быть).
+  -- Узел — его путь (rk), родитель — путь без последнего имени (псевдонимы нигде не совпадают
+  -- с колонками, из которых считаются: на таком совпадении новый анализатор ClickHouse 24.8
   -- отдаёт пустой скалярный подзапрос)
-  st0 AS (SELECT u0 AS rk0, any(l0) AS lv0, min(p1) AS ps0, argMin(q1, p1) AS pp0, argMin(n1, p1) AS nm0 FROM tq GROUP BY u0),
-  pmap AS (SELECT p1 AS pk, min(u0) AS pu FROM tq GROUP BY p1),
   st AS (
-    SELECT t.rk0 AS rk, t.lv0 AS lv, t.nm0 AS nm, if(t.pp0 = '', '', ifNull(m.pu, '')) AS prk
-    FROM st0 AS t LEFT JOIN pmap AS m ON m.pk = t.pp0
+    SELECT DISTINCT arrayStringConcat(arraySlice(a5, 1, d5), '\t') AS rk,
+           arrayStringConcat(arraySlice(a5, 1, d5 - 1), '\t') AS prk, toInt32(d5) AS lv, a5[d5] AS nm
+    FROM (SELECT splitByChar('\t', pk0) AS a5 FROM lmr WHERE pk0 != '')
+    ARRAY JOIN arrayEnumerate(a5) AS d5
   ),
   st2 AS (
     SELECT rk, prk, lv, nm, lower(hex(substring(MD5(rk), 1, 6))) AS id,
@@ -148,7 +157,7 @@ WITH
   kd AS (SELECT prk AS kr, toUInt32(count()) AS k FROM st WHERE prk != '' GROUP BY prk),
   -- Корень и юнит по умолчанию: если у корня один ребёнок (вся компания — один
   -- юнит), отчёт открывается с него — иначе первый уровень таблицы был бы одной строкой
-  rt AS (SELECT argMin(rk, lv) AS r FROM st WHERE prk = ''),
+  rt AS (SELECT argMin(rk, (lv, rk)) AS r FROM st WHERE prk = ''),
   dflt AS (SELECT if(count() = 1, any(rk), (SELECT r FROM rt)) AS d FROM st WHERE prk = (SELECT r FROM rt)),
   req AS (SELECT any(rk) AS q, count() AS c FROM st2 WHERE {% if unit_req %}id = {{ qs(unit_req[0]) }}{% else %}0{% endif %}),
   sc AS (SELECT if(req.c > 0, req.q, dflt.d) AS s FROM req CROSS JOIN dflt),
@@ -156,19 +165,15 @@ WITH
   d1 AS (SELECT rk FROM st WHERE prk = (SELECT s FROM sc) AND rk != ''),
   d2 AS (SELECT rk FROM st WHERE prk IN (SELECT rk FROM d1)),
   d3 AS (SELECT rk FROM st WHERE prk IN (SELECT rk FROM d2)),
-  -- Предки выбранного юнита — путь от корня (уровней не больше 12)
-  up AS (SELECT groupArray(rk) AS ks, groupArray(prk) AS ps FROM st),
+  -- Глубина корня и выбранного юнита; предки выбранного юнита — начала его пути
+  -- (скалярный подзапрос бывает Nullable — массив из него только через ifNull)
+  dep AS (
+    SELECT splitByChar('\t', ifNull((SELECT s FROM sc), '')) AS sa6,
+           toUInt32(length(splitByChar('\t', ifNull((SELECT r FROM rt), '')))) AS rl,
+           toUInt32(length(sa6)) AS sl
+  ),
   anc AS (
-    SELECT arrayFilter(x -> x != '', [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12]) AS arr
-    FROM
-    (
-      SELECT (SELECT s FROM sc) AS s0,
-             ps[indexOf(ks, s0)] AS a1, ps[indexOf(ks, a1)] AS a2, ps[indexOf(ks, a2)] AS a3,
-             ps[indexOf(ks, a3)] AS a4, ps[indexOf(ks, a4)] AS a5, ps[indexOf(ks, a5)] AS a6,
-             ps[indexOf(ks, a6)] AS a7, ps[indexOf(ks, a7)] AS a8, ps[indexOf(ks, a8)] AS a9,
-             ps[indexOf(ks, a9)] AS a10, ps[indexOf(ks, a10)] AS a11, ps[indexOf(ks, a11)] AS a12
-      FROM up
-    )
+    SELECT arrayMap(d -> arrayStringConcat(arraySlice(sa6, 1, d), '\t'), range(1, sl)) AS arr FROM dep
   ),
   -- Юниты, по которым нужны ряды: o — порядок строк в ответе
   pick AS (
@@ -178,10 +183,10 @@ WITH
     UNION ALL SELECT rk, toUInt8(6) AS o FROM d2
     UNION ALL SELECT rk, toUInt8(7) AS o FROM d3
   ),
-  -- Строки юнитов под фильтрами на зерне «месяц × юнит × атрибуты»: копии строк
-  -- юнита с двумя родителями (одинаковые, разные только пути) считаются один раз
-  b0 AS (
-    SELECT u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, rq1, ag1, ic1, fr1, fi1,
+  -- Строки под фильтрами на ключе «месяц × юнит × атрибуты»: копии строк юнита с двумя
+  -- родителями (одинаковые, разные только пути) считаются один раз; путь строки — меньший
+  b00 AS (
+    SELECT u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, rq1, ag1, ic1, fr1, fi1, min(pr0) AS pr1,
            max(toFloat64(ifNull(hc_total_cnt, 0))) AS e,
            max(toFloat64(ifNull(hc_active_cnt, 0))) AS ea,
            max(ifNull(ssch_hc_active_cnt, 0)) AS sa,
@@ -201,6 +206,8 @@ WITH
     FROM
     (
       SELECT *, ifNull(mng_unit_rk, '') AS u1,
+             arrayStringConcat(arraySlice(arrayMap(x -> translate(ifNull(x, ''), '\t\n', '  '), [{{ LV|join(', ') }}]),
+                                          1, toInt32(ifNull(leaf_lvl, 0))), '\t') AS pr0,
              toUInt32(dateDiff('month', (SELECT m0 FROM cal), toDate(assumeNotNull(report_month)))) AS i1,
              {{ at('gender') }} AS g1, {{ at('type_age') }} AS a1, {{ at('experience_group_nm') }} AS t1,
              {{ at('grade') }} AS gr1, {{ at('seniority') }} AS s1, {{ at('employee_contract_type') }} AS c1,
@@ -211,10 +218,25 @@ WITH
              {{ at('fire_initiative') }} AS fi1
       FROM prod_proteus.hr_structure_overall
       WHERE report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal)
-        AND ifNull(mng_unit_rk, '') IN (SELECT rk FROM pick)
         AND {{ cond() }}
     )
     GROUP BY u1, i1, g1, a1, t1, gr1, s1, c1, o1, w1, r1, rq1, ag1, ic1, fr1, fi1
+  ),
+  -- Путь строки — нынешний путь её юнита (юнита больше нет — путь из самой строки);
+  -- строка входит в каждый узел, с которого её путь начинается: в корень и в выбранный
+  -- юнит с тремя уровнями под ним. Итог узла — сумма строк его ветки
+  b01 AS (
+    SELECT b.*, if(ifNull(m.pk0, '') != '', ifNull(m.pk0, ''), b.pr1) AS cp1
+    FROM b00 AS b LEFT JOIN lmr AS m ON m.u0 = b.u1
+  ),
+  b0 AS (
+    SELECT * EXCEPT (u1, cp1, pr1), np1 AS u1
+    FROM b01
+    ARRAY JOIN arrayMap(d -> arrayStringConcat(arraySlice(splitByChar('\t', cp1), 1, d), '\t'),
+                        arrayFilter(d -> d = (SELECT rl FROM dep)
+                                      OR (d >= (SELECT sl FROM dep) AND d <= (SELECT sl FROM dep) + 3),
+                                    range(1, length(splitByChar('\t', cp1)) + 1))) AS np1
+    WHERE np1 IN (SELECT rk FROM pick)
   ),
   -- Месяц × юнит; нулевая строка — чтобы юнит без людей под фильтрами всё равно получил массивы
   mm AS (
@@ -291,14 +313,14 @@ FROM
                 ',"vals":{"paint":[],"it":', (SELECT toJSONString(groupArray((v, e))) FROM (
                     SELECT ifNull(emp_specialization_it_code, '-') AS v, sum(toFloat64(ifNull(hc_total_cnt, 0))) AS e
                     FROM prod_proteus.hr_structure_overall
-                    WHERE report_month = (SELECT lm FROM cal) AND ifNull(mng_unit_rk, '') = (SELECT r FROM rt)
+                    WHERE report_month = (SELECT lm FROM cal)
                     GROUP BY v ORDER BY e DESC, v)),
                 ',"staff":', (SELECT toJSONString(groupArray((v, e))) FROM (
                     SELECT if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат') AS v,
                            sum(toFloat64(ifNull(hc_total_cnt, 0))) AS e
                     FROM prod_proteus.hr_structure_overall
-                    WHERE report_month = (SELECT lm FROM cal) AND ifNull(mng_unit_rk, '') = (SELECT r FROM rt)
-                    GROUP BY v ORDER BY e DESC)),
+                    WHERE report_month = (SELECT lm FROM cal)
+                    GROUP BY v ORDER BY e DESC, v)),
                 '}}') AS j,
          {{ blank() }}
 

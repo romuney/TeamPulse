@@ -72,24 +72,57 @@ def mx_of(row):
     return out
 
 
-def tree(s, lm):
-    """дерево последнего полного месяца прямо по таблице: путь → родитель (схема 15.10)"""
-    paths = {}
-    for line in str(s.query(f"""SELECT DISTINCT mng_unit_rk, leaf_lvl, {LV} FROM {T}
-                                 WHERE report_month = '{lm}' AND mng_unit_rk IS NOT NULL""", 'TSV')).strip().splitlines():
+ALL_ATTRS = ['gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
+             'legal_organization', 'employee_stream', 'employment_relation_type', 'employment_relation_type_gr_nm',
+             'active_type_gr_nm', 'emp_specialization_it_code', 'fire_reason_group', 'fire_initiative']
+COLS = ['hc_total_cnt', 'hc_active_cnt', 'ssch_hc_active_cnt', 'hire_amt', 'fire_amt', 'regret_fire_amt',
+        'transfer_in_amt', 'transfer_out_amt', 'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
+        'work_day_amt', 'office_visit_amt', 'grt_approve_cnt', 'grt_decline_cnt']
+# разделитель уровней в выгрузке — «‖»: таб в TSV приходит экранированным
+PATHX = f"arrayStringConcat(arraySlice([{LV}], 1, toInt32(ifNull(leaf_lvl, 0))), '‖')"
+
+
+def load_rows(s, lm):
+    """строки окна прямо из таблицы — правда считается в Python, без SQL датасета:
+    копии строк (юнит с двумя путями) — один раз по ключу «месяц × юнит × атрибуты», путь — меньший"""
+    q = f"""SELECT toString(report_month), ifNull(mng_unit_rk, ''), {PATHX},
+                   {', '.join(f"ifNull({a}, '')" for a in ALL_ATTRS)},
+                   {', '.join(f'toFloat64(ifNull({c}, 0))' for c in COLS)}
+            FROM {T} WHERE report_month BETWEEN toStartOfYear(addYears(toDate('{lm}'), -1)) AND '{lm}'"""
+    rows = {}
+    na = len(ALL_ATTRS)
+    for line in str(s.query(q, 'TSV')).splitlines():
         f = line.split('\t')
-        rk, lv = f[0], int(f[1])
-        paths.setdefault(rk, []).append((tuple(f[2:2 + lv]), lv))
-    by_path = {}
-    for rk, ps in paths.items():
-        for p, _ in ps:
-            by_path[p] = min(by_path.get(p, rk), rk)
-    st = {}
-    for rk, ps in paths.items():
-        p, lv = min(ps)
-        par = by_path.get(p[:-1], '') if lv > 1 else ''
-        st[rk] = dict(prk=par, lv=lv, nm=p[-1])
-    return st
+        if len(f) < 3:
+            continue
+        m, rk = f[0], f[1]
+        tail = f[-(na + len(COLS)):]
+        path = f[2].replace('‖', '\t')
+        attrs = tuple(tail[:na])
+        vals = [float(x) for x in tail[na:]]
+        key = (m, rk, attrs)
+        if key in rows:
+            old = rows[key]
+            old['v'] = [max(a, b) for a, b in zip(old['v'], vals)]
+            old['path'] = min(old['path'], path)
+        else:
+            rows[key] = dict(m=m, rk=rk, path=path, a=dict(zip(ALL_ATTRS, attrs)), v=vals)
+    return list(rows.values())
+
+
+def tree(rows, lm):
+    """дерево последнего полного месяца: путь юнита (меньший) и все его начала — узлы"""
+    lmp = {}
+    for r in rows:
+        if r['m'] == lm and r['rk'] and r['path']:
+            lmp[r['rk']] = min(lmp.get(r['rk'], r['path']), r['path'])
+    nodes = {}
+    for p in lmp.values():
+        parts = p.split('\t')
+        for d in range(1, len(parts) + 1):
+            np_ = '\t'.join(parts[:d])
+            nodes[np_] = dict(prk='\t'.join(parts[:d - 1]), lv=d, nm=parts[d - 1])
+    return lmp, nodes
 
 
 def check(db):
@@ -102,55 +135,64 @@ def check(db):
         print('  FAIL', msg)
 
     lm = str(s.query(f"SELECT if(max(report_month) >= toStartOfMonth(today()), addMonths(max(report_month), -1), max(report_month)) FROM {T}", 'TSV')).strip()
-    st = tree(s, lm)
+    allrows = load_rows(s, lm)
+    lmp, st = tree(allrows, lm)
+    for r in allrows:                       # путь строки — нынешний путь её юнита
+        r['cp'] = lmp.get(r['rk']) or r['path']
     kids = {}
-    for rk, u in st.items():
-        kids.setdefault(u['prk'], []).append(rk)
-    root = min((rk for rk, u in st.items() if u['prk'] == ''), key=lambda r: st[r]['lv'])
+    for np_, u in st.items():
+        kids.setdefault(u['prk'], []).append(np_)
+    root = min((np_ for np_, u in st.items() if u['prk'] == ''), key=lambda p: (st[p]['lv'], p))
     dflt = kids[root][0] if len(kids.get(root, [])) == 1 else root
-    by_id = {uid(rk): rk for rk in st}
-    deep = next(rk for rk, u in st.items() if u['lv'] == max(x['lv'] for x in st.values()))
-    mid = next(rk for rk in kids.get(dflt, []) if kids.get(rk))
-    dup = [n for n in {u['nm'] for u in st.values()} if sum(1 for u in st.values() if u['nm'] == n) > 1]
-    print(f'дерево: {len(st)} юнитов, повторов имён {len(dup)} — родитель по полному пути')
+    by_id = {uid(p): p for p in st}
+    deep = max(st, key=lambda p: (st[p]['lv'], p))
+    mid = next(p for p in sorted(kids.get(dflt, [])) if kids.get(p))
+    own = sum(1 for p in st if any(r['cp'] == p for r in allrows if r['m'] == lm))
+    print(f'дерево: {len(st)} узлов, из них со своими строками {own} — итог узла по пути')
+    months = sorted({r['m'] for r in allrows})
+    KI = {k: COLS.index(c) for k, c in zip(KEYS, COLS)}
 
-    # ряд датасета → колонка таблицы
-    DIRECT = {'hc': 'hc_total_cnt', 'act': 'hc_active_cnt', 'avg': 'ssch_hc_active_cnt', 'reg': 'regret_fire_amt',
-              'plow': 'perf_low', 'pgry': 'perf_gray', 'wday': 'work_day_amt', 'gapr': 'grt_approve_cnt'}
-    grp = ', '.join(ATTRS)
+    def under(r, p):
+        return r['cp'] == p or r['cp'].startswith(p + '\t')
 
-    def one_path(rk, cond, when):
-        """строки юнита одного пути (меньшего в каждом месяце) — без склейки по атрибутам"""
-        return f"""(SELECT * FROM (SELECT *, {PATH} AS pth_, min({PATH}) OVER (PARTITION BY report_month) AS mp_ FROM {T}
-                   WHERE mng_unit_rk = '{rk}' AND ({cond}) AND {when}) WHERE pth_ = mp_)"""
+    def truth(p, pred):
+        sub = [r for r in allrows if under(r, p) and pred(r)]
+        ser = {k: [0.0] * len(months) for k in KEYS}
+        mi = {m: i for i, m in enumerate(months)}
+        for r in sub:
+            for k in KEYS:
+                ser[k][mi[r['m']]] += r['v'][KI[k]]
+        ser = {k: [round(x, 1) for x in v] for k, v in ser.items()}
+        mx = {}
+        y0 = lm[:4] + '-01-01'
+        for r in sub:
+            if r['m'] == lm and r['v'][0] > 0:
+                for k, a in (('g', 'gender'), ('gr', 'grade'), ('r', 'employment_relation_type'), ('c', 'employee_contract_type'),
+                             ('o', 'legal_organization'), ('w', 'employee_stream')):
+                    mx.setdefault(k, {}).setdefault(r['a'][a], 0.0)
+                    mx[k][r['a'][a]] += r['v'][0]
+            if r['m'] >= y0 and r['v'][4] > 0:
+                for k, a, col in (('xr', 'fire_reason_group', 4), ('xq', 'fire_reason_group', 5), ('xt', 'experience_group_nm', 4)):
+                    if r['v'][col] > 0:
+                        mx.setdefault(k, {}).setdefault(r['a'][a], 0.0)
+                        mx[k][r['a'][a]] += r['v'][col]
+        mx = {k: {v: round(n, 1) for v, n in d.items() if n > 0} for k, d in mx.items()}
+        return ser, mx, sub
 
-    def direct(rk, cond='1', col='hc_total_cnt'):
-        """ряд юнита прямо по таблице: строки одного пути, простая сумма"""
-        when = f"report_month BETWEEN toStartOfYear(addYears(toDate('{lm}'), -1)) AND '{lm}'"
-        q = f"""SELECT report_month, sum(toFloat64(ifNull({col}, 0))) FROM {one_path(rk, cond, when)} GROUP BY report_month ORDER BY report_month"""
-        return {l.split('\t')[0]: float(l.split('\t')[1]) for l in str(s.query(q, 'TSV')).strip().splitlines() if l}
-
-    def direct_by(rk, attr, col, cond, win):
-        """разрез прямо по таблице: численность за последний месяц или увольнения с начала года"""
-        when = f"report_month = '{lm}'" if win == 'last' else f"report_month BETWEEN toStartOfYear(toDate('{lm}')) AND '{lm}'"
-        q = f"""SELECT ifNull({attr}, '') AS v, sum(toFloat64(ifNull({col}, 0))) AS e FROM {one_path(rk, cond, when)} GROUP BY v HAVING e > 0"""
-        return {l.split('\t')[0]: float(l.split('\t')[1]) for l in str(s.query(q, 'TSV')).strip().splitlines() if l}
-
-    STAFF = "employment_relation_type = 'Штатный сотрудник'"
-    IT = "ifNull(emp_specialization_it_code, '-') IN ('IT', 'Digital')"
+    STAFF = lambda r: r['a']['employment_relation_type'] == 'Штатный сотрудник'
+    ITC = lambda r: (r['a']['emp_specialization_it_code'] or '-')
     cases = [
-        ('без фильтров', {}, dflt, '1'),
+        ('без фильтров', {}, dflt, lambda r: True),
         ('штат', {'staff_f': ['Штат']}, dflt, STAFF),
-        ('не штат, уровнем ниже', {'staff_f': ['Не штат'], 'unit_f': [uid(mid)]}, mid, f"NOT ({STAFF}) OR employment_relation_type IS NULL"),
-        ('IT и Digital (с 16.10), покраска пропускается', {'paint_f': ['Hq'], 'it_f': ['IT', 'Digital']}, dflt, IT),
-        ('IT + штат, уровнем ниже', {'it_f': ['IT'], 'staff_f': ['Штат'], 'unit_f': [uid(mid)]}, mid,
-         f"ifNull(emp_specialization_it_code, '-') = 'IT' AND {STAFF}"),
-        ('самый глубокий юнит', {'unit_f': [uid(deep)]}, deep, '1'),
-        ('корень', {'unit_f': [uid(root)]}, root, '1'),
-        ('чужой id', {'unit_f': ['ffffffffffff']}, dflt, '1'),
-        ('кавычка в фильтре', {'staff_f': ["Штат' OR 1=1 --"]}, dflt, "0"),
+        ('не штат, уровнем ниже', {'staff_f': ['Не штат'], 'unit_f': [uid(mid)]}, mid, lambda r: not STAFF(r)),
+        ('IT и Digital, покраска пропускается', {'paint_f': ['Hq'], 'it_f': ['IT', 'Digital']}, dflt, lambda r: ITC(r) in ('IT', 'Digital')),
+        ('IT + штат, уровнем ниже', {'it_f': ['IT'], 'staff_f': ['Штат'], 'unit_f': [uid(mid)]}, mid, lambda r: ITC(r) == 'IT' and STAFF(r)),
+        ('самый глубокий юнит', {'unit_f': [uid(deep)]}, deep, lambda r: True),
+        ('корень (своих строк нет)', {'unit_f': [uid(root)]}, root, lambda r: True),
+        ('чужой id', {'unit_f': ['ffffffffffff']}, dflt, lambda r: True),
+        ('кавычка в фильтре', {'staff_f': ["Штат' OR 1=1 --"]}, dflt, lambda r: False),
     ]
-    for name, flt, want, cond in cases:
+    for name, flt, want, pred in cases:
         print(f'— {name}')
         outs = {}
         for cname, st_ in CFG.items():
@@ -171,12 +213,10 @@ def check(db):
         if [order[r] for r in roles] != sorted(order[r] for r in roles):
             fail('роли не по порядку')
         meta = json.loads(rows[0]['j'])
-        if meta['lm'] != lm or meta['n'] != len(arrays(rows[1])['hc']):
+        if meta['lm'] != lm or meta['n'] != len(arrays(rows[1])['hc']) or meta['n'] != len(months):
             fail(f"календарь: lm {meta['lm']} против {lm}, n {meta['n']}")
         if meta['cuts'] != ['it', 'staff'] or meta['paint'] != [] or meta['it'] != flt.get('it_f', []):
             fail(f"meta: cuts {meta['cuts']} / paint {meta['paint']} / it {meta['it']}")
-        if not meta['vals'].get('it'):
-            fail('meta: нет значений фильтра IT')
         sc = rows[1]
         if sc['id'] != uid(want):
             fail(f"выбран {sc['id']}, ждали {uid(want)} ({st[want]['nm']})")
@@ -184,30 +224,20 @@ def check(db):
             fail('meta: scope / root / def')
         if meta['staff'] != flt.get('staff_f', []):
             fail(f"эхо фильтра штата: {meta['staff']}")
-        # ряды выбранного юнита и базы — как прямо по таблице
-        months = [r for r in sorted(direct(root, '1'))]
-        for row, rk in ((sc, want), (rows[2], root)):
-            for key, col in DIRECT.items():
-                d = direct(rk, cond, col)
-                got = arrays(row)[key]
-                exp = [round(d.get(m, 0.0), 1) for m in months]
-                if got != exp:
-                    fail(f"{row['role']}: ряд {key} ({col}) не сходится с таблицей\n    {got}\n    {exp}")
-        # разрезы mx — как прямо по таблице: состав за месяц и увольнения с начала года
-        for row, rk in ((sc, want), (rows[2], root)):
+        # ряды и разрезы выбранного юнита и базы — как прямо по строкам таблицы
+        for row, p in ((sc, want), (rows[2], root)):
+            ser, mx_t, _ = truth(p, pred)
+            got = arrays(row)
+            for k in KEYS:
+                if got[k] != ser[k]:
+                    fail(f"{row['role']}: ряд {k} не сходится со строками таблицы\n    {got[k]}\n    {ser[k]}")
             mx = mx_of(row)
-            for k, attr, col, win in (('g', 'gender', 'hc_total_cnt', 'last'), ('gr', 'grade', 'hc_total_cnt', 'last'),
-                                      ('r', 'employment_relation_type', 'hc_total_cnt', 'last'),
-                                      ('xr', 'fire_reason_group', 'fire_amt', 'ytd'),
-                                      ('xq', 'fire_reason_group', 'regret_fire_amt', 'ytd'),
-                                      ('xt', 'experience_group_nm', 'fire_amt', 'ytd')):
-                exp = {v: round(n, 1) for v, n in direct_by(rk, attr, col, cond, win).items()}
+            for k, exp in mx_t.items():
                 if mx.get(k, {}) != exp:
                     fail(f"{row['role']}: разрез {k} не сходится\n    {mx.get(k)}\n    {exp}")
-            hc_last = arrays(row)['hc'][-1]
-            if abs(sum(mx.get('g', {}).values()) - hc_last) > .5:
-                fail(f"{row['role']}: сумма разреза по полу {sum(mx.get('g', {}).values())} ≠ численность {hc_last}")
-        # дети, внуки, правнуки — ровно по дереву последнего полного месяца
+            if abs(sum(mx.get('g', {}).values()) - got['hc'][-1]) > .5:
+                fail(f"{row['role']}: сумма разреза по полу ≠ численность")
+        # дети, внуки, правнуки — ровно по дереву; сумма детей не больше узла
         lvl_rows = {'c': [], 'g': [], 'x': []}
         for r in rows:
             if r['role'] in lvl_rows:
@@ -220,21 +250,24 @@ def check(db):
             for r in lvl_rows[role]:
                 if r['pid'] not in ids or ids[r['pid']]['role'] != prole:
                     fail(f"{role} {r['nm']}: родитель не из {prole}")
-        exp_c = {uid(rk) for rk in kids.get(want, [])}
+        exp_c = {uid(p) for p in kids.get(want, [])}
         got_c = {r['id'] for r in lvl_rows['c']}
         if not got_c <= exp_c:
             fail('c: лишние юниты')
-        missing = exp_c - got_c
-        for m_id in missing:      # пропустить можно только юнит без людей и движения под фильтрами
-            d = direct(by_id[m_id], cond)
-            if any(d.values()):
+        for m_id in exp_c - got_c:
+            ser, _, _ = truth(by_id[m_id], pred)
+            if any(sum(v) for v in ser.values()):
                 fail(f'c: пропущен юнит с людьми {st[by_id[m_id]]["nm"]}')
+        for r in lvl_rows['c'][:3] + lvl_rows['g'][:3]:
+            ser, _, _ = truth(by_id[r['id']], pred)
+            if arrays(r)['hc'] != ser['hc']:
+                fail(f"{r['role']} {r['nm']}: численность не сходится со строками")
         for r in lvl_rows['x']:
             if int(r['kids']) != len(kids.get(by_id[r['id']], [])):
                 fail(f"x {r['nm']}: kids {r['kids']}")
-        own = arrays(sc)['hc'][-1] - sum(arrays(r)['hc'][-1] for r in lvl_rows['c'])
-        if own < -0.5:
-            print(f'  внимание: юнит меньше суммы детей на {-own} (юнит с двумя родителями)')
+        own_ = arrays(sc)['hc'][-1] - sum(arrays(r)['hc'][-1] for r in lvl_rows['c'])
+        if own_ < -0.5:
+            fail(f'юнит меньше суммы детей на {-own_}')
         dict_lines = [l.split('\t') for l in rows[3]['j'].split('\n') if l]
         dict_ids = {l[0] for l in dict_lines}
         a, path = want, []
@@ -244,7 +277,7 @@ def check(db):
         if not set(path) <= dict_ids:
             fail('dict: нет пути от корня')
         print(f"  ок: строк {len(rows)} · c {len(lvl_rows['c'])} · g {len(lvl_rows['g'])} · x {len(lvl_rows['x'])}"
-              f" · в справочнике {len(dict_lines)} · свои люди {own:g} · {len(outs)} настроек сервера")
+              f" · в справочнике {len(dict_lines)} · свои люди {own_:g} · {len(outs)} настроек сервера")
     print('ИТОГ:', 'всё сходится' if ok else 'есть расхождения')
     return ok
 
