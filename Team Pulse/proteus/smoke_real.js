@@ -211,6 +211,9 @@ ok(stories.length===all.length&&
    stories.filter(x=>/<ol class="op-ins">/.test(x)).length===live.length&&
    ov.every(x=>!D.isStub(x.key))&&A.op([])&&true,
   'one-pager: «Что видно» у '+live.length+' живых метрик, у '+stubs.length+' заглушек — «выводов нет», в сводке заглушек нет');
+if(stories.filter(x=>/<ol class="op-ins">/.test(x)).length!==live.length)
+  console.log('       без «Что видно»: '+all.filter((k,i)=>!D.isStub(k)&&!/<ol class="op-ins">/.test(stories[i]||'')).join(', ')+
+    '\n       '+all.map((k,i)=>!D.isStub(k)&&!/<ol class="op-ins">/.test(stories[i]||'')?stories[i].replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,400):'').filter(Boolean).join('\n       '));
 
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);

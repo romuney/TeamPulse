@@ -15,20 +15,27 @@ DIR = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub')
 SRC = os.path.join(DIR, 'TP 2.0.yaml')
 OUT = os.path.join(DIR, '1. Helicopter — ноут TeamPulse Hub.yaml')
 NB = os.path.join(HERE, 'hub_nb')
-STEPS = (1, 2, 3, 5)          # правка 4 (уровень перевода в ключе hr_structure_overall) не нужна:
+STEPS = (1, 2, 3, 5, 6)       # правка 4 (уровень перевода в ключе hr_structure_overall) не нужна:
                               # переводы через границу узла считает build_hub по людям
 
 EXTRA = {
     'EXEC build_all_metrics': [
         ("build_all_metrics(\n    res_table_name='all_metrics',",
-         "# срезы отчёта TeamPulse Hub — сырые коды покраски и IT. В hr_structure_overall не идут:\n"
-         "# group_and_sum_metrics берёт ключами только fields\n"
+         "# срез отчёта TeamPulse Hub — покраска (HQ, Line, Support). В hr_structure_overall не идёт:\n"
+         "# group_and_sum_metrics берёт ключами только fields. IT-код — в FIXED_DIMS, как в источнике\n"
          "HUB_FIELDS = [\n"
          "    {'name': 'emp_specialization_oper_code', 'alias': 'paint_cd'},\n"
-         "    {'name': 'emp_specialization_it_code',   'alias': 'it_cd'},\n"
          "]\n\n"
          "build_all_metrics(\n    res_table_name='all_metrics',"),
         ("    fields=fields,", "    fields=fields + HUB_FIELDS,"),
+    ],
+    'Структура численности': [
+        ("| `emp_specialization_oper_code` | Операционная специализация | HQ / nonHQ |",
+         "| `emp_specialization_oper_code` | Операционная специализация (покраска) | HQ / Line / Support |"),
+        ("| `emp_specialization_it_code` | IT-специализация | IT / nonIT |",
+         "| `emp_specialization_it_code` | IT-специализация | IT / Digital / NonIT — три разные, не сводятся |"),
+        ("| `active_type_nm` | Тип активности | Активная / Прочая |",
+         "| `active_type_nm` | Тип активности; «Активная» — по флагу `active_count_flg` | Активная / Прочие (подрядчики — в прочих) |"),
     ],
     'to click': [
         ("tables_dict = {\n    'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',\n}",

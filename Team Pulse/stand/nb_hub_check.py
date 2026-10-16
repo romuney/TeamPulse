@@ -38,9 +38,10 @@ def main():
     cases = [('без фильтров', {}, lambda p: True),
              ('IT + штат', {'it_f': ['IT'], 'staff_f': ['Штат']}, lambda p: p['it'] == 'IT' and p['rel'] == 'Штатный сотрудник'),
              ('покраска HQ (2а)', {'paint_f': ['Hq']}, lambda p: p['oper'] == 'HQ'),
-             ('NonIT (регистр чарта)', {'it_f': ['NonIT']}, lambda p: p['it'] != 'IT')]
-    # в 2а IT-код сырой (IT · Digital · NonIT), в hr_structure_overall сведён в IT / nonIT
-    raw = {'NonIT (регистр чарта)': lambda p: p['it'] == 'NonIT'}
+             ('NonIT строчными', {'it_f': ['nonit']}, lambda p: p['it'] == 'NonIT'),
+             ('Digital (отдельно от NonIT)', {'it_f': ['Digital']}, lambda p: p['it'] == 'Digital'),
+             ('покраска Line + Support (2а)', {'paint_f': ['Line', 'Support']}, lambda p: p['oper'] in ('Line', 'Support'))]
+    raw = {}
     ok = True
     for name, flt, pred in cases:
         for label, sql in (('файл 2 ', F2), ('файл 2а', F2A)):
@@ -48,10 +49,7 @@ def main():
             if label == 'файл 2 ' and 'paint_f' in flt:
                 continue                         # в hr_structure_overall покраски нет
             f = dict(flt)
-            if label == 'файл 2 ' and flt.get('it_f') == ['NonIT']:
-                pred_note = ' (в таблице IT-код сведён в IT / nonIT)'
-            else:
-                pred_note = ''
+            pred_note = ''
             outs = {run(db, sql, f, st)[0] for st in dataset.CFG.values()}
             out, rows = run(db, sql, f)
             if len(outs) != 1:

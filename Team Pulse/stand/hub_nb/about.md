@@ -13,10 +13,14 @@ T-рост → `hr_structure_overall` для других отчётов. Плю
    Ключи уровней `lvl1_rk … lvl11_rk` выводятся рядом с именами.
 2. `with_TRost` — заявки сначала суммируются по человеку и месяцу: строки больше не двоятся.
 3. Перформанс, посещаемость, T-рост — к одной строке человека в месяце (`last_row_flg = 1`).
-4. `EXEC build_all_metrics` — сырые коды покраски и IT (`paint_cd`, `it_cd`) для срезов отчёта.
-   В `hr_structure_overall` они не идут: его колонки не меняются.
-5. Новые параграфы: `build_hub`, `EXEC build_hub`, `hub checks` и выгрузка четырёх таблиц.
-6. Убраны выключенные и отладочные параграфы (`get_hr_structure`, `join_structure_combos`,
+4. `_PARAMS_` — «Активная» по флагу источника (`active_count_flg`, иначе `active_type_flg`,
+   `active_flg`; флага нет — только тип «Активная»): подрядчики в активную не входят. IT-код —
+   как в источнике: IT, Digital, NonIT, без сведения в nonIT. Это меняет и `hr_structure_overall`:
+   активная без подрядчиков, у IT-кода три значения.
+5. `EXEC build_all_metrics` — покраска (`paint_cd`: HQ, Line, Support) для срезов отчёта. В
+   `hr_structure_overall` она не идёт.
+6. Новые параграфы: `build_hub`, `EXEC build_hub`, `hub checks` и выгрузка четырёх таблиц.
+7. Убраны выключенные и отладочные параграфы (`get_hr_structure`, `join_structure_combos`,
    `Untitled …`, `select …`, `tst`).
 
 **Таблицы для отчёта** (выгрузка — параграф `to click`, база `prod_proteus`):

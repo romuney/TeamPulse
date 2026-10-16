@@ -31,10 +31,14 @@ paragraphs:
        Ключи уровней `lvl1_rk … lvl11_rk` выводятся рядом с именами.
     2. `with_TRost` — заявки сначала суммируются по человеку и месяцу: строки больше не двоятся.
     3. Перформанс, посещаемость, T-рост — к одной строке человека в месяце (`last_row_flg = 1`).
-    4. `EXEC build_all_metrics` — сырые коды покраски и IT (`paint_cd`, `it_cd`) для срезов отчёта.
-       В `hr_structure_overall` они не идут: его колонки не меняются.
-    5. Новые параграфы: `build_hub`, `EXEC build_hub`, `hub checks` и выгрузка четырёх таблиц.
-    6. Убраны выключенные и отладочные параграфы (`get_hr_structure`, `join_structure_combos`,
+    4. `_PARAMS_` — «Активная» по флагу источника (`active_count_flg`, иначе `active_type_flg`,
+       `active_flg`; флага нет — только тип «Активная»): подрядчики в активную не входят. IT-код —
+       как в источнике: IT, Digital, NonIT, без сведения в nonIT. Это меняет и `hr_structure_overall`:
+       активная без подрядчиков, у IT-кода три значения.
+    5. `EXEC build_all_metrics` — покраска (`paint_cd`: HQ, Line, Support) для срезов отчёта. В
+       `hr_structure_overall` она не идёт.
+    6. Новые параграфы: `build_hub`, `EXEC build_hub`, `hub checks` и выгрузка четырёх таблиц.
+    7. Убраны выключенные и отладочные параграфы (`get_hr_structure`, `join_structure_combos`,
        `Untitled …`, `select …`, `tst`).
 
     **Таблицы для отчёта** (выгрузка — параграф `to click`, база `prod_proteus`):
@@ -57,9 +61,9 @@ paragraphs:
   code: |-
     | Поле | Что означает | Значения |
     | --- | --- | --- |
-    | `emp_specialization_oper_code` | Операционная специализация | HQ / nonHQ |
-    | `emp_specialization_it_code` | IT-специализация | IT / nonIT |
-    | `active_type_nm` | Тип активности | Активная / Прочая |
+    | `emp_specialization_oper_code` | Операционная специализация (покраска) | HQ / Line / Support |
+    | `emp_specialization_it_code` | IT-специализация | IT / Digital / NonIT — три разные, не сводятся |
+    | `active_type_nm` | Тип активности; «Активная» — по флагу `active_count_flg` | Активная / Прочие (подрядчики — в прочих) |
     | `employee_stream_desc` | Стрим направления | Back-end, Front-end, Analytics, и т.д. |
     | `experience_group_nm` | Группа стажа | Например: 0-1 год, 1-3 года, 3+ лет |
     | `employment_relation_type_desc` |  | Штат / ГПД |
@@ -136,14 +140,19 @@ paragraphs:
 
     # ── измерения с фиксированной трансформацией ────────────────────────────────
     FIXED_DIMS = [
+        # «Активная» — по флагу источника: берётся первый найденный вариант. Подрядчики в
+        # активную не входят. Флага нет — по типу активности, только «Активная»
+        *[{'alias': 'active_type_gr_nm',
+           'cols': [flg],
+           'expr': f"CASE WHEN coalesce({flg}::text, '0') = '1' THEN 'Активная' ELSE 'Прочие' END"}
+          for flg in ('active_count_flg', 'active_type_flg', 'active_flg')],
         {'alias': 'active_type_gr_nm',
          'cols': ['active_type_nm'],
-         'expr': "CASE WHEN active_type_nm IN ('Активная','Подрядчики') "
-                 "THEN 'Активная' ELSE 'Прочие' END"},
+         'expr': "CASE WHEN active_type_nm = 'Активная' THEN 'Активная' ELSE 'Прочие' END"},
+        # IT-код — как в источнике: IT, Digital, NonIT — три разные покраски, не сводятся
         {'alias': 'emp_specialization_it_code',
          'cols': ['emp_specialization_it_code'],
-         'expr': "CASE WHEN emp_specialization_it_code = 'IT' "
-                 "THEN 'IT' ELSE 'nonIT' END"},
+         'expr': "coalesce(emp_specialization_it_code::text, '-')"},
         {'alias': 'employment_relation_type_gr_nm',
          'cols': ['employment_relation_type_desc'],
          'expr': "CASE WHEN employment_relation_type_desc = 'Штатный сотрудник' "
@@ -306,10 +315,13 @@ paragraphs:
             dim_keys.append(alias)
 
         for d_ in FIXED_DIMS:
+            if d_['alias'] in dim_keys:
+                continue                       # первый подходящий вариант уже взят
             if all(has(c) for c in d_['cols']):
                 add_dim(d_['expr'], _ident(d_['alias']))
+                print(f"[INFO] {d_['alias']}: по {d_['cols']}")
             else:
-                print(f"[WARN] {d_['alias']}: нет колонок {d_['cols']}, пропущено")
+                print(f"[INFO] {d_['alias']}: нет колонок {d_['cols']} — следующий вариант")
 
         for f in (fields or []):
             if isinstance(f, str):
@@ -493,11 +505,10 @@ paragraphs:
         #  'match': 'Офис', 'match_label': 'офис', 'other_label': 'не офис'},
     ]
 
-    # срезы отчёта TeamPulse Hub — сырые коды покраски и IT. В hr_structure_overall не идут:
-    # group_and_sum_metrics берёт ключами только fields
+    # срез отчёта TeamPulse Hub — покраска (HQ, Line, Support). В hr_structure_overall не идёт:
+    # group_and_sum_metrics берёт ключами только fields. IT-код — в FIXED_DIMS, как в источнике
     HUB_FIELDS = [
         {'name': 'emp_specialization_oper_code', 'alias': 'paint_cd'},
-        {'name': 'emp_specialization_it_code',   'alias': 'it_cd'},
     ]
 
     build_all_metrics(
@@ -1068,7 +1079,7 @@ paragraphs:
         fixed_keys: list[str] = []
         for d in FIXED_DIMS:
             alias = d['alias']
-            if alias in all_set and alias not in path_set:
+            if alias in all_set and alias not in path_set and alias not in fixed_keys:
                 fixed_keys.append(alias)
 
         # 3. пользовательские разрезы
@@ -1588,7 +1599,7 @@ paragraphs:
                generate_subscripts(string_to_array(x.cp, '|'), 1) - {1 if multi else 0} as d
         from (
             select s.*, {pre}coalesce(u.cp, {path_rk}) as cp,
-                   {cut('paint_cd', 'paint_c')}, {cut('it_cd', 'it_c')},
+                   {cut('paint_cd', 'paint_c')}, {cut('emp_specialization_it_code', 'it_c')},
                    case when s.employment_relation_type = '{staff_value}' then 'Штат' else 'Не штат' end as staff_c
             from {src} s
             left join {p}_upath u on u.unit_rk = s.mng_unit_rk::text

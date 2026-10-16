@@ -127,7 +127,7 @@ left join (select prk, count(*) as kids from {p}_node where prk <> '' group by p
            generate_subscripts(string_to_array(x.cp, '|'), 1) - {1 if multi else 0} as d
     from (
         select s.*, {pre}coalesce(u.cp, {path_rk}) as cp,
-               {cut('paint_cd', 'paint_c')}, {cut('it_cd', 'it_c')},
+               {cut('paint_cd', 'paint_c')}, {cut('emp_specialization_it_code', 'it_c')},
                case when s.employment_relation_type = '{staff_value}' then 'Штат' else 'Не штат' end as staff_c
         from {src} s
         left join {p}_upath u on u.unit_rk = s.mng_unit_rk::text

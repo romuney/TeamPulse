@@ -68,7 +68,7 @@ def simulate(seed=11):
                     legal=pick([('АО «ТБанк»', .7), ('ООО «ТЦР»', .3)]),
                     stream=pick([('Управление', .3), ('Финансы', .2), ('Разработка', .4), (None, .1)]),
                     act=pick([('Активная', .84), ('Подрядчики', .05), ('Декрет', .04), ('Стажеры', .07)]),
-                    it=pick([('IT', .4), ('Digital', .15), ('NonIT', .45)]), oper=pick([('HQ', .55), ('nonHQ', .45)]),
+                    it=pick([('IT', .4), ('Digital', .15), ('NonIT', .45)]), oper=pick([('HQ', .5), ('Line', .3), ('Support', .2)]),
                     hired=day - dt.timedelta(random.randint(0, 2500)) if day == D0 else day,
                     reason=None, init=None, regret=0)
     people = [new(D0) for _ in range(320)]
@@ -116,7 +116,7 @@ COLS = (['calendar_dt', 'mdm_employee_rk']
         + [f'lvl{i}_mapped_management_unit_nm' for i in range(1, NL + 1)]
         + [f'lvl{i}_mngt_unit_in_trsf_flg' for i in range(1, NL + 1)]
         + [f'lvl{i}_mngt_unit_out_trsf_flg' for i in range(1, NL + 1)]
-        + ['active_type_nm', 'emp_specialization_it_code', 'emp_specialization_oper_code', 'employment_relation_type_desc', 'gender', 'type_age',
+        + ['active_type_nm', 'active_count_flg', 'emp_specialization_it_code', 'emp_specialization_oper_code', 'employment_relation_type_desc', 'gender', 'type_age',
            'experience_group_nm', 'grade', 'seniority', 'fire_reason_group', 'fire_initiative',
            'employee_contract_type_desc', 'lvl1_legal_unit_nm', 'employee_stream_desc',
            'hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg', 'fire_flg', 'regrettable_fire_flg']
@@ -138,7 +138,7 @@ def source_rows(U, people):
             yield ([d, p['rk']] + [pu[i] if i < len(pu) else None for i in range(NL)]
                    + [U[pu[i]][0] if i < len(pu) else None for i in range(NL)]
                    + inf + outf
-                   + [p['act'], p['it'], p['oper'], p['rel'], p['gender'], p['age'], tenure(p, d), str(g), seniority(g),
+                   + [p['act'], int(p['act'] == 'Активная'), p['it'], p['oper'], p['rel'], p['gender'], p['age'], tenure(p, d), str(g), seniority(g),
                       p['reason'] if fired else None, p['init'] if fired else None,
                       p['con'], p['legal'], p['stream'],
                       int(d == p['start'] and p['start'] > D0), 0, 0, fired, p['regret'] if fired else 0]
@@ -239,7 +239,7 @@ def truth(U, people, perf, grt, pred=lambda p: True):
             if alive(p, e):
                 for n in path(U, at(p['unit'], e)):
                     T[(n, m)]['hc'] += 1
-                    T[(n, m)]['act'] += p['act'] in ('Активная', 'Подрядчики')
+                    T[(n, m)]['act'] += p['act'] == 'Активная'
         if p['end']:
             m = dt.date(p['end'].year, p['end'].month, 1)
             for n in path(U, at(p['unit'], p['end'])):
@@ -247,7 +247,7 @@ def truth(U, people, perf, grt, pred=lambda p: True):
         if p['start'] > D0:
             m = dt.date(p['start'].year, p['start'].month, 1)
             for n in path(U, at(p['unit'], p['start'])):
-                T[(n, m)]['hire'] += p['act'] in ('Активная', 'Подрядчики')
+                T[(n, m)]['hire'] += p['act'] == 'Активная'
         for (d, new), (_, old) in zip(p['unit'][1:], p['unit'][:-1]):
             # «в» — месяц первого дня в новом юните, «из» — месяц последнего дня в старом
             m, mo = dt.date(d.year, d.month, 1), dt.date((d - dt.timedelta(1)).year, (d - dt.timedelta(1)).month, 1)
@@ -334,11 +334,51 @@ FIX = [
     # 4. уровень перевода — в ключ сводной таблицы: узел уровня L берёт переводы с уровнем ≤ L
     (4, 'EXEC group', "    fields=fields,", "    fields=fields + ['transfer_in_lvl', 'transfer_out_lvl'],"),
     # 5. ключи пути рядом с именами (rk уровней в snap уже есть — их просто не выводили)
+    # 6. «Активная» — по флагу источника (первый найденный), подрядчики в неё не входят; флага нет —
+    #    только тип «Активная». IT-код — как в источнике: IT, Digital, NonIT (три покраски, не сводятся)
+    (6, '_PARAMS_', """    {'alias': 'active_type_gr_nm',
+     'cols': ['active_type_nm'],
+     'expr': "CASE WHEN active_type_nm IN ('Активная','Подрядчики') "
+             "THEN 'Активная' ELSE 'Прочие' END"},
+    {'alias': 'emp_specialization_it_code',
+     'cols': ['emp_specialization_it_code'],
+     'expr': "CASE WHEN emp_specialization_it_code = 'IT' "
+             "THEN 'IT' ELSE 'nonIT' END"},""",
+     """    # «Активная» — по флагу источника: берётся первый найденный вариант. Подрядчики в
+    # активную не входят. Флага нет — по типу активности, только «Активная»
+    *[{'alias': 'active_type_gr_nm',
+       'cols': [flg],
+       'expr': f"CASE WHEN coalesce({flg}::text, '0') = '1' THEN 'Активная' ELSE 'Прочие' END"}
+      for flg in ('active_count_flg', 'active_type_flg', 'active_flg')],
+    {'alias': 'active_type_gr_nm',
+     'cols': ['active_type_nm'],
+     'expr': "CASE WHEN active_type_nm = 'Активная' THEN 'Активная' ELSE 'Прочие' END"},
+    # IT-код — как в источнике: IT, Digital, NonIT — три разные покраски, не сводятся
+    {'alias': 'emp_specialization_it_code',
+     'cols': ['emp_specialization_it_code'],
+     'expr': "coalesce(emp_specialization_it_code::text, '-')"},"""),
+    (6, 'build_all_metrics', """    for d_ in FIXED_DIMS:
+        if all(has(c) for c in d_['cols']):
+            add_dim(d_['expr'], _ident(d_['alias']))
+        else:
+            print(f"[WARN] {d_['alias']}: нет колонок {d_['cols']}, пропущено")""",
+     """    for d_ in FIXED_DIMS:
+        if d_['alias'] in dim_keys:
+            continue                       # первый подходящий вариант уже взят
+        if all(has(c) for c in d_['cols']):
+            add_dim(d_['expr'], _ident(d_['alias']))
+            print(f"[INFO] {d_['alias']}: по {d_['cols']}")
+        else:
+            print(f"[INFO] {d_['alias']}: нет колонок {d_['cols']} — следующий вариант")"""),
+    (6, 'group_and_sum_metrics', """        if alias in all_set and alias not in path_set:
+            fixed_keys.append(alias)""",
+     """        if alias in all_set and alias not in path_set and alias not in fixed_keys:
+            fixed_keys.append(alias)"""),
     (5, 'build_all_metrics', "            nm_agg.append(f'max(lvl{i}_nm) AS lvl{i}_nm')",
      "            nm_agg.append(f'max(lvl{i}_nm) AS lvl{i}_nm')\n            nm_agg.append(f'max(lvl{i}_rk) AS lvl{i}_rk')"),
 ]
 STEPS = ['как есть', '1 численность на конец месяца', '2 заявки T-роста суммой', '3 перформанс и др. — к одной строке',
-         '4 уровень перевода в ключе', '5 ключи пути']
+         '4 уровень перевода в ключе', '5 ключи пути', '6 активная по флагу, IT — три значения']
 
 
 def patch(title, code, k):
@@ -500,7 +540,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--pg', default='/tmp/pgt:55432')
     ap.add_argument('--user', default='pg')
-    ap.add_argument('--fix', type=int, default=None, help='только прогон с правками 1…N (5 — все)')
+    ap.add_argument('--fix', type=int, default=None, help='только прогон с правками 1…N (6 — все)')
     ap.add_argument('--steps', action='store_true', help='как есть и правки по шагам: сводная таблица')
     ap.add_argument('--hub', help='папка: ноутбук «1. Helicopter — ноут TeamPulse Hub.yaml» целиком, выгрузка — в chdb '
                                   '(<папка>/db): hr_structure_overall и teampulse_hub_*')
@@ -530,7 +570,7 @@ def main():
         for name, res in rows:
             print(f'{name:40}' + ''.join(f'{res[k][0 if w == "компания" else 1]:>16}' for k, w in cols))
         return
-    for fix in ([0, 5] if a.fix is None else [a.fix]):
+    for fix in ([0, 6] if a.fix is None else [a.fix]):
         df = run_notebook(pg, fix)
         print(f'hr_structure_with_ssch: {len(df)} строк, колонок {len(df.columns)}')
         compare(U, T, df, fix)
