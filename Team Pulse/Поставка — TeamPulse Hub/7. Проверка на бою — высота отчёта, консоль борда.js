@@ -17,12 +17,23 @@
   var css = '', st = document.querySelectorAll('style');
   for (var i = 0; i < st.length; i++) css += st[i].textContent + '\n';
   var ids = css.match(/chart-id-\d+/g) || [];
-  var vh = css.match(/100vh\s*-\s*(\d+)px|-(\d+)px\s*\+\s*100vh/) || [];
+  // число именно из правила высоты ряда (resizable-container), а не первое попавшееся «100vh - N»
+  var vh = css.match(/resizable-container[^{]*\{[^}]*?(?:100vh\s*-\s*(\d+)px|-(\d+)px\s*\+\s*100vh)/) || [];
   L.push('window ' + innerWidth + 'x' + innerHeight + ' scrollY ' + scrollY + ' page ' + document.documentElement.scrollHeight);
   L.push('ids ' + ids.filter(function (x, n) { return ids.indexOf(x) === n; }).join(',') + ' | vh ' + (vh[1] || vh[2] || '-'));
   L.push('menu ' + R(document.querySelector('#main-menu, header.top')));
   L.push('header ' + R(document.querySelector('.dashboard-header-container, .header-with-actions')));
   L.push('grid ' + R(document.querySelector('.grid-container')));
+  // кто прокручивает страницу борда: окно или свой контейнер
+  var g = document.querySelector('.grid-container');
+  for (var u = g; u && u !== document.documentElement; u = u.parentElement) {
+    var o = getComputedStyle(u).overflowY;
+    if ((o === 'auto' || o === 'scroll') && u.scrollHeight > u.clientHeight) {
+      L.push('scroller ' + u.tagName.toLowerCase() + '.' + String(u.className || '').split(' ').slice(0, 2).join('.') + ' ' + R(u) +
+        ' scroll ' + Math.round(u.scrollTop) + '/' + (u.scrollHeight - u.clientHeight));
+      break;
+    }
+  }
   var hs = document.querySelectorAll('.dashboard-component-chart-holder');
   for (var j = 0; j < hs.length; j++) {
     var h = hs[j], f = h.querySelector('iframe');
