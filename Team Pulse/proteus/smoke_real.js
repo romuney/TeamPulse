@@ -188,6 +188,13 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     !/[A-Za-zА-яЁё]/.test(pills.join('').replace(/<[^>]*>/g,''))&&(nTen<=4?/class="pt-man/.test(pt):pills.length===2&&!/class="pt-man/.test(pt)),
     'портрет на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, каждая окрашена, '+
     (nTen<=4?'стаж — «из 10 человек»':'стаж — пилюлей'));
+  /* 19.10, заказчик («тут тоже так себе вёрстка»): форматов работы пять — полосами, а не
+     карточками на три; длинные названия в списках — в две строки, а не многоточием */
+  const nFmt=D.MIX_BY_KEY.worksite?D.mixCats('worksite').length:0;
+  const fmtSec=(wk.split('<section').find(x=>/>Формат работы</.test(x))||'');
+  ok(!nFmt||(nFmt>3?(fmtSec.match(/<tr class="urow[^"]*" data-mix="worksite:/g)||[]).length===nFmt&&!/pt-trio/.test(fmtSec)
+      :/pt-trio/.test(fmtSec))&&/class="row-body two"/.test(wk)&&(nLeg<=7||/class="row-body">Остальные<span class="unit-sub">/.test(wk)),
+    'оформление и место: '+nFmt+' форматов работы — '+(nFmt>3?'полосами':'карточками')+', длинные названия — в две строки');
   const nSt=Object.keys(R.mixVals('xs')||{}).length, who=A.go('turnover','who');
   const st=(who.split('bt-group').find(x=>/>Стрим</.test(x))||'');
   ok(nSt<=9||/>Остальные<span class="unit-sub">\d+ стрим/.test(st)||(st.match(/<tr/g)||[]).length<=10,

@@ -2006,6 +2006,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 #view .pt-tb .cellbar i{background:var(--pt-dim)}
 #view .pt-tb tr.hi .cellbar i{background:var(--pt-hi)}
 #view .pt-tb tr.hi td.txt .row-body{font-weight:var(--fw-bold)}
+/* длинное название без пояснения — до двух строк в той же высоте 36px, дальше многоточие */
+#view .pt-tb td.txt .row-body.two{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;line-height:1.15}
 #view .pt-tb{table-layout:fixed}
 #view .pt-tb col.c-n{width:44px}#view .pt-tb col.c-p{width:44px}
 #view .st-focus{table-layout:fixed}
@@ -2014,7 +2016,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* таблица подразделений: название забирает всё, что не нужно числам, — числа
    по своей ширине; имя и вторая строка режутся реже */
 #view .split-l .ptable.dense th.txt{width:100%}
-#view .pt-tb col.c-bar{width:30%}
+/* полоса — четверть ширины: названиям оформления и юрлиц нужнее место (19.10) */
+#view .pt-tb col.c-bar{width:25%}
 #view .pt-cap{margin:var(--s7) 0 var(--s4)}
 /* One-pager: строка метрики — название, пояснение и спарклайн, поэтому своя
    высота, но одна на всю таблицу: 64px. Пояснение — не больше двух строк

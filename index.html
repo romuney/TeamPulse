@@ -2014,6 +2014,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 #view .pt-tb .cellbar i{background:var(--pt-dim)}
 #view .pt-tb tr.hi .cellbar i{background:var(--pt-hi)}
 #view .pt-tb tr.hi td.txt .row-body{font-weight:var(--fw-bold)}
+/* длинное название без пояснения — до двух строк в той же высоте 36px, дальше многоточие */
+#view .pt-tb td.txt .row-body.two{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;line-height:1.15}
 #view .pt-tb{table-layout:fixed}
 #view .pt-tb col.c-n{width:44px}#view .pt-tb col.c-p{width:44px}
 #view .st-focus{table-layout:fixed}
@@ -2022,7 +2024,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* таблица подразделений: название забирает всё, что не нужно числам, — числа
    по своей ширине; имя и вторая строка режутся реже */
 #view .split-l .ptable.dense th.txt{width:100%}
-#view .pt-tb col.c-bar{width:30%}
+/* полоса — четверть ширины: названиям оформления и юрлиц нужнее место (19.10) */
+#view .pt-tb col.c-bar{width:25%}
 #view .pt-cap{margin:var(--s7) 0 var(--s4)}
 /* One-pager: строка метрики — название, пояснение и спарклайн, поэтому своя
    высота, но одна на всю таблицу: 64px. Пояснение — не больше двух строк
@@ -8091,16 +8094,17 @@ function ptTip(r,bench){
 const mixAt=r=>r.id?' data-mix="'+U.esc(r.id)+'"':'';
 /* полосы — та же таблица-разбивка, что во всём отчёте (16.10, «одна высота строки
    и одно форматирование у всех таблиц и списков с полосами»): название · люди ·
-   доля · полоса с засечкой базы; sort — по убыванию */
+   доля · полоса с засечкой базы; sort — по убыванию, «Не указано» в конце. Длинное
+   название без пояснения — в две строки той же высоты (19.10: «Сотрудник партнерской о…») */
 function ptBars(rows,bench,o){
   o=o||{};
-  const list=ptTop(o.sort?rows.slice().sort((x,y)=>y.n-x.n):rows,o);
+  const list=ptTop(o.sort?rows.slice().sort((x,y)=>x.na-y.na||y.n-x.n):rows,o);
   const max=Math.max(1,...list.map(r=>Math.max(r.p,r.b)));
   /* подпись таблицы — как у всех разбивок (bt-cap), а не серой сноской */
   return (o.cap?'<div class="bt-cap pt-cap">'+U.esc(o.cap)+'</div>':'')+
     '<table class="ptable btable lite pt-tb"><colgroup><col><col class="c-n"><col class="c-p"><col class="c-bar"></colgroup><tbody>'+
     list.map(r=>'<tr class="'+(r.id?'urow':'')+(r.hi?' hi':'')+(r.on?' sel':'')+'"'+mixAt(r)+ptTip(r,bench)+'>'+
-      '<td class="txt"><span class="row-label"><span class="row-body">'+U.esc(r.name)+
+      '<td class="txt"><span class="row-label"><span class="row-body'+(r.sub?'':' two')+'">'+U.esc(r.name)+
         (r.sub?'<span class="unit-sub">'+U.esc(r.sub)+'</span>':'')+'</span></span></td>'+
       '<td class="lead">'+D.fmtInt(r.n)+'</td><td>'+shr(r.n,r.p)+'</td>'+
       '<td class="barcell"><span class="cellbar"><i style="width:'+(r.p/max*100).toFixed(1)+'%"></i>'+
@@ -8195,7 +8199,7 @@ function ptAgeSex(rows,m,gen,bench){
       '<div class="stk">'+seg(f,gen[0],'f')+seg(mm,gen[1],'m')+'</div><s style="bottom:'+bh.toFixed(1)+'%"></s></div>'+
       '<div class="n">'+U.esc(r.name)+'</div></div>'}).join('')+'</div>';
 }
-/* три категории без порядка — три крупные цифры */
+/* три категории без порядка — три крупные цифры (больше трёх — полосами, overviewWork) */
 function ptTrio(rows,bench){
   return '<div class="pt-trio">'+rows.map(r=>'<div class="'+(r.hi?'hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
     '<b>'+shr(r.n,r.p)+'</b><span>'+U.esc(r.name)+'</span><em>компания '+shr(r.bn,r.b)+'</em></div>').join('')+'</div>';
@@ -8281,7 +8285,8 @@ function overviewWork(ctx){
   return '<div class="pt-wrap">'+ptLegend(bench)+ptCols([
     ptSec(c.says,'Оформление','emp',pill+ptBars(non,bench,{cap:'не штат — по видам оформления'})),
     CON?ptSec(c.says,'Тип договора','con',con):'',
-    FMT?ptSec(c.says,'Формат работы','fmt',ptTrio(FMT,bench)):'',
+    /* форматов в настоящих данных пять (19.10): карточки переносились и резали названия */
+    FMT?ptSec(c.says,'Формат работы','fmt',FMT.length>3?ptBars(FMT,bench,{sort:true}):ptTrio(FMT,bench)):'',
     REG?ptSec(c.says,'Где работают','reg',ptBars(REG,bench,{sort:true,top:PT_TOP,word:['регион','региона','регионов']})):'',
     LEG?ptSec(c.says,'Юрлицо','legal',ptBars(LEG,bench,{sort:true,top:PT_TOP,word:['юрлицо','юрлица','юрлиц']})):''])+'</div>';
 }
