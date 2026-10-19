@@ -4,11 +4,12 @@
    а не страница борда.
 
    Вставить ЦЕЛИКОМ в конец CSS дашборда («Редактировать дашборд → CSS»); прежний блок отчёта — от строки «TeamPulse
-   Hub — один чарт на весь лист» до последнего правила iframe — удалить. Чужой CSS не трогать. Сохранить →
-   Cmd/Ctrl+Shift+R.
+   Hub — CSS борда · НАЧАЛО» до строки «КОНЕЦ блока отчёта» (или, в старых поставках, от «TeamPulse Hub — один чарт
+   на весь лист» до последнего правила iframe) — удалить. Чужой CSS не трогать. Сохранить → Cmd/Ctrl+Shift+R.
 
-   000000 — заглушка id чарта «TeamPulse Hub»: меню чарта «⋮» → «Редактировать график» — число после slice_id= в
-   адресе. Замените 000000 во ВСЕХ местах (Ctrl+H «000000» → id; в файле 6 — тоже).
+   814002 — id чарта «TeamPulse Hub» на борде Team Pulse 2.0 (замер с борда 19.10: класс ячейки
+   dashboard-chart-id-814002). Вставлять как есть. Если чарт пересоздали и id другой (меню чарта «⋮» → «Редактировать
+   график» — число после slice_id= в адресе) — замените 814002 во ВСЕХ местах (Ctrl+H; в файле 6 — тоже).
 
    Блоки (номер закреплён за назначением, как в гайде; 2, 3, 5, 8 — не нужны этому борду):
      1 — ячейка: без белой карточки, поля 16 px и теней форка, iframe во всю ячейку, без шапки чарта Proteus
@@ -26,7 +27,7 @@
    Поле 16 px и белый фон холдера и есть «рамка» вокруг отчёта. Высоту iframe Proteus пишет атрибутом один раз при
    монтаже — растягивает только этот CSS (цепочка flex и height:100%). Шапка чарта Proteus не нужна: у отчёта своя,
    а меню легло бы на его кнопки справа; открыть чарт для правки — «Графики» → «TeamPulse Hub». */
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) {
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) {
   background-color: transparent !important;
   padding: 0 !important;
   box-shadow: none !important;
@@ -37,12 +38,12 @@
   display: flex !important;
   flex-direction: column !important;
 }
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .chart-slice,
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .dashboard-chart,
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .chart-container,
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .slice_container,
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .slice_container > div,
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .react_sanbbox {
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) .chart-slice,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) .dashboard-chart,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) .chart-container,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) .slice_container,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) .slice_container > div,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) .react_sanbbox {
   display: flex !important;
   flex-direction: column !important;
   flex: 1 1 auto !important;
@@ -52,23 +53,23 @@
   box-shadow: none !important;
   outline: 0 !important;
 }
-.resizable-container:has(> .dashboard-component-chart-holder.dashboard-chart-id-000000) {
+.resizable-container:has(> .dashboard-component-chart-holder.dashboard-chart-id-814002) {
   box-shadow: none !important;
   outline: 0 !important;
 }
 /* подложка размера и скругления отчёта: пока его нет, ячейка не пустеет и не моргает */
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .chart-container {
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) .chart-container {
   background: #f4f5f7 !important;
   border-radius: 12px !important;
   overflow: hidden !important;
 }
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .header-title,
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .header-controls,
-.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) [data-test="slice-header"] {
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) .header-title,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) .header-controls,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-814002, :has(#chart-id-814002)) [data-test="slice-header"] {
   display: none !important;
 }
-#chart-id-000000 iframe,
-.dashboard-chart-id-000000 .react_sanbbox iframe {
+#chart-id-814002 iframe,
+.dashboard-chart-id-814002 .react_sanbbox iframe {
   display: block !important;
   flex: 1 1 auto !important;
   width: 100% !important;
@@ -82,14 +83,14 @@
    Пока в ячейке нет iframe, Proteus показывает «Не было получено данных по этому запросу» с картинкой: прячем её, на
    подложке — значок загрузки Proteus и подпись. Появился iframe — правила снимаются сами. Ошибка запроса видна как
    раньше. */
-.dashboard-chart-id-000000:not(:has(iframe)) .slice_container {
+.dashboard-chart-id-814002:not(:has(iframe)) .slice_container {
   visibility: hidden !important;
 }
-.dashboard-chart-id-000000:not(:has(iframe)) .chart-container {
+.dashboard-chart-id-814002:not(:has(iframe)) .chart-container {
   position: relative !important;
   background: #fff !important;
 }
-.dashboard-chart-id-000000:not(:has(iframe)) .chart-container::after {
+.dashboard-chart-id-814002:not(:has(iframe)) .chart-container::after {
   content: 'Загружаю отчёт…';
   position: absolute;
   left: 0;
@@ -104,8 +105,8 @@
 @keyframes tp-load-pulse {
   50% { opacity: .6; }
 }
-.dashboard-chart-id-000000:has(iframe) img.loading,
-.dashboard-chart-id-000000:has(iframe) [aria-label="Loading"] {
+.dashboard-chart-id-814002:has(iframe) img.loading,
+.dashboard-chart-id-814002:has(iframe) [aria-label="Loading"] {
   display: none !important;
 }
 
@@ -126,7 +127,7 @@
    страница борда не прокручивается, и ряд выше окна (был предел 560 — окна ниже 709 px) обрезал низ отчёта; отчёт
    прокручивается внутри себя при любой высоте. Самый внутренний .resizable-container с отчётом, кроме режима правки.
    Селектор — одной строкой: перенос между «)» и «:not» стал бы пробелом-потомком. */
-.resizable-container:not(.dashboard--editing *):has(.dashboard-chart-id-000000):not(:has(.resizable-container .dashboard-chart-id-000000)) {
+.resizable-container:not(.dashboard--editing *):has(.dashboard-chart-id-814002):not(:has(.resizable-container .dashboard-chart-id-814002)) {
   height: max(300px, calc(100vh - 149px)) !important;
 }
 /* ==== TeamPulse Hub — CSS борда · КОНЕЦ блока отчёта =============================================================== */
