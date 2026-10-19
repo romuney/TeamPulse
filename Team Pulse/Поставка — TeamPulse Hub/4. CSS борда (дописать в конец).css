@@ -1,40 +1,130 @@
-/* ==========================================================================
-   TeamPulse Hub — один чарт на весь лист: без белого поля и шапки чарта Proteus.
-   Без вставки вокруг отчёта белая рамка 16 px, а над ним — строка шапки чарта
-   («TeamPulse Hub ⋯»): у отчёта своя шапка, вторая лишняя.
+/* ==== TeamPulse Hub — CSS борда · НАЧАЛО блока отчёта ==============================================================
+   Как на HRBP HUB и «Детальных списках» (гайд proteus-playbook: templates/board.template.css, 10-board-css.md, BC).
+   Отчёт — ровно на высоту окна, длинное прокручивается внутри отчёта (правая часть; навигация слева стоит на месте),
+   а не страница борда.
 
-   ID — id чарта «TeamPulse Hub»: меню чарта «⋮» → «Редактировать график» — число
-   после slice_id= в адресе. Замените ID во ВСЕХ местах (Ctrl+H «ID» → число).
-   Правила — проверенная вставка борда HRBP HUB (там же разобрано, откуда поле).
-   ========================================================================== */
+   Вставить ЦЕЛИКОМ в конец CSS дашборда («Редактировать дашборд → CSS»); прежний блок отчёта — от строки «TeamPulse
+   Hub — один чарт на весь лист» до последнего правила iframe — удалить. Чужой CSS не трогать. Сохранить →
+   Cmd/Ctrl+Shift+R.
 
-/* 1. шапка чарта Proteus (название и меню «⋯») — у отчёта своя шапка */
-.dashboard-chart-id-ID .header-title,
-.dashboard-chart-id-ID .header-controls,
-.dashboard-chart-id-ID [data-test="slice-header"] {
-  display: none !important;
+   000000 — заглушка id чарта «TeamPulse Hub»: меню чарта «⋮» → «Редактировать график» — число после slice_id= в
+   адресе. Замените 000000 во ВСЕХ местах (Ctrl+H «000000» → id; в файле 6 — тоже).
+
+   Блоки (номер закреплён за назначением, как в гайде; 2, 3, 5, 8 — не нужны этому борду):
+     1 — ячейка: без белой карточки, поля 16 px и теней форка, iframe во всю ячейку, без шапки чарта Proteus
+         («TeamPulse Hub ⋯» — у отчёта своя шапка); ячейка узнаётся по классу холдера — на загрузке той же формы
+     4 — загрузка: пока отчёта нет — белая карточка, значок Proteus и «Загружаю отчёт…» вместо «Не было получено
+         данных»; после — значок Proteus поверх отчёта не нужен (у отчёта своя плашка пересчёта)
+     6 — поля борда, как на HRBP HUB: от шапки до отчёта 12, по бокам и снизу 24 (у Proteus — 24 / 32)
+     7 — высота ряда по экрану: отчёт — ровно до низа окна (поле 24 px), не ниже 560 px; 149 — верх ряда + нижнее
+         поле, число борда HRBP HUB с той же раскладкой (меню → шапка борда → ряд, без вкладок). Если низ отчёта не на
+         24 px от низа окна — файл 6 поставки скажет, какое число нужно.
+   Красные «!» редактора CSS у строк с :has(…), :not(…) и max(…) — линтер редактора их не знает, на работу не влияет.
+   ================================================================================================================== */
+
+/* ==== 1. Ячейка ===================================================================================================
+   Поле 16 px и белый фон холдера и есть «рамка» вокруг отчёта. Высоту iframe Proteus пишет атрибутом один раз при
+   монтаже — растягивает только этот CSS (цепочка flex и height:100%). Шапка чарта Proteus не нужна: у отчёта своя,
+   а меню легло бы на его кнопки справа; открыть чарт для правки — «Графики» → «TeamPulse Hub». */
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) {
+  background-color: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
-
-/* 2. без белого поля вокруг чарта и без белого фона */
-.dashboard-grid .dashboard-chart-id-ID .dashboard-component-chart-holder,
-.dashboard-grid .dashboard-component-chart-holder.dashboard-chart-id-ID {
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .chart-slice,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .dashboard-chart,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .chart-container,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .slice_container,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .slice_container > div,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .react_sanbbox {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
   padding: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
+  outline: 0 !important;
+}
+.resizable-container:has(> .dashboard-component-chart-holder.dashboard-chart-id-000000) {
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+/* подложка размера и скругления отчёта: пока его нет, ячейка не пустеет и не моргает */
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .chart-container {
+  background: #f4f5f7 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .header-title,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) .header-controls,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-000000, :has(#chart-id-000000)) [data-test="slice-header"] {
+  display: none !important;
+}
+#chart-id-000000 iframe,
+.dashboard-chart-id-000000 .react_sanbbox iframe {
+  display: block !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
-/* 3. область чарта — колонка на всю высоту ячейки */
-.dashboard-chart-id-ID .chart-slice {
-  display: flex;
-  flex-direction: column;
+/* ==== 4. Загрузка ==================================================================================================
+   Пока в ячейке нет iframe, Proteus показывает «Не было получено данных по этому запросу» с картинкой: прячем её, на
+   подложке — значок загрузки Proteus и подпись. Появился iframe — правила снимаются сами. Ошибка запроса видна как
+   раньше. */
+.dashboard-chart-id-000000:not(:has(iframe)) .slice_container {
+  visibility: hidden !important;
+}
+.dashboard-chart-id-000000:not(:has(iframe)) .chart-container {
+  position: relative !important;
+  background: #fff !important;
+}
+.dashboard-chart-id-000000:not(:has(iframe)) .chart-container::after {
+  content: 'Загружаю отчёт…';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% + 26px);
+  text-align: center;
+  font: 500 13px/1.4 Arial, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #8a909c;
+  pointer-events: none;
+  animation: tp-load-pulse 1.6s ease-in-out infinite;
+}
+@keyframes tp-load-pulse {
+  50% { opacity: .6; }
+}
+.dashboard-chart-id-000000:has(iframe) img.loading,
+.dashboard-chart-id-000000:has(iframe) [aria-label="Loading"] {
+  display: none !important;
 }
 
-/* 4. без паддинга платформы вокруг iframe */
-.dashboard-chart-id-ID .chart-container {
-  padding: 0 !important;
+/* ==== 6. Поля борда ================================================================================================
+   Числа HRBP HUB и «Детальных списков»: сверху 12, по бокам и снизу 24 (у Proteus сетка с полями 24 сверху и снизу,
+   32 по бокам). Действует на весь этот дашборд — на нём только отчёт. Режим правки не трогаем: там поля и высоту
+   задаёт Proteus. */
+.grid-container:not(.dashboard--editing *):not(#tp-grid) {
+  margin: 12px 24px 24px !important;
+}
+.dashboard-grid .grid-content > :not(:last-child) {
+  margin-bottom: 16px !important;
 }
 
-/* 5. iframe без строчной щели снизу */
-.dashboard-chart-id-ID iframe {
-  display: block;
+/* ==== 7. Высота ряда по экрану ======================================================================================
+   Ряд с отчётом — от своего верха до низа окна с полем 24 px, не ниже 560 px. 149 = верх ряда 125 (шапка борда 113 +
+   поле 12 блока 6) + нижнее поле 24 — число борда HRBP HUB, раскладка та же. Самый внутренний .resizable-container с
+   отчётом, кроме режима правки. Селектор — одной строкой: перенос между «)» и «:not» стал бы пробелом-потомком. */
+.resizable-container:not(.dashboard--editing *):has(.dashboard-chart-id-000000):not(:has(.resizable-container .dashboard-chart-id-000000)) {
+  height: max(560px, calc(100vh - 149px)) !important;
 }
+/* ==== TeamPulse Hub — CSS борда · КОНЕЦ блока отчёта =============================================================== */
