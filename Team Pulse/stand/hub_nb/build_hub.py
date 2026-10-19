@@ -4,8 +4,10 @@
 #   teampulse_hub_unit    узлы нынешней структуры (по ключам юнитов): родитель, уровень, имя,
 #                         число подразделений, путь ключами от корня, логин руководителя
 #   teampulse_hub_series  узел × месяц × срез (покраска, IT, штат): численность, активная, ССЧ,
-#                         найм, увольнения, regret, переводы через границу узла, мониторинг,
-#                         посещаемость, T-рост. Узел несёт всё своё поддерево
+#                         найм (как в методологии DD: найм в компанию + перевод из учебной группы
+#                         в боевую + перевод стажёров в штат), увольнения, regret, переводы через
+#                         границу узла, мониторинг, посещаемость, T-рост. Узел несёт всё своё
+#                         поддерево
 #   teampulse_hub_mix     узел × срез × разрез × значение: численность последнего закрытого
 #                         месяца по атрибутам и увольнения с начала года по причинам и др.
 # Виртуальный датасет отчёта не кешируется и на каждый запрос только выбирает узлы ответа:
@@ -205,7 +207,11 @@ drop table if exists {p}_sx;
 create table {p}_sx as
 select node_rk, report_month::date as report_month, paint_c, it_c, staff_c,
        sum({num('hc_total_cnt')}) as hc, sum({num('hc_active_cnt')}) as act,
-       sum({num('hire_amt')}) as hire, sum({num('fire_amt')}) as fire, sum({num('regret_fire_amt')}) as reg,
+       -- найм по методологии DD: найм в компанию + перевод из учебной группы в боевую + стажёров в
+       -- штат; одно событие на человека в строке: тип активности в источнике — на конец месяца,
+       -- и стажёр, принятый и переведённый в одном месяце, иначе попал бы и в найм, и в перевод
+       sum(greatest({num('hire_amt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})) as hire,
+       sum({num('fire_amt')}) as fire, sum({num('regret_fire_amt')}) as reg,
        sum(case when {num('transfer_in_lvl')} between 1 and d then {num('transfer_in_amt')} else 0 end) as tin,
        sum(case when {num('transfer_out_lvl')} between 1 and d then {num('transfer_out_amt')} else 0 end) as tout,
        sum({num('perf_normal')}) as pnor, sum({num('perf_low')}) as plow,

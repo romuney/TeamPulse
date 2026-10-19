@@ -67,11 +67,17 @@ def simulate(seed=11):
                     con=pick([('Гибридный', .5), ('Офисный', .35), ('Удалённый', .15)]),
                     legal=pick([('АО «ТБанк»', .7), ('ООО «ТЦР»', .3)]),
                     stream=pick([('Управление', .3), ('Финансы', .2), ('Разработка', .4), (None, .1)]),
-                    act=pick([('Активная', .84), ('Подрядчики', .05), ('Декрет', .04), ('Стажеры', .07)]),
+                    act=pick([('Активная', .8), ('Подрядчики', .05), ('Декрет', .04), ('Стажеры', .07),
+                              ('Кандидаты в учебных юнитах', .04)]),
                     it=pick([('IT', .4), ('Digital', .15), ('NonIT', .45)]), oper=pick([('HQ', .5), ('Line', .3), ('Support', .2)]),
                     hired=day - dt.timedelta(random.randint(0, 2500)) if day == D0 else day,
                     reason=None, init=None, regret=0)
-    people = [new(D0) for _ in range(320)]
+
+    def new_p(day):
+        p = new(day)
+        p['acth'], p['conv'] = [(day, p.pop('act'))], []      # тип активности по дням; переходы в активную
+        return p
+    people = [new_p(D0) for _ in range(320)]
     for day in DAYS[1:]:
         alive = [p for p in people if p['end'] is None]
         if day.weekday() < 5:
@@ -87,9 +93,17 @@ def simulate(seed=11):
                     p['unit'].append((day, random.choice([h for h in homes if h != cur])))
                 elif r < .0026:
                     p['grade'].append((day, p['grade'][-1][1] + 1))
+                elif r < .0066 and p['acth'][-1][1] in CONV:
+                    # ~8% в месяц: стажёр — в штат, кандидат учебного юнита — в боевую группу (найм по
+                    # методологии DD; флаги transfer_internal_flg / transfer_candidate_flg источника)
+                    p['conv'].append((day, CONV[p['acth'][-1][1]]))
+                    p['acth'].append((day, 'Активная'))
             for _ in range(sum(random.random() < .0011 for _ in alive) + (1 if random.random() < .15 else 0)):
-                people.append(new(day))
+                people.append(new_p(day))
     return U, people
+
+
+CONV = {'Стажеры': 'transfer_internal_flg', 'Кандидаты в учебных юнитах': 'transfer_candidate_flg'}
 
 
 def at(hist, day):
@@ -135,13 +149,16 @@ def source_rows(U, people):
             outf = [int(nxt is not None and (i >= len(pu) or i >= len(nxt) or pu[i] != nxt[i]) and i < len(pu)) for i in range(NL)]
             g = at(p['grade'], d)
             fired = int(p['end'] == d)
+            act = at(p['acth'], d)
+            cv = {f for c, f in p['conv'] if c == d}
             yield ([d, p['rk']] + [pu[i] if i < len(pu) else None for i in range(NL)]
                    + [U[pu[i]][0] if i < len(pu) else None for i in range(NL)]
                    + inf + outf
-                   + [p['act'], int(p['act'] == 'Активная'), p['it'], p['oper'], p['rel'], p['gender'], p['age'], tenure(p, d), str(g), seniority(g),
+                   + [act, int(act == 'Активная'), p['it'], p['oper'], p['rel'], p['gender'], p['age'], tenure(p, d), str(g), seniority(g),
                       p['reason'] if fired else None, p['init'] if fired else None,
                       p['con'], p['legal'], p['stream'],
-                      int(d == p['start'] and p['start'] > D0), 0, 0, fired, p['regret'] if fired else 0]
+                      int(d == p['start'] and p['start'] > D0), int('transfer_candidate_flg' in cv),
+                      int('transfer_internal_flg' in cv), fired, p['regret'] if fired else 0]
                    + [0] * (2 * len(TYPES)))
             d += dt.timedelta(1)
 
@@ -251,7 +268,7 @@ def eom(m):
     return min(dt.date(m.year, m.month, calendar.monthrange(m.year, m.month)[1]), D1)
 
 
-def truth(U, people, perf, grt, pred=lambda p: True):
+def truth(U, people, perf, grt, pred=lambda p: True, agg=False):
     """узел (rk) × месяц → меры. Численность — на последний календарный день месяца (у текущего
     неполного — на последний загруженный); ССЧ активной — полусумма численности узла с прошлым месяцем"""
     T = defaultdict(lambda: defaultdict(float))
@@ -264,7 +281,7 @@ def truth(U, people, perf, grt, pred=lambda p: True):
             if alive(p, e):
                 for n in path(U, at(p['unit'], e)):
                     T[(n, m)]['hc'] += 1
-                    T[(n, m)]['act'] += p['act'] == 'Активная'
+                    T[(n, m)]['act'] += at(p['acth'], e) == 'Активная'
         if p['end']:
             m = dt.date(p['end'].year, p['end'].month, 1)
             for n in path(U, at(p['unit'], p['end'])):
@@ -272,7 +289,17 @@ def truth(U, people, perf, grt, pred=lambda p: True):
         if p['start'] > D0:
             m = dt.date(p['start'].year, p['start'].month, 1)
             for n in path(U, at(p['unit'], p['start'])):
-                T[(n, m)]['hire'] += p['act'] == 'Активная'
+                T[(n, m)]['hire'] += at(p['acth'], p['start']) == 'Активная'
+        for c, _ in p['conv']:                 # найм по методологии DD: переход в активную — тоже найм
+            m = dt.date(c.year, c.month, 1)
+            for n in path(U, at(p['unit'], c)):
+                T[(n, m)]['hire'] += 1
+            # agg — таблица, где люди уже сложены (hr_structure_overall, файл 2): тип активности
+            # там на конец месяца, и стажёр, принятый и переведённый в одном месяце, — ещё и в
+            # найме в компанию (hire_amt). Разделить без людей нельзя — правда с тем же завышением
+            if agg and p['start'] > D0 and (c.year, c.month) == (p['start'].year, p['start'].month):
+                for n in path(U, at(p['unit'], p['start'])):
+                    T[(n, m)]['hire'] += 1
         for (d, new), (_, old) in zip(p['unit'][1:], p['unit'][:-1]):
             # «в» — месяц первого дня в новом юните, «из» — месяц последнего дня в старом
             m, mo = dt.date(d.year, d.month, 1), dt.date((d - dt.timedelta(1)).year, (d - dt.timedelta(1)).month, 1)

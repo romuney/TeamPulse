@@ -243,9 +243,12 @@ function allCaret(attr,val,open,tipText){
 function betterWord(m){
   return m.better==='lower'?'Лучше, когда ниже.':m.better==='higher'?'Лучше, когда выше.':'Без оценки: больше — не значит лучше.';
 }
+/* что это и как считается (calc — по методологии HR из Data Detective): подсказка «i» и шапки
+   таблиц показывают оба, подпись под названием метрики — только hint */
+function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';
-  return '<span class="info"'+tipAttr({title:m.name,text:m.hint||'',note:betterWord(m)})+' aria-label="О метрике">i</span>';
+  return '<span class="info"'+tipAttr({title:m.name,text:metricText(m),note:betterWord(m)})+' aria-label="О метрике">i</span>';
 }
 
 const NOCMP_HINT='Это количество, а не доля: оно зависит от размера подразделения, поэтому с базой не сравнивается.';
@@ -971,7 +974,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

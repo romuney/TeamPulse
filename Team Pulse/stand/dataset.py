@@ -77,7 +77,9 @@ ALL_ATTRS = ['gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 
              'active_type_gr_nm', 'emp_specialization_it_code', 'fire_reason_group', 'fire_initiative']
 COLS = ['hc_total_cnt', 'hc_active_cnt', 'ssch_hc_active_cnt', 'hire_amt', 'fire_amt', 'regret_fire_amt',
         'transfer_in_amt', 'transfer_out_amt', 'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
-        'work_day_amt', 'office_visit_amt', 'grt_approve_cnt', 'grt_decline_cnt']
+        'work_day_amt', 'office_visit_amt', 'grt_approve_cnt', 'grt_decline_cnt',
+        # найм по методологии DD — найм в компанию + эти два перевода (в правде складываются в hire_amt)
+        'transfer_candidate_amt', 'transfer_internal_amt']
 # разделитель уровней в выгрузке — «‖»: таб в TSV приходит экранированным
 PATHX = f"arrayStringConcat(arraySlice([{LV}], 1, toInt32(ifNull(leaf_lvl, 0))), '‖')"
 
@@ -106,6 +108,7 @@ def load_rows(s, lm):
         path = f[2].replace('‖', '\t')
         attrs = tuple(tail[:na])
         vals = [float(x) for x in tail[na:]]
+        vals[COLS.index('hire_amt')] += vals[COLS.index('transfer_candidate_amt')] + vals[COLS.index('transfer_internal_amt')]
         best[(m, rk)] = min(best.get((m, rk), path), path)
         key = (m, rk, path, attrs)
         if key in rows:

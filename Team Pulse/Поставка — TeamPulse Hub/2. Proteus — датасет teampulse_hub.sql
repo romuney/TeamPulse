@@ -55,7 +55,8 @@
       m_avg  ССЧ активной = (активная месяца + прошлого) / 2 по ряду узла; колонку
              ssch_hc_active_cnt датасет не читает: ноутбук сборки считает её LAG по дробным
              сочетаниям атрибутов, и новое сочетание (найм) берёт ССЧ целиком (стенд: +5%)
-                                                             m_hire найм     m_fire увольнения
+      m_hire найм: в компанию + из учебной группы в боевую + стажёры в штат (методология DD)
+      m_fire увольнения
       m_reg  нежелательные увольнения                        m_tin  переводы в   m_tout переводы из
       m_pnor мониторинг: нормал   m_plow недоработка   m_phig переработка   m_pgry Gray (perf_*)
       m_wday отработанные человеко-дни   m_ovis посещения офиса, человеко-дни
@@ -247,7 +248,12 @@ WITH
              {{ at('active_type_gr_nm') }} AS ag1, {{ at('emp_specialization_it_code') }} AS ic1,
              {{ at('fire_reason_group') }} AS fr1, {{ at('fire_initiative') }} AS fi1,
              toFloat64(ifNull(hc_total_cnt, 0)) AS e0, toFloat64(ifNull(hc_active_cnt, 0)) AS ea0,
-             toFloat64(ifNull(hire_amt, 0)) AS hi0, toFloat64(ifNull(fire_amt, 0)) AS fi0,
+             -- найм, как в методологии DD: найм в компанию + перевод из учебной группы в боевую +
+             -- перевод стажёров в штат (transfer_candidate_amt / transfer_internal_amt — матчером:
+             -- нет колонок — найм в компанию, как раньше)
+             toFloat64(ifNull(hire_amt, 0)) + arraySum(arrayMap(x -> ifNull(x, 0),
+               arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^transfer_(candidate|internal)_amt$') APPLY toFloat64]))) AS hi0,
+             toFloat64(ifNull(fire_amt, 0)) AS fi0,
              toFloat64(ifNull(regret_fire_amt, 0)) AS rg0, toFloat64(ifNull(transfer_in_amt, 0)) AS ti0,
              toFloat64(ifNull(transfer_out_amt, 0)) AS tu0, ifNull(perf_normal, 0) AS pn0, ifNull(perf_low, 0) AS pl0,
              ifNull(perf_high, 0) AS ph0, ifNull(perf_gray, 0) AS pg0, ifNull(work_day_amt, 0) AS wd0,

@@ -45,7 +45,8 @@ def main():
     ok = True
     for name, flt, pred in cases:
         for label, sql in (('файл 2 ', F2), ('файл 2а', F2A)):
-            T = nb.truth(U, people, perf, grt, raw.get(name, pred) if label == 'файл 2а' else pred)
+            T = nb.truth(U, people, perf, grt, raw.get(name, pred) if label == 'файл 2а' else pred,
+                         agg=label == 'файл 2 ')
             if label == 'файл 2 ' and 'paint_f' in flt:
                 continue                         # в hr_structure_overall покраски нет
             f = dict(flt)

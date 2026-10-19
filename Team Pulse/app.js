@@ -411,7 +411,7 @@ function metricOpts(){
         U.tipAttr({title:m.name,text:'На ней держится весь отчёт, поэтому её не отключить.'})+
         '><span class="box"></span><span class="nm">'+esc(m.name)+'</span><span class="lk">всегда</span></button>';
       return '<button class="mp-i'+(hid.has(m.key)?'':' on')+'" data-mtoggle="'+m.key+'"'+
-        U.tipAttr({title:m.name,text:m.hint||''})+
+        U.tipAttr({title:m.name,text:U.metricText(m)})+
         '><span class="box"></span><span class="nm">'+esc(m.name)+'</span></button>';
     }).join('');
     return '<div class="mpick-g"><div class="mpick-h">'+esc(b.name)+'</div>'+

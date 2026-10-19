@@ -121,6 +121,7 @@ function metricItem(m,S){
     (kpi?'<span class="kpi-tag">KPI</span>':'')+
     (D.comparable(m.key)?'':'<span class="pp-flag">не сравнивается</span>')+'</div>'+
     '<div class="pp-m-d">'+esc(m.hint||'Описание метрики пока не задано.')+'</div>'+
+    (m.calc?'<div class="pp-m-c">'+m.calc.split('\n').map(l=>'<span>'+esc(l)+'</span>').join('')+'</div>':'')+
     '<div class="pp-m-f">'+esc(m.unit||'—')+' · '+dir+
     (kpi?' · цель '+D.fmtVal(m.key,kpi.green):'')+'</div></div>';
 }

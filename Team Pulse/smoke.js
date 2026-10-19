@@ -267,9 +267,17 @@ checks.push(['минус во всех дельтах типографский, 
 })();
 
 /* Среднесписочная ушла из отчёта, но осталась знаменателем текучести;
-   на её место в движении персонала встал прирост с начала года. */
+   на её место в движении персонала встал прирост с начала года. В подсказках
+   «как считается» (calc, методология HR) она упоминается — это не строка отчёта:
+   ищем её только как текст элемента, не внутри data-tip. */
 checks.push(['среднесписочной численности нет среди метрик отчёта',
-  !D.METRIC_BY_KEY['hc_avg']&&!/Среднесписочная/.test(allHtml)&&D.METRICS.length===27]);
+  !D.METRIC_BY_KEY['hc_avg']&&!/>Среднесписочная/.test(allHtml)&&D.METRICS.length===27]);
+/* 19.10: определения — по методологии HR из Data Detective: у численности, найма, оттока,
+   переводов и текучести есть «как считается» (calc), он виден в «i» и в словаре «Пульс» */
+checks.push(['метрики численности, движения и текучести описаны по методологии HR (calc в «i» и словаре)',
+  ['hc_active','hc_total','hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret']
+    .every(k=>D.METRIC_BY_KEY[k].calc&&U.infoDot(k).includes(U.esc(G.tipHtml({text:D.METRIC_BY_KEY[k].calc})).slice(0,40)))&&
+  /стажёров в штат/.test(D.METRIC_BY_KEY.hire.calc)&&/полусумма активной/.test(D.METRIC_BY_KEY.turnover_m.calc)]);
 checks.push(['ряд hc_avg жив: текучесть по-прежнему считается',
   D.aggregate(rl,'hc_avg')[D.LAST]>0]);
 (function(){

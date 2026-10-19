@@ -906,6 +906,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .pp-m-h{font-size:var(--fs-body);font-weight:var(--fw-bold);color:var(--ink);line-height:1.3;
   display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .pp-m-d{font-size:var(--fs-note);color:var(--ink2);font-weight:var(--fw-body);line-height:1.5;margin-top:4px}
+/* как считается — по методологии HR; строки «• …» — пунктами */
+.pp-m-c{font-size:var(--fs-note);color:var(--muted);line-height:1.5;margin-top:4px}
+.pp-m-c span{display:block}
 .pp-m-f{font-size:var(--fs-cap);color:var(--muted);font-weight:var(--fw-body);margin-top:5px}
 .pp-flag{font-size:9px;font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;
   padding:2px 6px;border-radius:var(--r2);background:#f3f4f6;color:var(--muted)}
@@ -2358,16 +2361,22 @@ function blockDash(bk,st){
    показываем всё, а развести по аудитории в интерфейсе — следующий шаг. */
 const AUD_LABEL={all:'все',hq:'HQ',us:'УС'};
 const METRICS=[
-{key:'hc_active',block:'structure',aud:'all',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники на конец месяца без тех, кто в декрете или в долгом отсутствии.'},
-{key:'hc_total',block:'structure',aud:'all',name:'Общая численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Все сотрудники на конец месяца, включая декрет и долгие отсутствия.'},
+{key:'hc_active',block:'structure',aud:'all',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники на конец месяца без стажёров, подрядчиков и неактивных — тех, кто в декрете, в учебной группе или не выходит на работу.',
+  calc:'Как в методологии HR (Data Detective): все сотрудники, кроме\n• стажёров;\n• подрядчиков и аутстаффа;\n• неактивных: декрет, прогул, мобилизация, учебные группы, POS-агенты и амбассадоры.\nПо ней считают текучесть и сравнивают подразделения.'},
+{key:'hc_total',block:'structure',aud:'all',name:'Общая численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Все, кто числится в команде на конец месяца: активные, стажёры, подрядчики и неактивные.',
+  calc:'Для текучести и сравнения команд берите активную численность — так в методологии HR.'},
 /* Среднесписочная численность в списке метрик не стоит: как строка отчёта она
    ничего не сообщала руководителю (это всегда полусумма двух соседних значений
    численности), а место в таблице и карточку занимала. Ряд `hc_avg` остался —
    он знаменатель текучести и считается в seriesExt по ключу. */
-{key:'hire',block:'movement',aud:'all',name:'Найм',short:'Найм',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек приняли за месяц.'},
-{key:'attrition',block:'movement',aud:'all',name:'Отток',short:'Отток',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Сколько человек уволились за месяц, по любой причине.'},
-{key:'transfer_in',block:'movement',aud:'all',name:'Переводы в команду',short:'Переводы в',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек перешли к вам из других подразделений.'},
-{key:'transfer_out',block:'movement',aud:'all',name:'Переводы из команды',short:'Переводы из',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек перешли от вас в другие подразделения.'},
+{key:'hire',block:'movement',aud:'all',name:'Найм',short:'Найм',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек пришли в активную численность за месяц: приняты в компанию, переведены из учебной группы в боевую или из стажёров в штат.',
+  calc:'Как в методологии HR: найм в компанию + переводы в боевую группу + переводы стажёров в штат. Подрядчики в найм не входят.'},
+{key:'attrition',block:'movement',aud:'all',name:'Отток',short:'Отток',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Сколько человек уволились из компании за месяц, по любой причине.',
+  calc:'Переводы с сохранением непрерывного стажа — не увольнения (методология HR).'},
+{key:'transfer_in',block:'movement',aud:'all',name:'Переводы в команду',short:'Переводы в',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек перешли к вам из других подразделений за месяц.',
+  calc:'Как в методологии HR: перевод — переход из другого подразделения или смена атрибута: покраски, IT-кода, стрима, специализации, типа оформления, возвращение в активную численность (например, из декрета). Переходы между подразделениями внутри команды сюда не попадают.'},
+{key:'transfer_out',block:'movement',aud:'all',name:'Переводы из команды',short:'Переводы из',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек перешли от вас в другие подразделения за месяц.',
+  calc:'Как в методологии HR: перевод — переход в другое подразделение или смена атрибута: покраски, IT-кода, стрима, специализации, типа оформления, выход из активной численности (например, в декрет). Переходы между подразделениями внутри команды сюда не попадают.'},
 /* Итог движения персонала: найм + переводы в − отток − переводы из за вычетом
    прочих изменений. Пять потоков без итога не отвечали на вопрос «команда
    выросла или нет» — считать в уме четыре числа приходилось самому. */
@@ -2380,10 +2389,13 @@ const METRICS=[
    графиков HQ и УС («Team Pulse — сводка графиков.md») их нет, это производные,
    придуманные для макета. */
 {key:'turnover_m',block:'turnover',aud:'all',name:'Текучесть месячная',short:'Тек. за месяц',fmt:'pct',better:'lower',unit:'%',anchor:null,
-  derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Какая доля команды уволилась за месяц: отток к средней численности месяца.'},
+  derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Какая доля команды уволилась за месяц: отток к среднесписочной численности.',
+  calc:'Отток ÷ среднесписочная × 100%. Среднесписочная — полусумма активной численности на конец прошлого и этого месяца: упрощённый способ из методологии HR, как в HR Executive Report.'},
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с января',fmt:'pct',better:'lower',unit:'%',anchor:null,
-  ytd:'turnover_m',hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую.'},
-{key:'regret',block:'turnover',aud:'hq',name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7},hint:'Доля ушедших, которых компания хотела бы удержать, с 1 января. Для HQ есть цель KPI.'},
+  ytd:'turnover_m',hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую.',
+  calc:'Как в методологии HR (YTD Turnover): сумма месячной текучести с января.'},
+{key:'regret',block:'turnover',aud:'hq',name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Для HQ есть цель KPI.',
+  calc:'Сумма месячной: regrettable-увольнения ÷ среднесписочная × 100%. Regrettable по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
@@ -5661,9 +5673,12 @@ function allCaret(attr,val,open,tipText){
 function betterWord(m){
   return m.better==='lower'?'Лучше, когда ниже.':m.better==='higher'?'Лучше, когда выше.':'Без оценки: больше — не значит лучше.';
 }
+/* что это и как считается (calc — по методологии HR из Data Detective): подсказка «i» и шапки
+   таблиц показывают оба, подпись под названием метрики — только hint */
+function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';
-  return '<span class="info"'+tipAttr({title:m.name,text:m.hint||'',note:betterWord(m)})+' aria-label="О метрике">i</span>';
+  return '<span class="info"'+tipAttr({title:m.name,text:metricText(m),note:betterWord(m)})+' aria-label="О метрике">i</span>';
 }
 
 const NOCMP_HINT='Это количество, а не доля: оно зависит от размера подразделения, поэтому с базой не сравнивается.';
@@ -6389,7 +6404,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
@@ -6519,6 +6534,7 @@ function metricItem(m,S){
     (kpi?'<span class="kpi-tag">KPI</span>':'')+
     (D.comparable(m.key)?'':'<span class="pp-flag">не сравнивается</span>')+'</div>'+
     '<div class="pp-m-d">'+esc(m.hint||'Описание метрики пока не задано.')+'</div>'+
+    (m.calc?'<div class="pp-m-c">'+m.calc.split('\n').map(l=>'<span>'+esc(l)+'</span>').join('')+'</div>':'')+
     '<div class="pp-m-f">'+esc(m.unit||'—')+' · '+dir+
     (kpi?' · цель '+D.fmtVal(m.key,kpi.green):'')+'</div></div>';
 }
@@ -7460,8 +7476,10 @@ const GL={
   'Стрим':{text:'Профессиональное направление: разработка, тестирование, аналитика. Внутри стрима — специализации.'},
   'Водопад':{text:'График-лестница: от численности на начало года прибавляем пришедших, вычитаем ушедших — и получаем численность на конец.'},
   'Текучесть':{metric:'turnover_m',add:'\nУчитывает размер команды, поэтому её можно сравнивать с другими командами и с базой.'},
+  'Среднесписочная численность':{text:'Полусумма активной численности на конец прошлого и этого месяца — упрощённый способ из методологии HR. Знаменатель текучести.'},
+  'Активная численность':{metric:'hc_active'},
   'База':{text:'Та же метрика по всей компании с теми же фильтрами, что в шапке.\nПереход в подразделение базу не меняет.'},
-  'Нежелательный уход':{text:'Уход, на который компания могла повлиять: оплата, рост, руководитель. В причинах отмечен ★.\nИз таких уходов считается Regrettable текучесть.'},
+  'Нежелательный уход':{text:'Уход, о котором компания сожалеет (regrettable). По методологии HR: сотрудник ушёл сам, не из-за релокации, со стажем от 12 месяцев; MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3. В причинах отмечен ★.\nИз таких уходов считается Regrettable текучесть.'},
   'Regrettable текучесть':{metric:'regret'},
   'Срок закрытия вакансии':{metric:'time_to_fill'},
   'Выполнение плана найма':{metric:'hire_plan'},
@@ -7480,7 +7498,8 @@ function glossary(term){
   const g=GL[term];
   if(!g)return null;
   const dm=g.dim?(D.MIX_BY_KEY[g.dim]||{}):null;
-  const base=g.metric?(D.METRIC_BY_KEY[g.metric]||{}).hint:dm?(dm.hint||dm.tip||''):g.text;
+  const gm=g.metric?(D.METRIC_BY_KEY[g.metric]||{}):null;
+  const base=gm?(gm.hint||'')+(gm.calc?'\n'+gm.calc:''):dm?(dm.hint||dm.tip||''):g.text;
   if(!base)return null;
   return String(base||'')+(g.add||'');
 }
@@ -7920,7 +7939,7 @@ function renderBlock(S,expanded,mixOpen,view){
   const totalCells=mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'».\nГлубже — выберите строку и нажмите значок у её названия.'})+'>Подразделение</th>'+
-    mets.map(m=>'<th'+U.tipAttr({title:m.name,text:m.hint||''})+'>'+esc(m.short)+
+    mets.map(m=>'<th'+U.tipAttr({title:m.name,text:U.metricText(m)})+'>'+esc(m.short)+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+'</th>').join('')+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
@@ -9582,7 +9601,7 @@ function metricOpts(){
         U.tipAttr({title:m.name,text:'На ней держится весь отчёт, поэтому её не отключить.'})+
         '><span class="box"></span><span class="nm">'+esc(m.name)+'</span><span class="lk">всегда</span></button>';
       return '<button class="mp-i'+(hid.has(m.key)?'':' on')+'" data-mtoggle="'+m.key+'"'+
-        U.tipAttr({title:m.name,text:m.hint||''})+
+        U.tipAttr({title:m.name,text:U.metricText(m)})+
         '><span class="box"></span><span class="nm">'+esc(m.name)+'</span></button>';
     }).join('');
     return '<div class="mpick-g"><div class="mpick-h">'+esc(b.name)+'</div>'+
