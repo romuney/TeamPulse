@@ -72,10 +72,13 @@
          Так окно целиком помещается в ноутбучный экран без вертикального скролла. -->
     <div class="modal-b setup-cols">
       <div class="sc-col">
+      <!-- 19.10, как в HRBP HUB: дерево с поиском по названию и логину руководителя;
+           у строки — сколько людей попадёт в выбор с набранными фильтрами -->
       <div class="fgrp">
         <label>1 · Подразделение</label>
-        <div class="ctl"><select id="selUnit"></select></div>
-        <div class="fhint">Ваша команда. На базу сравнения не влияет.</div>
+        <div class="ut-s"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="utQ" type="text" placeholder="Юнит или логин руководителя" autocomplete="off" spellcheck="false"></div>
+        <div class="ut-list" id="utList" role="listbox" aria-label="Подразделения"></div>
+        <div class="fhint" id="utHint">Ваша команда. На базу сравнения не влияет.</div>
       </div>
       <div class="fgrp">
         <label>2 · Покраска</label>

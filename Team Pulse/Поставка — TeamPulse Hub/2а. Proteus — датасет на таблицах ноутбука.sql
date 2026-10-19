@@ -16,10 +16,15 @@
 
     Строки различаются колонкой role, порядок задан ORDER BY:
       meta   1 строка, j — JSON: lm, m0, n, сегодня, корень, выбранный юнит, юнит по умолчанию,
-             фильтры (cuts), эхо применённых фильтров, значения фильтров с численностью компании
+             фильтры (cuts), эхо применённых фильтров, значения фильтров с численностью компании,
+             словари распределения fdv (порядок значений, по которому кодируется fd)
       scope  выбранный юнит          base  вся компания под теми же фильтрами
-      dict   1 строка, j — «id \t pid \t уровень \t детей \t имя» через \n: предки выбранного
-             юнита и пять верхних уровней
+      dict   1 строка, j — все узлы: «id \t pid \t уровень \t детей \t имя \t руководитель \t fd»
+             через \n. Руководитель — логин (head_login таблицы юнитов; колонки нет — пусто).
+             fd — численность узла в последнем месяце по сочетаниям значений фильтров без учёта
+             применённых: «код:число» через пробел, код = (номер покраски × число IT + номер IT) ×
+             число значений штата + номер штата (номера — в meta.fdv). Окно настройки считает по
+             нему «сколько людей попадёт в выбор» без запроса (19.10, как в HRBP HUB)
       c / g / x  подразделения на один, два, три уровня ниже выбранного
       end    маркер «ответ целиком»
     Массивы m_* — месяцы от января прошлого года до последнего закрытого, строкой через запятую;
@@ -85,10 +90,36 @@ WITH
     FROM prod_proteus.teampulse_hub_meta
     LIMIT 1
   ),
+  -- head_login — матчером, в подзапросе без JOIN (так его видят оба анализатора): таблица без
+  -- колонки (ноутбук не перезапущен) даёт пустой логин, отчёт работает (как в HRBP HUB)
   st2 AS (
     SELECT ifNull(unit_rk, '') AS id, ifNull(parent_rk, '') AS pid, toInt32(ifNull(unit_lvl, 0)) AS lv,
-           ifNull(unit_nm, '') AS nm0, toUInt32(ifNull(kids_cnt, 0)) AS kd, ifNull(path_rk, '') AS pth
+           ifNull(unit_nm, '') AS nm0, toUInt32(ifNull(kids_cnt, 0)) AS kd, ifNull(path_rk, '') AS pth,
+           arrayStringConcat(arrayMap(x -> ifNull(x, ''), arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^head_login$')]))) AS hd
     FROM prod_proteus.teampulse_hub_unit
+  ),
+  -- Численность последнего месяца по значениям фильтров (ряды узла — уже вся ветка); fa / fb /
+  -- fc — порядок значений, по которому кодируется сочетание (в meta — fdv)
+  fdb AS (
+    SELECT ifNull(node_rk, '') AS u7, ifNull(paint_cd, '-') AS v7a, ifNull(it_cd, '-') AS v7b,
+           ifNull(staff_cd, '-') AS v7c, sum(toFloat64(ifNull(hc_cnt, 0))) AS n7
+    FROM prod_proteus.teampulse_hub_series
+    WHERE report_month = (SELECT lm FROM cal)
+    GROUP BY u7, v7a, v7b, v7c
+    HAVING n7 > 0
+  ),
+  fdv AS (
+    SELECT arraySort(groupUniqArray(v7a)) AS fa, arraySort(groupUniqArray(v7b)) AS fb,
+           arraySort(groupUniqArray(v7c)) AS fc
+    FROM fdb
+  ),
+  fdr AS (
+    SELECT u7 AS fr,
+           arrayStringConcat(arraySort(groupArray(concat(toString(toUInt32(
+             ((indexOf((SELECT fa FROM fdv), v7a) - 1) * length((SELECT fb FROM fdv)) + indexOf((SELECT fb FROM fdv), v7b) - 1)
+             * length((SELECT fc FROM fdv)) + indexOf((SELECT fc FROM fdv), v7c) - 1)), ':', toString(round(n7))))), ' ') AS fds
+    FROM fdb
+    GROUP BY u7
   ),
   req AS (SELECT any(id) AS q, count() AS c FROM st2 WHERE {% if unit_req %}id = {{ qs(unit_req[0]) }}{% else %}0{% endif %}),
   sc AS (SELECT if(req.c > 0, req.q, (SELECT d FROM cal)) AS s FROM req),
@@ -96,8 +127,6 @@ WITH
   d1 AS (SELECT id FROM st2 WHERE pid = (SELECT s FROM sc) AND id != ''),
   d2 AS (SELECT id FROM st2 WHERE pid IN (SELECT id FROM d1)),
   d3 AS (SELECT id FROM st2 WHERE pid IN (SELECT id FROM d2)),
-  -- Предки выбранного юнита — его путь без него самого
-  anc AS (SELECT arrayPopBack(splitByChar('|', any(pth))) AS arr FROM st2 WHERE id = (SELECT s FROM sc)),
   -- Узлы ответа: o — порядок строк в ответе
   pick AS (
     SELECT s AS id, toUInt8(1) AS o FROM sc
@@ -167,7 +196,8 @@ FROM
                 ',"it":', toJSONString({{ qa(F['it']) }}),
                 ',"staff":', toJSONString({{ qa(F['staff']) }}),
                 ',"vals":{"paint":', {{ vals('paint_cd') }}, ',"it":', {{ vals('it_cd') }}, ',"staff":', {{ vals('staff_cd') }},
-                '}}') AS j,
+                '},"fdv":{"paint":', toJSONString((SELECT fa FROM fdv)), ',"it":', toJSONString((SELECT fb FROM fdv)),
+                ',"staff":', toJSONString((SELECT fc FROM fdv)), '}}') AS j,
          {{ blank() }}
 
   UNION ALL
@@ -189,10 +219,10 @@ FROM
 
   SELECT toUInt8(3) AS o, 'dict' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids,
          arrayStringConcat(arraySort(groupArray(concat(t.id, '\t', t.pid, '\t', toString(t.lv), '\t',
-                                             toString(t.kd), '\t', t.nm0))), '\n') AS j,
+                                             toString(t.kd), '\t', t.nm0, '\t', t.hd, '\t', ifNull(f.fds, '')))), '\n') AS j,
          {{ blank() }}
   FROM st2 AS t
-  WHERE t.lv <= (SELECT min(lv) FROM st2) + 4 OR has((SELECT arr FROM anc), t.id) OR t.id = (SELECT s FROM sc)
+  LEFT JOIN fdr AS f ON f.fr = t.id
 
   UNION ALL
 

@@ -292,31 +292,90 @@ function mountStaticMascots(){
 function openSetup(){
   DRAFT={unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,
     hiddenMetrics:(S.hiddenMetrics||[]).slice()};
-  /* В списке — верх дерева до управлений и путь к текущему юниту: после
-     перехода в отдел или команду их нет среди первых четырёх уровней, и
-     «Применить» молча вернуло бы отчёт на первую строку списка. */
-  const path=new Set(D.ancestorsOf(S.unit).map(a=>a.path));
-  /* В пробнике уровней одиннадцать, и порядок узлов в модели не древесный:
-     список — обходом дерева, четыре верхних уровня плюс путь; строки
-     «Напрямую в «X»» — не юниты, их в списке нет. */
-  const opts=ENV?(function(){
-    const out=[], top=D.ROOT.level||1;
-    (function walk(n){
-      if(!n||n.direct)return;
-      if(n.level<=top+3||path.has(n.path))out.push(n);
-      D.childrenOf(n.path).forEach(walk);
-    })(D.ROOT);
-    return out;
-  })():D.NODES.filter(n=>n.level<=4||path.has(n.path)).sort((a,b)=>a.sort-b.sort);
-  $('#selUnit').innerHTML=opts.map(n=>
-    '<option value="'+n.path+'"'+(n.path===DRAFT.unit?' selected':'')+'>'+
-    ' '.repeat((n.level-1)*3)+esc(n.name)+'</option>').join('');
+  UT={q:'',open:{}};
+  $('#utQ').value='';
   paintOpts();
   $('#setupOvl').classList.remove('hidden');
+  utCenter();
+}
+/* выбранная строка — посередине списка (прокрутка только у списка, не у окна) */
+function utCenter(){
+  const l=$('#utList'), c=l&&l.querySelector('.ut-r.cur');
+  if(l)l.scrollTop=c?Math.max(0,c.offsetTop-l.offsetTop-l.clientHeight/2+c.offsetHeight/2):0;
+}
+/* ---------- Дерево выбора юнита (19.10, как в HRBP HUB) ----------
+   Всё дерево (в пробнике — справочник датасета): компания и два уровня под ней раскрыты,
+   путь к выбранному — тоже; глубже — по стрелке. Поиск — по названию и логину
+   руководителя, без запроса. Число у строки — сколько людей попадёт в выбор с набранными
+   фильтрами (последний закрытый месяц); прежний датасет без fd — без чисел. */
+let UT={q:'',open:{}};
+const UT_MAX=600;
+function utOpen(p,lvl0){
+  if(UT.open.hasOwnProperty(p))return UT.open[p];
+  if(DRAFT&&(DRAFT.unit===p||DRAFT.unit.indexOf(p+'/')===0))return true;
+  const i=D.PICK.info(p);
+  return !!i&&i.lvl<lvl0+2;
+}
+function utCount(p){
+  const n=D.draftCount(p,DRAFT);
+  return n==null?'':'<span class="ut-c'+(n?'':' zero')+'">'+D.fmtInt(n)+'</span>';
+}
+function utHl(text,q){
+  const at=q?text.toLowerCase().indexOf(q):-1;
+  return at<0?esc(text):esc(text.slice(0,at))+'<mark class="ut-hl">'+esc(text.slice(at,at+q.length))+'</mark>'+esc(text.slice(at+q.length));
+}
+function utRow(p,i,depth,tw,extra){
+  return '<div class="ut-r'+(DRAFT.unit===p?' cur':'')+'" data-upick="'+esc(p)+'" role="option" aria-selected="'+(DRAFT.unit===p)+'"'+
+    (depth!=null?' style="padding-left:'+(9+depth*16)+'px"':'')+'>'+tw+
+    '<span class="ut-n">'+(extra&&extra.name||esc(i.name))+(extra&&extra.path?'<span class="ut-p">'+esc(extra.path)+'</span>':'')+
+    (i.head?'<span class="ut-h"'+U.tipAttr({title:'Руководитель подразделения',text:i.head})+'>'+(extra&&extra.head||esc(i.head))+'</span>':'')+'</span>'+
+    '<span class="ut-l">ур. '+i.lvl+'</span>'+utCount(p)+'</div>';
+}
+function utListHTML(){
+  const q=UT.q.trim().toLowerCase(), P=D.PICK, root=P.info(P.root), lvl0=root?root.lvl:1;
+  if(!q){
+    const out={s:'',n:0};
+    (function walk(p,depth){
+      const i=P.info(p);
+      if(!i||out.n>=UT_MAX)return;
+      out.n++;
+      const kids=i.kids?P.kids(p):[], open=kids.length&&utOpen(p,lvl0);
+      out.s+=utRow(p,i,depth,kids.length?'<button class="ut-tw" data-utw="'+esc(p)+'" aria-expanded="'+!!open+'">'+(open?'▾':'▸')+'</button>':'<span class="ut-sp"></span>');
+      if(open)kids.map(k=>[k,P.info(k)]).filter(x=>x[1]).sort((a,b)=>a[1].name.localeCompare(b[1].name,'ru'))
+        .forEach(x=>walk(x[0],depth+1));
+    })(P.root,0);
+    return out.s;
+  }
+  /* поиск: и по названию, и по логину руководителя; сначала совпадение с начала, выше уровнем */
+  const hits=[];
+  P.all().forEach(p=>{
+    const i=P.info(p);if(!i)return;
+    const an=i.name.toLowerCase().indexOf(q), ah=i.head?i.head.toLowerCase().indexOf(q):-1;
+    if(an<0&&ah<0)return;
+    hits.push({p,i,byHead:an<0,rank:(an===0||(an<0&&ah===0)?0:1)*100+i.lvl});
+  });
+  if(!hits.length)return '<div class="ut-none">Ничего не найдено</div>';
+  hits.sort((a,b)=>a.rank-b.rank||a.i.name.localeCompare(b.i.name,'ru'));
+  return hits.slice(0,80).map(h=>{
+    const chain=h.p.split('/'), names=[];
+    for(let k=Math.max(1,chain.length-4);k<chain.length;k++){const x=P.info(chain.slice(0,k).join('/'));if(x)names.push(x.name)}
+    return utRow(h.p,h.i,null,'<span class="ut-sp"></span>',{name:h.byHead?esc(h.i.name):utHl(h.i.name,q),
+      path:names.join(' › '),head:h.byHead?utHl(h.i.head,q):''});
+  }).join('')+(hits.length>80?'<div class="ut-none">Показаны 80 из '+hits.length+' — уточните запрос</div>':'');
+}
+function utRender(){
+  $('#utList').innerHTML=utListHTML();
+  const cnt=D.draftCount(DRAFT.unit,DRAFT)!=null;
+  $('#utHint').innerHTML=(cnt?'Цифры — сколько людей попадёт в выбор ('+esc(D.CMP.cur)+'). ':'')+'Ваша команда; на базу сравнения не влияет.';
 }
 function paintOpts(){
+  /* у значения фильтра — сколько людей попадёт в выбор, если нажать (19.10, как в HRBP HUB) */
   const row=(id,list,field)=>{
-    $(id).innerHTML=list.map(o=>'<button class="opt'+(DRAFT[field]===o.key?' on':'')+'" data-f="'+field+'" data-v="'+o.key+'">'+esc(o.name)+'</button>').join('');
+    $(id).innerHTML=list.map(o=>{
+      const n=D.draftCount(DRAFT.unit,Object.assign({},DRAFT,{[field]:o.key}));
+      return '<button class="opt'+(DRAFT[field]===o.key?' on':'')+'" data-f="'+field+'" data-v="'+o.key+'">'+esc(o.name)+
+        (n==null?'':'<span class="opt-n">'+D.fmtInt(n)+'</span>')+'</button>';
+    }).join('');
   };
   row('#optPaint',D.PAINTS,'paint');
   row('#optIt',D.ITSEGS,'itSeg');
@@ -325,12 +384,17 @@ function paintOpts(){
   if(ENV)[['#optPaint','paint'],['#optIt','it']].forEach(([id,c])=>{
     const g=$(id)&&$(id).closest('.fgrp');if(g)g.style.display=D.REAL.cuts.has(c)?'':'none';
   });
+  utRender();
   metricOpts();
   const d=Object.assign({},S,DRAFT);
+  /* итог «после Применить»: юнит и база с набранными фильтрами; без fd (прежний датасет) —
+     численность по уже применённым, как раньше */
+  const tn=D.draftCount(d.unit,d), bn=D.draftCount(D.PICK.root,d);
+  const nm=(D.PICK.info(d.unit)||D.NODE_BY_PATH[d.unit]||{}).name||'';
   const rl=D.reportLeaves(d), bl=D.benchmarkLeaves(d);
-  $('#benchPreview').innerHTML='Ваша команда: <b>'+esc(D.NODE_BY_PATH[d.unit].name)+'</b>, '+
-    D.fmtVal('hc_total',D.lastVal(rl,'hc_total'))+' чел.<br>База сравнения: <b>'+
-    esc(D.benchmarkLabel(d))+'</b>, '+D.fmtVal('hc_total',D.lastVal(bl,'hc_total'))+' чел.';
+  $('#benchPreview').innerHTML=(tn!=null?'После «Применить» — ваша команда: <b>':'Ваша команда: <b>')+esc(nm)+'</b>, '+
+    D.fmtVal('hc_total',tn!=null?tn:D.lastVal(rl,'hc_total'))+' чел.<br>База сравнения: <b>'+
+    esc(D.benchmarkLabel(d))+'</b>, '+D.fmtVal('hc_total',bn!=null?bn:D.lastVal(bl,'hc_total'))+' чел.';
 }
 /* ---------- выбор метрик в модалке ----------
    Пресет только проставляет галочки: после него набор донастраивается руками,
@@ -648,6 +712,13 @@ on(document,'click',e=>{
 
   const opt=t.closest('.opt');
   if(opt&&DRAFT){DRAFT[opt.dataset.f]=opt.dataset.v;paintOpts();return}
+  /* дерево юнита: стрелка раскрывает, строка выбирает */
+  const tw=t.closest('[data-utw]');
+  if(tw&&DRAFT){const p=tw.dataset.utw;UT.open[p]=tw.getAttribute('aria-expanded')!=='true';utRender();return}
+  const up=t.closest('[data-upick]');
+  if(up&&DRAFT){DRAFT.unit=up.dataset.upick;
+    const nm=(D.PICK.info(DRAFT.unit)||{}).name;if(nm&&!D.NODE_BY_PATH[DRAFT.unit])unitNames[DRAFT.unit]=nm;
+    paintOpts();return}
 
   /* навигация по разделам */
   const tab=t.closest('[data-tab]');
@@ -782,11 +853,11 @@ function searchInput(v,pos){
   if(n&&n.focus){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}
 }
 on(document,'input',e=>{
+  if(e.target.id==='utQ'&&DRAFT){UT.q=e.target.value;utRender();$('#utList').scrollTop=0;return}
   const s=e.target.closest&&e.target.closest('[data-tsearch]');
   if(s)searchInput(s.value,s.selectionStart);
 });
 on(document,'change',e=>{
-  if(e.target.id==='selUnit'&&DRAFT){DRAFT.unit=e.target.value;paintOpts();return}
   const ax=e.target.closest&&e.target.closest('[data-mixaxis]');
   if(ax){
     const v=e.target.value;

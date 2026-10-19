@@ -590,6 +590,23 @@ function unitsInScope(st){
   return NODES.filter(n=>!n.outside&&!n.direct&&n.path.indexOf(st.unit+'/')===0).length;
 }
 const UNIT_WORDS=REAL?['подразделение','подразделения','подразделений']:['команда','команды','команд'];
+/* ---------- Окно настройки: дерево выбора юнита (19.10, как в HRBP HUB) ----------
+   Всё дерево с поиском по названию и логину руководителя; у строки — сколько людей
+   попадёт в выбор (юнит и фильтры набраны, но ещё не применены). Пробник — справочник
+   датасета и fd по нему, без запроса; макет — NODES и листья. */
+const PICK=REAL?REAL.pick:{
+  ok:true,root:'T',
+  kids:p=>childrenOf(p).filter(n=>!n.direct).map(n=>n.path),
+  info(p){const n=NODE_BY_PATH[p];
+    return n?{name:n.name,lvl:n.level,head:n.head?n.head.login:'',kids:childrenOf(p).filter(x=>!x.direct).length}:null},
+  all:()=>NODES.filter(n=>!n.direct).map(n=>n.path)
+};
+/* d — ключи состояния (paint, itSeg, staffType); null — посчитать нельзя (прежний датасет без fd) */
+function draftCount(p,d){
+  if(REAL)return REAL.pick.count(p,{paint:REAL.filterValue('paint',d.paint),it:REAL.filterValue('itSeg',d.itSeg),
+    staff:REAL.filterValue('staffType',d.staffType)});
+  return Math.round(lastVal(reportLeaves(Object.assign({},d,{unit:p})),'hc_total'));
+}
 function benchmarkLabel(st){
   const parts=[];
   if(st.paint!=='all')parts.push(st.paint);
@@ -2028,7 +2045,7 @@ function aiProfile(lp){
 }
 
 window.TPDATA={REAL,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
-  mixParts,mixCats,mixTree,bound,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
+  mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,

@@ -209,6 +209,7 @@ def check(db):
         ('чужой id', {'unit_f': ['ffffffffffff']}, dflt, lambda r: True),
         ('кавычка в фильтре', {'staff_f': ["Штат' OR 1=1 --"]}, dflt, lambda r: False),
     ]
+    fd_all = {}
     for name, flt, want, pred in cases:
         print(f'— {name}')
         outs = {}
@@ -302,8 +303,38 @@ def check(db):
             a = st[a]['prk']
         if not set(path) <= dict_ids:
             fail('dict: нет пути от корня')
+        # 19.10: справочник — всё дерево; fd — численность узла в последнем месяце по сочетаниям
+        # IT × штат без применённых фильтров (окно настройки считает по нему выбор без запроса)
+        if dict_ids != {uid(p) for p in st}:
+            fail(f'dict: узлов {len(dict_ids)}, в дереве {len(st)}')
+        fdv = meta.get('fdv') or {}
+        fa, fb = fdv.get('it') or [], fdv.get('staff') or []
+        if not fa or not fb:
+            fail('meta.fdv: нет словарей распределения')
+        else:
+            exp_fd = {}
+            for r in allrows:
+                if r['m'] != lm or not r['v'][0]:
+                    continue
+                c = fa.index(ITC(r)) * len(fb) + fb.index('Штат' if STAFF(r) else 'Не штат')
+                parts = r['cp'].split('\t')
+                for d in range(1, len(parts) + 1):
+                    k = '\t'.join(parts[:d])
+                    exp_fd.setdefault(uid(k), {}).setdefault(c, 0.0)
+                    exp_fd[uid(k)][c] += r['v'][0]
+            bad = 0
+            for l in dict_lines:
+                got_fd = {int(x.split(':')[0]): float(x.split(':')[1]) for x in (l[6] if len(l) > 6 else '').split(' ') if x}
+                want_fd = {c: round(n) for c, n in exp_fd.get(l[0], {}).items() if round(n)}
+                if got_fd != want_fd or (len(l) > 5 and l[5] != ''):
+                    bad += 1
+            if bad:
+                fail(f'dict: fd не сходится со строками у {bad} узлов')
+            fd_all.setdefault('fd', set()).add(rows[3]['j'])
         print(f"  ок: строк {len(rows)} · c {len(lvl_rows['c'])} · g {len(lvl_rows['g'])} · x {len(lvl_rows['x'])}"
               f" · в справочнике {len(dict_lines)} · свои люди {own_:g} · {len(outs)} настроек сервера")
+    if len(fd_all.get('fd', ())) != 1:
+        fail('dict: справочник зависит от применённых фильтров или юнита')
     print('ИТОГ:', 'всё сходится' if ok else 'есть расхождения')
     return ok
 

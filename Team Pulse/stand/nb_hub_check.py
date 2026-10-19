@@ -4,7 +4,7 @@
 # m_*, при нескольких фильтрах и при шести настройках сервера.
 #
 #   python3 stand/nb_tp20.py --hub <папка> && python3 stand/nb_hub_check.py <папка>
-import os, sys, datetime as dt
+import json, os, sys, datetime as dt
 from collections import defaultdict
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -82,6 +82,53 @@ def main():
                     exp = [round(T[(rk, m)][tk], 1) for m in ms]
                     if [round(x, 1) for x in a[k]] != exp:
                         bad[k] += 1
+            if label == 'файл 2а':
+                # 19.10: справочник — все узлы, fd — численность последнего месяца по сочетаниям
+                # покраска × IT × штат: сумма прошедших фильтры случая = правда по людям
+                meta = json.loads(rows[0]['j'])
+                fv = meta.get('fdv') or {}
+                dl = [l.split('\t') for l in next(r for r in rows if r['role'] == 'dict')['j'].split('\n') if l]
+                ks = [fv.get(k) or [] for k in ('paint', 'it', 'staff')]
+                want = [{x.lower() for x in f.get(c, [])} for c in ('paint_f', 'it_f', 'staff_f')]
+                for l in dl:
+                    rk, fd = l[0], (l[6] if len(l) > 6 else '')
+                    n = 0.0
+                    for x in fd.split(' '):
+                        if not x:
+                            continue
+                        c, v = x.split(':')
+                        c = int(c)
+                        ic = c % len(ks[2]); c //= len(ks[2])
+                        ib = c % len(ks[1]); ia = c // len(ks[1])
+                        vals = (ks[0][ia], ks[1][ib], ks[2][ic])
+                        if all(not w or v_.lower() in w for w, v_ in zip(want, vals)):
+                            n += float(v)
+                    if rk == 'all':
+                        roots = [k for k in U if U[k][1] is None]
+                        exp = sum(T[(k, ms[-1])]['hc'] for k in roots)
+                    elif rk in U:
+                        exp = T[(rk, ms[-1])]['hc']
+                    else:
+                        bad['fd: узел не найден'] += 1
+                        continue
+                    if round(n) != round(exp):
+                        bad['fd'] += 1
+                if len(dl) != len(U) + (1 if any(l[0] == 'all' for l in dl) else 0):
+                    bad['dict: не все узлы'] += 1
+                # логин руководителя: у юнита — h<юнит> (stand: structure_rows), у юнита со своими
+                # людьми на конец месяца он обязан быть
+                if name == 'без фильтров':
+                    kids = defaultdict(list)
+                    for k, (_, par) in U.items():
+                        if par:
+                            kids[par].append(k)
+                    for l in dl:
+                        rk, hd = l[0], (l[5] if len(l) > 5 else '')
+                        if rk not in U:
+                            continue
+                        own = T[(rk, ms[-1])]['hc'] - sum(T[(c, ms[-1])]['hc'] for c in kids[rk])
+                        if (hd and hd != 'h' + rk) or (own > 0 and not hd):
+                            bad['логин руководителя'] += 1
             res = 'сходится' if not bad else 'РАСХОЖДЕНИЯ ' + ', '.join(f'{k}: {v} узл.' for k, v in bad.items())
             if label == 'файл 2а' and bad:
                 ok = False

@@ -348,6 +348,33 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .opt{border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 14px;font-size:13px;font-weight:var(--fw-body);color:var(--ink2);cursor:pointer;transition:all .15s}
 .opt:hover{border-color:#C0CBDF;background:#fafbfc}
 .opt.on{background:var(--act);border-color:var(--act);color:#fff}
+/* Дерево выбора юнита (19.10, как в HRBP HUB): поиск по названию и логину, строка —
+   поворотник, имя и логин руководителя под ним, уровень, сколько людей попадёт в выбор */
+.ut-s{position:relative;margin:0 0 6px;color:var(--muted)}
+.ut-s svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);pointer-events:none}
+.ut-s input{display:block;width:100%;box-sizing:border-box;height:30px;border:1px solid var(--line);border-radius:999px;
+  padding:0 12px 0 30px;font-size:13px;color:var(--ink);background:#fff}
+.ut-s input:focus{outline:none;border-color:#2b6cff}
+.ut-list{max-height:216px;overflow:auto;margin:0 -4px;padding:0 4px}
+.ut-r{display:flex;align-items:center;gap:4px;padding:6px 9px;border-radius:7px;cursor:pointer;font-size:13px;color:var(--ink2)}
+.ut-r:hover{background:#f4f6f9;color:var(--ink)}
+.ut-r.cur{background:#eef3fe;color:#2b5fd0;font-weight:var(--fw-bold)}
+.ut-tw{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;margin:-2px 0;border:0;padding:0;
+  background:transparent;color:var(--muted);cursor:pointer;border-radius:6px;flex:0 0 auto;font-size:10.5px;line-height:1}
+.ut-tw:hover{background:#eef1f5;color:var(--ink)}
+.ut-sp{display:inline-block;width:20px;flex:0 0 auto}
+.ut-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ut-h,.ut-p{display:block;color:var(--muted);font-size:10.5px;font-weight:var(--fw-body);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ut-p{margin-top:2px}
+.ut-l{color:var(--muted);font-size:10.5px;font-weight:var(--fw-body);white-space:nowrap}
+.ut-c{min-width:44px;text-align:right;font-size:12.5px;font-weight:var(--fw-body);color:var(--ink);font-variant-numeric:tabular-nums}
+.ut-c.zero{color:var(--muted)}
+.ut-r.cur .ut-c{color:#2b5fd0;font-weight:var(--fw-bold)}
+.ut-hl{background:#dfe8ff;color:#1f55d6;border-radius:3px;padding:0 1px}
+.ut-none{padding:14px 8px;color:var(--muted);font-size:12px;text-align:center}
+/* число людей у значения фильтра — сколько попадёт в выбор, если нажать */
+.opt .opt-n{margin-left:6px;color:var(--muted);font-weight:var(--fw-body);font-variant-numeric:tabular-nums}
+.opt.on .opt-n{color:inherit;opacity:.8}
 .bench-preview{background:var(--blue-bg);border:1px solid var(--act-line);border-radius:var(--r3);padding:12px 14px;font-size:var(--fs-body);color:var(--act-ink);font-weight:var(--fw-body);line-height:1.5}
 .bench-preview b{color:var(--act-ink)}
 
@@ -575,15 +602,18 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Пары «подпись — значение» выровнены по правому краю значений, поэтому две
    строки читаются как таблица, а не как проза. Разметку собирает
    TPDRAW.tipHtml — руками строки больше не клеим. */
-.tip{position:fixed;z-index:400;pointer-events:none;opacity:0;
+/* 19.10, заказчик: «все тултипы белыми в стиле борда» — как на HRBP HUB: белая плашка с рамкой
+   и тенью, углы 9px, поля 7×10, ширина до 260px, заголовок мелкими прописными. Слой живёт в body,
+   вне корня отчёта: шрифт и цвета заданы явно (UI, 11-ui.md гайда) */
+.tip{position:fixed;z-index:99999;pointer-events:none;opacity:0;box-sizing:border-box;
   transform:translateY(3px);transition:opacity .11s ease-out,transform .11s ease-out;
-  background:#fff;border:1px solid var(--line);border-radius:var(--r3);
+  background:#fff;border:1px solid var(--line);border-radius:9px;
   box-shadow:0 10px 30px rgba(24,33,50,.18),0 2px 6px rgba(24,33,50,.08);
-  padding:9px 12px;font-size:12px;line-height:1.45;color:var(--ink2);font-weight:var(--fw-body);
-  min-width:148px;max-width:300px;white-space:normal}
+  padding:7px 10px;font-family:Arial,sans-serif;font-size:12px;line-height:1.4;color:var(--ink2);font-weight:var(--fw-body);
+  min-width:148px;max-width:260px;white-space:normal;text-align:left}
 .tip.on{opacity:1;transform:none}
-.tip .t-h{display:block;font-size:var(--fs-cap);font-weight:var(--fw-bold);letter-spacing:.2px;
-  color:var(--muted);margin-bottom:6px}
+.tip .t-h{display:block;font-size:var(--fs-cap);font-weight:var(--fw-bold);letter-spacing:.3px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:5px}
 .tip .t-x{display:block;font-size:12px;font-weight:var(--fw-body);color:var(--ink2);line-height:1.45}
 .tip .t-r{display:flex;align-items:center;gap:8px;margin-top:4px}
 .tip .t-r:first-child{margin-top:0}

@@ -32,7 +32,7 @@ function El(){return{innerHTML:'',textContent:'',style:{},dataset:{},tabIndex:0,
   classList:{add(){},remove(){},toggle(){},contains(){return false}},
   setAttribute(){},getAttribute(){return null},removeAttribute(){},remove(){},appendChild(){},
   addEventListener(){},closest(){return null},matches(){return false},click(){},
-  querySelectorAll(){return[]},
+  querySelectorAll(){return[]},querySelector(){return null},
   getBoundingClientRect(){return{left:0,top:0,bottom:0,right:0,width:100,height:20}}}}
 const NODES=new Map();
 const pick=k=>{if(!NODES.has(k))NODES.set(k,El());return NODES.get(k)};
@@ -56,6 +56,7 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;render();return $("#view").innerHTML},'+
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));render(true);return $("#view").innerHTML},'+
   '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
+  '\n  setup:q=>{openSetup();if(q){UT.q=q;utRender()}const h=$("#utList").innerHTML+"|"+$("#benchPreview").innerHTML+"|"+$("#optStaff").innerHTML;closeSetup();return h},'+
   '\n  st:()=>S};');
 const A=require(probe);
 fs.unlinkSync(probe);
@@ -195,6 +196,22 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   ok(!nFmt||(nFmt>3?(fmtSec.match(/<tr class="urow[^"]*" data-mix="worksite:/g)||[]).length===nFmt&&!/pt-trio/.test(fmtSec)
       :/pt-trio/.test(fmtSec))&&/class="row-body two"/.test(wk)&&(nLeg<=7||/class="row-body">Остальные<span class="unit-sub">/.test(wk)),
     'оформление и место: '+nFmt+' форматов работы — '+(nFmt>3?'полосами':'карточками')+', длинные названия — в две строки');
+  /* 19.10, заказчик: окно настройки как в HRBP HUB — дерево всего справочника, логин руководителя
+     и поиск по нему, у строк и кнопок фильтров — сколько людей попадёт в выбор (fd справочника) */
+  {
+    const su=A.setup(), rowsN=(su.match(/data-upick="/g)||[]).length;
+    if(R.pick.ok){
+      const top=+((su.match(/data-upick="T"[^>]*>[\s\S]*?<span class="ut-c[^"]*">([\d\s ]+)</)||[])[1]||'').replace(/\s/g,'');
+      const baseHc=Math.round(arr(baseRow,'hc')[R.n-1]);
+      const sv=(su.split('|')[2].match(/<span class="opt-n">([\d\s ]+)</g)||[]).map(x=>+x.replace(/\D/g,''));
+      const hd=R.pick.all().map(p=>R.pick.info(p)).find(i=>i&&i.head);
+      const sq=hd?A.setup(hd.head.slice(0,4)):'';
+      ok(rowsN>0&&top===baseHc&&sv.length===3&&sv[1]+sv[2]===sv[0]&&/После «Применить»/.test(su)&&
+         (!hd||(/<mark class="ut-hl">/.test(sq)&&/class="ut-h"/.test(su))),
+        'окно настройки: дерево '+R.pick.all().length+' узлов, у корня '+top+' = компания, штат + не штат = все'+
+        (hd?', поиск по логину':', логинов в справочнике нет'));
+    } else ok(rowsN>0&&!/class="ut-c/.test(su)&&!/opt-n/.test(su),'окно настройки: прежний датасет без fd — дерево без чисел');
+  }
   const nSt=Object.keys(R.mixVals('xs')||{}).length, who=A.go('turnover','who');
   const st=(who.split('bt-group').find(x=>/>Стрим</.test(x))||'');
   ok(nSt<=9||/>Остальные<span class="unit-sub">\d+ стрим/.test(st)||(st.match(/<tr/g)||[]).length<=10,

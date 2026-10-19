@@ -192,9 +192,10 @@ def side(people):
 
 
 def load(pg, U, people):
-    pg.run("""DROP SCHEMA IF EXISTS usr_cross_data, prod_v_sse_crossdata, prod_v_dds, prod_v_dds_dic CASCADE;
+    pg.run("""DROP SCHEMA IF EXISTS usr_cross_data, prod_v_sse_crossdata, prod_v_dds, prod_v_dds_dic, prod_v_emart CASCADE;
               DROP SCHEMA public CASCADE; CREATE SCHEMA public;
-              CREATE SCHEMA usr_cross_data; CREATE SCHEMA prod_v_sse_crossdata; CREATE SCHEMA prod_v_dds; CREATE SCHEMA prod_v_dds_dic;""")
+              CREATE SCHEMA usr_cross_data; CREATE SCHEMA prod_v_sse_crossdata; CREATE SCHEMA prod_v_dds; CREATE SCHEMA prod_v_dds_dic;
+              CREATE SCHEMA prod_v_emart;""")
     typ = lambda c: ('date' if c == 'calendar_dt' else 'bigint' if c == 'mdm_employee_rk'
                      else 'int' if c.endswith('_flg') else 'text')
     pg.run(f"CREATE TABLE usr_cross_data.hr_executive_proteus ({', '.join(f'{c} {typ(c)}' for c in COLS)})")
@@ -211,7 +212,31 @@ def load(pg, U, people):
                                                        'deleted_flg', 'valid_to_dttm'], grt)
     pg.run("""CREATE TABLE prod_v_dds_dic.mdm_employee_appl_status (mdm_employee_appl_status_cd text, mdm_employee_appl_status_desc text);
               INSERT INTO prod_v_dds_dic.mdm_employee_appl_status VALUES ('FNS','Одобрена'),('DCL','Отклонена'),('CNL','Отменена'),('INP','В работе')""")
+    # 19.10: структура сотрудников с логинами — источник логина руководителя юнита (build_hub, как
+    # в HRBP HUB). На конец каждого месяца: руководитель юнита — живой человек юнита с меньшим rk,
+    # его логин h<юнит>, его руководитель — h<родитель>; у остальных руководитель — h<юнит>
+    pg.run("""CREATE TABLE prod_v_emart.mdm_employee_structure_d (business_dt date, mdm_employee_rk bigint,
+              management_head_flg int, ad_login text, management_head_ad_login text)""")
+    pg.copy('prod_v_emart.mdm_employee_structure_d', ['business_dt', 'mdm_employee_rk', 'management_head_flg', 'ad_login',
+                                                     'management_head_ad_login'], structure_rows(U, people))
     return perf, office, grt
+
+
+def structure_rows(U, people):
+    alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])
+    for m in months():
+        e = eom(m)
+        here = defaultdict(list)
+        for p in people:
+            if alive(p, e):
+                here[at(p['unit'], e)].append(p['rk'])
+        for u, rks in here.items():
+            hd = min(rks)
+            for rk in rks:
+                if rk == hd:
+                    yield (e, rk, 1, 'h' + u, 'h' + U[u][1] if U[u][1] else None)
+                else:
+                    yield (e, rk, 0, 'u' + str(rk), 'h' + u)
 
 
 # ---- правда по людям --------------------------------------------------------

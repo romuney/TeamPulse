@@ -16,7 +16,7 @@ function El(){return{innerHTML:'',textContent:'',style:{},dataset:{},tabIndex:0,
   classList:{add(){},remove(){},toggle(){},contains(){return false}},
   setAttribute(){},getAttribute(){return null},removeAttribute(){},remove(){},appendChild(){},
   addEventListener(){},closest(){return null},matches(){return false},click(){},
-  querySelectorAll(){return[]},
+  querySelectorAll(){return[]},querySelector(){return null},
   getBoundingClientRect(){return{left:0,top:0,bottom:0,right:0,width:100,height:20}}}}
 /* один и тот же селектор должен отдавать один и тот же узел, иначе innerHTML теряется */
 const NODES=new Map();
@@ -55,7 +55,7 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\n  stack:()=>unitBack.slice(),'+
   '\n  search:q=>{tq=q;render(true,true);return $("#view").innerHTML},'+
   '\n  crumbs:()=>{renderHead();return $("#crumbs").innerHTML},'+
-  '\n  setupUnits:()=>{openSetup();const h=$("#selUnit").innerHTML;closeSetup();return h},'+
+  '\n  setupUnits:q=>{openSetup();if(q){UT.q=q;utRender()}const h=$("#utList").innerHTML+$("#benchPreview").innerHTML+$("#optStaff").innerHTML;closeSetup();return h},'+
   '\n  home:()=>{S.unit=D.DEFAULT_STATE.unit;unitBack.length=0;tq="";S.selNode=null;expanded.clear()},'+
   /* итерация 30: ширина колонок — режим и доля таблицы */
   '\n  split:(m,sh)=>{splitMode=m;splitShare=sh;render(true);return $("#view").innerHTML},'+
@@ -1163,8 +1163,14 @@ checks.push(['третьей палитры нет: в экранах ни од�
   }));
   checks.push(['у команды без подразделений — строка «нет подразделений уровнем ниже», экраны собираются',
     /class="tree-empty"/.test(lv)&&/нет подразделений уровнем ниже/.test(lv)&&!/ data-node="/.test(lv)&&alive]);
-  checks.push(['в настройке юнит глубже управления остаётся в списке и выбран',
-    new RegExp('value="'+leaf.path+'" selected').test(A.setupUnits())]);
+  /* 19.10: выбор юнита — дерево как в HRBP HUB: путь к выбранному раскрыт, у строки — логин
+     руководителя и сколько людей попадёт в выбор; поиск — и по логину */
+  const su=A.setupUnits(), hd=D.NODE_BY_PATH[leaf.path].head;
+  const sq=A.setupUnits(hd.login.slice(0,5));
+  checks.push(['в настройке юнит глубже управления виден в дереве и выбран; логин, числа, поиск по логину',
+    new RegExp('class="ut-r cur" data-upick="'+leaf.path+'"').test(su)&&/class="ut-h"/.test(su)&&/class="ut-c/.test(su)&&
+    /После «Применить»/.test(su)&&/class="opt-n"/.test(su)&&
+    /<mark class="ut-hl">/.test(sq)&&new RegExp('data-upick="'+leaf.path+'"').test(sq)]);
 
   /* --- поиск по таблице --- */
   A.home();

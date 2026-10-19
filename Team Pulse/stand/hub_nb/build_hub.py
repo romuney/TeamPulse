@@ -2,7 +2,7 @@
 # Блок 4 — таблицы TeamPulse Hub: всё, что отчёту нужно, считается здесь.
 #   teampulse_hub_meta    1 строка: последний закрытый месяц, сетка, корень, юнит по умолчанию
 #   teampulse_hub_unit    узлы нынешней структуры (по ключам юнитов): родитель, уровень, имя,
-#                         число подразделений, путь ключами от корня
+#                         число подразделений, путь ключами от корня, логин руководителя
 #   teampulse_hub_series  узел × месяц × срез (покраска, IT, штат): численность, активная, ССЧ,
 #                         найм, увольнения, regret, переводы через границу узла, мониторинг,
 #                         посещаемость, T-рост. Узел несёт всё своё поддерево
@@ -16,6 +16,12 @@
 from dal_client import query as dal
 
 HUB_ALL = 'all'          # ключ общего корня, если корней в структуре несколько
+# Где брать логин руководителя юнита (19.10: под именем юнита в окне настройки и поиск по нему,
+# как в HRBP HUB): первая таблица, где есть все колонки, — источник TP 2.0, иначе структура
+# сотрудников (её берёт HRBP HUB). Нет ни одной — логин пустой, отчёт работает.
+HUB_HEAD_SRC = [('usr_cross_data.hr_executive_proteus', 'calendar_dt'),
+                ('prod_v_emart.mdm_employee_structure_d', 'business_dt')]
+HUB_HEAD_COLS = {'mdm_employee_rk', 'management_head_flg', 'ad_login', 'management_head_ad_login'}
 
 
 def _hub_q(sql: str):
@@ -26,6 +32,16 @@ def _hub_clean(col: str) -> str:
     """значение разреза: «-» и NULL — пустая строка, табы, переводы строк и «|» — пробелы и «/»
     (разделители ответа датасета)"""
     return f"coalesce(nullif(translate({col}::text, E'\\t\\n|', '  /'), '-'), '')"
+
+
+def _hub_head_src():
+    for t, d in HUB_HEAD_SRC:
+        try:
+            if HUB_HEAD_COLS | {d} <= _source_cols(t):
+                return t, d
+        except Exception:
+            continue
+    return None, None
 
 
 def build_hub(
@@ -46,6 +62,7 @@ def build_hub(
     path_rk = f"array_to_string(({rk_arr})[1:s.leaf_lvl], '|')"
     cut = lambda c, alias: f"coalesce(nullif(s.{c}::text, ''), '-') AS {alias}" if has(c) else f"'-'::text AS {alias}"
     num = lambda c: f'coalesce(e.{c}, 0)' if has(c) else '0'
+    snum = lambda c: f'coalesce(s.{c}, 0)' if has(c) else '0'
     dist = lambda key: f'distributed by ({key})'
     steps = []
 
@@ -109,17 +126,67 @@ update {p}_node set prk = '{HUB_ALL}' where prk = '';
 update {p}_node set pth = '{HUB_ALL}|' || pth, lv = lv + 1;
 insert into {p}_node (rk, nm, lv, prk, pth) values ('{HUB_ALL}', 'Все юниты', 1, '', '{HUB_ALL}')""")
 
-    # 4. справочник узлов: + число подразделений
+    # 4. руководитель юнита на конец последнего закрытого месяца — голосами, как в HRBP HUB:
+    #    3 — сам руководитель (management_head_flg = 1) в юните → его ad_login; 2 — люди юнита →
+    #    их management_head_ad_login; 1 — руководители подразделений → их management_head_ad_login
+    #    (у юнита без своих людей). Старший голос, внутри — самый частый логин, при равенстве —
+    #    меньший. Человек — в юните строки конца месяца (численность > 0), источник логинов —
+    #    по mdm_employee_rk на последнюю дату месяца
+    hsrc, hdt = (None, None) if debug else _hub_head_src()
+    if hsrc and has('mdm_employee_rk'):
+        hh = f"""(
+        select e.mdm_employee_rk as erk, max(coalesce(e.management_head_flg::text, '0'))::int as is_head,
+               max(nullif(lower(trim(e.ad_login::text)), '')) as login,
+               max(nullif(lower(trim(e.management_head_ad_login::text)), '')) as head_login
+        from {_qualified(hsrc)} e
+        where e.{hdt} = (select max(x.{hdt}) from {_qualified(hsrc)} x
+                         where x.{hdt} >= (select lm from {p}_cal)
+                           and x.{hdt} < ((select lm from {p}_cal) + interval '1 month'))
+        group by 1)"""
+        steps.append(f"""
+drop table if exists {p}_head;
+create table {p}_head as
+select distinct on (unit_rk) unit_rk, head_login
+from (
+    select v.unit_rk, v.head_login, max(v.w) as w, count(*) as n
+    from (
+        select s.mng_unit_rk::text as unit_rk,
+               case when h.is_head = 1 then h.login else h.head_login end as head_login,
+               case when h.is_head = 1 then 3 else 2 end as w
+        from {src} s
+        join {hh} h on h.erk = s.mdm_employee_rk
+        where s.report_month = (select lm from {p}_cal) and s.leaf_lvl > 0 and {snum('hc_total_cnt')} > 0
+        union all
+        select n.prk, h.head_login, 1
+        from {src} s
+        join {hh} h on h.erk = s.mdm_employee_rk
+        join {p}_node n on n.rk = s.mng_unit_rk::text
+        where s.report_month = (select lm from {p}_cal) and s.leaf_lvl > 0 and {snum('hc_total_cnt')} > 0
+          and h.is_head = 1 and n.prk <> ''
+    ) v
+    where v.head_login is not null and v.unit_rk is not null
+    group by v.unit_rk, v.head_login
+) t
+order by unit_rk, w desc, n desc, head_login
+{dist('unit_rk')}""")
+    else:
+        steps.append(f"""
+drop table if exists {p}_head;
+create table {p}_head as select ''::text as unit_rk, ''::text as head_login where false
+{dist('unit_rk')}""")
+
+    # 5. справочник узлов: + число подразделений и логин руководителя
     steps.append(f"""
 drop table if exists {p}_unit;
 create table {p}_unit as
 select n.rk as unit_rk, n.prk as parent_rk, n.lv as unit_lvl, n.nm as unit_nm,
-       coalesce(k.kids, 0)::int as kids_cnt, n.pth as path_rk
+       coalesce(k.kids, 0)::int as kids_cnt, n.pth as path_rk, coalesce(h.head_login, '') as head_login
 from {p}_node n
 left join (select prk, count(*) as kids from {p}_node where prk <> '' group by prk) k on k.prk = n.rk
+left join {p}_head h on h.unit_rk = n.rk
 {dist('unit_rk')}""")
 
-    # 5. строки источника → узлы нынешней структуры. История — по пути юнита в последнем
+    # 6. строки источника → узлы нынешней структуры. История — по пути юнита в последнем
     #    закрытом месяце (переехал — прошлое едет с ним); юнита нет — по своему пути.
     #    Перевод входит в узел глубины d, если сменился уровень ≤ d (через границу узла)
     expl = f"""
@@ -149,7 +216,7 @@ from ({expl.replace('{where}', '')}) e
 group by 1, 2, 3, 4, 5
 {dist('node_rk')}""")
 
-    # 6. ССЧ активной = (активная месяца + прошлого) / 2 по узлу и срезу: строка и там, где
+    # 7. ССЧ активной = (активная месяца + прошлого) / 2 по узлу и срезу: строка и там, где
     #    людей среза в узле в этом месяце уже нет, а в прошлом были. Первый месяц — без лага
     on = lambda a, b: ' and '.join(f'{a}.{c} = {b}.{c}' for c in ('node_rk', 'paint_c', 'it_c', 'staff_c'))
     steps.append(f"""
@@ -176,7 +243,7 @@ left join {p}_sx c on {on('c', 'k')} and c.report_month = k.report_month
 left join {p}_sx pv on {on('pv', 'k')} and pv.report_month = (k.report_month - interval '1 month')::date
 {dist('node_rk')}""")
 
-    # 7. разрезы: численность последнего закрытого месяца по атрибутам (g a t gr s c o w r) и
+    # 8. разрезы: численность последнего закрытого месяца по атрибутам (g a t gr s c o w r) и
     #    увольнения с начала его года (xr причина, xq regret по причине, xi инициатива,
     #    xp причина|инициатива, xt стаж, xg грейд, xs стрим). Пустое значение — ''
     a = {k: _hub_clean(f'e.{c}') if has(c) else "''" for k, c in (
@@ -208,7 +275,7 @@ group by 1, 2, 3, 4, 5, 6
 having sum(mx_n) > 0
 {dist('node_rk')}""")
 
-    # 8. календарь отчёта, корень и юнит по умолчанию (у корня один ребёнок — он)
+    # 9. календарь отчёта, корень и юнит по умолчанию (у корня один ребёнок — он)
     steps.append(f"""
 drop table if exists {p}_meta;
 create table {p}_meta as
@@ -224,7 +291,7 @@ from {p}_cal c
 cross join (select unit_rk, kids_cnt from {p}_unit where parent_rk = '' order by unit_rk limit 1) r
 {dist('last_month')}""")
 
-    steps.append(f"drop table if exists {p}_sx; drop table if exists {p}_node")
+    steps.append(f"drop table if exists {p}_sx; drop table if exists {p}_node; drop table if exists {p}_head")
 
     for sql in steps:
         if debug:

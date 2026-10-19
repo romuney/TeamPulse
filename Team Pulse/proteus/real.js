@@ -123,12 +123,17 @@ function build(data){
   const nm=mm=>MONTH_NOM[mm.m]+' '+mm.y;
   const periodLabel=nm(months[0])+' — '+nm(months[months.length-1]);
 
-  /* юниты: справочник (путь и верхние уровни) + строки дерева с рядами */
+  /* юниты: справочник + строки дерева с рядами. С 19.10 справочник — всё дерево: «id, родитель,
+     уровень, детей, имя, логин руководителя, fd» (fd — численность узла в последнем месяце по
+     сочетаниям значений фильтров, «код:число» через пробел; код — номера значений в meta.fdv
+     смешанной системой: покраска, IT, штат, пустой словарь — разреза нет). Прежний датасет —
+     пять полей: тогда в окне настройки нет ни логинов, ни чисел «после применения». */
   const byId={};
   str((by('dict')[0]||{}).j).split('\n').forEach(line=>{
     if(!line)return;
-    const f=line.split('\t');
-    byId[f[0]]={id:f[0],pid:f[1]||'',lvl:num(f[2]),kids:num(f[3]),name:f.slice(4).join('\t')};
+    const f=line.split('\t'), nw=f.length>=7;
+    byId[f[0]]={id:f[0],pid:f[1]||'',lvl:num(f[2]),kids:num(f[3]),name:nw?f[4]:f.slice(4).join('\t'),
+      head:nw?str(f[5]).trim():'',fd:nw?str(f[6]):''};
   });
   const DEPTH={scope:0,c:1,g:2,x:3};
   const units=[];
@@ -139,7 +144,7 @@ function build(data){
       mx:parseMx(r.mx)};
     cols.forEach(c=>{u.ser[c]=parseArr(r['m_'+c],n)});
     units.push(u);
-    byId[u.id]=Object.assign(byId[u.id]||{},{id:u.id,pid:u.pid,lvl:u.lvl,kids:u.kids,name:u.name});
+    byId[u.id]=Object.assign(byId[u.id]||{head:'',fd:''},{id:u.id,pid:u.pid,lvl:u.lvl,kids:u.kids,name:u.name});
   });
   const scopeU=units.find(u=>u.depth===0)||null;
   let rootId=str(meta.root)||(scopeU?scopeU.id:'');
@@ -162,12 +167,21 @@ function build(data){
 
   const lastOf=a=>a[n-1]||0;
   const nodes=[], series={}, mixes={};
+  /* в модель отчёта — как до 19.10: юниты ответа, путь к выбранному и пять верхних уровней;
+     весь справочник — только окну настройки (pick ниже): 11 тыс. узлов в NODES замедлили бы
+     каждый обход дерева */
+  const lv0=Object.keys(byId).reduce((m,id)=>Math.min(m,byId[id].lvl||99),99);
+  const keep=new Set(units.map(u=>u.id));
+  for(let a=scopeU?scopeU.id:'',g=0;a&&byId[a]&&g<20;a=byId[a].pid,g++)keep.add(a);
+  keep.add(rootId);
   Object.keys(byId).forEach(id=>{
-    const u=byId[id], p=pathOf(id);
+    const u=byId[id];
+    if(!keep.has(id)&&!(u.lvl&&u.lvl<=lv0+4))return;
+    const p=pathOf(id);
     if(p==null)return;
     const parts=p.split('/');
     nodes.push({id:id,path:p,parent:parts.length>1?parts.slice(0,-1).join('/'):null,level:u.lvl||parts.length,
-      name:u.name||'—',sort:0,leaf:false,kids:u.kids,outside:true});
+      name:u.name||'—',sort:0,leaf:false,kids:u.kids,outside:true,head:u.head?{name:'',login:u.head}:null});
   });
   const nodeBy={};
   nodes.forEach(x=>{nodeBy[x.path]=x});
@@ -217,6 +231,45 @@ function build(data){
     series.BASE=b;mixes.BASE=parseMx(baseRow.mx);
   }
 
+  /* Окно настройки (19.10, как в HRBP HUB): дерево всего справочника, логин руководителя и
+     «сколько людей попадёт в выбор» — по fd, без запроса. Пути — как у модели ('T/id/…'). */
+  const fdv=meta.fdv&&typeof meta.fdv==='object'?meta.fdv:null;
+  const FDK=['paint','it','staff'].filter(k=>fdv&&Array.isArray(fdv[k])&&fdv[k].length);
+  const fdOk=!!FDK.length&&Object.keys(byId).some(id=>byId[id].fd);
+  const kidsBy={};
+  Object.keys(byId).forEach(id=>{const p=byId[id].pid;if(p&&byId[p])(kidsBy[p]=kidsBy[p]||[]).push(id)});
+  const idOfPath=p=>p==='T'?rootId:String(p).split('/').pop();
+  /* fd узла → [[номер по каждому разрезу FDK…, число], …]; разбор — при первом обращении */
+  function fdOf(id){
+    const u=byId[id];
+    if(!u)return [];
+    if(u._fd)return u._fd;
+    u._fd=str(u.fd).split(' ').filter(Boolean).map(x=>{
+      const at=x.indexOf(':');let c=parseInt(x.slice(0,at),10);const d=[];
+      for(let k=FDK.length-1;k>=0;k--){const L=fdv[FDK[k]].length;d[k]=c%L;c=Math.floor(c/L)}
+      return d.concat([num(x.slice(at+1))]);
+    });
+    return u._fd;
+  }
+  const pick={
+    ok:fdOk,
+    root:'T',
+    kids(p){const id=idOfPath(p);return (kidsBy[id]||[]).map(k=>pathOf(k)).filter(Boolean)},
+    info(p){const u=byId[idOfPath(p)];return u?{name:u.name||'—',lvl:u.lvl,head:u.head||'',kids:(kidsBy[u.id]||[]).length}:null},
+    all(){return Object.keys(byId).map(id=>pathOf(id)).filter(Boolean)},
+    /* люди узла в последнем месяце при значениях фильтров sel {paint,it,staff: значение или null}; null — нет fd */
+    count(p,sel){
+      if(!fdOk)return null;
+      const want=FDK.map(k=>sel&&sel[k]!=null?String(sel[k]).toLowerCase():null);
+      let s=0;
+      fdOf(idOfPath(p)).forEach(r=>{
+        for(let k=0;k<FDK.length;k++)if(want[k]!=null&&String(fdv[FDK[k]][r[k]]).toLowerCase()!==want[k])return;
+        s+=r[FDK.length];
+      });
+      return Math.round(s);
+    }
+  };
+
   const pv=invert(PAINT_V), iv=invert(IT_V), sv=invert(STAFF_V);
   const one=(list,map)=>{const a=(list||[]).map(str);return a.length===1&&map[a[0]]?map[a[0]]:'all'};
   const vals=meta.vals||{};
@@ -234,6 +287,7 @@ function build(data){
     /* какие фильтры датасет умеет: с 15.10 покраски и IT в таблице нет — только штат */
     cuts:new Set(Array.isArray(meta.cuts)?meta.cuts.map(str):['paint','it','staff']),
     vals:{paint:pairs(vals.paint),it:pairs(vals.it),staff:pairs(vals.staff)},
+    pick,
     stub,
     /* есть ли в ответе необязательная колонка (без m_) */
     has(c){return have.has(c)},

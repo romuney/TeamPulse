@@ -30,12 +30,18 @@
     Строки различаются колонкой role, порядок задан ORDER BY:
       meta   1 строка, j — JSON: последний полный месяц (lm), первый месяц сетки (m0),
              число месяцев (n), сегодня, корень, выбранный юнит, юнит по умолчанию,
-             какие фильтры датасет умеет (cuts), эхо применённых фильтров и значения
-             фильтров IT и штата с численностью компании (копии путей — один раз)
+             какие фильтры датасет умеет (cuts), эхо применённых фильтров, значения
+             фильтров IT и штата с численностью компании (копии путей — один раз) и словари
+             распределения fdv — порядок значений, по которому кодируется fd в dict
       scope  выбранный юнит
       base   вся компания под теми же фильтрами — база сравнения
-      dict   1 строка, j — юниты для пути и выбора: «id \t pid \t уровень \t детей \t имя»
-             через \n — предки выбранного юнита и пять верхних уровней
+      dict   1 строка, j — все узлы дерева для пути и выбора юнита: «id \t pid \t уровень \t
+             детей \t имя \t руководитель \t fd» через \n. Руководителя (логин) в таблице нет —
+             поле пустое. fd — численность узла (всей ветки) в последнем полном месяце по
+             сочетаниям значений фильтров, без учёта применённых: «код:число» через пробел,
+             код = номер IT × число значений штата + номер штата (номера — в meta.fdv). По нему
+             окно настройки считает «сколько людей попадёт в выбор» сразу, без запроса (19.10,
+             как в HRBP HUB)
       c      подразделения на уровень ниже выбранного (pid — выбранный)
       g      на два уровня ниже (pid — строка c)
       x      на три уровня ниже (pid — строка g)
@@ -149,6 +155,35 @@ WITH
     WHERE report_month = (SELECT lm FROM cal) AND mng_unit_rk IS NOT NULL AND ifNull(leaf_lvl, 0) > 0
     GROUP BY u0
   ),
+  -- Численность последнего полного месяца по значениям фильтров (без применённых): у юнита —
+  -- по его пути (копий нет), у узла — сумма ветки. Окно настройки по ней считает «сколько
+  -- людей попадёт в выбор» без запроса (19.10, как в HRBP HUB). fa / fb — порядок значений,
+  -- по которому кодируется сочетание (в meta — fdv)
+  fdb AS (
+    SELECT {{ pth() }} AS p7, {{ CUTS[0][2] }} AS v7a, {{ CUTS[1][2] }} AS v7b,
+           sum(toFloat64(ifNull(hc_total_cnt, 0))) AS n7
+    FROM prod_proteus.hr_structure_overall
+    WHERE report_month = (SELECT lm FROM cal)
+      AND (ifNull(mng_unit_rk, ''), {{ pth() }}) IN (SELECT u0, pk0 FROM lmr)
+    GROUP BY p7, v7a, v7b
+    HAVING n7 > 0
+  ),
+  fdv AS (SELECT arraySort(groupUniqArray(v7a)) AS fa, arraySort(groupUniqArray(v7b)) AS fb FROM fdb),
+  fdr AS (
+    SELECT r7 AS fr, arrayStringConcat(arraySort(groupArray(concat(toString(c7), ':', toString(round(m7))))), ' ') AS fds
+    FROM
+    (
+      SELECT np7 AS r7,
+             toUInt32((indexOf((SELECT fa FROM fdv), v7a) - 1) * length((SELECT fb FROM fdv))
+                      + indexOf((SELECT fb FROM fdv), v7b) - 1) AS c7,
+             sum(n7) AS m7
+      FROM fdb
+      ARRAY JOIN arrayMap(d -> arrayStringConcat(arraySlice(splitByChar('\t', p7), 1, d), '\t'),
+                          range(1, length(splitByChar('\t', p7)) + 1)) AS np7
+      GROUP BY r7, c7
+    )
+    GROUP BY r7
+  ),
   -- Узлы дерева — все начала путей: и юниты со своими людьми, и уровни над ними без своих
   -- строк (в таблице строка — люди СВОЕГО юнита, у верхних уровней строк может не быть).
   -- Узел — его путь (rk), родитель — путь без последнего имени (псевдонимы нигде не совпадают
@@ -176,15 +211,12 @@ WITH
   d1 AS (SELECT rk FROM st WHERE prk = (SELECT s FROM sc) AND rk != ''),
   d2 AS (SELECT rk FROM st WHERE prk IN (SELECT rk FROM d1)),
   d3 AS (SELECT rk FROM st WHERE prk IN (SELECT rk FROM d2)),
-  -- Глубина корня и выбранного юнита; предки выбранного юнита — начала его пути
-  -- (скалярный подзапрос бывает Nullable — массив из него только через ifNull)
+  -- Глубина корня и выбранного юнита (скалярный подзапрос бывает Nullable — массив из него
+  -- только через ifNull). Справочник с 19.10 — всё дерево, предки отдельно не нужны
   dep AS (
     SELECT splitByChar('\t', ifNull((SELECT s FROM sc), '')) AS sa6,
            toUInt32(length(splitByChar('\t', ifNull((SELECT r FROM rt), '')))) AS rl,
            toUInt32(length(sa6)) AS sl
-  ),
-  anc AS (
-    SELECT arrayMap(d -> arrayStringConcat(arraySlice(sa6, 1, d), '\t'), range(1, sl)) AS arr FROM dep
   ),
   -- Юниты, по которым нужны ряды: o — порядок строк в ответе
   pick AS (
@@ -336,6 +368,7 @@ FROM
                     WHERE report_month = (SELECT lm FROM cal)
                       AND (ifNull(mng_unit_rk, ''), {{ pth() }}) IN (SELECT u0, pk0 FROM lmr)
                     GROUP BY v ORDER BY e DESC, v)),
+                '},"fdv":{"paint":[],"it":', toJSONString((SELECT fa FROM fdv)), ',"staff":', toJSONString((SELECT fb FROM fdv)),
                 '}}') AS j,
          {{ blank() }}
 
@@ -363,11 +396,11 @@ FROM
 
   SELECT toUInt8(3) AS o, 'dict' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids,
          arrayStringConcat(arraySort(groupArray(concat(s.id, '\t', s.pid, '\t', toString(s.lv), '\t',
-                                             toString(ifNull(k.k, 0)), '\t', s.nm))), '\n') AS j,
+                                             toString(ifNull(k.k, 0)), '\t', s.nm, '\t\t', ifNull(f.fds, '')))), '\n') AS j,
          {{ blank() }}
   FROM st2 AS s
   LEFT JOIN kd AS k ON k.kr = s.rk
-  WHERE s.lv <= (SELECT min(lv) FROM st) + 4 OR has((SELECT arr FROM anc), s.rk) OR s.rk = (SELECT s FROM sc)
+  LEFT JOIN fdr AS f ON f.fr = s.rk
 
   UNION ALL
 
