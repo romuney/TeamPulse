@@ -464,7 +464,7 @@ const senOf=c=>SEN[c.key]||c.name;
 const roleOf=c=>ROLE[c.key]||'сотрудник стрима «'+c.name+'»';
 const ageOf=c=>AGE_OF[c.key]||c.name.toLowerCase();
 const tenOf=c=>TEN_OF[c.key]||'в компании: '+c.name.toLowerCase();
-const SENIOR_UP=/senior|lead|head|сеньор|лид|ведущ|руковод|expert|эксперт|principal/i;
+const SENIOR_UP=/senior|lead|head|chief|сеньор|лид|ведущ|руковод|expert|эксперт|principal/i;
 CH.structure.portrait=function(c){
   const sel=c.S.mixSel||[], P=k=>D.mixParts(c.lp,k,sel), B=k=>D.mixParts(c.bl,k,sel);
   /* Разрез, по которому взят срез, своей таблицей срез не режет (правило
@@ -479,7 +479,10 @@ CH.structure.portrait=function(c){
   const sn=mode('seniority'), ag=mode('age'), tn=mode('tenure');
   const tree=D.mixTree(c.lp,'stream',sel).slice().sort((a,b)=>b.value-a.value);
   const stQ=inSel('stream'), top=stQ&&stQ.dim.key==='stream'?tree.find(n=>n.cat.id===stQ.cat.id)||tree[0]:tree[0];
-  const ten=P('tenure'), tenB=B('tenure'), n0=pc(ten[0],sum(ten)), b0=pc(tenB[0],sum(tenB));
+  /* «меньше года» — все группы стажа до года: в настоящих данных их три (менее 3 мес,
+     3–6 мес, 6–12 мес, 19.10), а не одна первая */
+  const early=D.mixCats('tenure').map(c=>D.bound(c.name,'mon')<12), e=a=>sum(a.filter((_,i)=>early[i]));
+  const ten=P('tenure'), tenB=B('tenure'), n0=pc(e(ten),sum(ten)), b0=pc(e(tenB),sum(tenB));
   const devs=profDevs(c,inSel), big=devs[0]&&Math.abs(devs[0].d)>=5?devs[0]:null;
   const g=P('gender'), gB=B('gender'), fw=pc(g[0],sum(g)), fwB=pc(gB[0],sum(gB));
   const cmp=x=>'«'+x.cat.name+'» — **'+pp(x.t)+'** против '+pp(x.b)+' в базе';
@@ -495,7 +498,7 @@ CH.structure.portrait=function(c){
   const senP=P('seniority'), senC=D.mixCats('seniority');
   const slp=pc(sum(senP.filter((_,i)=>SENIOR_UP.test(senC[i].name))),sum(senP));
   const gr=mode('grade');
-  const ten10=D.roundParts(D.mixCats('tenure').map((_,i)=>pc(ten[i],sum(ten))/10),10)[0];
+  const ten10=D.roundParts([n0/10,(100-n0)/10],10)[0];
   const sel1=q=>'Выбран «'+q.cat.name+'» — выделен на графике';
   return {sum:pl(tot,PPL)+' · '+senOf(sn.cat),st:'n',
     head:parts.length?'В срезе «'+D.sliceLabel(sel)+'» типичный человек — '+who:'Типичный человек в команде — '+who,

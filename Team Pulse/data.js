@@ -1112,20 +1112,28 @@ const MIX_DIMS=[
    «Формат работы: Офис, Гибрид, Дистанционно»), а не тип договора: колонка c → worksite */
 const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',legal:'o',stream:'w',employment:'r'};
 const NONE_NAME='Не указано';
-/* «до 25 лет» → 24,5; «1-3 года» → 12 мес; «более 5 лет» → 60,5 мес: число и сторона */
+/* «до 25 лет» → 24,5; «1-3 года» → 12 мес; «более 5 лет» → 60,5 мес: число и сторона.
+   Сторона — по слову прямо перед числом или «+» и «и старше» после него: в настоящих
+   значениях (19.10) слово впереди — «Стаж менее 3 мес», и «менее» в начале строки не искалось,
+   отчего «менее 3 мес» вставал после «от 3 до 6 мес» */
 function bound(v,unit){
   const t=String(v).toLowerCase(), m=t.match(/\d+([.,]\d+)?/);
   if(!m)return Infinity;
   let x=parseFloat(m[0].replace(',','.'));
+  const pre=t.slice(0,m.index), post=t.slice(m.index+m[0].length);
   if(unit==='mon'&&!/мес/.test(t.slice(m.index,m.index+12))&&/год|лет/.test(t))x*=12;
-  if(/^\s*(до|меньше|менее|младше|<)/.test(t))x-=0.5;
-  else if(/(более|больше|свыше|старше|\+|>)/.test(t))x+=0.5;
+  if(/(до|меньше|менее|младше|<)\s*$/.test(pre))x-=0.5;
+  else if(/(более|больше|свыше|старше|>)\s*$/.test(pre)||/^\s*\+|старше|и более|и больше/.test(post))x+=0.5;
   return x;
 }
 const SEN_RANK=[/стаж|intern|trainee/i,/junior|джун|младш/i,/middle|мидл/i,/senior|сеньор|старш/i,/lead|лид|ведущ/i,/head|руковод|principal|expert|эксперт|chief/i];
+/* «нет значения» словами (n/a, н/д, «не указано») — в конец, к пустому, и серым на графиках */
+const NA_RE=/^\s*(n\/?a|н\/?д|нет данных|не указан[оа]?|unknown|-)\s*$/i;
+const isNA=v=>v===''||v===NONE_NAME||NA_RE.test(v);
 function realOrder(dimKey,vals){
   const keys=Object.keys(vals), byN=(a,b)=>vals[b]-vals[a];
-  const rank=v=>{const i=SEN_RANK.findIndex(re=>re.test(v));return i<0?99:i};
+  /* ступень с плюсом — между своей и следующей: Junior, Junior+, Middle (19.10) */
+  const rank=v=>{if(isNA(v))return 199;const i=SEN_RANK.findIndex(re=>re.test(v));return i<0?99:i+(/\+\s*$/.test(v)?0.5:0)};
   const sorted=keys.filter(v=>v!=='').sort(
     dimKey==='age'?(a,b)=>bound(a,'yr')-bound(b,'yr')||byN(a,b)
     :dimKey==='tenure'?(a,b)=>bound(a,'mon')-bound(b,'mon')||byN(a,b)
@@ -1140,7 +1148,7 @@ if(REAL){
   for(let i=MIX_DIMS.length-1;i>=0;i--){
     const d=MIX_DIMS[i], k=REAL_DIM[d.key], vals=k?REAL.mixVals(k):{};
     if(!k||!Object.keys(vals).length){MIX_DIMS.splice(i,1);continue}
-    d.cats=realOrder(d.key,vals).map((v,j)=>({key:'v'+j,name:v||NONE_NAME,raw:v}));
+    d.cats=realOrder(d.key,vals).map((v,j)=>({key:'v'+j,name:v||NONE_NAME,raw:v,na:isNA(v)}));
     delete d.childDim;delete d.parentDim;
     if(d.key==='stream'){d.name='Стрим';d.hint='Чем люди занимаются.'}
   }
@@ -2020,7 +2028,7 @@ function aiProfile(lp){
 }
 
 window.TPDATA={REAL,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
-  mixParts,mixCats,mixTree,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
+  mixParts,mixCats,mixTree,bound,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,

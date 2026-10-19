@@ -21,7 +21,8 @@
      ступени сеньорности — от светлой к густой; пол — розовый и синий (просьба
      заказчика: две категории читаются цветом сразу); стаж — три ступени */
   --pt-hi:#5f86c2; --pt-dim:#d3d8e0; --pt-track:#f1f3f6;
-  --pt-s0:#DCE6F8; --pt-s1:#AFC4EF; --pt-s2:#7299E3; --pt-s3:#3F6FCF;
+  --pt-s0:#DCE6F8; --pt-s1:#AFC4EF; --pt-s2:#7299E3; --pt-s3:#3F6FCF; --pt-s4:#2D56A8; --pt-s5:#203F7C;
+  --pt-na:#E3E6EB;
   --pt-f:#EE9DBA; --pt-m:#7FA2E6; --pt-t1:#b7c7e6; --pt-t2:#dfe5ef;
   /* ---------- Акцент: кобальт ----------
      Один активный тон на всё: кнопки, выбранная строка, фокус, линия
@@ -317,8 +318,6 @@ button,select,input,textarea{font-family:inherit}
 .ctl label{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:var(--fw-bold)}
 .ctl select{appearance:none;border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 30px 8px 12px;font-size:13px;color:var(--ink);font-weight:var(--fw-body);cursor:pointer;min-width:170px;max-width:100%;text-overflow:ellipsis;
 background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
-.toolbar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.toolbar .sp{flex:1}
 
 /* ===== AI-подсказка ===== */
 .ai{background:#fff;border:1px solid #e4dcfa;border-left:3px solid var(--ai);border-radius:var(--radius);margin:14px 0 0;overflow:hidden}
@@ -388,7 +387,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .skip-link:focus{top:12px}
 .nav-toggle{display:none;border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 10px;font-weight:var(--fw-bold);color:var(--ink);cursor:pointer}
 .nav-scrim{display:none}
-.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 [aria-current="page"]{font-weight:var(--fw-bold)}
 .mrow:focus,.urow:focus{outline:1px solid rgba(36,95,212,.3);outline-offset:-1px;background:#F5F9FE}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
@@ -407,7 +405,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .layout{display:block}.nav{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(82vw,300px);transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 28px rgba(20,28,45,.18);padding-top:18px}.nav.open{transform:translateX(0)}
   .nav-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}.nav-scrim.open{display:block}
   .content{padding:16px}.kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
-  .toolbar{align-items:stretch}.toolbar .ctl,.toolbar .ctl select{width:100%}.toolbar .sp{display:none}.toolbar>.btn{flex:1;text-align:center;justify-content:center}
   .panel{overflow-x:auto}.mtable,.ptable{min-width:760px}.page-h h2{font-size:21px}.block-h{align-items:flex-start}
   .modal{width:calc(100vw - 20px);max-height:92vh}.modal-b{padding:16px}.modal-f{padding:12px;flex-wrap:wrap}
   .ai-h{align-items:flex-start}.ai-lead{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.ai-tag{display:none}
@@ -419,7 +416,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .mpick-l{grid-template-columns:1fr}.mpick{max-height:200px}
 }
 @media print{
-  body{background:#fff}.apphead,.nav,.toolbar,.sub-tabs,.ai-caret,.btn,.nav-scrim{display:none!important}.layout{display:block}.content{padding:0;max-width:none}.reporthead{padding:10px 0;border:0}.panel,.kpi,.ai{box-shadow:none;break-inside:avoid}.detail-chart{height:230px}.chips .x{display:none}
+  body{background:#fff}.apphead,.nav,.sub-tabs,.ai-caret,.btn,.nav-scrim{display:none!important}.layout{display:block}.content{padding:0;max-width:none}.reporthead{padding:10px 0;border:0}.panel,.kpi,.ai{box-shadow:none;break-inside:avoid}.detail-chart{height:230px}.chips .x{display:none}
 }
 
 /* ===== Итерация 8: переделка детальных вкладок ===== */
@@ -442,7 +439,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .ptable tr.lvl2 td.txt .row-body{font-weight:var(--fw-body);color:var(--ink2)}
 .ptable tr.lvl2 td{background:#fcfcfd}
 .ptable tr.lvl2.sel td{background:#F5F9FE}
-.hint-col{font-size:var(--fs-micro);font-weight:var(--fw-body);color:var(--muted);text-transform:none;letter-spacing:0;display:block;margin-top:2px}
 
 /* AI-инсайт сразу под заголовком */
 .ai.insight{margin:0 0 16px}
@@ -457,11 +453,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .ai.sev-good{border-color:#cfeeda;border-left-color:var(--green)}
 
 /* Состояние «отклонений нет» — одна строка вместо пустой подсказки */
-.no-insight{display:flex;align-items:center;gap:9px;font-size:var(--fs-body);color:var(--muted);background:#fff;border:1px solid var(--line2);border-radius:var(--r3);padding:11px 14px;margin:0 0 16px;font-weight:var(--fw-body)}
-.no-insight .ok-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex:0 0 auto}
 
 /* ===== Итерация 12: таблица слева, визуализация справа ===== */
-.toolbar.slim{margin:-4px 0 10px;min-height:0}
 .split{display:grid;grid-template-columns:minmax(min-content,.7fr) 16px minmax(400px,1.3fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
 .split>.panel{min-height:0;height:100%;display:flex;flex-direction:column}
 .split .panel-h{flex:0 0 auto;min-height:54px}
@@ -571,7 +564,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    margin-top складывался с gap: 19px вместо 9px, как везде */
 .split-r .panel-b>.tbl-note{margin-top:0}
 .ins-note{margin-top:var(--s4);font-size:12px;color:var(--muted)}
-.mi-meta{margin-top:6px;color:var(--muted)}
 
 @media(max-width:900px){
   .split-r .panel-b{overflow:visible}
@@ -902,7 +894,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* ---------- Пустое состояние и строка «отклонений нет» ---------- */
 .empty-pic{display:flex;justify-content:center;margin-bottom:10px}
-.no-insight .pulse{margin:-2px 0}
 
 @media(max-width:780px){
   /* Навигация уезжает за экран целиком — вместе с ней и дежурный огонёк.
@@ -1533,7 +1524,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .plan-t td:last-child{color:var(--ink2);min-width:220px}
 .plan-t td:first-child{color:var(--ink)}
 .plan-t tr.plan-g td{padding-top:var(--s5);font-weight:var(--fw-bold);color:var(--ink);border-bottom-color:var(--line)}
-.plan-t tr.plan-todo td:first-child{font-weight:var(--fw-bold)}
 .plan-need{display:block;color:var(--muted)}
 /* «добавить» — графика из каталога на борте нет; «вне каталога» — есть, но в каталоге нет.
    Не светофор и не «в разработке»: свои нейтральные тона (15.10) */
@@ -1868,18 +1858,17 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-note b{color:var(--ink)}
 .pt-wrap [data-mix]{cursor:pointer}
 /* полосы */
-.pt-more-row{grid-column:1/-1;font-size:12px;color:var(--muted)}
 /* пилюли */
 .pt-pill{position:relative;display:flex;height:40px;border-radius:6px;font-size:12.5px}
 .pt-pill span{display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;min-width:0;padding:0 6px}
 .pt-pill span:first-child{border-radius:6px 0 0 6px}.pt-pill span:last-child{border-radius:0 6px 6px 0}
 .pt-pill span+span{border-left:2px solid var(--card)}
 .pt-pill span:hover{filter:saturate(1.6) brightness(.97)}
-.pt-pill.seg .s0{background:var(--pt-s0);color:var(--ink)}.pt-pill.seg .s1{background:var(--pt-s1);color:var(--ink)}
-.pt-pill.seg .s2{background:var(--pt-s2);color:#fff}.pt-pill.seg .s3{background:var(--pt-s3);color:#fff}
-/* пробник: ступеней и групп стажа бывает больше четырёх — следующие темнее и светлее */
-.pt-pill.seg .s4{background:#2d56a8;color:#fff}.pt-pill.seg .s5{background:#203f7c;color:#fff}
-.pt-pill.seg span b{margin-right:4px;font-weight:var(--fw-bold)}
+.pt-pill.seg{margin-bottom:10px}
+/* цвет и ширина ступени — в style (их сколько угодно, ptSteps); в узком куске отступ
+   съедал бы ширину и сдвигал соседей */
+.pt-pill.seg span{padding:0;color:var(--ink);font-variant-numeric:tabular-nums}
+.pt-pill.seg span.dk{color:#fff}.pt-pill.seg span.na{color:var(--muted)}
 /* выбранная в срезе ступень — чертой снизу (цвет ступени занят порядком) */
 .pt-pill.seg span.on{box-shadow:inset 0 -3px 0 var(--ink)}
 .pt-pill.two{margin-bottom:28px}
@@ -1900,6 +1889,16 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-key i{width:10px;height:10px;border-radius:2px}
 .pt-key i.t0{background:var(--pt-hi)}.pt-key i.t1{background:var(--pt-t1)}.pt-key i.t2{background:var(--pt-t2)}
 .pt-key i.t3{background:#eceff4}.pt-key i.t4{background:#f4f6f9}
+/* ключ пилюли по ступеням: колонками по порядку ступеней; доля базы — за засечкой */
+.pt-key.seg{display:block;column-gap:16px;margin-top:0}
+.pt-key.seg span{display:flex;min-width:0;gap:5px;margin-bottom:5px;break-inside:avoid}
+.pt-key.seg i{flex:none}
+.pt-key.seg em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pt-key.seg b{font-weight:var(--fw-bold);color:var(--ink)}
+.pt-key.seg small{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.pt-key.seg small s{width:1.5px;height:11px;background:var(--ink)}
+.pt-key.seg span.on em{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.pt-key.seg span:hover em{color:var(--ink)}
 /* столбики */
 .pt-col{display:flex;gap:14px;align-items:stretch;height:160px}
 .pt-col .c{flex:1;display:flex;flex-direction:column;min-width:0}
@@ -3309,20 +3308,28 @@ const MIX_DIMS=[
    «Формат работы: Офис, Гибрид, Дистанционно»), а не тип договора: колонка c → worksite */
 const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',legal:'o',stream:'w',employment:'r'};
 const NONE_NAME='Не указано';
-/* «до 25 лет» → 24,5; «1-3 года» → 12 мес; «более 5 лет» → 60,5 мес: число и сторона */
+/* «до 25 лет» → 24,5; «1-3 года» → 12 мес; «более 5 лет» → 60,5 мес: число и сторона.
+   Сторона — по слову прямо перед числом или «+» и «и старше» после него: в настоящих
+   значениях (19.10) слово впереди — «Стаж менее 3 мес», и «менее» в начале строки не искалось,
+   отчего «менее 3 мес» вставал после «от 3 до 6 мес» */
 function bound(v,unit){
   const t=String(v).toLowerCase(), m=t.match(/\d+([.,]\d+)?/);
   if(!m)return Infinity;
   let x=parseFloat(m[0].replace(',','.'));
+  const pre=t.slice(0,m.index), post=t.slice(m.index+m[0].length);
   if(unit==='mon'&&!/мес/.test(t.slice(m.index,m.index+12))&&/год|лет/.test(t))x*=12;
-  if(/^\s*(до|меньше|менее|младше|<)/.test(t))x-=0.5;
-  else if(/(более|больше|свыше|старше|\+|>)/.test(t))x+=0.5;
+  if(/(до|меньше|менее|младше|<)\s*$/.test(pre))x-=0.5;
+  else if(/(более|больше|свыше|старше|>)\s*$/.test(pre)||/^\s*\+|старше|и более|и больше/.test(post))x+=0.5;
   return x;
 }
 const SEN_RANK=[/стаж|intern|trainee/i,/junior|джун|младш/i,/middle|мидл/i,/senior|сеньор|старш/i,/lead|лид|ведущ/i,/head|руковод|principal|expert|эксперт|chief/i];
+/* «нет значения» словами (n/a, н/д, «не указано») — в конец, к пустому, и серым на графиках */
+const NA_RE=/^\s*(n\/?a|н\/?д|нет данных|не указан[оа]?|unknown|-)\s*$/i;
+const isNA=v=>v===''||v===NONE_NAME||NA_RE.test(v);
 function realOrder(dimKey,vals){
   const keys=Object.keys(vals), byN=(a,b)=>vals[b]-vals[a];
-  const rank=v=>{const i=SEN_RANK.findIndex(re=>re.test(v));return i<0?99:i};
+  /* ступень с плюсом — между своей и следующей: Junior, Junior+, Middle (19.10) */
+  const rank=v=>{if(isNA(v))return 199;const i=SEN_RANK.findIndex(re=>re.test(v));return i<0?99:i+(/\+\s*$/.test(v)?0.5:0)};
   const sorted=keys.filter(v=>v!=='').sort(
     dimKey==='age'?(a,b)=>bound(a,'yr')-bound(b,'yr')||byN(a,b)
     :dimKey==='tenure'?(a,b)=>bound(a,'mon')-bound(b,'mon')||byN(a,b)
@@ -3337,7 +3344,7 @@ if(REAL){
   for(let i=MIX_DIMS.length-1;i>=0;i--){
     const d=MIX_DIMS[i], k=REAL_DIM[d.key], vals=k?REAL.mixVals(k):{};
     if(!k||!Object.keys(vals).length){MIX_DIMS.splice(i,1);continue}
-    d.cats=realOrder(d.key,vals).map((v,j)=>({key:'v'+j,name:v||NONE_NAME,raw:v}));
+    d.cats=realOrder(d.key,vals).map((v,j)=>({key:'v'+j,name:v||NONE_NAME,raw:v,na:isNA(v)}));
     delete d.childDim;delete d.parentDim;
     if(d.key==='stream'){d.name='Стрим';d.hint='Чем люди занимаются.'}
   }
@@ -4217,7 +4224,7 @@ function aiProfile(lp){
 }
 
 window.TPDATA={REAL,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
-  mixParts,mixCats,mixTree,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
+  mixParts,mixCats,mixTree,bound,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
@@ -7301,7 +7308,7 @@ const senOf=c=>SEN[c.key]||c.name;
 const roleOf=c=>ROLE[c.key]||'сотрудник стрима «'+c.name+'»';
 const ageOf=c=>AGE_OF[c.key]||c.name.toLowerCase();
 const tenOf=c=>TEN_OF[c.key]||'в компании: '+c.name.toLowerCase();
-const SENIOR_UP=/senior|lead|head|сеньор|лид|ведущ|руковод|expert|эксперт|principal/i;
+const SENIOR_UP=/senior|lead|head|chief|сеньор|лид|ведущ|руковод|expert|эксперт|principal/i;
 CH.structure.portrait=function(c){
   const sel=c.S.mixSel||[], P=k=>D.mixParts(c.lp,k,sel), B=k=>D.mixParts(c.bl,k,sel);
   /* Разрез, по которому взят срез, своей таблицей срез не режет (правило
@@ -7316,7 +7323,10 @@ CH.structure.portrait=function(c){
   const sn=mode('seniority'), ag=mode('age'), tn=mode('tenure');
   const tree=D.mixTree(c.lp,'stream',sel).slice().sort((a,b)=>b.value-a.value);
   const stQ=inSel('stream'), top=stQ&&stQ.dim.key==='stream'?tree.find(n=>n.cat.id===stQ.cat.id)||tree[0]:tree[0];
-  const ten=P('tenure'), tenB=B('tenure'), n0=pc(ten[0],sum(ten)), b0=pc(tenB[0],sum(tenB));
+  /* «меньше года» — все группы стажа до года: в настоящих данных их три (менее 3 мес,
+     3–6 мес, 6–12 мес, 19.10), а не одна первая */
+  const early=D.mixCats('tenure').map(c=>D.bound(c.name,'mon')<12), e=a=>sum(a.filter((_,i)=>early[i]));
+  const ten=P('tenure'), tenB=B('tenure'), n0=pc(e(ten),sum(ten)), b0=pc(e(tenB),sum(tenB));
   const devs=profDevs(c,inSel), big=devs[0]&&Math.abs(devs[0].d)>=5?devs[0]:null;
   const g=P('gender'), gB=B('gender'), fw=pc(g[0],sum(g)), fwB=pc(gB[0],sum(gB));
   const cmp=x=>'«'+x.cat.name+'» — **'+pp(x.t)+'** против '+pp(x.b)+' в базе';
@@ -7332,7 +7342,7 @@ CH.structure.portrait=function(c){
   const senP=P('seniority'), senC=D.mixCats('seniority');
   const slp=pc(sum(senP.filter((_,i)=>SENIOR_UP.test(senC[i].name))),sum(senP));
   const gr=mode('grade');
-  const ten10=D.roundParts(D.mixCats('tenure').map((_,i)=>pc(ten[i],sum(ten))/10),10)[0];
+  const ten10=D.roundParts([n0/10,(100-n0)/10],10)[0];
   const sel1=q=>'Выбран «'+q.cat.name+'» — выделен на графике';
   return {sum:pl(tot,PPL)+' · '+senOf(sn.cat),st:'n',
     head:parts.length?'В срезе «'+D.sliceLabel(sel)+'» типичный человек — '+who:'Типичный человек в команде — '+who,
@@ -8057,10 +8067,14 @@ function treeTable(dim,lp,sel,mixSel,open){
    «в компании». Клик по куску берёт срез; выводы — story.js (says). */
 const pct=(a,b)=>b?Math.round(a/b*100):0;
 const sumA=a=>a.reduce((x,y)=>x+y,0);
+/* доля подписью: люди есть, а округление дало ноль — «<1%», не «0%» (Chief, n/a, грейд 9
+   в настоящих данных, 19.10) */
+const shr=(n,p)=>n>0&&!p?'<1%':p+'%';
 function ptRows(ctx,k,sel,ren){
   const d=D.MIX_BY_KEY[k], t=D.mixParts(ctx.lp,k,ctx.S.mixSel), b=D.mixParts(ctx.bl,k,ctx.S.mixSel);
   const st=sumA(t), sb=sumA(b);
-  const rows=d.cats.map((c,i)=>({id:c.id,name:(ren&&ren[c.key])||c.name,n:t[i],p:pct(t[i],st),b:pct(b[i],sb),on:sel.has(c.id)}));
+  const rows=d.cats.map((c,i)=>({id:c.id,name:(ren&&ren[c.key])||c.name,n:t[i],p:pct(t[i],st),bn:b[i],b:pct(b[i],sb),
+    on:sel.has(c.id),na:!!c.na}));
   return hiOf(rows);
 }
 /* выделено выбранное в срезе, иначе самое большое */
@@ -8071,7 +8085,7 @@ function hiOf(rows){
 }
 const NOTE_CUT=': карточки, таблица подразделений и обзор пересчитаются';
 function ptTip(r,bench){
-  return U.tipAttr({title:r.name,rows:[{label:'Команда',value:D.fmtInt(r.n)+' чел · '+r.p+'%'},{label:bench,value:r.b+'%'}],
+  return U.tipAttr({title:r.full||r.name,rows:[{label:'Команда',value:D.fmtInt(r.n)+' чел · '+shr(r.n,r.p)},{label:bench,value:shr(r.bn,r.b)}],
     note:!r.id?r.why||null:r.on?'Срез по «'+r.name+'» взят. Клик снимает его.':'Клик — срез по «'+r.name+'»'+NOTE_CUT+'.'});
 }
 const mixAt=r=>r.id?' data-mix="'+U.esc(r.id)+'"':'';
@@ -8088,7 +8102,7 @@ function ptBars(rows,bench,o){
     list.map(r=>'<tr class="'+(r.id?'urow':'')+(r.hi?' hi':'')+(r.on?' sel':'')+'"'+mixAt(r)+ptTip(r,bench)+'>'+
       '<td class="txt"><span class="row-label"><span class="row-body">'+U.esc(r.name)+
         (r.sub?'<span class="unit-sub">'+U.esc(r.sub)+'</span>':'')+'</span></span></td>'+
-      '<td class="lead">'+D.fmtInt(r.n)+'</td><td>'+r.p+'%</td>'+
+      '<td class="lead">'+D.fmtInt(r.n)+'</td><td>'+shr(r.n,r.p)+'</td>'+
       '<td class="barcell"><span class="cellbar"><i style="width:'+(r.p/max*100).toFixed(1)+'%"></i>'+
       '<s style="left:'+(r.b/max*100).toFixed(1)+'%"></s></span></td></tr>').join('')+'</tbody></table>';
 }
@@ -8105,15 +8119,43 @@ function ptTop(list,o){
   const shown=rest.slice().sort((x,y)=>y.n-x.n).slice(0,8);
   if(!rn)return keep;
   return keep.concat([{id:null,name:'Остальные',sub:rest.length+' '+U.plural(rest.length,o.word||['значение','значения','значений']),
-    n:rn,p:pct(rn,tot),b:sumA(rest.map(r=>r.b)),hi:false,
-    why:'Сложены по численности после первых '+n+': '+shown.map(r=>r.name+' — '+r.p+'%').join(', ')+
+    n:rn,p:pct(rn,tot),bn:sumA(rest.map(r=>r.bn||0)),b:sumA(rest.map(r=>r.b)),hi:false,
+    why:'Сложены по численности после первых '+n+': '+shown.map(r=>r.name+' — '+shr(r.n,r.p)).join(', ')+
       (rest.length>shown.length?' и ещё '+(rest.length-shown.length):'')+'. Срез — по каждому из них в «Своём срезе».'}]);
 }
-/* пилюля по ступеням: ступени — от светлой к густой, база строкой под ней */
+/* Пилюля по ступеням: ступени — от светлой к густой, кусок — доля людей, в куске — только
+   доля (имя в узкий кусок не влезает: «nior+ 1» на настоящих данных, 19.10). Под пилюлей —
+   ключ: цвет, ступень, доля команды и за засечкой — доля в базе (засечка — как в легенде
+   портрета). Опорных цветов шесть; ступеней больше (у сеньорности их девять, у стажа шесть) —
+   цвета между опорными. «Не указано» и n/a серые: места на шкале у них нет. */
+/* цвета — токены --pt-s0…--pt-s5 и --pt-na в styles.css (литеральных цветов в экранах нет),
+   промежуточные — color-mix соседних; с третьей опорной ступени фон тёмный, текст белый (dk) */
+function ptRamp(n){
+  return Array.from({length:n},(_,i)=>{
+    const t=n<=6?i:i/(n-1)*5, k=Math.min(Math.floor(t),4), f=Math.round((t-k)*100);
+    return {bg:!f?'var(--pt-s'+k+')':f===100?'var(--pt-s'+(k+1)+')':'color-mix(in srgb,var(--pt-s'+(k+1)+') '+f+'%,var(--pt-s'+k+'))',dk:t>=1.9};
+  });
+}
 function ptSteps(rows,bench){
-  return '<div class="pt-pill seg">'+rows.map((r,i)=>'<span class="s'+i+(r.on?' on':'')+'" data-mix="'+U.esc(r.id)+'" style="flex:'+r.p+' 1 0"'+
-    ptTip(r,bench)+'>'+(r.p>=12?'<b>'+U.esc(r.name)+'</b> '+r.p+'%':r.p>=5?r.p+'%':'')+'</span>').join('')+'</div>'+
-    '<div class="pt-note">в компании: '+rows.map(r=>U.esc(r.name)+' '+r.b+'%').join(' · ')+'</div>';
+  const ord=rows.filter(r=>!r.na), ramp=ptRamp(ord.length), tot=sumA(rows.map(r=>r.n))||1;
+  const col=r=>r.na?{bg:'var(--pt-na)',na:true}:ramp[ord.indexOf(r)];
+  /* ключ — колонками сверху вниз, как идут ступени; ширина колонки — по самому длинному
+     имени: «от 6 мес до 1 года» не режется */
+  const w=Math.max(...rows.map(r=>r.name.length))*6.6+76;
+  return '<div class="pt-pill seg">'+rows.filter(r=>r.n>0).map(r=>{const c=col(r), cl=[c.dk?'dk':c.na?'na':'',r.on?'on':''].filter(Boolean);
+    return '<span'+(cl.length?' class="'+cl.join(' ')+'"':'')+mixAt(r)+' style="flex:'+(r.n/tot*100).toFixed(2)+' 1 0;background:'+c.bg+'"'+
+      ptTip(r,bench)+'>'+(r.p>=7?r.p+'%':'')+'</span>'}).join('')+'</div>'+
+    '<div class="pt-key seg" style="column-width:'+Math.round(w)+'px">'+
+    rows.map(r=>'<span'+(r.on?' class="on"':'')+mixAt(r)+ptTip(r,bench)+'><i style="background:'+col(r).bg+'"></i>'+
+      '<em>'+U.esc(r.name)+'</em><b>'+shr(r.n,r.p)+'</b><small><s></s>'+shr(r.bn,r.b)+'</small></span>').join('')+'</div>';
+}
+/* Общее первое слово у всех значений («Стаж менее 3 мес», «Стаж от 3 до 6 мес») — в
+   заголовке раздела оно уже есть; в ключе его нет, полное имя остаётся в подсказке */
+function ptDrop(rows){
+  const known=rows.filter(r=>!r.na), w=known.length>1&&(known[0].name.match(/^(\S+)\s+\S/)||[])[1];
+  if(!w||!known.every(r=>r.name.indexOf(w+' ')===0))return rows;
+  known.forEach(r=>{r.full=r.name;r.name=r.name.slice(w.length+1)});
+  return rows;
 }
 /* «из каждых 10 человек»: людей раскладываем методом наибольших остатков */
 const MAN='<svg viewBox="0 0 16 30" width="22" height="40" aria-hidden="true"><circle cx="8" cy="5" r="4.5" fill="currentColor"/>'+
@@ -8124,16 +8166,18 @@ function ptPeople(rows,bench){
   rows.forEach((r,i)=>{for(let k=0;k<ten[i];k++)h+='<span class="pt-man t'+i+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+MAN+'</span>'});
   return h+'</div><div class="pt-key">'+rows.map((r,i)=>'<span data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'><i class="t'+i+'"></i>'+
     U.esc(r.name)+' — <b>'+ten[i]+'</b> из 10</span>').join('')+
-    '</div><div class="pt-note">в компании '+U.esc(rows[0].name.toLowerCase())+' — '+rows[0].b+'%</div>';
+    '</div><div class="pt-note">в компании '+U.esc(rows[0].name.toLowerCase())+' — '+shr(rows[0].bn,rows[0].b)+'</div>';
 }
 /* две категории — одна пилюля на два цвета, доли крупно над ней; кls — палитра
    ('gen' — розовый и синий по просьбе заказчика, 'emp' — выделенное и серое).
    Подпись базы прижимается к краю, если засечка у края: иначе она вылезала
    за пилюлю и наезжала на соседний график (15.10, фото заказчика). */
+/* пол во множественном: в таблице «Женщина» / «Мужчина» (19.10) — над пилюлей «35% женщины» */
+const GEN_PL={'женщина':'женщины','мужчина':'мужчины','женский':'женщины','мужской':'мужчины'};
 function ptSplit(a,b,bench,cls){
-  const at=a.b<18?' l':a.b>82?' r':'';
-  return '<div class="pt-two '+cls+'"><span class="a"><b>'+a.p+'%</b> '+U.esc(a.name.toLowerCase())+'</span>'+
-    '<span class="b">'+U.esc(b.name.toLowerCase())+' <b>'+b.p+'%</b></span></div>'+
+  const at=a.b<18?' l':a.b>82?' r':'', w=r=>{const t=r.name.toLowerCase();return cls==='gen'&&GEN_PL[t]||t};
+  return '<div class="pt-two '+cls+'"><span class="a"><b>'+shr(a.n,a.p)+'</b> '+U.esc(w(a))+'</span>'+
+    '<span class="b">'+U.esc(w(b))+' <b>'+shr(b.n,b.p)+'</b></span></div>'+
     '<div class="pt-pill two '+cls+'"><span class="a"'+mixAt(a)+' style="flex:'+a.p+' 1 0"'+ptTip(a,bench)+'></span>'+
     '<span class="b"'+mixAt(b)+' style="flex:'+b.p+' 1 0"'+ptTip(b,bench)+'></span>'+
     '<s class="'+at.trim()+'" style="left:'+a.b+'%"><em>в компании '+a.b+' / '+b.b+'</em></s></div>';
@@ -8147,14 +8191,14 @@ function ptAgeSex(rows,m,gen,bench){
       U.tipAttr({title:r.name+' · '+g.name.toLowerCase(),rows:[{label:'Человек',value:D.fmtInt(v)},{label:'Доля команды',value:pct(v,tot)+'%'}],
         note:'Клик — срез по возрасту и полу сразу.'})+'></i>';
     return '<div class="c'+(r.hi?' hi':'')+'"><div class="bar" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
-      '<div class="v" style="bottom:calc('+Math.max(h,bh).toFixed(1)+'% + 5px)">'+r.p+'%</div>'+
+      '<div class="v" style="bottom:calc('+Math.max(h,bh).toFixed(1)+'% + 5px)">'+shr(r.n,r.p)+'</div>'+
       '<div class="stk">'+seg(f,gen[0],'f')+seg(mm,gen[1],'m')+'</div><s style="bottom:'+bh.toFixed(1)+'%"></s></div>'+
       '<div class="n">'+U.esc(r.name)+'</div></div>'}).join('')+'</div>';
 }
 /* три категории без порядка — три крупные цифры */
 function ptTrio(rows,bench){
   return '<div class="pt-trio">'+rows.map(r=>'<div class="'+(r.hi?'hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
-    '<b>'+r.p+'%</b><span>'+U.esc(r.name)+'</span><em>компания '+r.b+'%</em></div>').join('')+'</div>';
+    '<b>'+shr(r.n,r.p)+'</b><span>'+U.esc(r.name)+'</span><em>компания '+shr(r.bn,r.b)+'</em></div>').join('')+'</div>';
 }
 /* Матрица «разрез × разрез»: длинная ось (юрлица, регионы, стримы) — первые MX_TOP
    по численности и «Остальные» одной строкой или колонкой; без этого юрлица
@@ -8193,7 +8237,7 @@ function ptCtx(ctx){
 /* «Кто в команде?» — квалификация, опыт, пол и возраст */
 function overviewWho(ctx){
   const c=ptCtx(ctx), sel=c.sel, bench=c.bench;
-  const SEN=ptRows(ctx,'seniority',sel,{l:'Lead+'}), GR=ptRows(ctx,'grade',sel), TEN=ptRows(ctx,'tenure',sel),
+  const SEN=ptRows(ctx,'seniority',sel,{l:'Lead+'}), GR=ptRows(ctx,'grade',sel), TEN=ptDrop(ptRows(ctx,'tenure',sel)),
     AGE=ptRows(ctx,'age',sel,{a0:'до 25 лет',a45:'45+ лет'}), GEN=ptRows(ctx,'gender',sel);
   if(!sumA(SEN.map(r=>r.n)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
   /* стаж: выделены новички, а не самая большая группа — история про них */
@@ -8208,7 +8252,9 @@ function overviewWho(ctx){
   return '<div class="pt-wrap">'+ptLegend(bench)+ptCols([
     ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptBars(GR,bench,{cap:'по грейдам'})),
     ptSec(c.says,'Пол','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+'</div>'),
-    ptSec(c.says,'Опыт в компании','ten',ptPeople(TEN,bench)),
+    /* «из 10 человек» — для четырёх групп и меньше; групп стажа в настоящих данных шесть
+       (19.10), и «1 из 10» у каждой мелкой ничего не говорит — тогда пилюля по ступеням */
+    ptSec(c.says,'Опыт в компании','ten',TEN.filter(r=>!r.na).length>4?ptSteps(TEN,bench):ptPeople(TEN,bench)),
     ptSec(c.says,'Возраст','age','<div class="pt-gen">'+
       (two?'<div class="bt-cap pt-cap">женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench):ptBars(AGE,bench))+'</div>')])+
     '<div class="pt-more"><button class="pt-go" data-subtab="custom">Пол × грейд и другие пары — в «Своём срезе» →</button></div></div>';

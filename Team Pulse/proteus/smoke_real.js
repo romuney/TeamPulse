@@ -172,6 +172,22 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const sec=(wk.split('<section').find(x=>/>Юрлицо</.test(x))||'');
   const rows=(sec.match(/<tr /g)||[]).length, rest=/>Остальные<span class="unit-sub">\d+ юрлиц/.test(sec);
   ok(nLeg<=7?rows===nLeg&&!rest:rows===7&&rest,'юрлица в обзоре: '+(nLeg<=7?'все '+nLeg:'6 из '+nLeg+' и «Остальные»'));
+  /* 19.10, заказчик (скриншот портрета на настоящих данных: «какая-то фигня»): ступеней
+     сеньорности 11, групп стажа 6. Каждая ступень пилюли окрашена и подписана только долей,
+     «Junior+» — сразу за «Junior», n/a и «Не указано» — в конце, стаж — по сроку («менее
+     3 мес» первым); групп стажа больше четырёх — пилюля, а не «из 10 человек» */
+  const pt=A.go('structure','portrait'), sen=D.mixCats('seniority').map(c=>c.name), ten=D.mixCats('tenure');
+  const na=n=>/^\s*(n\/?a|н\/?д|не указан[оа]?|-)\s*$/i.test(n);
+  const plusOk=sen.every((n,i)=>!/\+$/.test(n)||sen.indexOf(n.slice(0,-1))<0||sen[i-1]===n.slice(0,-1));
+  const naLast=sen.every((n,i)=>!na(n)||sen.slice(i).every(na));
+  const tb=ten.filter(c=>!c.na).map(c=>D.bound(c.name,'mon')), tenOk=tb.every((v,i)=>!i||v>=tb[i-1]);
+  const pills=[...pt.matchAll(/<div class="pt-pill seg">([\s\S]*?)<\/div>/g)].map(m=>m[1]);
+  const segs=pills.join('').match(/<span[^>]*>/g)||[];
+  const nTen=ten.filter(c=>!c.na).length;
+  ok(plusOk&&naLast&&tenOk&&segs.length>=sen.length-2&&segs.every(x=>/background:(var\(--pt-(s\d|na)\)|color-mix\()/.test(x))&&
+    !/[A-Za-zА-яЁё]/.test(pills.join('').replace(/<[^>]*>/g,''))&&(nTen<=4?/class="pt-man/.test(pt):pills.length===2&&!/class="pt-man/.test(pt)),
+    'портрет на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, каждая окрашена, '+
+    (nTen<=4?'стаж — «из 10 человек»':'стаж — пилюлей'));
   const nSt=Object.keys(R.mixVals('xs')||{}).length, who=A.go('turnover','who');
   const st=(who.split('bt-group').find(x=>/>Стрим</.test(x))||'');
   ok(nSt<=9||/>Остальные<span class="unit-sub">\d+ стрим/.test(st)||(st.match(/<tr/g)||[]).length<=10,

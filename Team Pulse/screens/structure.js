@@ -110,10 +110,14 @@ function treeTable(dim,lp,sel,mixSel,open){
    «в компании». Клик по куску берёт срез; выводы — story.js (says). */
 const pct=(a,b)=>b?Math.round(a/b*100):0;
 const sumA=a=>a.reduce((x,y)=>x+y,0);
+/* доля подписью: люди есть, а округление дало ноль — «<1%», не «0%» (Chief, n/a, грейд 9
+   в настоящих данных, 19.10) */
+const shr=(n,p)=>n>0&&!p?'<1%':p+'%';
 function ptRows(ctx,k,sel,ren){
   const d=D.MIX_BY_KEY[k], t=D.mixParts(ctx.lp,k,ctx.S.mixSel), b=D.mixParts(ctx.bl,k,ctx.S.mixSel);
   const st=sumA(t), sb=sumA(b);
-  const rows=d.cats.map((c,i)=>({id:c.id,name:(ren&&ren[c.key])||c.name,n:t[i],p:pct(t[i],st),b:pct(b[i],sb),on:sel.has(c.id)}));
+  const rows=d.cats.map((c,i)=>({id:c.id,name:(ren&&ren[c.key])||c.name,n:t[i],p:pct(t[i],st),bn:b[i],b:pct(b[i],sb),
+    on:sel.has(c.id),na:!!c.na}));
   return hiOf(rows);
 }
 /* выделено выбранное в срезе, иначе самое большое */
@@ -124,7 +128,7 @@ function hiOf(rows){
 }
 const NOTE_CUT=': карточки, таблица подразделений и обзор пересчитаются';
 function ptTip(r,bench){
-  return U.tipAttr({title:r.name,rows:[{label:'Команда',value:D.fmtInt(r.n)+' чел · '+r.p+'%'},{label:bench,value:r.b+'%'}],
+  return U.tipAttr({title:r.full||r.name,rows:[{label:'Команда',value:D.fmtInt(r.n)+' чел · '+shr(r.n,r.p)},{label:bench,value:shr(r.bn,r.b)}],
     note:!r.id?r.why||null:r.on?'Срез по «'+r.name+'» взят. Клик снимает его.':'Клик — срез по «'+r.name+'»'+NOTE_CUT+'.'});
 }
 const mixAt=r=>r.id?' data-mix="'+U.esc(r.id)+'"':'';
@@ -141,7 +145,7 @@ function ptBars(rows,bench,o){
     list.map(r=>'<tr class="'+(r.id?'urow':'')+(r.hi?' hi':'')+(r.on?' sel':'')+'"'+mixAt(r)+ptTip(r,bench)+'>'+
       '<td class="txt"><span class="row-label"><span class="row-body">'+U.esc(r.name)+
         (r.sub?'<span class="unit-sub">'+U.esc(r.sub)+'</span>':'')+'</span></span></td>'+
-      '<td class="lead">'+D.fmtInt(r.n)+'</td><td>'+r.p+'%</td>'+
+      '<td class="lead">'+D.fmtInt(r.n)+'</td><td>'+shr(r.n,r.p)+'</td>'+
       '<td class="barcell"><span class="cellbar"><i style="width:'+(r.p/max*100).toFixed(1)+'%"></i>'+
       '<s style="left:'+(r.b/max*100).toFixed(1)+'%"></s></span></td></tr>').join('')+'</tbody></table>';
 }
@@ -158,15 +162,43 @@ function ptTop(list,o){
   const shown=rest.slice().sort((x,y)=>y.n-x.n).slice(0,8);
   if(!rn)return keep;
   return keep.concat([{id:null,name:'Остальные',sub:rest.length+' '+U.plural(rest.length,o.word||['значение','значения','значений']),
-    n:rn,p:pct(rn,tot),b:sumA(rest.map(r=>r.b)),hi:false,
-    why:'Сложены по численности после первых '+n+': '+shown.map(r=>r.name+' — '+r.p+'%').join(', ')+
+    n:rn,p:pct(rn,tot),bn:sumA(rest.map(r=>r.bn||0)),b:sumA(rest.map(r=>r.b)),hi:false,
+    why:'Сложены по численности после первых '+n+': '+shown.map(r=>r.name+' — '+shr(r.n,r.p)).join(', ')+
       (rest.length>shown.length?' и ещё '+(rest.length-shown.length):'')+'. Срез — по каждому из них в «Своём срезе».'}]);
 }
-/* пилюля по ступеням: ступени — от светлой к густой, база строкой под ней */
+/* Пилюля по ступеням: ступени — от светлой к густой, кусок — доля людей, в куске — только
+   доля (имя в узкий кусок не влезает: «nior+ 1» на настоящих данных, 19.10). Под пилюлей —
+   ключ: цвет, ступень, доля команды и за засечкой — доля в базе (засечка — как в легенде
+   портрета). Опорных цветов шесть; ступеней больше (у сеньорности их девять, у стажа шесть) —
+   цвета между опорными. «Не указано» и n/a серые: места на шкале у них нет. */
+/* цвета — токены --pt-s0…--pt-s5 и --pt-na в styles.css (литеральных цветов в экранах нет),
+   промежуточные — color-mix соседних; с третьей опорной ступени фон тёмный, текст белый (dk) */
+function ptRamp(n){
+  return Array.from({length:n},(_,i)=>{
+    const t=n<=6?i:i/(n-1)*5, k=Math.min(Math.floor(t),4), f=Math.round((t-k)*100);
+    return {bg:!f?'var(--pt-s'+k+')':f===100?'var(--pt-s'+(k+1)+')':'color-mix(in srgb,var(--pt-s'+(k+1)+') '+f+'%,var(--pt-s'+k+'))',dk:t>=1.9};
+  });
+}
 function ptSteps(rows,bench){
-  return '<div class="pt-pill seg">'+rows.map((r,i)=>'<span class="s'+i+(r.on?' on':'')+'" data-mix="'+U.esc(r.id)+'" style="flex:'+r.p+' 1 0"'+
-    ptTip(r,bench)+'>'+(r.p>=12?'<b>'+U.esc(r.name)+'</b> '+r.p+'%':r.p>=5?r.p+'%':'')+'</span>').join('')+'</div>'+
-    '<div class="pt-note">в компании: '+rows.map(r=>U.esc(r.name)+' '+r.b+'%').join(' · ')+'</div>';
+  const ord=rows.filter(r=>!r.na), ramp=ptRamp(ord.length), tot=sumA(rows.map(r=>r.n))||1;
+  const col=r=>r.na?{bg:'var(--pt-na)',na:true}:ramp[ord.indexOf(r)];
+  /* ключ — колонками сверху вниз, как идут ступени; ширина колонки — по самому длинному
+     имени: «от 6 мес до 1 года» не режется */
+  const w=Math.max(...rows.map(r=>r.name.length))*6.6+76;
+  return '<div class="pt-pill seg">'+rows.filter(r=>r.n>0).map(r=>{const c=col(r), cl=[c.dk?'dk':c.na?'na':'',r.on?'on':''].filter(Boolean);
+    return '<span'+(cl.length?' class="'+cl.join(' ')+'"':'')+mixAt(r)+' style="flex:'+(r.n/tot*100).toFixed(2)+' 1 0;background:'+c.bg+'"'+
+      ptTip(r,bench)+'>'+(r.p>=7?r.p+'%':'')+'</span>'}).join('')+'</div>'+
+    '<div class="pt-key seg" style="column-width:'+Math.round(w)+'px">'+
+    rows.map(r=>'<span'+(r.on?' class="on"':'')+mixAt(r)+ptTip(r,bench)+'><i style="background:'+col(r).bg+'"></i>'+
+      '<em>'+U.esc(r.name)+'</em><b>'+shr(r.n,r.p)+'</b><small><s></s>'+shr(r.bn,r.b)+'</small></span>').join('')+'</div>';
+}
+/* Общее первое слово у всех значений («Стаж менее 3 мес», «Стаж от 3 до 6 мес») — в
+   заголовке раздела оно уже есть; в ключе его нет, полное имя остаётся в подсказке */
+function ptDrop(rows){
+  const known=rows.filter(r=>!r.na), w=known.length>1&&(known[0].name.match(/^(\S+)\s+\S/)||[])[1];
+  if(!w||!known.every(r=>r.name.indexOf(w+' ')===0))return rows;
+  known.forEach(r=>{r.full=r.name;r.name=r.name.slice(w.length+1)});
+  return rows;
 }
 /* «из каждых 10 человек»: людей раскладываем методом наибольших остатков */
 const MAN='<svg viewBox="0 0 16 30" width="22" height="40" aria-hidden="true"><circle cx="8" cy="5" r="4.5" fill="currentColor"/>'+
@@ -177,16 +209,18 @@ function ptPeople(rows,bench){
   rows.forEach((r,i)=>{for(let k=0;k<ten[i];k++)h+='<span class="pt-man t'+i+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+MAN+'</span>'});
   return h+'</div><div class="pt-key">'+rows.map((r,i)=>'<span data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'><i class="t'+i+'"></i>'+
     U.esc(r.name)+' — <b>'+ten[i]+'</b> из 10</span>').join('')+
-    '</div><div class="pt-note">в компании '+U.esc(rows[0].name.toLowerCase())+' — '+rows[0].b+'%</div>';
+    '</div><div class="pt-note">в компании '+U.esc(rows[0].name.toLowerCase())+' — '+shr(rows[0].bn,rows[0].b)+'</div>';
 }
 /* две категории — одна пилюля на два цвета, доли крупно над ней; кls — палитра
    ('gen' — розовый и синий по просьбе заказчика, 'emp' — выделенное и серое).
    Подпись базы прижимается к краю, если засечка у края: иначе она вылезала
    за пилюлю и наезжала на соседний график (15.10, фото заказчика). */
+/* пол во множественном: в таблице «Женщина» / «Мужчина» (19.10) — над пилюлей «35% женщины» */
+const GEN_PL={'женщина':'женщины','мужчина':'мужчины','женский':'женщины','мужской':'мужчины'};
 function ptSplit(a,b,bench,cls){
-  const at=a.b<18?' l':a.b>82?' r':'';
-  return '<div class="pt-two '+cls+'"><span class="a"><b>'+a.p+'%</b> '+U.esc(a.name.toLowerCase())+'</span>'+
-    '<span class="b">'+U.esc(b.name.toLowerCase())+' <b>'+b.p+'%</b></span></div>'+
+  const at=a.b<18?' l':a.b>82?' r':'', w=r=>{const t=r.name.toLowerCase();return cls==='gen'&&GEN_PL[t]||t};
+  return '<div class="pt-two '+cls+'"><span class="a"><b>'+shr(a.n,a.p)+'</b> '+U.esc(w(a))+'</span>'+
+    '<span class="b">'+U.esc(w(b))+' <b>'+shr(b.n,b.p)+'</b></span></div>'+
     '<div class="pt-pill two '+cls+'"><span class="a"'+mixAt(a)+' style="flex:'+a.p+' 1 0"'+ptTip(a,bench)+'></span>'+
     '<span class="b"'+mixAt(b)+' style="flex:'+b.p+' 1 0"'+ptTip(b,bench)+'></span>'+
     '<s class="'+at.trim()+'" style="left:'+a.b+'%"><em>в компании '+a.b+' / '+b.b+'</em></s></div>';
@@ -200,14 +234,14 @@ function ptAgeSex(rows,m,gen,bench){
       U.tipAttr({title:r.name+' · '+g.name.toLowerCase(),rows:[{label:'Человек',value:D.fmtInt(v)},{label:'Доля команды',value:pct(v,tot)+'%'}],
         note:'Клик — срез по возрасту и полу сразу.'})+'></i>';
     return '<div class="c'+(r.hi?' hi':'')+'"><div class="bar" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
-      '<div class="v" style="bottom:calc('+Math.max(h,bh).toFixed(1)+'% + 5px)">'+r.p+'%</div>'+
+      '<div class="v" style="bottom:calc('+Math.max(h,bh).toFixed(1)+'% + 5px)">'+shr(r.n,r.p)+'</div>'+
       '<div class="stk">'+seg(f,gen[0],'f')+seg(mm,gen[1],'m')+'</div><s style="bottom:'+bh.toFixed(1)+'%"></s></div>'+
       '<div class="n">'+U.esc(r.name)+'</div></div>'}).join('')+'</div>';
 }
 /* три категории без порядка — три крупные цифры */
 function ptTrio(rows,bench){
   return '<div class="pt-trio">'+rows.map(r=>'<div class="'+(r.hi?'hi':'')+'" data-mix="'+U.esc(r.id)+'"'+ptTip(r,bench)+'>'+
-    '<b>'+r.p+'%</b><span>'+U.esc(r.name)+'</span><em>компания '+r.b+'%</em></div>').join('')+'</div>';
+    '<b>'+shr(r.n,r.p)+'</b><span>'+U.esc(r.name)+'</span><em>компания '+shr(r.bn,r.b)+'</em></div>').join('')+'</div>';
 }
 /* Матрица «разрез × разрез»: длинная ось (юрлица, регионы, стримы) — первые MX_TOP
    по численности и «Остальные» одной строкой или колонкой; без этого юрлица
@@ -246,7 +280,7 @@ function ptCtx(ctx){
 /* «Кто в команде?» — квалификация, опыт, пол и возраст */
 function overviewWho(ctx){
   const c=ptCtx(ctx), sel=c.sel, bench=c.bench;
-  const SEN=ptRows(ctx,'seniority',sel,{l:'Lead+'}), GR=ptRows(ctx,'grade',sel), TEN=ptRows(ctx,'tenure',sel),
+  const SEN=ptRows(ctx,'seniority',sel,{l:'Lead+'}), GR=ptRows(ctx,'grade',sel), TEN=ptDrop(ptRows(ctx,'tenure',sel)),
     AGE=ptRows(ctx,'age',sel,{a0:'до 25 лет',a45:'45+ лет'}), GEN=ptRows(ctx,'gender',sel);
   if(!sumA(SEN.map(r=>r.n)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
   /* стаж: выделены новички, а не самая большая группа — история про них */
@@ -261,7 +295,9 @@ function overviewWho(ctx){
   return '<div class="pt-wrap">'+ptLegend(bench)+ptCols([
     ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptBars(GR,bench,{cap:'по грейдам'})),
     ptSec(c.says,'Пол','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+'</div>'),
-    ptSec(c.says,'Опыт в компании','ten',ptPeople(TEN,bench)),
+    /* «из 10 человек» — для четырёх групп и меньше; групп стажа в настоящих данных шесть
+       (19.10), и «1 из 10» у каждой мелкой ничего не говорит — тогда пилюля по ступеням */
+    ptSec(c.says,'Опыт в компании','ten',TEN.filter(r=>!r.na).length>4?ptSteps(TEN,bench):ptPeople(TEN,bench)),
     ptSec(c.says,'Возраст','age','<div class="pt-gen">'+
       (two?'<div class="bt-cap pt-cap">женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench):ptBars(AGE,bench))+'</div>')])+
     '<div class="pt-more"><button class="pt-go" data-subtab="custom">Пол × грейд и другие пары — в «Своём срезе» →</button></div></div>';

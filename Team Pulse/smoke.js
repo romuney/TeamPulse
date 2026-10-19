@@ -738,7 +738,7 @@ checks.push(['марки графиков помечены data-s',
   /* 5. Клик по строке разбивки берёт срез */
   const qual=A.go('structure','portrait');
   checks.push(['куски обзора кликаются: у них есть data-mix',
-    /<span class="s2" data-mix="seniority:s"/.test(qual)&&
+    /<span class="dk" data-mix="seniority:s" style="flex:/.test(qual)&&
     /<tr class="urow[^"]*" data-mix="grade:g1"/.test(qual)]);
   const hcAll=D.lastVal(rl,'hc_total'), hcSen=D.lastValSlice(rl,'hc_total',['seniority:s']);
   checks.push(['срез режет численность, а не оставляет её прежней',
@@ -782,7 +782,7 @@ checks.push(['марки графиков помечены data-s',
     totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
     totRow.indexOf('>'+D.fmtVal('hc_total',hcAll)+'<')<0]);
   checks.push(['выбранный кусок обзора помечен',
-    /<span class="s2 on" data-mix="seniority:s"/.test(sliced)]);
+    /<span class="dk on" data-mix="seniority:s" style="flex:/.test(sliced)]);
 
   /* 7. Срез НЕ протекает на другие вкладки: подпись «N чел» стоит везде */
   const movSliced=A.go('movement','balance');
@@ -1381,7 +1381,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     (pt.match(/<section class="pt-s/g)||[]).length===4&&(pt.match(/<h4>/g)||[]).length===4&&
     /<div class="pt-cols"><section/.test(pt)&&/<div class="pt-cols"><section/.test(wk)&&!/class="pt-2"/.test(pt+wk)&&
     /data-mix="contract:/.test(wk)&&
-    (pt.match(/<span class="s\d[^"]*" data-mix="seniority:/g)||[]).length===4&&
+    (pt.match(/<span(?: class="[^"]*")? data-mix="seniority:[^"]*" style="flex:[^"]*;background:var\(--pt-s\d\)"/g)||[]).length===4&&
+    (pt.match(/<span(?: class="[^"]*")? data-mix="seniority:[^"]*" data-tip[^>]*><i style="background:var\(--pt-s\d\)"><\/i>/g)||[]).length===4&&
     (pt.match(/<tr class="urow[^"]*" data-mix="grade:/g)||[]).length===5&&
     (pt.match(/class="pt-man t\d"/g)||[]).length===10&&
     /class="a" data-mix="gender:f"/.test(pt)&&(pt.match(/<i class="[fm]" data-mix="age:a\d+,gender:[fm]"/g)||[]).length===8&&
@@ -1429,7 +1430,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const want=D.mixParts(rl,'gender',['seniority:s']).reduce((a,b)=>a+b,0);
   checks.push(['портрет под срезом: «В срезе «Senior»», численность среза, выбранное выделено, матрица = разбивке',
     /В срезе «Senior» типичный человек — Senior-/.test(ps)&&+n===want&&/Выбран «Senior»/.test(ps)&&
-    /class="s2 on" data-mix="seniority:s"/.test(ps)&&!/class="s\d on"/.test(pt)&&
+    /class="dk on" data-mix="seniority:s"/.test(ps)&&!/class="[^"]*\bon" data-mix="seniority:/.test(pt)&&
     (()=>{const m=D.mixMatrix(rl,'age','gender',['seniority:s']), g=D.mixParts(rl,'gender',['seniority:s']);
       return m.reduce((a,r)=>a+r[0],0)===g[0]&&m.reduce((a,r)=>a+r[1],0)===g[1]})()]);
   A.mix([]);
