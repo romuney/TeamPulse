@@ -1,9 +1,11 @@
 /* ============================================================================
-   screens/onepager.js — сводка по всем метрикам на одном экране.
-   Семь блоков таблицами, у каждой метрики значение, MoM, YoY, спарклайн и
-   сравнение с базой. Клик по строке раскрывает график «год к году» с
-   разбором «Что видно» (механика HRBP HUB); над таблицами — «Что видно
-   в данных» по отбору целиком.
+   screens/onepager.js — главная: сначала выводы, потом метрики.
+   20.10 (вариант A, одобрен заказчиком): сводка одной фразой, до четырёх
+   карточек выводов («Требует действий», «Посмотреть», «Хорошая новость») с
+   людьми, мини-графиком, «Что сделать» и переходом; «В норме» — строкой.
+   «Все метрики» — прежняя сводка: KPI-карточки и семь блоков таблицами, у
+   каждой метрики значение, MoM, YoY, спарклайн и ориентир; клик по строке
+   раскрывает график «год к году» с разбором «Что видно» (механика HRBP HUB).
    ========================================================================== */
 (function(){
 'use strict';
@@ -15,30 +17,6 @@ const esc=U.esc;
    две строки по четыре: поток людей, текучесть, найм, AI и офис. */
 const HERO=['hc_total','hire','attrition','turnover_y','regret','junior_share','ai_penetration','office_att'];
 
-/* Счёт сигналов и сдвиги за год для полосы «Пульс команды».
-   Сигнал — та же развилка, что везде: цель KPI, иначе база; несравнимые и
-   «больше не значит лучше» — без оценки. Сдвиги берём только у относительных
-   метрик: у счётных «2 → 4 человека» даёт +100% и забивает весь список. */
-function pulse(S,rl,bl){
-  let good=0,bad=0,neu=0;const mv=[];
-  D.METRICS.forEach(m=>{
-    if(!D.metricVisible(m.key,S))return;
-    /* пробник: заглушка не сигнал и не сдвиг — цифра сгенерирована */
-    if(D.isStub(m.key))return;
-    const v=D.lastVal(rl,m.key), kpi=D.kpiFor(m.key,S);
-    const st=m.better==='flat'?'neutral':kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,D.lastVal(bl,m.key));
-    if(st==='good')good++;else if(st==='bad')bad++;else neu++;
-    if(m.better==='flat'||m.fmt==='int')return;
-    const yoy=D.deltasOf(rl,m.key).yoy;
-    /* доля без знаменателя в одном из месяцев — сдвига нет, а не «минус всё» */
-    if(v==null||yoy==null)return;
-    const prev=v-yoy;
-    const rel=prev?Math.abs(yoy)/Math.abs(prev):0;
-    if(rel>=0.05)mv.push({key:m.key,name:m.name,block:m.block,cur:v,prev,yoy,rel});
-  });
-  mv.sort((a,b)=>b.rel-a.rel);
-  return {good,bad,neu,movers:mv.slice(0,3)};
-}
 /* Второй ряд карточки-героя у счётной метрики. Пометка «не сравнивается»
    занимала место и ничего не сообщала — три карточки из шести кончались ею.
    Здесь её место отдано контексту из той же метрики: у потока людей — сумма
@@ -100,16 +78,51 @@ function about(m,S){
      m.better==='flat'?'Без оценки: больше — не значит лучше':'Без оценки: это количество, оно зависит от размера команды';
   return h+'<div class="op-frs">'+esc(ref)+'.</div>';
 }
-/* Пояснение к «Что видно в данных»: какие пороги и что не оценивается. */
+/* Пояснение к выводам главной: какие пороги и что не оценивается. */
 function obsInfo(S){
-  const O=window.TPINSIGHTS.OBS;
-  return '<span class="info"'+U.tipAttr({title:'Что видно в данных',
-    text:'Главное по вашей команде:',
+  const O=window.TPINSIGHTS.OBS, C=window.TPINSIGHTS.CARD;
+  return '<span class="info"'+U.tipAttr({title:'Как отобраны выводы',
+    text:'Считается правилами по тем же числам, без ИИ. В выводы попадает:',
     list:['метрика хуже или лучше ориентира на '+Math.round(O.dev*100)+'% и больше',
       'заметно изменилась за год',
       'ухудшается '+O.trend+' месяца подряд',
       'всплеск уходов и сдвиг численности'],
-    note:'Ориентир — цель KPI, а где её нет — база «'+D.benchmarkLabel(S)+'».'})+' aria-label="Что попадает в список">i</span>';
+    note:'Ориентир — цель KPI, а где её нет — база «'+D.benchmarkLabel(S)+'». Порядок — по людям сверх ориентира. '+
+      'Подразделение названо, если на него приходится больше половины отклонения; меньше '+C.small+' человек — не оцениваем.'})+
+    ' aria-label="Как отобраны выводы">i</span>';
+}
+
+/* ---------- Карточка вывода ----------
+   c — TPINSIGHTS.cards(): заголовок и «Что сделать» уже собраны там, body —
+   с <b> вокруг людей и имён. Мини-график ведёт к строке метрики в «Все
+   метрики», кнопка — во вкладку блока или сразу к подразделению. */
+function insightCard(c){
+  const go=c.btn.go?' data-opgo="'+esc(c.btn.go)+'"':' data-tab="'+esc(c.btn.tab)+'"';
+  return '<div class="in-card '+c.sev+'"><div class="in-t"><span class="in-tag">'+esc(c.tag)+'</span>'+
+    '<span class="in-blk">· '+esc(c.blockName)+'</span></div>'+
+    '<div class="in-row"><div class="in-txt"><div class="in-h">'+esc(c.head)+'</div>'+
+      (c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
+    (c.chart?'<button class="in-mini" data-opfact="'+esc(c.key)+'"'+U.tipAttr({title:D.METRIC_BY_KEY[c.key].name,
+      text:'Этот год против ориентира.',note:'Нажмите — откроется подробный график.'})+'>'+c.chart+'</button>':'')+'</div>'+
+    '<div class="in-a"><span class="in-do">'+c.todo+'</span><button class="btn in-go"'+go+'>'+esc(c.btn.label)+'</button></div></div>';
+}
+/* «В норме»: живые метрики без выводов — значением в пилюле; клик открывает
+   строку метрики в «Все метрики». Заглушки — отдельной пилюлей «в разработке». */
+function normOf(S,rl,all){
+  const has=new Set(all.map(c=>c.key));
+  return D.METRICS.filter(m=>D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!has.has(m.key)&&D.lastVal(rl,m.key)!=null);
+}
+function normRow(S,rl,ok){
+  const NP=7, dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
+  return '<div class="in-ok"><span class="in-okt"'+U.tipAttr({title:'В норме',
+      text:'Метрики без заметных отклонений от ориентира и от прошлого года. Количества (численность, найм) не оцениваются — показаны значением.'})+
+    '>✓ В норме</span>'+
+    ok.slice(0,NP).map(m=>'<button class="in-pill" data-opfact="'+m.key+'"'+U.tipAttr({title:m.name,text:m.hint})+'>'+
+      esc(m.name)+' <b>'+D.fmtVal(m.key,D.lastVal(rl,m.key))+'</b></button>').join('')+
+    (ok.length>NP?'<button class="in-pill more" data-opall="1">+'+(ok.length-NP)+' '+U.plural(ok.length-NP,['метрика','метрики','метрик'])+'</button>':'')+
+    (dev?'<button class="in-pill dev" data-opall="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
+      dev+' в разработке</button>':'')+
+    (ok.length?'':'<span class="in-none">всё, что оценивается, — в выводах выше</span>')+'</div>';
 }
 
 /* Метка у имени блока: весь блок без источника — «в разработке · этап N»,
@@ -124,28 +137,40 @@ function blockDevTag(bk){
 }
 
 /* ---------- рендер ---------- */
-function render(S,openRows){
-  const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
+function render(S,openRows,opAll){
+  const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S), I=window.TPINSIGHTS;
   if(!rl.length)return U.empty('Под эти фильтры никто не попал',
     'Снимите один из фильтров в шапке.');
 
-  let h='<div class="page-h"><h2>Сводка по всем метрикам</h2>'+
-    '<p>Все метрики команды на одном экране и как они изменились за месяц и за год. Сравниваем с базой <b>'+
-    esc(D.benchmarkLabel(S))+'</b>, а где есть цель KPI — с целью. Нажмите на строку — откроется график и что на нём видно.</p></div>';
+  /* 1 · заголовок: за какой месяц, чья команда, по какой численности и с чем сравниваем */
+  const node=D.NODE_BY_PATH[S.unit]||{}, hc=D.lastVal(rl,'hc_total')||0;
+  let h='<div class="page-h"><h2>Главное за '+esc(D.CMP.cur)+'</h2>'+
+    '<p>'+esc(node.name||'Команда')+' · '+D.fmtInt(hc)+' '+U.plural(Math.round(hc),['человек','человека','человек'])+' · '+
+    (S.hcType==='all'?'вся численность':'активная численность')+' · сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
+    '</b> и прошлым годом'+obsInfo(S)+'</p></div>';
 
-  /* «Что видно в данных» сразу под заголовком (HRBP HUB, 13.10): сначала
-     вывод, потом цифры. Раньше здесь была AI-подсказка «Как читать эту
-     сводку» — её пороги и оговорки переехали в ⓘ панели. */
-  h+=U.obsPanel(window.TPINSIGHTS.overview(S,rl,bl),S.aiOpen==='op',obsInfo(S));
+  /* 2 · сводка и карточки выводов. Видно четыре, остальные (до восьми) — по
+     «Ещё N»: та же кнопка data-ai, что раскрывала «Что видно в данных». */
+  const all=I.cards(S,rl,bl,true), list=all.slice(0,I.OBS.max), ok=normOf(S,rl,all), open=S.aiOpen==='op';
+  I.lastSev=list.length?list[0].sev:'none';
+  h+='<div class="in-lead">'+U.aiIco(true)+'<div class="in-lt">'+I.lead(S,rl,list,ok.length)+'</div></div>';
+  if(list.length){
+    h+='<div class="in-grid">'+(open?list:list.slice(0,I.CARD.show)).map(insightCard).join('')+'</div>';
+    if(list.length>I.CARD.show)h+='<button class="in-more-c" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+(list.length-I.CARD.show)+' '+
+      U.plural(list.length-I.CARD.show,['вывод','вывода','выводов'])+' ▾')+'</button>';
+  }
+  h+=normRow(S,rl,ok);
+
+  /* 3 · «Все метрики» — прежняя сводка, по кнопке. Раскрытие — состояние показа
+     (app.js, opAll), в ссылку не едет. */
+  h+='<div class="in-all"><span>Все метрики — карточки и таблицы по блокам: значение, изменение за месяц и год, ориентир</span>'+
+    '<button class="btn in-go" data-opall="'+(opAll?'0':'1')+'">'+(opAll?'Свернуть все метрики ▴':'Показать все метрики ▾')+'</button></div>';
+  if(!opAll)return h;
 
   /* Готовность к живым данным (14.10): сколько метрик уже считается из
      источника и что подключать дальше — одной строкой, план раскрывается. */
   const live=D.METRICS.filter(m=>!D.isDev(m.key)).length;
   if(live<D.METRICS.length)h+=U.devSummary({live,total:D.METRICS.length,plan:D.DEV_PLAN});
-
-  /* Пульс команды: счёт сигналов и главные сдвиги за год — до таблиц,
-     чтобы первые пять секунд на экране отвечали «что изменилось». */
-  h+=U.pulseStrip(pulse(S,rl,bl));
 
   /* KPI-стрип: только выбранные метрики. hc_total и hc_active выключить нельзя,
      поэтому стрип не может опустеть целиком. */
@@ -237,5 +262,5 @@ function render(S,openRows){
   return h;
 }
 
-SC.onepager={render,HERO};
+SC.onepager={render,HERO,insightCard};
 })();

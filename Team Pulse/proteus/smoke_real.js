@@ -53,9 +53,11 @@ window.TP_REAL=window.TPREAL.build(rows);
  'screens/onepager.js'].forEach(f=>require(path.join(dir,f)));
 const probe=path.join(dir,'.app.probe.real.js');
 fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
-  '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;render();return $("#view").innerHTML},'+
+  '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;blkOpen=true;opAll=true;render();return $("#view").innerHTML},'+
+  '\n  top:t=>{S.tab=t;S.subTab=null;S.selNode=null;blkOpen=false;render();return $("#view").innerHTML},'+
+  '\n  home0:()=>{S.tab="onepager";opAll=false;S.aiOpen=null;render();return $("#view").innerHTML},'+
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));render(true);return $("#view").innerHTML},'+
-  '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
+  '\n  op:list=>{S.tab="onepager";opAll=true;openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  setup:q=>{openSetup();if(q){UT.q=q;utRender()}const h=$("#utList").innerHTML+"|"+$("#benchPreview").innerHTML+"|"+$("#optStaff").innerHTML;closeSetup();return h},'+
   '\n  st:()=>S};');
 const A=require(probe);
@@ -269,5 +271,15 @@ if(stories.filter(x=>/<ol class="op-ins">/.test(x)).length!==live.length)
   console.log('       без «Что видно»: '+all.filter((k,i)=>!D.isStub(k)&&!/<ol class="op-ins">/.test(stories[i]||'')).join(', ')+
     '\n       '+all.map((k,i)=>!D.isStub(k)&&!/<ol class="op-ins">/.test(stories[i]||'')?stories[i].replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,400):'').filter(Boolean).join('\n       '));
 
+/* 20.10, «сначала выводы»: карточки на настоящих числах — без заглушек, одна история —
+   одна карточка, у каждого блока есть вывод (или «всё спокойно») и «где это происходит» */
+{
+  const I=window.TPINSIGHTS, S0=D.DEFAULT_STATE, cs=I.cards(S0,D.reportLeaves(S0),D.benchmarkLeaves(S0)), home=A.home0();
+  const tops=D.visibleBlocks(S0).map(b=>A.top(b.key));
+  ok(/<div class="in-lead">/.test(home)&&cs.every(c=>!D.isStub(c.key)&&c.head&&/class="mini"/.test(c.chart))&&
+    cs.filter(c=>/С января ушли/.test(c.body)).length<=1&&
+    tops.every(h=>/class="bk-sum (high|mid|good|none)"/.test(h)&&/Где это происходит/.test(h)&&!/class="split/.test(h)),
+    'главная и блоки «сначала выводы»: '+cs.length+' '+(cs.length===1?'вывод':'выводов')+' без заглушек, у '+tops.length+' блоков — вывод и «где»');
+}
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);

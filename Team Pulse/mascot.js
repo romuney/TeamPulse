@@ -62,18 +62,16 @@ function img(role,px,o){
 }
 
 /* ---------- эмоция вкладки ----------
-   Источник правды — тот же расчёт, что рисует плашку инсайта: insights.js
-   кладёт свою тяжесть в lastSev при каждом рендере детальной вкладки.
-   Огонёк не изобретает собственную оценку, он отражает уже показанную.
-   One-pager инсайта не строит, поэтому там считаем по числу метрик,
-   ушедших в красное. */
+   Источник правды — те же выводы, что видны на экране: insights.js и главная
+   кладут тяжесть первого вывода в lastSev при каждом рендере. Огонёк не
+   изобретает собственную оценку, он отражает уже показанную. */
 const MOOD={
   alert:{role:'alert',word:'тревога',dot:'bad',
     tip:{title:'Пульс насторожён',text:'На вкладке есть отклонение, которое требует действий.',
-      note:'Разбор — в плашке «Главное в блоке».'}},
+      note:'Разбор — в выводах наверху экрана.'}},
   warn:{role:'warn',word:'внимание',dot:'warn',
     tip:{title:'Пульс приглядывается',text:'Есть отклонения, на которые стоит посмотреть.',
-      note:'Разбор — в плашке «Главное в блоке».'}},
+      note:'Разбор — в выводах наверху экрана.'}},
   ok:{role:'ok',word:'спокоен',dot:'good',
     tip:{title:'Пульс спокоен',text:'Существенных отклонений от базы на вкладке нет.'}},
   nodata:{role:'nodata',word:'нет данных',dot:'neutral',
@@ -83,20 +81,8 @@ const MOOD={
 
 function mood(S){
   if(!D.reportLeaves(S).length)return MOOD.nodata;
-  if(S.tab!=='onepager'){
-    const sev=(window.TPINSIGHTS&&window.TPINSIGHTS.lastSev)||'none';
-    return sev==='high'?MOOD.alert:sev==='mid'?MOOD.warn:MOOD.ok;
-  }
-  const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
-  let bad=0;
-  D.METRICS.forEach(m=>{
-    if(!D.metricVisible(m.key,S)||m.better==='flat')return;
-    const v=D.lastVal(rl,m.key), kpi=D.kpiFor(m.key,S);
-    const st=kpi?D.stateForKpi(m.key,v,kpi)
-      :(D.comparable(m.key)?D.compareState(m.key,v,D.lastVal(bl,m.key)):'neutral');
-    if(st==='bad')bad++;
-  });
-  return bad>=3?MOOD.alert:bad>=1?MOOD.warn:MOOD.ok;
+  const sev=(window.TPINSIGHTS&&window.TPINSIGHTS.lastSev)||'none';
+  return sev==='high'?MOOD.alert:sev==='mid'?MOOD.warn:MOOD.ok;
 }
 
 /* ---------- дежурный огонёк в подвале навигации ----------

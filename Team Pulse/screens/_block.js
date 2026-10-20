@@ -227,6 +227,48 @@ function blockDev(bk){
    строится (book → demo): утверждать по сгенерированной цифре нельзя. */
 function demoNoteFor(bk,sub){return D.REAL&&devOf(bk,sub)?'1':''}
 
+/* ---------- Вывод блока (20.10) ----------
+   sum — TPINSIGHTS.blockSummary: заголовок, до трёх фактов по номерам и «Что
+   сделать». Фактов нет — «всё спокойно» и что именно проверено. */
+const BK_TAG={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'};
+function conclusion(sum,b,S){
+  let head=sum.head, facts, todo=sum.todo;
+  if(!sum.list.length){
+    const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)), cmp=vis.filter(m=>D.comparable(m.key)||D.kpiFor(m.key,S));
+    head='Заметных отклонений нет';
+    facts=[cmp.length?'Проверили <b>'+cmp.length+' '+U.plural(cmp.length,['метрику','метрики','метрик'])+
+        '</b>: ни одна не отличается от ориентира на '+INS.INS_GAP+'% и больше и не сдвинулась заметно за год.'
+        :'Метрики блока — количества: с базой они не сравниваются, смотрим тренды.',
+      'Ни одна метрика не ухудшается '+INS.INS_TREND+' месяца подряд.'];
+    todo='Отдельных действий не нужно.';
+  }else facts=sum.list.slice(0,3).map(c=>'<b>'+esc(c.head)+'.</b> '+c.body);
+  return '<div class="bk-sum '+sum.sev+'"><div class="bk-tag">Вывод блока · '+BK_TAG[sum.sev]+'</div>'+
+    '<div class="bk-h">'+esc(head)+'</div><ol class="bk-f">'+facts.map(f=>'<li>'+f+'</li>').join('')+'</ol>'+
+    '<div class="bk-do">'+todo+'</div></div>';
+}
+/* Где это происходит: подразделения первого уровня по вкладу в отклонение
+   (люди сверх ориентира); нет отклонения — по значению главной метрики.
+   Меньше 30 человек доли не оцениваются — прочерк. Клик — графики по нему. */
+function wherePanel(sum,mainK,S,rootNode){
+  const c=sum.list.find(x=>x.where&&x.where.tot>0), key=c?c.key:mainK, m=D.METRIC_BY_KEY[key];
+  const small=r=>r.small&&m.fmt==='pct', sv=r=>small(r)||r.v==null?-1e18:r.v;
+  const rows=c?c.where.rows:INS.unitsOf(S).map(u=>({n:u.n,hc:u.hc,small:u.hc<INS.CARD.small,v:D.lastVal(u.lp,key)}))
+    .sort((a,x)=>sv(x)-sv(a));
+  const top=rows.slice(0,5), max=Math.max(1e-9,...top.map(r=>c?r.exc:small(r)?0:Math.abs(r.v||0)));
+  let h='<div class="bk-wh"><div class="bk-wt">Где это происходит</div><div class="bk-ws">'+(c?'Подразделения по вкладу в отклонение: «'+esc(m.name)+'»'
+    :'Подразделения по метрике «'+esc(m.name)+'»')+'</div>';
+  if(!rows.length)h+='<div class="bk-wn">У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры по команде.</div>';
+  top.forEach(r=>{
+    const w=c?r.exc/max:small(r)?0:Math.abs(r.v||0)/max, hd=r.n.head;
+    h+='<button class="bk-wr" data-wsel="'+esc(r.n.path)+'"'+(small(r)?U.tipAttr({title:r.n.name,text:'Меньше '+INS.CARD.small+' человек: доли не оцениваем — слишком мало людей.'}):'')+'>'+
+      '<span class="bk-wu"><b>'+esc(r.n.name)+'</b><span>'+D.fmtInt(r.hc)+' чел'+(hd&&hd.login?' · '+esc(hd.login):'')+'</span></span>'+
+      '<span class="bk-wv">'+(small(r)||r.v==null?'—':D.fmtVal(key,r.v))+'</span>'+
+      '<span class="bk-wb"><i class="'+(c?c.sev:'n')+'" style="width:'+(w*100).toFixed(1)+'%"></i></span></button>';
+  });
+  if(rows.length>top.length)h+='<div class="bk-wn">ещё '+(rows.length-top.length)+' — в таблице подразделений</div>';
+  return h+'<button class="btn in-go bk-wt2" data-blkopen="">Таблица подразделений ▾</button></div>';
+}
+
 /* ---------- рендер детальной вкладки ----------
    view — состояние показа, которое в ссылку не едет: tq — поиск по таблице. */
 function renderBlock(S,expanded,mixOpen,view){
@@ -286,8 +328,10 @@ function renderBlock(S,expanded,mixOpen,view){
     '>Детальный дашборд'+U.icoExt()+'</a></div>'+
     '<p>'+esc(b.hint)+' '+cmpTxt+'</p></div>';
 
-  /* 2 · инсайт */
-  h+=INS.html({S,b,mainK,rl,bl,rows:baseRows,rowLeaves:p=>rowLeaves(p,S)});
+  /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
+     это происходит → таблица»). Факты — те же карточки, что на главной. */
+  const sum=INS.blockSummary(b.key,S,rl,bl);
+  h+='<div class="bk-top">'+conclusion(sum,b,S)+wherePanel(sum,mainK,S,rootNode)+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -322,6 +366,15 @@ function renderBlock(S,expanded,mixOpen,view){
      таблице, по которой кликнули: без неё «191 → 59» в карточке выглядит
      поломкой отчёта, а не ответом на свой же клик. */
   h+=U.sliceNote(slice,'численность в карточках и таблице — по срезу, база и выводы — по всей команде');
+
+  /* 4b · главы и таблица — свёрнуты строкой с вопросами глав; раскрытие — одно на
+     все блоки (app.js, blkOpen), как и ширина колонок, в ссылку не едет */
+  const det=!!(view&&view.det);
+  h+='<div class="bk-det'+(det?' on':'')+'" id="bk-det"><span class="bk-dt">'+(det?'Графики по главам и таблица подразделений':
+      'Графики по месяцам и таблица подразделений — главы:')+'</span>'+
+    (det?'':mod.subTabs.map(([k,n])=>'<button class="bk-ch" data-blkopen="'+k+'">'+esc(((STY.Q||{})[b.key]||{})[k]||n)+'</button>').join(''))+
+    '<button class="btn in-go" '+(det?'data-blkclose="1">Свернуть ▴':'data-blkopen="">Показать ▾')+'</button></div>';
+  if(!det)return h;
 
   /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
      найм после итерации 28), сводной таблице нужно больше места, чем графику:

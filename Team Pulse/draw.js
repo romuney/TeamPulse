@@ -830,6 +830,25 @@ function sDot(x,y,d,col,cls){
   return '<path'+(cls?' class="'+cls+'"':'')+' d="M'+num(x)+' '+num(y)+'h0" stroke="'+col+'" stroke-width="'+d+'"'+
     ' stroke-linecap="round"'+NSS+'/>';
 }
+/* Мини-график карточки вывода (главная «сначала выводы», 20.10): этот год —
+   линией цвета оценки карточки (цвет — CSS по классу карточки), ориентир —
+   пунктиром с подписью, точка последнего месяца. Без наведения: подробный
+   график — по клику, строкой метрики в «Все метрики». */
+function miniYoy(cur,ref,lbl,w,h){
+  w=w||150;h=h||56;
+  const vals=cur.concat(ref||[]).filter(v=>v!=null&&isFinite(v));
+  if(!vals.length)return '';
+  const mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals), rg=mx-mn||Math.abs(mx)||1;
+  let lo=mn-rg*0.15;const hi=mx+rg*0.15;if(mn>=0&&lo<0)lo=0;
+  const n=Math.max(cur.length,ref?ref.length:0), PAD=5, TOP=16;
+  const X=i=>n>1?PAD+i/(n-1)*(w-2*PAD):w/2, Y=v=>h-PAD-(v-lo)/((hi-lo)||1)*(h-PAD-TOP);
+  let s=ref?'<path class="mn-ref" d="'+polyD(ref,X,Y)+'"'+NSS+'/>':'', last=-1;
+  s+='<path class="mn-l" d="'+polyD(cur,X,Y)+'"'+NSS+'/>';
+  cur.forEach((v,i)=>{if(v!=null)last=i});
+  if(last>=0)s+='<circle class="mn-d" cx="'+num(X(last))+'" cy="'+num(Y(cur[last]))+'" r="3.5"/>';
+  if(lbl)s+='<text class="mn-t" x="'+(w-PAD)+'" y="11" text-anchor="end">'+esc(lbl)+'</text>';
+  return '<svg class="mini" viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" aria-hidden="true">'+s+'</svg>';
+}
 function sparkLine(series,state,w,h,o){
   o=o||{};w=w||120;h=h||26;
   const n=series.length, key=o.key, base=o.base, kpi=o.kpi;
@@ -1101,7 +1120,7 @@ function toggleSeries(cid,sid){
 /* _off сознательно НЕ чистим — см. комментарий у его объявления */
 function reset(){_specs=new Map();_sid=0}
 
-window.TPDRAW={chart,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
+window.TPDRAW={chart,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,

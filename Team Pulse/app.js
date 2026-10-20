@@ -51,6 +51,10 @@ let tq='';
    на все блоки: «мне нужна таблица» — предпочтение, а не свойство
    вкладки. В ссылку не едет, как и раскрытия. */
 let splitMode='both', splitShare=null;
+/* Главная и вкладка блока «сначала выводы» (20.10): «Все метрики» на главной и
+   главы с таблицей во вкладке блока свёрнуты, пока их не раскрыли. Состояние
+   показа, одно на все блоки, в ссылку не едет. */
+let opAll=false, blkOpen=false;
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -170,6 +174,7 @@ function arrive(){
       itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType,hcType:D.DEFAULT_STATE.hcType});
     const ui=STORE.ui||{};
     tq=ui.tq||'';splitMode=ui.splitMode==='charts'?'charts':'both';splitShare=ui.splitShare!=null?ui.splitShare:null;
+    opAll=!!ui.opAll;blkOpen=!!ui.blkOpen;
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;
@@ -495,7 +500,6 @@ function navOpen(on){
 function enhanceA11y(){
   $$('.nav-i').forEach(x=>{x.setAttribute('aria-current',x.classList.contains('active')?'page':'false')});
   $$('.mrow,.urow,.mx-cell').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button')});
-  $$('.ai-h').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button');x.setAttribute('aria-expanded',String(S.aiOpen===x.dataset.ai))});
 }
 
 /* ---------- роутер ----------
@@ -527,8 +531,8 @@ function render(keepScroll,quiet){
   G.reset();
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
-    ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
+    ? SC.onepager.render(S,openRows,opAll)
+    : SC.renderBlock(S,expanded,mixOpen,{tq,det:blkOpen,split:{mode:splitMode,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   /* после смены вкладки или главы (S.subTab подставляется при сборке) */
@@ -547,7 +551,7 @@ function render(keepScroll,quiet){
   else if(keepScroll)window.scrollTo(0,y);
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
-  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
+  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare,opAll,blkOpen}}
 }
 
 /* Крест в матрицах (итерация 32, фидбэк 12.10): строку подсвечивает CSS
@@ -633,6 +637,8 @@ function applySplit(box,share){
   if(gut)gut.setAttribute('aria-valuenow',String(Math.round(share*100)));
 }
 function relayout(){G.remeasure($('#view'));stickTotals()}
+/* к раскрытым главам блока: строка «Графики и таблица» встаёт под шапку */
+function toDetails(){const el=$('#bk-det');if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'})}
 let _sd=null;
 on(document,'pointerdown',e=>{
   const gut=e.target.closest&&e.target.closest('[data-split]');
@@ -734,6 +740,20 @@ on(document,'click',e=>{
   if(up&&DRAFT){DRAFT.unit=up.dataset.upick;
     const nm=(D.PICK.info(DRAFT.unit)||{}).name;if(nm&&!D.NODE_BY_PATH[DRAFT.unit])unitNames[DRAFT.unit]=nm;
     paintOpts();return}
+
+  /* выводы главной и блока: «Все метрики», переход к подразделению, главы */
+  const oa=t.closest('[data-opall]');
+  if(oa){opAll=oa.dataset.opall==='1';render(true);return}
+  const og=t.closest('[data-opgo]');
+  if(og){
+    const [bk,p]=og.dataset.opgo.split('|');
+    S.tab=bk;S.subTab=null;S.mainMetric=null;S.selNode=p;blkOpen=true;openRows.clear();render();toDetails();return;
+  }
+  const bo=t.closest('[data-blkopen]');
+  if(bo){blkOpen=true;if(bo.dataset.blkopen)S.subTab=bo.dataset.blkopen;render(true);toDetails();return}
+  if(t.closest('[data-blkclose]')){blkOpen=false;render(true);return}
+  const ws=t.closest('[data-wsel]');
+  if(ws){S.selNode=ws.dataset.wsel;blkOpen=true;render(true);toDetails();return}
 
   /* навигация по разделам */
   const tab=t.closest('[data-tab]');
@@ -844,7 +864,7 @@ on(document,'click',e=>{
   /* факт «Что видно в данных»: раскрыть строку его метрики и подвести к ней */
   const of=t.closest('[data-opfact]');
   if(of){
-    const k=of.dataset.opfact;openRows.add(k);render(true);
+    const k=of.dataset.opfact;opAll=true;openRows.add(k);render(true);
     const r=ROOTEL.querySelector('.mrow[data-metric="'+k+'"]');
     if(r)r.scrollIntoView({behavior:'smooth',block:'center'});
     return;
@@ -899,7 +919,7 @@ on(document,'mouseout',e=>lgHover(e,false));
 on(document,'focusin',e=>lgHover(e,true));
 on(document,'focusout',e=>lgHover(e,false));
 on(document,'keydown',e=>{
-  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.ai-h,.mx-cell,.obs-li')){e.preventDefault();e.target.click()}
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.mx-cell')){e.preventDefault();e.target.click()}
   /* У SVGElement может не быть .click() — зовём обработчик напрямую.
      После перерисовки узла больше нет, поэтому фокус возвращаем вручную. */
   if((e.key==='Enter'||e.key===' ')&&e.target.closest){

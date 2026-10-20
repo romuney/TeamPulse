@@ -40,9 +40,13 @@ global.localStorage={getItem(){return'1'},setItem(){}};
 /* app.js держит state в замыкании — добавляем экспорт-хвост во временную копию */
 const probe=path.join(dir,'.app.probe.js');
 fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
-  '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;render();return $("#view").innerHTML},'+
+  /* 20.10: главы блока и «Все метрики» свёрнуты по умолчанию — прежние проверки
+     смотрят раскрытый вид (go, op), новые — свёрнутый (top, home0) */
+  '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;blkOpen=true;opAll=true;render();return $("#view").innerHTML},'+
+  '\n  top:t=>{S.tab=t;S.subTab=null;S.selNode=null;blkOpen=false;render();return $("#view").innerHTML},'+
+  '\n  home0:()=>{S.tab="onepager";opAll=false;S.aiOpen=null;render();return $("#view").innerHTML},'+
   /* one-pager с раскрытыми строками: каретка и график живут именно в них */
-  '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
+  '\n  op:list=>{S.tab="onepager";opAll=true;openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  hide:list=>{S.hiddenMetrics=list.slice();S.mainMetric=null},'+
   /* каретка ИТОГО живёт в app.js, а не в разметке: дёргаем её обработчик напрямую */
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));'+
@@ -1375,11 +1379,53 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !G.SERIES.line&&!G.SERIES.bars&&!G.SERIES.funnel&&/data-mi="11"/.test(A.go('turnover','dynamics'))&&
     /data-mi="11"/.test(A.go('movement','dynamics'))&&/data-mi="11"/.test(A.go('hiring','vacancies'))]);
   const S0=D.DEFAULT_STATE, rl0=D.reportLeaves(S0), bl0=D.benchmarkLeaves(S0);
-  const ov=I.overview(S0,rl0,bl0), op=A.op([]);
-  checks.push(['one-pager: «Что видно в данных» над таблицами, факты ведут к строкам метрик',
-    /<div class="ai insight obs sev-/.test(op)&&ov.length>0&&ov.length<=I.OBS.max&&
-    ov.every(x=>D.METRIC_BY_KEY[x.key]&&x.lead&&['high','mid','good'].indexOf(x.sev)>=0)&&
-    (op.match(/class="obs-li" data-opfact="/g)||[]).length===Math.min(3,ov.length)]);
+  /* 20.10, вариант A (одобрен): главная — сводка, карточки выводов, «В норме»,
+     «Все метрики» свёрнуты; правила HRBP HUB — по людям, > 50%, < 30 не оцениваем */
+  const cs=I.cards(S0,rl0,bl0), home=A.home0(), rank={high:0,mid:1,good:2};
+  const inCards=home.split('<div class="in-card ').slice(1);
+  checks.push(['главная: «Главное за …», сводка, до четырёх карточек, «В норме», «Все метрики» свёрнуты',
+    /<h2>Главное за /.test(home)&&/<div class="in-lead">/.test(home)&&/человек/.test(home.split('in-lt')[1]||'')&&
+    inCards.length===Math.min(I.CARD.show,cs.length)&&/class="in-ok"/.test(home)&&/data-opall="1">Показать все метрики/.test(home)&&
+    !/class="mtable"|class="kpis/.test(home)&&!/class="ai insight/.test(home)]);
+  checks.push(['карточка: категория, блок, заголовок с цифрой, мини-график, «Что сделать» и переход',
+    inCards.length>0&&inCards.every(c=>/^(high|mid|good)"/.test(c)&&/class="in-tag">(Требует действий|Посмотреть|Хорошая новость)</.test(c)&&
+      /class="in-h">[^<]*\d/.test(c)&&/<svg class="mini"/.test(c)&&!/#[0-9a-f]{3,6}/i.test(c.split('<svg class="mini"')[1].split('</svg>')[0])&&
+      /class="in-do">/.test(c)&&/data-(tab|opgo)="/.test(c))]);
+  checks.push(['выводы: до восьми, по тяжести, внутри — по людям сверх ориентира; заглушек нет',
+    cs.length<=8&&cs.every((c,i,a)=>!i||rank[a[i-1].sev]<rank[c.sev]||(a[i-1].sev===c.sev&&a[i-1].ppl>=c.ppl))&&
+    cs.every(c=>!D.isStub(c.key))]);
+  /* подразделение названо, только если у него больше половины отклонения; < 30 — вклада нет */
+  const wh=cs.filter(c=>c.where);
+  checks.push(['«где»: имя подразделения — только при > 50% отклонения, команды меньше 30 человек не оцениваются',
+    cs.every(c=>/Больше половины|Почти всё/.test(c.body)===!!(c.where&&c.where.top))&&
+    wh.every(c=>c.where.rows.every(r=>!r.small||!r.exc||c.fact.kind==='spike')&&(!c.where.top||c.where.top.exc/c.where.tot>0.5))&&
+    cs.every(c=>!c.where||!c.where.top||c.btn.go===c.block+'|'+c.where.top.n.path)]);
+  /* отчёт меньше 30 человек: доли не оцениваются — в выводах нет процентных метрик */
+  const smallU=Object.keys(D.NODE_BY_PATH).find(p=>{const lp=D.leavesUnder(p).map(l=>l.path).filter(x=>D.leafPasses(x,S0));
+    const hc=lp.length?D.lastVal(lp,'hc_total'):0;return p!==S0.unit&&hc>=5&&hc<I.CARD.small});
+  A.unit(smallU);
+  const smS=A.st(), smRl=D.reportLeaves(smS), smH=A.home0();
+  checks.push(['отчёт меньше 30 человек: доли не оцениваются, сводка об этом говорит',
+    !!smallU&&I.cards(smS,smRl,D.benchmarkLeaves(smS)).every(c=>D.METRIC_BY_KEY[c.key].fmt!=='pct'||/^(spike|hc)$/.test(c.fact.kind))&&
+    /меньше 30 человек/.test(smH)]);
+  A.home();
+  /* одна история — одна карточка, «С января ушли N» — один раз */
+  checks.push(['одна история — одна карточка: текучесть месячная и с начала года не дублируют друг друга',
+    cs.filter(c=>/^turnover_[my]$/.test(c.key)&&c.sev!=='good').length<=1&&cs.filter(c=>/^turnover_[my]$/.test(c.key)&&c.sev==='good').length<=1&&
+    cs.filter(c=>/С января ушли/.test(c.body)).length<=1]);
+  const allOpen=A.op([]), op=allOpen;
+  checks.push(['«Показать все метрики» раскрывает прежнюю сводку: KPI и таблицы блоков',
+    /class="kpis/.test(allOpen)&&/class="mtable"/.test(allOpen)&&/data-opall="0">Свернуть все метрики/.test(allOpen)]);
+  /* вкладка блока: вывод и «где» сверху, KPI, главы свёрнуты строкой вопросов */
+  const tTop=A.top('turnover'), tOpen=A.go('turnover','dynamics');
+  checks.push(['вкладка блока: вывод, «где это происходит», KPI, главы и таблица свёрнуты',
+    /<div class="bk-top"><div class="bk-sum (high|mid|good|none)"><div class="bk-tag">Вывод блока · /.test(tTop)&&
+    /<ol class="bk-f"><li>/.test(tTop)&&/class="bk-wh"><div class="bk-wt">Где это происходит/.test(tTop)&&/kpis compact/.test(tTop)&&
+    (tTop.match(/class="bk-ch" data-blkopen="/g)||[]).length===SC.blocks.turnover.subTabs.length&&!/class="split/.test(tTop)&&
+    /class="bk-det on"/.test(tOpen)&&/class="split/.test(tOpen)&&/data-blkclose="1"/.test(tOpen)]);
+  checks.push(['вывод блока: «всё спокойно» там, где фактов нет, и строки «где» ведут к подразделению',
+    D.BLOCKS.every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-f"><li><b>/.test(h))})&&
+    /data-wsel="/.test(A.top('structure'))]);
   /* раскрытая строка: номера пунктов «Что видно» = номерные отметки на полотне */
   const keys=['turnover_y','attrition','hire_plan','hc_total','regret'];
   const opened=A.op(keys);

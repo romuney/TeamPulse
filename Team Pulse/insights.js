@@ -9,128 +9,13 @@
    ========================================================================== */
 (function(){
 'use strict';
-const D=window.TPDATA, U=window.TPUI;
+const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW;
 const esc=U.esc;
 
 const INS_GAP=10;      /* порог отклонения от базы или KPI, % */
 const INS_TREND=3;     /* длина направленного тренда, месяцев */
-const INS_CONC=50;     /* доля одного подразделения в общем отклонении, % */
 
-function relGap(v,base){return base?((v-base)/Math.abs(base))*100:0}
-function trendLen(ser){
-  let up=1,dn=1;
-  for(let i=ser.length-1;i>0;i--){if(ser[i]>ser[i-1])up++;else break}
-  for(let i=ser.length-1;i>0;i--){if(ser[i]<ser[i-1])dn++;else break}
-  return up>=dn?{dir:'up',len:up}:{dir:'dn',len:dn};
-}
 function isBad(m,v,base){return m.better==='lower'?v>base:m.better==='higher'?v<base:false}
-
-/* ctx: {S, b, mainK, rl, bl, rows, rowLeaves} */
-function build(ctx){
-  const S=ctx.S, b=ctx.b, mainK=ctx.mainK, rl=ctx.rl, bl=ctx.bl, rows=ctx.rows;
-  const out=[];
-  /* факты только по выбранным метрикам: инсайт про отключённую метрику
-     некуда проверить — её нет ни в таблице, ни в KPI-карточках */
-  D.visibleMetricsOfBlock(b.key,S).forEach(m=>{
-    if(m.better==='flat')return;
-    /* пробник: у заглушки («демо») выводов нет — цифра сгенерирована */
-    if(D.isStub(m.key))return;
-    const ser=D.aggregate(rl,m.key), v=ser[D.LAST];
-    /* доля без знаменателя (в окне не было ни одного найма) — фактов нет */
-    if(v==null)return;
-    const kpi=D.kpiFor(m.key,S);
-    const base=kpi?kpi.green:D.lastVal(bl,m.key);
-    /* разрыв считаем только там, где сравнение осмысленно; тренд — у любой метрики */
-    if((D.comparable(m.key)||kpi)&&base!=null&&isFinite(base)){
-      const gap=relGap(v,base), bad=isBad(m,v,base);
-      if(Math.abs(gap)>=INS_GAP){
-        /* разница — в единицах метрики (п.п., дни), а не «на 23%» от процента:
-           у долей относительный процент читается двояко (TEXT_GUIDE.md, п. 6) */
-        out.push({sev:bad?(Math.abs(gap)>=25?3:2):1,metric:m,
-          text:'<b>'+esc(m.name)+'</b> — '+D.fmtVal(m.key,v)+', '+(bad?'хуже':'лучше')+' '+(kpi?'цели':'базы')+' ('+
-            D.fmtVal(m.key,base)+') на '+esc(dot(absD(m.key,v-base)))});
-      }
-    }
-    const t=trendLen(ser);
-    if(t.len>=INS_TREND){
-      const worsening=(m.better==='lower'&&t.dir==='up')||(m.better==='higher'&&t.dir==='dn');
-      out.push({sev:worsening?2:1,metric:m,
-        text:'<b>'+esc(m.name)+'</b> '+(t.dir==='up'?'растёт':'снижается')+' '+t.len+' '+
-          U.plural(t.len,['месяц','месяца','месяцев'])+' подряд: '+
-          D.fmtVal(m.key,ser[D.LAST-t.len+1])+' → '+D.fmtVal(m.key,v)+(worsening?'. Это плохой знак.':'. Это хороший знак.')});
-    }
-  });
-
-  /* концентрация отклонения в одном подразделении */
-  const mM=D.METRIC_BY_KEY[mainK];
-  if(mM.better!=='flat'&&rows.length>1&&(D.comparable(mainK)||D.kpiFor(mainK,S))){
-    const kpi=D.kpiFor(mainK,S);
-    const base=kpi?kpi.green:D.lastVal(bl,mainK);
-    const tops=rows.filter(r=>r.depth===1).map(r=>{
-      const lp=ctx.rowLeaves(r.n.path);
-      const v=D.lastVal(lp,mainK), hc=D.lastVal(lp,'hc_total');
-      return {name:r.n.name,v:v,hc:hc,exc:v!=null&&isBad(mM,v,base)?Math.abs(v-base)*Math.max(hc,1):0};
-    });
-    const total=tops.reduce((a,x)=>a+x.exc,0);
-    if(total>0){
-      const top=tops.slice().sort((a,b2)=>b2.exc-a.exc)[0];
-      const share=top.exc/total*100;
-      if(share>=INS_CONC)out.push({sev:3,metric:mM,
-        /* имя метрики — в кавычках и как есть: «по проникновение ai» ломало
-           и падеж, и аббревиатуру */
-        text:'Больше всего тянет вниз <b>«'+esc(top.name)+'»</b>: на него приходится '+share.toFixed(0)+'% отставания по метрике «'+
-          esc(mM.name)+'». У него '+D.fmtVal(mainK,top.v)+' при '+(kpi?'цели ':'базе ')+D.fmtVal(mainK,base)+
-          ', '+D.fmtInt(top.hc)+' чел. Начните с него.'});
-    }
-  }
-  out.sort((a,b2)=>b2.sev-a.sev);
-  return out;
-}
-
-function html(ctx){
-  const S=ctx.S, b=ctx.b;
-  const ins=build(ctx);
-  const id='ins-'+b.key, open=S.aiOpen===id;
-  if(!ins.length){
-    /* дежурный огонёк в подвале навигации отражает ту же оценку, что и
-       плашка инсайта — собственной он не изобретает, иначе два источника
-       правды разошлись бы на одном экране */
-    window.TPINSIGHTS.lastSev='none';
-    /* «Отклонений нет» — такая же работа движка, как и найденный инсайт:
-       отбор прошёл, просто ничего выше порогов не нашлось. Поэтому здесь такая
-       же AI-плашка, а не серая строчка: место подсказки на экране одно и то
-       же на всех вкладках, и раскрывается оно везде одинаково. */
-    const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key));
-    const hasCmp=vis.some(m=>D.comparable(m.key));
-    const nChk=vis.filter(m=>m.better!=='flat').length;
-    const lead=hasCmp
-      ? 'Всё спокойно: метрики блока близки к базе <b>«'+esc(D.benchmarkLabel(S))+'»</b>, устойчивых трендов нет.'
-      : 'Всё спокойно: устойчивых трендов нет. Метрики блока — количества, с базой они не сравниваются.';
-    const bl2=[];
-    if(hasCmp)bl2.push('Проверили <b>'+nChk+' '+U.plural(nChk,['метрику','метрики','метрик'])+
-      '</b>: ни одна не отличается от базы больше чем на '+INS_GAP+'%.');
-    bl2.push('Ни одна метрика не растёт и не падает '+INS_TREND+' месяца подряд.');
-    bl2.push('Нет подразделения, которое одно тянуло бы блок вниз.');
-    return U.aiBlock(id,'Главное в блоке',lead,bl2,open,'insight sev-none');
-  }
-  const maxSev=ins[0].sev;
-  const sevCls=maxSev>=3?'high':maxSev===2?'mid':'good';
-  window.TPINSIGHTS.lastSev=sevCls;
-  const sevTxt=maxSev>=3?'требует действий':maxSev===2?'стоит внимания':'позитив';
-  const lead=ins[0].text.replace(/<[^>]+>/g,'');
-  let h='<div class="ai insight sev-'+sevCls+'"><div class="ai-h" data-ai="'+id+'">'+
-    U.aiIco(open)+'<span class="ai-t">Главное в блоке</span>'+
-    '<span class="ai-lead">'+(open?'':esc(lead))+'</span>'+
-    '<span class="ai-sev '+sevCls+'">'+sevTxt+'</span>'+
-    '<span class="ai-tag">'+(open?'свернуть':'подробнее')+'</span>'+
-    '<span class="ai-caret">'+(open?'▲':'▼')+'</span></div>';
-  if(open){
-    h+='<div class="ai-b"><ul>'+ins.slice(0,4).map(x=>'<li>'+x.text+'</li>').join('')+'</ul>'+
-      '<div class="ins-note">Здесь только заметное: отличие от ориентира больше '+INS_GAP+
-      '%, рост или падение '+INS_TREND+' месяца подряд, одно подразделение тянет вниз весь блок.</div></div>';
-  }
-  return h+'</div>';
-}
 
 /* ============================================================================
    «Что видно» — механика HRBP HUB (13.10, заказчик: «в one-pager сделай
@@ -143,7 +28,8 @@ function html(ctx){
        пунктов, у каждого с номером — отметка на графике «год к году».
    Пороги — те же, что у фактов блоков: 10% ориентира, тренд 3 месяца.
    ========================================================================== */
-const OBS={dev:INS_GAP/100,yoyPp:3,trend:INS_TREND,max:6,spikeX:2,spikeMin:3};
+/* max 8 — как в HRBP HUB (UI-25): по одному факту на метрику, всего до восьми */
+const OBS={dev:INS_GAP/100,yoyPp:3,trend:INS_TREND,max:8,spikeX:2,spikeMin:3};
 /* Потоки за месяц: у них «с начала года» — сумма, и её есть с чем сравнить
    год назад. У остатков (численность, открытые вакансии) суммы нет. */
 const FLOW=new Set(['hire','attrition','transfer_in','transfer_out','vac_closed','tgrowth_pass','tgrowth_deny']);
@@ -277,7 +163,8 @@ function yoyStory(key,S,rl,bl){
   return {items:out,marks:marks};
 }
 
-/* Один факт на метрику по отбору целиком: {key, sev, pri, w, lead, body}. */
+/* Один факт на метрику по отбору целиком: {key, sev, pri, w, lead, body} и сырые
+   поля для карточек главной — kind ('dev' | 'yoy' | 'trend'), v, ref, kpi, pv, tr. */
 function metricFact(m,S,rl,bl){
   const key=m.key, ext=D.aggregateExt(rl,key), L=D.NEXT-1, v=ext[L];
   if(v==null)return null;
@@ -288,22 +175,23 @@ function metricFact(m,S,rl,bl){
   const tr=worsening(m,ext);
   if(st==='bad'&&rel(v,ref)>=OBS.dev)
     return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — хуже '+w+' '+f(ref),
-      body:ago+(tr?' '+cap(trendWord(m))+'.':'')};
+      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr};
   /* год к году: 10% от прошлого значения или 3 п.п. у долей */
   if(pv!=null&&m.better!=='flat'&&m.fmt!=='int'&&Math.abs(v-pv)>=(m.fmt==='pct'?0.5:1e-9)&&
      (rel(v,pv)>=OBS.dev||(m.fmt==='pct'&&Math.abs(v-pv)>=OBS.yoyPp))){
     const worse=m.better==='lower'?v>pv:v<pv;
     return {key,sev:worse?'mid':'good',pri:2,w:rel(v,pv),
       lead:m.name+' '+f(v)+' — '+(worse?'хуже':'лучше')+', чем год назад ('+f(pv)+')',
-      body:ref!=null?cap(w==='цели'?'цель':'база')+' — '+f(ref)+'.':''};
+      body:ref!=null?cap(w==='цели'?'цель':'база')+' — '+f(ref)+'.':'',kind:'yoy',v,ref,kpi,pv};
   }
   if(tr)return {key,sev:'mid',pri:3,w:rel(tr.b,tr.a),lead:m.name+': '+trendWord(m),
-    body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.CUR_LEN-1]+' '+f(tr.b)+'.'};
+    body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.CUR_LEN-1]+' '+f(tr.b)+'.',kind:'trend',v,ref,kpi,pv,tr};
   if(st==='good'&&rel(v,ref)>=OBS.dev)
-    return {key,sev:'good',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — лучше '+w+' '+f(ref),body:ago};
+    return {key,sev:'good',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — лучше '+w+' '+f(ref),body:ago,kind:'dev',v,ref,kpi,pv};
   return null;
 }
-function overview(S,rl,bl){
+const MONTH_IN=['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'];
+function overview(S,rl,bl,all){
   const out=[], L=D.NEXT-1;
   D.METRICS.forEach(m=>{
     if(!D.metricVisible(m.key,S)||D.isStub(m.key))return;
@@ -316,9 +204,9 @@ function overview(S,rl,bl){
     let usual=0;for(let i=L-11;i<L;i++)usual+=a[i]||0;usual/=11;
     if(last>=OBS.spikeMin&&last>=OBS.spikeX*usual)
       out.push({key:'attrition',sev:last>=3*usual?'high':'mid',pri:0,w:last-usual,
-        lead:'Всплеск уходов в '+['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'][D.MONTHS_EXT[L].m]+
+        lead:'Всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[L].m]+
           ': '+D.fmtInt(last)+' — обычно '+(usual<1?'меньше одного':'около '+D.fmtInt(Math.round(usual)))+' в месяц',
-        body:'Уволились за месяц, по любой причине.'});
+        body:'Уволились за месяц, по любой причине.',kind:'spike',v:last,usual});
   }
   /* численность за год: найм, уходы, переводы — из чего сложилось */
   const hc=D.aggregateExt(rl,'hc_total'), from=hc[L-12], to=hc[L];
@@ -328,14 +216,239 @@ function overview(S,rl,bl){
     out.push({key:'hc_total',sev:'mid',pri:5,w:0,
       lead:'Численность '+(to>from?'+':'−')+dp+'% за год: '+D.fmtInt(from)+' → '+D.fmtInt(to),
       body:'Найм '+D.fmtInt(sm('hire'))+', отток '+D.fmtInt(sm('attrition'))+', переводы в команду '+
-        D.fmtInt(sm('transfer_in'))+' и из неё '+D.fmtInt(sm('transfer_out'))+'.'});
+        D.fmtInt(sm('transfer_in'))+' и из неё '+D.fmtInt(sm('transfer_out'))+'.',kind:'hc',v:to,pv:from});
   }
   const rank={high:0,mid:1,good:2};
   out.sort((a,c)=>rank[a.sev]-rank[c.sev]||a.pri-c.pri||c.w-a.w);
-  return out.slice(0,OBS.max);
+  return all?out:out.slice(0,OBS.max);
+}
+
+/* ============================================================================
+   Карточки выводов — главная «сначала выводы» (вариант A) и вывод вкладки
+   блока (одобрены заказчиком 20.10). Факты те же, что в overview, а подача и
+   отбор — правилами HRBP HUB (гайд, UI-24 и UI-25):
+     · ранжируем по людям сверх ориентира, а не по процентам (excess);
+     · подразделение называем, только если на него приходится больше половины
+       отклонения; подразделения меньше 30 человек не оцениваем — и долей у
+       отчёта меньше 30 человек тоже не оцениваем: слишком мало людей;
+     · до восьми фактов.
+   «Что сделать» — шаблон по метрике (CARD_TODO), «что происходит» для сводки —
+   короткая фраза (SAY). Считается правилами по тем же числам, без ИИ.
+   ========================================================================== */
+const CARD={small:30,conc:0.5,show:4};
+const PPL=['человек','человека','человек'], LEAVE=['уход','ухода','уходов'];
+/* в чём считать отклонение — по числителю метрики; null — не люди (дни в офисе) */
+const NOUN={attrition:LEAVE,regret_cnt:LEAVE,tgrowth_pass:['заявка','заявки','заявок'],
+  vac_closed:['вакансия','вакансии','вакансий'],ovis:null};
+/* доли не людей: дни в офисе, нарушения брони, заявки T-роста (макет) */
+const NOPPL=new Set(['office_att','booking_viol','tgrowth_conv']);
+const TODO_LEAVE='разобрать уходы: причины и кто уходит';
+const CARD_TODO={attrition:TODO_LEAVE,turnover_m:TODO_LEAVE,turnover_y:TODO_LEAVE,
+  regret:'поговорить с сильными сотрудниками из зоны риска: кого давно не повышали, у кого высокая оценка',
+  hire_plan:'сверить план с рекрутером: какие вакансии просрочены и почему',
+  time_to_fill:'посмотреть, какие вакансии открыты дольше всего, и пересмотреть требования',
+  vac_closed:'посмотреть, какие вакансии открыты дольше всего, и пересмотреть требования',
+  underwork:'посмотреть, кто недорабатывает второй месяц подряд, и обсудить с руководителями',
+  overwork:'проверить нагрузку у переработчиков: отпуска, перераспределение задач',
+  review_up:'посмотреть, у кого оценка не растёт два ревью подряд',
+  office_att:'договориться с командой об общих офисных днях',
+  booking_viol:'напомнить команде о брони мест',
+  tgrowth_conv:'разобрать отклонённые заявки на T-рост с руководителями',
+  tgrowth_deny:'разобрать отклонённые заявки на T-рост с руководителями',
+  tgrowth_tat:'проверить, кого давно не повышали',
+  ai_penetration:'показать AI-инструменты тем, кто ещё не пробовал',
+  hc_total:'сверить изменение численности с планом'};
+/* «что происходит» коротко: [хуже, лучше] */
+const SAY={turnover_m:['уходят чаще','уходят реже'],turnover_y:['уходят чаще','уходят реже'],
+  regret:['нежелательных уходов больше','нежелательных уходов меньше'],
+  time_to_fill:['вакансии закрываются дольше','вакансии закрываются быстрее'],
+  vac_closed:['вакансий закрывают меньше','вакансий закрывают больше'],
+  underwork:['недорабатывающих больше','недорабатывающих меньше'],
+  overwork:['перерабатывающих больше','перерабатывающих меньше'],
+  review_up:['оценку в ревью улучшают реже','оценку в ревью улучшают чаще'],
+  office_att:['в офис ходят реже','в офис ходят чаще'],
+  booking_viol:['нарушений брони больше','нарушений брони меньше'],
+  tgrowth_conv:['T-рост одобряют реже','T-рост одобряют чаще'],
+  tgrowth_pass:['T-рост одобряют реже','T-рост одобряют чаще'],
+  tgrowth_deny:['T-рост отклоняют чаще','T-рост отклоняют реже'],
+  tgrowth_tat:['повышения ждут дольше','повышения ждут меньше'],
+  ai_penetration:['AI пользуются реже','AI пользуются чаще']};
+const SEV_TAG={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость'};
+/* одна история «уходят чаще / реже» — одна карточка */
+const SAME={turnover_m:'leave',turnover_y:'leave',attrition:'leave'};
+/* строчная — только если вторая буква строчная: «AI», «T@T» остаются */
+const lc=t=>/^.[a-zа-яё]/.test(t)?t.charAt(0).toLowerCase()+t.slice(1):t;
+const ppl=(n,noun)=>D.fmtInt(n)+' '+U.plural(Math.round(n),noun||PPL);
+function say(f){
+  const m=D.METRIC_BY_KEY[f.key], bad=f.sev!=='good';
+  if(f.kind==='spike')return 'всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[D.NEXT-1].m];
+  if(f.kind==='hc')return 'численность '+(f.v>f.pv?'выросла':'сократилась')+' на '+Math.round(Math.abs(f.v-f.pv)/f.pv*100)+'% за год';
+  if(f.kind==='trend')return lc(m.name)+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд';
+  if(f.key==='hire_plan'&&f.kind==='dev')return bad?'найм отстаёт от плана':'план найма выполняется с запасом';
+  const st=(SAY[f.key]||[lc(m.name)+' хуже',lc(m.name)+' лучше'])[bad?0:1];
+  return st+(f.kind==='yoy'?', чем год назад':f.key==='regret'&&f.kpi?' цели':f.kpi?', чем по цели':', чем по базе');
+}
+/* дробь метрики: своя или месячной, если накопительная — сумма месячных ('sum') */
+function ratioDef(m){
+  if(m.derived)return m.derived;
+  const ch=m.ytd&&D.defOf(m.ytd);
+  return ch&&ch.derived?Object.assign({},ch.derived,{win:'sum'}):null;
+}
+/* знаменатель: за месяц, с начала года ('ytd') или в среднем за месяц с января ('sum') */
+function denOf(lp,dv){
+  const ks=Array.isArray(dv.den)?dv.den:[dv.den], b=D.CUR_LEN-1;
+  if(!dv.win)return ks.reduce((a,k)=>a+(D.lastVal(lp,k)||0),0);
+  let s=0;
+  ks.forEach(k=>{const c=D.yoySeries(lp,k).cur;for(let i=0;i<=b;i++)s+=c[i]||0});
+  return dv.win==='sum'?s/(b+1):s;
+}
+/* Отклонение в штуках: |v − ref| в долях знаменателя → {n, noun, win}; не люди — null */
+function excess(key,lp,v,ref){
+  const m=D.METRIC_BY_KEY[key];
+  if(v==null||ref==null||NOPPL.has(key))return null;
+  const dv=ratioDef(m);
+  if(dv)return NOUN[dv.num]===null?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv),noun:NOUN[dv.num]||PPL,win:dv.win};
+  if(m.fmt==='pct')return {n:Math.abs(v-ref)/100*(D.lastVal(lp,'hc_total')||0),noun:PPL,win:m.ytd?'sum':null};
+  if(m.fmt==='int')return {n:Math.abs(v-ref),noun:NOUN[key]||PPL,win:null};
+  return null;
+}
+/* первый уровень под юнитом отчёта — его листья под фильтрами и численность */
+function unitsOf(S){
+  return D.rowsOf(S.unit).map(n=>{
+    const lp=D.leavesUnder(n.path).map(l=>l.path).filter(p=>D.leafPasses(p,S));
+    return {n,lp,hc:lp.length?D.lastVal(lp,'hc_total')||0:0};
+  }).filter(u=>u.lp.length);
+}
+/* Где это происходит: вклад подразделений в отклонение факта (люди сверх
+   ориентира). top — подразделение больше чем с половиной вклада. */
+function whereOf(f,S){
+  const m=D.METRIC_BY_KEY[f.key], L=D.NEXT-1;
+  const rows=unitsOf(S).map(u=>{
+    const r={n:u.n,hc:u.hc,small:u.hc<CARD.small,exc:0,v:null};
+    if(f.kind==='spike'){
+      const a=D.aggregateExt(u.lp,'attrition');let us=0;
+      for(let i=L-11;i<L;i++)us+=a[i]||0;
+      r.v=a[L]||0;r.exc=Math.max(0,r.v-us/11);return r;
+    }
+    const e=D.aggregateExt(u.lp,f.key), ref=f.kind==='yoy'?e[L-12]:f.ref;
+    r.v=e[L];
+    if(!r.small&&r.v!=null&&ref!=null&&isBad(m,r.v,ref)){const x=excess(f.key,u.lp,r.v,ref);r.exc=x?x.n:0}
+    return r;
+  });
+  rows.sort((a,c)=>c.exc-a.exc||c.hc-a.hc);
+  const tot=rows.reduce((a,r)=>a+r.exc,0), top=tot>0&&rows[0].exc/tot>CARD.conc?rows[0]:null;
+  return {rows,tot,top,share:top?top.exc/tot:0};
+}
+/* ряд для мини-графика: этот год с января против ориентира; до апреля — 12 месяцев окна */
+function miniOf(f,rl,bl){
+  const k=f.kind==='spike'?'attrition':f.key, fv=x=>D.fmtVal(k,x), L=D.NEXT-1;
+  const kpi=f.kind==='dev'&&f.kpi, base=f.kind==='dev'&&!kpi;
+  let cur,ref;
+  if(D.CUR_LEN>=4){
+    const y=D.yoySeries(rl,k);cur=y.cur.slice(0,D.CUR_LEN);
+    ref=base?D.yoySeries(bl,k).cur.slice(0,D.CUR_LEN):y.prev.slice(0,D.CUR_LEN);
+  }else{
+    const e=D.aggregateExt(rl,k), at=i=>i<0?null:e[i];
+    cur=range(12).map(i=>at(L-11+i));
+    ref=base?D.aggregate(bl,k):range(12).map(i=>at(L-23+i));
+  }
+  if(kpi)ref=cur.map(()=>f.kpi.green);
+  return G.miniYoy(cur,ref,kpi?'цель '+fv(f.kpi.green):base?'база':'год назад');
+}
+/* Карточка факта: {key, block, sev, tag, head, body, todo, btn, chart, ppl, where} */
+function cardOf(f,S,rl,bl){
+  const m=D.METRIC_BY_KEY[f.key], bad=f.sev!=='good', fv=x=>D.fmtVal(f.key,x);
+  const bk=f.kind==='spike'&&D.blockVisible('turnover',S)?'turnover':m.block, b=D.BLOCK_BY_KEY[bk];
+  let head=f.lead;
+  if(f.kind==='dev')head=m.name+' '+fv(f.v)+(f.kpi?' при цели '+fv(f.ref):' — '+(f.v>f.ref?'выше':'ниже')+', чем по базе ('+fv(f.ref)+')');
+  else if(f.kind==='yoy')head=m.name+' '+fv(f.v)+' — '+(f.v>f.pv?'выше':'ниже')+', чем год назад ('+fv(f.pv)+')';
+  else if(f.kind==='trend')head=m.name+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд: '+fv(f.tr.a)+' → '+fv(f.tr.b);
+  const body=[];
+  /* уходы — сначала людьми: сколько ушло с января и сколько год назад за те же месяцы.
+     Фраза одна на все выводы (cards ставит её только в первый) */
+  let leave='';
+  if(SAME[f.key]&&f.kind!=='trend'&&D.CUR_LEN>1){
+    const y=D.yoySeries(rl,'attrition');let a=0,p=0;
+    for(let i=0;i<D.CUR_LEN;i++){a+=y.cur[i]||0;p+=y.prev[i]||0}
+    const d=Math.round(a)-Math.round(p);
+    leave='С января ушли <b>'+ppl(a)+'</b> — '+(d?'на '+D.fmtInt(Math.abs(d))+' '+(d>0?'больше':'меньше')+', чем за те же месяцы год назад'
+      :'столько же, сколько год назад за те же месяцы')+'.';
+  }
+  const x=f.kind==='dev'?excess(f.key,rl,f.v,f.ref):f.kind==='yoy'?excess(f.key,rl,f.v,f.pv)
+    :f.kind==='trend'?excess(f.key,rl,f.tr.b,f.tr.a):f.kind==='spike'?{n:f.v-f.usual,noun:LEAVE}:null;
+  const n=x?Math.round(x.n):0, q=n>=1?'<b>≈ '+ppl(n,x.noun)+'</b>':'';
+  if(q){
+    const w=f.kpi?'цели':'базы', when=x.win?' с начала года':f.kind==='dev'?' за месяц':'';
+    if(f.kind==='yoy')body.push('<!--ppl-->Это '+q+' разницы с прошлым годом.');
+    else if(f.kind==='trend')body.push('За '+OBS.trend+' месяца — '+q+'.');
+    else if(f.kind==='spike')body.push('Это '+q+' сверх обычного.');
+    else if(m.better==='higher')body.push(bad?'До '+(f.kpi?'цели':'уровня базы')+' не хватает '+q+'.':'Это на '+q+' больше '+w+'.');
+    else body.push(bad?'Это '+q+' сверх '+w+when+'.':'Это на '+q+' меньше '+w+when+'.');
+  }
+  const wh=bad&&/^(dev|yoy|spike)$/.test(f.kind)?whereOf(f,S):null;
+  if(wh&&wh.top)body.push((wh.share>=0.8?'Почти всё':'Больше половины')+' — в <b>«'+esc(wh.top.n.name)+'»</b>.');
+  if(f.kind==='dev'&&f.pv!=null&&!leave)body.push('Год назад — '+esc(fv(f.pv))+'.');
+  if(f.kind==='dev'&&f.tr)body.push(esc(cap(trendWord(m)))+'.');
+  let todo='Держать курс: отдельных действий не нужно.';
+  if(bad){
+    const t=f.kind==='spike'?'разобрать уходы за '+D.MONTH_NOM[D.MONTHS_EXT[D.NEXT-1].m]+': причины и подразделения'
+      :CARD_TODO[f.key]||'открыть блок и посмотреть, где отклонение';
+    const h=wh&&wh.top&&wh.top.n.head, who=h&&(h.login||h.name);
+    todo='<b>Что сделать:</b> '+(wh&&wh.top?'начать с «'+esc(wh.top.n.name)+'»'+(who?' ('+esc(who)+')':'')+' — ':'')+esc(t)+'.';
+  }
+  return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,
+    ppl:n,where:wh,chart:miniOf(f,rl,bl),
+    btn:wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:{label:'Открыть «'+b.name+'»',tab:bk}};
+}
+/* Отчёт меньше 30 человек: доли не оцениваются — остаются всплеск и численность */
+function smallReport(rl){const hc=D.lastVal(rl,'hc_total');return hc!=null&&hc<CARD.small}
+/* Все карточки по отбору: по тяжести, внутри — по людям сверх ориентира; до восьми */
+function cards(S,rl,bl,all){
+  const sm=smallReport(rl), rank={high:0,mid:1,good:2};
+  const list=overview(S,rl,bl,true).filter(f=>!(sm&&D.METRIC_BY_KEY[f.key].fmt==='pct'&&f.kind!=='spike'&&f.kind!=='hc'))
+    .map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}));
+  list.sort((a,c)=>rank[a.sev]-rank[c.sev]||c.ppl-a.ppl||a.i-c.i);
+  /* одна история — одна карточка: текучесть месячная и с начала года об одном
+     («уходят чаще») — остаётся первая; «С января ушли N» — тоже один раз, а там,
+     где её нет, — разница людьми */
+  const seen=new Set();let said=false;
+  const out=list.filter(c=>{const g=c.fact.kind!=='spike'&&SAME[c.key];if(!g)return true;
+    const k=g+(c.sev==='good');if(seen.has(k))return false;seen.add(k);return true});
+  out.forEach(c=>{
+    const b=c.body.slice();
+    if(c.leave&&!said){said=true;b.unshift(c.leave);if(c.fact.kind==='yoy')b.splice(b.findIndex(t=>/^<!--ppl-->/.test(t)),1)}
+    c.body=b.join(' ').replace(/<!--ppl-->/g,'');
+  });
+  return all?out:out.slice(0,OBS.max);
+}
+/* Сводка над карточками: команда растёт или нет (±5% с начала года — стабильна),
+   главное хуже и лучше, сколько в норме */
+function lead(S,rl,list,norm){
+  const hc=D.lastVal(rl,'hc_total')||0, net=D.lastVal(rl,'net_ytd')||0, d0=hc-net;
+  const team=!d0||Math.abs(net)/d0<0.05?'Команда стабильна':net>0?'Команда растёт':'Команда сокращается';
+  const bad=list.find(c=>c.sev!=='good'), good=list.find(c=>c.sev==='good');
+  const nAct=list.filter(c=>c.sev!=='good').length;
+  let h='<b>'+esc(team+(bad?', но '+say(bad.fact):good?', и '+say(good.fact):', заметных отклонений нет'))+'.</b> '+
+    esc(ppl(hc))+' — '+(net?'на '+D.fmtInt(Math.abs(net))+' '+(net>0?'больше':'меньше')+', чем на начало года':'столько же, сколько на начало года')+'.';
+  if(smallReport(rl))h+=' В команде меньше '+CARD.small+' человек — доли (текучесть, проценты) не оцениваем: слишком мало людей.';
+  h+=nAct?' Ниже — '+nAct+' '+U.plural(nAct,['вывод, на который','вывода, на которые','выводов, на которые'])+' стоит потратить время':' Требующего действий нет';
+  return h+(norm?'; остальные '+norm+' '+U.plural(norm,['метрика','метрики','метрик'])+' в норме.':'.');
+}
+/* Вывод блока: заголовок, до трёх фактов по номерам, «Что сделать», где это
+   происходит. Нет фактов — «всё спокойно» и что проверено. */
+function blockSummary(bk,S,rl,bl){
+  const list=cards(S,rl,bl,true).filter(c=>c.block===bk||(c.fact.kind==='spike'&&bk==='movement'));
+  const sev=list.length?list[0].sev:'none';
+  window.TPINSIGHTS.lastSev=sev;
+  if(!list.length)return {sev,list};
+  const bad=list.find(c=>c.sev!=='good'), good=list.find(c=>c.sev==='good');
+  const tail=c=>c.where&&c.where.top?' — '+(c.where.share>=0.8?'почти всё':'больше половины')+' в «'+c.where.top.n.name+'»':'';
+  const head=bad&&good&&good!==list[0]?cap(say(good.fact))+', но '+say(bad.fact)+tail(bad)
+    :cap(say(list[0].fact))+tail(list[0]);
+  return {sev,list,head,todo:(bad||list[0]).todo};
 }
 
 /* lastSev — тяжесть последнего отрисованного инсайта: её читает mascot.js,
    чтобы эмоция огонька совпадала с тем, что пользователь видит в плашке. */
-window.TPINSIGHTS={build,html,yoyStory,overview,OBS,INS_GAP,INS_TREND,INS_CONC,lastSev:'none'};
+window.TPINSIGHTS={yoyStory,overview,cards,lead,blockSummary,whereOf,unitsOf,excess,CARD,SEV_TAG,OBS,INS_GAP,INS_TREND,lastSev:'none'};
 })();

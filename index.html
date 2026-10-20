@@ -320,17 +320,6 @@ button,select,input,textarea{font-family:inherit}
 background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a909c' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
 
 /* ===== AI-подсказка ===== */
-.ai{background:#fff;border:1px solid #e4dcfa;border-left:3px solid var(--ai);border-radius:var(--radius);margin:14px 0 0;overflow:hidden}
-.ai-h{display:flex;align-items:center;gap:10px;padding:12px 15px;cursor:pointer;user-select:none}
-.ai-ico{width:22px;height:22px;border-radius:var(--r2);background:var(--ai-bg);color:var(--ai-tx);font-size:12px;font-weight:var(--fw-bold);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
-.ai-t{font-size:13px;font-weight:var(--fw-bold);color:var(--ai-tx)}
-.ai-lead{font-size:var(--fs-body);color:var(--ink2);font-weight:var(--fw-body);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ai-caret{color:var(--ai);font-size:11px}
-.ai-b{padding:0 15px 14px 15px;font-size:13px;color:var(--ink2);line-height:1.55}
-.ai-b ul{margin:8px 0 0;padding-left:20px}
-.ai-b li{margin-bottom:5px}
-.ai-b b{color:var(--ink)}
-.ai-tag{font-size:var(--fs-micro);font-weight:var(--fw-body);text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;border-radius:var(--r2);background:var(--ai-bg);color:var(--ai-tx)}
 
 /* ===== Заметки, легенда, пустые состояния ===== */
 .note-inline{font-size:12px;color:var(--muted);background:#fff;border:1px dashed var(--line);border-radius:var(--r3);padding:11px 14px;margin-bottom:14px;line-height:1.5}
@@ -434,7 +423,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .content{padding:16px}.kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
   .panel{overflow-x:auto}.mtable,.ptable{min-width:760px}.page-h h2{font-size:21px}.block-h{align-items:flex-start}
   .modal{width:calc(100vw - 20px);max-height:92vh}.modal-b{padding:16px}.modal-f{padding:12px;flex-wrap:wrap}
-  .ai-h{align-items:flex-start}.ai-lead{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.ai-tag{display:none}
 }
 @media(max-width:480px){
   .apphead .primary{padding:8px 10px;font-size:11px}.logo{font-size:14px}.rh-title .lvl{display:block;margin:5px 0 0;width:max-content}
@@ -443,7 +431,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .mpick-l{grid-template-columns:1fr}.mpick{max-height:200px}
 }
 @media print{
-  body{background:#fff}.apphead,.nav,.sub-tabs,.ai-caret,.btn,.nav-scrim{display:none!important}.layout{display:block}.content{padding:0;max-width:none}.reporthead{padding:10px 0;border:0}.panel,.kpi,.ai{box-shadow:none;break-inside:avoid}.detail-chart{height:230px}.chips .x{display:none}
+  body{background:#fff}.apphead,.nav,.sub-tabs,.btn,.nav-scrim{display:none!important}.layout{display:block}.content{padding:0;max-width:none}.reporthead{padding:10px 0;border:0}.panel,.kpi,.in-card,.bk-sum,.bk-wh{box-shadow:none;break-inside:avoid}.detail-chart{height:230px}.chips .x{display:none}
 }
 
 /* ===== Итерация 8: переделка детальных вкладок ===== */
@@ -468,16 +456,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .ptable tr.lvl2.sel td{background:#F5F9FE}
 
 /* AI-инсайт сразу под заголовком */
-.ai.insight{margin:0 0 16px}
-.ai.insight .ai-h{padding:13px 15px}
-.ai.insight .ai-b{padding:0 15px 15px 15px}
-.ai-sev{font-size:var(--fs-micro);font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;padding:2px 7px;border-radius:var(--r2);flex:0 0 auto}
-.ai-sev.high{background:var(--red-bg);color:var(--red-tx)}
-.ai-sev.mid{background:var(--warn-bg);color:var(--warn-tx)}
-.ai-sev.good{background:var(--green-bg);color:var(--green-tx)}
-.ai.sev-high{border-color:#f6d5d5;border-left-color:var(--red)}
-.ai.sev-mid{border-color:#f7e4c4;border-left-color:var(--warn)}
-.ai.sev-good{border-color:#cfeeda;border-left-color:var(--green)}
 
 /* Состояние «отклонений нет» — одна строка вместо пустой подсказки */
 
@@ -590,7 +568,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* в правой панели сноска — прямой ребёнок flex-колонки с gap:10px, и её собственный
    margin-top складывался с gap: 19px вместо 9px, как везде */
 .split-r .panel-b>.tbl-note{margin-top:0}
-.ins-note{margin-top:var(--s4);font-size:12px;color:var(--muted)}
 
 @media(max-width:900px){
   .split-r .panel-b{overflow:visible}
@@ -762,28 +739,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    динамика — год к году, как в HRBP HUB. */
 
 /* строка «год назад» в KPI-карточке — второй план, тише строки базы */
-.pulse-strip{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:var(--s10);background:var(--card);
-  border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--s7) var(--s9);margin:var(--s7) 0 var(--s7)}
-.ps-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:var(--fw-bold);
-  margin-bottom:var(--s4);display:flex;gap:var(--s4);align-items:baseline}
-.ps-sub{text-transform:none;letter-spacing:0;color:var(--muted);font-weight:var(--fw-body)}
-.ps-num{display:flex;align-items:baseline;gap:var(--s2) var(--s3);flex-wrap:wrap;font-size:var(--fs-note);color:var(--muted);margin-bottom:var(--s4)}
-.ps-num b{font-size:var(--fs-head);font-weight:var(--fw-bold);color:var(--ink)}
-.ps-num b.g{color:var(--green-tx)} .ps-num b.r{color:var(--red-tx)} .ps-num b.n{color:var(--ink2)}
-.ps-num span{margin-right:var(--s4)}
-.ps-bar{display:flex;gap:2px;height:8px;border-radius:var(--r-pill);overflow:hidden}
-.ps-bar i{display:block;min-width:4px}
-.ps-bar i.g{background:#80cf9a} .ps-bar i.r{background:#ef8c8c} .ps-bar i.n{background:#e4e7ec}
-.ps-movers{display:flex;flex-direction:column;min-width:0;border-left:1px solid var(--line2);padding-left:var(--s10)}
-.ps-mv{display:grid;grid-template-columns:minmax(0,1fr) auto 84px;align-items:center;gap:var(--s6);border:0;background:transparent;
-  font:inherit;text-align:left;padding:5px var(--s3);margin:0 calc(-1 * var(--s3));border-radius:var(--r2);cursor:pointer;color:var(--ink2)}
-.ps-mv:hover{background:var(--blue-bg)}
-.ps-mv .delta{justify-self:end}
-.ps-n{font-size:var(--fs-body);font-weight:var(--fw-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ps-v{font-size:var(--fs-note);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
-.ps-v b{color:var(--ink);font-weight:var(--fw-body)}
-.ps-empty{font-size:var(--fs-note);color:var(--muted)}
-@media (max-width:900px){.pulse-strip{grid-template-columns:1fr}.ps-movers{border-left:0;padding-left:0;border-top:1px solid var(--line2);padding-top:var(--s6)}}
 .op-nav{position:sticky;top:var(--head-h,0px);z-index:20;display:flex;gap:var(--s2);flex-wrap:wrap;
   margin:0 calc(-1 * var(--s3)) var(--s4);padding:var(--s3);background:rgba(244,245,247,.92);
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:0 0 var(--r4) var(--r4)}
@@ -937,39 +892,17 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 @media print{.pulse-panel,.nav-foot{display:none!important}}
 
 /* ============================================================================
-   Итерация 17: AI-плашки и модалки (01.08.2026)
-
-   Огонёк на 22 px в строке плашки не читался. Строка при этом не резиновая:
-   вырасти внутрь неё нельзя, только наружу. Поэтому свёрнутая плашка держит
-   огонёк 36 px, который телом выходит за верхнюю границу, а раскрытая —
-   54 px: там места уже достаточно.
-
-   Заодно «предрасчёт» ушёл: плашка раскрывается, значит её метка должна
-   называть действие — «подробнее» / «свернуть».
+   Значок AI-подсказки (итерация 17): огонёк 36 px выходит телом за верх
+   строки, большой — 54 px. Плашки «Главное в блоке» с 20.10 нет — выводы
+   стали карточками (ниже, «Сначала выводы»).
    ========================================================================== */
-/* overflow:hidden скрывал бы верх огонька: у .ai нет фоновых слоёв, которые
-   нужно было бы обрезать по скруглению, так что снимаем без последствий */
-.ai{overflow:visible}
-.ai-h{align-items:center}
 .ai-ico.pic{width:36px;height:36px;margin:-14px 0 -6px -3px;
   filter:drop-shadow(0 4px 8px rgba(93,63,211,.24))}
 .ai-ico.pic.big{width:54px;height:54px;margin:-22px 0 -10px -5px}
-/* плашке нужен запас сверху, иначе выступающий огонёк налезет на соседа */
-.ai.insight{margin-top:10px}
-
-/* Метка стала действием: не заглавные, цвет ссылки, ховер по всей строке */
-.ai-tag{text-transform:none;font-size:11px;letter-spacing:0;padding:3px 9px;
-  background:var(--ai-bg);color:var(--ai-tx);flex:0 0 auto;transition:background .15s}
-.ai-h:hover .ai-tag{background:#e7e0fb}
-/* «Отклонений нет» — та же плашка, но нейтральная: не позитив и не проблема,
-   просто движок отработал и ничего не нашёл */
-.ai.sev-none{border-color:#e4dcfa;border-left-color:#c9bdf0}
 @media(max-width:780px){
   /* на узком экране огонёк уводим внутрь: выступ там некуда девать */
-  .ai-h{align-items:center}
   .ai-ico.pic{width:30px;height:30px;margin:-8px 0 -4px -2px}
   .ai-ico.pic.big{width:42px;height:42px;margin:-12px 0 -6px -3px}
-  .ai-tag{display:inline-flex}
 }
 
 /* ---------- Огонёк в шапках модалок ----------
@@ -1011,23 +944,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .reporthead{padding:16px 26px 15px}
 .rh-row{align-items:flex-end}
 .rh-side{flex-wrap:wrap;justify-content:flex-end;padding-bottom:2px}
-
-/* ---------- AI-плашка: мягкий градиент вместо рамки ----------
-   Обводка с цветной полосой слева читалась как системное предупреждение.
-   Заливка тем же смыслом мягче: цвет подсказывает тяжесть, но не кричит. */
-.ai{border:0;border-left:0;box-shadow:0 1px 2px rgba(20,28,45,.05);
-  background:linear-gradient(103deg,#f4efff 0%,#faf8ff 46%,#fcfcfe 100%)}
-.ai.sev-high{border:0;
-  background:linear-gradient(103deg,#ffeef0 0%,#fdf3f6 38%,#faf7ff 78%,#fcfcfe 100%)}
-.ai.sev-mid{border:0;
-  background:linear-gradient(103deg,#fff5e3 0%,#fdf6ef 38%,#faf7ff 78%,#fcfcfe 100%)}
-.ai.sev-good{border:0;
-  background:linear-gradient(103deg,#e9f9ef 0%,#f4f9f6 38%,#faf8ff 78%,#fcfcfe 100%)}
-.ai.sev-none{border:0;
-  background:linear-gradient(103deg,#f2f4fa 0%,#f8f9fd 46%,#fcfcfe 100%)}
-/* Внутри заливки белый чип «подробнее» держит контраст лучше сиреневого */
-.ai-tag{background:rgba(255,255,255,.72);box-shadow:inset 0 0 0 1px rgba(111,78,216,.16)}
-.ai-h:hover .ai-tag{background:#fff}
 
 /* ---------- Настройка дашборда: два столбца ----------
    В одну колонку окно не помещалось в ноутбучный экран и уезжало в скролл.
@@ -1801,26 +1717,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .op-stc{padding:0 0 var(--s7)}
   .op-sts{padding:var(--s7) 0 0;border-left:0;border-top:1px solid var(--line2)}
 }
-/* «Что видно в данных» над таблицами: факты списком, первые три сразу */
-.ai.obs{margin:var(--s7) 0 0;padding:var(--s6) var(--s8) var(--s6)}
-.obs-h{display:flex;align-items:center;gap:var(--s5)}
-.obs-none{font-size:var(--fs-body);color:var(--ink2)}
-.obs-list{list-style:none;margin:var(--s4) 0 0;padding:0}
-.obs-li{display:flex;align-items:flex-start;gap:var(--s5);padding:6px var(--s4);margin:0 0 0 calc(-1 * var(--s4));border-radius:var(--r2);
-  font-size:var(--fs-body);line-height:1.45;color:var(--ink2);cursor:pointer;transition:background .12s}
-.obs-li:hover,.obs-li:focus-visible{background:var(--blue-bg);outline:none}
-.obs-li b{color:var(--ink);font-weight:var(--fw-bold)}
-.obs-dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;margin-top:5px;background:var(--bench)}
-/* светофор отчёта — два цвета и серый, жёлтого нет: «стоит внимания» —
-   красный контур, «требует действий» — красная точка */
-.obs-dot.high{background:var(--red)}
-.obs-dot.mid{background:#fff;box-shadow:inset 0 0 0 2px var(--red)}
-.obs-dot.good{background:var(--green)}
-.obs-go{color:var(--act);white-space:nowrap;opacity:0;transition:opacity .12s}
-.obs-li:hover .obs-go,.obs-li:focus-visible .obs-go{opacity:1}
-.obs-more{border:0;background:none;padding:var(--s2) 0 0;margin-left:calc(18px + var(--s5) - var(--s4));
-  font:inherit;font-size:var(--fs-body);color:var(--act);cursor:pointer}
-.obs-more:hover{color:var(--act-ink)}
 /* в связанном полотне месяц подсвечивает полоса связки — серая подложка
    наведения под ней дала бы вторую, чуть большую полосу */
 .op-stc .ptg:hover .hit,.op-stc .barg:hover .hit{fill-opacity:0}
@@ -2087,6 +1983,94 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* «Остальные» длинной оси матрицы — не кнопка и не срез */
 #view .mx-pick.mx-rest{cursor:help;color:var(--muted);background:transparent}
 #view .mxtable td.mx-cell.rest{cursor:default}
+
+/* ============================================================================
+   Сначала выводы (20.10, вариант A и вкладка блока — одобрены заказчиком)
+   Главная: сводка → карточки выводов → «В норме» → «Все метрики» (свёрнуты).
+   Блок: вывод и «где это происходит» → KPI → главы и таблица (свёрнуты).
+   Полоса слева у карточки — категория вывода: красная «Требует действий»,
+   оранжевая «Посмотреть», зелёная «Хорошая новость». Это не светофор метрики
+   (там жёлтого нет), а срочность вывода.
+   ========================================================================== */
+.in-lead{display:flex;gap:var(--s8);align-items:flex-start;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:var(--s8) var(--s9);margin:0 0 var(--s7)}
+.in-lead .ai-ico.pic.big{width:46px;height:46px;margin:-2px 0 0}
+.in-lt{font-size:15px;line-height:1.55;color:var(--ink2)}
+.in-lt b{color:var(--ink);font-weight:var(--fw-bold)}
+.in-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s7)}
+.in-card{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:var(--s4);background:var(--card);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--s8) var(--s9) var(--s7) calc(var(--s9) + 2px)}
+.in-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--muted2)}
+.in-card.high:before{background:var(--red)} .in-card.mid:before{background:var(--warn)} .in-card.good:before{background:var(--green)}
+.in-t{display:flex;align-items:baseline;gap:var(--s3);font-size:var(--fs-cap);font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.5px}
+.high .in-tag{color:var(--red-tx)} .mid .in-tag{color:var(--warn-tx)} .good .in-tag{color:var(--green-tx)}
+.in-blk{color:var(--muted);text-transform:none;letter-spacing:0;font-size:var(--fs-note)}
+.in-row{display:flex;gap:var(--s7);align-items:flex-start}
+.in-txt{flex:1;min-width:0}
+.in-h{font-size:var(--fs-head);font-weight:var(--fw-bold);line-height:1.3;color:var(--ink)}
+.in-b{margin-top:var(--s3);font-size:var(--fs-lead);line-height:1.5;color:var(--ink2)}
+.in-b b{color:var(--ink);font-weight:var(--fw-bold)}
+.in-mini{flex:0 0 auto;border:0;background:none;padding:var(--s2);margin:0 calc(-1 * var(--s2)) 0 0;border-radius:var(--r2);cursor:pointer}
+.in-mini:hover{background:var(--blue-bg)}
+.mini{display:block}
+.mini .mn-ref{fill:none;stroke:var(--bench);stroke-width:1.2;stroke-dasharray:4 3}
+.mini .mn-l{fill:none;stroke:var(--muted);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
+.mini .mn-d{fill:var(--muted)}
+.mini .mn-t{font-size:10px;fill:var(--muted)}
+.high .mn-l{stroke:var(--red)} .high .mn-d{fill:var(--red)}
+.mid .mn-l{stroke:var(--warn)} .mid .mn-d{fill:var(--warn)}
+.good .mn-l{stroke:var(--green)} .good .mn-d{fill:var(--green)}
+.in-a{display:flex;align-items:center;gap:var(--s6);margin-top:auto;padding-top:var(--s5);border-top:1px solid var(--line2);font-size:var(--fs-body);color:var(--ink2);line-height:1.45}
+.in-do{flex:1;min-width:0}
+.in-do b{color:var(--ink);font-weight:var(--fw-bold)}
+.btn.in-go{flex:0 0 auto;padding:5px 12px;font-size:var(--fs-body);color:var(--act);border-color:var(--act-line);white-space:nowrap}
+.btn.in-go:hover{background:var(--blue-bg);border-color:var(--act-line)}
+.in-more-c{display:block;margin:var(--s5) auto 0;border:0;background:none;font:inherit;font-size:var(--fs-body);color:var(--act);cursor:pointer}
+.in-ok,.in-all,.bk-det{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s4);background:var(--card);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:var(--s5) var(--s8);margin:var(--s7) 0 0;font-size:var(--fs-body);color:var(--muted)}
+.in-okt{font-weight:var(--fw-bold);color:var(--green-tx);margin-right:var(--s3)}
+.in-pill{border:0;border-radius:var(--r-pill);background:var(--bg);padding:4px 10px;font:inherit;font-size:var(--fs-body);color:var(--ink2);cursor:pointer}
+.in-pill b{color:var(--ink);font-weight:var(--fw-bold)}
+.in-pill:hover{background:var(--blue-bg)}
+.in-pill.dev{background:var(--dev-bg);color:var(--dev-ink)}
+.in-all,.bk-det{justify-content:space-between;margin-bottom:var(--s7)}
+.in-all > span,.bk-dt{flex:1;min-width:0}
+.bk-det.on{margin-bottom:var(--s5)}
+.bk-det{scroll-margin-top:calc(var(--head-h,0px) + 12px)}
+.bk-ch{border:1px solid var(--line);background:var(--card);border-radius:var(--r-pill);padding:4px 10px;font:inherit;font-size:var(--fs-body);color:var(--ink2);cursor:pointer}
+.bk-ch:hover{background:var(--blue-bg);border-color:var(--act-line);color:var(--act-ink)}
+/* вывод блока и «где это происходит» */
+.bk-top{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:var(--s7);margin:0 0 var(--s7)}
+.bk-sum,.bk-wh{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:var(--s8) var(--s9)}
+.bk-tag{font-size:var(--fs-cap);font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.bk-sum.high .bk-tag{color:var(--red-tx)} .bk-sum.mid .bk-tag{color:var(--warn-tx)} .bk-sum.good .bk-tag{color:var(--green-tx)}
+.bk-h{margin:var(--s3) 0 var(--s5);font-size:17px;font-weight:var(--fw-bold);line-height:1.35;color:var(--ink)}
+.bk-f{list-style:none;counter-reset:bkf;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s5)}
+.bk-f li{counter-increment:bkf;position:relative;padding-left:30px;font-size:var(--fs-lead);line-height:1.5;color:var(--ink2)}
+.bk-f li:before{content:counter(bkf);position:absolute;left:0;top:1px;width:20px;height:20px;border-radius:50%;background:var(--act);color:#fff;
+  font-size:11px;font-weight:var(--fw-bold);display:flex;align-items:center;justify-content:center}
+.bk-f b{color:var(--ink);font-weight:var(--fw-bold)}
+.bk-do{margin-top:var(--s6);padding-top:var(--s5);border-top:1px solid var(--line2);font-size:var(--fs-body);line-height:1.45;color:var(--ink2)}
+.bk-do b{color:var(--ink);font-weight:var(--fw-bold)}
+.bk-wh{display:flex;flex-direction:column}
+.bk-wt{font-size:15px;font-weight:var(--fw-bold);color:var(--ink)}
+.bk-ws{font-size:var(--fs-note);color:var(--muted);margin:2px 0 var(--s4)}
+.bk-wn{font-size:var(--fs-note);color:var(--muted);padding:var(--s4) 0}
+.bk-wr{display:grid;grid-template-columns:minmax(0,1fr) 64px 34%;align-items:center;gap:var(--s5);width:100%;border:0;border-top:1px solid var(--line2);
+  background:none;padding:7px var(--s3);margin:0 calc(-1 * var(--s3));box-sizing:content-box;font:inherit;text-align:left;cursor:pointer}
+.bk-wr:hover{background:var(--blue-bg)}
+.bk-wu{min-width:0;display:flex;flex-direction:column;font-size:var(--fs-body);color:var(--ink)}
+.bk-wu b{font-weight:var(--fw-bold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bk-wu span{font-size:var(--fs-note);color:var(--muted)}
+.bk-wv{font-size:var(--fs-body);font-weight:var(--fw-bold);text-align:right;font-variant-numeric:tabular-nums}
+.bk-wb{height:8px;border-radius:4px;background:var(--pt-track);overflow:hidden}
+.bk-wb i{display:block;height:100%;border-radius:4px;background:var(--bar-soft)}
+.bk-wb i.high{background:var(--red)} .bk-wb i.mid{background:var(--warn)}
+.btn.in-go.bk-wt2{align-self:flex-start;margin-top:var(--s5)}
+@media (max-width:1100px){.bk-top{grid-template-columns:1fr}}
+@media (max-width:900px){.in-grid{grid-template-columns:1fr}}
+@media (max-width:600px){.in-row{flex-direction:column}.in-a{flex-wrap:wrap}.in-lead{padding:var(--s7)}}
+
 
 </style>
 </head>
@@ -5184,6 +5168,25 @@ function sDot(x,y,d,col,cls){
   return '<path'+(cls?' class="'+cls+'"':'')+' d="M'+num(x)+' '+num(y)+'h0" stroke="'+col+'" stroke-width="'+d+'"'+
     ' stroke-linecap="round"'+NSS+'/>';
 }
+/* Мини-график карточки вывода (главная «сначала выводы», 20.10): этот год —
+   линией цвета оценки карточки (цвет — CSS по классу карточки), ориентир —
+   пунктиром с подписью, точка последнего месяца. Без наведения: подробный
+   график — по клику, строкой метрики в «Все метрики». */
+function miniYoy(cur,ref,lbl,w,h){
+  w=w||150;h=h||56;
+  const vals=cur.concat(ref||[]).filter(v=>v!=null&&isFinite(v));
+  if(!vals.length)return '';
+  const mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals), rg=mx-mn||Math.abs(mx)||1;
+  let lo=mn-rg*0.15;const hi=mx+rg*0.15;if(mn>=0&&lo<0)lo=0;
+  const n=Math.max(cur.length,ref?ref.length:0), PAD=5, TOP=16;
+  const X=i=>n>1?PAD+i/(n-1)*(w-2*PAD):w/2, Y=v=>h-PAD-(v-lo)/((hi-lo)||1)*(h-PAD-TOP);
+  let s=ref?'<path class="mn-ref" d="'+polyD(ref,X,Y)+'"'+NSS+'/>':'', last=-1;
+  s+='<path class="mn-l" d="'+polyD(cur,X,Y)+'"'+NSS+'/>';
+  cur.forEach((v,i)=>{if(v!=null)last=i});
+  if(last>=0)s+='<circle class="mn-d" cx="'+num(X(last))+'" cy="'+num(Y(cur[last]))+'" r="3.5"/>';
+  if(lbl)s+='<text class="mn-t" x="'+(w-PAD)+'" y="11" text-anchor="end">'+esc(lbl)+'</text>';
+  return '<svg class="mini" viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" aria-hidden="true">'+s+'</svg>';
+}
 function sparkLine(series,state,w,h,o){
   o=o||{};w=w||120;h=h||26;
   const n=series.length, key=o.key, base=o.base, kpi=o.kpi;
@@ -5455,7 +5458,7 @@ function toggleSeries(cid,sid){
 /* _off сознательно НЕ чистим — см. комментарий у его объявления */
 function reset(){_specs=new Map();_sid=0}
 
-window.TPDRAW={chart,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
+window.TPDRAW={chart,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
@@ -5759,20 +5762,6 @@ function targetCell(key,val,baseVal,kpi){
   return '<div class="tgt"><b>'+D.fmtVal(key,baseVal)+'</b><span class="sig-chip '+st+'">'+lbl+'</span></div>';
 }
 
-/* ---------- Плашка предрасчитанного инсайта ----------
-   lead приходит с разметкой (<b> вокруг цифр). В свёрнутом виде его нельзя
-   просто экранировать — тогда в строке видны сами теги. Снимаем теги,
-   оставляя текст; в раскрытом виде разметка работает как задумано. */
-function aiBlock(id,title,lead,bullets,open,cls){
-  const plain=String(lead).replace(/<[^>]+>/g,'');
-  return '<div class="ai'+(cls?' '+cls:'')+'"><div class="ai-h" data-ai="'+id+'">'+
-    aiIco(open)+'<span class="ai-t">'+esc(title)+'</span>'+
-    '<span class="ai-lead">'+(open?'':esc(plain))+'</span>'+
-    '<span class="ai-tag">'+(open?'свернуть':'подробнее')+'</span>'+
-    '<span class="ai-caret">'+(open?'▲':'▼')+'</span></div>'+
-    (open?'<div class="ai-b">'+lead+'<ul>'+bullets.map(b=>'<li>'+b+'</li>').join('')+'</ul></div>':'')+'</div>';
-}
-
 /* ---------- Значок AI-плашки ----------
    Раньше здесь был квадратик с буквами AI. Теперь — фиолетовый огонёк с
    повязкой AI: подсказки по всему отчёту подаёт один и тот же персонаж,
@@ -5821,24 +5810,6 @@ function opStory(chart,st,about){
   return '<div class="op-story" data-oplink="1"><div class="op-stc">'+chart+'</div><div class="op-sts">'+
     (l?'<div class="op-sth">Что видно</div>'+l:'')+
     '<div class="op-sta"><div class="op-sth">О метрике</div>'+about+'</div></div></div>';
-}
-/* ---------- «Что видно в данных» над таблицами One-pager ----------
-   HRBP HUB: верхнеуровневые факты, по одному на метрику, а не мешанина
-   юнитов. Первые три видны сразу, остальные — по «Ещё N». Клик по факту
-   раскрывает строку его метрики: там график и разбор по пунктам. */
-const OBS_SEV={high:'требует действий',mid:'стоит внимания',good:'хорошие новости'};
-function obsPanel(list,open,info){
-  const sev=list.length?list[0].sev:'none';
-  let h='<div class="ai insight obs sev-'+sev+'"><div class="obs-h">'+aiIco(false)+
-    '<span class="ai-t">Что видно в данных</span>'+(info||'')+
-    (list.length?'<span class="ai-sev '+sev+'">'+OBS_SEV[sev]+'</span>':'<span class="obs-none">Заметных отклонений нет.</span>')+'</div>';
-  if(list.length){
-    h+='<ul class="obs-list">'+(open?list:list.slice(0,3)).map(x=>
-      '<li class="obs-li" data-opfact="'+esc(x.key)+'" tabindex="0" role="button"><i class="obs-dot '+x.sev+'"></i>'+
-      '<div><b>'+esc(x.lead)+'.</b> '+(x.body?esc(x.body)+' ':'')+'<span class="obs-go">график →</span></div></li>').join('')+'</ul>';
-    if(list.length>3)h+='<button class="obs-more" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+(list.length-3)+' ▾')+'</button>';
-  }
-  return h+'</div>';
 }
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.tag||'')+(o.q||'')+'</div>'+
@@ -6316,15 +6287,6 @@ function empty(title,text){
 }
 
 /* ---------- Легенда светофора ---------- */
-/* ============================================================================
-   pulseStrip — «Пульс команды»: одна полоса над KPI, отвечающая на два вопроса
-   до чтения таблиц. Слева — сколько метрик сейчас лучше и хуже своего
-   ориентира (цель KPI или база), полосой с тем же светофором, что у пилюль.
-   Справа — главные сдвиги за год: относительные метрики с самым большим
-   изменением к тому же месяцу прошлого года. Клик по сдвигу ведёт в блок.
-
-   o = {good, bad, neu, movers:[{key,name,block,cur,prev,yoy}]}
-   ========================================================================== */
 /* ---------- Мини-навигация One-pager ----------
    Семь таблиц подряд — длинный скролл без ориентиров. Липкая полоса блоков
    с точкой худшего сигнала: красная — есть метрика хуже ориентира, зелёная —
@@ -6337,27 +6299,6 @@ function blockNav(items){
         :it.good?'Хуже ориентира — ничего. Лучше — '+it.good+'.':'Всё на уровне ориентира или без оценки.'})+'>'+
     '<span class="sig '+it.state+'"></span>'+esc(it.name)+
     (it.bad?'<span class="op-nav-n">'+it.bad+'</span>':'')+'</button>').join('')+'</nav>';
-}
-function pulseStrip(o){
-  const tot=Math.max(1,o.good+o.bad+o.neu);
-  const seg=(n,c)=>n?'<i class="'+c+'" style="flex:'+n+'"></i>':'';
-  let h='<div class="pulse-strip"><div class="ps-score">'+
-    '<div class="ps-h">Сигналы · '+esc(D.CMP.cur)+'</div>'+
-    '<div class="ps-num"><b class="g">'+o.good+'</b><span>лучше ориентира</span>'+
-      '<b class="r">'+o.bad+'</b><span>хуже</span>'+
-      '<b class="n">'+o.neu+'</b><span>на уровне или без оценки</span></div>'+
-    '<div class="ps-bar" role="img" aria-label="'+o.good+' лучше, '+o.bad+' хуже, '+o.neu+' без сигнала из '+tot+'">'+
-      seg(o.good,'g')+seg(o.bad,'r')+seg(o.neu,'n')+'</div></div>';
-  h+='<div class="ps-movers"><div class="ps-h">Главные сдвиги за год<span class="ps-sub">'+esc(D.CMP.yoy)+'</span></div>';
-  if(!o.movers.length)h+='<div class="ps-empty">Сдвигов больше ±5% к прошлому году нет.</div>';
-  o.movers.forEach(mv=>{
-    h+='<button class="ps-mv" data-tab="'+mv.block+'"'+tipAttr({title:mv.name,
-        text:'Было '+D.fmtVal(mv.key,mv.prev)+' год назад, стало **'+D.fmtVal(mv.key,mv.cur)+'**.',note:'Клик — открыть блок.'})+'>'+
-      '<span class="ps-n">'+esc(mv.name)+'</span>'+
-      '<span class="ps-v">'+D.fmtVal(mv.key,mv.prev)+' → <b>'+D.fmtVal(mv.key,mv.cur)+'</b></span>'+
-      deltaChip(mv.key,mv.yoy)+'</button>';
-  });
-  return h+'</div></div>';
 }
 function trafficLegend(){
   /* два цвета и серый: жёлтого в светофоре нет. «На уровне ±5%» и «без оценки»
@@ -6440,7 +6381,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
@@ -6511,18 +6452,16 @@ function img(role,px,o){
 }
 
 /* ---------- эмоция вкладки ----------
-   Источник правды — тот же расчёт, что рисует плашку инсайта: insights.js
-   кладёт свою тяжесть в lastSev при каждом рендере детальной вкладки.
-   Огонёк не изобретает собственную оценку, он отражает уже показанную.
-   One-pager инсайта не строит, поэтому там считаем по числу метрик,
-   ушедших в красное. */
+   Источник правды — те же выводы, что видны на экране: insights.js и главная
+   кладут тяжесть первого вывода в lastSev при каждом рендере. Огонёк не
+   изобретает собственную оценку, он отражает уже показанную. */
 const MOOD={
   alert:{role:'alert',word:'тревога',dot:'bad',
     tip:{title:'Пульс насторожён',text:'На вкладке есть отклонение, которое требует действий.',
-      note:'Разбор — в плашке «Главное в блоке».'}},
+      note:'Разбор — в выводах наверху экрана.'}},
   warn:{role:'warn',word:'внимание',dot:'warn',
     tip:{title:'Пульс приглядывается',text:'Есть отклонения, на которые стоит посмотреть.',
-      note:'Разбор — в плашке «Главное в блоке».'}},
+      note:'Разбор — в выводах наверху экрана.'}},
   ok:{role:'ok',word:'спокоен',dot:'good',
     tip:{title:'Пульс спокоен',text:'Существенных отклонений от базы на вкладке нет.'}},
   nodata:{role:'nodata',word:'нет данных',dot:'neutral',
@@ -6532,20 +6471,8 @@ const MOOD={
 
 function mood(S){
   if(!D.reportLeaves(S).length)return MOOD.nodata;
-  if(S.tab!=='onepager'){
-    const sev=(window.TPINSIGHTS&&window.TPINSIGHTS.lastSev)||'none';
-    return sev==='high'?MOOD.alert:sev==='mid'?MOOD.warn:MOOD.ok;
-  }
-  const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
-  let bad=0;
-  D.METRICS.forEach(m=>{
-    if(!D.metricVisible(m.key,S)||m.better==='flat')return;
-    const v=D.lastVal(rl,m.key), kpi=D.kpiFor(m.key,S);
-    const st=kpi?D.stateForKpi(m.key,v,kpi)
-      :(D.comparable(m.key)?D.compareState(m.key,v,D.lastVal(bl,m.key)):'neutral');
-    if(st==='bad')bad++;
-  });
-  return bad>=3?MOOD.alert:bad>=1?MOOD.warn:MOOD.ok;
+  const sev=(window.TPINSIGHTS&&window.TPINSIGHTS.lastSev)||'none';
+  return sev==='high'?MOOD.alert:sev==='mid'?MOOD.warn:MOOD.ok;
 }
 
 /* ---------- дежурный огонёк в подвале навигации ----------
@@ -6619,128 +6546,13 @@ window.TPMASCOT={img,mood,dock,panel,srcOf};
    ========================================================================== */
 (function(){
 'use strict';
-const D=window.TPDATA, U=window.TPUI;
+const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW;
 const esc=U.esc;
 
 const INS_GAP=10;      /* порог отклонения от базы или KPI, % */
 const INS_TREND=3;     /* длина направленного тренда, месяцев */
-const INS_CONC=50;     /* доля одного подразделения в общем отклонении, % */
 
-function relGap(v,base){return base?((v-base)/Math.abs(base))*100:0}
-function trendLen(ser){
-  let up=1,dn=1;
-  for(let i=ser.length-1;i>0;i--){if(ser[i]>ser[i-1])up++;else break}
-  for(let i=ser.length-1;i>0;i--){if(ser[i]<ser[i-1])dn++;else break}
-  return up>=dn?{dir:'up',len:up}:{dir:'dn',len:dn};
-}
 function isBad(m,v,base){return m.better==='lower'?v>base:m.better==='higher'?v<base:false}
-
-/* ctx: {S, b, mainK, rl, bl, rows, rowLeaves} */
-function build(ctx){
-  const S=ctx.S, b=ctx.b, mainK=ctx.mainK, rl=ctx.rl, bl=ctx.bl, rows=ctx.rows;
-  const out=[];
-  /* факты только по выбранным метрикам: инсайт про отключённую метрику
-     некуда проверить — её нет ни в таблице, ни в KPI-карточках */
-  D.visibleMetricsOfBlock(b.key,S).forEach(m=>{
-    if(m.better==='flat')return;
-    /* пробник: у заглушки («демо») выводов нет — цифра сгенерирована */
-    if(D.isStub(m.key))return;
-    const ser=D.aggregate(rl,m.key), v=ser[D.LAST];
-    /* доля без знаменателя (в окне не было ни одного найма) — фактов нет */
-    if(v==null)return;
-    const kpi=D.kpiFor(m.key,S);
-    const base=kpi?kpi.green:D.lastVal(bl,m.key);
-    /* разрыв считаем только там, где сравнение осмысленно; тренд — у любой метрики */
-    if((D.comparable(m.key)||kpi)&&base!=null&&isFinite(base)){
-      const gap=relGap(v,base), bad=isBad(m,v,base);
-      if(Math.abs(gap)>=INS_GAP){
-        /* разница — в единицах метрики (п.п., дни), а не «на 23%» от процента:
-           у долей относительный процент читается двояко (TEXT_GUIDE.md, п. 6) */
-        out.push({sev:bad?(Math.abs(gap)>=25?3:2):1,metric:m,
-          text:'<b>'+esc(m.name)+'</b> — '+D.fmtVal(m.key,v)+', '+(bad?'хуже':'лучше')+' '+(kpi?'цели':'базы')+' ('+
-            D.fmtVal(m.key,base)+') на '+esc(dot(absD(m.key,v-base)))});
-      }
-    }
-    const t=trendLen(ser);
-    if(t.len>=INS_TREND){
-      const worsening=(m.better==='lower'&&t.dir==='up')||(m.better==='higher'&&t.dir==='dn');
-      out.push({sev:worsening?2:1,metric:m,
-        text:'<b>'+esc(m.name)+'</b> '+(t.dir==='up'?'растёт':'снижается')+' '+t.len+' '+
-          U.plural(t.len,['месяц','месяца','месяцев'])+' подряд: '+
-          D.fmtVal(m.key,ser[D.LAST-t.len+1])+' → '+D.fmtVal(m.key,v)+(worsening?'. Это плохой знак.':'. Это хороший знак.')});
-    }
-  });
-
-  /* концентрация отклонения в одном подразделении */
-  const mM=D.METRIC_BY_KEY[mainK];
-  if(mM.better!=='flat'&&rows.length>1&&(D.comparable(mainK)||D.kpiFor(mainK,S))){
-    const kpi=D.kpiFor(mainK,S);
-    const base=kpi?kpi.green:D.lastVal(bl,mainK);
-    const tops=rows.filter(r=>r.depth===1).map(r=>{
-      const lp=ctx.rowLeaves(r.n.path);
-      const v=D.lastVal(lp,mainK), hc=D.lastVal(lp,'hc_total');
-      return {name:r.n.name,v:v,hc:hc,exc:v!=null&&isBad(mM,v,base)?Math.abs(v-base)*Math.max(hc,1):0};
-    });
-    const total=tops.reduce((a,x)=>a+x.exc,0);
-    if(total>0){
-      const top=tops.slice().sort((a,b2)=>b2.exc-a.exc)[0];
-      const share=top.exc/total*100;
-      if(share>=INS_CONC)out.push({sev:3,metric:mM,
-        /* имя метрики — в кавычках и как есть: «по проникновение ai» ломало
-           и падеж, и аббревиатуру */
-        text:'Больше всего тянет вниз <b>«'+esc(top.name)+'»</b>: на него приходится '+share.toFixed(0)+'% отставания по метрике «'+
-          esc(mM.name)+'». У него '+D.fmtVal(mainK,top.v)+' при '+(kpi?'цели ':'базе ')+D.fmtVal(mainK,base)+
-          ', '+D.fmtInt(top.hc)+' чел. Начните с него.'});
-    }
-  }
-  out.sort((a,b2)=>b2.sev-a.sev);
-  return out;
-}
-
-function html(ctx){
-  const S=ctx.S, b=ctx.b;
-  const ins=build(ctx);
-  const id='ins-'+b.key, open=S.aiOpen===id;
-  if(!ins.length){
-    /* дежурный огонёк в подвале навигации отражает ту же оценку, что и
-       плашка инсайта — собственной он не изобретает, иначе два источника
-       правды разошлись бы на одном экране */
-    window.TPINSIGHTS.lastSev='none';
-    /* «Отклонений нет» — такая же работа движка, как и найденный инсайт:
-       отбор прошёл, просто ничего выше порогов не нашлось. Поэтому здесь такая
-       же AI-плашка, а не серая строчка: место подсказки на экране одно и то
-       же на всех вкладках, и раскрывается оно везде одинаково. */
-    const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key));
-    const hasCmp=vis.some(m=>D.comparable(m.key));
-    const nChk=vis.filter(m=>m.better!=='flat').length;
-    const lead=hasCmp
-      ? 'Всё спокойно: метрики блока близки к базе <b>«'+esc(D.benchmarkLabel(S))+'»</b>, устойчивых трендов нет.'
-      : 'Всё спокойно: устойчивых трендов нет. Метрики блока — количества, с базой они не сравниваются.';
-    const bl2=[];
-    if(hasCmp)bl2.push('Проверили <b>'+nChk+' '+U.plural(nChk,['метрику','метрики','метрик'])+
-      '</b>: ни одна не отличается от базы больше чем на '+INS_GAP+'%.');
-    bl2.push('Ни одна метрика не растёт и не падает '+INS_TREND+' месяца подряд.');
-    bl2.push('Нет подразделения, которое одно тянуло бы блок вниз.');
-    return U.aiBlock(id,'Главное в блоке',lead,bl2,open,'insight sev-none');
-  }
-  const maxSev=ins[0].sev;
-  const sevCls=maxSev>=3?'high':maxSev===2?'mid':'good';
-  window.TPINSIGHTS.lastSev=sevCls;
-  const sevTxt=maxSev>=3?'требует действий':maxSev===2?'стоит внимания':'позитив';
-  const lead=ins[0].text.replace(/<[^>]+>/g,'');
-  let h='<div class="ai insight sev-'+sevCls+'"><div class="ai-h" data-ai="'+id+'">'+
-    U.aiIco(open)+'<span class="ai-t">Главное в блоке</span>'+
-    '<span class="ai-lead">'+(open?'':esc(lead))+'</span>'+
-    '<span class="ai-sev '+sevCls+'">'+sevTxt+'</span>'+
-    '<span class="ai-tag">'+(open?'свернуть':'подробнее')+'</span>'+
-    '<span class="ai-caret">'+(open?'▲':'▼')+'</span></div>';
-  if(open){
-    h+='<div class="ai-b"><ul>'+ins.slice(0,4).map(x=>'<li>'+x.text+'</li>').join('')+'</ul>'+
-      '<div class="ins-note">Здесь только заметное: отличие от ориентира больше '+INS_GAP+
-      '%, рост или падение '+INS_TREND+' месяца подряд, одно подразделение тянет вниз весь блок.</div></div>';
-  }
-  return h+'</div>';
-}
 
 /* ============================================================================
    «Что видно» — механика HRBP HUB (13.10, заказчик: «в one-pager сделай
@@ -6753,7 +6565,8 @@ function html(ctx){
        пунктов, у каждого с номером — отметка на графике «год к году».
    Пороги — те же, что у фактов блоков: 10% ориентира, тренд 3 месяца.
    ========================================================================== */
-const OBS={dev:INS_GAP/100,yoyPp:3,trend:INS_TREND,max:6,spikeX:2,spikeMin:3};
+/* max 8 — как в HRBP HUB (UI-25): по одному факту на метрику, всего до восьми */
+const OBS={dev:INS_GAP/100,yoyPp:3,trend:INS_TREND,max:8,spikeX:2,spikeMin:3};
 /* Потоки за месяц: у них «с начала года» — сумма, и её есть с чем сравнить
    год назад. У остатков (численность, открытые вакансии) суммы нет. */
 const FLOW=new Set(['hire','attrition','transfer_in','transfer_out','vac_closed','tgrowth_pass','tgrowth_deny']);
@@ -6887,7 +6700,8 @@ function yoyStory(key,S,rl,bl){
   return {items:out,marks:marks};
 }
 
-/* Один факт на метрику по отбору целиком: {key, sev, pri, w, lead, body}. */
+/* Один факт на метрику по отбору целиком: {key, sev, pri, w, lead, body} и сырые
+   поля для карточек главной — kind ('dev' | 'yoy' | 'trend'), v, ref, kpi, pv, tr. */
 function metricFact(m,S,rl,bl){
   const key=m.key, ext=D.aggregateExt(rl,key), L=D.NEXT-1, v=ext[L];
   if(v==null)return null;
@@ -6898,22 +6712,23 @@ function metricFact(m,S,rl,bl){
   const tr=worsening(m,ext);
   if(st==='bad'&&rel(v,ref)>=OBS.dev)
     return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — хуже '+w+' '+f(ref),
-      body:ago+(tr?' '+cap(trendWord(m))+'.':'')};
+      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr};
   /* год к году: 10% от прошлого значения или 3 п.п. у долей */
   if(pv!=null&&m.better!=='flat'&&m.fmt!=='int'&&Math.abs(v-pv)>=(m.fmt==='pct'?0.5:1e-9)&&
      (rel(v,pv)>=OBS.dev||(m.fmt==='pct'&&Math.abs(v-pv)>=OBS.yoyPp))){
     const worse=m.better==='lower'?v>pv:v<pv;
     return {key,sev:worse?'mid':'good',pri:2,w:rel(v,pv),
       lead:m.name+' '+f(v)+' — '+(worse?'хуже':'лучше')+', чем год назад ('+f(pv)+')',
-      body:ref!=null?cap(w==='цели'?'цель':'база')+' — '+f(ref)+'.':''};
+      body:ref!=null?cap(w==='цели'?'цель':'база')+' — '+f(ref)+'.':'',kind:'yoy',v,ref,kpi,pv};
   }
   if(tr)return {key,sev:'mid',pri:3,w:rel(tr.b,tr.a),lead:m.name+': '+trendWord(m),
-    body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.CUR_LEN-1]+' '+f(tr.b)+'.'};
+    body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.CUR_LEN-1]+' '+f(tr.b)+'.',kind:'trend',v,ref,kpi,pv,tr};
   if(st==='good'&&rel(v,ref)>=OBS.dev)
-    return {key,sev:'good',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — лучше '+w+' '+f(ref),body:ago};
+    return {key,sev:'good',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — лучше '+w+' '+f(ref),body:ago,kind:'dev',v,ref,kpi,pv};
   return null;
 }
-function overview(S,rl,bl){
+const MONTH_IN=['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'];
+function overview(S,rl,bl,all){
   const out=[], L=D.NEXT-1;
   D.METRICS.forEach(m=>{
     if(!D.metricVisible(m.key,S)||D.isStub(m.key))return;
@@ -6926,9 +6741,9 @@ function overview(S,rl,bl){
     let usual=0;for(let i=L-11;i<L;i++)usual+=a[i]||0;usual/=11;
     if(last>=OBS.spikeMin&&last>=OBS.spikeX*usual)
       out.push({key:'attrition',sev:last>=3*usual?'high':'mid',pri:0,w:last-usual,
-        lead:'Всплеск уходов в '+['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'][D.MONTHS_EXT[L].m]+
+        lead:'Всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[L].m]+
           ': '+D.fmtInt(last)+' — обычно '+(usual<1?'меньше одного':'около '+D.fmtInt(Math.round(usual)))+' в месяц',
-        body:'Уволились за месяц, по любой причине.'});
+        body:'Уволились за месяц, по любой причине.',kind:'spike',v:last,usual});
   }
   /* численность за год: найм, уходы, переводы — из чего сложилось */
   const hc=D.aggregateExt(rl,'hc_total'), from=hc[L-12], to=hc[L];
@@ -6938,16 +6753,241 @@ function overview(S,rl,bl){
     out.push({key:'hc_total',sev:'mid',pri:5,w:0,
       lead:'Численность '+(to>from?'+':'−')+dp+'% за год: '+D.fmtInt(from)+' → '+D.fmtInt(to),
       body:'Найм '+D.fmtInt(sm('hire'))+', отток '+D.fmtInt(sm('attrition'))+', переводы в команду '+
-        D.fmtInt(sm('transfer_in'))+' и из неё '+D.fmtInt(sm('transfer_out'))+'.'});
+        D.fmtInt(sm('transfer_in'))+' и из неё '+D.fmtInt(sm('transfer_out'))+'.',kind:'hc',v:to,pv:from});
   }
   const rank={high:0,mid:1,good:2};
   out.sort((a,c)=>rank[a.sev]-rank[c.sev]||a.pri-c.pri||c.w-a.w);
-  return out.slice(0,OBS.max);
+  return all?out:out.slice(0,OBS.max);
+}
+
+/* ============================================================================
+   Карточки выводов — главная «сначала выводы» (вариант A) и вывод вкладки
+   блока (одобрены заказчиком 20.10). Факты те же, что в overview, а подача и
+   отбор — правилами HRBP HUB (гайд, UI-24 и UI-25):
+     · ранжируем по людям сверх ориентира, а не по процентам (excess);
+     · подразделение называем, только если на него приходится больше половины
+       отклонения; подразделения меньше 30 человек не оцениваем — и долей у
+       отчёта меньше 30 человек тоже не оцениваем: слишком мало людей;
+     · до восьми фактов.
+   «Что сделать» — шаблон по метрике (CARD_TODO), «что происходит» для сводки —
+   короткая фраза (SAY). Считается правилами по тем же числам, без ИИ.
+   ========================================================================== */
+const CARD={small:30,conc:0.5,show:4};
+const PPL=['человек','человека','человек'], LEAVE=['уход','ухода','уходов'];
+/* в чём считать отклонение — по числителю метрики; null — не люди (дни в офисе) */
+const NOUN={attrition:LEAVE,regret_cnt:LEAVE,tgrowth_pass:['заявка','заявки','заявок'],
+  vac_closed:['вакансия','вакансии','вакансий'],ovis:null};
+/* доли не людей: дни в офисе, нарушения брони, заявки T-роста (макет) */
+const NOPPL=new Set(['office_att','booking_viol','tgrowth_conv']);
+const TODO_LEAVE='разобрать уходы: причины и кто уходит';
+const CARD_TODO={attrition:TODO_LEAVE,turnover_m:TODO_LEAVE,turnover_y:TODO_LEAVE,
+  regret:'поговорить с сильными сотрудниками из зоны риска: кого давно не повышали, у кого высокая оценка',
+  hire_plan:'сверить план с рекрутером: какие вакансии просрочены и почему',
+  time_to_fill:'посмотреть, какие вакансии открыты дольше всего, и пересмотреть требования',
+  vac_closed:'посмотреть, какие вакансии открыты дольше всего, и пересмотреть требования',
+  underwork:'посмотреть, кто недорабатывает второй месяц подряд, и обсудить с руководителями',
+  overwork:'проверить нагрузку у переработчиков: отпуска, перераспределение задач',
+  review_up:'посмотреть, у кого оценка не растёт два ревью подряд',
+  office_att:'договориться с командой об общих офисных днях',
+  booking_viol:'напомнить команде о брони мест',
+  tgrowth_conv:'разобрать отклонённые заявки на T-рост с руководителями',
+  tgrowth_deny:'разобрать отклонённые заявки на T-рост с руководителями',
+  tgrowth_tat:'проверить, кого давно не повышали',
+  ai_penetration:'показать AI-инструменты тем, кто ещё не пробовал',
+  hc_total:'сверить изменение численности с планом'};
+/* «что происходит» коротко: [хуже, лучше] */
+const SAY={turnover_m:['уходят чаще','уходят реже'],turnover_y:['уходят чаще','уходят реже'],
+  regret:['нежелательных уходов больше','нежелательных уходов меньше'],
+  time_to_fill:['вакансии закрываются дольше','вакансии закрываются быстрее'],
+  vac_closed:['вакансий закрывают меньше','вакансий закрывают больше'],
+  underwork:['недорабатывающих больше','недорабатывающих меньше'],
+  overwork:['перерабатывающих больше','перерабатывающих меньше'],
+  review_up:['оценку в ревью улучшают реже','оценку в ревью улучшают чаще'],
+  office_att:['в офис ходят реже','в офис ходят чаще'],
+  booking_viol:['нарушений брони больше','нарушений брони меньше'],
+  tgrowth_conv:['T-рост одобряют реже','T-рост одобряют чаще'],
+  tgrowth_pass:['T-рост одобряют реже','T-рост одобряют чаще'],
+  tgrowth_deny:['T-рост отклоняют чаще','T-рост отклоняют реже'],
+  tgrowth_tat:['повышения ждут дольше','повышения ждут меньше'],
+  ai_penetration:['AI пользуются реже','AI пользуются чаще']};
+const SEV_TAG={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость'};
+/* одна история «уходят чаще / реже» — одна карточка */
+const SAME={turnover_m:'leave',turnover_y:'leave',attrition:'leave'};
+/* строчная — только если вторая буква строчная: «AI», «T@T» остаются */
+const lc=t=>/^.[a-zа-яё]/.test(t)?t.charAt(0).toLowerCase()+t.slice(1):t;
+const ppl=(n,noun)=>D.fmtInt(n)+' '+U.plural(Math.round(n),noun||PPL);
+function say(f){
+  const m=D.METRIC_BY_KEY[f.key], bad=f.sev!=='good';
+  if(f.kind==='spike')return 'всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[D.NEXT-1].m];
+  if(f.kind==='hc')return 'численность '+(f.v>f.pv?'выросла':'сократилась')+' на '+Math.round(Math.abs(f.v-f.pv)/f.pv*100)+'% за год';
+  if(f.kind==='trend')return lc(m.name)+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд';
+  if(f.key==='hire_plan'&&f.kind==='dev')return bad?'найм отстаёт от плана':'план найма выполняется с запасом';
+  const st=(SAY[f.key]||[lc(m.name)+' хуже',lc(m.name)+' лучше'])[bad?0:1];
+  return st+(f.kind==='yoy'?', чем год назад':f.key==='regret'&&f.kpi?' цели':f.kpi?', чем по цели':', чем по базе');
+}
+/* дробь метрики: своя или месячной, если накопительная — сумма месячных ('sum') */
+function ratioDef(m){
+  if(m.derived)return m.derived;
+  const ch=m.ytd&&D.defOf(m.ytd);
+  return ch&&ch.derived?Object.assign({},ch.derived,{win:'sum'}):null;
+}
+/* знаменатель: за месяц, с начала года ('ytd') или в среднем за месяц с января ('sum') */
+function denOf(lp,dv){
+  const ks=Array.isArray(dv.den)?dv.den:[dv.den], b=D.CUR_LEN-1;
+  if(!dv.win)return ks.reduce((a,k)=>a+(D.lastVal(lp,k)||0),0);
+  let s=0;
+  ks.forEach(k=>{const c=D.yoySeries(lp,k).cur;for(let i=0;i<=b;i++)s+=c[i]||0});
+  return dv.win==='sum'?s/(b+1):s;
+}
+/* Отклонение в штуках: |v − ref| в долях знаменателя → {n, noun, win}; не люди — null */
+function excess(key,lp,v,ref){
+  const m=D.METRIC_BY_KEY[key];
+  if(v==null||ref==null||NOPPL.has(key))return null;
+  const dv=ratioDef(m);
+  if(dv)return NOUN[dv.num]===null?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv),noun:NOUN[dv.num]||PPL,win:dv.win};
+  if(m.fmt==='pct')return {n:Math.abs(v-ref)/100*(D.lastVal(lp,'hc_total')||0),noun:PPL,win:m.ytd?'sum':null};
+  if(m.fmt==='int')return {n:Math.abs(v-ref),noun:NOUN[key]||PPL,win:null};
+  return null;
+}
+/* первый уровень под юнитом отчёта — его листья под фильтрами и численность */
+function unitsOf(S){
+  return D.rowsOf(S.unit).map(n=>{
+    const lp=D.leavesUnder(n.path).map(l=>l.path).filter(p=>D.leafPasses(p,S));
+    return {n,lp,hc:lp.length?D.lastVal(lp,'hc_total')||0:0};
+  }).filter(u=>u.lp.length);
+}
+/* Где это происходит: вклад подразделений в отклонение факта (люди сверх
+   ориентира). top — подразделение больше чем с половиной вклада. */
+function whereOf(f,S){
+  const m=D.METRIC_BY_KEY[f.key], L=D.NEXT-1;
+  const rows=unitsOf(S).map(u=>{
+    const r={n:u.n,hc:u.hc,small:u.hc<CARD.small,exc:0,v:null};
+    if(f.kind==='spike'){
+      const a=D.aggregateExt(u.lp,'attrition');let us=0;
+      for(let i=L-11;i<L;i++)us+=a[i]||0;
+      r.v=a[L]||0;r.exc=Math.max(0,r.v-us/11);return r;
+    }
+    const e=D.aggregateExt(u.lp,f.key), ref=f.kind==='yoy'?e[L-12]:f.ref;
+    r.v=e[L];
+    if(!r.small&&r.v!=null&&ref!=null&&isBad(m,r.v,ref)){const x=excess(f.key,u.lp,r.v,ref);r.exc=x?x.n:0}
+    return r;
+  });
+  rows.sort((a,c)=>c.exc-a.exc||c.hc-a.hc);
+  const tot=rows.reduce((a,r)=>a+r.exc,0), top=tot>0&&rows[0].exc/tot>CARD.conc?rows[0]:null;
+  return {rows,tot,top,share:top?top.exc/tot:0};
+}
+/* ряд для мини-графика: этот год с января против ориентира; до апреля — 12 месяцев окна */
+function miniOf(f,rl,bl){
+  const k=f.kind==='spike'?'attrition':f.key, fv=x=>D.fmtVal(k,x), L=D.NEXT-1;
+  const kpi=f.kind==='dev'&&f.kpi, base=f.kind==='dev'&&!kpi;
+  let cur,ref;
+  if(D.CUR_LEN>=4){
+    const y=D.yoySeries(rl,k);cur=y.cur.slice(0,D.CUR_LEN);
+    ref=base?D.yoySeries(bl,k).cur.slice(0,D.CUR_LEN):y.prev.slice(0,D.CUR_LEN);
+  }else{
+    const e=D.aggregateExt(rl,k), at=i=>i<0?null:e[i];
+    cur=range(12).map(i=>at(L-11+i));
+    ref=base?D.aggregate(bl,k):range(12).map(i=>at(L-23+i));
+  }
+  if(kpi)ref=cur.map(()=>f.kpi.green);
+  return G.miniYoy(cur,ref,kpi?'цель '+fv(f.kpi.green):base?'база':'год назад');
+}
+/* Карточка факта: {key, block, sev, tag, head, body, todo, btn, chart, ppl, where} */
+function cardOf(f,S,rl,bl){
+  const m=D.METRIC_BY_KEY[f.key], bad=f.sev!=='good', fv=x=>D.fmtVal(f.key,x);
+  const bk=f.kind==='spike'&&D.blockVisible('turnover',S)?'turnover':m.block, b=D.BLOCK_BY_KEY[bk];
+  let head=f.lead;
+  if(f.kind==='dev')head=m.name+' '+fv(f.v)+(f.kpi?' при цели '+fv(f.ref):' — '+(f.v>f.ref?'выше':'ниже')+', чем по базе ('+fv(f.ref)+')');
+  else if(f.kind==='yoy')head=m.name+' '+fv(f.v)+' — '+(f.v>f.pv?'выше':'ниже')+', чем год назад ('+fv(f.pv)+')';
+  else if(f.kind==='trend')head=m.name+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд: '+fv(f.tr.a)+' → '+fv(f.tr.b);
+  const body=[];
+  /* уходы — сначала людьми: сколько ушло с января и сколько год назад за те же месяцы.
+     Фраза одна на все выводы (cards ставит её только в первый) */
+  let leave='';
+  if(SAME[f.key]&&f.kind!=='trend'&&D.CUR_LEN>1){
+    const y=D.yoySeries(rl,'attrition');let a=0,p=0;
+    for(let i=0;i<D.CUR_LEN;i++){a+=y.cur[i]||0;p+=y.prev[i]||0}
+    const d=Math.round(a)-Math.round(p);
+    leave='С января ушли <b>'+ppl(a)+'</b> — '+(d?'на '+D.fmtInt(Math.abs(d))+' '+(d>0?'больше':'меньше')+', чем за те же месяцы год назад'
+      :'столько же, сколько год назад за те же месяцы')+'.';
+  }
+  const x=f.kind==='dev'?excess(f.key,rl,f.v,f.ref):f.kind==='yoy'?excess(f.key,rl,f.v,f.pv)
+    :f.kind==='trend'?excess(f.key,rl,f.tr.b,f.tr.a):f.kind==='spike'?{n:f.v-f.usual,noun:LEAVE}:null;
+  const n=x?Math.round(x.n):0, q=n>=1?'<b>≈ '+ppl(n,x.noun)+'</b>':'';
+  if(q){
+    const w=f.kpi?'цели':'базы', when=x.win?' с начала года':f.kind==='dev'?' за месяц':'';
+    if(f.kind==='yoy')body.push('<!--ppl-->Это '+q+' разницы с прошлым годом.');
+    else if(f.kind==='trend')body.push('За '+OBS.trend+' месяца — '+q+'.');
+    else if(f.kind==='spike')body.push('Это '+q+' сверх обычного.');
+    else if(m.better==='higher')body.push(bad?'До '+(f.kpi?'цели':'уровня базы')+' не хватает '+q+'.':'Это на '+q+' больше '+w+'.');
+    else body.push(bad?'Это '+q+' сверх '+w+when+'.':'Это на '+q+' меньше '+w+when+'.');
+  }
+  const wh=bad&&/^(dev|yoy|spike)$/.test(f.kind)?whereOf(f,S):null;
+  if(wh&&wh.top)body.push((wh.share>=0.8?'Почти всё':'Больше половины')+' — в <b>«'+esc(wh.top.n.name)+'»</b>.');
+  if(f.kind==='dev'&&f.pv!=null&&!leave)body.push('Год назад — '+esc(fv(f.pv))+'.');
+  if(f.kind==='dev'&&f.tr)body.push(esc(cap(trendWord(m)))+'.');
+  let todo='Держать курс: отдельных действий не нужно.';
+  if(bad){
+    const t=f.kind==='spike'?'разобрать уходы за '+D.MONTH_NOM[D.MONTHS_EXT[D.NEXT-1].m]+': причины и подразделения'
+      :CARD_TODO[f.key]||'открыть блок и посмотреть, где отклонение';
+    const h=wh&&wh.top&&wh.top.n.head, who=h&&(h.login||h.name);
+    todo='<b>Что сделать:</b> '+(wh&&wh.top?'начать с «'+esc(wh.top.n.name)+'»'+(who?' ('+esc(who)+')':'')+' — ':'')+esc(t)+'.';
+  }
+  return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,
+    ppl:n,where:wh,chart:miniOf(f,rl,bl),
+    btn:wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:{label:'Открыть «'+b.name+'»',tab:bk}};
+}
+/* Отчёт меньше 30 человек: доли не оцениваются — остаются всплеск и численность */
+function smallReport(rl){const hc=D.lastVal(rl,'hc_total');return hc!=null&&hc<CARD.small}
+/* Все карточки по отбору: по тяжести, внутри — по людям сверх ориентира; до восьми */
+function cards(S,rl,bl,all){
+  const sm=smallReport(rl), rank={high:0,mid:1,good:2};
+  const list=overview(S,rl,bl,true).filter(f=>!(sm&&D.METRIC_BY_KEY[f.key].fmt==='pct'&&f.kind!=='spike'&&f.kind!=='hc'))
+    .map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}));
+  list.sort((a,c)=>rank[a.sev]-rank[c.sev]||c.ppl-a.ppl||a.i-c.i);
+  /* одна история — одна карточка: текучесть месячная и с начала года об одном
+     («уходят чаще») — остаётся первая; «С января ушли N» — тоже один раз, а там,
+     где её нет, — разница людьми */
+  const seen=new Set();let said=false;
+  const out=list.filter(c=>{const g=c.fact.kind!=='spike'&&SAME[c.key];if(!g)return true;
+    const k=g+(c.sev==='good');if(seen.has(k))return false;seen.add(k);return true});
+  out.forEach(c=>{
+    const b=c.body.slice();
+    if(c.leave&&!said){said=true;b.unshift(c.leave);if(c.fact.kind==='yoy')b.splice(b.findIndex(t=>/^<!--ppl-->/.test(t)),1)}
+    c.body=b.join(' ').replace(/<!--ppl-->/g,'');
+  });
+  return all?out:out.slice(0,OBS.max);
+}
+/* Сводка над карточками: команда растёт или нет (±5% с начала года — стабильна),
+   главное хуже и лучше, сколько в норме */
+function lead(S,rl,list,norm){
+  const hc=D.lastVal(rl,'hc_total')||0, net=D.lastVal(rl,'net_ytd')||0, d0=hc-net;
+  const team=!d0||Math.abs(net)/d0<0.05?'Команда стабильна':net>0?'Команда растёт':'Команда сокращается';
+  const bad=list.find(c=>c.sev!=='good'), good=list.find(c=>c.sev==='good');
+  const nAct=list.filter(c=>c.sev!=='good').length;
+  let h='<b>'+esc(team+(bad?', но '+say(bad.fact):good?', и '+say(good.fact):', заметных отклонений нет'))+'.</b> '+
+    esc(ppl(hc))+' — '+(net?'на '+D.fmtInt(Math.abs(net))+' '+(net>0?'больше':'меньше')+', чем на начало года':'столько же, сколько на начало года')+'.';
+  if(smallReport(rl))h+=' В команде меньше '+CARD.small+' человек — доли (текучесть, проценты) не оцениваем: слишком мало людей.';
+  h+=nAct?' Ниже — '+nAct+' '+U.plural(nAct,['вывод, на который','вывода, на которые','выводов, на которые'])+' стоит потратить время':' Требующего действий нет';
+  return h+(norm?'; остальные '+norm+' '+U.plural(norm,['метрика','метрики','метрик'])+' в норме.':'.');
+}
+/* Вывод блока: заголовок, до трёх фактов по номерам, «Что сделать», где это
+   происходит. Нет фактов — «всё спокойно» и что проверено. */
+function blockSummary(bk,S,rl,bl){
+  const list=cards(S,rl,bl,true).filter(c=>c.block===bk||(c.fact.kind==='spike'&&bk==='movement'));
+  const sev=list.length?list[0].sev:'none';
+  window.TPINSIGHTS.lastSev=sev;
+  if(!list.length)return {sev,list};
+  const bad=list.find(c=>c.sev!=='good'), good=list.find(c=>c.sev==='good');
+  const tail=c=>c.where&&c.where.top?' — '+(c.where.share>=0.8?'почти всё':'больше половины')+' в «'+c.where.top.n.name+'»':'';
+  const head=bad&&good&&good!==list[0]?cap(say(good.fact))+', но '+say(bad.fact)+tail(bad)
+    :cap(say(list[0].fact))+tail(list[0]);
+  return {sev,list,head,todo:(bad||list[0]).todo};
 }
 
 /* lastSev — тяжесть последнего отрисованного инсайта: её читает mascot.js,
    чтобы эмоция огонька совпадала с тем, что пользователь видит в плашке. */
-window.TPINSIGHTS={build,html,yoyStory,overview,OBS,INS_GAP,INS_TREND,INS_CONC,lastSev:'none'};
+window.TPINSIGHTS={yoyStory,overview,cards,lead,blockSummary,whereOf,unitsOf,excess,CARD,SEV_TAG,OBS,INS_GAP,INS_TREND,lastSev:'none'};
 })();
 
 </script>
@@ -7851,6 +7891,48 @@ function blockDev(bk){
    строится (book → demo): утверждать по сгенерированной цифре нельзя. */
 function demoNoteFor(bk,sub){return D.REAL&&devOf(bk,sub)?'1':''}
 
+/* ---------- Вывод блока (20.10) ----------
+   sum — TPINSIGHTS.blockSummary: заголовок, до трёх фактов по номерам и «Что
+   сделать». Фактов нет — «всё спокойно» и что именно проверено. */
+const BK_TAG={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'};
+function conclusion(sum,b,S){
+  let head=sum.head, facts, todo=sum.todo;
+  if(!sum.list.length){
+    const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)), cmp=vis.filter(m=>D.comparable(m.key)||D.kpiFor(m.key,S));
+    head='Заметных отклонений нет';
+    facts=[cmp.length?'Проверили <b>'+cmp.length+' '+U.plural(cmp.length,['метрику','метрики','метрик'])+
+        '</b>: ни одна не отличается от ориентира на '+INS.INS_GAP+'% и больше и не сдвинулась заметно за год.'
+        :'Метрики блока — количества: с базой они не сравниваются, смотрим тренды.',
+      'Ни одна метрика не ухудшается '+INS.INS_TREND+' месяца подряд.'];
+    todo='Отдельных действий не нужно.';
+  }else facts=sum.list.slice(0,3).map(c=>'<b>'+esc(c.head)+'.</b> '+c.body);
+  return '<div class="bk-sum '+sum.sev+'"><div class="bk-tag">Вывод блока · '+BK_TAG[sum.sev]+'</div>'+
+    '<div class="bk-h">'+esc(head)+'</div><ol class="bk-f">'+facts.map(f=>'<li>'+f+'</li>').join('')+'</ol>'+
+    '<div class="bk-do">'+todo+'</div></div>';
+}
+/* Где это происходит: подразделения первого уровня по вкладу в отклонение
+   (люди сверх ориентира); нет отклонения — по значению главной метрики.
+   Меньше 30 человек доли не оцениваются — прочерк. Клик — графики по нему. */
+function wherePanel(sum,mainK,S,rootNode){
+  const c=sum.list.find(x=>x.where&&x.where.tot>0), key=c?c.key:mainK, m=D.METRIC_BY_KEY[key];
+  const small=r=>r.small&&m.fmt==='pct', sv=r=>small(r)||r.v==null?-1e18:r.v;
+  const rows=c?c.where.rows:INS.unitsOf(S).map(u=>({n:u.n,hc:u.hc,small:u.hc<INS.CARD.small,v:D.lastVal(u.lp,key)}))
+    .sort((a,x)=>sv(x)-sv(a));
+  const top=rows.slice(0,5), max=Math.max(1e-9,...top.map(r=>c?r.exc:small(r)?0:Math.abs(r.v||0)));
+  let h='<div class="bk-wh"><div class="bk-wt">Где это происходит</div><div class="bk-ws">'+(c?'Подразделения по вкладу в отклонение: «'+esc(m.name)+'»'
+    :'Подразделения по метрике «'+esc(m.name)+'»')+'</div>';
+  if(!rows.length)h+='<div class="bk-wn">У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры по команде.</div>';
+  top.forEach(r=>{
+    const w=c?r.exc/max:small(r)?0:Math.abs(r.v||0)/max, hd=r.n.head;
+    h+='<button class="bk-wr" data-wsel="'+esc(r.n.path)+'"'+(small(r)?U.tipAttr({title:r.n.name,text:'Меньше '+INS.CARD.small+' человек: доли не оцениваем — слишком мало людей.'}):'')+'>'+
+      '<span class="bk-wu"><b>'+esc(r.n.name)+'</b><span>'+D.fmtInt(r.hc)+' чел'+(hd&&hd.login?' · '+esc(hd.login):'')+'</span></span>'+
+      '<span class="bk-wv">'+(small(r)||r.v==null?'—':D.fmtVal(key,r.v))+'</span>'+
+      '<span class="bk-wb"><i class="'+(c?c.sev:'n')+'" style="width:'+(w*100).toFixed(1)+'%"></i></span></button>';
+  });
+  if(rows.length>top.length)h+='<div class="bk-wn">ещё '+(rows.length-top.length)+' — в таблице подразделений</div>';
+  return h+'<button class="btn in-go bk-wt2" data-blkopen="">Таблица подразделений ▾</button></div>';
+}
+
 /* ---------- рендер детальной вкладки ----------
    view — состояние показа, которое в ссылку не едет: tq — поиск по таблице. */
 function renderBlock(S,expanded,mixOpen,view){
@@ -7910,8 +7992,10 @@ function renderBlock(S,expanded,mixOpen,view){
     '>Детальный дашборд'+U.icoExt()+'</a></div>'+
     '<p>'+esc(b.hint)+' '+cmpTxt+'</p></div>';
 
-  /* 2 · инсайт */
-  h+=INS.html({S,b,mainK,rl,bl,rows:baseRows,rowLeaves:p=>rowLeaves(p,S)});
+  /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
+     это происходит → таблица»). Факты — те же карточки, что на главной. */
+  const sum=INS.blockSummary(b.key,S,rl,bl);
+  h+='<div class="bk-top">'+conclusion(sum,b,S)+wherePanel(sum,mainK,S,rootNode)+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -7946,6 +8030,15 @@ function renderBlock(S,expanded,mixOpen,view){
      таблице, по которой кликнули: без неё «191 → 59» в карточке выглядит
      поломкой отчёта, а не ответом на свой же клик. */
   h+=U.sliceNote(slice,'численность в карточках и таблице — по срезу, база и выводы — по всей команде');
+
+  /* 4b · главы и таблица — свёрнуты строкой с вопросами глав; раскрытие — одно на
+     все блоки (app.js, blkOpen), как и ширина колонок, в ссылку не едет */
+  const det=!!(view&&view.det);
+  h+='<div class="bk-det'+(det?' on':'')+'" id="bk-det"><span class="bk-dt">'+(det?'Графики по главам и таблица подразделений':
+      'Графики по месяцам и таблица подразделений — главы:')+'</span>'+
+    (det?'':mod.subTabs.map(([k,n])=>'<button class="bk-ch" data-blkopen="'+k+'">'+esc(((STY.Q||{})[b.key]||{})[k]||n)+'</button>').join(''))+
+    '<button class="btn in-go" '+(det?'data-blkclose="1">Свернуть ▴':'data-blkopen="">Показать ▾')+'</button></div>';
+  if(!det)return h;
 
   /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
@@ -9009,11 +9102,13 @@ SC.blocks.ai={
 </script>
 <script>
 /* ============================================================================
-   screens/onepager.js — сводка по всем метрикам на одном экране.
-   Семь блоков таблицами, у каждой метрики значение, MoM, YoY, спарклайн и
-   сравнение с базой. Клик по строке раскрывает график «год к году» с
-   разбором «Что видно» (механика HRBP HUB); над таблицами — «Что видно
-   в данных» по отбору целиком.
+   screens/onepager.js — главная: сначала выводы, потом метрики.
+   20.10 (вариант A, одобрен заказчиком): сводка одной фразой, до четырёх
+   карточек выводов («Требует действий», «Посмотреть», «Хорошая новость») с
+   людьми, мини-графиком, «Что сделать» и переходом; «В норме» — строкой.
+   «Все метрики» — прежняя сводка: KPI-карточки и семь блоков таблицами, у
+   каждой метрики значение, MoM, YoY, спарклайн и ориентир; клик по строке
+   раскрывает график «год к году» с разбором «Что видно» (механика HRBP HUB).
    ========================================================================== */
 (function(){
 'use strict';
@@ -9025,30 +9120,6 @@ const esc=U.esc;
    две строки по четыре: поток людей, текучесть, найм, AI и офис. */
 const HERO=['hc_total','hire','attrition','turnover_y','regret','junior_share','ai_penetration','office_att'];
 
-/* Счёт сигналов и сдвиги за год для полосы «Пульс команды».
-   Сигнал — та же развилка, что везде: цель KPI, иначе база; несравнимые и
-   «больше не значит лучше» — без оценки. Сдвиги берём только у относительных
-   метрик: у счётных «2 → 4 человека» даёт +100% и забивает весь список. */
-function pulse(S,rl,bl){
-  let good=0,bad=0,neu=0;const mv=[];
-  D.METRICS.forEach(m=>{
-    if(!D.metricVisible(m.key,S))return;
-    /* пробник: заглушка не сигнал и не сдвиг — цифра сгенерирована */
-    if(D.isStub(m.key))return;
-    const v=D.lastVal(rl,m.key), kpi=D.kpiFor(m.key,S);
-    const st=m.better==='flat'?'neutral':kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,D.lastVal(bl,m.key));
-    if(st==='good')good++;else if(st==='bad')bad++;else neu++;
-    if(m.better==='flat'||m.fmt==='int')return;
-    const yoy=D.deltasOf(rl,m.key).yoy;
-    /* доля без знаменателя в одном из месяцев — сдвига нет, а не «минус всё» */
-    if(v==null||yoy==null)return;
-    const prev=v-yoy;
-    const rel=prev?Math.abs(yoy)/Math.abs(prev):0;
-    if(rel>=0.05)mv.push({key:m.key,name:m.name,block:m.block,cur:v,prev,yoy,rel});
-  });
-  mv.sort((a,b)=>b.rel-a.rel);
-  return {good,bad,neu,movers:mv.slice(0,3)};
-}
 /* Второй ряд карточки-героя у счётной метрики. Пометка «не сравнивается»
    занимала место и ничего не сообщала — три карточки из шести кончались ею.
    Здесь её место отдано контексту из той же метрики: у потока людей — сумма
@@ -9110,16 +9181,51 @@ function about(m,S){
      m.better==='flat'?'Без оценки: больше — не значит лучше':'Без оценки: это количество, оно зависит от размера команды';
   return h+'<div class="op-frs">'+esc(ref)+'.</div>';
 }
-/* Пояснение к «Что видно в данных»: какие пороги и что не оценивается. */
+/* Пояснение к выводам главной: какие пороги и что не оценивается. */
 function obsInfo(S){
-  const O=window.TPINSIGHTS.OBS;
-  return '<span class="info"'+U.tipAttr({title:'Что видно в данных',
-    text:'Главное по вашей команде:',
+  const O=window.TPINSIGHTS.OBS, C=window.TPINSIGHTS.CARD;
+  return '<span class="info"'+U.tipAttr({title:'Как отобраны выводы',
+    text:'Считается правилами по тем же числам, без ИИ. В выводы попадает:',
     list:['метрика хуже или лучше ориентира на '+Math.round(O.dev*100)+'% и больше',
       'заметно изменилась за год',
       'ухудшается '+O.trend+' месяца подряд',
       'всплеск уходов и сдвиг численности'],
-    note:'Ориентир — цель KPI, а где её нет — база «'+D.benchmarkLabel(S)+'».'})+' aria-label="Что попадает в список">i</span>';
+    note:'Ориентир — цель KPI, а где её нет — база «'+D.benchmarkLabel(S)+'». Порядок — по людям сверх ориентира. '+
+      'Подразделение названо, если на него приходится больше половины отклонения; меньше '+C.small+' человек — не оцениваем.'})+
+    ' aria-label="Как отобраны выводы">i</span>';
+}
+
+/* ---------- Карточка вывода ----------
+   c — TPINSIGHTS.cards(): заголовок и «Что сделать» уже собраны там, body —
+   с <b> вокруг людей и имён. Мини-график ведёт к строке метрики в «Все
+   метрики», кнопка — во вкладку блока или сразу к подразделению. */
+function insightCard(c){
+  const go=c.btn.go?' data-opgo="'+esc(c.btn.go)+'"':' data-tab="'+esc(c.btn.tab)+'"';
+  return '<div class="in-card '+c.sev+'"><div class="in-t"><span class="in-tag">'+esc(c.tag)+'</span>'+
+    '<span class="in-blk">· '+esc(c.blockName)+'</span></div>'+
+    '<div class="in-row"><div class="in-txt"><div class="in-h">'+esc(c.head)+'</div>'+
+      (c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
+    (c.chart?'<button class="in-mini" data-opfact="'+esc(c.key)+'"'+U.tipAttr({title:D.METRIC_BY_KEY[c.key].name,
+      text:'Этот год против ориентира.',note:'Нажмите — откроется подробный график.'})+'>'+c.chart+'</button>':'')+'</div>'+
+    '<div class="in-a"><span class="in-do">'+c.todo+'</span><button class="btn in-go"'+go+'>'+esc(c.btn.label)+'</button></div></div>';
+}
+/* «В норме»: живые метрики без выводов — значением в пилюле; клик открывает
+   строку метрики в «Все метрики». Заглушки — отдельной пилюлей «в разработке». */
+function normOf(S,rl,all){
+  const has=new Set(all.map(c=>c.key));
+  return D.METRICS.filter(m=>D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!has.has(m.key)&&D.lastVal(rl,m.key)!=null);
+}
+function normRow(S,rl,ok){
+  const NP=7, dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
+  return '<div class="in-ok"><span class="in-okt"'+U.tipAttr({title:'В норме',
+      text:'Метрики без заметных отклонений от ориентира и от прошлого года. Количества (численность, найм) не оцениваются — показаны значением.'})+
+    '>✓ В норме</span>'+
+    ok.slice(0,NP).map(m=>'<button class="in-pill" data-opfact="'+m.key+'"'+U.tipAttr({title:m.name,text:m.hint})+'>'+
+      esc(m.name)+' <b>'+D.fmtVal(m.key,D.lastVal(rl,m.key))+'</b></button>').join('')+
+    (ok.length>NP?'<button class="in-pill more" data-opall="1">+'+(ok.length-NP)+' '+U.plural(ok.length-NP,['метрика','метрики','метрик'])+'</button>':'')+
+    (dev?'<button class="in-pill dev" data-opall="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
+      dev+' в разработке</button>':'')+
+    (ok.length?'':'<span class="in-none">всё, что оценивается, — в выводах выше</span>')+'</div>';
 }
 
 /* Метка у имени блока: весь блок без источника — «в разработке · этап N»,
@@ -9134,28 +9240,40 @@ function blockDevTag(bk){
 }
 
 /* ---------- рендер ---------- */
-function render(S,openRows){
-  const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
+function render(S,openRows,opAll){
+  const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S), I=window.TPINSIGHTS;
   if(!rl.length)return U.empty('Под эти фильтры никто не попал',
     'Снимите один из фильтров в шапке.');
 
-  let h='<div class="page-h"><h2>Сводка по всем метрикам</h2>'+
-    '<p>Все метрики команды на одном экране и как они изменились за месяц и за год. Сравниваем с базой <b>'+
-    esc(D.benchmarkLabel(S))+'</b>, а где есть цель KPI — с целью. Нажмите на строку — откроется график и что на нём видно.</p></div>';
+  /* 1 · заголовок: за какой месяц, чья команда, по какой численности и с чем сравниваем */
+  const node=D.NODE_BY_PATH[S.unit]||{}, hc=D.lastVal(rl,'hc_total')||0;
+  let h='<div class="page-h"><h2>Главное за '+esc(D.CMP.cur)+'</h2>'+
+    '<p>'+esc(node.name||'Команда')+' · '+D.fmtInt(hc)+' '+U.plural(Math.round(hc),['человек','человека','человек'])+' · '+
+    (S.hcType==='all'?'вся численность':'активная численность')+' · сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
+    '</b> и прошлым годом'+obsInfo(S)+'</p></div>';
 
-  /* «Что видно в данных» сразу под заголовком (HRBP HUB, 13.10): сначала
-     вывод, потом цифры. Раньше здесь была AI-подсказка «Как читать эту
-     сводку» — её пороги и оговорки переехали в ⓘ панели. */
-  h+=U.obsPanel(window.TPINSIGHTS.overview(S,rl,bl),S.aiOpen==='op',obsInfo(S));
+  /* 2 · сводка и карточки выводов. Видно четыре, остальные (до восьми) — по
+     «Ещё N»: та же кнопка data-ai, что раскрывала «Что видно в данных». */
+  const all=I.cards(S,rl,bl,true), list=all.slice(0,I.OBS.max), ok=normOf(S,rl,all), open=S.aiOpen==='op';
+  I.lastSev=list.length?list[0].sev:'none';
+  h+='<div class="in-lead">'+U.aiIco(true)+'<div class="in-lt">'+I.lead(S,rl,list,ok.length)+'</div></div>';
+  if(list.length){
+    h+='<div class="in-grid">'+(open?list:list.slice(0,I.CARD.show)).map(insightCard).join('')+'</div>';
+    if(list.length>I.CARD.show)h+='<button class="in-more-c" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+(list.length-I.CARD.show)+' '+
+      U.plural(list.length-I.CARD.show,['вывод','вывода','выводов'])+' ▾')+'</button>';
+  }
+  h+=normRow(S,rl,ok);
+
+  /* 3 · «Все метрики» — прежняя сводка, по кнопке. Раскрытие — состояние показа
+     (app.js, opAll), в ссылку не едет. */
+  h+='<div class="in-all"><span>Все метрики — карточки и таблицы по блокам: значение, изменение за месяц и год, ориентир</span>'+
+    '<button class="btn in-go" data-opall="'+(opAll?'0':'1')+'">'+(opAll?'Свернуть все метрики ▴':'Показать все метрики ▾')+'</button></div>';
+  if(!opAll)return h;
 
   /* Готовность к живым данным (14.10): сколько метрик уже считается из
      источника и что подключать дальше — одной строкой, план раскрывается. */
   const live=D.METRICS.filter(m=>!D.isDev(m.key)).length;
   if(live<D.METRICS.length)h+=U.devSummary({live,total:D.METRICS.length,plan:D.DEV_PLAN});
-
-  /* Пульс команды: счёт сигналов и главные сдвиги за год — до таблиц,
-     чтобы первые пять секунд на экране отвечали «что изменилось». */
-  h+=U.pulseStrip(pulse(S,rl,bl));
 
   /* KPI-стрип: только выбранные метрики. hc_total и hc_active выключить нельзя,
      поэтому стрип не может опустеть целиком. */
@@ -9247,7 +9365,7 @@ function render(S,openRows){
   return h;
 }
 
-SC.onepager={render,HERO};
+SC.onepager={render,HERO,insightCard};
 })();
 
 </script>
@@ -9305,6 +9423,10 @@ let tq='';
    на все блоки: «мне нужна таблица» — предпочтение, а не свойство
    вкладки. В ссылку не едет, как и раскрытия. */
 let splitMode='both', splitShare=null;
+/* Главная и вкладка блока «сначала выводы» (20.10): «Все метрики» на главной и
+   главы с таблицей во вкладке блока свёрнуты, пока их не раскрыли. Состояние
+   показа, одно на все блоки, в ссылку не едет. */
+let opAll=false, blkOpen=false;
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -9424,6 +9546,7 @@ function arrive(){
       itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType,hcType:D.DEFAULT_STATE.hcType});
     const ui=STORE.ui||{};
     tq=ui.tq||'';splitMode=ui.splitMode==='charts'?'charts':'both';splitShare=ui.splitShare!=null?ui.splitShare:null;
+    opAll=!!ui.opAll;blkOpen=!!ui.blkOpen;
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;
@@ -9749,7 +9872,6 @@ function navOpen(on){
 function enhanceA11y(){
   $$('.nav-i').forEach(x=>{x.setAttribute('aria-current',x.classList.contains('active')?'page':'false')});
   $$('.mrow,.urow,.mx-cell').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button')});
-  $$('.ai-h').forEach(x=>{x.tabIndex=0;x.setAttribute('role','button');x.setAttribute('aria-expanded',String(S.aiOpen===x.dataset.ai))});
 }
 
 /* ---------- роутер ----------
@@ -9781,8 +9903,8 @@ function render(keepScroll,quiet){
   G.reset();
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
-    ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
+    ? SC.onepager.render(S,openRows,opAll)
+    : SC.renderBlock(S,expanded,mixOpen,{tq,det:blkOpen,split:{mode:splitMode,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   /* после смены вкладки или главы (S.subTab подставляется при сборке) */
@@ -9801,7 +9923,7 @@ function render(keepScroll,quiet){
   else if(keepScroll)window.scrollTo(0,y);
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
-  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
+  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare,opAll,blkOpen}}
 }
 
 /* Крест в матрицах (итерация 32, фидбэк 12.10): строку подсвечивает CSS
@@ -9887,6 +10009,8 @@ function applySplit(box,share){
   if(gut)gut.setAttribute('aria-valuenow',String(Math.round(share*100)));
 }
 function relayout(){G.remeasure($('#view'));stickTotals()}
+/* к раскрытым главам блока: строка «Графики и таблица» встаёт под шапку */
+function toDetails(){const el=$('#bk-det');if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'})}
 let _sd=null;
 on(document,'pointerdown',e=>{
   const gut=e.target.closest&&e.target.closest('[data-split]');
@@ -9988,6 +10112,20 @@ on(document,'click',e=>{
   if(up&&DRAFT){DRAFT.unit=up.dataset.upick;
     const nm=(D.PICK.info(DRAFT.unit)||{}).name;if(nm&&!D.NODE_BY_PATH[DRAFT.unit])unitNames[DRAFT.unit]=nm;
     paintOpts();return}
+
+  /* выводы главной и блока: «Все метрики», переход к подразделению, главы */
+  const oa=t.closest('[data-opall]');
+  if(oa){opAll=oa.dataset.opall==='1';render(true);return}
+  const og=t.closest('[data-opgo]');
+  if(og){
+    const [bk,p]=og.dataset.opgo.split('|');
+    S.tab=bk;S.subTab=null;S.mainMetric=null;S.selNode=p;blkOpen=true;openRows.clear();render();toDetails();return;
+  }
+  const bo=t.closest('[data-blkopen]');
+  if(bo){blkOpen=true;if(bo.dataset.blkopen)S.subTab=bo.dataset.blkopen;render(true);toDetails();return}
+  if(t.closest('[data-blkclose]')){blkOpen=false;render(true);return}
+  const ws=t.closest('[data-wsel]');
+  if(ws){S.selNode=ws.dataset.wsel;blkOpen=true;render(true);toDetails();return}
 
   /* навигация по разделам */
   const tab=t.closest('[data-tab]');
@@ -10098,7 +10236,7 @@ on(document,'click',e=>{
   /* факт «Что видно в данных»: раскрыть строку его метрики и подвести к ней */
   const of=t.closest('[data-opfact]');
   if(of){
-    const k=of.dataset.opfact;openRows.add(k);render(true);
+    const k=of.dataset.opfact;opAll=true;openRows.add(k);render(true);
     const r=ROOTEL.querySelector('.mrow[data-metric="'+k+'"]');
     if(r)r.scrollIntoView({behavior:'smooth',block:'center'});
     return;
@@ -10153,7 +10291,7 @@ on(document,'mouseout',e=>lgHover(e,false));
 on(document,'focusin',e=>lgHover(e,true));
 on(document,'focusout',e=>lgHover(e,false));
 on(document,'keydown',e=>{
-  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.ai-h,.mx-cell,.obs-li')){e.preventDefault();e.target.click()}
+  if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.mx-cell')){e.preventDefault();e.target.click()}
   /* У SVGElement может не быть .click() — зовём обработчик напрямую.
      После перерисовки узла больше нет, поэтому фокус возвращаем вручную. */
   if((e.key==='Enter'||e.key===' ')&&e.target.closest){

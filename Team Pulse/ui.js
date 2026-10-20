@@ -293,20 +293,6 @@ function targetCell(key,val,baseVal,kpi){
   return '<div class="tgt"><b>'+D.fmtVal(key,baseVal)+'</b><span class="sig-chip '+st+'">'+lbl+'</span></div>';
 }
 
-/* ---------- Плашка предрасчитанного инсайта ----------
-   lead приходит с разметкой (<b> вокруг цифр). В свёрнутом виде его нельзя
-   просто экранировать — тогда в строке видны сами теги. Снимаем теги,
-   оставляя текст; в раскрытом виде разметка работает как задумано. */
-function aiBlock(id,title,lead,bullets,open,cls){
-  const plain=String(lead).replace(/<[^>]+>/g,'');
-  return '<div class="ai'+(cls?' '+cls:'')+'"><div class="ai-h" data-ai="'+id+'">'+
-    aiIco(open)+'<span class="ai-t">'+esc(title)+'</span>'+
-    '<span class="ai-lead">'+(open?'':esc(plain))+'</span>'+
-    '<span class="ai-tag">'+(open?'свернуть':'подробнее')+'</span>'+
-    '<span class="ai-caret">'+(open?'▲':'▼')+'</span></div>'+
-    (open?'<div class="ai-b">'+lead+'<ul>'+bullets.map(b=>'<li>'+b+'</li>').join('')+'</ul></div>':'')+'</div>';
-}
-
 /* ---------- Значок AI-плашки ----------
    Раньше здесь был квадратик с буквами AI. Теперь — фиолетовый огонёк с
    повязкой AI: подсказки по всему отчёту подаёт один и тот же персонаж,
@@ -355,24 +341,6 @@ function opStory(chart,st,about){
   return '<div class="op-story" data-oplink="1"><div class="op-stc">'+chart+'</div><div class="op-sts">'+
     (l?'<div class="op-sth">Что видно</div>'+l:'')+
     '<div class="op-sta"><div class="op-sth">О метрике</div>'+about+'</div></div></div>';
-}
-/* ---------- «Что видно в данных» над таблицами One-pager ----------
-   HRBP HUB: верхнеуровневые факты, по одному на метрику, а не мешанина
-   юнитов. Первые три видны сразу, остальные — по «Ещё N». Клик по факту
-   раскрывает строку его метрики: там график и разбор по пунктам. */
-const OBS_SEV={high:'требует действий',mid:'стоит внимания',good:'хорошие новости'};
-function obsPanel(list,open,info){
-  const sev=list.length?list[0].sev:'none';
-  let h='<div class="ai insight obs sev-'+sev+'"><div class="obs-h">'+aiIco(false)+
-    '<span class="ai-t">Что видно в данных</span>'+(info||'')+
-    (list.length?'<span class="ai-sev '+sev+'">'+OBS_SEV[sev]+'</span>':'<span class="obs-none">Заметных отклонений нет.</span>')+'</div>';
-  if(list.length){
-    h+='<ul class="obs-list">'+(open?list:list.slice(0,3)).map(x=>
-      '<li class="obs-li" data-opfact="'+esc(x.key)+'" tabindex="0" role="button"><i class="obs-dot '+x.sev+'"></i>'+
-      '<div><b>'+esc(x.lead)+'.</b> '+(x.body?esc(x.body)+' ':'')+'<span class="obs-go">график →</span></div></li>').join('')+'</ul>';
-    if(list.length>3)h+='<button class="obs-more" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+(list.length-3)+' ▾')+'</button>';
-  }
-  return h+'</div>';
 }
 function kpiCard(o){
   return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.tag||'')+(o.q||'')+'</div>'+
@@ -850,15 +818,6 @@ function empty(title,text){
 }
 
 /* ---------- Легенда светофора ---------- */
-/* ============================================================================
-   pulseStrip — «Пульс команды»: одна полоса над KPI, отвечающая на два вопроса
-   до чтения таблиц. Слева — сколько метрик сейчас лучше и хуже своего
-   ориентира (цель KPI или база), полосой с тем же светофором, что у пилюль.
-   Справа — главные сдвиги за год: относительные метрики с самым большим
-   изменением к тому же месяцу прошлого года. Клик по сдвигу ведёт в блок.
-
-   o = {good, bad, neu, movers:[{key,name,block,cur,prev,yoy}]}
-   ========================================================================== */
 /* ---------- Мини-навигация One-pager ----------
    Семь таблиц подряд — длинный скролл без ориентиров. Липкая полоса блоков
    с точкой худшего сигнала: красная — есть метрика хуже ориентира, зелёная —
@@ -871,27 +830,6 @@ function blockNav(items){
         :it.good?'Хуже ориентира — ничего. Лучше — '+it.good+'.':'Всё на уровне ориентира или без оценки.'})+'>'+
     '<span class="sig '+it.state+'"></span>'+esc(it.name)+
     (it.bad?'<span class="op-nav-n">'+it.bad+'</span>':'')+'</button>').join('')+'</nav>';
-}
-function pulseStrip(o){
-  const tot=Math.max(1,o.good+o.bad+o.neu);
-  const seg=(n,c)=>n?'<i class="'+c+'" style="flex:'+n+'"></i>':'';
-  let h='<div class="pulse-strip"><div class="ps-score">'+
-    '<div class="ps-h">Сигналы · '+esc(D.CMP.cur)+'</div>'+
-    '<div class="ps-num"><b class="g">'+o.good+'</b><span>лучше ориентира</span>'+
-      '<b class="r">'+o.bad+'</b><span>хуже</span>'+
-      '<b class="n">'+o.neu+'</b><span>на уровне или без оценки</span></div>'+
-    '<div class="ps-bar" role="img" aria-label="'+o.good+' лучше, '+o.bad+' хуже, '+o.neu+' без сигнала из '+tot+'">'+
-      seg(o.good,'g')+seg(o.bad,'r')+seg(o.neu,'n')+'</div></div>';
-  h+='<div class="ps-movers"><div class="ps-h">Главные сдвиги за год<span class="ps-sub">'+esc(D.CMP.yoy)+'</span></div>';
-  if(!o.movers.length)h+='<div class="ps-empty">Сдвигов больше ±5% к прошлому году нет.</div>';
-  o.movers.forEach(mv=>{
-    h+='<button class="ps-mv" data-tab="'+mv.block+'"'+tipAttr({title:mv.name,
-        text:'Было '+D.fmtVal(mv.key,mv.prev)+' год назад, стало **'+D.fmtVal(mv.key,mv.cur)+'**.',note:'Клик — открыть блок.'})+'>'+
-      '<span class="ps-n">'+esc(mv.name)+'</span>'+
-      '<span class="ps-v">'+D.fmtVal(mv.key,mv.prev)+' → <b>'+D.fmtVal(mv.key,mv.cur)+'</b></span>'+
-      deltaChip(mv.key,mv.yoy)+'</button>';
-  });
-  return h+'</div></div>';
 }
 function trafficLegend(){
   /* два цвета и серый: жёлтого в светофоре нет. «На уровне ±5%» и «без оценки»
@@ -974,7 +912,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,pulseStrip,opStory,obsPanel,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiBlock,aiIco,kpiCard,
+window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
