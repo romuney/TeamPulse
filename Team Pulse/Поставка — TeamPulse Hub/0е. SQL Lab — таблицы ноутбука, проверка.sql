@@ -1,9 +1,17 @@
 SELECT section, item, value
 -- ============================================================================
 -- 0е. prod_proteus.teampulse_hub_* — четыре таблицы ноутбука «1. Helicopter — ноут TeamPulse
--- Hub.yaml» (meta, unit, series, mix), 19.10.2026. ОДИН запрос. SQL Lab, база CROSS:
--- вставить целиком, выполнить (Ctrl+Enter), ответ — «Скопировать в буфер» или CSV, в чат.
--- Строк в ответе — около 60.
+-- Hub.yaml» (meta, unit, series, mix), 19.10.2026, версия 20.10 (после поставки 36). ОДИН запрос.
+-- SQL Lab, база CROSS: вставить целиком, выполнить (Ctrl+Enter), ответ — «Скопировать в буфер»
+-- или CSV, в чат. Строк в ответе — около 60.
+--
+-- 20.10, после первого ответа: с поставки 36 у series и mix есть тип численности act_cd
+-- («Активная» / «Прочие»), у series — найм в компанию hco_cnt, а ССЧ считается по численности
+-- строки. Первая версия запроса act_cd не знала: на таблицах нового ноутбука она показывала
+-- «дубли узел × месяц × срез» и «ССЧ ≠» там, где их нет (две строки на срез — активная и
+-- прочие). Теперь act_cd и hco_cnt — матчером, как в файле 2а: есть колонка — проверка по ней,
+-- нет (ноутбук до 20.10) — как раньше. Добавлено: тип численности у корня и сходимость
+-- водопада с начала года отдельно по активной и по всей численности.
 --
 -- Зачем. Разведка 19.10 восстановила схему таблиц по SQL датасета 174609 (файл 2а): число
 -- строк, физические типы и период оттуда не видны, а в каталоге DataDetective таблиц нет.
@@ -13,9 +21,10 @@ SELECT section, item, value
 --   3 дерево   — узлы по уровням, корни, родитель без узла, путь против уровня и ключа,
 --                число детей, логины руководителей;
 --   4 ряды     — строки и месяцы series, месяцы вне сетки, узлы без справочника, дубли,
---                значения покраски / IT / штата, численность компании по месяцам, активная ≤
---                общей, regret ≤ увольнений, ССЧ = (активная + прошлый месяц) / 2, дети ≤
---                родителя, переводы у корня, мониторинг, посещаемость, T-рост;
+--                значения покраски / IT / штата / типа численности, численность компании по
+--                месяцам, активная ≤ общей, regret ≤ увольнений, ССЧ = (численность + прошлый
+--                месяц) / 2, дети ≤ родителя, водопад у корня с начала года (активная и вся:
+--                найм, отток, переводы, «прочие изменения»), мониторинг, посещаемость, T-рост;
 --   5 разрезы  — каждый ключ mx_key: сколько строк и значений, доля пустых, сходится ли сумма с
 --                series (численность — последний месяц, x* — увольнения с начала года).
 --
@@ -53,7 +62,12 @@ WITH
            toFloat64(ifNull(pnor_cnt, 0)) AS pn, toFloat64(ifNull(plow_cnt, 0)) AS pl,
            toFloat64(ifNull(phig_cnt, 0)) AS ph, toFloat64(ifNull(pgry_cnt, 0)) AS pg,
            toFloat64(ifNull(wday_amt, 0)) AS wd, toFloat64(ifNull(ovis_amt, 0)) AS ov,
-           toFloat64(ifNull(gapr_cnt, 0)) AS ga, toFloat64(ifNull(gdec_cnt, 0)) AS gd
+           toFloat64(ifNull(gapr_cnt, 0)) AS ga, toFloat64(ifNull(gdec_cnt, 0)) AS gd,
+           -- с 20.10: тип численности и найм в компанию; нет колонки — «∅» и найм как раньше
+           ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY toString],
+             CAST(['∅'], 'Array(Nullable(String))')), 1), '∅') AS ty,
+           ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY toFloat64],
+             [toFloat64(hire_cnt)]), 1), 0) AS hk
     FROM prod_proteus.teampulse_hub_series
   ),
   mx AS (
@@ -131,7 +145,17 @@ FROM (SELECT (SELECT concat('pnor_cnt ', toTypeName(pnor_cnt), ' · plow_cnt ', 
                       ' · gapr_cnt ', toTypeName(gapr_cnt), ' · gdec_cnt ', toTypeName(gdec_cnt))
         FROM prod_proteus.teampulse_hub_series LIMIT 1) AS v0)
 UNION ALL
-SELECT '2 типы' AS section, 6 AS ord, 'mix' AS item,
+SELECT '2 типы' AS section, 6 AS ord, 'с 20.10: series.act_cd (тип численности) · series.hco_cnt (найм в компанию) · mix.act_cd' AS item,
+       v0 AS value
+FROM (SELECT concat(
+        (SELECT if(length(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY toString])) > 0, 'есть', 'НЕТ')
+         FROM prod_proteus.teampulse_hub_series LIMIT 1), ' · ',
+        (SELECT if(length(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY toFloat64])) > 0, 'есть', 'НЕТ')
+         FROM prod_proteus.teampulse_hub_series LIMIT 1), ' · ',
+        (SELECT if(length(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY toString])) > 0, 'есть', 'НЕТ')
+         FROM prod_proteus.teampulse_hub_mix LIMIT 1)) AS v0)
+UNION ALL
+SELECT '2 типы' AS section, 7 AS ord, 'mix' AS item,
        v0 AS value
 FROM (SELECT (SELECT concat('node_rk ', toTypeName(node_rk), ' · paint_cd ', toTypeName(paint_cd), ' · it_cd ', toTypeName(it_cd),
                       ' · staff_cd ', toTypeName(staff_cd), ' · mx_key ', toTypeName(mx_key), ' · mx_val ', toTypeName(mx_val),
@@ -183,9 +207,9 @@ SELECT '4 ряды' AS section, 3 AS ord, 'узлов series нет в unit · �
 FROM (SELECT concat(toString((SELECT uniqExact(u) FROM sr WHERE u NOT IN (SELECT id FROM un))), ' · ',
               toString((SELECT count() FROM un WHERE id NOT IN (SELECT u FROM sr WHERE m = (SELECT lm FROM cal))))) AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 4 AS ord, 'дублей узел × месяц × срез (ждали 0)' AS item,
+SELECT '4 ряды' AS section, 4 AS ord, 'дублей узел × месяц × срез × тип численности (ждали 0)' AS item,
        v0 AS value
-FROM (SELECT toString((SELECT count() FROM (SELECT u, m, pa, it, st FROM sr GROUP BY u, m, pa, it, st HAVING count() > 1))) AS v0)
+FROM (SELECT toString((SELECT count() FROM (SELECT u, m, pa, it, st, ty FROM sr GROUP BY u, m, pa, it, st, ty HAVING count() > 1))) AS v0)
 UNION ALL
 SELECT '4 ряды' AS section, 5 AS ord, 'покраска paint_cd: значение ‰ (последний месяц, корень)' AS item,
        v0 AS value
@@ -205,41 +229,66 @@ FROM (SELECT (SELECT arrayStringConcat(arrayMap(x -> concat(x.2, ' ', toString(x
         FROM (SELECT st AS v1, round(1000 * sum(hc) / nullIf((SELECT H FROM co), 0)) AS p1 FROM sr
               WHERE u = (SELECT r FROM cal) AND m = (SELECT lm FROM cal) GROUP BY st)) AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 8 AS ord, 'численность компании по месяцам сетки, ‰ последнего (месяц:‰)' AS item,
+SELECT '4 ряды' AS section, 8 AS ord, 'тип численности act_cd: значение ‰ (∅ — колонки нет, ноутбук до 20.10)' AS item,
+       v0 AS value
+FROM (SELECT (SELECT arrayStringConcat(arrayMap(x -> concat(x.2, ' ', toString(x.1)), arrayReverseSort(groupArray((p1, v1)))), ' · ')
+        FROM (SELECT ty AS v1, round(1000 * sum(hc) / nullIf((SELECT H FROM co), 0)) AS p1 FROM sr
+              WHERE u = (SELECT r FROM cal) AND m = (SELECT lm FROM cal) GROUP BY ty)) AS v0)
+UNION ALL
+SELECT '4 ряды' AS section, 9 AS ord, 'численность компании по месяцам сетки, ‰ последнего (месяц:‰)' AS item,
        v0 AS value
 FROM (SELECT (SELECT arrayStringConcat(arrayMap(x -> concat(formatDateTime(x.1, '%y-%m'), ':', toString(x.2)), arraySort(groupArray((m1, p1)))), ' ')
         FROM (SELECT m AS m1, round(1000 * sum(hc) / nullIf((SELECT H FROM co), 0)) AS p1 FROM sr
               WHERE u = (SELECT r FROM cal) AND m BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal) GROUP BY m)) AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 9 AS ord, 'строк: активная > общей · regret > увольнений · отрицательных мер' AS item,
+SELECT '4 ряды' AS section, 10 AS ord, 'строк: активная > общей · regret > увольнений · отрицательных мер' AS item,
        v0 AS value
 FROM (SELECT (SELECT concat(toString(countIf(ac > hc + 0.001)), ' · ', toString(countIf(rg > fi + 0.001)), ' · ',
                       toString(countIf(least(hc, ac, av, hi, fi, rg, ti, tt, pn, pl, ph, pg, wd, ov, ga, gd) < 0)))
         FROM sr) AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 10 AS ord, 'ССЧ последнего месяца ≠ (активная + прошлый месяц) / 2: строк из' AS item,
+SELECT '4 ряды' AS section, 11 AS ord, 'ССЧ последнего месяца ≠ (численность + прошлый месяц) / 2 (ноутбук с 20.10) · ≠ (активная + прошлый) / 2 (до 20.10): строк из' AS item,
        v0 AS value
-FROM (SELECT (SELECT concat(toString(countIf(abs(a.av - (a.ac + ifNull(b.ac, 0)) / 2) > 0.01)), ' из ', toString(count()))
-        FROM (SELECT u, pa, it, st, av, ac FROM sr WHERE m = (SELECT lm FROM cal)) AS a
-        LEFT JOIN (SELECT u AS bu, pa AS bpa, it AS bit, st AS bst, ac FROM sr WHERE m = addMonths((SELECT lm FROM cal), -1)) AS b
-          ON b.bu = a.u AND b.bpa = a.pa AND b.bit = a.it AND b.bst = a.st) AS v0)
+FROM (SELECT (SELECT concat(toString(countIf(abs(a.av - (a.hc + ifNull(b.hc, 0)) / 2) > 0.01)), ' · ',
+                      toString(countIf(abs(a.av - (a.ac + ifNull(b.ac, 0)) / 2) > 0.01)), ' из ', toString(count()))
+        FROM (SELECT u, pa, it, st, ty, av, hc, ac FROM sr WHERE m = (SELECT lm FROM cal)) AS a
+        LEFT JOIN (SELECT u AS bu, pa AS bpa, it AS bit, st AS bst, ty AS bty, hc, ac FROM sr WHERE m = addMonths((SELECT lm FROM cal), -1)) AS b
+          ON b.bu = a.u AND b.bpa = a.pa AND b.bit = a.it AND b.bst = a.st AND b.bty = a.ty) AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 11 AS ord, 'узлов, у которых дети вместе больше самого узла (последний месяц; ждали 0)' AS item,
+SELECT '4 ряды' AS section, 12 AS ord, 'узлов, у которых дети вместе больше самого узла (последний месяц; ждали 0)' AS item,
        v0 AS value
 FROM (SELECT toString((SELECT count() FROM
                    (SELECT un.pid AS pp, sum(nl.nh) AS kh FROM un INNER JOIN nl ON nl.nu = un.id WHERE un.pid != '' GROUP BY un.pid) AS k
                    INNER JOIN nl AS p ON p.nu = k.pp
                  WHERE k.kh > p.nh + 0.5)) AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 12 AS ord, 'корень с начала года: найм · увольнения · переводы в · из (‰)' AS item,
+SELECT '4 ряды' AS section, 13 AS ord, 'водопад у корня с начала года, активная: изменение численности · найм · отток · переводы в · из · прочие изменения (‰; найм — по методологии, hire_cnt)' AS item,
        v0 AS value
-FROM (SELECT (SELECT concat(toString(round(1000 * sum(hi) / nullIf((SELECT H FROM co), 0))), ' · ',
-                      toString(round(1000 * sum(fi) / nullIf((SELECT H FROM co), 0))), ' · ',
-                      toString(round(1000 * sum(ti) / nullIf((SELECT H FROM co), 0))), ' · ',
-                      toString(round(1000 * sum(tt) / nullIf((SELECT H FROM co), 0))))
-        FROM sr WHERE u = (SELECT r FROM cal) AND m BETWEEN toStartOfYear((SELECT lm FROM cal)) AND (SELECT lm FROM cal)) AS v0)
+FROM (SELECT (SELECT concat(toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM cal)) - sumIf(hc, m = addMonths(toStartOfYear((SELECT lm FROM cal)), -1)))
+                                     / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * sumIf(hi, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * sumIf(fi, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * sumIf(ti, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * sumIf(tt, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM cal)) - sumIf(hc, m = addMonths(toStartOfYear((SELECT lm FROM cal)), -1))
+                                             - sumIf(hi - fi + ti - tt, m >= toStartOfYear((SELECT lm FROM cal))))
+                                     / nullIf((SELECT H FROM co), 0))))
+        FROM sr WHERE u = (SELECT r FROM cal) AND m BETWEEN addMonths(toStartOfYear((SELECT lm FROM cal)), -1) AND (SELECT lm FROM cal) AND ty = 'Активная') AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 13 AS ord, 'корень, последний месяц: норма + недоработка + переработка + Gray к численности ‰ · посещаемость % · T-рост одобрено %' AS item,
+SELECT '4 ряды' AS section, 14 AS ord, 'водопад у корня с начала года, вся численность: изменение численности · найм · отток · переводы в · из · прочие изменения (‰; найм — в компанию, hco_cnt)' AS item,
+       v0 AS value
+FROM (SELECT (SELECT concat(toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM cal)) - sumIf(hc, m = addMonths(toStartOfYear((SELECT lm FROM cal)), -1)))
+                                     / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * sumIf(hk, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * sumIf(fi, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * sumIf(ti, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * sumIf(tt, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM cal)) - sumIf(hc, m = addMonths(toStartOfYear((SELECT lm FROM cal)), -1))
+                                             - sumIf(hk - fi + ti - tt, m >= toStartOfYear((SELECT lm FROM cal))))
+                                     / nullIf((SELECT H FROM co), 0))))
+        FROM sr WHERE u = (SELECT r FROM cal) AND m BETWEEN addMonths(toStartOfYear((SELECT lm FROM cal)), -1) AND (SELECT lm FROM cal)) AS v0)
+UNION ALL
+SELECT '4 ряды' AS section, 15 AS ord, 'корень, последний месяц: норма + недоработка + переработка + Gray к численности ‰ · посещаемость % · T-рост одобрено %' AS item,
        v0 AS value
 FROM (SELECT (SELECT concat(toString(round(1000 * sum(pn + pl + ph + pg) / nullIf((SELECT H FROM co), 0))), ' · ',
                       toString(round(100 * sum(ov) / nullIf(sum(wd), 0), 1)), ' · ',
