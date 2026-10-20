@@ -64,9 +64,9 @@ WITH
            toFloat64(ifNull(wday_amt, 0)) AS wd, toFloat64(ifNull(ovis_amt, 0)) AS ov,
            toFloat64(ifNull(gapr_cnt, 0)) AS ga, toFloat64(ifNull(gdec_cnt, 0)) AS gd,
            -- с 20.10: тип численности и найм в компанию; нет колонки — «∅» и найм как раньше
-           ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY toString],
+           ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY(toString)],
              CAST(['∅'], 'Array(Nullable(String))')), 1), '∅') AS ty,
-           ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY toFloat64],
+           ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY(toFloat64)],
              [toFloat64(hire_cnt)]), 1), 0) AS hk
     FROM prod_proteus.teampulse_hub_series
   ),
@@ -148,11 +148,11 @@ UNION ALL
 SELECT '2 типы' AS section, 6 AS ord, 'с 20.10: series.act_cd (тип численности) · series.hco_cnt (найм в компанию) · mix.act_cd' AS item,
        v0 AS value
 FROM (SELECT concat(
-        (SELECT if(length(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY toString])) > 0, 'есть', 'НЕТ')
+        (SELECT if(length(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY(toString)])) > 0, 'есть', 'НЕТ')
          FROM prod_proteus.teampulse_hub_series LIMIT 1), ' · ',
-        (SELECT if(length(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY toFloat64])) > 0, 'есть', 'НЕТ')
+        (SELECT if(length(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY(toFloat64)])) > 0, 'есть', 'НЕТ')
          FROM prod_proteus.teampulse_hub_series LIMIT 1), ' · ',
-        (SELECT if(length(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY toString])) > 0, 'есть', 'НЕТ')
+        (SELECT if(length(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY(toString)])) > 0, 'есть', 'НЕТ')
          FROM prod_proteus.teampulse_hub_mix LIMIT 1)) AS v0)
 UNION ALL
 SELECT '2 типы' AS section, 7 AS ord, 'mix' AS item,

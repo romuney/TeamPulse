@@ -315,7 +315,9 @@ def gate_file(path, opts):
     # одна и та же причина в нескольких вариантах — одной строкой (место — из первого варианта)
     for key, names in seen.items():
         line = '%s  [%s]' % (first[key], ', '.join(names))
-        (rep['warnings'] if key.startswith('нет sqlglot') else rep['errors']).append(line)
+        # 20.10: без sqlglot гейт не проверяет главное — это ошибка, а не предупреждение (датасет 2а TeamPulse
+        # прошёл «чисто» без sqlglot и не сохранился на `APPLY toString`, CH-32)
+        rep['errors'].append(line)
     return rep
 
 

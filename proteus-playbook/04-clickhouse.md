@@ -562,12 +562,33 @@
 - **Образец:** HRBP_HUB:stand/same.py (832 случая) и HRBP_HUB:stand/scale.py; detail_list:docs/analysis.md (замеры
   отвергнутых вариантов).
 
+### CH-32. Пиши матчер необязательной колонки как `COLUMNS('^c$') APPLY(f)` — со скобками
+- **Почему:** 20.10 TeamPulse: датасет 2а не сохранился — «Некорректный SQL запрос: →… fdb AS ( SELECT ifNull(…←».
+  Причина — `[COLUMNS('^act_cd$') APPLY toString]`: ClickHouse 24.8 принимает `APPLY f` без скобок, а проверка форка
+  при сохранении (её модель — sqlglot 25–30, SP-04) — нет. `APPLY(toString)` принимают оба. Гейт сохранения тогда
+  не поймал отказ: в его окружении не было sqlglot, и проверка ушла в предупреждение.
+- **Как:**
+  - Необязательная колонка (таблица до и после правки ноутбука) — матчер в массиве, функция — в скобках:
+
+    ```sql
+    ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY(toString)],
+      CAST(['∅'], 'Array(Nullable(String))')), 1), '∅')
+    ```
+
+  - Нет колонки — массив пуст и берётся запасное значение. Без `APPLY` — Int64 и Float64 в одном массиве дают
+    «no supertype» (CH-13).
+- **Проверка:** `kit/sqlgate.py` с sqlglot (без него гейт теперь — ошибка); chdb на таблице с колонкой и без, оба
+  анализатора.
+- **Уверенность:** [бой] — отказ 20.10; [стенд 24.8] — обе формы, оба анализатора.
+- **Образец:** TeamPulse:Поставка — TeamPulse Hub/2а (AC, HCO), 2 (найм), 0е (`ty`, `hk`).
+
 ---
 
 ## Код ошибки ClickHouse → правило
 
 | Что видно (бой или стенд) | Вероятная причина | Правило |
 |---|---|---|
+| «Некорректный SQL запрос: →…←» у `COLUMNS(…) APPLY f` | `APPLY` без скобок — форк не разбирает | CH-32 |
 | Code 386 «There is no supertype for types …» | ветки if / multiIf или элементы массива разных типов | CH-13 |
 | Code 349 «Cannot convert NULL value to non-Nullable type» | NULL из Nullable-выгрузки дошёл до CAST; признак пары при `join_use_nulls` | CH-14 |
 | Code 70 CANNOT_CONVERT_TYPE | CAST(NULL AS Array…), Nullable-ключ | CH-14, CH-17 |

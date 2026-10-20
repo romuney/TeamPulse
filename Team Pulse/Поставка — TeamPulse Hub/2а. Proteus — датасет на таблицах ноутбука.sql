@@ -57,7 +57,7 @@
     вместо списка AlwaysTrueObject — у него нет ни длины, ни «+». -#}
 {% set unit_req = [] %}{% for v in (filter_values('unit_f') or []) %}{% if v|string|trim != '' and unit_req|length < 1 %}{% set _ = unit_req.append(v|string|trim) %}{% endif %}{% endfor %}
 {#- Тип численности строки: act_cd матчером; колонки нет — «∅» (строка проходит любой фильтр типа). -#}
-{% set AC = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY toString], CAST(['∅'], 'Array(Nullable(String))')), 1), '∅')" %}
+{% set AC = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY(toString)], CAST(['∅'], 'Array(Nullable(String))')), 1), '∅')" %}
 {% set CUTS = [['paint', 'paint_f', "ifNull(paint_cd, '-')"], ['it', 'it_f', "ifNull(it_cd, '-')"], ['staff', 'staff_f', "ifNull(staff_cd, '-')"], ['act', 'act_f', AC]] %}
 {% set F = {} %}
 {% for c in CUTS %}{% set vals = [] %}{% for v in (filter_values(c[1]) or []) %}{% if v|string != '' and vals|length < 20 %}{% set _ = vals.append(v|string) %}{% endif %}{% endfor %}{% set _ = F.update({c[0]: vals}) %}{% endfor %}
@@ -67,7 +67,7 @@
 {% set act_only = F['act']|length == 1 and (F['act'][0]|lower) == 'активная' %}
 {#- Найм: на активной — по методологии HR (hire_cnt: в компанию + из учебной группы в боевую +
     стажёры в штат), на всей — найм в компанию с любым типом (hco_cnt; нет колонки — hire_cnt). -#}
-{% set HCO = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY toFloat64], [toFloat64(hire_cnt)]), 1), 0)" %}
+{% set HCO = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY(toFloat64)], [toFloat64(hire_cnt)]), 1), 0)" %}
 {#- Строка проходит фильтры: значение в выбранном списке без учёта регистра; не выбран — 1. -#}
 {% macro cond() -%}
 {%- set parts = [] -%}

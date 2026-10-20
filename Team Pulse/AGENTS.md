@@ -2258,3 +2258,10 @@ dev | yoy | trend | spike | hc, `v`, `ref`, `kpi`, `pv`, `tr`), `cards()` пре
 hub9 (новая схема) — 0 дублей, ССЧ 0, «прочие» 0 и 0; hub7 (старая) — «НЕТ», ССЧ по старому правилу 0; шесть
 настроек сервера одинаково. Разбор — «Разведка», «Ответ 0е, 20.10»; вопрос о переводах — «Методология», 4.
 
+**20.10, поставка 40 — `APPLY(f)` со скобками.** Save датасета 2а на бою: «Некорректный SQL запрос: →… fdb AS ( SELECT
+ifNull(…←». Причина — матчеры поставки 36 `COLUMNS('^act_cd$') APPLY toString` / `APPLY toFloat64`: ClickHouse их
+принимает, проверка форка (модель — sqlglot 25–30) — только `APPLY(f)`. Исправлено в 2а, 2, 0е. Гейт
+`proteus-playbook/kit/sqlgate.py` молчал: в `kitvenv` не было sqlglot, а «нет sqlglot» было предупреждением —
+теперь ошибка, sqlglot 26.33 стоит в kitvenv, остальные версии — `~/sg/<версия>` (`--sqlglot-dirs`). Правило — CH-32
+гайда. Перед каждой поставкой SQL: `kitvenv/bin/python kit/sqlgate.py <файл> --user a.user --sqlglot-dirs …` — ЧИСТО.
+

@@ -262,9 +262,9 @@ WITH
              -- найм, как в методологии DD: найм в компанию + перевод из учебной группы в боевую +
              -- перевод стажёров в штат (transfer_candidate_amt / transfer_internal_amt — матчером:
              -- нет колонок — найм в компанию, как раньше)
-             {% set HDD = "toFloat64(ifNull(hire_amt, 0)) + arraySum(arrayMap(x -> ifNull(x, 0), arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^transfer_(candidate|internal)_amt$') APPLY toFloat64])))" %}
+             {% set HDD = "toFloat64(ifNull(hire_amt, 0)) + arraySum(arrayMap(x -> ifNull(x, 0), arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^transfer_(candidate|internal)_amt$') APPLY(toFloat64)])))" %}
              -- на всей численности — найм в компанию с любым типом (hire_cnt; нет колонки — как выше)
-             {% if act_only %}{{ HDD }}{% else %}ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hire_cnt$') APPLY toFloat64], [{{ HDD }}]), 1), 0){% endif %} AS hi0,
+             {% if act_only %}{{ HDD }}{% else %}ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hire_cnt$') APPLY(toFloat64)], [{{ HDD }}]), 1), 0){% endif %} AS hi0,
              toFloat64(ifNull(fire_amt, 0)) AS fi0,
              toFloat64(ifNull(regret_fire_amt, 0)) AS rg0, toFloat64(ifNull(transfer_in_amt, 0)) AS ti0,
              toFloat64(ifNull(transfer_out_amt, 0)) AS tu0, ifNull(perf_normal, 0) AS pn0, ifNull(perf_low, 0) AS pl0,
