@@ -3,8 +3,8 @@
    20.10 (вариант A, одобрен заказчиком): сводка одной фразой, до четырёх
    карточек выводов («Требует действий», «Посмотреть», «Хорошая новость») с
    людьми, мини-графиком, «Что сделать» и переходом; «В норме» — строкой.
-   «Все метрики» — прежняя сводка: KPI-карточки и семь блоков таблицами, у
-   каждой метрики значение, MoM, YoY, спарклайн и ориентир; клик по строке
+   Ниже — все метрики семью блоками таблиц (всегда раскрыты; KPI-карточек на
+   главной нет с 20.10): значение, MoM, YoY, спарклайн и ориентир; клик по строке
    раскрывает график «год к году» с разбором «Что видно» (механика HRBP HUB).
    ========================================================================== */
 (function(){
@@ -12,29 +12,6 @@
 const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
 const esc=U.esc;
 
-/* Шапка-дайджест (рекомендация бизнес-анализа: «свести численность, текучесть
-   YTD, долю джунов и проникновение AI в единую шапку»). Восемь карточек —
-   две строки по четыре: поток людей, текучесть, найм, AI и офис. */
-const HERO=['hc_total','hire','attrition','turnover_y','regret','junior_share','ai_penetration','office_att'];
-
-/* Второй ряд карточки-героя у счётной метрики. Пометка «не сравнивается»
-   занимала место и ничего не сообщала — три карточки из шести кончались ею.
-   Здесь её место отдано контексту из той же метрики: у потока людей — сумма
-   за 12 месяцев (месячное «3» ничего не говорит о масштабе), у численности —
-   прирост с начала года. Оценки по-прежнему нет: это факты, а не сравнение. */
-function heroContext(k,s,rl){
-  if(k==='hc_total'){
-    const ytd=D.lastVal(rl,'net_ytd');
-    return '<span class="k-sub">с начала года <b>'+D.fmtDelta('net_ytd',ytd)+'</b></span>';
-  }
-  if(D.METRIC_BY_KEY[k].fmt==='int')
-    return '<span class="k-sub">за год <b>'+D.fmtVal(k,SC.sumS(s))+'</b> чел</span>';
-  return '';
-}
-/* Сравнение с базой в KPI-карточке — только у «Проникновения AI» (14.10,
-   заказчик): у остальных карточек оно дублировало колонку «Сравнение» таблицы
-   и перегружало полосу. Подпись — «по компании», а не «база». */
-const cardBase=(k,kpi)=>!kpi&&k==='ai_penetration'&&D.comparable(k);
 /* Метрика без оценки: нет цели KPI, и она либо несравнима, либо «больше не
    значит лучше» — у её спарклайна нет цветных точек и пунктира ориентира. */
 const noEval=(m,kpi)=>!kpi&&(!D.comparable(m.key)||m.better==='flat');
@@ -92,13 +69,21 @@ function obsInfo(S){
     ' aria-label="Как отобраны выводы">i</span>';
 }
 
+/* Огонёк по смыслу вывода (20.10, заказчик): выводы считаются правилами, не ИИ, поэтому
+   не AI-огонёк. Требует действий — тревога, посмотреть — насторожен, хорошая новость — улыбка,
+   всё спокойно — спокойный; сводку рассказывает огонёк с жестом «смотрите». */
+const MOOD_ICO={high:'alert',mid:'warn',good:'ok',none:'base'};
+function moodIco(role,px,alt){
+  const M=window.TPMASCOT, im=M?M.img(role,px,{alt:alt}):'';
+  return im?'<span class="in-ico">'+im+'</span>':'';
+}
 /* ---------- Карточка вывода ----------
    c — TPINSIGHTS.cards(): заголовок и «Что сделать» уже собраны там, body —
    с <b> вокруг людей и имён. Мини-график ведёт к строке метрики в «Все
    метрики», кнопка — во вкладку блока или сразу к подразделению. */
 function insightCard(c){
   const go=c.btn.go?' data-opgo="'+esc(c.btn.go)+'"':' data-tab="'+esc(c.btn.tab)+'"';
-  return '<div class="in-card '+c.sev+'"><div class="in-t"><span class="in-tag">'+esc(c.tag)+'</span>'+
+  return '<div class="in-card '+c.sev+'"><div class="in-t">'+moodIco(MOOD_ICO[c.sev],30,c.tag)+'<span class="in-tag">'+esc(c.tag)+'</span>'+
     '<span class="in-blk">· '+esc(c.blockName)+'</span></div>'+
     '<div class="in-row"><div class="in-txt"><div class="in-h">'+esc(c.head)+'</div>'+
       (c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
@@ -119,8 +104,8 @@ function normRow(S,rl,ok){
     '>✓ В норме</span>'+
     ok.slice(0,NP).map(m=>'<button class="in-pill" data-opfact="'+m.key+'"'+U.tipAttr({title:m.name,text:m.hint})+'>'+
       esc(m.name)+' <b>'+D.fmtVal(m.key,D.lastVal(rl,m.key))+'</b></button>').join('')+
-    (ok.length>NP?'<button class="in-pill more" data-opall="1">+'+(ok.length-NP)+' '+U.plural(ok.length-NP,['метрика','метрики','метрик'])+'</button>':'')+
-    (dev?'<button class="in-pill dev" data-opall="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
+    (ok.length>NP?'<button class="in-pill more" data-opscroll="1">+'+(ok.length-NP)+' '+U.plural(ok.length-NP,['метрика','метрики','метрик'])+'</button>':'')+
+    (dev?'<button class="in-pill dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
       dev+' в разработке</button>':'')+
     (ok.length?'':'<span class="in-none">всё, что оценивается, — в выводах выше</span>')+'</div>';
 }
@@ -137,7 +122,7 @@ function blockDevTag(bk){
 }
 
 /* ---------- рендер ---------- */
-function render(S,openRows,opAll){
+function render(S,openRows){
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S), I=window.TPINSIGHTS;
   if(!rl.length)return U.empty('Под эти фильтры никто не попал',
     'Снимите один из фильтров в шапке.');
@@ -153,7 +138,7 @@ function render(S,openRows,opAll){
      «Ещё N»: та же кнопка data-ai, что раскрывала «Что видно в данных». */
   const all=I.cards(S,rl,bl,true), list=all.slice(0,I.OBS.max), ok=normOf(S,rl,all), open=S.aiOpen==='op';
   I.lastSev=list.length?list[0].sev:'none';
-  h+='<div class="in-lead">'+U.aiIco(true)+'<div class="in-lt">'+I.lead(S,rl,list,ok.length)+'</div></div>';
+  h+='<div class="in-lead">'+moodIco('point',46,'Пульс рассказывает')+'<div class="in-lt">'+I.lead(S,rl,list,ok.length)+'</div></div>';
   if(list.length){
     h+='<div class="in-grid">'+(open?list:list.slice(0,I.CARD.show)).map(insightCard).join('')+'</div>';
     if(list.length>I.CARD.show)h+='<button class="in-more-c" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+(list.length-I.CARD.show)+' '+
@@ -161,40 +146,14 @@ function render(S,openRows,opAll){
   }
   h+=normRow(S,rl,ok);
 
-  /* 3 · «Все метрики» — прежняя сводка, по кнопке. Раскрытие — состояние показа
-     (app.js, opAll), в ссылку не едет. */
-  h+='<div class="in-all"><span>Все метрики — карточки и таблицы по блокам: значение, изменение за месяц и год, ориентир</span>'+
-    '<button class="btn in-go" data-opall="'+(opAll?'0':'1')+'">'+(opAll?'Свернуть все метрики ▴':'Показать все метрики ▾')+'</button></div>';
-  if(!opAll)return h;
-
+  /* 3 · все метрики — таблицами по блокам, всегда раскрыты (20.10, заказчик: KPI-карточек на
+     главной нет — те же метрики уже в выводах и в таблицах; сворачивать таблицы не нужно) */
+  h+='<div id="op-all"></div>';
   /* Готовность к живым данным (14.10): сколько метрик уже считается из
      источника и что подключать дальше — одной строкой, план раскрывается. */
   const live=D.METRICS.filter(m=>!D.isDev(m.key)).length;
   if(live<D.METRICS.length)h+=U.devSummary({live,total:D.METRICS.length,plan:D.DEV_PLAN});
-
-  /* KPI-стрип: только выбранные метрики. hc_total и hc_active выключить нельзя,
-     поэтому стрип не может опустеть целиком. */
-  /* восемь карточек — по четыре в ряд; если часть скрыта, полоса тянется сама */
-  const heroKeys=HERO.filter(k=>D.metricVisible(k,S));
-  h+='<div class="kpis'+(heroKeys.length>6?' n4':'')+'">';
-  heroKeys.forEach(k=>{
-    const s=D.aggregate(rl,k), v=s[D.LAST], dl=D.deltasOf(rl,k);
-    const kpi=D.kpiFor(k,S), bv=D.lastVal(bl,k);
-    const st=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,bv);
-    /* Есть KPI — сравниваемся с ним, и базы в карточке нет вовсе: два ориентира
-       рядом заставляли выбирать, по какому судить. Нет KPI — база как раньше. */
-    h+=U.kpiCard({label:D.METRIC_BY_KEY[k].name,tag:D.isDev(k)?U.devTag(D.devStage(k)):'',
-      q:U.infoDot(k),
-      value:D.fmtVal(k,v),
-      row1:U.momChip(k,dl.mom)+
-        G.sparkLine(s,st,84,24,{key:k,kpi:kpi,base:cardBase(k,kpi)?D.aggregate(bl,k):null,ink:true,dots:false}),
-      row2:(kpi?'<span class="k-sub">цель '+D.fmtVal(k,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-             :cardBase(k,kpi)?U.byCompany(k,bv,S):heroContext(k,s,rl)),
-      /* год назад — тем же месяцем: число, которое в таблице стоит пилюлей
-         «за год», здесь названо значением, чтобы его было с чем сверить */
-      row3:'год назад <b>'+D.fmtVal(k,SC.yearAgo(rl,k))+'</b>'});
-  });
-  h+='</div>'+U.trafficLegend();
+  h+=U.trafficLegend();
 
   /* мини-навигация по блокам: липкая, с точкой худшего сигнала */
   h+=U.blockNav(D.visibleBlocks(S).map(b=>Object.assign({key:b.key,name:b.name},D.blockSignal(b.key,S))));
@@ -262,5 +221,5 @@ function render(S,openRows,opAll){
   return h;
 }
 
-SC.onepager={render,HERO,insightCard};
+SC.onepager={render,insightCard,moodIco,MOOD_ICO};
 })();

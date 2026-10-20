@@ -51,10 +51,6 @@ let tq='';
    на все блоки: «мне нужна таблица» — предпочтение, а не свойство
    вкладки. В ссылку не едет, как и раскрытия. */
 let splitMode='both', splitShare=null;
-/* Главная и вкладка блока «сначала выводы» (20.10): «Все метрики» на главной и
-   главы с таблицей во вкладке блока свёрнуты, пока их не раскрыли. Состояние
-   показа, одно на все блоки, в ссылку не едет. */
-let opAll=false, blkOpen=false;
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -174,7 +170,6 @@ function arrive(){
       itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType,hcType:D.DEFAULT_STATE.hcType});
     const ui=STORE.ui||{};
     tq=ui.tq||'';splitMode=ui.splitMode==='charts'?'charts':'both';splitShare=ui.splitShare!=null?ui.splitShare:null;
-    opAll=!!ui.opAll;blkOpen=!!ui.blkOpen;
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;
@@ -531,8 +526,8 @@ function render(keepScroll,quiet){
   G.reset();
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
-    ? SC.onepager.render(S,openRows,opAll)
-    : SC.renderBlock(S,expanded,mixOpen,{tq,det:blkOpen,split:{mode:splitMode,share:splitShare}});
+    ? SC.onepager.render(S,openRows)
+    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   /* после смены вкладки или главы (S.subTab подставляется при сборке) */
@@ -551,7 +546,7 @@ function render(keepScroll,quiet){
   else if(keepScroll)window.scrollTo(0,y);
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
-  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare,opAll,blkOpen}}
+  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
 }
 
 /* Крест в матрицах (итерация 32, фидбэк 12.10): строку подсвечивает CSS
@@ -637,8 +632,8 @@ function applySplit(box,share){
   if(gut)gut.setAttribute('aria-valuenow',String(Math.round(share*100)));
 }
 function relayout(){G.remeasure($('#view'));stickTotals()}
-/* к раскрытым главам блока: строка «Графики и таблица» встаёт под шапку */
-function toDetails(){const el=$('#bk-det');if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'})}
+/* к таблице подразделений и главам блока (или к таблицам метрик главной) */
+function toDetails(id){const el=$(id||'#bk-det');if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'})}
 let _sd=null;
 on(document,'pointerdown',e=>{
   const gut=e.target.closest&&e.target.closest('[data-split]');
@@ -741,19 +736,16 @@ on(document,'click',e=>{
     const nm=(D.PICK.info(DRAFT.unit)||{}).name;if(nm&&!D.NODE_BY_PATH[DRAFT.unit])unitNames[DRAFT.unit]=nm;
     paintOpts();return}
 
-  /* выводы главной и блока: «Все метрики», переход к подразделению, главы */
-  const oa=t.closest('[data-opall]');
-  if(oa){opAll=oa.dataset.opall==='1';render(true);return}
+  /* выводы главной и блока: переход к подразделению, «подробнее ниже» */
+  if(t.closest('[data-opscroll]')){toDetails('#op-all');return}
   const og=t.closest('[data-opgo]');
   if(og){
     const [bk,p]=og.dataset.opgo.split('|');
-    S.tab=bk;S.subTab=null;S.mainMetric=null;S.selNode=p;blkOpen=true;openRows.clear();render();toDetails();return;
+    S.tab=bk;S.subTab=null;S.mainMetric=null;S.selNode=p;openRows.clear();render();toDetails();return;
   }
-  const bo=t.closest('[data-blkopen]');
-  if(bo){blkOpen=true;if(bo.dataset.blkopen)S.subTab=bo.dataset.blkopen;render(true);toDetails();return}
-  if(t.closest('[data-blkclose]')){blkOpen=false;render(true);return}
+  if(t.closest('[data-blkjump]')){toDetails();return}
   const ws=t.closest('[data-wsel]');
-  if(ws){S.selNode=ws.dataset.wsel;blkOpen=true;render(true);toDetails();return}
+  if(ws){S.selNode=ws.dataset.wsel;render(true);toDetails();return}
 
   /* навигация по разделам */
   const tab=t.closest('[data-tab]');
@@ -864,7 +856,7 @@ on(document,'click',e=>{
   /* факт «Что видно в данных»: раскрыть строку его метрики и подвести к ней */
   const of=t.closest('[data-opfact]');
   if(of){
-    const k=of.dataset.opfact;opAll=true;openRows.add(k);render(true);
+    const k=of.dataset.opfact;openRows.add(k);render(true);
     const r=ROOTEL.querySelector('.mrow[data-metric="'+k+'"]');
     if(r)r.scrollIntoView({behavior:'smooth',block:'center'});
     return;

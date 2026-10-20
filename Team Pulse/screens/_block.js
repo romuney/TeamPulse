@@ -228,6 +228,8 @@ function blockDev(bk){
 function demoNoteFor(bk,sub){return D.REAL&&devOf(bk,sub)?'1':''}
 
 /* ---------- Вывод блока (20.10) ----------
+   Одна карточка: слева огонёк и вывод, справа «где это происходит»; фон — градиент по
+   тяжести, как у выводов главной. Таблица и главы под ней всегда открыты.
    sum — TPINSIGHTS.blockSummary: заголовок, до трёх фактов по номерам и «Что
    сделать». Фактов нет — «всё спокойно» и что именно проверено. */
 const BK_TAG={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'};
@@ -242,9 +244,11 @@ function conclusion(sum,b,S){
       'Ни одна метрика не ухудшается '+INS.INS_TREND+' месяца подряд.'];
     todo='Отдельных действий не нужно.';
   }else facts=sum.list.slice(0,3).map(c=>'<b>'+esc(c.head)+'.</b> '+c.body);
-  return '<div class="bk-sum '+sum.sev+'"><div class="bk-tag">Вывод блока · '+BK_TAG[sum.sev]+'</div>'+
+  /* огонёк по настроению вывода (20.10, заказчик): тревога, насторожен, улыбка, спокоен */
+  const op=window.TPSCREENS.onepager||{}, ico=op.moodIco?op.moodIco(op.MOOD_ICO[sum.sev],52,BK_TAG[sum.sev]):'';
+  return '<div class="bk-sum '+sum.sev+'">'+ico+'<div class="bk-sx"><div class="bk-tag">Вывод блока · '+BK_TAG[sum.sev]+'</div>'+
     '<div class="bk-h">'+esc(head)+'</div><ol class="bk-f">'+facts.map(f=>'<li>'+f+'</li>').join('')+'</ol>'+
-    '<div class="bk-do">'+todo+'</div></div>';
+    '<div class="bk-do">'+todo+'</div></div></div>';
 }
 /* Где это происходит: подразделения первого уровня по вкладу в отклонение
    (люди сверх ориентира); нет отклонения — по значению главной метрики.
@@ -254,7 +258,7 @@ function wherePanel(sum,mainK,S,rootNode){
   const small=r=>r.small&&m.fmt==='pct', sv=r=>small(r)||r.v==null?-1e18:r.v;
   const rows=c?c.where.rows:INS.unitsOf(S).map(u=>({n:u.n,hc:u.hc,small:u.hc<INS.CARD.small,v:D.lastVal(u.lp,key)}))
     .sort((a,x)=>sv(x)-sv(a));
-  const top=rows.slice(0,5), max=Math.max(1e-9,...top.map(r=>c?r.exc:small(r)?0:Math.abs(r.v||0)));
+  const top=rows.slice(0,4), max=Math.max(1e-9,...top.map(r=>c?r.exc:small(r)?0:Math.abs(r.v||0)));
   let h='<div class="bk-wh"><div class="bk-wt">Где это происходит</div><div class="bk-ws">'+(c?'Подразделения по вкладу в отклонение: «'+esc(m.name)+'»'
     :'Подразделения по метрике «'+esc(m.name)+'»')+'</div>';
   if(!rows.length)h+='<div class="bk-wn">У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры по команде.</div>';
@@ -265,8 +269,8 @@ function wherePanel(sum,mainK,S,rootNode){
       '<span class="bk-wv">'+(small(r)||r.v==null?'—':D.fmtVal(key,r.v))+'</span>'+
       '<span class="bk-wb"><i class="'+(c?c.sev:'n')+'" style="width:'+(w*100).toFixed(1)+'%"></i></span></button>';
   });
-  if(rows.length>top.length)h+='<div class="bk-wn">ещё '+(rows.length-top.length)+' — в таблице подразделений</div>';
-  return h+'<button class="btn in-go bk-wt2" data-blkopen="">Таблица подразделений ▾</button></div>';
+  return h+'<button class="bk-more" data-blkjump="1">'+(rows.length>top.length?'Ещё '+(rows.length-top.length)+' — ':'Подробнее — ')+
+    'в таблице подразделений ниже ↓</button></div>';
 }
 
 /* ---------- рендер детальной вкладки ----------
@@ -331,7 +335,7 @@ function renderBlock(S,expanded,mixOpen,view){
   /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
      это происходит → таблица»). Факты — те же карточки, что на главной. */
   const sum=INS.blockSummary(b.key,S,rl,bl);
-  h+='<div class="bk-top">'+conclusion(sum,b,S)+wherePanel(sum,mainK,S,rootNode)+'</div>';
+  h+='<div class="bk-top '+sum.sev+'">'+conclusion(sum,b,S)+wherePanel(sum,mainK,S,rootNode)+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -367,15 +371,6 @@ function renderBlock(S,expanded,mixOpen,view){
      поломкой отчёта, а не ответом на свой же клик. */
   h+=U.sliceNote(slice,'численность в карточках и таблице — по срезу, база и выводы — по всей команде');
 
-  /* 4b · главы и таблица — свёрнуты строкой с вопросами глав; раскрытие — одно на
-     все блоки (app.js, blkOpen), как и ширина колонок, в ссылку не едет */
-  const det=!!(view&&view.det);
-  h+='<div class="bk-det'+(det?' on':'')+'" id="bk-det"><span class="bk-dt">'+(det?'Графики по главам и таблица подразделений':
-      'Графики по месяцам и таблица подразделений — главы:')+'</span>'+
-    (det?'':mod.subTabs.map(([k,n])=>'<button class="bk-ch" data-blkopen="'+k+'">'+esc(((STY.Q||{})[b.key]||{})[k]||n)+'</button>').join(''))+
-    '<button class="btn in-go" '+(det?'data-blkclose="1">Свернуть ▴':'data-blkopen="">Показать ▾')+'</button></div>';
-  if(!det)return h;
-
   /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
      левая колонка становится шире — иначе главная метрика и «К базе» уезжали
@@ -389,7 +384,7 @@ function renderBlock(S,expanded,mixOpen,view){
      ниже 1121px (широкой таблице — 1241px) показанная таблица встаёт над графиками. */
   const sp=view&&view.split||{};
   const mode=sp.mode==='charts'?'charts':'both', share=sp.share!=null?sp.share:null;
-  h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'"'+
+  h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'" id="bk-det"'+
     (share!=null?' style="--split-l:'+(share*100).toFixed(2)+'fr;--split-r:'+((1-share)*100).toFixed(2)+'fr"':'')+'>';
 
   /* Состояние каретки ИТОГО: пока раскрыто не всё — она предлагает раскрыть,

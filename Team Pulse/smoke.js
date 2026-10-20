@@ -32,7 +32,7 @@ global.setTimeout=global.setTimeout;global.clearTimeout=global.clearTimeout;
 global.localStorage={getItem(){return'1'},setItem(){}};
 
 /* порядок как в index.html */
-['data.js','draw.js','ui.js','insights.js','story.js',
+['data.js','draw.js','ui.js','mascot.js','insights.js','story.js',
  'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js',
  'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js',
  'screens/onepager.js'].forEach(f=>require(path.join(dir,f)));
@@ -42,11 +42,11 @@ const probe=path.join(dir,'.app.probe.js');
 fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   /* 20.10: главы блока и «Все метрики» свёрнуты по умолчанию — прежние проверки
      смотрят раскрытый вид (go, op), новые — свёрнутый (top, home0) */
-  '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;blkOpen=true;opAll=true;render();return $("#view").innerHTML},'+
-  '\n  top:t=>{S.tab=t;S.subTab=null;S.selNode=null;blkOpen=false;render();return $("#view").innerHTML},'+
-  '\n  home0:()=>{S.tab="onepager";opAll=false;S.aiOpen=null;render();return $("#view").innerHTML},'+
+  '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;render();return $("#view").innerHTML},'+
+  '\n  top:t=>{S.tab=t;S.subTab=null;S.selNode=null;render();return $("#view").innerHTML},'+
+  '\n  home0:()=>{S.tab="onepager";S.aiOpen=null;render();return $("#view").innerHTML},'+
   /* one-pager с раскрытыми строками: каретка и график живут именно в них */
-  '\n  op:list=>{S.tab="onepager";opAll=true;openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
+  '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  hide:list=>{S.hiddenMetrics=list.slice();S.mainMetric=null},'+
   /* каретка ИТОГО живёт в app.js, а не в разметке: дёргаем её обработчик напрямую */
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));'+
@@ -209,7 +209,7 @@ checks.push(['минус во всех дельтах типографский, 
 (function(){
   const opHtml=A.go('onepager',null), mvHtml=A.go('movement','balance');
   checks.push(['в карточке KPI подписан месяц, с которым сравнивается изменение',
-    /<span class="d-vs">к маю<\/span>/.test(opHtml)&&/<span class="d-vs">к маю<\/span>/.test(mvHtml)]);
+    /<span class="d-vs">к маю<\/span>/.test(mvHtml)]);
   checks.push(['подпись месяца берётся из одного места, а не пишется руками',
     D.CMP.momShort==='к '+'маю'&&D.CMP.momFull==='к маю 2026'&&D.CMP.yoy==='к июню 2025']);
   checks.push(['шапки колонок «за месяц» и «за год» называют свои месяцы',
@@ -217,7 +217,7 @@ checks.push(['минус во всех дельтах типографский, 
     opHtml.indexOf('За год<span class="th-sub">'+D.CMP.yoy)>0]);
   /* в строках таблицы месяц не повторяется: он уже назван в шапке */
   checks.push(['в колонках таблицы месяц не дублируется у каждой строки',
-    (opHtml.match(/class="d-vs"/g)||[]).length<=SC.onepager.HERO.length]);
+    !/class="d-vs"/.test(opHtml.split('<table class="mtable"').slice(1).join(''))]);
 
   /* Строка one-pager раскрывает график — и об этом теперь говорит каретка */
   checks.push(['у строки one-pager есть каретка раскрытия справа',
@@ -253,7 +253,8 @@ checks.push(['минус во всех дельтах типографский, 
   const cell=U.targetCell('regret',v,D.lastVal(bl0,'regret'),kpi);
   checks.push(['метрика с KPI сравнивается с целью, а не с базой',
     !!kpi&&/цель/.test(cell)&&!/база/.test(cell)]);
-  const opHtml=A.go('onepager',null);
+  /* 20.10: на главной KPI-карточек нет — проверяем карточку блока «Отток и текучесть» */
+  const opHtml=A.go('turnover','dynamics');
   /* сравнение ищем в видимом тексте карточки: слово «база» встречается ещё и
      внутри подсказки к пилюле изменения, и по нему проверять нельзя */
   const cards=opHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
@@ -1105,9 +1106,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
     D.blockDash('ai',{paint:'Line'}).id==='34136'&&D.blockDash('monitor',{paint:'HQ'}).id==='34661'&&
     /href="#\/proteus\/34136"/.test(A.go('ai','adoption'))]);
   const op=A.go('onepager',null);
-  checks.push(['шапка one-pager — дайджест из восьми карточек: с джунами и проникновением AI',
-    SC.onepager.HERO.length===8&&SC.onepager.HERO.indexOf('junior_share')>=0&&
-    SC.onepager.HERO.indexOf('ai_penetration')>=0&&/<div class="kpis n4">/.test(op)]);
+  /* 20.10, заказчик: KPI-карточек на главной нет — те же метрики в выводах и таблицах */
+  checks.push(['на главной нет KPI-карточек: сверху выводы, ниже таблицы метрик',
+    !/class="kpis/.test(op)&&/class="in-lead"/.test(op)&&/class="mtable"/.test(op)]);
   const mv=A.go('movement','balance');
   checks.push(['в карточках KPI блока есть спарклайн',
     (mv.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[]).filter(c=>/class="spark"/.test(c)).length===D.metricsOfBlock('movement').length]);
@@ -1263,7 +1264,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const cust=A.split('both',0.62);
   A.go('onepager',null);
   checks.push(['доля после перетаскивания — переменные сетки, separator знает своё значение',
-    /class="split m-both custom" style="--split-l:62\.00fr;--split-r:38\.00fr"/.test(cust)&&
+    /class="split m-both custom" id="bk-det" style="--split-l:62\.00fr;--split-r:38\.00fr"/.test(cust)&&
     /aria-valuenow="62"/.test(cust)]);
   A.split('both',null);
   checks.push(['раскладка колонок: разделитель — третья колонка, минимум 340px, узкий экран не трогаем',
@@ -1380,15 +1381,16 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /data-mi="11"/.test(A.go('movement','dynamics'))&&/data-mi="11"/.test(A.go('hiring','vacancies'))]);
   const S0=D.DEFAULT_STATE, rl0=D.reportLeaves(S0), bl0=D.benchmarkLeaves(S0);
   /* 20.10, вариант A (одобрен): главная — сводка, карточки выводов, «В норме»,
-     «Все метрики» свёрнуты; правила HRBP HUB — по людям, > 50%, < 30 не оцениваем */
+     правила HRBP HUB — по людям, > 50%, < 30 не оцениваем */
   const cs=I.cards(S0,rl0,bl0), home=A.home0(), rank={high:0,mid:1,good:2};
   const inCards=home.split('<div class="in-card ').slice(1);
-  checks.push(['главная: «Главное за …», сводка, до четырёх карточек, «В норме», «Все метрики» свёрнуты',
+  checks.push(['главная: «Главное за …», сводка с огоньком «смотрите», до четырёх карточек, «В норме», таблицы метрик сразу',
     /<h2>Главное за /.test(home)&&/<div class="in-lead">/.test(home)&&/человек/.test(home.split('in-lt')[1]||'')&&
-    inCards.length===Math.min(I.CARD.show,cs.length)&&/class="in-ok"/.test(home)&&/data-opall="1">Показать все метрики/.test(home)&&
-    !/class="mtable"|class="kpis/.test(home)&&!/class="ai insight/.test(home)]);
-  checks.push(['карточка: категория, блок, заголовок с цифрой, мини-график, «Что сделать» и переход',
-    inCards.length>0&&inCards.every(c=>/^(high|mid|good)"/.test(c)&&/class="in-tag">(Требует действий|Посмотреть|Хорошая новость)</.test(c)&&
+    inCards.length===Math.min(I.CARD.show,cs.length)&&/class="in-ok"/.test(home)&&
+    /class="mtable"/.test(home)&&!/class="kpis/.test(home)&&!/class="ai insight|data-opall/.test(home)&&
+    /<div class="in-lead"><span class="in-ico"><img/.test(home)&&!/AI-подсказка/.test(home.split('<table')[0])]);
+  checks.push(['карточка: огонёк по смыслу, категория, блок, заголовок с цифрой, мини-график, «Что сделать» и переход',
+    inCards.length>0&&inCards.every(c=>/^(high|mid|good)"><div class="in-t"><span class="in-ico"><img/.test(c)&&/class="in-tag">(Требует действий|Посмотреть|Хорошая новость)</.test(c)&&
       /class="in-h">[^<]*\d/.test(c)&&/<svg class="mini"/.test(c)&&!/#[0-9a-f]{3,6}/i.test(c.split('<svg class="mini"')[1].split('</svg>')[0])&&
       /class="in-do">/.test(c)&&/data-(tab|opgo)="/.test(c))]);
   checks.push(['выводы: до восьми, по тяжести, внутри — по людям сверх ориентира; заглушек нет',
@@ -1414,15 +1416,17 @@ checks.push(['третьей палитры нет: в экранах ни од�
     cs.filter(c=>/^turnover_[my]$/.test(c.key)&&c.sev!=='good').length<=1&&cs.filter(c=>/^turnover_[my]$/.test(c.key)&&c.sev==='good').length<=1&&
     cs.filter(c=>/С января ушли/.test(c.body)).length<=1]);
   const allOpen=A.op([]), op=allOpen;
-  checks.push(['«Показать все метрики» раскрывает прежнюю сводку: KPI и таблицы блоков',
-    /class="kpis/.test(allOpen)&&/class="mtable"/.test(allOpen)&&/data-opall="0">Свернуть все метрики/.test(allOpen)]);
-  /* вкладка блока: вывод и «где» сверху, KPI, главы свёрнуты строкой вопросов */
-  const tTop=A.top('turnover'), tOpen=A.go('turnover','dynamics');
-  checks.push(['вкладка блока: вывод, «где это происходит», KPI, главы и таблица свёрнуты',
-    /<div class="bk-top"><div class="bk-sum (high|mid|good|none)"><div class="bk-tag">Вывод блока · /.test(tTop)&&
-    /<ol class="bk-f"><li>/.test(tTop)&&/class="bk-wh"><div class="bk-wt">Где это происходит/.test(tTop)&&/kpis compact/.test(tTop)&&
-    (tTop.match(/class="bk-ch" data-blkopen="/g)||[]).length===SC.blocks.turnover.subTabs.length&&!/class="split/.test(tTop)&&
-    /class="bk-det on"/.test(tOpen)&&/class="split/.test(tOpen)&&/data-blkclose="1"/.test(tOpen)]);
+
+  /* вкладка блока (20.10, правка заказчика): одна карточка — огонёк по настроению, вывод и «где»;
+     ниже KPI и всегда открытые таблица и главы; «подробнее» прокручивает к таблице */
+  const tTop=A.top('turnover'), sumT=I.blockSummary('turnover',S0,rl0,bl0), moodT={high:'тревог|Требует',mid:'Посмотреть',good:'Хорошая',none:'спокойно'};
+  checks.push(['вкладка блока: огонёк по настроению, вывод и «где» в одной карточке, таблица и главы открыты',
+    new RegExp('<div class="bk-top '+sumT.sev+'"><div class="bk-sum '+sumT.sev+'"><span class="in-ico"><img').test(tTop)&&
+    /<div class="bk-tag">Вывод блока · /.test(tTop)&&/<ol class="bk-f"><li>/.test(tTop)&&
+    /class="bk-wh"><div class="bk-wt">Где это происходит/.test(tTop)&&/data-blkjump="1">[^<]*в таблице подразделений ниже/.test(tTop)&&
+    /kpis compact/.test(tTop)&&/class="split[^"]*" id="bk-det"/.test(tTop)&&!/data-blkopen|class="bk-det/.test(tTop)&&
+    D.BLOCKS.every(b=>{const sv=I.blockSummary(b.key,S0,rl0,bl0).sev;
+      return new RegExp('bk-sum '+sv+'"><span class="in-ico"><img[^>]*alt="'+{high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'}[sv]+'"').test(A.top(b.key))})]);
   checks.push(['вывод блока: «всё спокойно» там, где фактов нет, и строки «где» ведут к подразделению',
     D.BLOCKS.every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-f"><li><b>/.test(h))})&&
     /data-wsel="/.test(A.top('structure'))]);
@@ -1448,14 +1452,13 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const cells=[...op.matchAll(/<td class="col-spark">([\s\S]*?)<\/td>/g)].map(m=>m[1]);
   /* 14.10: точек нет ни в колонке, ни в KPI-карточках — они есть в раскрытом графике */
   const dotRe=/<path d="M[\d. ]+h0" stroke="[^"]+" stroke-width="(4|6)"/;
-  const cardsH=(op.match(/<div class="kpis[\s\S]*?<div class="legend/)||[''])[0];
-  checks.push(['короткая динамика One-pager — только линии-спарклайны, без точек (и в KPI-карточках)',
+  const cardsH=(A.go('ai','adoption').match(/<div class="kpis[\s\S]*?<\/div><\/div><\/div>/)||[''])[0];
+  checks.push(['короткая динамика One-pager — только линии-спарклайны, без точек (и в KPI-карточках блока)',
     !G.sparkBars&&cells.length>20&&cells.every(c=>/<svg[^>]*class="spark"/.test(c)&&!/class="sb"/.test(c)&&!dotRe.test(c))&&
     /vector-effect="non-scaling-stroke"/.test(cells[0])&&cardsH.length>0&&!dotRe.test(cardsH)]);
   /* сравнение с базой в KPI-карточках — только у «Проникновения AI», подпись «по компании» */
   checks.push(['KPI-карточки: «по компании» только у «Проникновения AI», «база» нигде',
-    (cardsH.match(/по компании /g)||[]).length===(D.metricVisible('ai_penetration',S0)?1:0)&&!/>база /.test(cardsH)&&
-    !/>база /.test((A.go('ai','adoption').match(/<div class="kpis[\s\S]*?<\/div><\/div><\/div>/)||[''])[0])]);
+    (cardsH.match(/по компании /g)||[]).length===(D.metricVisible('ai_penetration',S0)?1:0)&&!/>база /.test(cardsH)]);
   A.op([]);
 })();
 

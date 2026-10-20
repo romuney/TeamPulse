@@ -47,17 +47,17 @@ global.localStorage={getItem(){return'1'},setItem(){}};
 
 require(path.join(__dirname,'real.js'));
 window.TP_REAL=window.TPREAL.build(rows);
-['data.js','draw.js','ui.js','insights.js','story.js',
+['data.js','draw.js','ui.js','mascot.js','insights.js','story.js',
  'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js',
  'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js',
  'screens/onepager.js'].forEach(f=>require(path.join(dir,f)));
 const probe=path.join(dir,'.app.probe.real.js');
 fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
-  '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;blkOpen=true;opAll=true;render();return $("#view").innerHTML},'+
-  '\n  top:t=>{S.tab=t;S.subTab=null;S.selNode=null;blkOpen=false;render();return $("#view").innerHTML},'+
-  '\n  home0:()=>{S.tab="onepager";opAll=false;S.aiOpen=null;render();return $("#view").innerHTML},'+
+  '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;render();return $("#view").innerHTML},'+
+  '\n  top:t=>{S.tab=t;S.subTab=null;S.selNode=null;render();return $("#view").innerHTML},'+
+  '\n  home0:()=>{S.tab="onepager";S.aiOpen=null;render();return $("#view").innerHTML},'+
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));render(true);return $("#view").innerHTML},'+
-  '\n  op:list=>{S.tab="onepager";opAll=true;openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
+  '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  setup:q=>{openSetup();if(q){UT.q=q;utRender()}const h=$("#utList").innerHTML+"|"+$("#benchPreview").innerHTML+"|"+$("#optStaff").innerHTML;closeSetup();return h},'+
   '\n  st:()=>S};');
 const A=require(probe);
@@ -278,7 +278,7 @@ if(stories.filter(x=>/<ol class="op-ins">/.test(x)).length!==live.length)
   const tops=D.visibleBlocks(S0).map(b=>A.top(b.key));
   ok(/<div class="in-lead">/.test(home)&&cs.every(c=>!D.isStub(c.key)&&c.head&&/class="mini"/.test(c.chart))&&
     cs.filter(c=>/С января ушли/.test(c.body)).length<=1&&
-    tops.every(h=>/class="bk-sum (high|mid|good|none)"/.test(h)&&/Где это происходит/.test(h)&&!/class="split/.test(h)),
+    tops.every(h=>/class="bk-sum (high|mid|good|none)"/.test(h)&&/Где это происходит/.test(h)&&/id="bk-det"/.test(h)),
     'главная и блоки «сначала выводы»: '+cs.length+' '+(cs.length===1?'вывод':'выводов')+' без заглушек, у '+tops.length+' блоков — вывод и «где»');
 }
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
