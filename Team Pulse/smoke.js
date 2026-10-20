@@ -288,7 +288,8 @@ checks.push(['минус во всех дельтах типографский, 
   /* на раскрытом графике та же развилка: пороги KPI вместо линии базы */
   const line=SC.metricLine('regret',rl0,bl0,S0,{});
   checks.push(['у метрики с KPI на графике пороги цели, а не линия базы',
-    />цель 4,0% за год</.test(line)&&/>порог 7,0% за год</.test(line)&&/<polyline [^>]*stroke-dasharray="2 3"/.test(line)&&
+    /* 21.10: у HQ только план 4% за год (порога 7% в отчёте HQ нет) — одна линия цели */
+    />цель 4,0% за год</.test(line)&&!/>порог /.test(line)&&/<polyline [^>]*stroke-dasharray="2 3"/.test(line)&&
     !/class="lnb" data-s="bench"/.test(line)]);
   /* без KPI (regret вне HQ) поведение прежнее: линия базы на месте */
   const S1=Object.assign({},S0,{paint:'Line'});

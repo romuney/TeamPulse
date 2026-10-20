@@ -183,7 +183,7 @@ const METRICS=[
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с января',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR (YTD Turnover): сумма месячной текучести с января.'},
-{key:'regret',block:'turnover',aud:'hq',name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Для HQ цель — 4% за год, на каждый месяц — её доля: к августу 2,7%, как в отчёте HQ.',
+{key:'regret',block:'turnover',aud:'hq',name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.',
   calc:'Сумма месячной: regrettable-увольнения ÷ среднесписочная × 100%. Regrettable по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
