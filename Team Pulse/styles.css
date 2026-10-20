@@ -1919,16 +1919,22 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pt-key i{width:10px;height:10px;border-radius:2px}
 .pt-key i.t0{background:var(--pt-hi)}.pt-key i.t1{background:var(--pt-t1)}.pt-key i.t2{background:var(--pt-t2)}
 .pt-key i.t3{background:#eceff4}.pt-key i.t4{background:#f4f6f9}
-/* ключ пилюли по ступеням: колонками по порядку ступеней; доля базы — за засечкой */
-.pt-key.seg{display:block;column-gap:16px;margin-top:0}
-.pt-key.seg span{display:flex;min-width:0;gap:5px;margin-bottom:5px;break-inside:avoid}
-.pt-key.seg i{flex:none}
-.pt-key.seg em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.pt-key.seg b{font-weight:var(--fw-bold);color:var(--ink)}
-.pt-key.seg small{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:var(--muted);white-space:nowrap}
-.pt-key.seg small s{width:1.5px;height:11px;background:var(--ink)}
-.pt-key.seg span.on em{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
-.pt-key.seg span:hover em{color:var(--ink)}
+/* шкала по ступеням без легенды (вариант E, 20.10): имя у самого большого куска, под шкалой —
+   тонкая полоса базы, края шкалы и «Не определено» строкой */
+.pt-pill.seg span.big{gap:4px;padding:0 8px}.pt-pill.seg span.big b{font-weight:var(--fw-bold)}
+.pt-thin{display:flex;height:6px;margin:-4px 0 0;border-radius:3px;overflow:hidden}
+.pt-thin span{min-width:0}.pt-thin span+span{border-left:1px solid var(--card)}
+.pt-ends{display:flex;align-items:center;gap:10px;margin-top:6px;font-size:12px;color:var(--muted)}
+.pt-ends i{flex:1;display:flex;justify-content:center;border-top:1px dashed var(--line);font-style:normal}
+.pt-ends i em{font-style:normal;background:var(--card);padding:0 6px;margin-top:-8px;color:var(--ink2)}
+.pt-ends b,.pt-und b{color:var(--ink);font-weight:var(--fw-bold)}
+.pt-ends span[data-mix],.pt-und span[data-mix]{cursor:pointer}
+.pt-und{margin-top:6px;font-size:12px;color:var(--muted)}
+.pt-h2{margin-top:18px!important}
+/* столбики грейдов (вариант D): уже и ниже, чем возраст — значений до 14 */
+.pt-col.gr{gap:4px;height:150px}
+.pt-col.gr .v{font-size:11px}.pt-col.gr .n{font-size:11px;text-overflow:clip}
+.pt-col.gr .c.on .bar i{box-shadow:inset 0 -3px 0 var(--ink)}
 /* столбики */
 .pt-col{display:flex;gap:14px;align-items:stretch;height:160px}
 .pt-col .c{flex:1;display:flex;flex-direction:column;min-width:0}

@@ -180,18 +180,44 @@ function ptRamp(n){
     return {bg:!f?'var(--pt-s'+k+')':f===100?'var(--pt-s'+(k+1)+')':'color-mix(in srgb,var(--pt-s'+(k+1)+') '+f+'%,var(--pt-s'+k+'))',dk:t>=1.9};
   });
 }
+/* Вариант E (одобрен 20.10): легенды под шкалой нет — в куске доля (если влезает), у самого
+   большого (или выбранного в срезе) — ещё и имя; под шкалой тонкой полосой — та же раскладка по
+   компании, ниже — края шкалы (первая и последняя ступень) и «Не определено» строкой (n/a, «Не
+   указано» — у них нет места на шкале). Точные доли команды и компании — в подсказке куска. */
 function ptSteps(rows,bench){
-  const ord=rows.filter(r=>!r.na), ramp=ptRamp(ord.length), tot=sumA(rows.map(r=>r.n))||1;
+  const ord=rows.filter(r=>!r.na), ramp=ptRamp(ord.length), tot=sumA(rows.map(r=>r.n))||1, btot=sumA(rows.map(r=>r.b))||1;
   const col=r=>r.na?{bg:'var(--pt-na)',na:true}:ramp[ord.indexOf(r)];
-  /* ключ — колонками сверху вниз, как идут ступени; ширина колонки — по самому длинному
-     имени: «от 6 мес до 1 года» не режется */
-  const w=Math.max(...rows.map(r=>r.name.length))*6.6+76;
-  return '<div class="pt-pill seg">'+rows.filter(r=>r.n>0).map(r=>{const c=col(r), cl=[c.dk?'dk':c.na?'na':'',r.on?'on':''].filter(Boolean);
+  const known=ord.filter(r=>r.n>0);
+  const big=known.find(r=>r.on)||known.reduce((a,r)=>!a||r.n>a.n?r:a,null);
+  /* имя в кусок влезает с запасом от пятой части шкалы; уже — имя уходит в середину строки краёв */
+  const bigIn=big&&big.n/tot>=0.18;
+  const label=r=>r===big&&bigIn?'<b>'+U.esc(r.name)+'</b> '+shr(r.n,r.p):r.p>=7?shr(r.n,r.p):'';
+  const pill='<div class="pt-pill seg">'+rows.filter(r=>r.n>0).map(r=>{const c=col(r), cl=[c.dk?'dk':c.na?'na':'',r.on?'on':'',r===big&&bigIn?'big':''].filter(Boolean);
     return '<span'+(cl.length?' class="'+cl.join(' ')+'"':'')+mixAt(r)+' style="flex:'+(r.n/tot*100).toFixed(2)+' 1 0;background:'+c.bg+'"'+
-      ptTip(r,bench)+'>'+(r.p>=7?r.p+'%':'')+'</span>'}).join('')+'</div>'+
-    '<div class="pt-key seg" style="column-width:'+Math.round(w)+'px">'+
-    rows.map(r=>'<span'+(r.on?' class="on"':'')+mixAt(r)+ptTip(r,bench)+'><i style="background:'+col(r).bg+'"></i>'+
-      '<em>'+U.esc(r.name)+'</em><b>'+shr(r.n,r.p)+'</b><small><s></s>'+shr(r.bn,r.b)+'</small></span>').join('')+'</div>';
+      ptTip(r,bench)+'>'+label(r)+'</span>'}).join('')+'</div>';
+  const thin='<div class="pt-thin"'+U.tipAttr({title:bench,text:'Та же шкала по базе сравнения: '+
+      rows.filter(r=>r.b>0||r.bn>0).map(r=>r.name+' — '+shr(r.bn,r.b)).join(', ')+'.'})+'>'+
+    rows.filter(r=>r.bn>0).map(r=>'<span style="flex:'+(r.bn/btot*100).toFixed(2)+' 1 0;background:'+col(r).bg+'"></span>').join('')+'</div>';
+  /* край шкалы: имя — если его нет в куске; доля — если куску не хватило места */
+  const end=r=>!r?'<span></span>':r===big&&bigIn?'<span></span>':
+    '<span'+mixAt(r)+ptTip(r,bench)+'>'+U.esc(r.name)+' <b>'+shr(r.n,r.p)+'</b></span>';
+  const first=known[0], last=known.length>1?known[known.length-1]:null;
+  const mid=big&&!bigIn?'<em>больше всего — <b>'+U.esc(big.name)+' '+shr(big.n,big.p)+'</b></em>':'';
+  const na=rows.filter(r=>r.na&&r.n>0);
+  return pill+thin+'<div class="pt-ends">'+end(first)+'<i>'+mid+'</i>'+end(last)+'</div>'+
+    (na.length?'<div class="pt-und">Не определено: '+na.map(r=>'<span'+mixAt(r)+ptTip(r,bench)+'>'+U.esc(r.name)+' <b>'+shr(r.n,r.p)+'</b></span>').join(' · ')+'</div>':'');
+}
+/* Столбики по порядку значений (грейды, вариант D, одобрен 20.10): доля над столбиком, засечка
+   — база, имя под ним; выделено выбранное в срезе или самое большое. «Не указано» — «н/у». */
+function ptColumns(rows,bench,o){
+  o=o||{};
+  const max=Math.max(1,...rows.map(r=>Math.max(r.p,r.b)))*1.18;
+  return (o.cap?'<div class="bt-cap pt-cap">'+U.esc(o.cap)+'</div>':'')+
+    '<div class="pt-col gr">'+rows.map(r=>'<div class="c'+(r.hi?' hi':'')+(r.on?' on':'')+'">'+
+      '<div class="bar"'+mixAt(r)+ptTip(r,bench)+'>'+
+      '<div class="v" style="bottom:calc('+(Math.max(r.p,r.b)/max*100).toFixed(1)+'% + 3px)">'+shr(r.n,r.p)+'</div>'+
+      '<i style="height:'+(r.p/max*100).toFixed(1)+'%"></i><s style="bottom:'+(r.b/max*100).toFixed(1)+'%"></s></div>'+
+      '<div class="n">'+U.esc(r.na?'н/у':r.name)+'</div></div>').join('')+'</div>';
 }
 /* Общее первое слово у всех значений («Стаж менее 3 мес», «Стаж от 3 до 6 мес») — в
    заголовке раздела оно уже есть; в ключе его нет, полное имя остаётся в подсказке */
@@ -293,14 +319,16 @@ function overviewWho(ctx){
      короткий «Опыт» больше не оставляет дыру рядом с высокой «Квалификацией» */
   /* порядок для колонок: слева квалификация и пол, справа опыт и возраст —
      так высоты сходятся лучше всего; возраст разложен по полу, цвета те же */
+  /* 20.10, вариант E: квалификация | опыт, ниже «Пол и возраст» одним соцдем-блоком; грейды —
+     столбиками (вариант D), а не строками: форма распределения видна сразу, высота — вчетверо меньше */
+  const ageBody=two?'<div class="bt-cap pt-cap">женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench):ptBars(AGE,bench);
   return '<div class="pt-wrap">'+ptLegend(bench)+ptCols([
-    ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptBars(GR,bench,{cap:'по грейдам'})),
-    ptSec(c.says,'Пол','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+'</div>'),
+    ptSec(c.says,'Квалификация','sen',ptSteps(SEN,bench)+ptColumns(GR,bench,{cap:'по грейдам'})),
     /* «из 10 человек» — для четырёх групп и меньше; групп стажа в настоящих данных шесть
-       (19.10), и «1 из 10» у каждой мелкой ничего не говорит — тогда пилюля по ступеням */
+       (19.10), и «1 из 10» у каждой мелкой ничего не говорит — тогда шкала по ступеням */
     ptSec(c.says,'Опыт в компании','ten',TEN.filter(r=>!r.na).length>4?ptSteps(TEN,bench):ptPeople(TEN,bench)),
-    ptSec(c.says,'Возраст','age','<div class="pt-gen">'+
-      (two?'<div class="bt-cap pt-cap">женщины и мужчины в каждой группе</div>'+ptAgeSex(AGE,m,gen,bench):ptBars(AGE,bench))+'</div>')])+
+    ptSec(c.says,'Пол и возраст','gen','<div class="pt-gen">'+(two?ptSplit(GEN[0],GEN[1],bench,'gen'):ptBars(GEN,bench))+'</div>'+
+      (c.says.age?'<h4 class="pt-h2">'+U.richText(c.says.age)+'</h4>':'')+'<div class="pt-gen">'+ageBody+'</div>')])+
     '<div class="pt-more"><button class="pt-go" data-subtab="custom">Пол × грейд и другие пары — в «Своём срезе» →</button></div></div>';
 }
 /* «Как оформлены и где?» — штат и договор, формат, регионы, юрлица. В пробнике

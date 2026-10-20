@@ -188,7 +188,8 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   /* 19.10, заказчик (скриншот портрета на настоящих данных: «какая-то фигня»): ступеней
      сеньорности 11, групп стажа 6. Каждая ступень пилюли окрашена и подписана только долей,
      «Junior+» — сразу за «Junior», n/a и «Не указано» — в конце, стаж — по сроку («менее
-     3 мес» первым); групп стажа больше четырёх — пилюля, а не «из 10 человек» */
+     3 мес» первым); групп стажа больше четырёх — пилюля, а не «из 10 человек». 20.10, вариант
+     E: имя — только у одного, самого большого куска (<b>), остальные — долей */
   const pt=A.go('structure','portrait'), sen=D.mixCats('seniority').map(c=>c.name), ten=D.mixCats('tenure');
   const na=n=>/^\s*(n\/?a|н\/?д|не указан[оа]?|-)\s*$/i.test(n);
   const plusOk=sen.every((n,i)=>!/\+$/.test(n)||sen.indexOf(n.slice(0,-1))<0||sen[i-1]===n.slice(0,-1));
@@ -198,7 +199,8 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const segs=pills.join('').match(/<span[^>]*>/g)||[];
   const nTen=ten.filter(c=>!c.na).length;
   ok(plusOk&&naLast&&tenOk&&segs.length>=sen.length-2&&segs.every(x=>/background:(var\(--pt-(s\d|na)\)|color-mix\()/.test(x))&&
-    !/[A-Za-zА-яЁё]/.test(pills.join('').replace(/<[^>]*>/g,''))&&(nTen<=4?/class="pt-man/.test(pt):pills.length===2&&!/class="pt-man/.test(pt)),
+    pills.every(x=>(x.match(/class="[^"]*\bbig\b/g)||[]).length<=1)&&
+    !/[A-Za-zА-яЁё]/.test(pills.join('').replace(/<b>[^<]*<\/b>/g,'').replace(/<[^>]*>/g,''))&&(nTen<=4?/class="pt-man/.test(pt):pills.length===2&&!/class="pt-man/.test(pt)),
     'портрет на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, каждая окрашена, '+
     (nTen<=4?'стаж — «из 10 человек»':'стаж — пилюлей'));
   /* 19.10, заказчик («тут тоже так себе вёрстка»): форматов работы пять — полосами, а не
