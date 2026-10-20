@@ -173,6 +173,11 @@ checks.push(['кастомные тултипы есть на каждом эк�
 /* 9. светофор: два цвета плюс серый, жёлтого нет нигде */
 const css=fs.readFileSync(path.join(dir,'styles.css'),'utf8').replace(/\s+/g,'');
 const appSrc=fs.readFileSync(path.join(dir,'app.js'),'utf8');
+/* 20.10, видео заказчика: перезапуск скрипта Proteus (ресайз, перерисовка) не сбрасывает прокрутку —
+   она живёт в хранилище и возвращается на старте того же вида (модель песочницы: rerun, 594 → 594) */
+checks.push(['перезапуск скрипта держит прокрутку экрана и панелей',
+  /STORE\.scroll=\{k:viewKey\(\)/.test(appSrc)&&/back=ENV&&!pend0&&STORE\.scroll/.test(appSrc)&&
+  /ENV\.scroller\.scrollTop=back\.y/.test(appSrc)&&/if\(pend\)STORE\.scroll=null/.test(appSrc)]);
 checks.push(['в светофоре нет жёлтого: stateColor(warn) серый',
   G.stateColor('warn')===G.C_FLAT&&G.stateColor('good')!==G.C_FLAT]);
 checks.push(['жёлтого нет в графиках и легендах отчёта',

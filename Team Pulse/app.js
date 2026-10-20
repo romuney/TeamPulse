@@ -174,6 +174,8 @@ function arrive(){
   }
   const pend=STORE.pending;
   STORE.pending=null;clearTimeout(_pendT);
+  /* новый запрос (юнит, фильтры) — экран начинается сверху: прежнюю прокрутку забываем */
+  if(pend)STORE.scroll=null;
   ROOTEL.classList.remove('tp-busy');
   if(pend)STORE.warn=pend.unit!==S.unit&&D.REAL.scopeId!==unitId(pend.unit)
     ?'«'+(pend.name||'Юнит')+'» не открылся: его нет в данных последнего полного месяца.':'';
@@ -188,6 +190,7 @@ function arrive(){
   const lg=$('.logo small');if(lg)lg.textContent='Hub · пробник';
   const ph=$('#planHost');
   if(ph)ph.innerHTML=U.planTable(D.DEV_PLAN);
+  return !!pend;
 }
 /* Чипы пробника в шапке: ожидание ответа, предупреждение и что здесь живое */
 /* Пункт меню блока в разработке (14.10): целиком — полосатая метка, частично —
@@ -676,6 +679,19 @@ function spyBlocks(){
   nav.querySelectorAll('[data-jump]').forEach(b=>b.classList.toggle('on',b.dataset.jump===cur));
 }
 on(ENV?ENV.scroller:window,'scroll',()=>{if(!_spy)_spy=requestAnimationFrame(spyBlocks)},{passive:true});
+/* Proteus перезапускает скрипт не только на ответ датасета, но и на ресайз и перерисовку ячейки
+   (гайд, CJ-10): prelude.js ставит новый корень, и прокрутка начиналась бы сверху — 20.10, видео
+   заказчика: во вкладке блока отчёт каждые пару секунд «прыгал» к выводу. Прокрутку экрана и
+   панелей держим в хранилище и возвращаем на перезапуске того же вида (старт, ниже). */
+const viewKey=()=>S.tab+'|'+(S.subTab||'')+'|'+S.unit;
+let _sv=0;
+function saveScroll(){
+  _sv=0;
+  if(!STORE||!ENV)return;
+  STORE.scroll={k:viewKey(),y:ENV.scroller.scrollTop,
+    inner:INNER_SCROLL.map(q=>{const el=$(q);return el?[el.scrollTop,el.scrollLeft]:null})};
+}
+if(ENV)on(ROOTEL,'scroll',()=>{if(!_sv)_sv=requestAnimationFrame(saveScroll)},{passive:true,capture:true});
 
 /* перерисовка графиков под новую ширину окна, без пересчёта данных */
 let _rz=null;
@@ -948,8 +964,14 @@ mountStaticMascots();
    открывалась поверх скриншота, хотя её просили не показывать. */
 const noTour=ENV?true:location.search.indexOf('tour=0')>=0;
 readURL();
-if(ENV)arrive();
-render();
+/* перезапуск без нового запроса (ресайз, перерисовка) — тот же вид на том же месте, без анимации */
+const pend0=ENV&&arrive(), back=ENV&&!pend0&&STORE.scroll;
+render(!!back,!!back);
+if(back&&back.k===viewKey()){
+  ENV.scroller.scrollTop=back.y;
+  INNER_SCROLL.forEach((q,i)=>{const el=$(q), v=back.inner&&back.inner[i];if(el&&v){el.scrollTop=v[0];el.scrollLeft=v[1]}});
+  stickTotals();
+}
 
 /* первый вход: справка «Как читать отчёт» работает онбордингом.
    ?tour=0 — не показывать: нужно, чтобы скриншот сразу показывал отчёт. */
