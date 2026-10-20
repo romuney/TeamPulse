@@ -34,6 +34,12 @@ HUB_CHECKS = [
     ('узлов, у которых нет родителя в справочнике (кроме корня)',
      f"""select count(*) from {HUB_P}_unit u
          where u.parent_rk <> '' and not exists (select 1 from {HUB_P}_unit p where p.unit_rk = u.parent_rk)"""),
+    # 21.10: переходы — «остался» только при смене среза, без пустых строк
+    ('переходы: «остался» без смены среза',
+     f"""select count(*) from {HUB_P}_trf where trf_kind = 's'
+         and (f_paint_cd, f_it_cd, f_staff_cd, f_act_cd) = (t_paint_cd, t_it_cd, t_staff_cd, t_act_cd)"""),
+    ('переходы: строк без людей',
+     f"select count(*) from {HUB_P}_trf where trf_cnt <= 0 or (in_ok = 0 and out_ok = 0)"),
     ('корней',
      f"select count(*) - 1 from {HUB_P}_unit where parent_rk = ''"),
     ('узлов, где подразделения больше узла (численность)',

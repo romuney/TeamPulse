@@ -10,6 +10,8 @@
 #                         поддерево
 #   teampulse_hub_mix     узел × срез (с типом численности) × разрез × значение: численность последнего
 #                         месяца по атрибутам и увольнения с начала года по причинам и др.
+#   teampulse_hub_trf     переходы людей: узел × месяц × вид (вошёл / вышел / остался) × срез до и
+#                         после — датасет считает из них переводы под выбранные фильтры
 # Виртуальный датасет отчёта не кешируется и на каждый запрос только выбирает узлы ответа:
 # дерево, история в нынешней структуре, ССЧ, переводы и разрезы готовы здесь.
 # Источник — таблица человек × месяц × юнит (build_all_metrics + перформанс, посещаемость,
@@ -49,6 +51,7 @@ def _hub_head_src():
 def build_hub(
     source: str = 'all_metrics_with_performance_and_office_traffic_and_grt',
     prefix: str = 'teampulse_hub',
+    daily_source: str = 'usr_cross_data.hr_executive_proteus',
     n_levels: int = 11,
     staff_value: str = 'Штатный сотрудник',
     debug: bool = False,
@@ -295,6 +298,103 @@ group by 1, 2, 3, 4, 5, 6, 7
 having sum(mx_n) > 0
 {dist('node_rk')}""")
 
+    # 10. переходы (21.10, заказчик: «переводы пересчитываются в зависимости от фильтров»: смотрим
+    #     департамент — кто перешёл в департамент; департамент + HQ — кто перешёл в департамент и
+    #     стал HQ; так же штат, IT-код, тип численности). Переход — день, когда у человека в дневном
+    #     источнике сменился юнит или срез (покраска, IT-код, штат, тип численности) против его
+    #     прошлой строки. Пути юнитов — нынешние, как у рядов (переименование и переезд юнита не
+    #     переход). Узлы нового пути, которых нет в старом, — «вошёл» (i, срез после), старого, которых
+    #     нет в новом, — «вышел» (o, срез до), общие при смене среза — «остался» (s, оба среза).
+    #     Датасет: перевод в выбор — срез после проходит фильтры, и человек вошёл в узел или срез до
+    #     фильтры не проходил; из выбора — наоборот. Месяц — первого дня в новом состоянии: перевод
+    #     с 1-го числа даёт «из» и «в» в одном месяце (как в старом TeamPulse, где «из» последнего дня
+    #     месяца переносили на следующий). В выбор — без найма, перевода стажёра в штат и учебной
+    #     группы в боевую (это найм, in_ok = 0); из выбора — без увольнения (out_ok = 0)
+    dcols = set() if debug else _source_cols(_qualified(daily_source))
+    dhas = lambda c: c in dcols
+    dlv = [i for i in lv if dhas(f'lvl{i}_mapped_management_unit_rk')]
+    dunit = lambda i: f"coalesce(nullif(x.lvl{i}_mapped_management_unit_rk::text, ''), '-')"
+    darr = 'ARRAY[' + ', '.join(dunit(i) for i in dlv) + ']' if dlv else "ARRAY['-']"
+    dleaf = 'case ' + ' '.join(f"when {dunit(i)} <> '-' then {n}" for n, i in reversed(list(enumerate(dlv, 1)))) + ' else 0 end' \
+        if dlv else '0'
+    dflg = lambda c: f"(coalesce(x.{c}::text, '0') = '1')::int" if dhas(c) else '0'
+    dcut = lambda c: f"coalesce(nullif(coalesce(x.{c}::text, '-'), ''), '-')" if dhas(c) else "'-'"
+    # тип численности — как в FIXED_DIMS ноутбука (первый вариант, чьи колонки есть в источнике)
+    act_e = "case when x.active_type_nm = 'Активная' then 'Активная' else 'Прочие' end" if dhas('active_type_nm') \
+        else "'Активная'"
+    for fd in globals().get('FIXED_DIMS', []):
+        if fd.get('alias') == 'active_type_gr_nm' and all(dhas(c) for c in fd.get('cols', [])):
+            act_e = f"case when ({fd['expr']}) = 'Активная' then 'Активная' else 'Прочие' end"
+            for c in fd['cols']:
+                act_e = act_e.replace(c, f'x.{c}')
+            break
+    staff_e = (f"case when x.employment_relation_type_desc = '{staff_value}' then 'Штат' else 'Не штат' end"
+               if dhas('employment_relation_type_desc') else "'Не штат'")
+    hx = ' + '.join(dflg(c) for c in ('hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg'))
+    fpath = lambda a, c: (f"case when {a}.{c} = '' then '{{}}'::text[] else "
+                          f"string_to_array({pre}{a}.{c}, '|') end")
+    steps.append(f"""
+drop table if exists {p}_trf;
+create table {p}_trf as
+with d as (
+    select distinct on (e, dt) *
+    from (
+        select x.mdm_employee_rk as e, x.calendar_dt::date as dt,
+               case when {dleaf} = 0 then '' else ({darr})[{dleaf}] end as u,
+               case when {dleaf} = 0 then '' else array_to_string(({darr})[1:{dleaf}], '|') end as op,
+               {dcut('emp_specialization_oper_code')} as pa, {dcut('emp_specialization_it_code')} as it,
+               {staff_e} as st, {act_e} as ac,
+               least({hx}, 1) as hx, {dflg('fire_flg')} as fx
+        from {_qualified(daily_source)} x
+        where x.calendar_dt::date >= (select (date_trunc('year', lm) - interval '1 year' - interval '1 day')::date
+                                      from {p}_cal)
+    ) y
+    order by e, dt, u
+),
+s as (
+    select d.*, lag(u) over w as u0, lag(op) over w as op0, lag(pa) over w as pa0, lag(it) over w as it0,
+           lag(st) over w as st0, lag(ac) over w as ac0, lag(fx) over w as fx0
+    from d
+    window w as (partition by e order by dt)
+),
+c as (
+    select date_trunc('month', s.dt)::date as report_month, s.pa, s.it, s.st, s.ac, s.pa0, s.it0, s.st0, s.ac0,
+           1 - s.hx as in_ok, 1 - s.fx0 as out_ok,
+           (s.pa, s.it, s.st, s.ac) <> (s.pa0, s.it0, s.st0, s.ac0) as cut_chg,
+           case when s.u = '' then '' else coalesce(ua1.cp, s.op) end as cp1,
+           case when s.u0 = '' then '' else coalesce(ua0.cp, s.op0) end as cp0
+    from s
+    left join {p}_upath ua1 on ua1.unit_rk = s.u
+    left join {p}_upath ua0 on ua0.unit_rk = s.u0
+    where s.u0 is not null
+      and (s.u <> s.u0 or (s.pa, s.it, s.st, s.ac) <> (s.pa0, s.it0, s.st0, s.ac0))
+      and s.dt >= (select (date_trunc('year', lm) - interval '1 year')::date from {p}_cal)
+      and (s.hx = 0 or s.fx0 = 0)
+),
+t as (
+    select c.*, {fpath('c', 'cp1')} as a1, {fpath('c', 'cp0')} as a0 from c
+),
+n as (
+    select report_month, node_rk, case when node_rk = any(a0) then 's' else 'i' end as trf_kind,
+           pa, it, st, ac, pa0, it0, st0, ac0, in_ok, out_ok, cut_chg
+    from (select t.*, unnest(t.a1) as node_rk from t) z
+    union all
+    select report_month, node_rk, 'o' as trf_kind, pa, it, st, ac, pa0, it0, st0, ac0, in_ok, out_ok, cut_chg
+    from (select t.*, unnest(t.a0) as node_rk from t) z
+    where not (node_rk = any(a1))
+)
+select node_rk, report_month, trf_kind,
+       case when trf_kind = 'i' then '' else pa0 end as f_paint_cd, case when trf_kind = 'i' then '' else it0 end as f_it_cd,
+       case when trf_kind = 'i' then '' else st0 end as f_staff_cd, case when trf_kind = 'i' then '' else ac0 end as f_act_cd,
+       case when trf_kind = 'o' then '' else pa end as t_paint_cd, case when trf_kind = 'o' then '' else it end as t_it_cd,
+       case when trf_kind = 'o' then '' else st end as t_staff_cd, case when trf_kind = 'o' then '' else ac end as t_act_cd,
+       case when trf_kind = 'o' then 0 else in_ok end as in_ok, case when trf_kind = 'i' then 0 else out_ok end as out_ok,
+       count(*) as trf_cnt
+from n
+where (trf_kind = 'i' and in_ok = 1) or (trf_kind = 'o' and out_ok = 1) or (trf_kind = 's' and cut_chg)
+group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+{dist('node_rk')}""")
+
     # 9. календарь отчёта, корень и юнит по умолчанию (у корня один ребёнок — он)
     steps.append(f"""
 drop table if exists {p}_meta;
@@ -321,7 +421,7 @@ cross join (select unit_rk, kids_cnt from {p}_unit where parent_rk = '' order by
             _hub_q(sql)
     if debug:
         return
-    for t in ('meta', 'unit', 'series', 'mix'):
+    for t in ('meta', 'unit', 'series', 'mix', 'trf'):
         n = _hub_q(f'select count(*) as n from {p}_{t}')['n'].iloc[0]
         print(f'[OK] {p}_{t}: {n} строк')
     if multi:

@@ -53,6 +53,7 @@ EXTRA = {
          "    'teampulse_hub_unit':   'prod_proteus.teampulse_hub_unit',\n"
          "    'teampulse_hub_series': 'prod_proteus.teampulse_hub_series',\n"
          "    'teampulse_hub_mix':    'prod_proteus.teampulse_hub_mix',\n"
+         "    'teampulse_hub_trf':    'prod_proteus.teampulse_hub_trf',     # переходы — переводы под фильтры\n"
          "}"),
     ],
 }

@@ -8,9 +8,11 @@
     здесь нет ни одного тяжёлого шага. Всё посчитано в ноутбуке:
       teampulse_hub_meta    календарь отчёта, корень, юнит по умолчанию (1 строка)
       teampulse_hub_unit    узлы нынешней структуры: родитель, уровень, имя, подразделения, путь
-      teampulse_hub_series  узел × месяц × срез: ряды по всему поддереву узла, ССЧ, переводы через
-                            границу узла
+      teampulse_hub_series  узел × месяц × срез: ряды по всему поддереву узла, ССЧ
       teampulse_hub_mix     узел × срез × разрез × значение: численность и увольнения по разрезам
+      teampulse_hub_trf     переходы людей (21.10): узел × месяц × вошёл / вышел / остался × срез
+                            до и после — переводы считаются под выбранные фильтры. Таблицы нет
+                            (ноутбук до поставки 49) — датасет падает: сначала ноутбук
     Датасет выбирает узлы ответа (выбранный юнит, база, три уровня под ним), суммирует их строки
     по выбранным срезам и собирает ответ.
 
@@ -74,9 +76,19 @@
 {%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set hv = 'has(arrayMap(x -> lowerUTF8(x), ' ~ qa(F[c[0]]) ~ '), lowerUTF8(' ~ c[2] ~ '))' -%}{%- set _ = parts.append(("(" ~ c[2] ~ " = '∅' OR " ~ hv ~ ")") if c[0] == 'act' else hv) -%}{%- endif -%}{%- endfor -%}
 {{- parts|join(' AND ') if parts else '1' -}}
 {%- endmacro %}
+{#- Переводы (21.10) — из переходов ноутбука (teampulse_hub_trf) под выбранные фильтры: срез после
+    (t_) или до (f_) проходит фильтры. В выбор — вошёл в узел со срезом из фильтров или остался в
+    узле, а срез сменился на подходящий; из выбора — наоборот. Без фильтров смена среза — не перевод. -#}
+{% macro condp(pre) -%}
+{%- set parts = [] -%}
+{%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set _ = parts.append('has(arrayMap(x -> lowerUTF8(x), ' ~ qa(F[c[0]]) ~ '), lowerUTF8(ifNull(' ~ pre ~ c[0] ~ "_cd, '')))") -%}{%- endif -%}{%- endfor -%}
+{{- parts|join(' AND ') if parts else '1' -}}
+{%- endmacro %}
+{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64((" ~ condp('t_') ~ ") AND (ifNull(trf_kind, '') = 'i' OR (ifNull(trf_kind, '') = 's' AND ifNull(in_ok, 0) = 1 AND NOT (" ~ condp('f_') ~ "))))" %}
+{% set TU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64((" ~ condp('f_') ~ ") AND (ifNull(trf_kind, '') = 'o' OR (ifNull(trf_kind, '') = 's' AND ifNull(out_ok, 0) = 1 AND NOT (" ~ condp('t_') ~ "))))" %}
 {#- Массив месяцев строкой: дроби только у ССЧ (полусумма) и мониторинга. -#}
 {% macro out(a) -%}arrayStringConcat(arrayMap(x -> toString(round(x, 1)), {{ a }}), ','){%- endmacro %}
-{% set M = [['hc', 'e', 'hc_cnt'], ['act', 'ea', 'act_cnt'], ['avg', 'sa', 'avg_cnt'], ['hire', 'hi', 'hire_cnt' if act_only else HCO], ['fire', 'fi', 'fire_cnt'], ['reg', 'rg', 'reg_cnt'], ['tin', 'ti', 'tin_cnt'], ['tout', 'tu', 'tout_cnt'], ['pnor', 'pn', 'pnor_cnt'], ['plow', 'pl', 'plow_cnt'], ['phig', 'ph', 'phig_cnt'], ['pgry', 'pg', 'pgry_cnt'], ['wday', 'wd', 'wday_amt'], ['ovis', 'ov', 'ovis_amt'], ['gapr', 'ga', 'gapr_cnt'], ['gdec', 'gd', 'gdec_cnt']] %}
+{% set M = [['hc', 'e', 'hc_cnt'], ['act', 'ea', 'act_cnt'], ['avg', 'sa', 'avg_cnt'], ['hire', 'hi', 'hire_cnt' if act_only else HCO], ['fire', 'fi', 'fire_cnt'], ['reg', 'rg', 'reg_cnt'], ['tin', 'ti', '0'], ['tout', 'tu', '0'], ['pnor', 'pn', 'pnor_cnt'], ['plow', 'pl', 'plow_cnt'], ['phig', 'ph', 'phig_cnt'], ['pgry', 'pg', 'pgry_cnt'], ['wday', 'wd', 'wday_amt'], ['ovis', 'ov', 'ovis_amt'], ['gapr', 'ga', 'gapr_cnt'], ['gdec', 'gd', 'gdec_cnt']] %}
 {#- Значения фильтра с численностью компании за последний месяц (окно настройки). -#}
 {% macro vals(col) -%}
 (SELECT toJSONString(groupArray((v, e))) FROM (
@@ -168,6 +180,15 @@ WITH
       WHERE node_rk IN (SELECT id FROM pick)
         AND report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal)
         AND {{ cond() }}
+      UNION ALL
+      SELECT ifNull(node_rk, '') AS u2,
+             toInt32(dateDiff('month', (SELECT m0 FROM cal), toDate(assumeNotNull(report_month)))) AS i2,
+{%- for m in M %}
+             {% if m[0] == 'tin' %}{{ TI }}{% elif m[0] == 'tout' %}{{ TU }}{% else %}toFloat64(0){% endif %} AS {{ m[1] }}0{% if not loop.last %},{% endif %}
+{%- endfor %}
+      FROM prod_proteus.teampulse_hub_trf
+      WHERE node_rk IN (SELECT id FROM pick)
+        AND report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal)
       UNION ALL
       SELECT id AS u2, toInt32(0) AS i2,
 {%- for m in M %}

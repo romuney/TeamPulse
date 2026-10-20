@@ -35,16 +35,22 @@ def main():
     perf, office, grt = nb.side(people)
     names = {k: tuple(U[x][0] for x in nb.path(U, k)) for k in U}
     ms = nb.months()                            # 2025-01 … 2026-10 — сетка ответа (20.10: с текущим незакрытым)
-    cases = [('без фильтров', {}, lambda p: True),
-             ('IT + штат', {'it_f': ['IT'], 'staff_f': ['Штат']}, lambda p: p['it'] == 'IT' and p['rel'] == 'Штатный сотрудник'),
-             ('покраска HQ (2а)', {'paint_f': ['Hq']}, lambda p: p['oper'] == 'HQ'),
-             ('NonIT строчными', {'it_f': ['nonit']}, lambda p: p['it'] == 'NonIT'),
-             ('Digital (отдельно от NonIT)', {'it_f': ['Digital']}, lambda p: p['it'] == 'Digital'),
-             ('покраска Line + Support (2а)', {'paint_f': ['Line', 'Support']}, lambda p: p['oper'] in ('Line', 'Support')),
+    # 21.10: срез человека меняется во времени — фильтр по дню (nb.attr)
+    A = nb.attr
+    cases = [('без фильтров', {}, lambda p, d: True),
+             ('IT + штат', {'it_f': ['IT'], 'staff_f': ['Штат']},
+              lambda p, d: A(p, 'it', d) == 'IT' and A(p, 'rel', d) == 'Штатный сотрудник'),
+             ('покраска HQ (2а)', {'paint_f': ['Hq']}, lambda p, d: A(p, 'oper', d) == 'HQ'),
+             ('NonIT строчными', {'it_f': ['nonit']}, lambda p, d: A(p, 'it', d) == 'NonIT'),
+             ('Digital (отдельно от NonIT)', {'it_f': ['Digital']}, lambda p, d: A(p, 'it', d) == 'Digital'),
+             ('покраска Line + Support (2а)', {'paint_f': ['Line', 'Support']},
+              lambda p, d: A(p, 'oper', d) in ('Line', 'Support')),
+             ('штат + HQ (2а)', {'staff_f': ['Штат'], 'paint_f': ['HQ']},
+              lambda p, d: A(p, 'rel', d) == 'Штатный сотрудник' and A(p, 'oper', d) == 'HQ'),
              # 20.10: тип численности — по умолчанию (случаи выше) «Активная», «Вся» — все строки
-             ('вся численность', {'act_f': ['Вся']}, lambda p: True),
+             ('вся численность', {'act_f': ['Вся']}, lambda p, d: True),
              ('вся численность + IT + штат', {'act_f': ['Вся'], 'it_f': ['IT'], 'staff_f': ['Штат']},
-              lambda p: p['it'] == 'IT' and p['rel'] == 'Штатный сотрудник')]
+              lambda p, d: A(p, 'it', d) == 'IT' and A(p, 'rel', d) == 'Штатный сотрудник')]
     raw = {}
     ok = True
     for name, flt, pred in cases:
@@ -54,6 +60,10 @@ def main():
                          agg=label == 'файл 2 ' and act, act=act)
             if label == 'файл 2 ' and 'paint_f' in flt:
                 continue                         # в hr_structure_overall покраски нет
+            if label == 'файл 2а':               # 21.10: переводы 2а — под фильтры (переходы ноутбука)
+                Tt = nb.truth_trf(U, people, pred, act)
+                for k in set(T) | set(Tt):
+                    T[k]['tin'], T[k]['tout'] = Tt[k]['tin'], Tt[k]['tout']
             f = dict(flt)
             pred_note = ''
             outs = {run(db, sql, f, st)[0] for st in dataset.CFG.values()}
@@ -73,7 +83,8 @@ def main():
                     roots = [k for k in U if U[k][1] is None]   # между корнями для него внутренний
                     for m in ms:
                         for kk in set(x for k in roots for x in T[(k, m)]):
-                            T[('all', m)][kk] = 0 if kk in ('tin', 'tout') else sum(T[(k, m)][kk] for k in roots)
+                            if kk not in ('tin', 'tout'):    # переводы общего корня — свои (truth_trf)
+                                T[('all', m)][kk] = sum(T[(k, m)][kk] for k in roots)
                 elif rk not in U:
                     bad['узел не найден'] += 1
                     continue

@@ -24,7 +24,8 @@ SELECT section, item, value
 --                значения покраски / IT / штата / типа численности, численность компании по
 --                месяцам, активная ≤ общей, regret ≤ увольнений, ССЧ = (численность + прошлый
 --                месяц) / 2, дети ≤ родителя, водопад у корня с начала года (активная и вся:
---                найм, отток, переводы, «прочие изменения»), мониторинг, посещаемость, T-рост;
+--                найм, отток, переводы — с поставки 49 из переходов teampulse_hub_trf, как в датасете
+--                2а, «прочие изменения»), мониторинг, посещаемость, T-рост, переходы у корня;
 --   5 разрезы  — каждый ключ mx_key: сколько строк и значений, доля пустых, сходится ли сумма с
 --                series (численность — последний месяц, x* — увольнения с начала года).
 --
@@ -89,7 +90,22 @@ WITH
     FROM sr
     GROUP BY u
   ),
-  ml AS (SELECT u AS mu, k AS mk, sum(n) AS mn FROM mx GROUP BY u, k)
+  ml AS (SELECT u AS mu, k AS mk, sum(n) AS mn FROM mx GROUP BY u, k),
+  -- переводы у корня с начала года — как их считает датасет 2а (с поставки 49, teampulse_hub_trf):
+  -- активная без фильтров — вошёл в узел активным или стал активным; вся численность — вошёл в узел
+  tr AS (
+    SELECT sum(toFloat64(ifNull(trf_cnt, 0)) * ((ifNull(trf_kind, '') = 'i' AND ifNull(t_act_cd, '') = 'Активная')
+             OR (ifNull(trf_kind, '') = 's' AND ifNull(in_ok, 0) = 1 AND ifNull(t_act_cd, '') = 'Активная' AND ifNull(f_act_cd, '') != 'Активная'))) AS tai,
+           sum(toFloat64(ifNull(trf_cnt, 0)) * ((ifNull(trf_kind, '') = 'o' AND ifNull(f_act_cd, '') = 'Активная')
+             OR (ifNull(trf_kind, '') = 's' AND ifNull(out_ok, 0) = 1 AND ifNull(f_act_cd, '') = 'Активная' AND ifNull(t_act_cd, '') != 'Активная'))) AS tao,
+           sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'i')) AS tvi,
+           sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'o')) AS tvo,
+           count() AS tn, uniqExact(report_month) AS tmn,
+           countIf(ifNull(trf_kind, '') = 'i') AS tki, countIf(ifNull(trf_kind, '') = 'o') AS tko, countIf(ifNull(trf_kind, '') = 's') AS tks
+    FROM prod_proteus.teampulse_hub_trf
+    WHERE report_month BETWEEN toStartOfYear((SELECT lm FROM cal)) AND (SELECT lm FROM cal)
+      AND node_rk = (SELECT r FROM cal)
+  )
 
 SELECT '1 meta' AS section, 1 AS ord, 'последний месяц · сетка с · месяцев · индекс января' AS item,
        v0 AS value
@@ -270,10 +286,10 @@ FROM (SELECT (SELECT concat(toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM
                                      / nullIf((SELECT H FROM co), 0))), ' · ',
                       toString(round(1000 * sumIf(hi, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
                       toString(round(1000 * sumIf(fi, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
-                      toString(round(1000 * sumIf(ti, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
-                      toString(round(1000 * sumIf(tt, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * (SELECT tai FROM tr) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * (SELECT tao FROM tr) / nullIf((SELECT H FROM co), 0))), ' · ',
                       toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM cal)) - sumIf(hc, m = addMonths(toStartOfYear((SELECT lm FROM cal)), -1))
-                                             - sumIf(hi - fi + ti - tt, m >= toStartOfYear((SELECT lm FROM cal))))
+                                             - sumIf(hi - fi, m >= toStartOfYear((SELECT lm FROM cal))) - (SELECT tai FROM tr) + (SELECT tao FROM tr))
                                      / nullIf((SELECT H FROM co), 0))))
         FROM sr WHERE u = (SELECT r FROM cal) AND m BETWEEN addMonths(toStartOfYear((SELECT lm FROM cal)), -1) AND (SELECT lm FROM cal) AND ty = 'Активная') AS v0)
 UNION ALL
@@ -283,12 +299,16 @@ FROM (SELECT (SELECT concat(toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM
                                      / nullIf((SELECT H FROM co), 0))), ' · ',
                       toString(round(1000 * sumIf(hk, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
                       toString(round(1000 * sumIf(fi, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
-                      toString(round(1000 * sumIf(ti, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
-                      toString(round(1000 * sumIf(tt, m >= toStartOfYear((SELECT lm FROM cal))) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * (SELECT tvi FROM tr) / nullIf((SELECT H FROM co), 0))), ' · ',
+                      toString(round(1000 * (SELECT tvo FROM tr) / nullIf((SELECT H FROM co), 0))), ' · ',
                       toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM cal)) - sumIf(hc, m = addMonths(toStartOfYear((SELECT lm FROM cal)), -1))
-                                             - sumIf(hk - fi + ti - tt, m >= toStartOfYear((SELECT lm FROM cal))))
+                                             - sumIf(hk - fi, m >= toStartOfYear((SELECT lm FROM cal))) - (SELECT tvi FROM tr) + (SELECT tvo FROM tr))
                                      / nullIf((SELECT H FROM co), 0))))
         FROM sr WHERE u = (SELECT r FROM cal) AND m BETWEEN addMonths(toStartOfYear((SELECT lm FROM cal)), -1) AND (SELECT lm FROM cal)) AS v0)
+UNION ALL
+SELECT '4 ряды' AS section, 16 AS ord, 'переходы (с поставки 49): строк у корня с начала года · месяцев · вошёл / вышел / остался (строк)' AS item,
+       v0 AS value
+FROM (SELECT (SELECT concat(toString(tn), ' · ', toString(tmn), ' · ', toString(tki), ' / ', toString(tko), ' / ', toString(tks)) FROM tr) AS v0)
 UNION ALL
 SELECT '4 ряды' AS section, 15 AS ord, 'корень, последний месяц: норма + недоработка + переработка + Gray к численности ‰ · посещаемость % · T-рост одобрено %' AS item,
        v0 AS value

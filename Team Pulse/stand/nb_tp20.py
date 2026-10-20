@@ -76,7 +76,14 @@ def simulate(seed=11):
     def new_p(day):
         p = new(day)
         p['acth'], p['conv'] = [(day, p.pop('act'))], []      # тип активности по дням; переходы в активную
+        # 21.10: срез меняется и без смены юнита — покраска, IT-код, штат (переводы под фильтры)
+        for k in ('oper', 'it', 'rel'):
+            p[k + 'h'] = [(day, p.pop(k))]
         return p
+
+    def shift(p, k, day, opts):
+        cur = p[k + 'h'][-1][1]
+        p[k + 'h'].append((day, random.choice([o for o in opts if o != cur])))
     people = [new_p(D0) for _ in range(320)]
     for day in DAYS[1:]:
         alive = [p for p in people if p['end'] is None]
@@ -91,6 +98,8 @@ def simulate(seed=11):
                 elif r < .0021:                                 # ~2% в месяц переходят в другой юнит
                     cur = p['unit'][-1][1]
                     p['unit'].append((day, random.choice([h for h in homes if h != cur])))
+                    if random.random() < .3:                    # часть — со сменой покраски в тот же день
+                        shift(p, 'oper', day, OPER)
                 elif r < .0026:
                     p['grade'].append((day, p['grade'][-1][1] + 1))
                 elif r < .0066 and p['acth'][-1][1] in CONV:
@@ -98,12 +107,27 @@ def simulate(seed=11):
                     # методологии DD; флаги transfer_internal_flg / transfer_candidate_flg источника)
                     p['conv'].append((day, CONV[p['acth'][-1][1]]))
                     p['acth'].append((day, 'Активная'))
+                elif r < .0072:                                 # ~1,3% в месяц — смена покраски
+                    shift(p, 'oper', day, OPER)
+                elif r < .0076:                                 # ~0,9% — смена IT-кода
+                    shift(p, 'it', day, ITC)
+                elif r < .0079:                                 # ~0,6% — смена штата (ГПД ↔ штат)
+                    shift(p, 'rel', day, REL)
+                elif (r < .0082 and p['acth'][-1][1] in ('Активная', 'Декрет')    # декрет и выход из него —
+                      and (day.year, day.month) != (p['start'].year, p['start'].month)):   # не в месяц найма
+                    p['acth'].append((day, 'Декрет' if p['acth'][-1][1] == 'Активная' else 'Активная'))
             for _ in range(sum(random.random() < .0011 for _ in alive) + (1 if random.random() < .15 else 0)):
                 people.append(new_p(day))
     return U, people
 
 
 CONV = {'Стажеры': 'transfer_internal_flg', 'Кандидаты в учебных юнитах': 'transfer_candidate_flg'}
+OPER, ITC, REL = ('HQ', 'Line', 'Support'), ('IT', 'Digital', 'NonIT'), ('Штатный сотрудник', 'ГПД ФЛ', 'ГПД ИП')
+
+
+def attr(p, k, day):
+    """покраска (oper), IT-код (it), отношения (rel) на день"""
+    return at(p[k + 'h'], day)
 
 
 def at(hist, day):
@@ -122,8 +146,8 @@ def seniority(g):
     return 'Junior' if g <= 13 else 'Middle' if g <= 15 else 'Senior' if g <= 17 else 'Lead'
 
 
-# флаги смены типа (покраска, IT, тип активности…): в источнике есть, здесь всегда 0 — смену
-# типа симуляция не делает
+# флаги смены типа (покраска, IT, тип активности, штат): с 21.10 симуляция их меняет; специализация
+# и стрим — всегда 0
 TYPES = ['active_type', 'hq', 'it', 'specialization', 'stream', 'employment_relation_type']
 COLS = (['calendar_dt', 'mdm_employee_rk']
         + [f'lvl{i}_mapped_management_unit_rk' for i in range(1, NL + 1)]
@@ -151,15 +175,26 @@ def source_rows(U, people):
             fired = int(p['end'] == d)
             act = at(p['acth'], d)
             cv = {f for c, f in p['conv'] if c == d}
+            # флаги смены типа, как в источнике: «в» — первый день в новом значении, «из» — последний в
+            # старом (смена в течение жизни, не найм и не увольнение)
+            vals = lambda day: (at(p['acth'], day), attr(p, 'oper', day), attr(p, 'it', day), attr(p, 'rel', day))
+            cur = vals(d)
+            pv = vals(d - dt.timedelta(1)) if d > p['start'] else cur
+            nx = vals(d + dt.timedelta(1)) if d < last else cur
+            want = ('Активная', 'HQ', 'IT', None)                # rel — любая смена
+            tf = {t: int(pv[i] != cur[i] and (want[i] is None or cur[i] == want[i]))
+                  for i, t in enumerate(('active_type', 'hq', 'it', 'employment_relation_type'))}
+            of = {t: int(nx[i] != cur[i] and (want[i] is None or cur[i] == want[i]))
+                  for i, t in enumerate(('active_type', 'hq', 'it', 'employment_relation_type'))}
             yield ([d, p['rk']] + [pu[i] if i < len(pu) else None for i in range(NL)]
                    + [U[pu[i]][0] if i < len(pu) else None for i in range(NL)]
                    + inf + outf
-                   + [act, int(act == 'Активная'), p['it'], p['oper'], p['rel'], p['gender'], p['age'], tenure(p, d), str(g), seniority(g),
+                   + [act, int(act == 'Активная'), cur[2], cur[1], cur[3], p['gender'], p['age'], tenure(p, d), str(g), seniority(g),
                       p['reason'] if fired else None, p['init'] if fired else None,
                       p['con'], p['legal'], p['stream'],
                       int(d == p['start'] and p['start'] > D0), int('transfer_candidate_flg' in cv),
                       int('transfer_internal_flg' in cv), fired, p['regret'] if fired else 0]
-                   + [0] * (2 * len(TYPES)))
+                   + [tf.get(t, 0) for t in TYPES] + [of.get(t, 0) for t in TYPES])
             d += dt.timedelta(1)
 
 
@@ -268,24 +303,27 @@ def eom(m):
     return min(dt.date(m.year, m.month, calendar.monthrange(m.year, m.month)[1]), D1)
 
 
-def truth(U, people, perf, grt, pred=lambda p: True, agg=False, act=True):
+def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True):
     """узел (rk) × месяц → меры. Численность — на последний календарный день месяца (у текущего
     неполного — на последний загруженный); ССЧ — полусумма численности узла с прошлым месяцем.
     act — тип численности «Активная» (по умолчанию в отчёте): человек месяца — в строке со своим
     типом активности на последний день в месяце (как измерения ноутбука), в счёт — только
-    «Активная»; найм — по методологии HR. act=False — вся численность, найм — в компанию"""
+    «Активная»; найм — по методологии HR. act=False — вся численность, найм — в компанию.
+    pred(p, день) — фильтр среза; срез человека в месяце — на его последний день в месяце (измерения
+    ноутбука — на конец месяца, DIM_SRC = 'eom')"""
     T = defaultdict(lambda: defaultdict(float))
+    ld = lambda p, m: min(eom(m), p['end'] or D1)
+    P = lambda p, m: pred(p, ld(p, m))
     alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])   # в день увольнения уже не в численности
-    ok = lambda p, m: not act or at(p['acth'], min(eom(m), p['end'] or D1)) == 'Активная'
+    ok = lambda p, m: P(p, m) and (not act or at(p['acth'], ld(p, m)) == 'Активная')
     ms = months()
-    people = [p for p in people if pred(p)]
     for p in people:
         for m in ms:
             e = eom(m)
             if alive(p, e):
                 for n in path(U, at(p['unit'], e)):
                     T[(n, m)]['hc'] += ok(p, m)
-                    T[(n, m)]['act'] += at(p['acth'], e) == 'Активная'
+                    T[(n, m)]['act'] += P(p, m) and at(p['acth'], e) == 'Активная'
         if p['end']:
             m = dt.date(p['end'].year, p['end'].month, 1)
             for n in path(U, at(p['unit'], p['end'])):
@@ -293,17 +331,17 @@ def truth(U, people, perf, grt, pred=lambda p: True, agg=False, act=True):
         if p['start'] > D0:
             m = dt.date(p['start'].year, p['start'].month, 1)
             for n in path(U, at(p['unit'], p['start'])):
-                T[(n, m)]['hire'] += (at(p['acth'], p['start']) == 'Активная') if act else 1
+                T[(n, m)]['hire'] += P(p, m) and ((at(p['acth'], p['start']) == 'Активная') if act else 1)
         for c, _ in (p['conv'] if act else []):   # найм по методологии DD: переход в активную — тоже найм
             m = dt.date(c.year, c.month, 1)
             for n in path(U, at(p['unit'], c)):
-                T[(n, m)]['hire'] += 1
+                T[(n, m)]['hire'] += P(p, m)
             # agg — таблица, где люди уже сложены (hr_structure_overall, файл 2): тип активности
             # там на конец месяца, и стажёр, принятый и переведённый в одном месяце, — ещё и в
             # найме в компанию (hire_amt). Разделить без людей нельзя — правда с тем же завышением
             if agg and p['start'] > D0 and (c.year, c.month) == (p['start'].year, p['start'].month):
                 for n in path(U, at(p['unit'], p['start'])):
-                    T[(n, m)]['hire'] += 1
+                    T[(n, m)]['hire'] += P(p, m)
         for (d, new), (_, old) in zip(p['unit'][1:], p['unit'][:-1]):
             # «в» — месяц первого дня в новом юните, «из» — месяц последнего дня в старом
             m, mo = dt.date(d.year, d.month, 1), dt.date((d - dt.timedelta(1)).year, (d - dt.timedelta(1)).month, 1)
@@ -330,6 +368,33 @@ def truth(U, people, perf, grt, pred=lambda p: True, agg=False, act=True):
         for n in path(U, last_unit(byrk[rk_], m)):
             T[(n, m)]['grt'] += 1
             T[(n, m)]['grt2'] += st in ('FNS', 'DCL')
+    return T
+
+
+def truth_trf(U, people, pred=lambda p, d: True, act=True):
+    """переводы под фильтры (21.10, заказчик): переход — день, когда у человека сменился юнит или
+    срез (покраска, IT-код, штат, тип активности). Выбор — узел и фильтры (pred, тип «Активная» при
+    act). В выбор — вчера человек был вне выбора, сегодня внутри; из выбора — наоборот. Месяц —
+    дня перехода. В выбор — не в день перевода стажёра в штат / учебной группы в боевую (это найм)"""
+    T = defaultdict(lambda: defaultdict(float))
+    root = ['all'] if ROOTS > 1 else []
+    F = lambda p, d: pred(p, d) and (not act or at(p['acth'], d) == 'Активная')
+    for p in people:
+        last = p['end'] or D1
+        conv = {c for c, _ in p['conv']}
+        for d in sorted({d for k in ('unit', 'acth', 'operh', 'ith', 'relh') for d, _ in p[k][1:]}):
+            if not (max(p['start'], D0) < d <= last):
+                continue
+            a = d - dt.timedelta(1)
+            pa, pb = root + path(U, at(p['unit'], a)), root + path(U, at(p['unit'], d))
+            fa, fb = F(p, a), F(p, d)
+            m = dt.date(d.year, d.month, 1)
+            for n in set(pa) | set(pb):
+                ia, ib = n in pa and fa, n in pb and fb
+                if ib and not ia and d not in conv:
+                    T[(n, m)]['tin'] += 1
+                if ia and not ib:
+                    T[(n, m)]['tout'] += 1
     return T
 
 
