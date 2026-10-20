@@ -1992,18 +1992,22 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    «Требует действий», жёлтый — «Посмотреть», зелёный — «Хорошая новость»), и огоньком
    по настроению. Полосы слева нет.
    ========================================================================== */
-.in-card.high,.bk-top.high{background:linear-gradient(103deg,#ffeef0 0%,#fdf3f6 38%,#faf7ff 78%,#fcfcfe 100%)}
-.in-card.mid,.bk-top.mid{background:linear-gradient(103deg,#fff5e3 0%,#fdf6ef 38%,#faf7ff 78%,#fcfcfe 100%)}
-.in-card.good,.bk-top.good{background:linear-gradient(103deg,#e9f9ef 0%,#f4f9f6 38%,#faf8ff 78%,#fcfcfe 100%)}
-.in-lead,.bk-top.none{background:linear-gradient(103deg,#f2f4fa 0%,#f8f9fd 46%,#fcfcfe 100%)}
+/* 20.10, по фото с ноутбука заказчика: светлые края градиента одной яркости с серым фоном (#f4f5f7),
+   и карточка без рамки в нём тонула. Теперь хвост градиента — белый (белее фона), рамка в тон
+   настроения и тень как у панелей: контур виден целиком, и на глянцевом экране тоже */
+.in-card,.in-lead,.bk-top{border:1px solid var(--line);box-shadow:var(--shadow)}
+.in-card.high,.bk-top.high{background:linear-gradient(103deg,#ffe4e8 0%,#fff3f5 42%,#fff 82%);border-color:#f2c9d0}
+.in-card.mid,.bk-top.mid{background:linear-gradient(103deg,#ffedcf 0%,#fff7ea 42%,#fff 82%);border-color:#efd8a9}
+.in-card.good,.bk-top.good{background:linear-gradient(103deg,#dcf4e5 0%,#f1faf4 42%,#fff 82%);border-color:#bfe3cc}
+.in-lead,.bk-top.none{background:linear-gradient(103deg,#eaeef8 0%,#f6f8fc 46%,#fff 100%);border-color:#dde2ec}
 .in-ico{flex:0 0 auto;display:inline-flex}
 .in-ico img{display:block;filter:drop-shadow(0 3px 6px rgba(20,28,45,.14))}
-.in-lead{display:flex;gap:var(--s7);align-items:center;border-radius:var(--radius);box-shadow:0 1px 2px rgba(20,28,45,.05);
+.in-lead{display:flex;gap:var(--s7);align-items:center;border-radius:var(--radius);
   padding:var(--s7) var(--s9);margin:0 0 var(--s7)}
 .in-lt{font-size:15px;line-height:1.55;color:var(--ink2)}
 .in-lt b{color:var(--ink);font-weight:var(--fw-bold)}
 .in-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s7)}
-.in-card{display:flex;flex-direction:column;gap:var(--s4);border-radius:var(--radius);box-shadow:0 1px 2px rgba(20,28,45,.05);
+.in-card{display:flex;flex-direction:column;gap:var(--s4);border-radius:var(--radius);
   padding:var(--s7) var(--s9) var(--s6)}
 .in-t{display:flex;align-items:center;gap:var(--s4);font-size:var(--fs-cap);font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.5px}
 .high .in-tag,.bk-top.high .bk-tag{color:var(--red-tx)} .mid .in-tag,.bk-top.mid .bk-tag{color:var(--warn-tx)}
@@ -2041,7 +2045,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 #op-all,#bk-det{scroll-margin-top:calc(var(--head-h,0px) + 12px)}
 /* вывод блока: одна плотная карточка — вывод слева, «где» справа через линию */
 .bk-top{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:var(--s9);border-radius:var(--radius);
-  box-shadow:0 1px 2px rgba(20,28,45,.05);padding:var(--s7) var(--s9);margin:0 0 var(--s7)}
+  padding:var(--s7) var(--s9);margin:0 0 var(--s7)}
 .bk-sum{display:flex;gap:var(--s6);align-items:flex-start;min-width:0}
 .bk-sx{flex:1;min-width:0}
 .bk-tag{font-size:var(--fs-cap);font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
