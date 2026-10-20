@@ -62,13 +62,15 @@ const ASOF_SHORT=String(ASOF.d).padStart(2,'0')+'.'+String(ASOF.m+1).padStart(2,
 const MATURING=new Set(['hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret',
   'vac_closed','hire_plan','tgrowth_pass','tgrowth_deny','underwork','overwork']);
 function matures(key){return PARTIAL&&MATURING.has(key)}
-/* Границы окна для водопада (20.10, заказчик: «где начало и конец, указывать дату»): начало —
-   численность на 1-е число первого месяца окна (конец месяца перед ним), конец — на дату данных */
-/* короткий родительный — «1–19 окт.», «1 июля» */
+/* короткий родительный — «1–19 окт.» */
 const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'];
-const WIN_FROM='1 '+MONTH_ABBR_GEN[MONTHS[0].m]+' '+MONTHS[0].y;      /* «1 нояб. 2025» */
-const WIN_TO=ASOF.d+' '+MONTH_ABBR_GEN[ASOF.m]+' '+ASOF.y;             /* «19 окт. 2026» */
-function hcStart(lp){const v=aggregateExt(lp,'hc_total')[NEXT-13];return v!=null?v:aggregate(lp,'hc_total')[0]}
+/* Границы окна для водопада (20.10, заказчик): начало — численность первого месяца окна, как её
+   отчитывают, — на конец месяца; подписи — только месяц и год, без числа: «окт. 2025», «окт. 2026».
+   Потоки водопада — со второго месяца окна, иначе потоки первого уходили бы в «Прочее» */
+const WIN_FROM=MONTH_ABBR[MONTHS[0].m]+' '+MONTHS[0].y;               /* «окт. 2025» */
+const WIN_TO=MONTH_ABBR[ASOF.m]+' '+ASOF.y;                            /* «окт. 2026» */
+const WIN_SINCE='с '+MONTH_ABBR_GEN[MONTHS[0].m]+' '+MONTHS[0].y;      /* «с окт. 2025», «с июля 2025» */
+function winSum(lp,key){return aggregate(lp,key).slice(1).reduce((a,v)=>a+(v||0),0)}
 /* подсказка у вызревающего значения — одна на весь отчёт */
 const MATURE_TIP={title:'Месяц не закрыт',
   text:'Данные по **'+ASOF_LABEL+'**: за месяц ещё не всё учтено, значение вырастет к его концу.',
@@ -2105,7 +2107,7 @@ function aiProfile(lp){
   return {pen:pen,wau:wau,tools:tools};
 }
 
-window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,hcStart,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,

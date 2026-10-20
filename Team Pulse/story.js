@@ -205,16 +205,19 @@ CH.turnover={
    динамики по месяцам; глава «Замещение и темпы» снята. */
 CH.movement={
   balance(c){
-    const hc=ser(c.lp,'hc_total'), begin=D.hcStart(c.lp), end=hc[D.LAST], net=end-begin;
-    const hire=s12(c.lp,'hire'), tin=s12(c.lp,'transfer_in'), attr=s12(c.lp,'attrition'), tout=s12(c.lp,'transfer_out');
+    const hc=ser(c.lp,'hc_total'), begin=hc[0], end=hc[D.LAST], net=end-begin;
+    const ws=k=>D.winSum(c.lp,k);
+    const hire=ws('hire'), tin=ws('transfer_in'), attr=ws('attrition'), tout=ws('transfer_out');
     const other=net-(hire+tin-attr-tout);
     const mx=argmax(hc);
     const fo=focusCount(c,'hire',{cap:'Где нанимают · за год',what:'найма'});
     const top=fo.focus&&fo.focus.rows[0];
-    return {sum:signed(net)+' за год',st:'n',
-      head:net>0?'Команда выросла на '+pl(net,PPL)+' за год':net<0?'Команда сократилась на '+pl(-net,PPL)+' за год'
-        :'Численность за год не изменилась',
-      lede:'На '+D.WIN_FROM+' было **'+D.fmtInt(begin)+'**, на '+D.WIN_TO+' — **'+D.fmtInt(end)+'**. Водопад показывает, что сдвинуло численность: '+
+    /* с первого месяца окна (водопад начинается с его численности), а не «за год» */
+    const since=' '+D.WIN_SINCE;
+    return {sum:signed(net)+since,st:'n',
+      head:net>0?'Команда выросла на '+pl(net,PPL)+since:net<0?'Команда сократилась на '+pl(-net,PPL)+since
+        :'Численность'+since+' не изменилась',
+      lede:'Численность: '+D.WIN_FROM+' — **'+D.fmtInt(begin)+'**, '+D.WIN_TO+' — **'+D.fmtInt(end)+'**. Водопад показывает, что сдвинуло численность: '+
         'найм и переводы в команду поднимают её, отток и переводы из команды — опускают.',
       insights:[
         hire>=attr?'Найм покрывает отток: пришли **'+hire+'**, ушли **'+attr+'**'
