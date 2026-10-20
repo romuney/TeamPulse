@@ -28,7 +28,7 @@
              попадёт в выбор» без запроса (19.10, как в HRBP HUB)
       c / g / x  подразделения на один, два, три уровня ниже выбранного
       end    маркер «ответ целиком»
-    Массивы m_* — месяцы от января прошлого года до последнего закрытого, строкой через запятую;
+    Массивы m_* — месяцы от января прошлого года до последнего (и текущего незакрытого), строкой через запятую;
     mx — разрезы «ключ \t значение \t число» через \n (как в файле 2).
 
     Фильтры — кросс-фильтры чарта: unit_f — ключ узла, paint_f — покраска (HQ, Line, Support),
@@ -77,7 +77,7 @@
 {#- Массив месяцев строкой: дроби только у ССЧ (полусумма) и мониторинга. -#}
 {% macro out(a) -%}arrayStringConcat(arrayMap(x -> toString(round(x, 1)), {{ a }}), ','){%- endmacro %}
 {% set M = [['hc', 'e', 'hc_cnt'], ['act', 'ea', 'act_cnt'], ['avg', 'sa', 'avg_cnt'], ['hire', 'hi', 'hire_cnt' if act_only else HCO], ['fire', 'fi', 'fire_cnt'], ['reg', 'rg', 'reg_cnt'], ['tin', 'ti', 'tin_cnt'], ['tout', 'tu', 'tout_cnt'], ['pnor', 'pn', 'pnor_cnt'], ['plow', 'pl', 'plow_cnt'], ['phig', 'ph', 'phig_cnt'], ['pgry', 'pg', 'pgry_cnt'], ['wday', 'wd', 'wday_amt'], ['ovis', 'ov', 'ovis_amt'], ['gapr', 'ga', 'gapr_cnt'], ['gdec', 'gd', 'gdec_cnt']] %}
-{#- Значения фильтра с численностью компании за последний закрытый месяц (окно настройки). -#}
+{#- Значения фильтра с численностью компании за последний месяц (окно настройки). -#}
 {% macro vals(col) -%}
 (SELECT toJSONString(groupArray((v, e))) FROM (
   SELECT ifNull({{ col }}, '-') AS v, sum(ifNull(hc_cnt, 0)) AS e
@@ -99,7 +99,9 @@ WITH
   cal AS (
     SELECT toDate(assumeNotNull(last_month)) AS lm, toDate(assumeNotNull(grid_start)) AS m0,
            toUInt32(ifNull(n_months, 0)) AS n, toUInt32(ifNull(ytd_idx, 0)) AS iy,
-           ifNull(root_rk, '') AS r, ifNull(def_rk, '') AS d
+           ifNull(root_rk, '') AS r, ifNull(def_rk, '') AS d,
+           -- дата данных (текущий незакрытый месяц) — матчером: старая таблица без data_dt даёт ''
+           ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^data_dt$') APPLY(toString)], CAST([''], 'Array(Nullable(String))')), 1), '') AS dd
     FROM prod_proteus.teampulse_hub_meta
     LIMIT 1
   ),
@@ -204,7 +206,7 @@ FROM
                 '","n":', toString((SELECT n FROM cal)), ',"today":"', toString(today()),
                 '","root":"', (SELECT r FROM cal), '","scope":"', ifNull((SELECT s FROM sc), ''),
                 '","def":"', (SELECT d FROM cal),
-                '","schema":"hub-1","cuts":["paint","it","staff"', if(has((SELECT fe FROM fdv), '∅'), '', ',"act"'), ']',
+                '","dt":"', (SELECT dd FROM cal), '","schema":"hub-2","cuts":["paint","it","staff"', if(has((SELECT fe FROM fdv), '∅'), '', ',"act"'), ']',
                 ',"req":', toJSONString({{ qa(unit_req) }}),
                 ',"paint":', toJSONString({{ qa(F['paint']) }}),
                 ',"it":', toJSONString({{ qa(F['it']) }}),

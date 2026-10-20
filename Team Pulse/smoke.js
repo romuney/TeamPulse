@@ -155,9 +155,11 @@ const yr=(a,b)=>({cur:D.MONTH_ABBR.map((_,i)=>i<D.CUR_LEN?a+i%3:null),prev:D.MON
    одном графике — жесть»); 15.10: прошлый год — прозрачные бары позади, без засечек */
 const dv=G.chart('pair',{a:Object.assign({key:'hire'},yr(4,5)),b:Object.assign({key:'attrition'},yr(2,3))},
   {h:300,legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT},{name:'2026'},{name:'2025',ghost:true}]});
-const barsOf=(cls,sid)=>(dv.match(new RegExp('class="bar '+cls+'" data-s="'+sid+'"','g'))||[]).length;
+const barsOf=(cls,sid)=>(dv.match(new RegExp('class="bar '+cls+'( part)?" data-s="'+sid+'"','g'))||[]).length;
 checks.push(['пара потоков — «ежики»: бары вверх и вниз, прошлый год прозрачными барами позади, без линий и засечек',
-  barsOf('up','a')===D.CUR_LEN&&barsOf('dn','b')===D.CUR_LEN&&(dv.match(/class="bar (up|dn) ghost"[^>]*data-s="prev"/g)||[]).length===24&&
+  barsOf('up','a')===D.CUR_LEN&&barsOf('dn','b')===D.CUR_LEN&&
+  /* 20.10: незакрытый месяц — последний бар пунктирным контуром */
+  (!D.PARTIAL||(dv.match(/class="bar (up|dn) part"[^>]*stroke-dasharray="3 2"/g)||[]).length===2)&&(dv.match(/class="bar (up|dn) ghost"[^>]*data-s="prev"/g)||[]).length===24&&
   !/class="tick"/.test(dv)&&
   !/class="ln/.test(dv)&&/data-sid="a"/.test(dv)&&/data-sid="cur"/.test(dv)&&/data-sid="prev"/.test(dv)]);
 
@@ -211,10 +213,12 @@ checks.push(['дельты без стрелок: только + и −',
   /<span class="delta[^>]*>\+/.test(allHtml)]);
 checks.push(['нулевое изменение — просто ноль',
   U.deltaChip('hire',0).replace(/<[^>]+>/g,'')==='0']);
-/* у turnover_m рост плохой, у vac_closed — хороший, у hire (better:flat) без оценки */
+/* у срока закрытия рост плохой, у «улучшили оценку» — хороший, у численности (better:flat) без
+   оценки; 20.10: у вызревающей метрики (текучесть за незакрытый месяц) — без оценки, пунктиром */
 checks.push(['знак говорит направление, класс — оценку',
-  /delta down/.test(U.deltaChip('turnover_m',1.4))&&/delta up/.test(U.deltaChip('turnover_m',-1.4))&&
-  /delta up/.test(U.deltaChip('vac_closed',3))&&/delta neu/.test(U.deltaChip('hire',3))]);
+  /delta down/.test(U.deltaChip('time_to_fill',1.4))&&/delta up/.test(U.deltaChip('time_to_fill',-1.4))&&
+  /delta up/.test(U.deltaChip('review_up',3))&&/delta neu/.test(U.deltaChip('hc_total',3))&&
+  (!D.PARTIAL||/delta neu part/.test(U.deltaChip('turnover_m',1.4)))]);
 checks.push(['переход на детальный дашборд — иконка, а не символ ↗',
   /class="ico-ext"/.test(allHtml)&&!/↗/.test(allHtml)]);
 checks.push(['минус во всех дельтах типографский, а не дефис',
@@ -688,7 +692,7 @@ checks.push(['марки графиков помечены data-s',
      ею рисуются и одиночный график, и панели, и пара потоков */
   /* 14.10: у «ежиков» месяцы под нижними барами — своя строка, остальное — yoyAxis */
   checks.push(['ось X у панелей на том же отступе, что у остальных графиков',
-    (js.match(/txt\(X\(i\),bot\+15,lb,/g)||[]).length===1&&(js.match(/s\+=yoyAxis\(X,bandW,top,bot,nowI[,)]/g)||[]).length===1&&!/bot\+13/.test(js)]);
+    (js.match(/txt\(X\(i\),bot\+15,i===nowI\?nowLabel\(lb,key\):lb,/g)||[]).length===1&&(js.match(/s\+=yoyAxis\(X,bandW,top,bot,nowI[,)]/g)||[]).length===1&&!/bot\+13/.test(js)]);
 })();
 
 /* ============================================================================
@@ -1357,7 +1361,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* 16.10, заказчик: «не нужно затенять 2026 год — он весь одного цвета, инсайты выделяй
      по-другому». Бары этого года в одной панели — одной заливкой (цвет легенды); акцент —
      контур основным цветом и светлая полоса за месяцем. */
-  const mainFills=[...to.matchAll(/<path d="[^"]*" fill="([^"]+)" class="bar up" data-s="main"( stroke="[^"]+")?/g)];
+  const mainFills=[...to.matchAll(/<path d="[^"]*" fill="([^"]+)" class="bar up( part)?" data-s="main"( stroke="[^"]+")?/g)].map(m=>[m[0],m[1],m[3]]);
   checks.push(['бары этого года одного цвета; акцент — контуром и полосой, а не другой заливкой',
     mainFills.length>=6&&new Set(mainFills.map(m=>m[1])).size===1&&mainFills.some(m=>m[2])&&
     mainFills.filter(m=>m[2]).length<mainFills.length]);
@@ -1403,7 +1407,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const cs=I.cards(S0,rl0,bl0), home=A.home0(), rank={high:0,mid:1,good:2};
   const inCards=home.split('<div class="in-card ').slice(1);
   checks.push(['главная: «Главное за …», сводка с огоньком «смотрите», до четырёх карточек, «В норме», таблицы метрик сразу',
-    /<h2>Главное за /.test(home)&&/<div class="in-lead">/.test(home)&&/человек/.test(home.split('in-lt')[1]||'')&&
+    /<h2>Главное (за|на) /.test(home)&&/<div class="in-lead">/.test(home)&&/человек/.test(home.split('in-lt')[1]||'')&&
     inCards.length===Math.min(I.CARD.show,cs.length)&&/class="in-ok"/.test(home)&&
     /class="mtable"/.test(home)&&!/class="kpis/.test(home)&&!/class="ai insight|data-opall/.test(home)&&
     /<div class="in-lead"><span class="in-ico"><img/.test(home)&&!/AI-подсказка/.test(home.split('<table')[0])]);

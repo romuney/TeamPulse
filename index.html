@@ -2135,6 +2135,14 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .panel-cap{display:none}
 @media (min-width:1121px){.split-r>.panel-cap{display:block}}
 
+/* Вызревающий месяц (20.10): метка «по 19.10» у потока за незакрытый месяц — нейтральная,
+   пунктирная, как незавершённое; пилюля изменения у такой метрики — без оценки */
+.mat-tag{display:inline-flex;align-items:center;margin-left:6px;padding:1px 6px;border:1px dashed var(--muted2);border-radius:var(--r-pill);
+  font-size:var(--fs-micro);font-weight:var(--fw-body);color:var(--muted);white-space:nowrap;vertical-align:1px;cursor:help;text-transform:none;letter-spacing:0}
+.mat-tag.sm{padding:0 5px}
+.delta.part{background:transparent;box-shadow:inset 0 0 0 1px var(--line);border:1px dashed var(--muted2);color:var(--muted)}
+
+
 </style>
 </head>
 <body>
@@ -2344,6 +2352,33 @@ const CUR_M=MONTHS[LAST], PREV_M=MONTHS[LAST-1];
 const YOY_M={y:CUR_M.y-1,m:CUR_M.m};                      /* тот же месяц год назад */
 function monthNom(mm){return MONTH_NOM[mm.m]+' '+mm.y}    /* «июнь 2026» */
 function monthGen(mm){return MONTH_GEN[mm.m]+' '+mm.y}    /* «июня 2026» */
+/* ---------- Дата данных и незакрытый месяц (20.10) ----------
+   Заказчик: «показывать текущий (не закрытый) месяц, как в HRBP HUB» — последний месяц
+   сетки теперь текущий, данные в нём по дату данных (в Proteus — meta.dt из ноутбука, «на 19
+   октября»; в макете — 19-е число последнего месяца). Состояния (численность, состав) на эту
+   дату точные. Потоки за месяц (найм, отток, переводы) и всё, что из них считается, в
+   незакрытом месяце ещё ВЫЗРЕВАЮТ: значение вырастет к концу месяца, и сравнивать его с полным
+   месяцем нельзя. Такие метрики (MATURING) помечены на графиках и в карточках, их пилюли
+   изменения — без оценки, а выводы по ним строятся по последнему закрытому месяцу. */
+const DIM=(y,m)=>new Date(y,m+1,0).getDate();
+const ASOF=REAL?(REAL.asof||{y:CUR_M.y,m:CUR_M.m,d:DIM(CUR_M.y,CUR_M.m)}):{y:CUR_M.y,m:CUR_M.m,d:19};
+const PARTIAL=ASOF.d<DIM(ASOF.y,ASOF.m);
+const ASOF_LABEL=ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y;             /* «19 октября 2026» */
+const ASOF_SHORT=String(ASOF.d).padStart(2,'0')+'.'+String(ASOF.m+1).padStart(2,'0');  /* «19.10» */
+const MATURING=new Set(['hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret',
+  'vac_closed','hire_plan','tgrowth_pass','tgrowth_deny','underwork','overwork']);
+function matures(key){return PARTIAL&&MATURING.has(key)}
+/* Границы окна для водопада (20.10, заказчик: «где начало и конец, указывать дату»): начало —
+   численность на 1-е число первого месяца окна (конец месяца перед ним), конец — на дату данных */
+/* короткий родительный — «1–19 окт.», «1 июля» */
+const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'];
+const WIN_FROM='1 '+MONTH_ABBR_GEN[MONTHS[0].m]+' '+MONTHS[0].y;      /* «1 нояб. 2025» */
+const WIN_TO=ASOF.d+' '+MONTH_ABBR_GEN[ASOF.m]+' '+ASOF.y;             /* «19 окт. 2026» */
+function hcStart(lp){const v=aggregateExt(lp,'hc_total')[NEXT-13];return v!=null?v:aggregate(lp,'hc_total')[0]}
+/* подсказка у вызревающего значения — одна на весь отчёт */
+const MATURE_TIP={title:'Месяц не закрыт',
+  text:'Данные по **'+ASOF_LABEL+'**: за месяц ещё не всё учтено, значение вырастет к его концу.',
+  note:'Поэтому с прошлым месяцем и годом его не сравниваем, а выводы — по последнему закрытому месяцу.'};
 const CMP={
   cur:monthNom(CUR_M),
   /* короткая подпись стоит прямо в пилюле изменения, полная — в шапках колонок */
@@ -4376,7 +4411,7 @@ function aiProfile(lp){
   return {pen:pen,wau:wau,tools:tools};
 }
 
-window.TPDATA={REAL,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,hcStart,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
@@ -4865,12 +4900,16 @@ function yoyKey(w,y,col,off,lock,flow){
 }
 /* Месяцы оси года: на узком полотне — через один от января, текущий подписан
    всегда и жирно. «Вы здесь» — тонкая сплошная: пунктиром уже сказаны цель и база. */
-function yoyAxis(X,bandW,top,bot,nowI,bars){
+/* Незакрытый месяц (20.10): у последнего месяца на оси — по какое число данные: «1–19 окт.»
+   у вызревающей метрики (поток за неполный месяц), «19 окт.» у состояния (численность на дату) */
+function nowLabel(lb,key){return CD.PARTIAL?(CD.matures(key)?'1–':'')+CD.ASOF.d+' '+CD.MONTH_ABBR_GEN[CD.ASOF.m]:lb}
+const PART_NOTE=()=>'Месяц не закрыт: данные по '+CD.ASOF_LABEL+', значение вырастет к концу месяца.';
+function yoyAxis(X,bandW,top,bot,nowI,bars,key){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
   let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
     if(bandW>=31||i%2===0||i===nowI)
-      s+=txt(X(i),bot+15,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+      s+=txt(X(i),bot+15,i===nowI?nowLabel(lb,key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
   });
   return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1);
 }
@@ -4937,7 +4976,9 @@ function yoyPlot(p,ar){
   if(nm.flow&&ya&&ya.hi)ya.hi.forEach(z=>{if(z.s==='main'&&!ya.notes.some(n=>n.i===z.i))
     s+=rect(x0+bandW*z.i+2,top-4,bandW-4,bot-top+4,C_BAND,6)});
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
-  s+=yoyAxis(X,bandW,top,bot,nowI,!!nm.flow);
+  s+=yoyAxis(X,bandW,top,bot,nowI,!!nm.flow,key);
+  /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
+  const part=CD.matures(key), curS=part?cur.map((v,i)=>i===nowI?null:v):cur;
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
   if(p.gap&&showMain&&showBench)s+=gapFill(key,cur,bench,X,Y);
   /* Счётный поток (найм, уход, переводы, решения) — барами (14.10, заказчик:
@@ -4949,8 +4990,10 @@ function yoyPlot(p,ar){
     +' stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
   if(showBench)s+='<path class="lnb"'+sAttr('bench')+' d="'+polyD(bench,X,Y)+'" fill="none" stroke="'+C_BENCH+'"'
     +' stroke-width="2" stroke-dasharray="5 3"/>';
-  if(showMain&&!flow)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+polyD(cur,X,Y)+'" fill="none" stroke="'+col+'"'
+  if(showMain&&!flow)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+polyD(curS,X,Y)+'" fill="none" stroke="'+col+'"'
     +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"'+(d0?' style="animation-delay:'+d0+'ms"':'')+'/>';
+  if(showMain&&!flow&&part&&nowI>0&&cur[nowI]!=null&&cur[nowI-1]!=null)s+='<path class="lnp"'+sAttr('main')+' d="'+
+    polyD([cur[nowI-1],cur[nowI]],i=>X(nowI-1+i),Y)+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-dasharray="4 3" stroke-linecap="round"/>';
   const yC=CD.YEAR_CUR, yP=CD.YEAR_PREV, step=labelStep(cur,key,bandW);
   let lbl='', mk='';
   for(let i=0;i<12;i++){
@@ -4959,7 +5002,7 @@ function yoyPlot(p,ar){
     if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:col});
     if(showPrev&&pv!=null)rows.push({label:String(yP),value:CD.fmtVal(key,pv),color:C_PREV});
     if(showBench&&b!=null)rows.push({label:p.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
-    const note=c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
+    const note=part&&i===nowI?PART_NOTE():c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
       :c==null?'Месяц ещё не закрыт':null;
     const nmM=CD.MONTH_NOM[i];
     const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
@@ -4978,11 +5021,12 @@ function yoyPlot(p,ar){
         :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
       /* этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
          и контуром основным цветом, заливка та же */
-      if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),soft(col),' class="bar up"'+sAttr('main')+(bm?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
+      if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),soft(col),' class="bar up'+(part&&i===nowI?' part':'')+'"'+sAttr('main')+
+        (part&&i===nowI?' stroke="'+col+'" stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"':bm?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
       if(showPrev&&pv!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
       if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm?col:'#fff')+'" stroke="'+col+'"'
-        +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
+        +' stroke-width="2"'+(part&&i===nowI?' stroke-dasharray="2 1.6"':'')+' style="animation-delay:'+num(dly)+'ms"/>';
     }
     s+='</g>';
     /* Подписи. У последнего закрытого месяца подписаны обе линии, и подписи
@@ -5065,9 +5109,10 @@ function drawPair(a,w,h){
   const u=(bot-top)/((mA+mB)||1), y0=top+mA*u;
   const bw=Math.max(6,Math.min(28,bandW*0.56)), gw=ghostW(bw,bandW);
   let s=header(w,o.title,o.legend,{kind:'pair',off:o.off});
+  const part=CD.matures(A.key)&&sC, pp=' stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"';
   CD.MONTH_ABBR.forEach((lb,i)=>{
     if(bandW>=31||i%2===0||i===nowI)
-      s+=txt(X(i),h-6,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+      s+=txt(X(i),h-6,i===nowI?nowLabel(lb,A.key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
   });
   const yC=String(CD.YEAR_CUR), yP=String(CD.YEAR_PREV);
   const stepA=labelStep(A.cur,A.key,bandW), stepB=labelStep(B.cur,B.key,bandW), step=Math.max(stepA,stepB);
@@ -5081,15 +5126,16 @@ function drawPair(a,w,h){
       if(pb!=null)rows.push({label:nameB+' · '+yP,value:CD.fmtVal(B.key,pb),color:C_PREV})}
     const nmM=CD.MONTH_NOM[i], dly=DRAW_MS*(i/Math.max(1,nowI))*0.5;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1),rows,
-      note:va==null&&vb==null?'Месяц ещё не закрыт':null})+'>';
+      note:part&&i===nowI?PART_NOTE():va==null&&vb==null?'Месяц ещё не закрыт':null})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
     /* вверх — приход, вниз — уход. Прошлый год — позади, шире и почти прозрачно
        тем же цветом; выключили этот год — прошлый обычными барами */
     const up=sC?va:(sP?pa:null), dn=sC?vb:(sP?pb:null), go=' fill-opacity="'+GHOST_OP+'"';
     if(sC&&sP&&sA&&pa!=null)s+=barUp(cx-gw/2,y0-pa*u,gw,pa*u,cA,' class="bar up ghost"'+go+sAttr('prev'));
     if(sC&&sP&&sB&&pb!=null)s+=barDn(cx-gw/2,y0,gw,pb*u,cB,' class="bar dn ghost"'+go+sAttr('prev'));
-    if(sA&&up!=null)s+=barUp(cx-bw/2,y0-up*u,bw,up*u,fA,' class="bar up"'+sAttr(sC?'a':'prev')+' style="animation-delay:'+num(dly)+'ms"');
-    if(sB&&dn!=null)s+=barDn(cx-bw/2,y0,bw,dn*u,fB,' class="bar dn"'+sAttr(sC?'b':'prev')+' style="animation-delay:'+num(dly)+'ms"');
+    const pz=part&&i===nowI;
+    if(sA&&up!=null)s+=barUp(cx-bw/2,y0-up*u,bw,up*u,fA,' class="bar up'+(pz?' part':'')+'"'+sAttr(sC?'a':'prev')+(pz?' stroke="'+cA+'"'+pp:'')+' style="animation-delay:'+num(dly)+'ms"');
+    if(sB&&dn!=null)s+=barDn(cx-bw/2,y0,bw,dn*u,fB,' class="bar dn'+(pz?' part':'')+'"'+sAttr(sC?'b':'prev')+(pz?' stroke="'+cB+'"'+pp:'')+' style="animation-delay:'+num(dly)+'ms"');
     s+='</g>';
     if(!lblAt(i,nowI,step))continue;
     /* ноль не подписываем: у переводов он в каждом втором месяце и забивает полотно */
@@ -5145,7 +5191,8 @@ function drawWaterfall(a,w,h){
   const steps=a.steps, o=a.opt||{};
   const hh=headH(o.title,o.legend);
   h=h||o.h||320;
-  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H;
+  /* вторая строка подписи — дата у «Начало» и «Конец» (20.10) */
+  const subs=steps.some(st=>st.sub), plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H-(subs?13:0);
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/steps.length;
   let acc=0; const lv=[];
   steps.forEach(st=>{
@@ -5164,7 +5211,7 @@ function drawWaterfall(a,w,h){
     const col=st.total?C_TOTAL:soft(st.value>=0?C_IN:C_OUT);
     const sid=st.total?'total':(st.value>=0?'in':'out');
     const lab=(st.total?'':(st.value>0?'+':''))+CD.fmtInt(st.value);
-    const t={title:st.name,
+    const t={title:st.name+(st.sub?' · '+st.sub:''),
       rows:[{label:st.total?'Уровень':'Изменение',value:lab,color:col}],
       note:st.total?null:'накоплено: '+CD.fmtInt(g.to)+' чел'};
     s+='<g class="barg"'+tip(t)+'>';
@@ -5173,6 +5220,7 @@ function drawWaterfall(a,w,h){
     s+='</g>';
     s+=txt(cx,yTop-VAL_DY,lab,valOpt({delay:240+i*34,s:sid}));
     s+=txt(cx,plotBot+15,st.name,{size:10.5,fill:C_AXIS});
+    if(st.sub)s+=txt(cx,plotBot+28,st.sub,{size:10,fill:C_AXIS});
     if(i<steps.length-1)s+=line(cx+bw/2,Y(g.to),x0+bandW*(i+1.5)-bw/2,Y(g.to),C_DIV,1,'3 2');
   });
   return svg(w,h,s);
@@ -5268,8 +5316,12 @@ function sparkLine(series,state,w,h,o){
   const Y=v=>h-PAD-((v-lo)/((max-lo)||1))*(h-PAD-TOP);
   let s='';
   if(refs)s+='<path d="'+polyD(refs,X,Y)+'" fill="none" stroke="'+C_BENCH+'" stroke-width="1" stroke-dasharray="3 2"'+NSS+'/>';
-  s+='<path d="'+polyD(series,X,Y)+'" fill="none" stroke="'+C_SPARK_INK+'" stroke-width="1.6"'
+  /* вызревающий последний месяц — последний отрезок пунктиром (20.10) */
+  const part=key&&CD.matures(key)&&n>1&&series[n-1]!=null&&series[n-2]!=null;
+  s+='<path d="'+polyD(part?series.slice(0,n-1):series,X,Y)+'" fill="none" stroke="'+C_SPARK_INK+'" stroke-width="1.6"'
     +' stroke-linejoin="round" stroke-linecap="round"'+NSS+'/>';
+  if(part)s+='<path d="M'+num(X(n-2))+' '+num(Y(series[n-2]))+'L'+num(X(n-1))+' '+num(Y(series[n-1]))+'" fill="none" stroke="'+C_SPARK_INK+
+    '" stroke-width="1.6" stroke-dasharray="3 2" stroke-linecap="round"'+NSS+'/>';
   let last=-1;
   series.forEach((v,i)=>{if(v!=null)last=i});
   const stAt=(v,i)=>ev?cmpState(key,v,i,base,kpi,false,state):'neutral';
@@ -5654,6 +5706,8 @@ function deltaChip(key,dv,o){
   /* типографский минус подставляет сам fmtDelta — здесь его больше не чиним:
      пока чинили тут, пилюля «К базе» в сводной таблице оставалась с дефисом */
   const txt=D.fmtDelta(key,dv);
+  /* вызревающий месяц (20.10): неполный месяц против полного — без оценки и с пояснением */
+  if(D.matures(key))return '<span class="delta neu part"'+tipAttr(D.MATURE_TIP)+'>'+txt+vs+'</span>';
   if(m.better==='flat')return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=m.better==='lower'?dv<0:dv>0;
   return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
@@ -5661,6 +5715,10 @@ function deltaChip(key,dv,o){
 /* Пилюля изменения за месяц с подписью месяца — ровно то, что стоит в карточках
    KPI на всех экранах. Отдельная функция, чтобы подпись и подсказка не
    разъезжались между one-pager и детальными вкладками. */
+/* Метка «вызревает» у значения потока за незакрытый месяц (20.10) */
+function matureTag(key,small){
+  return D.matures(key)?'<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.MATURE_TIP)+'>по '+D.ASOF_SHORT+'</span>':'';
+}
 function momChip(key,dv){return deltaChip(key,dv,{vs:D.CMP.momShort,tip:D.CMP.momTip})}
 
 /* Иконка перехода на внешний дашборд. Символ ↗ брался из шрифта и в разных
@@ -6446,7 +6504,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
+window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
@@ -6669,9 +6727,12 @@ function cmpWords(key,st,ref,i){
 function trendWord(m){return (m.better==='higher'?'снижение ':'рост ')+OBS.trend+' '+U.plural(OBS.trend,['месяц','месяца','месяцев'])+' подряд'}
 /* ухудшение trend месяцев подряд и на dev за них — по расширенной сетке,
    поэтому январь продолжает декабрь: {a, b, from} или null */
-function worsening(m,ext){
+/* L — месяц расширенной сетки, от которого смотрим (по умолчанию последний; у вызревающей
+   метрики в незакрытом месяце — последний закрытый, factL) */
+function worsening(m,ext,L){
   if(m.better==='flat'||accum(m))return null;
-  const L=D.NEXT-1, n=OBS.trend, v0=ext[L-n];
+  if(L==null)L=D.NEXT-1;
+  const n=OBS.trend, v0=ext[L-n];
   if(v0==null)return null;
   let prev=v0;
   for(let i=L-n+1;i<=L;i++){
@@ -6695,7 +6756,8 @@ function yoyStory(key,S,rl,bl){
   const f=x=>esc(D.fmtVal(key,x)), ref=refOf(key,S,bl), flat=m.better==='flat', out=[];
   /* 1. Сейчас и ориентир */
   const st=stateAt(key,v,ref,b);
-  out.push({i:b,s:'main',html:'<b>'+esc(cap(D.MONTH_NOM[b]))+' — '+f(v)+'</b>'+
+  /* незакрытый месяц: у потока — «по 19.10» с пояснением (20.10) */
+  out.push({i:b,s:'main',html:'<b>'+esc(cap(D.MONTH_NOM[b]))+' — '+f(v)+'</b>'+U.matureTag(key,true)+
     (ref&&!flat&&ref.at(b)!=null?', '+esc(cmpWords(key,st,ref,b))+'.':'.')});
   /* 2. Год назад — тот же месяц */
   const pv=prev[b];
@@ -6767,29 +6829,33 @@ function yoyStory(key,S,rl,bl){
 
 /* Один факт на метрику по отбору целиком: {key, sev, pri, w, lead, body} и сырые
    поля для карточек главной — kind ('dev' | 'yoy' | 'trend'), v, ref, kpi, pv, tr. */
+/* Выводы по вызревающей метрике в незакрытом месяце — по последнему закрытому (20.10): неполный
+   месяц против полного дал бы ложное «лучше, чем год назад». mon — «сентябрь» для подписи. */
+function factL(key){return D.NEXT-1-(D.matures(key)?1:0)}
+function monOf(L){return L===D.NEXT-1?'':D.MONTH_NOM[D.MONTHS_EXT[L].m]}
 function metricFact(m,S,rl,bl){
-  const key=m.key, ext=D.aggregateExt(rl,key), L=D.NEXT-1, v=ext[L];
+  const key=m.key, ext=D.aggregateExt(rl,key), L=factL(key), v=ext[L], mon=monOf(L);
   if(v==null)return null;
-  const kpi=D.kpiFor(key,S), ref=kpi?kpi.green:(D.comparable(key)?D.lastVal(bl,key):null);
+  const kpi=D.kpiFor(key,S), ref=kpi?kpi.green:(D.comparable(key)?D.aggregateExt(bl,key)[L]:null);
   const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):D.compareState(key,v,ref);
   const f=x=>D.fmtVal(key,x), w=kpi?'цели':'базы', pv=ext[L-12];
   const ago=pv!=null?'Год назад — '+f(pv)+'.':'';
-  const tr=worsening(m,ext);
+  const tr=worsening(m,ext,L), nm=m.name+(mon?' за '+mon:'');
   if(st==='bad'&&rel(v,ref)>=OBS.dev)
-    return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — хуже '+w+' '+f(ref),
-      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr};
+    return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — хуже '+w+' '+f(ref),
+      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr,L,mon};
   /* год к году: 10% от прошлого значения или 3 п.п. у долей */
   if(pv!=null&&m.better!=='flat'&&m.fmt!=='int'&&Math.abs(v-pv)>=(m.fmt==='pct'?0.5:1e-9)&&
      (rel(v,pv)>=OBS.dev||(m.fmt==='pct'&&Math.abs(v-pv)>=OBS.yoyPp))){
     const worse=m.better==='lower'?v>pv:v<pv;
     return {key,sev:worse?'mid':'good',pri:2,w:rel(v,pv),
-      lead:m.name+' '+f(v)+' — '+(worse?'хуже':'лучше')+', чем год назад ('+f(pv)+')',
-      body:ref!=null?cap(w==='цели'?'цель':'база')+' — '+f(ref)+'.':'',kind:'yoy',v,ref,kpi,pv};
+      lead:nm+' '+f(v)+' — '+(worse?'хуже':'лучше')+', чем год назад ('+f(pv)+')',
+      body:ref!=null?cap(w==='цели'?'цель':'база')+' — '+f(ref)+'.':'',kind:'yoy',v,ref,kpi,pv,L,mon};
   }
   if(tr)return {key,sev:'mid',pri:3,w:rel(tr.b,tr.a),lead:m.name+': '+trendWord(m),
-    body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.CUR_LEN-1]+' '+f(tr.b)+'.',kind:'trend',v,ref,kpi,pv,tr};
+    body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.MONTHS_EXT[L].m]+' '+f(tr.b)+'.',kind:'trend',v,ref,kpi,pv,tr,L,mon};
   if(st==='good'&&rel(v,ref)>=OBS.dev)
-    return {key,sev:'good',pri:1,w:rel(v,ref),lead:m.name+' '+f(v)+' — лучше '+w+' '+f(ref),body:ago,kind:'dev',v,ref,kpi,pv};
+    return {key,sev:'good',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — лучше '+w+' '+f(ref),body:ago,kind:'dev',v,ref,kpi,pv,L,mon};
   return null;
 }
 const MONTH_IN=['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'];
@@ -6802,13 +6868,14 @@ function overview(S,rl,bl,all){
   });
   /* всплеск уходов: последний месяц против среднего за 11 до него */
   if(D.metricVisible('attrition',S)){
-    const a=D.aggregateExt(rl,'attrition'), last=a[L]||0;
-    let usual=0;for(let i=L-11;i<L;i++)usual+=a[i]||0;usual/=11;
+    /* всплеск — по последнему закрытому месяцу: в незакрытом уходы ещё копятся */
+    const La=factL('attrition'), a=D.aggregateExt(rl,'attrition'), last=a[La]||0;
+    let usual=0;for(let i=La-11;i<La;i++)usual+=a[i]||0;usual/=11;
     if(last>=OBS.spikeMin&&last>=OBS.spikeX*usual)
       out.push({key:'attrition',sev:last>=3*usual?'high':'mid',pri:0,w:last-usual,
-        lead:'Всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[L].m]+
+        lead:'Всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[La].m]+
           ': '+D.fmtInt(last)+' — обычно '+(usual<1?'меньше одного':'около '+D.fmtInt(Math.round(usual)))+' в месяц',
-        body:'Уволились за месяц, по любой причине.',kind:'spike',v:last,usual});
+        body:'Уволились за месяц, по любой причине.',kind:'spike',v:last,usual,L:La});
   }
   /* численность за год: найм, уходы, переводы — из чего сложилось */
   const hc=D.aggregateExt(rl,'hc_total'), from=hc[L-12], to=hc[L];
@@ -6818,7 +6885,7 @@ function overview(S,rl,bl,all){
     out.push({key:'hc_total',sev:'mid',pri:5,w:0,
       lead:'Численность '+(to>from?'+':'−')+dp+'% за год: '+D.fmtInt(from)+' → '+D.fmtInt(to),
       body:'Найм '+D.fmtInt(sm('hire'))+', отток '+D.fmtInt(sm('attrition'))+', переводы в команду '+
-        D.fmtInt(sm('transfer_in'))+' и из неё '+D.fmtInt(sm('transfer_out'))+'.',kind:'hc',v:to,pv:from});
+        D.fmtInt(sm('transfer_in'))+' и из неё '+D.fmtInt(sm('transfer_out'))+'.',kind:'hc',v:to,pv:from,L});
   }
   const rank={high:0,mid:1,good:2};
   out.sort((a,c)=>rank[a.sev]-rank[c.sev]||a.pri-c.pri||c.w-a.w);
@@ -6883,7 +6950,7 @@ const lc=t=>/^.[a-zа-яё]/.test(t)?t.charAt(0).toLowerCase()+t.slice(1):t;
 const ppl=(n,noun)=>D.fmtInt(n)+' '+U.plural(Math.round(n),noun||PPL);
 function say(f){
   const m=D.METRIC_BY_KEY[f.key], bad=f.sev!=='good';
-  if(f.kind==='spike')return 'всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[D.NEXT-1].m];
+  if(f.kind==='spike')return 'всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[f.L].m];
   if(f.kind==='hc')return 'численность '+(f.v>f.pv?'выросла':'сократилась')+' на '+Math.round(Math.abs(f.v-f.pv)/f.pv*100)+'% за год';
   if(f.kind==='trend')return lc(m.name)+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд';
   if(f.key==='hire_plan'&&f.kind==='dev')return bad?'найм отстаёт от плана':'план найма выполняется с запасом';
@@ -6897,20 +6964,21 @@ function ratioDef(m){
   return ch&&ch.derived?Object.assign({},ch.derived,{win:'sum'}):null;
 }
 /* знаменатель: за месяц, с начала года ('ytd') или в среднем за месяц с января ('sum') */
-function denOf(lp,dv){
-  const ks=Array.isArray(dv.den)?dv.den:[dv.den], b=D.CUR_LEN-1;
-  if(!dv.win)return ks.reduce((a,k)=>a+(D.lastVal(lp,k)||0),0);
+function denOf(lp,dv,L){
+  const ks=Array.isArray(dv.den)?dv.den:[dv.den], y0=D.YEAR_START_EXT[L];
+  if(!dv.win)return ks.reduce((a,k)=>a+(D.aggregateExt(lp,k)[L]||0),0);
   let s=0;
-  ks.forEach(k=>{const c=D.yoySeries(lp,k).cur;for(let i=0;i<=b;i++)s+=c[i]||0});
-  return dv.win==='sum'?s/(b+1):s;
+  ks.forEach(k=>{const e=D.aggregateExt(lp,k);for(let i=y0;i<=L;i++)s+=e[i]||0});
+  return dv.win==='sum'?s/(L-y0+1):s;
 }
 /* Отклонение в штуках: |v − ref| в долях знаменателя → {n, noun, win}; не люди — null */
-function excess(key,lp,v,ref){
+function excess(key,lp,v,ref,L){
   const m=D.METRIC_BY_KEY[key];
   if(v==null||ref==null||NOPPL.has(key))return null;
+  if(L==null)L=factL(key);
   const dv=ratioDef(m);
-  if(dv)return NOUN[dv.num]===null?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv),noun:NOUN[dv.num]||PPL,win:dv.win};
-  if(m.fmt==='pct')return {n:Math.abs(v-ref)/100*(D.lastVal(lp,'hc_total')||0),noun:PPL,win:m.ytd?'sum':null};
+  if(dv)return NOUN[dv.num]===null?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv,L),noun:NOUN[dv.num]||PPL,win:dv.win};
+  if(m.fmt==='pct')return {n:Math.abs(v-ref)/100*(D.aggregateExt(lp,'hc_total')[L]||0),noun:PPL,win:m.ytd?'sum':null};
   if(m.fmt==='int')return {n:Math.abs(v-ref),noun:NOUN[key]||PPL,win:null};
   return null;
 }
@@ -6924,7 +6992,7 @@ function unitsOf(S){
 /* Где это происходит: вклад подразделений в отклонение факта (люди сверх
    ориентира). top — подразделение больше чем с половиной вклада. */
 function whereOf(f,S){
-  const m=D.METRIC_BY_KEY[f.key], L=D.NEXT-1;
+  const m=D.METRIC_BY_KEY[f.key], L=f.L!=null?f.L:D.NEXT-1;
   const rows=unitsOf(S).map(u=>{
     const r={n:u.n,hc:u.hc,small:u.hc<CARD.small,exc:0,v:null};
     if(f.kind==='spike'){
@@ -6934,7 +7002,7 @@ function whereOf(f,S){
     }
     const e=D.aggregateExt(u.lp,f.key), ref=f.kind==='yoy'?e[L-12]:f.ref;
     r.v=e[L];
-    if(!r.small&&r.v!=null&&ref!=null&&isBad(m,r.v,ref)){const x=excess(f.key,u.lp,r.v,ref);r.exc=x?x.n:0}
+    if(!r.small&&r.v!=null&&ref!=null&&isBad(m,r.v,ref)){const x=excess(f.key,u.lp,r.v,ref,L);r.exc=x?x.n:0}
     return r;
   });
   rows.sort((a,c)=>c.exc-a.exc||c.hc-a.hc);
@@ -6962,22 +7030,25 @@ function cardOf(f,S,rl,bl){
   const m=D.METRIC_BY_KEY[f.key], bad=f.sev!=='good', fv=x=>D.fmtVal(f.key,x);
   const bk=f.kind==='spike'&&D.blockVisible('turnover',S)?'turnover':m.block, b=D.BLOCK_BY_KEY[bk];
   let head=f.lead;
-  if(f.kind==='dev')head=m.name+' '+fv(f.v)+(f.kpi?' при цели '+fv(f.ref):' — '+(f.v>f.ref?'выше':'ниже')+', чем по базе ('+fv(f.ref)+')');
-  else if(f.kind==='yoy')head=m.name+' '+fv(f.v)+' — '+(f.v>f.pv?'выше':'ниже')+', чем год назад ('+fv(f.pv)+')';
+  const mn=m.name+(f.mon?' за '+f.mon:'');
+  if(f.kind==='dev')head=mn+' '+fv(f.v)+(f.kpi?' при цели '+fv(f.ref):' — '+(f.v>f.ref?'выше':'ниже')+', чем по базе ('+fv(f.ref)+')');
+  else if(f.kind==='yoy')head=mn+' '+fv(f.v)+' — '+(f.v>f.pv?'выше':'ниже')+', чем год назад ('+fv(f.pv)+')';
   else if(f.kind==='trend')head=m.name+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд: '+fv(f.tr.a)+' → '+fv(f.tr.b);
   const body=[];
   /* уходы — сначала людьми: сколько ушло с января и сколько год назад за те же месяцы.
      Фраза одна на все выводы (cards ставит её только в первый) */
   let leave='';
-  if(SAME[f.key]&&f.kind!=='trend'&&D.CUR_LEN>1){
-    const y=D.yoySeries(rl,'attrition');let a=0,p=0;
-    for(let i=0;i<D.CUR_LEN;i++){a+=y.cur[i]||0;p+=y.prev[i]||0}
+  const Lf=f.L!=null?f.L:D.NEXT-1, y0=D.YEAR_START_EXT[Lf];
+  if(SAME[f.key]&&f.kind!=='trend'&&Lf>y0){
+    /* по последнему закрытому месяцу (factL): незакрытый ещё не досчитан */
+    const e=D.aggregateExt(rl,'attrition');let a=0,p=0;
+    for(let i=y0;i<=Lf;i++){a+=e[i]||0;p+=e[i-12]||0}
     const d=Math.round(a)-Math.round(p);
-    leave='С января ушли <b>'+ppl(a)+'</b> — '+(d?'на '+D.fmtInt(Math.abs(d))+' '+(d>0?'больше':'меньше')+', чем за те же месяцы год назад'
+    leave='С января'+(f.mon?' по '+f.mon:'')+' ушли <b>'+ppl(a)+'</b> — '+(d?'на '+D.fmtInt(Math.abs(d))+' '+(d>0?'больше':'меньше')+', чем за те же месяцы год назад'
       :'столько же, сколько год назад за те же месяцы')+'.';
   }
-  const x=f.kind==='dev'?excess(f.key,rl,f.v,f.ref):f.kind==='yoy'?excess(f.key,rl,f.v,f.pv)
-    :f.kind==='trend'?excess(f.key,rl,f.tr.b,f.tr.a):f.kind==='spike'?{n:f.v-f.usual,noun:LEAVE}:null;
+  const x=f.kind==='dev'?excess(f.key,rl,f.v,f.ref,Lf):f.kind==='yoy'?excess(f.key,rl,f.v,f.pv,Lf)
+    :f.kind==='trend'?excess(f.key,rl,f.tr.b,f.tr.a,Lf):f.kind==='spike'?{n:f.v-f.usual,noun:LEAVE}:null;
   const n=x?Math.round(x.n):0, q=n>=1?'<b>≈ '+ppl(n,x.noun)+'</b>':'';
   if(q){
     const w=f.kpi?'цели':'базы', when=x.win?' с начала года':f.kind==='dev'?' за месяц':'';
@@ -6993,7 +7064,7 @@ function cardOf(f,S,rl,bl){
   if(f.kind==='dev'&&f.tr)body.push(esc(cap(trendWord(m)))+'.');
   let todo='Держать курс: отдельных действий не нужно.';
   if(bad){
-    const t=f.kind==='spike'?'разобрать уходы за '+D.MONTH_NOM[D.MONTHS_EXT[D.NEXT-1].m]+': причины и подразделения'
+    const t=f.kind==='spike'?'разобрать уходы за '+D.MONTH_NOM[D.MONTHS_EXT[Lf].m]+': причины и подразделения'
       :CARD_TODO[f.key]||'открыть блок и посмотреть, где отклонение';
     const h=wh&&wh.top&&wh.top.n.head, who=h&&(h.login||h.name);
     todo='<b>Что сделать:</b> '+(wh&&wh.top?'начать с «'+esc(wh.top.n.name)+'»'+(who?' ('+esc(who)+')':'')+' — ':'')+esc(t)+'.';
@@ -7264,7 +7335,7 @@ CH.turnover={
    динамики по месяцам; глава «Замещение и темпы» снята. */
 CH.movement={
   balance(c){
-    const hc=ser(c.lp,'hc_total'), begin=hc[0], end=hc[D.LAST], net=end-begin;
+    const hc=ser(c.lp,'hc_total'), begin=D.hcStart(c.lp), end=hc[D.LAST], net=end-begin;
     const hire=s12(c.lp,'hire'), tin=s12(c.lp,'transfer_in'), attr=s12(c.lp,'attrition'), tout=s12(c.lp,'transfer_out');
     const other=net-(hire+tin-attr-tout);
     const mx=argmax(hc);
@@ -7273,7 +7344,7 @@ CH.movement={
     return {sum:signed(net)+' за год',st:'n',
       head:net>0?'Команда выросла на '+pl(net,PPL)+' за год':net<0?'Команда сократилась на '+pl(-net,PPL)+' за год'
         :'Численность за год не изменилась',
-      lede:'Было **'+D.fmtInt(begin)+'**, стало **'+D.fmtInt(end)+'**. Водопад показывает, что сдвинуло численность: '+
+      lede:'На '+D.WIN_FROM+' было **'+D.fmtInt(begin)+'**, на '+D.WIN_TO+' — **'+D.fmtInt(end)+'**. Водопад показывает, что сдвинуло численность: '+
         'найм и переводы в команду поднимают её, отток и переводы из команды — опускают.',
       insights:[
         hire>=attr?'Найм покрывает отток: пришли **'+hire+'**, ушли **'+attr+'**'
@@ -8084,7 +8155,7 @@ function renderBlock(S,expanded,mixOpen,view){
     const mom=sliced?D.sliceDeltaMoM(rl,m.key,selIds):D.deltasOf(rl,m.key).mom;
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
     const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    h+=U.kpiCard({label:m.name,tag:D.isDev(m.key)?U.devTag(D.devStage(m.key)):'',
+    h+=U.kpiCard({label:m.name,tag:(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+U.matureTag(m.key),
       q:U.infoDot(m.key),
       value:D.fmtVal(m.key,v),
       row1:U.momChip(m.key,mom)+cardSpark(m.key,ser,st,S,bl),
@@ -8669,15 +8740,18 @@ SC.blocks.structure={
 'use strict';
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
+/* 20.10: начало — численность на 1-е число первого месяца окна (а не на конец этого месяца:
+   его найм и отток уже в потоках, и месяц уходил в «Прочее»), конец — на дату данных; даты —
+   под подписями «Начало» и «Конец» */
 function balancedSteps(lp){
-  const hc=D.aggregate(lp,'hc_total'), begin=hc[0], end=hc[D.LAST];
+  const hc=D.aggregate(lp,'hc_total'), begin=D.hcStart(lp), end=hc[D.LAST];
   const hire=SC.sumS(D.aggregate(lp,'hire')), tin=SC.sumS(D.aggregate(lp,'transfer_in'));
   const attr=-SC.sumS(D.aggregate(lp,'attrition')), tout=-SC.sumS(D.aggregate(lp,'transfer_out'));
   /* «Прочие изменения» закрывают разрыв: численность генерируется независимо
      от потоков, и молча спрятать невязку было бы обманом */
-  return [{name:'Начало',value:begin,total:true},{name:'Найм',value:hire},
+  return [{name:'Начало',sub:D.WIN_FROM,value:begin,total:true},{name:'Найм',value:hire},
     {name:'Переводы в',value:tin},{name:'Отток',value:attr},{name:'Переводы из',value:tout},
-    {name:'Прочее',value:end-(begin+hire+tin+attr+tout)},{name:'Конец',value:end,total:true}];
+    {name:'Прочее',value:end-(begin+hire+tin+attr+tout)},{name:'Конец',sub:D.WIN_TO,value:end,total:true}];
 }
 
 SC.blocks.movement={
@@ -8708,7 +8782,7 @@ SC.blocks.movement={
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
     return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
         title:'Из чего сложилось изменение за год, чел',
-        legend:[{name:'Начало и конец года',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
+        legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
       U.storyFacts(ctx.story&&ctx.story.insights,'Что важно');
   }
 };
@@ -9266,7 +9340,7 @@ function normRow(S,rl,ok){
       text:'Метрики без заметных отклонений от ориентира и от прошлого года. Количества (численность, найм) не оцениваются — показаны значением.'})+
     '>✓ В норме</span>'+
     ok.slice(0,NP).map(m=>'<button class="in-pill" data-opfact="'+m.key+'"'+U.tipAttr({title:m.name,text:m.hint})+'>'+
-      esc(m.name)+' <b>'+D.fmtVal(m.key,D.lastVal(rl,m.key))+'</b></button>').join('')+
+      esc(m.name)+' <b>'+D.fmtVal(m.key,D.lastVal(rl,m.key))+'</b>'+U.matureTag(m.key,true)+'</button>').join('')+
     (ok.length>NP?'<button class="in-pill more" data-opscroll="1">+'+(ok.length-NP)+' '+U.plural(ok.length-NP,['метрика','метрики','метрик'])+'</button>':'')+
     (dev?'<button class="in-pill dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
       dev+' в разработке</button>':'')+
@@ -9292,7 +9366,7 @@ function render(S,openRows){
 
   /* 1 · заголовок: за какой месяц, чья команда, по какой численности и с чем сравниваем */
   const node=D.NODE_BY_PATH[S.unit]||{}, hc=D.lastVal(rl,'hc_total')||0;
-  let h='<div class="page-h"><h2>Главное за '+esc(D.CMP.cur)+'</h2>'+
+  let h='<div class="page-h"><h2>'+(D.PARTIAL?'Главное на '+esc(D.ASOF_LABEL):'Главное за '+esc(D.CMP.cur))+'</h2>'+
     '<p>'+esc(node.name||'Команда')+' · '+D.fmtInt(hc)+' '+U.plural(Math.round(hc),['человек','человека','человек'])+' · '+
     (S.hcType==='all'?'вся численность':'активная численность')+' · сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
     '</b> и прошлым годом'+obsInfo(S)+'</p></div>';
@@ -9357,7 +9431,7 @@ function render(S,openRows){
       const bser=!kpi&&D.comparable(m.key)?D.aggregate(bl,m.key):null;
       const open=openRows.has(m.key);
       t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
-        '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
+        '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+U.matureTag(m.key,true)+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
         '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:D.CMP.momTip})+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:D.CMP.yoyTip})+'</td>'+
@@ -9641,11 +9715,12 @@ function renderHead(){
   /* Период — чипом рядом с базой, а не отдельной плашкой справа: плашка
      повторяла свежесть данных в шапке и забирала место у кнопок. Здесь он
      остаётся и в печатной версии, где шапка приложения скрыта. */
-  html+='<span class="chip bench">Период: <b>'+esc(D.PERIOD_LABEL)+'</b></span>';
+  html+='<span class="chip bench">Период: <b>'+esc(D.PARTIAL?D.PERIOD_LABEL.split(' — ')[0]+' — '+D.ASOF_LABEL:D.PERIOD_LABEL)+'</b></span>';
   if(ENV)html+=pilotChips();
   $('#chips').innerHTML=html;
   const fr=$('#freshness');
-  if(fr)fr.innerHTML='<span class="dot"></span>закрытый месяц <b>'+esc(D.CMP.cur)+'</b>';
+  /* 20.10: последний месяц — текущий, данные по дату данных; закрыт — как раньше */
+  if(fr)fr.innerHTML='<span class="dot"></span>'+(D.PARTIAL?'данные на <b>'+esc(D.ASOF_LABEL)+'</b>':'закрытый месяц <b>'+esc(D.CMP.cur)+'</b>');
 }
 function renderNav(){
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */

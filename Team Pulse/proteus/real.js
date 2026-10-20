@@ -124,6 +124,10 @@ function build(data){
   const N=Math.min(12,n), pre=n-N, months=monthsExt.slice(pre);
   const nm=mm=>MONTH_NOM[mm.m]+' '+mm.y;
   const periodLabel=nm(months[0])+' — '+nm(months[months.length-1]);
+  /* дата данных (20.10, ноутбук meta.data_dt → «dt»): последний месяц — текущий, данные по этот
+     день. Нет даты или она не в последнем месяце — месяц считается закрытым */
+  const lmM=months[months.length-1], dm=/^(\d{4})-(\d{2})-(\d{2})/.exec(str(meta.dt));
+  const asof=dm&&+dm[1]===lmM.y&&+dm[2]-1===lmM.m?{y:lmM.y,m:lmM.m,d:+dm[3]}:null;
 
   /* юниты: справочник + строки дерева с рядами. С 19.10 справочник — всё дерево: «id, родитель,
      уровень, детей, имя, логин руководителя, fd» (fd — численность узла в последнем месяце по
@@ -278,7 +282,7 @@ function build(data){
   const vals=meta.vals||{};
   return {
     n,pre,months,monthsExt,periodLabel,
-    lm:str(meta.lm),today:str(meta.today),
+    lm:str(meta.lm),today:str(meta.today),asof,
     rootId,scopeId:scopeU?scopeU.id:rootId,
     scopePath:scopeU?(pathOf(scopeU.id)||'T'):'T',
     defId:str(meta.def),

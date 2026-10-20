@@ -16,7 +16,7 @@ SELECT section, item, value
 -- Зачем. Разведка 19.10 восстановила схему таблиц по SQL датасета 174609 (файл 2а): число
 -- строк, физические типы и период оттуда не видны, а в каталоге DataDetective таблиц нет.
 -- Запрос проверяет на самих таблицах то, что ноутбук обещает:
---   1 meta     — последний закрытый месяц, сетка, когда собраны таблицы (built_at), версия;
+--   1 meta     — последний месяц (с поставки 46 — и текущий незакрытый), сетка, когда собраны таблицы (built_at), версия;
 --   2 типы     — физический тип каждой колонки, есть ли head_login;
 --   3 дерево   — узлы по уровням, корни, родитель без узла, путь против уровня и ключа,
 --                число детей, логины руководителей;
@@ -29,7 +29,7 @@ SELECT section, item, value
 --                series (численность — последний месяц, x* — увольнения с начала года).
 --
 -- ОТВЕТ МАСКИРОВАН, как 0б–0д: имён, ключей юнитов и логинов нет; численность — в промилле
--- (‰) от численности компании (корень, все срезы) в последнем закрытом месяце. Проверено на
+-- (‰) от численности компании (корень, все срезы) в последнем месяце. Проверено на
 -- ClickHouse 24.8 (таблицы ноутбука на синтетике stand/nb_tp20.py --hub, один и два корня,
 -- с head_login и без, шесть настроек сервера, в том числе профиль боя). Каждая строка ответа
 -- считается в своём FROM (SELECT … AS v0): без этого старый анализатор теряет скалярные
@@ -91,14 +91,16 @@ WITH
   ),
   ml AS (SELECT u AS mu, k AS mk, sum(n) AS mn FROM mx GROUP BY u, k)
 
-SELECT '1 meta' AS section, 1 AS ord, 'последний закрытый месяц · сетка с · месяцев · индекс января' AS item,
+SELECT '1 meta' AS section, 1 AS ord, 'последний месяц · сетка с · месяцев · индекс января' AS item,
        v0 AS value
 FROM (SELECT concat(toString((SELECT lm FROM cal)), ' · ', toString((SELECT m0 FROM cal)), ' · ', toString((SELECT nm0 FROM cal)),
               ' · ', toString((SELECT iy0 FROM cal))) AS v0)
 UNION ALL
-SELECT '1 meta' AS section, 2 AS ord, 'сегодня · собрано (built_at) · версия (schema_ver)' AS item,
+SELECT '1 meta' AS section, 2 AS ord, 'сегодня · дата данных (data_dt, с поставки 46) · собрано (built_at) · версия (schema_ver)' AS item,
        v0 AS value
-FROM (SELECT (SELECT concat(toString(today()), ' · ', ifNull(toString(any(built_at)), '—'), ' · ', ifNull(toString(any(schema_ver)), '—'))
+FROM (SELECT (SELECT concat(toString(today()), ' · ',
+                            ifNull(any(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^data_dt$') APPLY(toString)], CAST(['—'], 'Array(Nullable(String))')), 1)), '—'),
+                            ' · ', ifNull(toString(any(built_at)), '—'), ' · ', ifNull(toString(any(schema_ver)), '—'))
         FROM prod_proteus.teampulse_hub_meta) AS v0)
 UNION ALL
 SELECT '1 meta' AS section, 3 AS ord, 'строк в meta (ждали 1)' AS item,
@@ -198,7 +200,7 @@ SELECT '4 ряды' AS section, 1 AS ord, 'строк series · месяцы с 
        v0 AS value
 FROM (SELECT (SELECT concat(toString(count()), ' · ', toString(min(m)), ' … ', toString(max(m)), ' · ', toString(uniqExact(m))) FROM sr) AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 2 AS ord, 'строк позже последнего закрытого · раньше сетки (датасет их не берёт)' AS item,
+SELECT '4 ряды' AS section, 2 AS ord, 'строк позже последнего месяца · раньше сетки (датасет их не берёт)' AS item,
        v0 AS value
 FROM (SELECT (SELECT concat(toString(countIf(m > (SELECT lm FROM cal))), ' · ', toString(countIf(m < (SELECT m0 FROM cal)))) FROM sr) AS v0)
 UNION ALL

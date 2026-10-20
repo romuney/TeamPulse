@@ -250,11 +250,12 @@ function renderHead(){
   /* Период — чипом рядом с базой, а не отдельной плашкой справа: плашка
      повторяла свежесть данных в шапке и забирала место у кнопок. Здесь он
      остаётся и в печатной версии, где шапка приложения скрыта. */
-  html+='<span class="chip bench">Период: <b>'+esc(D.PERIOD_LABEL)+'</b></span>';
+  html+='<span class="chip bench">Период: <b>'+esc(D.PARTIAL?D.PERIOD_LABEL.split(' — ')[0]+' — '+D.ASOF_LABEL:D.PERIOD_LABEL)+'</b></span>';
   if(ENV)html+=pilotChips();
   $('#chips').innerHTML=html;
   const fr=$('#freshness');
-  if(fr)fr.innerHTML='<span class="dot"></span>закрытый месяц <b>'+esc(D.CMP.cur)+'</b>';
+  /* 20.10: последний месяц — текущий, данные по дату данных; закрыт — как раньше */
+  if(fr)fr.innerHTML='<span class="dot"></span>'+(D.PARTIAL?'данные на <b>'+esc(D.ASOF_LABEL)+'</b>':'закрытый месяц <b>'+esc(D.CMP.cur)+'</b>');
 }
 function renderNav(){
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */

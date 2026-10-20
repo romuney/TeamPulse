@@ -205,7 +205,7 @@ CH.turnover={
    динамики по месяцам; глава «Замещение и темпы» снята. */
 CH.movement={
   balance(c){
-    const hc=ser(c.lp,'hc_total'), begin=hc[0], end=hc[D.LAST], net=end-begin;
+    const hc=ser(c.lp,'hc_total'), begin=D.hcStart(c.lp), end=hc[D.LAST], net=end-begin;
     const hire=s12(c.lp,'hire'), tin=s12(c.lp,'transfer_in'), attr=s12(c.lp,'attrition'), tout=s12(c.lp,'transfer_out');
     const other=net-(hire+tin-attr-tout);
     const mx=argmax(hc);
@@ -214,7 +214,7 @@ CH.movement={
     return {sum:signed(net)+' за год',st:'n',
       head:net>0?'Команда выросла на '+pl(net,PPL)+' за год':net<0?'Команда сократилась на '+pl(-net,PPL)+' за год'
         :'Численность за год не изменилась',
-      lede:'Было **'+D.fmtInt(begin)+'**, стало **'+D.fmtInt(end)+'**. Водопад показывает, что сдвинуло численность: '+
+      lede:'На '+D.WIN_FROM+' было **'+D.fmtInt(begin)+'**, на '+D.WIN_TO+' — **'+D.fmtInt(end)+'**. Водопад показывает, что сдвинуло численность: '+
         'найм и переводы в команду поднимают её, отток и переводы из команды — опускают.',
       insights:[
         hire>=attr?'Найм покрывает отток: пришли **'+hire+'**, ушли **'+attr+'**'

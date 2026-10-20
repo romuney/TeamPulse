@@ -20,15 +20,18 @@
 'use strict';
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
+/* 20.10: начало — численность на 1-е число первого месяца окна (а не на конец этого месяца:
+   его найм и отток уже в потоках, и месяц уходил в «Прочее»), конец — на дату данных; даты —
+   под подписями «Начало» и «Конец» */
 function balancedSteps(lp){
-  const hc=D.aggregate(lp,'hc_total'), begin=hc[0], end=hc[D.LAST];
+  const hc=D.aggregate(lp,'hc_total'), begin=D.hcStart(lp), end=hc[D.LAST];
   const hire=SC.sumS(D.aggregate(lp,'hire')), tin=SC.sumS(D.aggregate(lp,'transfer_in'));
   const attr=-SC.sumS(D.aggregate(lp,'attrition')), tout=-SC.sumS(D.aggregate(lp,'transfer_out'));
   /* «Прочие изменения» закрывают разрыв: численность генерируется независимо
      от потоков, и молча спрятать невязку было бы обманом */
-  return [{name:'Начало',value:begin,total:true},{name:'Найм',value:hire},
+  return [{name:'Начало',sub:D.WIN_FROM,value:begin,total:true},{name:'Найм',value:hire},
     {name:'Переводы в',value:tin},{name:'Отток',value:attr},{name:'Переводы из',value:tout},
-    {name:'Прочее',value:end-(begin+hire+tin+attr+tout)},{name:'Конец',value:end,total:true}];
+    {name:'Прочее',value:end-(begin+hire+tin+attr+tout)},{name:'Конец',sub:D.WIN_TO,value:end,total:true}];
 }
 
 SC.blocks.movement={
@@ -59,7 +62,7 @@ SC.blocks.movement={
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
     return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
         title:'Из чего сложилось изменение за год, чел',
-        legend:[{name:'Начало и конец года',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
+        legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
       U.storyFacts(ctx.story&&ctx.story.insights,'Что важно');
   }
 };

@@ -355,7 +355,7 @@ function renderBlock(S,expanded,mixOpen,view){
     const mom=sliced?D.sliceDeltaMoM(rl,m.key,selIds):D.deltasOf(rl,m.key).mom;
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
     const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    h+=U.kpiCard({label:m.name,tag:D.isDev(m.key)?U.devTag(D.devStage(m.key)):'',
+    h+=U.kpiCard({label:m.name,tag:(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+U.matureTag(m.key),
       q:U.infoDot(m.key),
       value:D.fmtVal(m.key,v),
       row1:U.momChip(m.key,mom)+cardSpark(m.key,ser,st,S,bl),

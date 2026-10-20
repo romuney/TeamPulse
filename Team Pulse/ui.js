@@ -122,6 +122,8 @@ function deltaChip(key,dv,o){
   /* типографский минус подставляет сам fmtDelta — здесь его больше не чиним:
      пока чинили тут, пилюля «К базе» в сводной таблице оставалась с дефисом */
   const txt=D.fmtDelta(key,dv);
+  /* вызревающий месяц (20.10): неполный месяц против полного — без оценки и с пояснением */
+  if(D.matures(key))return '<span class="delta neu part"'+tipAttr(D.MATURE_TIP)+'>'+txt+vs+'</span>';
   if(m.better==='flat')return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=m.better==='lower'?dv<0:dv>0;
   return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
@@ -129,6 +131,10 @@ function deltaChip(key,dv,o){
 /* Пилюля изменения за месяц с подписью месяца — ровно то, что стоит в карточках
    KPI на всех экранах. Отдельная функция, чтобы подпись и подсказка не
    разъезжались между one-pager и детальными вкладками. */
+/* Метка «вызревает» у значения потока за незакрытый месяц (20.10) */
+function matureTag(key,small){
+  return D.matures(key)?'<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.MATURE_TIP)+'>по '+D.ASOF_SHORT+'</span>':'';
+}
 function momChip(key,dv){return deltaChip(key,dv,{vs:D.CMP.momShort,tip:D.CMP.momTip})}
 
 /* Иконка перехода на внешний дашборд. Символ ↗ брался из шрифта и в разных
@@ -914,7 +920,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
+window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

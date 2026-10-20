@@ -1,6 +1,6 @@
 # =============================================================================
 # Блок 4 — таблицы TeamPulse Hub: всё, что отчёту нужно, считается здесь.
-#   teampulse_hub_meta    1 строка: последний закрытый месяц, сетка, корень, юнит по умолчанию
+#   teampulse_hub_meta    1 строка: последний месяц (и текущий незакрытый), дата данных, сетка, корень, юнит по умолчанию
 #   teampulse_hub_unit    узлы нынешней структуры (по ключам юнитов): родитель, уровень, имя,
 #                         число подразделений, путь ключами от корня, логин руководителя
 #   teampulse_hub_series  узел × месяц × срез (покраска, IT, штат, тип численности): численность, активная, ССЧ,
@@ -8,7 +8,7 @@
 #                         в боевую + перевод стажёров в штат), увольнения, regret, переводы через
 #                         границу узла, мониторинг, посещаемость, T-рост. Узел несёт всё своё
 #                         поддерево
-#   teampulse_hub_mix     узел × срез (с типом численности) × разрез × значение: численность последнего закрытого
+#   teampulse_hub_mix     узел × срез (с типом численности) × разрез × значение: численность последнего
 #                         месяца по атрибутам и увольнения с начала года по причинам и др.
 # Виртуальный датасет отчёта не кешируется и на каждый запрос только выбирает узлы ответа:
 # дерево, история в нынешней структуре, ССЧ, переводы и разрезы готовы здесь.
@@ -68,17 +68,20 @@ def build_hub(
     dist = lambda key: f'distributed by ({key})'
     steps = []
 
-    # 1. последний закрытый месяц: если в источнике есть строки текущего месяца — прошлый
+    # 1. последний месяц — последний в источнике, и текущий незакрытый тоже (20.10, заказчик: «показывать
+    #    текущий месяц, как в HRBP HUB»); dt — дата данных: последний день этого месяца в дневном источнике
+    #    руководителей (hr_executive_proteus), нет его — вчера, но не позже конца месяца
+    hsrc, hdt = (None, None) if debug else _hub_head_src()
+    dt_q = (f"(select max(x.{hdt})::date from {_qualified(hsrc)} x "
+            f"where x.{hdt} >= c.lm and x.{hdt} < (c.lm + interval '1 month'))") if hsrc else 'null::date'
     steps.append(f"""
 drop table if exists {p}_cal;
 create table {p}_cal as
-select case when max(report_month) >= date_trunc('month', current_date)::date
-            then (date_trunc('month', max(report_month)) - interval '1 month')::date
-            else max(report_month)::date end as lm
-from {src}
+select c.lm, coalesce({dt_q}, least(current_date - 1, (c.lm + interval '1 month' - interval '1 day')::date)) as dt
+from (select max(report_month)::date as lm from {src}) c
 {dist('lm')}""")
 
-    # 2. путь каждого юнита в последнем закрытом месяце (два пути — меньший)
+    # 2. путь каждого юнита в последнем месяце (два пути — меньший)
     steps.append(f"""
 drop table if exists {p}_upath;
 create table {p}_upath as
@@ -128,13 +131,12 @@ update {p}_node set prk = '{HUB_ALL}' where prk = '';
 update {p}_node set pth = '{HUB_ALL}|' || pth, lv = lv + 1;
 insert into {p}_node (rk, nm, lv, prk, pth) values ('{HUB_ALL}', 'Все юниты', 1, '', '{HUB_ALL}')""")
 
-    # 4. руководитель юнита на конец последнего закрытого месяца — голосами, как в HRBP HUB:
+    # 4. руководитель юнита на конец последнего месяца (на дату данных) — голосами, как в HRBP HUB:
     #    3 — сам руководитель (management_head_flg = 1) в юните → его ad_login; 2 — люди юнита →
     #    их management_head_ad_login; 1 — руководители подразделений → их management_head_ad_login
     #    (у юнита без своих людей). Старший голос, внутри — самый частый логин, при равенстве —
     #    меньший. Человек — в юните строки конца месяца (численность > 0), источник логинов —
     #    по mdm_employee_rk на последнюю дату месяца
-    hsrc, hdt = (None, None) if debug else _hub_head_src()
     if hsrc and has('mdm_employee_rk'):
         hh = f"""(
         select e.mdm_employee_rk as erk, max(coalesce(e.management_head_flg::text, '0'))::int as is_head,
@@ -189,7 +191,7 @@ left join {p}_head h on h.unit_rk = n.rk
 {dist('unit_rk')}""")
 
     # 6. строки источника → узлы нынешней структуры. История — по пути юнита в последнем
-    #    закрытом месяце (переехал — прошлое едет с ним); юнита нет — по своему пути.
+    #    месяце (переехал — прошлое едет с ним); юнита нет — по своему пути.
     #    Перевод входит в узел глубины d, если сменился уровень ≤ d (через границу узла)
     # тип численности (20.10): «Активная» — тип активности строки на конец месяца (по флагу
     # источника, FIXED_DIMS), остальные — «Прочие». Отчёт по умолчанию — только «Активная»
@@ -261,7 +263,7 @@ left join {p}_sx c on {on('c', 'k')} and c.report_month = k.report_month
 left join {p}_sx pv on {on('pv', 'k')} and pv.report_month = (k.report_month - interval '1 month')::date
 {dist('node_rk')}""")
 
-    # 8. разрезы: численность последнего закрытого месяца по атрибутам (g a t gr s c o w r) и
+    # 8. разрезы: численность последнего месяца по атрибутам (g a t gr s c o w r) и
     #    увольнения с начала его года (xr причина, xq regret по причине, xi инициатива,
     #    xp причина|инициатива, xt стаж, xg грейд, xs стрим). Пустое значение — ''
     a = {k: _hub_clean(f'e.{c}') if has(c) else "''" for k, c in (
@@ -298,13 +300,14 @@ having sum(mx_n) > 0
 drop table if exists {p}_meta;
 create table {p}_meta as
 select c.lm as last_month,
+       c.dt as data_dt,
        (date_trunc('year', c.lm) - interval '1 year')::date as grid_start,
        (12 + date_part('month', c.lm))::int as n_months,
        12 as ytd_idx,
        r.unit_rk as root_rk,
        case when r.kids_cnt = 1 then (select unit_rk from {p}_unit where parent_rk = r.unit_rk) else r.unit_rk end as def_rk,
        now() as built_at,
-       'hub-1' as schema_ver
+       'hub-2' as schema_ver
 from {p}_cal c
 cross join (select unit_rk, kids_cnt from {p}_unit where parent_rk = '' order by unit_rk limit 1) r
 {dist('last_month')}""")

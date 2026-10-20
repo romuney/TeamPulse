@@ -46,6 +46,33 @@ const CUR_M=MONTHS[LAST], PREV_M=MONTHS[LAST-1];
 const YOY_M={y:CUR_M.y-1,m:CUR_M.m};                      /* тот же месяц год назад */
 function monthNom(mm){return MONTH_NOM[mm.m]+' '+mm.y}    /* «июнь 2026» */
 function monthGen(mm){return MONTH_GEN[mm.m]+' '+mm.y}    /* «июня 2026» */
+/* ---------- Дата данных и незакрытый месяц (20.10) ----------
+   Заказчик: «показывать текущий (не закрытый) месяц, как в HRBP HUB» — последний месяц
+   сетки теперь текущий, данные в нём по дату данных (в Proteus — meta.dt из ноутбука, «на 19
+   октября»; в макете — 19-е число последнего месяца). Состояния (численность, состав) на эту
+   дату точные. Потоки за месяц (найм, отток, переводы) и всё, что из них считается, в
+   незакрытом месяце ещё ВЫЗРЕВАЮТ: значение вырастет к концу месяца, и сравнивать его с полным
+   месяцем нельзя. Такие метрики (MATURING) помечены на графиках и в карточках, их пилюли
+   изменения — без оценки, а выводы по ним строятся по последнему закрытому месяцу. */
+const DIM=(y,m)=>new Date(y,m+1,0).getDate();
+const ASOF=REAL?(REAL.asof||{y:CUR_M.y,m:CUR_M.m,d:DIM(CUR_M.y,CUR_M.m)}):{y:CUR_M.y,m:CUR_M.m,d:19};
+const PARTIAL=ASOF.d<DIM(ASOF.y,ASOF.m);
+const ASOF_LABEL=ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y;             /* «19 октября 2026» */
+const ASOF_SHORT=String(ASOF.d).padStart(2,'0')+'.'+String(ASOF.m+1).padStart(2,'0');  /* «19.10» */
+const MATURING=new Set(['hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret',
+  'vac_closed','hire_plan','tgrowth_pass','tgrowth_deny','underwork','overwork']);
+function matures(key){return PARTIAL&&MATURING.has(key)}
+/* Границы окна для водопада (20.10, заказчик: «где начало и конец, указывать дату»): начало —
+   численность на 1-е число первого месяца окна (конец месяца перед ним), конец — на дату данных */
+/* короткий родительный — «1–19 окт.», «1 июля» */
+const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'];
+const WIN_FROM='1 '+MONTH_ABBR_GEN[MONTHS[0].m]+' '+MONTHS[0].y;      /* «1 нояб. 2025» */
+const WIN_TO=ASOF.d+' '+MONTH_ABBR_GEN[ASOF.m]+' '+ASOF.y;             /* «19 окт. 2026» */
+function hcStart(lp){const v=aggregateExt(lp,'hc_total')[NEXT-13];return v!=null?v:aggregate(lp,'hc_total')[0]}
+/* подсказка у вызревающего значения — одна на весь отчёт */
+const MATURE_TIP={title:'Месяц не закрыт',
+  text:'Данные по **'+ASOF_LABEL+'**: за месяц ещё не всё учтено, значение вырастет к его концу.',
+  note:'Поэтому с прошлым месяцем и годом его не сравниваем, а выводы — по последнему закрытому месяцу.'};
 const CMP={
   cur:monthNom(CUR_M),
   /* короткая подпись стоит прямо в пилюле изменения, полная — в шапках колонок */
@@ -2078,7 +2105,7 @@ function aiProfile(lp){
   return {pen:pen,wau:wau,tools:tools};
 }
 
-window.TPDATA={REAL,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,hcStart,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,

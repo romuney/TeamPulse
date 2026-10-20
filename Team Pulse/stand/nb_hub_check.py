@@ -34,7 +34,7 @@ def main():
     U, people = nb.simulate()
     perf, office, grt = nb.side(people)
     names = {k: tuple(U[x][0] for x in nb.path(U, k)) for k in U}
-    ms = nb.months()[:-1]                       # 2025-01 … 2026-09 — сетка ответа
+    ms = nb.months()                            # 2025-01 … 2026-10 — сетка ответа (20.10: с текущим незакрытым)
     cases = [('без фильтров', {}, lambda p: True),
              ('IT + штат', {'it_f': ['IT'], 'staff_f': ['Штат']}, lambda p: p['it'] == 'IT' and p['rel'] == 'Штатный сотрудник'),
              ('покраска HQ (2а)', {'paint_f': ['Hq']}, lambda p: p['oper'] == 'HQ'),
@@ -92,6 +92,8 @@ def main():
                 # 19.10: справочник — все узлы, fd — численность последнего месяца по сочетаниям
                 # покраска × IT × штат: сумма прошедших фильтры случая = правда по людям
                 meta = json.loads(rows[0]['j'])
+                if meta.get('dt') != str(nb.D1) or meta.get('lm') != str(ms[-1]):   # 20.10: текущий месяц и дата данных
+                    bad['дата данных ' + str(meta.get('dt')) + ' / ' + str(meta.get('lm'))] += 1
                 fv = meta.get('fdv') or {}
                 dl = [l.split('\t') for l in next(r for r in rows if r['role'] == 'dict')['j'].split('\n') if l]
                 # 20.10: четвёртый разрез — тип численности; пустой словарь (нет act_cd) — один тип

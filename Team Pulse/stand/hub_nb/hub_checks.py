@@ -16,7 +16,7 @@ def _hub_one(sql):
 _root = f"(select root_rk from {HUB_P}_meta)"
 _lm = f"(select last_month from {HUB_P}_meta)"
 HUB_CHECKS = [
-    ('корень − люди: численность последнего закрытого месяца',
+    ('корень − люди: численность последнего месяца',
      f"""select (select sum(hc_cnt) from {HUB_P}_series where node_rk = {_root} and report_month = {_lm})
               - (select sum(hc_total_cnt) from {HUB_SRC} where leaf_lvl > 0 and report_month = {_lm})"""),
     ('корень − люди: увольнения за всё время',

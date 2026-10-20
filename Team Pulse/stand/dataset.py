@@ -142,7 +142,7 @@ def check(db):
         ok = False
         print('  FAIL', msg)
 
-    lm = str(s.query(f"SELECT if(max(report_month) >= toStartOfMonth(today()), addMonths(max(report_month), -1), max(report_month)) FROM {T}", 'TSV')).strip()
+    lm = str(s.query(f"SELECT max(report_month) FROM {T}", 'TSV')).strip()   # 20.10: и текущий незакрытый
     allrows = load_rows(s, lm)
     lmp, st = tree(allrows, lm)
     for r in allrows:                       # путь строки — нынешний путь её юнита
@@ -245,6 +245,12 @@ def check(db):
         meta = json.loads(rows[0]['j'])
         if meta['lm'] != lm or meta['n'] != len(arrays(rows[1])['hc']) or meta['n'] != len(months):
             fail(f"календарь: lm {meta['lm']} против {lm}, n {meta['n']}")
+        # 20.10: месяц таблицы текущий — dt (дата данных) вчера, иначе пусто
+        import datetime as _d
+        y = _d.date.today() - _d.timedelta(days=1)
+        want_dt = max(y, _d.date.fromisoformat(lm)).isoformat() if lm >= _d.date.today().replace(day=1).isoformat() else ''
+        if meta.get('dt') != want_dt:
+            fail(f"дата данных: dt {meta.get('dt')!r} против {want_dt!r}")
         if meta['cuts'] != ['it', 'staff', 'act'] or meta['paint'] != [] or meta['it'] != flt.get('it_f', []):
             fail(f"meta: cuts {meta['cuts']} / paint {meta['paint']} / it {meta['it']}")
         sc = rows[1]

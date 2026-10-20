@@ -464,12 +464,16 @@ function yoyKey(w,y,col,off,lock,flow){
 }
 /* Месяцы оси года: на узком полотне — через один от января, текущий подписан
    всегда и жирно. «Вы здесь» — тонкая сплошная: пунктиром уже сказаны цель и база. */
-function yoyAxis(X,bandW,top,bot,nowI,bars){
+/* Незакрытый месяц (20.10): у последнего месяца на оси — по какое число данные: «1–19 окт.»
+   у вызревающей метрики (поток за неполный месяц), «19 окт.» у состояния (численность на дату) */
+function nowLabel(lb,key){return CD.PARTIAL?(CD.matures(key)?'1–':'')+CD.ASOF.d+' '+CD.MONTH_ABBR_GEN[CD.ASOF.m]:lb}
+const PART_NOTE=()=>'Месяц не закрыт: данные по '+CD.ASOF_LABEL+', значение вырастет к концу месяца.';
+function yoyAxis(X,bandW,top,bot,nowI,bars,key){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
   let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
     if(bandW>=31||i%2===0||i===nowI)
-      s+=txt(X(i),bot+15,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+      s+=txt(X(i),bot+15,i===nowI?nowLabel(lb,key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
   });
   return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1);
 }
@@ -536,7 +540,9 @@ function yoyPlot(p,ar){
   if(nm.flow&&ya&&ya.hi)ya.hi.forEach(z=>{if(z.s==='main'&&!ya.notes.some(n=>n.i===z.i))
     s+=rect(x0+bandW*z.i+2,top-4,bandW-4,bot-top+4,C_BAND,6)});
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
-  s+=yoyAxis(X,bandW,top,bot,nowI,!!nm.flow);
+  s+=yoyAxis(X,bandW,top,bot,nowI,!!nm.flow,key);
+  /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
+  const part=CD.matures(key), curS=part?cur.map((v,i)=>i===nowI?null:v):cur;
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
   if(p.gap&&showMain&&showBench)s+=gapFill(key,cur,bench,X,Y);
   /* Счётный поток (найм, уход, переводы, решения) — барами (14.10, заказчик:
@@ -548,8 +554,10 @@ function yoyPlot(p,ar){
     +' stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
   if(showBench)s+='<path class="lnb"'+sAttr('bench')+' d="'+polyD(bench,X,Y)+'" fill="none" stroke="'+C_BENCH+'"'
     +' stroke-width="2" stroke-dasharray="5 3"/>';
-  if(showMain&&!flow)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+polyD(cur,X,Y)+'" fill="none" stroke="'+col+'"'
+  if(showMain&&!flow)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+polyD(curS,X,Y)+'" fill="none" stroke="'+col+'"'
     +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"'+(d0?' style="animation-delay:'+d0+'ms"':'')+'/>';
+  if(showMain&&!flow&&part&&nowI>0&&cur[nowI]!=null&&cur[nowI-1]!=null)s+='<path class="lnp"'+sAttr('main')+' d="'+
+    polyD([cur[nowI-1],cur[nowI]],i=>X(nowI-1+i),Y)+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-dasharray="4 3" stroke-linecap="round"/>';
   const yC=CD.YEAR_CUR, yP=CD.YEAR_PREV, step=labelStep(cur,key,bandW);
   let lbl='', mk='';
   for(let i=0;i<12;i++){
@@ -558,7 +566,7 @@ function yoyPlot(p,ar){
     if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:col});
     if(showPrev&&pv!=null)rows.push({label:String(yP),value:CD.fmtVal(key,pv),color:C_PREV});
     if(showBench&&b!=null)rows.push({label:p.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
-    const note=c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
+    const note=part&&i===nowI?PART_NOTE():c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
       :c==null?'Месяц ещё не закрыт':null;
     const nmM=CD.MONTH_NOM[i];
     const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
@@ -577,11 +585,12 @@ function yoyPlot(p,ar){
         :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
       /* этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
          и контуром основным цветом, заливка та же */
-      if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),soft(col),' class="bar up"'+sAttr('main')+(bm?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
+      if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),soft(col),' class="bar up'+(part&&i===nowI?' part':'')+'"'+sAttr('main')+
+        (part&&i===nowI?' stroke="'+col+'" stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"':bm?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
       if(showPrev&&pv!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
       if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm?col:'#fff')+'" stroke="'+col+'"'
-        +' stroke-width="2" style="animation-delay:'+num(dly)+'ms"/>';
+        +' stroke-width="2"'+(part&&i===nowI?' stroke-dasharray="2 1.6"':'')+' style="animation-delay:'+num(dly)+'ms"/>';
     }
     s+='</g>';
     /* Подписи. У последнего закрытого месяца подписаны обе линии, и подписи
@@ -664,9 +673,10 @@ function drawPair(a,w,h){
   const u=(bot-top)/((mA+mB)||1), y0=top+mA*u;
   const bw=Math.max(6,Math.min(28,bandW*0.56)), gw=ghostW(bw,bandW);
   let s=header(w,o.title,o.legend,{kind:'pair',off:o.off});
+  const part=CD.matures(A.key)&&sC, pp=' stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"';
   CD.MONTH_ABBR.forEach((lb,i)=>{
     if(bandW>=31||i%2===0||i===nowI)
-      s+=txt(X(i),h-6,lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+      s+=txt(X(i),h-6,i===nowI?nowLabel(lb,A.key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
   });
   const yC=String(CD.YEAR_CUR), yP=String(CD.YEAR_PREV);
   const stepA=labelStep(A.cur,A.key,bandW), stepB=labelStep(B.cur,B.key,bandW), step=Math.max(stepA,stepB);
@@ -680,15 +690,16 @@ function drawPair(a,w,h){
       if(pb!=null)rows.push({label:nameB+' · '+yP,value:CD.fmtVal(B.key,pb),color:C_PREV})}
     const nmM=CD.MONTH_NOM[i], dly=DRAW_MS*(i/Math.max(1,nowI))*0.5;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1),rows,
-      note:va==null&&vb==null?'Месяц ещё не закрыт':null})+'>';
+      note:part&&i===nowI?PART_NOTE():va==null&&vb==null?'Месяц ещё не закрыт':null})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
     /* вверх — приход, вниз — уход. Прошлый год — позади, шире и почти прозрачно
        тем же цветом; выключили этот год — прошлый обычными барами */
     const up=sC?va:(sP?pa:null), dn=sC?vb:(sP?pb:null), go=' fill-opacity="'+GHOST_OP+'"';
     if(sC&&sP&&sA&&pa!=null)s+=barUp(cx-gw/2,y0-pa*u,gw,pa*u,cA,' class="bar up ghost"'+go+sAttr('prev'));
     if(sC&&sP&&sB&&pb!=null)s+=barDn(cx-gw/2,y0,gw,pb*u,cB,' class="bar dn ghost"'+go+sAttr('prev'));
-    if(sA&&up!=null)s+=barUp(cx-bw/2,y0-up*u,bw,up*u,fA,' class="bar up"'+sAttr(sC?'a':'prev')+' style="animation-delay:'+num(dly)+'ms"');
-    if(sB&&dn!=null)s+=barDn(cx-bw/2,y0,bw,dn*u,fB,' class="bar dn"'+sAttr(sC?'b':'prev')+' style="animation-delay:'+num(dly)+'ms"');
+    const pz=part&&i===nowI;
+    if(sA&&up!=null)s+=barUp(cx-bw/2,y0-up*u,bw,up*u,fA,' class="bar up'+(pz?' part':'')+'"'+sAttr(sC?'a':'prev')+(pz?' stroke="'+cA+'"'+pp:'')+' style="animation-delay:'+num(dly)+'ms"');
+    if(sB&&dn!=null)s+=barDn(cx-bw/2,y0,bw,dn*u,fB,' class="bar dn'+(pz?' part':'')+'"'+sAttr(sC?'b':'prev')+(pz?' stroke="'+cB+'"'+pp:'')+' style="animation-delay:'+num(dly)+'ms"');
     s+='</g>';
     if(!lblAt(i,nowI,step))continue;
     /* ноль не подписываем: у переводов он в каждом втором месяце и забивает полотно */
@@ -744,7 +755,8 @@ function drawWaterfall(a,w,h){
   const steps=a.steps, o=a.opt||{};
   const hh=headH(o.title,o.legend);
   h=h||o.h||320;
-  const plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H;
+  /* вторая строка подписи — дата у «Начало» и «Конец» (20.10) */
+  const subs=steps.some(st=>st.sub), plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H-(subs?13:0);
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/steps.length;
   let acc=0; const lv=[];
   steps.forEach(st=>{
@@ -763,7 +775,7 @@ function drawWaterfall(a,w,h){
     const col=st.total?C_TOTAL:soft(st.value>=0?C_IN:C_OUT);
     const sid=st.total?'total':(st.value>=0?'in':'out');
     const lab=(st.total?'':(st.value>0?'+':''))+CD.fmtInt(st.value);
-    const t={title:st.name,
+    const t={title:st.name+(st.sub?' · '+st.sub:''),
       rows:[{label:st.total?'Уровень':'Изменение',value:lab,color:col}],
       note:st.total?null:'накоплено: '+CD.fmtInt(g.to)+' чел'};
     s+='<g class="barg"'+tip(t)+'>';
@@ -772,6 +784,7 @@ function drawWaterfall(a,w,h){
     s+='</g>';
     s+=txt(cx,yTop-VAL_DY,lab,valOpt({delay:240+i*34,s:sid}));
     s+=txt(cx,plotBot+15,st.name,{size:10.5,fill:C_AXIS});
+    if(st.sub)s+=txt(cx,plotBot+28,st.sub,{size:10,fill:C_AXIS});
     if(i<steps.length-1)s+=line(cx+bw/2,Y(g.to),x0+bandW*(i+1.5)-bw/2,Y(g.to),C_DIV,1,'3 2');
   });
   return svg(w,h,s);
@@ -867,8 +880,12 @@ function sparkLine(series,state,w,h,o){
   const Y=v=>h-PAD-((v-lo)/((max-lo)||1))*(h-PAD-TOP);
   let s='';
   if(refs)s+='<path d="'+polyD(refs,X,Y)+'" fill="none" stroke="'+C_BENCH+'" stroke-width="1" stroke-dasharray="3 2"'+NSS+'/>';
-  s+='<path d="'+polyD(series,X,Y)+'" fill="none" stroke="'+C_SPARK_INK+'" stroke-width="1.6"'
+  /* вызревающий последний месяц — последний отрезок пунктиром (20.10) */
+  const part=key&&CD.matures(key)&&n>1&&series[n-1]!=null&&series[n-2]!=null;
+  s+='<path d="'+polyD(part?series.slice(0,n-1):series,X,Y)+'" fill="none" stroke="'+C_SPARK_INK+'" stroke-width="1.6"'
     +' stroke-linejoin="round" stroke-linecap="round"'+NSS+'/>';
+  if(part)s+='<path d="M'+num(X(n-2))+' '+num(Y(series[n-2]))+'L'+num(X(n-1))+' '+num(Y(series[n-1]))+'" fill="none" stroke="'+C_SPARK_INK+
+    '" stroke-width="1.6" stroke-dasharray="3 2" stroke-linecap="round"'+NSS+'/>';
   let last=-1;
   series.forEach((v,i)=>{if(v!=null)last=i});
   const stAt=(v,i)=>ev?cmpState(key,v,i,base,kpi,false,state):'neutral';
