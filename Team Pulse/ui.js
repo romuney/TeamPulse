@@ -622,7 +622,9 @@ function panel(o){
   return '<div class="panel'+(o.cls?' '+o.cls:'')+'">'+
     (o.title?'<div class="panel-h'+(tabs?' with-tabs':'')+'"><div class="h-txt'+(o.hBtn?' has-btn':'')+'"><span>'+o.title+'</span>'+
       (sub?'<span class="sub">'+sub+'</span>':'')+(o.hBtn||'')+'</div>'+tabs+'</div>':'')+
-    '<div class="panel-b'+(o.bodyCls?' '+o.bodyCls:'')+'">'+o.body+'</div></div>';
+    '<div class="panel-b'+(o.bodyCls?' '+o.bodyCls:'')+'">'+o.body+'</div>'+
+    /* foot — нижний край карточки, который прилипает к низу окна (правая панель блока, «один скролл») */
+    (o.foot?'<div class="panel-cap" aria-hidden="true"></div>':'')+'</div>';
 }
 
 /* ============================================================================

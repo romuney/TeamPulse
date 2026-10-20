@@ -481,7 +481,7 @@ function renderBlock(S,expanded,mixOpen,view){
     subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть')):' · всё подразделение')+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
     hBtn:U.unitToggle(mode==='both'),
-    body:body,bodyCls:'st-on'});
+    body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';
 }

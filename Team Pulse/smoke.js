@@ -182,7 +182,11 @@ checks.push(['один скролл: таблица подразделений s
   /@media \(min-width:1121px\)\{\s*\.split\{height:auto;min-height:0;align-items:start\}/.test(cssAll)&&
   /\.split>\.split-l\{position:sticky;top:calc\(var\(--head-h,0px\) \+ 12px\);max-height:calc\(100vh/.test(cssAll)&&
   /\.split-r \.panel-b,\.split-r \.panel-b\.st-on\{overflow:visible;height:auto\}/.test(cssAll)&&
-  /overscroll-behavior:contain/.test(cssAll)]);
+  /overscroll-behavior:contain/.test(cssAll)&&
+  /* края карточки графиков видны всегда и стоят на одной линии с таблицей (скриншот 20.10) */
+  /max-height:calc\(100vh - var\(--head-h,0px\) - 38px\)/.test(cssAll)&&/\.split-r>\.panel-cap\{position:sticky;bottom:26px/.test(cssAll)&&
+  /\.split-r>\.panel-h\{position:sticky;top:calc\(var\(--head-h,0px\) \+ 12px\)/.test(cssAll)&&
+  /class="panel-cap"/.test(A.go('turnover','dynamics'))]);
 checks.push(['перезапуск скрипта держит прокрутку экрана и панелей',
   /STORE\.scroll=\{k:viewKey\(\)/.test(appSrc)&&/back=ENV&&!pend0&&STORE\.scroll/.test(appSrc)&&
   /ENV\.scroller\.scrollTop=back\.y/.test(appSrc)&&/if\(pend\)STORE\.scroll=null/.test(appSrc)]);

@@ -2078,7 +2078,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 @media (min-width:1121px){
   .split{height:auto;min-height:0;align-items:start}
   .split>.panel{height:auto}
-  .split>.split-l{position:sticky;top:calc(var(--head-h,0px) + 12px);max-height:calc(100vh - var(--head-h,0px) - 24px)}
+  .split>.split-l{position:sticky;top:calc(var(--head-h,0px) + 12px);max-height:calc(100vh - var(--head-h,0px) - 38px)}
   .split-l .tbl-wrap{overscroll-behavior:contain}
   .split-gut{align-self:stretch}
   .split-r .panel-b,.split-r .panel-b.st-on{overflow:visible;height:auto}
@@ -2088,6 +2088,36 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .st-grid.has-rail>.st-main{height:auto}
   .st-rail{overflow:visible}
 }
+/* Карточка графиков едет страницей, но её края видны всегда (20.10, скриншот заказчика: «верхушка
+   пропадает, снизу больше левой части»): шапка карточки прилипает к верху окна на той же высоте, что
+   таблица слева, а нижний край — к низу окна на уровне низа таблицы. Графики прокручиваются между ними.
+   Над шапкой и под краем — полоса цвета фона с вырезанными скруглениями: она закрывает уезжающее
+   содержимое, и углы карточки остаются круглыми. */
+@media (min-width:1121px){
+  .split>.split-r{overflow:visible}
+  .split-r>.panel-h{position:sticky;top:calc(var(--head-h,0px) + 12px);z-index:6;background:#fff;
+    border-radius:var(--radius) var(--radius) 0 0}
+  /* низ: 26 px — нижний отступ страницы на широком экране (24) и 2 px под раскладкой; таблица слева
+     кончается там же (12 сверху + высота окна − 38), поэтому края совпадают и в середине прокрутки,
+     и в самом конце страницы */
+  .split-r>.panel-h::before{content:"";position:absolute;left:-4px;right:-4px;pointer-events:none;height:calc(14px + var(--radius))}
+  .split-r>.panel-cap::after{content:"";position:absolute;left:-4px;right:-4px;pointer-events:none;height:calc(26px + var(--radius))}
+  .split-r>.panel-h::before{bottom:calc(100% - var(--radius));
+    background:radial-gradient(circle at 100% 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) left 4px bottom/var(--radius) var(--radius) no-repeat,
+      radial-gradient(circle at 0 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) right 4px bottom/var(--radius) var(--radius) no-repeat,
+      linear-gradient(var(--bg),var(--bg)) left top/100% 14px no-repeat,
+      linear-gradient(var(--bg),var(--bg)) left top/4px 100% no-repeat,linear-gradient(var(--bg),var(--bg)) right top/4px 100% no-repeat}
+  .split-r>.panel-cap{position:sticky;bottom:26px;z-index:6;height:14px;background:#fff;border-radius:0 0 var(--radius) var(--radius)}
+  .split-r>.panel-cap::after{top:calc(100% - var(--radius));
+    background:radial-gradient(circle at 100% 0,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) left 4px top/var(--radius) var(--radius) no-repeat,
+      radial-gradient(circle at 0 0,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) right 4px top/var(--radius) var(--radius) no-repeat,
+      linear-gradient(var(--bg),var(--bg)) left bottom/100% 26px no-repeat,
+      linear-gradient(var(--bg),var(--bg)) left top/4px 100% no-repeat,linear-gradient(var(--bg),var(--bg)) right top/4px 100% no-repeat}
+}
 @media (max-width:1240px) and (min-width:1121px){
   .split.wide-l>.split-l{position:static;max-height:none}
+  .split.wide-l>.split-r>.panel-h,.split.wide-l>.split-r>.panel-cap{position:static}
+  .split.wide-l>.split-r>.panel-h::before,.split.wide-l>.split-r>.panel-cap::after{content:none}
 }
+.panel-cap{display:none}
+@media (min-width:1121px){.split-r>.panel-cap{display:block}}
