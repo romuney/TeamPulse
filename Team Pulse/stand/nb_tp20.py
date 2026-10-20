@@ -71,7 +71,12 @@ def simulate(seed=11):
                               ('Кандидаты в учебных юнитах', .04)]),
                     it=pick([('IT', .4), ('Digital', .15), ('NonIT', .45)]), oper=pick([('HQ', .5), ('Line', .3), ('Support', .2)]),
                     hired=day - dt.timedelta(random.randint(0, 2500)) if day == D0 else day,
-                    reason=None, init=None, regret=0)
+                    reason=None, init=None, regret=0, nonreg=0,
+                    company=pick([('Банк', .6), ('ИТ-компания группы', .25), ('Страхование', .15)]),
+                    spec=pick([('Backend', .25), ('Frontend', .15), ('Аналитик данных', .15), ('QA', .1),
+                               ('Продуктовый менеджер', .1), ('Аккаунт-менеджер', .15), ('Операционист', .1)]),
+                    source=pick([('Рекомендация', .2), ('Работные сайты', .4), ('Хантинг', .15), ('Карьерный сайт', .15),
+                                 ('Стажировка', .1)]))
 
     def new_p(day):
         p = new(day)
@@ -95,6 +100,7 @@ def simulate(seed=11):
                     p['reason'] = pick([('Лучшее предложение', .4), ('Личные обстоятельства', .3), ('Нет роста', .3)])
                     p['init'] = pick([('Работник', .8), ('Работодатель', .2)])
                     p['regret'] = int(random.random() < .2)
+                    p['nonreg'] = int(not p['regret'] and random.random() < .7)
                 elif r < .0021:                                 # ~2% в месяц переходят в другой юнит
                     cur = p['unit'][-1][1]
                     p['unit'].append((day, random.choice([h for h in homes if h != cur])))
@@ -158,7 +164,10 @@ COLS = (['calendar_dt', 'mdm_employee_rk']
            'experience_group_nm', 'grade', 'seniority', 'fire_reason_group', 'fire_initiative',
            'employee_contract_type_desc', 'lvl1_legal_unit_nm', 'employee_stream_desc',
            'hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg', 'fire_flg', 'regrettable_fire_flg']
-        + [f'transfer_{d}_{t}_flg' for d in ('to', 'out') for t in TYPES])
+        + [f'transfer_{d}_{t}_flg' for d in ('to', 'out') for t in TYPES]
+        # 21.10: поля прод-ноутбуков HQ и УС — нежелательное/обычное увольнение, тип компании,
+        # специализация, источник найма
+        + ['non_regrettable_fire_flg', 'type_company', 'employee_specialization_desc', 'source_type_nm'])
 
 
 def source_rows(U, people):
@@ -194,8 +203,149 @@ def source_rows(U, people):
                       p['con'], p['legal'], p['stream'],
                       int(d == p['start'] and p['start'] > D0), int('transfer_candidate_flg' in cv),
                       int('transfer_internal_flg' in cv), fired, p['regret'] if fired else 0]
-                   + [tf.get(t, 0) for t in TYPES] + [of.get(t, 0) for t in TYPES])
+                   + [tf.get(t, 0) for t in TYPES] + [of.get(t, 0) for t in TYPES]
+                   + [p['nonreg'] if fired else 0, p['company'], p['spec'], p['source']])
             d += dt.timedelta(1)
+
+
+# ---- вакансии (21.10): usr_cross_data.vacancy_daily по дням, как источник TP 2.0 ----------
+VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'close_flg', 'end_of_month_flg', 'last_dt_flg',
+             'status_name', 'status_name_chng_group', 'search_reason', 'mapping_channel_name', 'act_month',
+             'specialization', 'lvl_position_adj', 'finalist_level_candy']
+            + [f'resource_level_{i}_rk' for i in range(1, NL + 1)])
+
+
+def vacancies(U, seed=7):
+    """вакансия: юнит, согласована, в работе (Backlog → В работе → Готово к выходу, бывает Холд), закрыта
+    или отменена; у части — открыта на последний день. Есть вакансии в юнитах без людей (блоки)"""
+    random.seed(seed)
+    kids = defaultdict(list)
+    for k, (_, par) in U.items():
+        if par: kids[par].append(k)
+    units = [k for k in U if not kids[k]] + [k for k in U if len(k) in (4, 5) and kids[k]]
+    pick = lambda opts: random.choices([o for o, _ in opts], [w for _, w in opts])[0]
+    out, n = [], 0
+    for u in units:
+        for _ in range(random.randint(3, 14)):
+            n += 1
+            adt = D0 - dt.timedelta(60) + dt.timedelta(random.randint(0, (D1 - D0).days + 60))
+            r = random.random()
+            end, kind = (adt + dt.timedelta(random.randint(12, 130)), 'close') if r < .62 else \
+                ((adt + dt.timedelta(random.randint(5, 60)), 'cancel') if r < .7 else (None, 'open'))
+            if end and end > D1:
+                end, kind = None, 'open'
+            hold = adt + dt.timedelta(random.randint(15, 40)) if random.random() < .15 else None
+            out.append(dict(id=f'VAC-{n}', unit=u, adt=adt, end=end, kind=kind, hold=hold,
+                            reason=pick([('Замена сотрудника', .45), ('Новая позиция', .45), ('Расширение функции', .1)]),
+                            channel=pick([('Внешний найм', .7), ('Ротация', .2), ('Т-Образование', .1)]),
+                            spec=pick([('Разработка', .4), ('Аналитика', .2), ('Тестирование', .15), ('Продажи', .15), ('Поддержка', .1)]),
+                            pos=pick([('Junior', .3), ('Middle', .4), ('Senior', .25), ('Lead', .05)]),
+                            cand=pick([('Junior', .3), ('Middle+', .45), ('Senior', .25)])))
+    return out
+
+
+def vac_status(v, d):
+    """статус и группа на день d (None — строки нет)"""
+    last = v['end'] or D1
+    if d < max(v['adt'], D0) or d > last:
+        return None
+    if v['end'] == d:
+        return ('Закрыта', 'Закрытые') if v['kind'] == 'close' else ('Отменена', 'Отменённые')
+    if v['hold'] and v['hold'] <= d < v['hold'] + dt.timedelta(20):
+        return 'Холд', 'Согласованные'
+    if d < v['adt'] + dt.timedelta(10):
+        return 'Backlog', 'Согласованные'
+    if v['end'] and v['kind'] == 'close' and d >= v['end'] - dt.timedelta(10):
+        return 'Готово к выходу', 'Согласованные'
+    return 'В работе', 'Согласованные'
+
+
+def vacancy_rows(U, vacs):
+    for v in vacs:
+        pu = path(U, v['unit'])
+        last = v['end'] or D1
+        d = max(v['adt'], D0)
+        while d <= last:
+            st, gr = vac_status(v, d)
+            nxt = d + dt.timedelta(1)
+            yield ([v['id'], d, v['adt'], int(v['end'] == d and v['kind'] == 'close'), int(nxt.month != d.month),
+                    int(d == last), st, gr, v['reason'], v['channel'], f'{d.year}-{d.month:02d}', v['spec'], v['pos'],
+                    v['cand'] if v['kind'] == 'close' and d == v['end'] else None]
+                   + [pu[i] if i < len(pu) else '-' for i in range(NL)])
+            d = nxt
+
+
+def truth_vac(U, vacs):
+    """узел × месяц → открыто на конец месяца (у текущего — на последний день), закрыто, новые, срок
+    (сумма дней и число закрытых); как structure_x_vacancy + build_hub, шаг 11"""
+    T = defaultdict(lambda: defaultdict(float))
+    root = ['all'] if ROOTS > 1 else []
+    for v in vacs:
+        nodes = root + path(U, v['unit'])
+        for m in months():
+            e = eom(m)
+            st = vac_status(v, e)
+            add = {}
+            if st and st[1] == 'Согласованные':
+                add['vop'] = 1
+            if v['kind'] == 'close' and v['end'] and (v['end'].year, v['end'].month) == (m.year, m.month):
+                add['vcl'] = 1
+                add['vtd'] = (v['end'] - v['adt']).days
+                add['vtn'] = 1
+                add['vjn'] = int(v['cand'] == 'Junior')
+            if v['adt'] >= D0 and (v['adt'].year, v['adt'].month) == (m.year, m.month):
+                add['vap'] = 1
+            for n in nodes:
+                for k, x in add.items():
+                    T[(n, m)][k] += x
+    return T
+
+
+# ---- AI (21.10): сводка по юниту за месяц, как usr_mlpa.ai_bi_all_copilots_usage_digest_monthly ----
+def ai_user(p, m):
+    return (p['rk'] * 31 + m.month * 7 + m.year) % 100 < 45
+
+
+def ai_units(U, people):
+    """юнит (со 2-го уровня) × месяц → WAU (активные пользователи AI среди активной численности поддерева
+    на конец месяца), проникновение по юниту и по компании, %"""
+    alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])
+    out, co = {}, {}
+    for m in months():
+        e = eom(m)
+        hc, w = defaultdict(int), defaultdict(int)
+        for p in people:
+            if alive(p, e) and at(p['acth'], e) == 'Активная':
+                u = ai_user(p, m)
+                for n in path(U, at(p['unit'], e)):
+                    hc[n] += 1
+                    w[n] += u
+                co[m] = co.get(m, (0, 0))
+                co[m] = (co[m][0] + 1, co[m][1] + u)
+        cpct = 100.0 * co[m][1] / co[m][0] if co.get(m) and co[m][0] else 0.0
+        for n in hc:
+            if len(path(U, n)) >= 2:
+                out[(n, m)] = {'aiw': float(w[n]), 'aip': 100.0 * w[n] / hc[n] if hc[n] else 0.0, 'aic': cpct}
+    return out
+
+
+def truth_ai(U, people):
+    """как build_hub, шаг 12: у узла — своя строка источника; корню отчёта — сумма WAU верхнего уровня
+    источника и проникновение по компании"""
+    src = ai_units(U, people)
+    T = defaultdict(lambda: defaultdict(float))
+    for (n, m), v in src.items():
+        T[(n, m)].update(v)
+    roots = [k for k in U if U[k][1] is None]
+    top = 'all' if len(roots) > 1 else roots[0]
+    for m in months():
+        rows = [(n, v) for (n, mm), v in src.items() if mm == m]
+        if not rows or (top, m) in src:
+            continue
+        lv = min(len(path(U, n)) for n, _ in rows)
+        T[(top, m)]['aiw'] = sum(v['aiw'] for n, v in rows if len(path(U, n)) == lv)
+        T[(top, m)]['aip'] = T[(top, m)]['aic'] = max(v['aic'] for _, v in rows)
+    return T
 
 
 # ---- PostgreSQL и подмена dal_client -------------------------------------------
@@ -244,10 +394,10 @@ def side(people):
 
 
 def load(pg, U, people):
-    pg.run("""DROP SCHEMA IF EXISTS usr_cross_data, prod_v_sse_crossdata, prod_v_dds, prod_v_dds_dic, prod_v_emart CASCADE;
+    pg.run("""DROP SCHEMA IF EXISTS usr_cross_data, prod_v_sse_crossdata, prod_v_dds, prod_v_dds_dic, prod_v_emart, usr_mlpa CASCADE;
               DROP SCHEMA public CASCADE; CREATE SCHEMA public;
               CREATE SCHEMA usr_cross_data; CREATE SCHEMA prod_v_sse_crossdata; CREATE SCHEMA prod_v_dds; CREATE SCHEMA prod_v_dds_dic;
-              CREATE SCHEMA prod_v_emart;""")
+              CREATE SCHEMA prod_v_emart; CREATE SCHEMA usr_mlpa;""")
     typ = lambda c: ('date' if c == 'calendar_dt' else 'bigint' if c == 'mdm_employee_rk'
                      else 'int' if c.endswith('_flg') else 'text')
     pg.run(f"CREATE TABLE usr_cross_data.hr_executive_proteus ({', '.join(f'{c} {typ(c)}' for c in COLS)})")
@@ -271,6 +421,19 @@ def load(pg, U, people):
               management_head_flg int, ad_login text, management_head_ad_login text)""")
     pg.copy('prod_v_emart.mdm_employee_structure_d', ['business_dt', 'mdm_employee_rk', 'management_head_flg', 'ad_login',
                                                      'management_head_ad_login'], structure_rows(U, people))
+    # 21.10: вакансии по дням (источник structure_x_vacancy)
+    vtyp = lambda c: 'date' if c in ('issue_day', 'approved_dt') else 'int' if c.endswith('_flg') else 'text'
+    pg.run(f"CREATE TABLE usr_cross_data.vacancy_daily ({', '.join(f'{c} {vtyp(c)}' for c in VAC_COLS)})")
+    pg.copy('usr_cross_data.vacancy_daily', VAC_COLS, vacancy_rows(U, vacancies(U)))
+    # 21.10: AI — сводка по юниту за месяц, как источник прод-ноутбука HQ (уровни со 2-го)
+    pg.run("""CREATE TABLE usr_mlpa.ai_bi_all_copilots_usage_digest_monthly (month date, mngt_unit_rk text, mngt_unit_nm text,
+              new_management_unit_nm text, lvl int, avg_wau float8, avg_penetration_unit_pct float8,
+              avg_penetration_company_pct float8)""")
+    pg.copy('usr_mlpa.ai_bi_all_copilots_usage_digest_monthly',
+            ['month', 'mngt_unit_rk', 'mngt_unit_nm', 'new_management_unit_nm', 'lvl', 'avg_wau',
+             'avg_penetration_unit_pct', 'avg_penetration_company_pct'],
+            [(m, n, U[n][0], None, len(path(U, n)), v['aiw'], v['aip'], v['aic'])
+             for (n, m), v in ai_units(U, people).items()])
     return perf, office, grt
 
 
@@ -328,6 +491,7 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True):
             m = dt.date(p['end'].year, p['end'].month, 1)
             for n in path(U, at(p['unit'], p['end'])):
                 T[(n, m)]['fire'] += ok(p, m)
+                T[(n, m)]['nreg'] += ok(p, m) and p['nonreg']
         if p['start'] > D0:
             m = dt.date(p['start'].year, p['start'].month, 1)
             for n in path(U, at(p['unit'], p['start'])):

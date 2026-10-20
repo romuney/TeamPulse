@@ -476,6 +476,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Имена подразделений и так переносятся по словам, а числовые колонки ужимать
    нельзя — там между значениями останется меньше воздуха, чем внутри них. */
 .ptable.dense th.txt{padding-left:var(--pad-cell);min-width:141px}
+/* колонка полосы сжимается первой (21.10: в узкой панели блока найма таблицы вылезали за край) */
+.ptable.dense th.txt.bar-th{min-width:72px}
+@container stp (max-width:479.98px){.ptable.dense th.txt{min-width:110px}.ptable.dense th.txt.bar-th{min-width:56px}}
 .ptable.dense td{padding:7px 6px}
 .ptable.dense td.txt{padding-left:var(--pad-cell);max-width:176px}
 .ptable.dense td.lead{font-weight:var(--fw-bold);color:var(--ink)}
@@ -1755,6 +1758,12 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .st-main{min-height:0}
   .st-rail{padding-bottom:0}
 }
+/* 21.10: узкая панель (колонка «Что сделать» уходит под графики) — у сетки остаётся align-items:start
+   режима одного скролла, и глава вставала шириной своего графика, а не панели: у блока найма с шестью
+   колонками в таблице графики вылезали за край. В колонку — растягиваем на ширину панели */
+@container stp (max-width:979.98px){
+  .st-grid.has-rail>.st-main{align-self:stretch;min-width:0}
+}
 
 /* Руководитель юнита под именем строки таблицы подразделений (14.10):
    третья строка подписи — тише имени, логин ещё тише */
@@ -2369,7 +2378,7 @@ const ASOF=REAL?(REAL.asof||{y:CUR_M.y,m:CUR_M.m,d:DIM(CUR_M.y,CUR_M.m)}):{y:CUR
 const PARTIAL=ASOF.d<DIM(ASOF.y,ASOF.m);
 const ASOF_LABEL=ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y;             /* «19 октября 2026» */
 const ASOF_SHORT=String(ASOF.d).padStart(2,'0')+'.'+String(ASOF.m+1).padStart(2,'0');  /* «19.10» */
-const MATURING=new Set(['hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret',
+const MATURING=new Set(['hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret','nonregret',
   'vac_closed','hire_plan','tgrowth_pass','tgrowth_deny','underwork','overwork']);
 function matures(key){return PARTIAL&&MATURING.has(key)}
 /* короткий родительный — «1–19 окт.» */
@@ -2491,10 +2500,15 @@ const METRICS=[
   derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Какая доля команды уволилась за месяц: отток к среднесписочной численности.',
   calc:'Отток ÷ среднесписочная × 100%. Среднесписочная — полусумма активной численности на конец прошлого и этого месяца: упрощённый способ из методологии HR, как в HR Executive Report.'},
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с января',fmt:'pct',better:'lower',unit:'%',anchor:null,
-  ytd:'turnover_m',hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую.',
+  ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR (YTD Turnover): сумма месячной текучести с января.'},
-{key:'regret',block:'turnover',aud:'hq',name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Для HQ есть цель KPI.',
+{key:'regret',block:'turnover',aud:'hq',name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:7,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Для HQ цель — 4% за год, на каждый месяц — её доля: к августу 2,7%, как в отчёте HQ.',
   calc:'Сумма месячной: regrettable-увольнения ÷ среднесписочная × 100%. Regrettable по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
+/* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
+   5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
+{key:'nonregret',block:'turnover',aud:'hq',name:'Non-regrettable текучесть',short:'Non-regrettable',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
+  hint:'Текучесть с 1 января по обычным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.',
+  calc:'Сумма месячной: обычные (non-regrettable) увольнения ÷ среднесписочная × 100%. Обычное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
@@ -2564,12 +2578,22 @@ if(REAL){
   if(REAL.has('wday')&&REAL.has('ovis'))ov.office_att={derived:{num:'ovis',den:'wday',scale:100},anchor:null};
   if(REAL.has('gapr')&&REAL.has('gdec'))ov.tgrowth_conv={derived:{num:'tgrowth_pass',den:['tgrowth_pass','tgrowth_deny'],scale:100},
     anchor:null};
+  /* поставка 50: обычная текучесть, вакансии и AI — из необязательных колонок (real.js, LIVE_WITH) */
+  if(REAL.has('nreg'))ov.nonregret={ytd:'nonregret_m',anchor:null};
+  if(REAL.has('vtd')&&REAL.has('vtn'))ov.time_to_fill={derived:{num:'ttf_days',den:'ttf_n',scale:1},anchor:null,
+    calc:'Сумма дней от согласования до закрытия ÷ число закрытых за месяц вакансий. Вакансия — не человек: фильтры покраски, IT, штата и типа численности на неё не действуют.'};
+  if(REAL.has('vjn')&&REAL.has('vcl'))ov.junior_share={derived:{num:'vac_jun',den:'vac_closed',scale:100,win:'ytd'},
+    hint:'Доля вакансий, закрытых джунами, среди всех закрытых с начала года. Сколько их брать — выбор стратегии найма.'};
+  if(REAL.has('vop'))ov.vac_open={calc:'Вакансии в работе (согласованные) на конец месяца, у незакрытого — на последний загруженный день. Вакансия — не человек: фильтры среза на неё не действуют.'};
+  if(REAL.has('aip')&&REAL.has('aiw'))ov.ai_penetration={derived:{num:'ai_wau',den:'ai_den',scale:100},anchor:null,
+    calc:'Как в отчёте HQ: доля активных пользователей AI-инструментов в подразделении, посчитанная в источнике. Источник — по подразделению, без фильтров среза.'};
   METRICS.forEach(m=>{if(ov[m.key])Object.assign(m,ov[m.key]);if(REAL.stub.has(m.key))m.stub=true});
 }
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
 /* Служебные производные ряды: метрикой отчёта не являются, но считаются тем же
    способом, что и метрики (числитель / знаменатель). */
-const SERVICE_DEF=REAL?{regret_m:{derived:{num:'regret_cnt',den:'hc_avg',scale:100}}}:{};
+const SERVICE_DEF=REAL?{regret_m:{derived:{num:'regret_cnt',den:'hc_avg',scale:100}},
+  nonregret_m:{derived:{num:'nonregret_cnt',den:'hc_avg',scale:100}}}:{};
 function defOf(key){return METRIC_BY_KEY[key]||SERVICE_DEF[key]||{}}
 /* метрика без источника: в пробнике — заглушка на генераторе, «демо» в интерфейсе */
 function isStub(key){return !!(METRIC_BY_KEY[key]&&METRIC_BY_KEY[key].stub)}
@@ -2579,11 +2603,13 @@ function isStub(key){return !!(METRIC_BY_KEY[key]&&METRIC_BY_KEY[key].stub)}
    разработке» — у неё нет источника в hr_structure_overall: в пробнике она
    заглушка (isStub), в макете — та же разметка, иначе план не виден там, где
    отчёт смотрят чаще всего. Число — этап плана подключения (DEV_PLAN). */
-const DEV_STAGE={vac_open:2,vac_closed:2,time_to_fill:2,hire_plan:2,junior_share:2,
+const DEV_STAGE={nonregret:0,vac_open:2,vac_closed:2,time_to_fill:2,hire_plan:2,junior_share:2,
   underwork:5,overwork:5,review_up:5,tgrowth_tat:6,tgrowth_pass:6,tgrowth_deny:6,tgrowth_conv:6,
   booking_viol:7,office_att:7,ai_penetration:8,ai_wau:8};
 /* живые с колонок разведки 12.10 (в датасете с восьмой поставки) */
-const DEV_LIVE_NEW=new Set(['office_att','tgrowth_pass','tgrowth_deny','tgrowth_conv','underwork','overwork']);
+const DEV_LIVE_NEW=new Set(['office_att','tgrowth_pass','tgrowth_deny','tgrowth_conv','underwork','overwork',
+  /* поставка 50: из прод-ноутбуков HQ и УС */
+  'nonregret','vac_open','vac_closed','time_to_fill','junior_share','ai_penetration','ai_wau']);
 function isDev(key){return REAL?isStub(key):!!DEV_STAGE[key]&&!DEV_LIVE_NEW.has(key)}
 function devStage(key){return DEV_STAGE[key]||null}
 /* Этапы подключения: откуда берём и что нужно от заказчика. По номеру этапа
@@ -2619,19 +2645,20 @@ const DEV_PLAN=[
     {what:'Общая и активная численность, водопад за год; дерево подразделений и фильтры',aud:'all',stage:'0',now:'live'},
     {what:'Юридическая, активная и HQ-численность одной воронкой',aud:'all',now:'todo',src:'дашборды HQ и УС',need:'договориться, как считать HQ-численность'},
     {what:'Тип оформления, формат работы, сеньорность, грейд, стаж, юрлицо, стримы',aud:'all',stage:'0',now:'live'},
-    {what:'Специализации внутри стримов',aud:'all',stage:'4',now:'dev'},
+    {what:'Специализации внутри стримов',aud:'all',stage:'4',now:'live'},
+    {what:'Тип компании',aud:'hq',stage:'0',now:'todo',src:'дашборд HQ',need:'данные собраны (поставка 50), нужен график'},
     {what:'Пересечения разрезов: срез по клику, «разрез × разрез»',aud:'all',stage:'0',now:'dev',
       need:'пока оценка по подразделениям; точные — отдельной выгрузкой'},
     {what:'Пол и возраст',aud:'all',stage:'0',now:'extra',need:'данные есть; в дашбордах HQ и УС их нет'},
     {what:'Регион сотрудника',aud:'all',stage:'4',now:'extra',need:'в дашбордах HQ и УС его нет'}]},
   {blk:'Движение персонала',rows:[
     {what:'Найм, отток и переводы: за месяц, год к году, водопадом и по подразделениям',aud:'all',stage:'0',now:'live'},
-    {what:'Движение по специализациям',aud:'hq',stage:'4',now:'todo'}]},
+    {what:'Движение по специализациям',aud:'hq',stage:'4',now:'todo',need:'данные собраны (поставка 50): найм и уходы по специализациям, нужен график'}]},
   {blk:'Отток и текучесть',rows:[
     {what:'Отток за месяц и с начала года, текучесть месячная и накопительная',aud:'all',stage:'0',now:'live'},
     {what:'Regrettable текучесть',aud:'hq',stage:'0',now:'live'},
-    {what:'Светофор текучести: нежелательная и обычная с порогами, списки ушедших',aud:'hq',stage:'0',now:'todo',
-      need:'утвердить пороги светофора'},
+    {what:'Светофор текучести: нежелательная и обычная с порогами прод-отчёта HQ (4%, 5–15%, бенчмарк 12/15%)',aud:'hq',stage:'0',now:'live'},
+    {what:'Списки ушедших',aud:'hq',stage:'0',now:'todo',need:'нужна выгрузка по людям'},
     {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live'},
     {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live'},
     {what:'Текучесть (а не отток) по инициатору, стажу, специализации и грейду',aud:'all',stage:'0',now:'todo',
@@ -2639,12 +2666,12 @@ const DEV_PLAN=[
     {what:'AI-рекомендации по оттоку для команды',aud:'us',now:'todo',src:'дашборд УС',
       need:'понять, как их строят в УС'}]},
   {blk:'Найм и вакансии',rows:[
-    {what:'Открытые вакансии: всего, на замену, для джунов; новые и на замену по месяцам',aud:'all',stage:'2',now:'dev'},
-    {what:'Открытые вакансии по специализациям, статусам и уровню',aud:'all',stage:'2',now:'todo'},
-    {what:'Закрытые вакансии: ротация, внешний найм, Т-Образование; на замену, для джунов; по каналам',aud:'all',stage:'2',now:'dev'},
-    {what:'Доля джунов в найме',aud:'all',stage:'2',now:'dev'},
+    {what:'Открытые и закрытые вакансии по месяцам, срок закрытия',aud:'all',stage:'2',now:'live'},
+    {what:'Открытые вакансии по статусам, причине, специализации и уровню',aud:'all',stage:'2',now:'live'},
+    {what:'Закрытые вакансии по каналам (ротация, внешний найм, Т-Образование) и уровню кандидата',aud:'all',stage:'2',now:'live'},
+    {what:'Доля джунов в закрытых вакансиях',aud:'all',stage:'2',now:'live'},
     {what:'Доля внутреннего найма: переводы среди всех пришедших',aud:'all',stage:'0',now:'live'},
-    {what:'Найм по грейдам и каналам привлечения',aud:'hq',stage:'2',now:'dev'},
+    {what:'Найм по грейдам и источникам привлечения',aud:'hq',stage:'2',now:'live'},
     {what:'Найм стажёров, Digital и Non-Digital, по типу компании, возрасту, специализации',aud:'hq',stage:'2',now:'todo'},
     {what:'Найм по регионам против плана, план найма по специализациям в регионах',aud:'hq',stage:'2',now:'todo'},
     {what:'Массовый найм: план и факт по целевым действиям и по оформленным',aud:'us',stage:'2',now:'dev',
@@ -2667,7 +2694,7 @@ const DEV_PLAN=[
     {what:'Посещаемость и нарушения брони по городам',aud:'hq',stage:'7',now:'dev'},
     {what:'Календарь посещаемости по дням',aud:'hq',stage:'7',now:'dev',need:'нужны отметки по дням; в дашбордах HQ и УС его нет, решено оставить'}]},
   {blk:'AI-инструменты',rows:[
-    {what:'Проникновение AI и активные пользователи',aud:'hq',stage:'8',now:'dev'},
+    {what:'Проникновение AI и активные пользователи',aud:'hq',stage:'8',now:'live'},
     {what:'Какими инструментами пользуются и как часто',aud:'hq',stage:'8',now:'dev'},
     {what:'Инструменты по покраске, AI у стажёров',aud:'hq',stage:'8',now:'todo'}]},
   {blk:'Весь отчёт',rows:[
@@ -2687,6 +2714,7 @@ function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
    rev_eval / rev_up — оценённые в цикле ревью и улучшившие оценку. */
 const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny',
   'ai_wau','pf_plan','hire_jun','rev_eval','rev_up',
+  'nonregret_cnt','vac_new','vac_jun','ttf_days','ttf_n','ai_den',
   /* пробник: нежелательные увольнения — слагаемое regret;
      отработанные человеко-дни и посещения офиса — слагаемые посещаемости */
   'regret_cnt','wday','ovis','perf_norm','perf_low','perf_high','perf_gray']);
@@ -2716,7 +2744,7 @@ const LOCKED_METRICS=new Set(['hc_active','hc_total']);
    `keys:null` — весь список; остальные перечисляют показанные метрики. */
 const METRIC_PRESETS=[
 {key:'all',name:'Всё',keys:null},
-{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','attrition','turnover_m','turnover_y','regret']},
+{key:'turnover',name:'Текучесть',keys:['hc_active','hc_total','attrition','turnover_m','turnover_y','regret','nonregret']},
 {key:'hiring',name:'Найм',keys:['hc_active','hc_total','hire','vac_open','vac_closed','time_to_fill','hire_plan','junior_share','internal_share']},
 {key:'min',name:'Минимум',keys:['hc_active','hc_total','turnover_m','regret']}
 ];
@@ -3293,11 +3321,20 @@ function stateForKpi(key,val,kpi){
   return val>=kpi.green?'good':(val<=kpi.red?'bad':'warn');
 }
 /* есть ли у метрики жёсткий KPI в текущей настройке (regret — только по HQ) */
-function kpiFor(key,st){
+/* 21.10, поставка 50: годовые цели прод-отчёта HQ (regrettable 4%, non-regrettable 5–15%, общая —
+   бенчмарк 12% у IT и 15% у остальных) — на месяц их доля: годовая × номер месяца ÷ 12. kpi.annual —
+   годовые значения, по ним график рисует коридор, растущий от января к декабрю. Все три — только HQ */
+function kpiFor(key,st){return kpiAt(key,st,ASOF.m)}
+/* цель на месяц года mm (0–11): у годовой — её доля к этому месяцу */
+function kpiAt(key,st,mm){
   const m=METRIC_BY_KEY[key];
   if(!m.kpi)return null;
-  if(key==='regret'&&st.paint!=='HQ')return null;
-  return m.kpi;
+  if((key==='regret'||key==='nonregret'||key==='turnover_y')&&st.paint!=='HQ')return null;
+  let k=m.kpi;
+  if(k.bench){const b=st.itSeg==='IT'?12:15;k={green:b,red:b,annual:true}}
+  if(!k.annual)return k;
+  const f=(mm+1)/12;
+  return {green:+(k.green*f).toFixed(2),red:+(k.red*f).toFixed(2),annual:{green:k.green,red:k.red}};
 }
 
 /* ---------- Форматирование ---------- */
@@ -3500,7 +3537,7 @@ const MIX_DIMS=[
    разрезов в пробнике нет; экраны это переносят (structure.js, story.js). */
 /* 16.10, ответ 0д: employee_contract_type — это формат работы («Гибридный»; в HQ-дашборде
    «Формат работы: Офис, Гибрид, Дистанционно»), а не тип договора: колонка c → worksite */
-const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',legal:'o',stream:'w',employment:'r'};
+const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',legal:'o',stream:'w',employment:'r',spec:'sp'};
 const NONE_NAME='Не указано';
 /* «до 25 лет» → 24,5; «1-3 года» → 12 мес; «более 5 лет» → 60,5 мес: число и сторона.
    Сторона — по слову прямо перед числом или «+» и «и старше» после него: в настоящих
@@ -3557,8 +3594,8 @@ MIX_DIMS.forEach(d=>{
    screens/structure.js): заказчик — «вкладок перебор, и одно дублирует другое».
    Таблицей остались стримы: двухуровневый разрез с кареткой обзором не заменить. */
 const MIX_GROUPS=[
-{key:'stream',name:'Стримы',dims:['stream'],
- title:REAL?'Стримы':'Стримы и специализации'}
+{key:'stream',name:'Стримы',dims:(REAL?['stream','spec']:['stream']).filter(k=>MIX_BY_KEY[k]),
+ title:'Стримы и специализации'}
 ];
 
 /* Доли категорий внутри одного листа. Считаются лениво и кешируются: держать
@@ -4138,6 +4175,15 @@ function realExit(lp,k){
 function initKey(t){
   return /сотрудн|работник|собствен|желани/i.test(t)?'emp':/работодат|компани|организац/i.test(t)?'org':'oth';
 }
+/* Вакансии в разрезах (поставка 50, колонка mx): открытые на конец последнего месяца — по статусу (vs),
+   причине (vr), специализации (vp) и уровню позиции (vl); закрытые с начала года — по каналу (vk) и
+   уровню кандидата (vq). null — разрезов нет (макет или витрина вакансий пуста) */
+function vacancyBreakdown(lp){
+  if(!REAL||!Object.keys(REAL.mixVals('vk')).length&&!Object.keys(REAL.mixVals('vs')).length)return null;
+  const list=k=>{const x=realExit(lp,k);return realExitList(k).map((v,i)=>({key:k+i,name:v||NONE_NAME,value:Math.round(x[v]||0)}))
+    .filter(r=>r.value>0)};
+  return {status:list('vs'),reason:list('vr'),spec:list('vp'),pos:list('vl'),channel:list('vk'),cand:list('vq')};
+}
 function realExitList(k,dimKey){
   const vals=REAL.mixVals(k);
   return dimKey?realOrder(dimKey,vals):Object.keys(vals).sort((a,b)=>vals[b]-vals[a]||a.localeCompare(b));
@@ -4215,6 +4261,12 @@ function hiringProfile(lp,win){
   const jun=Math.min(total,sumWin(aggregate(lp,'hire_jun'),win));
   const tin=sumWin(aggregate(lp,'transfer_in'),win);
   const r=rng(lpSeed(lp,'hpr'+win)), it=hcIT(lp);
+  /* поставка 50: найм с начала года по источнику (hk) и грейду (hg) — из колонки mx, как в отчёте HQ
+     (atributy_nayma); без них — оценка по долям */
+  if(REAL&&win==='ytd'&&Object.keys(REAL.mixVals('hk')).length){
+    const x=k=>realExit(lp,k), list=(k,dimKey)=>{const v=x(k);return realExitList(k,dimKey).map((n,i)=>({key:k+i,name:n||NONE_NAME,value:Math.round(v[n]||0)}))};
+    return {total:total,jun:jun,tin:tin,channels:list('hk'),grade:list('hg','grade'),path:list('hch'),seniority:[]};
+  }
   const ch=splitBy(total,jitter(r,HIRE_CHANNELS.map(c=>c.wIT*it+c.wNon*(1-it)),0.25));
   const sen=REAL?splitBy(total,mixParts(lp,'seniority').map(v=>v+1e-6)):[jun].concat(splitBy(total-jun,jitter(r,[0.56,0.32,0.12],0.2)));
   const gr=REAL?splitBy(total,mixParts(lp,'grade').map(v=>v+1e-6))
@@ -4423,7 +4475,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,
-  COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HCTYPES,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
+  COUNT_METRICS,vacancyBreakdown,kpiAt,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HCTYPES,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
   metricSeries,reasonSeries,aggregate,lastVal,deltas,deltasOf,compareState,stateForKpi,kpiFor,comparable,
@@ -4850,10 +4902,28 @@ function lblAt(i,last,step){return (last-i)%step===0}
    они физически не пересекаются. Близкие пороги разводятся по вертикали. */
 function kpiRoom(key,kpi){
   if(!kpi)return 0;
-  return Math.ceil(Math.max(textW('порог '+CD.fmtVal(key,kpi.red),10.5),
-    textW('цель '+CD.fmtVal(key,kpi.green),10.5)))+12;
+  const a=kpi.annual||kpi, suf=kpi.annual?' за год':'';
+  return Math.ceil(Math.max(textW('порог '+CD.fmtVal(key,a.red)+suf,10.5),
+    textW('цель '+CD.fmtVal(key,a.green)+suf,10.5)))+12;
+}
+/* 21.10, поставка 50: годовая цель прод-отчёта HQ (kpi.annual) — коридор по оси года: в месяце i
+   цель — годовая × (i + 1) / 12, к декабрю — годовая; подпись справа — годовая «за год». Цель и
+   порог совпадают (бенчмарк) — одна линия */
+function kpiSlope(key,kpi,xL,xR,Y){
+  const a=kpi.annual, bw=(xR-xL)/12, X=i=>xL+bw*(i+0.5);
+  const pts=v=>Array.from({length:12},(_,i)=>X(i).toFixed(1)+','+Y(v*(i+1)/12).toFixed(1)).join(' ');
+  const rows=a.green===a.red?[['green',C_RED,'цель ']]:[['green',C_GREEN,'цель '],['red',C_RED,'порог ']];
+  const ty=rows.map(([k])=>Y(a[k]));
+  if(ty.length===2&&Math.abs(ty[0]-ty[1])<13){const m=(ty[0]+ty[1])/2, up=ty[0]<=ty[1]?-1:1;ty[0]=m+up*6.5;ty[1]=m-up*6.5}
+  let s='';
+  rows.forEach(([k,c,lb],i)=>{
+    s+='<polyline points="'+pts(a[k])+'" fill="none" stroke="'+c+'" stroke-width="1.4" stroke-dasharray="2 3"/>';
+    s+=txt(xR+6,ty[i]+3.5,lb+CD.fmtVal(key,a[k])+' за год',{size:10.5,fill:C_AXIS,anchor:'start'});
+  });
+  return s;
 }
 function kpiLines(key,kpi,xL,xR,Y){
+  if(kpi.annual)return kpiSlope(key,kpi,xL,xR,Y);
   let s='';
   const ys=[Y(kpi.green),Y(kpi.red)], ty=ys.slice();
   if(Math.abs(ty[0]-ty[1])<13){const m=(ty[0]+ty[1])/2, up=ty[0]<=ty[1]?-1:1;ty[0]=m+up*6.5;ty[1]=m-up*6.5}
@@ -4968,7 +5038,7 @@ function yoyPlot(p,ar){
   const showMain=!off.has('main'), showPrev=!off.has('prev'), showBench=!!bench&&!off.has('bench');
   const nowI=CD.CUR_LEN-1, ya=p.ann||null, marks=p.marks||[];
   const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
-  if(p.kpi){all.push(p.kpi.green);all.push(p.kpi.red)}
+  if(p.kpi){const a=p.kpi.annual||p.kpi;all.push(a.green);all.push(a.red)}
   const max=niceMax(all);
   const Y=v=>bot-(v/max)*(bot-top), X=i=>x0+bandW*(i+0.5);
   const big=(i,s)=>!!(ya&&ya.hi&&ya.hi.some(z=>z.i===i&&z.s===s));
@@ -6717,7 +6787,8 @@ function extMonth(j){
 /* ориентир метрики: цель KPI или база того же месяца оси года */
 function refOf(key,S,bl){
   const kpi=D.kpiFor(key,S);
-  if(kpi)return {kpi:kpi,w:'цели',at:()=>kpi.green};
+  /* годовая цель HQ (поставка 50) — в месяце i оси года её доля: годовая × (i + 1) / 12, как коридор на графике */
+  if(kpi)return {kpi:kpi,w:'цели',at:kpi.annual?i=>+(kpi.annual.green*(i+1)/12).toFixed(2):()=>kpi.green};
   if(!D.comparable(key))return null;
   const b=D.yoySeries(bl,key).cur;
   return {w:'базы',at:i=>b[i]};
@@ -6775,7 +6846,7 @@ function yoyStory(key,S,rl,bl){
        легли бы друг на друга, а разведённые в стороны «не совпадают с
        точками» (14.10). Тогда у пункта нет своего номера: на графике одна
        отметка этого года, а пункт подсвечивает тот же месяц. */
-    const top=Math.max.apply(null,cur.concat(prev,ref?range(12).map(k=>ref.at(k)):[],ref&&ref.kpi?[ref.kpi.red]:[])
+    const top=Math.max.apply(null,cur.concat(prev,ref?range(12).map(k=>ref.at(k)):[],ref&&ref.kpi?[(ref.kpi.annual||ref.kpi).red]:[])
       .filter(x=>x!=null&&isFinite(x)).concat([0]));
     const near=top>0&&Math.abs(v-pv)/top<0.08;
     out.push(near?{mi:[b],html:'<b>Год назад — '+f(pv)+'</b>: сейчас '+esc(dot(w))}
@@ -6842,7 +6913,8 @@ function monOf(L){return L===D.NEXT-1?'':D.MONTH_NOM[D.MONTHS_EXT[L].m]}
 function metricFact(m,S,rl,bl){
   const key=m.key, ext=D.aggregateExt(rl,key), L=factL(key), v=ext[L], mon=monOf(L);
   if(v==null)return null;
-  const kpi=D.kpiFor(key,S), ref=kpi?kpi.green:(D.comparable(key)?D.aggregateExt(bl,key)[L]:null);
+  /* цель — того же месяца, что и факт (у вызревающей — последнего закрытого) */
+  const kpi=D.kpiAt(key,S,D.MONTHS_EXT[L].m), ref=kpi?kpi.green:(D.comparable(key)?D.aggregateExt(bl,key)[L]:null);
   const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):D.compareState(key,v,ref);
   const f=x=>D.fmtVal(key,x), w=kpi?'цели':'базы', pv=ext[L-12];
   const ago=pv!=null?'Год назад — '+f(pv)+'.':'';
@@ -7028,7 +7100,9 @@ function miniOf(f,rl,bl){
     cur=range(12).map(i=>at(L-11+i));
     ref=base?D.aggregate(bl,k):range(12).map(i=>at(L-23+i));
   }
-  if(kpi)ref=cur.map(()=>f.kpi.green);
+  /* годовая цель HQ — по месяцам её доля (коридор), как на большом графике */
+  const ann=kpi&&f.kpi.annual, moy=i=>D.CUR_LEN>=4?i:(D.MONTHS_EXT[L-11+i]||{}).m;
+  if(kpi)ref=cur.map((_,i)=>ann?(moy(i)==null?null:+(ann.green*(moy(i)+1)/12).toFixed(2)):f.kpi.green);
   return G.miniYoy(cur,ref,kpi?'цель '+fv(f.kpi.green):base?'база':'год назад');
 }
 /* Карточка факта: {key, block, sev, tag, head, body, todo, btn, chart, ppl, where} */
@@ -7998,7 +8072,6 @@ const DEV_TABS={
      таблице нет: регион, специализации внутри стримов (формат работы — с 16.10) */
   structure:{portrait:{stage:4,part:true,t:'Каждый разрез — настоящий. Пересечения (срез по клику, возраст по полу) пока оценочные.'},
     work:{stage:4,part:true,t:'Оформление, формат работы и юрлицо — настоящие. Региона в данных пока нет.'},
-    stream:{stage:4,part:true,t:'Стримы — настоящие. Специализаций внутри стримов в данных пока нет.'},
     custom:{stage:4,part:true,t:'Каждый разрез — настоящий. Таблица «разрез × разрез» пока оценочная.'}},
   hiring:{vacancies:{stage:2,t:'Вакансии и срок закрытия пока условные.'},
     plan:{stage:2,part:true,t:'Принятые — настоящие. План найма и статусы вакансий пока условные.'},
@@ -8013,6 +8086,11 @@ const DEV_TABS={
    и посещаемость за месяц. Там отметки нет, на соседних — уточнённый текст:
    что из блока живое, а что ещё нет. Без колонок — прежние записи DEV_TABS. */
 const DEV_LIVE={
+  /* поставка 50 (21.10, из прод-ноутбуков HQ и УС): вакансии, найм по источникам и AI — живые */
+  hiring:{live:['vac_open','vac_closed','time_to_fill'],subs:['vacancies','profile'],
+    '*':{stage:2,part:true,t:'Принятые, вакансии и найм по источникам — настоящие. План найма и статусы воронки пока условные.'}},
+  ai:{live:['ai_penetration','ai_wau'],subs:['adoption'],
+    '*':{stage:8,t:'Проникновение и активные пользователи — настоящие (вкладка «Проникновение»). Какими инструментами пользуются — пока условно.'}},
   tgrowth:{live:['tgrowth_conv'],subs:['flow'],
     '*':{stage:6,t:'Решения по заявкам и конверсия — настоящие (вкладка «Растут ли люди внутри?»). '+
       'Типы заявок, T@T и статусы по грейдам пока условные.'}},
@@ -8969,16 +9047,29 @@ SC.blocks.hiring={
           value:hp.tin,color:G.C_HIRE_I}]);
       return U.btStack([
         tbl('Откуда пришли','найм и переводы'+sub,ch),
-        tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))])+
+        tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]
+        /* поставка 50: путь в команду — найм в компанию, из учебной группы, стажёр в штат (как в HQ) */
+        .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]:[]))+
         '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+'). В первой таблице — вместе '+
         'с переводами из других подразделений.</div>';
     }
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
        в блоке оттока. Барами остаются штуки вакансий. */
-    return SC.yoyPanels(lp,[
+    const panels=SC.yoyPanels(lp,[
       {name:'Открытые вакансии, шт',key:'vac_open',color:G.C_VAC,ann:ctx.ann.vac_open},
       {name:'Закрытые вакансии, шт',key:'vac_closed',color:G.C_IN},
       {name:'Срок закрытия вакансии, дн',key:'time_to_fill',color:G.C_LINE}]);
+    /* поставка 50: вакансии в разрезах — из витрины вакансий (пробник); в макете их нет */
+    const vb=D.vacancyBreakdown(lp);
+    if(!vb)return panels;
+    const vt=(cap,capSub,items,color,head)=>U.btGroup({cap:cap,capSub:capSub,head:'',valueHead:head,metricKey:'vac_open',
+      compact:true,items:items.map(x=>({name:x.name,value:x.value,color:color}))});
+    const open=[['Открытые по статусу',vb.status],['Открытые по причине',vb.reason],['Открытые по уровню позиции',vb.pos],
+      ['Открытые по специализации',vb.spec]].filter(x=>x[1].length).map(x=>vt(x[0],'на '+D.CMP.cur,x[1],G.C_VAC,'Вакансий'));
+    const closed=[['Закрытые по каналу',vb.channel],['Закрытые по уровню кандидата',vb.cand]].filter(x=>x[1].length)
+      .map(x=>vt(x[0],'с начала года',x[1],G.C_IN,'Вакансий'));
+    return panels+U.btStack(open.slice(0,2))+U.btStack(open.slice(2).concat(closed).slice(0,3))+
+      '<div class="tbl-note">Вакансии — по подразделению: фильтры покраски, IT, штата и типа численности на них не действуют.</div>';
   }
 };
 })();

@@ -468,6 +468,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Имена подразделений и так переносятся по словам, а числовые колонки ужимать
    нельзя — там между значениями останется меньше воздуха, чем внутри них. */
 .ptable.dense th.txt{padding-left:var(--pad-cell);min-width:141px}
+/* колонка полосы сжимается первой (21.10: в узкой панели блока найма таблицы вылезали за край) */
+.ptable.dense th.txt.bar-th{min-width:72px}
+@container stp (max-width:479.98px){.ptable.dense th.txt{min-width:110px}.ptable.dense th.txt.bar-th{min-width:56px}}
 .ptable.dense td{padding:7px 6px}
 .ptable.dense td.txt{padding-left:var(--pad-cell);max-width:176px}
 .ptable.dense td.lead{font-weight:var(--fw-bold);color:var(--ink)}
@@ -1746,6 +1749,12 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 @media(max-width:1120px){
   .st-main{min-height:0}
   .st-rail{padding-bottom:0}
+}
+/* 21.10: узкая панель (колонка «Что сделать» уходит под графики) — у сетки остаётся align-items:start
+   режима одного скролла, и глава вставала шириной своего графика, а не панели: у блока найма с шестью
+   колонками в таблице графики вылезали за край. В колонку — растягиваем на ширину панели */
+@container stp (max-width:979.98px){
+  .st-grid.has-rail>.st-main{align-self:stretch;min-width:0}
 }
 
 /* Руководитель юнита под именем строки таблицы подразделений (14.10):

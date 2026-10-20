@@ -2322,3 +2322,14 @@ head-h − 38`, поэтому края совпадают и в середин�
 2а: `TI`/`TU` из `trf` через `condp('t_'/'f_')`, `tin_cnt`/`tout_cnt` series больше не читаются. Файл 2 — по-старому
 (TP 2.0: любая смена типа — перевод на уровне 1). Стенд: у людей `operh/ith/relh`, декрет; `nb.truth_trf` — правда
 переводов, `truth(pred(p, день))` — срез на последний день месяца (DIM_SRC eom). Разбор старой логики — `transfers.yaml`.
+
+**21.10, поставка 50 — метрики из прод-ноутбуков HQ и УС** (разбор — «Разбор прод-ноутбуков HQ и УС (поставка 50).md»).
+`build_hub`: шаги 6, 8, 10 — помесячно (`parts()`: первая часть create, остальные insert; workfile limit на бою), шаг 11 —
+`teampulse_hub_vacancy` из `structure_x_vacancy` (параграф `vacancy.py`, вместо `vacancy_daily` TP 2.0; основа — вакансии,
+`in_structure` — признак), шаг 12 — `teampulse_hub_ai` (значение узла, не сумма; корню — сумма WAU верхнего уровня).
+series `nreg_cnt` (non_regret_fire_amt — патч build_all_metrics в mk_hub_yaml EXTRA), mix: `sp`, `tc`, `xsp`, `xtc`,
+`hk` (source_type_nm), `hch`, `hg`, `hsp` (найм с начала года), `vs/vr/vp/vl/vk/vq` (вакансии, в 2а). Чарт: OPT
+`nreg, vop, vcl, vap, vtd, vtn, vjn, aiw, aip, aic`, LIVE_NZ — живые только с ненулевыми данными; проникновение AI —
+дробь Σ WAU / Σ aid (aid = WAU × 100 / доля, синтез в real.js). KPI `annual` — цель на месяц = годовая × (месяц + 1) / 12
+(`kpiAt`), график рисует коридор (`kpiSlope`); `bench` у turnover_y — 12 (IT) / 15. Глава в узкой панели —
+`@container stp (max-width:979.98px)` растягивает `.st-main`. Бюджет файла 3 — 480 КиБ.

@@ -51,7 +51,8 @@ function extMonth(j){
 /* ориентир метрики: цель KPI или база того же месяца оси года */
 function refOf(key,S,bl){
   const kpi=D.kpiFor(key,S);
-  if(kpi)return {kpi:kpi,w:'цели',at:()=>kpi.green};
+  /* годовая цель HQ (поставка 50) — в месяце i оси года её доля: годовая × (i + 1) / 12, как коридор на графике */
+  if(kpi)return {kpi:kpi,w:'цели',at:kpi.annual?i=>+(kpi.annual.green*(i+1)/12).toFixed(2):()=>kpi.green};
   if(!D.comparable(key))return null;
   const b=D.yoySeries(bl,key).cur;
   return {w:'базы',at:i=>b[i]};
@@ -109,7 +110,7 @@ function yoyStory(key,S,rl,bl){
        легли бы друг на друга, а разведённые в стороны «не совпадают с
        точками» (14.10). Тогда у пункта нет своего номера: на графике одна
        отметка этого года, а пункт подсвечивает тот же месяц. */
-    const top=Math.max.apply(null,cur.concat(prev,ref?range(12).map(k=>ref.at(k)):[],ref&&ref.kpi?[ref.kpi.red]:[])
+    const top=Math.max.apply(null,cur.concat(prev,ref?range(12).map(k=>ref.at(k)):[],ref&&ref.kpi?[(ref.kpi.annual||ref.kpi).red]:[])
       .filter(x=>x!=null&&isFinite(x)).concat([0]));
     const near=top>0&&Math.abs(v-pv)/top<0.08;
     out.push(near?{mi:[b],html:'<b>Год назад — '+f(pv)+'</b>: сейчас '+esc(dot(w))}
@@ -176,7 +177,8 @@ function monOf(L){return L===D.NEXT-1?'':D.MONTH_NOM[D.MONTHS_EXT[L].m]}
 function metricFact(m,S,rl,bl){
   const key=m.key, ext=D.aggregateExt(rl,key), L=factL(key), v=ext[L], mon=monOf(L);
   if(v==null)return null;
-  const kpi=D.kpiFor(key,S), ref=kpi?kpi.green:(D.comparable(key)?D.aggregateExt(bl,key)[L]:null);
+  /* цель — того же месяца, что и факт (у вызревающей — последнего закрытого) */
+  const kpi=D.kpiAt(key,S,D.MONTHS_EXT[L].m), ref=kpi?kpi.green:(D.comparable(key)?D.aggregateExt(bl,key)[L]:null);
   const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):D.compareState(key,v,ref);
   const f=x=>D.fmtVal(key,x), w=kpi?'цели':'базы', pv=ext[L-12];
   const ago=pv!=null?'Год назад — '+f(pv)+'.':'';
@@ -362,7 +364,9 @@ function miniOf(f,rl,bl){
     cur=range(12).map(i=>at(L-11+i));
     ref=base?D.aggregate(bl,k):range(12).map(i=>at(L-23+i));
   }
-  if(kpi)ref=cur.map(()=>f.kpi.green);
+  /* годовая цель HQ — по месяцам её доля (коридор), как на большом графике */
+  const ann=kpi&&f.kpi.annual, moy=i=>D.CUR_LEN>=4?i:(D.MONTHS_EXT[L-11+i]||{}).m;
+  if(kpi)ref=cur.map((_,i)=>ann?(moy(i)==null?null:+(ann.green*(moy(i)+1)/12).toFixed(2)):f.kpi.green);
   return G.miniYoy(cur,ref,kpi?'цель '+fv(f.kpi.green):base?'база':'год назад');
 }
 /* Карточка факта: {key, block, sev, tag, head, body, todo, btn, chart, ppl, where} */

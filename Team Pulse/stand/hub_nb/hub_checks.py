@@ -40,6 +40,19 @@ HUB_CHECKS = [
          and (f_paint_cd, f_it_cd, f_staff_cd, f_act_cd) = (t_paint_cd, t_it_cd, t_staff_cd, t_act_cd)"""),
     ('переходы: строк без людей',
      f"select count(*) from {HUB_P}_trf where trf_cnt <= 0 or (in_ok = 0 and out_ok = 0)"),
+]
+# 21.10, поставка 50: вакансии корня против снимка structure_x_vacancy — справочно, выгрузку не
+# останавливает: вакансия юнита вне дерева людей (другая ветка структуры) в корень не попадёт
+HUB_INFO = [
+    ('вакансии: корень − снимок (открытые на конец последнего месяца)',
+     f"""select coalesce((select sum(vac_open_cnt) from {HUB_P}_vacancy where node_rk = {_root} and report_month = {_lm}), 0)
+              - coalesce((select sum(open_cnt) from structure_x_vacancy where report_month = {_lm}), 0)"""),
+    ('вакансии: корень − снимок (закрытые за всё время сетки)',
+     f"""select coalesce((select sum(vac_close_cnt) from {HUB_P}_vacancy where node_rk = {_root}), 0)
+              - coalesce((select sum(close_cnt) from structure_x_vacancy
+                           where report_month >= (select grid_start from {HUB_P}_meta)), 0)"""),
+]
+HUB_CHECKS += [
     ('корней',
      f"select count(*) - 1 from {HUB_P}_unit where parent_rk = ''"),
     ('узлов, где подразделения больше узла (численность)',
@@ -58,6 +71,11 @@ for name, sql in HUB_CHECKS:
     print(f"[{'OK' if ok else 'FAIL'}] {name}: {v:g}")
     if not ok:
         _bad.append(name)
+for name, sql in HUB_INFO:
+    try:
+        print(f"[INFO] {name}: {_hub_one(sql):g}")
+    except Exception as e:                      # таблицы вакансий нет — не повод останавливать выгрузку
+        print(f"[INFO] {name}: не посчитать ({str(e)[:80]})")
 if _bad:
     raise Exception('таблицы TeamPulse Hub не сходятся: ' + '; '.join(_bad))
 print('[OK] таблицы TeamPulse Hub сходятся')

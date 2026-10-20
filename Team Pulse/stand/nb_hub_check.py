@@ -34,6 +34,8 @@ def main():
     U, people = nb.simulate()
     perf, office, grt = nb.side(people)
     names = {k: tuple(U[x][0] for x in nb.path(U, k)) for k in U}
+    # 21.10, поставка 50: вакансии и AI — не люди, фильтры среза на них не действуют: правда одна
+    TV, TA = nb.truth_vac(U, nb.vacancies(U)), nb.truth_ai(U, people)
     ms = nb.months()                            # 2025-01 … 2026-10 — сетка ответа (20.10: с текущим незакрытым)
     # 21.10: срез человека меняется во времени — фильтр по дню (nb.attr)
     A = nb.attr
@@ -99,6 +101,28 @@ def main():
                     exp = [round(T[(rk, m)][tk], 1) for m in ms]
                     if [round(x, 1) for x in a[k]] != exp:
                         bad[k] += 1
+                if label == 'файл 2а':
+                    # поставка 50: обычные увольнения (под фильтрами), вакансии и AI (без фильтров)
+                    for k, src in [('nreg', T)] + [(k, TV) for k in ('vop', 'vcl', 'vap', 'vtd', 'vtn', 'vjn')] + \
+                            [(k, TA) for k in ('aiw', 'aip', 'aic')]:
+                        got = [round(float(x), 1) for x in r['m_' + k].split(',')]
+                        if got != [round(src[(rk, m)][k], 1) for m in ms]:
+                            bad[k] += 1
+                    # новые разрезы: в сумме — численность последнего месяца (sp, tc), увольнения (xsp, xtc)
+                    # и найм (hk, hch, hg, hsp — на активной) с начала года
+                    mx = defaultdict(float)
+                    for line in (r.get('mx') or '').split('\n'):
+                        if line.count('\t') == 2:
+                            kk, _, n = line.split('\t')
+                            mx[kk] += float(n)
+                    ytd = [m for m in ms if m.year == ms[-1].year]
+                    want_mx = {'sp': T[(rk, ms[-1])]['hc'], 'tc': T[(rk, ms[-1])]['hc'],
+                               'xsp': sum(T[(rk, m)]['fire'] for m in ytd), 'xtc': sum(T[(rk, m)]['fire'] for m in ytd)}
+                    if act:
+                        want_mx.update({k: sum(T[(rk, m)]['hire'] for m in ytd) for k in ('hk', 'hch', 'hg', 'hsp')})
+                    for kk, w in want_mx.items():
+                        if abs(mx[kk] - w) > 0.5:
+                            bad['mx ' + kk] += 1
             if label == 'файл 2а':
                 # 19.10: справочник — все узлы, fd — численность последнего месяца по сочетаниям
                 # покраска × IT × штат: сумма прошедших фильтры случая = правда по людям

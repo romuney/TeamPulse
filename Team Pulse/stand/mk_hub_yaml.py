@@ -25,11 +25,25 @@ EXTRA = {
          "# group_and_sum_metrics берёт ключами только fields. IT-код — в FIXED_DIMS, как в источнике\n"
          "HUB_FIELDS = [\n"
          "    {'name': 'emp_specialization_oper_code', 'alias': 'paint_cd'},\n"
+         "    # 21.10, из прод-ноутбуков HQ и УС: тип компании, специализация (внутри стрима), источник найма\n"
+         "    'type_company',\n"
+         "    {'name': 'employee_specialization_desc', 'alias': 'specialization'},\n"
+         "    'source_type_nm',\n"
          "]\n\n"
          "build_all_metrics(\n    res_table_name='all_metrics',"),
         ("    fields=fields,", "    fields=fields + HUB_FIELDS,"),
     ],
     'build_all_metrics': [
+        # 21.10: обычные (non-regrettable) увольнения — как в прод-ноутбуке HQ (non_regrettable_set_hq)
+        ("        for c in ('fire_flg', 'regrettable_fire_flg'):",
+         "        for c in ('fire_flg', 'regrettable_fire_flg', 'non_regrettable_fire_flg'):"),
+        ("            m.append('max((fire_flg = 1 AND regrettable_fire_flg = 1)::int) '\n"
+         "                     'AS regret_fire_amt')\n",
+         "            m.append('max((fire_flg = 1 AND regrettable_fire_flg = 1)::int) '\n"
+         "                     'AS regret_fire_amt')\n"
+         "        if has('non_regrettable_fire_flg'):\n"
+         "            m.append('max((fire_flg = 1 AND non_regrettable_fire_flg = 1)::int) '\n"
+         "                     'AS non_regret_fire_amt')\n"),
         ("            else:\n                m.append('max(hire_flg) AS hire_amt')\n",
          "            else:\n                m.append('max(hire_flg) AS hire_amt')\n"
          "            # TeamPulse Hub (20.10): найм в компанию с любым типом активности — найм «всей\n"
@@ -54,13 +68,20 @@ EXTRA = {
          "    'teampulse_hub_series': 'prod_proteus.teampulse_hub_series',\n"
          "    'teampulse_hub_mix':    'prod_proteus.teampulse_hub_mix',\n"
          "    'teampulse_hub_trf':    'prod_proteus.teampulse_hub_trf',     # переходы — переводы под фильтры\n"
+         "    'teampulse_hub_vacancy': 'prod_proteus.teampulse_hub_vacancy',  # вакансии по узлам\n"
+         "    'teampulse_hub_ai':      'prod_proteus.teampulse_hub_ai',       # AI-инструменты по узлам\n"
          "}"),
     ],
 }
 # порядок и состав: индекс параграфа TP 2.0 или новый параграф (заголовок, shebang, файл)
 PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md', 'about.md'),
         0, ('new', 'Схема', 'md', 'scheme.md'),
-        2, 3, 4, 5, 6, 7, 14, 15, 16, 18, 19, 20, 22, 23,
+        2, 3, 4, 5, 6, 7, 14, 15, 16,
+        # 21.10: вместо vacancy_daily TP 2.0 (JSON по юниту, org_structure LEFT JOIN — терял вакансии
+        # юнитов без людей) — плоский снимок structure_x_vacancy; витрина — build_hub, шаг 11
+        ('new', 'structure_x_vacancy', 'python', 'vacancy.py'),
+        ('new', 'EXEC structure_x_vacancy', 'python', 'exec_vacancy.py'),
+        19, 20, 22, 23,
         ('new', 'build_hub', 'python', 'build_hub.py'),
         ('new', 'EXEC build_hub', 'python', 'exec_build_hub.py'),
         ('new', 'hub checks', 'python', 'hub_checks.py'),

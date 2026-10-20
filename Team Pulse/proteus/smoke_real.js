@@ -124,8 +124,10 @@ const i=R.n-1;
   const regY=D.sumWin(D.aggregate(rl,'regret_cnt'),'ytd'), regN=rs.reduce((x,r)=>x+(r.regretN||0),0);
   ok(Math.abs(regN-regY)<=rs.length*0.5,'нежелательные уходы по причинам — по людям, в сумме = regret с начала года ('+regN+' / '+regY+')');
   /* 16.10, ответ 0д: employee_contract_type — формат работы («Гибридный»), а не тип договора */
-  ok(!!D.MIX_BY_KEY.worksite&&!D.MIX_BY_KEY.contract&&!D.MIX_BY_KEY.region&&!D.MIX_BY_KEY.spec,
-    'формат работы — из employee_contract_type; типа договора, региона и специализаций нет');
+  /* 21.10, поставка 50: специализации (mx «sp») — если ноутбук их собрал */
+  ok(!!D.MIX_BY_KEY.worksite&&!D.MIX_BY_KEY.contract&&!D.MIX_BY_KEY.region&&
+    !!D.MIX_BY_KEY.spec===(Object.keys(R.mixVals('sp')).length>0),
+    'формат работы — из employee_contract_type; типа договора и региона нет; специализации — '+(D.MIX_BY_KEY.spec?'из данных':'нет в ответе'));
   /* 16.10: IT-специализация вернулась в таблицу — фильтр IT снова работает. Покраска — только
      в датасете 2а (таблицы ноутбука): тогда и её значения приходят в meta */
   const hub=R.cuts.has('paint');
@@ -146,6 +148,7 @@ const i=R.n-1;
     ', численность '+hcS[D.LAST]+' / активная '+acS[D.LAST]);
 }
 const fire=arr(scopeRow,'fire'), avg=arr(scopeRow,'avg'), reg=arr(scopeRow,'reg');
+const jan0=()=>D.MONTHS_EXT.findIndex((m,k)=>k<=i&&m.m===0&&m.y===D.MONTHS_EXT[i].y);
 const tm=avg[i]?+(fire[i]/avg[i]*100).toFixed(2):null;
 ok(near(D.lastVal(rl,'turnover_m'),tm),'текучесть месячная = увольнения / ССЧ × 100 ('+tm+'%)');
 const jan=D.MONTHS_EXT.findIndex((m,k)=>k<=i&&m.m===0&&m.y===D.MONTHS_EXT[i].y);
@@ -153,8 +156,35 @@ let ty=0;for(let k=jan;k<=i;k++)ty+=avg[k]?+(fire[k]/avg[k]*100).toFixed(2):0;
 ok(near(D.lastVal(rl,'turnover_y'),+ty.toFixed(2)),'текучесть накопительная = сумма месячных с января');
 let ry=0;for(let k=jan;k<=i;k++)ry+=avg[k]?+(reg[k]/avg[k]*100).toFixed(2):0;
 ok(near(D.lastVal(rl,'regret'),+ry.toFixed(2)),'regret = накопительная доля нежелательных увольнений к ССЧ');
-ok(D.isStub('vac_open')&&D.isStub('ai_penetration')&&!D.isStub('turnover_m')&&!D.isStub('hc_total'),
-  'заглушки помечены: вакансии и AI — демо, численность и текучесть — живые');
+ok(D.isStub('vac_open')===!R.has('vop')&&D.isStub('ai_penetration')===!R.has('aip')&&D.isStub('nonregret')===!R.has('nreg')&&
+  !D.isStub('turnover_m')&&!D.isStub('hc_total'),
+  'заглушки помечены: вакансии, AI и Non-regrettable — '+(R.has('vop')?'живые (поставка 50)':'демо')+', численность и текучесть — живые');
+/* 21.10, поставка 50: метрики из прод-ноутбуков HQ и УС — по формулам из настоящих рядов */
+if(R.has('nreg')){
+  const nr=arr(scopeRow,'nreg');
+  let ny=0;for(let k=jan0();k<=i;k++)ny+=avg[k]?+(nr[k]/avg[k]*100).toFixed(2):0;
+  ok(near(D.lastVal(rl,'nonregret'),+ny.toFixed(2)),'Non-regrettable = накопительная доля обычных увольнений к ССЧ');
+}
+if(R.has('vop')){
+  const vo=arr(scopeRow,'vop'), vc=arr(scopeRow,'vcl'), vd=arr(scopeRow,'vtd'), vn=arr(scopeRow,'vtn'), vj=arr(scopeRow,'vjn');
+  let cj=0,cc=0;for(let k=jan0();k<=i;k++){cj+=vj[k];cc+=vc[k]}
+  ok(near(D.lastVal(rl,'vac_open'),vo[i])&&near(D.lastVal(rl,'vac_closed'),vc[i])&&
+    near(D.lastVal(rl,'time_to_fill'),vn[i]?+(vd[i]/vn[i]).toFixed(2):null)&&
+    near(D.lastVal(rl,'junior_share'),cc?+(cj/cc*100).toFixed(2):null),
+    'вакансии: открытые, закрытые, срок = дни / закрытые, доля джунов = закрытые джунами / закрытые с начала года');
+  const vb=D.vacancyBreakdown(rl), sumK=k=>rl.reduce((a,p)=>{const o=(R.mix(p)||{})[k]||{};return a+Object.keys(o).reduce((x,v)=>x+o[v],0)},0);
+  ok(!!vb&&Math.abs(vb.status.reduce((a,r)=>a+r.value,0)-sumK('vs'))<=vb.status.length,
+    'вакансии в разрезах: статусы открытых — из колонки mx');
+}
+if(R.has('aip')){
+  ok(near(D.lastVal(rl,'ai_penetration'),arr(scopeRow,'aip')[i])&&near(D.lastVal(rl,'ai_wau'),arr(scopeRow,'aiw')[i]),
+    'AI: проникновение и WAU — из витрины, как в отчёте HQ');
+}
+if(Object.keys(R.mixVals('hk')).length){
+  const hp=D.hiringProfile(rl,'ytd');
+  const tot=rl.reduce((a,p)=>{const o=(R.mix(p)||{}).hk||{};return a+Object.keys(o).reduce((x,v)=>x+o[v],0)},0);
+  ok(Math.abs(hp.channels.reduce((a,c)=>a+c.value,0)-tot)<=hp.channels.length,'найм по источникам — из колонки mx (как atributy_nayma HQ)');
+}
 /* колонки разведки 12.10: с ними посещаемость и T-рост живые, без них — «демо», и
    чарт не жалуется на «нет колонок» (они необязательные) */
 const NEWC=['wday','ovis','gapr','gdec'], hasNew=NEWC.every(c=>R.has(c));
@@ -250,7 +280,8 @@ ok(hasNew?!/dev-note/.test(tgF)&&!/dev-note/.test(ofD)&&/Посещаемост�
   hasNew?'плашки: решения T-роста и посещаемость — без «в разработке», календарь офиса — с уточнением'
         :'плашки: T-рост и посещаемость — «в разработке»');
 /* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
-const hv=A.go('hiring','vacancies'), td=A.go('turnover','dynamics');
+/* поставка 50: с витриной вакансий глава вакансий живая — демо-глава тогда «Итоги ревью» */
+const hv=R.has('vop')?A.go('monitor','review'):A.go('hiring','vacancies'), td=A.go('turnover','dynamics');
 /* «Зачем смотреть» на демо-главе есть — это объяснение, а не вывод из цифр */
 ok(!/<div class="st-head"><h3>/.test(hv)&&/<div class="st-head"><h3>/.test(td)&&/<div class="st-why">/.test(hv),
   'история: у демо-главы нет вывода (только «зачем смотреть»), у живой (отток) — есть');

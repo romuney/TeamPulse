@@ -283,11 +283,13 @@ checks.push(['минус во всех дельтах типографский, 
   const card=cards.filter(c=>/Regrettable текучесть/.test(c))[0]||'';
   const subs=(card.match(/<span class="k-sub">[^<]*</g)||[]).join('|');
   checks.push(['в hero-карточке метрики с KPI стоит цель, а базы нет',
-    /цель 4,0%/.test(subs)&&!/база/.test(subs)&&/kpi-tag/.test(card)]);
+    /* 21.10, поставка 50: годовая цель HQ (4%) — на месяц её доля: в макете июнь, 4 × 6 / 12 = 2,0% */
+    /цель 2,0%/.test(subs)&&!/база/.test(subs)&&/kpi-tag/.test(card)]);
   /* на раскрытом графике та же развилка: пороги KPI вместо линии базы */
   const line=SC.metricLine('regret',rl0,bl0,S0,{});
   checks.push(['у метрики с KPI на графике пороги цели, а не линия базы',
-    />цель 4,0%</.test(line)&&/>порог 7,0%</.test(line)&&!/class="lnb" data-s="bench"/.test(line)]);
+    />цель 4,0% за год</.test(line)&&/>порог 7,0% за год</.test(line)&&/<polyline [^>]*stroke-dasharray="2 3"/.test(line)&&
+    !/class="lnb" data-s="bench"/.test(line)]);
   /* без KPI (regret вне HQ) поведение прежнее: линия базы на месте */
   const S1=Object.assign({},S0,{paint:'Line'});
   checks.push(['без KPI метрика возвращается к сравнению с базой',
@@ -299,7 +301,7 @@ checks.push(['минус во всех дельтах типографский, 
    «как считается» (calc, методология HR) она упоминается — это не строка отчёта:
    ищем её только как текст элемента, не внутри data-tip. */
 checks.push(['среднесписочной численности нет среди метрик отчёта',
-  !D.METRIC_BY_KEY['hc_avg']&&!/>Среднесписочная/.test(allHtml)&&D.METRICS.length===27]);
+  !D.METRIC_BY_KEY['hc_avg']&&!/>Среднесписочная/.test(allHtml)&&D.METRICS.length===28]);
 /* 19.10: определения — по методологии HR из Data Detective: у численности, найма, оттока,
    переводов и текучести есть «как считается» (calc), он виден в «i» и в словаре «Пульс» */
 checks.push(['метрики численности, движения и текучести описаны по методологии HR (calc в «i» и словаре)',
@@ -1054,9 +1056,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const sum=a=>a.reduce((x,y)=>x+y,0);
   const ytd=k=>D.sumWin(D.aggregate(rl0,k),'ytd');
 
-  checks.push(['восемь блоков: AI-инструменты — восьмой, двадцать семь метрик (15.10: + «Переработчики»), сравнимых пятнадцать',
+  checks.push(['восемь блоков: AI-инструменты — восьмой, двадцать восемь метрик (21.10: + Non-regrettable), сравнимых шестнадцать',
     D.BLOCKS.length===8&&D.BLOCKS[7].key==='ai'&&D.metricsOfBlock('ai').length===2&&
-    D.METRICS.length===27&&D.METRICS.filter(m=>D.comparable(m.key)).length===15]);
+    D.METRICS.length===28&&D.METRICS.filter(m=>D.comparable(m.key)).length===16]);
 
   /* --- производные метрики: формулы --- */
   const e=k=>D.aggregate(rl0,k)[D.LAST];
@@ -1559,8 +1561,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const op=A.op([]), nav=A.nav();
   const devK=D.METRICS.filter(m=>D.isDev(m.key)).map(m=>m.key);
   checks.push(['«в разработке»: у метрик без источника метка с этапом, у живых — нет',
-    devK.length>5&&devK.every(k=>D.devStage(k)!=null)&&!D.isDev('hc_total')&&!D.isDev('turnover_m')&&
-    !D.isDev('office_att')&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
+    /* 21.10, поставка 50: вакансии, Non-regrettable и AI ожили — в разработке остались план найма,
+       T@T, ревью и бронирование */
+    devK.length>=4&&devK.every(k=>D.devStage(k)!=null)&&!D.isDev('hc_total')&&!D.isDev('turnover_m')&&
+    !D.isDev('office_att')&&!D.isDev('vac_open')&&!D.isDev('ai_penetration')&&D.isDev('hire_plan')&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
   checks.push(['«в разработке»: сводка готовности на One-pager с планом этапов',
     /class="dev-sum"/.test(op)&&new RegExp('<b>'+(D.METRICS.length-devK.length)+' из '+D.METRICS.length+'</b>').test(op)&&
     (op.match(/<tr class="plan-(live|dev|todo|extra)">/g)||[]).length===D.DEV_PLAN.reduce((a,g)=>a+g.rows.length,0)]);
@@ -1570,13 +1574,13 @@ checks.push(['третьей палитры нет: в экранах ни од�
     D.DEV_PLAN.every(g=>g.rows.every(r=>D.AUD_LABEL[r.aud]&&D.PLAN_NOW[r.now]&&(r.now!=='dev'||D.devPlan(r.stage))))&&
     pn.todo>0&&pn.extra>0&&/ещё добавить/.test(op)&&/class="aud-tag hq"/.test(op)&&/class="aud-tag us"/.test(op)&&
     !/[Вв]оронка найма|[Лл]оу-перформ|[Пп]рогноз текучести/.test(op)]);
-  checks.push(['«в разработке»: в навигации блок целиком (AI, офис нет — посещаемость живая) и частично',
-    /data-tab="ai"[^>]*>[\s\S]*?nav-dev full/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&
+  checks.push(['«в разработке»: в навигации блок частично (найм — план, AI — инструменты; офис — посещаемость живая)',
+    /data-tab="ai"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&
     !/data-tab="movement"[^>]*>[^<]*<span class="ico[^"]*"><\/span>[^<]*<span class="nav-dev/.test(nav)&&SC.blockDev('office')==='part']);
-  const hv=A.go('hiring','vacancies'), hp=A.go('hiring','plan'), mv=A.go('movement',null);
+  const hv=A.go('hiring','vacancies'), hp=A.go('hiring','plan'), mv=A.go('movement',null), at=A.go('ai','tools');
   checks.push(['«в разработке»: плашка вкладки — источник и «что нужно» по-человечески, шаги степпера помечены',
-    /class="dev-note"[\s\S]*?источник: данные о вакансиях[\s\S]*?Что нужно:/.test(hv)&&/class="dev-note part"/.test(hp)&&
-    /st-step[^"]*dev-full/.test(hv)&&/st-step[^"]*dev-part/.test(hv)&&!/dev-note/.test(mv)]);
+    /class="dev-note part"[\s\S]*?источник: данные о вакансиях[\s\S]*?Что нужно:/.test(hp)&&!/dev-note/.test(hv)&&
+    /st-step[^"]*dev-part/.test(hv)&&/class="dev-note"/.test(at)&&/st-step[^"]*dev-full/.test(at)&&!/dev-note/.test(mv)]);
 })();
 
 /* ============================================================================

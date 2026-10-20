@@ -35,17 +35,28 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
    человеко-дни, посещения офиса и решения по заявкам T-роста (GRT). Они
    НЕОБЯЗАТЕЛЬНЫЕ: датасет прежней версии их не везёт, и тогда посещаемость
    и T-рост остаются заглушками «демо», а не падают и не встают нулями. */
-const OPT=['wday','ovis','gapr','gdec'];
+/* Поставка 50 (21.10, из прод-ноутбуков HQ и УС): обычные увольнения (nreg), вакансии (vop — открыто
+   на конец месяца, vcl — закрыто, vap — новые, vtd/vtn — дни и число закрытых для срока, vjn — закрыто
+   джунами) и AI (aiw — WAU, aip / aic — проникновение по юниту и компании). Тоже необязательные; вакансии
+   и AI — без фильтров среза (не люди) */
+const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   perf_norm:'pnor',perf_low:'plow',perf_high:'phig',perf_gray:'pgry',
-  wday:'wday',ovis:'ovis',tgrowth_pass:'gapr',tgrowth_deny:'gdec'};
+  wday:'wday',ovis:'ovis',tgrowth_pass:'gapr',tgrowth_deny:'gdec',
+  nonregret_cnt:'nreg',vac_open:'vop',vac_closed:'vcl',vac_new:'vap',ttf_days:'vtd',ttf_n:'vtn',vac_jun:'vjn',
+  ai_wau:'aiw',ai_penetration:'aip',ai_pen_co:'aic',ai_den:'aid'};
 /* метрики, которые оживают, когда в ответе есть их колонки */
-const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec']};
+const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec'],
+  nonregret:['nreg'],vac_open:['vop'],vac_closed:['vcl'],time_to_fill:['vtd','vtn'],junior_share:['vjn','vcl'],
+  ai_wau:['aiw'],ai_penetration:['aip']};
+/* колонки, которые оживляют метрику, только если в них есть данные: пустая витрина (нет источника
+   вакансий или AI, нет флага обычного увольнения) даёт нули — метрика остаётся «в разработке» */
+const LIVE_NZ=['nreg','vop','vcl','aiw','aip'];
 /* Метрики без источника в hr_structure_overall: в пробнике — заглушки на генераторе
    макета (по численности юнита), с пометкой «демо». План подключения —
    «Поставка — TeamPulse Hub/План метрик.md». */
-const STUB=['vac_open','vac_closed','time_to_fill','hire_plan','junior_share',
+const STUB=['nonregret','vac_open','vac_closed','time_to_fill','hire_plan','junior_share',
   'tgrowth_pass','tgrowth_deny','tgrowth_conv','tgrowth_tat','review_up',
   'office_att','booking_viol','ai_penetration','ai_wau'];
 /* План подключения живёт в data.js (D.DEV_PLAN; 15.10 — по каталогу графиков HQ и УС):
@@ -106,8 +117,20 @@ function build(data){
      нулями; поэтому чарт называет пропущенные колонки сам */
   const missing=rows.length?FIELDS.filter(f=>!(f in rows[0])):[];
   /* необязательные ряды — только если колонка есть в ответе */
-  const have=new Set(rows.length?OPT.filter(c=>('m_'+c) in rows[0]):[]);
+  const nz=c=>rows.some(r=>/[1-9]/.test(str(r['m_'+c])));
+  const have=new Set(rows.length?OPT.filter(c=>('m_'+c) in rows[0]&&(LIVE_NZ.indexOf(c)<0||nz(c))):[]);
   const cols=COLS.concat(OPT.filter(c=>have.has(c)));
+  /* AI (поставка 50): проникновение — доля, по листьям не складывается. Знаменатель источника
+     восстанавливается из неё (aid = WAU × 100 / проникновение) и складывается, как численность:
+     проникновение узла = Σ WAU / Σ aid — ровно доля источника */
+  const AID=have.has('aip')&&have.has('aiw');
+  if(AID)cols.push('aid');
+  const parseSer=r=>{
+    const ser={};
+    cols.forEach(c=>{if(c!=='aid')ser[c]=parseArr(r['m_'+c],n)});
+    if(AID)ser.aid=ser.aiw.map((w,k)=>ser.aip[k]?+(w*100/ser.aip[k]).toFixed(3):0);
+    return ser;
+  };
   const stub=new Set(STUB.filter(k=>!(LIVE_WITH[k]&&LIVE_WITH[k].every(c=>have.has(c)))));
   const by=role=>rows.filter(r=>str(r.role)===role);
   let meta={};
@@ -148,7 +171,7 @@ function build(data){
     if(!(role in DEPTH))return;
     const u={id:str(r.id),pid:str(r.pid),lvl:num(r.lvl),kids:num(r.kids),name:str(r.nm),depth:DEPTH[role],ser:{},
       mx:parseMx(r.mx)};
-    cols.forEach(c=>{u.ser[c]=parseArr(r['m_'+c],n)});
+    u.ser=parseSer(r);
     units.push(u);
     byId[u.id]=Object.assign(byId[u.id]||{head:'',fd:''},{id:u.id,pid:u.pid,lvl:u.lvl,kids:u.kids,name:u.name});
   });
@@ -232,9 +255,7 @@ function build(data){
   });
   const baseRow=by('base')[0];
   if(baseRow){
-    const b={};
-    cols.forEach(c=>{b[c]=parseArr(baseRow['m_'+c],n)});
-    series.BASE=b;mixes.BASE=parseMx(baseRow.mx);
+    series.BASE=parseSer(baseRow);mixes.BASE=parseMx(baseRow.mx);
   }
 
   /* Окно настройки (19.10, как в HRBP HUB): дерево всего справочника, логин руководителя и

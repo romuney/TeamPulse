@@ -11,8 +11,13 @@
       teampulse_hub_series  узел × месяц × срез: ряды по всему поддереву узла, ССЧ
       teampulse_hub_mix     узел × срез × разрез × значение: численность и увольнения по разрезам
       teampulse_hub_trf     переходы людей (21.10): узел × месяц × вошёл / вышел / остался × срез
-                            до и после — переводы считаются под выбранные фильтры. Таблицы нет
-                            (ноутбук до поставки 49) — датасет падает: сначала ноутбук
+                            до и после — переводы считаются под выбранные фильтры
+      teampulse_hub_vacancy вакансии (поставка 50): узел × месяц × разрезы вакансии — открыто,
+                            закрыто, новые, срок закрытия; фильтры среза на вакансии не действуют
+      teampulse_hub_ai      AI-инструменты (поставка 50): узел × месяц — WAU, проникновение по
+                            юниту и компании; фильтры среза не действуют.
+                            Таблиц trf, vacancy, ai нет (ноутбук до поставок 49 и 50) — датасет
+                            падает: сначала ноутбук
     Датасет выбирает узлы ответа (выбранный юнит, база, три уровня под ним), суммирует их строки
     по выбранным срезам и собирает ответ.
 
@@ -32,6 +37,11 @@
       end    маркер «ответ целиком»
     Массивы m_* — месяцы от января прошлого года до последнего (и текущего незакрытого), строкой через запятую;
     mx — разрезы «ключ \t значение \t число» через \n (как в файле 2).
+    Поставка 50 (21.10): m_nreg — обычные (non-regrettable) увольнения; m_vop / m_vcl / m_vap — вакансии
+    открытые на конец месяца, закрытые, новые; m_vtd / m_vtn — дни и число закрытых (срок закрытия);
+    m_vjn — закрыто джунами; m_aiw / m_aip / m_aic — WAU AI, проникновение по юниту и компании. В mx —
+    вакансии (vs vr vp vl — открытые последнего месяца, vk vq — закрытые с начала года) и новые разрезы
+    ноутбука (sp tc xsp xtc hk hch hg hsp).
 
     Фильтры — кросс-фильтры чарта: unit_f — ключ узла, paint_f — покраска (HQ, Line, Support),
     it_f — IT-код (IT, Digital, NonIT), staff_f — «Штат» / «Не штат», act_f — тип численности
@@ -69,6 +79,9 @@
 {% set act_only = F['act']|length == 1 and (F['act'][0]|lower) == 'активная' %}
 {#- Найм: на активной — по методологии HR (hire_cnt: в компанию + из учебной группы в боевую +
     стажёры в штат), на всей — найм в компанию с любым типом (hco_cnt; нет колонки — hire_cnt). -#}
+{#- Обычные (non-regrettable) увольнения (21.10, как в прод-ноутбуке HQ) — матчером: series до поставки 50
+    колонки не знает — ноль, метрика остаётся «в разработке» по пустому ряду. -#}
+{% set NREG = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^nreg_cnt$') APPLY(toFloat64)], [toFloat64(0)]), 1), 0)" %}
 {% set HCO = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY(toFloat64)], [toFloat64(hire_cnt)]), 1), 0)" %}
 {#- Строка проходит фильтры: значение в выбранном списке без учёта регистра; не выбран — 1. -#}
 {% macro cond() -%}
@@ -88,7 +101,15 @@
 {% set TU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64((" ~ condp('f_') ~ ") AND (ifNull(trf_kind, '') = 'o' OR (ifNull(trf_kind, '') = 's' AND ifNull(out_ok, 0) = 1 AND NOT (" ~ condp('t_') ~ "))))" %}
 {#- Массив месяцев строкой: дроби только у ССЧ (полусумма) и мониторинга. -#}
 {% macro out(a) -%}arrayStringConcat(arrayMap(x -> toString(round(x, 1)), {{ a }}), ','){%- endmacro %}
-{% set M = [['hc', 'e', 'hc_cnt'], ['act', 'ea', 'act_cnt'], ['avg', 'sa', 'avg_cnt'], ['hire', 'hi', 'hire_cnt' if act_only else HCO], ['fire', 'fi', 'fire_cnt'], ['reg', 'rg', 'reg_cnt'], ['tin', 'ti', '0'], ['tout', 'tu', '0'], ['pnor', 'pn', 'pnor_cnt'], ['plow', 'pl', 'plow_cnt'], ['phig', 'ph', 'phig_cnt'], ['pgry', 'pg', 'pgry_cnt'], ['wday', 'wd', 'wday_amt'], ['ovis', 'ov', 'ovis_amt'], ['gapr', 'ga', 'gapr_cnt'], ['gdec', 'gd', 'gdec_cnt']] %}
+{% set M = [['hc', 'e', 'hc_cnt'], ['act', 'ea', 'act_cnt'], ['avg', 'sa', 'avg_cnt'], ['hire', 'hi', 'hire_cnt' if act_only else HCO], ['fire', 'fi', 'fire_cnt'], ['reg', 'rg', 'reg_cnt'], ['nreg', 'nr', NREG], ['tin', 'ti', '0'], ['tout', 'tu', '0'], ['pnor', 'pn', 'pnor_cnt'], ['plow', 'pl', 'plow_cnt'], ['phig', 'ph', 'phig_cnt'], ['pgry', 'pg', 'pgry_cnt'], ['wday', 'wd', 'wday_amt'], ['ovis', 'ov', 'ovis_amt'], ['gapr', 'ga', 'gapr_cnt'], ['gdec', 'gd', 'gdec_cnt'], ['vop', 'vo', '0'], ['vcl', 'vk', '0'], ['vap', 'vn', '0'], ['vtd', 'vd', '0'], ['vtn', 'vt', '0'], ['vjn', 'vj', '0'], ['aiw', 'aw', '0'], ['aip', 'ap', '0'], ['aic', 'ac', '0']] %}
+{#- AI-инструменты (21.10) — из teampulse_hub_ai: WAU и проникновение по юниту и по компании. Посчитаны
+    в источнике по юниту: фильтры среза на них не действуют. -#}
+{% set AIV = {'aiw': 'ai_wau', 'aip': 'ai_pen', 'aic': 'ai_pen_co'} %}
+{#- Вакансии (21.10) — из teampulse_hub_vacancy: открыто на конец месяца, закрыто, новые, срок закрытия
+    (сумма дней и число закрытых), закрыто джунами. Вакансия — не человек: фильтры среза на неё не
+    действуют, только юнит. -#}
+{% set VAC = {'vop': 'vac_open_cnt', 'vcl': 'vac_close_cnt', 'vap': 'vac_new_cnt', 'vtd': 'vac_ttf_days', 'vtn': 'vac_ttf_cnt',
+              'vjn': "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"} %}
 {#- Значения фильтра с численностью компании за последний месяц (окно настройки). -#}
 {% macro vals(col) -%}
 (SELECT toJSONString(groupArray((v, e))) FROM (
@@ -190,6 +211,24 @@ WITH
       WHERE node_rk IN (SELECT id FROM pick)
         AND report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal)
       UNION ALL
+      SELECT ifNull(node_rk, '') AS u2,
+             toInt32(dateDiff('month', (SELECT m0 FROM cal), toDate(assumeNotNull(report_month)))) AS i2,
+{%- for m in M %}
+             {% if m[0] in VAC %}toFloat64(ifNull({{ VAC[m[0]] }}, 0)){% else %}toFloat64(0){% endif %} AS {{ m[1] }}0{% if not loop.last %},{% endif %}
+{%- endfor %}
+      FROM prod_proteus.teampulse_hub_vacancy
+      WHERE node_rk IN (SELECT id FROM pick)
+        AND report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal)
+      UNION ALL
+      SELECT ifNull(node_rk, '') AS u2,
+             toInt32(dateDiff('month', (SELECT m0 FROM cal), toDate(assumeNotNull(report_month)))) AS i2,
+{%- for m in M %}
+             {% if m[0] in AIV %}toFloat64(ifNull({{ AIV[m[0]] }}, 0)){% else %}toFloat64(0){% endif %} AS {{ m[1] }}0{% if not loop.last %},{% endif %}
+{%- endfor %}
+      FROM prod_proteus.teampulse_hub_ai
+      WHERE node_rk IN (SELECT id FROM pick)
+        AND report_month BETWEEN (SELECT m0 FROM cal) AND (SELECT lm FROM cal)
+      UNION ALL
       SELECT id AS u2, toInt32(0) AS i2,
 {%- for m in M %}
              toFloat64(0) AS {{ m[1] }}0{% if not loop.last %},{% endif %}
@@ -216,6 +255,25 @@ WITH
       WHERE node_rk IN (SELECT id FROM pick) AND {{ cond() }}
       GROUP BY u3, k3, v3
       HAVING n4 > 0
+      UNION ALL
+      -- вакансии: открытые на конец последнего месяца по статусу (vs), причине (vr), специализации (vp),
+      -- уровню позиции (vl); закрытые с начала года по каналу (vk) и уровню кандидата (vq)
+      SELECT u5 AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
+      FROM
+      (
+        SELECT ifNull(node_rk, '') AS u5,
+               arrayFilter(x -> x.3 > 0, [
+                 ('vs', ifNull(status, ''), if(report_month = (SELECT lm FROM cal) AND ifNull(status, '') != '', toFloat64(ifNull(vac_open_cnt, 0)), 0)),
+                 ('vr', ifNull(search_reason, ''), if(report_month = (SELECT lm FROM cal), toFloat64(ifNull(vac_open_cnt, 0)), 0)),
+                 ('vp', ifNull(specialization, ''), if(report_month = (SELECT lm FROM cal), toFloat64(ifNull(vac_open_cnt, 0)), 0)),
+                 ('vl', ifNull(position_lvl, ''), if(report_month = (SELECT lm FROM cal), toFloat64(ifNull(vac_open_cnt, 0)), 0)),
+                 ('vk', ifNull(channel, ''), if(report_month >= toStartOfYear((SELECT lm FROM cal)), toFloat64(ifNull(vac_close_cnt, 0)), 0)),
+                 ('vq', ifNull(cand_lvl, ''), if(report_month >= toStartOfYear((SELECT lm FROM cal)), toFloat64(ifNull(vac_close_cnt, 0)), 0))]) AS kvs
+        FROM prod_proteus.teampulse_hub_vacancy
+        WHERE node_rk IN (SELECT id FROM pick) AND report_month >= toStartOfYear((SELECT lm FROM cal))
+      )
+      ARRAY JOIN kvs AS kv
+      GROUP BY u3, k3, v3
     )
     GROUP BY u3
   )

@@ -408,10 +408,28 @@ function lblAt(i,last,step){return (last-i)%step===0}
    они физически не пересекаются. Близкие пороги разводятся по вертикали. */
 function kpiRoom(key,kpi){
   if(!kpi)return 0;
-  return Math.ceil(Math.max(textW('порог '+CD.fmtVal(key,kpi.red),10.5),
-    textW('цель '+CD.fmtVal(key,kpi.green),10.5)))+12;
+  const a=kpi.annual||kpi, suf=kpi.annual?' за год':'';
+  return Math.ceil(Math.max(textW('порог '+CD.fmtVal(key,a.red)+suf,10.5),
+    textW('цель '+CD.fmtVal(key,a.green)+suf,10.5)))+12;
+}
+/* 21.10, поставка 50: годовая цель прод-отчёта HQ (kpi.annual) — коридор по оси года: в месяце i
+   цель — годовая × (i + 1) / 12, к декабрю — годовая; подпись справа — годовая «за год». Цель и
+   порог совпадают (бенчмарк) — одна линия */
+function kpiSlope(key,kpi,xL,xR,Y){
+  const a=kpi.annual, bw=(xR-xL)/12, X=i=>xL+bw*(i+0.5);
+  const pts=v=>Array.from({length:12},(_,i)=>X(i).toFixed(1)+','+Y(v*(i+1)/12).toFixed(1)).join(' ');
+  const rows=a.green===a.red?[['green',C_RED,'цель ']]:[['green',C_GREEN,'цель '],['red',C_RED,'порог ']];
+  const ty=rows.map(([k])=>Y(a[k]));
+  if(ty.length===2&&Math.abs(ty[0]-ty[1])<13){const m=(ty[0]+ty[1])/2, up=ty[0]<=ty[1]?-1:1;ty[0]=m+up*6.5;ty[1]=m-up*6.5}
+  let s='';
+  rows.forEach(([k,c,lb],i)=>{
+    s+='<polyline points="'+pts(a[k])+'" fill="none" stroke="'+c+'" stroke-width="1.4" stroke-dasharray="2 3"/>';
+    s+=txt(xR+6,ty[i]+3.5,lb+CD.fmtVal(key,a[k])+' за год',{size:10.5,fill:C_AXIS,anchor:'start'});
+  });
+  return s;
 }
 function kpiLines(key,kpi,xL,xR,Y){
+  if(kpi.annual)return kpiSlope(key,kpi,xL,xR,Y);
   let s='';
   const ys=[Y(kpi.green),Y(kpi.red)], ty=ys.slice();
   if(Math.abs(ty[0]-ty[1])<13){const m=(ty[0]+ty[1])/2, up=ty[0]<=ty[1]?-1:1;ty[0]=m+up*6.5;ty[1]=m-up*6.5}
@@ -526,7 +544,7 @@ function yoyPlot(p,ar){
   const showMain=!off.has('main'), showPrev=!off.has('prev'), showBench=!!bench&&!off.has('bench');
   const nowI=CD.CUR_LEN-1, ya=p.ann||null, marks=p.marks||[];
   const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
-  if(p.kpi){all.push(p.kpi.green);all.push(p.kpi.red)}
+  if(p.kpi){const a=p.kpi.annual||p.kpi;all.push(a.green);all.push(a.red)}
   const max=niceMax(all);
   const Y=v=>bot-(v/max)*(bot-top), X=i=>x0+bandW*(i+0.5);
   const big=(i,s)=>!!(ya&&ya.hi&&ya.hi.some(z=>z.i===i&&z.s===s));

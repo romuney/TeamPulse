@@ -12,11 +12,15 @@
 #                         месяца по атрибутам и увольнения с начала года по причинам и др.
 #   teampulse_hub_trf     переходы людей: узел × месяц × вид (вошёл / вышел / остался) × срез до и
 #                         после — датасет считает из них переводы под выбранные фильтры
+#   teampulse_hub_vacancy узел × месяц × разрезы вакансии (канал, причина, уровень кандидата и
+#                         позиции, специализация, статус): открыто, закрыто, новые, срок закрытия
+#   teampulse_hub_ai      узел × месяц: WAU AI-инструментов и проникновение (по юниту и компании)
 # Виртуальный датасет отчёта не кешируется и на каждый запрос только выбирает узлы ответа:
 # дерево, история в нынешней структуре, ССЧ, переводы и разрезы готовы здесь.
 # Источник — таблица человек × месяц × юнит (build_all_metrics + перформанс, посещаемость,
 # T-рост), до group_and_sum_metrics: разрезы и переводы считаются по людям.
 # =============================================================================
+import datetime as dt_
 from dal_client import query as dal
 
 HUB_ALL = 'all'          # ключ общего корня, если корней в структуре несколько
@@ -52,6 +56,8 @@ def build_hub(
     source: str = 'all_metrics_with_performance_and_office_traffic_and_grt',
     prefix: str = 'teampulse_hub',
     daily_source: str = 'usr_cross_data.hr_executive_proteus',
+    vacancy: str = 'structure_x_vacancy',
+    ai_source: str = 'usr_mlpa.ai_bi_all_copilots_usage_digest_monthly',
     n_levels: int = 11,
     staff_value: str = 'Штатный сотрудник',
     debug: bool = False,
@@ -134,6 +140,25 @@ update {p}_node set prk = '{HUB_ALL}' where prk = '';
 update {p}_node set pth = '{HUB_ALL}|' || pth, lv = lv + 1;
 insert into {p}_node (rk, nm, lv, prk, pth) values ('{HUB_ALL}', 'Все юниты', 1, '', '{HUB_ALL}')""")
 
+    # Тяжёлые шаги — частями по месяцам (21.10: на полном объёме «ERROR: workfile per query size limit
+    # exceeded» — Greenplum не хватает рабочей памяти на промежуточные результаты одного запроса). Ряды
+    # (6), разрезы (8) и переходы (10) считаются помесячно: первая часть создаёт таблицу, остальные —
+    # insert; месяц — ключ группировки, поэтому части не пересекаются
+    if debug:
+        months, lm_d = ['2026-09-01'], dt_.date(2026, 9, 1)
+    else:
+        months = [str(x)[:10] for x in _hub_q(
+            f"select distinct report_month::date as m from {src} where leaf_lvl > 0 order by 1")['m']]
+        lm_d = dt_.date.fromisoformat(str(_hub_q(f"select lm from {p}_cal")['lm'].iloc[0])[:10])
+    m_ytd = [m for m in months if m[:4] == str(lm_d.year) and m <= str(lm_d)]
+    m_grid = [str(dt_.date(lm_d.year - 1 + (i // 12), i % 12 + 1, 1)) for i in range(12 + lm_d.month)]
+    mw = lambda m: f"and s.report_month = '{m}'::date"
+
+    def parts(table, body, keys, dkey):
+        keys = keys or [None]
+        return ([f"drop table if exists {table};\ncreate table {table} as\n{body(keys[0])}\n{dist(dkey)}"]
+                + [f"insert into {table}\n{body(k)}" for k in keys[1:]])
+
     # 4. руководитель юнита на конец последнего месяца (на дату данных) — голосами, как в HRBP HUB:
     #    3 — сам руководитель (management_head_flg = 1) в юните → его ad_login; 2 — люди юнита →
     #    их management_head_ad_login; 1 — руководители подразделений → их management_head_ad_login
@@ -212,9 +237,7 @@ left join {p}_head h on h.unit_rk = n.rk
         left join {p}_upath u on u.unit_rk = s.mng_unit_rk::text
         where s.leaf_lvl > 0 {{where}}
     ) x"""
-    steps.append(f"""
-drop table if exists {p}_sx;
-create table {p}_sx as
+    steps.extend(parts(f'{p}_sx', lambda m: f"""
 select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_c,
        sum({num('hc_total_cnt')}) as hc, sum({num('hc_active_cnt')}) as act,
        -- найм по методологии DD: найм в компанию + перевод из учебной группы в боевую + стажёров в
@@ -225,15 +248,16 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        -- юридической численности найм — только событие «Найм в компанию»)
        sum({num('hire_cnt') if has('hire_cnt') else num('hire_amt')}) as hco,
        sum({num('fire_amt')}) as fire, sum({num('regret_fire_amt')}) as reg,
+       -- обычные (non-regrettable) увольнения — как в прод-ноутбуке HQ (21.10)
+       sum({num('non_regret_fire_amt')}) as nreg,
        sum(case when {num('transfer_in_lvl')} between 1 and d then {num('transfer_in_amt')} else 0 end) as tin,
        sum(case when {num('transfer_out_lvl')} between 1 and d then {num('transfer_out_amt')} else 0 end) as tout,
        sum({num('perf_normal')}) as pnor, sum({num('perf_low')}) as plow,
        sum({num('perf_high')}) as phig, sum({num('perf_gray')}) as pgry,
        sum({num('work_day_amt')}) as wday, sum({num('office_visit_amt')}) as ovis,
        sum({num('grt_approve_cnt')}) as gapr, sum({num('grt_decline_cnt')}) as gdec
-from ({expl.replace('{where}', '')}) e
-group by 1, 2, 3, 4, 5, 6
-{dist('node_rk')}""")
+from ({expl.replace('{where}', mw(m))}) e
+group by 1, 2, 3, 4, 5, 6""", months, 'node_rk'))
 
     # 7. ССЧ = (численность месяца + прошлого) / 2 по узлу и срезу: строка и там, где людей
     #    среза в узле в этом месяце уже нет, а в прошлом были. Первый месяц — без лага. В строках
@@ -255,7 +279,7 @@ select k.node_rk, k.report_month, k.paint_c as paint_cd, k.it_c as it_cd, k.staf
        (coalesce(c.hc, 0) + case when k.report_month = (select min(report_month) from {p}_sx)
                                  then coalesce(c.hc, 0) else coalesce(pv.hc, 0) end) / 2.0 as avg_cnt,
        coalesce(c.hire, 0) as hire_cnt, coalesce(c.hco, 0) as hco_cnt,
-       coalesce(c.fire, 0) as fire_cnt, coalesce(c.reg, 0) as reg_cnt,
+       coalesce(c.fire, 0) as fire_cnt, coalesce(c.reg, 0) as reg_cnt, coalesce(c.nreg, 0) as nreg_cnt,
        coalesce(c.tin, 0) as tin_cnt, coalesce(c.tout, 0) as tout_cnt,
        coalesce(c.pnor, 0) as pnor_cnt, coalesce(c.plow, 0) as plow_cnt,
        coalesce(c.phig, 0) as phig_cnt, coalesce(c.pgry, 0) as pgry_cnt,
@@ -272,31 +296,50 @@ left join {p}_sx pv on {on('pv', 'k')} and pv.report_month = (k.report_month - i
     a = {k: _hub_clean(f'e.{c}') if has(c) else "''" for k, c in (
         ('g', 'gender'), ('a', 'type_age'), ('t', 'experience_group_nm'), ('gr', 'grade'), ('s', 'seniority'),
         ('c', 'employee_contract_type'), ('o', 'legal_organization'), ('w', 'employee_stream'),
-        ('r', 'employment_relation_type'), ('fr', 'fire_reason_group'), ('fi', 'fire_initiative'))}
-    hc_keys = ['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r']
+        ('r', 'employment_relation_type'), ('fr', 'fire_reason_group'), ('fi', 'fire_initiative'),
+        ('sp', 'specialization'), ('tc', 'type_company'), ('hs', 'source_type_nm'))}
+    # 21.10, из прод-ноутбуков HQ и УС: специализация (sp) и тип компании (tc) — в численности и
+    # увольнениях (xsp, xtc); найм с начала года — по источнику (hk), каналу (hch: найм в компанию /
+    # из учебной группы в боевую / стажёр в штат), грейду (hg) и специализации (hsp)
+    hc_keys = ['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc']
+    hire_e = f"greatest({num('hire_amt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
+    hch = (f"case when {num('hire_amt')} > 0 then 'Найм в компанию' "
+           f"when {num('transfer_candidate_amt')} > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end")
+    # части: численность последнего месяца — одна, увольнения — по месяцу с начала года; потом свёртка
+    mix_hc = lambda: f"""
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+       unnest(ARRAY[{', '.join(f"'{k}'" for k in hc_keys)}]) as mx_key,
+       unnest(ARRAY[{', '.join(a[k] for k in hc_keys)}]) as mx_val,
+       {num('hc_total_cnt')} as mx_n
+from ({expl.replace('{where}', mw(str(lm_d)))}) e
+where {num('hc_total_cnt')} > 0"""
+    mix_fire = lambda m: f"""
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+       unnest(ARRAY['xr', 'xq', 'xi', 'xp', 'xt', 'xg', 'xs', 'xsp', 'xtc']) as mx_key,
+       unnest(ARRAY[{a['fr']}, {a['fr']}, {a['fi']}, {a['fr']} || '|' || {a['fi']}, {a['t']}, {a['gr']}, {a['w']},
+                    {a['sp']}, {a['tc']}]) as mx_val,
+       unnest(ARRAY[{', '.join([num('fire_amt'), num('regret_fire_amt')] + [num('fire_amt')] * 7)}]) as mx_n
+from ({expl.replace('{where}', mw(m))}) e
+where {num('fire_amt')} > 0"""
+    mix_hire = lambda m: f"""
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+       unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
+       unnest(ARRAY[{a['hs']}, {hch}, {a['gr']}, {a['sp']}]) as mx_val,
+       {hire_e} as mx_n
+from ({expl.replace('{where}', mw(m))}) e
+where {hire_e} > 0"""
+    steps.extend(parts(f'{p}_mixr', lambda k: mix_hc() if k == 'hc' else mix_fire(k[1]) if k[0] == 'f' else mix_hire(k[1]),
+                       ['hc'] + [('f', m) for m in m_ytd] + [('h', m) for m in m_ytd], 'node_rk'))
     steps.append(f"""
 drop table if exists {p}_mix;
 create table {p}_mix as
 select node_rk, paint_c as paint_cd, it_c as it_cd, staff_c as staff_cd, act_c as act_cd,
        mx_key, mx_val, sum(mx_n) as mx_n
-from (
-    select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
-           unnest(ARRAY[{', '.join(f"'{k}'" for k in hc_keys)}]) as mx_key,
-           unnest(ARRAY[{', '.join(a[k] for k in hc_keys)}]) as mx_val,
-           {num('hc_total_cnt')} as mx_n
-    from ({expl.replace('{where}', 'and s.report_month = (select lm from ' + p + '_cal)')}) e
-    where {num('hc_total_cnt')} > 0
-    union all
-    select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
-           unnest(ARRAY['xr', 'xq', 'xi', 'xp', 'xt', 'xg', 'xs']) as mx_key,
-           unnest(ARRAY[{a['fr']}, {a['fr']}, {a['fi']}, {a['fr']} || '|' || {a['fi']}, {a['t']}, {a['gr']}, {a['w']}]) as mx_val,
-           unnest(ARRAY[{', '.join([num('fire_amt'), num('regret_fire_amt')] + [num('fire_amt')] * 5)}]) as mx_n
-    from ({expl.replace('{where}', "and s.report_month between date_trunc('year', (select lm from " + p + "_cal))::date and (select lm from " + p + "_cal)")}) e
-    where {num('fire_amt')} > 0
-) kv
+from {p}_mixr
 group by 1, 2, 3, 4, 5, 6, 7
 having sum(mx_n) > 0
-{dist('node_rk')}""")
+{dist('node_rk')};
+drop table if exists {p}_mixr""")
 
     # 10. переходы (21.10, заказчик: «переводы пересчитываются в зависимости от фильтров»: смотрим
     #     департамент — кто перешёл в департамент; департамент + HQ — кто перешёл в департамент и
@@ -333,9 +376,8 @@ having sum(mx_n) > 0
     hx = ' + '.join(dflg(c) for c in ('hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg'))
     fpath = lambda a, c: (f"case when {a}.{c} = '' then '{{}}'::text[] else "
                           f"string_to_array({pre}{a}.{c}, '|') end")
-    steps.append(f"""
-drop table if exists {p}_trf;
-create table {p}_trf as
+    trf_m = lambda m: f"""
+select * from (
 with d as (
     select distinct on (e, dt) *
     from (
@@ -346,8 +388,7 @@ with d as (
                {staff_e} as st, {act_e} as ac,
                least({hx}, 1) as hx, {dflg('fire_flg')} as fx
         from {_qualified(daily_source)} x
-        where x.calendar_dt::date >= (select (date_trunc('year', lm) - interval '1 year' - interval '1 day')::date
-                                      from {p}_cal)
+        where x.calendar_dt::date between ('{m}'::date - 1) and (('{m}'::date + interval '1 month')::date - 1)
     ) y
     order by e, dt, u
 ),
@@ -368,7 +409,7 @@ c as (
     left join {p}_upath ua0 on ua0.unit_rk = s.u0
     where s.u0 is not null
       and (s.u <> s.u0 or (s.pa, s.it, s.st, s.ac) <> (s.pa0, s.it0, s.st0, s.ac0))
-      and s.dt >= (select (date_trunc('year', lm) - interval '1 year')::date from {p}_cal)
+      and s.dt >= '{m}'::date
       and (s.hx = 0 or s.fx0 = 0)
 ),
 t as (
@@ -393,6 +434,78 @@ select node_rk, report_month, trf_kind,
 from n
 where (trf_kind = 'i' and in_ok = 1) or (trf_kind = 'o' and out_ok = 1) or (trf_kind = 's' and cut_chg)
 group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+) q"""
+    steps.extend(parts(f'{p}_trf', trf_m, m_grid, 'node_rk'))
+
+    # 11. вакансии (21.10): structure_x_vacancy (параграф выше) → узлы нынешней структуры, как ряды:
+    #     путь юнита — по _upath, юнита нет в последнем месяце — свой путь из уровней вакансии. Вакансия —
+    #     не человек: покраски, IT, штата и типа численности у неё нет, поэтому отдельная витрина
+    #     (в series она встала бы срезом, которого нет), и фильтры среза на вакансии не действуют
+    try:
+        vcols = set() if debug else _source_cols(_qualified(vacancy))
+    except Exception:
+        vcols = set()
+    vac_ok = debug or {'report_month', 'mng_unit_rk', 'unit_path', 'open_cnt'} <= vcols
+    if vac_ok:
+        steps.append(f"""
+drop table if exists {p}_vacancy;
+create table {p}_vacancy as
+select node_rk, report_month, channel, search_reason, cand_lvl, position_lvl, specialization, status,
+       sum(open_cnt) as vac_open_cnt, sum(close_cnt) as vac_close_cnt, sum(new_cnt) as vac_new_cnt,
+       sum(ttf_days) as vac_ttf_days, sum(ttf_cnt) as vac_ttf_cnt
+from (
+    select x.*, unnest(string_to_array({pre}coalesce(u.cp, x.unit_path), '|')) as node_rk
+    from {_qualified(vacancy)} x
+    left join {p}_upath u on u.unit_rk = x.mng_unit_rk::text
+    where x.report_month between '{m_grid[0]}'::date and '{m_grid[-1]}'::date
+) e
+group by 1, 2, 3, 4, 5, 6, 7, 8
+{dist('node_rk')}""")
+    else:
+        print(f'[WARN] {vacancy}: нет таблицы или колонок — {p}_vacancy пустая, вакансии в отчёте «в разработке»')
+        steps.append(f"""
+drop table if exists {p}_vacancy;
+create table {p}_vacancy (node_rk text, report_month date, channel text, search_reason text, cand_lvl text,
+    position_lvl text, specialization text, status text, vac_open_cnt bigint, vac_close_cnt bigint,
+    vac_new_cnt bigint, vac_ttf_days bigint, vac_ttf_cnt bigint)
+{dist('node_rk')}""")
+
+    # 12. AI-инструменты (21.10) — как в прод-ноутбуке HQ (параграф «ai_bi monthly»): WAU и проникновение
+    #     посчитаны в источнике по юниту (строка юнита — всё его поддерево), здесь не суммируются, а берутся
+    #     у своего узла. Корню отчёта, если в источнике его нет, — сумма WAU верхнего уровня источника и
+    #     проникновение по компании. Источник — не люди: фильтры среза на AI не действуют
+    try:
+        acols = set() if debug else _source_cols(_qualified(ai_source))
+    except Exception:
+        acols = set()
+    if debug or {'month', 'mngt_unit_rk', 'avg_wau', 'avg_penetration_unit_pct'} <= acols:
+        aco = 'a.avg_penetration_company_pct' if (debug or 'avg_penetration_company_pct' in acols) else 'null::float8'
+        alv = 'a.lvl' if (debug or 'lvl' in acols) else '0'
+        steps.append(f"""
+drop table if exists {p}_ai;
+create table {p}_ai as
+with a as (
+    select date_trunc('month', a.month::date)::date as report_month, a.mngt_unit_rk::text as node_rk,
+           max(a.avg_wau)::float8 as ai_wau, max(a.avg_penetration_unit_pct)::float8 as ai_pen,
+           max({aco})::float8 as ai_pen_co, min({alv}) as lv
+    from {_qualified(ai_source)} a
+    where a.month::date between '{m_grid[0]}'::date and ('{m_grid[-1]}'::date + interval '1 month' - interval '1 day')
+    group by 1, 2
+)
+select report_month, node_rk, ai_wau, ai_pen, ai_pen_co from a
+union all
+select a.report_month, r.unit_rk, sum(a.ai_wau), max(a.ai_pen_co), max(a.ai_pen_co)
+from a
+cross join (select unit_rk from {p}_unit where parent_rk = '') r
+where a.lv = (select min(lv) from a a2 where a2.report_month = a.report_month)
+  and not exists (select 1 from a a3 where a3.node_rk = r.unit_rk)
+group by 1, 2
+{dist('node_rk')}""")
+    else:
+        print(f'[WARN] {ai_source}: нет таблицы или колонок — {p}_ai пустая, AI в отчёте «в разработке»')
+        steps.append(f"""
+drop table if exists {p}_ai;
+create table {p}_ai (report_month date, node_rk text, ai_wau float8, ai_pen float8, ai_pen_co float8)
 {dist('node_rk')}""")
 
     # 9. календарь отчёта, корень и юнит по умолчанию (у корня один ребёнок — он)
@@ -421,7 +534,7 @@ cross join (select unit_rk, kids_cnt from {p}_unit where parent_rk = '' order by
             _hub_q(sql)
     if debug:
         return
-    for t in ('meta', 'unit', 'series', 'mix', 'trf'):
+    for t in ('meta', 'unit', 'series', 'mix', 'trf', 'vacancy', 'ai'):
         n = _hub_q(f'select count(*) as n from {p}_{t}')['n'].iloc[0]
         print(f'[OK] {p}_{t}: {n} строк')
     if multi:

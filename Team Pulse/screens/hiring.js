@@ -76,16 +76,29 @@ SC.blocks.hiring={
           value:hp.tin,color:G.C_HIRE_I}]);
       return U.btStack([
         tbl('Откуда пришли','найм и переводы'+sub,ch),
-        tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))])+
+        tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]
+        /* поставка 50: путь в команду — найм в компанию, из учебной группы, стажёр в штат (как в HQ) */
+        .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]:[]))+
         '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+'). В первой таблице — вместе '+
         'с переводами из других подразделений.</div>';
     }
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
        в блоке оттока. Барами остаются штуки вакансий. */
-    return SC.yoyPanels(lp,[
+    const panels=SC.yoyPanels(lp,[
       {name:'Открытые вакансии, шт',key:'vac_open',color:G.C_VAC,ann:ctx.ann.vac_open},
       {name:'Закрытые вакансии, шт',key:'vac_closed',color:G.C_IN},
       {name:'Срок закрытия вакансии, дн',key:'time_to_fill',color:G.C_LINE}]);
+    /* поставка 50: вакансии в разрезах — из витрины вакансий (пробник); в макете их нет */
+    const vb=D.vacancyBreakdown(lp);
+    if(!vb)return panels;
+    const vt=(cap,capSub,items,color,head)=>U.btGroup({cap:cap,capSub:capSub,head:'',valueHead:head,metricKey:'vac_open',
+      compact:true,items:items.map(x=>({name:x.name,value:x.value,color:color}))});
+    const open=[['Открытые по статусу',vb.status],['Открытые по причине',vb.reason],['Открытые по уровню позиции',vb.pos],
+      ['Открытые по специализации',vb.spec]].filter(x=>x[1].length).map(x=>vt(x[0],'на '+D.CMP.cur,x[1],G.C_VAC,'Вакансий'));
+    const closed=[['Закрытые по каналу',vb.channel],['Закрытые по уровню кандидата',vb.cand]].filter(x=>x[1].length)
+      .map(x=>vt(x[0],'с начала года',x[1],G.C_IN,'Вакансий'));
+    return panels+U.btStack(open.slice(0,2))+U.btStack(open.slice(2).concat(closed).slice(0,3))+
+      '<div class="tbl-note">Вакансии — по подразделению: фильтры покраски, IT, штата и типа численности на них не действуют.</div>';
   }
 };
 })();
