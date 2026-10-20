@@ -180,7 +180,8 @@ const appSrc=fs.readFileSync(path.join(dir,'app.js'),'utf8');
 const cssAll=fs.readFileSync(path.join(dir,'styles.css'),'utf8');
 checks.push(['один скролл: таблица подразделений sticky с высотой окна, графики без своей прокрутки',
   /@media \(min-width:1121px\)\{\s*\.split\{height:auto;min-height:0;align-items:start\}/.test(cssAll)&&
-  /\.split>\.split-l\{position:sticky;top:calc\(var\(--head-h,0px\) \+ 12px\);max-height:calc\(100vh/.test(cssAll)&&
+  /\.split>\.split-l\{position:sticky;top:calc\(var\(--head-h,0px\) \+ 12px\);height:calc\(100vh - var\(--head-h,0px\) - 38px\)/.test(cssAll)&&
+  /\.split>\.split-r\{min-height:calc\(100vh - var\(--head-h,0px\) - 38px\)\}/.test(cssAll)&&
   /\.split-r \.panel-b,\.split-r \.panel-b\.st-on\{overflow:visible;height:auto\}/.test(cssAll)&&
   /overscroll-behavior:contain/.test(cssAll)&&
   /* края карточки графиков видны всегда и стоят на одной линии с таблицей (скриншот 20.10) */

@@ -2086,7 +2086,12 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 @media (min-width:1121px){
   .split{height:auto;min-height:0;align-items:start}
   .split>.panel{height:auto}
-  .split>.split-l{position:sticky;top:calc(var(--head-h,0px) + 12px);max-height:calc(100vh - var(--head-h,0px) - 38px)}
+  /* таблица — всегда во всю высоту окна, даже короткая: пустого фона под ней нет (20.10, скриншот
+     заказчика); карточка графиков не ниже неё — края на одной линии и на коротких главах */
+  .split>.split-l{position:sticky;top:calc(var(--head-h,0px) + 12px);height:calc(100vh - var(--head-h,0px) - 38px);
+    max-height:calc(100vh - var(--head-h,0px) - 38px)}
+  .split>.split-r{min-height:calc(100vh - var(--head-h,0px) - 38px)}
+  .split-l .tbl-wrap{flex:1 1 auto;min-height:0}
   .split-l .tbl-wrap{overscroll-behavior:contain}
   .split-gut{align-self:stretch}
   .split-r .panel-b,.split-r .panel-b.st-on{overflow:visible;height:auto}
