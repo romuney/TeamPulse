@@ -55,6 +55,7 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\n  stack:()=>unitBack.slice(),'+
   '\n  search:q=>{tq=q;render(true,true);return $("#view").innerHTML},'+
   '\n  crumbs:()=>{renderHead();return $("#crumbs").innerHTML},'+
+  '\n  setupHc:()=>{openSetup();const h=$("#optHc").innerHTML+$("#benchPreview").innerHTML;closeSetup();return h},'+
   '\n  setupUnits:q=>{openSetup();if(q){UT.q=q;utRender()}const h=$("#utList").innerHTML+$("#benchPreview").innerHTML+$("#optStaff").innerHTML;closeSetup();return h},'+
   '\n  home:()=>{S.unit=D.DEFAULT_STATE.unit;unitBack.length=0;tq="";S.selNode=null;expanded.clear()},'+
   /* итерация 30: ширина колонок — режим и доля таблицы */
@@ -330,7 +331,7 @@ checks.push(['движение: обзор и динамика, «Замещен
 checks.push(['обзор движения: водопад и «что нужно знать» под ним',
   svgN(balHtml)===1&&/Из чего сложилось изменение/.test(balHtml)&&/<div class="st-ins">/.test(balHtml)]);
 checks.push(['динамика движения: численность, найм и отток, переводы на одном листе',
-  svgN(flowHtml)===3&&/Общая численность, чел/.test(flowHtml)&&/Найм и отток, чел/.test(flowHtml)&&
+  svgN(flowHtml)===3&&/Численность, чел/.test(flowHtml)&&/Найм и отток, чел/.test(flowHtml)&&
   /Переводы внутри компании, чел/.test(flowHtml)]);
 checks.push(['вакансии: три панели, включая срок закрытия',
   /Срок закрытия вакансии, дн/.test(A.go('hiring','vacancies'))]);
@@ -433,12 +434,42 @@ checks.push(['скрытая метрика не попала в строки on
 checks.push(['скрытая метрика не попала в столбцы сводной таблицы',
   !/Перев\. в/.test(mvHid)&&!/Переводы в команду/.test(mvHid)&&/Отток/.test(mvHid)]);
 
+/* 20.10: тип численности. По умолчанию весь отчёт — на активной; «Вся» — все, кто числится.
+   В макете «Активная» пересчитывает численность и потоки в доле активной, производные — от них */
+(function(){
+  const st=A.st(), rl0=D.reportLeaves(D.DEFAULT_STATE);
+  D.setHcMode('all');
+  const tAll=D.lastVal(rl0,'hc_total'), aAll=D.lastVal(rl0,'hc_active');
+  const hAll=D.aggregate(rl0,'hire').reduce((x,y)=>x+y,0), fAll=D.aggregate(rl0,'attrition').reduce((x,y)=>x+y,0);
+  D.setHcMode('active');
+  const tAct=D.lastVal(rl0,'hc_total'), hAct=D.aggregate(rl0,'hire').reduce((x,y)=>x+y,0);
+  const fAct=D.aggregate(rl0,'attrition').reduce((x,y)=>x+y,0), avg=D.aggregate(rl0,'hc_avg'), tm=D.lastVal(rl0,'turnover_m');
+  const setupHc=A.setupHc(), chipsAct=A.chips();
+  st.hcType='all';
+  const opAll=A.go('onepager',null), chipsAll=A.chips(), linkAll=A.link();
+  st.hcType='active';
+  const opAct=A.go('onepager',null);
+  checks.push(['тип численности: по умолчанию активная, «Вся» — все; потоки, ССЧ и текучесть — по выбранному типу',
+    D.DEFAULT_STATE.hcType==='active'&&st.hcType==='active'&&tAct===aAll&&tAct<tAll&&hAct<=hAll&&fAct<=fAll&&
+    Math.abs(avg[D.LAST]-(tAct+D.aggregate(rl0,'hc_total')[D.LAST-1])/2)<0.6&&tm>0]);
+  checks.push(['тип численности в настройке, чипах и ссылке: «Численность: активная» по умолчанию, «вся численность» снимается крестиком',
+    /data-f="hcType" data-v="active"/.test(setupHc)&&/class="opt on" data-f="hcType" data-v="active"/.test(setupHc)&&
+    /Вся численность<span class="opt-n">/.test(setupHc)&&/Численность: <b>активная<\/b>/.test(chipsAct)&&
+    /data-unchip="hcType"/.test(chipsAll)&&/вся численность/.test(chipsAll)&&!/Численность: <b>активная/.test(chipsAll)&&
+    /hc=all/.test(linkAll)&&D.benchmarkLabel({paint:'all',itSeg:'all',staffType:'all',hcType:'all'})==='вся компания, вся численность']);
+  checks.push(['на всей численности видны и «Численность», и «Активная численность», на активной — одна',
+    /Активная численность/.test(opAll)&&!/Активная численность/.test(opAct)&&/Численность/.test(opAct)]);
+})();
+
 /* обязательные метрики численности не скрываются даже явным списком */
 A.hide(['hc_active','hc_total']);
 const opLock=A.go('onepager',null);
+/* 20.10: на активной численности (по умолчанию) «Активная численность» = «Численность» и
+   отдельно не показывается; на всей численности видны обе */
 checks.push(['обязательные метрики численности не скрываются',
-  /Активная численность/.test(opLock)&&/Общая численность/.test(opLock)&&
-  D.metricVisible('hc_active',{hiddenMetrics:['hc_active']})]);
+  /Численность/.test(opLock)&&!D.metricVisible('hc_active',{hiddenMetrics:[]})&&
+  D.metricVisible('hc_active',{hiddenMetrics:['hc_active'],hcType:'all'})&&
+  D.metricVisible('hc_total',{hiddenMetrics:['hc_total'],hcType:'all'})]);
 
 /* блок без единой выбранной метрики уходит из навигации, из one-pager и не открывается */
 A.hide(D.metricsOfBlock('tgrowth').map(m=>m.key));

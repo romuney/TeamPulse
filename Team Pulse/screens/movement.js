@@ -45,7 +45,7 @@ SC.blocks.movement={
     : 'Из чего сложилось изменение численности'},
   view(ctx){
     if(ctx.sub==='dynamics'){
-      return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:240,title:'Общая численность, чел',ann:ctx.ann.hc_total})+
+      return SC.metricLine('hc_total',ctx.lp,ctx.bl,ctx.S,{h:240,title:'Численность, чел',ann:ctx.ann.hc_total})+
         SC.yoyPair(ctx.lp,'hire','attrition',
         {h:240,title:'Найм и отток, чел',
          legend:[{name:'Приняли',color:G.C_IN},{name:'Уволились',color:G.C_OUT}]})+

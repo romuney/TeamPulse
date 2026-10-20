@@ -29,6 +29,13 @@ EXTRA = {
          "build_all_metrics(\n    res_table_name='all_metrics',"),
         ("    fields=fields,", "    fields=fields + HUB_FIELDS,"),
     ],
+    'build_all_metrics': [
+        ("            else:\n                m.append('max(hire_flg) AS hire_amt')\n",
+         "            else:\n                m.append('max(hire_flg) AS hire_amt')\n"
+         "            # TeamPulse Hub (20.10): найм в компанию с любым типом активности — найм «всей\n"
+         "            # численности» (hire_amt — только активные на конец месяца)\n"
+         "            m.append('max(hire_flg) AS hire_cnt')\n"),
+    ],
     'Структура численности': [
         ("| `emp_specialization_oper_code` | Операционная специализация | HQ / nonHQ |",
          "| `emp_specialization_oper_code` | Операционная специализация (покраска) | HQ / Line / Support |"),

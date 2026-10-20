@@ -55,6 +55,7 @@ let splitMode='both', splitShare=null;
 /* ---------- URL ---------- */
 function urlParams(){
   const p=new URLSearchParams({unit:S.unit,paint:S.paint,it:S.itSeg,staff:S.staffType,tab:S.tab});
+  if(S.hcType==='all')p.set('hc','all');
   /* набор метрик едет в ссылке скрытыми ключами: пустой параметр = показано всё */
   if(S.hiddenMetrics&&S.hiddenMetrics.length)p.set('hide',S.hiddenMetrics.join(','));
   /* Срез состава и оси конструктора — в ссылку: «покажи грейды у женщин» это
@@ -70,7 +71,7 @@ function urlParams(){
 function readURL(){
   if(ENV)return;
   const q=new URLSearchParams(location.search);
-  const map={unit:'unit',paint:'paint',it:'itSeg',staff:'staffType',tab:'tab',sub:'subTab'};
+  const map={unit:'unit',paint:'paint',it:'itSeg',staff:'staffType',hc:'hcType',tab:'tab',sub:'subTab'};
   Object.entries(map).forEach(([k,f])=>{const v=q.get(k);if(v)S[f]=v});
   const hide=q.get('hide');
   if(hide!=null)S.hiddenMetrics=D.sanitizeHidden(hide.split(',').filter(Boolean));
@@ -120,7 +121,7 @@ function unitId(p){
   const last=p.split('/').pop();
   return last==='·'?null:last;
 }
-function curReq(){return {unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType}}
+function curReq(){return {unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType}}
 let _pendT=null;
 function request(next){
   const id=unitId(next.unit);
@@ -132,6 +133,8 @@ function request(next){
     const v=next[k]!=='all'&&D.REAL.cuts.has(col.replace('_f',''))?D.REAL.filterValue(k,next[k]):null;
     if(v)mask.push({column:col,operator:'IN',value:[v]});
   });
+  /* тип численности: активная — ответ датасета по умолчанию, не шлём; «Вся» — act_f */
+  if(next.hcType==='all'&&D.REAL.cuts.has('act'))mask.push({column:'act_f',operator:'IN',value:[D.REAL.filterValue('hcType','all')]});
   const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
   unitNames[next.unit]=nm;
   unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||unitNames[S.unit]||'';
@@ -164,7 +167,7 @@ function arrive(){
   const prev=STORE.S;
   if(prev){
     Object.assign(S,prev,{unit:D.DEFAULT_STATE.unit,paint:D.DEFAULT_STATE.paint,
-      itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType});
+      itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType,hcType:D.DEFAULT_STATE.hcType});
     const ui=STORE.ui||{};
     tq=ui.tq||'';splitMode=ui.splitMode==='charts'?'charts':'both';splitShare=ui.splitShare!=null?ui.splitShare:null;
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
@@ -234,6 +237,10 @@ function renderHead(){
     U.tipAttr({title:'Снять фильтр',text:c.label})+'>×</button></span>').join('');
   html+='<span class="chip bench"'+U.tipAttr({title:'База сравнения',text:'С этим сравниваются все метрики отчёта: та же метрика по всей компании с вашими фильтрами.'})+
     '>База: <b>'+esc(D.benchmarkLabel(S))+'</b></span>';
+  /* тип численности по умолчанию — чипом без крестика: отчёт на активной, и это видно */
+  if(S.hcType!=='all'&&(!ENV||D.REAL.cuts.has('act')))html+='<span class="chip bench"'+
+    U.tipAttr({title:'Численность: активная',text:'Весь отчёт — по активной численности: без стажёров, подрядчиков и неактивных (методология HR). Всю численность показывает «Настрой свой дашборд» → «Численность».'})+
+    '>Численность: <b>активная</b></span>';
   /* после перехода в отдел команд в отборе бывает одна — «1 команд» не пишем */
   const nT=D.unitsInScope(S);
   html+='<span class="chip bench">'+D.fmtInt(nT)+' '+U.plural(nT,D.UNIT_WORDS)+(ENV?' в таблице':' в отчёте')+'</span>';
@@ -290,7 +297,7 @@ function mountStaticMascots(){
 
 /* ---------- модалка настройки ---------- */
 function openSetup(){
-  DRAFT={unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,
+  DRAFT={unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType,
     hiddenMetrics:(S.hiddenMetrics||[]).slice()};
   UT={q:'',open:{}};
   $('#utQ').value='';
@@ -377,11 +384,13 @@ function paintOpts(){
         (n==null?'':'<span class="opt-n">'+D.fmtInt(n)+'</span>')+'</button>';
     }).join('');
   };
+  row('#optHc',D.HCTYPES,'hcType');
   row('#optPaint',D.PAINTS,'paint');
   row('#optIt',D.ITSEGS,'itSeg');
   row('#optStaff',D.STAFFTYPES,'staffType');
-  /* пробник: фильтра, которого нет в meta.cuts, в окне нет (с 16.10 — только покраски) */
-  if(ENV)[['#optPaint','paint'],['#optIt','it']].forEach(([id,c])=>{
+  /* пробник: фильтра, которого нет в meta.cuts, в окне нет (файл 2 — без покраски; таблицы
+     ноутбука до 20.10 — без типа численности) */
+  if(ENV)[['#optPaint','paint'],['#optIt','it'],['#optHc','act']].forEach(([id,c])=>{
     const g=$(id)&&$(id).closest('.fgrp');if(g)g.style.display=D.REAL.cuts.has(c)?'':'none';
   });
   utRender();
@@ -407,6 +416,10 @@ function metricOpts(){
     const items=D.metricsOfBlock(b.key).map(m=>{
       /* обязательная метрика — та же строка, но кнопка неактивна: показать её
          в списке нужно, иначе непонятно, почему она есть в отчёте */
+      /* на активной численности «Активная численность» и есть «Численность» — отдельно её нет */
+      if(m.key==='hc_active'&&(DRAFT||S).hcType!=='all')return '<button class="mp-i lock" disabled'+
+        U.tipAttr({title:m.name,text:'На активной численности совпадает с «Численностью» и отдельно не показывается.'})+
+        '><span class="box"></span><span class="nm">'+esc(m.name)+'</span><span class="lk">= численность</span></button>';
       if(D.LOCKED_METRICS.has(m.key))return '<button class="mp-i on lock" disabled'+
         U.tipAttr({title:m.name,text:'На ней держится весь отчёт, поэтому её не отключить.'})+
         '><span class="box"></span><span class="nm">'+esc(m.name)+'</span><span class="lk">всегда</span></button>';
@@ -456,10 +469,11 @@ function applySetup(){
   /* в Proteus юнит и фильтры меняет датасет: уходит кросс-фильтр, а выбор
      метрик — состояние показа, он применяется сразу */
   if(ENV){
-    const changed=DRAFT.unit!==S.unit||DRAFT.paint!==S.paint||DRAFT.itSeg!==S.itSeg||DRAFT.staffType!==S.staffType;
+    const changed=DRAFT.unit!==S.unit||DRAFT.paint!==S.paint||DRAFT.itSeg!==S.itSeg||DRAFT.staffType!==S.staffType||
+      DRAFT.hcType!==S.hcType;
     S.hiddenMetrics=DRAFT.hiddenMetrics.slice();
     if(S.mainMetric&&!D.metricVisible(S.mainMetric,S))S.mainMetric=null;
-    const next={unit:DRAFT.unit,paint:DRAFT.paint,itSeg:DRAFT.itSeg,staffType:DRAFT.staffType};
+    const next={unit:DRAFT.unit,paint:DRAFT.paint,itSeg:DRAFT.itSeg,staffType:DRAFT.staffType,hcType:DRAFT.hcType};
     openRows.clear();closeSetup();
     if(changed){if(next.unit!==S.unit)pushBack(S.unit);request(next)}else render();
     return;
@@ -502,6 +516,7 @@ function enhanceA11y(){
 const INNER_SCROLL=['.split-l .tbl-wrap','.split-r .panel-b','.st-rail'];
 let lastView='';
 function render(keepScroll,quiet){
+  D.setHcMode(S.hcType);                 /* макет: ряды по типу численности (в пробнике — датасет) */
   const sc=ENV?ENV.scroller:null;
   const y=keepScroll?(sc?sc.scrollTop:(window.pageYOffset||0)):0;
   const view=S.tab+'|'+(S.subTab||'');
@@ -685,7 +700,7 @@ on(document,'click',e=>{
   if(t.closest('#btnSetup')){openSetup();return}
   if(t.closest('#btnApply')){applySetup();return}
   if(t.closest('#btnCancel')){closeSetup();return}
-  if(t.closest('#btnReset')&&DRAFT){DRAFT.paint='all';DRAFT.itSeg='all';DRAFT.staffType='all';paintOpts();return}
+  if(t.closest('#btnReset')&&DRAFT){DRAFT.paint='all';DRAFT.itSeg='all';DRAFT.staffType='all';DRAFT.hcType='active';paintOpts();return}
   if(t.closest('#btnLink')){
     navigator.clipboard&&navigator.clipboard.writeText(shareLink());
     $('#btnLink').textContent='Ссылка скопирована';
@@ -737,8 +752,10 @@ on(document,'click',e=>{
   if(t.closest('[data-uback]')){const p=unitBack.pop();if(p)goUnit(p,true);return}
   const un=t.closest('[data-unchip]');
   if(un){
-    if(ENV){request(Object.assign(curReq(),{[un.dataset.unchip]:'all'}));return}
-    S[un.dataset.unchip]='all';render();return;
+    /* снятый фильтр — к умолчанию: у типа численности это «Активная», у остальных — «все» */
+    const dv=un.dataset.unchip==='hcType'?'active':'all';
+    if(ENV){request(Object.assign(curReq(),{[un.dataset.unchip]:dv}));return}
+    S[un.dataset.unchip]=dv;render();return;
   }
 
   /* дерево подразделений.

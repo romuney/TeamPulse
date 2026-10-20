@@ -171,13 +171,14 @@ def check(db):
         prev = 0.0
         for r in sub:
             if r['m'] == mp:
-                prev += r['v'][KI['act']]
+                prev += r['v'][KI['hc']]
                 continue
             for k in KEYS:
                 ser[k][mi[r['m']]] += r['v'][KI[k]]
-        # ССЧ — полусумма активной с прошлым месяцем; у первого месяца — с месяцем перед сеткой
-        act = ser['act']
-        ser['avg'] = [(act[i] + (act[i - 1] if i else (prev if mp else act[0]))) / 2 for i in range(len(act))]
+        # ССЧ — полусумма численности строк фильтра с прошлым месяцем (на активной — ССЧ активной);
+        # у первого месяца — с месяцем перед сеткой
+        hc = ser['hc']
+        ser['avg'] = [(hc[i] + (hc[i - 1] if i else (prev if mp else hc[0]))) / 2 for i in range(len(hc))]
         ser = {k: [round(x, 1) for x in v] for k, v in ser.items()}
         mx = {}
         y0 = lm[:4] + '-01-01'
@@ -200,6 +201,8 @@ def check(db):
 
     STAFF = lambda r: r['a']['employment_relation_type'] == 'Штатный сотрудник'
     ITC = lambda r: (r['a']['emp_specialization_it_code'] or '-')
+    ACT = lambda r: r['a']['active_type_gr_nm'] == 'Активная'
+    ACTL = lambda r: 'Активная' if ACT(r) else 'Прочие'
     cases = [
         ('без фильтров', {}, dflt, lambda r: True),
         ('штат', {'staff_f': ['Штат']}, dflt, STAFF),
@@ -211,10 +214,16 @@ def check(db):
         ('корень (своих строк нет)', {'unit_f': [uid(root)]}, root, lambda r: True),
         ('чужой id', {'unit_f': ['ffffffffffff']}, dflt, lambda r: True),
         ('кавычка в фильтре', {'staff_f': ["Штат' OR 1=1 --"]}, dflt, lambda r: False),
+        # 20.10: тип численности — по умолчанию (случаи выше) «Активная», «Вся» — все строки
+        ('вся численность', {'act_f': ['Вся']}, dflt, lambda r: True),
+        ('вся численность + штат, уровнем ниже', {'act_f': ['Вся'], 'staff_f': ['Штат'], 'unit_f': [uid(mid)]}, mid, STAFF),
+        ('только прочие (не активная)', {'act_f': ['Прочие']}, dflt, lambda r: not ACT(r)),
     ]
     fd_all = {}
-    for name, flt, want, pred in cases:
+    for name, flt, want, pred0 in cases:
         print(f'— {name}')
+        pred = pred0 if 'act_f' in flt else (lambda r, p0=pred0: p0(r) and ACT(r))
+        act_echo = [] if flt.get('act_f') == ['Вся'] else flt.get('act_f', ['Активная'])
         outs = {}
         for cname, st_ in CFG.items():
             try:
@@ -236,7 +245,7 @@ def check(db):
         meta = json.loads(rows[0]['j'])
         if meta['lm'] != lm or meta['n'] != len(arrays(rows[1])['hc']) or meta['n'] != len(months):
             fail(f"календарь: lm {meta['lm']} против {lm}, n {meta['n']}")
-        if meta['cuts'] != ['it', 'staff'] or meta['paint'] != [] or meta['it'] != flt.get('it_f', []):
+        if meta['cuts'] != ['it', 'staff', 'act'] or meta['paint'] != [] or meta['it'] != flt.get('it_f', []):
             fail(f"meta: cuts {meta['cuts']} / paint {meta['paint']} / it {meta['it']}")
         sc = rows[1]
         if sc['id'] != uid(want):
@@ -245,8 +254,10 @@ def check(db):
             fail('meta: scope / root / def')
         if meta['staff'] != flt.get('staff_f', []):
             fail(f"эхо фильтра штата: {meta['staff']}")
+        if meta.get('act') != act_echo:
+            fail(f"эхо типа численности: {meta.get('act')} против {act_echo}")
         # значения фильтров — численность компании без копий путей, фильтры их не режут
-        for key, lab in (('it', ITC), ('staff', lambda r: 'Штат' if STAFF(r) else 'Не штат')):
+        for key, lab in (('it', ITC), ('staff', lambda r: 'Штат' if STAFF(r) else 'Не штат'), ('act', ACTL)):
             exp = {}
             for r in allrows:
                 if r['m'] == lm and r['rk'] and r['path']:
@@ -311,15 +322,15 @@ def check(db):
         if dict_ids != {uid(p) for p in st}:
             fail(f'dict: узлов {len(dict_ids)}, в дереве {len(st)}')
         fdv = meta.get('fdv') or {}
-        fa, fb = fdv.get('it') or [], fdv.get('staff') or []
-        if not fa or not fb:
+        fa, fb, fc = fdv.get('it') or [], fdv.get('staff') or [], fdv.get('act') or []
+        if not fa or not fb or not fc:
             fail('meta.fdv: нет словарей распределения')
         else:
             exp_fd = {}
             for r in allrows:
                 if r['m'] != lm or not r['v'][0]:
                     continue
-                c = fa.index(ITC(r)) * len(fb) + fb.index('Штат' if STAFF(r) else 'Не штат')
+                c = (fa.index(ITC(r)) * len(fb) + fb.index('Штат' if STAFF(r) else 'Не штат')) * len(fc) + fc.index(ACTL(r))
                 parts = r['cp'].split('\t')
                 for d in range(1, len(parts) + 1):
                     k = '\t'.join(parts[:d])

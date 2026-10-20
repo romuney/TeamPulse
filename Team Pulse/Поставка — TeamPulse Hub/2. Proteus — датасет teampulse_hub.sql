@@ -52,10 +52,12 @@
     Массивы m_* — месяцы от января прошлого года до последнего полного (n штук),
     строкой через запятую. Процентов нет: чарт делит числитель на знаменатель.
       m_hc   численность на конец месяца (hc_total_cnt)     m_act  активная (hc_active_cnt)
-      m_avg  ССЧ активной = (активная месяца + прошлого) / 2 по ряду узла; колонку
-             ssch_hc_active_cnt датасет не читает: ноутбук сборки считает её LAG по дробным
-             сочетаниям атрибутов, и новое сочетание (найм) берёт ССЧ целиком (стенд: +5%)
-      m_hire найм: в компанию + из учебной группы в боевую + стажёры в штат (методология DD)
+      m_avg  ССЧ = (численность месяца + прошлого) / 2 по ряду узла под фильтрами: на активной
+             (по умолчанию) — ССЧ активной; колонку ssch_hc_active_cnt датасет не читает:
+             ноутбук сборки считает её LAG по дробным сочетаниям атрибутов, и новое сочетание
+             (найм) берёт ССЧ целиком (стенд: +5%)
+      m_hire найм: на активной — в компанию + из учебной группы в боевую + стажёры в штат
+             (методология DD), на всей — найм в компанию (hire_cnt)
       m_fire увольнения
       m_reg  нежелательные увольнения                        m_tin  переводы в   m_tout переводы из
       m_pnor мониторинг: нормал   m_plow недоработка   m_phig переработка   m_pgry Gray (perf_*)
@@ -80,7 +82,10 @@
     пропускает. IT-специализация (emp_specialization_it_code) вернулась 16.10 — it_f снова
     работает, в meta.cuts — it и staff. Кросс-фильтры эмитит сам чарт (самовлияние включено):
     unit_f — id юнита, it_f — IT / Digital / NonIT / «-», staff_f — «Штат» / «Не штат»
-    (employment_relation_type = 'Штатный сотрудник').
+    (employment_relation_type = 'Штатный сотрудник'), act_f — тип численности (20.10,
+    active_type_gr_nm): без фильтра — «Активная» (отчёт по умолчанию на активной численности),
+    «Вся» — все строки. На всей численности найм — hire_cnt (найм в компанию с любым типом,
+    ноутбук с 20.10; нет колонки — как на активной), ССЧ — полусумма численности строк фильтра.
     Колонки-носители в SELECT не выводятся, иначе Superset повесит авто-IN на
     внешний запрос. id юнита — 12 знаков md5 его пути.
 
@@ -104,9 +109,13 @@
 {#- Значения фильтров собираются циклом: при сохранении датасета Proteus отдаёт
     вместо списка AlwaysTrueObject — у него нет ни длины, ни «+». -#}
 {% set unit_req = [] %}{% for v in (filter_values('unit_f') or []) %}{% if v|string|trim != '' and unit_req|length < 1 %}{% set _ = unit_req.append(v|string|trim|lower) %}{% endif %}{% endfor %}
-{% set CUTS = [['it', 'it_f', "ifNull(emp_specialization_it_code, '-')"], ['staff', 'staff_f', "if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат')"]] %}
+{% set CUTS = [['it', 'it_f', "ifNull(emp_specialization_it_code, '-')"], ['staff', 'staff_f', "if(ifNull(employment_relation_type, '') = 'Штатный сотрудник', 'Штат', 'Не штат')"], ['act', 'act_f', "if(ifNull(active_type_gr_nm, '') = 'Активная', 'Активная', 'Прочие')"]] %}
 {% set F = {} %}
 {% for c in CUTS %}{% set vals = [] %}{% for v in (filter_values(c[1]) or []) %}{% if v|string != '' and vals|length < 20 %}{% set _ = vals.append(v|string) %}{% endif %}{% endfor %}{% set _ = F.update({c[0]: vals}) %}{% endfor %}
+{#- Тип численности: не выбран — «Активная»; «Вся» — без фильтра. -#}
+{% set av = [] %}{% for v in F['act'] %}{% set _ = av.append(v|lower) %}{% endfor %}
+{% if 'вся' in av or 'all' in av %}{% set _ = F.update({'act': []}) %}{% elif av|length == 0 %}{% set _ = F.update({'act': ['Активная']}) %}{% endif %}
+{% set act_only = F['act']|length == 1 and (F['act'][0]|lower) == 'активная' %}
 {#- Строка проходит фильтры: значение в выбранном списке; фильтр не выбран — 1. Без учёта
     регистра: ноутбук сборки пишет IT-код «nonIT», чарт шлёт «NonIT». -#}
 {% macro cond() -%}
@@ -161,22 +170,24 @@ WITH
   -- людей попадёт в выбор» без запроса (19.10, как в HRBP HUB). fa / fb — порядок значений,
   -- по которому кодируется сочетание (в meta — fdv)
   fdb AS (
-    SELECT {{ pth() }} AS p7, {{ CUTS[0][2] }} AS v7a, {{ CUTS[1][2] }} AS v7b,
+    SELECT {{ pth() }} AS p7, {{ CUTS[0][2] }} AS v7a, {{ CUTS[1][2] }} AS v7b, {{ CUTS[2][2] }} AS v7c,
            sum(toFloat64(ifNull(hc_total_cnt, 0))) AS n7
     FROM prod_proteus.hr_structure_overall
     WHERE report_month = (SELECT lm FROM cal)
       AND (ifNull(mng_unit_rk, ''), {{ pth() }}) IN (SELECT u0, pk0 FROM lmr)
-    GROUP BY p7, v7a, v7b
+    GROUP BY p7, v7a, v7b, v7c
     HAVING n7 > 0
   ),
-  fdv AS (SELECT arraySort(groupUniqArray(v7a)) AS fa, arraySort(groupUniqArray(v7b)) AS fb FROM fdb),
+  fdv AS (SELECT arraySort(groupUniqArray(v7a)) AS fa, arraySort(groupUniqArray(v7b)) AS fb,
+                 arraySort(groupUniqArray(v7c)) AS fc FROM fdb),
   fdr AS (
     SELECT r7 AS fr, arrayStringConcat(arraySort(groupArray(concat(toString(c7), ':', toString(round(m7))))), ' ') AS fds
     FROM
     (
       SELECT np7 AS r7,
-             toUInt32((indexOf((SELECT fa FROM fdv), v7a) - 1) * length((SELECT fb FROM fdv))
-                      + indexOf((SELECT fb FROM fdv), v7b) - 1) AS c7,
+             toUInt32(((indexOf((SELECT fa FROM fdv), v7a) - 1) * length((SELECT fb FROM fdv))
+                       + indexOf((SELECT fb FROM fdv), v7b) - 1) * length((SELECT fc FROM fdv))
+                      + indexOf((SELECT fc FROM fdv), v7c) - 1) AS c7,
              sum(n7) AS m7
       FROM fdb
       ARRAY JOIN arrayMap(d -> arrayStringConcat(arraySlice(splitByChar('\t', p7), 1, d), '\t'),
@@ -251,8 +262,9 @@ WITH
              -- найм, как в методологии DD: найм в компанию + перевод из учебной группы в боевую +
              -- перевод стажёров в штат (transfer_candidate_amt / transfer_internal_amt — матчером:
              -- нет колонок — найм в компанию, как раньше)
-             toFloat64(ifNull(hire_amt, 0)) + arraySum(arrayMap(x -> ifNull(x, 0),
-               arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^transfer_(candidate|internal)_amt$') APPLY toFloat64]))) AS hi0,
+             {% set HDD = "toFloat64(ifNull(hire_amt, 0)) + arraySum(arrayMap(x -> ifNull(x, 0), arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^transfer_(candidate|internal)_amt$') APPLY toFloat64])))" %}
+             -- на всей численности — найм в компанию с любым типом (hire_cnt; нет колонки — как выше)
+             {% if act_only %}{{ HDD }}{% else %}ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hire_cnt$') APPLY toFloat64], [{{ HDD }}]), 1), 0){% endif %} AS hi0,
              toFloat64(ifNull(fire_amt, 0)) AS fi0,
              toFloat64(ifNull(regret_fire_amt, 0)) AS rg0, toFloat64(ifNull(transfer_in_amt, 0)) AS ti0,
              toFloat64(ifNull(transfer_out_amt, 0)) AS tu0, ifNull(perf_normal, 0) AS pn0, ifNull(perf_low, 0) AS pl0,
@@ -310,7 +322,7 @@ WITH
 {%- for m in M %}
            sumForEach(arrayMap(i -> if(i = idx, {{ m[1] }}, 0), range((SELECT n FROM cal)))) AS a_{{ m[0] }},
 {%- endfor %}
-           sumIf(ea, idx = -1) AS p_act
+           sumIf(e, idx = -1) AS p_hc
     FROM mm
     GROUP BY rk
   ),
@@ -357,10 +369,11 @@ FROM
                 '","root":"', ifNull((SELECT id FROM st2 WHERE rk = (SELECT r FROM rt)), ''),
                 '","scope":"', ifNull((SELECT id FROM st2 WHERE rk = (SELECT s FROM sc)), ''),
                 '","def":"', ifNull((SELECT id FROM st2 WHERE rk = (SELECT d FROM dflt)), ''),
-                '","schema":"2026-10-16","cuts":["it","staff"]',
+                '","schema":"2026-10-16","cuts":["it","staff","act"]',
                 ',"req":', toJSONString({{ qa(unit_req) }}),
                 ',"paint":[],"it":', toJSONString({{ qa(F['it']) }}),
                 ',"staff":', toJSONString({{ qa(F['staff']) }}),
+                ',"act":', toJSONString({{ qa(F['act']) }}),
                 ',"vals":{"paint":[],"it":', (SELECT toJSONString(groupArray((v, e))) FROM (
                     SELECT ifNull(emp_specialization_it_code, '-') AS v, sum(toFloat64(ifNull(hc_total_cnt, 0))) AS e
                     FROM prod_proteus.hr_structure_overall
@@ -374,8 +387,14 @@ FROM
                     WHERE report_month = (SELECT lm FROM cal)
                       AND (ifNull(mng_unit_rk, ''), {{ pth() }}) IN (SELECT u0, pk0 FROM lmr)
                     GROUP BY v ORDER BY e DESC, v)),
+                ',"act":', (SELECT toJSONString(groupArray((v, e))) FROM (
+                    SELECT {{ CUTS[2][2] }} AS v, sum(toFloat64(ifNull(hc_total_cnt, 0))) AS e
+                    FROM prod_proteus.hr_structure_overall
+                    WHERE report_month = (SELECT lm FROM cal)
+                      AND (ifNull(mng_unit_rk, ''), {{ pth() }}) IN (SELECT u0, pk0 FROM lmr)
+                    GROUP BY v ORDER BY e DESC, v)),
                 '},"fdv":{"paint":[],"it":', toJSONString((SELECT fa FROM fdv)), ',"staff":', toJSONString((SELECT fb FROM fdv)),
-                '}}') AS j,
+                ',"act":', toJSONString((SELECT fc FROM fdv)), '}}') AS j,
          {{ blank() }}
 
   UNION ALL
@@ -384,7 +403,7 @@ FROM
          s.id AS id, s.pid AS pid, s.lv AS lvl, s.nm AS nm, toUInt32(ifNull(k.k, 0)) AS kids, '' AS j,
 {%- for m in M %}
 {%- if m[0] == 'avg' %}
-         {{ out("arrayMap(i -> (a.a_act[i] + if(i = 1, if((SELECT hp FROM cal) = 1, a.p_act, a.a_act[1]), a.a_act[i - 1])) / 2, arrayEnumerate(a.a_act))") }} AS m_avg,
+         {{ out("arrayMap(i -> (a.a_hc[i] + if(i = 1, if((SELECT hp FROM cal) = 1, a.p_hc, a.a_hc[1]), a.a_hc[i - 1])) / 2, arrayEnumerate(a.a_hc))") }} AS m_avg,
 {%- else %}
          {{ out('a.a_' ~ m[0]) }} AS m_{{ m[0] }},
 {%- endif %}

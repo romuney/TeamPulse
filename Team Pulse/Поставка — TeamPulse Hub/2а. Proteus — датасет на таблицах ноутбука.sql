@@ -22,17 +22,21 @@
       dict   1 строка, j — все узлы: «id \t pid \t уровень \t детей \t имя \t руководитель \t fd»
              через \n. Руководитель — логин (head_login таблицы юнитов; колонки нет — пусто).
              fd — численность узла в последнем месяце по сочетаниям значений фильтров без учёта
-             применённых: «код:число» через пробел, код = (номер покраски × число IT + номер IT) ×
-             число значений штата + номер штата (номера — в meta.fdv). Окно настройки считает по
-             нему «сколько людей попадёт в выбор» без запроса (19.10, как в HRBP HUB)
+             применённых: «код:число» через пробел, код = ((номер покраски × число IT + номер IT) ×
+             число значений штата + номер штата) × число типов численности + номер типа (номера —
+             в meta.fdv; без act_cd типов один). Окно настройки считает по нему «сколько людей
+             попадёт в выбор» без запроса (19.10, как в HRBP HUB)
       c / g / x  подразделения на один, два, три уровня ниже выбранного
       end    маркер «ответ целиком»
     Массивы m_* — месяцы от января прошлого года до последнего закрытого, строкой через запятую;
     mx — разрезы «ключ \t значение \t число» через \n (как в файле 2).
 
     Фильтры — кросс-фильтры чарта: unit_f — ключ узла, paint_f — покраска (HQ, Line, Support),
-    it_f — IT-код (IT, Digital, NonIT), staff_f — «Штат» / «Не штат». Сравнение без учёта регистра
-    (чарт шлёт «Hq»).
+    it_f — IT-код (IT, Digital, NonIT), staff_f — «Штат» / «Не штат», act_f — тип численности
+    (20.10): без фильтра — «Активная» (отчёт по умолчанию на активной численности), «Вся» — все
+    строки. Сравнение без учёта регистра (чарт шлёт «Hq»). act_cd и hco_cnt читаются матчером:
+    таблицы ноутбука до 20.10 их не знают — тогда фильтра типа нет (meta.cuts без «act»), отчёт
+    по всей численности, найм — hire_cnt.
     Колонки-носители в SELECT не выводятся. id узла — ключ юнита из источника.
     Проверено на ClickHouse 24.8: ноутбук целиком на синтетике по людям и дням (stand/nb_tp20.py
     --hub), шесть настроек сервера; ответ сверен с правдой по людям и с файлом 2.
@@ -52,18 +56,27 @@
 {#- Значения фильтров собираются циклом: при сохранении датасета Proteus отдаёт
     вместо списка AlwaysTrueObject — у него нет ни длины, ни «+». -#}
 {% set unit_req = [] %}{% for v in (filter_values('unit_f') or []) %}{% if v|string|trim != '' and unit_req|length < 1 %}{% set _ = unit_req.append(v|string|trim) %}{% endif %}{% endfor %}
-{% set CUTS = [['paint', 'paint_f', "ifNull(paint_cd, '-')"], ['it', 'it_f', "ifNull(it_cd, '-')"], ['staff', 'staff_f', "ifNull(staff_cd, '-')"]] %}
+{#- Тип численности строки: act_cd матчером; колонки нет — «∅» (строка проходит любой фильтр типа). -#}
+{% set AC = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY toString], CAST(['∅'], 'Array(Nullable(String))')), 1), '∅')" %}
+{% set CUTS = [['paint', 'paint_f', "ifNull(paint_cd, '-')"], ['it', 'it_f', "ifNull(it_cd, '-')"], ['staff', 'staff_f', "ifNull(staff_cd, '-')"], ['act', 'act_f', AC]] %}
 {% set F = {} %}
 {% for c in CUTS %}{% set vals = [] %}{% for v in (filter_values(c[1]) or []) %}{% if v|string != '' and vals|length < 20 %}{% set _ = vals.append(v|string) %}{% endif %}{% endfor %}{% set _ = F.update({c[0]: vals}) %}{% endfor %}
+{#- Тип численности: не выбран — «Активная»; «Вся» — без фильтра. -#}
+{% set av = [] %}{% for v in F['act'] %}{% set _ = av.append(v|lower) %}{% endfor %}
+{% if 'вся' in av or 'all' in av %}{% set _ = F.update({'act': []}) %}{% elif av|length == 0 %}{% set _ = F.update({'act': ['Активная']}) %}{% endif %}
+{% set act_only = F['act']|length == 1 and (F['act'][0]|lower) == 'активная' %}
+{#- Найм: на активной — по методологии HR (hire_cnt: в компанию + из учебной группы в боевую +
+    стажёры в штат), на всей — найм в компанию с любым типом (hco_cnt; нет колонки — hire_cnt). -#}
+{% set HCO = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY toFloat64], [toFloat64(hire_cnt)]), 1), 0)" %}
 {#- Строка проходит фильтры: значение в выбранном списке без учёта регистра; не выбран — 1. -#}
 {% macro cond() -%}
 {%- set parts = [] -%}
-{%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set _ = parts.append('has(arrayMap(x -> lowerUTF8(x), ' ~ qa(F[c[0]]) ~ '), lowerUTF8(' ~ c[2] ~ '))') -%}{%- endif -%}{%- endfor -%}
+{%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set hv = 'has(arrayMap(x -> lowerUTF8(x), ' ~ qa(F[c[0]]) ~ '), lowerUTF8(' ~ c[2] ~ '))' -%}{%- set _ = parts.append(("(" ~ c[2] ~ " = '∅' OR " ~ hv ~ ")") if c[0] == 'act' else hv) -%}{%- endif -%}{%- endfor -%}
 {{- parts|join(' AND ') if parts else '1' -}}
 {%- endmacro %}
 {#- Массив месяцев строкой: дроби только у ССЧ (полусумма) и мониторинга. -#}
 {% macro out(a) -%}arrayStringConcat(arrayMap(x -> toString(round(x, 1)), {{ a }}), ','){%- endmacro %}
-{% set M = [['hc', 'e', 'hc_cnt'], ['act', 'ea', 'act_cnt'], ['avg', 'sa', 'avg_cnt'], ['hire', 'hi', 'hire_cnt'], ['fire', 'fi', 'fire_cnt'], ['reg', 'rg', 'reg_cnt'], ['tin', 'ti', 'tin_cnt'], ['tout', 'tu', 'tout_cnt'], ['pnor', 'pn', 'pnor_cnt'], ['plow', 'pl', 'plow_cnt'], ['phig', 'ph', 'phig_cnt'], ['pgry', 'pg', 'pgry_cnt'], ['wday', 'wd', 'wday_amt'], ['ovis', 'ov', 'ovis_amt'], ['gapr', 'ga', 'gapr_cnt'], ['gdec', 'gd', 'gdec_cnt']] %}
+{% set M = [['hc', 'e', 'hc_cnt'], ['act', 'ea', 'act_cnt'], ['avg', 'sa', 'avg_cnt'], ['hire', 'hi', 'hire_cnt' if act_only else HCO], ['fire', 'fi', 'fire_cnt'], ['reg', 'rg', 'reg_cnt'], ['tin', 'ti', 'tin_cnt'], ['tout', 'tu', 'tout_cnt'], ['pnor', 'pn', 'pnor_cnt'], ['plow', 'pl', 'plow_cnt'], ['phig', 'ph', 'phig_cnt'], ['pgry', 'pg', 'pgry_cnt'], ['wday', 'wd', 'wday_amt'], ['ovis', 'ov', 'ovis_amt'], ['gapr', 'ga', 'gapr_cnt'], ['gdec', 'gd', 'gdec_cnt']] %}
 {#- Значения фильтра с численностью компании за последний закрытый месяц (окно настройки). -#}
 {% macro vals(col) -%}
 (SELECT toJSONString(groupArray((v, e))) FROM (
@@ -102,22 +115,23 @@ WITH
   -- fc — порядок значений, по которому кодируется сочетание (в meta — fdv)
   fdb AS (
     SELECT ifNull(node_rk, '') AS u7, ifNull(paint_cd, '-') AS v7a, ifNull(it_cd, '-') AS v7b,
-           ifNull(staff_cd, '-') AS v7c, sum(toFloat64(ifNull(hc_cnt, 0))) AS n7
+           ifNull(staff_cd, '-') AS v7c, {{ AC }} AS v7d, sum(toFloat64(ifNull(hc_cnt, 0))) AS n7
     FROM prod_proteus.teampulse_hub_series
     WHERE report_month = (SELECT lm FROM cal)
-    GROUP BY u7, v7a, v7b, v7c
+    GROUP BY u7, v7a, v7b, v7c, v7d
     HAVING n7 > 0
   ),
   fdv AS (
     SELECT arraySort(groupUniqArray(v7a)) AS fa, arraySort(groupUniqArray(v7b)) AS fb,
-           arraySort(groupUniqArray(v7c)) AS fc
+           arraySort(groupUniqArray(v7c)) AS fc, arraySort(groupUniqArray(v7d)) AS fe
     FROM fdb
   ),
   fdr AS (
     SELECT u7 AS fr,
            arrayStringConcat(arraySort(groupArray(concat(toString(toUInt32(
-             ((indexOf((SELECT fa FROM fdv), v7a) - 1) * length((SELECT fb FROM fdv)) + indexOf((SELECT fb FROM fdv), v7b) - 1)
-             * length((SELECT fc FROM fdv)) + indexOf((SELECT fc FROM fdv), v7c) - 1)), ':', toString(round(n7))))), ' ') AS fds
+             (((indexOf((SELECT fa FROM fdv), v7a) - 1) * length((SELECT fb FROM fdv)) + indexOf((SELECT fb FROM fdv), v7b) - 1)
+              * length((SELECT fc FROM fdv)) + indexOf((SELECT fc FROM fdv), v7c) - 1)
+             * length((SELECT fe FROM fdv)) + indexOf((SELECT fe FROM fdv), v7d) - 1)), ':', toString(round(n7))))), ' ') AS fds
     FROM fdb
     GROUP BY u7
   ),
@@ -190,14 +204,17 @@ FROM
                 '","n":', toString((SELECT n FROM cal)), ',"today":"', toString(today()),
                 '","root":"', (SELECT r FROM cal), '","scope":"', ifNull((SELECT s FROM sc), ''),
                 '","def":"', (SELECT d FROM cal),
-                '","schema":"hub-1","cuts":["paint","it","staff"]',
+                '","schema":"hub-1","cuts":["paint","it","staff"', if(has((SELECT fe FROM fdv), '∅'), '', ',"act"'), ']',
                 ',"req":', toJSONString({{ qa(unit_req) }}),
                 ',"paint":', toJSONString({{ qa(F['paint']) }}),
                 ',"it":', toJSONString({{ qa(F['it']) }}),
                 ',"staff":', toJSONString({{ qa(F['staff']) }}),
+                ',"act":', toJSONString({{ qa(F['act']) }}),
                 ',"vals":{"paint":', {{ vals('paint_cd') }}, ',"it":', {{ vals('it_cd') }}, ',"staff":', {{ vals('staff_cd') }},
+                ',"act":', {{ vals(AC) }},
                 '},"fdv":{"paint":', toJSONString((SELECT fa FROM fdv)), ',"it":', toJSONString((SELECT fb FROM fdv)),
-                ',"staff":', toJSONString((SELECT fc FROM fdv)), '}}') AS j,
+                ',"staff":', toJSONString((SELECT fc FROM fdv)),
+                ',"act":', toJSONString(if(has((SELECT fe FROM fdv), '∅'), CAST([], 'Array(String)'), (SELECT fe FROM fdv))), '}}') AS j,
          {{ blank() }}
 
   UNION ALL

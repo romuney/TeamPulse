@@ -54,6 +54,8 @@ const STUB=['vac_open','vac_closed','time_to_fill','hire_plan','junior_share',
 const PAINT_V={HQ:'Hq',Line:'Line',Support:'Support'};
 const IT_V={IT:'IT',Digital:'Digital',nonIT:'NonIT'};
 const STAFF_V={staff:'Штат',nonstaff:'Не штат'};
+/* тип численности (20.10): «Активная» — ответ датасета по умолчанию, «Вся» — act_f */
+const ACT_V={active:'Активная',all:'Вся'};
 
 function str(v){return v==null?'':String(v)}
 function num(v){const n=+v;return isFinite(n)?n:0}
@@ -234,7 +236,7 @@ function build(data){
   /* Окно настройки (19.10, как в HRBP HUB): дерево всего справочника, логин руководителя и
      «сколько людей попадёт в выбор» — по fd, без запроса. Пути — как у модели ('T/id/…'). */
   const fdv=meta.fdv&&typeof meta.fdv==='object'?meta.fdv:null;
-  const FDK=['paint','it','staff'].filter(k=>fdv&&Array.isArray(fdv[k])&&fdv[k].length);
+  const FDK=['paint','it','staff','act'].filter(k=>fdv&&Array.isArray(fdv[k])&&fdv[k].length);
   const fdOk=!!FDK.length&&Object.keys(byId).some(id=>byId[id].fd);
   const kidsBy={};
   Object.keys(byId).forEach(id=>{const p=byId[id].pid;if(p&&byId[p])(kidsBy[p]=kidsBy[p]||[]).push(id)});
@@ -257,7 +259,7 @@ function build(data){
     kids(p){const id=idOfPath(p);return (kidsBy[id]||[]).map(k=>pathOf(k)).filter(Boolean)},
     info(p){const u=byId[idOfPath(p)];return u?{name:u.name||'—',lvl:u.lvl,head:u.head||'',kids:(kidsBy[u.id]||[]).length}:null},
     all(){return Object.keys(byId).map(id=>pathOf(id)).filter(Boolean)},
-    /* люди узла в последнем месяце при значениях фильтров sel {paint,it,staff: значение или null}; null — нет fd */
+    /* люди узла в последнем месяце при значениях фильтров sel {paint,it,staff,act: значение или null}; null — нет fd */
     count(p,sel){
       if(!fdOk)return null;
       const want=FDK.map(k=>sel&&sel[k]!=null?String(sel[k]).toLowerCase():null);
@@ -271,6 +273,7 @@ function build(data){
   };
 
   const pv=invert(PAINT_V), iv=invert(IT_V), sv=invert(STAFF_V);
+  const cuts=new Set(Array.isArray(meta.cuts)?meta.cuts.map(str):['paint','it','staff']);
   const one=(list,map)=>{const a=(list||[]).map(str);return a.length===1&&map[a[0]]?map[a[0]]:'all'};
   const vals=meta.vals||{};
   return {
@@ -283,10 +286,12 @@ function build(data){
     missing,noMeta:!by('meta').length,
     empty:!scopeU,
     nodes,
-    applied:{paint:one(meta.paint,pv),itSeg:one(meta.it,iv),staffType:one(meta.staff,sv)},
-    /* какие фильтры датасет умеет: с 15.10 покраски и IT в таблице нет — только штат */
-    cuts:new Set(Array.isArray(meta.cuts)?meta.cuts.map(str):['paint','it','staff']),
-    vals:{paint:pairs(vals.paint),it:pairs(vals.it),staff:pairs(vals.staff)},
+    applied:{paint:one(meta.paint,pv),itSeg:one(meta.it,iv),staffType:one(meta.staff,sv),
+      /* тип численности: датасет без него (таблицы ноутбука до 20.10) отдаёт всю */
+      hcType:cuts.has('act')&&(meta.act||[]).map(str).some(v=>v.toLowerCase()==='активная')?'active':'all'},
+    /* какие фильтры датасет умеет (файл 2 — без покраски; без act_cd — без типа численности) */
+    cuts,
+    vals:{paint:pairs(vals.paint),it:pairs(vals.it),staff:pairs(vals.staff),act:pairs(vals.act)},
     pick,
     stub,
     /* есть ли в ответе необязательная колонка (без m_) */
@@ -309,9 +314,9 @@ function build(data){
     lastHc(path){const s=series[path];return s?lastOf(s.hc):0},
     idOf(path){const node=nodeBy[path];return node?node.id:null},
     /* значения фильтров для кросс-фильтра: ключ макета → значение колонки датасета */
-    filterValue(kind,key){return ({paint:PAINT_V,itSeg:IT_V,staffType:STAFF_V}[kind]||{})[key]||null}
+    filterValue(kind,key){return ({paint:PAINT_V,itSeg:IT_V,staffType:STAFF_V,hcType:ACT_V}[kind]||{})[key]||null}
   };
 }
 
-window.TPREAL={build,FIELDS,FIELDS_OPT,OPT,LIVE_WITH,STUB,PAINT_V,IT_V,STAFF_V};
+window.TPREAL={build,FIELDS,FIELDS_OPT,OPT,LIVE_WITH,STUB,PAINT_V,IT_V,STAFF_V,ACT_V};
 })();

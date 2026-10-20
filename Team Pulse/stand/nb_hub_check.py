@@ -40,13 +40,18 @@ def main():
              ('покраска HQ (2а)', {'paint_f': ['Hq']}, lambda p: p['oper'] == 'HQ'),
              ('NonIT строчными', {'it_f': ['nonit']}, lambda p: p['it'] == 'NonIT'),
              ('Digital (отдельно от NonIT)', {'it_f': ['Digital']}, lambda p: p['it'] == 'Digital'),
-             ('покраска Line + Support (2а)', {'paint_f': ['Line', 'Support']}, lambda p: p['oper'] in ('Line', 'Support'))]
+             ('покраска Line + Support (2а)', {'paint_f': ['Line', 'Support']}, lambda p: p['oper'] in ('Line', 'Support')),
+             # 20.10: тип численности — по умолчанию (случаи выше) «Активная», «Вся» — все строки
+             ('вся численность', {'act_f': ['Вся']}, lambda p: True),
+             ('вся численность + IT + штат', {'act_f': ['Вся'], 'it_f': ['IT'], 'staff_f': ['Штат']},
+              lambda p: p['it'] == 'IT' and p['rel'] == 'Штатный сотрудник')]
     raw = {}
     ok = True
     for name, flt, pred in cases:
         for label, sql in (('файл 2 ', F2), ('файл 2а', F2A)):
+            act = 'act_f' not in flt
             T = nb.truth(U, people, perf, grt, raw.get(name, pred) if label == 'файл 2а' else pred,
-                         agg=label == 'файл 2 ')
+                         agg=label == 'файл 2 ' and act, act=act)
             if label == 'файл 2 ' and 'paint_f' in flt:
                 continue                         # в hr_structure_overall покраски нет
             f = dict(flt)
@@ -89,8 +94,10 @@ def main():
                 meta = json.loads(rows[0]['j'])
                 fv = meta.get('fdv') or {}
                 dl = [l.split('\t') for l in next(r for r in rows if r['role'] == 'dict')['j'].split('\n') if l]
-                ks = [fv.get(k) or [] for k in ('paint', 'it', 'staff')]
-                want = [{x.lower() for x in f.get(c, [])} for c in ('paint_f', 'it_f', 'staff_f')]
+                # 20.10: четвёртый разрез — тип численности; пустой словарь (нет act_cd) — один тип
+                ks = [fv.get(k) or [] for k in ('paint', 'it', 'staff', 'act')]
+                want = [{x.lower() for x in f.get(c, [])} for c in ('paint_f', 'it_f', 'staff_f')] + [
+                    set() if 'act_f' in f else {'активная'}]
                 for l in dl:
                     rk, fd = l[0], (l[6] if len(l) > 6 else '')
                     n = 0.0
@@ -99,9 +106,11 @@ def main():
                             continue
                         c, v = x.split(':')
                         c = int(c)
-                        ic = c % len(ks[2]); c //= len(ks[2])
-                        ib = c % len(ks[1]); ia = c // len(ks[1])
-                        vals = (ks[0][ia], ks[1][ib], ks[2][ic])
+                        ix = []
+                        for kk in reversed(ks):
+                            L = max(len(kk), 1); ix.append(c % L); c //= L
+                        ix.reverse()
+                        vals = tuple(kk[i] if kk else '' for kk, i in zip(ks, ix))
                         if all(not w or v_.lower() in w for w, v_ in zip(want, vals)):
                             n += float(v)
                     if rk == 'all':

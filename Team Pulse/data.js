@@ -123,8 +123,8 @@ const AUD_LABEL={all:'все',hq:'HQ',us:'УС'};
 const METRICS=[
 {key:'hc_active',block:'structure',aud:'all',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники на конец месяца без стажёров, подрядчиков и неактивных — тех, кто в декрете, в учебной группе или не выходит на работу.',
   calc:'Как в методологии HR (Data Detective): все сотрудники, кроме\n• стажёров;\n• подрядчиков и аутстаффа;\n• неактивных: декрет, прогул, мобилизация, учебные группы, POS-агенты и амбассадоры.\nПо ней считают текучесть и сравнивают подразделения.'},
-{key:'hc_total',block:'structure',aud:'all',name:'Общая численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Все, кто числится в команде на конец месяца: активные, стажёры, подрядчики и неактивные.',
-  calc:'Для текучести и сравнения команд берите активную численность — так в методологии HR.'},
+{key:'hc_total',block:'structure',aud:'all',name:'Численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сколько людей в команде на конец месяца. По умолчанию — активная численность; всю показывает фильтр «Численность» в настройке.',
+  calc:'Активная — без стажёров, подрядчиков и неактивных (методология HR); по ней считают текучесть и сравнивают команды. Вся — все, кто числится, с любым типом оформления.'},
 /* Среднесписочная численность в списке метрик не стоит: как строка отчёта она
    ничего не сообщала руководителю (это всегда полусумма двух соседних значений
    численности), а место в таблице и карточку занимала. Ряд `hc_avg` остался —
@@ -144,7 +144,7 @@ const METRICS=[
    стало пять, и «Прирост с НГ» отправлял последнюю колонку под горизонтальный
    скролл на ноутбучной ширине. Полное имя и пояснение живут в подсказке шапки. */
 {key:'net_ytd',block:'movement',aud:'all',name:'Прирост с начала года',short:'Прирост',fmt:'int',better:'flat',unit:'чел',anchor:null,
-  ytdDelta:'hc_total',hint:'На сколько человек изменилась общая численность с 1 января.'},
+  ytdDelta:'hc_total',hint:'На сколько человек изменилась численность с 1 января.'},
 /* 15.10: «Коэффициент замещения» и «Найм на 100 человек» сняты — в каталоге
    графиков HQ и УС («Team Pulse — сводка графиков.md») их нет, это производные,
    придуманные для макета. */
@@ -391,6 +391,8 @@ function sanitizeHidden(list){
   return (list||[]).filter(k=>METRIC_BY_KEY[k]&&!LOCKED_METRICS.has(k));
 }
 function metricVisible(key,S){
+  /* на активной численности «Активная численность» совпадает с «Численностью» — одна карточка */
+  if(key==='hc_active'&&((S&&S.hcType)||HC_MODE)!=='all')return false;
   if(LOCKED_METRICS.has(key))return true;
   return !hiddenSet(S).has(key);
 }
@@ -440,6 +442,14 @@ const ITSEGS=REAL
      {key:'Digital',name:'Только Digital',chip:'Digital'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}]
   : [{key:'all',name:'IT и nonIT',chip:null},{key:'IT',name:'Только IT',chip:'IT'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}];
 const STAFFTYPES=[{key:'all',name:'Штат и не штат',chip:null},{key:'staff',name:'Только штат',chip:'штат'},{key:'nonstaff',name:'Только не штат',chip:'не штат'}];
+/* Тип численности (20.10): весь отчёт по умолчанию — на активной численности (методология
+   HR), «Вся» — все, кто числится. Это фильтр людей, а не разрез: численность, найм, отток,
+   переводы, ССЧ и текучесть, состав — всё по выбранному типу. */
+const HCTYPES=[{key:'active',name:'Активная',chip:null},{key:'all',name:'Вся численность',chip:'вся численность'}];
+/* Макет: в «Активной» численность — активная, потоки — в той же доле от всей (подрядчики,
+   стажёры и неактивные — вне отбора). В пробнике тип применяет датасет. */
+let HC_MODE='active';
+function setHcMode(t){HC_MODE=t==='all'?'all':'active'}
 
 /* ---------- Оргдерево ----------
    level 1 компания, 2 блок, 3 департамент, 4 управление, 5 отдел, 6 команда (лист).
@@ -613,21 +623,24 @@ const PICK=REAL?REAL.pick:{
 /* d — ключи состояния (paint, itSeg, staffType); null — посчитать нельзя (прежний датасет без fd) */
 function draftCount(p,d){
   if(REAL)return REAL.pick.count(p,{paint:REAL.filterValue('paint',d.paint),it:REAL.filterValue('itSeg',d.itSeg),
-    staff:REAL.filterValue('staffType',d.staffType)});
-  return Math.round(lastVal(reportLeaves(Object.assign({},d,{unit:p})),'hc_total'));
+    staff:REAL.filterValue('staffType',d.staffType),act:d.hcType==='all'?null:REAL.filterValue('hcType','active')});
+  const m0=HC_MODE;setHcMode(d.hcType);
+  const v=Math.round(lastVal(reportLeaves(Object.assign({},d,{unit:p})),'hc_total'));
+  setHcMode(m0);return v;
 }
 function benchmarkLabel(st){
   const parts=[];
   if(st.paint!=='all')parts.push(st.paint);
   if(st.itSeg!=='all')parts.push(st.itSeg);
   if(st.staffType!=='all')parts.push(st.staffType==='staff'?'штат':'не штат');
-  return parts.length?('всё '+parts.join(' ')):'вся компания';
+  return (parts.length?('всё '+parts.join(' ')):'вся компания')+(st.hcType==='all'?', вся численность':'');
 }
 function filterChips(st){
   const out=[];
   if(st.paint!=='all')out.push({k:'paint',label:st.paint});
   if(st.itSeg!=='all')out.push({k:'itSeg',label:st.itSeg});
   if(st.staffType!=='all')out.push({k:'staffType',label:st.staffType==='staff'?'штат':'не штат'});
+  if(st.hcType==='all')out.push({k:'hcType',label:'вся численность'});
   return out;
 }
 
@@ -688,7 +701,7 @@ const _rev={};
 function reviewAt(leafPath,key,i,n){
   let c=i;
   while(c>=0&&MONTHS_EXT[c].m!==5&&MONTHS_EXT[c].m!==11)c--;
-  const ck=leafPath+'|'+key+'|'+(c<0?'pre':c);
+  const ck=HC_MODE+'|'+leafPath+'|'+key+'|'+(c<0?'pre':c);
   if(_rev[ck]!=null)return _rev[ck];
   let v;
   if(key==='rev_eval'){
@@ -703,9 +716,20 @@ function reviewAt(leafPath,key,i,n){
 }
 
 /* Расширенный ряд на 18 точек — внутренняя кухня для накопительной текучести.
-   Наружу через metricSeries отдаются только 12 точек окна. */
+   Наружу через metricSeries отдаются только 12 точек окна. Тип численности: в пробнике
+   ряды уже по выбранному типу (датасет), в макете «Активная» пересчитывает численность и
+   потоки (ACT_MOCK) из всей — в доле активной; производные считаются уже от них. */
+const ACT_MOCK={hc_total:1,hire:1,attrition:1,transfer_in:1,transfer_out:1,hire_jun:1};
 function seriesExt(leafPath,key){
-  const ck='x|'+leafPath+'|'+key;
+  if(REAL||HC_MODE==='all'||!ACT_MOCK[key])return seriesRaw(leafPath,key);
+  const ck='a|'+leafPath+'|'+key;
+  if(_sc[ck])return _sc[ck];
+  const t=seriesRaw(leafPath,'hc_total'), a=seriesRaw(leafPath,'hc_active');
+  const out=key==='hc_total'?a.slice():seriesRaw(leafPath,key).map((v,i)=>t[i]?Math.round(v*a[i]/t[i]):v);
+  _sc[ck]=out;return out;
+}
+function seriesRaw(leafPath,key){
+  const ck='x|'+HC_MODE+'|'+leafPath+'|'+key;
   if(_sc[ck])return _sc[ck];
   /* пробник: у ключа есть настоящий ряд — он и есть ответ */
   if(REAL){const rs=REAL.series(leafPath,key);if(rs){_sc[ck]=rs;return rs}}
@@ -756,7 +780,7 @@ function seriesExt(leafPath,key){
     const trend=(i-(NEXT-1)/2)/(NEXT-1);
     let v;
     if(key==='hc_total'){ v=Math.max(3,Math.round(b.hc*(1+trend*0.07)+wave(leafPath,i,1.5*vol)+(r()-0.5)*1.6*vol)); }
-    else if(key==='hc_active'){ v=Math.max(2,Math.round(seriesExt(leafPath,'hc_total')[i]*(0.88+r()*0.09))); }
+    else if(key==='hc_active'){ v=Math.max(2,Math.round(seriesRaw(leafPath,'hc_total')[i]*(0.88+r()*0.09))); }
     else if(key==='hire'){ v=cg(0.0135+b.lvl*0.0075,SEAS_HIRE[cm],0.60,leafPath+'h',i); }
     else if(key==='attrition'){ v=cg(0.0100+b.lvl*0.0090,SEAS_ATTR[cm],0.55,leafPath+'a',i); }
     else if(key==='transfer_in'){ v=cg(0.0060,1,0.70,leafPath+'ti',i); }
@@ -772,7 +796,7 @@ function seriesExt(leafPath,key){
     /* Джуны среди принятых: каждый принятый — джун с вероятностью команды.
        Ряд не может превысить найм того же месяца по построению. */
     else if(key==='hire_jun'){
-      const h=seriesExt(leafPath,'hire')[i], pj=juniorP(leafPath);
+      const h=seriesRaw(leafPath,'hire')[i], pj=juniorP(leafPath);
       v=0;for(let k=0;k<h;k++)if(r()<pj)v++;
     }
     /* Активные пользователи AI: доля растёт внутри окна (внедрение идёт),
@@ -797,7 +821,7 @@ function seriesExt(leafPath,key){
 
 /* публичный ряд — всегда 12 точек окна */
 function metricSeries(leafPath,key){
-  const ck='s|'+leafPath+'|'+key;
+  const ck='s|'+HC_MODE+'|'+leafPath+'|'+key;
   if(_sc[ck])return _sc[ck];
   const out=seriesExt(leafPath,key).slice(PRE);
   _sc[ck]=out;return out;
@@ -819,7 +843,7 @@ const _ac=new Map();
    Накопительные суммируются из уже агрегированной месячной. */
 function aggregateExt(leafPaths,key){
   if(!leafPaths.length)return new Array(NEXT).fill(0);
-  const ck='x'+key+'#'+leafPaths.length+'#'+hashStr(leafPaths.join(','));
+  const ck='x'+HC_MODE+key+'#'+leafPaths.length+'#'+hashStr(leafPaths.join(','));
   if(_ac.has(ck))return _ac.get(ck);
   const m=defOf(key);
   const out=new Array(NEXT).fill(0);
@@ -850,7 +874,7 @@ function aggregateExt(leafPaths,key){
 }
 function aggregate(leafPaths,key){
   if(!leafPaths.length)return new Array(N).fill(0);
-  const ck=key+'#'+leafPaths.length+'#'+hashStr(leafPaths.join(','));
+  const ck=HC_MODE+key+'#'+leafPaths.length+'#'+hashStr(leafPaths.join(','));
   if(_ac.has(ck))return _ac.get(ck);
   const out=aggregateExt(leafPaths,key).slice(PRE);
   _ac.set(ck,out);return out;
@@ -976,7 +1000,8 @@ function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',
 /* В пробнике юнит и фильтры — те, что применил датасет (эхо в meta): отчёт
    показывает ровно то, что пришло, а не то, что хотелось бы. */
 const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.paint:'HQ',
-  itSeg:REAL?REAL.applied.itSeg:'all',staffType:REAL?REAL.applied.staffType:'all',period:PERIOD_LABEL,
+  itSeg:REAL?REAL.applied.itSeg:'all',staffType:REAL?REAL.applied.staffType:'all',
+  hcType:REAL?REAL.applied.hcType:'active',period:PERIOD_LABEL,
   tab:'onepager',subTab:null,selNode:null,aiOpen:false,
   /* скрытые пользователем метрики; пусто = показаны все */
   hiddenMetrics:[],
@@ -1570,7 +1595,7 @@ function sliceShare(leafPath,parts){
 function aggregateSlice(lp,key,sel){
   const parts=sliceParse(sel);
   if(!parts.length||!sliceable(key)||!lp.length)return aggregate(lp,key);
-  const ck='sl|'+key+'|'+parts.map(p=>p.id).join(',')+'#'+lp.length+'#'+hashStr(lp.join(','));
+  const ck='sl|'+HC_MODE+'|'+key+'|'+parts.map(p=>p.id).join(',')+'#'+lp.length+'#'+hashStr(lp.join(','));
   if(_ac.has(ck))return _ac.get(ck);
   const out=new Array(N).fill(0);
   for(let i=0;i<N;i++){
@@ -2059,7 +2084,7 @@ window.TPDATA={REAL,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,p
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,
-  COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
+  COUNT_METRICS,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HCTYPES,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
   metricSeries,reasonSeries,aggregate,lastVal,deltas,deltasOf,compareState,stateForKpi,kpiFor,comparable,

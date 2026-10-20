@@ -268,11 +268,15 @@ def eom(m):
     return min(dt.date(m.year, m.month, calendar.monthrange(m.year, m.month)[1]), D1)
 
 
-def truth(U, people, perf, grt, pred=lambda p: True, agg=False):
+def truth(U, people, perf, grt, pred=lambda p: True, agg=False, act=True):
     """узел (rk) × месяц → меры. Численность — на последний календарный день месяца (у текущего
-    неполного — на последний загруженный); ССЧ активной — полусумма численности узла с прошлым месяцем"""
+    неполного — на последний загруженный); ССЧ — полусумма численности узла с прошлым месяцем.
+    act — тип численности «Активная» (по умолчанию в отчёте): человек месяца — в строке со своим
+    типом активности на последний день в месяце (как измерения ноутбука), в счёт — только
+    «Активная»; найм — по методологии HR. act=False — вся численность, найм — в компанию"""
     T = defaultdict(lambda: defaultdict(float))
     alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])   # в день увольнения уже не в численности
+    ok = lambda p, m: not act or at(p['acth'], min(eom(m), p['end'] or D1)) == 'Активная'
     ms = months()
     people = [p for p in people if pred(p)]
     for p in people:
@@ -280,17 +284,17 @@ def truth(U, people, perf, grt, pred=lambda p: True, agg=False):
             e = eom(m)
             if alive(p, e):
                 for n in path(U, at(p['unit'], e)):
-                    T[(n, m)]['hc'] += 1
+                    T[(n, m)]['hc'] += ok(p, m)
                     T[(n, m)]['act'] += at(p['acth'], e) == 'Активная'
         if p['end']:
             m = dt.date(p['end'].year, p['end'].month, 1)
             for n in path(U, at(p['unit'], p['end'])):
-                T[(n, m)]['fire'] += 1
+                T[(n, m)]['fire'] += ok(p, m)
         if p['start'] > D0:
             m = dt.date(p['start'].year, p['start'].month, 1)
             for n in path(U, at(p['unit'], p['start'])):
-                T[(n, m)]['hire'] += at(p['acth'], p['start']) == 'Активная'
-        for c, _ in p['conv']:                 # найм по методологии DD: переход в активную — тоже найм
+                T[(n, m)]['hire'] += (at(p['acth'], p['start']) == 'Активная') if act else 1
+        for c, _ in (p['conv'] if act else []):   # найм по методологии DD: переход в активную — тоже найм
             m = dt.date(c.year, c.month, 1)
             for n in path(U, at(p['unit'], c)):
                 T[(n, m)]['hire'] += 1
@@ -305,24 +309,24 @@ def truth(U, people, perf, grt, pred=lambda p: True, agg=False):
             m, mo = dt.date(d.year, d.month, 1), dt.date((d - dt.timedelta(1)).year, (d - dt.timedelta(1)).month, 1)
             pn, po = path(U, new), path(U, old)
             for n in pn:
-                if n not in po: T[(n, m)]['tin'] += 1
+                if n not in po: T[(n, m)]['tin'] += ok(p, m)
             for n in po:
-                if n not in pn: T[(n, mo)]['tout'] += 1
+                if n not in pn: T[(n, mo)]['tout'] += ok(p, mo)
     for m_i, m in enumerate(ms):
         for n in U:
-            prev = T[(n, ms[m_i - 1])]['act'] if m_i else T[(n, m)]['act']
-            T[(n, m)]['ssch'] = (T[(n, m)]['act'] + prev) / 2
+            prev = T[(n, ms[m_i - 1])]['hc'] if m_i else T[(n, m)]['hc']
+            T[(n, m)]['ssch'] = (T[(n, m)]['hc'] + prev) / 2
     byrk = {p['rk']: p for p in people}
     last_unit = lambda p, m: at(p['unit'], min(eom(m), p['end'] or D1))
     for rk_, m, cat in perf:
-        if rk_ not in byrk:
+        if rk_ not in byrk or not ok(byrk[rk_], m):
             continue
         for n in path(U, last_unit(byrk[rk_], m)):
             T[(n, m)]['perf'] += 1
     for rk_, ts, st, _, _ in grt:
-        if rk_ not in byrk:
-            continue
         m = dt.date(ts.year, ts.month, 1)
+        if rk_ not in byrk or not ok(byrk[rk_], m):
+            continue
         for n in path(U, last_unit(byrk[rk_], m)):
             T[(n, m)]['grt'] += 1
             T[(n, m)]['grt2'] += st in ('FNS', 'DCL')
@@ -605,7 +609,10 @@ def main():
     perf, office, grt = load(pg, U, people)
     n = pg.run('SELECT count(*) AS n, count(DISTINCT mdm_employee_rk) AS p FROM usr_cross_data.hr_executive_proteus')
     print(f'источник: {n.n[0]} строк по дням, {n.p[0]} человек, юнитов {len(U)}, {D0} … {D1}')
-    T = truth(U, people, perf, grt)
+    # сверка TP 2.0 по шагам — по всей численности, ССЧ и найм — у активной (так их считает таблица)
+    T, Ta = truth(U, people, perf, grt, act=False), truth(U, people, perf, grt)
+    for k in list(Ta):
+        T[k]['ssch'], T[k]['hire'] = Ta[k]['ssch'], Ta[k]['hire']
     if a.hub:
         run_yaml(pg, os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', '1. Helicopter — ноут TeamPulse Hub.yaml'), a.hub)
         return

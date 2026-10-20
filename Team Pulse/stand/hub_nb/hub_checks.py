@@ -30,7 +30,7 @@ HUB_CHECKS = [
               - (select sum(mx_n) from {HUB_P}_mix where node_rk = {_root} and mx_key = 'g')"""),
     ('повторы ключа «узел × месяц × срез»',
      f"""select count(*) from (select 1 from {HUB_P}_series
-                               group by node_rk, report_month, paint_cd, it_cd, staff_cd having count(*) > 1) t"""),
+                               group by node_rk, report_month, paint_cd, it_cd, staff_cd, act_cd having count(*) > 1) t"""),
     ('узлов, у которых нет родителя в справочнике (кроме корня)',
      f"""select count(*) from {HUB_P}_unit u
          where u.parent_rk <> '' and not exists (select 1 from {HUB_P}_unit p where p.unit_rk = u.parent_rk)"""),
