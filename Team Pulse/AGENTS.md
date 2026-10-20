@@ -2279,3 +2279,10 @@ high → alert, mid → warn, good → ok, none → base; сводка — `poin
 (вкладка | глава | юнит) тот же. Свой запрос — `STORE.scroll = null`, экран сверху. sbx: сценарий с `rerun` — 594 → 594
 (было 594 → 0). Гайд — CJ-13.
 
+**20.10, поставка 43 — один скролл во вкладке блока.** Видео заказчика: «двойной скролл». styles.css, конец:
+`@media (min-width:1121px)` — `.split` без фиксированной высоты, `.split-l` — `position: sticky; top: head-h + 12;
+max-height: 100vh − head-h − 24` (своя прокрутка `.tbl-wrap` только когда таблица выше окна, `overscroll-behavior:
+contain`), `.split-r .panel-b` — `overflow: visible; height: auto`, графики `.fill` — своей высотой (`opt.h`),
+`.st-rail` без прокрутки. Узко (≤1120) и `wide-l` до 1240 — без sticky. Смоук: правило в CSS. sbx: прокрутка
+900 — таблица на 12 px от верха, раскрытое дерево листается внутри.
+

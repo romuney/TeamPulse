@@ -175,6 +175,14 @@ const css=fs.readFileSync(path.join(dir,'styles.css'),'utf8').replace(/\s+/g,'')
 const appSrc=fs.readFileSync(path.join(dir,'app.js'),'utf8');
 /* 20.10, видео заказчика: перезапуск скрипта Proteus (ресайз, перерисовка) не сбрасывает прокрутку —
    она живёт в хранилище и возвращается на старте того же вида (модель песочницы: rerun, 594 → 594) */
+/* 20.10, «двойной скролл»: страница — один скролл, таблица подразделений прилипает и листается
+   сама только если выше экрана; панель графиков без своей высоты и прокрутки */
+const cssAll=fs.readFileSync(path.join(dir,'styles.css'),'utf8');
+checks.push(['один скролл: таблица подразделений sticky с высотой окна, графики без своей прокрутки',
+  /@media \(min-width:1121px\)\{\s*\.split\{height:auto;min-height:0;align-items:start\}/.test(cssAll)&&
+  /\.split>\.split-l\{position:sticky;top:calc\(var\(--head-h,0px\) \+ 12px\);max-height:calc\(100vh/.test(cssAll)&&
+  /\.split-r \.panel-b,\.split-r \.panel-b\.st-on\{overflow:visible;height:auto\}/.test(cssAll)&&
+  /overscroll-behavior:contain/.test(cssAll)]);
 checks.push(['перезапуск скрипта держит прокрутку экрана и панелей',
   /STORE\.scroll=\{k:viewKey\(\)/.test(appSrc)&&/back=ENV&&!pend0&&STORE\.scroll/.test(appSrc)&&
   /ENV\.scroller\.scrollTop=back\.y/.test(appSrc)&&/if\(pend\)STORE\.scroll=null/.test(appSrc)]);

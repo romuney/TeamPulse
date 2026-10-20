@@ -2074,6 +2074,32 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 @media (max-width:600px){.in-row{flex-direction:column}.in-a{flex-wrap:wrap}.in-lead{padding:var(--s7)}.bk-sum .in-ico{display:none}}
 
 
+/* ============================================================================
+   Один скролл (20.10, видео заказчика: «двойной скролл» — сначала страница, потом панель
+   графиков). Раньше рабочая зона держала высоту экрана, и обе панели прокручивались внутри.
+   Теперь — приём «список и детали» (почта, Figma, Linear): страница прокручивается одним
+   скроллом, графики главы идут своей высотой, а таблица подразделений прилипает к верху
+   экрана и едет рядом с ними. Своя прокрутка у таблицы — только если она выше экрана
+   (большой юнит); колёсико над ней листает её, дойдя до края, страницу не дёргает
+   (overscroll-behavior). Узкий экран (≤1120 px, таблица над графиками) — как было.
+   ========================================================================== */
+@media (min-width:1121px){
+  .split{height:auto;min-height:0;align-items:start}
+  .split>.panel{height:auto}
+  .split>.split-l{position:sticky;top:calc(var(--head-h,0px) + 12px);max-height:calc(100vh - var(--head-h,0px) - 24px)}
+  .split-l .tbl-wrap{overscroll-behavior:contain}
+  .split-gut{align-self:stretch}
+  .split-r .panel-b,.split-r .panel-b.st-on{overflow:visible;height:auto}
+  .st-wrap,.st-grid,.st-main{flex:none}
+  .split-r .panel-b>.svgchart.fill,.st-main>.svgchart.fill{flex:none;height:auto}
+  .st-grid.has-rail{grid-template-rows:auto;align-items:start}
+  .st-grid.has-rail>.st-main{height:auto}
+  .st-rail{overflow:visible}
+}
+@media (max-width:1240px) and (min-width:1121px){
+  .split.wide-l>.split-l{position:static;max-height:none}
+}
+
 </style>
 </head>
 <body>
