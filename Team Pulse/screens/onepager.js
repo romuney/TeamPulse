@@ -71,7 +71,8 @@ function obsInfo(S){
 
 /* Огонёк по смыслу вывода (20.10, заказчик): выводы считаются правилами, не ИИ, поэтому
    не AI-огонёк. Требует действий — тревога, посмотреть — насторожен, хорошая новость — улыбка,
-   всё спокойно — спокойный; сводку рассказывает огонёк с жестом «смотрите». */
+   всё спокойно — спокойный; сводку рассказывает огонёк с жестом «смотрите». На главной (21.10) —
+   один огонёк, у сводки: в карточках выводов их нет, категория — точкой; по смыслу — во вкладке блока. */
 const MOOD_ICO={high:'alert',mid:'warn',good:'ok',none:'base'};
 function moodIco(role,px,alt){
   const M=window.TPMASCOT, im=M?M.img(role,px,{alt:alt}):'';
@@ -83,13 +84,13 @@ function moodIco(role,px,alt){
    метрики», кнопка — во вкладку блока или сразу к подразделению. */
 function insightCard(c){
   const go=c.btn.go?' data-opgo="'+esc(c.btn.go)+'"':' data-tab="'+esc(c.btn.tab)+'"';
-  return '<div class="in-card '+c.sev+'"><div class="in-t">'+moodIco(MOOD_ICO[c.sev],30,c.tag)+'<span class="in-tag">'+esc(c.tag)+'</span>'+
+  return '<div class="in-card '+c.sev+'"><div class="in-t"><span class="in-tag">'+esc(c.tag)+'</span>'+
     '<span class="in-blk">· '+esc(c.blockName)+'</span></div>'+
     '<div class="in-row"><div class="in-txt"><div class="in-h">'+esc(c.head)+'</div>'+
       (c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
     (c.chart?'<button class="in-mini" data-opfact="'+esc(c.key)+'"'+U.tipAttr({title:D.METRIC_BY_KEY[c.key].name,
       text:'Этот год против ориентира.',note:'Нажмите — откроется подробный график.'})+'>'+c.chart+'</button>':'')+'</div>'+
-    '<div class="in-a"><span class="in-do">'+c.todo+'</span><button class="btn in-go"'+go+'>'+esc(c.btn.label)+'</button></div></div>';
+    '<div class="in-a"><span class="in-do">'+c.todo+'</span><button class="in-go"'+go+'>'+esc(c.btn.label)+'</button></div></div>';
 }
 /* «В норме»: живые метрики без выводов — значением в пилюле; клик открывает
    строку метрики в «Все метрики». Заглушки — отдельной пилюлей «в разработке». */

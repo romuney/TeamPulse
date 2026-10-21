@@ -72,9 +72,10 @@ function expandableRows(root){
    экран говорит об этом словами, а не повторяет ИТОГО второй строкой.
    q — поиск: дерево обходится целиком в пределах трёх уровней, остаются
    находки (hit) и их предки (anc) — свёрнутый родитель находку не прячет. */
-function pivotRows(root,expanded,isEmpty,q){
+/* cmp — сортировка соседей по колонке (мониторинг, 21.10): внутри каждого уровня, пустые — внизу */
+function pivotRows(root,expanded,isEmpty,q,cmp){
   const rows=[], emp=isEmpty||(()=>false), needle=String(q||'').trim().toLowerCase();
-  const order=list=>list.filter(n=>!emp(n.path)).concat(list.filter(n=>emp(n.path)));
+  const order=list=>{const live=list.filter(n=>!emp(n.path));if(cmp)live.sort(cmp);return live.concat(list.filter(n=>emp(n.path)))};
   (function walk(p,d){
     order(D.rowsOf(p)).forEach(n=>{
       /* kidsOf: в пробнике у юнита третьего уровня дети в ответ не едут —
@@ -187,14 +188,15 @@ const DEV_TABS={
   /* 15.10, разведка 3: разрезы состава и увольнений — в основной таблице. Условны
      только пересечения разрезов (срез по клику, «разрез × разрез») и то, чего в
      таблице нет: регион, специализации внутри стримов (формат работы — с 16.10) */
-  structure:{portrait:{stage:4,part:true,t:'Каждый разрез — настоящий. Пересечения (срез по клику, возраст по полу) пока оценочные.'},
-    work:{stage:4,part:true,t:'Оформление, формат работы и юрлицо — настоящие. Региона в данных пока нет.'},
-    custom:{stage:4,part:true,t:'Каждый разрез — настоящий. Таблица «разрез × разрез» пока оценочная.'}},
+  /* 21.10: точный срез (таблица состава ноутбука) снимает «оценочные» пересечения —
+     прототип вкладок по файлу «Структура» показан без плашек */
+  structure:{},
   hiring:{vacancies:{stage:2,t:'Вакансии и срок закрытия пока условные.'},
     plan:{stage:2,part:true,t:'Принятые — настоящие. План найма и статусы вакансий пока условные.'},
     profile:{stage:2,part:true,t:'Общий найм — настоящий. Каналы и грейды принятых пока условные.'}},
   tgrowth:{'*':{stage:6,t:'Заявки на T-рост и решения по ним пока условные.'}},
-  monitor:{both:{stage:5,part:true,t:'Недоработчики и переработчики — настоящие. «Улучшили оценку в ревью» пока условная.'},
+  /* 21.10: «Рабочая активность» по файлу Антона — прототип на демо-данных, без плашки */
+  monitor:{
     review:{stage:5,t:'Итоги ревью пока условные.'}},
   office:{'*':{stage:7,t:'Посещаемость и бронирование пока условные.'}},
   ai:{'*':{stage:8,t:'Данные об AI-инструментах пока условные.'}}
@@ -308,7 +310,14 @@ function renderBlock(S,expanded,mixOpen,view){
   }
   const tq=String(view&&view.tq||'').trim();
   const isEmpty=p=>!rowLeaves(p,S).length;
-  const rows=pivotRows(root,expanded,isEmpty,tq);
+  /* свои колонки таблицы (мониторинг, 21.10): {k, name, tip, val(md) | spark(md), share};
+     md — данные блока по листьям строки (mod.data). Шапка сортирует: по убыванию, по
+     возрастанию, снова как в оргдереве. */
+  const tcols=mod.cols||null, tdata=tcols?(lp=>mod.data?mod.data(lp):D.monData(lp)):null;
+  const ts=String(S.tsort||'').split(':'), tsc=tcols&&tcols.find(c=>c.k===ts[0]&&c.val), tsd=ts[1]==='a'?1:-1;
+  const cmp=tsc?(a,b)=>{const x=tdata(rowLeaves(a.path,S)), y=tdata(rowLeaves(b.path,S));
+    return tsd*((x?tsc.val(x):0)-(y?tsc.val(y):0))}:null;
+  const rows=pivotRows(root,expanded,isEmpty,tq,cmp);
   /* инсайт про концентрацию считается по первому уровню всегда — от
      раскрытий и набранного поиска он зависеть не должен */
   const baseRows=pivotRows(root,new Set(),isEmpty);
@@ -349,6 +358,9 @@ function renderBlock(S,expanded,mixOpen,view){
      сколько метрик: у движения персонала их теперь пять. */
   /* n1…n8: колонок ровно столько, сколько метрик. После итерации 28 у движения
      персонала их семь — полоса на ноутбуке переносится на два ряда по четыре. */
+  /* свой KPI-полосы блок (мониторинг, 21.10): снимок недели по выбранной строке таблицы */
+  if(mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
+  else{
   h+='<div class="kpis compact n'+Math.min(8,mets.length)+'">';
   mets.forEach(m=>{
     const sliced=selIds.length&&D.sliceable(m.key);
@@ -369,6 +381,7 @@ function renderBlock(S,expanded,mixOpen,view){
       row3:sliced?'':'год назад <b>'+D.fmtVal(m.key,yearAgo(rl,m.key))+'</b>'});
   });
   h+='</div>';
+  }
 
   /* 4a · что сейчас срезано. Плашка стоит под карточками, а не только в той
      таблице, по которой кликнули: без неё «191 → 59» в карточке выглядит
@@ -379,7 +392,7 @@ function renderBlock(S,expanded,mixOpen,view){
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
      левая колонка становится шире — иначе главная метрика и «К базе» уезжали
      за край панели под горизонтальную прокрутку. */
-  const wideL=mets.length>=7;
+  const wideL=tcols?true:mets.length>=7;
   /* Таблица подразделений — по выбору (итерация 32): m-both — таблица слева,
      графики справа (по умолчанию: таблица — основа фильтрации), m-charts —
      графики во всю ширину; share — доля
@@ -400,11 +413,22 @@ function renderBlock(S,expanded,mixOpen,view){
      Колонки «К базе» / «К цели KPI» больше нет (итерация 32, заказчик: «непонятно,
      по какой логике он появляется»). Ориентир — база или цель — живёт в
      KPI-карточках над таблицей и на графиках главы. */
-  const totalCells=mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
+  const tcell=(c,md,lead)=>{
+    if(!md)return '<td>—</td>';
+    if(c.spark)return '<td class="sp">'+c.spark(md)+'</td>';
+    const v=c.val(md), hc=tcols[0].val(md);
+    if(v==null)return '<td'+U.tipAttr({title:c.name,text:'Появится с витриной мониторинга по неделям.'})+'>—</td>';
+    return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+D.fmtInt(v)+'</td>';
+  };
+  const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),i===1)).join('')
+    :mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'».\nГлубже — выберите строку и нажмите значок у её названия.'})+'>Подразделение</th>'+
-    mets.map(m=>'<th'+U.tipAttr({title:m.name,text:U.metricText(m)})+'>'+esc(m.short)+
-      (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+'</th>').join('')+
+    (tcols?tcols.map(c=>{const on=tsc===c;return '<th'+(c.val?' class="tsort'+(on?' on':'')+'" data-tsort="'+(on&&tsd<0?c.k+':a':on?'':c.k+':d')+'"':'')+
+        U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
+        esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+'</th>'}).join('')
+    :mets.map(m=>'<th'+U.tipAttr({title:m.name,text:U.metricText(m)})+'>'+esc(m.short)+
+      (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
        Каретка у ИТОГО раскрывает и сворачивает ВСЁ дерево разом: раскрывать
@@ -445,11 +469,12 @@ function renderBlock(S,expanded,mixOpen,view){
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
-      mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+
-        (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>').join('')+'</tr>';
+      (tcols?tcols.map((c,i)=>tcell(c,tdata(lp),i===1)).join('')
+      :mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+
+        (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>').join(''))+'</tr>';
   });
   /* пустые состояния — строкой в таблице, а не вместо неё: ИТОГО остаётся */
-  const ncol=1+mets.length;
+  const ncol=1+(tcols?tcols.length:mets.length);
   if(!rows.length)tbl+='<tr class="tree-empty"><td class="txt" colspan="'+ncol+'">'+
     (tq?'В трёх уровнях вниз нет «'+esc(tq)+'». Другое подразделение компании выберите в «Настрой свой дашборд».'
       :'У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры в строке ИТОГО.')+'</td></tr>';

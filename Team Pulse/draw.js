@@ -259,7 +259,7 @@ const TTL_SZ=12, TTL_W=700, C_INK='#1f1f1f';
    В классе уже лежат `bar up`, `bar dn`, `ln`, `lnb`, `dot` — и smoke.js
    сверяет эти литералы посимвольно. Любой лишний класс там ломает проверку. */
 const SERIES={yoy:['main','prev','bench'],pair:['a','b','cur','prev'],panels:['main','prev'],
-              waterfall:['total','in','out']};
+              waterfall:['total','in','out'],stack:['under','normal','over','grey']};
 /* каскад держится на композиции — выключать типы столбцов в нём бессмысленно,
    остаётся только подсветка */
 const LOCKED={waterfall:1};
@@ -1067,8 +1067,88 @@ function drawCalendar(a,w,h){
   return svg(w,hUsed,s);
 }
 
+/* ============================================================================
+   7. Мониторинг рабочей активности (21.10, файл Антона). Ось — периоды (недели или
+      месяцы), а не янв.–дек.: это не «год к году», а последние недели мониторинга.
+      stack — состав по категориям столбиками: снизу недоработка (её рост читается от
+      нуля), дальше нормал, переработка и сверху «не размечено»; над столбиком — всего
+      людей, разбивка — в подсказке. Клик по столбику отмечает период (data-pmark) на
+      всех графиках вкладки, клик по легенде скрывает категорию.
+      pline — линия по тем же периодам: отмеченный период — полосой и крупной точкой.
+      Цвета категорий прошли валидатор палитры (светлота, насыщенность, различимость
+      в т. ч. при дальтонизме); контраст с белым ниже 3:1 — значения в подсказке и в KPI.
+   ========================================================================== */
+const C_MON={under:'#E8A33D',normal:'#7FA2E6',over:'#C2513F',grey:'#D3D5DA',
+  /* второй тон разбивки в KPI-карточках: «дольше 2 недель», «больше 50%», «больше 5 дней» */
+  under2:'#A86B12',over2:'#7F2A1D',talk:'#245FD4',talk2:'#1545A3',per:'#9AA0AC',per2:'#5B616D'};
+const MON_CATS=[['under','Недоработка'],['normal','Нормал'],['over','Переработка'],['grey','Не размечено']];
+function perAxis(P,X,h,mark,bandW){
+  const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
+  return P.map((p,i)=>i===mark||(last-i)%step===0?txt(X(i),h-8,p.label,i===mark?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
+}
+function drawStack(a,w,h){
+  const o=a.opt||{}, P=a.periods, off=offOf(o), mark=a.mark;
+  const cats=MON_CATS.filter(c=>!off.has(c[0]));
+  /* узкая панель: легенда не влезает рядом с заголовком — встаёт второй строкой */
+  const lgW=(o.legend||[]).reduce((v,it)=>v+textW(it.name,11.5)+30,0), two=textW(o.title||'',TTL_SZ)+lgW+24>w;
+  const hh=headH(o.title,o.legend)+(two?22:0);
+  h=(h||o.h||260)+(two?22:0);
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/P.length, X=i=>x0+bandW*(i+0.5);
+  const tot=P.map(p=>cats.reduce((v,c)=>v+(p[c[0]]||0),0));
+  const max=niceMax(tot), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
+  const bw=Math.max(8,Math.min(42,bandW*0.6));
+  let s=two?header(w,o.title,null,{})+'<g transform="translate(0,22)">'+header(w,null,o.legend,{kind:'stack',off:o.off})+'</g>'
+    :header(w,o.title,o.legend,{kind:'stack',off:o.off});
+  P.forEach((p,i)=>{
+    const cx=X(i), on=mark===i, dly=i*28;
+    const live=cats.filter(c=>(p[c[0]]||0)>0);
+    let acc=0, segs='';
+    live.forEach((c,ci)=>{
+      const v=p[c[0]], y1=Y(acc+v), y0=Y(acc), lastSeg=ci===live.length-1;
+      /* 2px просвет между кусками — цвета соседей не сливаются */
+      const yt=y1+(lastSeg?0:1), yb=y0-(ci?1:0);
+      const ex=' class="bar up"'+sAttr(c[0])+' style="animation-delay:'+dly+'ms"';
+      segs+=lastSeg?barUp(cx-bw/2,yt,bw,yb-yt,C_MON[c[0]],ex):rect(cx-bw/2,yt,bw,Math.max(0,yb-yt),C_MON[c[0]],0,ex);
+      acc+=v;
+    });
+    const t=tot[i];
+    s+='<g class="barg pmk'+(on?' on':'')+'" data-pmark="'+i+'"'+tip({title:p.full,
+      rows:MON_CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+(p.hc?Math.round((p[c[0]]||0)/p.hc*100):0)+'%',color:off.has(c[0])?C_OFF:C_MON[c[0]]})),
+      note:(on?'Период отмечен на линиях. Клик — снять отметку.':'Клик — отметить период на линиях.')+' Всего — '+CD.fmtInt(p.hc)+' чел.'})+'>'+
+      (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+
+      '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+segs+'</g>';
+    if(t)s+=txt(cx,Y(t)-VAL_DY,CD.fmtInt(t),valOpt({delay:200+dly}));
+  });
+  s+=line(x0,bot,x0+plotW,bot,C_ZERO,1)+perAxis(P,X,h,mark,bandW);
+  return svg(w,h,s);
+}
+function drawPline(a,w,h){
+  const o=a.opt||{}, P=a.periods, key=a.key, mark=a.mark, col=o.color||C_LINE;
+  const fmt=v=>v==null?'—':o.fmt==='pct'?(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%':(Math.round(v*10)/10).toFixed(1).replace('.',',');
+  const vals=P.map(p=>p[key]);
+  const hh=headH(o.title,null);
+  h=h||o.h||200;
+  const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/P.length, X=i=>x0+bandW*(i+0.5);
+  const max=niceMax(vals), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
+  let s=header(w,o.title,null,{});
+  if(mark!=null&&P[mark])s+=rect(X(mark)-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4);
+  s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
+  s+='<path class="ln" d="'+polyD(vals,X,Y)+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
+  let lbl='';
+  vals.forEach((v,i)=>{
+    const on=i===mark;
+    s+='<g class="ptg pmk" data-pmark="'+i+'"'+tip({title:P[i].full,rows:[{label:o.name||'',value:fmt(v),color:col}],
+      note:on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
+      '<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+
+      (v==null?'':'<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="'+(on?4.5:2.6)+'" fill="'+(on?col:'#fff')+'" stroke="'+col+'" stroke-width="2"/>')+'</g>';
+    if(v!=null&&(on||(last-i)%step===0))lbl+=txt(X(i),Y(v)-VAL_DY,fmt(v),valOpt({delay:300+i*20}));
+  });
+  return svg(w,h,s+lbl+perAxis(P,X,h,mark,bandW));
+}
+
 const KINDS={yoy:drawYoy,pair:drawPair,panels:drawPanels,
-             waterfall:drawWaterfall,calendar:drawCalendar};
+             waterfall:drawWaterfall,calendar:drawCalendar,stack:drawStack,pline:drawPline};
 const NOMINAL_W=900, NOMINAL_H=null;
 let _specs=new Map(), _sid=0;
 /* Какие серии выключены. Живёт ОТДЕЛЬНО от _specs и НЕ чистится в reset():
@@ -1159,5 +1239,5 @@ window.TPDRAW={chart,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,serie
   sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
-  C_VAC,C_UNDER,C_REVIEW,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y,C_AI};
+  C_VAC,C_UNDER,C_REVIEW,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y,C_AI,C_MON,MON_CATS};
 })();

@@ -344,8 +344,9 @@ checks.push(['ряд hc_avg жив: текучесть по-прежнему с�
 const subsOf=k=>SC.blocks[k].subTabs.map(t=>t[0]).join(',');
 /* 14.10: первым — «Портрет команды», «Оформление» и «География» — одна глава */
 /* 15.10: четыре главы — два обзора, стримы таблицей и конструктор («вкладок перебор») */
-checks.push(['состав: два обзора, стримы таблицей и конструктор',
-  subsOf('structure')==='portrait,work,stream,custom'&&SC.blocks.structure.defaultSub==='portrait']);
+/* 21.10: по файлу «Структура» (п. 8 правок Антона) — портрет, уровень позиции, оформление, стримы, конструктор */
+checks.push(['состав по файлу «Структура»: портрет, уровень позиции, оформление, стримы, конструктор',
+  subsOf('structure')==='portrait,level,work,stream,custom'&&SC.blocks.structure.defaultSub==='portrait']);
 /* итерация 28 (бизнес-анализ): план-факт и профиль найма, заявки и статусы
    роста, бронирование и «кто ходит» встали своими вкладками; срок закрытия
    по-прежнему панелью к вакансиям, конверсия T-роста — рядом с решениями */
@@ -749,10 +750,12 @@ checks.push(['марки графиков помечены data-s',
   /* 15.10: каждый разрез — ровно в одном месте: стримы таблицей, остальное в двух обзорах */
   checks.push(['каждый разрез состава стоит ровно в одной главе',
     (function(){
-      const who=A.go('structure','portrait'), work=A.go('structure','work'), str=A.go('structure','stream');
-      const at=k=>[who,work,str].filter(h=>new RegExp('data-mix="'+k+':').test(h)).length;
-      return ['seniority','grade','tenure','age','gender','employment','worksite','region','legal','stream'].every(k=>at(k)===1)&&
-        !/data-mix="seniority:/.test(work)&&!/data-mix="stream:/.test(who);
+      /* 21.10, файл «Структура»: пол и возраст — портрет, сеньорность, грейд и стаж — уровень позиции,
+         компания, занятость и формат — оформление, стрим — своя вкладка (строка стрима — data-mixgrp) */
+      const who=A.go('structure','portrait'), lvl=A.go('structure','level'), work=A.go('structure','work'), str=A.go('structure','stream');
+      const at=k=>[who,lvl,work,str].filter(h=>new RegExp('data-mix(?:grp)?="'+k+':').test(h)).length;
+      return ['seniority','grade','tenure','age','gender','employment','worksite','legal','stream'].every(k=>at(k)===1)&&
+        !/data-mix="seniority:/.test(work)&&!/data-mix(?:grp)?="stream:/.test(who);
     })()]);
   checks.push(['каждая группа ссылается на существующие разрезы',
     D.MIX_GROUPS.every(g=>g.dims.every(k=>!!byKey[k]))]);
@@ -814,9 +817,9 @@ checks.push(['марки графиков помечены data-s',
 
   /* 5. Клик по строке разбивки берёт срез */
   const qual=A.go('structure','portrait');
-  checks.push(['куски обзора кликаются: у них есть data-mix',
-    /<span class="dk(?: big)?" data-mix="seniority:s" style="flex:/.test(qual)&&
-    /<div class="bar" data-mix="grade:g1"/.test(qual)]);
+  checks.push(['куски портрета и карточки кликаются: у них есть data-mix',
+    /<span[^>]* data-mix="gender:f" style="flex:/.test(qual)&&/<div class="shc" data-mix="age:a0"/.test(qual)&&
+    /<tr class="urow" data-mix="seniority:s"/.test(A.go('structure','level'))]);
   const hcAll=D.lastVal(rl,'hc_total'), hcSen=D.lastValSlice(rl,'hc_total',['seniority:s']);
   checks.push(['срез режет численность, а не оставляет её прежней',
     hcSen>0&&hcSen<hcAll]);
@@ -858,8 +861,8 @@ checks.push(['марки графиков помечены data-s',
   checks.push(['ИТОГО таблицы подразделений тоже по срезу',
     totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
     totRow.indexOf('>'+D.fmtVal('hc_total',hcAll)+'<')<0]);
-  checks.push(['выбранный кусок обзора помечен',
-    /<span class="dk on(?: big)?" data-mix="seniority:s" style="flex:/.test(sliced)]);
+  checks.push(['выбранная строка разбивки помечена',
+    /<tr class="urow sel" data-mix="seniority:s"/.test(A.go('structure','level'))]);
 
   /* 7. Срез НЕ протекает на другие вкладки: подпись «N чел» стоит везде */
   const movSliced=A.go('movement','balance');
@@ -939,10 +942,11 @@ checks.push(['марки графиков помечены data-s',
     /* заголовок первой колонки не повторяет название разреза над таблицей */
     /* 14.10: таблицы структуры «лёгкие» — без шапки колонок и без ИТОГО:
        итог стоит в карточке над ними, повторять его у каждого разреза незачем */
-    checks.push(['таблицы структуры: подпись над таблицей, без шапки колонок и без ИТОГО',
-      /<div class="bt-cap">Стрим и специализация/.test(grp)&&!/<thead>/.test(grp)&&!/ИТОГО/.test(grp)&&
-      D.MIX_GROUPS.every(g=>{const v=A.go('structure',g.key).split('<div class="bt-stack lite">')[1]||'';
-        return v&&!/class="total/.test(v)&&!/<thead>/.test(v)&&/class="ptable btable dense lite"/.test(v)})]);
+    /* 21.10, файл «Структура»: колонки «категория · Чел. · Доля · полоса» — с шапкой, ИТОГО по-прежнему нет */
+    checks.push(['таблицы структуры: подпись над таблицей, шапка «Чел. · Доля», без ИТОГО',
+      /<div class="bt-cap">Стрим и специализация/.test(grp)&&/<th>Чел\.<\/th><th>Доля<\/th>/.test(grp)&&!/ИТОГО/.test(grp)&&
+      ['level','work'].every(k=>{const v=(A.go('structure',k).split('<div class="st-trio">')[1]||'');
+        return v&&!/class="total/.test(v)&&(v.match(/<th>Чел\.<\/th><th>Доля<\/th>/g)||[]).length===3&&/class="ptable btable dense lite"/.test(v)})]);
     /* то же правило во всех таблицах, у которых имя стоит прямо над ними */
     checks.push(['ни одна таблица не повторяет своё название в шапке колонки',
       /<thead><tr><th class="txt"><\/th>/.test(A.go('turnover','reasons'))&&
@@ -952,7 +956,7 @@ checks.push(['марки графиков помечены data-s',
     A.go('structure','stream');
     const open2=A.mixOpen(['stream:dev']);
     const grp2=(open2.match(/<div class="bt-group">[\s\S]*?<\/table>/)||[''])[0];
-    const topSum=[...grp2.matchAll(/<tr class="urow(?: sel)?" data-mix="stream:[^"]*"[\s\S]*?<td class="lead">([\d ]+)/g)]
+    const topSum=[...grp2.matchAll(/<tr class="urow(?: sel)?" data-btexp="stream:[^"]*" data-mixgrp="stream:[^"]*"[\s\S]*?<td class="lead">([\d ]+)/g)]
       .reduce((a,m)=>a+(+m[1].replace(/ /g,'')),0);
     checks.push(['верхний уровень двухуровневой разбивки складывается в численность',
       topSum===Math.round(hc)]);
@@ -1121,10 +1125,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['AI: ни один инструмент не выше общего проникновения, стримов нет (15.10)',
     !ai.streams&&ai.tools.every(t=>t.value<=ai.pen)&&!/Сравнение стримов/.test(A.go('ai','tools'))]);
   /* 14.10: «Оформление» и «География» — одна глава «Как оформлены и где работают» */
-  checks.push(['регион — разрез главы «Как оформлены и где», матрица «регион × специализация» сходится',
-    /data-mix="region:msk"/.test(A.go('structure','work'))&&
-    sum([].concat(...D.mixMatrix(rl0,'region','spec')))===Math.round(e('hc_total'))&&
-    /Москва и область/.test(A.go('structure','work'))]);
+  /* 21.10: в файле «Структура» региона нет — на вкладках его не показываем; в модели разрез остаётся */
+  checks.push(['регион по файлу «Структура» не показывается, матрица «регион × специализация» в модели сходится',
+    !/data-mix="region:/.test(A.go('structure','work'))&&!/>Регион</.test(A.go('structure','custom'))&&
+    sum([].concat(...D.mixMatrix(rl0,'region','spec')))===Math.round(e('hc_total'))]);
 
   /* --- доля без знаменателя: прочерк, а не ноль --- */
   const empty=D.leavesUnder('T').map(l=>l.path).find(p=>D.sumWin(D.aggregate([p],'hire'),'ytd')===0);
@@ -1349,8 +1353,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
   }));
   if(termBad.length)console.log('    термины без определения:',termBad.join(', '));
   checks.push(['история: у каждой главы «зачем смотреть» и «что делать», все термины объяснены',
-    !whyMiss.length&&!termBad.length&&/<div class="st-why">/.test(A.go('monitor','both'))&&
-    /<span class="term" tabindex="0"/.test(A.go('monitor','both'))]);
+    !whyMiss.length&&!termBad.length&&/<div class="st-why">/.test(A.go('monitor','activity'))&&
+    /<span class="term" tabindex="0"/.test(A.go('monitor','activity'))]);
   /* у каждой под-вкладки — своя глава с вопросом */
   const qMiss=D.BLOCKS.flatMap(b=>SC.blocks[b.key].subTabs.filter(t=>!STY.Q[b.key]||!STY.Q[b.key][t[0]]).map(t=>b.key+'/'+t[0]));
   checks.push(['история: у каждой под-вкладки есть вопрос главы',!qMiss.length]);
@@ -1422,8 +1426,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     inCards.length===Math.min(I.CARD.show,cs.length)&&/class="in-ok"/.test(home)&&
     /class="mtable"/.test(home)&&!/class="kpis/.test(home)&&!/class="ai insight|data-opall/.test(home)&&
     /<div class="in-lead"><span class="in-ico"><img/.test(home)&&!/AI-подсказка/.test(home.split('<table')[0])]);
-  checks.push(['карточка: огонёк по смыслу, категория, блок, заголовок с цифрой, мини-график, «Что сделать» и переход',
-    inCards.length>0&&inCards.every(c=>/^(high|mid|good)"><div class="in-t"><span class="in-ico"><img/.test(c)&&/class="in-tag">(Требует действий|Посмотреть|Хорошая новость)</.test(c)&&
+  checks.push(['карточка: категория точкой (огонёк — только у сводки), блок, заголовок с цифрой, мини-график, «Что сделать» и переход',
+    inCards.length>0&&inCards.every(c=>/^(high|mid|good)"><div class="in-t"><span class="in-tag">/.test(c)&&!/class="in-ico"/.test(c)&&/class="in-tag">(Требует действий|Посмотреть|Хорошая новость)</.test(c)&&
       /class="in-h">[^<]*\d/.test(c)&&/<svg class="mini"/.test(c)&&!/#[0-9a-f]{3,6}/i.test(c.split('<svg class="mini"')[1].split('</svg>')[0])&&
       /class="in-do">/.test(c)&&/data-(tab|opgo)="/.test(c))]);
   checks.push(['выводы: до восьми, по тяжести, внутри — по людям сверх ориентира; заглушек нет',
@@ -1506,22 +1510,18 @@ checks.push(['третьей палитры нет: в экранах ни од�
      ними; «Пол» и «Возраст» — отдельными разделами, «Тип договора» — своим */
   /* 20.10, вариант E: «Кто в команде?» — 3 раздела (квалификация, опыт, «Пол и возраст»), легенды
      под шкалой нет — тонкая полоса базы, края шкалы; грейды — столбиками (вариант D) */
-  checks.push(['обзоры: «Кто в команде?» — 3 раздела без легенды, грейды столбиками, «Как оформлены и где?» — 5; у каждого вывод; куски кликаются',
-    (pt.match(/<section class="pt-s/g)||[]).length===3&&(pt.match(/<h4>/g)||[]).length===3&&/<h4 class="pt-h2">/.test(pt)&&
-    />Пол и возраст</.test(pt)&&!/class="pt-key seg"/.test(pt)&&/class="pt-thin"/.test(pt)&&/class="pt-ends"/.test(pt)&&
-    /<div class="pt-cols"><section/.test(pt)&&/<div class="pt-cols"><section/.test(wk)&&!/class="pt-2"/.test(pt+wk)&&
-    /data-mix="contract:/.test(wk)&&
-    (pt.match(/<span(?: class="[^"]*")? data-mix="seniority:[^"]*" style="flex:[^"]*;background:var\(--pt-s\d\)"/g)||[]).length===4&&
-    (pt.match(/<div class="bar" data-mix="grade:/g)||[]).length===5&&/class="pt-col gr"/.test(pt)&&
-    (pt.match(/class="pt-man t\d"/g)||[]).length===10&&
-    /class="a" data-mix="gender:f"/.test(pt)&&(pt.match(/<i class="[fm]" data-mix="age:a\d+,gender:[fm]"/g)||[]).length===8&&
-    /Типичный человек в команде — /.test(pt)&&
-    (wk.match(/<section class="pt-s/g)||[]).length===5&&(wk.match(/<h4>/g)||[]).length===5&&
-    /<span class="a" data-mix="employment:tk"/.test(wk)&&/<span class="b" style/.test(wk)&&
-    (wk.match(/<tr class="urow[^"]*" data-mix="employment:/g)||[]).length===4&&
-    (wk.match(/<div class="[^"]*" data-mix="worksite:/g)||[]).length===3&&
-    (wk.match(/<tr class="urow[^"]*" data-mix="region:/g)||[]).length===7&&
-    (wk.match(/<tr class="urow[^"]*" data-mix="legal:/g)||[]).length===4]);
+  /* 21.10, файл «Структура»: портрет — воронка, пол, возраст; ступень воронки, на которой стоит
+     отчёт (HQ, активная), равна численности в карточке; «Уровень позиции» и «Оформление» — по три таблицы */
+  const lv=A.go('structure','level');
+  const hcR=D.fmtInt(Math.round(D.lastVal(D.reportLeaves(A.st()),'hc_total')));
+  const curN=(pt.match(/<div class="hf-st cur"[\s\S]*?<div class="hf-v"><b>([^<]+)<\/b>/)||[])[1];
+  checks.push(['портрет по файлу «Структура»: воронка, пол, возраст; куски и карточки кликаются; ступень отчёта = численности',
+    (pt.match(/<section class="pf-s">/g)||[]).length===3&&(pt.match(/<div class="hf-st/g)||[]).length===3&&curN===hcR&&
+    /М : Ж = /.test(pt)&&/средний возраст команды/.test(pt)&&(pt.match(/средний возраст <b>/g)||[]).length===2&&
+    (pt.match(/<div class="shc[^"]*" data-mix="gender:/g)||[]).length===2&&(pt.match(/<div class="shc[^"]*" data-mix="age:/g)||[]).length===3&&
+    (pt.match(/class="gsp"/g)||[]).length===3&&(pt.match(/<span[^>]* data-mix="age:[^"]*" style="flex:/g)||[]).length===3&&
+    (lv.match(/<div class="bt-group">/g)||[]).length===3&&(wk.match(/<div class="bt-group">/g)||[]).length===3&&
+    /Компания/.test(wk)&&/Тип занятости/.test(wk)&&/Формат работы/.test(wk)]);
   /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
      Матрица: длинная ось — 8 + «Остальные» (не срез), сумма та же; стримы ушедших — 8 строк. */
   {
@@ -1548,20 +1548,21 @@ checks.push(['третьей палитры нет: в экранах ни од�
      та же таблица-разбивка; строка, полоса и шрифт — один стандарт в конце styles.css. */
   const cssStd=css.replace(/\s+/g,'');
   checks.push(['одна строка на весь отчёт: списки с полосами — таблица-разбивка, высота 36px, полоса одна, старых правил нет',
-    /<table class="ptable btable lite pt-tb">/.test(wk)&&/<table class="ptable btable lite st-focus">/.test(A.go('turnover','dynamics'))&&
+    /<table class="ptable btable dense lite">/.test(wk)&&/<table class="ptable btable lite st-focus">/.test(A.go('turnover','dynamics'))&&
     /:root\{--row-h:36px;--row-sec-h:28px;--bar-h:10px;--bar-r:2px;/.test(cssStd)&&
     /#view\.ptable>tbody>tr>td\{height:var\(--row-h\)/.test(cssStd)&&
     !/\.pt-hb\{|\.pt-row|height:40px;padding-top:4px|\.btable\.lite\.cellbar\{height:8px|\.st-focustd\.bari/.test(cssStd)]);
-  A.mix(['seniority:s']);
+  /* 21.10: срез «Женщины» — кусок и карточка выделены, в карточках возраста «М 0% · Ж 100%»,
+     ступень отчёта в воронке — численность среза */
+  A.mix(['gender:f']);
   const ps=A.go('structure','portrait');
-  const n=(ps.match(/(\d+)\s+человека?<\/b>\s+в срезе/)||[])[1];
   const S0=A.st(), rl=D.reportLeaves(S0);
-  const want=D.mixParts(rl,'gender',['seniority:s']).reduce((a,b)=>a+b,0);
-  checks.push(['портрет под срезом: «В срезе «Senior»», численность среза, выбранное выделено, матрица = разбивке',
-    /В срезе «Senior» типичный человек — Senior-/.test(ps)&&+n===want&&/Выбран «Senior»/.test(ps)&&
-    /class="dk on(?: big)?" data-mix="seniority:s"/.test(ps)&&!/class="[^"]*\bon(?: big)?" data-mix="seniority:/.test(pt)&&
-    (()=>{const m=D.mixMatrix(rl,'age','gender',['seniority:s']), g=D.mixParts(rl,'gender',['seniority:s']);
-      return m.reduce((a,r)=>a+r[0],0)===g[0]&&m.reduce((a,r)=>a+r[1],0)===g[1]})()]);
+  const ages=D.mixParts(rl,'age',['gender:f']), nF=ages.reduce((a,b)=>a+b,0);
+  const curF=(ps.match(/<div class="hf-st cur"[\s\S]*?<div class="hf-v"><b>([^<]+)<\/b>/)||[])[1];
+  checks.push(['портрет под срезом «Женщины»: выбранное выделено, возраст — только женщины, ступень отчёта = численности среза',
+    /<span class="on" data-mix="gender:f"/.test(ps)&&/<div class="shc on" data-mix="gender:f"/.test(ps)&&
+    (ps.match(/М <b>0%<\/b> · Ж <b>100%<\/b>/g)||[]).length===ages.filter(v=>v>0).length&&
+    curF===D.fmtInt(nF)&&/class="note-inline slice"/.test(ps)&&/Сбросить всё/.test(ps)]);
   A.mix([]);
 })();
 
@@ -1610,7 +1611,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
   if(process.env.TP_DUMP)fs.writeFileSync(process.env.TP_DUMP,text);
   const BAN=[/hr_structure_overall|vacancy_daily|plan_fact_tf|atributy_nayma|junior_ratio|ys_all_fire|initiative_reason|mdm_employee|review_digest|review_table|sigareta|penetration_(unit|company)|office_visit_amt|work_day_amt|grt_[a-z]+_cnt|fire_initiative|fire_reason|mapping_channel|summary_score|management_head/,
     /заглушк|демо-данн|в макете|на проде|сгенерирован|ответ 0а|SOURCES\.md|ClickHouse|Helicopter|датасет/i,
-    /Нежелательная текучесть|Прошли T-рост|Отказано в T-росте|Тип занятости|Дистанционно|Штат \(ТК РФ\)|Time-to-fill|[Лл]оу-перформ|Прогноз (годовой )?текучести/,
+    /* 21.10: «Тип занятости», «Штат (ТК РФ)», «Дистанционно» вернулись — так в файле «Структура» (у него приоритет) */
+    /Нежелательная текучесть|Прошли T-рост|Отказано в T-росте|Time-to-fill|[Лл]оу-перформ|Прогноз (годовой )?текучести/,
     /степпер|[Пп]озитивное направление|Снять разрез|Сбросить разрезы|глава \d+ из/];
   const hits=[];
   BAN.forEach(re=>{const m=text.match(new RegExp(re.source,re.flags.replace('g','')+'g'));if(m)hits.push(...new Set(m))});

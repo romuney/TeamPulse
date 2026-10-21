@@ -265,7 +265,7 @@ function pilotChips(){
     text:'Настоящие цифры:',
     list:['численность, найм, отток, переводы','текучесть и regrettable текучесть','посещаемость офиса и T-рост — если данные уже пришли'],
     note:'С полосатой меткой «в разработке» — условные цифры. Данные по '+D.CMP.cur+' включительно: текущий месяц ещё не закрыт.'})+
-    '>Пробник · часть данных в разработке</span>';
+    '><span class="pl-t">Пробник · часть данных в разработке</span></span>';
   return h;
 }
 
@@ -506,7 +506,10 @@ function metricOpts(){
    начинаются доли от долей, и в клетке остаётся полчеловека. Уходит самый
    старый — так последний клик пользователя всегда виден в результате.
    Повторный клик по уже взятому снимает ровно его. */
-function toggleMix(spec){
+/* 21.10, файл «Структура»: Shift+клик (add) — множественный выбор внутри разреза:
+   категория добавляется к уже выбранным того же разреза («Junior или Middle»), повторный
+   Shift+клик снимает только её. Обычный клик по-прежнему заменяет категорию разреза. */
+function toggleMix(spec,add){
   const want=String(spec).split(',').filter(Boolean);
   let cur=D.sliceParse(S.mixSel).map(p=>p.id);
   if(want.every(id=>cur.indexOf(id)>=0)){
@@ -514,8 +517,8 @@ function toggleMix(spec){
   }
   want.forEach(id=>{
     const dim=id.split(':')[0];
-    cur=cur.filter(x=>x.split(':')[0]!==dim);
-    cur.push(id);
+    if(!add)cur=cur.filter(x=>x.split(':')[0]!==dim);
+    if(cur.indexOf(id)<0)cur.push(id);
   });
   while(cur.length>D.SLICE_MAX)cur.shift();
   S.mixSel=cur;
@@ -874,8 +877,25 @@ on(document,'click',e=>{
      обработчик выбора подразделения перехватил бы её первым. */
   if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
   if(t.closest('[data-mixswap]')){
-    const r=S.mixRows;S.mixRows=S.mixCols||r;S.mixCols=S.mixCols?r:'';render(true);return;
+    /* специализация — только в строках (файл «Структура») */
+    if(S.mixRows==='spec'||!S.mixCols)return;
+    const r=S.mixRows;S.mixRows=S.mixCols;S.mixCols=r;render(true);return;
   }
+  /* мониторинг (21.10): «Месяцы / Недели», отметка периода кликом по столбику или точке
+     (повторный клик снимает), сортировка таблицы подразделений по колонке */
+  const gr=t.closest('[data-mongran]');
+  if(gr){S.monGran=gr.dataset.mongran;S.monMark=null;render(true);return}
+  const pm=t.closest('[data-pmark]');
+  if(pm){e.stopPropagation();const i=+pm.dataset.pmark;S.monMark=S.monMark===i?null:i;render(true);return}
+  const tso=t.closest('[data-tsort]');
+  if(tso){S.tsort=tso.dataset.tsort;render(true);return}
+  /* конструктор на весь экран и обратно */
+  const fs=t.closest('[data-mxfull]');
+  if(fs){S.mxFull=fs.dataset.mxfull==='1';render(true);return}
+  /* Shift+клик по строке стрима — все его специализации (срез по стриму); обычный клик
+     по ней раскрывает стрим (обработчик каретки ниже) */
+  const grp=e.shiftKey&&t.closest('[data-mixgrp]');
+  if(grp){e.stopPropagation();toggleMix(grp.dataset.mixgrp,true);render(true);return}
   /* Общая каретка двухуровневой разбивки: раскрыть или свернуть ВСЕ стримы.
      Идёт первой из кареток — она стоит в строке ИТОГО, у которой своих
      обработчиков нет, но правило «от частного к общему» держим и здесь. */
@@ -900,7 +920,7 @@ on(document,'click',e=>{
     render(true);return;
   }
   const mx=t.closest('[data-mix]');
-  if(mx){e.stopPropagation();toggleMix(mx.dataset.mix);render(true);return}
+  if(mx){e.stopPropagation();toggleMix(mx.dataset.mix,e.shiftKey);render(true);return}
 
   /* Легенда графика — СТРОГО до .urow: в правой панели график лежит рядом
      с таблицей, и клик по легенде не должен уходить в выбор строки. */
@@ -967,8 +987,9 @@ on(document,'change',e=>{
   const ax=e.target.closest&&e.target.closest('[data-mixaxis]');
   if(ax){
     const v=e.target.value;
-    if(ax.dataset.mixaxis==='rows'){S.mixRows=v;if(S.mixCols===v)S.mixCols=''}
-    else{S.mixCols=v===S.mixRows?'':v}
+    /* одинаковые строки и колонки выбрать можно — конструктор подскажет выбрать разные */
+    if(ax.dataset.mixaxis==='rows')S.mixRows=v;
+    else S.mixCols=v;
     render(true);
   }
 });
@@ -1015,7 +1036,16 @@ on(document,'keydown',e=>{
   }
   /* Escape в поле поиска сначала очищает поиск */
   if(e.key==='Escape'&&tq&&e.target.matches&&e.target.matches('[data-tsearch]')){searchInput('',0);return}
-  if(e.key==='Escape'){closeSetup();$('#helpOvl').classList.add('hidden');navOpen(false);pulse(false)}
+  /* Escape (файл «Структура»): сначала выход из полноэкранного конструктора, потом — сброс
+     всех срезов состава; окна и меню закрываются, как раньше */
+  if(e.key==='Escape'){
+    const ovl=!$('#setupOvl').classList.contains('hidden')||!$('#helpOvl').classList.contains('hidden');
+    closeSetup();$('#helpOvl').classList.add('hidden');navOpen(false);pulse(false);
+    if(!ovl&&S.mxFull){S.mxFull=false;render(true);return}
+    /* мониторинг: Escape снимает отметку периода и выбор строки таблицы */
+    if(!ovl&&S.tab==='monitor'&&(S.monMark!=null||S.selNode)){S.monMark=null;S.selNode=null;render(true);return}
+    if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true)}
+  }
 });
 
 /* ---------- старт ---------- */

@@ -1160,24 +1160,25 @@ const MIX_DIMS=[
 {key:'gender',name:'Пол',short:'Пол',group:'people',
  hint:'Полезен вместе с другим разрезом: «пол × грейд» покажет, ровно ли распределены уровни.',
  cats:[{key:'f',name:'Женщины',wIT:0.85,wNon:1.75},{key:'m',name:'Мужчины',wIT:1.90,wNon:0.95}]},
-{key:'age',name:'Возрастная группа',short:'Возраст',ord:true,group:'people',
- cats:[{key:'a0',name:'До 25 лет',w:0.50},{key:'a25',name:'25–34 года',w:1.90},
-       {key:'a35',name:'35–44 года',w:1.15},{key:'a45',name:'45 лет и старше',w:0.40}]},
+/* 21.10, файл «Структура» (п. 8 Антона): три возрастные группы — до 25 / 25–30 / 30+ */
+{key:'age',name:'Возраст',short:'Возраст',ord:true,group:'people',
+ cats:[{key:'a0',name:'До 25 лет',w:0.55},{key:'a25',name:'25–30 лет',w:1.15},
+       {key:'a30',name:'30+ лет',w:1.70}]},
 {key:'tenure',name:'Стаж в компании',short:'Стаж',ord:true,group:'people',
  cats:[{key:'t0',name:'До 1 года',w:1.00},{key:'t1',name:'1–3 года',w:1.35},
        {key:'t3',name:'Больше 3 лет',w:0.90}]},
-{key:'employment',name:'Тип оформления',short:'Оформление',group:'work',
+{key:'employment',name:'Тип занятости',short:'Занятость',group:'work',
  hint:'Штат — трудовой договор. Всё остальное — не штат: ГПХ, ИП, самозанятые, аутстафф.',
- cats:[{key:'tk',name:'Штат'},{key:'gph',name:'ГПХ',w:1.15},{key:'ip',name:'ИП',w:0.95},
+ cats:[{key:'tk',name:'Штат (ТК РФ)'},{key:'gph',name:'ГПХ',w:1.15},{key:'ip',name:'ИП',w:0.95},
        {key:'sz',name:'Самозанятый',w:0.80},{key:'out',name:'Аутстафф',w:0.55}]},
 {key:'contract',name:'Тип договора',short:'Договор',group:'work',
  hint:'Бессрочный или срочный трудовой договор.',
  cats:[{key:'perm',name:'Бессрочный',w:1.0},{key:'fix',name:'Срочный',w:0.16}]},
 {key:'worksite',name:'Формат работы',short:'Формат',group:'work',
  cats:[{key:'off',name:'Офис',w:1.10},{key:'hyb',name:'Гибрид',w:1.60},
-       {key:'rem',name:'Удалённо',w:0.80}]},
-{key:'legal',name:'Юрлицо',short:'Юрлицо',group:'work',
- hint:'Юрлицо, в котором оформлено подразделение.',
+       {key:'rem',name:'Дистанционно',w:0.80}]},
+{key:'legal',name:'Компания',short:'Компания',group:'work',
+ hint:'Компания группы, в которой оформлен сотрудник.',
  cats:[{key:'l1',name:'Основное юрлицо',w:0.50},{key:'l2',name:'Технологии',w:0.24},
        {key:'l3',name:'Сервис',w:0.16},{key:'l4',name:'Регионы',w:0.10}]},
 /* Регион — пробел бизнес-анализа: в HQ-дашборде 34136 есть «доля регионов»
@@ -1371,7 +1372,8 @@ function mixWeights(leafPath,dimKey){
 /* Шкала наклона задаётся по категориям ПЕРВОГО разреза, а знак тянет ко
    ВТОРОЙ категории второго: плюс — к первой в его списке, минус — к последней. */
 const SEN_GENDER_TILT=[0.30,0.05,-0.18,-0.40];   /* + к женщинам (первая), − к мужчинам */
-const AGE_TENURE_TILT=[0.45,0.10,-0.22,-0.40];   /* + к «до 1 года», − к «больше 3 лет» */
+const AGE_TENURE_TILT=[0.45,0.05,-0.35];   /* + к «до 1 года», − к «больше 3 лет» */
+const AGE_GENDER_TILT=[0.22,0.04,-0.14];    /* + к женщинам: среди молодых их чуть больше */
 /* в пробнике связей нет: категории из данных, пересечения — по листьям (независимо внутри) */
 const MIX_LINKS=REAL?[]:[
 {a:'seniority',b:'grade',exact:GRADE_BY_SEN,
@@ -1379,7 +1381,9 @@ const MIX_LINKS=REAL?[]:[
 {a:'seniority',b:'gender',tilt:SEN_GENDER_TILT,
  label:'сеньорность и пол (доля женщин падает с уровнем)'},
 {a:'age',b:'tenure',tilt:AGE_TENURE_TILT,
- label:'возраст и стаж (кто старше, тот дольше в компании)'}
+ label:'возраст и стаж (кто старше, тот дольше в компании)'},
+{a:'age',b:'gender',tilt:AGE_GENDER_TILT,
+ label:'возраст и пол (среди молодых женщин чуть больше)'}
 ];
 const MIX_LINK_TEXT=MIX_LINKS.map(l=>l.label).join('; ');
 
@@ -1478,11 +1482,14 @@ function shareBesides(leafPath,parts){
 function partsWeight(leafPath,dimKey,parts){
   const dim=MIX_BY_KEY[dimKey];
   if(!parts.length)return mixWeights(leafPath,dimKey);
+  /* партнёр — разрез среза, связанный с показываемым (иначе первый); у него может быть
+     выбрано несколько категорий (Shift+клик, 21.10) — тогда их доли складываются */
   let k=parts.findIndex(p=>joined(dimKey,p.dim.key));
   if(k<0)k=0;
-  const j=mixJoint(leafPath,dimKey,parts[k].dim.key);
-  const rest=sliceShare(leafPath,parts.filter((_,i)=>i!==k));
-  return dim.cats.map((_,i)=>j[i][parts[k].idx]*rest);
+  const pk=parts[k].dim.key, idx=parts.filter(p=>p.dim.key===pk).map(p=>p.idx);
+  const j=mixJoint(leafPath,dimKey,pk);
+  const rest=sliceShare(leafPath,parts.filter(p=>p.dim.key!==pk));
+  return dim.cats.map((_,i)=>idx.reduce((a,x)=>a+j[i][x],0)*rest);
 }
 /* skip — какие разрезы среза не применять. По умолчанию свой собственный;
    матрица передаёт обе свои оси, чтобы её края считались ровно так же, как
@@ -1639,7 +1646,8 @@ function mixMatrix(lp,rowKey,colKey,sel){
    ни возьми. На реальных данных это обычный фильтр по сотруднику, и резать
    по трём атрибутам нормально; в макете при этом честно считается совместное
    распределение для связанных пар и независимое для остальных. */
-const SLICE_MAX=MIX_DIMS.length;
+/* 21.10: Shift+клик берёт несколько категорий одного разреза — потолок по числу категорий */
+const SLICE_MAX=64;
 const SLICE_KEYS=new Set(['hc_total','hc_active']);
 function sliceable(key){return SLICE_KEYS.has(key)}
 function sliceParse(sel){
@@ -1657,6 +1665,10 @@ function sliceLabel(sel){return sliceParse(sel).map(p=>p.cat.name).join(' · ')}
 function sliceShare(leafPath,parts){
   if(!parts.length)return 1;
   if(parts.length===1)return mixWeights(leafPath,parts[0].dim.key)[parts[0].idx];
+  /* 21.10 (файл «Структура»): Shift+клик — несколько категорий одного разреза. Внутри
+     разреза категории складываются («Junior или Middle»), между разрезами — пересекаются */
+  const grp=sliceGroups(parts);
+  if(grp.some(g=>g.idx.length>1))return groupShare(leafPath,grp);
   /* Связанные пары берутся совместным распределением — иначе срез по клику
      разошёлся бы с числом в клетке матрицы, по которому кликнули. Всё
      остальное перемножается как независимое. */
@@ -1674,6 +1686,31 @@ function sliceShare(leafPath,parts){
   parts.forEach((p,i)=>{if(used.indexOf(i)<0)v*=mixWeights(leafPath,p.dim.key)[p.idx]});
   /* пара без связи считается независимой — как и в матрице */
   if(!used.length&&parts.length===2)return v;
+  return v;
+}
+/* части среза по разрезам: [{dim, idx:[…]}] в порядке первого появления */
+function sliceGroups(parts){
+  const out=[], at={};
+  parts.forEach(p=>{
+    const k=p.dim.key;
+    if(!(k in at)){at[k]=out.length;out.push({dim:p.dim,idx:[]})}
+    out[at[k]].idx.push(p.idx);
+  });
+  return out;
+}
+/* доля листа в срезе с несколькими категориями в разрезе: связанные пары — по совместному
+   распределению (сумма клеток выбранных категорий), остальное — независимо */
+function groupShare(leafPath,grp){
+  const used=new Set(); let v=1;
+  grp.forEach((a,i)=>{
+    if(used.has(i))return;
+    const j=grp.findIndex((b,n)=>n>i&&!used.has(n)&&joined(a.dim.key,b.dim.key));
+    if(j<0)return;
+    const m=mixJoint(leafPath,a.dim.key,grp[j].dim.key);
+    v*=a.idx.reduce((s,x)=>s+grp[j].idx.reduce((t,y)=>t+m[x][y],0),0);
+    used.add(i);used.add(j);
+  });
+  grp.forEach((g,i)=>{if(!used.has(i)){const w=mixWeights(leafPath,g.dim.key);v*=g.idx.reduce((s,x)=>s+w[x],0)}});
   return v;
 }
 function aggregateSlice(lp,key,sel){
@@ -1694,6 +1731,144 @@ function aggregateSlice(lp,key,sel){
   _ac.set(ck,out);return out;
 }
 function lastValSlice(lp,key,sel){return aggregateSlice(lp,key,sel)[LAST]}
+
+/* ---------- Портрет сотрудника (21.10, файл «Структура», п. 8 Антона) ----------
+   Воронка численности: юридическая → активная → HQ по выбранному подразделению. Ступени —
+   это и есть тип численности и покраска, поэтому фильтры шапки «Численность» и «Покраска»
+   воронку не режут; ИТ, штат и срез состава — режут. В пробнике воронки пока нет: ответ
+   датасета уже отфильтрован по типу и покраске (появится с таблицей состава ноутбука). */
+function hcFunnel(path,st){
+  if(REAL)return null;
+  const sel=st.mixSel||[], base=Object.assign({},st,{paint:'all'});
+  const all=leavesUnder(path).map(l=>l.path).filter(p=>leafPasses(p,base));
+  const hq=all.filter(p=>(NODE_BY_PATH[p]||{}).paint==='HQ');
+  const m0=HC_MODE;
+  setHcMode('all');const legal=lastValSlice(all,'hc_total',sel);
+  setHcMode('active');const act=lastValSlice(all,'hc_total',sel), hqv=hq.length?lastValSlice(hq,'hc_total',sel):0;
+  setHcMode(m0);
+  return {legal:Math.round(legal),active:Math.round(act),hq:Math.round(hqv)};
+}
+/* ============================================================================
+   Мониторинг рабочей активности (21.10, файл Антона «Мониторинг работы»)
+   Неделя — пн–вс; последняя закрытая — та, что кончилась до даты данных. KPI, таблица и
+   состав — за последнюю закрытую неделю против предыдущей; линии — по неделям или месяцам.
+   На проде — витрина мониторинга по неделям (категория активности человека за неделю, часы
+   в день, доля звонков в Talk, прогулы, работа в выходные); в макете — генератор по листам.
+   Считается только для активной численности HQ.
+   ========================================================================== */
+const MON_SHORT=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+const MON_NW=26;            /* недель в ряду: полгода — хватает и на месяцы */
+const MON_WEEKS=(function(){
+  const asof=new Date(ASOF.y,ASOF.m,ASOF.d), dow=(asof.getDay()+6)%7;
+  const mon0=new Date(asof.getFullYear(),asof.getMonth(),asof.getDate()-dow-7);
+  const out=[];
+  for(let k=MON_NW-1;k>=0;k--){
+    const a=new Date(mon0.getFullYear(),mon0.getMonth(),mon0.getDate()-7*k);
+    const b=new Date(a.getFullYear(),a.getMonth(),a.getDate()+6);
+    const th=new Date(a.getFullYear(),a.getMonth(),a.getDate()+3);   /* месяц недели — по четвергу (ISO) */
+    out.push({label:a.getDate()+' '+MON_SHORT[a.getMonth()],
+      from:a.getDate()+' '+MONTH_ABBR_GEN[a.getMonth()],to:b.getDate()+' '+MONTH_ABBR_GEN[b.getMonth()],
+      full:a.getDate()+(a.getMonth()===b.getMonth()?'':' '+MONTH_ABBR_GEN[a.getMonth()])+'–'+b.getDate()+' '+MONTH_ABBR_GEN[b.getMonth()],
+      y:th.getFullYear(),m:th.getMonth()});
+  }
+  return out;
+})();
+/* месяцы ряда: только полные (неделя — по четвергу); у первого месяца ряда недель может не хватить */
+const MON_MONTHS=(function(){
+  const out=[];
+  MON_WEEKS.forEach((w,i)=>{
+    const k=w.y*12+w.m, last=out[out.length-1];
+    if(last&&last.k===k)last.idx.push(i);else out.push({k:k,y:w.y,m:w.m,idx:[i]});
+  });
+  /* месяц в ряду — только целый: у первого может не хватить недель, последний может ещё идти */
+  return out.filter(x=>x.idx.length>=4).map(x=>({label:MONTH_ABBR[x.m],full:MONTH_NOM_CAP(x.m)+' '+x.y,idx:x.idx}));
+})();
+function MONTH_NOM_CAP(m){const s=['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'][m];return s[0].toUpperCase()+s.slice(1)}
+/* недели с праздниками (макет): часов в день меньше — 23 февраля, 8 марта, майские, 12 июня */
+const MON_HOL=MON_WEEKS.map(w=>/^(2[3-9] фев|[3-9] мар|2[7-9] апр|30 апр|[1-9] мая|8 июн)/.test(w.label)?1:0);
+const _mon=new Map();
+function monLeaf(leafPath){
+  if(_mon.has(leafPath))return _mon.get(leafPath);
+  const n=NODE_BY_PATH[leafPath]||{}, r=rng('mon|'+leafPath);
+  const m0=HC_MODE;setHcMode('active');
+  const hc0=Math.max(1,Math.round(lastVal([leafPath],'hc_total')));
+  setHcMode(m0);
+  const ops=n.it==='nonIT';
+  const b={u:0.035+r()*0.06,o:0.03+r()*0.05,g:0.02+r()*0.035,du:(r()-0.45)*0.04,do:(r()-0.5)*0.03,
+    h:7.5+r()*0.8,t:ops?0.22+r()*0.12:0.06+r()*0.08};
+  const cl=(v,a,z)=>Math.max(a,Math.min(z,v));
+  const weeks=MON_WEEKS.map((w,i)=>{
+    const t=i/(MON_NW-1), hc=Math.max(1,Math.round(hc0*(0.95+0.05*t)+(r()-0.5)*1.5));
+    const pu=cl(b.u+b.du*t+(r()-0.5)*0.025,0,0.4), po=cl(b.o+b.do*t+(r()-0.5)*0.02,0,0.4), pg=cl(b.g+(r()-0.5)*0.015,0,0.2);
+    const under=Math.round(hc*pu), over=Math.round(hc*po), grey=Math.round(hc*pg), normal=Math.max(0,hc-under-over-grey);
+    const u2=Math.round(under*(0.25+r()*0.25)), o2=Math.round(over*(0.25+r()*0.25));
+    const tk=cl(b.t+(r()-0.5)*0.03,0.01,0.6);
+    const t23=Math.round(hc*cl(tk*0.9+(r()-0.5)*0.03,0,0.5)), t35=Math.round(hc*cl(tk*0.35+(r()-0.5)*0.02,0,0.3)), t5=Math.round(hc*cl(tk*0.08+(r()-0.5)*0.01,0,0.15));
+    return {hc:hc,grey:grey,under:under,normal:normal,over:over,u12:under-u2,u2p:u2,o12:over-o2,o2p:o2,
+      t23:t23,t35:t35,t5:t5,hours:+(b.h-1.4*pu+1.6*po+(r()-0.5)*0.45-(MON_HOL[i]?0.9:0)).toFixed(2),talk:+(tk*100).toFixed(1)};
+  });
+  const out={weeks:weeks,ab25:Math.round(hc0*(0.015+r()*0.03)),ab5:Math.round(hc0*(0.004+r()*0.01)),
+    we25:Math.round(hc0*(0.04+r()*0.06)),we5:Math.round(hc0*(0.01+r()*0.02))};
+  _mon.set(leafPath,out);return out;
+}
+const MON_SUM=['hc','grey','under','normal','over','u12','u2p','o12','o2p','t23','t35','t5'];
+/* Мониторинг группы листьев: недели — суммы людей, часы и доля звонков — среднее по людям;
+   месяцы — среднее недель месяца. null — данных нет.
+   Пробник, пока витрины мониторинга по неделям нет: категории по месяцам из основной
+   таблицы (perf_* — нормал, недоработка, переработка, не размечено), последние 6 закрытых
+   месяцев; недель, часов в день, звонков, прогулов и выходных нет (monthly:true). */
+function monMonthly(lp){
+  const A=k=>aggregate(lp,k), u=A('perf_low'), nr=A('perf_norm'), o=A('perf_high'), g=A('perf_gray');
+  if(!u.concat(o,nr).some(v=>v>0))return null;
+  const end=PARTIAL?LAST-1:LAST, months=[];
+  for(let i=Math.max(0,end-5);i<=end;i++){
+    const x={label:MONTHS[i].label,full:MONTH_NOM_CAP(MONTHS[i].m)+' '+MONTHS[i].y,
+      under:Math.round(u[i]||0),normal:Math.round(nr[i]||0),over:Math.round(o[i]||0),grey:Math.round(g[i]||0)};
+    x.hc=x.under+x.normal+x.over+x.grey;
+    months.push(x);
+  }
+  return {monthly:true,weeks:null,months:months};
+}
+function monData(lp){
+  if(!lp.length)return null;
+  if(REAL)return monMonthly(lp);
+  const L=lp.map(monLeaf);
+  const weeks=MON_WEEKS.map((w,i)=>{
+    const o={label:w.label,full:'Неделя '+w.full};
+    MON_SUM.forEach(k=>{o[k]=L.reduce((a,x)=>a+x.weeks[i][k],0)});
+    o.hours=o.hc?L.reduce((a,x)=>a+x.weeks[i].hours*x.weeks[i].hc,0)/o.hc:null;
+    o.talk=o.hc?L.reduce((a,x)=>a+x.weeks[i].talk*x.weeks[i].hc,0)/o.hc:null;
+    return o;
+  });
+  const months=MON_MONTHS.map(mo=>{
+    const o={label:mo.label,full:mo.full};
+    MON_SUM.forEach(k=>{o[k]=Math.round(mo.idx.reduce((a,i)=>a+weeks[i][k],0)/mo.idx.length)});
+    o.hours=mo.idx.reduce((a,i)=>a+weeks[i].hours,0)/mo.idx.length;
+    o.talk=mo.idx.reduce((a,i)=>a+weeks[i].talk,0)/mo.idx.length;
+    return o;
+  });
+  const sum=k=>L.reduce((a,x)=>a+x[k],0);
+  return {weeks:weeks,months:months,ab25:sum('ab25'),ab5:sum('ab5'),we25:sum('we25'),we5:sum('we5'),
+    period:MON_WEEKS[MON_NW-12].from+' — '+MON_WEEKS[MON_NW-1].to};
+}
+
+/* Средний возраст. Макет: середины возрастных групп (в данных — возраст человека, сумма
+   возрастов приходит вместе с численностью); dimKey/catIdx — внутри категории
+   («средний возраст женщин»). Срез по возрасту оставляет только выбранные группы. */
+const AGE_MID=[22.6,27.4,37.3];
+function avgAge(lp,sel,dimKey,catIdx){
+  if(REAL||!MIX_BY_KEY.age)return null;
+  const ages=sliceParse(sel).filter(p=>p.dim.key==='age').map(p=>p.idx);
+  const keep=i=>!ages.length||ages.indexOf(i)>=0;
+  let n=0, s=0;
+  if(dimKey&&dimKey!=='age'){
+    const m=mixMatrix(lp,'age',dimKey,sel);
+    m.forEach((r,i)=>{if(keep(i)){n+=r[catIdx];s+=r[catIdx]*AGE_MID[i]}});
+  } else {
+    mixParts(lp,'age',sel,['age']).forEach((v,i)=>{if(keep(i)){n+=v;s+=v*AGE_MID[i]}});
+  }
+  return n?s/n:null;
+}
 /* Изменение к прошлому месяцу по срезу: на расширенную сетку срез не ходит,
    поэтому MoM считается по окну — для численности это тот же прошлый месяц. */
 function sliceDeltaMoM(lp,key,sel){
@@ -2179,7 +2354,7 @@ function aiProfile(lp){
 
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
+  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,hcFunnel,avgAge,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,

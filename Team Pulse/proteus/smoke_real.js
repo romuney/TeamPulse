@@ -216,35 +216,35 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
 /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
    В обзоре длинный список — 6 строк и «Остальные», у стримов ушедших — 8 и «Остальные». */
 {
+  /* 21.10, файл «Структура»: «Оформление» — три таблицы; компаний на верхних уровнях десятки —
+     6 строк и «Остальные» (16.10); длинные названия — в две строки, а не многоточием (19.10) */
   const nLeg=Object.keys(R.mix('BASE')&&R.mixVals('o')||{}).length, wk=A.go('structure','work');
-  const sec=(wk.split('<section').find(x=>/>Юрлицо</.test(x))||'');
-  const rows=(sec.match(/<tr /g)||[]).length, rest=/>Остальные<span class="unit-sub">\d+ юрлиц/.test(sec);
-  ok(nLeg<=7?rows===nLeg&&!rest:rows===7&&rest,'юрлица в обзоре: '+(nLeg<=7?'все '+nLeg:'6 из '+nLeg+' и «Остальные»'));
-  /* 19.10, заказчик (скриншот портрета на настоящих данных: «какая-то фигня»): ступеней
-     сеньорности 11, групп стажа 6. Каждая ступень пилюли окрашена и подписана только долей,
-     «Junior+» — сразу за «Junior», n/a и «Не указано» — в конце, стаж — по сроку («менее
-     3 мес» первым); групп стажа больше четырёх — пилюля, а не «из 10 человек». 20.10, вариант
-     E: имя — только у одного, самого большого куска (<b>), остальные — долей */
-  const pt=A.go('structure','portrait'), sen=D.mixCats('seniority').map(c=>c.name), ten=D.mixCats('tenure');
+  const sec=(wk.split('<div class="bt-group">').find(x=>/>Компания</.test(x))||'');
+  const rows=(sec.match(/<tr class="urow/g)||[]).length+(/>Остальные<span class="unit-sub">/.test(sec)?1:0), rest=/>Остальные<span class="unit-sub">\d+ компани/.test(sec);
+  ok(!nLeg||(nLeg<=7?rows===nLeg&&!rest:rows===7&&rest),'компании на «Оформлении»: '+(nLeg<=7?'все '+nLeg:'6 из '+nLeg+' и «Остальные»'));
+  ok((wk.match(/<div class="bt-group">/g)||[]).length===3&&/class="row-body two"/.test(wk),
+    'оформление: три таблицы, длинные названия — в две строки');
+  /* портрет на настоящих значениях: пол — полоса и карточки, возраст — кусок на каждую группу с людьми,
+     каждый окрашен; воронки и среднего возраста в пробнике нет (появятся с таблицей состава) */
+  const pt=A.go('structure','portrait'), ages=D.mixCats('age');
+  const segs=(pt.split('<div class="shbar')[2]||'').split('</div>')[0].match(/<span[^>]*>/g)||[];
+  const ageN=D.mixParts(D.reportLeaves(A.st()),'age').filter(v=>v>0).length;
+  ok(/<div class="shbar/.test(pt)&&segs.length===ageN&&segs.every(x=>/background:var\(--pt-(s\d|na)\)/.test(x))&&
+    /class="dev-note/.test(pt)&&!/средний возраст/.test(pt),
+    'портрет на настоящих значениях: '+ages.length+' возрастных групп полосой, каждая окрашена; воронка — «в разработке»');
+  /* уровень позиции: сеньорность по ступеням (Junior+ сразу за Junior, n/a в конце), стаж — по сроку */
+  const sen=D.mixCats('seniority').map(c=>c.name), ten=D.mixCats('tenure');
   const na=n=>/^\s*(n\/?a|н\/?д|не указан[оа]?|-)\s*$/i.test(n);
   const plusOk=sen.every((n,i)=>!/\+$/.test(n)||sen.indexOf(n.slice(0,-1))<0||sen[i-1]===n.slice(0,-1));
   const naLast=sen.every((n,i)=>!na(n)||sen.slice(i).every(na));
   const tb=ten.filter(c=>!c.na).map(c=>D.bound(c.name,'mon')), tenOk=tb.every((v,i)=>!i||v>=tb[i-1]);
-  const pills=[...pt.matchAll(/<div class="pt-pill seg">([\s\S]*?)<\/div>/g)].map(m=>m[1]);
-  const segs=pills.join('').match(/<span[^>]*>/g)||[];
-  const nTen=ten.filter(c=>!c.na).length;
-  ok(plusOk&&naLast&&tenOk&&segs.length>=sen.length-2&&segs.every(x=>/background:(var\(--pt-(s\d|na)\)|color-mix\()/.test(x))&&
-    pills.every(x=>(x.match(/class="[^"]*\bbig\b/g)||[]).length<=1)&&
-    !/[A-Za-zА-яЁё]/.test(pills.join('').replace(/<b>[^<]*<\/b>/g,'').replace(/<[^>]*>/g,''))&&(nTen<=4?/class="pt-man/.test(pt):pills.length===2&&!/class="pt-man/.test(pt)),
-    'портрет на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, каждая окрашена, '+
-    (nTen<=4?'стаж — «из 10 человек»':'стаж — пилюлей'));
-  /* 19.10, заказчик («тут тоже так себе вёрстка»): форматов работы пять — полосами, а не
-     карточками на три; длинные названия в списках — в две строки, а не многоточием */
-  const nFmt=D.MIX_BY_KEY.worksite?D.mixCats('worksite').length:0;
-  const fmtSec=(wk.split('<section').find(x=>/>Формат работы</.test(x))||'');
-  ok(!nFmt||(nFmt>3?(fmtSec.match(/<tr class="urow[^"]*" data-mix="worksite:/g)||[]).length===nFmt&&!/pt-trio/.test(fmtSec)
-      :/pt-trio/.test(fmtSec))&&/class="row-body two"/.test(wk)&&(nLeg<=7||/class="row-body">Остальные<span class="unit-sub">/.test(wk)),
-    'оформление и место: '+nFmt+' форматов работы — '+(nFmt>3?'полосами':'карточками')+', длинные названия — в две строки');
+  const lv=A.go('structure','level');
+  ok(plusOk&&naLast&&tenOk&&(lv.match(/<div class="bt-group">/g)||[]).length===3,
+    'уровень позиции на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, три таблицы');
+  /* мониторинг на настоящих данных: пока нет витрины по неделям — месяцы из основной таблицы */
+  const mo=A.go('monitor','activity');
+  ok(/class="kpi mk"/.test(mo)&&/к прошлому месяцу/.test(mo)&&/class="kpi mk dev"/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),
+    'мониторинг: категории по месяцам из основной таблицы, недели и звонки — «в разработке»');
   /* 19.10, заказчик: окно настройки как в HRBP HUB — дерево всего справочника, логин руководителя
      и поиск по нему, у строк и кнопок фильтров — сколько людей попадёт в выбор (fd справочника) */
   {

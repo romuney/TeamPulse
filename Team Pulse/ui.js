@@ -414,7 +414,7 @@ function barTable(o){
   let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+'">'+
     '<colgroup><col style="width:'+(lite?'34%':o.compact?'40%':'34%')+'"><col style="width:'+(lite?'9%':'14%')+'">'+
     (withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
-    (lite?'':'<thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
+    (lite&&!o.heads?'':'<thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
     '<th>'+esc(o.valueHead||'Значение')+'</th>'+(withShare?'<th>Доля</th>':'')+
     '<th class="txt bar-th">'+esc(o.barHead||'Распределение')+'</th></tr></thead>')+'<tbody>';
 
@@ -437,12 +437,18 @@ function barTable(o){
     const share=sum?x.value/sum*100:0;
     /* клик по строке: либо переход в подразделение, либо срез по категории */
     const cls=[x.node||x.pick?'urow':'',x.on?'sel':'',x.depth===2?'lvl2':''].filter(Boolean).join(' ');
+    /* expRow (21.10, файл «Структура»): строка стрима раскрывается кликом по ней самой,
+       Shift+клик выбирает все специализации стрима (срез по стриму) */
     const hook=(cls?' class="'+cls+'"':'')+
       (x.node?' data-node="'+esc(x.node)+'"':'')+
-      (x.pick?' data-mix="'+esc(x.pick)+'"'+
+      (x.pick&&x.expRow?' data-btexp="'+esc(x.exp)+'" data-mixgrp="'+esc(x.pick)+'"'+
+        tipAttr({title:x.name,
+          text:(x.open?'Клик — свернуть специализации.':'Клик — раскрыть специализации.')+
+            (x.on?' Стрим выбран целиком; Shift+клик — снять.':' Shift+клик — выбрать все специализации стрима.')})
+      :x.pick?' data-mix="'+esc(x.pick)+'"'+
         tipAttr({title:x.name,
           text:x.on?'Срез выбран. Клик — снять.'
-                   :'Клик — показать только «'+x.name+'»: карточки и таблица подразделений пересчитаются.'}):'');
+                   :'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'}):'');
     /* Двухуровневая разбивка: каретка раскрывает верхний уровень. Разметка та
        же, что в сводной таблице подразделений (`row-label` + `caret-btn`),
        чтобы раскрытие в отчёте выглядело и работало одинаково везде. */
@@ -452,7 +458,8 @@ function barTable(o){
         tipAttr({title:x.open?'Свернуть':'Раскрыть',text:o.expTip||'Что внутри этой строки.'})+
         '>'+(x.open?'▾':'▸')+'</button>'
       :'<span class="caret-spacer"></span>';
-    const nm='<span class="row-body">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять: оплата, рост, руководитель.'})+'>★</span> ':'')+esc(x.name)+
+    /* лёгкие таблицы (структура): длинное название без пояснения — в две строки, а не многоточием (19.10) */
+    const nm='<span class="row-body'+(lite&&!x.note?' two':'')+'">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять: оплата, рост, руководитель.'})+'>★</span> ':'')+esc(x.name)+
       (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span>';
     h+='<tr'+hook+'>'+
       '<td class="txt">'+(o.tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
@@ -550,7 +557,7 @@ function matrixTable(o){
     '<thead><tr><th class="txt mx-corner"><span class="mx-r">'+esc(R.short||R.name)+'</span>'+
     '<span class="mx-c">'+esc(C.short||C.name)+' →</span></th>'+
     C.cats.map(c=>'<th class="mx-h">'+mxPick(c.id,c.name,sel.has(c.id),'',c)+'</th>').join('')+
-    '<th class="mx-tot">Всего</th></tr></thead><tbody>';
+    '<th class="mx-tot">Итого</th></tr></thead><tbody>';
 
   R.cats.forEach((rc,i)=>{
     h+='<tr'+(sel.has(rc.id)?' class="mx-on"':'')+'>'+
@@ -573,7 +580,7 @@ function matrixTable(o){
   /* Итоги колонок стоят ПОД своими клетками и по их выравниванию — по центру;
      общий итог живёт в колонке «Всего» и выровнен как она, по правому краю.
      Одно выравнивание на всю строку ставило бы число мимо своей колонки. */
-  h+='<tr class="total"><td class="txt">ИТОГО</td>'+
+  h+='<tr class="total"><td class="txt">Итого</td>'+
     colSum.map(v=>'<td class="mx-sum">'+D.fmtInt(v)+'</td>').join('')+
     '<td class="mx-tot">'+D.fmtInt(all)+'</td></tr>';
   return h+'</tbody></table></div>';
@@ -585,23 +592,34 @@ function matrixTable(o){
    сравнить грейды у женщин и у мужчин, взгляд прыгает через всю таблицу.
    На двух осях сравнение — это соседние клетки строки. Третья ось на борде
    не нужна: она уже про выгрузку, а не про «посмотреть». */
+/* 21.10, файл «Структура»: строки и колонки — из списка измерений конструктора
+   (o.rowDims / o.colDims: специализация — только в строках), «Метрика» — Чел. / % строки /
+   % колонки, кнопка полного экрана. Одно и то же измерение в строках и колонках выбрать
+   можно — тогда вместо таблицы подсказка. */
 function mixPicker(o){
-  const dims=o.dims, none='<option value=""'+(o.cols?'':' selected')+'>— без колонок</option>';
-  const opts=(cur,skip)=>dims.filter(d=>d.key!==skip).map(d=>
+  const opts=(list,cur)=>list.map(d=>
     '<option value="'+d.key+'"'+(d.key===cur?' selected':'')+'>'+esc(d.name)+'</option>').join('');
-  const modes=[['abs','Люди'],['row','% по строке'],['col','% по колонке']];
+  const modes=[['abs','Чел.'],['row','% строки'],['col','% колонки']];
   return '<div class="mx-bar">'+
     '<div class="ctl"><label>Строки</label>'+
-      '<select data-mixaxis="rows">'+opts(o.rows,o.cols)+'</select></div>'+
+      '<select data-mixaxis="rows">'+opts(o.rowDims,o.rows)+'</select></div>'+
     '<button class="btn ghost mx-swap" data-mixswap="1"'+
-      tipAttr({title:'Поменять оси местами',text:'Строки станут колонками, колонки — строками.'})+
-      ' aria-label="Поменять оси местами">⇄</button>'+
+      tipAttr({title:'Поменять местами',text:'Строки станут колонками, колонки — строками.'+(o.swapNo?'\n'+o.swapNo:'')})+
+      (o.swapNo?' disabled':'')+' aria-label="Поменять оси местами">⇄</button>'+
     '<div class="ctl"><label>Колонки</label>'+
-      '<select data-mixaxis="cols">'+none+opts(o.cols,o.rows)+'</select></div>'+
-    (o.cols?'<div class="ctl"><label>В клетке</label><div class="opts tight">'+
+      '<select data-mixaxis="cols">'+opts(o.colDims,o.cols)+'</select></div>'+
+    '<div class="ctl"><label>Метрика</label><div class="opts tight">'+
       modes.map(m=>'<button class="opt'+(o.mode===m[0]?' on':'')+'" data-mixmode="'+m[0]+'">'+
-        esc(m[1])+'</button>').join('')+'</div></div>':'')+
+        esc(m[1])+'</button>').join('')+'</div></div>'+
+    '<button class="btn ghost mx-fs" data-mxfull="'+(o.full?'0':'1')+'"'+
+      tipAttr({title:o.full?'Свернуть':'На весь экран',text:o.full?'Вернуться в отчёт. То же — Escape.':'Таблица на весь экран: удобно, когда измерение длинное.'})+'>'+
+      (o.full?'✕ Свернуть':'⤢ На весь экран')+'</button>'+
     '</div>';
+}
+/* легенда тепловой заливки конструктора: «меньше → больше» той же синей шкалой */
+function heatLegend(){
+  return '<div class="mx-lg"><span>меньше</span><i style="background:linear-gradient(90deg,'+
+    [0.04,0.25,0.5,0.75,1].map(t=>G.heat(t)).join(',')+')"></i><span>больше</span></div>';
 }
 
 /* ---------- Плашка взятого среза ----------
@@ -616,7 +634,101 @@ function sliceNote(parts,extra){
       '<button class="x" data-mix="'+esc(p.id)+'"'+
       tipAttr({title:'Снять срез',text:p.dim.name+': «'+p.cat.name+'»'})+'>×</button></span>').join('')+
     '<span class="sl-x">'+esc(extra||'')+'</span>'+
-    '<button class="btn ghost xs" data-mixclear="1">Сбросить</button></div>';
+    '<button class="btn ghost xs" data-mixclear="1"'+tipAttr({title:'Сбросить всё',text:'Снять все срезы состава. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+}
+
+/* ============================================================================
+   Портрет сотрудника (21.10, файл «Структура», п. 8 Антона): воронка численности,
+   полоса долей и карточки категорий. Клик по куску полосы или по карточке — срез
+   (data-mix), Shift+клик — добавить категорию того же разреза.
+   ========================================================================== */
+/* Воронка: ступени по центру, ширина — от самой большой; слева подпись, справа число
+   и доля от первой ступени. cur — ступень, на которой стоит отчёт (тип численности
+   и покраска в шапке). */
+function funnelSteps(o){
+  const max=Math.max(1,...o.steps.map(x=>x.n));
+  return '<div class="hfun">'+o.steps.map((x,i)=>{
+    const w=Math.max(6,x.n/max*100);
+    return '<div class="hf-st'+(x.cur?' cur':'')+'"'+tipAttr(x.tip)+'>'+
+      '<div class="hf-lb">'+esc(x.name)+(x.cur?'<span class="hf-cur">в отчёте</span>':'')+'</div>'+
+      '<div class="hf-tr"><i class="s'+i+'" style="width:'+w.toFixed(1)+'%"></i></div>'+
+      '<div class="hf-v"><b>'+D.fmtInt(x.n)+'</b>'+(i?'<em>'+x.p+'% от юр.</em>':'<em>чел</em>')+'</div></div>';
+  }).join('')+'</div>';
+}
+/* Полоса долей: кусок — доля, внутри — доля в процентах, если влезает. seg.bg — цвет
+   (токен), seg.dk — тёмный фон, текст белый. Выбранная в срезе категория — с обводкой,
+   остальные куски того же разреза тогда приглушены. */
+function shareBar(o){
+  const tot=o.segs.reduce((a,x)=>a+x.n,0)||1, any=o.segs.some(x=>x.on);
+  return '<div class="shbar'+(any?' has-on':'')+'">'+o.segs.filter(x=>x.n>0).map(x=>{
+    const p=Math.round(x.n/tot*100);
+    return '<span class="'+[x.dk?'dk':'',x.on?'on':''].filter(Boolean).join(' ')+'" data-mix="'+esc(x.id)+'"'+
+      ' style="flex:'+(x.n/tot*100).toFixed(2)+' 1 0;background:'+x.bg+'"'+
+      tipAttr({title:x.name,rows:[{label:'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
+        note:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
+      (p>=6?(o.names&&p>=14?esc(x.name)+' ':'')+'<b>'+p+'%</b>':'')+'</span>';
+  }).join('')+'</div>';
+}
+/* Карточки категорий под полосой: метка цвета, имя, число и строка пояснения
+   (sub — разметка: средний возраст, «М 58% · Ж 42%»). */
+function shareCards(o){
+  const any=o.cards.some(x=>x.on);
+  return '<div class="shcards'+(any?' has-on':'')+'">'+o.cards.map(x=>
+    '<div class="shc'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
+      tipAttr({title:x.name,text:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'})+'>'+
+      '<div class="shc-h"><i style="background:'+x.bg+'"></i>'+esc(x.name)+'</div>'+
+      '<div class="shc-n"><b>'+D.fmtInt(x.n)+'</b> чел</div>'+
+      (x.sub?'<div class="shc-s">'+x.sub+'</div>':'')+'</div>').join('')+'</div>';
+}
+/* «М 58% · Ж 42%» с узкой полосой на два цвета — расклад пола внутри категории */
+function genderSplit(m,f){
+  const t=m+f;
+  if(!t)return '<span class="gsp-x">нет людей</span>';
+  const pm=Math.round(m/t*100), pf=100-pm;
+  return '<span class="gsp"><span class="gsp-t">М <b>'+pm+'%</b> · Ж <b>'+pf+'%</b></span>'+
+    '<span class="gsp-b"><i class="m" style="flex:'+pm+' 1 0"></i><i class="f" style="flex:'+pf+' 1 0"></i></span></span>';
+}
+/* Заголовок раздела портрета: имя и подпись справа от него (соотношение, средний возраст) */
+function pfHead(name,aside){
+  return '<div class="pf-h"><span class="pf-t">'+esc(name)+'</span>'+(aside?'<span class="pf-a">'+aside+'</span>':'')+'</div>';
+}
+
+/* ============================================================================
+   Мониторинг рабочей активности (21.10, файл Антона)
+   ========================================================================== */
+/* KPI мониторинга: значение — за последнюю закрытую неделю; изменение — к прошлой неделе:
+   bad:'up' — рост плохо (недо- и переработка), 'none' — без цвета (звонки: норма зависит
+   от роли); у показателей за период (прогулы, выходные) изменения нет — вместо него подпись
+   периода. Ниже — разбивка на две части с метками цвета. */
+function monKpi(o){
+  /* dev — показателя ещё нет в данных (пробник без витрины мониторинга по неделям) */
+  if(o.dev)return '<div class="kpi mk dev"><div class="k-label">'+esc(o.label)+devTag(o.dev,true)+'</div>'+
+    '<div class="k-val">—</div><div class="k-row"><span class="k-sub">'+esc(o.devText||'появится с витриной мониторинга')+'</span></div></div>';
+  const sign=v=>(v>0?'+':v<0?'−':'')+D.fmtInt(Math.abs(v));
+  const cls=o.delta==null?'':o.delta===0?'flat':o.bad==='up'?(o.delta>0?'down':'up'):'neu';
+  const chip=o.delta==null?'<span class="k-sub">'+esc(o.noDelta||'')+'</span>'
+    :'<span class="delta '+cls+'"'+tipAttr({title:o.label,text:o.deltaTip||'',note:o.bad==='up'?'Рост — плохо: красным.':'Без цвета: какая доля нормальна, зависит от роли.'})+'>'+
+      sign(o.delta)+'<span class="d-vs">'+esc(o.vs||'к прошлой неделе')+'</span></span>';
+  return '<div class="kpi mk"><div class="k-label">'+esc(o.label)+
+      (o.info?'<span class="info"'+tipAttr(o.info)+' aria-label="Что это">i</span>':'')+'</div>'+
+    '<div class="k-val">'+D.fmtInt(o.value)+'<span class="mk-u">чел</span>'+(o.share!=null?'<span class="mk-sh">'+o.share+'</span>':'')+'</div>'+
+    '<div class="k-row">'+chip+'</div>'+
+    (o.parts&&o.parts.length?'<div class="mk-split">'+o.parts.map(p=>'<span'+(p.tip?tipAttr(p.tip):'')+'><i style="background:'+p.color+'"></i>'+esc(p.name)+' <b>'+D.fmtInt(p.n)+'</b></span>').join('')+'</div>':'')+'</div>';
+}
+/* переключатель «Месяцы / Недели» — те же кнопки-опции, что в конструкторе */
+function segToggle(attr,opts,cur){
+  return '<div class="opts tight seg-t">'+opts.map(x=>'<button class="opt'+(x[0]===cur?' on':'')+'" '+attr+'="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>';
+}
+/* мини-график строки таблицы: несколько тонких линий на общей шкале от нуля, без подписей;
+   что за линии и значения по неделям — в подсказке */
+function miniLines(series,o){
+  o=o||{};
+  const w=o.w||84, h=o.h||22, all=[].concat(...series.map(x=>x.vals)).filter(v=>v!=null);
+  const max=Math.max(1e-9,...all), n=series[0].vals.length;
+  const X=i=>2+(w-4)*i/Math.max(1,n-1), Y=v=>h-2-(h-4)*v/max;
+  const body=series.map(x=>'<polyline fill="none" stroke="'+x.color+'" stroke-width="1.6" stroke-linejoin="round" points="'+
+    x.vals.map((v,i)=>v==null?'':X(i).toFixed(1)+','+Y(v).toFixed(1)).filter(Boolean).join(' ')+'"/>').join('');
+  return '<span class="mini"'+(o.tip?tipAttr(o.tip):'')+'><svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" aria-hidden="true">'+body+'</svg></span>';
 }
 
 /* ---------- Панель с шапкой ---------- */
@@ -917,9 +1029,8 @@ function planTable(groups){
 /* Сводка готовности на One-pager: сколько метрик на живых данных, сколько
    графиков каталога ещё добавить. Раскрывается в полный план. o = {live, total, plan} */
 function devSummary(o){
-  const pc=o.total?Math.round(o.live/o.total*100):0, n=D.planCount();
+  const n=D.planCount();
   return '<details class="dev-sum"><summary><span class="dev-sum-h">Готовность данных</span>'+
-    '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик на живых данных"><i style="width:'+pc+'%"></i></span>'+
     '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на настоящих данных · '+
       '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>'+
       ' · <span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены '+D.VERIFIED.size+'</span>'+
@@ -929,6 +1040,7 @@ function devSummary(o){
 }
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
-  barTable,btGroup,btStack,matrixTable,mixPicker,sliceNote,pct,panel,subTabs,empty,trafficLegend,
+  barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,pct,panel,subTabs,empty,trafficLegend,
+  funnelSteps,shareBar,shareCards,genderSplit,pfHead,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
