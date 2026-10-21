@@ -190,7 +190,9 @@ def source_rows(U, people):
             cur = vals(d)
             pv = vals(d - dt.timedelta(1)) if d > p['start'] else cur
             nx = vals(d + dt.timedelta(1)) if d < last else cur
-            want = ('Активная', 'HQ', 'IT', None)                # rel — любая смена
+            # 21.10, поставка 56: по методологии переводов флаг — любая смена значения (не только «в HQ»,
+            # «в IT», «в Активную»); так и в TP 2.0 «в»/«из» — против прошлого и следующего дня
+            want = (None, None, None, None)
             tf = {t: int(pv[i] != cur[i] and (want[i] is None or cur[i] == want[i]))
                   for i, t in enumerate(('active_type', 'hq', 'it', 'employment_relation_type'))}
             of = {t: int(nx[i] != cur[i] and (want[i] is None or cur[i] == want[i]))
@@ -466,7 +468,7 @@ def eom(m):
     return min(dt.date(m.year, m.month, calendar.monthrange(m.year, m.month)[1]), D1)
 
 
-def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True):
+def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True, hday=False):
     """узел (rk) × месяц → меры. Численность — на последний календарный день месяца (у текущего
     неполного — на последний загруженный); ССЧ — полусумма численности узла с прошлым месяцем.
     act — тип численности «Активная» (по умолчанию в отчёте): человек месяца — в строке со своим
@@ -477,6 +479,9 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True):
     T = defaultdict(lambda: defaultdict(float))
     ld = lambda p, m: min(eom(m), p['end'] or D1)
     P = lambda p, m: pred(p, ld(p, m))
+    # hday (2а, поставка 56) — срез найма на день события: найм в компанию — на день найма, переход кандидата
+    # или стажёра — на день перехода; иначе — на конец месяца, как измерения TP 2.0 (файл 2)
+    PH = (lambda p, m, d: pred(p, d)) if hday else (lambda p, m, d: P(p, m))
     alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])   # в день увольнения уже не в численности
     ok = lambda p, m: P(p, m) and (not act or at(p['acth'], ld(p, m)) == 'Активная')
     ms = months()
@@ -495,11 +500,11 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True):
         if p['start'] > D0:
             m = dt.date(p['start'].year, p['start'].month, 1)
             for n in path(U, at(p['unit'], p['start'])):
-                T[(n, m)]['hire'] += P(p, m) and ((at(p['acth'], p['start']) == 'Активная') if act else 1)
+                T[(n, m)]['hire'] += PH(p, m, p['start']) and ((at(p['acth'], p['start']) == 'Активная') if act else 1)
         for c, _ in (p['conv'] if act else []):   # найм по методологии DD: переход в активную — тоже найм
             m = dt.date(c.year, c.month, 1)
             for n in path(U, at(p['unit'], c)):
-                T[(n, m)]['hire'] += P(p, m)
+                T[(n, m)]['hire'] += PH(p, m, c)
             # agg — таблица, где люди уже сложены (hr_structure_overall, файл 2): тип активности
             # там на конец месяца, и стажёр, принятый и переведённый в одном месяце, — ещё и в
             # найме в компанию (hire_amt). Разделить без людей нельзя — правда с тем же завышением
@@ -555,7 +560,7 @@ def truth_trf(U, people, pred=lambda p, d: True, act=True):
             m = dt.date(d.year, d.month, 1)
             for n in set(pa) | set(pb):
                 ia, ib = n in pa and fa, n in pb and fb
-                if ib and not ia and d not in conv:
+                if ib and not ia and not (act and d in conv):   # кандидат/стажёр — найм только на активной
                     T[(n, m)]['tin'] += 1
                 if ia and not ib:
                     T[(n, m)]['tout'] += 1

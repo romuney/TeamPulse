@@ -52,6 +52,12 @@ HUB_INFO = [
               - coalesce((select sum(close_cnt) from structure_x_vacancy
                            where report_month >= (select grid_start from {HUB_P}_meta)), 0)"""),
 ]
+# поставка 56: смены без флага источника (виды x… в переходах) — «прочее» водопада компании; на чистых данных 0.
+# Первый месяц сетки не в счёт: если дневной источник с него начинается, у людей нет «вчера»
+HUB_INFO.append(
+    ('переходы без флага источника у корня (x…), после первого месяца сетки',
+     f"""select coalesce(sum(trf_cnt), 0) from {HUB_P}_trf where trf_kind like 'x%' and node_rk = {_root}
+         and report_month > (select min(report_month) from {HUB_P}_trf)"""))
 HUB_CHECKS += [
     ('корней',
      f"select count(*) - 1 from {HUB_P}_unit where parent_rk = ''"),

@@ -795,7 +795,7 @@ function drawWaterfall(a,w,h){
     const lab=(st.total?'':(st.value>0?'+':''))+CD.fmtInt(st.value);
     const t={title:st.name+(st.sub?' · '+st.sub:''),
       rows:[{label:st.total?'Уровень':'Изменение',value:lab,color:col}],
-      note:st.total?null:'накоплено: '+CD.fmtInt(g.to)+' чел'};
+      note:st.note||(st.total?null:'накоплено: '+CD.fmtInt(g.to)+' чел')};
     s+='<g class="barg"'+tip(t)+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(plotBot-hh)+'"/>';
     s+=barUp(cx-bw/2,yTop,bw,Math.max(2,yBot-yTop),col,' class="bar up"'+sAttr(sid)+' style="animation-delay:'+(i*34)+'ms"');

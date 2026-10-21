@@ -384,18 +384,29 @@ having sum(mx_n) > 0
 {dist('node_rk')};
 drop table if exists {p}_mixr""")
 
-    # 10. переходы (21.10, заказчик: «переводы пересчитываются в зависимости от фильтров»: смотрим
-    #     департамент — кто перешёл в департамент; департамент + HQ — кто перешёл в департамент и
-    #     стал HQ; так же штат, IT-код, тип численности). Переход — день, когда у человека в дневном
-    #     источнике сменился юнит или срез (покраска, IT-код, штат, тип численности) против его
-    #     прошлой строки. Пути юнитов — нынешние, как у рядов (переименование и переезд юнита не
-    #     переход). Узлы нового пути, которых нет в старом, — «вошёл» (i, срез после), старого, которых
-    #     нет в новом, — «вышел» (o, срез до), общие при смене среза — «остался» (s, оба среза).
-    #     Датасет: перевод в выбор — срез после проходит фильтры, и человек вошёл в узел или срез до
-    #     фильтры не проходил; из выбора — наоборот. Месяц — первого дня в новом состоянии: перевод
-    #     с 1-го числа даёт «из» и «в» в одном месяце (как в старом TeamPulse, где «из» последнего дня
-    #     месяца переносили на следующий). В выбор — без найма, перевода стажёра в штат и учебной
-    #     группы в боевую (это найм, in_ok = 0); из выбора — без увольнения (out_ok = 0)
+    # 10. переходы и найм по дням (21.10, заказчик: «переводы пересчитываются в зависимости от фильтров»; 21.10,
+    #     методология переводов translations_logic.md: факт перевода — флагом источника, не сравнением значений).
+    #     Выбор отчёта — узел и фильтры (покраска, IT-код, штат, тип численности). Человек входит в выбор или
+    #     выходит из него, когда меняются его юнит или срез. Смена считается переводом, только если её отметил
+    #     источник: флаг «в» стоит на первом дне в новом состоянии, «из» — на последнем дне в старом (так их
+    #     читает и TP 2.0: «в» — против прошлого дня, «из» — против следующего). Поэтому переход между днями
+    #     t−1 и t отмечен, если стоит «в» на t или «из» на t−1, и датируется днём t: перевод «из» в последний
+    #     день месяца уходит в следующий месяц, вместе с «в» (методология, раздел 1) — и в численность конца
+    #     месяца человек попадает ровно один раз. Юнит — флаги lvlN_mngt_unit_in/out_trsf_flg любого уровня;
+    #     покраска — transfer_to/out_hq_flg; IT-код — transfer_to/out_it_flg; штат — transfer_to/out_
+    #     employment_relation_type_flg; тип численности — transfer_to/out_active_type_flg и переход кандидата
+    #     или стажёра. Нет колонок флага — смена этой части по значениям, как раньше.
+    #     Виды строк (узел × месяц × вид × срез до f_ × срез после t_):
+    #       i, o, s — перевод: вошёл в узел, вышел, остался со сменой среза (s — только если срез сменился);
+    #                 in_ok = 0 — в тот же день кандидат учебного юнита стал боевым или стажёр штатным: на
+    #                 активной численности это найм (методология DD), на всей — перевод (методология переводов:
+    #                 кандидатов исключают только «в активной численности»); из выбора — не после увольнения
+    #       h       — найм в компанию: узлы и срез дня найма (а не конца месяца: найм и перевод того же месяца
+    #                 сходятся с численностью и тогда, когда срез сменился после найма)
+    #       x…      — смены без флага источника, для сверки: xi / xo / xs — часть перехода без флага (по
+    #                 значениям), xa — появился без найма, xd — пропал без увольнения. На чистых данных их нет;
+    #                 если есть — это и есть «прочее» водопада (методология: прочее — только при сбое данных)
+    #     Пути юнитов — нынешние, как у рядов (переименование и переезд юнита — не перевод)
     dcols = set() if debug else _source_cols(_qualified(daily_source))
     dhas = lambda c: c in dcols
     dlv = [i for i in lv if dhas(f'lvl{i}_mapped_management_unit_rk')]
@@ -405,6 +416,12 @@ drop table if exists {p}_mixr""")
         if dlv else '0'
     dflg = lambda c: f"(coalesce(x.{c}::text, '0') = '1')::int" if dhas(c) else '0'
     dcut = lambda c: f"coalesce(nullif(coalesce(x.{c}::text, '-'), ''), '-')" if dhas(c) else "'-'"
+    # флаг части: хоть одна колонка есть — 0/1, нет ни одной — NULL (тогда смена — по значениям)
+    dany = lambda cs: ('(' + ' or '.join(f"coalesce(x.{c}::text, '0') = '1'" for c in cs if dhas(c)) + ')::int') \
+        if any(dhas(c) for c in cs) else 'null::int'
+    tflg = lambda d, t: dany([f'transfer_{d}_{t}_flg'])
+    u_in = dany([f'lvl{i}_mngt_unit_in_trsf_flg' for i in range(1, 13)])
+    u_out = dany([f'lvl{i}_mngt_unit_out_trsf_flg' for i in range(1, 13)])
     # тип численности — как в FIXED_DIMS ноутбука (первый вариант, чьи колонки есть в источнике)
     act_e = "case when x.active_type_nm = 'Активная' then 'Активная' else 'Прочие' end" if dhas('active_type_nm') \
         else "'Активная'"
@@ -416,9 +433,10 @@ drop table if exists {p}_mixr""")
             break
     staff_e = (f"case when x.employment_relation_type_desc = '{staff_value}' then 'Штат' else 'Не штат' end"
                if dhas('employment_relation_type_desc') else "'Не штат'")
-    hx = ' + '.join(dflg(c) for c in ('hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg'))
-    fpath = lambda a_, c: (f"case when {a_}.{c} = '' then '{{}}'::text[] else "
-                           f"string_to_array({pre}{a_}.{c}, '|') end")
+    fpath = lambda c: f"case when {c} = '' then '{{}}'::text[] else string_to_array({pre}{c}, '|') end"
+    cp_of = lambda u, op, ua: f"case when {u} = '' then '' else coalesce({ua}.cp, {op}) end"
+    # последний день, до которого есть данные в месяце: пропал раньше него без увольнения — «xd»
+    m_end = lambda m: f"least(('{m}'::date + interval '1 month')::date - 1, coalesce({dt_lit}, current_date - 1))"
     trf_m = lambda m: f"""
 select * from (
 with d as (
@@ -429,7 +447,12 @@ with d as (
                case when {dleaf} = 0 then '' else array_to_string(({darr})[1:{dleaf}], '|') end as op,
                {dcut('emp_specialization_oper_code')} as pa, {dcut('emp_specialization_it_code')} as it,
                {staff_e} as st, {act_e} as ac,
-               least({hx}, 1) as hx, {dflg('fire_flg')} as fx
+               {dflg('hire_flg')} as hf, least({dflg('transfer_candidate_flg')} + {dflg('transfer_internal_flg')}, 1) as cv,
+               {dflg('fire_flg')} as fx,
+               {u_in} as iu, {u_out} as ou, {tflg('to', 'hq')} as ip, {tflg('out', 'hq')} as oq,
+               {tflg('to', 'it')} as ii, {tflg('out', 'it')} as oi,
+               {tflg('to', 'employment_relation_type')} as ist, {tflg('out', 'employment_relation_type')} as ost,
+               {tflg('to', 'active_type')} as ia, {tflg('out', 'active_type')} as oa
         from {_qualified(daily_source)} x
         where x.calendar_dt::date between ('{m}'::date - 1) and (('{m}'::date + interval '1 month')::date - 1)
     ) y
@@ -437,45 +460,81 @@ with d as (
 ),
 s as (
     select d.*, lag(u) over w as u0, lag(op) over w as op0, lag(pa) over w as pa0, lag(it) over w as it0,
-           lag(st) over w as st0, lag(ac) over w as ac0, lag(fx) over w as fx0
+           lag(st) over w as st0, lag(ac) over w as ac0, lag(fx) over w as fx0, lag(ou) over w as ou0,
+           lag(oq) over w as oq0, lag(oi) over w as oi0, lag(ost) over w as ost0, lag(oa) over w as oa0,
+           lead(dt) over w as dt1
     from d
     window w as (partition by e order by dt)
 ),
-c as (
-    select date_trunc('month', s.dt)::date as report_month, s.pa, s.it, s.st, s.ac, s.pa0, s.it0, s.st0, s.ac0,
-           1 - s.hx as in_ok, 1 - s.fx0 as out_ok,
-           (s.pa, s.it, s.st, s.ac) <> (s.pa0, s.it0, s.st0, s.ac0) as cut_chg,
-           case when s.u = '' then '' else coalesce(ua1.cp, s.op) end as cp1,
-           case when s.u0 = '' then '' else coalesce(ua0.cp, s.op0) end as cp0
+g as (
+    -- какие части перехода отметил источник: «в» на новом дне или «из» на прошлом; нет флагов — по значениям
+    select s.*,
+           coalesce(greatest(s.iu, s.ou0), (s.u <> s.u0)::int) as gu,
+           coalesce(greatest(s.ip, s.oq0), (s.pa <> s.pa0)::int) as gp,
+           coalesce(greatest(s.ii, s.oi0), (s.it <> s.it0)::int) as gi,
+           coalesce(greatest(s.ist, s.ost0), (s.st <> s.st0)::int) as gs,
+           greatest(coalesce(greatest(s.ia, s.oa0), (s.ac <> s.ac0)::int), s.cv) as ga
     from s
-    left join {p}_upath ua1 on ua1.unit_rk = s.u
-    left join {p}_upath ua0 on ua0.unit_rk = s.u0
-    where s.u0 is not null
+    where s.u0 is not null and s.dt >= '{m}'::date and s.hf = 0
       and (s.u <> s.u0 or (s.pa, s.it, s.st, s.ac) <> (s.pa0, s.it0, s.st0, s.ac0))
-      and s.dt >= '{m}'::date
-      and (s.hx = 0 or s.fx0 = 0)
+),
+c as (
+    -- «было» с учётом флагов (e): неотмеченная часть — как будто не менялась; «было» по значениям (t)
+    select date_trunc('month', g.dt)::date as report_month, g.pa, g.it, g.st, g.ac,
+           case when g.gp = 1 then g.pa0 else g.pa end as epa, case when g.gi = 1 then g.it0 else g.it end as eit,
+           case when g.gs = 1 then g.st0 else g.st end as est, case when g.ga = 1 then g.ac0 else g.ac end as eac,
+           g.pa0 as tpa, g.it0 as tit, g.st0 as tst, g.ac0 as tac,
+           1 - g.cv as in_ok, 1 - g.fx0 as out_ok,
+           {cp_of('g.u', 'g.op', 'ua1')} as cp1,
+           case when g.gu = 1 then {cp_of('g.u0', 'g.op0', 'ua0')} else {cp_of('g.u', 'g.op', 'ua1')} end as ecp,
+           {cp_of('g.u0', 'g.op0', 'ua0')} as tcp
+    from g
+    left join {p}_upath ua1 on ua1.unit_rk = g.u
+    left join {p}_upath ua0 on ua0.unit_rk = g.u0
+),
+r as (
+    -- событие: путь до (a0) и после (a1), срез до (f) и после (t), вид-префикс
+    select report_month, '' as pfx, ecp as cp0, cp1, epa as fpa, eit as fit, est as fst, eac as fac,
+           pa as tpa_, it as tit_, st as tst_, ac as tac_, in_ok, out_ok
+    from c where ecp <> cp1 or (epa, eit, est, eac) <> (pa, it, st, ac)
+    union all
+    select report_month, 'x', tcp, ecp, tpa, tit, tst, tac, epa, eit, est, eac, 1, 1
+    from c where tcp <> ecp or (tpa, tit, tst, tac) <> (epa, eit, est, eac)
+    union all
+    select date_trunc('month', s.dt)::date, case when s.hf = 1 then 'h' else 'a' end, '', {cp_of('s.u', 's.op', 'ua')},
+           '', '', '', '', s.pa, s.it, s.st, s.ac, 1, 1
+    from s left join {p}_upath ua on ua.unit_rk = s.u
+    where s.dt >= '{m}'::date and (s.hf = 1 or s.u0 is null)
+    union all
+    select date_trunc('month', s.dt + 1)::date, 'd', {cp_of('s.u', 's.op', 'ua')}, '',
+           s.pa, s.it, s.st, s.ac, '', '', '', '', 1, 1
+    from s left join {p}_upath ua on ua.unit_rk = s.u
+    where s.dt1 is null and s.fx = 0 and s.dt < {m_end(m)}
 ),
 t as (
-    select c.*, {fpath('c', 'cp1')} as a1, {fpath('c', 'cp0')} as a0 from c
+    select r.*, {fpath('r.cp0')} as a0, {fpath('r.cp1')} as a1,
+           (fpa, fit, fst, fac) <> (tpa_, tit_, tst_, tac_) as cut_chg
+    from r
 ),
 n as (
-    select report_month, node_rk, case when node_rk = any(a0) then 's' else 'i' end as trf_kind,
-           pa, it, st, ac, pa0, it0, st0, ac0, in_ok, out_ok, cut_chg
+    select report_month, node_rk, pfx, case when node_rk = any(a0) then 's' else 'i' end as k,
+           fpa, fit, fst, fac, tpa_, tit_, tst_, tac_, in_ok, out_ok, cut_chg
     from (select t.*, unnest(t.a1) as node_rk from t) z
     union all
-    select report_month, node_rk, 'o' as trf_kind, pa, it, st, ac, pa0, it0, st0, ac0, in_ok, out_ok, cut_chg
+    select report_month, node_rk, pfx, 'o', fpa, fit, fst, fac, tpa_, tit_, tst_, tac_, in_ok, out_ok, cut_chg
     from (select t.*, unnest(t.a0) as node_rk from t) z
     where not (node_rk = any(a1))
 )
-select node_rk, report_month, trf_kind,
-       case when trf_kind = 'i' then '' else pa0 end as f_paint_cd, case when trf_kind = 'i' then '' else it0 end as f_it_cd,
-       case when trf_kind = 'i' then '' else st0 end as f_staff_cd, case when trf_kind = 'i' then '' else ac0 end as f_act_cd,
-       case when trf_kind = 'o' then '' else pa end as t_paint_cd, case when trf_kind = 'o' then '' else it end as t_it_cd,
-       case when trf_kind = 'o' then '' else st end as t_staff_cd, case when trf_kind = 'o' then '' else ac end as t_act_cd,
-       case when trf_kind = 'o' then 0 else in_ok end as in_ok, case when trf_kind = 'i' then 0 else out_ok end as out_ok,
+select node_rk, report_month,
+       case pfx when '' then k when 'x' then 'x' || k when 'h' then 'h' when 'a' then 'xa' else 'xd' end as trf_kind,
+       case when k = 'i' then '' else fpa end as f_paint_cd, case when k = 'i' then '' else fit end as f_it_cd,
+       case when k = 'i' then '' else fst end as f_staff_cd, case when k = 'i' then '' else fac end as f_act_cd,
+       case when k = 'o' then '' else tpa_ end as t_paint_cd, case when k = 'o' then '' else tit_ end as t_it_cd,
+       case when k = 'o' then '' else tst_ end as t_staff_cd, case when k = 'o' then '' else tac_ end as t_act_cd,
+       case when k = 'o' then 1 else in_ok end as in_ok, case when k = 'i' then 1 else out_ok end as out_ok,
        count(*) as trf_cnt
 from n
-where (trf_kind = 'i' and in_ok = 1) or (trf_kind = 'o' and out_ok = 1) or (trf_kind = 's' and cut_chg)
+where (k <> 's' or cut_chg) and (k <> 'o' or out_ok = 1)
 group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 ) q"""
     steps.extend(parts(f'{p}_trf', trf_m, m_grid, 'node_rk'))

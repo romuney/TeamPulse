@@ -166,7 +166,7 @@ function request(next){
   const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
   unitNames[next.unit]=nm;
   unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||unitNames[S.unit]||'';
-  STORE.pending={unit:next.unit,name:nm,at:Date.now(),sig:sig,mask:mask,tries:0};
+  STORE.pending={unit:next.unit,name:nm,at:Date.now(),sig:sig,mask:mask,tries:0,flt:next.unit===S.unit};
   STORE.warn='';
   clearTimeout(_staleT);
   /* выбор снова тот, что на экране (ушли и вернулись, пока ждали ответа) — маска та же, что у
@@ -257,7 +257,9 @@ function navDev(bk){
 function pilotChips(){
   let h='';
   const p=STORE.pending;
-  if(p)h+='<span class="chip busy">Загружаю «'+esc(p.name||'…')+'»…</span>';
+  /* ожидание ответа — карточкой с огоньками над отчётом (#tpLoad), не чипом: здесь только её подпись */
+  const ln=$('#tpLoadN');
+  if(ln)ln.textContent=p&&p.name?(p.flt?'Фильтры для «'+p.name+'»':'«'+p.name+'»'):'';
   if(STORE.warn)h+='<span class="chip warn">'+esc(STORE.warn)+'</span>';
   h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на настоящих данных',
     text:'Настоящие цифры:',
@@ -342,6 +344,12 @@ function mountStaticMascots(){
      кто показывает, куда смотреть. Один персонаж ведёт пользователя везде. */
   const sp=$('#setupPulse');
   if(sp)sp.innerHTML=M.img('setup',54);
+  /* загрузка (21.10, заказчик): огоньки по очереди — собирает с ключом, считает, готово; видна только
+     с .tp-busy, пока датасет отвечает (styles.css) */
+  const tl=$('#tpLoad');
+  if(tl)tl.innerHTML='<div class="ld-f">'+M.img('setup',52)+M.img('base',52)+M.img('ok',52)+'</div>'+
+    '<div class="ld-c"><span>Собираем данные…</span><span>Считаем метрики…</span><span>Готовим выводы…</span></div>'+
+    '<div class="ld-n" id="tpLoadN"></div>';
   const htp=$('#helpTopPulse');
   if(htp)htp.innerHTML=M.img('point',54);
   /* В справке огонёк остаётся только в шапке модалки: в разводке внизу

@@ -27,11 +27,16 @@ function balancedSteps(lp){
   const hc=D.aggregate(lp,'hc_total'), begin=hc[0], end=hc[D.LAST];
   const hire=D.winSum(lp,'hire'), tin=D.winSum(lp,'transfer_in');
   const attr=-D.winSum(lp,'attrition'), tout=-D.winSum(lp,'transfer_out');
-  /* «Прочие изменения» закрывают разрыв: численность генерируется независимо
-     от потоков, и молча спрятать невязку было бы обманом */
+  /* 21.10, поставка 56: найм, отток и переводы покрывают всё движение (методология переводов) — «Прочее»
+     бывает только при сбое данных: изменение численности без события в источнике. Ноль — столбца нет;
+     не ноль — столбец с объяснением, молча спрятать невязку было бы обманом */
+  const other=end-(begin+hire+tin+attr+tout);
   return [{name:'Начало',sub:D.WIN_FROM,value:begin,total:true},{name:'Найм',value:hire},
-    {name:'Переводы в',value:tin},{name:'Отток',value:attr},{name:'Переводы из',value:tout},
-    {name:'Прочее',value:end-(begin+hire+tin+attr+tout)},{name:'Конец',sub:D.WIN_TO,value:end,total:true}];
+    {name:'Переводы в',value:tin},{name:'Отток',value:attr},{name:'Переводы из',value:tout}].concat(
+    Math.abs(other)<0.5?[]:[{name:'Прочее',value:other,note:D.REAL?'Изменение численности без найма, увольнения или '+
+      'перевода в источнике — сбой данных. Найм, отток и переводы покрывают всё движение людей.':
+      'В демо численность и потоки генерируются независимо.'}],
+    [{name:'Конец',sub:D.WIN_TO,value:end,total:true}]);
 }
 
 SC.blocks.movement={

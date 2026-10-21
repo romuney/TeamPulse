@@ -814,15 +814,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   cursor:pointer;font:inherit;transition:background .15s}
 .pulse-dock:hover{background:var(--bg)}
 .pulse-dock.on{background:var(--blue-bg)}
-.pd-av{position:relative;flex:0 0 auto;line-height:0}
-/* Точка состояния дублирует эмоцию огонька формой и цветом: одной картинки
-   мало на 54 px, а подписывать словами нельзя — он молчит. */
-.pd-dot{position:absolute;right:-1px;bottom:1px;width:11px;height:11px;border-radius:50%;
-  border:2px solid #fff;box-shadow:0 0 0 1px rgba(20,28,45,.06)}
-.pd-dot.good{background:var(--green)}
-.pd-dot.warn{background:var(--warn)}
-.pd-dot.bad{background:var(--red)}
-.pd-dot.neutral{background:var(--muted2)}
 .pd-txt{min-width:0;line-height:1.25}
 .pd-txt b{display:block;font-size:13px;font-weight:var(--fw-bold);color:var(--ink);letter-spacing:-.1px}
 .pd-txt span{display:block;font-size:var(--fs-cap);color:var(--muted);font-weight:var(--fw-body);margin-top:2px}
@@ -1459,14 +1450,33 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .dev-sum-b{padding:var(--s2) var(--s6) var(--s6) 22px;border-top:1px solid var(--line2)}
 .dev-sum-b label{font-size:var(--fs-body);font-weight:var(--fw-bold)}
 .dev-sum-b .fhint{font-size:var(--fs-note);color:var(--muted)}
-/* чипы пробника в шапке: что здесь живое, ожидание ответа, предупреждение */
+/* чипы пробника в шапке: что здесь живое, предупреждение (ожидание ответа — карточкой .tp-load) */
 .chip.pilot{background:var(--card);color:var(--ink2);border:1px dashed var(--muted2);font-weight:var(--fw-body)}
-.chip.busy{background:var(--card);color:var(--act-ink);border-color:var(--act-line);font-weight:var(--fw-body);
-  animation:tp-busy 1.2s ease-in-out infinite alternate}
 .chip.warn{background:var(--warn-bg);color:var(--warn-tx);border-color:var(--warn-bg);font-weight:var(--fw-body)}
-@keyframes tp-busy{from{opacity:1}to{opacity:.45}}
 /* пока датасет отвечает на переход или фильтр, прежний юнит приглушён */
-.tp-busy #view{opacity:.5;pointer-events:none;transition:opacity .2s}
+.tp-busy #view{opacity:.4;pointer-events:none;transition:opacity .2s}
+/* 21.10, заказчик: «нажимаю применить — не видно, что что-то загружается». Пока датасет отвечает на фильтр
+   или переход, над отчётом карточка: огоньки появляются по очереди — собирает (с ключом), считает,
+   готово, — подпись меняется вместе с ними. Центр — по колонке отчёта (навигация 236 px слева) */
+.tp-load{display:none;position:fixed;z-index:60;top:45%;left:calc(50% + 118px);transform:translate(-50%,-50%);
+  flex-direction:column;align-items:center;gap:var(--s4);padding:var(--s9) var(--s10) var(--s8);border-radius:var(--r5);
+  background:var(--card);box-shadow:var(--shadow-lg);pointer-events:none;animation:ld-in .25s .15s both}
+.tp-busy .tp-load{display:flex}
+.ld-f{display:flex;gap:var(--s3);height:60px;align-items:flex-end}
+.ld-f img{opacity:0;animation:ld-pop 3s infinite both}
+.ld-f img:nth-child(2){animation-delay:.45s}
+.ld-f img:nth-child(3){animation-delay:.9s}
+.ld-c{position:relative;height:20px;min-width:190px;font-size:15px;font-weight:var(--fw-bold);color:var(--ink)}
+.ld-c span{position:absolute;left:0;right:0;text-align:center;opacity:0;animation:ld-cap 6s infinite both}
+.ld-c span:nth-child(2){animation-delay:2s}
+.ld-c span:nth-child(3){animation-delay:4s}
+.ld-n{font-size:var(--fs-body);color:var(--muted)}
+@keyframes ld-in{from{opacity:0;transform:translate(-50%,-46%)}}
+@keyframes ld-pop{0%{opacity:0;transform:translateY(10px) scale(.4)}10%{opacity:1;transform:translateY(-8px) scale(1.12)}
+  16%,78%{opacity:1;transform:none}88%,100%{opacity:0;transform:scale(.85)}}
+@keyframes ld-cap{0%{opacity:0;transform:translateY(4px)}5%,28%{opacity:1;transform:none}33%,100%{opacity:0}}
+@media (max-width:780px){.tp-load{left:50%}}
+@media (prefers-reduced-motion:reduce){.tp-load,.ld-f img,.ld-c span{animation:none}.ld-f img,.ld-c span:first-child{opacity:1}}
 /* корень отчёта внутри хоста ECharts: он и прокручивается (prelude.js) */
 .tp-overlay{background:var(--bg)}
 /* «План метрик» в справке — только в пробнике */

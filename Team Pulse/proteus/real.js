@@ -39,7 +39,7 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
    на конец месяца, vcl — закрыто, vap — новые, vtd/vtn — дни и число закрытых для срока, vjn — закрыто
    джунами) и AI (aiw — WAU, aip / aic — проникновение по юниту и компании). Тоже необязательные; вакансии
    и AI — без фильтров среза (не люди) */
-const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic'];
+const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   perf_norm:'pnor',perf_low:'plow',perf_high:'phig',perf_gray:'pgry',
@@ -52,7 +52,7 @@ const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:[
   ai_wau:['aiw'],ai_penetration:['aip']};
 /* колонки, которые оживляют метрику, только если в них есть данные: пустая витрина (нет источника
    вакансий или AI, нет флага обычного увольнения) даёт нули — метрика остаётся «в разработке» */
-const LIVE_NZ=['nreg','vop','vcl','aiw','aip'];
+const LIVE_NZ=['nreg','vop','vcl','aiw','aip','hit'];
 /* Метрики без источника в hr_structure_overall: в пробнике — заглушки на генераторе
    макета (по численности юнита), с пометкой «демо». План подключения —
    «Поставка — TeamPulse Hub/План метрик.md». */
@@ -136,10 +136,15 @@ function build(data){
      проникновение узла = Σ WAU / Σ aid — ровно доля источника */
   const AID=have.has('aip')&&have.has('aiw');
   if(AID)cols.push('aid');
+  /* поставка 56: найм по дню события (hit — из переходов ноутбука: найм в компанию и, на активной, переходы
+     кандидатов и стажёров) — тем же счётом, что переводы, поэтому водопад сходится без «прочего». Прежние
+     таблицы его не везут (нули) — тогда найм из рядов, как раньше */
+  const HIT=have.has('hit');
   const parseSer=r=>{
     const ser={};
     cols.forEach(c=>{if(c!=='aid')ser[c]=parseArr(raw(r,c),n)});
     if(AID)ser.aid=ser.aiw.map((w,k)=>ser.aip[k]?+(w*100/ser.aip[k]).toFixed(3):0);
+    if(HIT)ser.hire=ser.hit;
     return ser;
   };
   const stub=new Set(STUB.filter(k=>!(LIVE_WITH[k]&&LIVE_WITH[k].every(c=>have.has(c)))));

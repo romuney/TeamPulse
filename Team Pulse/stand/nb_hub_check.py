@@ -59,9 +59,11 @@ def main():
         for label, sql in (('файл 2 ', F2), ('файл 2а', F2A)):
             act = 'act_f' not in flt
             T = nb.truth(U, people, perf, grt, raw.get(name, pred) if label == 'файл 2а' else pred,
-                         agg=label == 'файл 2 ' and act, act=act)
+                         agg=label == 'файл 2 ' and act, act=act, hday=label == 'файл 2а')
             if label == 'файл 2 ' and 'paint_f' in flt:
                 continue                         # в hr_structure_overall покраски нет
+            if label == 'файл 2а':               # найм на конец месяца — для разбивок найма (mx)
+                Te = nb.truth(U, people, perf, grt, raw.get(name, pred), act=act)
             if label == 'файл 2а':               # 21.10: переводы 2а — под фильтры (переходы ноутбука)
                 Tt = nb.truth_trf(U, people, pred, act)
                 for k in set(T) | set(Tt):
@@ -73,6 +75,8 @@ def main():
             if len(outs) != 1:
                 ok = False
             bad = defaultdict(int)
+            bal = [0, 0.0]                       # невязка водопада: узлов × месяцев, сумма модулей
+            hit = [0.0]
             nodes = 0
             for r in rows:
                 if r['role'] not in ('scope', 'base', 'c', 'g', 'x'):
@@ -87,14 +91,28 @@ def main():
                         for kk in set(x for k in roots for x in T[(k, m)]):
                             if kk not in ('tin', 'tout'):    # переводы общего корня — свои (truth_trf)
                                 T[('all', m)][kk] = sum(T[(k, m)][kk] for k in roots)
+                        if label == 'файл 2а':
+                            Te[('all', m)]['hire'] = sum(Te[(k, m)]['hire'] for k in roots)
                 elif rk not in U:
                     bad['узел не найден'] += 1
                     continue
                 nodes += 1
                 a = {k: [float(x) for x in r['m_' + k].split(',')] for k in
                      ('hc', 'act', 'avg', 'hire', 'fire', 'tin', 'tout', 'pnor', 'plow', 'phig', 'pgry', 'gapr', 'gdec')}
+                # поставка 56: найм по дню события из переходов (hit) — его и берёт чарт, если он не пустой
+                if label == 'файл 2а' and r.get('m_hit') is not None:
+                    hit[0] += sum(float(x) for x in r['m_hit'].split(','))
+                    a['hire'] = [float(x) for x in r['m_hit'].split(',')]
                 a['perf'] = [w + x + y + z for w, x, y, z in zip(a['pnor'], a['plow'], a['phig'], a['pgry'])]
                 a['grt'] = [x + y for x, y in zip(a['gapr'], a['gdec'])]
+                if label == 'файл 2а':
+                    # 21.10, заказчик: водопад сходится без «прочего» — численность месяца минус прошлого =
+                    # найм − отток + переводы в − переводы из, у каждого узла ответа и в каждом месяце
+                    for i in range(1, len(ms)):
+                        r_ = a['hc'][i] - a['hc'][i - 1] - (a['hire'][i] - a['fire'][i] + a['tin'][i] - a['tout'][i])
+                        if abs(r_) > 0.01:
+                            bal[0] += 1
+                            bal[1] += abs(r_)
                 for k, tk in KEYS.items():
                     if label == 'файл 2 ' and k in ('tin', 'tout'):
                         continue
@@ -119,7 +137,10 @@ def main():
                     want_mx = {'sp': T[(rk, ms[-1])]['hc'], 'tc': T[(rk, ms[-1])]['hc'],
                                'xsp': sum(T[(rk, m)]['fire'] for m in ytd), 'xtc': sum(T[(rk, m)]['fire'] for m in ytd)}
                     if act:
-                        want_mx.update({k: sum(T[(rk, m)]['hire'] for m in ytd) for k in ('hk', 'hch', 'hg', 'hsp')})
+                        # разбивки найма — из строк ноутбука с измерениями на конец месяца (как TP 2.0): их сумма —
+                        # найм с срезом конца месяца, а не дня найма (hday). Разница — у тех, кому срез сменили в
+                        # месяц найма
+                        want_mx.update({k: sum(Te[(rk, m)]['hire'] for m in ytd) for k in ('hk', 'hch', 'hg', 'hsp')})
                     for kk, w in want_mx.items():
                         if abs(mx[kk] - w) > 0.5:
                             bad['mx ' + kk] += 1
@@ -176,10 +197,26 @@ def main():
                         own = T[(rk, ms[-1])]['hc'] - sum(T[(c, ms[-1])]['hc'] for c in kids[rk])
                         if (hd and hd != 'h' + rk) or (own > 0 and not hd):
                             bad['логин руководителя'] += 1
+            if label == 'файл 2а' and not hit[0]:
+                bad['найм из переходов (hit) пуст'] += 1
+            if bal[0]:
+                bad[f'водопад: «прочее» в {bal[0]} узл.×мес. (сумма {bal[1]:.0f} чел)'] += 1
             res = 'сходится' if not bad else 'РАСХОЖДЕНИЯ ' + ', '.join(f'{k}: {v} узл.' for k, v in bad.items())
             if label == 'файл 2а' and bad:
                 ok = False
             print(f'{name:24} {label}: узлов {nodes:3} · {len(outs)} отв. при 6 настройках · {res}{pred_note}')
+    # поставка 56: на чистых данных у переходов нет строк «без флага» (x…): прочее водопада — только сбой данных
+    s = session.Session(db)
+    # первый месяц сетки — не в счёт: симуляция источника с него начинается, у людей нет «вчера» (xa); на бою у
+    # источника есть история раньше сетки
+    xk = s.query("SELECT trf_kind, sum(trf_cnt) FROM prod_proteus.teampulse_hub_trf WHERE startsWith(trf_kind, 'x') "
+                 "AND report_month > (SELECT min(report_month) FROM prod_proteus.teampulse_hub_trf) "
+                 "GROUP BY trf_kind ORDER BY trf_kind", 'TSV').bytes().decode().strip()
+    hk = s.query("SELECT sum(trf_cnt) FROM prod_proteus.teampulse_hub_trf WHERE trf_kind = 'h'", 'TSV').bytes().decode().strip()
+    s.close()
+    print('переходы без флага источника (x…):', xk.replace('\n', ', ') or 'нет', '· найм (h):', hk)
+    if xk:
+        ok = False
     print('ИТОГ:', 'датасет 2а = правда по людям' if ok else 'есть расхождения')
     return ok
 

@@ -91,16 +91,20 @@
 {%- endmacro %}
 {#- Переводы — из переходов ноутбука под выбранные фильтры: срез после (t_) или до (f_) проходит фильтры.
     В выбор — вошёл в узел со срезом из фильтров или остался в узле, а срез сменился на подходящий; из
-    выбора — наоборот. Без фильтров смена среза — не перевод. -#}
+    выбора — наоборот. Без фильтров смена среза — не перевод. С поставки 56 переходы — по флагам источника
+    (методология переводов). in_ok = 0 — переход кандидата или стажёра: на активной — найм, на всей — перевод.
+    Найм (hit) — по дню события: найм в компанию (вид h) и, на активной, такие переходы. -#}
 {% macro condp(pre) -%}
 {%- set parts = [] -%}
 {%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set _ = parts.append('lowerUTF8(ifNull(' ~ pre ~ c[0] ~ "_cd, '')) IN " ~ ql(F[c[0]])) -%}{%- endif -%}{%- endfor -%}
 {{- parts|join(' AND ') if parts else '1' -}}
 {%- endmacro %}
-{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64((" ~ condp('t_') ~ ") AND (ifNull(trf_kind, '') = 'i' OR (ifNull(trf_kind, '') = 's' AND ifNull(in_ok, 0) = 1 AND NOT (" ~ condp('f_') ~ "))))" %}
+{% set ENT = "(" ~ condp('t_') ~ ") AND (ifNull(trf_kind, '') = 'i' OR (ifNull(trf_kind, '') = 's' AND NOT (" ~ condp('f_') ~ ")))" %}
+{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(" ~ ENT ~ (" AND ifNull(in_ok, 1) = 1" if act_only else "") ~ ")" %}
+{% set HI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(((" ~ condp('t_') ~ ") AND ifNull(trf_kind, '') = 'h')" ~ (" OR (" ~ ENT ~ " AND ifNull(in_ok, 1) = 0)" if act_only else "") ~ ")" %}
 {% set TU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64((" ~ condp('f_') ~ ") AND (ifNull(trf_kind, '') = 'o' OR (ifNull(trf_kind, '') = 's' AND ifNull(out_ok, 0) = 1 AND NOT (" ~ condp('t_') ~ "))))" %}
 {#- Метрики: ключ, таблица (s — series, t — trf, v — vacancy, a — ai), выражение. Порядок — порядок в ms. -#}
-{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_only else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co']] %}
+{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_only else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI]] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
