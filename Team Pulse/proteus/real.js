@@ -317,6 +317,9 @@ function build(data){
     rootId,scopeId:scopeU?scopeU.id:rootId,
     scopePath:scopeU?(pathOf(scopeU.id)||'T'):'T',
     defId:str(meta.def),
+    /* эхо запроса (21.10): какой юнит просили (unit_f) — пусто, если юнит по умолчанию; по нему чарт
+       отличает ответ на свой запрос от устаревшего */
+    req:(Array.isArray(meta.req)?meta.req:[]).map(str),
     truncated:!rows.some(r=>str(r.role)==='end'),
     missing,noMeta:!by('meta').length,
     empty:!scopeU,

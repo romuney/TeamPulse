@@ -600,8 +600,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   padding:7px 10px;font-family:Arial,sans-serif;font-size:12px;line-height:1.4;color:var(--ink2);font-weight:var(--fw-body);
   min-width:148px;max-width:260px;white-space:normal;text-align:left}
 .tip.on{opacity:1;transform:none}
-.tip .t-h{display:block;font-size:var(--fs-cap);font-weight:var(--fw-bold);letter-spacing:.3px;text-transform:uppercase;
-  color:var(--muted);margin-bottom:5px}
+/* 21.10, правка Антона: заголовок подсказки — обычным предложением, без капса («Regrettable текучесть») */
+.tip .t-h{display:block;font-size:12px;font-weight:var(--fw-bold);color:var(--ink);margin-bottom:4px}
 .tip .t-x{display:block;font-size:12px;font-weight:var(--fw-body);color:var(--ink2);line-height:1.45}
 .tip .t-r{display:flex;align-items:center;gap:8px;margin-top:4px}
 .tip .t-r:first-child{margin-top:0}
@@ -816,11 +816,12 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* sticky bottom — на длинных экранах (one-pager) колонка вытягивается на всю
    высоту страницы, и без этого огонёк уехал бы за нижний край экрана */
 .nav-foot{margin-top:auto;padding-top:18px;position:sticky;bottom:16px;background:#fff}
+/* 21.10: без огонька и без рамки — тихая строка внизу навигации, как пункт меню */
 .pulse-dock{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
-  border:1px solid var(--line);background:#fff;border-radius:var(--r4);padding:9px 10px;
-  cursor:pointer;font:inherit;transition:border-color .15s,box-shadow .15s,background .15s}
-.pulse-dock:hover{border-color:#d3d9e4;box-shadow:var(--shadow)}
-.pulse-dock.on{border-color:#C0CBDF;background:#fbfcfe;box-shadow:var(--shadow)}
+  border:0;background:transparent;border-radius:var(--r3);padding:8px 10px;
+  cursor:pointer;font:inherit;transition:background .15s}
+.pulse-dock:hover{background:var(--bg)}
+.pulse-dock.on{background:var(--blue-bg)}
 .pd-av{position:relative;flex:0 0 auto;line-height:0}
 /* Точка состояния дублирует эмоцию огонька формой и цветом: одной картинки
    мало на 54 px, а подписывать словами нельзя — он молчит. */
@@ -945,8 +946,11 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* Шапка отчёта теперь часть тела борда, а не отдельная полоса на всю ширину */
 .reporthead{padding:16px 26px 15px}
-.rh-row{align-items:flex-end}
-.rh-side{flex-wrap:wrap;justify-content:flex-end;padding-bottom:2px}
+.rh-row{align-items:flex-start}
+/* кнопки — в строке заголовка (21.10): справа от имени юнита, пилюли — строкой ниже на всю ширину */
+.rh-tl{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 10px}
+.rh-tl .rh-title{margin:0}
+.rh-side{flex-wrap:wrap;justify-content:flex-end}
 
 /* ---------- Настройка дашборда: два столбца ----------
    В одну колонку окно не помещалось в ноутбучный экран и уезжало в скролл.
@@ -1488,6 +1492,9 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   line-height:14px;white-space:nowrap;border:1px solid}
 .plan-tag.todo{color:var(--act-ink);background:var(--card);border-color:var(--act-line);border-style:dashed}
 .plan-tag.extra{color:var(--muted);background:var(--bg);border-color:var(--line)}
+/* 21.10, правки Антона: «данные есть» — данные пришли, графика нет; «✓ сверены» — с мастер-источником */
+.plan-tag.data{color:var(--green-tx);background:var(--card);border-color:var(--green-bg);border-style:dashed}
+.live-tag.ok{color:#fff;background:var(--green-tx);border-color:var(--green-tx)}
 /* для кого: все / HQ / УС — подпись, не цветовая категория */
 .aud-tag{display:inline-block;min-width:28px;padding:0 var(--s2);border-radius:var(--r1);font-size:var(--fs-micro);
   font-weight:var(--fw-bold);line-height:16px;text-align:center;color:var(--ink2);background:var(--line2)}
@@ -2194,12 +2201,15 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
       <div class="rh-row">
         <div class="rh-main">
           <div class="rh-crumbs" id="crumbs"></div>
-          <h1 class="rh-title" id="unitTitle"></h1>
+          <!-- 21.10, заказчик: «Настрой свой дашборд» и «Как читать отчёт» — на уровне заголовка, а не пилюль -->
+          <div class="rh-tl">
+            <h1 class="rh-title" id="unitTitle"></h1>
+            <div class="rh-side">
+              <button class="btn ghost" id="btnHelp">Как читать отчёт</button>
+              <button class="btn primary" id="btnSetup">Настрой свой дашборд</button>
+            </div>
+          </div>
           <div class="chips" id="chips"></div>
-        </div>
-        <div class="rh-side">
-          <button class="btn ghost" id="btnHelp">Как читать отчёт</button>
-          <button class="btn primary" id="btnSetup">Настрой свой дашборд</button>
         </div>
       </div>
     </section>
@@ -2378,9 +2388,17 @@ const ASOF=REAL?(REAL.asof||{y:CUR_M.y,m:CUR_M.m,d:DIM(CUR_M.y,CUR_M.m)}):{y:CUR
 const PARTIAL=ASOF.d<DIM(ASOF.y,ASOF.m);
 const ASOF_LABEL=ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y;             /* «19 октября 2026» */
 const ASOF_SHORT=String(ASOF.d).padStart(2,'0')+'.'+String(ASOF.m+1).padStart(2,'0');  /* «19.10» */
-const MATURING=new Set(['hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret','nonregret',
-  'vac_closed','hire_plan','tgrowth_pass','tgrowth_deny','underwork','overwork']);
+/* 21.10, правка Антона: вызревающими могут быть только regrettable и non-regrettable текучесть и
+   проникновение AI — их значение за последний месяц ещё уточняется (признак увольнения и статистика AI
+   приходят позже). У остальных метрик статуса «вызревает» нет: ни метки «по 20.10», ни пунктира. */
+const MATURING=new Set(['regret','nonregret','ai_penetration']);
 function matures(key){return PARTIAL&&MATURING.has(key)}
+/* Потоки за незакрытый месяц (найм, отток, переводы и что из них считается): значение — за 1–20 число,
+   оно точное, но месяц ещё идёт. Метки «вызревает» у них нет; выводы и оценка изменения — по последнему
+   закрытому месяцу, иначе неполный месяц против полного дал бы ложное «лучше, чем год назад». */
+const PART_FLOW=new Set(['hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y',
+  'vac_closed','hire_plan','tgrowth_pass','tgrowth_deny','underwork','overwork']);
+function partFlow(key){return PARTIAL&&PART_FLOW.has(key)}
 /* короткий родительный — «1–19 окт.» */
 const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'];
 /* Границы окна для водопада (20.10, заказчик): начало — численность первого месяца окна, как её
@@ -2391,9 +2409,13 @@ const WIN_TO=MONTH_ABBR[ASOF.m]+' '+ASOF.y;                            /* «ок
 const WIN_SINCE='с '+MONTH_ABBR_GEN[MONTHS[0].m]+' '+MONTHS[0].y;      /* «с окт. 2025», «с июля 2025» */
 function winSum(lp,key){return aggregate(lp,key).slice(1).reduce((a,v)=>a+(v||0),0)}
 /* подсказка у вызревающего значения — одна на весь отчёт */
-const MATURE_TIP={title:'Месяц не закрыт',
-  text:'Данные по **'+ASOF_LABEL+'**: за месяц ещё не всё учтено, значение вырастет к его концу.',
+const MATURE_TIP={title:'Значение вызревает',
+  text:'Данные по **'+ASOF_LABEL+'**: значение за этот месяц ещё уточнится — часть данных приходит позже.',
   note:'Поэтому с прошлым месяцем и годом его не сравниваем, а выводы — по последнему закрытому месяцу.'};
+/* у потока за незакрытый месяц — без «вызревает»: просто период и почему без оценки */
+const PART_TIP={title:'Месяц ещё идёт',
+  text:'Значение — за 1–'+ASOF.d+' '+MONTH_GEN[ASOF.m]+'.',
+  note:'Неполный месяц с полным не оцениваем: выводы — по последнему закрытому месяцу.'};
 const CMP={
   cur:monthNom(CUR_M),
   /* короткая подпись стоит прямо в пилюле изменения, полная — в шапках колонок */
@@ -2442,11 +2464,11 @@ const BLOCKS=[
 {key:'turnover',name:'Отток и текучесть',hint:'Сколько уходит, кто и почему.',drillUrl:'#/detail/turnover',dash:['34661','34136']},
 {key:'hiring',name:'Найм и вакансии',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
 {key:'tgrowth',name:'T-рост',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
-{key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью.',drillUrl:'#/detail/monitor',dash:['34661']},
+{key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью. Мониторинг считается только для HQ-численности, ревью — для eligible-популяции.',drillUrl:'#/detail/monitor',dash:['34661']},
 {key:'office',name:'Посещаемость офисов',hint:'Кто, когда и где ходит в офис; соблюдают ли бронь.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
    У Hub были AI-подсказки, но не было метрик внедрения AI. */
-{key:'ai',name:'AI-инструменты',hint:'Сколько людей пользуются AI и какими инструментами.',drillUrl:'#/detail/ai',dash:['34136']}
+{key:'ai',name:'AI-инструменты',hint:'Сколько людей пользуются AI и какими инструментами. Проникновение считается только для HQ-численности.',drillUrl:'#/detail/ai',dash:['34136']}
 ];
 const BLOCK_BY_KEY=Object.fromEntries(BLOCKS.map(b=>[b.key,b]));
 const PROTEUS_DASH={'34661':'Team Pulse: Управленческая структура','34136':'Team Pulse: Управленческая структура HQ'};
@@ -2468,6 +2490,9 @@ function blockDash(bk,st){
    УС 34661), hq — только HQ, us — только УС. Team Pulse 2.0 объединяет оба:
    показываем всё, а развести по аудитории в интерфейсе — следующий шаг. */
 const AUD_LABEL={all:'все',hq:'HQ',us:'УС'};
+/* 21.10, правка Антона: метрики, которые считаются только для HQ-численности, — так и подписаны
+   (описание, подсказки, готовность данных, вкладки) */
+const HQ_ONLY=' Считается только для HQ-численности.';
 const METRICS=[
 {key:'hc_active',block:'structure',aud:'all',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники на конец месяца без стажёров, подрядчиков и неактивных — тех, кто в декрете, в учебной группе или не выходит на работу.',
   calc:'Как в методологии HR (Data Detective): все сотрудники, кроме\n• стажёров;\n• подрядчиков и аутстаффа;\n• неактивных: декрет, прогул, мобилизация, учебные группы, POS-агенты и амбассадоры.\nПо ней считают текучесть и сравнивают подразделения.'},
@@ -2502,12 +2527,12 @@ const METRICS=[
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с января',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR (YTD Turnover): сумма месячной текучести с января.'},
-{key:'regret',block:'turnover',aud:'hq',name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.',
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
   calc:'Сумма месячной: regrettable-увольнения ÷ среднесписочная × 100%. Regrettable по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
-{key:'nonregret',block:'turnover',aud:'hq',name:'Non-regrettable текучесть',short:'Non-regrettable',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
-  hint:'Текучесть с 1 января по обычным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.',
+{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Non-regrettable текучесть',short:'Non-regrettable',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
+  hint:'Текучесть с 1 января по обычным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.'+HQ_ONLY,
   calc:'Сумма месячной: обычные (non-regrettable) увольнения ÷ среднесписочная × 100%. Обычное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
@@ -2536,16 +2561,17 @@ const METRICS=[
   hint:'Сколько месяцев в среднем прошло с прошлого повышения у тех, кого повысили в этом месяце.'},
 /* 15.10: «Лоу-перформеры» сняты: такого понятия в компании нет (владелец борда,
    «Team Pulse 2.0 — сверка с каталогом.md»). Оценки ревью — в «Статусе ревью». */
-{key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.'},
+{key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.'+HQ_ONLY,hqOnly:true},
 /* 15.10, разведка 3: в таблице есть категории мониторинга (perf_*: нормал, недоработка,
    переработка, Gray) — «Переработка» из каталога HQ (раздел 9) встаёт рядом с недоработкой */
-{key:'overwork',block:'monitor',aud:'hq',name:'Переработчики',short:'Переработчики',fmt:'pct',better:'lower',unit:'%',anchor:14,hint:'Доля сотрудников, которые отработали за месяц больше нормы рабочего времени.'},
+{key:'overwork',block:'monitor',aud:'hq',name:'Переработчики',short:'Переработчики',fmt:'pct',better:'lower',unit:'%',anchor:14,hint:'Доля сотрудников, которые отработали за месяц больше нормы рабочего времени.'+HQ_ONLY,hqOnly:true},
 /* Ревью из дашборда 34661. Цикл — раз в полгода (июнь и декабрь), поэтому
    ряд ступенчатый: между циклами значение стоит, а изменение «к маю» в июне —
    это и есть сдвиг к прошлому циклу. Считается парой «улучшили / оценены». */
 {key:'review_up',block:'monitor',aud:'us',name:'Улучшили оценку в ревью',short:'Улучшили',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'rev_up',den:'rev_eval',scale:100},
-  hint:'Доля сотрудников, чья оценка в последнем ревью выше прошлой. Ревью — раз в полгода, между ними значение не меняется.'},
+  hint:'Доля сотрудников, чья оценка в последнем ревью выше прошлой. Ревью — раз в полгода, между ними значение не меняется. '+
+    'Ревью учитывается только для eligible-популяции.'},
 {key:'office_att',block:'office',aud:'hq',name:'Посещаемость офиса',short:'Офис',fmt:'pct',better:'higher',unit:'%',anchor:58,hint:'Какую долю рабочих дней сотрудники провели в офисе.'},
 /* Качество бронирования из дашборда HQ 34136 */
 {key:'booking_viol',block:'office',aud:'hq',name:'Нарушения бронирования',short:'Нарушения',fmt:'pct',better:'lower',unit:'%',anchor:17,
@@ -2555,7 +2581,7 @@ const METRICS=[
    ровно то сравнение «по команде против компании», что было в Proteus. */
 {key:'ai_penetration',block:'ai',aud:'hq',name:'Проникновение AI',short:'Проникновение',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'ai_wau',den:'hc_active',scale:100},
-  hint:'Доля сотрудников, которые пользуются AI-инструментами хотя бы раз в неделю.'},
+  hint:'Доля сотрудников, которые пользуются AI-инструментами хотя бы раз в неделю.'+HQ_ONLY,hqOnly:true},
 {key:'ai_wau',block:'ai',aud:'hq',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
   hint:'Сколько сотрудников пользуются AI-инструментами хотя бы раз в неделю, в среднем за месяц.'}
 ];
@@ -2639,32 +2665,36 @@ function devPlan(stage){return stage!=null&&DEV_STAGES[String(stage)]||null}
      extra — на борте, но в каталоге нет: решить, оставлять ли.
    src у строки — где это сейчас, если источник ещё не выбран. Тексты — для
    руководителя (TEXT_GUIDE.md): без имён таблиц и полей. */
-const PLAN_NOW={live:'настоящие',dev:'в разраб.',todo:'добавить',extra:'решить'};
+const PLAN_NOW={live:'настоящие',data:'данные есть',dev:'в разраб.',todo:'добавить',extra:'решить'};
+/* 21.10, правка Антона: «Данные сверены» — флаг ставится вручную, когда число в отчёте сверено с
+   мастер-источником и совпало. Отчёт его не вычисляет и ничего по нему не пересчитывает. Сверены:
+   численность (общая и активная), найм, отток. */
+const VERIFIED=new Set(['hc_total','hc_active','hire','attrition']);
+const VERIFIED_TIP={title:'Данные сверены',
+  text:'Данные настоящие и сверены с мастер-источником: значение в отчёте совпадает со значением в мастер-источнике.'};
 const DEV_PLAN=[
   {blk:'Структура численности',rows:[
-    {what:'Общая и активная численность, водопад за год; дерево подразделений и фильтры',aud:'all',stage:'0',now:'live'},
-    {what:'Юридическая, активная и HQ-численность одной воронкой',aud:'all',now:'todo',src:'дашборды HQ и УС',need:'договориться, как считать HQ-численность'},
+    {what:'Общая и активная численность',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Водопад за год, дерево подразделений и фильтры',aud:'all',stage:'0',now:'live'},
     {what:'Тип оформления, формат работы, сеньорность, грейд, стаж, юрлицо, стримы',aud:'all',stage:'0',now:'live'},
     {what:'Специализации внутри стримов',aud:'all',stage:'4',now:'live'},
-    {what:'Тип компании',aud:'hq',stage:'0',now:'todo',src:'дашборд HQ',need:'данные собраны (поставка 50), нужен график'},
+    {what:'Тип компании',aud:'hq',stage:'0',now:'data',src:'дашборд HQ',need:'данные собраны (поставка 50), нужен график'},
     {what:'Пересечения разрезов: срез по клику, «разрез × разрез»',aud:'all',stage:'0',now:'dev',
       need:'пока оценка по подразделениям; точные — отдельной выгрузкой'},
-    {what:'Пол и возраст',aud:'all',stage:'0',now:'extra',need:'данные есть; в дашбордах HQ и УС их нет'},
-    {what:'Регион сотрудника',aud:'all',stage:'4',now:'extra',need:'в дашбордах HQ и УС его нет'}]},
+  ]},
   {blk:'Движение персонала',rows:[
-    {what:'Найм, отток и переводы: за месяц, год к году, водопадом и по подразделениям',aud:'all',stage:'0',now:'live'},
-    {what:'Движение по специализациям',aud:'hq',stage:'4',now:'todo',need:'данные собраны (поставка 50): найм и уходы по специализациям, нужен график'}]},
+    {what:'Найм и отток: за месяц, год к году и по подразделениям',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Переводы между подразделениями, водопад движения',aud:'all',stage:'0',now:'live'},
+    {what:'Движение по специализациям',aud:'hq',stage:'4',now:'data',need:'данные собраны (поставка 50): найм и уходы по специализациям, нужен график'}]},
   {blk:'Отток и текучесть',rows:[
-    {what:'Отток за месяц и с начала года, текучесть месячная и накопительная',aud:'all',stage:'0',now:'live'},
-    {what:'Regrettable текучесть',aud:'hq',stage:'0',now:'live'},
-    {what:'Светофор текучести: нежелательная и обычная с порогами прод-отчёта HQ (4%, 5–15%, бенчмарк 12/15%)',aud:'hq',stage:'0',now:'live'},
-    {what:'Списки ушедших',aud:'hq',stage:'0',now:'todo',need:'нужна выгрузка по людям'},
+    {what:'Отток за месяц и с начала года',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Текучесть месячная и накопительная',aud:'all',stage:'0',now:'live'},
+    {what:'Regrettable и non-regrettable текучесть',aud:'hq',stage:'0',now:'live',hq:1},
+    {what:'Светофор текучести: нежелательная и обычная с порогами прод-отчёта HQ (4%, 5–15%, бенчмарк 12/15%)',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live'},
     {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live'},
-    {what:'Текучесть (а не отток) по инициатору, стажу, специализации и грейду',aud:'all',stage:'0',now:'todo',
-      need:'данные есть, нужен график'},
-    {what:'AI-рекомендации по оттоку для команды',aud:'us',now:'todo',src:'дашборд УС',
-      need:'понять, как их строят в УС'}]},
+    {what:'Текучесть (а не отток) по инициатору, стажу, специализации и грейду',aud:'all',stage:'0',now:'data',
+      need:'данные есть, нужен график'}]},
   {blk:'Найм и вакансии',rows:[
     {what:'Открытые и закрытые вакансии по месяцам, срок закрытия',aud:'all',stage:'2',now:'live'},
     {what:'Открытые вакансии по статусам, причине, специализации и уровню',aud:'all',stage:'2',now:'live'},
@@ -2682,11 +2712,12 @@ const DEV_PLAN=[
     {what:'Статусы роста по грейдам и типам роста',aud:'hq',stage:'6',now:'dev'},
     {what:'Повышение грейда и смена специализации, время до повышения (T@T)',aud:'hq',stage:'6',now:'dev'}]},
   {blk:'Мониторинг работы',rows:[
-    {what:'Недоработчики и переработчики',aud:'hq',stage:'0',now:'live'},
-    {what:'Состав по категориям: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'todo',need:'данные есть, нужен график'},
+    {what:'Недоработчики и переработчики',aud:'hq',stage:'0',now:'live',hq:1},
+    {what:'Состав по категориям: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'data',need:'данные есть, нужен график',hq:1},
     {what:'Звонки, прогулы, работа в выходные',aud:'hq',stage:'5',now:'todo'},
     {what:'Активность и звонки по месяцам, сегментация команды по нагрузке',aud:'hq',stage:'5',now:'todo'},
-    {what:'Итоги ревью: распределение оценок, улучшили и ухудшили, по группам',aud:'us',stage:'5',now:'dev'}]},
+    {what:'Итоги ревью: распределение оценок, улучшили и ухудшили, по группам',aud:'us',stage:'5',now:'dev',
+      need:'ревью учитывается только для eligible-популяции'}]},
   {blk:'Посещаемость офисов',rows:[
     {what:'Посещаемость офиса по месяцам',aud:'hq',stage:'0',now:'live'},
     {what:'Бронь без прихода и приход без брони',aud:'hq',stage:'7',now:'dev'},
@@ -2694,16 +2725,17 @@ const DEV_PLAN=[
     {what:'Посещаемость и нарушения брони по городам',aud:'hq',stage:'7',now:'dev'},
     {what:'Календарь посещаемости по дням',aud:'hq',stage:'7',now:'dev',need:'нужны отметки по дням; в дашбордах HQ и УС его нет, решено оставить'}]},
   {blk:'AI-инструменты',rows:[
-    {what:'Проникновение AI и активные пользователи',aud:'hq',stage:'8',now:'live'},
+    {what:'Проникновение AI и активные пользователи',aud:'hq',stage:'8',now:'live',hq:1},
     {what:'Какими инструментами пользуются и как часто',aud:'hq',stage:'8',now:'dev'},
     {what:'Инструменты по покраске, AI у стажёров',aud:'hq',stage:'8',now:'todo'}]},
   {blk:'Весь отчёт',rows:[
-    {what:'Руководитель подразделения: имя и логин',aud:'all',stage:'—',now:'dev'}]}
+    {what:'Руководитель подразделения: логин',aud:'all',stage:'0',now:'live'},
+    {what:'Руководитель подразделения: имя',aud:'all',stage:'—',now:'todo',need:'имени руководителя в источнике нет'}]}
 ];
 /* сколько строк плана в каком статусе — для сводки готовности */
 function planCount(){
-  const n={live:0,dev:0,todo:0,extra:0};
-  DEV_PLAN.forEach(g=>g.rows.forEach(r=>{n[r.now]++}));
+  const n={live:0,data:0,dev:0,todo:0,extra:0,ok:0};
+  DEV_PLAN.forEach(g=>g.rows.forEach(r=>{n[r.now]++;if(r.ok)n.ok++}));
   return n;
 }
 function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
@@ -4469,7 +4501,7 @@ function aiProfile(lp){
   return {pen:pen,wau:wau,tools:tools};
 }
 
-window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,aggregateSlice,lastValSlice,sliceDeltaMoM,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
@@ -4978,7 +5010,7 @@ function yoyKey(w,y,col,off,lock,flow){
    всегда и жирно. «Вы здесь» — тонкая сплошная: пунктиром уже сказаны цель и база. */
 /* Незакрытый месяц (20.10): у последнего месяца на оси — по какое число данные: «1–19 окт.»
    у вызревающей метрики (поток за неполный месяц), «19 окт.» у состояния (численность на дату) */
-function nowLabel(lb,key){return CD.PARTIAL?(CD.matures(key)?'1–':'')+CD.ASOF.d+' '+CD.MONTH_ABBR_GEN[CD.ASOF.m]:lb}
+function nowLabel(lb,key){return CD.PARTIAL?(CD.matures(key)||CD.partFlow(key)?'1–':'')+CD.ASOF.d+' '+CD.MONTH_ABBR_GEN[CD.ASOF.m]:lb}
 const PART_NOTE=()=>'Месяц не закрыт: данные по '+CD.ASOF_LABEL+', значение вырастет к концу месяца.';
 function yoyAxis(X,bandW,top,bot,nowI,bars,key){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
@@ -5784,6 +5816,8 @@ function deltaChip(key,dv,o){
   const txt=D.fmtDelta(key,dv);
   /* вызревающий месяц (20.10): неполный месяц против полного — без оценки и с пояснением */
   if(D.matures(key))return '<span class="delta neu part"'+tipAttr(D.MATURE_TIP)+'>'+txt+vs+'</span>';
+  /* поток за незакрытый месяц (21.10): без метки «вызревает», но и без оценки — месяц ещё идёт */
+  if(D.partFlow(key))return '<span class="delta neu"'+tipAttr(D.PART_TIP)+'>'+txt+vs+'</span>';
   if(m.better==='flat')return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=m.better==='lower'?dv<0:dv>0;
   return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
@@ -5911,7 +5945,8 @@ function betterWord(m){
 }
 /* что это и как считается (calc — по методологии HR из Data Detective): подсказка «i» и шапки
    таблиц показывают оба, подпись под названием метрики — только hint */
-function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')}
+function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')+
+  (D.VERIFIED.has(m.key)?'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';
   return '<span class="info"'+tipAttr({title:m.name,text:metricText(m),note:betterWord(m)})+' aria-label="О метрике">i</span>';
@@ -6547,6 +6582,7 @@ function devNote(d){
    Что · для кого · где сейчас · откуда и что нужно. Тот же план — в справке
    и в сводке готовности на One-pager. */
 function planNow(r){
+  if(r.now==='live'&&r.ok)return '<span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены</span>';
   return r.now==='live'?'<span class="live-tag">настоящие</span>'
     :r.now==='dev'?devTag(r.stage)
     :'<span class="plan-tag '+r.now+'">'+esc(D.PLAN_NOW[r.now])+'</span>';
@@ -6555,7 +6591,9 @@ function planTable(groups){
   const n=D.planCount();
   return '<label>План Team Pulse 2.0</label><div class="fhint">Всё, что есть в дашбордах HQ и УС, — по блокам отчёта.</div>'+
     '<ul class="plan-lg">'+
-      '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+n.live+'</li>'+
+      '<li><span class="live-tag ok">✓ сверены</span> настоящие и сверены с мастер-источником: число в отчёте совпадает с ним — '+n.ok+'</li>'+
+      '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+(n.live-n.ok)+'</li>'+
+      '<li><span class="plan-tag data">данные есть</span> данные пришли, графика ещё нет — '+n.data+'</li>'+
       '<li>'+devTag(null,false)+' в отчёте есть, цифры пока условные — '+n.dev+'</li>'+
       '<li><span class="plan-tag todo">добавить</span> в отчёте ещё нет — '+n.todo+'</li>'+
       '<li><span class="plan-tag extra">решить</span> в отчёте есть, в дашбордах HQ и УС нет — '+n.extra+'</li></ul>'+
@@ -6564,7 +6602,8 @@ function planTable(groups){
       const st=D.devPlan(r.stage), src=r.src||(st?st.src:''), need=r.need||(r.now!=='live'&&st&&st.need!=='—'?st.need:'');
       return '<tr class="plan-'+r.now+'"><td>'+esc(r.what)+'</td><td><span class="aud-tag '+r.aud+'">'+esc(D.AUD_LABEL[r.aud])+
         '</span></td><td>'+planNow(r)+'</td><td>'+(r.stage&&r.stage!=='0'&&r.stage!=='—'&&r.now!=='live'?'<b>этап '+esc(r.stage)+'</b> · ':'')+
-        esc(src)+(need?'<span class="plan-need">'+esc(need)+'</span>':'')+'</td></tr>';
+        esc(src)+(need?'<span class="plan-need">'+esc(need)+'</span>':'')+
+        (r.hq?'<span class="plan-need">считается только для HQ-численности</span>':'')+'</td></tr>';
     }).join('')).join('')+'</tbody></table>';
 }
 /* Сводка готовности на One-pager: сколько метрик на живых данных, сколько
@@ -6575,6 +6614,7 @@ function devSummary(o){
     '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик на живых данных"><i style="width:'+pc+'%"></i></span>'+
     '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на настоящих данных · '+
       '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>'+
+      ' · <span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены '+D.VERIFIED.size+'</span>'+
       (n.todo?' · <span class="plan-tag todo">ещё добавить '+n.todo+'</span>':'')+'</span>'+
     '<span class="dev-sum-more">весь план ▾</span></summary>'+
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
@@ -6683,8 +6723,8 @@ function dock(S,open){
     '" aria-controls="pulsePanel"'+
     /* к эмоции вкладки доклеивается вторая служебная строка; сам словарь MOOD не трогаем */
     U.tipAttr(Object.assign({},m.tip,{note:[].concat(m.tip.note||[],'Клик — объяснит метрики этой вкладки.')}))+'>'+
-    '<span class="pd-av">'+img(m.role,54,{alt:'Пульс'})+'<span class="pd-dot '+m.dot+'"></span></span>'+
-    '<span class="pd-txt"><b>Пульс</b><span>словарь метрик<br>этой вкладки</span></span>'+
+    /* 21.10, заказчик: огонёк внизу дублировал огонёк сводки и отвлекал — словарь остаётся строкой без него */
+    '<span class="pd-txt"><b>Словарь метрик</b><span>этой вкладки</span></span>'+
     '<span class="pd-caret">'+(open?'✕':'▸')+'</span></button>';
 }
 
@@ -6908,7 +6948,7 @@ function yoyStory(key,S,rl,bl){
    поля для карточек главной — kind ('dev' | 'yoy' | 'trend'), v, ref, kpi, pv, tr. */
 /* Выводы по вызревающей метрике в незакрытом месяце — по последнему закрытому (20.10): неполный
    месяц против полного дал бы ложное «лучше, чем год назад». mon — «сентябрь» для подписи. */
-function factL(key){return D.NEXT-1-(D.matures(key)?1:0)}
+function factL(key){return D.NEXT-1-(D.matures(key)||D.partFlow(key)?1:0)}
 function monOf(L){return L===D.NEXT-1?'':D.MONTH_NOM[D.MONTHS_EXT[L].m]}
 function metricFact(m,S,rl,bl){
   const key=m.key, ext=D.aggregateExt(rl,key), L=factL(key), v=ext[L], mon=monOf(L);
@@ -9687,10 +9727,38 @@ function unitId(p){
   return last==='·'?null:last;
 }
 function curReq(){return {unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType}}
-let _pendT=null;
+/* Подпись запроса и эхо ответа (21.10, правка Антона: «фильтр не всегда срабатывает с первого раза»).
+   Чарт перезапускается на каждый ответ — и на устаревший: Proteus перерисовывает чарт прежними данными
+   сразу после кросс-фильтра, а при двух быстрых выборах ответы приходят не по порядку. Раньше любой
+   ответ снимал «Загружаю…» — и показывал прежний выбор, как будто фильтр не применился. Теперь ответ
+   принимается, только если его эхо (юнит из unit_f и применённые фильтры) совпадает с последним
+   запросом; на устаревший — ждём дальше, а если нужный не пришёл, один раз шлём ту же маску с меткой
+   tp_nonce (колонки нет в датасете: ключ кэша новый, Proteus перезапрашивает; гайд MC-03, MC-08). */
+const STALE_WAIT=15000, MAX_RESEND=1;
+function sigOf(st){
+  const id=unitId(st.unit), c=D.REAL.cuts;
+  return [id===D.REAL.defId?'':id,c.has('paint')?st.paint:'all',c.has('it')?st.itSeg:'all',
+    c.has('staff')?st.staffType:'all',c.has('act')?st.hcType:'all'].join('|');
+}
+function echoSig(){
+  const a=D.REAL.applied;
+  return [D.REAL.req[0]||'',a.paint,a.itSeg,a.staffType,D.REAL.cuts.has('act')?a.hcType:'all'].join('|');
+}
+function emitPend(mask,nonce){
+  return ENV.emit(nonce?mask.concat([{column:'tp_nonce',operator:'IN',value:[String(Date.now())]}]):mask);
+}
+let _pendT=null, _staleT=null;
 function request(next){
   const id=unitId(next.unit);
   if(!id)return;
+  const sig=sigOf(next), was=STORE.pending;
+  /* уже показано — запроса нет (MC-03: повтор той же маски Proteus может не перезапросить) */
+  if(sig===echoSig()&&!was){render();return}
+  /* тот же выбор уже в пути: не дублируем; если ждём дольше STALE_WAIT — повтор с меткой */
+  if(was&&was.sig===sig){
+    if(Date.now()-was.at>STALE_WAIT&&was.tries<MAX_RESEND+1){was.tries++;was.at=Date.now();emitPend(was.mask,true)}
+    renderHead();return;
+  }
   const mask=[];
   /* юнит по умолчанию не шлём: ответ без фильтра юнита общий для всех */
   if(id!==D.REAL.defId)mask.push({column:'unit_f',operator:'IN',value:[id]});
@@ -9703,9 +9771,12 @@ function request(next){
   const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
   unitNames[next.unit]=nm;
   unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||unitNames[S.unit]||'';
-  STORE.pending={unit:next.unit,name:nm,at:Date.now()};
+  STORE.pending={unit:next.unit,name:nm,at:Date.now(),sig:sig,mask:mask,tries:0};
   STORE.warn='';
-  if(!ENV.emit(mask)){
+  clearTimeout(_staleT);
+  /* выбор снова тот, что на экране (ушли и вернулись, пока ждали ответа) — маска та же, что у
+     показанного ответа: Proteus её может не перезапросить, поэтому с меткой */
+  if(!(sig===echoSig()?emitPend(mask,true):ENV.emit(mask))){
     STORE.pending=null;
     STORE.warn='Фильтры не применились: здесь нет кросс-фильтра — откройте чарт на дашборде.';
   }
@@ -9738,12 +9809,33 @@ function arrive(){
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;
-  STORE.pending=null;clearTimeout(_pendT);
-  /* новый запрос (юнит, фильтры) — экран начинается сверху: прежнюю прокрутку забываем */
-  if(pend)STORE.scroll=null;
-  ROOTEL.classList.remove('tp-busy');
-  if(pend)STORE.warn=pend.unit!==S.unit&&D.REAL.scopeId!==unitId(pend.unit)
-    ?'«'+(pend.name||'Юнит')+'» не открылся: его нет в данных последнего полного месяца.':'';
+  /* ответ не на последний запрос (устаревший или перерисовка прежними данными): ждём нужный.
+     Пришёл позже секунды после запроса — это настоящий старый ответ; нужный не пришёл за
+     STALE_WAIT — один повтор той же маски с меткой */
+  if(pend&&pend.sig&&pend.sig!==echoSig()){
+    ROOTEL.classList.add('tp-busy');
+    const late=Date.now()-pend.at>1000;
+    clearTimeout(_staleT);
+    if(late&&pend.tries<MAX_RESEND)_staleT=setTimeout(()=>{
+      const p=STORE.pending;
+      if(p!==pend||p.tries>=MAX_RESEND)return;
+      p.tries++;p.at=Date.now();emitPend(p.mask,true);renderHead();
+    },STALE_WAIT);
+    clearTimeout(_pendT);
+    _pendT=setTimeout(()=>{
+      if(STORE.pending!==pend)return;
+      STORE.pending=null;ROOTEL.classList.remove('tp-busy');
+      STORE.warn='Ответ не пришёл за 45 секунд. Проверьте кросс-фильтры чарта в настройках дашборда.';
+      renderHead();
+    },Math.max(1000,45000-(Date.now()-pend.at)));
+  }else if(pend){
+    STORE.pending=null;clearTimeout(_pendT);clearTimeout(_staleT);
+    /* новый запрос (юнит, фильтры) — экран начинается сверху: прежнюю прокрутку забываем */
+    STORE.scroll=null;
+    ROOTEL.classList.remove('tp-busy');
+    STORE.warn=pend.unit!==S.unit&&D.REAL.scopeId!==unitId(pend.unit)
+      ?'«'+(pend.name||'Юнит')+'» не открылся: его нет в данных последнего полного месяца.':'';
+  }
   if(D.REAL.truncated)STORE.warn='Ответ датасета обрезан лимитом строк чарта — часть подразделений не показана. '+
     'Поднимите «Лимит строк» в настройках чарта.';
   if(D.REAL.noMeta)STORE.warn='В ответе нет служебной строки meta: датасет не тот или «Лимит строк» слишком мал.';
@@ -9755,7 +9847,7 @@ function arrive(){
   const lg=$('.logo small');if(lg)lg.textContent='Hub · пробник';
   const ph=$('#planHost');
   if(ph)ph.innerHTML=U.planTable(D.DEV_PLAN);
-  return !!pend;
+  return pend?(STORE.pending?'stale':true):false;
 }
 /* Чипы пробника в шапке: ожидание ответа, предупреждение и что здесь живое */
 /* Пункт меню блока в разработке (14.10): целиком — полосатая метка, частично —
@@ -10531,7 +10623,7 @@ mountStaticMascots();
 const noTour=ENV?true:location.search.indexOf('tour=0')>=0;
 readURL();
 /* перезапуск без нового запроса (ресайз, перерисовка) — тот же вид на том же месте, без анимации */
-const pend0=ENV&&arrive(), back=ENV&&!pend0&&STORE.scroll;
+const pend0=ENV&&arrive(), back=ENV&&(!pend0||pend0==='stale')&&STORE.scroll;
 render(!!back,!!back);
 if(back&&back.k===viewKey()){
   ENV.scroller.scrollTop=back.y;

@@ -158,8 +158,8 @@ const dv=G.chart('pair',{a:Object.assign({key:'hire'},yr(4,5)),b:Object.assign({
 const barsOf=(cls,sid)=>(dv.match(new RegExp('class="bar '+cls+'( part)?" data-s="'+sid+'"','g'))||[]).length;
 checks.push(['пара потоков — «ежики»: бары вверх и вниз, прошлый год прозрачными барами позади, без линий и засечек',
   barsOf('up','a')===D.CUR_LEN&&barsOf('dn','b')===D.CUR_LEN&&
-  /* 20.10: незакрытый месяц — последний бар пунктирным контуром */
-  (!D.PARTIAL||(dv.match(/class="bar (up|dn) part"[^>]*stroke-dasharray="3 2"/g)||[]).length===2)&&(dv.match(/class="bar (up|dn) ghost"[^>]*data-s="prev"/g)||[]).length===24&&
+  /* 21.10, правка Антона: найм и отток не вызревают — последний бар без пунктира */
+  !/class="bar (up|dn) part"/.test(dv)&&(dv.match(/class="bar (up|dn) ghost"[^>]*data-s="prev"/g)||[]).length===24&&
   !/class="tick"/.test(dv)&&
   !/class="ln/.test(dv)&&/data-sid="a"/.test(dv)&&/data-sid="cur"/.test(dv)&&/data-sid="prev"/.test(dv)]);
 
@@ -191,8 +191,13 @@ checks.push(['один скролл: таблица подразделений s
   /\.split-r>\.panel-h\{position:sticky;top:calc\(var\(--head-h,0px\) \+ 12px\)/.test(cssAll)&&
   /class="panel-cap"/.test(A.go('turnover','dynamics'))]);
 checks.push(['перезапуск скрипта держит прокрутку экрана и панелей',
-  /STORE\.scroll=\{k:viewKey\(\)/.test(appSrc)&&/back=ENV&&!pend0&&STORE\.scroll/.test(appSrc)&&
-  /ENV\.scroller\.scrollTop=back\.y/.test(appSrc)&&/if\(pend\)STORE\.scroll=null/.test(appSrc)]);
+  /STORE\.scroll=\{k:viewKey\(\)/.test(appSrc)&&/back=ENV&&\(!pend0\|\|pend0==='stale'\)&&STORE\.scroll/.test(appSrc)&&
+  /ENV\.scroller\.scrollTop=back\.y/.test(appSrc)&&/STORE\.scroll=null/.test(appSrc)]);
+/* 21.10, правка Антона «фильтр не всегда с первого раза»: ответ принимается по эху запроса, на устаревший —
+   ждём и один раз повторяем маску с меткой tp_nonce; повтор показанного выбора — без запроса */
+checks.push(['фильтр с первого раза: эхо запроса, устаревший ответ не снимает ожидание, один повтор с меткой',
+  /pend\.sig!==echoSig\(\)/.test(appSrc)&&/column:'tp_nonce'/.test(appSrc)&&/sig===echoSig\(\)&&!was/.test(appSrc)&&
+  /MAX_RESEND=1/.test(appSrc)]);
 checks.push(['в светофоре нет жёлтого: stateColor(warn) серый',
   G.stateColor('warn')===G.C_FLAT&&G.stateColor('good')!==G.C_FLAT]);
 checks.push(['жёлтого нет в графиках и легендах отчёта',
@@ -218,7 +223,10 @@ checks.push(['нулевое изменение — просто ноль',
 checks.push(['знак говорит направление, класс — оценку',
   /delta down/.test(U.deltaChip('time_to_fill',1.4))&&/delta up/.test(U.deltaChip('time_to_fill',-1.4))&&
   /delta up/.test(U.deltaChip('review_up',3))&&/delta neu/.test(U.deltaChip('hc_total',3))&&
-  (!D.PARTIAL||/delta neu part/.test(U.deltaChip('turnover_m',1.4)))]);
+  /* 21.10, правка Антона: вызревают только regrettable, non-regrettable и проникновение AI; поток за
+     незакрытый месяц — без оценки, но и без метки «вызревает» */
+  (!D.PARTIAL||/delta neu part/.test(U.deltaChip('regret',1.4))&&/delta neu"/.test(U.deltaChip('turnover_m',1.4)))&&
+  [...D.MATURING].sort().join()==='ai_penetration,nonregret,regret']);
 checks.push(['переход на детальный дашборд — иконка, а не символ ↗',
   /class="ico-ext"/.test(allHtml)&&!/↗/.test(allHtml)]);
 checks.push(['минус во всех дельтах типографский, а не дефис',
@@ -1568,13 +1576,18 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !D.isDev('office_att')&&!D.isDev('vac_open')&&!D.isDev('ai_penetration')&&D.isDev('hire_plan')&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
   checks.push(['«в разработке»: сводка готовности на One-pager с планом этапов',
     /class="dev-sum"/.test(op)&&new RegExp('<b>'+(D.METRICS.length-devK.length)+' из '+D.METRICS.length+'</b>').test(op)&&
-    (op.match(/<tr class="plan-(live|dev|todo|extra)">/g)||[]).length===D.DEV_PLAN.reduce((a,g)=>a+g.rows.length,0)]);
+    (op.match(/<tr class="plan-(live|data|dev|todo|extra)">/g)||[]).length===D.DEV_PLAN.reduce((a,g)=>a+g.rows.length,0)]);
   /* 15.10: план — каталог графиков HQ и УС; у каждой строки «для кого» и статус */
   const pn=D.planCount();
   checks.push(['план по каталогу: у строк «для кого» и статус, есть что добавить и что решить',
     D.DEV_PLAN.every(g=>g.rows.every(r=>D.AUD_LABEL[r.aud]&&D.PLAN_NOW[r.now]&&(r.now!=='dev'||D.devPlan(r.stage))))&&
-    pn.todo>0&&pn.extra>0&&/ещё добавить/.test(op)&&/class="aud-tag hq"/.test(op)&&/class="aud-tag us"/.test(op)&&
+    pn.todo>0&&/ещё добавить/.test(op)&&/class="aud-tag hq"/.test(op)&&/class="aud-tag us"/.test(op)&&
     !/[Вв]оронка найма|[Лл]оу-перформ|[Пп]рогноз текучести/.test(op)]);
+  /* 21.10, правки Антона: «сверены» — численность, найм, отток; лишние строки сняты; «данные есть» отмечены */
+  checks.push(['готовность: «сверены» у численности, найма и оттока; лишних строк нет; где данные есть — отмечено',
+    [...D.VERIFIED].sort().join()==='attrition,hc_active,hc_total,hire'&&pn.ok===3&&pn.data>=4&&/✓ сверены/.test(op)&&
+    !/одной воронкой|Пол и возраст|Регион сотрудника|Списки ушедших|AI-рекомендации/.test(op)&&
+    /считается только для HQ-численности/.test(op)&&/только для eligible-популяции/.test(op)]);
   checks.push(['«в разработке»: в навигации блок частично (найм — план, AI — инструменты; офис — посещаемость живая)',
     /data-tab="ai"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&
     !/data-tab="movement"[^>]*>[^<]*<span class="ico[^"]*"><\/span>[^<]*<span class="nav-dev/.test(nav)&&SC.blockDev('office')==='part']);

@@ -94,8 +94,8 @@ function dock(S,open){
     '" aria-controls="pulsePanel"'+
     /* к эмоции вкладки доклеивается вторая служебная строка; сам словарь MOOD не трогаем */
     U.tipAttr(Object.assign({},m.tip,{note:[].concat(m.tip.note||[],'Клик — объяснит метрики этой вкладки.')}))+'>'+
-    '<span class="pd-av">'+img(m.role,54,{alt:'Пульс'})+'<span class="pd-dot '+m.dot+'"></span></span>'+
-    '<span class="pd-txt"><b>Пульс</b><span>словарь метрик<br>этой вкладки</span></span>'+
+    /* 21.10, заказчик: огонёк внизу дублировал огонёк сводки и отвлекал — словарь остаётся строкой без него */
+    '<span class="pd-txt"><b>Словарь метрик</b><span>этой вкладки</span></span>'+
     '<span class="pd-caret">'+(open?'✕':'▸')+'</span></button>';
 }
 

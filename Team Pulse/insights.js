@@ -172,7 +172,7 @@ function yoyStory(key,S,rl,bl){
    поля для карточек главной — kind ('dev' | 'yoy' | 'trend'), v, ref, kpi, pv, tr. */
 /* Выводы по вызревающей метрике в незакрытом месяце — по последнему закрытому (20.10): неполный
    месяц против полного дал бы ложное «лучше, чем год назад». mon — «сентябрь» для подписи. */
-function factL(key){return D.NEXT-1-(D.matures(key)?1:0)}
+function factL(key){return D.NEXT-1-(D.matures(key)||D.partFlow(key)?1:0)}
 function monOf(L){return L===D.NEXT-1?'':D.MONTH_NOM[D.MONTHS_EXT[L].m]}
 function metricFact(m,S,rl,bl){
   const key=m.key, ext=D.aggregateExt(rl,key), L=factL(key), v=ext[L], mon=monOf(L);

@@ -124,6 +124,8 @@ function deltaChip(key,dv,o){
   const txt=D.fmtDelta(key,dv);
   /* вызревающий месяц (20.10): неполный месяц против полного — без оценки и с пояснением */
   if(D.matures(key))return '<span class="delta neu part"'+tipAttr(D.MATURE_TIP)+'>'+txt+vs+'</span>';
+  /* поток за незакрытый месяц (21.10): без метки «вызревает», но и без оценки — месяц ещё идёт */
+  if(D.partFlow(key))return '<span class="delta neu"'+tipAttr(D.PART_TIP)+'>'+txt+vs+'</span>';
   if(m.better==='flat')return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=m.better==='lower'?dv<0:dv>0;
   return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
@@ -251,7 +253,8 @@ function betterWord(m){
 }
 /* что это и как считается (calc — по методологии HR из Data Detective): подсказка «i» и шапки
    таблиц показывают оба, подпись под названием метрики — только hint */
-function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')}
+function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')+
+  (D.VERIFIED.has(m.key)?'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';
   return '<span class="info"'+tipAttr({title:m.name,text:metricText(m),note:betterWord(m)})+' aria-label="О метрике">i</span>';
@@ -887,6 +890,7 @@ function devNote(d){
    Что · для кого · где сейчас · откуда и что нужно. Тот же план — в справке
    и в сводке готовности на One-pager. */
 function planNow(r){
+  if(r.now==='live'&&r.ok)return '<span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены</span>';
   return r.now==='live'?'<span class="live-tag">настоящие</span>'
     :r.now==='dev'?devTag(r.stage)
     :'<span class="plan-tag '+r.now+'">'+esc(D.PLAN_NOW[r.now])+'</span>';
@@ -895,7 +899,9 @@ function planTable(groups){
   const n=D.planCount();
   return '<label>План Team Pulse 2.0</label><div class="fhint">Всё, что есть в дашбордах HQ и УС, — по блокам отчёта.</div>'+
     '<ul class="plan-lg">'+
-      '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+n.live+'</li>'+
+      '<li><span class="live-tag ok">✓ сверены</span> настоящие и сверены с мастер-источником: число в отчёте совпадает с ним — '+n.ok+'</li>'+
+      '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+(n.live-n.ok)+'</li>'+
+      '<li><span class="plan-tag data">данные есть</span> данные пришли, графика ещё нет — '+n.data+'</li>'+
       '<li>'+devTag(null,false)+' в отчёте есть, цифры пока условные — '+n.dev+'</li>'+
       '<li><span class="plan-tag todo">добавить</span> в отчёте ещё нет — '+n.todo+'</li>'+
       '<li><span class="plan-tag extra">решить</span> в отчёте есть, в дашбордах HQ и УС нет — '+n.extra+'</li></ul>'+
@@ -904,7 +910,8 @@ function planTable(groups){
       const st=D.devPlan(r.stage), src=r.src||(st?st.src:''), need=r.need||(r.now!=='live'&&st&&st.need!=='—'?st.need:'');
       return '<tr class="plan-'+r.now+'"><td>'+esc(r.what)+'</td><td><span class="aud-tag '+r.aud+'">'+esc(D.AUD_LABEL[r.aud])+
         '</span></td><td>'+planNow(r)+'</td><td>'+(r.stage&&r.stage!=='0'&&r.stage!=='—'&&r.now!=='live'?'<b>этап '+esc(r.stage)+'</b> · ':'')+
-        esc(src)+(need?'<span class="plan-need">'+esc(need)+'</span>':'')+'</td></tr>';
+        esc(src)+(need?'<span class="plan-need">'+esc(need)+'</span>':'')+
+        (r.hq?'<span class="plan-need">считается только для HQ-численности</span>':'')+'</td></tr>';
     }).join('')).join('')+'</tbody></table>';
 }
 /* Сводка готовности на One-pager: сколько метрик на живых данных, сколько
@@ -915,6 +922,7 @@ function devSummary(o){
     '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик на живых данных"><i style="width:'+pc+'%"></i></span>'+
     '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на настоящих данных · '+
       '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>'+
+      ' · <span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены '+D.VERIFIED.size+'</span>'+
       (n.todo?' · <span class="plan-tag todo">ещё добавить '+n.todo+'</span>':'')+'</span>'+
     '<span class="dev-sum-more">весь план ▾</span></summary>'+
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';

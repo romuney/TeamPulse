@@ -484,7 +484,7 @@ function yoyKey(w,y,col,off,lock,flow){
    всегда и жирно. «Вы здесь» — тонкая сплошная: пунктиром уже сказаны цель и база. */
 /* Незакрытый месяц (20.10): у последнего месяца на оси — по какое число данные: «1–19 окт.»
    у вызревающей метрики (поток за неполный месяц), «19 окт.» у состояния (численность на дату) */
-function nowLabel(lb,key){return CD.PARTIAL?(CD.matures(key)?'1–':'')+CD.ASOF.d+' '+CD.MONTH_ABBR_GEN[CD.ASOF.m]:lb}
+function nowLabel(lb,key){return CD.PARTIAL?(CD.matures(key)||CD.partFlow(key)?'1–':'')+CD.ASOF.d+' '+CD.MONTH_ABBR_GEN[CD.ASOF.m]:lb}
 const PART_NOTE=()=>'Месяц не закрыт: данные по '+CD.ASOF_LABEL+', значение вырастет к концу месяца.';
 function yoyAxis(X,bandW,top,bot,nowI,bars,key){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */

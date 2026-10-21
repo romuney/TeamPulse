@@ -122,10 +122,38 @@ function unitId(p){
   return last==='·'?null:last;
 }
 function curReq(){return {unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType}}
-let _pendT=null;
+/* Подпись запроса и эхо ответа (21.10, правка Антона: «фильтр не всегда срабатывает с первого раза»).
+   Чарт перезапускается на каждый ответ — и на устаревший: Proteus перерисовывает чарт прежними данными
+   сразу после кросс-фильтра, а при двух быстрых выборах ответы приходят не по порядку. Раньше любой
+   ответ снимал «Загружаю…» — и показывал прежний выбор, как будто фильтр не применился. Теперь ответ
+   принимается, только если его эхо (юнит из unit_f и применённые фильтры) совпадает с последним
+   запросом; на устаревший — ждём дальше, а если нужный не пришёл, один раз шлём ту же маску с меткой
+   tp_nonce (колонки нет в датасете: ключ кэша новый, Proteus перезапрашивает; гайд MC-03, MC-08). */
+const STALE_WAIT=15000, MAX_RESEND=1;
+function sigOf(st){
+  const id=unitId(st.unit), c=D.REAL.cuts;
+  return [id===D.REAL.defId?'':id,c.has('paint')?st.paint:'all',c.has('it')?st.itSeg:'all',
+    c.has('staff')?st.staffType:'all',c.has('act')?st.hcType:'all'].join('|');
+}
+function echoSig(){
+  const a=D.REAL.applied;
+  return [D.REAL.req[0]||'',a.paint,a.itSeg,a.staffType,D.REAL.cuts.has('act')?a.hcType:'all'].join('|');
+}
+function emitPend(mask,nonce){
+  return ENV.emit(nonce?mask.concat([{column:'tp_nonce',operator:'IN',value:[String(Date.now())]}]):mask);
+}
+let _pendT=null, _staleT=null;
 function request(next){
   const id=unitId(next.unit);
   if(!id)return;
+  const sig=sigOf(next), was=STORE.pending;
+  /* уже показано — запроса нет (MC-03: повтор той же маски Proteus может не перезапросить) */
+  if(sig===echoSig()&&!was){render();return}
+  /* тот же выбор уже в пути: не дублируем; если ждём дольше STALE_WAIT — повтор с меткой */
+  if(was&&was.sig===sig){
+    if(Date.now()-was.at>STALE_WAIT&&was.tries<MAX_RESEND+1){was.tries++;was.at=Date.now();emitPend(was.mask,true)}
+    renderHead();return;
+  }
   const mask=[];
   /* юнит по умолчанию не шлём: ответ без фильтра юнита общий для всех */
   if(id!==D.REAL.defId)mask.push({column:'unit_f',operator:'IN',value:[id]});
@@ -138,9 +166,12 @@ function request(next){
   const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
   unitNames[next.unit]=nm;
   unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||unitNames[S.unit]||'';
-  STORE.pending={unit:next.unit,name:nm,at:Date.now()};
+  STORE.pending={unit:next.unit,name:nm,at:Date.now(),sig:sig,mask:mask,tries:0};
   STORE.warn='';
-  if(!ENV.emit(mask)){
+  clearTimeout(_staleT);
+  /* выбор снова тот, что на экране (ушли и вернулись, пока ждали ответа) — маска та же, что у
+     показанного ответа: Proteus её может не перезапросить, поэтому с меткой */
+  if(!(sig===echoSig()?emitPend(mask,true):ENV.emit(mask))){
     STORE.pending=null;
     STORE.warn='Фильтры не применились: здесь нет кросс-фильтра — откройте чарт на дашборде.';
   }
@@ -173,12 +204,33 @@ function arrive(){
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;
-  STORE.pending=null;clearTimeout(_pendT);
-  /* новый запрос (юнит, фильтры) — экран начинается сверху: прежнюю прокрутку забываем */
-  if(pend)STORE.scroll=null;
-  ROOTEL.classList.remove('tp-busy');
-  if(pend)STORE.warn=pend.unit!==S.unit&&D.REAL.scopeId!==unitId(pend.unit)
-    ?'«'+(pend.name||'Юнит')+'» не открылся: его нет в данных последнего полного месяца.':'';
+  /* ответ не на последний запрос (устаревший или перерисовка прежними данными): ждём нужный.
+     Пришёл позже секунды после запроса — это настоящий старый ответ; нужный не пришёл за
+     STALE_WAIT — один повтор той же маски с меткой */
+  if(pend&&pend.sig&&pend.sig!==echoSig()){
+    ROOTEL.classList.add('tp-busy');
+    const late=Date.now()-pend.at>1000;
+    clearTimeout(_staleT);
+    if(late&&pend.tries<MAX_RESEND)_staleT=setTimeout(()=>{
+      const p=STORE.pending;
+      if(p!==pend||p.tries>=MAX_RESEND)return;
+      p.tries++;p.at=Date.now();emitPend(p.mask,true);renderHead();
+    },STALE_WAIT);
+    clearTimeout(_pendT);
+    _pendT=setTimeout(()=>{
+      if(STORE.pending!==pend)return;
+      STORE.pending=null;ROOTEL.classList.remove('tp-busy');
+      STORE.warn='Ответ не пришёл за 45 секунд. Проверьте кросс-фильтры чарта в настройках дашборда.';
+      renderHead();
+    },Math.max(1000,45000-(Date.now()-pend.at)));
+  }else if(pend){
+    STORE.pending=null;clearTimeout(_pendT);clearTimeout(_staleT);
+    /* новый запрос (юнит, фильтры) — экран начинается сверху: прежнюю прокрутку забываем */
+    STORE.scroll=null;
+    ROOTEL.classList.remove('tp-busy');
+    STORE.warn=pend.unit!==S.unit&&D.REAL.scopeId!==unitId(pend.unit)
+      ?'«'+(pend.name||'Юнит')+'» не открылся: его нет в данных последнего полного месяца.':'';
+  }
   if(D.REAL.truncated)STORE.warn='Ответ датасета обрезан лимитом строк чарта — часть подразделений не показана. '+
     'Поднимите «Лимит строк» в настройках чарта.';
   if(D.REAL.noMeta)STORE.warn='В ответе нет служебной строки meta: датасет не тот или «Лимит строк» слишком мал.';
@@ -190,7 +242,7 @@ function arrive(){
   const lg=$('.logo small');if(lg)lg.textContent='Hub · пробник';
   const ph=$('#planHost');
   if(ph)ph.innerHTML=U.planTable(D.DEV_PLAN);
-  return !!pend;
+  return pend?(STORE.pending?'stale':true):false;
 }
 /* Чипы пробника в шапке: ожидание ответа, предупреждение и что здесь живое */
 /* Пункт меню блока в разработке (14.10): целиком — полосатая метка, частично —
@@ -966,7 +1018,7 @@ mountStaticMascots();
 const noTour=ENV?true:location.search.indexOf('tour=0')>=0;
 readURL();
 /* перезапуск без нового запроса (ресайз, перерисовка) — тот же вид на том же месте, без анимации */
-const pend0=ENV&&arrive(), back=ENV&&!pend0&&STORE.scroll;
+const pend0=ENV&&arrive(), back=ENV&&(!pend0||pend0==='stale')&&STORE.scroll;
 render(!!back,!!back);
 if(back&&back.k===viewKey()){
   ENV.scroller.scrollTop=back.y;
