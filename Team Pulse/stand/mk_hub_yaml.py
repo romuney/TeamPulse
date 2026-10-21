@@ -61,7 +61,8 @@ EXTRA = {
     'to click': [
         ("tables_dict = {\n    'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',\n}",
          "tables_dict = {\n"
-         "    'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',   # как в TP 2.0 — для других отчётов\n"
+         "    # hr_structure_overall выгружает ноутбук TP 2.0 — здесь не трогаем, чтобы не перезаписать (21.10, Адель)\n"
+         "    # 'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',\n"
          "    # TeamPulse Hub: датасет отчёта читает только их\n"
          "    'teampulse_hub_meta':   'prod_proteus.teampulse_hub_meta',\n"
          "    'teampulse_hub_unit':   'prod_proteus.teampulse_hub_unit',\n"

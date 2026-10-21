@@ -1504,7 +1504,8 @@ paragraphs:
     #                         границу узла, мониторинг, посещаемость, T-рост. Узел несёт всё своё
     #                         поддерево
     #   teampulse_hub_mix     узел × срез (с типом численности) × разрез × значение: численность последнего
-    #                         месяца по атрибутам и увольнения с начала года по причинам и др.
+    #                         месяца по атрибутам, увольнения с начала года по причинам и др., найм
+    #                         с начала года по каналу / грейду / специализации
     #   teampulse_hub_trf     переходы людей: узел × месяц × вид (вошёл / вышел / остался) × срез до и
     #                         после — датасет считает из них переводы под выбранные фильтры
     #   teampulse_hub_vacancy узел × месяц × разрезы вакансии (канал, причина, уровень кандидата и
@@ -1529,6 +1530,22 @@ paragraphs:
 
     def _hub_q(sql: str):
         return dal.get_df(datasource='gp', query=sql)
+
+
+    def _hub_run(steps, label: str = '', debug: bool = False):
+        """Шаги по одному; упал — номер и начало текста упавшего шага (21.10, Адель). debug — только печать"""
+        for i, sql in enumerate(steps, 1):
+            if debug:
+                print(sql)
+                continue
+            try:
+                _hub_q(sql)
+            except Exception as e:
+                print(f'[FAIL] {label}: шаг {i}/{len(steps)}')
+                print(str(e)[:300])
+                print('--- SQL (первые 800 символов) ---')
+                print(sql[:800])
+                raise
 
 
     def _hub_clean(col: str) -> str:
@@ -1564,7 +1581,6 @@ paragraphs:
         if not lv:
             raise ValueError('нет lvlN_rk: build_all_metrics должен выводить ключи уровней')
         rk_arr = 'ARRAY[' + ', '.join(f's.lvl{i}_rk::text' for i in lv) + ']'
-        nm_arr = 'ARRAY[' + ', '.join(f's.lvl{i}_nm::text' for i in lv) + ']'
         path_rk = f"array_to_string(({rk_arr})[1:s.leaf_lvl], '|')"
         cut = lambda c, alias: f"coalesce(nullif(s.{c}::text, ''), '-') AS {alias}" if has(c) else f"'-'::text AS {alias}"
         num = lambda c: f'coalesce(e.{c}, 0)' if has(c) else '0'
@@ -1575,24 +1591,54 @@ paragraphs:
         # 1. последний месяц — последний в источнике, и текущий незакрытый тоже (20.10, заказчик: «показывать
         #    текущий месяц, как в HRBP HUB»); dt — дата данных: последний день этого месяца в дневном источнике
         #    руководителей (hr_executive_proteus), нет его — вчера, но не позже конца месяца
+        #    21.10 (Адель, бой): последний месяц и дату данных — отдельными запросами, в SQL — литералы. Дата
+        #    коррелированным подзапросом от c.lm не даёт GP отсечь партиции дневного источника по параметру:
+        #    он сортирует источник целиком и падает «workfile per query size limit exceeded» уже на _cal
         hsrc, hdt = (None, None) if debug else _hub_head_src()
-        dt_q = (f"(select max(x.{hdt})::date from {_qualified(hsrc)} x "
-                f"where x.{hdt} >= c.lm and x.{hdt} < (c.lm + interval '1 month'))") if hsrc else 'null::date'
+        lm_lit = '2026-09-01' if debug else str(_hub_q(f'select max(report_month)::date as lm from {src}')['lm'].iloc[0])[:10]
+        dt_lit = 'null::date'
+        if hsrc:
+            d = _hub_q(f"""select max(x.{hdt})::date as dt from {_qualified(hsrc)} x
+                           where x.{hdt} >= '{lm_lit}'::date and x.{hdt} < ('{lm_lit}'::date + interval '1 month')""")['dt'].iloc[0]
+            if d is not None and str(d)[:3] not in ('NaT', 'Non', 'nan'):
+                dt_lit = f"'{str(d)[:10]}'::date"
         steps.append(f"""
     drop table if exists {p}_cal;
     create table {p}_cal as
-    select c.lm, coalesce({dt_q}, least(current_date - 1, (c.lm + interval '1 month' - interval '1 day')::date)) as dt
-    from (select max(report_month)::date as lm from {src}) c
+    select '{lm_lit}'::date as lm,
+           coalesce({dt_lit}, least(current_date - 1, ('{lm_lit}'::date + interval '1 month' - interval '1 day')::date)) as dt
     {dist('lm')}""")
 
-        # 2. путь каждого юнита в последнем месяце (два пути — меньший)
+        # 2. пути юнитов последнего месяца — по маленьким таблицам (21.10, Адель, бой: distinct по массивам
+        #    ключей и имён 11 уровней на каждой строке месяца уходил в workfile). _uall — группировка по юниту и
+        #    его пути (ключи уровней — колонками, не массивом): строк — юниты × их пути, тысячи. _uone — один путь
+        #    на юнит, если их несколько — меньший строкой, как раньше: путь берётся целиком, а не минимум
+        #    каждого уровня по отдельности (тот мог склеить путь, которого нет, и потерять сам юнит)
+        kcol = ', '.join(f's.lvl{i}_rk::text as k{i}' for i in lv)
+        ncol = ', '.join(f'min(s.lvl{i}_nm::text) as n{i}' for i in lv)
+        k_arr_u = 'ARRAY[' + ', '.join(f'u.k{i}' for i in lv) + ']'
+        n_arr_u = 'ARRAY[' + ', '.join(f'u.n{i}' for i in lv) + ']'
+        steps.append(f"""
+    drop table if exists {p}_uall;
+    create table {p}_uall as
+    select s.mng_unit_rk::text as unit_rk, s.leaf_lvl, {kcol}, {ncol}
+    from {src} s
+    where s.report_month = '{lm_lit}'::date and s.leaf_lvl > 0
+    group by {', '.join(str(i) for i in range(1, len(lv) + 3))}
+    {dist('unit_rk')}""")
+        steps.append(f"""
+    drop table if exists {p}_uone;
+    create table {p}_uone as
+    select distinct on (unit_rk) *
+    from (select u.*, array_to_string(({k_arr_u})[1:u.leaf_lvl], '|') as cp from {p}_uall u) x
+    order by unit_rk, cp
+    {dist('unit_rk')}""")
+
+        # 2b. путь каждого юнита в последнем месяце (два пути — меньший)
         steps.append(f"""
     drop table if exists {p}_upath;
     create table {p}_upath as
-    select s.mng_unit_rk::text as unit_rk, min({path_rk}) as cp
-    from {src} s
-    where s.report_month = (select lm from {p}_cal) and s.leaf_lvl > 0
-    group by 1
+    select unit_rk, cp from {p}_uone
     {dist('unit_rk')}""")
 
         # 3. узлы — все начала путей: и юниты со своими людьми, и уровни над ними без своих строк
@@ -1607,10 +1653,8 @@ paragraphs:
         from (
             select unnest(r.ra) as rk, unnest(r.na) as nm, generate_subscripts(r.ra, 1) as lv, r.ra
             from (
-                select distinct ({rk_arr})[1:s.leaf_lvl] as ra, ({nm_arr})[1:s.leaf_lvl] as na
-                from {src} s
-                join {p}_upath u on u.unit_rk = s.mng_unit_rk::text and u.cp = {path_rk}
-                where s.report_month = (select lm from {p}_cal) and s.leaf_lvl > 0
+                select ({k_arr_u})[1:u.leaf_lvl] as ra, ({n_arr_u})[1:u.leaf_lvl] as na
+                from {p}_uone u
             ) r
         ) x
         where x.rk <> '-'
@@ -1618,11 +1662,7 @@ paragraphs:
     group by rk
     {dist('rk')}""")
 
-        for sql in steps:
-            if debug:
-                print(sql)
-            else:
-                _hub_q(sql)
+        _hub_run(steps, 'cal / uall / uone / upath / node', debug)
         steps = []
 
         # несколько корней — общий корень над ними: «вся компания» — сумма всех строк
@@ -1659,16 +1699,15 @@ paragraphs:
         #    их management_head_ad_login; 1 — руководители подразделений → их management_head_ad_login
         #    (у юнита без своих людей). Старший голос, внутри — самый частый логин, при равенстве —
         #    меньший. Человек — в юните строки конца месяца (численность > 0), источник логинов —
-        #    по mdm_employee_rk на последнюю дату месяца
+        #    по mdm_employee_rk на последнюю дату месяца — дату данных литералом (как в _cal: подзапрос по
+        #    дневному источнику GP не режет партициями)
         if hsrc and has('mdm_employee_rk'):
             hh = f"""(
             select e.mdm_employee_rk as erk, max(coalesce(e.management_head_flg::text, '0'))::int as is_head,
                    max(nullif(lower(trim(e.ad_login::text)), '')) as login,
                    max(nullif(lower(trim(e.management_head_ad_login::text)), '')) as head_login
             from {_qualified(hsrc)} e
-            where e.{hdt} = (select max(x.{hdt}) from {_qualified(hsrc)} x
-                             where x.{hdt} >= (select lm from {p}_cal)
-                               and x.{hdt} < ((select lm from {p}_cal) + interval '1 month'))
+            where e.{hdt} = {dt_lit}
             group by 1)"""
             steps.append(f"""
     drop table if exists {p}_head;
@@ -1712,6 +1751,8 @@ paragraphs:
     left join (select prk, count(*) as kids from {p}_node where prk <> '' group by prk) k on k.prk = n.rk
     left join {p}_head h on h.unit_rk = n.rk
     {dist('unit_rk')}""")
+        _hub_run(steps, 'head / unit', debug)
+        steps = []
 
         # 6. строки источника → узлы нынешней структуры. История — по пути юнита в последнем
         #    месяце (переехал — прошлое едет с ним); юнита нет — по своему пути.
@@ -1785,9 +1826,10 @@ paragraphs:
     left join {p}_sx pv on {on('pv', 'k')} and pv.report_month = (k.report_month - interval '1 month')::date
     {dist('node_rk')}""")
 
-        # 8. разрезы: численность последнего месяца по атрибутам (g a t gr s c o w r) и
+        # 8. разрезы: численность последнего месяца по атрибутам (g a t gr s c o w r sp tc),
         #    увольнения с начала его года (xr причина, xq regret по причине, xi инициатива,
-        #    xp причина|инициатива, xt стаж, xg грейд, xs стрим). Пустое значение — ''
+        #    xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),
+        #    найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Пустое значение — ''
         a = {k: _hub_clean(f'e.{c}') if has(c) else "''" for k, c in (
             ('g', 'gender'), ('a', 'type_age'), ('t', 'experience_group_nm'), ('gr', 'grade'), ('s', 'seniority'),
             ('c', 'employee_contract_type'), ('o', 'legal_organization'), ('w', 'employee_stream'),
@@ -1800,7 +1842,8 @@ paragraphs:
         hire_e = f"greatest({num('hire_amt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
         hch = (f"case when {num('hire_amt')} > 0 then 'Найм в компанию' "
                f"when {num('transfer_candidate_amt')} > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end")
-        # части: численность последнего месяца — одна, увольнения — по месяцу с начала года; потом свёртка
+        # части: численность последнего месяца — одна, увольнения и найм — по месяцу с начала года;
+        # потом свёртка
         mix_hc = lambda: f"""
     select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
            unnest(ARRAY[{', '.join(f"'{k}'" for k in hc_keys)}]) as mx_key,
@@ -1869,8 +1912,8 @@ paragraphs:
         staff_e = (f"case when x.employment_relation_type_desc = '{staff_value}' then 'Штат' else 'Не штат' end"
                    if dhas('employment_relation_type_desc') else "'Не штат'")
         hx = ' + '.join(dflg(c) for c in ('hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg'))
-        fpath = lambda a, c: (f"case when {a}.{c} = '' then '{{}}'::text[] else "
-                              f"string_to_array({pre}{a}.{c}, '|') end")
+        fpath = lambda a_, c: (f"case when {a_}.{c} = '' then '{{}}'::text[] else "
+                               f"string_to_array({pre}{a_}.{c}, '|') end")
         trf_m = lambda m: f"""
     select * from (
     with d as (
@@ -2020,13 +2063,9 @@ paragraphs:
     cross join (select unit_rk, kids_cnt from {p}_unit where parent_rk = '' order by unit_rk limit 1) r
     {dist('last_month')}""")
 
-        steps.append(f"drop table if exists {p}_sx; drop table if exists {p}_node; drop table if exists {p}_head")
-
-        for sql in steps:
-            if debug:
-                print(sql)
-            else:
-                _hub_q(sql)
+        steps.append(f"drop table if exists {p}_sx; drop table if exists {p}_node; drop table if exists {p}_head; "
+                     f"drop table if exists {p}_uall; drop table if exists {p}_uone")
+        _hub_run(steps, 'sx / series / mix / trf / vacancy / ai / meta', debug)
         if debug:
             return
         for t in ('meta', 'unit', 'series', 'mix', 'trf', 'vacancy', 'ai'):
@@ -2143,7 +2182,8 @@ paragraphs:
 
 
     tables_dict = {
-        'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',   # как в TP 2.0 — для других отчётов
+        # hr_structure_overall выгружает ноутбук TP 2.0 — здесь не трогаем, чтобы не перезаписать (21.10, Адель)
+        # 'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',
         # TeamPulse Hub: датасет отчёта читает только их
         'teampulse_hub_meta':   'prod_proteus.teampulse_hub_meta',
         'teampulse_hub_unit':   'prod_proteus.teampulse_hub_unit',

@@ -844,6 +844,9 @@ def main():
         T[k]['ssch'], T[k]['hire'] = Ta[k]['ssch'], Ta[k]['hire']
     if a.hub:
         run_yaml(pg, os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', '1. Helicopter — ноут TeamPulse Hub.yaml'), a.hub)
+        # hr_structure_overall в бою выгружает ноутбук TP 2.0, наш её не трогает (21.10) — стенд выгружает сам:
+        # её читает файл 2
+        gp_to_click_mock(pg, a.hub)(gp_table='hr_structure_with_ssch', clickhouse_table='prod_proteus.hr_structure_overall')
         return
     if a.steps:
         rows = []
