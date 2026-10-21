@@ -36,10 +36,26 @@ def render(filters, user='tester'):
 
 
 def query(s, sql, settings=''):
-    """ответ как его получает чарт: записи JSON, по одной на строку"""
+    """ответ как его получает чарт: записи JSON, по одной на строку; метрики 2а с поставки 53 (ms) —
+    развёрнуты в m_*, как в прежнем ответе (сверки стенда читают m_*)"""
     out = str(s.query(sql + ('\nSETTINGS ' + settings if settings else ''), 'JSONEachRow'))
-    rows = [json.loads(l) for l in out.splitlines() if l.strip()]
+    rows = expand([json.loads(l) for l in out.splitlines() if l.strip()])
     return out, rows
+
+
+def expand(rows):
+    """ms («;» между метриками в порядке meta.mk) → колонки m_<метрика>"""
+    meta = next((r for r in rows if r.get('role') == 'meta'), None)
+    if not meta or 'ms' not in meta:
+        return rows
+    mk = json.loads(meta['j']).get('mk', '').split(',')
+    for r in rows:
+        ms = r.pop('ms', '')
+        if r.get('role') in ('scope', 'base', 'c', 'g', 'x'):
+            r.update({'m_' + k: v for k, v in zip(mk, ms.split(';'))})
+        else:
+            r.update({'m_' + k: '' for k in mk})
+    return rows
 
 
 def uid(rk):

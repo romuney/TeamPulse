@@ -73,7 +73,9 @@ console.log('— '+name+': '+D.NODE_BY_PATH[D.DEFAULT_STATE.unit].name+', '+D.PE
 
 /* 1. дерево: лист «Напрямую» + дети = юнит, по каждому ряду и месяцу */
 const scopeRow=rows.find(r=>r.role==='scope'), baseRow=rows.find(r=>r.role==='base');
-const arr=(r,c)=>String(r['m_'+c]).split(',').map(Number);
+/* ряд метрики строки: прежний ответ — колонка m_c, датасет 2а с поставки 53 — отрезок ms в порядке meta.mk */
+const MK=(()=>{const m=rows.find(r=>r.role==='meta');try{const k=JSON.parse(m.j).mk;return k?String(k).split(','):null}catch(e){return null}})();
+const arr=(r,c)=>String(MK?String(r.ms).split(';')[MK.indexOf(c)]:r['m_'+c]).split(',').map(Number);
 const KEYS=[['hc_total','hc'],['hc_active','act'],['hc_avg','avg'],['hire','hire'],['attrition','fire'],
   ['transfer_in','tin'],['transfer_out','tout'],['regret_cnt','reg'],
   ['perf_norm','pnor'],['perf_low','plow'],['perf_high','phig'],['perf_gray','pgry']]

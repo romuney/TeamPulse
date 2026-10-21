@@ -110,15 +110,26 @@ function pairs(list){
    (OPT) в список «нет колонок» не попадают — без них метрики остаются «демо». */
 const FIELDS=['role','id','pid','lvl','nm','kids','j'].concat(COLS.map(c=>'m_'+c)).concat(['mx']);
 const FIELDS_OPT=OPT.map(c=>'m_'+c);
+/* датасет 2а с поставки 53: метрики узла одной колонкой ms — ряды через «;» в порядке meta.mk
+   (текст запроса втрое короче, обёртка Proteus группирует 9 колонок вместо 34) */
+const FIELDS_MS=['role','id','pid','lvl','nm','kids','j','ms','mx'];
 
 function build(data){
   const rows=Array.isArray(data)?data:[];
+  let meta={};
+  try{meta=JSON.parse(str((rows.find(r=>str(r.role)==='meta')||{}).j)||'{}')}catch(e){meta={}}
+  /* ряд метрики c строки r: прежний ответ — колонка m_c, новый — c-й отрезок ms */
+  const mk=str(meta.mk)?str(meta.mk).split(','):null, mkAt={};
+  if(mk)mk.forEach((c,i)=>{mkAt[c]=i});
+  const msOf=r=>r._ms||(r._ms=str(r.ms).split(';'));
+  const raw=mk?(r,c)=>(c in mkAt?msOf(r)[mkAt[c]]:undefined):(r,c)=>r['m_'+c];
+  const hasCol=mk?c=>c in mkAt:c=>('m_'+c) in rows[0];
   /* поле, которого нет в «Измерениях», приходит undefined — массивы молча стали бы
      нулями; поэтому чарт называет пропущенные колонки сам */
-  const missing=rows.length?FIELDS.filter(f=>!(f in rows[0])):[];
+  const missing=rows.length?(mk?FIELDS_MS:FIELDS).filter(f=>!(f in rows[0])):[];
   /* необязательные ряды — только если колонка есть в ответе */
-  const nz=c=>rows.some(r=>/[1-9]/.test(str(r['m_'+c])));
-  const have=new Set(rows.length?OPT.filter(c=>('m_'+c) in rows[0]&&(LIVE_NZ.indexOf(c)<0||nz(c))):[]);
+  const nz=c=>rows.some(r=>/[1-9]/.test(str(raw(r,c))));
+  const have=new Set(rows.length?OPT.filter(c=>hasCol(c)&&(LIVE_NZ.indexOf(c)<0||nz(c))):[]);
   const cols=COLS.concat(OPT.filter(c=>have.has(c)));
   /* AI (поставка 50): проникновение — доля, по листьям не складывается. Знаменатель источника
      восстанавливается из неё (aid = WAU × 100 / проникновение) и складывается, как численность:
@@ -127,15 +138,14 @@ function build(data){
   if(AID)cols.push('aid');
   const parseSer=r=>{
     const ser={};
-    cols.forEach(c=>{if(c!=='aid')ser[c]=parseArr(r['m_'+c],n)});
+    cols.forEach(c=>{if(c!=='aid')ser[c]=parseArr(raw(r,c),n)});
     if(AID)ser.aid=ser.aiw.map((w,k)=>ser.aip[k]?+(w*100/ser.aip[k]).toFixed(3):0);
     return ser;
   };
   const stub=new Set(STUB.filter(k=>!(LIVE_WITH[k]&&LIVE_WITH[k].every(c=>have.has(c)))));
   const by=role=>rows.filter(r=>str(r.role)===role);
-  let meta={};
-  try{meta=JSON.parse(str((by('meta')[0]||{}).j)||'{}')}catch(e){meta={}}
-  const n=Math.max(1,num(meta.n)||parseArr((by('scope')[0]||{}).m_hc,0).length||1);
+  const sc0=by('scope')[0];
+  const n=Math.max(1,num(meta.n)||(sc0?str(raw(sc0,'hc')).split(',').length:0)||1);
   const m0=ym(meta.m0);
 
   /* календарь: сетка от января прошлого года, окно — последние 12 месяцев */
@@ -343,5 +353,5 @@ function build(data){
   };
 }
 
-window.TPREAL={build,FIELDS,FIELDS_OPT,OPT,LIVE_WITH,STUB,PAINT_V,IT_V,STAFF_V,ACT_V};
+window.TPREAL={build,FIELDS,FIELDS_MS,FIELDS_OPT,OPT,LIVE_WITH,STUB,PAINT_V,IT_V,STAFF_V,ACT_V};
 })();
