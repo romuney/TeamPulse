@@ -16,7 +16,7 @@ SRC = os.path.join(DIR, 'TP 2.0.yaml')
 OUT = os.path.join(DIR, '1. Helicopter — ноут TeamPulse Hub.yaml')
 NB = os.path.join(HERE, 'hub_nb')
 STEPS = (1, 2, 3, 5, 6)       # правка 4 (уровень перевода в ключе hr_structure_overall) не нужна:
-                              # переводы через границу узла считает build_hub по людям
+                              # переводы через границу узла считают параграфы hub по людям
 
 EXTRA = {
     'EXEC build_all_metrics': [
@@ -78,15 +78,45 @@ EXTRA = {
 PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md', 'about.md'),
         0, ('new', 'Схема', 'md', 'scheme.md'),
         2, 3, 4, 5, 6, 7, 14, 15, 16,
+        # 22.10, поставка 58: сборка таблиц отчёта — параграфами gp (stand/hub_sql.py → hub_nb/sql_*.sql), без
+        # Python, который ждал больше ста запросов в одном параграфе. Сначала — проверка колонок источников
+        ('new', 'hub · 0 колонки', 'gp', 'sql_0_cols.sql'),
         # 21.10: вместо vacancy_daily TP 2.0 (JSON по юниту, org_structure LEFT JOIN — терял вакансии
-        # юнитов без людей) — плоский снимок structure_x_vacancy; витрина — build_hub, шаг 11
-        ('new', 'structure_x_vacancy', 'python', 'vacancy.py'),
-        ('new', 'EXEC structure_x_vacancy', 'python', 'exec_vacancy.py'),
+        # юнитов без людей) — плоский снимок structure_x_vacancy; витрина — «hub · 6»
+        ('new', 'structure_x_vacancy', 'gp', 'sql_vacancy.sql'),
         19, 20, 22, 23,
-        ('new', 'build_hub', 'python', 'build_hub.py'),
-        ('new', 'EXEC build_hub', 'python', 'exec_build_hub.py'),
-        ('new', 'hub checks', 'python', 'hub_checks.py'),
+        ('new', 'hub · 1 структура', 'gp', 'sql_1_structure.sql'),
+        ('new', 'hub · 2 логины и AI', 'python', 'hub_optional.py'),
+        ('new', 'hub · 3 справочник и ряды', 'gp', 'sql_3_series.sql'),
+        ('new', 'hub · 4 разрезы', 'gp', 'sql_4_mix.sql'),
+        ('new', 'hub · 5 переходы', 'gp', 'sql_5_trf.sql'),
+        ('new', 'hub · 6 вакансии и meta', 'gp', 'sql_6_final.sql'),
+        ('new', 'hub checks', 'gp', 'sql_checks.sql'),
         30]
+
+
+# поставка 58: файл 1а — как поставить и код новых параграфов (шапка — hub_nb/1a_head.md). Замер — стенд ×25
+# (см. AGENTS.md, «Ноутбук: сборка параграфами gp»)
+OUT_1A = os.path.join(DIR, '1а. Helicopter — изменённые параграфы.md')
+P58 = ['hub · 0 колонки', 'structure_x_vacancy', 'hub · 1 структура', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды',
+       'hub · 4 разрезы', 'hub · 5 переходы', 'hub · 6 вакансии и meta', 'hub checks']
+TIMING = {'T_PY': '192', 'Q_PY': '112', 'T_SQL': '64', 'Q_SQL': '18'}
+
+
+def write_1a(out):
+    head = open(os.path.join(NB, '1a_head.md'), encoding='utf-8').read()
+    for k, v in TIMING.items():
+        head = head.replace('{{' + k + '}}', v)
+    assert '{{' not in head
+    by = {p['title']: p for p in out}
+    parts = [head.rstrip('\n')]
+    for i, t in enumerate(P58, 1):
+        p = by[t]
+        lang = 'sql' if p['shebang'] == 'gp' else 'python'
+        parts.append(f"\n### {i}. {t} — {p['shebang']}\n\n```{lang}\n{p['code']}\n```")
+    with open(OUT_1A, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(parts) + '\n')
+    print(f'{os.path.basename(OUT_1A)}: параграфов {len(P58)}')
 
 
 def patch(title, code):
@@ -135,6 +165,7 @@ def main():
     print(f'{os.path.basename(OUT)}: параграфов {len(out)}')
     for p in out:
         print(f"  {p['shebang']:16} {p['title']}")
+    write_1a(out)
 
 
 if __name__ == '__main__':

@@ -167,7 +167,11 @@ COLS = (['calendar_dt', 'mdm_employee_rk']
         + [f'transfer_{d}_{t}_flg' for d in ('to', 'out') for t in TYPES]
         # 21.10: поля прод-ноутбуков HQ и УС — нежелательное/обычное увольнение, тип компании,
         # специализация, источник найма
-        + ['non_regrettable_fire_flg', 'type_company', 'employee_specialization_desc', 'source_type_nm'])
+        + ['non_regrettable_fire_flg', 'type_company', 'employee_specialization_desc', 'source_type_nm']
+        # 22.10, поставка 58: 12-й уровень — как в бою (описание источника: lvl1..lvl12); людей на нём нет.
+        # SQL-параграфы build_hub читают флаги переводов юнита всех 12 уровней
+        + ['lvl12_mapped_management_unit_rk', 'lvl12_mapped_management_unit_nm',
+           'lvl12_mngt_unit_in_trsf_flg', 'lvl12_mngt_unit_out_trsf_flg'])
 
 
 def source_rows(U, people):
@@ -206,7 +210,8 @@ def source_rows(U, people):
                       int(d == p['start'] and p['start'] > D0), int('transfer_candidate_flg' in cv),
                       int('transfer_internal_flg' in cv), fired, p['regret'] if fired else 0]
                    + [tf.get(t, 0) for t in TYPES] + [of.get(t, 0) for t in TYPES]
-                   + [p['nonreg'] if fired else 0, p['company'], p['spec'], p['source']])
+                   + [p['nonreg'] if fired else 0, p['company'], p['spec'], p['source']]
+                   + [None, None, 0, 0])
             d += dt.timedelta(1)
 
 
