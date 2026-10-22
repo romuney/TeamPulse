@@ -31,9 +31,8 @@ def main():
         for n in nodes:
             f = dict(flt, unit_f=[n], trd_f=[n], trm_f=[m.isoformat()[:7] for m in months])
             _, rr = hc.run(db, hc.F2A, f)
-            mk = json.loads(rr[0]['j'])['mk'].split(',')
             sc = next(r for r in rr if r['role'] == 'scope')
-            ser = dict(zip(mk, [[float(x) for x in a.split(',')] for a in sc['ms'].split(';')]))
+            ser = {k: [float(x) for x in sc['m_' + k].split(',')] for k in ('tin', 'tout')}
             ev = next((r for r in rr if r['role'] == 'ev'), None)
             got = Counter()
             for l in (ev['j'] if ev else '').split('\n'):
