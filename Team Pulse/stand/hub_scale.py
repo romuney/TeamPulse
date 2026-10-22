@@ -28,9 +28,10 @@ TABLES = {
               "tin_cnt Int64, tout_cnt Int64, pnor_cnt Float64, plow_cnt Float64, phig_cnt Float64, pgry_cnt Float64, "
               "wday_amt Float64, ovis_amt Float64, gapr_cnt Float64, gdec_cnt Float64",
     'mix': "node_rk String, paint_cd String, it_cd String, staff_cd String, act_cd String, mx_key String, mx_val String, mx_n Int64",
-    'trf': "node_rk String, report_month Date, trf_kind String, f_paint_cd String, f_it_cd String, f_staff_cd String, "
-           "f_act_cd String, t_paint_cd String, t_it_cd String, t_staff_cd String, t_act_cd String, in_ok Int64, out_ok Int64, "
-           "trf_cnt Int64",
+    # переводы — как в мастер-отчёте (поставка 59): срез строки дня, флаги юнита и смены атрибута, соседний день x_
+    'trf': "node_rk String, report_month Date, trf_kind String, paint_cd String, it_cd String, staff_cd String, "
+           "act_cd String, fu Int64, fa Int64, fp Int64, fi Int64, fs Int64, in_ok Int64, x_paint_cd String, x_it_cd String, "
+           "x_staff_cd String, x_act_cd String, trf_cnt Int64",
     'vacancy': "node_rk String, report_month Date, channel String, search_reason String, cand_lvl String, position_lvl String, "
                "specialization String, status String, vac_open_cnt Float64, vac_close_cnt Float64, vac_new_cnt Float64, "
                "vac_ttf_days Float64, vac_ttf_cnt Float64",
@@ -44,9 +45,11 @@ FROM (SELECT rk, mi, k, toInt64(greatest(1, intDiv(sz, c) + cityHash64(rk, mi, k
     'mix': f"""SELECT rk, {SLICE}, kk, concat('Значение ', toString(vi)), toInt64(1 + cityHash64(rk, k, kk, vi) % 20)
 FROM (SELECT rk, k, kk, vi FROM prod_proteus.tmp_nd ARRAY JOIN {KS} AS k ARRAY JOIN {MIX_KEYS} AS kk
       ARRAY JOIN range(toUInt32(least(25, 1 + intDiv(sz, 6 * c)))) AS vi)""",
-    'trf': f"""SELECT rk, {MON}, ['i','o','s'][k % 3 + 1], ['HQ','Line','Support'][k % 3 + 1], ['IT','Digital','NonIT'][k % 3 + 1],
-       'Штат', 'Активная', ['HQ','Line','Support'][(k + 1) % 3 + 1], ['IT','Digital','NonIT'][(k + 2) % 3 + 1],
-       ['Штат','Не штат'][k % 2 + 1], 'Активная', k % 2, (k + 1) % 2, toInt64(1 + k % 3)
+    'trf': f"""SELECT rk, {MON}, ['i','o','h'][k % 3 + 1], ['HQ','Line','Support'][k % 3 + 1], ['IT','Digital','NonIT'][k % 3 + 1],
+       ['Штат','Не штат'][k % 2 + 1], 'Активная', k % 2, (k + 1) % 2, toInt64(k % 3 = 0), toInt64(k % 4 = 0), 0,
+       toInt64(k % 5 > 0), if(k % 3 = 0, ['HQ','Line','Support'][(k + 1) % 3 + 1], NULL),
+       if(k % 4 = 0, ['IT','Digital','NonIT'][(k + 2) % 3 + 1], NULL), NULL, if((k + 1) % 2 = 1, 'Прочие', NULL),
+       toInt64(1 + k % 3)
 FROM prod_proteus.tmp_nd ARRAY JOIN range(34) AS mi ARRAY JOIN range(toUInt32(intDiv(c, 2))) AS k""",
     'vacancy': f"""SELECT rk, {MON}, concat('Канал ', toString(k % 5)), ['Замена','Новый','Прочее'][k % 3 + 1],
        ['Junior','Middle','Senior','Other'][k % 4 + 1], concat('L', toString(k % 6)), concat('Спец ', toString(k % 9)),

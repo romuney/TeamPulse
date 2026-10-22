@@ -205,17 +205,16 @@ def main():
             if label == 'файл 2а' and bad:
                 ok = False
             print(f'{name:24} {label}: узлов {nodes:3} · {len(outs)} отв. при 6 настройках · {res}{pred_note}')
-    # поставка 56: на чистых данных у переходов нет строк «без флага» (x…): прочее водопада — только сбой данных
+    # поставка 59: переводы — строки событий с флагом источника (правило мастер-отчёта): «в» и «из» без флага
+    # юнита и типа быть не должно (то же — проверка 7 в hub checks)
     s = session.Session(db)
-    # первый месяц сетки — не в счёт: симуляция источника с него начинается, у людей нет «вчера» (xa); на бою у
-    # источника есть история раньше сетки
-    xk = s.query("SELECT trf_kind, sum(trf_cnt) FROM prod_proteus.teampulse_hub_trf WHERE startsWith(trf_kind, 'x') "
-                 "AND report_month > (SELECT min(report_month) FROM prod_proteus.teampulse_hub_trf) "
-                 "GROUP BY trf_kind ORDER BY trf_kind", 'TSV').bytes().decode().strip()
-    hk = s.query("SELECT sum(trf_cnt) FROM prod_proteus.teampulse_hub_trf WHERE trf_kind = 'h'", 'TSV').bytes().decode().strip()
+    kinds = s.query("SELECT trf_kind, sum(trf_cnt) FROM prod_proteus.teampulse_hub_trf GROUP BY trf_kind ORDER BY trf_kind",
+                    'TSV').bytes().decode().strip()
+    nf = s.query("SELECT count() FROM prod_proteus.teampulse_hub_trf WHERE trf_kind IN ('i', 'o') AND ifNull(fu, 0) "
+                 "+ ifNull(fa, 0) + ifNull(fp, 0) + ifNull(fi, 0) + ifNull(fs, 0) = 0", 'TSV').bytes().decode().strip()
     s.close()
-    print('переходы без флага источника (x…):', xk.replace('\n', ', ') or 'нет', '· найм (h):', hk)
-    if xk:
+    print('переводы (i — в, o — из, h — найм):', kinds.replace('\t', ' ').replace('\n', ', '), '· «в / из» без флага:', nf)
+    if nf != '0':
         ok = False
     print('ИТОГ:', 'датасет 2а = правда по людям' if ok else 'есть расхождения')
     return ok

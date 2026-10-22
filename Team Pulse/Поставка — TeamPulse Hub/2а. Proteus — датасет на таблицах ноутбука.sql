@@ -8,8 +8,8 @@
       teampulse_hub_unit    узлы нынешней структуры: родитель, уровень, имя, подразделения, путь
       teampulse_hub_series  узел × месяц × срез: ряды по всему поддереву узла, ССЧ
       teampulse_hub_mix     узел × срез × разрез × значение: численность и увольнения по разрезам
-      teampulse_hub_trf     переходы людей: узел × месяц × вошёл / вышел / остался × срез до и после —
-                            переводы считаются под выбранные фильтры
+      teampulse_hub_trf     переводы как в мастер-отчёте: узел × месяц × в / из / найм × срез дня × флаги —
+                            переводы считаются под выбранные фильтры (с поставки 59)
       teampulse_hub_vacancy вакансии: узел × месяц × разрезы вакансии; фильтры среза на них не действуют
       teampulse_hub_ai      AI-инструменты: узел × месяц — WAU, проникновение; фильтры среза не действуют
     Таблиц trf, vacancy, ai нет (ноутбук до поставок 49 и 50) — датасет падает: сначала ноутбук.
@@ -89,20 +89,20 @@
 {%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set hv = 'lowerUTF8(' ~ c[2] ~ ') IN ' ~ ql(F[c[0]]) -%}{%- set _ = parts.append(("(" ~ c[2] ~ " = '∅' OR " ~ hv ~ ")") if c[0] == 'act' else hv) -%}{%- endif -%}{%- endfor -%}
 {{- parts|join(' AND ') if parts else '1' -}}
 {%- endmacro %}
-{#- Переводы — из переходов ноутбука под выбранные фильтры: срез после (t_) или до (f_) проходит фильтры.
-    В выбор — вошёл в узел со срезом из фильтров или остался в узле, а срез сменился на подходящий; из
-    выбора — наоборот. Без фильтров смена среза — не перевод. С поставки 56 переходы — по флагам источника
-    (методология переводов). in_ok = 0 — переход кандидата или стажёра: на активной — найм, на всей — перевод.
+{#- Переводы (поставка 59) — как в мастер-отчёте (старый TeamPulse: transfer_in / transfer_out), сверено на выборках
+    боя. Строка переходов ноутбука — событие дня с флагом источника; срез строки — состояние этого дня (фильтры —
+    в WHERE). Перевод засчитан, если у строки флаг юнита этого уровня (fu) или смены атрибута, по которому выбран
+    фильтр: fa — тип численности (по умолчанию «Активная»), fp — покраска, fi — IT-код, fs — тип оформления. Без
+    фильтра смена атрибута — не перевод. Фильтр из нескольких значений (Line + Support) — смена засчитана, только
+    если по другую сторону (x_…: вчера для «в», завтра для «из») значение вне выбора: Line → Support — не перевод.
+    in_ok = 0 — кандидат или стажёр: на активной — найм, на всей — перевод.
     Найм (hit) — по дню события: найм в компанию (вид h) и, на активной, такие переходы. -#}
-{% macro condp(pre) -%}
-{%- set parts = [] -%}
-{%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set _ = parts.append('lowerUTF8(ifNull(' ~ pre ~ c[0] ~ "_cd, '')) IN " ~ ql(F[c[0]])) -%}{%- endif -%}{%- endfor -%}
-{{- parts|join(' AND ') if parts else '1' -}}
-{%- endmacro %}
-{% set ENT = "(" ~ condp('t_') ~ ") AND (ifNull(trf_kind, '') = 'i' OR (ifNull(trf_kind, '') = 's' AND NOT (" ~ condp('f_') ~ ")))" %}
-{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(" ~ ENT ~ (" AND ifNull(in_ok, 1) = 1" if act_only else "") ~ ")" %}
-{% set HI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(((" ~ condp('t_') ~ ") AND ifNull(trf_kind, '') = 'h')" ~ (" OR (" ~ ENT ~ " AND ifNull(in_ok, 1) = 0)" if act_only else "") ~ ")" %}
-{% set TU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64((" ~ condp('f_') ~ ") AND (ifNull(trf_kind, '') = 'o' OR (ifNull(trf_kind, '') = 's' AND ifNull(out_ok, 0) = 1 AND NOT (" ~ condp('t_') ~ "))))" %}
+{% set FK = {'act': 'fa', 'paint': 'fp', 'it': 'fi', 'staff': 'fs'} %}
+{% set fl = ['ifNull(fu, 0) = 1'] %}{% for c in CUTS %}{% set fv = F[c[0]] %}{% if fv|length == 1 %}{% set _ = fl.append('ifNull(' ~ FK[c[0]] ~ ', 0) = 1') %}{% elif fv|length > 1 %}{% set _ = fl.append('(ifNull(' ~ FK[c[0]] ~ ', 0) = 1 AND NOT (lowerUTF8(ifNull(x_' ~ c[0] ~ "_cd, '')) IN " ~ ql(fv) ~ '))') %}{% endif %}{% endfor %}
+{% set FLG = '(' ~ fl|join(' OR ') ~ ')' %}
+{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ (" AND ifNull(in_ok, 1) = 1" if act_only else "") ~ ")" %}
+{% set HI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'h'" ~ (" OR (ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 0)" if act_only else "") ~ ")" %}
+{% set TU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND " ~ FLG ~ ")" %}
 {#- Метрики: ключ, таблица (s — series, t — trf, v — vacancy, a — ai), выражение. Порядок — порядок в ms. -#}
 {% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_only else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI]] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
@@ -218,7 +218,7 @@ WITH
       UNION ALL
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('t') }} AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }}
+      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond() }}
       GROUP BY u2, i2
       UNION ALL
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('v') }} AS a2

@@ -171,7 +171,9 @@ COLS = (['calendar_dt', 'mdm_employee_rk']
         # 22.10, поставка 58: 12-й уровень — как в бою (описание источника: lvl1..lvl12); людей на нём нет.
         # SQL-параграфы build_hub читают флаги переводов юнита всех 12 уровней
         + ['lvl12_mapped_management_unit_rk', 'lvl12_mapped_management_unit_nm',
-           'lvl12_mngt_unit_in_trsf_flg', 'lvl12_mngt_unit_out_trsf_flg'])
+           'lvl12_mngt_unit_in_trsf_flg', 'lvl12_mngt_unit_out_trsf_flg']
+        # 22.10, поставка 59: признак последнего дня месяца — по нему мастер-отчёт переносит перевод «из»
+        + ['last_day_of_month_flg'])
 
 
 def source_rows(U, people):
@@ -211,7 +213,8 @@ def source_rows(U, people):
                       int('transfer_internal_flg' in cv), fired, p['regret'] if fired else 0]
                    + [tf.get(t, 0) for t in TYPES] + [of.get(t, 0) for t in TYPES]
                    + [p['nonreg'] if fired else 0, p['company'], p['spec'], p['source']]
-                   + [None, None, 0, 0])
+                   + [None, None, 0, 0]
+                   + [int((d + dt.timedelta(1)).day == 1)])
             d += dt.timedelta(1)
 
 

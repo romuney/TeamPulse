@@ -31,7 +31,6 @@ HUB_ALL = 'all'
 STAFF = 'Штатный сотрудник'
 VAC_OK_GROUP = 'Согласованные'
 LV = list(range(1, 12))          # уровни источника людей (build_all_metrics, n_levels=11)
-DLV_FLG = list(range(1, 13))     # флаги переводов юнита в дневном источнике — все 12 уровней
 NV = 11                          # уровни вакансий (resource_level_N_rk)
 
 dist = lambda key: f'distributed by ({key})'
@@ -73,8 +72,9 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
 TYPES = ('hq', 'it', 'employment_relation_type', 'active_type')
 DAY_COLS = (['calendar_dt', 'mdm_employee_rk'] + [f'lvl{i}_mapped_management_unit_rk' for i in LV]
             + ['emp_specialization_oper_code', 'emp_specialization_it_code', 'employment_relation_type_desc',
-               'active_count_flg', 'hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg', 'fire_flg']
-            + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in DLV_FLG for k in ('in', 'out')]
+               'active_count_flg', 'hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg', 'fire_flg',
+               'last_day_of_month_flg']
+            + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in LV for k in ('in', 'out')]
             + [f'transfer_{d}_{t}_flg' for t in TYPES for d in ('to', 'out')])
 VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'close_flg', 'end_of_month_flg', 'last_dt_flg', 'status_name',
              'status_name_chng_group', 'search_reason', 'mapping_channel_name', 'finalist_level_candy',
@@ -461,184 +461,145 @@ select count(*) as mix_rows from {P}_mix;
 
 
 def sql_trf():
-    dkeys = (',\n' + ' ' * 31).join(f"coalesce(nullif(x.lvl{i}_mapped_management_unit_rk::text, ''), '-') as k{i}" for i in LV)
-    dleaf = 'case ' + wrap([f"when r.k{i} <> '-' then {i}" for i in reversed(LV)], ' ' * 30, sep=' ') + ' else 0 end'
-    du = 'case q.lf ' + wrap([f'when {i} then q.k{i}' for i in LV], ' ' * 37, sep=' ') + " else '' end"
-    dop = ("concat_ws('|', q.k1, " + wrap([f'case when q.lf >= {i} then q.k{i} end' for i in LV[1:]], ' ' * 61)
-           + ')')
+    # 22.10, поставка 59: переводы — как мастер-отчёт (старый TeamPulse, transfers.yaml: transfer_in /
+    # transfer_out / dinamica), сверено на выборках боя (RawData&Result): событие — строка дня с флагом, «в» и
+    # «из» считаются отдельно, срез — состояние этой строки. Пар «вчера → сегодня» больше нет
+    dkey = lambda i: f"coalesce(nullif(x.lvl{i}_mapped_management_unit_rk::text, ''), '-')"
     dflg = lambda c: f"(coalesce(x.{c}::text, '0') = '1')::int"
     dcut = lambda c: f"coalesce(nullif(coalesce(x.{c}::text, '-'), ''), '-')"
-    dany = lambda cs: '(' + wrap([f"coalesce(x.{c}::text, '0') = '1'" for c in cs], ' ' * 32, sep=' or ') + ')::int'
-    tflg = lambda d, t: dany([f'transfer_{d}_{t}_flg'])
-    u_in = dany([f'lvl{i}_mngt_unit_in_trsf_flg' for i in DLV_FLG])
-    u_out = dany([f'lvl{i}_mngt_unit_out_trsf_flg' for i in DLV_FLG])
     act_e = "case when coalesce(x.active_count_flg::text, '0') = '1' then 'Активная' else 'Прочие' end"
     staff_e = f"case when x.employment_relation_type_desc = '{STAFF}' then 'Штат' else 'Не штат' end"
-    fpath = lambda c: f"case when {c} = '' then '{{}}'::text[] else string_to_array({PRE} || {c}, '|') end"
-    lag = ['u', 'op', 'pa', 'it', 'st', 'ac', 'fx', 'ou', 'oq', 'oi', 'ost', 'oa']
-    in_grid = lambda m: f'{m} between c.grid_start and c.lm'
-    m_end = lambda m: f"(({m} + interval '1 month')::date - 1)"
-    return f"""{head('5. Переходы людей (поставка 58: SQL вместо build_hub)',
-               'teampulse_hub_trf — узел × месяц × вид × срез до × срез после: датасет считает из них переводы в выбор',
-               'и из выбора под любые фильтры. Перевод — только если смену отметил флаг источника: «в» — на первом',
-               'дне в новом состоянии, «из» — на последнем в старом; переход между днями t−1 и t датируется днём t.',
-               'Виды: i / o / s — вошёл в узел, вышел, остался со сменой среза; h — найм в компанию (срез дня найма);',
-               'x… — смены без флага, для сверки (xi / xo / xs, xa — появился без найма, xd — пропал без увольнения).',
-               'Дневной источник читается один раз. Окно — месяц, как у помесячных частей build_hub: «вчера» для дня',
-               'месяца — только дни этого месяца и последний день прошлого; «пропал» — нет его до конца месяца.')}
-
--- 10а. события по дням: смены юнита или среза, найм и появления, пропажи. Строка — человек × день, у
---      которого есть событие; «0» — прошлый день человека, «1» — следующий. Путь юнита (op) — ключами из
---      строки дня; нынешний путь подставляет 10б: событий мало, а сортировка по людям и дням — узкая
-drop table if exists {P}_ev;
-create table {P}_ev as
-select s.e, s.dt, s.mo_dt as report_month, s.u, s.op, s.pa, s.it, s.st, s.ac, s.hf, s.cv, s.fx,
-       s.iu, s.ip, s.ii, s.ist, s.ia, s.u0, s.op0, s.pa0, s.it0, s.st0, s.ac0, s.fx0, s.ou0, s.oq0, s.oi0, s.ost0, s.oa0,
-       s.g_ok::int as is_g, s.ha_ok::int as is_ha, s.d_ok::int as is_d
-from (
-    select w.*,
-           -- смена против прошлого дня того же окна месяца; найм — отдельно (h)
-           ({in_grid('w.mo_dt')} and w.dt0 >= w.mo_dt - 1 and w.hf = 0
-            and (w.u <> w.u0 or (w.pa, w.it, w.st, w.ac) <> (w.pa0, w.it0, w.st0, w.ac0))) as g_ok,
-           -- найм в компанию или появление: прошлого дня в окне месяца нет
-           ({in_grid('w.mo_dt')} and (w.hf = 1 or w.dt0 is null or w.dt0 < w.mo_dt - 1)) as ha_ok,
-           -- пропал без увольнения: следующего дня нет до конца месяца, где был бы «завтра»
-           ({in_grid('w.mo_d1')} and w.fx = 0 and w.dt < least({m_end('w.mo_d1')}, c.dt)
-            and (w.dt1 is null or w.dt1 > {m_end('w.mo_d1')})) as d_ok
-    from (
-        select y.*, date_trunc('month', y.dt)::date as mo_dt, date_trunc('month', y.dt + 1)::date as mo_d1,
-               {wrap(['lag(y.dt) over wd as dt0'] + [f'lag(y.{k}) over wd as {k}0' for k in lag], ' ' * 15)},
-               lead(y.dt) over wd as dt1
-        from (
-            -- одна строка на человека и день (если их несколько — с меньшим юнитом): то же окно по человеку,
-            -- что и у «вчера», — GP перераспределяет строки один раз
-            select z.*, case when lag(z.dt) over (partition by z.e order by z.dt, z.u) = z.dt then 0 else 1 end as rn
-            from (
-                -- юнит дня — самый глубокий уровень с ключом (lf), его путь — ключи уровней до него (op)
-                select q.e, q.dt, {du} as u,
-                       case when q.lf = 0 then '' else {dop} end as op,
-                       q.pa, q.it, q.st, q.ac, q.hf, q.cv, q.fx, q.iu, q.ou, q.ip, q.oq, q.ii, q.oi, q.ist, q.ost, q.ia, q.oa
-                from (
-                    select r.*, {dleaf} as lf
-                    from (
-                        select x.mdm_employee_rk as e, x.calendar_dt::date as dt,
-                               {dkeys},
-                               {dcut('emp_specialization_oper_code')} as pa,
-                               {dcut('emp_specialization_it_code')} as it,
-                               {staff_e} as st,
-                               {act_e} as ac,
-                               {dflg('hire_flg')} as hf,
-                               least({dflg('transfer_candidate_flg')} + {dflg('transfer_internal_flg')}, 1) as cv,
-                               {dflg('fire_flg')} as fx,
-                               {u_in} as iu,
-                               {u_out} as ou,
-                               {tflg('to', 'hq')} as ip, {tflg('out', 'hq')} as oq,
-                               {tflg('to', 'it')} as ii, {tflg('out', 'it')} as oi,
-                               {tflg('to', 'employment_relation_type')} as ist,
-                               {tflg('out', 'employment_relation_type')} as ost,
-                               {tflg('to', 'active_type')} as ia,
-                               {tflg('out', 'active_type')} as oa
-                        from {DAY} x
-                        -- сетка отчёта и последний день перед ней; первое условие — отсечение партиций
-                        where x.calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year')::date
-                          and x.calendar_dt >= (select grid_start from {P}_cal) - 1
-                          and x.calendar_dt < ((select lm from {P}_cal) + interval '1 month')::date
-                    ) r
-                ) q
-            ) z
-        ) y
-        where y.rn = 1
-        window wd as (partition by y.e order by y.dt)
-    ) w
-    cross join {P}_cal c
-) s
-where s.g_ok or s.ha_ok or s.d_ok
+    ind = ' ' * 7
+    keys = wrap([f'{dkey(i)} as k{i}' for i in LV], ind, sep=', ', width=125)
+    uin = wrap([f"{dflg(f'lvl{i}_mngt_unit_in_trsf_flg')} as ui{i}" for i in LV], ind, width=125)
+    uout = wrap([f"{dflg(f'lvl{i}_mngt_unit_out_trsf_flg')} as uo{i}" for i in LV], ind, width=125)
+    tfl = [(t, ai, ao) for t, ai, ao in (('active_type', 'ia', 'oa'), ('hq', 'ip', 'oq'), ('it', 'ii', 'oi'),
+                                          ('employment_relation_type', 'ist', 'ost'))]
+    types = (',\n' + ind).join(f"{dflg(f'transfer_to_{t}_flg')} as {ai}, {dflg(f'transfer_out_{t}_flg')} as {ao}"
+                               for t, ai, ao in tfl)
+    any_ev = wrap([f"coalesce(x.{c}::text, '0') = '1'" for c in
+                   ['hire_flg'] + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in LV for k in ('in', 'out')]
+                   + [f'transfer_{d}_{t}_flg' for t, _, _ in tfl for d in ('to', 'out')]], ' ' * 7, sep=' or ', width=125)
+    arr = lambda pre: 'ARRAY[' + ', '.join(f'r.{pre}{i}' for i in LV) + ']'
+    return f"""{head('5. Переводы — как в мастер-отчёте (поставка 59)',
+               'teampulse_hub_trf — узел × месяц × вид × срез × флаги: датасет считает из них переводы в выбор и из',
+               'выбора под фильтры. Логика — мастер-отчёта (старый TeamPulse: transfer_in / transfer_out), сверена на',
+               'выборках боя: событие — строка дня с флагом источника, «в» и «из» считаются отдельно, каждое — по',
+               'состоянию своей строки.',
+               '  i  перевод в: строка — первый день в новом состоянии. Узел — юнит строки на каждом уровне (структура',
+               '     того дня), флаг юнита — этого уровня (lvlN_mngt_unit_in_trsf_flg). Найм — не перевод (вид h)',
+               '  o  перевод из: строка — последний день в старом состоянии (lvlN_mngt_unit_out_trsf_flg, transfer_out_*),',
+               '     увольнение — не перевод. Последний день месяца (last_day_of_month_flg) — следующий месяц',
+               '  h  найм в компанию: узлы и срез дня найма',
+               'fu — флаг юнита этого уровня; fa / fp / fi / fs — смена типа численности, покраски, IT-кода, типа',
+               'оформления: датасет засчитывает их, только когда выбран этот фильтр (тип численности — по умолчанию',
+               '«Активная»). Фильтр из нескольких значений — только если x_… (вчера для «в», завтра для «из») вне',
+               'выбора. in_ok = 0 — кандидат учебного юнита или стажёр: на активной это найм, а не перевод.')}
+-- шаги — таблицами, не CTE: у таблицы есть статистика (analyze), и план не ошибается в числе строк
+-- (CTE оценивается в единицы строк — на объёме боя план выбирал вложенный цикл)
+drop table if exists {P}_trfr;
+create table {P}_trfr as
+-- строки дня с событием; одинаковые строки — одна (как distinct мастер-отчёта)
+select distinct x.mdm_employee_rk as e, x.calendar_dt::date as dt,
+       {keys},
+       {uin},
+       {uout},
+       {dcut('emp_specialization_oper_code')} as pa, {dcut('emp_specialization_it_code')} as it,
+       {staff_e} as st,
+       {act_e} as ac,
+       {dflg('hire_flg')} as hf, least({dflg('transfer_candidate_flg')} + {dflg('transfer_internal_flg')}, 1) as cv,
+       {dflg('fire_flg')} as fx, {dflg('last_day_of_month_flg')} as ld,
+       {types}
+from {DAY} x
+-- сетка отчёта и последний день перед ней (перевод «из» в этот день — уже первый месяц сетки);
+-- первое условие — отсечение партиций
+where x.calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year')::date
+  and x.calendar_dt >= (select grid_start from {P}_cal) - 1
+  and x.calendar_dt < ((select lm from {P}_cal) + interval '1 month')::date
+  and ({any_ev})
 {dist('e')};
+analyze {P}_trfr;
 
--- 10б. события → переходы по узлам. Путь юнита — нынешний (_upath), у юнита вне нынешней структуры — свой
---      (op). Какие части перехода отметил источник: «в» на новом дне или «из» на прошлом; неотмеченная часть —
---      как будто не менялась (вид без «x»), по значениям — сверка (вид «x…»)
+drop table if exists {P}_trfv;
+create table {P}_trfv as
+-- значения соседнего дня у строк со сменой атрибута: вчера — для «в», завтра — для «из». Нужны фильтрам из
+-- нескольких значений: смена между двумя выбранными значениями (Line → Support при «Line + Support») — не
+-- перевод. Строк в этот день несколько — меньшее значение
+select n.e, n.d, min({dcut('emp_specialization_oper_code')}) as pa, min({dcut('emp_specialization_it_code')}) as it,
+       min({staff_e}) as st, min({act_e}) as ac
+from (
+    select distinct r.e, r.dt - 1 as d from {P}_trfr r where r.hf = 0 and r.ia + r.ip + r.ii + r.ist > 0
+    union
+    select distinct r.e, r.dt + 1 from {P}_trfr r where r.fx = 0 and r.oa + r.oq + r.oi + r.ost > 0
+) n
+join {DAY} x on x.mdm_employee_rk = n.e and x.calendar_dt = n.d
+where x.calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year')::date
+  and x.calendar_dt >= (select grid_start from {P}_cal) - 2
+  and x.calendar_dt <= ((select lm from {P}_cal) + interval '1 month')::date
+group by 1, 2
+{dist('e')};
+analyze {P}_trfv;
+
 drop table if exists {P}_trf;
 create table {P}_trf as
 select * from (
-with s as (
-    select v.*,
-           case when v.u = '' then '' else coalesce(ua1.cp, v.op) end as cp,
-           case when v.u0 = '' then '' else coalesce(ua0.cp, v.op0) end as cpb
-    from {P}_ev v
-    left join {P}_upath ua1 on ua1.unit_rk = v.u
-    left join {P}_upath ua0 on ua0.unit_rk = v.u0
+with r as (
+    -- строка и соседний день: xi_… — вчера (для «в»), xo_… — завтра (для «из»), только у строк со сменой
+    -- атрибута. Соседний день — до раскрытия по уровням: соединение в 11 раз меньше
+    select r.*, vi.pa as xi_pa, vi.it as xi_it, vi.st as xi_st, vi.ac as xi_ac,
+           vo.pa as xo_pa, vo.it as xo_it, vo.st as xo_st, vo.ac as xo_ac
+    from {P}_trfr r
+    left join {P}_trfv vi on vi.e = r.e and vi.d = r.dt - 1 and r.hf = 0 and r.ia + r.ip + r.ii + r.ist > 0
+    left join {P}_trfv vo on vo.e = r.e and vo.d = r.dt + 1 and r.fx = 0 and r.oa + r.oq + r.oi + r.ost > 0
 ),
-g as (
-    select s.*,
-           coalesce(greatest(s.iu, s.ou0), (s.u <> s.u0)::int) as gu,
-           coalesce(greatest(s.ip, s.oq0), (s.pa <> s.pa0)::int) as gp,
-           coalesce(greatest(s.ii, s.oi0), (s.it <> s.it0)::int) as gi,
-           coalesce(greatest(s.ist, s.ost0), (s.st <> s.st0)::int) as gs,
-           greatest(coalesce(greatest(s.ia, s.oa0), (s.ac <> s.ac0)::int), s.cv) as ga
-    from s
-    where s.is_g = 1
-),
-c as (
-    -- «было» с учётом флагов (e): неотмеченная часть — как будто не менялась; «было» по значениям (t)
-    select g.report_month, g.pa, g.it, g.st, g.ac,
-           case when g.gp = 1 then g.pa0 else g.pa end as epa, case when g.gi = 1 then g.it0 else g.it end as eit,
-           case when g.gs = 1 then g.st0 else g.st end as est, case when g.ga = 1 then g.ac0 else g.ac end as eac,
-           g.pa0 as tpa, g.it0 as tit, g.st0 as tst, g.ac0 as tac,
-           1 - g.cv as in_ok, 1 - g.fx0 as out_ok,
-           g.cp as cp1,
-           case when g.gu = 1 then g.cpb else g.cp end as ecp,
-           g.cpb as tcp
-    from g
-),
-r as (
-    -- событие: путь до (a0) и после (a1), срез до (f) и после (t), вид-префикс
-    select report_month, '' as pfx, ecp as cp0, cp1, epa as fpa, eit as fit, est as fst, eac as fac,
-           pa as tpa_, it as tit_, st as tst_, ac as tac_, in_ok, out_ok
-    from c where ecp <> cp1 or (epa, eit, est, eac) <> (pa, it, st, ac)
+e as (
+    -- узлы строки — юнит на каждом уровне; флаг юнита — этого уровня
+    select z.* from (
+        select r.*, unnest({arr('k')}) as node_rk,
+               unnest({arr('ui')}) as fu_in,
+               unnest({arr('uo')}) as fu_out
+        from r
+    ) z
+    where z.node_rk <> '-'
     union all
-    select report_month, 'x', tcp, ecp, tpa, tit, tst, tac, epa, eit, est, eac, 1, 1
-    from c where tcp <> ecp or (tpa, tit, tst, tac) <> (epa, eit, est, eac)
-    union all
-    select s.report_month, case when s.hf = 1 then 'h' else 'a' end, '', s.cp,
-           '', '', '', '', s.pa, s.it, s.st, s.ac, 1, 1
-    from s where s.is_ha = 1
-    union all
-    select date_trunc('month', s.dt + 1)::date, 'd', s.cp, '',
-           s.pa, s.it, s.st, s.ac, '', '', '', '', 1, 1
-    from s where s.is_d = 1
-),
-t as (
-    select r.*, {fpath('r.cp0')} as a0,
-           {fpath('r.cp1')} as a1,
-           (fpa, fit, fst, fac) <> (tpa_, tit_, tst_, tac_) as cut_chg
-    from r
-),
-n as (
-    select report_month, node_rk, pfx, case when node_rk = any(a0) then 's' else 'i' end as k,
-           fpa, fit, fst, fac, tpa_, tit_, tst_, tac_, in_ok, out_ok, cut_chg
-    from (select t.*, unnest(t.a1) as node_rk from t) z
-    union all
-    select report_month, node_rk, pfx, 'o', fpa, fit, fst, fac, tpa_, tit_, tst_, tac_, in_ok, out_ok, cut_chg
-    from (select t.*, unnest(t.a0) as node_rk from t) z
-    where not (node_rk = any(a1))
+    -- общий корень над несколькими корнями: переход между корнями — внутри него, не перевод
+    select r.*, '{HUB_ALL}', 0, 0 from r where {MO} = 1
 )
-select node_rk, report_month,
-       case pfx when '' then k when 'x' then 'x' || k when 'h' then 'h' when 'a' then 'xa' else 'xd' end as trf_kind,
-       case when k = 'i' then '' else fpa end as f_paint_cd, case when k = 'i' then '' else fit end as f_it_cd,
-       case when k = 'i' then '' else fst end as f_staff_cd, case when k = 'i' then '' else fac end as f_act_cd,
-       case when k = 'o' then '' else tpa_ end as t_paint_cd, case when k = 'o' then '' else tit_ end as t_it_cd,
-       case when k = 'o' then '' else tst_ end as t_staff_cd, case when k = 'o' then '' else tac_ end as t_act_cd,
-       case when k = 'o' then 1 else in_ok end as in_ok, case when k = 'i' then 1 else out_ok end as out_ok,
-       count(*) as trf_cnt
-from n
-where (k <> 's' or cut_chg) and (k <> 'o' or out_ok = 1)
-group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok,
+       x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, count(*) as trf_cnt
+from (
+    -- в: флаг «в» на строке; найм — отдельно (h)
+    select e.node_rk, date_trunc('month', e.dt)::date as report_month, 'i' as trf_kind,
+           e.pa as paint_cd, e.it as it_cd, e.st as staff_cd, e.ac as act_cd,
+           e.fu_in as fu, e.ia as fa, e.ip as fp, e.ii as fi, e.ist as fs, 1 - e.cv as in_ok,
+           e.xi_pa as x_paint_cd, e.xi_it as x_it_cd, e.xi_st as x_staff_cd, e.xi_ac as x_act_cd
+    from e
+    where e.hf = 0 and (e.fu_in = 1 or e.ia = 1 or e.ip = 1 or e.ii = 1 or e.ist = 1)
+    union all
+    -- из: флаг «из» на строке, без увольнения; последний день месяца — в следующий месяц
+    select e.node_rk, date_trunc('month', e.dt + e.ld)::date, 'o',
+           e.pa, e.it, e.st, e.ac, e.fu_out, e.oa, e.oq, e.oi, e.ost, 1,
+           e.xo_pa, e.xo_it, e.xo_st, e.xo_ac
+    from e
+    where e.fx = 0 and (e.fu_out = 1 or e.oa = 1 or e.oq = 1 or e.oi = 1 or e.ost = 1)
+    union all
+    -- найм в компанию: узлы и срез дня найма
+    select e.node_rk, date_trunc('month', e.dt)::date, 'h', e.pa, e.it, e.st, e.ac, 0, 0, 0, 0, 0, 1,
+           null::text, null::text, null::text, null::text
+    from e
+    where e.hf = 1
+) t
+where report_month between (select grid_start from {P}_cal) and (select lm from {P}_cal)
+group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
 ) q
 {dist('node_rk')};
-drop table if exists {P}_ev;
+drop table if exists {P}_trfr;
+drop table if exists {P}_trfv;
 
-select count(*) as trf_rows, coalesce(sum(trf_cnt), 0) as transitions from {P}_trf;
+select trf_kind, count(*) as rows_cnt, coalesce(sum(trf_cnt), 0) as events
+from {P}_trf
+group by 1
+order by 1;
 """
 
 
@@ -727,11 +688,10 @@ def sql_checks():
         ('узлов, у которых нет родителя в справочнике (кроме корня)', 1,
          f"""(select count(*) from {P}_unit u
         where u.parent_rk <> '' and not exists (select 1 from {P}_unit p where p.unit_rk = u.parent_rk))"""),
-        ('переходы: «остался» без смены среза', 1,
-         f"""(select count(*) from {P}_trf where trf_kind = 's'
-        and (f_paint_cd, f_it_cd, f_staff_cd, f_act_cd) = (t_paint_cd, t_it_cd, t_staff_cd, t_act_cd))"""),
-        ('переходы: строк без людей', 1,
-         f"(select count(*) from {P}_trf where trf_cnt <= 0 or (in_ok = 0 and out_ok = 0))"),
+        ('переводы: строк без флага (в / из без флага юнита и типа)', 1,
+         f"""(select count(*) from {P}_trf where trf_kind in ('i', 'o')
+        and fu + fa + fp + fi + fs = 0)"""),
+        ('переводы: строк без людей', 1, f"(select count(*) from {P}_trf where trf_cnt <= 0)"),
         ('корней', 1, f"(select count(*) - 1 from {P}_unit where parent_rk = '')"),
         ('узлов, где подразделения больше узла (численность)', 1,
          f"""(select count(*) from {P}_unit u
@@ -741,7 +701,7 @@ def sql_checks():
                    join {hcl} h2 on h2.node_rk = u2.unit_rk
                    group by 1) k on k.parent_rk = u.unit_rk
         where h.hc - coalesce(k.hc, 0) < -0.5)"""),
-        # справочно: вакансия юнита вне дерева людей в корень не попадёт; x… — «прочее» водопада компании
+        # справочно: вакансия юнита вне дерева людей в корень не попадёт
         ('вакансии: корень − снимок (открытые на конец последнего месяца)', 0,
          f"""coalesce((select sum(vac_open_cnt) from {P}_vacancy
                    where node_rk = {root}
@@ -751,10 +711,6 @@ def sql_checks():
          f"""coalesce((select sum(vac_close_cnt) from {P}_vacancy where node_rk = {root}), 0)
        - coalesce((select sum(close_cnt) from {VAC}
                    where report_month >= (select grid_start from {P}_meta)), 0)"""),
-        ('переходы без флага источника у корня (x…), после первого месяца сетки', 0,
-         f"""(select coalesce(sum(trf_cnt), 0) from {P}_trf
-        where trf_kind like 'x%' and node_rk = {root}
-          and report_month > (select min(report_month) from {P}_trf))"""),
     ]
     rows = '\nunion all\n'.join(f"select {i} as n, '{name}'::text as check_nm, {must} as must,\n       ({sql})::float8 as val"
                                 for i, (name, must, sql) in enumerate(checks, 1))

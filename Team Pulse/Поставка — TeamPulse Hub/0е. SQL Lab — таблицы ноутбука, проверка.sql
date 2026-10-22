@@ -91,17 +91,18 @@ WITH
     GROUP BY u
   ),
   ml AS (SELECT u AS mu, k AS mk, sum(n) AS mn FROM mx GROUP BY u, k),
-  -- переводы у корня с начала года — как их считает датасет 2а (с поставки 49, teampulse_hub_trf):
-  -- активная без фильтров — вошёл в узел активным или стал активным; вся численность — вошёл в узел
+  -- переводы у корня с начала года — как их считает датасет 2а (с поставки 59 — правило мастер-отчёта):
+  -- активная без фильтров — строка «в» / «из» активного с флагом юнита или типа численности (кандидат и стажёр —
+  -- найм, не перевод); вся численность — только флаг юнита
   tr AS (
-    SELECT sum(toFloat64(ifNull(trf_cnt, 0)) * ((ifNull(trf_kind, '') = 'i' AND ifNull(t_act_cd, '') = 'Активная')
-             OR (ifNull(trf_kind, '') = 's' AND ifNull(in_ok, 0) = 1 AND ifNull(t_act_cd, '') = 'Активная' AND ifNull(f_act_cd, '') != 'Активная'))) AS tai,
-           sum(toFloat64(ifNull(trf_cnt, 0)) * ((ifNull(trf_kind, '') = 'o' AND ifNull(f_act_cd, '') = 'Активная')
-             OR (ifNull(trf_kind, '') = 's' AND ifNull(out_ok, 0) = 1 AND ifNull(f_act_cd, '') = 'Активная' AND ifNull(t_act_cd, '') != 'Активная'))) AS tao,
-           sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'i')) AS tvi,
-           sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'o')) AS tvo,
+    SELECT sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'i' AND ifNull(act_cd, '') = 'Активная'
+             AND (ifNull(fu, 0) = 1 OR ifNull(fa, 0) = 1) AND ifNull(in_ok, 1) = 1)) AS tai,
+           sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'o' AND ifNull(act_cd, '') = 'Активная'
+             AND (ifNull(fu, 0) = 1 OR ifNull(fa, 0) = 1))) AS tao,
+           sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'i' AND ifNull(fu, 0) = 1)) AS tvi,
+           sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'o' AND ifNull(fu, 0) = 1)) AS tvo,
            count() AS tn, uniqExact(report_month) AS tmn,
-           countIf(ifNull(trf_kind, '') = 'i') AS tki, countIf(ifNull(trf_kind, '') = 'o') AS tko, countIf(ifNull(trf_kind, '') = 's') AS tks
+           countIf(ifNull(trf_kind, '') = 'i') AS tki, countIf(ifNull(trf_kind, '') = 'o') AS tko, countIf(ifNull(trf_kind, '') = 'h') AS tks
     FROM prod_proteus.teampulse_hub_trf
     WHERE report_month BETWEEN toStartOfYear((SELECT lm FROM cal)) AND (SELECT lm FROM cal)
       AND node_rk = (SELECT r FROM cal)
@@ -306,7 +307,7 @@ FROM (SELECT (SELECT concat(toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM
                                      / nullIf((SELECT H FROM co), 0))))
         FROM sr WHERE u = (SELECT r FROM cal) AND m BETWEEN addMonths(toStartOfYear((SELECT lm FROM cal)), -1) AND (SELECT lm FROM cal)) AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 16 AS ord, 'переходы (с поставки 49): строк у корня с начала года · месяцев · вошёл / вышел / остался (строк)' AS item,
+SELECT '4 ряды' AS section, 16 AS ord, 'переводы (с поставки 59 — правило мастер-отчёта): строк у корня с начала года · месяцев · в / из / найм' AS item,
        v0 AS value
 FROM (SELECT (SELECT concat(toString(tn), ' · ', toString(tmn), ' · ', toString(tki), ' / ', toString(tko), ' / ', toString(tks)) FROM tr) AS v0)
 UNION ALL

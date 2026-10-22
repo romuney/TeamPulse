@@ -95,12 +95,14 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
         30]
 
 
-# поставка 58: файл 1а — как поставить и код новых параграфов (шапка — hub_nb/1a_head.md). Замер — стенд ×25
+# файл 1а — как поставить и код параграфов hub (шапка — hub_nb/1a_head.md): поставка 58 — параграфы gp вместо
+# build_hub_detect, 59 — переводы по правилу мастер-отчёта (меняет параграфы P59). Замер — стенд ×25
 # (см. AGENTS.md, «Ноутбук: сборка параграфами gp»)
 OUT_1A = os.path.join(DIR, '1а. Helicopter — изменённые параграфы.md')
 P58 = ['hub · 0 колонки', 'structure_x_vacancy', 'hub · 1 структура', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды',
        'hub · 4 разрезы', 'hub · 5 переходы', 'hub · 6 вакансии и meta', 'hub checks']
-TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18'}
+P59 = {'hub · 0 колонки', 'hub · 5 переходы', 'hub checks'}
+TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 
 def write_1a(out):
@@ -113,7 +115,8 @@ def write_1a(out):
     for i, t in enumerate(P58, 1):
         p = by[t]
         lang = 'sql' if p['shebang'] == 'gp' else 'python'
-        parts.append(f"\n### {i}. {t} — {p['shebang']}\n\n```{lang}\n{p['code']}\n```")
+        mark = ' · изменён в поставке 59' if t in P59 else ''
+        parts.append(f"\n### {i}. {t} — {p['shebang']}{mark}\n\n```{lang}\n{p['code']}\n```")
     with open(OUT_1A, 'w', encoding='utf-8') as f:
         f.write('\n'.join(parts) + '\n')
     print(f'{os.path.basename(OUT_1A)}: параграфов {len(P58)}')

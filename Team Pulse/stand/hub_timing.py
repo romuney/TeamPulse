@@ -124,8 +124,8 @@ HEAD = """-- ===================================================================
 def build(bench_note=None, old=None):
     if bench_note is None:
         # без --bench — замер стенда из прежней шапки 8б, чтобы пересборка его не стирала
-        old = open(OUT).read() if os.path.exists(OUT) else ''
-        m = re.search(r'ClickHouse 24\.8\):\n((?:--   .*\n)+)', old)
+        prev = open(OUT).read() if os.path.exists(OUT) else ''
+        m = re.search(r'ClickHouse 24\.8\):\n((?:--   .*\n)+)', prev)
         bench_note = m.group(1).rstrip('\n') if m else '--   (замер стенда не приложен: --bench <db>)'
     bl = blocks(old)
     ab = ('2 против 3 и 4 против 5 — новый 2а против прежнего на одних данных и в одну сессию; ответы (строк, КБ)\n'

@@ -38,12 +38,12 @@ select 6 as n, 'узлов, у которых нет родителя в спр�
        ((select count(*) from teampulse_hub_unit u
         where u.parent_rk <> '' and not exists (select 1 from teampulse_hub_unit p where p.unit_rk = u.parent_rk)))::float8 as val
 union all
-select 7 as n, 'переходы: «остался» без смены среза'::text as check_nm, 1 as must,
-       ((select count(*) from teampulse_hub_trf where trf_kind = 's'
-        and (f_paint_cd, f_it_cd, f_staff_cd, f_act_cd) = (t_paint_cd, t_it_cd, t_staff_cd, t_act_cd)))::float8 as val
+select 7 as n, 'переводы: строк без флага (в / из без флага юнита и типа)'::text as check_nm, 1 as must,
+       ((select count(*) from teampulse_hub_trf where trf_kind in ('i', 'o')
+        and fu + fa + fp + fi + fs = 0))::float8 as val
 union all
-select 8 as n, 'переходы: строк без людей'::text as check_nm, 1 as must,
-       ((select count(*) from teampulse_hub_trf where trf_cnt <= 0 or (in_ok = 0 and out_ok = 0)))::float8 as val
+select 8 as n, 'переводы: строк без людей'::text as check_nm, 1 as must,
+       ((select count(*) from teampulse_hub_trf where trf_cnt <= 0))::float8 as val
 union all
 select 9 as n, 'корней'::text as check_nm, 1 as must,
        ((select count(*) - 1 from teampulse_hub_unit where parent_rk = ''))::float8 as val
@@ -69,11 +69,6 @@ select 12 as n, 'вакансии: корень − снимок (закрыты
        (coalesce((select sum(vac_close_cnt) from teampulse_hub_vacancy where node_rk = (select root_rk from teampulse_hub_meta)), 0)
        - coalesce((select sum(close_cnt) from structure_x_vacancy
                    where report_month >= (select grid_start from teampulse_hub_meta)), 0))::float8 as val
-union all
-select 13 as n, 'переходы без флага источника у корня (x…), после первого месяца сетки'::text as check_nm, 0 as must,
-       ((select coalesce(sum(trf_cnt), 0) from teampulse_hub_trf
-        where trf_kind like 'x%' and node_rk = (select root_rk from teampulse_hub_meta)
-          and report_month > (select min(report_month) from teampulse_hub_trf)))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,
