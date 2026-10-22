@@ -15,8 +15,8 @@ left join teampulse_hub_head h on h.unit_rk = n.rk
 distributed by (unit_rk);
 
 -- 6. строки источника → узлы нынешней структуры, все месяцы одним запросом. Перевод входит в узел
---    глубины d, если сменился уровень ≤ d (через границу узла). Тип численности: «Активная» — по флагу
---    источника на конец месяца, остальные — «Прочие»
+--    глубины d, если сменился уровень ≤ d (через границу узла). Тип численности — целиком, на конец месяца
+--    (act_type_nm); активная численность (hc_active_cnt) — типы «Активная» и «Подрядчики»
 drop table if exists teampulse_hub_sx;
 create table teampulse_hub_sx as
 select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_c,
@@ -49,7 +49,7 @@ from (
                                       s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
                coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
-               case when s.active_type_gr_nm = 'Активная' then 'Активная' else 'Прочие' end as act_c
+               coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
         where s.leaf_lvl > 0

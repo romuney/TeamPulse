@@ -29,6 +29,9 @@ EXTRA = {
          "    'type_company',\n"
          "    {'name': 'employee_specialization_desc', 'alias': 'specialization'},\n"
          "    'source_type_nm',\n"
+         "    # 22.10, поставка 60: тип численности целиком — фильтр отчёта (любой набор типов; «Активные» —\n"
+         "    # Активная + Подрядчики — выбор по умолчанию)\n"
+         "    {'name': 'active_type_nm', 'alias': 'act_type_nm'},\n"
          "]\n\n"
          "build_all_metrics(\n    res_table_name='all_metrics',"),
         ("    fields=fields,", "    fields=fields + HUB_FIELDS,"),
@@ -56,7 +59,8 @@ EXTRA = {
         ("| `emp_specialization_it_code` | IT-специализация | IT / nonIT |",
          "| `emp_specialization_it_code` | IT-специализация | IT / Digital / NonIT — три разные, не сводятся |"),
         ("| `active_type_nm` | Тип активности | Активная / Прочая |",
-         "| `active_type_nm` | Тип активности; «Активная» — по флагу `active_count_flg` | Активная / Прочие (подрядчики — в прочих) |"),
+         "| `active_type_nm` | Тип численности; «Активная» — типы «Активная» и «Подрядчики»; целиком — `act_type_nm`, "
+         "по нему фильтр отчёта | Активная / Прочие |"),
     ],
     'to click': [
         ("tables_dict = {\n    'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',\n}",
@@ -95,13 +99,17 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
         30]
 
 
-# файл 1а — как поставить и код параграфов hub (шапка — hub_nb/1a_head.md): поставка 58 — параграфы gp вместо
-# build_hub_detect, 59 — переводы по правилу мастер-отчёта (меняет параграфы P59). Замер — стенд ×25
-# (см. AGENTS.md, «Ноутбук: сборка параграфами gp»)
+# файл 1а — как поставить и код параграфов (шапка — hub_nb/1a_head.md): поставка 58 — параграфы gp вместо
+# build_hub_detect, 59 — переводы по правилу мастер-отчёта, 60 — тип численности целиком («Активные» = Активная +
+# Подрядчики). У параграфа — пометка, в какой поставке он изменён. Замер — стенд ×25 (AGENTS.md, «Ноутбук: сборка
+# параграфами gp»)
 OUT_1A = os.path.join(DIR, '1а. Helicopter — изменённые параграфы.md')
 P58 = ['hub · 0 колонки', 'structure_x_vacancy', 'hub · 1 структура', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды',
        'hub · 4 разрезы', 'hub · 5 переходы', 'hub · 6 вакансии и meta', 'hub checks']
-P59 = {'hub · 0 колонки', 'hub · 5 переходы', 'hub checks'}
+TP20 = ['_PARAMS_', 'EXEC build_all_metrics']          # параграфы TP 2.0, которые меняет поставка 60
+CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub checks'},
+           60: {'_PARAMS_', 'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 3 справочник и ряды', 'hub · 4 разрезы',
+                'hub · 5 переходы'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 
@@ -112,14 +120,15 @@ def write_1a(out):
     assert '{{' not in head
     by = {p['title']: p for p in out}
     parts = [head.rstrip('\n')]
-    for i, t in enumerate(P58, 1):
+    for i, t in enumerate(TP20 + P58, 1):
         p = by[t]
         lang = 'sql' if p['shebang'] == 'gp' else 'python'
-        mark = ' · изменён в поставке 59' if t in P59 else ''
+        ds = [str(d) for d in sorted(CHANGED) if t in CHANGED[d]]
+        mark = (' · изменён в поставк' + ('е ' if len(ds) == 1 else 'ах ') + ' и '.join(ds)) if ds else ''
         parts.append(f"\n### {i}. {t} — {p['shebang']}{mark}\n\n```{lang}\n{p['code']}\n```")
     with open(OUT_1A, 'w', encoding='utf-8') as f:
         f.write('\n'.join(parts) + '\n')
-    print(f'{os.path.basename(OUT_1A)}: параграфов {len(P58)}')
+    print(f'{os.path.basename(OUT_1A)}: параграфов {len(TP20) + len(P58)}')
 
 
 def patch(title, code):

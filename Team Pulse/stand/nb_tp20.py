@@ -122,12 +122,25 @@ def simulate(seed=11):
                 elif (r < .0082 and p['acth'][-1][1] in ('Активная', 'Декрет')    # декрет и выход из него —
                       and (day.year, day.month) != (p['start'].year, p['start'].month)):   # не в месяц найма
                     p['acth'].append((day, 'Декрет' if p['acth'][-1][1] == 'Активная' else 'Активная'))
+                elif (r < .0100 and p['acth'][-1][1] == 'Подрядчики'
+                      and (day.year, day.month) != (p['start'].year, p['start'].month)):
+                    # 22.10, поставка 60: подрядчик — в штат (~4% в месяц): тип «Подрядчики» → «Активная» и в тот же
+                    # день оформление — штат. Внутри «Активных» (Активная + Подрядчики) это не перевод
+                    p['acth'].append((day, 'Активная'))
+                    if p['relh'][-1][1] != 'Штатный сотрудник':
+                        p['relh'].append((day, 'Штатный сотрудник'))
+                elif (.0100 <= r < .0101 and p['acth'][-1][1] == 'Активная'
+                      and (day.year, day.month) != (p['start'].year, p['start'].month)):
+                    p['acth'].append((day, 'Подрядчики'))      # редко — обратно в подрядчики
             for _ in range(sum(random.random() < .0011 for _ in alive) + (1 if random.random() < .15 else 0)):
                 people.append(new_p(day))
     return U, people
 
 
 CONV = {'Стажеры': 'transfer_internal_flg', 'Кандидаты в учебных юнитах': 'transfer_candidate_flg'}
+# 22.10, поставка 60: «Активные» — типы «Активная» и «Подрядчики» (как в TP 2.0 и в мастер-отчёте); выбор отчёта —
+# любой набор типов численности (active_type_nm), «Активные» — выбор по умолчанию
+ACTIVE = ('Активная', 'Подрядчики')
 OPER, ITC, REL = ('HQ', 'Line', 'Support'), ('IT', 'Digital', 'NonIT'), ('Штатный сотрудник', 'ГПД ФЛ', 'ГПД ИП')
 
 
@@ -206,7 +219,7 @@ def source_rows(U, people):
             yield ([d, p['rk']] + [pu[i] if i < len(pu) else None for i in range(NL)]
                    + [U[pu[i]][0] if i < len(pu) else None for i in range(NL)]
                    + inf + outf
-                   + [act, int(act == 'Активная'), cur[2], cur[1], cur[3], p['gender'], p['age'], tenure(p, d), str(g), seniority(g),
+                   + [act, int(act in ACTIVE), cur[2], cur[1], cur[3], p['gender'], p['age'], tenure(p, d), str(g), seniority(g),
                       p['reason'] if fired else None, p['init'] if fired else None,
                       p['con'], p['legal'], p['stream'],
                       int(d == p['start'] and p['start'] > D0), int('transfer_candidate_flg' in cv),
@@ -476,12 +489,13 @@ def eom(m):
     return min(dt.date(m.year, m.month, calendar.monthrange(m.year, m.month)[1]), D1)
 
 
-def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True, hday=False):
+def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, hday=False):
     """узел (rk) × месяц → меры. Численность — на последний календарный день месяца (у текущего
     неполного — на последний загруженный); ССЧ — полусумма численности узла с прошлым месяцем.
-    act — тип численности «Активная» (по умолчанию в отчёте): человек месяца — в строке со своим
-    типом активности на последний день в месяце (как измерения ноутбука), в счёт — только
-    «Активная»; найм — по методологии HR. act=False — вся численность, найм — в компанию.
+    act — выбранные типы численности (по умолчанию «Активные»: Активная + Подрядчики): человек месяца —
+    в строке со своим типом на последний день в месяце (как измерения ноутбука), в счёт — только типы
+    выбора; найм — по методологии HR: в компанию с типом из выбора и переход кандидата / стажёра в тип
+    из выбора из типа вне его. act=None — вся численность, найм — в компанию.
     pred(p, день) — фильтр среза; срез человека в месяце — на его последний день в месяце (измерения
     ноутбука — на конец месяца, DIM_SRC = 'eom')"""
     T = defaultdict(lambda: defaultdict(float))
@@ -491,7 +505,8 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True, hda
     # или стажёра — на день перехода; иначе — на конец месяца, как измерения TP 2.0 (файл 2)
     PH = (lambda p, m, d: pred(p, d)) if hday else (lambda p, m, d: P(p, m))
     alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])   # в день увольнения уже не в численности
-    ok = lambda p, m: P(p, m) and (not act or at(p['acth'], ld(p, m)) == 'Активная')
+    inA = lambda t: act is None or t in act
+    ok = lambda p, m: P(p, m) and inA(at(p['acth'], ld(p, m)))
     ms = months()
     for p in people:
         for m in ms:
@@ -499,7 +514,8 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True, hda
             if alive(p, e):
                 for n in path(U, at(p['unit'], e)):
                     T[(n, m)]['hc'] += ok(p, m)
-                    T[(n, m)]['act'] += P(p, m) and at(p['acth'], e) == 'Активная'
+                    # активная численность (hc_active_cnt) — «Активные» среди выбранных типов
+                    T[(n, m)]['act'] += P(p, m) and at(p['acth'], e) in ACTIVE and inA(at(p['acth'], e))
         if p['end']:
             m = dt.date(p['end'].year, p['end'].month, 1)
             for n in path(U, at(p['unit'], p['end'])):
@@ -508,8 +524,10 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True, hda
         if p['start'] > D0:
             m = dt.date(p['start'].year, p['start'].month, 1)
             for n in path(U, at(p['unit'], p['start'])):
-                T[(n, m)]['hire'] += PH(p, m, p['start']) and ((at(p['acth'], p['start']) == 'Активная') if act else 1)
+                T[(n, m)]['hire'] += PH(p, m, p['start']) and inA(at(p['acth'], p['start']))
         for c, _ in (p['conv'] if act else []):   # найм по методологии DD: переход в активную — тоже найм
+            if not (inA(at(p['acth'], c)) and not inA(at(p['acth'], c - dt.timedelta(1)))):
+                continue                          # переход внутри выбора или вне его — не вход в выбор
             m = dt.date(c.year, c.month, 1)
             for n in path(U, at(p['unit'], c)):
                 T[(n, m)]['hire'] += PH(p, m, c)
@@ -548,14 +566,14 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=True, hda
     return T
 
 
-def truth_trf(U, people, pred=lambda p, d: True, act=True):
+def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE):
     """переводы под фильтры (21.10, заказчик): переход — день, когда у человека сменился юнит или
-    срез (покраска, IT-код, штат, тип активности). Выбор — узел и фильтры (pred, тип «Активная» при
-    act). В выбор — вчера человек был вне выбора, сегодня внутри; из выбора — наоборот. Месяц —
+    срез (покраска, IT-код, штат, тип численности). Выбор — узел и фильтры (pred, типы численности act;
+    None — все). В выбор — вчера человек был вне выбора, сегодня внутри; из выбора — наоборот. Месяц —
     дня перехода. В выбор — не в день перевода стажёра в штат / учебной группы в боевую (это найм)"""
     T = defaultdict(lambda: defaultdict(float))
     root = ['all'] if ROOTS > 1 else []
-    F = lambda p, d: pred(p, d) and (not act or at(p['acth'], d) == 'Активная')
+    F = lambda p, d: pred(p, d) and (act is None or at(p['acth'], d) in act)
     for p in people:
         last = p['end'] or D1
         conv = {c for c, _ in p['conv']}
@@ -632,8 +650,8 @@ FIX = [
     # 4. уровень перевода — в ключ сводной таблицы: узел уровня L берёт переводы с уровнем ≤ L
     (4, 'EXEC group', "    fields=fields,", "    fields=fields + ['transfer_in_lvl', 'transfer_out_lvl'],"),
     # 5. ключи пути рядом с именами (rk уровней в snap уже есть — их просто не выводили)
-    # 6. «Активная» — по флагу источника (первый найденный), подрядчики в неё не входят; флага нет —
-    #    только тип «Активная». IT-код — как в источнике: IT, Digital, NonIT (три покраски, не сводятся)
+    # 6. IT-код — как в источнике: IT, Digital, NonIT (три покраски, не сводятся). «Активная» — как в TP 2.0
+    #    (Активная + Подрядчики; с поставки 26 до 59 была по флагу active_count_flg)
     (6, '_PARAMS_', """    {'alias': 'active_type_gr_nm',
      'cols': ['active_type_nm'],
      'expr': "CASE WHEN active_type_nm IN ('Активная','Подрядчики') "
@@ -642,15 +660,13 @@ FIX = [
      'cols': ['emp_specialization_it_code'],
      'expr': "CASE WHEN emp_specialization_it_code = 'IT' "
              "THEN 'IT' ELSE 'nonIT' END"},""",
-     """    # «Активная» — по флагу источника: берётся первый найденный вариант. Подрядчики в
-    # активную не входят. Флага нет — по типу активности, только «Активная»
-    *[{'alias': 'active_type_gr_nm',
-       'cols': [flg],
-       'expr': f"CASE WHEN coalesce({flg}::text, '0') = '1' THEN 'Активная' ELSE 'Прочие' END"}
-      for flg in ('active_count_flg', 'active_type_flg', 'active_flg')],
+     """    # «Активная» — типы «Активная» и «Подрядчики», как в TP 2.0 и в мастер-отчёте (22.10, поставка 60;
+    # с поставки 26 до 59 было по флагу active_count_flg, без подрядчиков). Тип численности целиком —
+    # колонка act_type_nm (HUB_FIELDS): по ней фильтр отчёта, «Активные» — выбор по умолчанию
     {'alias': 'active_type_gr_nm',
      'cols': ['active_type_nm'],
-     'expr': "CASE WHEN active_type_nm = 'Активная' THEN 'Активная' ELSE 'Прочие' END"},
+     'expr': "CASE WHEN active_type_nm IN ('Активная','Подрядчики') "
+             "THEN 'Активная' ELSE 'Прочие' END"},
     # IT-код — как в источнике: IT, Digital, NonIT — три разные покраски, не сводятся
     {'alias': 'emp_specialization_it_code',
      'cols': ['emp_specialization_it_code'],
@@ -676,7 +692,7 @@ FIX = [
      "            nm_agg.append(f'max(lvl{i}_nm) AS lvl{i}_nm')\n            nm_agg.append(f'max(lvl{i}_rk) AS lvl{i}_rk')"),
 ]
 STEPS = ['как есть', '1 численность на конец месяца', '2 заявки T-роста суммой', '3 перформанс и др. — к одной строке',
-         '4 уровень перевода в ключе', '5 ключи пути', '6 активная по флагу, IT — три значения']
+         '4 уровень перевода в ключе', '5 ключи пути', '6 IT — три значения']
 
 
 def patch(title, code, k):
@@ -852,7 +868,7 @@ def main():
     n = pg.run('SELECT count(*) AS n, count(DISTINCT mdm_employee_rk) AS p FROM usr_cross_data.hr_executive_proteus')
     print(f'источник: {n.n[0]} строк по дням, {n.p[0]} человек, юнитов {len(U)}, {D0} … {D1}')
     # сверка TP 2.0 по шагам — по всей численности, ССЧ и найм — у активной (так их считает таблица)
-    T, Ta = truth(U, people, perf, grt, act=False), truth(U, people, perf, grt)
+    T, Ta = truth(U, people, perf, grt, act=None), truth(U, people, perf, grt)
     for k in list(Ta):
         T[k]['ssch'], T[k]['hire'] = Ta[k]['ssch'], Ta[k]['hire']
     if a.hub:

@@ -61,7 +61,7 @@ def clean(col):
 
 # ---- колонки источников: SQL ниже написан под них ---------------------------------------------
 SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in LV] + [f'lvl{i}_nm' for i in LV]
-            + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'active_type_gr_nm',
+            + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'active_type_gr_nm', 'act_type_nm',
                'hc_total_cnt', 'hc_active_cnt', 'hire_amt', 'hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt',
                'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt', 'transfer_in_amt', 'transfer_in_lvl',
                'transfer_out_amt', 'transfer_out_lvl', 'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
@@ -72,7 +72,7 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
 TYPES = ('hq', 'it', 'employment_relation_type', 'active_type')
 DAY_COLS = (['calendar_dt', 'mdm_employee_rk'] + [f'lvl{i}_mapped_management_unit_rk' for i in LV]
             + ['emp_specialization_oper_code', 'emp_specialization_it_code', 'employment_relation_type_desc',
-               'active_count_flg', 'hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg', 'fire_flg',
+               'active_type_nm', 'hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg', 'fire_flg',
                'last_day_of_month_flg']
             + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in LV for k in ('in', 'out')]
             + [f'transfer_{d}_{t}_flg' for t in TYPES for d in ('to', 'out')])
@@ -195,7 +195,9 @@ path_rk = ("array_to_string((ARRAY[" + wrap([f's.lvl{i}_rk::text' for i in LV], 
            + "])[1:s.leaf_lvl], '|')")
 cut = lambda c, alias: f"coalesce(nullif(s.{c}::text, ''), '-') AS {alias}"
 num = lambda c: f'coalesce(e.{c}, 0)'
-act_c = "case when s.active_type_gr_nm = 'Активная' then 'Активная' else 'Прочие' end"
+# 22.10, поставка 60: тип численности — целиком (act_type_nm, HUB_FIELDS ноутбука): фильтр отчёта — любой набор типов,
+# «Активные» (Активная + Подрядчики) — выбор по умолчанию в датасете
+act_c = "coalesce(nullif(trim(s.act_type_nm::text), ''), '-')"
 staff_c = f"case when s.employment_relation_type = '{STAFF}' then 'Штат' else 'Не штат' end"
 PRE = f'(select pre from {P}_cal)'          # 'all|' — если корней несколько, иначе ''
 MO = f'(select mo from {P}_cal)'            # 1 — общий корень над несколькими корнями
@@ -333,8 +335,8 @@ left join {P}_head h on h.unit_rk = n.rk
 {dist('unit_rk')};
 
 -- 6. строки источника → узлы нынешней структуры, все месяцы одним запросом. Перевод входит в узел
---    глубины d, если сменился уровень ≤ d (через границу узла). Тип численности: «Активная» — по флагу
---    источника на конец месяца, остальные — «Прочие»
+--    глубины d, если сменился уровень ≤ d (через границу узла). Тип численности — целиком, на конец месяца
+--    (act_type_nm); активная численность (hc_active_cnt) — типы «Активная» и «Подрядчики»
 drop table if exists {P}_sx;
 create table {P}_sx as
 select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_c,
@@ -399,8 +401,10 @@ def sql_mix():
         ('r', 'employment_relation_type'), ('fr', 'fire_reason_group'), ('fi', 'fire_initiative'),
         ('sp', 'specialization'), ('tc', 'type_company'), ('hs', 'source_type_nm'))}
     hc_keys = ['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc']
-    hire_e = f"greatest({num('hire_amt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
-    hch = (f"case when {num('hire_amt')} > 0 then 'Найм в компанию'\n"
+    # 22.10, поставка 60: найм в компанию — с любым типом численности (hire_cnt): срез — тип на конец месяца целиком,
+    # и найм в любой выбранный тип попадает в разбивки (hire_amt — только «Активные»). У «Активных» — то же, что было
+    hire_e = f"greatest({num('hire_cnt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
+    hch = (f"case when {num('hire_cnt')} > 0 then 'Найм в компанию'\n"
            f"{' ' * 30}when {num('transfer_candidate_amt')} > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end")
     attrs = ['gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
              'legal_organization', 'employee_stream', 'employment_relation_type', 'specialization', 'type_company']
@@ -442,7 +446,7 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
        unnest(ARRAY[{(',' + chr(10) + ' ' * 20).join([a['hs'], hch, a['gr'], a['sp']])}]) as mx_val,
        {hire_e} as mx_n
-from ({expl(['hire_amt', 'transfer_candidate_amt', 'transfer_internal_amt', 'source_type_nm', 'grade',
+from ({expl(['hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt', 'source_type_nm', 'grade',
              'specialization'], ytd)}) e
 where {hire_e} > 0;
 
@@ -467,7 +471,7 @@ def sql_trf():
     dkey = lambda i: f"coalesce(nullif(x.lvl{i}_mapped_management_unit_rk::text, ''), '-')"
     dflg = lambda c: f"(coalesce(x.{c}::text, '0') = '1')::int"
     dcut = lambda c: f"coalesce(nullif(coalesce(x.{c}::text, '-'), ''), '-')"
-    act_e = "case when coalesce(x.active_count_flg::text, '0') = '1' then 'Активная' else 'Прочие' end"
+    act_e = "coalesce(nullif(trim(x.active_type_nm::text), ''), '-')"    # тип численности дня — целиком
     staff_e = f"case when x.employment_relation_type_desc = '{STAFF}' then 'Штат' else 'Не штат' end"
     ind = ' ' * 7
     keys = wrap([f'{dkey(i)} as k{i}' for i in LV], ind, sep=', ', width=125)
@@ -481,7 +485,7 @@ def sql_trf():
                    ['hire_flg'] + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in LV for k in ('in', 'out')]
                    + [f'transfer_{d}_{t}_flg' for t, _, _ in tfl for d in ('to', 'out')]], ' ' * 7, sep=' or ', width=125)
     arr = lambda pre: 'ARRAY[' + ', '.join(f'r.{pre}{i}' for i in LV) + ']'
-    return f"""{head('5. Переводы — как в мастер-отчёте (поставка 59)',
+    return f"""{head('5. Переводы — как в мастер-отчёте (поставки 59–60)',
                'teampulse_hub_trf — узел × месяц × вид × срез × флаги: датасет считает из них переводы в выбор и из',
                'выбора под фильтры. Логика — мастер-отчёта (старый TeamPulse: transfer_in / transfer_out), сверена на',
                'выборках боя: событие — строка дня с флагом источника, «в» и «из» считаются отдельно, каждое — по',
@@ -492,9 +496,10 @@ def sql_trf():
                '     увольнение — не перевод. Последний день месяца (last_day_of_month_flg) — следующий месяц',
                '  h  найм в компанию: узлы и срез дня найма',
                'fu — флаг юнита этого уровня; fa / fp / fi / fs — смена типа численности, покраски, IT-кода, типа',
-               'оформления: датасет засчитывает их, только когда выбран этот фильтр (тип численности — по умолчанию',
-               '«Активная»). Фильтр из нескольких значений — только если x_… (вчера для «в», завтра для «из») вне',
-               'выбора. in_ok = 0 — кандидат учебного юнита или стажёр: на активной это найм, а не перевод.')}
+               'оформления: датасет засчитывает их, только когда выбран этот фильтр (тип численности — любой набор',
+               'типов active_type_nm, по умолчанию «Активные»: Активная + Подрядчики). Фильтр из нескольких значений —',
+               'только если x_… (вчера для «в», завтра для «из») вне выбора: Подрядчики → Активная при «Активных» —',
+               'не перевод. in_ok = 0 — кандидат учебного юнита или стажёр: при выборе типов это найм, не перевод.')}
 -- шаги — таблицами, не CTE: у таблицы есть статистика (analyze), и план не ошибается в числе строк
 -- (CTE оценивается в единицы строк — на объёме боя план выбирал вложенный цикл)
 drop table if exists {P}_trfr;

@@ -46,8 +46,9 @@
     начала года).
 
     Фильтры — кросс-фильтры чарта: unit_f — ключ узла, paint_f — покраска (HQ, Line, Support),
-    it_f — IT-код (IT, Digital, NonIT), staff_f — «Штат» / «Не штат», act_f — тип численности:
-    без фильтра — «Активная», «Вся» — все строки. Сравнение без учёта регистра (чарт шлёт «Hq»).
+    it_f — IT-код (IT, Digital, NonIT), staff_f — «Штат» / «Не штат», act_f — типы численности
+    (active_type_nm, любой набор, с поставки 60): без фильтра — «Активные» (Активная + Подрядчики, как в
+    мастер-отчёте; meta.act_def), «Вся» — все строки. Сравнение без учёта регистра (чарт шлёт «Hq»).
     act_cd, hco_cnt, nreg_cnt, head_login, data_dt читаются матчером: таблицы старого ноутбука их не
     знают — отчёт работает без них. Колонки-носители в SELECT не выводятся. id узла — ключ юнита.
     Проверено на ClickHouse 24.8: стенд по людям и дням (stand/nb_tp20.py --hub), шесть настроек
@@ -75,11 +76,13 @@
 {% set CUTS = [['paint', 'paint_f', "ifNull(paint_cd, '-')"], ['it', 'it_f', "ifNull(it_cd, '-')"], ['staff', 'staff_f', "ifNull(staff_cd, '-')"], ['act', 'act_f', AC]] %}
 {% set F = {} %}
 {% for c in CUTS %}{% set vals = [] %}{% for v in (filter_values(c[1]) or []) %}{% if v|string != '' and vals|length < 20 %}{% set _ = vals.append(v|string) %}{% endif %}{% endfor %}{% set _ = F.update({c[0]: vals}) %}{% endfor %}
-{#- Тип численности: не выбран — «Активная»; «Вся» — без фильтра. -#}
+{#- Тип численности (поставка 60): любой набор типов active_type_nm; не выбран — «Активные» (ACT_DEF: Активная +
+    Подрядчики, как в мастер-отчёте); «Вся» — без фильтра. act_on — выбран хоть один тип. -#}
+{% set ACT_DEF = ['Активная', 'Подрядчики'] %}
 {% set av = [] %}{% for v in F['act'] %}{% set _ = av.append(v|lower) %}{% endfor %}
-{% if 'вся' in av or 'all' in av %}{% set _ = F.update({'act': []}) %}{% elif av|length == 0 %}{% set _ = F.update({'act': ['Активная']}) %}{% endif %}
-{% set act_only = F['act']|length == 1 and (F['act'][0]|lower) == 'активная' %}
-{#- Найм: на активной — по методологии HR (hire_cnt), на всей — найм в компанию с любым типом (hco_cnt;
+{% if 'вся' in av or 'all' in av %}{% set _ = F.update({'act': []}) %}{% elif av|length == 0 %}{% set _ = F.update({'act': ACT_DEF}) %}{% endif %}
+{% set act_on = F['act']|length > 0 %}
+{#- Найм: при выборе типов — по методологии HR (hire_cnt), на всей — найм в компанию с любым типом (hco_cnt;
     нет колонки — hire_cnt). Обычные (non-regrettable) увольнения — матчером: нет колонки — ноль. -#}
 {% set NREG = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^nreg_cnt$') APPLY(toFloat64)], [toFloat64(0)]), 1), 0)" %}
 {% set HCO = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY(toFloat64)], [toFloat64(hire_cnt)]), 1), 0)" %}
@@ -92,19 +95,20 @@
 {#- Переводы (поставка 59) — как в мастер-отчёте (старый TeamPulse: transfer_in / transfer_out), сверено на выборках
     боя. Строка переходов ноутбука — событие дня с флагом источника; срез строки — состояние этого дня (фильтры —
     в WHERE). Перевод засчитан, если у строки флаг юнита этого уровня (fu) или смены атрибута, по которому выбран
-    фильтр: fa — тип численности (по умолчанию «Активная»), fp — покраска, fi — IT-код, fs — тип оформления. Без
-    фильтра смена атрибута — не перевод. Фильтр из нескольких значений (Line + Support) — смена засчитана, только
-    если по другую сторону (x_…: вчера для «в», завтра для «из») значение вне выбора: Line → Support — не перевод.
-    in_ok = 0 — кандидат или стажёр: на активной — найм, на всей — перевод.
-    Найм (hit) — по дню события: найм в компанию (вид h) и, на активной, такие переходы. -#}
+    фильтр: fa — тип численности (по умолчанию «Активные»), fp — покраска, fi — IT-код, fs — тип оформления. Без
+    фильтра смена атрибута — не перевод. Фильтр из нескольких значений (Line + Support, Активная + Подрядчики) —
+    смена засчитана, только если по другую сторону (x_…: вчера для «в», завтра для «из») значение вне выбора:
+    Line → Support и Подрядчики → Активная при «Активных» — не перевод, при одной «Активной» — перевод «в».
+    in_ok = 0 — кандидат или стажёр: при выборе типов — найм, на всей — перевод.
+    Найм (hit) — по дню события: найм в компанию (вид h) и, при выборе типов, такие переходы. -#}
 {% set FK = {'act': 'fa', 'paint': 'fp', 'it': 'fi', 'staff': 'fs'} %}
 {% set fl = ['ifNull(fu, 0) = 1'] %}{% for c in CUTS %}{% set fv = F[c[0]] %}{% if fv|length == 1 %}{% set _ = fl.append('ifNull(' ~ FK[c[0]] ~ ', 0) = 1') %}{% elif fv|length > 1 %}{% set _ = fl.append('(ifNull(' ~ FK[c[0]] ~ ', 0) = 1 AND NOT (lowerUTF8(ifNull(x_' ~ c[0] ~ "_cd, '')) IN " ~ ql(fv) ~ '))') %}{% endif %}{% endfor %}
 {% set FLG = '(' ~ fl|join(' OR ') ~ ')' %}
-{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ (" AND ifNull(in_ok, 1) = 1" if act_only else "") ~ ")" %}
-{% set HI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'h'" ~ (" OR (ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 0)" if act_only else "") ~ ")" %}
+{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ (" AND ifNull(in_ok, 1) = 1" if act_on else "") ~ ")" %}
+{% set HI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'h'" ~ (" OR (ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 0)" if act_on else "") ~ ")" %}
 {% set TU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND " ~ FLG ~ ")" %}
 {#- Метрики: ключ, таблица (s — series, t — trf, v — vacancy, a — ai), выражение. Порядок — порядок в ms. -#}
-{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_only else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI]] %}
+{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI]] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
@@ -291,6 +295,7 @@ FROM
                 ',"it":', toJSONString({{ qa(F['it']) }}),
                 ',"staff":', toJSONString({{ qa(F['staff']) }}),
                 ',"act":', toJSONString({{ qa(F['act']) }}),
+                ',"act_def":', toJSONString({{ qa(ACT_DEF) }}),
                 ',"vals":', {{ VALS }},
                 ',"fdv":{"paint":', toJSONString(tupleElement({{ FV }}, 1)), ',"it":', toJSONString(tupleElement({{ FV }}, 2)),
                 ',"staff":', toJSONString(tupleElement({{ FV }}, 3)),

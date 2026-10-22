@@ -69,7 +69,7 @@ paragraphs:
     | --- | --- | --- |
     | `emp_specialization_oper_code` | Операционная специализация (покраска) | HQ / Line / Support |
     | `emp_specialization_it_code` | IT-специализация | IT / Digital / NonIT — три разные, не сводятся |
-    | `active_type_nm` | Тип активности; «Активная» — по флагу `active_count_flg` | Активная / Прочие (подрядчики — в прочих) |
+    | `active_type_nm` | Тип численности; «Активная» — типы «Активная» и «Подрядчики»; целиком — `act_type_nm`, по нему фильтр отчёта | Активная / Прочие |
     | `employee_stream_desc` | Стрим направления | Back-end, Front-end, Analytics, и т.д. |
     | `experience_group_nm` | Группа стажа | Например: 0-1 год, 1-3 года, 3+ лет |
     | `employment_relation_type_desc` |  | Штат / ГПД |
@@ -146,15 +146,13 @@ paragraphs:
 
     # ── измерения с фиксированной трансформацией ────────────────────────────────
     FIXED_DIMS = [
-        # «Активная» — по флагу источника: берётся первый найденный вариант. Подрядчики в
-        # активную не входят. Флага нет — по типу активности, только «Активная»
-        *[{'alias': 'active_type_gr_nm',
-           'cols': [flg],
-           'expr': f"CASE WHEN coalesce({flg}::text, '0') = '1' THEN 'Активная' ELSE 'Прочие' END"}
-          for flg in ('active_count_flg', 'active_type_flg', 'active_flg')],
+        # «Активная» — типы «Активная» и «Подрядчики», как в TP 2.0 и в мастер-отчёте (22.10, поставка 60;
+        # с поставки 26 до 59 было по флагу active_count_flg, без подрядчиков). Тип численности целиком —
+        # колонка act_type_nm (HUB_FIELDS): по ней фильтр отчёта, «Активные» — выбор по умолчанию
         {'alias': 'active_type_gr_nm',
          'cols': ['active_type_nm'],
-         'expr': "CASE WHEN active_type_nm = 'Активная' THEN 'Активная' ELSE 'Прочие' END"},
+         'expr': "CASE WHEN active_type_nm IN ('Активная','Подрядчики') "
+                 "THEN 'Активная' ELSE 'Прочие' END"},
         # IT-код — как в источнике: IT, Digital, NonIT — три разные покраски, не сводятся
         {'alias': 'emp_specialization_it_code',
          'cols': ['emp_specialization_it_code'],
@@ -525,6 +523,9 @@ paragraphs:
         'type_company',
         {'name': 'employee_specialization_desc', 'alias': 'specialization'},
         'source_type_nm',
+        # 22.10, поставка 60: тип численности целиком — фильтр отчёта (любой набор типов; «Активные» —
+        # Активная + Подрядчики — выбор по умолчанию)
+        {'name': 'active_type_nm', 'alias': 'act_type_nm'},
     ]
 
     build_all_metrics(
@@ -753,6 +754,7 @@ paragraphs:
             ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'emp_specialization_it_code'),
             ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'employment_relation_type'),
             ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'active_type_gr_nm'),
+            ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'act_type_nm'),
             ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'hc_total_cnt'),
             ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'hc_active_cnt'),
             ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'hire_amt'),
@@ -805,7 +807,7 @@ paragraphs:
             ('usr_cross_data', 'hr_executive_proteus', 'emp_specialization_oper_code'),
             ('usr_cross_data', 'hr_executive_proteus', 'emp_specialization_it_code'),
             ('usr_cross_data', 'hr_executive_proteus', 'employment_relation_type_desc'),
-            ('usr_cross_data', 'hr_executive_proteus', 'active_count_flg'),
+            ('usr_cross_data', 'hr_executive_proteus', 'active_type_nm'),
             ('usr_cross_data', 'hr_executive_proteus', 'hire_flg'),
             ('usr_cross_data', 'hr_executive_proteus', 'transfer_candidate_flg'),
             ('usr_cross_data', 'hr_executive_proteus', 'transfer_internal_flg'),
@@ -1884,8 +1886,8 @@ paragraphs:
     distributed by (unit_rk);
 
     -- 6. строки источника → узлы нынешней структуры, все месяцы одним запросом. Перевод входит в узел
-    --    глубины d, если сменился уровень ≤ d (через границу узла). Тип численности: «Активная» — по флагу
-    --    источника на конец месяца, остальные — «Прочие»
+    --    глубины d, если сменился уровень ≤ d (через границу узла). Тип численности — целиком, на конец месяца
+    --    (act_type_nm); активная численность (hc_active_cnt) — типы «Активная» и «Подрядчики»
     drop table if exists teampulse_hub_sx;
     create table teampulse_hub_sx as
     select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_c,
@@ -1918,7 +1920,7 @@ paragraphs:
                                           s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
                    coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
-                   case when s.active_type_gr_nm = 'Активная' then 'Активная' else 'Прочие' end as act_c
+                   coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
             left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0
@@ -2005,7 +2007,7 @@ paragraphs:
                                           s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
                    coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
-                   case when s.active_type_gr_nm = 'Активная' then 'Активная' else 'Прочие' end as act_c
+                   coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
             left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
@@ -2043,7 +2045,7 @@ paragraphs:
                                           s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
                    coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
-                   case when s.active_type_gr_nm = 'Активная' then 'Активная' else 'Прочие' end as act_c
+                   coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
             left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
@@ -2057,16 +2059,16 @@ paragraphs:
     select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
            unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
            unnest(ARRAY[coalesce(nullif(translate(e.source_type_nm::text, E'\t\n|', '  /'), '-'), ''),
-                        case when coalesce(e.hire_amt, 0) > 0 then 'Найм в компанию'
+                        case when coalesce(e.hire_cnt, 0) > 0 then 'Найм в компанию'
                                   when coalesce(e.transfer_candidate_amt, 0) > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end,
                         coalesce(nullif(translate(e.grade::text, E'\t\n|', '  /'), '-'), ''),
                         coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
-           greatest(coalesce(e.hire_amt, 0), coalesce(e.transfer_candidate_amt, 0), coalesce(e.transfer_internal_amt, 0)) as mx_n
+           greatest(coalesce(e.hire_cnt, 0), coalesce(e.transfer_candidate_amt, 0), coalesce(e.transfer_internal_amt, 0)) as mx_n
     from (
         select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
                generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
         from (
-            select s.hire_amt, s.transfer_candidate_amt, s.transfer_internal_amt, s.source_type_nm, s.grade,
+            select s.hire_cnt, s.transfer_candidate_amt, s.transfer_internal_amt, s.source_type_nm, s.grade,
                    s.specialization,
                    (select pre from teampulse_hub_cal) || coalesce(u.cp,
                        array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
@@ -2074,13 +2076,13 @@ paragraphs:
                                           s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
                    coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
-                   case when s.active_type_gr_nm = 'Активная' then 'Активная' else 'Прочие' end as act_c
+                   coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
             left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
         ) x
     ) e
-    where greatest(coalesce(e.hire_amt, 0), coalesce(e.transfer_candidate_amt, 0), coalesce(e.transfer_internal_amt, 0)) > 0;
+    where greatest(coalesce(e.hire_cnt, 0), coalesce(e.transfer_candidate_amt, 0), coalesce(e.transfer_internal_amt, 0)) > 0;
 
     drop table if exists teampulse_hub_mix;
     create table teampulse_hub_mix as
@@ -2099,7 +2101,7 @@ paragraphs:
   shebang: gp
   code: |-
     -- =============================================================================
-    -- TeamPulse Hub · 5. Переводы — как в мастер-отчёте (поставка 59)
+    -- TeamPulse Hub · 5. Переводы — как в мастер-отчёте (поставки 59–60)
     -- teampulse_hub_trf — узел × месяц × вид × срез × флаги: датасет считает из них переводы в выбор и из
     -- выбора под фильтры. Логика — мастер-отчёта (старый TeamPulse: transfer_in / transfer_out), сверена на
     -- выборках боя: событие — строка дня с флагом источника, «в» и «из» считаются отдельно, каждое — по
@@ -2110,9 +2112,10 @@ paragraphs:
     --      увольнение — не перевод. Последний день месяца (last_day_of_month_flg) — следующий месяц
     --   h  найм в компанию: узлы и срез дня найма
     -- fu — флаг юнита этого уровня; fa / fp / fi / fs — смена типа численности, покраски, IT-кода, типа
-    -- оформления: датасет засчитывает их, только когда выбран этот фильтр (тип численности — по умолчанию
-    -- «Активная»). Фильтр из нескольких значений — только если x_… (вчера для «в», завтра для «из») вне
-    -- выбора. in_ok = 0 — кандидат учебного юнита или стажёр: на активной это найм, а не перевод.
+    -- оформления: датасет засчитывает их, только когда выбран этот фильтр (тип численности — любой набор
+    -- типов active_type_nm, по умолчанию «Активные»: Активная + Подрядчики). Фильтр из нескольких значений —
+    -- только если x_… (вчера для «в», завтра для «из») вне выбора: Подрядчики → Активная при «Активных» —
+    -- не перевод. in_ok = 0 — кандидат учебного юнита или стажёр: при выборе типов это найм, не перевод.
     -- =============================================================================
     -- шаги — таблицами, не CTE: у таблицы есть статистика (analyze), и план не ошибается в числе строк
     -- (CTE оценивается в единицы строк — на объёме боя план выбирал вложенный цикл)
@@ -2155,7 +2158,7 @@ paragraphs:
            (coalesce(x.lvl11_mngt_unit_out_trsf_flg::text, '0') = '1')::int as uo11,
            coalesce(nullif(coalesce(x.emp_specialization_oper_code::text, '-'), ''), '-') as pa, coalesce(nullif(coalesce(x.emp_specialization_it_code::text, '-'), ''), '-') as it,
            case when x.employment_relation_type_desc = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as st,
-           case when coalesce(x.active_count_flg::text, '0') = '1' then 'Активная' else 'Прочие' end as ac,
+           coalesce(nullif(trim(x.active_type_nm::text), ''), '-') as ac,
            (coalesce(x.hire_flg::text, '0') = '1')::int as hf, least((coalesce(x.transfer_candidate_flg::text, '0') = '1')::int + (coalesce(x.transfer_internal_flg::text, '0') = '1')::int, 1) as cv,
            (coalesce(x.fire_flg::text, '0') = '1')::int as fx, (coalesce(x.last_day_of_month_flg::text, '0') = '1')::int as ld,
            (coalesce(x.transfer_to_active_type_flg::text, '0') = '1')::int as ia, (coalesce(x.transfer_out_active_type_flg::text, '0') = '1')::int as oa,
@@ -2194,7 +2197,7 @@ paragraphs:
     -- нескольких значений: смена между двумя выбранными значениями (Line → Support при «Line + Support») — не
     -- перевод. Строк в этот день несколько — меньшее значение
     select n.e, n.d, min(coalesce(nullif(coalesce(x.emp_specialization_oper_code::text, '-'), ''), '-')) as pa, min(coalesce(nullif(coalesce(x.emp_specialization_it_code::text, '-'), ''), '-')) as it,
-           min(case when x.employment_relation_type_desc = 'Штатный сотрудник' then 'Штат' else 'Не штат' end) as st, min(case when coalesce(x.active_count_flg::text, '0') = '1' then 'Активная' else 'Прочие' end) as ac
+           min(case when x.employment_relation_type_desc = 'Штатный сотрудник' then 'Штат' else 'Не штат' end) as st, min(coalesce(nullif(trim(x.active_type_nm::text), ''), '-')) as ac
     from (
         select distinct r.e, r.dt - 1 as d from teampulse_hub_trfr r where r.hf = 0 and r.ia + r.ip + r.ii + r.ist > 0
         union

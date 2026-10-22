@@ -12,6 +12,8 @@ SELECT section, item, value
 -- прочие). Теперь act_cd и hco_cnt — матчером, как в файле 2а: есть колонка — проверка по ней,
 -- нет (ноутбук до 20.10) — как раньше. Добавлено: тип численности у корня и сходимость
 -- водопада с начала года отдельно по активной и по всей численности.
+-- 22.10, поставка 60: act_cd — тип численности целиком (Активная, Подрядчики, Декрет…); «активная» в
+-- запросе — «Активные»: типы «Активная» и «Подрядчики», как в отчёте по умолчанию.
 --
 -- Зачем. Разведка 19.10 восстановила схему таблиц по SQL датасета 174609 (файл 2а): число
 -- строк, физические типы и период оттуда не видны, а в каталоге DataDetective таблиц нет.
@@ -92,13 +94,15 @@ WITH
   ),
   ml AS (SELECT u AS mu, k AS mk, sum(n) AS mn FROM mx GROUP BY u, k),
   -- переводы у корня с начала года — как их считает датасет 2а (с поставки 59 — правило мастер-отчёта):
-  -- активная без фильтров — строка «в» / «из» активного с флагом юнита или типа численности (кандидат и стажёр —
-  -- найм, не перевод); вся численность — только флаг юнита
+  -- «Активные» без фильтров — строка «в» / «из» с типом «Активная» или «Подрядчики» и флагом юнита или типа
+  -- численности; флаг типа — только если соседний день (x_act_cd) вне «Активных» (кандидат и стажёр — найм, не
+  -- перевод); вся численность — только флаг юнита
   tr AS (
-    SELECT sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'i' AND ifNull(act_cd, '') = 'Активная'
-             AND (ifNull(fu, 0) = 1 OR ifNull(fa, 0) = 1) AND ifNull(in_ok, 1) = 1)) AS tai,
-           sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'o' AND ifNull(act_cd, '') = 'Активная'
-             AND (ifNull(fu, 0) = 1 OR ifNull(fa, 0) = 1))) AS tao,
+    SELECT sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'i' AND ifNull(act_cd, '') IN ('Активная', 'Подрядчики')
+             AND (ifNull(fu, 0) = 1 OR ifNull(fa, 0) = 1 AND ifNull(x_act_cd, '') NOT IN ('Активная', 'Подрядчики'))
+             AND ifNull(in_ok, 1) = 1)) AS tai,
+           sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'o' AND ifNull(act_cd, '') IN ('Активная', 'Подрядчики')
+             AND (ifNull(fu, 0) = 1 OR ifNull(fa, 0) = 1 AND ifNull(x_act_cd, '') NOT IN ('Активная', 'Подрядчики')))) AS tao,
            sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'i' AND ifNull(fu, 0) = 1)) AS tvi,
            sum(toFloat64(ifNull(trf_cnt, 0)) * (ifNull(trf_kind, '') = 'o' AND ifNull(fu, 0) = 1)) AS tvo,
            count() AS tn, uniqExact(report_month) AS tmn,
@@ -281,7 +285,7 @@ FROM (SELECT toString((SELECT count() FROM
                    INNER JOIN nl AS p ON p.nu = k.pp
                  WHERE k.kh > p.nh + 0.5)) AS v0)
 UNION ALL
-SELECT '4 ряды' AS section, 13 AS ord, 'водопад у корня с начала года, активная: изменение численности · найм · отток · переводы в · из · прочие изменения (‰; найм — по методологии, hire_cnt)' AS item,
+SELECT '4 ряды' AS section, 13 AS ord, 'водопад у корня с начала года, «Активные» (Активная + Подрядчики): изменение численности · найм · отток · переводы в · из · прочие изменения (‰; найм — по методологии, hire_cnt)' AS item,
        v0 AS value
 FROM (SELECT (SELECT concat(toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM cal)) - sumIf(hc, m = addMonths(toStartOfYear((SELECT lm FROM cal)), -1)))
                                      / nullIf((SELECT H FROM co), 0))), ' · ',
@@ -292,7 +296,7 @@ FROM (SELECT (SELECT concat(toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM
                       toString(round(1000 * (sumIf(hc, m = (SELECT lm FROM cal)) - sumIf(hc, m = addMonths(toStartOfYear((SELECT lm FROM cal)), -1))
                                              - sumIf(hi - fi, m >= toStartOfYear((SELECT lm FROM cal))) - (SELECT tai FROM tr) + (SELECT tao FROM tr))
                                      / nullIf((SELECT H FROM co), 0))))
-        FROM sr WHERE u = (SELECT r FROM cal) AND m BETWEEN addMonths(toStartOfYear((SELECT lm FROM cal)), -1) AND (SELECT lm FROM cal) AND ty = 'Активная') AS v0)
+        FROM sr WHERE u = (SELECT r FROM cal) AND m BETWEEN addMonths(toStartOfYear((SELECT lm FROM cal)), -1) AND (SELECT lm FROM cal) AND ty IN ('Активная', 'Подрядчики')) AS v0)
 UNION ALL
 SELECT '4 ряды' AS section, 14 AS ord, 'водопад у корня с начала года, вся численность: изменение численности · найм · отток · переводы в · из · прочие изменения (‰; найм — в компанию, hco_cnt)' AS item,
        v0 AS value

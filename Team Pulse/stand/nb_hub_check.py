@@ -49,19 +49,28 @@ def main():
               lambda p, d: A(p, 'oper', d) in ('Line', 'Support')),
              ('штат + HQ (2а)', {'staff_f': ['Штат'], 'paint_f': ['HQ']},
               lambda p, d: A(p, 'rel', d) == 'Штатный сотрудник' and A(p, 'oper', d) == 'HQ'),
-             # 20.10: тип численности — по умолчанию (случаи выше) «Активная», «Вся» — все строки
+             # 20.10: тип численности — по умолчанию (случаи выше) «Активные», «Вся» — все строки
              ('вся численность', {'act_f': ['Вся']}, lambda p, d: True),
              ('вся численность + IT + штат', {'act_f': ['Вся'], 'it_f': ['IT'], 'staff_f': ['Штат']},
-              lambda p, d: A(p, 'it', d) == 'IT' and A(p, 'rel', d) == 'Штатный сотрудник')]
+              lambda p, d: A(p, 'it', d) == 'IT' and A(p, 'rel', d) == 'Штатный сотрудник'),
+             # 22.10, поставка 60: любой набор типов численности. «Активные» (по умолчанию) — Активная + Подрядчики:
+             # подрядчик в штат — внутри выбора; при одной «Активной» — перевод «в», при одних «Подрядчиках» — «из»
+             ('только Активная, без подрядчиков (2а)', {'act_f': ['Активная']}, lambda p, d: True),
+             ('только Подрядчики (2а)', {'act_f': ['Подрядчики']}, lambda p, d: True),
+             ('Активная + Декрет (2а)', {'act_f': ['Активная', 'Декрет']}, lambda p, d: True),
+             ('Подрядчики + штат (2а)', {'act_f': ['Подрядчики'], 'staff_f': ['Штат']},
+              lambda p, d: A(p, 'rel', d) == 'Штатный сотрудник')]
     raw = {}
     ok = True
     for name, flt, pred in cases:
+        # типы численности выбора: по умолчанию «Активные», «Вся» — все (None), иначе — названные
+        av = flt.get('act_f')
+        act = nb.ACTIVE if av is None else None if av == ['Вся'] else tuple(av)
         for label, sql in (('файл 2 ', F2), ('файл 2а', F2A)):
-            act = 'act_f' not in flt
             T = nb.truth(U, people, perf, grt, raw.get(name, pred) if label == 'файл 2а' else pred,
-                         agg=label == 'файл 2 ' and act, act=act, hday=label == 'файл 2а')
-            if label == 'файл 2 ' and 'paint_f' in flt:
-                continue                         # в hr_structure_overall покраски нет
+                         agg=label == 'файл 2 ' and act is not None, act=act, hday=label == 'файл 2а')
+            if label == 'файл 2 ' and ('paint_f' in flt or av not in (None, ['Вся'])):
+                continue                         # в hr_structure_overall нет покраски и типов численности целиком
             if label == 'файл 2а':               # найм на конец месяца — для разбивок найма (mx)
                 Te = nb.truth(U, people, perf, grt, raw.get(name, pred), act=act)
             if label == 'файл 2а':               # 21.10: переводы 2а — под фильтры (переходы ноутбука)
@@ -154,8 +163,9 @@ def main():
                 dl = [l.split('\t') for l in next(r for r in rows if r['role'] == 'dict')['j'].split('\n') if l]
                 # 20.10: четвёртый разрез — тип численности; пустой словарь (нет act_cd) — один тип
                 ks = [fv.get(k) or [] for k in ('paint', 'it', 'staff', 'act')]
+                # тип численности: по умолчанию «Активные» (Активная + Подрядчики), «Вся» — любой, иначе — названные
                 want = [{x.lower() for x in f.get(c, [])} for c in ('paint_f', 'it_f', 'staff_f')] + [
-                    set() if 'act_f' in f else {'активная'}]
+                    {x.lower() for x in nb.ACTIVE} if av is None else set() if av == ['Вся'] else {x.lower() for x in av}]
                 for l in dl:
                     rk, fd = l[0], (l[6] if len(l) > 6 else '')
                     n = 0.0

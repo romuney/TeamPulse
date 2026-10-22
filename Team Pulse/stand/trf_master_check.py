@@ -5,15 +5,17 @@
 #           покраски, IT-кода, типа оформления (transfer_to_*); без найма. Срез — состояние этой строки
 #   из    — строка с флагом «из» (…_out_…), без увольнения; last_day_of_month_flg — в следующий месяц
 #   найм  — строка с hire_flg
-#   флаг смены атрибута засчитан, только если по атрибуту выбран фильтр (тип численности — по умолчанию
-#   «Активная»); на активной кандидат / стажёр (in_ok = 0) — найм, не перевод
+#   флаг смены атрибута засчитан, только если по атрибуту выбран фильтр (тип численности — любой набор типов
+#   active_type_nm, по умолчанию «Активные»: Активная + Подрядчики, поставка 60); при выборе типов кандидат /
+#   стажёр (in_ok = 0) — найм, не перевод. Фильтр из нескольких значений — смена засчитана, только если соседний
+#   день вне выбора: подрядчик в штат при «Активных» — не перевод
 # Сверка: 1) таблица — построчно (узел × месяц × вид × срез × флаги × in_ok → число); 2) датасет 2а — переводы
 # в / из и найм по дню у всех узлов ответа при нескольких наборах фильтров.
 #
 #   python3 stand/trf_master_check.py <папка> [--edge]
 # --edge — к источнику стенда добавлены строки со сбоями флагов: флаг без смены значения, «из» без «в»,
 # флаг не того уровня, дубли строк дня, last_day_of_month_flg не в последний день, найм / увольнение с флагом
-# перевода, переход кандидата. NB_ROOTS=2 — два корня (общий корень «all»).
+# перевода, переход кандидата, подрядчик в штат. NB_ROOTS=2 — два корня (общий корень «all»).
 import datetime as dt, os, sys
 from collections import Counter
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +36,7 @@ def norm(r):
     t = lambda c: None if r[c] is None or r[c] != r[c] else str(r[c])     # NULL и NaN pandas — пусто
     flg = lambda c: int((t(c) or '0') == '1')
     cut = lambda c: (t(c) if t(c) not in (None, '') else '-') if t(c) is not None else '-'
+    typ = lambda c: (t(c) or '').strip() or '-'                           # тип численности — целиком (поставка 60)
     v = {'e': r['mdm_employee_rk'], 'dt': r['calendar_dt']}
     for i in LV:
         k = t(f'lvl{i}_mapped_management_unit_rk')
@@ -42,7 +45,7 @@ def norm(r):
         v[f'uo{i}'] = flg(f'lvl{i}_mngt_unit_out_trsf_flg')
     v.update(pa=cut('emp_specialization_oper_code'), it=cut('emp_specialization_it_code'),
              st='Штат' if r['employment_relation_type_desc'] == STAFF else 'Не штат',
-             ac='Активная' if flg('active_count_flg') else 'Прочие',
+             ac=typ('active_type_nm'),
              hf=flg('hire_flg'), cv=min(flg('transfer_candidate_flg') + flg('transfer_internal_flg'), 1),
              fx=flg('fire_flg'), ld=flg('last_day_of_month_flg'))
     for tp, ai, ao in TYPES:
@@ -82,9 +85,9 @@ def expect(ev, flt):
     """переводы в / из и найм по дню, которые датасет обязан отдать: узел × месяц → {tin, tout, hit}"""
     lo = lambda xs: [x.lower() for x in xs]
     act = lo(flt.get('act_f', []))
-    act = [] if ('вся' in act or 'all' in act) else (act or ['активная'])
+    act = [] if ('вся' in act or 'all' in act) else (act or lo(nb.ACTIVE))   # по умолчанию — «Активные»
     F = {'paint': lo(flt.get('paint_f', [])), 'it': lo(flt.get('it_f', [])), 'staff': lo(flt.get('staff_f', [])), 'act': act}
-    act_only = act == ['активная']
+    act_on = bool(act)                       # выбран тип численности: кандидат / стажёр — найм, не перевод
     T = {}
     for (n, m, k, pa, it, st, ac, fu, fa, fp, fi, fs, ok, xpa, xit, xst, xac), c in ev.items():
         cut = {'paint': pa, 'it': it, 'staff': st, 'act': ac}
@@ -96,9 +99,9 @@ def expect(ev, flt):
         sel = lambda x, f: f and bool(F[x]) and (len(F[x]) == 1 or (side[x] or '').lower() not in F[x])
         flg = fu or sel('act', fa) or sel('paint', fp) or sel('it', fi) or sel('staff', fs)
         d = T.setdefault((n, m), {'tin': 0, 'tout': 0, 'hit': 0})
-        if k == 'i' and flg and (ok or not act_only):
+        if k == 'i' and flg and (ok or not act_on):
             d['tin'] += c
-        if k == 'i' and flg and not ok and act_only:
+        if k == 'i' and flg and not ok and act_on:
             d['hit'] += c
         if k == 'o' and flg:
             d['tout'] += c
@@ -147,6 +150,10 @@ def inject(pg, U):
     day(910013, '2026-04-21', '1121', emp_specialization_it_code='Digital', transfer_out_it_flg=1)  # IT, «из»
     day(910014, '2026-05-12', '1113', employment_relation_type_desc='ГПД ФЛ', transfer_to_employment_relation_type_flg=1)
     day(910015, '2026-06-09', '1112', transfer_to_specialization_flg=1, transfer_to_stream_flg=1)    # не тот атрибут
+    # поставка 60: подрядчик — в штат. При «Активных» (Активная + Подрядчики) не перевод, при одной «Активной» —
+    # «в», при одних «Подрядчиках» — «из»
+    day(910016, '2026-07-06', '1121', active_count_flg=1, active_type_nm='Подрядчики', transfer_out_active_type_flg=1)
+    day(910016, '2026-07-07', '1121', active_count_flg=1, active_type_nm='Активная', transfer_to_active_type_flg=1)
     pg.copy('usr_cross_data.hr_executive_proteus', nb.COLS, rows)
     return len(rows)
 
@@ -161,7 +168,8 @@ def main():
     nb.run_yaml(pg, YAML, out)
     cal = pg.run('select lm, grid_start, mo from teampulse_hub_cal').iloc[0]
     cols = ', '.join(c for c in nb.COLS if c.endswith('_rk') or c.endswith('_flg') or c in (
-        'calendar_dt', 'emp_specialization_oper_code', 'emp_specialization_it_code', 'employment_relation_type_desc'))
+        'calendar_dt', 'emp_specialization_oper_code', 'emp_specialization_it_code', 'employment_relation_type_desc',
+        'active_type_nm'))
     src = pg.run(f'select {cols} from usr_cross_data.hr_executive_proteus').to_dict('records')
     ev = master(src, cal.grid_start, cal.lm, int(cal.mo) == 1)
     tab = pg.run('select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok, '
@@ -176,7 +184,9 @@ def main():
     db = os.path.join(out, 'db')
     ms = nb.months()
     ok = not bad
-    for name, flt in [('по умолчанию (Активная)', {}), ('вся численность', {'act_f': ['Вся']}),
+    for name, flt in [('по умолчанию (Активные)', {}), ('вся численность', {'act_f': ['Вся']}),
+                      ('только Активная', {'act_f': ['Активная']}), ('только Подрядчики', {'act_f': ['Подрядчики']}),
+                      ('Активная + Декрет', {'act_f': ['Активная', 'Декрет']}),
                       ('IT + штат', {'it_f': ['IT'], 'staff_f': ['Штат']}), ('покраска Hq', {'paint_f': ['Hq']}),
                       ('вся + Digital', {'act_f': ['Вся'], 'it_f': ['Digital']}),
                       ('Line + Support, Не штат', {'paint_f': ['Line', 'Support'], 'staff_f': ['Не штат']}),

@@ -1,5 +1,5 @@
 -- =============================================================================
--- TeamPulse Hub · 5. Переводы — как в мастер-отчёте (поставка 59)
+-- TeamPulse Hub · 5. Переводы — как в мастер-отчёте (поставки 59–60)
 -- teampulse_hub_trf — узел × месяц × вид × срез × флаги: датасет считает из них переводы в выбор и из
 -- выбора под фильтры. Логика — мастер-отчёта (старый TeamPulse: transfer_in / transfer_out), сверена на
 -- выборках боя: событие — строка дня с флагом источника, «в» и «из» считаются отдельно, каждое — по
@@ -10,9 +10,10 @@
 --      увольнение — не перевод. Последний день месяца (last_day_of_month_flg) — следующий месяц
 --   h  найм в компанию: узлы и срез дня найма
 -- fu — флаг юнита этого уровня; fa / fp / fi / fs — смена типа численности, покраски, IT-кода, типа
--- оформления: датасет засчитывает их, только когда выбран этот фильтр (тип численности — по умолчанию
--- «Активная»). Фильтр из нескольких значений — только если x_… (вчера для «в», завтра для «из») вне
--- выбора. in_ok = 0 — кандидат учебного юнита или стажёр: на активной это найм, а не перевод.
+-- оформления: датасет засчитывает их, только когда выбран этот фильтр (тип численности — любой набор
+-- типов active_type_nm, по умолчанию «Активные»: Активная + Подрядчики). Фильтр из нескольких значений —
+-- только если x_… (вчера для «в», завтра для «из») вне выбора: Подрядчики → Активная при «Активных» —
+-- не перевод. in_ok = 0 — кандидат учебного юнита или стажёр: при выборе типов это найм, не перевод.
 -- =============================================================================
 -- шаги — таблицами, не CTE: у таблицы есть статистика (analyze), и план не ошибается в числе строк
 -- (CTE оценивается в единицы строк — на объёме боя план выбирал вложенный цикл)
@@ -55,7 +56,7 @@ select distinct x.mdm_employee_rk as e, x.calendar_dt::date as dt,
        (coalesce(x.lvl11_mngt_unit_out_trsf_flg::text, '0') = '1')::int as uo11,
        coalesce(nullif(coalesce(x.emp_specialization_oper_code::text, '-'), ''), '-') as pa, coalesce(nullif(coalesce(x.emp_specialization_it_code::text, '-'), ''), '-') as it,
        case when x.employment_relation_type_desc = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as st,
-       case when coalesce(x.active_count_flg::text, '0') = '1' then 'Активная' else 'Прочие' end as ac,
+       coalesce(nullif(trim(x.active_type_nm::text), ''), '-') as ac,
        (coalesce(x.hire_flg::text, '0') = '1')::int as hf, least((coalesce(x.transfer_candidate_flg::text, '0') = '1')::int + (coalesce(x.transfer_internal_flg::text, '0') = '1')::int, 1) as cv,
        (coalesce(x.fire_flg::text, '0') = '1')::int as fx, (coalesce(x.last_day_of_month_flg::text, '0') = '1')::int as ld,
        (coalesce(x.transfer_to_active_type_flg::text, '0') = '1')::int as ia, (coalesce(x.transfer_out_active_type_flg::text, '0') = '1')::int as oa,
@@ -94,7 +95,7 @@ create table teampulse_hub_trfv as
 -- нескольких значений: смена между двумя выбранными значениями (Line → Support при «Line + Support») — не
 -- перевод. Строк в этот день несколько — меньшее значение
 select n.e, n.d, min(coalesce(nullif(coalesce(x.emp_specialization_oper_code::text, '-'), ''), '-')) as pa, min(coalesce(nullif(coalesce(x.emp_specialization_it_code::text, '-'), ''), '-')) as it,
-       min(case when x.employment_relation_type_desc = 'Штатный сотрудник' then 'Штат' else 'Не штат' end) as st, min(case when coalesce(x.active_count_flg::text, '0') = '1' then 'Активная' else 'Прочие' end) as ac
+       min(case when x.employment_relation_type_desc = 'Штатный сотрудник' then 'Штат' else 'Не штат' end) as st, min(coalesce(nullif(trim(x.active_type_nm::text), ''), '-')) as ac
 from (
     select distinct r.e, r.dt - 1 as d from teampulse_hub_trfr r where r.hf = 0 and r.ia + r.ip + r.ii + r.ist > 0
     union

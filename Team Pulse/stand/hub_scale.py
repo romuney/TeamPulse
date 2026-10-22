@@ -1,6 +1,7 @@
 # Стенд масштаба боя для датасета 2а: таблицы teampulse_hub_* в chdb (ClickHouse 24.8) без людей и ноутбука.
 # Дерево — как в бою (0е, 20.10: 11 932 узла, по уровням 1:1 2:1 3:10 4:64 … 11:1599), листья на разных уровнях.
-# Строк у узла — по размеру поддерева: срезов (покраска × IT × штат × тип) у листа 2–3, у верхних узлов все 36.
+# Строк у узла — по размеру поддерева: срезов (покраска × IT × штат × тип) у листа 2–3, у верхних узлов — 36 из 72
+# (тип численности — целиком, четыре типа, с поставки 60).
 # Пессимистично к бою: series ≈ 1,3 млн строк (в бою 624 тыс. до разреза типа численности).
 #
 #   python3 stand/hub_scale.py <каталог chdb> [масштаб]     # масштаб 1 — бой, 0.1 — быстрый прогон
@@ -12,10 +13,10 @@ from chdb import session
 
 LEVELS = [1, 1, 10, 64, 305, 958, 1846, 2480, 2464, 2204, 1599]
 P = 'prod_proteus.teampulse_hub_'
-# срез по номеру 0..35: покраска × IT × штат × тип численности
-SLICE = """['HQ','Line','Support'][intDiv(k, 12) % 3 + 1] AS paint_cd, ['IT','Digital','NonIT'][intDiv(k, 4) % 3 + 1] AS it_cd,
-        ['Штат','Не штат'][intDiv(k, 2) % 2 + 1] AS staff_cd, ['Активная','Неактивная'][k % 2 + 1] AS act_cd"""
-KS = "arrayMap(j -> (cityHash64(rk) + j * 7) % 36, range(c))"        # срезы узла
+# срез по номеру 0..71: покраска × IT × штат × тип численности (с поставки 60 — тип целиком, четыре типа)
+SLICE = """['HQ','Line','Support'][intDiv(k, 24) % 3 + 1] AS paint_cd, ['IT','Digital','NonIT'][intDiv(k, 8) % 3 + 1] AS it_cd,
+        ['Штат','Не штат'][intDiv(k, 4) % 2 + 1] AS staff_cd, ['Активная','Подрядчики','Декрет','Стажеры'][k % 4 + 1] AS act_cd"""
+KS = "arrayMap(j -> (cityHash64(rk) + j * 7) % 72, range(c))"        # срезы узла
 MON = "addMonths(toDate('2024-01-01'), mi)"                           # 34 месяца, как в бою
 MIX_KEYS = ("['g','sn','tn','ag','sx','ed','ci','rg','fm','le','st','ty','rs','ri','xg','xs','xt','sp','tc','xsp','xtc',"
             "'hk','hch','hg','hsp','bl']")
@@ -46,9 +47,10 @@ FROM (SELECT rk, mi, k, toInt64(greatest(1, intDiv(sz, c) + cityHash64(rk, mi, k
 FROM (SELECT rk, k, kk, vi FROM prod_proteus.tmp_nd ARRAY JOIN {KS} AS k ARRAY JOIN {MIX_KEYS} AS kk
       ARRAY JOIN range(toUInt32(least(25, 1 + intDiv(sz, 6 * c)))) AS vi)""",
     'trf': f"""SELECT rk, {MON}, ['i','o','h'][k % 3 + 1], ['HQ','Line','Support'][k % 3 + 1], ['IT','Digital','NonIT'][k % 3 + 1],
-       ['Штат','Не штат'][k % 2 + 1], 'Активная', k % 2, (k + 1) % 2, toInt64(k % 3 = 0), toInt64(k % 4 = 0), 0,
-       toInt64(k % 5 > 0), if(k % 3 = 0, ['HQ','Line','Support'][(k + 1) % 3 + 1], NULL),
-       if(k % 4 = 0, ['IT','Digital','NonIT'][(k + 2) % 3 + 1], NULL), NULL, if((k + 1) % 2 = 1, 'Прочие', NULL),
+       ['Штат','Не штат'][k % 2 + 1], ['Активная','Подрядчики','Декрет','Стажеры'][k % 4 + 1], k % 2, (k + 1) % 2,
+       toInt64(k % 3 = 0), toInt64(k % 4 = 0), 0, toInt64(k % 5 > 0), if(k % 3 = 0, ['HQ','Line','Support'][(k + 1) % 3 + 1], NULL),
+       if(k % 4 = 0, ['IT','Digital','NonIT'][(k + 2) % 3 + 1], NULL), NULL,
+       if((k + 1) % 2 = 1, ['Подрядчики','Активная','Стажеры','Декрет'][k % 4 + 1], NULL),
        toInt64(1 + k % 3)
 FROM prod_proteus.tmp_nd ARRAY JOIN range(34) AS mi ARRAY JOIN range(toUInt32(intDiv(c, 2))) AS k""",
     'vacancy': f"""SELECT rk, {MON}, concat('Канал ', toString(k % 5)), ['Замена','Новый','Прочее'][k % 3 + 1],
