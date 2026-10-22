@@ -1442,20 +1442,25 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .live-tag{display:inline-block;padding:0 var(--s2);border-radius:var(--r-pill);font-size:var(--fs-micro);font-weight:var(--fw-bold);
   line-height:14px;color:var(--green-tx);background:#e5f8eb;border:1px solid var(--green-bg);white-space:nowrap}
 /* сводка готовности к живым данным на One-pager */
-/* 21.10: строка текста без рамки, полосы и бейджей — часть первого блока, а не отдельная плашка */
+/* 22.10, заказчик: «вернуть стиль блока «в разработке» — отдельной пилюлькой, чтобы сразу видеть, сколько
+   метрик осталось». Пилюля в «строительной» ленте: жёлтый фон, полосатый край, полоса готовности, бейджи
+   «в разраб.», «сверены», «ещё добавить». Уйдёт, когда все метрики станут настоящими */
 .dev-sum{margin:0 0 var(--s6)}
-.dev-sum>summary{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3) var(--s6);padding:var(--s2);
-  cursor:pointer;list-style:none;font-size:var(--fs-body);color:var(--ink3)}
+.dev-sum>summary{display:inline-flex;align-items:center;flex-wrap:wrap;gap:var(--s3) var(--s5);max-width:100%;
+  padding:var(--s3) var(--s7) var(--s3) 22px;position:relative;overflow:hidden;cursor:pointer;list-style:none;
+  font-size:var(--fs-note);color:var(--ink2);background:var(--dev-bg);border:1px solid var(--dev-line);border-radius:var(--r-pill)}
+.dev-sum>summary::before{content:"";position:absolute;left:0;top:0;bottom:0;width:10px;
+  background:repeating-linear-gradient(-45deg,var(--dev-strong) 0 6px,var(--dev-dark) 6px 12px)}
+.dev-sum>summary:hover{border-color:var(--dev-strong)}
 .dev-sum>summary::-webkit-details-marker{display:none}
-.dev-sum-h{color:var(--ink3)}
-.dev-sum-n b{font-weight:var(--fw-bold);color:var(--ink2)}
-.dev-sum summary .dev-tag,.dev-sum summary .live-tag,.dev-sum summary .plan-tag{background:none;border:0;padding:0;font-size:inherit;font-weight:var(--fw-body);line-height:inherit}
-.dev-sum summary .dev-tag{color:var(--dev-ink)}
-.dev-sum summary .live-tag.ok{color:var(--green-tx)}
-.dev-sum summary .plan-tag.todo{color:var(--act-ink)}
-.dev-sum-more{margin-left:auto;color:var(--act-ink)}
+.dev-sum-h{font-weight:var(--fw-bold);color:var(--dev-dark);font-size:var(--fs-body)}
+.dev-sum-bar{width:96px;height:8px;border-radius:var(--r-pill);flex:none;overflow:hidden;
+  background:repeating-linear-gradient(-45deg,var(--dev-bg) 0 4px,var(--dev-bg2) 4px 8px);border:1px solid var(--dev-line)}
+.dev-sum-bar i{display:block;height:100%;background:var(--green)}
+.dev-sum-n b{font-weight:var(--fw-bold);color:var(--ink)}
+.dev-sum-more{color:var(--act-ink);font-weight:var(--fw-bold)}
 .dev-sum[open] .dev-sum-more{color:var(--muted)}
-.dev-sum-b{padding:var(--s2) var(--s2) var(--s6);border-top:1px solid var(--line2)}
+.dev-sum-b{margin-top:var(--s4);padding:var(--s4) var(--s8) var(--s6);background:var(--card);border-radius:var(--r4);box-shadow:var(--shadow-soft)}
 .dev-sum-b label{font-size:var(--fs-body);font-weight:var(--fw-bold)}
 .dev-sum-b .fhint{font-size:var(--fs-note);color:var(--muted)}
 /* чипы пробника в шапке: что здесь живое, предупреждение (ожидание ответа — карточкой .tp-load) */
@@ -2063,14 +2068,18 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .in-go::after{content:" →"}
 .in-go:hover{text-decoration:underline}
 .in-more-c{display:block;margin:var(--s5) auto 0;border:0;background:none;font:inherit;font-size:var(--fs-body);color:var(--act);cursor:pointer}
-/* «В норме» — строкой значений через точку, без плашки и пилюль (21.10) */
+/* «В норме» — строкой значений через точку, без плашки и пилюль (21.10); «в разработке» — жёлтой пилюлей (22.10) */
 .in-ok{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3) 0;padding:var(--s1) var(--s2);margin:var(--s8) 0 var(--s4);font-size:var(--fs-body);color:var(--muted)}
 .in-okt{font-weight:var(--fw-bold);color:var(--green-tx);margin-right:var(--s6)}
 .in-pill{border:0;background:none;padding:0 2px;font:inherit;font-size:var(--fs-body);color:var(--ink3);cursor:pointer}
 .in-pill b{color:var(--ink2);font-weight:var(--fw-bold)}
 .in-pill:hover{color:var(--act)}
 .in-pill+.in-pill::before{content:"·";display:inline-block;margin:0 8px 0 4px;color:var(--muted2)}
-.in-pill.dev{color:var(--dev-ink)}
+.in-pill.dev{margin-left:var(--s2);padding:1px var(--s4);border:1px solid var(--dev-line);border-radius:var(--r-pill);
+  background:var(--dev-bg);color:var(--dev-ink);font-weight:var(--fw-bold)}
+.in-pill.dev b{color:var(--dev-ink)}
+.in-pill.dev:hover{border-color:var(--dev-strong);color:var(--dev-dark)}
+.in-pill+.in-pill.dev::before{content:none}
 #op-all,#bk-det{scroll-margin-top:calc(var(--head-h,0px) + 12px)}
 /* вывод блока: одна плотная карточка — вывод слева, «где» справа через линию */
 .bk-top{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:var(--s9);border-radius:var(--radius);

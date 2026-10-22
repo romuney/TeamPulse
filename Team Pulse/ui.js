@@ -1029,8 +1029,9 @@ function planTable(groups){
 /* Сводка готовности на One-pager: сколько метрик на живых данных, сколько
    графиков каталога ещё добавить. Раскрывается в полный план. o = {live, total, plan} */
 function devSummary(o){
-  const n=D.planCount();
+  const pc=o.total?Math.round(o.live/o.total*100):0, n=D.planCount();
   return '<details class="dev-sum"><summary><span class="dev-sum-h">Готовность данных</span>'+
+    '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик на настоящих данных"><i style="width:'+pc+'%"></i></span>'+
     '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на настоящих данных · '+
       '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>'+
       ' · <span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены '+D.VERIFIED.size+'</span>'+
