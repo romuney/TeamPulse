@@ -141,13 +141,19 @@ const i=R.n-1;
      act_cd (ноутбук до 20.10) — всю и без фильтра. На активной «Численность» = «Активная» */
   const metaRow=rows.find(r=>String(r.role)==='meta'), meta=metaRow?JSON.parse(metaRow.j):{};
   const actEcho=(meta.act||[]).map(String);
-  const hcWant=R.cuts.has('act')&&actEcho.some(v=>v.toLowerCase()==='активная')?'active':'all';
+  /* 22.10, поставка 61: набор по умолчанию — meta.act_def («Активная», без подрядчиков); эхо без
+     значений — вся численность; другой набор — свой (hcSet). Список типов — все значения active_type_nm */
+  const actDef=(meta.act_def||['Активная']).map(String), lc=a=>a.map(v=>v.toLowerCase()).sort().join('|');
+  const hcWant=!R.cuts.has('act')||!actEcho.length?'all':lc(actEcho)===lc(actDef)?'active':'set';
   const hcS=D.aggregate(rl,'hc_total'), acS=D.aggregate(rl,'hc_active');
   ok(R.applied.hcType===hcWant&&D.DEFAULT_STATE.hcType===hcWant&&
     (hcWant!=='active'||hcS.every((v,k)=>Math.abs(v-acS[k])<0.01))&&
-    (hcWant!=='all'||hcS[D.LAST]>=acS[D.LAST])&&!D.metricVisible('hc_active',D.DEFAULT_STATE)===(hcWant==='active')&&
-    (!R.cuts.has('act')||(R.vals.act.length>0&&R.filterValue('hcType','all')==='Вся')),
-    'тип численности: '+(R.cuts.has('act')?(hcWant==='active'?'активная (по умолчанию)':'вся'):'фильтра нет (таблицы до 20.10)')+
+    (hcWant!=='all'||hcS[D.LAST]>=acS[D.LAST])&&!D.metricVisible('hc_active',D.DEFAULT_STATE)===(hcWant!=='all')&&
+    (hcWant!=='set'||lc(R.applied.hcSet)===lc(actEcho))&&
+    (!R.cuts.has('act')||(R.vals.act.length>0&&R.filterValue('hcType','all')==='Вся'&&R.actTypes.length>0&&
+      actDef.every(v=>lc(R.actTypes).split('|').indexOf(v.toLowerCase())>=0))),
+    'тип численности: '+(R.cuts.has('act')?({active:'по умолчанию ('+actDef.join(' + ')+')',all:'вся',set:'свой набор'})[hcWant]+
+      ', типов в списке '+R.actTypes.length:'фильтра нет (таблицы до 20.10)')+
     ', численность '+hcS[D.LAST]+' / активная '+acS[D.LAST]);
 }
 const fire=arr(scopeRow,'fire'), avg=arr(scopeRow,'avg'), reg=arr(scopeRow,'reg');

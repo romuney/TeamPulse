@@ -299,13 +299,14 @@ function build(data){
     kids(p){const id=idOfPath(p);return (kidsBy[id]||[]).map(k=>pathOf(k)).filter(Boolean)},
     info(p){const u=byId[idOfPath(p)];return u?{name:u.name||'—',lvl:u.lvl,head:u.head||'',kids:(kidsBy[u.id]||[]).length}:null},
     all(){return Object.keys(byId).map(id=>pathOf(id)).filter(Boolean)},
-    /* люди узла в последнем месяце при значениях фильтров sel {paint,it,staff,act: значение или null}; null — нет fd */
+    /* люди узла в последнем месяце при значениях фильтров sel {paint,it,staff,act: значение, набор значений
+       (тип численности — поставка 61) или null}; null — нет fd */
     count(p,sel){
       if(!fdOk)return null;
-      const want=FDK.map(k=>sel&&sel[k]!=null?String(sel[k]).toLowerCase():null);
+      const want=FDK.map(k=>sel&&sel[k]!=null?[].concat(sel[k]).map(v=>String(v).toLowerCase()):null);
       let s=0;
       fdOf(idOfPath(p)).forEach(r=>{
-        for(let k=0;k<FDK.length;k++)if(want[k]!=null&&String(fdv[FDK[k]][r[k]]).toLowerCase()!==want[k])return;
+        for(let k=0;k<FDK.length;k++)if(want[k]&&want[k].indexOf(String(fdv[FDK[k]][r[k]]).toLowerCase())<0)return;
         s+=r[FDK.length];
       });
       return Math.round(s);
@@ -316,6 +317,21 @@ function build(data){
   const cuts=new Set(Array.isArray(meta.cuts)?meta.cuts.map(str):['paint','it','staff']);
   const one=(list,map)=>{const a=(list||[]).map(str);return a.length===1&&map[a[0]]?map[a[0]]:'all'};
   const vals=meta.vals||{};
+  /* тип численности (поставка 61): набор по умолчанию — meta.act_def (у 2а до поставки 60 его нет — «Активная»),
+     типы — все значения ответа: сначала набор по умолчанию, дальше по численности компании */
+  const actDef=(Array.isArray(meta.act_def)&&meta.act_def.length?meta.act_def:['Активная']).map(str);
+  const actNow=(Array.isArray(meta.act)?meta.act:[]).map(str);
+  const lc=a=>a.map(x=>x.toLowerCase());
+  const sameSet=(a,b)=>a.length===b.length&&lc(a).every(x=>lc(b).indexOf(x)>=0);
+  const actN={};pairs(vals.act).forEach(x=>{actN[x.v]=x.n});
+  const actTypes=!cuts.has('act')?[]:(fdv&&Array.isArray(fdv.act)&&fdv.act.length?fdv.act.map(str):Object.keys(actN))
+    .filter(v=>v&&v!=='∅')
+    .sort((a,b)=>{
+      const da=lc(actDef).indexOf(a.toLowerCase()), db=lc(actDef).indexOf(b.toLowerCase());
+      if(da>=0||db>=0)return (da<0?99:da)-(db<0?99:db);
+      return (actN[b]||0)-(actN[a]||0)||a.localeCompare(b,'ru');
+    });
+  const hcType=!cuts.has('act')||!actNow.length?'all':sameSet(actNow,actDef)?'active':'set';
   return {
     n,pre,months,monthsExt,periodLabel,
     lm:str(meta.lm),today:str(meta.today),asof,
@@ -330,8 +346,10 @@ function build(data){
     empty:!scopeU,
     nodes,
     applied:{paint:one(meta.paint,pv),itSeg:one(meta.it,iv),staffType:one(meta.staff,sv),
-      /* тип численности: датасет без него (таблицы ноутбука до 20.10) отдаёт всю */
-      hcType:cuts.has('act')&&(meta.act||[]).map(str).some(v=>v.toLowerCase()==='активная')?'active':'all'},
+      /* тип численности: датасет без него (таблицы ноутбука до 20.10) отдаёт всю; эхо = набор по умолчанию —
+         'active', пустое — 'all', иначе — свой набор */
+      hcType,hcSet:hcType==='set'?actNow:[]},
+    actTypes,actDef,
     /* какие фильтры датасет умеет (файл 2 — без покраски; без act_cd — без типа численности) */
     cuts,
     vals:{paint:pairs(vals.paint),it:pairs(vals.it),staff:pairs(vals.staff),act:pairs(vals.act)},

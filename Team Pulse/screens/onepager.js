@@ -132,7 +132,7 @@ function render(S,openRows){
   const node=D.NODE_BY_PATH[S.unit]||{}, hc=D.lastVal(rl,'hc_total')||0;
   let h='<div class="page-h"><h2>'+(D.PARTIAL?'Главное на '+esc(D.ASOF_LABEL):'Главное за '+esc(D.CMP.cur))+'</h2>'+
     '<p>'+esc(node.name||'Команда')+' · '+D.fmtInt(hc)+' '+U.plural(Math.round(hc),['человек','человека','человек'])+' · '+
-    (S.hcType==='all'?'вся численность':'активная численность')+' · сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
+    D.hcLabel(S)+' · сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
     '</b> и прошлым годом'+obsInfo(S)+'</p></div>';
 
   /* 2 · сводка и карточки выводов. Видно четыре, остальные (до восьми) — по

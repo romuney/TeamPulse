@@ -16,7 +16,7 @@ distributed by (unit_rk);
 
 -- 6. строки источника → узлы нынешней структуры, все месяцы одним запросом. Перевод входит в узел
 --    глубины d, если сменился уровень ≤ d (через границу узла). Тип численности — целиком, на конец месяца
---    (act_type_nm); активная численность (hc_active_cnt) — типы «Активная» и «Подрядчики»
+--    (act_type_nm); активная численность (hc_active_cnt) — тип «Активная», без подрядчиков
 drop table if exists teampulse_hub_sx;
 create table teampulse_hub_sx as
 select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_c,

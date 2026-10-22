@@ -60,6 +60,8 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\n  search:q=>{tq=q;render(true,true);return $("#view").innerHTML},'+
   '\n  crumbs:()=>{renderHead();return $("#crumbs").innerHTML},'+
   '\n  setupHc:()=>{openSetup();const h=$("#optHc").innerHTML+$("#benchPreview").innerHTML;closeSetup();return h},'+
+  /* поставка 61: галочки типов численности в окне — что получится после «Применить» */
+  '\n  hcPick:list=>{openSetup();list.forEach(hcToggle);paintOpts();const r=hcSig(DRAFT)+"#"+$("#optHc").innerHTML;closeSetup();return r},'+
   '\n  setupUnits:q=>{openSetup();if(q){UT.q=q;utRender()}const h=$("#utList").innerHTML+$("#benchPreview").innerHTML+$("#optStaff").innerHTML;closeSetup();return h},'+
   '\n  home:()=>{S.unit=D.DEFAULT_STATE.unit;unitBack.length=0;tq="";S.selNode=null;expanded.clear()},'+
   /* итерация 30: ширина колонок — режим и доля таблицы */
@@ -491,11 +493,27 @@ checks.push(['скрытая метрика не попала в столбцы 
   checks.push(['тип численности: по умолчанию активная, «Вся» — все; потоки, ССЧ и текучесть — по выбранному типу',
     D.DEFAULT_STATE.hcType==='active'&&st.hcType==='active'&&tAct===aAll&&tAct<tAll&&hAct<=hAll&&fAct<=fAll&&
     Math.abs(avg[D.LAST]-(tAct+D.aggregate(rl0,'hc_total')[D.LAST-1])/2)<0.6&&tm>0]);
-  checks.push(['тип численности в настройке, чипах и ссылке: «Численность: активная» по умолчанию, «вся численность» снимается крестиком',
-    /data-f="hcType" data-v="active"/.test(setupHc)&&/class="opt on" data-f="hcType" data-v="active"/.test(setupHc)&&
-    /Вся численность<span class="opt-n">/.test(setupHc)&&/Численность: <b>активная<\/b>/.test(chipsAct)&&
-    /data-unchip="hcType"/.test(chipsAll)&&/вся численность/.test(chipsAll)&&!/Численность: <b>активная/.test(chipsAll)&&
+  checks.push(['тип численности в настройке, чипах и ссылке: «Активная» по умолчанию (без подрядчиков), без пресетов; «вся численность» снимается крестиком',
+    /data-hcdd/.test(setupHc)&&/<span class="hcd-v">Активная<\/span><span class="opt-n">/.test(setupHc)&&
+    /class="mp-i on" data-hct="Активная"/.test(setupHc)&&/class="mp-i" data-hct="Подрядчики"/.test(setupHc)&&
+    !/data-hcp/.test(setupHc)&&/Тип численности: <b>Активная<\/b>/.test(chipsAct)&&
+    /data-unchip="hcType"/.test(chipsAll)&&/вся численность/.test(chipsAll)&&!/Тип численности: <b>/.test(chipsAll)&&
     /hc=all/.test(linkAll)&&D.benchmarkLabel({paint:'all',itSeg:'all',staffType:'all',hcType:'all'})==='вся компания, вся численность']);
+  /* поставка 61: любой набор типов — выпадающим списком; набор по умолчанию и «все» узнаются сами */
+  const pDef=A.hcPick(['Декрет','Декрет']), pSet=A.hcPick(['Подрядчики','Декрет']), pOne=A.hcPick(['Подрядчики']);
+  const pLast=A.hcPick(['Активная']);
+  const allPick=A.hcPick(D.HC_TYPES.filter(t=>D.HC_DEF.indexOf(t)<0));
+  st.hcType='set';st.hcSet=['Активная','Декрет'];
+  const chipsSet=A.chips(), linkSet=A.link();
+  const nSet=D.draftCount(st.unit,st), nAll=D.draftCount(st.unit,Object.assign({},st,{hcType:'all'}));
+  st.hcType='active';st.hcSet=[];
+  checks.push(['тип численности — любой набор: галочки в списке, чип «типы: …», ссылка hc=set, людей меньше, чем у всех',
+    pDef.split('#')[0]==='active'&&pSet.split('#')[0]==='set:активная,декрет,подрядчики'&&/class="mp-i on" data-hct="Декрет"/.test(pSet)&&
+    pOne.split('#')[0]==='set:активная,подрядчики'&&/Активная, Подрядчики<\/span>/.test(pOne)&&pLast.split('#')[0]==='active'&&
+    allPick.split('#')[0]==='all'&&
+    /типы: Активная, Декрет/.test(chipsSet)&&/data-unchip="hcType"/.test(chipsSet)&&/hc=set/.test(linkSet)&&/hct=/.test(linkSet)&&
+    D.hcNorm(['Подрядчики','Активная']).hcType==='set'&&D.hcNorm(['Активная']).hcType==='active'&&
+    D.hcNorm(D.HC_TYPES).hcType==='all'&&nSet>0&&nSet<nAll]);
   checks.push(['на всей численности видны и «Численность», и «Активная численность», на активной — одна',
     /Активная численность/.test(opAll)&&!/Активная численность/.test(opAct)&&/Численность/.test(opAct)]);
 })();

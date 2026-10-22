@@ -165,10 +165,10 @@ const AUD_LABEL={all:'все',hq:'HQ',us:'УС'};
    (описание, подсказки, готовность данных, вкладки) */
 const HQ_ONLY=' Считается только для HQ-численности.';
 const METRICS=[
-{key:'hc_active',block:'structure',aud:'all',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники на конец месяца без стажёров, подрядчиков и неактивных — тех, кто в декрете, в учебной группе или не выходит на работу.',
-  calc:'Как в методологии HR (Data Detective): все сотрудники, кроме\n• стажёров;\n• подрядчиков и аутстаффа;\n• неактивных: декрет, прогул, мобилизация, учебные группы, POS-агенты и амбассадоры.\nПо ней считают текучесть и сравнивают подразделения.'},
-{key:'hc_total',block:'structure',aud:'all',name:'Численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сколько людей в команде на конец месяца. По умолчанию — активная численность; всю показывает фильтр «Численность» в настройке.',
-  calc:'Активная — без стажёров, подрядчиков и неактивных (методология HR); по ней считают текучесть и сравнивают команды. Вся — все, кто числится, с любым типом оформления.'},
+{key:'hc_active',block:'structure',aud:'all',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники на конец месяца с типом численности «Активная». Без подрядчиков, стажёров и неактивных: тех, кто в декрете, в учебной группе или не выходит на работу.',
+  calc:'Тип численности «Активная». Не входят:\n• подрядчики — их добавляют в фильтре «Тип численности»;\n• стажёры;\n• неактивные: декрет, прогул, мобилизация, учебные группы, POS-агенты и амбассадоры.\nПо ней считают текучесть и сравнивают подразделения.'},
+{key:'hc_total',block:'structure',aud:'all',name:'Численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сколько людей в команде на конец месяца. По умолчанию — тип «Активная»; подрядчиков и другие типы численности добавляет фильтр «Тип численности» в настройке.',
+  calc:'По умолчанию — тип численности «Активная»; по ней считают текучесть и сравнивают команды. Фильтр «Тип численности» выбирает любой набор типов: например, «Активная» и «Подрядчики» — как в мастер-отчёте. Отмечены все типы — все, кто числится.'},
 /* Среднесписочная численность в списке метрик не стоит: как строка отчёта она
    ничего не сообщала руководителю (это всегда полусумма двух соседних значений
    численности), а место в таблице и карточку занимала. Ряд `hc_avg` остался —
@@ -517,12 +517,34 @@ const ITSEGS=REAL
      {key:'Digital',name:'Только Digital',chip:'Digital'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}]
   : [{key:'all',name:'IT и nonIT',chip:null},{key:'IT',name:'Только IT',chip:'IT'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}];
 const STAFFTYPES=[{key:'all',name:'Штат и не штат',chip:null},{key:'staff',name:'Только штат',chip:'штат'},{key:'nonstaff',name:'Только не штат',chip:'не штат'}];
-/* Тип численности (20.10): весь отчёт по умолчанию — на активной численности (методология
-   HR), «Вся» — все, кто числится. Это фильтр людей, а не разрез: численность, найм, отток,
-   переводы, ССЧ и текучесть, состав — всё по выбранному типу. */
-const HCTYPES=[{key:'active',name:'Активная',chip:null},{key:'all',name:'Вся численность',chip:'вся численность'}];
-/* Макет: в «Активной» численность — активная, потоки — в той же доле от всей (подрядчики,
-   стажёры и неактивные — вне отбора). В пробнике тип применяет датасет. */
+/* Тип численности (22.10, поставка 61): фильтр людей по active_type_nm — любой набор типов,
+   выпадающим списком (типов много). По умолчанию — тип «Активная» (в пробнике — meta.act_def датасета);
+   подрядчики в активную не входят — их добавляют галочкой. Отмечены все — все, кто числится. Не разрез:
+   численность, найм, отток, переводы, ССЧ и текучесть, состав — всё по выбранным типам.
+   Состояние: hcType 'active' — набор по умолчанию, 'all' — все типы, 'set' — свой набор hcSet. */
+const HC_DEMO=[['Активная',.80],['Подрядчики',.05],['Стажеры',.07],['Декрет',.04],['Кандидаты в учебных юнитах',.04]];
+const HC_TYPES=REAL&&REAL.actTypes.length?REAL.actTypes:HC_DEMO.map(x=>x[0]);
+const HC_DEF=REAL&&REAL.actDef.length?REAL.actDef:['Активная'];
+const lcs=a=>a.map(x=>String(x).toLowerCase());
+/* типы выбора: null — все */
+function hcSel(st){return st.hcType==='all'?null:st.hcType==='set'&&st.hcSet&&st.hcSet.length?st.hcSet:HC_DEF}
+/* набор типов → состояние: совпал с набором по умолчанию — 'active', со всеми типами — 'all' */
+function hcNorm(list){
+  const l=lcs(list), has=x=>l.indexOf(String(x).toLowerCase())>=0, eq=a=>a.length===l.length&&a.every(has);
+  if(eq(HC_DEF))return {hcType:'active',hcSet:[]};
+  if(HC_TYPES.every(has))return {hcType:'all',hcSet:[]};
+  const known=lcs(HC_TYPES);
+  return {hcType:'set',hcSet:HC_TYPES.filter(has).concat(list.filter(x=>known.indexOf(String(x).toLowerCase())<0))};
+}
+/* подпись выбора: «активная численность», «вся численность» или сами типы (длинный список — коротко) */
+function hcTypesShort(list){return list.length<=2?list.join(', '):list.slice(0,2).join(', ')+' и ещё '+(list.length-2)}
+function hcLabel(st){
+  return st.hcType==='all'?'вся численность':st.hcType==='set'&&st.hcSet&&st.hcSet.length?
+    'типы: '+hcTypesShort(st.hcSet):'активная численность';
+}
+/* Макет: в «Активной» численность — активная, потоки — в той же доле от всей (стажёры и неактивные —
+   вне отбора); свой набор — как «Активная», число людей в окне — по доле типов. В пробнике тип
+   применяет датасет. */
 let HC_MODE='active';
 function setHcMode(t){HC_MODE=t==='all'?'all':'active'}
 
@@ -695,27 +717,34 @@ const PICK=REAL?REAL.pick:{
     return n?{name:n.name,lvl:n.level,head:n.head?n.head.login:'',kids:childrenOf(p).filter(x=>!x.direct).length}:null},
   all:()=>NODES.filter(n=>!n.direct).map(n=>n.path)
 };
-/* d — ключи состояния (paint, itSeg, staffType); null — посчитать нельзя (прежний датасет без fd) */
+/* d — ключи состояния (paint, itSeg, staffType, hcType, hcSet); null — посчитать нельзя (прежний датасет без fd) */
 function draftCount(p,d){
   if(REAL)return REAL.pick.count(p,{paint:REAL.filterValue('paint',d.paint),it:REAL.filterValue('itSeg',d.itSeg),
-    staff:REAL.filterValue('staffType',d.staffType),act:d.hcType==='all'?null:REAL.filterValue('hcType','active')});
-  const m0=HC_MODE;setHcMode(d.hcType);
-  const v=Math.round(lastVal(reportLeaves(Object.assign({},d,{unit:p})),'hc_total'));
-  setHcMode(m0);return v;
+    staff:REAL.filterValue('staffType',d.staffType),act:hcSel(d)});
+  const m0=HC_MODE,at=m=>{setHcMode(m);return lastVal(reportLeaves(Object.assign({},d,{unit:p})),'hc_total')};
+  const all=at('all'),act=at('active');
+  setHcMode(m0);
+  if(d.hcType!=='set')return Math.round(d.hcType==='all'?all:act);
+  /* макет, свой набор: активную делят типы набора по умолчанию, остальное — прочие типы, в долях HC_DEMO;
+     так сумма строк списка = числу на кнопке */
+  const def=lcs(HC_DEF),sel=lcs(d.hcSet||[]),isD=x=>def.indexOf(x[0].toLowerCase())>=0;
+  const sD=HC_DEMO.filter(isD).reduce((a,x)=>a+x[1],0),sO=HC_DEMO.filter(x=>!isD(x)).reduce((a,x)=>a+x[1],0);
+  return Math.round(HC_DEMO.filter(x=>sel.indexOf(x[0].toLowerCase())>=0)
+    .reduce((a,x)=>a+(isD(x)?act*x[1]/sD:(all-act)*x[1]/sO),0));
 }
 function benchmarkLabel(st){
   const parts=[];
   if(st.paint!=='all')parts.push(st.paint);
   if(st.itSeg!=='all')parts.push(st.itSeg);
   if(st.staffType!=='all')parts.push(st.staffType==='staff'?'штат':'не штат');
-  return (parts.length?('всё '+parts.join(' ')):'вся компания')+(st.hcType==='all'?', вся численность':'');
+  return (parts.length?('всё '+parts.join(' ')):'вся компания')+(st.hcType==='all'||st.hcType==='set'?', '+hcLabel(st):'');
 }
 function filterChips(st){
   const out=[];
   if(st.paint!=='all')out.push({k:'paint',label:st.paint});
   if(st.itSeg!=='all')out.push({k:'itSeg',label:st.itSeg});
   if(st.staffType!=='all')out.push({k:'staffType',label:st.staffType==='staff'?'штат':'не штат'});
-  if(st.hcType==='all')out.push({k:'hcType',label:'вся численность'});
+  if(st.hcType==='all'||st.hcType==='set')out.push({k:'hcType',label:hcLabel(st)});
   return out;
 }
 
@@ -1085,7 +1114,7 @@ function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',
    показывает ровно то, что пришло, а не то, что хотелось бы. */
 const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.paint:'HQ',
   itSeg:REAL?REAL.applied.itSeg:'all',staffType:REAL?REAL.applied.staffType:'all',
-  hcType:REAL?REAL.applied.hcType:'active',period:PERIOD_LABEL,
+  hcType:REAL?REAL.applied.hcType:'active',hcSet:REAL?REAL.applied.hcSet:[],period:PERIOD_LABEL,
   tab:'onepager',subTab:null,selNode:null,aiOpen:false,
   /* скрытые пользователем метрики; пусто = показаны все */
   hiddenMetrics:[],
@@ -2358,7 +2387,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,
-  COUNT_METRICS,vacancyBreakdown,kpiAt,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HCTYPES,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
+  COUNT_METRICS,vacancyBreakdown,kpiAt,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
   metricSeries,reasonSeries,aggregate,lastVal,deltas,deltasOf,compareState,stateForKpi,kpiFor,comparable,

@@ -379,6 +379,18 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
    Список прокручивается внутри себя, иначе модалка с 19 метриками уезжает
    за экран и кнопка «Применить» оказывается недостижима. */
 .opts.tight .opt{padding:6px 11px;font-size:12px}
+/* тип численности (поставка 61): все типы выпадающим списком — их много; строки — как в выборе метрик */
+.opts>.hcd{flex:1 1 100%;position:relative}
+.hcd-b{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;border:1px solid var(--line);background:#fff;border-radius:var(--r3);padding:8px 12px;font:inherit;font-size:13px;color:var(--ink2);cursor:pointer;text-align:left}
+.hcd-b:hover,.hcd.open .hcd-b{border-color:var(--act)}
+.hcd-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hcd .opt-n{color:var(--muted);font-variant-numeric:tabular-nums}
+.hcd-c{flex:none;width:7px;height:7px;border:solid var(--muted);border-width:0 1.5px 1.5px 0;transform:rotate(45deg);margin:-4px 2px 0 2px}
+.hcd.open .hcd-c{transform:rotate(-135deg);margin-top:3px}
+.hcd-p{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:#fff;border:1px solid var(--line);border-radius:var(--r3);box-shadow:var(--shadow-lg);padding:8px}
+.hcd.open .hcd-p{display:block}
+.hcd-l{max-height:232px;overflow-y:auto}
+.hcd-l .mp-i .opt-n{margin-left:auto;padding-left:8px}
 .mpick{margin-top:10px;border:1px solid var(--line);border-radius:var(--r3);background:#fcfcfd;max-height:236px;overflow-y:auto}
 .mpick-g{padding:9px 11px 11px;border-bottom:1px solid var(--line2)}
 .mpick-g:last-child{border-bottom:0}
