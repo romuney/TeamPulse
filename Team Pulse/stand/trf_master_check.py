@@ -55,22 +55,16 @@ def norm(r):
 
 def master(rows, grid_start, lm, multi):
     """события мастер-отчёта: (узел, месяц, вид, покраска, IT, штат, тип, fu, fa, fp, fi, fs, in_ok,
-    x_покраска, x_IT, x_штат, x_тип) → число. x_… — значения соседнего дня у строк со сменой атрибута (вчера для
-    «в», завтра для «из»): по ним датасет решает, перевод ли смена при фильтре из нескольких значений"""
+    x_покраска, x_IT, x_штат, x_тип) → число. x_… пустые: с поставки 63 флаг смены атрибута считается как есть,
+    без сверки со значением соседнего дня (значения соседнего дня — только в детализации, teampulse_hub_trfe)"""
     rs = [dict(t) for t in set(norm(r) for r in rows)]         # одинаковые строки дня — одна
-    day = {}
-    for v in rs:                                               # значения дня; строк несколько — меньшее
-        k = (v['e'], v['dt'])
-        cur = (v['pa'], v['it'], v['st'], v['ac'])
-        day[k] = tuple(min(a, b) for a, b in zip(day[k], cur)) if k in day else cur
     none = (None, None, None, None)
     out = Counter()
     for v in rs:
         ms = lambda d: dt.date(d.year, d.month, 1)
         nodes = [(v[f'k{i}'], v[f'ui{i}'], v[f'uo{i}']) for i in LV if v[f'k{i}'] != '-'] + ([('all', 0, 0)] if multi else [])
         cut = (v['pa'], v['it'], v['st'], v['ac'])
-        xi = day.get((v['e'], v['dt'] - dt.timedelta(1)), none) if v['ia'] + v['ip'] + v['ii'] + v['ist'] else none
-        xo = day.get((v['e'], v['dt'] + dt.timedelta(1)), none) if v['oa'] + v['oq'] + v['oi'] + v['ost'] else none
+        xi = xo = none
         for n, ui, uo in nodes:
             if not v['hf'] and (ui or v['ia'] or v['ip'] or v['ii'] or v['ist']):
                 out[(n, ms(v['dt']), 'i') + cut + (ui, v['ia'], v['ip'], v['ii'], v['ist'], 1 - v['cv']) + xi] += 1
