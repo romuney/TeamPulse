@@ -4,6 +4,7 @@
 # источник и его колонки, — SQL так не умеет. Два коротких запроса; тяжёлых шагов здесь нет.
 # Нет источника — таблица пустая, отчёт работает: логины пустые, AI «в разработке».
 #   teampulse_hub_head  юнит → логин руководителя на дату данных (для teampulse_hub_unit, параграф «hub · 3»)
+#   teampulse_hub_login сотрудник → логин на ту же дату (детализация переводов, параграф «hub · 5», поставка 63)
 #   teampulse_hub_ai    узел × месяц: WAU AI-инструментов и проникновение (по юниту и компании)
 # =============================================================================
 from dal_client import query as dal
@@ -84,11 +85,22 @@ order by unit_rk, w desc, n desc, head_login
 distributed by (unit_rk)""")
     print(f"[OK] {HUB_P}_head: логины из {_t} на {_hdt} — "
           f"{_hub_q(f'select count(*) as n from {HUB_P}_head')['n'].iloc[0]} юнитов")
+    # поставка 63: логины сотрудников на ту же дату — для детализации переводов (hub · 5). Ушедших до этой
+    # даты нет — у них в детализации только шифр
+    _hub_q(f"""
+drop table if exists {HUB_P}_login;
+create table {HUB_P}_login as
+select h.erk, h.login from {_hh} h where h.login is not null
+distributed by (erk)""")
 else:
     _hub_q(f"""
 drop table if exists {HUB_P}_head;
 create table {HUB_P}_head as select ''::text as unit_rk, ''::text as head_login where false
 distributed by (unit_rk)""")
+    _hub_q(f"""
+drop table if exists {HUB_P}_login;
+create table {HUB_P}_login as select 0::bigint as erk, ''::text as login where false
+distributed by (erk)""")
     print(f'[WARN] логинов руководителей нет ни в одном источнике {[t for t, _ in HUB_HEAD_SRC]} — логины пустые')
 
 # 12. AI-инструменты — как в прод-ноутбуке HQ: WAU и проникновение посчитаны в источнике по юниту (строка

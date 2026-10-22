@@ -1080,6 +1080,26 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;box-shadow:0 2px 8px rgba(20,32,60,.08)}
 .sl-shelf.off{visibility:hidden}
 .k-ph{visibility:hidden}
+/* детализация переводов (поставка 63) */
+.trd-open{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
+.modal.trd{max-width:1180px}
+.trd-h{display:flex;align-items:flex-start;gap:var(--s6)}
+.trd-h>div{flex:1;min-width:0}
+.trd-x{flex:0 0 auto}
+.trd-ctl{display:flex;flex-direction:column;gap:var(--s5);margin-bottom:var(--s7)}
+.trd-ctl .opts{flex-wrap:wrap}
+.trd-ctl2{display:flex;gap:var(--s7);flex-wrap:wrap}
+.trd-load{padding:var(--s10) 0;color:var(--muted)}
+.trd-sum{margin-bottom:var(--s7)}
+.trd-sum .trd-bad td{background:var(--red-bg)}
+.trd-of{color:var(--muted);font-size:var(--fs-note)}
+.trd-wrap{max-height:52vh;overflow:auto;border:1px solid var(--line2);border-radius:var(--r3)}
+.trd-tbl{table-layout:fixed;width:100%}
+.trd-tbl td{vertical-align:top;white-space:normal;overflow-wrap:anywhere}
+.trd-tbl tr.trd-no td{color:var(--muted)}
+.trd-k{display:inline-block;min-width:22px;padding:1px 6px;border-radius:var(--r-pill);font-size:var(--fs-note);text-align:center}
+.trd-k.i{background:var(--green-bg);color:var(--green-tx)}.trd-k.o{background:var(--red-bg);color:var(--red-tx)}
+.trd-ok{color:var(--green-tx)}
 
 /* ---------- Конструктор своего среза ----------
    Две оси и содержимое клетки стоят одной строкой над таблицей и отделены от
@@ -2424,6 +2444,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
       <button class="btn primary" id="btnApply">Применить</button>
     </div>
   </div>
+</div>
+
+<!-- ===== Детализация переводов (поставка 63): кто перевёлся, какие события засчитаны и почему ===== -->
+<div class="ovl hidden" id="trdOvl">
+  <div class="modal wide trd" id="trdBody"></div>
 </div>
 
 <!-- ===== Модалка «Как читать отчёт» ===== -->
@@ -4882,6 +4907,65 @@ function officeCross(lp,seg,city){
     seg:sg,city:c,att:+att.toFixed(1),factor:base?att/base:1};
 }
 
+/* ---------- Детализация переводов (поставка 63) ----------
+   Кто перевёлся в подразделение и из него за выбранные месяцы: событие — строка источника за день с флагом,
+   «засчитано / почему нет» — тем же правилом, что переводы отчёта. На бою события приходят строкой ev
+   датасета 2а по запросу (trd_f — подразделение, trm_f — месяцы); в макете — генератор, согласованный с
+   рядами переводов: засчитанных событий месяца ровно столько, сколько переводов в отчёте.
+   Событие: dt, month ('ГГГГ-ММ' — месяц отчёта, «из» в последний день — следующий), kind ('i' | 'o'), login,
+   code (шифр сотрудника), cut (срез дня: paint, it, staff, act), x (по другую сторону: вчера для «в», завтра
+   для «из»; unit — подразделение), f (флаги: u — юнит этого уровня, a — тип, p — покраска, i — IT,
+   s — оформление), inOk (не кандидат и не стажёр), st (ok, flt, attr, cand, hire) */
+const mkey=mo=>mo.y+'-'+String(mo.m+1).padStart(2,'0');
+/* месяцы детализации — 13 последних месяцев отчёта (как таблица событий ноутбука) */
+function trfMonths(){return MONTHS.slice(-13).map(mkey)}
+function trfReport(lp,month){
+  const i=MONTHS.findIndex(mo=>mkey(mo)===month);
+  if(i<0||!lp.length)return null;
+  return {tin:Math.round(aggregate(lp,'transfer_in')[i]||0),tout:Math.round(aggregate(lp,'transfer_out')[i]||0)};
+}
+function trfDetail(path,months,st){
+  if(REAL){
+    const t=REAL.trd, id=REAL.idOf(path);
+    if(!t||t.id!==id)return null;
+    return {months:t.months,n:t.n,ev:t.ev,cut:t.n>t.ev.length};
+  }
+  const lp=leavesUnder(path).map(l=>l.path).filter(p=>leafPasses(p,st));
+  const others=NODES.filter(n=>n.path!==path&&n.path.indexOf(path+'/')!==0&&n.parent);
+  const r=rng(lpSeed(lp,'trd'+path)), pick=a=>a[Math.floor(r()*a.length)];
+  const hex=k=>{let h='';for(let j=0;j<10;j++)h+='0123456789abcdef'[Math.floor(r()*16)];return h};
+  const people=Array.from({length:60},(_,k)=>({login:'user'+(100+Math.floor(r()*900)),code:hex(k)}));
+  const ev=[];
+  const base={paint:st.paint&&st.paint!=='all'?st.paint:'HQ',it:st.itSeg&&st.itSeg!=='all'?st.itSeg:'IT',
+    staff:st.staffType==='nonstaff'?'Не штат':'Штат',act:'Активная'};
+  months.forEach(m=>{
+    const rep=trfReport(lp,m);
+    if(!rep)return;
+    const [y,mm]=m.split('-').map(Number), days=new Date(y,mm,0).getDate();
+    const day=d=>m+'-'+String(d).padStart(2,'0');
+    const add=(kind,o)=>{
+      const p=pick(people), d=1+Math.floor(r()*(days-1));
+      ev.push(Object.assign({dt:day(d),month:m,kind:kind,login:p.login,code:p.code,cut:Object.assign({},base),
+        x:{paint:'',it:'',staff:'',act:'',unit:''},f:{u:0,a:0,p:0,i:0,s:0},inOk:true,st:'ok'},o(p)));
+    };
+    const unitEv=()=>({f:{u:1,a:0,p:0,i:0,s:0},x:{paint:base.paint,it:base.it,staff:base.staff,act:base.act,unit:pick(others).path}});
+    for(let k=0;k<rep.tin;k++)add('i',()=>r()<0.8?unitEv():
+      {f:{u:0,a:1,p:0,i:0,s:0},x:{paint:base.paint,it:base.it,staff:base.staff,act:'Декрет',unit:path}});
+    for(let k=0;k<rep.tout;k++)add('o',()=>Object.assign(unitEv(),
+      /* часть «из» — в последний день прошлого месяца: такие идут следующим месяцем */
+      k===0&&r()<0.6?{dt:(mm===1?(y-1)+'-12':y+'-'+String(mm-1).padStart(2,'0'))+'-'+
+        String(new Date(y,mm-1,0).getDate()).padStart(2,'0')}:{}));
+    /* события, которые отчёт не засчитывает: стажёр в штат, строка вне фильтров, смена атрибута без фильтра */
+    if(r()<0.8)add('i',()=>({f:{u:0,a:1,p:0,i:0,s:0},inOk:false,st:st.hcType==='all'?'cand':'hire',
+      x:{paint:base.paint,it:base.it,staff:base.staff,act:'Стажеры',unit:path}}));
+    if(r()<0.6)add('o',()=>Object.assign(unitEv(),{cut:Object.assign({},base,{act:'Стажеры'}),st:'flt'}));
+    if(r()<0.5&&(!st.paint||st.paint==='all'))add('i',()=>({f:{u:0,a:0,p:1,i:0,s:0},st:'attr',
+      x:{paint:'Line',it:base.it,staff:base.staff,act:base.act,unit:path}}));
+  });
+  ev.sort((a,b)=>a.month<b.month?-1:a.month>b.month?1:a.dt<b.dt?-1:a.dt>b.dt?1:a.kind<b.kind?-1:1);
+  return {months:months,n:ev.length,ev:ev,cut:false};
+}
+
 /* ---------- AI: инструменты и стримы ----------
    Проникновение по инструменту не больше общего: инструменты пересекаются,
    человек с двумя инструментами в общем проникновении один. Поэтому у
@@ -4905,7 +4989,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,hcFunnel,avgAge,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
-  attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
+  attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,trfMonths,trfReport,trfDetail,
   COUNT_METRICS,vacancyBreakdown,kpiAt,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
@@ -9312,6 +9396,9 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 /* 20.10: начало — численность на 1-е число первого месяца окна (а не на конец этого месяца:
    его найм и отток уже в потоках, и месяц уходил в «Прочее»), конец — на дату данных; даты —
    под подписями «Начало» и «Конец» */
+/* поставка 63: детализация переводов — кто перевёлся, по месяцам, со сверкой с отчётом и выгрузкой */
+const TRD_BTN='<div class="trd-open"><button class="btn ghost" data-trd="1">Кто перевёлся — детализация переводов</button>'+
+  '<span class="tbl-note">Подразделение — выбранная строка таблицы, иначе юнит отчёта.</span></div>';
 function balancedSteps(lp){
   const hc=D.aggregate(lp,'hc_total'), begin=hc[0], end=hc[D.LAST];
   const hire=D.winSum(lp,'hire'), tin=D.winSum(lp,'transfer_in');
@@ -9351,13 +9438,13 @@ SC.blocks.movement={
            иначе водопад рядом красит те же переводы зелёным и красным. */
         SC.yoyPair(ctx.lp,'transfer_in','transfer_out',
         {h:240,title:'Переводы внутри компании, чел',
-         legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]});
+         legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]})+TRD_BTN;
     }
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
     return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
         title:'Изменение численности, чел',
         legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
-      U.storyFacts(ctx.story&&ctx.story.insights,'Что важно');
+      U.storyFacts(ctx.story&&ctx.story.insights,'Что важно')+TRD_BTN;
   }
 };
 })();
@@ -10297,6 +10384,20 @@ function emitPend(mask,nonce){
   return ENV.emit(nonce?mask.concat([{column:'tp_nonce',operator:'IN',value:[String(Date.now())]}]):mask);
 }
 let _pendT=null, _staleT=null;
+/* маска кросс-фильтров запроса (вынесена из request в поставке 63: ею же пользуется детализация переводов) */
+function maskOf(next){
+  const id=unitId(next.unit), mask=[];
+  /* юнит по умолчанию не шлём: ответ без фильтра юнита общий для всех */
+  if(id&&id!==D.REAL.defId)mask.push({column:'unit_f',operator:'IN',value:[id]});
+  [['paint','paint_f'],['itSeg','it_f'],['staffType','staff_f']].forEach(([k,col])=>{
+    const v=next[k]!=='all'&&D.REAL.cuts.has(col.replace('_f',''))?D.REAL.filterValue(k,next[k]):null;
+    if(v)mask.push({column:col,operator:'IN',value:[v]});
+  });
+  /* тип численности: «Активная» — ответ датасета по умолчанию, не шлём; все типы («Вся») и свой набор — act_f */
+  if(next.hcType==='all'&&D.REAL.cuts.has('act'))mask.push({column:'act_f',operator:'IN',value:[D.REAL.filterValue('hcType','all')]});
+  if(next.hcType==='set'&&D.REAL.cuts.has('act'))mask.push({column:'act_f',operator:'IN',value:(next.hcSet||[]).slice()});
+  return mask;
+}
 function request(next){
   const id=unitId(next.unit);
   if(!id)return;
@@ -10308,16 +10409,9 @@ function request(next){
     if(Date.now()-was.at>STALE_WAIT&&was.tries<MAX_RESEND+1){was.tries++;was.at=Date.now();emitPend(was.mask,true)}
     renderHead();return;
   }
-  const mask=[];
-  /* юнит по умолчанию не шлём: ответ без фильтра юнита общий для всех */
-  if(id!==D.REAL.defId)mask.push({column:'unit_f',operator:'IN',value:[id]});
-  [['paint','paint_f'],['itSeg','it_f'],['staffType','staff_f']].forEach(([k,col])=>{
-    const v=next[k]!=='all'&&D.REAL.cuts.has(col.replace('_f',''))?D.REAL.filterValue(k,next[k]):null;
-    if(v)mask.push({column:col,operator:'IN',value:[v]});
-  });
-  /* тип численности: «Активная» — ответ датасета по умолчанию, не шлём; все типы («Вся») и свой набор — act_f */
-  if(next.hcType==='all'&&D.REAL.cuts.has('act'))mask.push({column:'act_f',operator:'IN',value:[D.REAL.filterValue('hcType','all')]});
-  if(next.hcType==='set'&&D.REAL.cuts.has('act'))mask.push({column:'act_f',operator:'IN',value:(next.hcSet||[]).slice()});
+  const mask=maskOf(next);
+  /* новый выбор отчёта — детализация переводов закрывается: её события — для прежнего выбора */
+  TRD.open=false;
   const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
   unitNames[next.unit]=nm;
   unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||unitNames[S.unit]||'';
@@ -10690,6 +10784,120 @@ function toggleMetric(key){
   metricOpts();
 }
 function closeSetup(){$('#setupOvl').classList.add('hidden');DRAFT=null;HCDD=false}
+
+/* ---------- Детализация переводов (поставка 63) ----------
+   Кто перевёлся в подразделение и из него: события за выбранные месяцы, что сработало (флаг юнита или смены
+   атрибута), что было по другую сторону и засчитано ли событие — тем же правилом, что переводы отчёта. Итог
+   месяца сверяется с числами отчёта. «Выгрузить для сверки» — CSV без логинов и названий: шифр сотрудника и
+   флаги, его можно присылать на разбор. Подразделение — выбранная строка таблицы, иначе юнит отчёта.
+   На бою события приходят по запросу (trd_f, trm_f) строкой ev датасета 2а; в макете — генератор. */
+const TRD=keep('trd',{open:false,path:null,months:[],kind:'all',only:'all',loading:false});
+const TRD_FL=[['u','подразделение'],['a','тип численности'],['p','покраска'],['i','IT'],['s','оформление']];
+const TRD_X={a:'act',p:'paint',i:'it',s:'staff'};
+const trdMonthName=m=>{const [y,mm]=m.split('-').map(Number);return D.MONTH_ABBR[mm-1]+' '+y};
+function trdNodeName(k){
+  if(!k)return '—';
+  if(D.REAL)return D.REAL.nameOfId(k)||k;
+  return (D.NODE_BY_PATH[k]||{}).name||k;
+}
+/* срез строки вне фильтров отчёта — каким именно */
+function trdOutside(e){
+  const lc=x=>String(x||'').toLowerCase(), out=[];
+  if(S.paint!=='all'&&lc(e.cut.paint)!==lc(S.paint))out.push('покраска '+e.cut.paint);
+  if(S.itSeg!=='all'&&lc(e.cut.it)!==lc(S.itSeg))out.push('IT-код '+e.cut.it);
+  if(S.staffType!=='all'&&(e.cut.staff==='Штат')!==(S.staffType==='staff'))out.push(lc(e.cut.staff));
+  const sel=D.hcSel(S);
+  if(sel&&sel.map(lc).indexOf(lc(e.cut.act))<0)out.push('тип «'+e.cut.act+'»');
+  return out.join(', ')||'срез строки';
+}
+function trdWhy(e){
+  if(e.st==='ok')return 'засчитано';
+  if(e.st==='flt')return 'вне фильтров: '+trdOutside(e);
+  if(e.st==='attr')return 'смена атрибута без фильтра по нему';
+  if(e.st==='hire')return 'кандидат или стажёр — это найм';
+  if(e.st==='cand')return 'кандидат или стажёр — не перевод';
+  return e.st||'—';
+}
+/* что сработало и что было по другую сторону: «в» — вчера → сегодня, «из» — сегодня → завтра */
+function trdChange(e){
+  return TRD_FL.filter(([k])=>e.f[k]).map(([k,nm])=>{
+    if(k==='u')return nm+': '+(e.kind==='i'?'из «'+trdNodeName(e.x.unit)+'»':'в «'+trdNodeName(e.x.unit)+'»');
+    const a=TRD_X[k], was=e.kind==='i'?e.x[a]:e.cut[a], now=e.kind==='i'?e.cut[a]:e.x[a];
+    return nm+': '+(was||'?')+' → '+(now||'?');
+  });
+}
+function trdLp(path){return SC.rowLeaves(path,S)}
+function trdData(){return TRD.path?D.trfDetail(TRD.path,TRD.months,S):null}
+function trdHTML(){
+  const months=D.trfMonths(), node=D.NODE_BY_PATH[TRD.path]||{name:unitNames[TRD.path]||''};
+  const dt=trdData();
+  const chip=(attr,v,on,label)=>'<button class="opt'+(on?' on':'')+'" '+attr+'="'+esc(v)+'">'+esc(label)+'</button>';
+  let h='<div class="modal-h trd-h"><div><h3>Переводы: '+esc(node.name)+'</h3>'+
+    '<p>Кто перевёлся в подразделение и из него, что сработало и засчитано ли событие — тем же правилом, что числа отчёта. '+
+    'Фильтры — как в отчёте: '+esc(D.benchmarkLabel(S))+'.</p></div>'+
+    '<button class="btn ghost trd-x" data-trdx="1" aria-label="Закрыть">✕</button></div><div class="modal-b">'+
+    '<div class="trd-ctl"><div class="opts tight">'+months.map(m=>chip('data-trdm',m,TRD.months.length===1&&TRD.months[0]===m,trdMonthName(m))).join('')+
+      chip('data-trdm','all',TRD.months.length>1,'13 месяцев')+'</div>'+
+    '<div class="trd-ctl2">'+U.segToggle('data-trdk',[['all','В и из'],['i','В'],['o','Из']],TRD.kind)+
+      U.segToggle('data-trdo',[['all','Все события'],['ok','Засчитанные']],TRD.only)+'</div></div>';
+  if(TRD.loading||!dt)return h+'<div class="trd-load">'+(TRD.loading?'Собираем события…':'Событий нет: выберите месяц.')+'</div></div>';
+  const ev=dt.ev.filter(e=>(TRD.kind==='all'||e.kind===TRD.kind)&&(TRD.only==='all'||e.st==='ok'));
+  /* сверка с отчётом: засчитанные события месяца = переводы отчёта */
+  const lp=trdLp(TRD.path);
+  const sums=dt.months.map(m=>{
+    const r=D.trfReport(lp,m)||{tin:null,tout:null};
+    const ci=dt.ev.filter(e=>e.month===m&&e.kind==='i'&&e.st==='ok').length, co=dt.ev.filter(e=>e.month===m&&e.kind==='o'&&e.st==='ok').length;
+    const ai=dt.ev.filter(e=>e.month===m&&e.kind==='i').length, ao=dt.ev.filter(e=>e.month===m&&e.kind==='o').length;
+    const ok=r.tin==null||(ci===r.tin&&co===r.tout);
+    return '<tr'+(ok?'':' class="trd-bad"')+'><td class="txt">'+esc(trdMonthName(m))+'</td><td>'+ci+' <span class="trd-of">из '+ai+'</span></td><td>'+
+      co+' <span class="trd-of">из '+ao+'</span></td><td>'+(r.tin==null?'—':r.tin+' / '+r.tout)+'</td><td class="txt">'+(r.tin==null?'':ok?'✓ сходится':'не сходится')+'</td></tr>';
+  }).join('');
+  h+='<table class="ptable dense trd-sum"><thead><tr><th class="txt">Месяц</th><th>В: засчитано</th><th>Из: засчитано</th>'+
+    '<th>В отчёте в / из</th><th class="txt"></th></tr></thead><tbody>'+sums+'</tbody></table>';
+  if(dt.cut)h+='<div class="tbl-note">Показаны первые '+D.fmtInt(dt.ev.length)+' событий из '+D.fmtInt(dt.n)+' — выберите один месяц.</div>';
+  h+='<div class="trd-wrap"><table class="ptable dense trd-tbl"><colgroup><col style="width:10%"><col style="width:12%">'+
+    '<col style="width:5%"><col style="width:15%"><col style="width:36%"><col style="width:22%"></colgroup><thead><tr><th class="txt">Дата</th><th class="txt">Месяц</th>'+
+    '<th class="txt"></th><th class="txt">Сотрудник</th><th class="txt">Что сработало</th><th class="txt">Итог</th></tr></thead><tbody>'+
+    (ev.length?ev.map(e=>'<tr class="'+(e.st==='ok'?'':'trd-no')+'"><td class="txt">'+esc(e.dt)+'</td><td class="txt">'+esc(trdMonthName(e.month))+
+      (e.dt.slice(0,7)!==e.month?'<span class="unit-sub">последний день месяца — в следующий</span>':'')+'</td>'+
+      '<td class="txt"><span class="trd-k '+e.kind+'">'+(e.kind==='i'?'в':'из')+'</span></td>'+
+      '<td class="txt">'+esc(e.login||'—')+'<span class="unit-sub">'+esc(e.code)+'</span></td>'+
+      '<td class="txt">'+trdChange(e).map(x=>'<div>'+esc(x)+'</div>').join('')+'</td>'+
+      '<td class="txt">'+(e.st==='ok'?'<b class="trd-ok">засчитано</b>':esc(trdWhy(e)))+'</td></tr>').join('')
+      :'<tr><td class="txt" colspan="6">Событий нет.</td></tr>')+'</tbody></table></div></div>'+
+    '<div class="modal-f"><span class="sp tbl-note">В выгрузке нет логинов и названий подразделений — шифр сотрудника и флаги. '+
+      'Добавьте пометки в колонку note и пришлите файл в чат.</span>'+
+    '<button class="btn ghost" data-trdcopy="1">Скопировать</button><button class="btn primary" data-trdcsv="1">Выгрузить для сверки</button></div>';
+  return h;
+}
+function trdPaint(){
+  const o=$('#trdOvl');if(!o)return;
+  o.classList.toggle('hidden',!TRD.open);
+  if(TRD.open)$('#trdBody').innerHTML=trdHTML();
+}
+/* открыть или перезапросить: в макете события считаются сразу, на бою — запрос с trd_f и trm_f */
+function trdLoad(path,months){
+  Object.assign(TRD,{open:true,path:path,months:months});
+  if(ENV){
+    const id=unitId(path);
+    const cur=D.REAL.trd;
+    const have=cur&&cur.id===id&&months.length===cur.months.length&&months.every(m=>cur.months.indexOf(m)>=0);
+    TRD.loading=!have;
+    if(!have){
+      const mask=maskOf(curReq()).concat([{column:'trd_f',operator:'IN',value:[id]},{column:'trm_f',operator:'IN',value:months.slice()}]);
+      emitPend(mask,true);
+    }
+  }
+  trdPaint();
+}
+function trdCSV(){
+  const dt=trdData();if(!dt)return '';
+  const q=v=>{v=v==null?'':String(v);return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const head=['emp_code','event_date','report_month','kind','unit_flag','type_flag','paint_flag','it_flag','staff_flag','cand_or_intern',
+    'paint','it','staff','type','x_paint','x_it','x_staff','x_type','x_unit_key','counted','why','note'];
+  return '\ufeff'+head.join(';')+'\n'+dt.ev.map(e=>[e.code,e.dt,e.month,e.kind==='i'?'in':'out',e.f.u,e.f.a,e.f.p,e.f.i,e.f.s,e.inOk?0:1,
+    e.cut.paint,e.cut.it,e.cut.staff,e.cut.act,e.x.paint,e.x.it,e.x.staff,e.x.act,e.x.unit,e.st==='ok'?1:0,e.st,''].map(q).join(';')).join('\n')+'\n';
+}
 /* Тип численности (поставка 61): все значения active_type_nm выпадающим списком — их много. Кнопка — выбор и
    сколько людей в нём; в списке — каждый тип с галочкой и числом людей. По умолчанию отмечена «Активная» */
 let HCDD=false;
@@ -10794,6 +11002,8 @@ function render(keepScroll,quiet){
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
   if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
+  /* детализация переводов переживает перезапуск чарта: пришли события — снимаем «Собираем…» */
+  if(TRD.open){if(TRD.loading&&D.trfDetail(TRD.path,TRD.months,S))TRD.loading=false;trdPaint()}
 }
 
 /* Крест в матрицах (итерация 32, фидбэк 12.10): строку подсвечивает CSS
@@ -10971,6 +11181,24 @@ on(document,'click',e=>{
   if(t.closest('#btnHelp')){$('#helpOvl').classList.remove('hidden');return}
   if(t.closest('#btnHelpClose')){$('#helpOvl').classList.add('hidden');return}
   if(t.id==='setupOvl'){closeSetup();return}
+  /* детализация переводов (поставка 63) */
+  if(t.id==='trdOvl'||t.closest('[data-trdx]')){TRD.open=false;trdPaint();return}
+  const trdO=t.closest('[data-trd]');
+  if(trdO){const ms=D.trfMonths();trdLoad(S.selNode||S.unit,TRD.months.length?TRD.months:[ms[ms.length-2]||ms[0]]);return}
+  const trdM=t.closest('[data-trdm]');
+  if(trdM){trdLoad(TRD.path,trdM.dataset.trdm==='all'?D.trfMonths():[trdM.dataset.trdm]);return}
+  const trdK=t.closest('[data-trdk]');
+  if(trdK){TRD.kind=trdK.dataset.trdk;trdPaint();return}
+  const trdF=t.closest('[data-trdo]');
+  if(trdF){TRD.only=trdF.dataset.trdo;trdPaint();return}
+  if(t.closest('[data-trdcsv]')){
+    const csv=trdCSV(), nm='perevody_'+String((ENV?unitId(TRD.path):TRD.path)||'unit').replace(/\W+/g,'').slice(0,12)+'_'+TRD.months[0]+(TRD.months.length>1?'_13m':'')+'.csv';
+    try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+      a.download=nm;(ROOTEL.body||ROOTEL).appendChild(a);a.click();a.remove()}
+    catch(err){navigator.clipboard&&navigator.clipboard.writeText(csv)}
+    return;
+  }
+  if(t.closest('[data-trdcopy]')){navigator.clipboard&&navigator.clipboard.writeText(trdCSV());return}
   if(t.id==='helpOvl'){$('#helpOvl').classList.add('hidden');return}
   if(t.closest('#navToggle')){navOpen(!$('#sideNav').classList.contains('open'));return}
   if(t.id==='navScrim'){navOpen(false);return}
@@ -11232,6 +11460,7 @@ on(document,'keydown',e=>{
   if(e.key==='Escape'&&tq&&e.target.matches&&e.target.matches('[data-tsearch]')){searchInput('',0);return}
   /* Escape (файл «Структура»): сначала выход из полноэкранного конструктора, потом — сброс
      всех срезов состава; окна и меню закрываются, как раньше */
+  if(e.key==='Escape'&&TRD.open){TRD.open=false;trdPaint();return}
   if(e.key==='Escape'){
     const ovl=!$('#setupOvl').classList.contains('hidden')||!$('#helpOvl').classList.contains('hidden');
     closeSetup();$('#helpOvl').classList.add('hidden');navOpen(false);pulse(false);

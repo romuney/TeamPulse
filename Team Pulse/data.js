@@ -2406,6 +2406,65 @@ function officeCross(lp,seg,city){
     seg:sg,city:c,att:+att.toFixed(1),factor:base?att/base:1};
 }
 
+/* ---------- Детализация переводов (поставка 63) ----------
+   Кто перевёлся в подразделение и из него за выбранные месяцы: событие — строка источника за день с флагом,
+   «засчитано / почему нет» — тем же правилом, что переводы отчёта. На бою события приходят строкой ev
+   датасета 2а по запросу (trd_f — подразделение, trm_f — месяцы); в макете — генератор, согласованный с
+   рядами переводов: засчитанных событий месяца ровно столько, сколько переводов в отчёте.
+   Событие: dt, month ('ГГГГ-ММ' — месяц отчёта, «из» в последний день — следующий), kind ('i' | 'o'), login,
+   code (шифр сотрудника), cut (срез дня: paint, it, staff, act), x (по другую сторону: вчера для «в», завтра
+   для «из»; unit — подразделение), f (флаги: u — юнит этого уровня, a — тип, p — покраска, i — IT,
+   s — оформление), inOk (не кандидат и не стажёр), st (ok, flt, attr, cand, hire) */
+const mkey=mo=>mo.y+'-'+String(mo.m+1).padStart(2,'0');
+/* месяцы детализации — 13 последних месяцев отчёта (как таблица событий ноутбука) */
+function trfMonths(){return MONTHS.slice(-13).map(mkey)}
+function trfReport(lp,month){
+  const i=MONTHS.findIndex(mo=>mkey(mo)===month);
+  if(i<0||!lp.length)return null;
+  return {tin:Math.round(aggregate(lp,'transfer_in')[i]||0),tout:Math.round(aggregate(lp,'transfer_out')[i]||0)};
+}
+function trfDetail(path,months,st){
+  if(REAL){
+    const t=REAL.trd, id=REAL.idOf(path);
+    if(!t||t.id!==id)return null;
+    return {months:t.months,n:t.n,ev:t.ev,cut:t.n>t.ev.length};
+  }
+  const lp=leavesUnder(path).map(l=>l.path).filter(p=>leafPasses(p,st));
+  const others=NODES.filter(n=>n.path!==path&&n.path.indexOf(path+'/')!==0&&n.parent);
+  const r=rng(lpSeed(lp,'trd'+path)), pick=a=>a[Math.floor(r()*a.length)];
+  const hex=k=>{let h='';for(let j=0;j<10;j++)h+='0123456789abcdef'[Math.floor(r()*16)];return h};
+  const people=Array.from({length:60},(_,k)=>({login:'user'+(100+Math.floor(r()*900)),code:hex(k)}));
+  const ev=[];
+  const base={paint:st.paint&&st.paint!=='all'?st.paint:'HQ',it:st.itSeg&&st.itSeg!=='all'?st.itSeg:'IT',
+    staff:st.staffType==='nonstaff'?'Не штат':'Штат',act:'Активная'};
+  months.forEach(m=>{
+    const rep=trfReport(lp,m);
+    if(!rep)return;
+    const [y,mm]=m.split('-').map(Number), days=new Date(y,mm,0).getDate();
+    const day=d=>m+'-'+String(d).padStart(2,'0');
+    const add=(kind,o)=>{
+      const p=pick(people), d=1+Math.floor(r()*(days-1));
+      ev.push(Object.assign({dt:day(d),month:m,kind:kind,login:p.login,code:p.code,cut:Object.assign({},base),
+        x:{paint:'',it:'',staff:'',act:'',unit:''},f:{u:0,a:0,p:0,i:0,s:0},inOk:true,st:'ok'},o(p)));
+    };
+    const unitEv=()=>({f:{u:1,a:0,p:0,i:0,s:0},x:{paint:base.paint,it:base.it,staff:base.staff,act:base.act,unit:pick(others).path}});
+    for(let k=0;k<rep.tin;k++)add('i',()=>r()<0.8?unitEv():
+      {f:{u:0,a:1,p:0,i:0,s:0},x:{paint:base.paint,it:base.it,staff:base.staff,act:'Декрет',unit:path}});
+    for(let k=0;k<rep.tout;k++)add('o',()=>Object.assign(unitEv(),
+      /* часть «из» — в последний день прошлого месяца: такие идут следующим месяцем */
+      k===0&&r()<0.6?{dt:(mm===1?(y-1)+'-12':y+'-'+String(mm-1).padStart(2,'0'))+'-'+
+        String(new Date(y,mm-1,0).getDate()).padStart(2,'0')}:{}));
+    /* события, которые отчёт не засчитывает: стажёр в штат, строка вне фильтров, смена атрибута без фильтра */
+    if(r()<0.8)add('i',()=>({f:{u:0,a:1,p:0,i:0,s:0},inOk:false,st:st.hcType==='all'?'cand':'hire',
+      x:{paint:base.paint,it:base.it,staff:base.staff,act:'Стажеры',unit:path}}));
+    if(r()<0.6)add('o',()=>Object.assign(unitEv(),{cut:Object.assign({},base,{act:'Стажеры'}),st:'flt'}));
+    if(r()<0.5&&(!st.paint||st.paint==='all'))add('i',()=>({f:{u:0,a:0,p:1,i:0,s:0},st:'attr',
+      x:{paint:'Line',it:base.it,staff:base.staff,act:base.act,unit:path}}));
+  });
+  ev.sort((a,b)=>a.month<b.month?-1:a.month>b.month?1:a.dt<b.dt?-1:a.dt>b.dt?1:a.kind<b.kind?-1:1);
+  return {months:months,n:ev.length,ev:ev,cut:false};
+}
+
 /* ---------- AI: инструменты и стримы ----------
    Проникновение по инструменту не больше общего: инструменты пересекаются,
    человек с двумя инструментами в общем проникновении один. Поэтому у
@@ -2429,7 +2488,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,hcFunnel,avgAge,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
-  attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
+  attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,trfMonths,trfReport,trfDetail,
   COUNT_METRICS,vacancyBreakdown,kpiAt,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,

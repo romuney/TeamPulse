@@ -12,6 +12,7 @@
                             переводы считаются под выбранные фильтры (с поставки 59)
       teampulse_hub_vacancy вакансии: узел × месяц × разрезы вакансии; фильтры среза на них не действуют
       teampulse_hub_ai      AI-инструменты: узел × месяц — WAU, проникновение; фильтры среза не действуют
+      teampulse_hub_trfe    события переводов (поставка 63): только для детализации — по запросу (trd_f)
     Таблиц trf, vacancy, ai нет (ноутбук до поставок 49 и 50) — датасет падает: сначала ноутбук.
 
     Поставка 53 (21.10) — скорость. Замер боя (файлы 8, 8б): запрос ждал 7–12 с, и почти всё — не чтение
@@ -71,6 +72,10 @@
 {#- Значения фильтров собираются циклом: при сохранении датасета Proteus отдаёт
     вместо списка AlwaysTrueObject — у него нет ни длины, ни «+». -#}
 {% set unit_req = [] %}{% for v in (filter_values('unit_f') or []) %}{% if v|string|trim != '' and unit_req|length < 1 %}{% set _ = unit_req.append(v|string|trim) %}{% endif %}{% endfor %}
+{#- Детализация переводов (поставка 63): trd_f — ключ подразделения, trm_f — месяцы «ГГГГ-ММ» (до 13). Без trd_f
+    блока нет и запрос тот же, что был. -#}
+{% set trd_req = [] %}{% for v in (filter_values('trd_f') or []) %}{% if v|string|trim != '' and trd_req|length < 1 %}{% set _ = trd_req.append(v|string|trim) %}{% endif %}{% endfor %}
+{% set trm_req = [] %}{% for v in (filter_values('trm_f') or []) %}{% if v|string|length >= 7 and trm_req|length < 13 %}{% set _ = trm_req.append((v|string)[:7] ~ '-01') %}{% endif %}{% endfor %}
 {#- Тип численности строки: act_cd матчером; колонки нет — «∅» (строка проходит любой фильтр типа). -#}
 {% set AC = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY(toString)], CAST(['∅'], 'Array(Nullable(String))')), 1), '∅')" %}
 {% set CUTS = [['paint', 'paint_f', "ifNull(paint_cd, '-')"], ['it', 'it_f', "ifNull(it_cd, '-')"], ['staff', 'staff_f', "ifNull(staff_cd, '-')"], ['act', 'act_f', AC]] %}
@@ -96,16 +101,15 @@
     боя. Строка переходов ноутбука — событие дня с флагом источника; срез строки — состояние этого дня (фильтры —
     в WHERE). Перевод засчитан, если у строки флаг юнита этого уровня (fu) или смены атрибута, по которому выбран
     фильтр: fa — тип численности (по умолчанию «Активная»), fp — покраска, fi — IT-код, fs — тип оформления. Без
-    фильтра смена атрибута — не перевод. Фильтр из нескольких значений (Line + Support, Активная + Подрядчики) —
-    смена засчитана, только если по другую сторону (x_…: вчера для «в», завтра для «из») значение вне выбора:
-    Line → Support и Подрядчики → Активная при выборе «Активная + Подрядчики» — не перевод, при одной «Активной» —
-    перевод «в».
-    in_ok = 0 — кандидат или стажёр: при выборе типов — найм, на всей — перевод.
+    фильтра смена атрибута — не перевод. Флаг смены засчитан как есть и при фильтре из нескольких значений:
+    Подрядчики → Активная при выборе «Активная + Подрядчики» — и «из», и «в», как в мастер-отчёте (поставка 63,
+    сверено на выгрузке боя 22.10; x_… больше не нужны).
+    in_ok = 0 — кандидат или стажёр: из «в» исключается всегда (как в transfers.yaml); при выборе типов — найм.
     Найм (hit) — по дню события: найм в компанию (вид h) и, при выборе типов, такие переходы. -#}
 {% set FK = {'act': 'fa', 'paint': 'fp', 'it': 'fi', 'staff': 'fs'} %}
-{% set fl = ['ifNull(fu, 0) = 1'] %}{% for c in CUTS %}{% set fv = F[c[0]] %}{% if fv|length == 1 %}{% set _ = fl.append('ifNull(' ~ FK[c[0]] ~ ', 0) = 1') %}{% elif fv|length > 1 %}{% set _ = fl.append('(ifNull(' ~ FK[c[0]] ~ ', 0) = 1 AND NOT (lowerUTF8(ifNull(x_' ~ c[0] ~ "_cd, '')) IN " ~ ql(fv) ~ '))') %}{% endif %}{% endfor %}
+{% set fl = ['ifNull(fu, 0) = 1'] %}{% for c in CUTS %}{% if F[c[0]]|length > 0 %}{% set _ = fl.append('ifNull(' ~ FK[c[0]] ~ ', 0) = 1') %}{% endif %}{% endfor %}
 {% set FLG = '(' ~ fl|join(' OR ') ~ ')' %}
-{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ (" AND ifNull(in_ok, 1) = 1" if act_on else "") ~ ")" %}
+{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 1)" %}
 {% set HI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'h'" ~ (" OR (ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 0)" if act_on else "") ~ ")" %}
 {% set TU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND " ~ FLG ~ ")" %}
 {#- Метрики: ключ, таблица (s — series, t — trf, v — vacancy, a — ai), выражение. Порядок — порядок в ms. -#}
@@ -325,6 +329,34 @@ FROM
   LEFT JOIN fdr AS f ON f.fr = t.id
 
   UNION ALL
+
+{%- if trd_req %}
+  {#- Детализация переводов: события подразделения за выбранные месяцы, по строке «дата \t месяц \t в/из \t логин
+      \t шифр \t покраска \t IT \t штат \t тип \t то же по другую сторону (вчера для «в», завтра для «из») \t
+      подразделение по другую сторону \t fu fa fp fi fs \t in_ok \t итог». Итог — тем же правилом, что переводы
+      отчёта: ok — засчитано; flt — строка вне фильтров; attr — флаг смены атрибута, по которому фильтр не стоит;
+      cand — кандидат или стажёр (не перевод); hire — то же при выбранном типе численности (это найм). Не больше
+      5000 событий — в nm их всего #}
+  SELECT toUInt8(8) AS o, 'ev' AS role, {{ qs(trd_req[0]) }} AS id, {{ qs(trm_req|join(',')) }} AS pid, toInt32(0) AS lvl,
+         toString(count()) AS nm, toUInt32(0) AS kids,
+         arrayStringConcat(arraySlice(arraySort(groupArray(ln)), 1, 5000), '\n') AS j, '' AS ms, '' AS mx
+  FROM
+  (
+    SELECT concat(toString(ev_dt), '\t', toString(report_month), '\t', ifNull(trf_kind, ''), '\t', ifNull(login, ''), '\t',
+                  ifNull(emp_code, ''), '\t', ifNull(paint_cd, '-'), '\t', ifNull(it_cd, '-'), '\t', ifNull(staff_cd, '-'), '\t',
+                  {{ AC }}, '\t', ifNull(x_paint_cd, ''), '\t', ifNull(x_it_cd, ''), '\t', ifNull(x_staff_cd, ''), '\t',
+                  ifNull(x_act_cd, ''), '\t', ifNull(x_unit, ''), '\t',
+                  toString(ifNull(fu, 0)), toString(ifNull(fa, 0)), toString(ifNull(fp, 0)), toString(ifNull(fi, 0)),
+                  toString(ifNull(fs, 0)), '\t', toString(ifNull(in_ok, 1)), '\t',
+                  multiIf(NOT ({{ cond() }}), 'flt', NOT {{ FLG }}, 'attr',
+                          ifNull(trf_kind, '') = 'i' AND ifNull(in_ok, 1) = 0, '{{ 'hire' if act_on else 'cand' }}', 'ok')) AS ln
+    FROM prod_proteus.teampulse_hub_trfe
+    WHERE ifNull(node_rk, '') = {{ qs(trd_req[0]) }}
+      {%- if trm_req %} AND toDate(assumeNotNull(report_month)) IN ({% for m in trm_req %}toDate({{ qs(m) }}){% if not loop.last %}, {% endif %}{% endfor %}){% endif %}
+  )
+
+  UNION ALL
+{%- endif %}
 
   SELECT toUInt8(9) AS o, 'end' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids,
          '' AS j, '' AS ms, '' AS mx

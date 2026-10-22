@@ -574,11 +574,15 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, h
     return T
 
 
-def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE):
+def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE, chg=()):
     """переводы под фильтры (21.10, заказчик): переход — день, когда у человека сменился юнит или
     срез (покраска, IT-код, штат, тип численности). Выбор — узел и фильтры (pred, типы численности act;
     None — все). В выбор — вчера человек был вне выбора, сегодня внутри; из выбора — наоборот. Месяц —
-    дня перехода. В выбор — не в день перевода стажёра в штат / учебной группы в боевую (это найм)"""
+    дня перехода. В выбор — не в день перевода стажёра в штат / учебной группы в боевую (кандидат и стажёр
+    из «в» исключаются всегда, как в transfers.yaml мастер-отчёта; поставка 63).
+    chg — история атрибутов, по которым стоит фильтр ('operh', 'ith', 'relh', 'acth'): смена такого атрибута,
+    когда человек и вчера, и сегодня внутри выбора (Подрядчики → Активная при «Активная + Подрядчики»), — и
+    «из», и «в»: мастер-отчёт считает флаг смены как есть (сверено на выгрузке 22.10, поставка 63)"""
     T = defaultdict(lambda: defaultdict(float))
     root = ['all'] if ROOTS > 1 else []
     F = lambda p, d: pred(p, d) and (act is None or at(p['acth'], d) in act)
@@ -594,10 +598,14 @@ def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE):
             m = dt.date(d.year, d.month, 1)
             for n in set(pa) | set(pb):
                 ia, ib = n in pa and fa, n in pb and fb
-                if ib and not ia and not (act and d in conv):   # кандидат/стажёр — найм только на активной
+                if ib and not ia and d not in conv:              # кандидат/стажёр — не перевод
                     T[(n, m)]['tin'] += 1
                 if ia and not ib:
                     T[(n, m)]['tout'] += 1
+                if ia and ib and any(at(p[k], a) != at(p[k], d) for k in chg):
+                    T[(n, m)]['tout'] += 1
+                    if d not in conv:
+                        T[(n, m)]['tin'] += 1
     return T
 
 

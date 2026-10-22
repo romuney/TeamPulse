@@ -1072,6 +1072,26 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;box-shadow:0 2px 8px rgba(20,32,60,.08)}
 .sl-shelf.off{visibility:hidden}
 .k-ph{visibility:hidden}
+/* детализация переводов (поставка 63) */
+.trd-open{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
+.modal.trd{max-width:1180px}
+.trd-h{display:flex;align-items:flex-start;gap:var(--s6)}
+.trd-h>div{flex:1;min-width:0}
+.trd-x{flex:0 0 auto}
+.trd-ctl{display:flex;flex-direction:column;gap:var(--s5);margin-bottom:var(--s7)}
+.trd-ctl .opts{flex-wrap:wrap}
+.trd-ctl2{display:flex;gap:var(--s7);flex-wrap:wrap}
+.trd-load{padding:var(--s10) 0;color:var(--muted)}
+.trd-sum{margin-bottom:var(--s7)}
+.trd-sum .trd-bad td{background:var(--red-bg)}
+.trd-of{color:var(--muted);font-size:var(--fs-note)}
+.trd-wrap{max-height:52vh;overflow:auto;border:1px solid var(--line2);border-radius:var(--r3)}
+.trd-tbl{table-layout:fixed;width:100%}
+.trd-tbl td{vertical-align:top;white-space:normal;overflow-wrap:anywhere}
+.trd-tbl tr.trd-no td{color:var(--muted)}
+.trd-k{display:inline-block;min-width:22px;padding:1px 6px;border-radius:var(--r-pill);font-size:var(--fs-note);text-align:center}
+.trd-k.i{background:var(--green-bg);color:var(--green-tx)}.trd-k.o{background:var(--red-bg);color:var(--red-tx)}
+.trd-ok{color:var(--green-tx)}
 
 /* ---------- Конструктор своего среза ----------
    Две оси и содержимое клетки стоят одной строкой над таблицей и отделены от

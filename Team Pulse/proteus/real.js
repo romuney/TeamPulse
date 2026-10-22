@@ -374,6 +374,21 @@ function build(data){
     },
     lastHc(path){const s=series[path];return s?lastOf(s.hc):0},
     idOf(path){const node=nodeBy[path];return node?node.id:null},
+    /* имя подразделения по ключу — из справочника ответа (детализация переводов: «откуда» и «куда») */
+    nameOfId(id){const u=byId[id];return u?u.name:''},
+    /* поставка 63: детализация переводов — строка ev ответа (только по запросу trd_f): узел, месяцы запроса,
+       сколько событий всего и сами события (не больше 5000) */
+    trd:(function(){
+      const r=rows.find(x=>str(x.role)==='ev');
+      if(!r)return null;
+      const ev=str(r.j).split('\n').filter(Boolean).map(l=>{
+        const f=l.split('\t'), fl=(f[14]||'00000').split('').map(Number);
+        return {dt:f[0],month:str(f[1]).slice(0,7),kind:f[2],login:f[3],code:f[4],
+          cut:{paint:f[5],it:f[6],staff:f[7],act:f[8]},x:{paint:f[9],it:f[10],staff:f[11],act:f[12],unit:f[13]},
+          f:{u:fl[0],a:fl[1],p:fl[2],i:fl[3],s:fl[4]},inOk:f[15]!=='0',st:f[16]||''};
+      });
+      return {id:str(r.id),months:str(r.pid).split(',').filter(Boolean).map(m=>m.slice(0,7)),n:num(r.nm),ev:ev};
+    })(),
     /* значения фильтров для кросс-фильтра: ключ макета → значение колонки датасета */
     filterValue(kind,key){return ({paint:PAINT_V,itSeg:IT_V,staffType:STAFF_V,hcType:ACT_V}[kind]||{})[key]||null}
   };

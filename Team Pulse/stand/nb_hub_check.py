@@ -75,7 +75,10 @@ def main():
             if label == 'файл 2а':               # найм на конец месяца — для разбивок найма (mx)
                 Te = nb.truth(U, people, perf, grt, raw.get(name, pred), act=act)
             if label == 'файл 2а':               # 21.10: переводы 2а — под фильтры (переходы ноутбука)
-                Tt = nb.truth_trf(U, people, pred, act)
+                # поставка 63: смена атрибута, по которому стоит фильтр, — перевод и внутри выбора
+                chg = [h for k, h in (('paint_f', 'operh'), ('it_f', 'ith'), ('staff_f', 'relh')) if k in flt]
+                chg += ['acth'] if act is not None else []
+                Tt = nb.truth_trf(U, people, pred, act, chg)
                 for k in set(T) | set(Tt):
                     T[k]['tin'], T[k]['tout'] = Tt[k]['tin'], Tt[k]['tout']
             f = dict(flt)

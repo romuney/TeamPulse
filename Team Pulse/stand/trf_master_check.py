@@ -93,13 +93,13 @@ def expect(ev, flt):
         cut = {'paint': pa, 'it': it, 'staff': st, 'act': ac}
         if any(F[x] and cut[x].lower() not in F[x] for x in F):
             continue
-        # смена атрибута: фильтр из одного значения — по флагу (как мастер-отчёт); из нескольких — только если по
-        # другую сторону значение вне выбора
-        side = {'paint': xpa, 'it': xit, 'staff': xst, 'act': xac}
-        sel = lambda x, f: f and bool(F[x]) and (len(F[x]) == 1 or (side[x] or '').lower() not in F[x])
+        # смена атрибута — по флагу как есть, если по атрибуту стоит фильтр (поставка 63: и при фильтре из нескольких
+        # значений — Подрядчики → Активная при «Активная + Подрядчики» — и «из», и «в», как в мастер-отчёте)
+        sel = lambda x, f: f and bool(F[x])
         flg = fu or sel('act', fa) or sel('paint', fp) or sel('it', fi) or sel('staff', fs)
         d = T.setdefault((n, m), {'tin': 0, 'tout': 0, 'hit': 0})
-        if k == 'i' and flg and (ok or not act_on):
+        # кандидат / стажёр (ok = 0) из «в» исключаются всегда, при выборе типа — найм
+        if k == 'i' and flg and ok:
             d['tin'] += c
         if k == 'i' and flg and not ok and act_on:
             d['hit'] += c

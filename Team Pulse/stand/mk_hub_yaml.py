@@ -75,6 +75,7 @@ EXTRA = {
          "    'teampulse_hub_series': 'prod_proteus.teampulse_hub_series',\n"
          "    'teampulse_hub_mix':    'prod_proteus.teampulse_hub_mix',\n"
          "    'teampulse_hub_trf':    'prod_proteus.teampulse_hub_trf',     # переходы — переводы под фильтры\n"
+         "    'teampulse_hub_trfe':   'prod_proteus.teampulse_hub_trfe',    # события переводов — детализация (поставка 63)\n"
          "    'teampulse_hub_vacancy': 'prod_proteus.teampulse_hub_vacancy',  # вакансии по узлам\n"
          "    'teampulse_hub_ai':      'prod_proteus.teampulse_hub_ai',       # AI-инструменты по узлам\n"
          "}"),
@@ -113,7 +114,8 @@ CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub che
            60: {'_PARAMS_', 'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 3 справочник и ряды', 'hub · 4 разрезы',
                 'hub · 5 переходы'},
            61: {'_PARAMS_'},
-           62: {'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 4 разрезы'}}
+           62: {'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 4 разрезы'},
+           63: {'hub · 2 логины и AI', 'hub · 5 переходы', 'to click'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 
@@ -124,7 +126,7 @@ def write_1a(out):
     assert '{{' not in head
     by = {p['title']: p for p in out}
     parts = [head.rstrip('\n')]
-    for i, t in enumerate(TP20 + P58, 1):
+    for i, t in enumerate(TP20 + P58 + ['to click'], 1):   # to click — с поставки 63 (таблица детализации)
         p = by[t]
         lang = 'sql' if p['shebang'] == 'gp' else 'python'
         ds = [str(d) for d in sorted(CHANGED) if t in CHANGED[d]]
