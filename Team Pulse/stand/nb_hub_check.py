@@ -144,7 +144,9 @@ def main():
                             kk, _, n = line.split('\t')
                             mx[kk] += float(n)
                     ytd = [m for m in ms if m.year == ms[-1].year]
+                    # поставка 62: регион (rg) и пара «стрим|специализация» (ws) — тоже численность
                     want_mx = {'sp': T[(rk, ms[-1])]['hc'], 'tc': T[(rk, ms[-1])]['hc'],
+                               'rg': T[(rk, ms[-1])]['hc'], 'ws': T[(rk, ms[-1])]['hc'],
                                'xsp': sum(T[(rk, m)]['fire'] for m in ytd), 'xtc': sum(T[(rk, m)]['fire'] for m in ytd)}
                     if act:
                         # разбивки найма — из строк ноутбука с измерениями на конец месяца (как TP 2.0): их сумма —

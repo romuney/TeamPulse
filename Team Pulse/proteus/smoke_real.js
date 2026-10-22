@@ -128,9 +128,15 @@ const i=R.n-1;
   ok(Math.abs(regN-regY)<=rs.length*0.5,'нежелательные уходы по причинам — по людям, в сумме = regret с начала года ('+regN+' / '+regY+')');
   /* 16.10, ответ 0д: employee_contract_type — формат работы («Гибридный»), а не тип договора */
   /* 21.10, поставка 50: специализации (mx «sp») — если ноутбук их собрал */
-  ok(!!D.MIX_BY_KEY.worksite&&!D.MIX_BY_KEY.contract&&!D.MIX_BY_KEY.region&&
-    !!D.MIX_BY_KEY.spec===(Object.keys(R.mixVals('sp')).length>0),
-    'формат работы — из employee_contract_type; типа договора и региона нет; специализации — '+(D.MIX_BY_KEY.spec?'из данных':'нет в ответе'));
+  /* 22.10, поставка 62: регион (rg) и специализации внутри стрима (ws) — если ноутбук их собрал */
+  const hasRg=Object.keys(R.mixVals('rg')).length>0, hasWs=Object.keys(R.mixVals('ws')).length>0;
+  const st=D.MIX_BY_KEY.stream, sp=D.MIX_BY_KEY.spec;
+  ok(!!D.MIX_BY_KEY.worksite&&!D.MIX_BY_KEY.contract&&!!D.MIX_BY_KEY.region===hasRg&&
+    !!sp===(Object.keys(R.mixVals(hasWs?'ws':'sp')).length>0)&&
+    (!hasWs||!!st&&st.childDim==='spec'&&sp.cats.every(c=>c.short&&c.raw.indexOf('|')>=0)&&
+      st.cats.reduce((a,c)=>a+c.kids.length,0)===sp.cats.filter(c=>st.cats.some(x=>x.raw===c.raw.split('|')[0])).length),
+    'формат работы — из employee_contract_type; типа договора нет; регион — '+(hasRg?'из данных':'нет в ответе')+
+    '; специализации — '+(hasWs?'внутри стрима (ws)':sp?'плоским списком':'нет в ответе'));
   /* 16.10: IT-специализация вернулась в таблицу — фильтр IT снова работает. Покраска — только
      в датасете 2а (таблицы ноутбука): тогда и её значения приходят в meta */
   const hub=R.cuts.has('paint');
@@ -167,12 +173,12 @@ let ry=0;for(let k=jan;k<=i;k++)ry+=avg[k]?+(reg[k]/avg[k]*100).toFixed(2):0;
 ok(near(D.lastVal(rl,'regret'),+ry.toFixed(2)),'regret = накопительная доля нежелательных увольнений к ССЧ');
 ok(D.isStub('vac_open')===!R.has('vop')&&D.isStub('ai_penetration')===!R.has('aip')&&D.isStub('nonregret')===!R.has('nreg')&&
   !D.isStub('turnover_m')&&!D.isStub('hc_total'),
-  'заглушки помечены: вакансии, AI и Non-regrettable — '+(R.has('vop')?'живые (поставка 50)':'демо')+', численность и текучесть — живые');
+  'заглушки помечены: вакансии, AI и желательный отток — '+(R.has('vop')?'живые (поставка 50)':'демо')+', численность и текучесть — живые');
 /* 21.10, поставка 50: метрики из прод-ноутбуков HQ и УС — по формулам из настоящих рядов */
 if(R.has('nreg')){
   const nr=arr(scopeRow,'nreg');
   let ny=0;for(let k=jan0();k<=i;k++)ny+=avg[k]?+(nr[k]/avg[k]*100).toFixed(2):0;
-  ok(near(D.lastVal(rl,'nonregret'),+ny.toFixed(2)),'Non-regrettable = накопительная доля обычных увольнений к ССЧ');
+  ok(near(D.lastVal(rl,'nonregret'),+ny.toFixed(2)),'желательный отток = накопительная доля желательных увольнений к ССЧ');
 }
 if(R.has('vop')){
   const vo=arr(scopeRow,'vop'), vc=arr(scopeRow,'vcl'), vd=arr(scopeRow,'vtd'), vn=arr(scopeRow,'vtn'), vj=arr(scopeRow,'vjn');
@@ -227,7 +233,9 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const nLeg=Object.keys(R.mix('BASE')&&R.mixVals('o')||{}).length, wk=A.go('structure','work');
   const sec=(wk.split('<div class="bt-group">').find(x=>/>Компания</.test(x))||'');
   const rows=(sec.match(/<tr class="urow/g)||[]).length+(/>Остальные<span class="unit-sub">/.test(sec)?1:0), rest=/>Остальные<span class="unit-sub">\d+ компани/.test(sec);
-  ok(!nLeg||(nLeg<=7?rows===nLeg&&!rest:rows===7&&rest),'компании на «Оформлении»: '+(nLeg<=7?'все '+nLeg:'6 из '+nLeg+' и «Остальные»'));
+  /* 22.10: все компании с людьми, без «Остальных» */
+  const nLive=D.MIX_BY_KEY.legal?D.mixParts(D.reportLeaves(A.st()),'legal',A.st().mixSel||[]).filter(v=>v>0).length:0;
+  ok(!nLeg||rows===nLive&&!rest,'компании на «Оформлении»: все '+nLive+' с людьми, без «Остальных»');
   ok((wk.match(/<div class="bt-group">/g)||[]).length===3&&/class="row-body two"/.test(wk),
     'оформление: три таблицы, длинные названия — в две строки');
   /* портрет на настоящих значениях: пол — полоса и карточки, возраст — кусок на каждую группу с людьми,
@@ -283,8 +291,8 @@ ok(!/data-openunit="[^"]*\/·"/.test(exp),'у строки «Напрямую» 
 ok(!/NaN|undefined/.test(html.replace(/data-[a-z-]+="[^"]*"/g,'')),'в разметке нет NaN и undefined');
 ok(/dev-tag/.test(html)&&/dev-sum/.test(html),'метрики без источника помечены «в разработке», сводка готовности на One-pager');
 /* плашки «в разработке» по вкладкам: с колонками 12.10 у живых вкладок плашки нет */
-const tgF=A.go('tgrowth','flow'), ofD=A.go('office','dynamics'), ofC=A.go('office','calendar');
-ok(hasNew?!/dev-note/.test(tgF)&&!/dev-note/.test(ofD)&&/Посещаемость за месяц — настоящая/.test(ofC)
+const tgF=A.go('tgrowth','flow'), ofD=A.go('office','attend'), ofC=A.go('office','calendar');
+ok(hasNew?!/dev-note/.test(tgF)&&/Посещаемость по месяцам — настоящая/.test(ofD)&&/Посещаемость за месяц — настоящая/.test(ofC)
          :/dev-note/.test(tgF)&&/dev-note/.test(ofD),
   hasNew?'плашки: решения T-роста и посещаемость — без «в разработке», календарь офиса — с уточнением'
         :'плашки: T-рост и посещаемость — «в разработке»');

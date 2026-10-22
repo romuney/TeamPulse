@@ -4,13 +4,11 @@
    «Календарь»      — подневная сетка за последние два месяца периода плюс
                       разбивка по дням недели. Отвечает на вопрос «когда людей
                       в офисе больше», на который месячная линия ответить не может.
-   «Динамика»       — месячная линия с базой сравнения (то, что было тут раньше).
-
-   Итерация 28 (бизнес-анализ, HQ-дашборд 34136):
-   «Города»         — посещаемость по городам (каталог HQ, «Офисы по городам»).
-                      Рейтинг офисов снят 15.10: привязка людей к офисам была
-                      сгенерирована, а в каталоге — только города.
-   «Кто ходит»      — по грейдам и по роли с локацией (РУК / ЛИН × МСК / ТЦР).
+   «Кто и где ходит» (22.10: «Города», «Кто ходит» и «Динамика» — одна вкладка, без грейдов):
+                      сверху динамика посещаемости, ниже сегмент (руководители /
+                      сотрудники), ниже локация (города). Строки кликаются: выбор
+                      сегмента и города складывается и пересчитывает динамику и
+                      другую таблицу; выбор — на полке срезов, Escape снимает.
    «Бронирование»   — нарушения бронирования: бронь без прихода и приход
                       без брони, динамикой и разбором последнего месяца.
 
@@ -32,39 +30,46 @@ const esc=U.esc;
    плашка «в разработке» над вкладкой; сноска объясняет только, как читать */
 const CAL_NOTE='Среднее по будням за полный месяц равно посещаемости этого месяца.';
 
-SC.blocks.office={
-  subTabs:[['calendar','Календарь'],['offices','Города'],['people','Кто ходит'],
-    ['booking','Бронирование'],['dynamics','Динамика']],
-  defaultSub:'calendar',
-  title(sub){return sub==='offices'?'Посещаемость по городам'
-    :sub==='people'?'Кто ходит в офис: грейды, роль и локация'
-    :sub==='booking'?'Качество бронирования рабочих мест'
-    :sub==='dynamics'?'Посещаемость офиса против базы'
-    :'Когда люди приходят в офис'},
-  view(ctx){
-    if(ctx.sub==='dynamics')return SC.metricLine('office_att',ctx.lp,ctx.bl,ctx.S,{ann:ctx.ann.office_att});
+/* выбор сегмента и города — подпись для графика и полки */
+const offLabel=x=>[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).join(' · ');
 
+SC.blocks.office={
+  subTabs:[['calendar','Календарь'],['attend','Кто и где ходит'],['booking','Бронирование']],
+  defaultSub:'calendar',
+  title(sub){return sub==='attend'?'Кто и где ходит в офис: динамика, сегмент, локация'
+    :sub==='booking'?'Качество бронирования рабочих мест'
+    :'Когда люди приходят в офис'},
+  /* полка выбора вкладки «Кто и где ходит» — та же, что у срезов состава: sticky, пустая скрыта */
+  shelf(S){
+    if(S.subTab!=='attend')return '';
+    const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[];
+    if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"'});
+    if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
+    return U.shelf({title:'Выбрано:',chips:chips,extra:'динамика и таблицы — по выбору',clear:'data-offclear="1"',
+      clearTip:'Снять выбор сегмента и локации. То же — клавиша Escape.'});
+  },
+  view(ctx){
     /* Таблицы посещаемости — проценты: доля процента в сумме процентов ничего
        не значит, поэтому ни колонки «Доля», ни строки ИТОГО у них нет. */
     const attTbl=(cap,capSub,items,barHead)=>U.btGroup({cap:cap,capSub:capSub,head:'',metricKey:'office_att',
       valueHead:'Посещаемость',barHead:barHead,share:false,total:false,compact:true,items:items});
 
-    if(ctx.sub==='offices'){
-      const rows=D.officeByCity(ctx.lp);
-      if(!rows.length)return U.empty('Нет данных по городам','В отборе нет сотрудников.');
-      return attTbl('Города',D.CMP.cur,rows.map(c=>({name:c.name,
+    /* 22.10: динамика → сегмент → локация. Клик по строке сегмента или города — выбор; оба выбора
+       складываются («руководители в Москве»): динамика и соседняя таблица считаются по нему */
+    if(ctx.sub==='attend'){
+      const S=ctx.S, x=D.officeCross(ctx.lp,S.offSeg,S.offCity), lbl=offLabel(x);
+      if(!x.cities.length&&!x.segs.some(s=>s.hc))return U.empty('Нет данных о посещаемости','В отборе нет сотрудников.');
+      return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,scale:x.factor,h:260,fill:false,
+          title:'Посещаемость офиса'+(lbl?': '+lbl:'')+', %'})+
+        attTbl('Сегмент',x.city?x.city.name+' · '+D.CMP.cur:D.CMP.cur,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,
+          note:D.fmtInt(s.hc)+' чел',value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
+          attrTip:'Клик — посещаемость только у «'+s.name+'»: пересчитаются динамика и города.'})),'Сравнение сегментов')+
+        attTbl('Локация',x.seg?x.seg.name+' · '+D.CMP.cur:D.CMP.cur,x.cities.filter(c=>c.hc>0).map(c=>({name:c.name,
           note:D.fmtInt(c.hc)+' чел · '+c.offices+' '+U.plural(c.offices,['офис','офиса','офисов']),
-          value:c.att,color:G.C_OFFICE})),'Сравнение городов')+
-        '<div class="tbl-note">Среднее по офисам города с учётом числа людей.</div>';
-    }
-
-    if(ctx.sub==='people'){
-      return U.btStack([
-        attTbl('Грейд',D.CMP.cur,D.attByGrade(ctx.lp).map(g=>({name:g.name,note:D.fmtInt(g.hc)+' чел',
-          value:g.att,color:G.C_OFFICE})),'Сравнение грейдов'),
-        attTbl('Роль и локация',D.CMP.cur,D.attByRoleLoc(ctx.lp).map(x=>({name:x.name,
-          note:D.fmtInt(x.hc)+' чел',value:x.att,color:G.C_OFFICE})),'Сравнение групп')])+
-        '<div class="tbl-note">Москва — Москва и область, ТЦР — остальные регионы.</div>';
+          value:c.att,color:G.C_OFFICE,on:S.offCity===c.name,attr:'data-offcity="'+esc(c.name)+'"',
+          attrTip:'Клик — посещаемость только в «'+c.name+'»: пересчитаются динамика и сегменты.'})),'Сравнение городов')+
+        '<div class="tbl-note">Клик по строке — выбор: динамика и другая таблица пересчитаются. Сегмент и город складываются; '+
+          'Escape или «Сбросить всё» — снять. В городе — среднее по его офисам с учётом числа людей.</div>';
     }
 
     if(ctx.sub==='booking'){
@@ -74,7 +79,7 @@ SC.blocks.office={
       return SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,
           {h:250,fill:false,title:'Нарушения бронирования, %',ann:ctx.ann.booking_viol})+
         U.btGroup({cap:'Бронирования и посещения',capSub:D.CMP.cur+', человеко-дни',head:'',
-          valueHead:'Дней',metricKey:'hc_total',compact:true,items:[
+          valueHead:'Дней',metricKey:'hc_total',compact:true,keepZero:true,items:[
           {name:'Бронь и приход',value:bk.ok,color:G.C_OFFICE},
           {name:'Бронь без прихода',note:'нарушение: место простояло',value:bk.noshow,color:G.C_OFFICE},
           {name:'Приход без брони',note:'нарушение: место не учтено',value:bk.walkin,color:G.C_OFFICE}]})+

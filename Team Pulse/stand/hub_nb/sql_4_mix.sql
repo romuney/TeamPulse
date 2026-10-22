@@ -1,7 +1,7 @@
 -- =============================================================================
 -- TeamPulse Hub · 4. Разрезы (поставка 58: SQL вместо build_hub)
 -- teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам
--- (g a t gr s c o w r sp tc), увольнения с начала его года (xr причина, xq regret по причине, xi
+-- (g a t gr s c o w r sp tc rg ws), увольнения с начала его года (xr причина, xq regret по причине, xi
 -- инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),
 -- найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Пустое значение — ''.
 -- =============================================================================
@@ -10,7 +10,7 @@
 drop table if exists teampulse_hub_mixr;
 create table teampulse_hub_mixr as
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
-       unnest(ARRAY['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc']) as mx_key,
+       unnest(ARRAY['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws']) as mx_key,
        unnest(ARRAY[coalesce(nullif(translate(e.gender::text, E'\t\n|', '  /'), '-'), ''),
                     coalesce(nullif(translate(e.type_age::text, E'\t\n|', '  /'), '-'), ''),
                     coalesce(nullif(translate(e.experience_group_nm::text, E'\t\n|', '  /'), '-'), ''),
@@ -21,7 +21,9 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
                     coalesce(nullif(translate(e.employee_stream::text, E'\t\n|', '  /'), '-'), ''),
                     coalesce(nullif(translate(e.employment_relation_type::text, E'\t\n|', '  /'), '-'), ''),
                     coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), ''),
-                    coalesce(nullif(translate(e.type_company::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
+                    coalesce(nullif(translate(e.type_company::text, E'\t\n|', '  /'), '-'), ''),
+                    coalesce(nullif(translate(e.region::text, E'\t\n|', '  /'), '-'), ''),
+                    coalesce(nullif(translate(e.employee_stream::text, E'\t\n|', '  /'), '-'), '') || '|' || coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
        coalesce(e.hc_total_cnt, 0) as mx_n
 from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
@@ -29,7 +31,7 @@ from (
     from (
         select s.hc_total_cnt, s.gender, s.type_age, s.experience_group_nm, s.grade, s.seniority,
                s.employee_contract_type, s.legal_organization, s.employee_stream, s.employment_relation_type,
-               s.specialization, s.type_company,
+               s.specialization, s.type_company, s.region,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,

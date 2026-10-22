@@ -198,13 +198,13 @@ const METRICS=[
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с января',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR (YTD Turnover): сумма месячной текучести с января.'},
-{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
-  calc:'Сумма месячной: regrettable-увольнения ÷ среднесписочная × 100%. Regrettable по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательный отток',short:'Нежелат. отток',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
+  calc:'Сумма месячной: нежелательные увольнения ÷ среднесписочная × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
-{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Non-regrettable текучесть',short:'Non-regrettable',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
-  hint:'Текучесть с 1 января по обычным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.'+HQ_ONLY,
-  calc:'Сумма месячной: обычные (non-regrettable) увольнения ÷ среднесписочная × 100%. Обычное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
+{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательный отток',short:'Желат. отток',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
+  hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.'+HQ_ONLY,
+  calc:'Сумма месячной: желательные увольнения ÷ среднесписочная × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
@@ -361,7 +361,7 @@ const DEV_PLAN=[
   {blk:'Отток и текучесть',rows:[
     {what:'Отток за месяц и с начала года',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Текучесть месячная и накопительная',aud:'all',stage:'0',now:'live'},
-    {what:'Regrettable и non-regrettable текучесть',aud:'hq',stage:'0',now:'live',hq:1},
+    {what:'Нежелательный и желательный отток',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Светофор текучести: нежелательная и обычная с порогами прод-отчёта HQ (4%, 5–15%, бенчмарк 12/15%)',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live'},
     {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live'},
@@ -1121,7 +1121,9 @@ const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.pai
   /* срез состава: не больше SLICE_MAX категорий, по одной на разрез */
   mixSel:[],
   /* оси конструктора «Свой срез» и содержимое ячейки */
-  mixRows:'seniority',mixCols:'gender',mixMode:'abs'};
+  mixRows:'seniority',mixCols:'gender',mixMode:'abs',
+  /* посещаемость, вкладка «Кто и где ходит» (22.10): выбранный сегмент ('lead' | 'staff') и город */
+  offSeg:null,offCity:null};
   /* Масштаба динамики в состоянии больше нет: с 13.10 вся динамика — год
      к году (переключатель «12 мес / Год к году» снят по просьбе заказчика). */
 
@@ -1275,7 +1277,11 @@ const MIX_DIMS=[
    разрезов в пробнике нет; экраны это переносят (structure.js, story.js). */
 /* 16.10, ответ 0д: employee_contract_type — это формат работы («Гибридный»; в HQ-дашборде
    «Формат работы: Офис, Гибрид, Дистанционно»), а не тип договора: колонка c → worksite */
-const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',legal:'o',stream:'w',employment:'r',spec:'sp'};
+/* 22.10, поставка 62: регион (rg — residential_state_nm) и специализации внутри стрима (ws — «стрим|специализация»);
+   на таблицах до поставки 62 ws нет — специализации плоским списком из sp */
+const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',legal:'o',stream:'w',employment:'r',spec:'sp',region:'rg'};
+const REAL_WS=!!(REAL&&Object.keys(REAL.mixVals('ws')).length);
+if(REAL_WS)REAL_DIM.spec='ws';
 const NONE_NAME='Не указано';
 /* «до 25 лет» → 24,5; «1-3 года» → 12 мес; «более 5 лет» → 60,5 мес: число и сторона.
    Сторона — по слову прямо перед числом или «+» и «и старше» после него: в настоящих
@@ -1316,6 +1322,20 @@ if(REAL){
     d.cats=realOrder(d.key,vals).map((v,j)=>({key:'v'+j,name:v||NONE_NAME,raw:v,na:isNA(v)}));
     delete d.childDim;delete d.parentDim;
     if(d.key==='stream'){d.name='Стрим';d.hint='Чем люди занимаются.'}
+  }
+  /* стрим → специализации: категория специализации — пара «стрим|специализация», в таблице — имя
+     специализации, в срезе и конструкторе — «специализация (стрим)» */
+  const st=MIX_DIMS.find(d=>d.key==='stream'), sp=MIX_DIMS.find(d=>d.key==='spec');
+  if(REAL_WS&&st&&sp){
+    const by={};st.cats.forEach(c=>{by[c.raw]=c;c.kids=[]});
+    sp.cats.forEach(c=>{
+      const i=c.raw.indexOf('|'), sr=i<0?'':c.raw.slice(0,i), nm=i<0?c.raw:c.raw.slice(i+1), par=by[sr];
+      c.short=nm||NONE_NAME;c.na=isNA(nm);
+      c.name=c.short+(par?' ('+par.name+')':'');
+      if(par)par.kids.push(c.key);
+    });
+    st.childDim='spec';sp.parentDim='stream';
+    st.name='Стрим и специализация';st.hint='Чем люди занимаются. Раскройте стрим — увидите специализации внутри.';
   }
 }
 const MIX_BY_KEY=Object.fromEntries(MIX_DIMS.map(d=>[d.key,d]));
@@ -2363,6 +2383,29 @@ function attByRoleLoc(lp){
   return ROLE_LOC.map((x,i)=>({key:x.key,name:x.name,code:x.code,hc:hcs[i],att:att[i]}));
 }
 
+/* ---------- Посещаемость: сегмент × локация (22.10) ----------
+   Вкладка «Кто и где ходит» — динамика, ниже сегмент (руководители / сотрудники), ниже локация
+   (города); строки кликаются, выбор складывается. Сегмент — из «роли × локации», города — officeByCity.
+   Пересечение в модели независимое: доля сегмента в городе — как в отборе, посещаемость — города,
+   умноженная на коэффициент сегмента (его посещаемость к общей). factor — во сколько раз посещаемость
+   выбора отличается от общей: на него умножается ряд динамики. */
+const OFF_SEGS=[{key:'lead',name:'Руководители',rows:['rm','rt']},{key:'staff',name:'Сотрудники',rows:['lm','lt']}];
+function officeCross(lp,seg,city){
+  const base=lastVal(lp,'office_att')||0, rl=attByRoleLoc(lp), cities=officeByCity(lp);
+  const segs=OFF_SEGS.map(s=>{
+    const rows=rl.filter(r=>s.rows.indexOf(r.key)>=0), hc=rows.reduce((a,r)=>a+r.hc,0);
+    const att=hc?rows.reduce((a,r)=>a+r.hc*(r.att||0),0)/hc:0;
+    return {key:s.key,name:s.name,hc:hc,att:+att.toFixed(1),f:base?att/base:1};
+  });
+  const tot=segs.reduce((a,s)=>a+s.hc,0), share=s=>tot?s.hc/tot:0;
+  const c=city?cities.find(x=>x.name===city)||null:null, sg=seg?segs.find(x=>x.key===seg)||null:null;
+  const att=(sg&&c?c.att*sg.f:sg?sg.att:c?c.att:base)||0;
+  return {
+    segs:segs.map(s=>({key:s.key,name:s.name,hc:c?Math.round(c.hc*share(s)):s.hc,att:c?+(c.att*s.f).toFixed(1):s.att})),
+    cities:cities.map(x=>({name:x.name,offices:x.offices,hc:sg?Math.round(x.hc*share(sg)):x.hc,att:sg?+(x.att*sg.f).toFixed(1):x.att})),
+    seg:sg,city:c,att:+att.toFixed(1),factor:base?att/base:1};
+}
+
 /* ---------- AI: инструменты и стримы ----------
    Проникновение по инструменту не больше общего: инструменты пересекаются,
    человек с двумя инструментами в общем проникновении один. Поэтому у
@@ -2386,7 +2429,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,hcFunnel,avgAge,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
-  attDays,attLast,attByDow,officeRank,
+  attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
   COUNT_METRICS,vacancyBreakdown,kpiAt,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,

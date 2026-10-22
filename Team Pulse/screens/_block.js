@@ -64,9 +64,8 @@ function expandableRows(root){
   return out;
 }
 /* isEmpty(path) — у подразделения под текущими фильтрами никого нет. Такие
-   строки уходят вниз своего уровня и приглушаются: «0 чел» с нулями во всех
-   колонках занимали столько же места, сколько живые команды, и разрывали
-   список. Порядок внутри живых и внутри пустых — как в оргдереве. */
+   строки не выводятся (22.10: «только строки, которые есть в данных»; раньше
+   уходили вниз своего уровня и приглушались). Порядок — как в оргдереве. */
 /* Три уровня вниз (TREE_DEPTH): раскрытая строка добавляет своих детей,
    кнопкой или кареткой ИТОГО. У юнита без подразделений (команды) строк нет —
    экран говорит об этом словами, а не повторяет ИТОГО второй строкой.
@@ -75,7 +74,8 @@ function expandableRows(root){
 /* cmp — сортировка соседей по колонке (мониторинг, 21.10): внутри каждого уровня, пустые — внизу */
 function pivotRows(root,expanded,isEmpty,q,cmp){
   const rows=[], emp=isEmpty||(()=>false), needle=String(q||'').trim().toLowerCase();
-  const order=list=>{const live=list.filter(n=>!emp(n.path));if(cmp)live.sort(cmp);return live.concat(list.filter(n=>emp(n.path)))};
+  /* 22.10: подразделения, где под фильтрами никого нет, не выводятся — только строки, которые есть в данных */
+  const order=list=>{const live=list.filter(n=>!emp(n.path));if(cmp)live.sort(cmp);return live};
   (function walk(p,d){
     order(D.rowsOf(p)).forEach(n=>{
       /* kidsOf: в пробнике у юнита третьего уровня дети в ответ не едут —
@@ -119,7 +119,9 @@ const YOY_COLOR={attrition:G.C_OUT,transfer_out:G.C_OUT,tgrowth_deny:G.C_OUT,
 function yoyChart(key,lp,bl,S,opt){
   opt=opt||{};
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
-  const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
+  /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент */
+  const y0=D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
+  const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=cmp?D.yoySeries(bl,key).cur:null;
   const col=opt.color||YOY_COLOR[key]||G.C_LINE;
   /* счётный поток (найм, уход…) — бар этого года, позади прозрачный бар прошлого (15.10) */
   const flow=!!(D.METRIC_BY_KEY[key]||{}).flow;
@@ -213,13 +215,14 @@ const DEV_LIVE={
   tgrowth:{live:['tgrowth_conv'],subs:['flow'],
     '*':{stage:6,t:'Решения по заявкам и конверсия — настоящие (вкладка «Растут ли люди внутри?»). '+
       'Типы заявок, T@T и статусы по грейдам пока условные.'}},
-  office:{live:['office_att'],subs:['dynamics'],
-    '*':{stage:7,t:'Посещаемость за месяц — настоящая (вкладка «Ходят больше или меньше?»). '+
-      'Календарь по дням, города, «кто ходит» и бронирование пока условные.'}}
+  office:{live:['office_att'],subs:[],
+    part:{attend:{stage:7,part:true,t:'Посещаемость по месяцам — настоящая. Сегменты и города пока условные.'}},
+    '*':{stage:7,t:'Посещаемость за месяц — настоящая (вкладка «Кто и где ходит?»). '+
+      'Календарь по дням, сегменты, города и бронирование пока условные.'}}
 };
 function devOf(bk,sub){
   const lv=DEV_LIVE[bk];
-  if(lv&&lv.live.every(k=>!D.isDev(k)))return lv.subs.indexOf(sub)>=0?null:lv['*'];
+  if(lv&&lv.live.every(k=>!D.isDev(k)))return lv.subs.indexOf(sub)>=0?null:(lv.part&&lv.part[sub])||lv['*'];
   const d=DEV_TABS[bk]||{};
   return d[sub]||d['*']||null;
 }
@@ -378,7 +381,8 @@ function renderBlock(S,expanded,mixOpen,view){
       row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
            :cardBase(m.key,kpi)?U.byCompany(m.key,bv,S):'',
       /* по срезу состава прошлогоднего значения нет: срез живёт только в окне */
-      row3:sliced?'':'год назад <b>'+D.fmtVal(m.key,yearAgo(rl,m.key))+'</b>'});
+      /* место строки остаётся (visibility), иначе карточки ниже на строку и отчёт прыгает при срезе (22.10) */
+      row3:sliced?'<span class="k-ph">год назад <b>—</b></span>':'год назад <b>'+D.fmtVal(m.key,yearAgo(rl,m.key))+'</b>'});
   });
   h+='</div>';
   }
@@ -386,7 +390,10 @@ function renderBlock(S,expanded,mixOpen,view){
   /* 4a · что сейчас срезано. Плашка стоит под карточками, а не только в той
      таблице, по которой кликнули: без неё «191 → 59» в карточке выглядит
      поломкой отчёта, а не ответом на свой же клик. */
-  h+=U.sliceNote(slice,'численность в карточках и таблице — по срезу, база и выводы — по всей команде');
+  /* 22.10: полка срезов — у вкладок со срезами (структура — срез состава, посещаемость — сегмент и
+     локация); sticky, пустая скрыта visibility, место под неё есть всегда */
+  if(b.key==='structure')h+=U.sliceNote(slice,'численность в карточках и таблице — по срезу, база и выводы — по всей команде');
+  else if(mod.shelf)h+=mod.shelf(S);
 
   /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
      найм после итерации 28), сводной таблице нужно больше места, чем графику:

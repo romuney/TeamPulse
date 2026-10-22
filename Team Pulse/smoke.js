@@ -290,7 +290,7 @@ checks.push(['минус во всех дельтах типографский, 
   /* сравнение ищем в видимом тексте карточки: слово «база» встречается ещё и
      внутри подсказки к пилюле изменения, и по нему проверять нельзя */
   const cards=opHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
-  const card=cards.filter(c=>/Regrettable текучесть/.test(c))[0]||'';
+  const card=cards.filter(c=>/Нежелательный отток/.test(c))[0]||'';
   const subs=(card.match(/<span class="k-sub">[^<]*</g)||[]).join('|');
   checks.push(['в hero-карточке метрики с KPI стоит цель, а базы нет',
     /* 21.10, поставка 50: годовая цель HQ (4%) — на месяц её доля: в макете июнь, 4 × 6 / 12 = 2,0% */
@@ -356,8 +356,8 @@ checks.push(['срок закрытия не отдельная вкладка, 
   subsOf('hiring')==='vacancies,plan,profile']);
 checks.push(['T-рост: конверсия с решениями на одной вкладке, заявки и статусы — на своих',
   subsOf('tgrowth')==='flow,requests,statuses']);
-checks.push(['офис — календарь, города, кто ходит, бронирование, динамика',
-  subsOf('office')==='calendar,offices,people,booking,dynamics']);
+checks.push(['офис — календарь, «кто и где ходит» (22.10: города, кто ходит и динамика — одна вкладка), бронирование',
+  subsOf('office')==='calendar,attend,booking']);
 checks.push(['AI — проникновение, инструменты и стримы',subsOf('ai')==='adoption,tools']);
 /* неизвестная под-вкладка из старой ссылки не должна ломать экран */
 checks.push(['неизвестная под-вкладка откатывается на дефолтную',
@@ -458,13 +458,32 @@ checks.push(['дни недели — таблица, а не бар-чарт',
 })();
 /* 15.10, редполитика: что цифры условные, говорит плашка «в разработке», а не сноска с кухней макета */
 checks.push(['условные данные помечены плашкой «в разработке»',
-  /class="dev-note/.test(calHtml)&&/class="dev-note/.test(A.go('office','offices'))]);
-const cities=D.officeByCity(D.reportLeaves(D.DEFAULT_STATE)), offHtml=A.go('office','offices');
+  /class="dev-note/.test(calHtml)&&/class="dev-note/.test(A.go('office','attend'))]);
+const cities=D.officeByCity(D.reportLeaves(D.DEFAULT_STATE)), offHtml=A.go('office','attend');
 checks.push(['города: сумма людей = численность отбора, сортировка по посещаемости',
   cities.reduce((a,o)=>a+o.hc,0)===D.lastVal(D.reportLeaves(D.DEFAULT_STATE),'hc_total')&&
   cities.every((o,i)=>!i||cities[i-1].att>=o.att)]);
 checks.push(['рейтинга офисов нет (15.10), в таблице городов нет колонки «Доля»',
   !/Сравнение офисов/.test(offHtml)&&/Сравнение городов/.test(offHtml)&&!/<th>Доля<\/th>/.test(offHtml)]);
+/* 22.10: «Кто и где ходит» — динамика → сегмент → локация, без грейдов; строки кликаются, выбор складывается */
+{
+  const S0=A.st(), rl0=D.reportLeaves(S0), x0=D.officeCross(rl0,null,null), city=x0.cities[0].name;
+  const pos=k=>offHtml.indexOf(k);
+  S0.offSeg='lead';const hSeg=A.go('office','attend');
+  S0.offCity=city;const hBoth=A.go('office','attend');
+  const xb=D.officeCross(rl0,'lead',city);
+  S0.offSeg=null;S0.offCity=null;const hOff=A.go('office','attend');
+  checks.push(['посещаемость: динамика, ниже сегмент, ниже локация; грейдов нет; строки сегмента и города кликаются',
+    pos('class="chart')>=0&&pos('class="chart')<pos('>Сегмент<')&&pos('>Сегмент<')<pos('>Локация<')&&
+    !/Грейд/.test(offHtml)&&/data-offseg="lead"/.test(offHtml)&&/data-offcity="/.test(offHtml)&&
+    /class="note-inline slice sl-shelf off"/.test(offHtml)]);
+  checks.push(['посещаемость: сегмент + город — выбор складывается, динамика и таблицы пересчитаны, сброс — общий вид',
+    /class="urow sel" data-offseg="lead"/.test(hSeg)&&/Посещаемость офиса: Руководители, %/.test(hSeg)&&
+    /Посещаемость офиса: Руководители · /.test(hBoth)&&/class="urow sel" data-offcity="/.test(hBoth)&&
+    /Сегмент: <b>Руководители<\/b>/.test(hBoth)&&/Локация: <b>/.test(hBoth)&&
+    xb.att!==x0.att&&Math.abs(xb.factor*D.lastVal(rl0,'office_att')-xb.att)<0.06&&
+    hOff===offHtml&&!/sl-shelf"/.test(hOff.replace(/sl-shelf off/,''))]);
+}
 
 /* 12. выбор метрик пользователем: отключённое не должно попадать ни в строки
    one-pager, ни в столбцы сводной таблицы, ни в KPI-карточки */
@@ -968,7 +987,7 @@ checks.push(['марки графиков помечены data-s',
     /* то же правило во всех таблицах, у которых имя стоит прямо над ними */
     checks.push(['ни одна таблица не повторяет своё название в шапке колонки',
       /<thead><tr><th class="txt"><\/th>/.test(A.go('turnover','reasons'))&&
-      /<thead><tr><th class="txt"><\/th>/.test(A.go('office','offices'))]);
+      /<thead><tr><th class="txt"><\/th>/.test(A.go('office','attend'))]);
     /* верхний уровень двухуровневой разбивки складывается в численность:
        дети уже сидят в родительской строке и второй раз не считаются */
     A.go('structure','stream');
@@ -991,7 +1010,7 @@ checks.push(['марки графиков помечены data-s',
     const allOpen=A.mixOpen(D.MIX_BY_KEY.stream.cats.map(c=>c.id));
     checks.push(['раскрыв всё, общая каретка предлагает свернуть',
       /data-open="1" data-btexpall="stream\|0"/.test(allOpen)&&
-      (allOpen.match(/<tr class="urow lvl2/g)||[]).length===D.MIX_BY_KEY.spec.cats.length]);
+      (allOpen.match(/<tr class="urow lvl2/g)||[]).length===D.mixTree(rl,'stream',[]).reduce((x,n)=>x+n.kids.filter(k=>k.value>0).length,0)]);
     A.mixOpen([]);
   })();
 
@@ -1143,9 +1162,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['AI: ни один инструмент не выше общего проникновения, стримов нет (15.10)',
     !ai.streams&&ai.tools.every(t=>t.value<=ai.pen)&&!/Сравнение стримов/.test(A.go('ai','tools'))]);
   /* 14.10: «Оформление» и «География» — одна глава «Как оформлены и где работают» */
-  /* 21.10: в файле «Структура» региона нет — на вкладках его не показываем; в модели разрез остаётся */
-  checks.push(['регион по файлу «Структура» не показывается, матрица «регион × специализация» в модели сходится',
-    !/data-mix="region:/.test(A.go('structure','work'))&&!/>Регион</.test(A.go('structure','custom'))&&
+  /* 22.10: регион — внизу портрета таблицей и в конструкторе; в «Оформлении» его нет */
+  checks.push(['регион — в портрете и конструкторе, не в «Оформлении»; матрица «регион × специализация» сходится',
+    !/data-mix="region:/.test(A.go('structure','work'))&&/data-mix="region:/.test(A.go('structure','portrait'))&&
+    />Регион</.test(A.go('structure','custom'))&&
     sum([].concat(...D.mixMatrix(rl0,'region','spec')))===Math.round(e('hc_total'))]);
 
   /* --- доля без знаменателя: прочерк, а не ноль --- */
@@ -1193,7 +1213,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
 (function(){
   A.home();
   const U0=D.DEFAULT_STATE.unit, n0=D.NODE_BY_PATH[U0];
-  const under=lvl=>D.NODES.filter(n=>n.path.indexOf(U0+'/')===0&&n.level===n0.level+lvl);
+  /* 22.10: подразделения, где под фильтрами никого нет, в таблице не выводятся */
+  const under=lvl=>D.NODES.filter(n=>n.path.indexOf(U0+'/')===0&&n.level===n0.level+lvl&&SC.rowLeaves(n.path,D.DEFAULT_STATE).length>0);
   const lv1=under(1), lv2=under(2), lv3=under(3);
   const ex=SC.expandableRows(U0);
   checks.push(['«раскрыть всё» открывает два уровня кареток — таблица уходит на три уровня вниз',
@@ -1522,6 +1543,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
 (function(){
   A.mix([]);
   const pt=A.go('structure','portrait');
+  /* 22.10: полка срезов sticky, пустая — скрыта visibility (место остаётся), не display:none */
+  checks.push(['полка срезов: sticky, без срезов — visibility:hidden и место на месте, со срезом — видна',
+    /class="note-inline slice sl-shelf off" aria-hidden="true"/.test(pt)&&
+    /\.sl-shelf\{position:sticky;top:var\(--head-h,0px\);/.test(css)&&/\.sl-shelf\.off\{visibility:hidden\}/.test(css)&&!/\.sl-shelf[^{]*\{[^}]*display:none/.test(css)]);
   /* 15.10: два обзора в стиле портрета — сверху обзор (пилюля), ниже разбивка */
   const wk=A.go('structure','work');
   /* 16.10: разделы — в двух колонках, выровненных по высоте (pt-cols), без пустот между
@@ -1534,12 +1559,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const hcR=D.fmtInt(Math.round(D.lastVal(D.reportLeaves(A.st()),'hc_total')));
   const curN=(pt.match(/<div class="hf-st cur"[\s\S]*?<div class="hf-v"><b>([^<]+)<\/b>/)||[])[1];
   checks.push(['портрет по файлу «Структура»: воронка, пол, возраст; куски и карточки кликаются; ступень отчёта = численности',
-    (pt.match(/<section class="pf-s">/g)||[]).length===3&&(pt.match(/<div class="hf-st/g)||[]).length===3&&curN===hcR&&
+    (pt.match(/<section class="pf-s">/g)||[]).length===4&&/>Регион</.test(pt)&&(pt.match(/<div class="hf-st/g)||[]).length===3&&curN===hcR&&
     /М : Ж = /.test(pt)&&/средний возраст команды/.test(pt)&&(pt.match(/средний возраст <b>/g)||[]).length===2&&
     (pt.match(/<div class="shc[^"]*" data-mix="gender:/g)||[]).length===2&&(pt.match(/<div class="shc[^"]*" data-mix="age:/g)||[]).length===3&&
     (pt.match(/class="gsp"/g)||[]).length===3&&(pt.match(/<span[^>]* data-mix="age:[^"]*" style="flex:/g)||[]).length===3&&
     (lv.match(/<div class="bt-group">/g)||[]).length===3&&(wk.match(/<div class="bt-group">/g)||[]).length===3&&
-    /Компания/.test(wk)&&/Тип занятости/.test(wk)&&/Формат работы/.test(wk)]);
+    /Тип занятости[\s\S]*Формат работы[\s\S]*Компания/.test(wk)&&/grid-template-columns:minmax\(0,1fr\)/.test(css)]);
   /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
      Матрица: длинная ось — 8 + «Остальные» (не срез), сумма та же; стримы ушедших — 8 строк. */
   {
@@ -1551,8 +1576,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
     const tot=(cu.match(/<tr class="total">[\s\S]*?<td class="mx-tot">([^<]+)</)||[])[1];
     const hcAll=D.fmtInt(Math.round(D.lastVal(D.reportLeaves(A.st()),'hc_total')));
     const who=A.go('turnover','who'), st=(who.split('bt-group').find(x=>/>Стрим</.test(x))||'');
-    checks.push(['длинные разрезы — топ: матрица 8 + «Остальные» (не срез), сумма та же; стримы ушедших — не больше 8',
-      D.MIX_BY_KEY.spec.cats.length>9&&nRows===10&&/class="mx-pick mx-rest row"/.test(cu)&&!/data-mix="null/.test(cu)&&
+    /* 22.10: в конструкторе «Остальных» нет — все значения с людьми явно, сумма та же */
+    const nz=D.mixParts(D.reportLeaves(A.st()),'spec',[]).filter(v=>v>0).length;
+    checks.push(['конструктор: все значения явно, без «Остальных», только с людьми; стримы ушедших — не больше 8',
+      D.MIX_BY_KEY.spec.cats.length>9&&nRows===nz+1&&!/mx-rest/.test(cu)&&!/Остальные/.test(cu)&&!/data-mix="null/.test(cu)&&
       tot===hcAll&&(st.match(/<tr/g)||[]).length<=10]);
   }
   /* 16.10, заказчик: «почему тут пустые точки без линии?» — скрытая линия была
@@ -1580,7 +1607,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['портрет под срезом «Женщины»: выбранное выделено, возраст — только женщины, ступень отчёта = численности среза',
     /<span class="on" data-mix="gender:f"/.test(ps)&&/<div class="shc on" data-mix="gender:f"/.test(ps)&&
     (ps.match(/М <b>0%<\/b> · Ж <b>100%<\/b>/g)||[]).length===ages.filter(v=>v>0).length&&
-    curF===D.fmtInt(nF)&&/class="note-inline slice"/.test(ps)&&/Сбросить всё/.test(ps)]);
+    curF===D.fmtInt(nF)&&/class="note-inline slice sl-shelf"/.test(ps)&&/Сбросить всё/.test(ps)]);
   A.mix([]);
 })();
 

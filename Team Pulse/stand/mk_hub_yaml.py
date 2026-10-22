@@ -32,6 +32,8 @@ EXTRA = {
          "    # 22.10, поставка 60: тип численности целиком — фильтр отчёта (любой набор типов; «Активная» —\n"
          "    # выбор по умолчанию, подрядчиков добавляют в фильтре)\n"
          "    {'name': 'active_type_nm', 'alias': 'act_type_nm'},\n"
+         "    # 22.10, поставка 62: регион сотрудника — разрез портрета и конструктора\n"
+         "    {'name': 'residential_state_nm', 'alias': 'region'},\n"
          "]\n\n"
          "build_all_metrics(\n    res_table_name='all_metrics',"),
         ("    fields=fields,", "    fields=fields + HUB_FIELDS,"),
@@ -101,16 +103,17 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
 
 # файл 1а — как поставить и код параграфов (шапка — hub_nb/1a_head.md): поставка 58 — параграфы gp вместо
 # build_hub_detect, 59 — переводы по правилу мастер-отчёта, 60 — тип численности целиком, 61 — «Активная» без
-# подрядчиков. У параграфа — пометка, в какой поставке он изменён. Замер — стенд ×25 (AGENTS.md, «Ноутбук: сборка
+# подрядчиков, 62 — регион и специализации внутри стрима. У параграфа — пометка, в какой поставке он изменён. Замер — стенд ×25 (AGENTS.md, «Ноутбук: сборка
 # параграфами gp»)
 OUT_1A = os.path.join(DIR, '1а. Helicopter — изменённые параграфы.md')
 P58 = ['hub · 0 колонки', 'structure_x_vacancy', 'hub · 1 структура', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды',
        'hub · 4 разрезы', 'hub · 5 переходы', 'hub · 6 вакансии и meta', 'hub checks']
-TP20 = ['_PARAMS_', 'EXEC build_all_metrics']          # параграфы TP 2.0, которые меняют поставки 60 и 61
+TP20 = ['_PARAMS_', 'EXEC build_all_metrics']          # параграфы TP 2.0, которые меняют поставки 60–62
 CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub checks'},
            60: {'_PARAMS_', 'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 3 справочник и ряды', 'hub · 4 разрезы',
                 'hub · 5 переходы'},
-           61: {'_PARAMS_'}}
+           61: {'_PARAMS_'},
+           62: {'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 4 разрезы'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 
@@ -125,7 +128,8 @@ def write_1a(out):
         p = by[t]
         lang = 'sql' if p['shebang'] == 'gp' else 'python'
         ds = [str(d) for d in sorted(CHANGED) if t in CHANGED[d]]
-        mark = (' · изменён в поставк' + ('е ' if len(ds) == 1 else 'ах ') + ' и '.join(ds)) if ds else ''
+        lst = ds[0] if len(ds) == 1 else ', '.join(ds[:-1]) + ' и ' + ds[-1] if ds else ''
+        mark = (' · изменён в поставк' + ('е ' if len(ds) == 1 else 'ах ') + lst) if ds else ''
         parts.append(f"\n### {i}. {t} — {p['shebang']}{mark}\n\n```{lang}\n{p['code']}\n```")
     with open(OUT_1A, 'w', encoding='utf-8') as f:
         f.write('\n'.join(parts) + '\n')

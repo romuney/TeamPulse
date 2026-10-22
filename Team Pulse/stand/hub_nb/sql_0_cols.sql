@@ -70,6 +70,7 @@ with need (sch, tbl, col) as (
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'specialization'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'type_company'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'source_type_nm'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'region'),
         ('', 'org_structure', 'report_month'),
         ('', 'org_structure', 'mng_unit_rk'),
         ('usr_cross_data', 'hr_executive_proteus', 'calendar_dt'),

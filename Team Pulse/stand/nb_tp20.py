@@ -188,7 +188,12 @@ COLS = (['calendar_dt', 'mdm_employee_rk']
         + ['lvl12_mapped_management_unit_rk', 'lvl12_mapped_management_unit_nm',
            'lvl12_mngt_unit_in_trsf_flg', 'lvl12_mngt_unit_out_trsf_flg']
         # 22.10, поставка 59: признак последнего дня месяца — по нему мастер-отчёт переносит перевод «из»
-        + ['last_day_of_month_flg'])
+        + ['last_day_of_month_flg']
+        # 22.10, поставка 62: регион сотрудника — разрез портрета и конструктора
+        + ['residential_state_nm'])
+# регион — по ключу человека, без генератора: случайный ряд симуляции не сдвигается; у части людей пусто
+REGIONS = ['г. Москва', 'г. Москва', 'г. Москва', 'Московская область', 'г. Санкт-Петербург', 'Свердловская область',
+           'Новосибирская область', 'Республика Татарстан', None]
 
 
 def source_rows(U, people):
@@ -229,7 +234,8 @@ def source_rows(U, people):
                    + [tf.get(t, 0) for t in TYPES] + [of.get(t, 0) for t in TYPES]
                    + [p['nonreg'] if fired else 0, p['company'], p['spec'], p['source']]
                    + [None, None, 0, 0]
-                   + [int((d + dt.timedelta(1)).day == 1)])
+                   + [int((d + dt.timedelta(1)).day == 1)]
+                   + [REGIONS[p['rk'] * 7 % len(REGIONS)]])
             d += dt.timedelta(1)
 
 

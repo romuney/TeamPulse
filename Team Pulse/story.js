@@ -132,8 +132,7 @@ const Q={
   hiring:{vacancies:'Успеваем закрывать вакансии?',plan:'Выполняем план?',profile:'Кого и откуда берём?'},
   tgrowth:{flow:'Растут ли люди внутри?',requests:'Как быстро растут?',statuses:'Кто сейчас в росте?'},
   monitor:{activity:'Рабочая активность',review:'Как прошло ревью?'},
-  office:{calendar:'Когда ходят?',offices:'В каких городах ходят чаще?',people:'Кто ходит?',
-    booking:'Соблюдают бронь?',dynamics:'Ходят больше или меньше?'},
+  office:{calendar:'Когда ходят?',attend:'Кто и где ходит?',booking:'Соблюдают бронь?'},
   ai:{adoption:'Пользуются ли AI?',tools:'Чем пользуются?'}
 };
 
@@ -358,22 +357,24 @@ CH.office={
       lede:'Разница — **'+Math.round(b.value-w.value)+' п.п.**: '+f('office_att',b.value)+' против '+f('office_att',w.value)+
         ' в среднем за '+D.DOW_MONTHS+' месяца.'};
   },
-  offices(c){
-    /* 15.10: рейтинг офисов снят (в каталоге HQ — офисы по городам), остались города */
-    const rows=D.officeByCity(c.lp);
-    if(rows.length<2)return {sum:'один город',st:'n'};
-    const b=rows[0], w=rows[rows.length-1];
-    return {sum:rows.length+' '+U.plural(rows.length,['город','города','городов']),st:'n',
-      head:'Чаще всего в офис ходят в городе «'+b.name+'», реже всего — в «'+w.name+'»',
-      lede:'«'+b.name+'» — **'+f('office_att',b.att)+'**, «'+w.name+'» — **'+f('office_att',w.att)+'** за '+D.CMP.cur+'.'};
-  },
-  people(c){
-    const g=D.attByGrade(c.lp).filter(x=>x.hc);
-    if(g.length<2)return {sum:'нет данных',st:'n'};
-    const b=g[argmax(g.map(x=>x.att))], w=g[argmin(g.map(x=>x.att))];
-    return {sum:'чаще — «'+b.name+'»',st:'n',
-      head:'Чаще всех ходит «'+b.name+'», реже всех — «'+w.name+'»',
-      lede:'«'+b.name+'» — **'+f('office_att',b.att)+'**, «'+w.name+'» — **'+f('office_att',w.att)+'** за '+D.CMP.cur+'.'};
+  /* 22.10: «Кто и где ходит» — динамика, сегмент, локация; выбор сегмента и города — в c.S */
+  attend(c){
+    const S=c.S||{}, x=D.officeCross(c.lp,S.offSeg,S.offCity);
+    const lbl=[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).join(' · ');
+    if(lbl)return {sum:lbl+' — '+f('office_att',x.att),st:'n',
+      head:'Посещаемость: '+lbl+' — '+f('office_att',x.att),
+      lede:'По всему отбору — **'+f('office_att',D.lastVal(c.lp,'office_att'))+'** за '+D.CMP.cur+'. Снять выбор — Escape.'};
+    const segs=x.segs.filter(s=>s.hc), cs=x.cities.filter(r=>r.hc);
+    const v=judge('office_att',c), ya=yearAgo(c.lp,'office_att');
+    const fo=focusRate(c,'office_att','Посещаемость по подразделениям');
+    const sg=segs.length>1?segs.slice().sort((a,b)=>b.att-a.att):null, cb=cs.length>1?cs.slice().sort((a,b)=>b.att-a.att):null;
+    return {sum:f('office_att',v.v),st:v.st,
+      head:vsBase(v,c,'В офис ходят чаще','В офис ходят реже','Посещаемость — на уровне базы')+
+        (v.base!=null?': '+f('office_att',v.v)+' против '+f('office_att',v.base):''),
+      lede:[ya!=null?'Год назад — **'+f('office_att',ya)+'**':'',
+        sg?'«'+sg[0].name+'» — **'+f('office_att',sg[0].att)+'**, «'+sg[sg.length-1].name+'» — **'+f('office_att',sg[sg.length-1].att)+'**':'',
+        cb?'чаще всего ходят в «'+cb[0].name+'» (**'+f('office_att',cb[0].att)+'**)':''].filter(Boolean).join('; ')+'.',
+      focus:fo.focus,act:fo.act,ann:{office_att:{hi:[D.LAST]}}};
   },
   booking(c){
     const v=judge('booking_viol',c), bk=D.bookingQuality(c.lp);
@@ -382,15 +383,6 @@ CH.office={
       lede:'За '+bk.month+' — **'+D.fmtInt(bk.noshow)+'** человеко-дней брони без прихода и **'+D.fmtInt(bk.walkin)+
         '** приходов без брони.',
       ann:{booking_viol:{hi:[D.LAST]}}};
-  },
-  dynamics(c){
-    const v=judge('office_att',c), ya=yearAgo(c.lp,'office_att');
-    const fo=focusRate(c,'office_att','Посещаемость по подразделениям');
-    return {sum:f('office_att',v.v),st:v.st,
-      head:vsBase(v,c,'В офис ходят чаще','В офис ходят реже','Посещаемость — на уровне базы')+
-        (v.base!=null?': '+f('office_att',v.v)+' против '+f('office_att',v.base):''),
-      lede:ya!=null?'Год назад — **'+f('office_att',ya)+'**, изменение за год — **'+D.fmtDelta('office_att',+(v.v-ya).toFixed(2))+'**':'',
-      focus:fo.focus,act:fo.act,ann:{office_att:{hi:[D.LAST]}}};
   }
 };
 
@@ -542,8 +534,9 @@ const GL={
   'Среднесписочная численность':{text:'Полусумма активной численности на конец прошлого и этого месяца — упрощённый способ из методологии HR. Знаменатель текучести.'},
   'Активная численность':{metric:'hc_active'},
   'База':{text:'Та же метрика по всей компании с теми же фильтрами, что в шапке.\nПереход в подразделение базу не меняет.'},
-  'Нежелательный уход':{text:'Уход, о котором компания сожалеет (regrettable). По методологии HR: сотрудник ушёл сам, не из-за релокации, со стажем от 12 месяцев; MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3. В причинах отмечен ★.\nИз таких уходов считается Regrettable текучесть.'},
-  'Regrettable текучесть':{metric:'regret'},
+  'Нежелательный уход':{text:'Уход, о котором компания сожалеет. По методологии HR: сотрудник ушёл сам, не из-за релокации, со стажем от 12 месяцев; MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3. В причинах отмечен ★.\nИз таких уходов считается нежелательный отток.'},
+  'Нежелательный отток':{metric:'regret'},
+  'Желательный отток':{metric:'nonregret'},
   'Срок закрытия вакансии':{metric:'time_to_fill'},
   'Выполнение плана найма':{metric:'hire_plan'},
   'T-рост':{text:'Карьерный рост внутри компании: сотрудник подаёт заявку на повышение грейда или смену специализации, её одобряют или отклоняют.'},
@@ -613,14 +606,11 @@ const WHY={
   office:{
     calendar:['В какие дни офис заполнен, а в какие пустует. От этого зависят командные дни и аренда.',
       'Пустые дни — кандидаты на общий «офисный день» команды.'],
-    offices:['В каких городах в офис ходят чаще, а в каких — реже.',
-      'Город с низкой посещаемостью — сверьте с бронированием и правилами гибрида.'],
-    people:['Кто ходит в офис: грейды, руководители и сотрудники, Москва и регионы.',
-      'Старшие грейды не ходят — младшим не у кого учиться в офисе.'],
+    attend:['{{Посещаемость офиса|Посещаемость}} по месяцам, ниже — руководители и сотрудники, ниже — города. Клик по строке — '+
+      'динамика по ней; сегмент и город складываются.',
+      'Руководители ходят реже сотрудников или город отстаёт — сверьте с правилами гибрида и бронированием.'],
     booking:['{{Нарушения бронирования|Нарушения брони}} — место забронировали и не пришли или пришли без брони.',
-      'Нарушений много — места простаивают, а план офиса расходится с жизнью.'],
-    dynamics:['{{Посещаемость офиса|Посещаемость}}: ходят ли в офис чаще, чем в компании и чем год назад.',
-      'Падение — сверьте с правилами гибридного формата в команде.']},
+      'Нарушений много — места простаивают, а план офиса расходится с жизнью.']},
   ai:{
     adoption:['{{Проникновение AI|Проникновение}} — какая доля людей пользуется AI каждую неделю, {{WAU}} — сколько это человек.',
       'Отстающие подразделения — кандидаты на обучение и пилоты.'],

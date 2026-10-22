@@ -11,7 +11,9 @@
       (юридическая → активная → HQ), пол (полоса М : Ж и две карточки со средним
       возрастом), возраст (полоса до 25 / 25–30 / 30+ и карточки с раскладом М · Ж).
    2. «Уровень позиции» — три таблицы: сеньорность, грейд, стаж.
-   3. «Оформление» — три таблицы по убыванию: компания, тип занятости, формат.
+   3. «Оформление» — три таблицы по убыванию: тип занятости, формат, компания (22.10).
+   22.10: регион — таблицей внизу портрета; таблицы вкладок — в столбик; строки — только те,
+   что есть в данных; в конструкторе нет «Остальных».
    4. «Стримы» — дерево «стрим → специализации»: клик по стриму раскрывает его,
       Shift+клик выбирает все специализации стрима.
    5. «Конструктор» — сводная таблица двух измерений с тепловой заливкой,
@@ -74,21 +76,21 @@ function treeTable(dim,lp,sel,mixSel,open){
   const tree=D.mixTree(lp,dim.key,mixSel).slice().sort((a,b)=>b.value-a.value);
   const col=D.dimColor(dim.key), items=[];
   tree.forEach(n=>{
-    const on=open.has(n.cat.id);
+    const on=open.has(n.cat.id), nk=n.kids.filter(k=>k.value>0).length;
     items.push({name:n.cat.name,value:n.value,color:col,depth:1,
       exp:n.cat.id,open:on,pick:n.cat.id,on:sel.has(n.cat.id),expRow:true,
-      note:D.fmtInt(n.kids.length)+' '+
-        U.plural(n.kids.length,['специализация','специализации','специализаций'])});
+      note:D.fmtInt(nk)+' '+U.plural(nk,['специализация','специализации','специализаций'])});
     if(!on)return;
-    n.kids.slice().sort((a,b)=>b.value-a.value).forEach(k=>{
-      items.push({name:k.cat.name,value:k.value,color:col,depth:2,
+    /* специализации — только те, что есть в данных (люди есть); на бою имя пары «стрим|специализация» — короткое */
+    n.kids.filter(k=>k.value>0||sel.has(k.cat.id)).sort((a,b)=>b.value-a.value).forEach(k=>{
+      items.push({name:k.cat.short||k.cat.name,value:k.value,color:col,depth:2,
         pick:k.cat.id,on:sel.has(k.cat.id)});
     });
   });
   const others=D.otherParts(mixSel,[dim.key,kid.key]);
   /* Общая каретка предлагает свернуть, только когда раскрыто ВСЁ, — то же
      состояние, что у ИТОГО в сводной таблице подразделений. */
-  const allOpen=tree.length>0&&tree.every(n=>open.has(n.cat.id));
+  const allOpen=tree.length>0&&tree.filter(n=>n.value>0).every(n=>open.has(n.cat.id));
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:sliceSub(others,tree.reduce((a,n)=>a+n.value,0)),lite:true,
     head:'',valueHead:'Чел.',barHead:'',heads:true,metricKey:'hc_total',compact:true,tree:true,items:items,
@@ -158,37 +160,41 @@ function ageBlock(ctx,sel){
     U.shareCards({cards:A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:segs[i].bg,on:sel.has(c.id),
       sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';
 }
+/* регион (22.10) — внизу портрета таблицей: регионов десятки, полоса из них не читается. Нет разреза
+   или в отборе ни у кого нет региона — блока нет */
+function regionBlock(ctx,sel){
+  const S=ctx.S, R=D.MIX_BY_KEY.region;
+  if(!R||!D.mixParts(ctx.lp,'region',S.mixSel).some(v=>v>0))return '';
+  return '<section class="pf-s">'+dimTable(R,ctx.lp,sel,S.mixSel,{sort:true})+'</section>';
+}
 function portrait(ctx){
   const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), path=S.selNode||S.unit;
   if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
-  return '<div class="pf">'+funnelBlock(ctx,path,sel)+genderBlock(ctx,sel)+ageBlock(ctx,sel)+'</div>';
+  return '<div class="pf">'+funnelBlock(ctx,path,sel)+genderBlock(ctx,sel)+ageBlock(ctx,sel)+regionBlock(ctx,sel)+'</div>';
 }
 
-/* ---------- Три таблицы на вкладке: «Уровень позиции» и «Оформление» ---------- */
+/* ---------- Три таблицы на вкладке: «Уровень позиции» и «Оформление» ----------
+   22.10: таблицы — в столбик, одна под другой; строки — только те, что есть в данных, все значения
+   явно (без «Остальных») */
 function trio(ctx,keys,sort){
   const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id));
-  const list=keys.filter(k=>D.MIX_BY_KEY[k]).map(k=>dimTable(D.MIX_BY_KEY[k],ctx.lp,sel,S.mixSel,
-    {sort:sort,top:k==='legal'?6:0,word:['компания','компании','компаний']}));
+  /* разрез, где в отборе ни у кого нет значения, — без таблицы */
+  const list=keys.filter(k=>D.MIX_BY_KEY[k]&&D.mixParts(ctx.lp,k,S.mixSel).some(v=>v>0))
+    .map(k=>dimTable(D.MIX_BY_KEY[k],ctx.lp,sel,S.mixSel,{sort:sort}));
   return '<div class="st-trio">'+list.join('')+'</div>'+
     (sel.size?'':'<div class="tbl-note">Клик по строке — срез: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.</div>');
 }
 
 /* ---------- Конструктор ----------
    Измерения — по файлу «Структура»: сеньорность, грейд, стаж, пол, возраст, стрим,
-   компания, занятость, формат; специализация — только в строках (в колонках её
-   десятки). Матрица «разрез × разрез» — длинная ось сворачивается в «Остальные». */
-const CON_DIMS=['seniority','grade','tenure','gender','age','stream','legal','employment','worksite'];
+   компания, занятость, формат, регион; специализация — только в строках (в колонках её
+   десятки). 22.10: «Остальных» нет — все значения явно; строк и колонок без людей нет. */
+const CON_DIMS=['seniority','grade','tenure','gender','age','stream','legal','employment','worksite','region'];
 const conDims=()=>CON_DIMS.filter(k=>D.MIX_BY_KEY[k]).map(k=>D.MIX_BY_KEY[k]);
-const MX_TOP=8;
 function mxAxis(dim,tot,sel){
-  const all=dim.cats.map((_,i)=>i);
-  if(all.length<=MX_TOP+1)return {dim:dim,grp:all.map(i=>[i])};
-  const top=all.slice().sort((a,b)=>tot[b]-tot[a]).slice(0,MX_TOP);
-  all.forEach(i=>{if(sel.has(dim.cats[i].id)&&top.indexOf(i)<0)top.push(i)});
-  const keep=dim.sort?top.sort((a,b)=>tot[b]-tot[a]):top.sort((a,b)=>a-b), rest=all.filter(i=>keep.indexOf(i)<0);
-  return {dim:Object.assign({},dim,{cats:keep.map(i=>dim.cats[i]).concat([{id:null,key:'_rest',other:true,
-      name:'Остальные',note:rest.length+' · '+rest.map(i=>dim.cats[i].name).slice(0,8).join(', ')+(rest.length>8?' и ещё '+(rest.length-8):'')}])}),
-    grp:keep.map(i=>[i]).concat([rest])};
+  const keep=dim.cats.map((_,i)=>i).filter(i=>tot[i]>0||sel.has(dim.cats[i].id));
+  if(dim.sort)keep.sort((a,b)=>tot[b]-tot[a]);
+  return {dim:Object.assign({},dim,{cats:keep.map(i=>dim.cats[i])}),grp:keep.map(i=>[i])};
 }
 function mxCap(R,C,cells,sel){
   const rt=cells.map(r=>sumA(r)), ct=C.cats.map((_,j)=>sumA(cells.map(r=>r[j])));
@@ -225,14 +231,15 @@ SC.blocks.structure={
   title(sub){
     if(sub==='portrait')return 'Портрет сотрудника · воронка · пол · возраст';
     if(sub==='level')return 'Уровень позиции: сеньорность, грейд, стаж';
-    if(sub==='work')return 'Оформление: компания, тип занятости, формат работы';
+    if(sub==='work')return 'Оформление: тип занятости, формат работы, компания';
     if(sub==='stream')return 'Стримы и специализации';
     return 'Конструктор: два измерения в одной таблице';
   },
   view(ctx){
     if(ctx.sub==='portrait')return portrait(ctx);
     if(ctx.sub==='level')return trio(ctx,['seniority','grade','tenure'],false);
-    if(ctx.sub==='work')return trio(ctx,['legal','employment','worksite'],true);
+    /* 22.10: порядок — тип занятости, формат работы, компания */
+    if(ctx.sub==='work')return trio(ctx,['employment','worksite','legal'],true);
     if(ctx.sub==='stream'){
       const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), dim=D.MIX_BY_KEY.stream;
       if(!dim)return U.empty('Стримов нет в данных','');

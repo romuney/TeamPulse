@@ -383,7 +383,10 @@ function kpiCard(o){
    правил взаимодействия в отчёте не заводится.
    ========================================================================== */
 function barTable(o){
-  let items=o.items.slice();
+  /* 22.10: только строки, которые есть в данных — категория без людей (0 или нет значения) не
+     выводится; выбранная в срезе остаётся, чтобы её можно было снять. o.keepZero — таблица, где
+     ноль сам по себе ответ (например, «приход без брони — 0») */
+  let items=o.items.filter(x=>o.keepZero||x.on||(x.value!=null&&x.value!==0&&x.value===x.value));
   if(o.sort)items.sort((a,b)=>b.value-a.value);
   /* o.top — длинный плоский список (стримы на верхних уровнях, 16.10): первые
      o.top и строка «Остальные»; кто в ней — в подсказке полосы. Одну лишнюю
@@ -436,11 +439,13 @@ function barTable(o){
   items.forEach(x=>{
     const share=sum?x.value/sum*100:0;
     /* клик по строке: либо переход в подразделение, либо срез по категории */
-    const cls=[x.node||x.pick?'urow':'',x.on?'sel':'',x.depth===2?'lvl2':''].filter(Boolean).join(' ');
+    const cls=[x.node||x.pick||x.attr?'urow':'',x.on?'sel':'',x.depth===2?'lvl2':''].filter(Boolean).join(' ');
     /* expRow (21.10, файл «Структура»): строка стрима раскрывается кликом по ней самой,
        Shift+клик выбирает все специализации стрима (срез по стриму) */
     const hook=(cls?' class="'+cls+'"':'')+
       (x.node?' data-node="'+esc(x.node)+'"':'')+
+      /* x.attr (22.10, посещаемость): свой фильтр вкладки — строка кликается, выбор складывается */
+      (x.attr?' '+x.attr+tipAttr({title:x.name,text:x.on?'Выбрано. Клик — снять.':(x.attrTip||'Клик — показать только «'+x.name+'».')}):'')+
       (x.pick&&x.expRow?' data-btexp="'+esc(x.exp)+'" data-mixgrp="'+esc(x.pick)+'"'+
         tipAttr({title:x.name,
           text:(x.open?'Клик — свернуть специализации.':'Клик — раскрыть специализации.')+
@@ -626,15 +631,22 @@ function heatLegend(){
    Срез обязан быть виден там, где он меняет цифры, — рядом с карточками, а не
    только в таблице, по которой кликнули. Иначе «191 → 59» выглядит поломкой
    отчёта. Чип снимается кликом, как разрезы в шапке. */
+/* 22.10: полка срезов закреплена у верхнего края окна (sticky) и стоит всегда: пока срезов нет, она
+   скрыта visibility:hidden, а не display:none — место под неё оставлено, и отчёт не прыгает, когда
+   срез появляется. o: title, chips [{dim, cat, attr — атрибут кнопки «×»}], extra, clear — атрибут
+   «Сбросить всё», clearTip */
+function shelf(o){
+  const chips=o.chips||[], off=!chips.length;
+  return '<div class="note-inline slice sl-shelf'+(off?' off':'')+'"'+(off?' aria-hidden="true"':'')+'>'+
+    '<span class="sl-t">'+esc(o.title)+'</span>'+
+    (off?'<span class="chip sl">—</span>':chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
+      '<button class="x" '+c.attr+tipAttr({title:'Снять срез',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join(''))+
+    '<span class="sl-x">'+esc(off?'':o.extra||'')+'</span>'+
+    '<button class="btn ghost xs" '+o.clear+(off?' tabindex="-1"':'')+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять все срезы. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+}
 function sliceNote(parts,extra){
-  if(!parts.length)return'';
-  return '<div class="note-inline slice">'+
-    '<span class="sl-t">Срез состава:</span>'+
-    parts.map(p=>'<span class="chip sl">'+esc(p.dim.short||p.dim.name)+': <b>'+esc(p.cat.name)+'</b>'+
-      '<button class="x" data-mix="'+esc(p.id)+'"'+
-      tipAttr({title:'Снять срез',text:p.dim.name+': «'+p.cat.name+'»'})+'>×</button></span>').join('')+
-    '<span class="sl-x">'+esc(extra||'')+'</span>'+
-    '<button class="btn ghost xs" data-mixclear="1"'+tipAttr({title:'Сбросить всё',text:'Снять все срезы состава. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+  return shelf({title:'Срез состава:',extra:extra,clear:'data-mixclear="1"',clearTip:'Снять все срезы состава. То же — клавиша Escape.',
+    chips:parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"'}))});
 }
 
 /* ============================================================================
@@ -865,7 +877,10 @@ function statTable(o){
   const nc=o.cols.length, first=o.firstTotal!==false;
   let h='<table class="ptable stable dense"><thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
     o.cols.map((c,j)=>'<th'+(j===0&&first?' class="st-tot"':'')+'>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
-  o.rows.forEach(r=>{
+  /* 22.10: строка без данных (все значения пустые или 0) не выводится, рубрика без строк — тоже */
+  const has=r=>r.total||r.vals.some(v=>v!=null&&v!==0);
+  const rows=o.rows.filter(r=>r.sec||has(r)).filter((r,i,a)=>!r.sec||(a[i+1]&&!a[i+1].sec));
+  rows.forEach(r=>{
     if(r.sec){h+='<tr class="st-sec"><td class="txt" colspan="'+(nc+1)+'">'+esc(r.sec)+'</td></tr>';return}
     const cls=[r.total?'total top':'',r.sub?'st-sub':''].filter(Boolean).join(' ');
     h+='<tr'+(cls?' class="'+cls+'"':'')+(r.tip?tipAttr(r.tip):'')+'><td class="txt">'+esc(r.name)+
@@ -923,9 +938,12 @@ function heatTable(o){
     o.cols.map(c=>'<th class="mx-h"'+(c.tip?tipAttr({title:c.name,text:c.tip}):'')+'>'+esc(c.name)+'</th>').join('')+
     '<th class="mx-tot">'+esc(o.totHead||'Человек')+'</th></tr></thead><tbody>';
   if(o.total)h+=row(o.total,'total top');
+  /* 22.10: строка без людей (все клетки 0) — её нет в данных, не выводится; группа без строк — тоже */
   o.groups.forEach(g=>{
+    const rows=g.rows.filter(r=>sumOf(r.cells)>0);
+    if(!rows.length)return;
     if(o.groups.length>1)h+='<tr class="hx-sec"><td class="txt" colspan="'+(nc+2)+'">'+esc(g.name)+'</td></tr>';
-    g.rows.forEach(r=>{h+=row(r)});
+    rows.forEach(r=>{h+=row(r)});
   });
   return h+'</tbody></table></div>';
 }
@@ -1041,7 +1059,7 @@ function devSummary(o){
 }
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
-  barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,pct,panel,subTabs,empty,trafficLegend,
+  barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
   funnelSteps,shareBar,shareCards,genderSplit,pfHead,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

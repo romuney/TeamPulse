@@ -68,7 +68,7 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
                'work_day_amt', 'office_visit_amt', 'grt_approve_cnt', 'grt_decline_cnt',
                'gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
                'legal_organization', 'employee_stream', 'fire_reason_group', 'fire_initiative', 'specialization',
-               'type_company', 'source_type_nm'])
+               'type_company', 'source_type_nm', 'region'])
 TYPES = ('hq', 'it', 'employment_relation_type', 'active_type')
 DAY_COLS = (['calendar_dt', 'mdm_employee_rk'] + [f'lvl{i}_mapped_management_unit_rk' for i in LV]
             + ['emp_specialization_oper_code', 'emp_specialization_it_code', 'employment_relation_type_desc',
@@ -399,20 +399,24 @@ def sql_mix():
         ('g', 'gender'), ('a', 'type_age'), ('t', 'experience_group_nm'), ('gr', 'grade'), ('s', 'seniority'),
         ('c', 'employee_contract_type'), ('o', 'legal_organization'), ('w', 'employee_stream'),
         ('r', 'employment_relation_type'), ('fr', 'fire_reason_group'), ('fi', 'fire_initiative'),
-        ('sp', 'specialization'), ('tc', 'type_company'), ('hs', 'source_type_nm'))}
-    hc_keys = ['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc']
+        ('sp', 'specialization'), ('tc', 'type_company'), ('hs', 'source_type_nm'), ('rg', 'region'))}
+    # 22.10, поставка 62: регион (rg) и пара «стрим|специализация» (ws) — специализации внутри стрима. В значении
+    # «|» не встречается: clean() меняет его на «/»
+    a['ws'] = a['w'] + " || '|' || " + a['sp']
+    hc_keys = ['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws']
     # 22.10, поставка 60: найм в компанию — с любым типом численности (hire_cnt): срез — тип на конец месяца целиком,
     # и найм в любой выбранный тип попадает в разбивки (hire_amt — только «Активная»). У «Активной» — то же, что было
     hire_e = f"greatest({num('hire_cnt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
     hch = (f"case when {num('hire_cnt')} > 0 then 'Найм в компанию'\n"
            f"{' ' * 30}when {num('transfer_candidate_amt')} > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end")
     attrs = ['gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
-             'legal_organization', 'employee_stream', 'employment_relation_type', 'specialization', 'type_company']
+             'legal_organization', 'employee_stream', 'employment_relation_type', 'specialization', 'type_company',
+             'region']
     lm = f'(select lm from {P}_cal)'
     ytd = f"and s.report_month between date_trunc('year', {lm})::date and {lm}"
     return f"""{head('4. Разрезы (поставка 58: SQL вместо build_hub)',
                'teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам',
-               '(g a t gr s c o w r sp tc), увольнения с начала его года (xr причина, xq regret по причине, xi',
+               '(g a t gr s c o w r sp tc rg ws), увольнения с начала его года (xr причина, xq regret по причине, xi',
                'инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),',
                "найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Пустое значение — ''.")}
 

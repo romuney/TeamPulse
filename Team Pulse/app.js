@@ -108,7 +108,7 @@ function goUnit(p,back){
   if(ENV){requestUnit(p,back);return}
   if(!D.NODE_BY_PATH[p]||p===S.unit)return;
   if(!back)pushBack(S.unit);
-  S.unit=p;S.selNode=null;
+  S.unit=p;S.selNode=null;S.offCity=null;
   expanded.clear();openRows.clear();tq='';
   render();
 }
@@ -272,7 +272,7 @@ function pilotChips(){
   if(STORE.warn)h+='<span class="chip warn">'+esc(STORE.warn)+'</span>';
   h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на настоящих данных',
     text:'Настоящие цифры:',
-    list:['численность, найм, отток, переводы','текучесть и regrettable текучесть','посещаемость офиса и T-рост — если данные уже пришли'],
+    list:['численность, найм, отток, переводы','текучесть, нежелательный и желательный отток','посещаемость офиса и T-рост — если данные уже пришли'],
     note:'С полосатой меткой «в разработке» — условные цифры. Данные по '+D.CMP.cur+' включительно: текущий месяц ещё не закрыт.'})+
     '><span class="pl-t">Пробник · часть данных в разработке</span></span>';
   return h;
@@ -917,6 +917,12 @@ on(document,'click',e=>{
   /* Срез состава — СТРОГО до .urow: строка разбивки и есть .urow, и общий
      обработчик выбора подразделения перехватил бы её первым. */
   if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
+  /* посещаемость (22.10): сегмент и город — свой фильтр вкладки, складываются; повторный клик снимает */
+  if(t.closest('[data-offclear]')){S.offSeg=null;S.offCity=null;render(true);return}
+  const osg=t.closest('[data-offseg]');
+  if(osg){S.offSeg=S.offSeg===osg.dataset.offseg?null:osg.dataset.offseg;render(true);return}
+  const oct=t.closest('[data-offcity]');
+  if(oct){S.offCity=S.offCity===oct.dataset.offcity?null:oct.dataset.offcity;render(true);return}
   if(t.closest('[data-mixswap]')){
     /* специализация — только в строках (файл «Структура») */
     if(S.mixRows==='spec'||!S.mixCols)return;
@@ -1085,6 +1091,7 @@ on(document,'keydown',e=>{
     if(!ovl&&S.mxFull){S.mxFull=false;render(true);return}
     /* мониторинг: Escape снимает отметку периода и выбор строки таблицы */
     if(!ovl&&S.tab==='monitor'&&(S.monMark!=null||S.selNode)){S.monMark=null;S.selNode=null;render(true);return}
+    if(!ovl&&S.tab==='office'&&(S.offSeg||S.offCity)){S.offSeg=null;S.offCity=null;render(true);return}
     if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true)}
   }
 });

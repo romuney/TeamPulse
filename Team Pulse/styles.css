@@ -612,7 +612,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   padding:7px 10px;font-family:Arial,sans-serif;font-size:12px;line-height:1.4;color:var(--ink2);font-weight:var(--fw-body);
   min-width:148px;max-width:260px;white-space:normal;text-align:left}
 .tip.on{opacity:1;transform:none}
-/* 21.10, правка Антона: заголовок подсказки — обычным предложением, без капса («Regrettable текучесть») */
+/* 21.10, правка Антона: заголовок подсказки — обычным предложением, без капса («Нежелательный отток») */
 .tip .t-h{display:block;font-size:12px;font-weight:var(--fw-bold);color:var(--ink);margin-bottom:4px}
 .tip .t-x{display:block;font-size:12px;font-weight:var(--fw-body);color:var(--ink2);line-height:1.45}
 .tip .t-r{display:flex;align-items:center;gap:8px;margin-top:4px}
@@ -1064,6 +1064,14 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .note-inline.slice .chip.sl{background:#fff;border-color:var(--act-line);flex:0 0 auto}
 .note-inline.slice .sl-x{flex:1 1 240px;min-width:0;font-size:var(--fs-note);color:var(--muted)}
 .note-inline.slice .btn.xs{flex:0 0 auto;padding:4px 9px}
+/* мониторинг (22.10): блок графика без данных в пробнике — заголовок и плашка на месте графика */
+.mon-ph{padding:var(--s6) var(--s7);border:1px dashed var(--line);border-radius:var(--r3);min-height:120px}
+.mon-ph .tbl-note{margin-top:var(--s4)}
+/* 22.10: полка срезов закреплена у верхнего края при прокрутке; пустая — скрыта, но место за ней
+   (visibility, не display), поэтому отчёт не прыгает, когда срез появляется */
+.sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;box-shadow:0 2px 8px rgba(20,32,60,.08)}
+.sl-shelf.off{visibility:hidden}
+.k-ph{visibility:hidden}
 
 /* ---------- Конструктор своего среза ----------
    Две оси и содержимое клетки стоят одной строкой над таблицей и отделены от
@@ -2248,7 +2256,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .gsp-b{display:flex;height:5px;border-radius:3px;overflow:hidden;gap:1px;background:var(--line2)}
 .gsp-b i.m{background:var(--pt-m)}.gsp-b i.f{background:var(--pt-f)}
 /* три таблицы вкладки: колонками, на узком — друг под другом */
-.st-trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:var(--s10) var(--s9);align-items:start}
+.st-trio{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s10);align-items:start}  /* 22.10: таблицы в столбик */
 .st-trio .bt-group{min-width:0}
 .st-trio .bt-group+.bt-group{padding-top:0}
 /* конструктор: легенда заливки, полный экран */

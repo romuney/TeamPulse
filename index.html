@@ -620,7 +620,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   padding:7px 10px;font-family:Arial,sans-serif;font-size:12px;line-height:1.4;color:var(--ink2);font-weight:var(--fw-body);
   min-width:148px;max-width:260px;white-space:normal;text-align:left}
 .tip.on{opacity:1;transform:none}
-/* 21.10, правка Антона: заголовок подсказки — обычным предложением, без капса («Regrettable текучесть») */
+/* 21.10, правка Антона: заголовок подсказки — обычным предложением, без капса («Нежелательный отток») */
 .tip .t-h{display:block;font-size:12px;font-weight:var(--fw-bold);color:var(--ink);margin-bottom:4px}
 .tip .t-x{display:block;font-size:12px;font-weight:var(--fw-body);color:var(--ink2);line-height:1.45}
 .tip .t-r{display:flex;align-items:center;gap:8px;margin-top:4px}
@@ -1072,6 +1072,14 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .note-inline.slice .chip.sl{background:#fff;border-color:var(--act-line);flex:0 0 auto}
 .note-inline.slice .sl-x{flex:1 1 240px;min-width:0;font-size:var(--fs-note);color:var(--muted)}
 .note-inline.slice .btn.xs{flex:0 0 auto;padding:4px 9px}
+/* мониторинг (22.10): блок графика без данных в пробнике — заголовок и плашка на месте графика */
+.mon-ph{padding:var(--s6) var(--s7);border:1px dashed var(--line);border-radius:var(--r3);min-height:120px}
+.mon-ph .tbl-note{margin-top:var(--s4)}
+/* 22.10: полка срезов закреплена у верхнего края при прокрутке; пустая — скрыта, но место за ней
+   (visibility, не display), поэтому отчёт не прыгает, когда срез появляется */
+.sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;box-shadow:0 2px 8px rgba(20,32,60,.08)}
+.sl-shelf.off{visibility:hidden}
+.k-ph{visibility:hidden}
 
 /* ---------- Конструктор своего среза ----------
    Две оси и содержимое клетки стоят одной строкой над таблицей и отделены от
@@ -2256,7 +2264,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .gsp-b{display:flex;height:5px;border-radius:3px;overflow:hidden;gap:1px;background:var(--line2)}
 .gsp-b i.m{background:var(--pt-m)}.gsp-b i.f{background:var(--pt-f)}
 /* три таблицы вкладки: колонками, на узком — друг под другом */
-.st-trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:var(--s10) var(--s9);align-items:start}
+.st-trio{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s10);align-items:start}  /* 22.10: таблицы в столбик */
 .st-trio .bt-group{min-width:0}
 .st-trio .bt-group+.bt-group{padding-top:0}
 /* конструктор: легенда заливки, полный экран */
@@ -2446,7 +2454,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
       </div>
       <div class="fgrp">
         <label>3 · Где есть цель KPI — сравниваем с ней</label>
-        <div class="fhint">Regrettable текучесть для HQ и выполнение плана найма сравниваются с целью KPI, а не с базой. Цель KPI или база — это и есть ориентир.</div>
+        <div class="fhint">Нежелательный отток для HQ и выполнение плана найма сравниваются с целью KPI, а не с базой. Цель KPI или база — это и есть ориентир.</div>
       </div>
       <div class="fgrp">
         <label>4 · «+3 к маю» — изменение за месяц</label>
@@ -2666,13 +2674,13 @@ const METRICS=[
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с января',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR (YTD Turnover): сумма месячной текучести с января.'},
-{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Regrettable текучесть',short:'Regrettable',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
-  calc:'Сумма месячной: regrettable-увольнения ÷ среднесписочная × 100%. Regrettable по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательный отток',short:'Нежелат. отток',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
+  calc:'Сумма месячной: нежелательные увольнения ÷ среднесписочная × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
-{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Non-regrettable текучесть',short:'Non-regrettable',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
-  hint:'Текучесть с 1 января по обычным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.'+HQ_ONLY,
-  calc:'Сумма месячной: обычные (non-regrettable) увольнения ÷ среднесписочная × 100%. Обычное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
+{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательный отток',short:'Желат. отток',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
+  hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.'+HQ_ONLY,
+  calc:'Сумма месячной: желательные увольнения ÷ среднесписочная × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
@@ -2829,7 +2837,7 @@ const DEV_PLAN=[
   {blk:'Отток и текучесть',rows:[
     {what:'Отток за месяц и с начала года',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Текучесть месячная и накопительная',aud:'all',stage:'0',now:'live'},
-    {what:'Regrettable и non-regrettable текучесть',aud:'hq',stage:'0',now:'live',hq:1},
+    {what:'Нежелательный и желательный отток',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Светофор текучести: нежелательная и обычная с порогами прод-отчёта HQ (4%, 5–15%, бенчмарк 12/15%)',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live'},
     {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live'},
@@ -3589,7 +3597,9 @@ const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.pai
   /* срез состава: не больше SLICE_MAX категорий, по одной на разрез */
   mixSel:[],
   /* оси конструктора «Свой срез» и содержимое ячейки */
-  mixRows:'seniority',mixCols:'gender',mixMode:'abs'};
+  mixRows:'seniority',mixCols:'gender',mixMode:'abs',
+  /* посещаемость, вкладка «Кто и где ходит» (22.10): выбранный сегмент ('lead' | 'staff') и город */
+  offSeg:null,offCity:null};
   /* Масштаба динамики в состоянии больше нет: с 13.10 вся динамика — год
      к году (переключатель «12 мес / Год к году» снят по просьбе заказчика). */
 
@@ -3743,7 +3753,11 @@ const MIX_DIMS=[
    разрезов в пробнике нет; экраны это переносят (structure.js, story.js). */
 /* 16.10, ответ 0д: employee_contract_type — это формат работы («Гибридный»; в HQ-дашборде
    «Формат работы: Офис, Гибрид, Дистанционно»), а не тип договора: колонка c → worksite */
-const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',legal:'o',stream:'w',employment:'r',spec:'sp'};
+/* 22.10, поставка 62: регион (rg — residential_state_nm) и специализации внутри стрима (ws — «стрим|специализация»);
+   на таблицах до поставки 62 ws нет — специализации плоским списком из sp */
+const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',legal:'o',stream:'w',employment:'r',spec:'sp',region:'rg'};
+const REAL_WS=!!(REAL&&Object.keys(REAL.mixVals('ws')).length);
+if(REAL_WS)REAL_DIM.spec='ws';
 const NONE_NAME='Не указано';
 /* «до 25 лет» → 24,5; «1-3 года» → 12 мес; «более 5 лет» → 60,5 мес: число и сторона.
    Сторона — по слову прямо перед числом или «+» и «и старше» после него: в настоящих
@@ -3784,6 +3798,20 @@ if(REAL){
     d.cats=realOrder(d.key,vals).map((v,j)=>({key:'v'+j,name:v||NONE_NAME,raw:v,na:isNA(v)}));
     delete d.childDim;delete d.parentDim;
     if(d.key==='stream'){d.name='Стрим';d.hint='Чем люди занимаются.'}
+  }
+  /* стрим → специализации: категория специализации — пара «стрим|специализация», в таблице — имя
+     специализации, в срезе и конструкторе — «специализация (стрим)» */
+  const st=MIX_DIMS.find(d=>d.key==='stream'), sp=MIX_DIMS.find(d=>d.key==='spec');
+  if(REAL_WS&&st&&sp){
+    const by={};st.cats.forEach(c=>{by[c.raw]=c;c.kids=[]});
+    sp.cats.forEach(c=>{
+      const i=c.raw.indexOf('|'), sr=i<0?'':c.raw.slice(0,i), nm=i<0?c.raw:c.raw.slice(i+1), par=by[sr];
+      c.short=nm||NONE_NAME;c.na=isNA(nm);
+      c.name=c.short+(par?' ('+par.name+')':'');
+      if(par)par.kids.push(c.key);
+    });
+    st.childDim='spec';sp.parentDim='stream';
+    st.name='Стрим и специализация';st.hint='Чем люди занимаются. Раскройте стрим — увидите специализации внутри.';
   }
 }
 const MIX_BY_KEY=Object.fromEntries(MIX_DIMS.map(d=>[d.key,d]));
@@ -4831,6 +4859,29 @@ function attByRoleLoc(lp){
   return ROLE_LOC.map((x,i)=>({key:x.key,name:x.name,code:x.code,hc:hcs[i],att:att[i]}));
 }
 
+/* ---------- Посещаемость: сегмент × локация (22.10) ----------
+   Вкладка «Кто и где ходит» — динамика, ниже сегмент (руководители / сотрудники), ниже локация
+   (города); строки кликаются, выбор складывается. Сегмент — из «роли × локации», города — officeByCity.
+   Пересечение в модели независимое: доля сегмента в городе — как в отборе, посещаемость — города,
+   умноженная на коэффициент сегмента (его посещаемость к общей). factor — во сколько раз посещаемость
+   выбора отличается от общей: на него умножается ряд динамики. */
+const OFF_SEGS=[{key:'lead',name:'Руководители',rows:['rm','rt']},{key:'staff',name:'Сотрудники',rows:['lm','lt']}];
+function officeCross(lp,seg,city){
+  const base=lastVal(lp,'office_att')||0, rl=attByRoleLoc(lp), cities=officeByCity(lp);
+  const segs=OFF_SEGS.map(s=>{
+    const rows=rl.filter(r=>s.rows.indexOf(r.key)>=0), hc=rows.reduce((a,r)=>a+r.hc,0);
+    const att=hc?rows.reduce((a,r)=>a+r.hc*(r.att||0),0)/hc:0;
+    return {key:s.key,name:s.name,hc:hc,att:+att.toFixed(1),f:base?att/base:1};
+  });
+  const tot=segs.reduce((a,s)=>a+s.hc,0), share=s=>tot?s.hc/tot:0;
+  const c=city?cities.find(x=>x.name===city)||null:null, sg=seg?segs.find(x=>x.key===seg)||null:null;
+  const att=(sg&&c?c.att*sg.f:sg?sg.att:c?c.att:base)||0;
+  return {
+    segs:segs.map(s=>({key:s.key,name:s.name,hc:c?Math.round(c.hc*share(s)):s.hc,att:c?+(c.att*s.f).toFixed(1):s.att})),
+    cities:cities.map(x=>({name:x.name,offices:x.offices,hc:sg?Math.round(x.hc*share(sg)):x.hc,att:sg?+(x.att*sg.f).toFixed(1):x.att})),
+    seg:sg,city:c,att:+att.toFixed(1),factor:base?att/base:1};
+}
+
 /* ---------- AI: инструменты и стримы ----------
    Проникновение по инструменту не больше общего: инструменты пересекаются,
    человек с двумя инструментами в общем проникновении один. Поэтому у
@@ -4854,7 +4905,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,hcFunnel,avgAge,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
-  attDays,attLast,attByDow,officeRank,
+  attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
   COUNT_METRICS,vacancyBreakdown,kpiAt,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
@@ -6503,7 +6554,10 @@ function kpiCard(o){
    правил взаимодействия в отчёте не заводится.
    ========================================================================== */
 function barTable(o){
-  let items=o.items.slice();
+  /* 22.10: только строки, которые есть в данных — категория без людей (0 или нет значения) не
+     выводится; выбранная в срезе остаётся, чтобы её можно было снять. o.keepZero — таблица, где
+     ноль сам по себе ответ (например, «приход без брони — 0») */
+  let items=o.items.filter(x=>o.keepZero||x.on||(x.value!=null&&x.value!==0&&x.value===x.value));
   if(o.sort)items.sort((a,b)=>b.value-a.value);
   /* o.top — длинный плоский список (стримы на верхних уровнях, 16.10): первые
      o.top и строка «Остальные»; кто в ней — в подсказке полосы. Одну лишнюю
@@ -6556,11 +6610,13 @@ function barTable(o){
   items.forEach(x=>{
     const share=sum?x.value/sum*100:0;
     /* клик по строке: либо переход в подразделение, либо срез по категории */
-    const cls=[x.node||x.pick?'urow':'',x.on?'sel':'',x.depth===2?'lvl2':''].filter(Boolean).join(' ');
+    const cls=[x.node||x.pick||x.attr?'urow':'',x.on?'sel':'',x.depth===2?'lvl2':''].filter(Boolean).join(' ');
     /* expRow (21.10, файл «Структура»): строка стрима раскрывается кликом по ней самой,
        Shift+клик выбирает все специализации стрима (срез по стриму) */
     const hook=(cls?' class="'+cls+'"':'')+
       (x.node?' data-node="'+esc(x.node)+'"':'')+
+      /* x.attr (22.10, посещаемость): свой фильтр вкладки — строка кликается, выбор складывается */
+      (x.attr?' '+x.attr+tipAttr({title:x.name,text:x.on?'Выбрано. Клик — снять.':(x.attrTip||'Клик — показать только «'+x.name+'».')}):'')+
       (x.pick&&x.expRow?' data-btexp="'+esc(x.exp)+'" data-mixgrp="'+esc(x.pick)+'"'+
         tipAttr({title:x.name,
           text:(x.open?'Клик — свернуть специализации.':'Клик — раскрыть специализации.')+
@@ -6746,15 +6802,22 @@ function heatLegend(){
    Срез обязан быть виден там, где он меняет цифры, — рядом с карточками, а не
    только в таблице, по которой кликнули. Иначе «191 → 59» выглядит поломкой
    отчёта. Чип снимается кликом, как разрезы в шапке. */
+/* 22.10: полка срезов закреплена у верхнего края окна (sticky) и стоит всегда: пока срезов нет, она
+   скрыта visibility:hidden, а не display:none — место под неё оставлено, и отчёт не прыгает, когда
+   срез появляется. o: title, chips [{dim, cat, attr — атрибут кнопки «×»}], extra, clear — атрибут
+   «Сбросить всё», clearTip */
+function shelf(o){
+  const chips=o.chips||[], off=!chips.length;
+  return '<div class="note-inline slice sl-shelf'+(off?' off':'')+'"'+(off?' aria-hidden="true"':'')+'>'+
+    '<span class="sl-t">'+esc(o.title)+'</span>'+
+    (off?'<span class="chip sl">—</span>':chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
+      '<button class="x" '+c.attr+tipAttr({title:'Снять срез',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join(''))+
+    '<span class="sl-x">'+esc(off?'':o.extra||'')+'</span>'+
+    '<button class="btn ghost xs" '+o.clear+(off?' tabindex="-1"':'')+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять все срезы. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+}
 function sliceNote(parts,extra){
-  if(!parts.length)return'';
-  return '<div class="note-inline slice">'+
-    '<span class="sl-t">Срез состава:</span>'+
-    parts.map(p=>'<span class="chip sl">'+esc(p.dim.short||p.dim.name)+': <b>'+esc(p.cat.name)+'</b>'+
-      '<button class="x" data-mix="'+esc(p.id)+'"'+
-      tipAttr({title:'Снять срез',text:p.dim.name+': «'+p.cat.name+'»'})+'>×</button></span>').join('')+
-    '<span class="sl-x">'+esc(extra||'')+'</span>'+
-    '<button class="btn ghost xs" data-mixclear="1"'+tipAttr({title:'Сбросить всё',text:'Снять все срезы состава. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+  return shelf({title:'Срез состава:',extra:extra,clear:'data-mixclear="1"',clearTip:'Снять все срезы состава. То же — клавиша Escape.',
+    chips:parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"'}))});
 }
 
 /* ============================================================================
@@ -6985,7 +7048,10 @@ function statTable(o){
   const nc=o.cols.length, first=o.firstTotal!==false;
   let h='<table class="ptable stable dense"><thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
     o.cols.map((c,j)=>'<th'+(j===0&&first?' class="st-tot"':'')+'>'+esc(c)+'</th>').join('')+'</tr></thead><tbody>';
-  o.rows.forEach(r=>{
+  /* 22.10: строка без данных (все значения пустые или 0) не выводится, рубрика без строк — тоже */
+  const has=r=>r.total||r.vals.some(v=>v!=null&&v!==0);
+  const rows=o.rows.filter(r=>r.sec||has(r)).filter((r,i,a)=>!r.sec||(a[i+1]&&!a[i+1].sec));
+  rows.forEach(r=>{
     if(r.sec){h+='<tr class="st-sec"><td class="txt" colspan="'+(nc+1)+'">'+esc(r.sec)+'</td></tr>';return}
     const cls=[r.total?'total top':'',r.sub?'st-sub':''].filter(Boolean).join(' ');
     h+='<tr'+(cls?' class="'+cls+'"':'')+(r.tip?tipAttr(r.tip):'')+'><td class="txt">'+esc(r.name)+
@@ -7043,9 +7109,12 @@ function heatTable(o){
     o.cols.map(c=>'<th class="mx-h"'+(c.tip?tipAttr({title:c.name,text:c.tip}):'')+'>'+esc(c.name)+'</th>').join('')+
     '<th class="mx-tot">'+esc(o.totHead||'Человек')+'</th></tr></thead><tbody>';
   if(o.total)h+=row(o.total,'total top');
+  /* 22.10: строка без людей (все клетки 0) — её нет в данных, не выводится; группа без строк — тоже */
   o.groups.forEach(g=>{
+    const rows=g.rows.filter(r=>sumOf(r.cells)>0);
+    if(!rows.length)return;
     if(o.groups.length>1)h+='<tr class="hx-sec"><td class="txt" colspan="'+(nc+2)+'">'+esc(g.name)+'</td></tr>';
-    g.rows.forEach(r=>{h+=row(r)});
+    rows.forEach(r=>{h+=row(r)});
   });
   return h+'</tbody></table></div>';
 }
@@ -7161,7 +7230,7 @@ function devSummary(o){
 }
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
-  barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,pct,panel,subTabs,empty,trafficLegend,
+  barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
   funnelSteps,shareBar,shareCards,genderSplit,pfHead,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
@@ -7924,8 +7993,7 @@ const Q={
   hiring:{vacancies:'Успеваем закрывать вакансии?',plan:'Выполняем план?',profile:'Кого и откуда берём?'},
   tgrowth:{flow:'Растут ли люди внутри?',requests:'Как быстро растут?',statuses:'Кто сейчас в росте?'},
   monitor:{activity:'Рабочая активность',review:'Как прошло ревью?'},
-  office:{calendar:'Когда ходят?',offices:'В каких городах ходят чаще?',people:'Кто ходит?',
-    booking:'Соблюдают бронь?',dynamics:'Ходят больше или меньше?'},
+  office:{calendar:'Когда ходят?',attend:'Кто и где ходит?',booking:'Соблюдают бронь?'},
   ai:{adoption:'Пользуются ли AI?',tools:'Чем пользуются?'}
 };
 
@@ -8150,22 +8218,24 @@ CH.office={
       lede:'Разница — **'+Math.round(b.value-w.value)+' п.п.**: '+f('office_att',b.value)+' против '+f('office_att',w.value)+
         ' в среднем за '+D.DOW_MONTHS+' месяца.'};
   },
-  offices(c){
-    /* 15.10: рейтинг офисов снят (в каталоге HQ — офисы по городам), остались города */
-    const rows=D.officeByCity(c.lp);
-    if(rows.length<2)return {sum:'один город',st:'n'};
-    const b=rows[0], w=rows[rows.length-1];
-    return {sum:rows.length+' '+U.plural(rows.length,['город','города','городов']),st:'n',
-      head:'Чаще всего в офис ходят в городе «'+b.name+'», реже всего — в «'+w.name+'»',
-      lede:'«'+b.name+'» — **'+f('office_att',b.att)+'**, «'+w.name+'» — **'+f('office_att',w.att)+'** за '+D.CMP.cur+'.'};
-  },
-  people(c){
-    const g=D.attByGrade(c.lp).filter(x=>x.hc);
-    if(g.length<2)return {sum:'нет данных',st:'n'};
-    const b=g[argmax(g.map(x=>x.att))], w=g[argmin(g.map(x=>x.att))];
-    return {sum:'чаще — «'+b.name+'»',st:'n',
-      head:'Чаще всех ходит «'+b.name+'», реже всех — «'+w.name+'»',
-      lede:'«'+b.name+'» — **'+f('office_att',b.att)+'**, «'+w.name+'» — **'+f('office_att',w.att)+'** за '+D.CMP.cur+'.'};
+  /* 22.10: «Кто и где ходит» — динамика, сегмент, локация; выбор сегмента и города — в c.S */
+  attend(c){
+    const S=c.S||{}, x=D.officeCross(c.lp,S.offSeg,S.offCity);
+    const lbl=[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).join(' · ');
+    if(lbl)return {sum:lbl+' — '+f('office_att',x.att),st:'n',
+      head:'Посещаемость: '+lbl+' — '+f('office_att',x.att),
+      lede:'По всему отбору — **'+f('office_att',D.lastVal(c.lp,'office_att'))+'** за '+D.CMP.cur+'. Снять выбор — Escape.'};
+    const segs=x.segs.filter(s=>s.hc), cs=x.cities.filter(r=>r.hc);
+    const v=judge('office_att',c), ya=yearAgo(c.lp,'office_att');
+    const fo=focusRate(c,'office_att','Посещаемость по подразделениям');
+    const sg=segs.length>1?segs.slice().sort((a,b)=>b.att-a.att):null, cb=cs.length>1?cs.slice().sort((a,b)=>b.att-a.att):null;
+    return {sum:f('office_att',v.v),st:v.st,
+      head:vsBase(v,c,'В офис ходят чаще','В офис ходят реже','Посещаемость — на уровне базы')+
+        (v.base!=null?': '+f('office_att',v.v)+' против '+f('office_att',v.base):''),
+      lede:[ya!=null?'Год назад — **'+f('office_att',ya)+'**':'',
+        sg?'«'+sg[0].name+'» — **'+f('office_att',sg[0].att)+'**, «'+sg[sg.length-1].name+'» — **'+f('office_att',sg[sg.length-1].att)+'**':'',
+        cb?'чаще всего ходят в «'+cb[0].name+'» (**'+f('office_att',cb[0].att)+'**)':''].filter(Boolean).join('; ')+'.',
+      focus:fo.focus,act:fo.act,ann:{office_att:{hi:[D.LAST]}}};
   },
   booking(c){
     const v=judge('booking_viol',c), bk=D.bookingQuality(c.lp);
@@ -8174,15 +8244,6 @@ CH.office={
       lede:'За '+bk.month+' — **'+D.fmtInt(bk.noshow)+'** человеко-дней брони без прихода и **'+D.fmtInt(bk.walkin)+
         '** приходов без брони.',
       ann:{booking_viol:{hi:[D.LAST]}}};
-  },
-  dynamics(c){
-    const v=judge('office_att',c), ya=yearAgo(c.lp,'office_att');
-    const fo=focusRate(c,'office_att','Посещаемость по подразделениям');
-    return {sum:f('office_att',v.v),st:v.st,
-      head:vsBase(v,c,'В офис ходят чаще','В офис ходят реже','Посещаемость — на уровне базы')+
-        (v.base!=null?': '+f('office_att',v.v)+' против '+f('office_att',v.base):''),
-      lede:ya!=null?'Год назад — **'+f('office_att',ya)+'**, изменение за год — **'+D.fmtDelta('office_att',+(v.v-ya).toFixed(2))+'**':'',
-      focus:fo.focus,act:fo.act,ann:{office_att:{hi:[D.LAST]}}};
   }
 };
 
@@ -8334,8 +8395,9 @@ const GL={
   'Среднесписочная численность':{text:'Полусумма активной численности на конец прошлого и этого месяца — упрощённый способ из методологии HR. Знаменатель текучести.'},
   'Активная численность':{metric:'hc_active'},
   'База':{text:'Та же метрика по всей компании с теми же фильтрами, что в шапке.\nПереход в подразделение базу не меняет.'},
-  'Нежелательный уход':{text:'Уход, о котором компания сожалеет (regrettable). По методологии HR: сотрудник ушёл сам, не из-за релокации, со стажем от 12 месяцев; MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3. В причинах отмечен ★.\nИз таких уходов считается Regrettable текучесть.'},
-  'Regrettable текучесть':{metric:'regret'},
+  'Нежелательный уход':{text:'Уход, о котором компания сожалеет. По методологии HR: сотрудник ушёл сам, не из-за релокации, со стажем от 12 месяцев; MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3. В причинах отмечен ★.\nИз таких уходов считается нежелательный отток.'},
+  'Нежелательный отток':{metric:'regret'},
+  'Желательный отток':{metric:'nonregret'},
   'Срок закрытия вакансии':{metric:'time_to_fill'},
   'Выполнение плана найма':{metric:'hire_plan'},
   'T-рост':{text:'Карьерный рост внутри компании: сотрудник подаёт заявку на повышение грейда или смену специализации, её одобряют или отклоняют.'},
@@ -8405,14 +8467,11 @@ const WHY={
   office:{
     calendar:['В какие дни офис заполнен, а в какие пустует. От этого зависят командные дни и аренда.',
       'Пустые дни — кандидаты на общий «офисный день» команды.'],
-    offices:['В каких городах в офис ходят чаще, а в каких — реже.',
-      'Город с низкой посещаемостью — сверьте с бронированием и правилами гибрида.'],
-    people:['Кто ходит в офис: грейды, руководители и сотрудники, Москва и регионы.',
-      'Старшие грейды не ходят — младшим не у кого учиться в офисе.'],
+    attend:['{{Посещаемость офиса|Посещаемость}} по месяцам, ниже — руководители и сотрудники, ниже — города. Клик по строке — '+
+      'динамика по ней; сегмент и город складываются.',
+      'Руководители ходят реже сотрудников или город отстаёт — сверьте с правилами гибрида и бронированием.'],
     booking:['{{Нарушения бронирования|Нарушения брони}} — место забронировали и не пришли или пришли без брони.',
-      'Нарушений много — места простаивают, а план офиса расходится с жизнью.'],
-    dynamics:['{{Посещаемость офиса|Посещаемость}}: ходят ли в офис чаще, чем в компании и чем год назад.',
-      'Падение — сверьте с правилами гибридного формата в команде.']},
+      'Нарушений много — места простаивают, а план офиса расходится с жизнью.']},
   ai:{
     adoption:['{{Проникновение AI|Проникновение}} — какая доля людей пользуется AI каждую неделю, {{WAU}} — сколько это человек.',
       'Отстающие подразделения — кандидаты на обучение и пилоты.'],
@@ -8507,9 +8566,8 @@ function expandableRows(root){
   return out;
 }
 /* isEmpty(path) — у подразделения под текущими фильтрами никого нет. Такие
-   строки уходят вниз своего уровня и приглушаются: «0 чел» с нулями во всех
-   колонках занимали столько же места, сколько живые команды, и разрывали
-   список. Порядок внутри живых и внутри пустых — как в оргдереве. */
+   строки не выводятся (22.10: «только строки, которые есть в данных»; раньше
+   уходили вниз своего уровня и приглушались). Порядок — как в оргдереве. */
 /* Три уровня вниз (TREE_DEPTH): раскрытая строка добавляет своих детей,
    кнопкой или кареткой ИТОГО. У юнита без подразделений (команды) строк нет —
    экран говорит об этом словами, а не повторяет ИТОГО второй строкой.
@@ -8518,7 +8576,8 @@ function expandableRows(root){
 /* cmp — сортировка соседей по колонке (мониторинг, 21.10): внутри каждого уровня, пустые — внизу */
 function pivotRows(root,expanded,isEmpty,q,cmp){
   const rows=[], emp=isEmpty||(()=>false), needle=String(q||'').trim().toLowerCase();
-  const order=list=>{const live=list.filter(n=>!emp(n.path));if(cmp)live.sort(cmp);return live.concat(list.filter(n=>emp(n.path)))};
+  /* 22.10: подразделения, где под фильтрами никого нет, не выводятся — только строки, которые есть в данных */
+  const order=list=>{const live=list.filter(n=>!emp(n.path));if(cmp)live.sort(cmp);return live};
   (function walk(p,d){
     order(D.rowsOf(p)).forEach(n=>{
       /* kidsOf: в пробнике у юнита третьего уровня дети в ответ не едут —
@@ -8562,7 +8621,9 @@ const YOY_COLOR={attrition:G.C_OUT,transfer_out:G.C_OUT,tgrowth_deny:G.C_OUT,
 function yoyChart(key,lp,bl,S,opt){
   opt=opt||{};
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
-  const y=D.yoySeries(lp,key), by=cmp?D.yoySeries(bl,key).cur:null;
+  /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент */
+  const y0=D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
+  const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=cmp?D.yoySeries(bl,key).cur:null;
   const col=opt.color||YOY_COLOR[key]||G.C_LINE;
   /* счётный поток (найм, уход…) — бар этого года, позади прозрачный бар прошлого (15.10) */
   const flow=!!(D.METRIC_BY_KEY[key]||{}).flow;
@@ -8656,13 +8717,14 @@ const DEV_LIVE={
   tgrowth:{live:['tgrowth_conv'],subs:['flow'],
     '*':{stage:6,t:'Решения по заявкам и конверсия — настоящие (вкладка «Растут ли люди внутри?»). '+
       'Типы заявок, T@T и статусы по грейдам пока условные.'}},
-  office:{live:['office_att'],subs:['dynamics'],
-    '*':{stage:7,t:'Посещаемость за месяц — настоящая (вкладка «Ходят больше или меньше?»). '+
-      'Календарь по дням, города, «кто ходит» и бронирование пока условные.'}}
+  office:{live:['office_att'],subs:[],
+    part:{attend:{stage:7,part:true,t:'Посещаемость по месяцам — настоящая. Сегменты и города пока условные.'}},
+    '*':{stage:7,t:'Посещаемость за месяц — настоящая (вкладка «Кто и где ходит?»). '+
+      'Календарь по дням, сегменты, города и бронирование пока условные.'}}
 };
 function devOf(bk,sub){
   const lv=DEV_LIVE[bk];
-  if(lv&&lv.live.every(k=>!D.isDev(k)))return lv.subs.indexOf(sub)>=0?null:lv['*'];
+  if(lv&&lv.live.every(k=>!D.isDev(k)))return lv.subs.indexOf(sub)>=0?null:(lv.part&&lv.part[sub])||lv['*'];
   const d=DEV_TABS[bk]||{};
   return d[sub]||d['*']||null;
 }
@@ -8821,7 +8883,8 @@ function renderBlock(S,expanded,mixOpen,view){
       row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
            :cardBase(m.key,kpi)?U.byCompany(m.key,bv,S):'',
       /* по срезу состава прошлогоднего значения нет: срез живёт только в окне */
-      row3:sliced?'':'год назад <b>'+D.fmtVal(m.key,yearAgo(rl,m.key))+'</b>'});
+      /* место строки остаётся (visibility), иначе карточки ниже на строку и отчёт прыгает при срезе (22.10) */
+      row3:sliced?'<span class="k-ph">год назад <b>—</b></span>':'год назад <b>'+D.fmtVal(m.key,yearAgo(rl,m.key))+'</b>'});
   });
   h+='</div>';
   }
@@ -8829,7 +8892,10 @@ function renderBlock(S,expanded,mixOpen,view){
   /* 4a · что сейчас срезано. Плашка стоит под карточками, а не только в той
      таблице, по которой кликнули: без неё «191 → 59» в карточке выглядит
      поломкой отчёта, а не ответом на свой же клик. */
-  h+=U.sliceNote(slice,'численность в карточках и таблице — по срезу, база и выводы — по всей команде');
+  /* 22.10: полка срезов — у вкладок со срезами (структура — срез состава, посещаемость — сегмент и
+     локация); sticky, пустая скрыта visibility, место под неё есть всегда */
+  if(b.key==='structure')h+=U.sliceNote(slice,'численность в карточках и таблице — по срезу, база и выводы — по всей команде');
+  else if(mod.shelf)h+=mod.shelf(S);
 
   /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
@@ -8977,7 +9043,9 @@ window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotR
       (юридическая → активная → HQ), пол (полоса М : Ж и две карточки со средним
       возрастом), возраст (полоса до 25 / 25–30 / 30+ и карточки с раскладом М · Ж).
    2. «Уровень позиции» — три таблицы: сеньорность, грейд, стаж.
-   3. «Оформление» — три таблицы по убыванию: компания, тип занятости, формат.
+   3. «Оформление» — три таблицы по убыванию: тип занятости, формат, компания (22.10).
+   22.10: регион — таблицей внизу портрета; таблицы вкладок — в столбик; строки — только те,
+   что есть в данных; в конструкторе нет «Остальных».
    4. «Стримы» — дерево «стрим → специализации»: клик по стриму раскрывает его,
       Shift+клик выбирает все специализации стрима.
    5. «Конструктор» — сводная таблица двух измерений с тепловой заливкой,
@@ -9040,21 +9108,21 @@ function treeTable(dim,lp,sel,mixSel,open){
   const tree=D.mixTree(lp,dim.key,mixSel).slice().sort((a,b)=>b.value-a.value);
   const col=D.dimColor(dim.key), items=[];
   tree.forEach(n=>{
-    const on=open.has(n.cat.id);
+    const on=open.has(n.cat.id), nk=n.kids.filter(k=>k.value>0).length;
     items.push({name:n.cat.name,value:n.value,color:col,depth:1,
       exp:n.cat.id,open:on,pick:n.cat.id,on:sel.has(n.cat.id),expRow:true,
-      note:D.fmtInt(n.kids.length)+' '+
-        U.plural(n.kids.length,['специализация','специализации','специализаций'])});
+      note:D.fmtInt(nk)+' '+U.plural(nk,['специализация','специализации','специализаций'])});
     if(!on)return;
-    n.kids.slice().sort((a,b)=>b.value-a.value).forEach(k=>{
-      items.push({name:k.cat.name,value:k.value,color:col,depth:2,
+    /* специализации — только те, что есть в данных (люди есть); на бою имя пары «стрим|специализация» — короткое */
+    n.kids.filter(k=>k.value>0||sel.has(k.cat.id)).sort((a,b)=>b.value-a.value).forEach(k=>{
+      items.push({name:k.cat.short||k.cat.name,value:k.value,color:col,depth:2,
         pick:k.cat.id,on:sel.has(k.cat.id)});
     });
   });
   const others=D.otherParts(mixSel,[dim.key,kid.key]);
   /* Общая каретка предлагает свернуть, только когда раскрыто ВСЁ, — то же
      состояние, что у ИТОГО в сводной таблице подразделений. */
-  const allOpen=tree.length>0&&tree.every(n=>open.has(n.cat.id));
+  const allOpen=tree.length>0&&tree.filter(n=>n.value>0).every(n=>open.has(n.cat.id));
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:sliceSub(others,tree.reduce((a,n)=>a+n.value,0)),lite:true,
     head:'',valueHead:'Чел.',barHead:'',heads:true,metricKey:'hc_total',compact:true,tree:true,items:items,
@@ -9124,37 +9192,41 @@ function ageBlock(ctx,sel){
     U.shareCards({cards:A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:segs[i].bg,on:sel.has(c.id),
       sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';
 }
+/* регион (22.10) — внизу портрета таблицей: регионов десятки, полоса из них не читается. Нет разреза
+   или в отборе ни у кого нет региона — блока нет */
+function regionBlock(ctx,sel){
+  const S=ctx.S, R=D.MIX_BY_KEY.region;
+  if(!R||!D.mixParts(ctx.lp,'region',S.mixSel).some(v=>v>0))return '';
+  return '<section class="pf-s">'+dimTable(R,ctx.lp,sel,S.mixSel,{sort:true})+'</section>';
+}
 function portrait(ctx){
   const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), path=S.selNode||S.unit;
   if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
-  return '<div class="pf">'+funnelBlock(ctx,path,sel)+genderBlock(ctx,sel)+ageBlock(ctx,sel)+'</div>';
+  return '<div class="pf">'+funnelBlock(ctx,path,sel)+genderBlock(ctx,sel)+ageBlock(ctx,sel)+regionBlock(ctx,sel)+'</div>';
 }
 
-/* ---------- Три таблицы на вкладке: «Уровень позиции» и «Оформление» ---------- */
+/* ---------- Три таблицы на вкладке: «Уровень позиции» и «Оформление» ----------
+   22.10: таблицы — в столбик, одна под другой; строки — только те, что есть в данных, все значения
+   явно (без «Остальных») */
 function trio(ctx,keys,sort){
   const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id));
-  const list=keys.filter(k=>D.MIX_BY_KEY[k]).map(k=>dimTable(D.MIX_BY_KEY[k],ctx.lp,sel,S.mixSel,
-    {sort:sort,top:k==='legal'?6:0,word:['компания','компании','компаний']}));
+  /* разрез, где в отборе ни у кого нет значения, — без таблицы */
+  const list=keys.filter(k=>D.MIX_BY_KEY[k]&&D.mixParts(ctx.lp,k,S.mixSel).some(v=>v>0))
+    .map(k=>dimTable(D.MIX_BY_KEY[k],ctx.lp,sel,S.mixSel,{sort:sort}));
   return '<div class="st-trio">'+list.join('')+'</div>'+
     (sel.size?'':'<div class="tbl-note">Клик по строке — срез: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.</div>');
 }
 
 /* ---------- Конструктор ----------
    Измерения — по файлу «Структура»: сеньорность, грейд, стаж, пол, возраст, стрим,
-   компания, занятость, формат; специализация — только в строках (в колонках её
-   десятки). Матрица «разрез × разрез» — длинная ось сворачивается в «Остальные». */
-const CON_DIMS=['seniority','grade','tenure','gender','age','stream','legal','employment','worksite'];
+   компания, занятость, формат, регион; специализация — только в строках (в колонках её
+   десятки). 22.10: «Остальных» нет — все значения явно; строк и колонок без людей нет. */
+const CON_DIMS=['seniority','grade','tenure','gender','age','stream','legal','employment','worksite','region'];
 const conDims=()=>CON_DIMS.filter(k=>D.MIX_BY_KEY[k]).map(k=>D.MIX_BY_KEY[k]);
-const MX_TOP=8;
 function mxAxis(dim,tot,sel){
-  const all=dim.cats.map((_,i)=>i);
-  if(all.length<=MX_TOP+1)return {dim:dim,grp:all.map(i=>[i])};
-  const top=all.slice().sort((a,b)=>tot[b]-tot[a]).slice(0,MX_TOP);
-  all.forEach(i=>{if(sel.has(dim.cats[i].id)&&top.indexOf(i)<0)top.push(i)});
-  const keep=dim.sort?top.sort((a,b)=>tot[b]-tot[a]):top.sort((a,b)=>a-b), rest=all.filter(i=>keep.indexOf(i)<0);
-  return {dim:Object.assign({},dim,{cats:keep.map(i=>dim.cats[i]).concat([{id:null,key:'_rest',other:true,
-      name:'Остальные',note:rest.length+' · '+rest.map(i=>dim.cats[i].name).slice(0,8).join(', ')+(rest.length>8?' и ещё '+(rest.length-8):'')}])}),
-    grp:keep.map(i=>[i]).concat([rest])};
+  const keep=dim.cats.map((_,i)=>i).filter(i=>tot[i]>0||sel.has(dim.cats[i].id));
+  if(dim.sort)keep.sort((a,b)=>tot[b]-tot[a]);
+  return {dim:Object.assign({},dim,{cats:keep.map(i=>dim.cats[i])}),grp:keep.map(i=>[i])};
 }
 function mxCap(R,C,cells,sel){
   const rt=cells.map(r=>sumA(r)), ct=C.cats.map((_,j)=>sumA(cells.map(r=>r[j])));
@@ -9191,14 +9263,15 @@ SC.blocks.structure={
   title(sub){
     if(sub==='portrait')return 'Портрет сотрудника · воронка · пол · возраст';
     if(sub==='level')return 'Уровень позиции: сеньорность, грейд, стаж';
-    if(sub==='work')return 'Оформление: компания, тип занятости, формат работы';
+    if(sub==='work')return 'Оформление: тип занятости, формат работы, компания';
     if(sub==='stream')return 'Стримы и специализации';
     return 'Конструктор: два измерения в одной таблице';
   },
   view(ctx){
     if(ctx.sub==='portrait')return portrait(ctx);
     if(ctx.sub==='level')return trio(ctx,['seniority','grade','tenure'],false);
-    if(ctx.sub==='work')return trio(ctx,['legal','employment','worksite'],true);
+    /* 22.10: порядок — тип занятости, формат работы, компания */
+    if(ctx.sub==='work')return trio(ctx,['employment','worksite','legal'],true);
     if(ctx.sub==='stream'){
       const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), dim=D.MIX_BY_KEY.stream;
       if(!dim)return U.empty('Стримов нет в данных','');
@@ -9575,6 +9648,12 @@ const pctOf=(v,t)=>t?(Math.round(v/t*1000)/10).toFixed(1).replace('.',',')+'%':'
 /* последняя закрытая неделя и предыдущая; в пробнике без витрины по неделям — месяцы */
 function wk(md){const W=md.weeks||md.months;return {cur:W[W.length-1],prev:W[W.length-2]||W[W.length-1]}}
 const NOW_ASK='появится с витриной мониторинга по неделям';
+/* блок графика, данных для которого в пробнике нет: заголовок на месте, плашка «в разработке» */
+function monPh(title,what){
+  return '<div class="mon-ph"><div class="bt-cap">'+U.esc(title)+'</div>'+
+    U.devNote({stage:5,t:what+' Нужна витрина мониторинга по неделям: где она лежит — запрос 0л.'})+
+    '<div class="tbl-note">'+U.esc(what)+' Появится с витриной мониторинга.</div></div>';
+}
 
 SC.blocks.monitor={
   subTabs:[['activity','Рабочая активность'],['review','Ревью']],
@@ -9661,7 +9740,10 @@ SC.blocks.monitor={
         :'По месяцам, из основной таблицы. Недели, часы в день и звонки в Talk — с витриной мониторинга')+'</span></div>'+
       G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
-      U.devNote({stage:5,t:'Часы в день и доля звонков в Talk появятся с витриной мониторинга по неделям.'});
+      /* 22.10: блоки динамики рабочей активности и звонков в Talk стоят на месте (файл Антона, 2.3 и 2.4);
+         в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
+      monPh('Рабочая активность, ч/день','Средняя рабочая активность в часах в день по месяцам и неделям.')+
+      monPh('Доля звонков в Talk, % рабочего времени','Доля разговоров в Talk от рабочего времени, среднее по месяцам и неделям.');
     return '<div class="mon-bar">'+U.segToggle('data-mongran',[['m','Месяцы'],['w','Недели']],gran)+
         '<span class="mon-note">'+(mk?'Отмечен период: <b>'+U.esc(mk.full)+'</b> · Escape — снять':'Клик по столбику отмечает период на линиях')+'</span></div>'+
       G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
@@ -9680,13 +9762,11 @@ SC.blocks.monitor={
    «Календарь»      — подневная сетка за последние два месяца периода плюс
                       разбивка по дням недели. Отвечает на вопрос «когда людей
                       в офисе больше», на который месячная линия ответить не может.
-   «Динамика»       — месячная линия с базой сравнения (то, что было тут раньше).
-
-   Итерация 28 (бизнес-анализ, HQ-дашборд 34136):
-   «Города»         — посещаемость по городам (каталог HQ, «Офисы по городам»).
-                      Рейтинг офисов снят 15.10: привязка людей к офисам была
-                      сгенерирована, а в каталоге — только города.
-   «Кто ходит»      — по грейдам и по роли с локацией (РУК / ЛИН × МСК / ТЦР).
+   «Кто и где ходит» (22.10: «Города», «Кто ходит» и «Динамика» — одна вкладка, без грейдов):
+                      сверху динамика посещаемости, ниже сегмент (руководители /
+                      сотрудники), ниже локация (города). Строки кликаются: выбор
+                      сегмента и города складывается и пересчитывает динамику и
+                      другую таблицу; выбор — на полке срезов, Escape снимает.
    «Бронирование»   — нарушения бронирования: бронь без прихода и приход
                       без брони, динамикой и разбором последнего месяца.
 
@@ -9708,39 +9788,46 @@ const esc=U.esc;
    плашка «в разработке» над вкладкой; сноска объясняет только, как читать */
 const CAL_NOTE='Среднее по будням за полный месяц равно посещаемости этого месяца.';
 
-SC.blocks.office={
-  subTabs:[['calendar','Календарь'],['offices','Города'],['people','Кто ходит'],
-    ['booking','Бронирование'],['dynamics','Динамика']],
-  defaultSub:'calendar',
-  title(sub){return sub==='offices'?'Посещаемость по городам'
-    :sub==='people'?'Кто ходит в офис: грейды, роль и локация'
-    :sub==='booking'?'Качество бронирования рабочих мест'
-    :sub==='dynamics'?'Посещаемость офиса против базы'
-    :'Когда люди приходят в офис'},
-  view(ctx){
-    if(ctx.sub==='dynamics')return SC.metricLine('office_att',ctx.lp,ctx.bl,ctx.S,{ann:ctx.ann.office_att});
+/* выбор сегмента и города — подпись для графика и полки */
+const offLabel=x=>[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).join(' · ');
 
+SC.blocks.office={
+  subTabs:[['calendar','Календарь'],['attend','Кто и где ходит'],['booking','Бронирование']],
+  defaultSub:'calendar',
+  title(sub){return sub==='attend'?'Кто и где ходит в офис: динамика, сегмент, локация'
+    :sub==='booking'?'Качество бронирования рабочих мест'
+    :'Когда люди приходят в офис'},
+  /* полка выбора вкладки «Кто и где ходит» — та же, что у срезов состава: sticky, пустая скрыта */
+  shelf(S){
+    if(S.subTab!=='attend')return '';
+    const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[];
+    if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"'});
+    if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
+    return U.shelf({title:'Выбрано:',chips:chips,extra:'динамика и таблицы — по выбору',clear:'data-offclear="1"',
+      clearTip:'Снять выбор сегмента и локации. То же — клавиша Escape.'});
+  },
+  view(ctx){
     /* Таблицы посещаемости — проценты: доля процента в сумме процентов ничего
        не значит, поэтому ни колонки «Доля», ни строки ИТОГО у них нет. */
     const attTbl=(cap,capSub,items,barHead)=>U.btGroup({cap:cap,capSub:capSub,head:'',metricKey:'office_att',
       valueHead:'Посещаемость',barHead:barHead,share:false,total:false,compact:true,items:items});
 
-    if(ctx.sub==='offices'){
-      const rows=D.officeByCity(ctx.lp);
-      if(!rows.length)return U.empty('Нет данных по городам','В отборе нет сотрудников.');
-      return attTbl('Города',D.CMP.cur,rows.map(c=>({name:c.name,
+    /* 22.10: динамика → сегмент → локация. Клик по строке сегмента или города — выбор; оба выбора
+       складываются («руководители в Москве»): динамика и соседняя таблица считаются по нему */
+    if(ctx.sub==='attend'){
+      const S=ctx.S, x=D.officeCross(ctx.lp,S.offSeg,S.offCity), lbl=offLabel(x);
+      if(!x.cities.length&&!x.segs.some(s=>s.hc))return U.empty('Нет данных о посещаемости','В отборе нет сотрудников.');
+      return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,scale:x.factor,h:260,fill:false,
+          title:'Посещаемость офиса'+(lbl?': '+lbl:'')+', %'})+
+        attTbl('Сегмент',x.city?x.city.name+' · '+D.CMP.cur:D.CMP.cur,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,
+          note:D.fmtInt(s.hc)+' чел',value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
+          attrTip:'Клик — посещаемость только у «'+s.name+'»: пересчитаются динамика и города.'})),'Сравнение сегментов')+
+        attTbl('Локация',x.seg?x.seg.name+' · '+D.CMP.cur:D.CMP.cur,x.cities.filter(c=>c.hc>0).map(c=>({name:c.name,
           note:D.fmtInt(c.hc)+' чел · '+c.offices+' '+U.plural(c.offices,['офис','офиса','офисов']),
-          value:c.att,color:G.C_OFFICE})),'Сравнение городов')+
-        '<div class="tbl-note">Среднее по офисам города с учётом числа людей.</div>';
-    }
-
-    if(ctx.sub==='people'){
-      return U.btStack([
-        attTbl('Грейд',D.CMP.cur,D.attByGrade(ctx.lp).map(g=>({name:g.name,note:D.fmtInt(g.hc)+' чел',
-          value:g.att,color:G.C_OFFICE})),'Сравнение грейдов'),
-        attTbl('Роль и локация',D.CMP.cur,D.attByRoleLoc(ctx.lp).map(x=>({name:x.name,
-          note:D.fmtInt(x.hc)+' чел',value:x.att,color:G.C_OFFICE})),'Сравнение групп')])+
-        '<div class="tbl-note">Москва — Москва и область, ТЦР — остальные регионы.</div>';
+          value:c.att,color:G.C_OFFICE,on:S.offCity===c.name,attr:'data-offcity="'+esc(c.name)+'"',
+          attrTip:'Клик — посещаемость только в «'+c.name+'»: пересчитаются динамика и сегменты.'})),'Сравнение городов')+
+        '<div class="tbl-note">Клик по строке — выбор: динамика и другая таблица пересчитаются. Сегмент и город складываются; '+
+          'Escape или «Сбросить всё» — снять. В городе — среднее по его офисам с учётом числа людей.</div>';
     }
 
     if(ctx.sub==='booking'){
@@ -9750,7 +9837,7 @@ SC.blocks.office={
       return SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,
           {h:250,fill:false,title:'Нарушения бронирования, %',ann:ctx.ann.booking_viol})+
         U.btGroup({cap:'Бронирования и посещения',capSub:D.CMP.cur+', человеко-дни',head:'',
-          valueHead:'Дней',metricKey:'hc_total',compact:true,items:[
+          valueHead:'Дней',metricKey:'hc_total',compact:true,keepZero:true,items:[
           {name:'Бронь и приход',value:bk.ok,color:G.C_OFFICE},
           {name:'Бронь без прихода',note:'нарушение: место простояло',value:bk.noshow,color:G.C_OFFICE},
           {name:'Приход без брони',note:'нарушение: место не учтено',value:bk.walkin,color:G.C_OFFICE}]})+
@@ -9850,7 +9937,7 @@ const noEval=(m,kpi)=>!kpi&&(!D.comparable(m.key)||m.better==='flat');
 /* ---------- «О метрике» в раскрытой строке ----------
    Как в HRBP HUB: что это, как считаем (дробью, словами) и с чем сравниваем.
    Имена слагаемых — по-русски: служебных рядов в METRICS нет. */
-const PART={regret_m:'regrettable текучесть за месяц',hc_avg:'средняя численность за месяц',pf_plan:'план найма',hire_jun:'принятые джуны',
+const PART={regret_m:'нежелательный отток за месяц',hc_avg:'средняя численность за месяц',pf_plan:'план найма',hire_jun:'принятые джуны',
   rev_eval:'оценённые в ревью',rev_up:'улучшили оценку',ovis:'дни в офисе',
   wday:'отработанные дни',regret_cnt:'нежелательные уходы',
   tgrowth_pass:'одобренные заявки',tgrowth_deny:'отклонённые заявки'};
@@ -10168,7 +10255,7 @@ function goUnit(p,back){
   if(ENV){requestUnit(p,back);return}
   if(!D.NODE_BY_PATH[p]||p===S.unit)return;
   if(!back)pushBack(S.unit);
-  S.unit=p;S.selNode=null;
+  S.unit=p;S.selNode=null;S.offCity=null;
   expanded.clear();openRows.clear();tq='';
   render();
 }
@@ -10332,7 +10419,7 @@ function pilotChips(){
   if(STORE.warn)h+='<span class="chip warn">'+esc(STORE.warn)+'</span>';
   h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на настоящих данных',
     text:'Настоящие цифры:',
-    list:['численность, найм, отток, переводы','текучесть и regrettable текучесть','посещаемость офиса и T-рост — если данные уже пришли'],
+    list:['численность, найм, отток, переводы','текучесть, нежелательный и желательный отток','посещаемость офиса и T-рост — если данные уже пришли'],
     note:'С полосатой меткой «в разработке» — условные цифры. Данные по '+D.CMP.cur+' включительно: текущий месяц ещё не закрыт.'})+
     '><span class="pl-t">Пробник · часть данных в разработке</span></span>';
   return h;
@@ -10977,6 +11064,12 @@ on(document,'click',e=>{
   /* Срез состава — СТРОГО до .urow: строка разбивки и есть .urow, и общий
      обработчик выбора подразделения перехватил бы её первым. */
   if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
+  /* посещаемость (22.10): сегмент и город — свой фильтр вкладки, складываются; повторный клик снимает */
+  if(t.closest('[data-offclear]')){S.offSeg=null;S.offCity=null;render(true);return}
+  const osg=t.closest('[data-offseg]');
+  if(osg){S.offSeg=S.offSeg===osg.dataset.offseg?null:osg.dataset.offseg;render(true);return}
+  const oct=t.closest('[data-offcity]');
+  if(oct){S.offCity=S.offCity===oct.dataset.offcity?null:oct.dataset.offcity;render(true);return}
   if(t.closest('[data-mixswap]')){
     /* специализация — только в строках (файл «Структура») */
     if(S.mixRows==='spec'||!S.mixCols)return;
@@ -11145,6 +11238,7 @@ on(document,'keydown',e=>{
     if(!ovl&&S.mxFull){S.mxFull=false;render(true);return}
     /* мониторинг: Escape снимает отметку периода и выбор строки таблицы */
     if(!ovl&&S.tab==='monitor'&&(S.monMark!=null||S.selNode)){S.monMark=null;S.selNode=null;render(true);return}
+    if(!ovl&&S.tab==='office'&&(S.offSeg||S.offCity)){S.offSeg=null;S.offCity=null;render(true);return}
     if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true)}
   }
 });
