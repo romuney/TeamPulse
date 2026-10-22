@@ -100,7 +100,7 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
 OUT_1A = os.path.join(DIR, '1а. Helicopter — изменённые параграфы.md')
 P58 = ['hub · 0 колонки', 'structure_x_vacancy', 'hub · 1 структура', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды',
        'hub · 4 разрезы', 'hub · 5 переходы', 'hub · 6 вакансии и meta', 'hub checks']
-TIMING = {'T_PY': '192', 'Q_PY': '112', 'T_SQL': '64', 'Q_SQL': '18'}
+TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18'}
 
 
 def write_1a(out):
