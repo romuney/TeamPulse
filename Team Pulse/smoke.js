@@ -775,6 +775,9 @@ checks.push(['марки графиков помечены data-s',
   checks.push(['разрезы одной группы красятся одинаково',
     D.MIX_GROUPS.every(g=>new Set(g.dims.map(k=>D.dimColor(k))).size===1)]);
   /* в собранной разбивке ровно один цвет полосы на таблицу */
+  /* 23.10: полоса в таблице — один нейтральный тон на весь отчёт (токен --bar-soft), у структуры своего нет */
+  checks.push(['таблицы структуры красят полосы общим тоном отчёта (--bar-soft = SOFT[C_LINE])',
+    D.dimColor('stream')===G.soft(G.C_LINE)&&new RegExp('--bar-soft:'+G.soft(G.C_LINE)).test(fs.readFileSync(path.join(__dirname,'styles.css'),'utf8'))]);
   (function(){
     const html=A.go('structure','stream');
     const groups=html.split('<div class="bt-group">').slice(1);
@@ -1594,6 +1597,18 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /class="shcards c3/.test(wk)&&
     (wk.match(/<div class="bt-group">/g)||[]).length===1&&
     (pt+lv+wk).match(/<svg class="ico pf-i"/g).length===11&&/data-mix="gender:[mf]"[^>]*>[\s\S]{0,400}?class="shc-ic"/.test(pt)]);
+  /* 23.10, Антон: «показываем 10 регионов, потом всё собирает в остальное — я просил, чтобы он открывал это остальное».
+     «Остальные» — строка с кареткой (свёрнута по умолчанию); раскрытая — спрятанные значения вторым уровнем,
+     каждое со срезом; ИТОГО и масштаб полос — по верхнему уровню. Пустые не показываются. */
+  {
+    const its=[...Array(15)].map((x,i)=>({name:'Р'+i,value:i===14?0:30-i,pick:'region:r'+i,color:'#7FA2E6'}));
+    const bt=open=>U.barTable({items:its,top:10,sort:true,lite:true,heads:true,restKey:'rest:region',restOpen:open,restWord:['регион','региона','регионов']});
+    const c0=bt(false), c1=bt(true), lv=h=>(h.match(/<tr class="urow lvl2" data-mix="region:/g)||[]).length;
+    checks.push(['«Остальные» раскрываются: свёрнуто — каретка без детей, раскрыто — 4 непустых вторым уровнем',
+      /<tr class="urow" data-btexp="rest:region"[^>]*>[\s\S]*?<button class="caret-btn"[^>]*data-btexp="rest:region"/.test(c0)&&
+      /Остальные<span class="unit-sub">4 региона/.test(c0)&&!lv(c0)&&lv(c1)===4&&!/data-mix="region:r14"/.test(c1)&&
+      /data-open="1" data-btexp="rest:region"/.test(c1)&&(c1.match(/<td class="lead">/g)||[]).length===15]);
+  }
   /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
      Матрица: длинная ось — 8 + «Остальные» (не срез), сумма та же; стримы ушедших — 8 строк. */
   {

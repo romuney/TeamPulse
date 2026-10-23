@@ -59,6 +59,7 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));render(true);return $("#view").innerHTML},'+
   '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  setup:q=>{openSetup();if(q){UT.q=q;utRender()}const h=$("#utList").innerHTML+"|"+$("#benchPreview").innerHTML+"|"+$("#optStaff").innerHTML;closeSetup();return h},'+
+  '\n  mixOpen:list=>{mixOpen.clear();(list||[]).forEach(k=>mixOpen.add(k));render();return $("#view").innerHTML},'+
   '\n  st:()=>S};');
 const A=require(probe);
 fs.unlinkSync(probe);
@@ -233,10 +234,24 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const nLeg=Object.keys(R.mix('BASE')&&R.mixVals('o')||{}).length, wk=A.go('structure','work');
   /* 23.10: «Оформление» историей — у компании заголовок раздела с иконкой, под ним таблица: первые 8 и «Остальные» */
   const sec=((wk.split('<span class="pf-t">Компания')[1]||'').split('</table>')[0]||'');
-  const rows=(sec.match(/<tr class="urow/g)||[]).length+(/>Остальные<span class="unit-sub">/.test(sec)?1:0), rest=/>Остальные<span class="unit-sub">\d+ компани/.test(sec);
+  /* 23.10, Антон: «Остальные» — сама строка urow и раскрывается (data-btexp="rest:legal") */
+  const rows=(sec.match(/<tr class="urow/g)||[]).length, rest=/>Остальные<span class="unit-sub">\d+ компани/.test(sec)&&/data-btexp="rest:legal"/.test(sec);
   /* 22.10: все компании с людьми, без «Остальных» */
   const nLive=D.MIX_BY_KEY.legal?D.mixParts(D.reportLeaves(A.st()),'legal',A.st().mixSel||[]).filter(v=>v>0).length:0;
   ok(!nLeg||(nLive<=9?rows===nLive&&!rest:rows===9&&rest),'компании на «Оформлении»: '+(nLive<=9?'все '+nLive:'первые 8 и «Остальные»'));
+  /* 23.10, Антон: «Остальные» раскрываются — спрятанные компании и регионы вторым уровнем, каждая со срезом */
+  if(rest){
+    const op=A.mixOpen(['rest:legal']), s2=((op.split('<span class="pf-t">Компания')[1]||'').split('</table>')[0]||'');
+    ok((s2.match(/<tr class="urow lvl2" data-mix="legal:/g)||[]).length===nLive-8&&/data-open="1" data-btexp="rest:legal"/.test(s2),
+      'раскрытые «Остальные» показывают '+(nLive-8)+' компаний вторым уровнем');
+    A.mixOpen([]);
+  }
+  const nRg=D.MIX_BY_KEY.region?D.mixParts(D.reportLeaves(A.st()),'region',A.st().mixSel||[]).filter(v=>v>0).length:0;
+  if(nRg>11){
+    const pc=A.go('structure','portrait'), po=A.mixOpen(['rest:region']), cnt=h=>(h.match(/<tr class="urow lvl2" data-mix="region:/g)||[]).length;
+    ok(/data-btexp="rest:region"/.test(pc)&&!cnt(pc)&&cnt(po)===nRg-10,'регионы: первые 10 и «Остальные», раскрываются ('+(nRg-10)+' вторым уровнем)');
+    A.mixOpen([]);
+  }
   ok((wk.match(/<div class="bt-group">/g)||[]).length===1&&/class="shbar/.test(wk)&&/class="row-body two"/.test(wk),
     'оформление: полоса и карточки, формат — карточками, компании таблицей; длинные названия — в две строки');
   /* портрет на настоящих значениях: пол — полоса и карточки, возраст — кусок на каждую группу с людьми,

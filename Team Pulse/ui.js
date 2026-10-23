@@ -403,11 +403,17 @@ function barTable(o){
     const keep=items.slice(0,o.top).concat(items.slice(o.top).filter(x=>x.on));
     const rest=items.filter(x=>keep.indexOf(x)<0), shown=rest.slice().sort((a,b)=>b.value-a.value).slice(0,8);
     /* в остальных никого — строку «Остальные 0» не рисуем */
-    items=!rest.some(x=>x.value)?keep:keep.concat([{name:'Остальные',note:rest.length+' '+plural(rest.length,o.restWord||['значение','значения','значений']),
+    /* 23.10, Антон: «Остальные» раскрываются, как стрим (o.restKey — ключ раскрытия, o.restOpen — раскрыта ли):
+       под строкой — спрятанные значения вторым уровнем, по каждому — срез */
+    const restRow={name:'Остальные',note:rest.length+' '+plural(rest.length,o.restWord||['значение','значения','значений']),
       value:rest.reduce((a,x)=>a+x.value,0),color:rest[0].color,
       tip:shown.map(x=>x.name+' — '+D.fmtVal(o.metricKey||'hc_total',x.value)).join(', ')+
-        (rest.length>shown.length?' и ещё '+(rest.length-shown.length):'')}]);
+        (rest.length>shown.length?' и ещё '+(rest.length-shown.length):'')};
+    if(o.restKey)Object.assign(restRow,{exp:o.restKey,open:!!o.restOpen,restRow:true});
+    items=!rest.some(x=>x.value)?keep:keep.concat([restRow]).concat(o.restKey&&o.restOpen?
+      rest.slice().sort((a,b)=>b.value-a.value).map(x=>Object.assign({},x,{depth:2})):[]);
   }
+  const tree=o.tree||items.some(x=>x.restRow);
   const key=o.metricKey||'hc_total';
   /* Итог и масштаб полосы считаются по ВЕРХНЕМУ уровню: дочерние строки уже
      учтены в родительской, и складывать их второй раз — удвоить ИТОГО. */
@@ -447,14 +453,15 @@ function barTable(o){
   items.forEach(x=>{
     const share=sum?x.value/sum*100:0;
     /* клик по строке: либо переход в подразделение, либо срез по категории */
-    const cls=[x.node||x.pick||x.attr?'urow':'',x.on?'sel':'',x.depth===2?'lvl2':''].filter(Boolean).join(' ');
+    const cls=[x.node||x.pick||x.attr||x.restRow?'urow':'',x.on?'sel':'',x.depth===2?'lvl2':''].filter(Boolean).join(' ');
     /* expRow (21.10, файл «Структура»): строка стрима раскрывается кликом по ней самой,
        Shift+клик выбирает все специализации стрима (срез по стриму) */
     const hook=(cls?' class="'+cls+'"':'')+
       (x.node?' data-node="'+esc(x.node)+'"':'')+
       /* x.attr (22.10, посещаемость): свой фильтр вкладки — строка кликается, выбор складывается */
       (x.attr?' '+x.attr+tipAttr({title:x.name,text:x.on?'Выбрано. Клик — снять.':(x.attrTip||'Клик — показать только «'+x.name+'».')}):'')+
-      (x.pick&&x.expRow?' data-btexp="'+esc(x.exp)+'" data-mixgrp="'+esc(x.pick)+'"'+
+      (x.restRow?' data-btexp="'+esc(x.exp)+'"'+tipAttr({title:x.name,text:(x.open?'Клик — свернуть.':'Клик — показать все.')+(x.tip?'\n'+x.tip:'')})
+      :x.pick&&x.expRow?' data-btexp="'+esc(x.exp)+'" data-mixgrp="'+esc(x.pick)+'"'+
         tipAttr({title:x.name,
           text:(x.open?'Клик — свернуть специализации.':'Клик — раскрыть специализации.')+
             (x.on?' Стрим выбран целиком; Shift+клик — снять.':' Shift+клик — выбрать все специализации стрима.')})
@@ -465,17 +472,17 @@ function barTable(o){
     /* Двухуровневая разбивка: каретка раскрывает верхний уровень. Разметка та
        же, что в сводной таблице подразделений (`row-label` + `caret-btn`),
        чтобы раскрытие в отчёте выглядело и работало одинаково везде. */
-    const caret=!o.tree?''
+    const caret=!tree?''
       :x.exp?'<button class="caret-btn"'+(x.open?' data-open="1"':'')+' data-btexp="'+esc(x.exp)+'"'+
         ' aria-label="'+(x.open?'Свернуть':'Раскрыть')+'"'+
-        tipAttr({title:x.open?'Свернуть':'Раскрыть',text:o.expTip||'Что внутри этой строки.'})+
+        tipAttr({title:x.open?'Свернуть':'Раскрыть',text:x.restRow?'Значения, не вошедшие в первые строки.':o.expTip||'Что внутри этой строки.'})+
         '>'+(x.open?'▾':'▸')+'</button>'
       :'<span class="caret-spacer"></span>';
     /* лёгкие таблицы (структура): длинное название без пояснения — в две строки, а не многоточием (19.10) */
     const nm='<span class="row-body'+(lite&&!x.note?' two':'')+'">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять: оплата, рост, руководитель.'})+'>★</span> ':'')+esc(x.name)+
       (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span>';
     h+='<tr'+hook+'>'+
-      '<td class="txt">'+(o.tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
+      '<td class="txt">'+(tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
       '<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+
       (withShare?'<td>'+share.toFixed(share<10?1:0).replace('.',',')+'%</td>':'')+
       '<td class="barcell"'+tipAttr({title:x.name,

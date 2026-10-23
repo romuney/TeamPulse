@@ -1188,7 +1188,9 @@ const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.pai
    отличались только оттенком полос — величину и так несёт длина, а смена тона
    от вкладки к вкладке читалась как смена смысла. Теперь все группы — тоном
    квалификации; карта осталась, чтобы цвет группы можно было вернуть точечно. */
-const MIX_COLOR_DEF='#5B8DEF';   /* 23.10: в тон конструктора (было #5f86c2 — «грустный») */
+/* 23.10: полоса в таблице — один нейтральный тон на весь отчёт: --bar-soft (styles.css) = SOFT[C_LINE] (draw.js).
+   Был свой #5B8DEF у структуры — таблицы одной вкладки и соседних различались цветом («общий CSS», Роман) */
+const MIX_COLOR_DEF='#7FA2E6';
 const MIX_GROUP_COLOR={qual:MIX_COLOR_DEF,people:MIX_COLOR_DEF,work:MIX_COLOR_DEF,stream:MIX_COLOR_DEF};
 function dimColor(dimKey){
   const d=MIX_BY_KEY[dimKey];

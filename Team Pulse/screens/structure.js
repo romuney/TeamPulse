@@ -62,7 +62,7 @@ function dimTable(dim,lp,sel,mixSel,o){
        смысл: что за число и в чём оно. */
     head:'',valueHead:'Чел.',barHead:'',heads:true,metricKey:'hc_total',compact:true,sort:!!(o.sort||dim.sort),
     /* длинный список (компании на верхних уровнях — десятки, 16.10): первые o.top и «Остальные» */
-    top:o.top||0,restWord:o.word,
+    top:o.top||0,restWord:o.word,restKey:o.restKey,restOpen:o.restOpen,
     items:dim.cats.map((c,i)=>({name:c.name,value:parts[i],color:D.dimColor(dim.key),
       pick:c.id,on:sel.has(c.id)}))});
 }
@@ -197,6 +197,8 @@ function topOf(dim,v){
 /* разбивка таблицей под заголовком раздела с иконкой — та же dimTable, что у стримов и компаний */
 function tableBlock(ctx,key,sel,icon,o){
   const S=ctx.S, A=D.MIX_BY_KEY[key];
+  /* длинный список — первые N и «Остальные», которые раскрываются (Антон, 23.10) */
+  if(o&&o.top)o=Object.assign({restKey:'rest:'+key,restOpen:!!(ctx.mixOpen&&ctx.mixOpen.has('rest:'+key))},o);
   return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,D.mixParts(ctx.lp,key,S.mixSel)),icon)+
     dimTable(Object.assign({},A,{name:'',hint:null}),ctx.lp,sel,S.mixSel,o||{})+'</section>';
 }
