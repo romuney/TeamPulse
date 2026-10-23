@@ -39,13 +39,14 @@ SC.blocks.office={
   title(sub){return sub==='attend'?'Кто и где ходит в офис: динамика, сегмент, локация'
     :sub==='booking'?'Качество бронирования рабочих мест'
     :'Когда люди приходят в офис'},
-  /* полка выбора вкладки «Кто и где ходит» — та же, что у срезов состава: sticky, пустая скрыта */
+  /* полка выбора вкладки «Кто и где ходит» — та же, что у срезов состава: sticky, пустая — подсказка */
   shelf(S){
     if(S.subTab!=='attend')return '';
     const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[];
     if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"'});
     if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
     return U.shelf({title:'Выбрано:',chips:chips,extra:'динамика и таблицы — по выбору',clear:'data-offclear="1"',
+      hint:'ничего — кликните сегмент или локацию в таблице, и динамика пересчитается по ним',
       clearTip:'Снять выбор сегмента и локации. То же — клавиша Escape.'});
   },
   view(ctx){

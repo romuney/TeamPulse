@@ -1067,10 +1067,16 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* мониторинг (22.10): блок графика без данных в пробнике — заголовок и плашка на месте графика */
 .mon-ph{padding:var(--s6) var(--s7);border:1px dashed var(--line);border-radius:var(--r3);min-height:120px}
 .mon-ph .tbl-note{margin-top:var(--s4)}
-/* 22.10: полка срезов закреплена у верхнего края при прокрутке; пустая — скрыта, но место за ней
-   (visibility, не display), поэтому отчёт не прыгает, когда срез появляется */
-.sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;box-shadow:0 2px 8px rgba(20,32,60,.08)}
-.sl-shelf.off{visibility:hidden}
+/* 22.10: полка срезов закреплена у верхнего края при прокрутке. 23.10: тонкая — одна строка; подложка цвета
+   страницы выше и ниже (тени без размытия) закрывает то, что уезжает под полку, — она читается продолжением
+   шапки, а не карточкой поверх графиков. Пустая — строка-подсказка, как взять срез: место под полкой всегда одно
+   и то же, отчёт не прыгает */
+.sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;min-height:36px;box-sizing:border-box;padding:4px 8px 4px 14px;text-align:left;
+  border-radius:var(--r2);margin-bottom:var(--s5);box-shadow:0 -10px 0 var(--bg),0 10px 0 var(--bg)}
+.sl-shelf .chip.sl{padding:2px 8px}
+.note-inline.slice.sl-shelf .sl-x{flex:1 1 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sl-shelf.empty{background:var(--card);border-style:dashed;border-color:var(--line)}
+.sl-shelf.empty .sl-t{color:var(--muted)}
 .k-ph{visibility:hidden}
 /* детализация переводов (поставка 63) */
 .trd-open{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}

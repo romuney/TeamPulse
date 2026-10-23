@@ -636,16 +636,20 @@ function heatLegend(){
    срез появляется. o: title, chips [{dim, cat, attr — атрибут кнопки «×»}], extra, clear — атрибут
    «Сбросить всё», clearTip */
 function shelf(o){
+  /* 23.10: пустая полка — подсказка, как взять срез (не пустое место); со срезом — чипы и «Сбросить всё» */
   const chips=o.chips||[], off=!chips.length;
-  return '<div class="note-inline slice sl-shelf'+(off?' off':'')+'"'+(off?' aria-hidden="true"':'')+'>'+
+  if(off)return '<div class="note-inline slice sl-shelf empty"><span class="sl-t">'+esc(o.title)+'</span>'+
+    '<span class="sl-x">'+esc(o.hint||'')+'</span></div>';
+  return '<div class="note-inline slice sl-shelf">'+
     '<span class="sl-t">'+esc(o.title)+'</span>'+
-    (off?'<span class="chip sl">—</span>':chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
-      '<button class="x" '+c.attr+tipAttr({title:'Снять срез',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join(''))+
-    '<span class="sl-x">'+esc(off?'':o.extra||'')+'</span>'+
-    '<button class="btn ghost xs" '+o.clear+(off?' tabindex="-1"':'')+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять все срезы. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+    chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
+      '<button class="x" '+c.attr+tipAttr({title:'Снять срез',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join('')+
+    '<span class="sl-x">'+esc(o.extra||'')+'</span>'+
+    '<button class="btn ghost xs" '+o.clear+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять все срезы. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
 }
 function sliceNote(parts,extra){
   return shelf({title:'Срез состава:',extra:extra,clear:'data-mixclear="1"',clearTip:'Снять все срезы состава. То же — клавиша Escape.',
+    hint:'нет — кликните значение в портрете, разрезе или конструкторе, и таблица с графиками пересчитаются по нему',
     chips:parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"'}))});
 }
 

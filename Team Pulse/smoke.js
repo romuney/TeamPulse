@@ -476,13 +476,13 @@ checks.push(['рейтинга офисов нет (15.10), в таблице г
   checks.push(['посещаемость: динамика, ниже сегмент, ниже локация; грейдов нет; строки сегмента и города кликаются',
     pos('class="chart')>=0&&pos('class="chart')<pos('>Сегмент<')&&pos('>Сегмент<')<pos('>Локация<')&&
     !/Грейд/.test(offHtml)&&/data-offseg="lead"/.test(offHtml)&&/data-offcity="/.test(offHtml)&&
-    /class="note-inline slice sl-shelf off"/.test(offHtml)]);
+    /class="note-inline slice sl-shelf empty"/.test(offHtml)]);
   checks.push(['посещаемость: сегмент + город — выбор складывается, динамика и таблицы пересчитаны, сброс — общий вид',
     /class="urow sel" data-offseg="lead"/.test(hSeg)&&/Посещаемость офиса: Руководители, %/.test(hSeg)&&
     /Посещаемость офиса: Руководители · /.test(hBoth)&&/class="urow sel" data-offcity="/.test(hBoth)&&
     /Сегмент: <b>Руководители<\/b>/.test(hBoth)&&/Локация: <b>/.test(hBoth)&&
     xb.att!==x0.att&&Math.abs(xb.factor*D.lastVal(rl0,'office_att')-xb.att)<0.06&&
-    hOff===offHtml&&!/sl-shelf"/.test(hOff.replace(/sl-shelf off/,''))]);
+    hOff===offHtml&&!/sl-shelf"/.test(hOff)]);
 }
 
 /* 12. выбор метрик пользователем: отключённое не должно попадать ни в строки
@@ -889,11 +889,12 @@ checks.push(['марки графиков помечены data-s',
   /* 6. Срез виден в карточках, в таблице подразделений и в плашке */
   A.mix(['seniority:s']);
   const sliced=A.go('structure','portrait');
-  checks.push(['срез подписан плашкой под карточками KPI',
+  checks.push(['срез подписан полкой',
     /note-inline slice/.test(sliced)&&/Срез состава/.test(sliced)&&
     /data-mixclear="1"/.test(sliced)]);
-  checks.push(['карточка KPI показывает численность по срезу',
-    new RegExp('<div class="k-val">'+D.fmtVal('hc_total',hcSen)+'</div>').test(sliced)]);
+  /* 23.10: у «Структуры численности» KPI-полосы нет — численность в «Итого» таблицы */
+  checks.push(['у «Структуры численности» нет KPI-полосы, полка среза — на её месте',
+    !/class="kpis compact/.test(sliced)&&sliced.indexOf('sl-shelf')<sliced.indexOf('class="split')]);
   const totRow=(sliced.match(/<tr class="total top">[\s\S]*?<\/tr>/)||[''])[0];
   checks.push(['ИТОГО таблицы подразделений тоже по срезу',
     totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
@@ -1553,10 +1554,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
   }
   A.mix([]);
   const pt=A.go('structure','portrait');
-  /* 22.10: полка срезов sticky, пустая — скрыта visibility (место остаётся), не display:none */
-  checks.push(['полка срезов: sticky, без срезов — visibility:hidden и место на месте, со срезом — видна',
-    /class="note-inline slice sl-shelf off" aria-hidden="true"/.test(pt)&&
-    /\.sl-shelf\{position:sticky;top:var\(--head-h,0px\);/.test(css)&&/\.sl-shelf\.off\{visibility:hidden\}/.test(css)&&!/\.sl-shelf[^{]*\{[^}]*display:none/.test(css)]);
+  /* 22.10: полка срезов sticky; 23.10: тонкая (одна строка), подложка цвета страницы закрывает уехавшее под неё,
+     пустая — подсказка, как взять срез (место то же, отчёт не прыгает) */
+  checks.push(['полка срезов: sticky, тонкая, с подложкой; без срезов — подсказка, со срезом — чипы',
+    /class="note-inline slice sl-shelf empty"><span class="sl-t">Срез состава:<\/span><span class="sl-x">нет — кликните/.test(pt)&&
+    /\.sl-shelf\{position:sticky;top:var\(--head-h,0px\);/.test(css)&&/\.sl-shelf\{[^}]*box-shadow:0 -10px 0 var\(--bg\),0 10px 0 var\(--bg\)/.test(cssAll)&&
+    !/\.sl-shelf[^{]*\{[^}]*display:none/.test(css)]);
   /* 15.10: два обзора в стиле портрета — сверху обзор (пилюля), ниже разбивка */
   const wk=A.go('structure','work');
   /* 16.10: разделы — в двух колонках, выровненных по высоте (pt-cols), без пустот между

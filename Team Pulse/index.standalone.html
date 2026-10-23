@@ -1075,10 +1075,16 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* мониторинг (22.10): блок графика без данных в пробнике — заголовок и плашка на месте графика */
 .mon-ph{padding:var(--s6) var(--s7);border:1px dashed var(--line);border-radius:var(--r3);min-height:120px}
 .mon-ph .tbl-note{margin-top:var(--s4)}
-/* 22.10: полка срезов закреплена у верхнего края при прокрутке; пустая — скрыта, но место за ней
-   (visibility, не display), поэтому отчёт не прыгает, когда срез появляется */
-.sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;box-shadow:0 2px 8px rgba(20,32,60,.08)}
-.sl-shelf.off{visibility:hidden}
+/* 22.10: полка срезов закреплена у верхнего края при прокрутке. 23.10: тонкая — одна строка; подложка цвета
+   страницы выше и ниже (тени без размытия) закрывает то, что уезжает под полку, — она читается продолжением
+   шапки, а не карточкой поверх графиков. Пустая — строка-подсказка, как взять срез: место под полкой всегда одно
+   и то же, отчёт не прыгает */
+.sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;min-height:36px;box-sizing:border-box;padding:4px 8px 4px 14px;text-align:left;
+  border-radius:var(--r2);margin-bottom:var(--s5);box-shadow:0 -10px 0 var(--bg),0 10px 0 var(--bg)}
+.sl-shelf .chip.sl{padding:2px 8px}
+.note-inline.slice.sl-shelf .sl-x{flex:1 1 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sl-shelf.empty{background:var(--card);border-style:dashed;border-color:var(--line)}
+.sl-shelf.empty .sl-t{color:var(--muted)}
 .k-ph{visibility:hidden}
 /* детализация переводов (поставка 63) */
 .trd-open{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
@@ -6915,16 +6921,20 @@ function heatLegend(){
    срез появляется. o: title, chips [{dim, cat, attr — атрибут кнопки «×»}], extra, clear — атрибут
    «Сбросить всё», clearTip */
 function shelf(o){
+  /* 23.10: пустая полка — подсказка, как взять срез (не пустое место); со срезом — чипы и «Сбросить всё» */
   const chips=o.chips||[], off=!chips.length;
-  return '<div class="note-inline slice sl-shelf'+(off?' off':'')+'"'+(off?' aria-hidden="true"':'')+'>'+
+  if(off)return '<div class="note-inline slice sl-shelf empty"><span class="sl-t">'+esc(o.title)+'</span>'+
+    '<span class="sl-x">'+esc(o.hint||'')+'</span></div>';
+  return '<div class="note-inline slice sl-shelf">'+
     '<span class="sl-t">'+esc(o.title)+'</span>'+
-    (off?'<span class="chip sl">—</span>':chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
-      '<button class="x" '+c.attr+tipAttr({title:'Снять срез',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join(''))+
-    '<span class="sl-x">'+esc(off?'':o.extra||'')+'</span>'+
-    '<button class="btn ghost xs" '+o.clear+(off?' tabindex="-1"':'')+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять все срезы. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+    chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
+      '<button class="x" '+c.attr+tipAttr({title:'Снять срез',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join('')+
+    '<span class="sl-x">'+esc(o.extra||'')+'</span>'+
+    '<button class="btn ghost xs" '+o.clear+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять все срезы. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
 }
 function sliceNote(parts,extra){
   return shelf({title:'Срез состава:',extra:extra,clear:'data-mixclear="1"',clearTip:'Снять все срезы состава. То же — клавиша Escape.',
+    hint:'нет — кликните значение в портрете, разрезе или конструкторе, и таблица с графиками пересчитаются по нему',
     chips:parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"'}))});
 }
 
@@ -8972,8 +8982,10 @@ function renderBlock(S,expanded,mixOpen,view){
   /* n1…n8: колонок ровно столько, сколько метрик. После итерации 28 у движения
      персонала их семь — полоса на ноутбуке переносится на два ряда по четыре. */
   /* свой KPI-полосы блок (мониторинг, 21.10): снимок недели по выбранной строке таблицы */
+  /* 23.10: у «Структуры численности» KPI-полосы нет — её единственная метрика (численность) уже стоит в «Итого»
+     таблицы и в воронке портрета; на её месте — полка среза */
   if(mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
-  else{
+  else if(b.key!=='structure'){
   h+='<div class="kpis compact n'+Math.min(8,mets.length)+'">';
   mets.forEach(m=>{
     const sliced=selIds.length&&D.sliceable(m.key);
@@ -9002,7 +9014,7 @@ function renderBlock(S,expanded,mixOpen,view){
      поломкой отчёта, а не ответом на свой же клик. */
   /* 22.10: полка срезов — у вкладок со срезами (структура — срез состава, посещаемость — сегмент и
      локация); sticky, пустая скрыта visibility, место под неё есть всегда */
-  if(b.key==='structure')h+=U.sliceNote(slice,'численность в карточках и таблице — по срезу, база и выводы — по всей команде');
+  if(b.key==='structure')h+=U.sliceNote(slice,'таблица и графики — по срезу, база и выводы — по всей команде');
   else if(mod.shelf)h+=mod.shelf(S);
 
   /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
@@ -9908,13 +9920,14 @@ SC.blocks.office={
   title(sub){return sub==='attend'?'Кто и где ходит в офис: динамика, сегмент, локация'
     :sub==='booking'?'Качество бронирования рабочих мест'
     :'Когда люди приходят в офис'},
-  /* полка выбора вкладки «Кто и где ходит» — та же, что у срезов состава: sticky, пустая скрыта */
+  /* полка выбора вкладки «Кто и где ходит» — та же, что у срезов состава: sticky, пустая — подсказка */
   shelf(S){
     if(S.subTab!=='attend')return '';
     const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[];
     if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"'});
     if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
     return U.shelf({title:'Выбрано:',chips:chips,extra:'динамика и таблицы — по выбору',clear:'data-offclear="1"',
+      hint:'ничего — кликните сегмент или локацию в таблице, и динамика пересчитается по ним',
       clearTip:'Снять выбор сегмента и локации. То же — клавиша Escape.'});
   },
   view(ctx){
