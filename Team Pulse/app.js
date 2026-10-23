@@ -741,6 +741,11 @@ function render(keepScroll,quiet){
   const y=keepScroll?(sc?sc.scrollTop:(window.pageYOffset||0)):0;
   const view=S.tab+'|'+(S.subTab||'');
   const inner=keepScroll?INNER_SCROLL.map(q=>{const el=$(q);return el?[el.scrollTop,el.scrollLeft]:null}):[];
+  /* 23.10: полка выбора появляется со срезом и уходит со сбросом — таблица и графики под ней остаются на том же
+     месте экрана: прокрутку сдвигаем на столько, на сколько сдвинулась сетка «таблица · графики» */
+  const splitAt=()=>{const a=$('#view .split');if(!a||!a.getBoundingClientRect)return null;
+    const t=a.getBoundingClientRect().top;return sc?t-sc.getBoundingClientRect().top+sc.scrollTop:t+(window.pageYOffset||0)};
+  const at0=keepScroll?splitAt():null;
   /* вкладка скрытого (или несуществующего) блока — уводим на one-pager. Одна
      точка на всё: и ссылка с ?tab=tgrowth&hide=…, и отключение метрик в модалке */
   if(S.tab!=='onepager'&&!(D.BLOCK_BY_KEY[S.tab]&&D.blockVisible(S.tab,S))){S.tab='onepager';S.subTab=null}
@@ -763,8 +768,10 @@ function render(keepScroll,quiet){
   stickTotals();
   renderMascot();
   enhanceA11y();navOpen(false);
-  if(sc){if(keepScroll)sc.scrollTop=y;else if(sc.scrollTo)sc.scrollTo({top:0,behavior:'smooth'})}
-  else if(keepScroll)window.scrollTo(0,y);
+  let yy=y;
+  if(keepScroll&&sameView&&at0!=null&&at0<y+(sc?sc.clientHeight:window.innerHeight)/2){const at1=splitAt();if(at1!=null)yy+=at1-at0}
+  if(sc){if(keepScroll)sc.scrollTop=yy;else if(sc.scrollTo)sc.scrollTo({top:0,behavior:'smooth'})}
+  else if(keepScroll)window.scrollTo(0,yy);
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
   if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}

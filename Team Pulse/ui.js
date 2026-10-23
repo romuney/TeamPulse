@@ -651,20 +651,19 @@ function heatLegend(){
    срез появляется. o: title, chips [{dim, cat, attr — атрибут кнопки «×»}], extra, clear — атрибут
    «Сбросить всё», clearTip */
 function shelf(o){
-  /* 23.10: пустая полка — подсказка, как взять срез (не пустое место); со срезом — чипы и «Сбросить всё» */
-  const chips=o.chips||[], off=!chips.length;
-  if(off)return '<div class="note-inline slice sl-shelf empty"><span class="sl-t">'+esc(o.title)+'</span>'+
-    '<span class="sl-x">'+esc(o.hint||'')+'</span></div>';
+  /* 23.10, заказчик: «Срез состава» никто не понимает, пунктир — не надо. Ничего не выбрано — полки нет совсем
+     (и места под неё при прокрутке); выбрано — сплошная голубая полоса: что выбрано (чипы с ×) и «Сбросить всё»,
+     без подписи. Как взять срез, сказано в «Что с этим делать» у главы */
+  const chips=o.chips||[];
+  if(!chips.length)return '';
   return '<div class="note-inline slice sl-shelf">'+
-    '<span class="sl-t">'+esc(o.title)+'</span>'+
     chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
-      '<button class="x" '+c.attr+tipAttr({title:'Снять срез',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join('')+
+      '<button class="x" '+c.attr+tipAttr({title:'Снять',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join('')+
     '<span class="sl-x">'+esc(o.extra||'')+'</span>'+
-    '<button class="btn ghost xs" '+o.clear+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять все срезы. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+    '<button class="btn ghost xs" '+o.clear+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять весь выбор. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
 }
 function sliceNote(parts,extra){
-  return shelf({title:'Срез состава:',extra:extra,clear:'data-mixclear="1"',clearTip:'Снять все срезы состава. То же — клавиша Escape.',
-    hint:'нет — кликните значение в портрете, разрезе или конструкторе, и таблица с графиками пересчитаются по нему',
+  return shelf({extra:extra,clear:'data-mixclear="1"',clearTip:'Снять весь выбор. То же — клавиша Escape.',
     chips:parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"'}))});
 }
 

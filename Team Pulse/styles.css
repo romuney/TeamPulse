@@ -1075,8 +1075,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    состояние отчёта, которое пользователь включил и должен видеть. */
 .note-inline.slice{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;
   border-style:solid;border-color:var(--act-line);background:var(--blue-bg);color:var(--ink2)}
-.note-inline.slice .sl-t{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.3px;
-  font-weight:var(--fw-bold);color:var(--act-ink);flex:0 0 auto}
 .note-inline.slice .chip.sl{background:#fff;border-color:var(--act-line);flex:0 0 auto}
 .note-inline.slice .sl-x{flex:1 1 240px;min-width:0;font-size:var(--fs-note);color:var(--muted)}
 .note-inline.slice .btn.xs{flex:0 0 auto;padding:4px 9px}
@@ -1085,8 +1083,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .mon-ph .tbl-note{margin-top:var(--s4)}
 /* 22.10: полка срезов закреплена у верхнего края при прокрутке. 23.10: тонкая — одна строка; подложка цвета
    страницы выше и ниже (тени без размытия) закрывает то, что уезжает под полку, — она читается продолжением
-   шапки, а не карточкой поверх графиков. Пустая — строка-подсказка, как взять срез: место под полкой всегда одно
-   и то же, отчёт не прыгает */
+   шапки, а не карточкой поверх графиков. 23.10, заказчик: пустой полки нет — она есть, только когда что-то
+   выбрано (сплошная голубая, без подписи и пунктира); появилась или ушла — app.js держит экран на месте */
 .sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;min-height:36px;box-sizing:border-box;padding:4px 8px 4px 14px;text-align:left;
   border-radius:var(--r2);margin-bottom:var(--s5);box-shadow:0 -10px 0 var(--bg),0 10px 0 var(--bg)}
 .sl-shelf .chip.sl{padding:2px 8px}
@@ -1096,8 +1094,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .content:has(.sl-shelf){--shelf-h:46px}
 .sl-shelf{flex-wrap:nowrap!important;overflow:hidden}
 .sl-shelf .chip.sl{min-width:0;flex:0 1 auto!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sl-shelf.empty{background:var(--card);border-style:dashed;border-color:var(--line)}
-.sl-shelf.empty .sl-t{color:var(--muted)}
 .k-ph{visibility:hidden}
 /* детализация переводов (поставка 63) */
 .trd-open{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}

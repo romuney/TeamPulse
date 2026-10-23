@@ -485,7 +485,7 @@ checks.push(['рейтинга офисов нет (15.10), в таблице г
   checks.push(['посещаемость: динамика, ниже сегмент, ниже локация; грейдов нет; строки сегмента и города кликаются',
     pos('class="chart')>=0&&pos('class="chart')<pos('>Сегмент<')&&pos('>Сегмент<')<pos('>Локация<')&&
     !/Грейд/.test(offHtml)&&/data-offseg="lead"/.test(offHtml)&&/data-offcity="/.test(offHtml)&&
-    /class="note-inline slice sl-shelf empty"/.test(offHtml)]);
+    !/sl-shelf/.test(offHtml)]);
   checks.push(['посещаемость: сегмент + город — выбор складывается, динамика и таблицы пересчитаны, сброс — общий вид',
     /class="urow sel" data-offseg="lead"/.test(hSeg)&&/Посещаемость офиса: Руководители, %/.test(hSeg)&&
     /Посещаемость офиса: Руководители · /.test(hBoth)&&/class="urow sel" data-offcity="/.test(hBoth)&&
@@ -902,7 +902,8 @@ checks.push(['марки графиков помечены data-s',
   A.mix(['seniority:s']);
   const sliced=A.go('structure','portrait');
   checks.push(['срез подписан полкой',
-    /note-inline slice/.test(sliced)&&/Срез состава/.test(sliced)&&
+    /* 23.10, заказчик: без подписи «Срез состава» — только что выбрано и «Сбросить всё» */
+    /class="note-inline slice sl-shelf"><span class="chip sl">[^<]+: <b>/.test(sliced)&&!/Срез состава/.test(sliced)&&
     /data-mixclear="1"/.test(sliced)]);
   /* 23.10: у «Структуры численности» KPI-полосы нет — численность в «Итого» таблицы */
   checks.push(['у «Структуры численности» нет KPI-полосы, полка среза — на её месте',
@@ -1569,10 +1570,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
   }
   A.mix([]);
   const pt=A.go('structure','portrait');
-  /* 22.10: полка срезов sticky; 23.10: тонкая (одна строка), подложка цвета страницы закрывает уехавшее под неё,
-     пустая — подсказка, как взять срез (место то же, отчёт не прыгает) */
-  checks.push(['полка срезов: sticky, тонкая, с подложкой; без срезов — подсказка, со срезом — чипы',
-    /class="note-inline slice sl-shelf empty"><span class="sl-t">Срез состава:<\/span><span class="sl-x">нет — кликните/.test(pt)&&
+  /* 22.10: полка срезов sticky; 23.10: тонкая (одна строка), подложка цвета страницы закрывает уехавшее под неё.
+     23.10, заказчик: без среза полки нет совсем (ни пунктира, ни места при прокрутке); появилась или ушла —
+     прокрутка сдвигается на сдвиг сетки, таблица и графики остаются на месте экрана */
+  checks.push(['полка срезов: sticky, тонкая, с подложкой; без срезов её нет, пунктира нет; экран не прыгает',
+    !/sl-shelf/.test(pt)&&!/\.sl-shelf[^{]*\{[^}]*dashed/.test(css)&&/yy\+=at1-at0/.test(appSrc)&&
     /\.sl-shelf\{position:sticky;top:var\(--head-h,0px\);/.test(css)&&/\.sl-shelf\{[^}]*box-shadow:0 -10px 0 var\(--bg\),0 10px 0 var\(--bg\)/.test(cssAll)&&
     !/\.sl-shelf[^{]*\{[^}]*display:none/.test(css)]);
   /* 15.10: два обзора в стиле портрета — сверху обзор (пилюля), ниже разбивка */

@@ -1083,8 +1083,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    состояние отчёта, которое пользователь включил и должен видеть. */
 .note-inline.slice{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;
   border-style:solid;border-color:var(--act-line);background:var(--blue-bg);color:var(--ink2)}
-.note-inline.slice .sl-t{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.3px;
-  font-weight:var(--fw-bold);color:var(--act-ink);flex:0 0 auto}
 .note-inline.slice .chip.sl{background:#fff;border-color:var(--act-line);flex:0 0 auto}
 .note-inline.slice .sl-x{flex:1 1 240px;min-width:0;font-size:var(--fs-note);color:var(--muted)}
 .note-inline.slice .btn.xs{flex:0 0 auto;padding:4px 9px}
@@ -1093,8 +1091,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .mon-ph .tbl-note{margin-top:var(--s4)}
 /* 22.10: полка срезов закреплена у верхнего края при прокрутке. 23.10: тонкая — одна строка; подложка цвета
    страницы выше и ниже (тени без размытия) закрывает то, что уезжает под полку, — она читается продолжением
-   шапки, а не карточкой поверх графиков. Пустая — строка-подсказка, как взять срез: место под полкой всегда одно
-   и то же, отчёт не прыгает */
+   шапки, а не карточкой поверх графиков. 23.10, заказчик: пустой полки нет — она есть, только когда что-то
+   выбрано (сплошная голубая, без подписи и пунктира); появилась или ушла — app.js держит экран на месте */
 .sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;min-height:36px;box-sizing:border-box;padding:4px 8px 4px 14px;text-align:left;
   border-radius:var(--r2);margin-bottom:var(--s5);box-shadow:0 -10px 0 var(--bg),0 10px 0 var(--bg)}
 .sl-shelf .chip.sl{padding:2px 8px}
@@ -1104,8 +1102,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .content:has(.sl-shelf){--shelf-h:46px}
 .sl-shelf{flex-wrap:nowrap!important;overflow:hidden}
 .sl-shelf .chip.sl{min-width:0;flex:0 1 auto!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sl-shelf.empty{background:var(--card);border-style:dashed;border-color:var(--line)}
-.sl-shelf.empty .sl-t{color:var(--muted)}
 .k-ph{visibility:hidden}
 /* детализация переводов (поставка 63) */
 .trd-open{display:flex;align-items:center;gap:var(--s5);flex-wrap:wrap}
@@ -7002,20 +6998,19 @@ function heatLegend(){
    срез появляется. o: title, chips [{dim, cat, attr — атрибут кнопки «×»}], extra, clear — атрибут
    «Сбросить всё», clearTip */
 function shelf(o){
-  /* 23.10: пустая полка — подсказка, как взять срез (не пустое место); со срезом — чипы и «Сбросить всё» */
-  const chips=o.chips||[], off=!chips.length;
-  if(off)return '<div class="note-inline slice sl-shelf empty"><span class="sl-t">'+esc(o.title)+'</span>'+
-    '<span class="sl-x">'+esc(o.hint||'')+'</span></div>';
+  /* 23.10, заказчик: «Срез состава» никто не понимает, пунктир — не надо. Ничего не выбрано — полки нет совсем
+     (и места под неё при прокрутке); выбрано — сплошная голубая полоса: что выбрано (чипы с ×) и «Сбросить всё»,
+     без подписи. Как взять срез, сказано в «Что с этим делать» у главы */
+  const chips=o.chips||[];
+  if(!chips.length)return '';
   return '<div class="note-inline slice sl-shelf">'+
-    '<span class="sl-t">'+esc(o.title)+'</span>'+
     chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
-      '<button class="x" '+c.attr+tipAttr({title:'Снять срез',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join('')+
+      '<button class="x" '+c.attr+tipAttr({title:'Снять',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join('')+
     '<span class="sl-x">'+esc(o.extra||'')+'</span>'+
-    '<button class="btn ghost xs" '+o.clear+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять все срезы. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+    '<button class="btn ghost xs" '+o.clear+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять весь выбор. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
 }
 function sliceNote(parts,extra){
-  return shelf({title:'Срез состава:',extra:extra,clear:'data-mixclear="1"',clearTip:'Снять все срезы состава. То же — клавиша Escape.',
-    hint:'нет — кликните значение в портрете, разрезе или конструкторе, и таблица с графиками пересчитаются по нему',
+  return shelf({extra:extra,clear:'data-mixclear="1"',clearTip:'Снять весь выбор. То же — клавиша Escape.',
     chips:parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"'}))});
 }
 
@@ -9125,7 +9120,7 @@ function renderBlock(S,expanded,mixOpen,view){
      таблице, по которой кликнули: без неё «191 → 59» в карточке выглядит
      поломкой отчёта, а не ответом на свой же клик. */
   /* 22.10: полка срезов — у вкладок со срезами (структура — срез состава, посещаемость — сегмент и
-     локация); sticky, пустая скрыта visibility, место под неё есть всегда */
+     локация); sticky. 23.10: только когда что-то выбрано — пустой нет */
   if(b.key==='structure')h+=U.sliceNote(slice,'таблица и графики — по срезу, база и выводы — по всей команде');
   else if(mod.shelf)h+=mod.shelf(S);
 
@@ -10089,14 +10084,13 @@ SC.blocks.office={
   title(sub){return sub==='attend'?'Кто и где ходит в офис: динамика, сегмент, локация'
     :sub==='booking'?'Качество бронирования рабочих мест'
     :'Когда люди приходят в офис'},
-  /* полка выбора вкладки «Кто и где ходит» — та же, что у срезов состава: sticky, пустая — подсказка */
+  /* полка выбора вкладки «Кто и где ходит» — та же, что у структуры: sticky, только когда что-то выбрано */
   shelf(S){
     if(S.subTab!=='attend')return '';
     const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[];
     if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"'});
     if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
-    return U.shelf({title:'Выбрано:',chips:chips,extra:'динамика и таблицы — по выбору',clear:'data-offclear="1"',
-      hint:'ничего — кликните сегмент или локацию в таблице, и динамика пересчитается по ним',
+    return U.shelf({chips:chips,extra:'динамика и таблицы — по выбору',clear:'data-offclear="1"',
       clearTip:'Снять выбор сегмента и локации. То же — клавиша Escape.'});
   },
   view(ctx){
@@ -11182,6 +11176,11 @@ function render(keepScroll,quiet){
   const y=keepScroll?(sc?sc.scrollTop:(window.pageYOffset||0)):0;
   const view=S.tab+'|'+(S.subTab||'');
   const inner=keepScroll?INNER_SCROLL.map(q=>{const el=$(q);return el?[el.scrollTop,el.scrollLeft]:null}):[];
+  /* 23.10: полка выбора появляется со срезом и уходит со сбросом — таблица и графики под ней остаются на том же
+     месте экрана: прокрутку сдвигаем на столько, на сколько сдвинулась сетка «таблица · графики» */
+  const splitAt=()=>{const a=$('#view .split');if(!a||!a.getBoundingClientRect)return null;
+    const t=a.getBoundingClientRect().top;return sc?t-sc.getBoundingClientRect().top+sc.scrollTop:t+(window.pageYOffset||0)};
+  const at0=keepScroll?splitAt():null;
   /* вкладка скрытого (или несуществующего) блока — уводим на one-pager. Одна
      точка на всё: и ссылка с ?tab=tgrowth&hide=…, и отключение метрик в модалке */
   if(S.tab!=='onepager'&&!(D.BLOCK_BY_KEY[S.tab]&&D.blockVisible(S.tab,S))){S.tab='onepager';S.subTab=null}
@@ -11204,8 +11203,10 @@ function render(keepScroll,quiet){
   stickTotals();
   renderMascot();
   enhanceA11y();navOpen(false);
-  if(sc){if(keepScroll)sc.scrollTop=y;else if(sc.scrollTo)sc.scrollTo({top:0,behavior:'smooth'})}
-  else if(keepScroll)window.scrollTo(0,y);
+  let yy=y;
+  if(keepScroll&&sameView&&at0!=null&&at0<y+(sc?sc.clientHeight:window.innerHeight)/2){const at1=splitAt();if(at1!=null)yy+=at1-at0}
+  if(sc){if(keepScroll)sc.scrollTop=yy;else if(sc.scrollTo)sc.scrollTo({top:0,behavior:'smooth'})}
+  else if(keepScroll)window.scrollTo(0,yy);
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
   if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
