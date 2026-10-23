@@ -231,13 +231,14 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   /* 21.10, файл «Структура»: «Оформление» — три таблицы; компаний на верхних уровнях десятки —
      6 строк и «Остальные» (16.10); длинные названия — в две строки, а не многоточием (19.10) */
   const nLeg=Object.keys(R.mix('BASE')&&R.mixVals('o')||{}).length, wk=A.go('structure','work');
-  const sec=(wk.split('<div class="bt-group">').find(x=>/>Компания</.test(x))||'');
+  /* 23.10: «Оформление» историей — у компании заголовок раздела с иконкой, под ним таблица: первые 8 и «Остальные» */
+  const sec=((wk.split('<span class="pf-t">Компания')[1]||'').split('</table>')[0]||'');
   const rows=(sec.match(/<tr class="urow/g)||[]).length+(/>Остальные<span class="unit-sub">/.test(sec)?1:0), rest=/>Остальные<span class="unit-sub">\d+ компани/.test(sec);
   /* 22.10: все компании с людьми, без «Остальных» */
   const nLive=D.MIX_BY_KEY.legal?D.mixParts(D.reportLeaves(A.st()),'legal',A.st().mixSel||[]).filter(v=>v>0).length:0;
-  ok(!nLeg||rows===nLive&&!rest,'компании на «Оформлении»: все '+nLive+' с людьми, без «Остальных»');
-  ok((wk.match(/<div class="bt-group">/g)||[]).length===3&&/class="row-body two"/.test(wk),
-    'оформление: три таблицы, длинные названия — в две строки');
+  ok(!nLeg||(nLive<=9?rows===nLive&&!rest:rows===9&&rest),'компании на «Оформлении»: '+(nLive<=9?'все '+nLive:'первые 8 и «Остальные»'));
+  ok((wk.match(/<div class="bt-group">/g)||[]).length===1&&/class="shbar/.test(wk)&&/class="row-body two"/.test(wk),
+    'оформление: полоса и карточки, формат — карточками, компании таблицей; длинные названия — в две строки');
   /* портрет на настоящих значениях: пол — полоса и карточки, возраст — кусок на каждую группу с людьми,
      каждый окрашен; воронки и среднего возраста в пробнике нет (появятся с таблицей состава) */
   const pt=A.go('structure','portrait'), ages=D.mixCats('age');
@@ -253,8 +254,8 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const naLast=sen.every((n,i)=>!na(n)||sen.slice(i).every(na));
   const tb=ten.filter(c=>!c.na).map(c=>D.bound(c.name,'mon')), tenOk=tb.every((v,i)=>!i||v>=tb[i-1]);
   const lv=A.go('structure','level');
-  ok(plusOk&&naLast&&tenOk&&(lv.match(/<div class="bt-group">/g)||[]).length===3,
-    'уровень позиции на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, три таблицы');
+  ok(plusOk&&naLast&&tenOk&&(lv.match(/<section class="pf-s">/g)||[]).length===3&&/class="cch/.test(lv),
+    'уровень позиции на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, грейды столбцами');
   /* мониторинг на настоящих данных: пока нет витрины по неделям — месяцы из основной таблицы */
   const mo=A.go('monitor','activity');
   ok(/class="kpi mk"/.test(mo)&&/к прошлому месяцу/.test(mo)&&/class="kpi mk dev"/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),

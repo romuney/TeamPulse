@@ -12,10 +12,12 @@
   /* «Портрет команды» (14.10): выделенное — мягкий кобальт, остальное — серое;
      ступени сеньорности — от светлой к густой; пол — розовый и синий (просьба
      заказчика: две категории читаются цветом сразу); стаж — три ступени */
-  --pt-hi:#5f86c2; --pt-dim:#d3d8e0; --pt-track:#f1f3f6;
-  --pt-s0:#DCE6F8; --pt-s1:#AFC4EF; --pt-s2:#7299E3; --pt-s3:#3F6FCF; --pt-s4:#2D56A8; --pt-s5:#203F7C;
+  /* 23.10, заказчик: оттенки портрета «грустные», возраст «чернота» — палитра светлее и живее, в тон конструктора
+     (его заливка — от #EEF4FF к кобальту); самая густая ступень — яркий кобальт, а не тёмно-синий */
+  --pt-hi:#5B8DEF; --pt-dim:#d3d8e0; --pt-track:#f1f3f6;
+  --pt-s0:#E3EDFF; --pt-s1:#C4D8FD; --pt-s2:#97BAFA; --pt-s3:#6C9CF4; --pt-s4:#4A82EC; --pt-s5:#2F6AE0;
   --pt-na:#E3E6EB;
-  --pt-f:#EE9DBA; --pt-m:#7FA2E6; --pt-t1:#b7c7e6; --pt-t2:#dfe5ef;
+  --pt-f:#F68BB2; --pt-m:#5FA0F7; --pt-t1:#b7c7e6; --pt-t2:#dfe5ef;
   /* ---------- Акцент: кобальт ----------
      Один активный тон на всё: кнопки, выбранная строка, фокус, линия
      подразделения на графиках. «Активное в интерфейсе» и «активное в данных» —
@@ -2274,6 +2276,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .shbar span.on{box-shadow:inset 0 0 0 2px var(--act)}
 /* карточки категорий: метка цвета и имя, число, пояснение */
 .shcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s5)}
+.shcards.many{grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}   /* 23.10: пять и больше — в один ряд */
 .shc{background:#f6f7f9;border-radius:var(--r3);padding:var(--s6) var(--s7);display:flex;flex-direction:column;gap:var(--s2);
   transition:background .15s,box-shadow .15s}
 .shc:hover{background:#eef1f6}
@@ -2291,6 +2294,37 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .gsp-b i.m{background:var(--pt-m)}.gsp-b i.f{background:var(--pt-f)}
 /* три таблицы вкладки: колонками, на узком — друг под другом */
 .st-trio{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s10);align-items:start}  /* 22.10: таблицы в столбик */
+/* 23.10: иконки разделов и карточек «Структуры численности» — линейные, цвет — currentColor */
+.ico{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.pf-h .pf-i{align-self:center;color:var(--pt-hi);margin-right:calc(var(--s3) - var(--s5))}
+.shc-ic{display:inline-flex;flex:none}
+.shc-ic .ico{width:20px;height:20px;stroke-width:1.9}
+/* столбцы грейдов: число и доля над столбцом, имя под ним; клик — срез */
+.cch{display:flex;align-items:stretch;gap:var(--s4);height:210px;padding-top:var(--s2)}
+.cc{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:var(--s2);cursor:pointer;
+  border-radius:var(--r3);padding:var(--s2) var(--s2) var(--s3);transition:background .15s}
+.cc:hover{background:#f3f6fb}
+.cc.on{background:var(--blue-bg);box-shadow:inset 0 0 0 1.5px var(--act)}
+.cch.has-on .cc:not(.on){opacity:.5}
+.cc-v{display:flex;flex-direction:column;align-items:center;line-height:1.15}
+.cc-v b{font-size:var(--fs-lead);font-weight:var(--fw-bold);color:var(--ink);font-variant-numeric:tabular-nums}
+.cc-v em{font-style:normal;font-size:var(--fs-note);color:var(--muted)}
+.cc-b{flex:1 1 auto;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)}
+.cc-b i{display:block;width:min(46px,72%);border-radius:var(--r2) var(--r2) 0 0;transition:height .3s}
+.cc-l{text-align:center;font-size:var(--fs-note);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* карточки формата работы: иконка цветом категории, число, доля, полоска доли */
+.icards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s5)}
+.icd{background:#f6f7f9;border-radius:var(--r3);padding:var(--s6) var(--s7);display:flex;flex-direction:column;gap:var(--s2);cursor:pointer;
+  transition:background .15s}
+.icd:hover{background:#eef1f6}
+.icd.on{background:var(--blue-bg);box-shadow:inset 0 0 0 1.5px var(--act)}
+.icards.has-on .icd:not(.on){opacity:.6}
+.icd-i .ico{width:30px;height:30px;stroke-width:1.6}
+.icd-t{font-size:var(--fs-body);color:var(--ink2);margin-top:var(--s2)}
+.icd-n{font-size:var(--fs-note);color:var(--muted)}
+.icd-n b{font-size:20px;font-weight:var(--fw-bold);color:var(--ink);font-variant-numeric:tabular-nums;margin-right:2px}
+.icd-b{height:5px;border-radius:3px;background:var(--line2);overflow:hidden;margin-top:var(--s2)}
+.icd-b i{display:block;height:100%;border-radius:3px}
 .st-trio .bt-group{min-width:0}
 .st-trio .bt-group+.bt-group{padding-top:0}
 /* конструктор: легенда заливки, полный экран */

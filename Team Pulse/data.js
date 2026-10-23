@@ -1180,7 +1180,7 @@ const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.pai
    отличались только оттенком полос — величину и так несёт длина, а смена тона
    от вкладки к вкладке читалась как смена смысла. Теперь все группы — тоном
    квалификации; карта осталась, чтобы цвет группы можно было вернуть точечно. */
-const MIX_COLOR_DEF='#5f86c2';
+const MIX_COLOR_DEF='#5B8DEF';   /* 23.10: в тон конструктора (было #5f86c2 — «грустный») */
 const MIX_GROUP_COLOR={qual:MIX_COLOR_DEF,people:MIX_COLOR_DEF,work:MIX_COLOR_DEF,stream:MIX_COLOR_DEF};
 function dimColor(dimKey){
   const d=MIX_BY_KEY[dimKey];

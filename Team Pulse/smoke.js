@@ -856,7 +856,7 @@ checks.push(['марки графиков помечены data-s',
   const qual=A.go('structure','portrait');
   checks.push(['куски портрета и карточки кликаются: у них есть data-mix',
     /<span[^>]* data-mix="gender:f" style="flex:/.test(qual)&&/<div class="shc" data-mix="age:a0"/.test(qual)&&
-    /<tr class="urow" data-mix="seniority:s"/.test(A.go('structure','level'))]);
+    /<div class="shc" data-mix="seniority:s"/.test(A.go('structure','level'))]);
   const hcAll=D.lastVal(rl,'hc_total'), hcSen=D.lastValSlice(rl,'hc_total',['seniority:s']);
   checks.push(['срез режет численность, а не оставляет её прежней',
     hcSen>0&&hcSen<hcAll]);
@@ -899,8 +899,8 @@ checks.push(['марки графиков помечены data-s',
   checks.push(['ИТОГО таблицы подразделений тоже по срезу',
     totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
     totRow.indexOf('>'+D.fmtVal('hc_total',hcAll)+'<')<0]);
-  checks.push(['выбранная строка разбивки помечена',
-    /<tr class="urow sel" data-mix="seniority:s"/.test(A.go('structure','level'))]);
+  checks.push(['выбранная категория помечена (карточка и кусок полосы)',
+    /<div class="shc on" data-mix="seniority:s"/.test(A.go('structure','level'))&&/<span class="[^"]*on[^"]*" data-mix="seniority:s"/.test(A.go('structure','level'))]);
 
   /* 7. Срез НЕ протекает на другие вкладки: подпись «N чел» стоит везде */
   const movSliced=A.go('movement','balance');
@@ -966,9 +966,11 @@ checks.push(['марки графиков помечены data-s',
       mx.every((r,i)=>r.every((v,j)=>
         v===0||D.MIX_BY_KEY.spec.cats[j].parent===D.MIX_BY_KEY.stream.cats[i].key))]);
     const html=A.go('structure','stream');
-    checks.push(['у стрима есть каретка, а сами специализации свёрнуты',
-      /<button class="caret-btn" data-btexp="stream:dev"/.test(html)&&
-      !/data-mix="spec:be"/.test(html)]);
+    /* 23.10, заказчик: самый большой стрим раскрыт сразу — видно, что таблица сводная; остальные свёрнуты */
+    const otherSpec=D.MIX_BY_KEY.spec.cats.find(c=>c.parent!=='dev');
+    checks.push(['у стрима есть каретка; самый большой раскрыт сразу, остальные свёрнуты',
+      /<button class="caret-btn"[^>]*data-btexp="stream:dev"/.test(html)&&
+      /data-mix="spec:be"/.test(html)&&!!otherSpec&&html.indexOf('data-mix="'+otherSpec.id+'"')<0]);
     const open=A.mixOpen(['stream:dev']);
     checks.push(['раскрытая каретка показывает специализации вторым уровнем',
       /<tr class="urow lvl2" data-mix="spec:be"/.test(open)&&
@@ -983,8 +985,9 @@ checks.push(['марки графиков помечены data-s',
     /* 21.10, файл «Структура»: колонки «категория · Чел. · Доля · полоса» — с шапкой, ИТОГО по-прежнему нет */
     checks.push(['таблицы структуры: подпись над таблицей, шапка «Чел. · Доля», без ИТОГО',
       /<div class="bt-cap">Стрим и специализация/.test(grp)&&/<th>Чел\.<\/th><th>Доля<\/th>/.test(grp)&&!/ИТОГО/.test(grp)&&
-      ['level','work'].every(k=>{const v=(A.go('structure',k).split('<div class="st-trio">')[1]||'');
-        return v&&!/class="total/.test(v)&&(v.match(/<th>Чел\.<\/th><th>Доля<\/th>/g)||[]).length===3&&/class="ptable btable dense lite"/.test(v)})]);
+      /* 23.10: «Уровень позиции» и «Оформление» — историей; таблица осталась у компании — та же лёгкая */
+      (()=>{const v=((A.go('structure','work').split('<span class="pf-t">Компания')[1]||'').split('</table>')[0]||'');
+        return v&&!/class="total/.test(v)&&/<th>Чел\.<\/th><th>Доля<\/th>/.test(v)&&/class="ptable btable dense lite"/.test(v)})()]);
     /* то же правило во всех таблицах, у которых имя стоит прямо над ними */
     checks.push(['ни одна таблица не повторяет своё название в шапке колонки',
       /<thead><tr><th class="txt"><\/th>/.test(A.go('turnover','reasons'))&&
@@ -1576,8 +1579,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /М : Ж = /.test(pt)&&/средний возраст команды/.test(pt)&&(pt.match(/средний возраст <b>/g)||[]).length===2&&
     (pt.match(/<div class="shc[^"]*" data-mix="gender:/g)||[]).length===2&&(pt.match(/<div class="shc[^"]*" data-mix="age:/g)||[]).length===3&&
     (pt.match(/class="gsp"/g)||[]).length===3&&(pt.match(/<span[^>]* data-mix="age:[^"]*" style="flex:/g)||[]).length===3&&
-    (lv.match(/<div class="bt-group">/g)||[]).length===3&&(wk.match(/<div class="bt-group">/g)||[]).length===3&&
-    /Тип занятости[\s\S]*Формат работы[\s\S]*Компания/.test(wk)&&/grid-template-columns:minmax\(0,1fr\)/.test(css)]);
+    /* 23.10: «Уровень позиции» — полосы и карточки сеньорности и стажа, столбцы грейдов; «Оформление» — полоса и
+       карточки занятости, карточки формата с иконками, таблица компаний; у каждого раздела — иконка */
+    (lv.match(/<section class="pf-s">/g)||[]).length===3&&/class="cch/.test(lv)&&(lv.match(/class="shbar/g)||[]).length===2&&!/<div class="bt-group">/.test(lv)&&
+    /Тип занятости[\s\S]*Формат работы[\s\S]*Компания/.test(wk)&&/class="icards/.test(wk)&&(wk.match(/<div class="bt-group">/g)||[]).length===1&&
+    (pt+lv+wk).match(/<svg class="ico pf-i"/g).length===10&&/data-mix="gender:[mf]"[^>]*>[\s\S]{0,400}?class="shc-ic"/.test(pt)]);
   /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
      Матрица: длинная ось — 8 + «Остальные» (не срез), сумма та же; стримы ушедших — 8 строк. */
   {

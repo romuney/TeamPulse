@@ -689,10 +689,10 @@ function shareBar(o){
    (sub — разметка: средний возраст, «М 58% · Ж 42%»). */
 function shareCards(o){
   const any=o.cards.some(x=>x.on);
-  return '<div class="shcards'+(any?' has-on':'')+'">'+o.cards.map(x=>
+  return '<div class="shcards'+(any?' has-on':'')+(o.many?' many':'')+'">'+o.cards.map(x=>
     '<div class="shc'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
       tipAttr({title:x.name,text:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'})+'>'+
-      '<div class="shc-h"><i style="background:'+x.bg+'"></i>'+esc(x.name)+'</div>'+
+      '<div class="shc-h">'+(x.icon?'<span class="shc-ic" style="color:'+x.bg+'">'+ico(x.icon)+'</span>':'<i style="background:'+x.bg+'"></i>')+esc(x.name)+'</div>'+
       '<div class="shc-n"><b>'+D.fmtInt(x.n)+'</b> чел</div>'+
       (x.sub?'<div class="shc-s">'+x.sub+'</div>':'')+'</div>').join('')+'</div>';
 }
@@ -704,9 +704,58 @@ function genderSplit(m,f){
   return '<span class="gsp"><span class="gsp-t">М <b>'+pm+'%</b> · Ж <b>'+pf+'%</b></span>'+
     '<span class="gsp-b"><i class="m" style="flex:'+pm+' 1 0"></i><i class="f" style="flex:'+pf+' 1 0"></i></span></span>';
 }
-/* Заголовок раздела портрета: имя и подпись справа от него (соотношение, средний возраст) */
-function pfHead(name,aside){
-  return '<div class="pf-h"><span class="pf-t">'+esc(name)+'</span>'+(aside?'<span class="pf-a">'+aside+'</span>':'')+'</div>';
+/* Иконки разделов «Структуры численности» (23.10, заказчик: «на SVG — иконки: мальчик, девочка, возраст, уровень»).
+   Линейные, 24×24, цвет — currentColor: в заголовке — тоном подписи, в карточке — цветом категории. */
+const ICO={
+  funnel:'M3 5h18l-7 8v5l-4 2v-7z',
+  people:'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5.2a3 3 0 0 1 0 5.6M21 20c0-2.6-1.6-4.8-3.8-5.6',
+  male:'M12 7.5a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6zM8.5 22v-6.5H7v-4A2.5 2.5 0 0 1 9.5 9h5a2.5 2.5 0 0 1 2.5 2.5v4h-1.5V22',
+  female:'M12 7.5a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6zM9.5 22v-5H6.5l2.8-6.4A2.6 2.6 0 0 1 11.7 9h.6a2.6 2.6 0 0 1 2.4 1.6l2.8 6.4h-3V22',
+  hourglass:'M6 2.5h12M6 21.5h12M7.5 2.5c0 4.8 4.5 6 4.5 9.5s-4.5 4.7-4.5 9.5M16.5 2.5c0 4.8-4.5 6-4.5 9.5s4.5 4.7 4.5 9.5',
+  pin:'M12 21.5s7-6.3 7-11.7a7 7 0 1 0-14 0c0 5.4 7 11.7 7 11.7zM12 12.3a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  stairs:'M3 20h5v-4.5h5V11h5V6.5h3',
+  grade:'M5 20v-4M10 20v-8M15 20V8M20 20V4',
+  calendar:'M4 5.5h16V20H4zM4 10h16M8.5 3v4.5M15.5 3v4.5M8 14h2M12 14h2M8 17h2',
+  case:'M3.5 8h17v12h-17zM9 8V5h6v3M3.5 13.5h17',
+  office:'M5 21V3.5h10V21M15 9h4.5v12M8 7.5h4M8 11h4M8 14.5h4M3 21h18',
+  hybrid:'M2.5 21V10l5.5-4.5 5.5 4.5v11M13.5 21v-9H21v9M1.5 21h21M6.5 14h3M6.5 17.5h3M16 15h2.5',
+  home:'M3 11 12 3.8 21 11M5.5 9.5V20h13V9.5M10 20v-5.5h4V20',
+  company:'M3 21V7.5L9 4.5V21M9 21V10h6v11M15 21v-8h6v8M2 21h20',
+  layers:'M12 3 21 8l-9 5-9-5zM3 12.5l9 5 9-5M3 16.5l9 5 9-5'
+};
+function ico(name,cls){
+  const d=ICO[name];
+  return d?'<svg class="ico '+(cls||'')+'" viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>':'';
+}
+/* Заголовок раздела портрета: иконка, имя и подпись справа от него (соотношение, средний возраст) */
+function pfHead(name,aside,icon){
+  return '<div class="pf-h">'+(icon?ico(icon,'pf-i'):'')+'<span class="pf-t">'+esc(name)+'</span>'+(aside?'<span class="pf-a">'+aside+'</span>':'')+'</div>';
+}
+/* Столбцы порядкового разреза (грейды, 23.10): высота — люди, цвет — ступень шкалы; клик по столбцу — срез */
+function colChart(o){
+  const max=Math.max(1,...o.cols.map(x=>x.n)), tot=o.cols.reduce((a,x)=>a+x.n,0)||1, any=o.cols.some(x=>x.on);
+  return '<div class="cch'+(any?' has-on':'')+'">'+o.cols.map(x=>{
+    const p=Math.round(x.n/tot*100);
+    return '<div class="cc'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
+      tipAttr({title:x.name,rows:[{label:'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
+        note:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
+      '<div class="cc-v"><b>'+D.fmtInt(x.n)+'</b><em>'+(x.n>0&&!p?'<1':p)+'%</em></div>'+
+      '<div class="cc-b"><i style="height:'+Math.max(2,x.n/max*100).toFixed(1)+'%;background:'+x.bg+'"></i></div>'+
+      '<div class="cc-l">'+esc(x.name)+'</div></div>';
+  }).join('')+'</div>';
+}
+/* Карточки с иконкой (формат работы, 23.10): иконка цветом категории, число, доля и полоска доли */
+function iconCards(o){
+  const tot=o.cards.reduce((a,x)=>a+x.n,0)||1, any=o.cards.some(x=>x.on);
+  return '<div class="icards'+(any?' has-on':'')+'">'+o.cards.map(x=>{
+    const p=Math.round(x.n/tot*100);
+    return '<div class="icd'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
+      tipAttr({title:x.name,text:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'})+'>'+
+      '<span class="icd-i" style="color:'+x.bg+'">'+ico(x.icon||'case')+'</span>'+
+      '<div class="icd-t">'+esc(x.name)+'</div>'+
+      '<div class="icd-n"><b>'+D.fmtInt(x.n)+'</b> чел · '+(x.n>0&&!p?'<1':p)+'%</div>'+
+      '<div class="icd-b"><i style="width:'+p+'%;background:'+x.bg+'"></i></div></div>';
+  }).join('')+'</div>';
 }
 
 /* ============================================================================
@@ -1064,6 +1113,6 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  funnelSteps,shareBar,shareCards,genderSplit,pfHead,monKpi,segToggle,miniLines,
+  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,colChart,iconCards,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

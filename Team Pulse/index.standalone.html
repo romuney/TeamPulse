@@ -20,10 +20,12 @@
   /* «Портрет команды» (14.10): выделенное — мягкий кобальт, остальное — серое;
      ступени сеньорности — от светлой к густой; пол — розовый и синий (просьба
      заказчика: две категории читаются цветом сразу); стаж — три ступени */
-  --pt-hi:#5f86c2; --pt-dim:#d3d8e0; --pt-track:#f1f3f6;
-  --pt-s0:#DCE6F8; --pt-s1:#AFC4EF; --pt-s2:#7299E3; --pt-s3:#3F6FCF; --pt-s4:#2D56A8; --pt-s5:#203F7C;
+  /* 23.10, заказчик: оттенки портрета «грустные», возраст «чернота» — палитра светлее и живее, в тон конструктора
+     (его заливка — от #EEF4FF к кобальту); самая густая ступень — яркий кобальт, а не тёмно-синий */
+  --pt-hi:#5B8DEF; --pt-dim:#d3d8e0; --pt-track:#f1f3f6;
+  --pt-s0:#E3EDFF; --pt-s1:#C4D8FD; --pt-s2:#97BAFA; --pt-s3:#6C9CF4; --pt-s4:#4A82EC; --pt-s5:#2F6AE0;
   --pt-na:#E3E6EB;
-  --pt-f:#EE9DBA; --pt-m:#7FA2E6; --pt-t1:#b7c7e6; --pt-t2:#dfe5ef;
+  --pt-f:#F68BB2; --pt-m:#5FA0F7; --pt-t1:#b7c7e6; --pt-t2:#dfe5ef;
   /* ---------- Акцент: кобальт ----------
      Один активный тон на всё: кнопки, выбранная строка, фокус, линия
      подразделения на графиках. «Активное в интерфейсе» и «активное в данных» —
@@ -2282,6 +2284,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .shbar span.on{box-shadow:inset 0 0 0 2px var(--act)}
 /* карточки категорий: метка цвета и имя, число, пояснение */
 .shcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s5)}
+.shcards.many{grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}   /* 23.10: пять и больше — в один ряд */
 .shc{background:#f6f7f9;border-radius:var(--r3);padding:var(--s6) var(--s7);display:flex;flex-direction:column;gap:var(--s2);
   transition:background .15s,box-shadow .15s}
 .shc:hover{background:#eef1f6}
@@ -2299,6 +2302,37 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .gsp-b i.m{background:var(--pt-m)}.gsp-b i.f{background:var(--pt-f)}
 /* три таблицы вкладки: колонками, на узком — друг под другом */
 .st-trio{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s10);align-items:start}  /* 22.10: таблицы в столбик */
+/* 23.10: иконки разделов и карточек «Структуры численности» — линейные, цвет — currentColor */
+.ico{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.pf-h .pf-i{align-self:center;color:var(--pt-hi);margin-right:calc(var(--s3) - var(--s5))}
+.shc-ic{display:inline-flex;flex:none}
+.shc-ic .ico{width:20px;height:20px;stroke-width:1.9}
+/* столбцы грейдов: число и доля над столбцом, имя под ним; клик — срез */
+.cch{display:flex;align-items:stretch;gap:var(--s4);height:210px;padding-top:var(--s2)}
+.cc{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:stretch;gap:var(--s2);cursor:pointer;
+  border-radius:var(--r3);padding:var(--s2) var(--s2) var(--s3);transition:background .15s}
+.cc:hover{background:#f3f6fb}
+.cc.on{background:var(--blue-bg);box-shadow:inset 0 0 0 1.5px var(--act)}
+.cch.has-on .cc:not(.on){opacity:.5}
+.cc-v{display:flex;flex-direction:column;align-items:center;line-height:1.15}
+.cc-v b{font-size:var(--fs-lead);font-weight:var(--fw-bold);color:var(--ink);font-variant-numeric:tabular-nums}
+.cc-v em{font-style:normal;font-size:var(--fs-note);color:var(--muted)}
+.cc-b{flex:1 1 auto;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)}
+.cc-b i{display:block;width:min(46px,72%);border-radius:var(--r2) var(--r2) 0 0;transition:height .3s}
+.cc-l{text-align:center;font-size:var(--fs-note);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* карточки формата работы: иконка цветом категории, число, доля, полоска доли */
+.icards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s5)}
+.icd{background:#f6f7f9;border-radius:var(--r3);padding:var(--s6) var(--s7);display:flex;flex-direction:column;gap:var(--s2);cursor:pointer;
+  transition:background .15s}
+.icd:hover{background:#eef1f6}
+.icd.on{background:var(--blue-bg);box-shadow:inset 0 0 0 1.5px var(--act)}
+.icards.has-on .icd:not(.on){opacity:.6}
+.icd-i .ico{width:30px;height:30px;stroke-width:1.6}
+.icd-t{font-size:var(--fs-body);color:var(--ink2);margin-top:var(--s2)}
+.icd-n{font-size:var(--fs-note);color:var(--muted)}
+.icd-n b{font-size:20px;font-weight:var(--fw-bold);color:var(--ink);font-variant-numeric:tabular-nums;margin-right:2px}
+.icd-b{height:5px;border-radius:3px;background:var(--line2);overflow:hidden;margin-top:var(--s2)}
+.icd-b i{display:block;height:100%;border-radius:3px}
 .st-trio .bt-group{min-width:0}
 .st-trio .bt-group+.bt-group{padding-top:0}
 /* конструктор: легенда заливки, полный экран */
@@ -3695,7 +3729,7 @@ const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.pai
    отличались только оттенком полос — величину и так несёт длина, а смена тона
    от вкладки к вкладке читалась как смена смысла. Теперь все группы — тоном
    квалификации; карта осталась, чтобы цвет группы можно было вернуть точечно. */
-const MIX_COLOR_DEF='#5f86c2';
+const MIX_COLOR_DEF='#5B8DEF';   /* 23.10: в тон конструктора (было #5f86c2 — «грустный») */
 const MIX_GROUP_COLOR={qual:MIX_COLOR_DEF,people:MIX_COLOR_DEF,work:MIX_COLOR_DEF,stream:MIX_COLOR_DEF};
 function dimColor(dimKey){
   const d=MIX_BY_KEY[dimKey];
@@ -6987,10 +7021,10 @@ function shareBar(o){
    (sub — разметка: средний возраст, «М 58% · Ж 42%»). */
 function shareCards(o){
   const any=o.cards.some(x=>x.on);
-  return '<div class="shcards'+(any?' has-on':'')+'">'+o.cards.map(x=>
+  return '<div class="shcards'+(any?' has-on':'')+(o.many?' many':'')+'">'+o.cards.map(x=>
     '<div class="shc'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
       tipAttr({title:x.name,text:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'})+'>'+
-      '<div class="shc-h"><i style="background:'+x.bg+'"></i>'+esc(x.name)+'</div>'+
+      '<div class="shc-h">'+(x.icon?'<span class="shc-ic" style="color:'+x.bg+'">'+ico(x.icon)+'</span>':'<i style="background:'+x.bg+'"></i>')+esc(x.name)+'</div>'+
       '<div class="shc-n"><b>'+D.fmtInt(x.n)+'</b> чел</div>'+
       (x.sub?'<div class="shc-s">'+x.sub+'</div>':'')+'</div>').join('')+'</div>';
 }
@@ -7002,9 +7036,58 @@ function genderSplit(m,f){
   return '<span class="gsp"><span class="gsp-t">М <b>'+pm+'%</b> · Ж <b>'+pf+'%</b></span>'+
     '<span class="gsp-b"><i class="m" style="flex:'+pm+' 1 0"></i><i class="f" style="flex:'+pf+' 1 0"></i></span></span>';
 }
-/* Заголовок раздела портрета: имя и подпись справа от него (соотношение, средний возраст) */
-function pfHead(name,aside){
-  return '<div class="pf-h"><span class="pf-t">'+esc(name)+'</span>'+(aside?'<span class="pf-a">'+aside+'</span>':'')+'</div>';
+/* Иконки разделов «Структуры численности» (23.10, заказчик: «на SVG — иконки: мальчик, девочка, возраст, уровень»).
+   Линейные, 24×24, цвет — currentColor: в заголовке — тоном подписи, в карточке — цветом категории. */
+const ICO={
+  funnel:'M3 5h18l-7 8v5l-4 2v-7z',
+  people:'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5.2a3 3 0 0 1 0 5.6M21 20c0-2.6-1.6-4.8-3.8-5.6',
+  male:'M12 7.5a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6zM8.5 22v-6.5H7v-4A2.5 2.5 0 0 1 9.5 9h5a2.5 2.5 0 0 1 2.5 2.5v4h-1.5V22',
+  female:'M12 7.5a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6zM9.5 22v-5H6.5l2.8-6.4A2.6 2.6 0 0 1 11.7 9h.6a2.6 2.6 0 0 1 2.4 1.6l2.8 6.4h-3V22',
+  hourglass:'M6 2.5h12M6 21.5h12M7.5 2.5c0 4.8 4.5 6 4.5 9.5s-4.5 4.7-4.5 9.5M16.5 2.5c0 4.8-4.5 6-4.5 9.5s4.5 4.7 4.5 9.5',
+  pin:'M12 21.5s7-6.3 7-11.7a7 7 0 1 0-14 0c0 5.4 7 11.7 7 11.7zM12 12.3a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  stairs:'M3 20h5v-4.5h5V11h5V6.5h3',
+  grade:'M5 20v-4M10 20v-8M15 20V8M20 20V4',
+  calendar:'M4 5.5h16V20H4zM4 10h16M8.5 3v4.5M15.5 3v4.5M8 14h2M12 14h2M8 17h2',
+  case:'M3.5 8h17v12h-17zM9 8V5h6v3M3.5 13.5h17',
+  office:'M5 21V3.5h10V21M15 9h4.5v12M8 7.5h4M8 11h4M8 14.5h4M3 21h18',
+  hybrid:'M2.5 21V10l5.5-4.5 5.5 4.5v11M13.5 21v-9H21v9M1.5 21h21M6.5 14h3M6.5 17.5h3M16 15h2.5',
+  home:'M3 11 12 3.8 21 11M5.5 9.5V20h13V9.5M10 20v-5.5h4V20',
+  company:'M3 21V7.5L9 4.5V21M9 21V10h6v11M15 21v-8h6v8M2 21h20',
+  layers:'M12 3 21 8l-9 5-9-5zM3 12.5l9 5 9-5M3 16.5l9 5 9-5'
+};
+function ico(name,cls){
+  const d=ICO[name];
+  return d?'<svg class="ico '+(cls||'')+'" viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>':'';
+}
+/* Заголовок раздела портрета: иконка, имя и подпись справа от него (соотношение, средний возраст) */
+function pfHead(name,aside,icon){
+  return '<div class="pf-h">'+(icon?ico(icon,'pf-i'):'')+'<span class="pf-t">'+esc(name)+'</span>'+(aside?'<span class="pf-a">'+aside+'</span>':'')+'</div>';
+}
+/* Столбцы порядкового разреза (грейды, 23.10): высота — люди, цвет — ступень шкалы; клик по столбцу — срез */
+function colChart(o){
+  const max=Math.max(1,...o.cols.map(x=>x.n)), tot=o.cols.reduce((a,x)=>a+x.n,0)||1, any=o.cols.some(x=>x.on);
+  return '<div class="cch'+(any?' has-on':'')+'">'+o.cols.map(x=>{
+    const p=Math.round(x.n/tot*100);
+    return '<div class="cc'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
+      tipAttr({title:x.name,rows:[{label:'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
+        note:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
+      '<div class="cc-v"><b>'+D.fmtInt(x.n)+'</b><em>'+(x.n>0&&!p?'<1':p)+'%</em></div>'+
+      '<div class="cc-b"><i style="height:'+Math.max(2,x.n/max*100).toFixed(1)+'%;background:'+x.bg+'"></i></div>'+
+      '<div class="cc-l">'+esc(x.name)+'</div></div>';
+  }).join('')+'</div>';
+}
+/* Карточки с иконкой (формат работы, 23.10): иконка цветом категории, число, доля и полоска доли */
+function iconCards(o){
+  const tot=o.cards.reduce((a,x)=>a+x.n,0)||1, any=o.cards.some(x=>x.on);
+  return '<div class="icards'+(any?' has-on':'')+'">'+o.cards.map(x=>{
+    const p=Math.round(x.n/tot*100);
+    return '<div class="icd'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
+      tipAttr({title:x.name,text:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'})+'>'+
+      '<span class="icd-i" style="color:'+x.bg+'">'+ico(x.icon||'case')+'</span>'+
+      '<div class="icd-t">'+esc(x.name)+'</div>'+
+      '<div class="icd-n"><b>'+D.fmtInt(x.n)+'</b> чел · '+(x.n>0&&!p?'<1':p)+'%</div>'+
+      '<div class="icd-b"><i style="width:'+p+'%;background:'+x.bg+'"></i></div></div>';
+  }).join('')+'</div>';
 }
 
 /* ============================================================================
@@ -7362,7 +7445,7 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  funnelSteps,shareBar,shareCards,genderSplit,pfHead,monKpi,segToggle,miniLines,
+  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,colChart,iconCards,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
 
@@ -8556,7 +8639,7 @@ const WHY={
     portrait:['Сколько людей в команде на каждой ступени — от юридической численности до HQ, — кто они по полу и возрасту.',
       'Кликните на кусок полосы или карточку — например, «Женщины»: все разрезы, карточки и таблица подразделений пересчитаются по этому срезу.'],
     level:['На каком уровне люди: {{Сеньорность|сеньорность}}, {{Грейд|грейд}} и стаж в компании.',
-      'Клик по строке — срез; Shift+клик — добавить ещё одну категорию того же разреза.'],
+      'Клик по куску полосы, карточке или столбцу грейда — срез; Shift+клик — добавить ещё одну категорию того же разреза.'],
     /* формата работы нет в данных пробника (схема 15.10) — тогда и про гибрид молчим */
     work:['В какой компании оформлены люди, на каком типе занятости и в каком формате работают.',
       'Много не штата — проверьте, не держатся ли на нём ключевые роли.'],
@@ -9241,6 +9324,9 @@ function dimTable(dim,lp,sel,mixSel,o){
 function treeTable(dim,lp,sel,mixSel,open){
   const kid=D.MIX_BY_KEY[dim.childDim];
   const tree=D.mixTree(lp,dim.key,mixSel).slice().sort((a,b)=>b.value-a.value);
+  /* 23.10, заказчик: один стрим раскрыт сразу (самый большой) — видно, что таблица сводная и раскрывается.
+     Один раз за сессию: дальше раскрытое — как оставил пользователь */
+  if(open&&!open._seeded){open._seeded=true;if(!open.size&&tree[0]&&tree[0].value>0)open.add(tree[0].cat.id)}
   const col=D.dimColor(dim.key), items=[];
   tree.forEach(n=>{
     const on=open.has(n.cat.id), nk=n.kids.filter(k=>k.value>0).length;
@@ -9289,7 +9375,7 @@ function funnelBlock(ctx,path,sel){
   const step=(i,name,n,text)=>({name:name,n:n,p:pc(n,f.legal),cur:cur===i,
     tip:{title:name,text:text,rows:[{label:'Человек',value:D.fmtInt(n)}].concat(i?[{label:'От юридической',value:pc(n,f.legal)+'%'}]:[]),
       note:ctxNote||null}});
-  return '<section class="pf-s">'+U.pfHead('Воронка численности','юридическая → активная → HQ')+
+  return '<section class="pf-s">'+U.pfHead('Воронка численности','юридическая → активная → HQ','funnel')+
     U.funnelSteps({steps:[
       step(0,'Юр. численность',f.legal,'Все сотрудники, кроме тех, кто на этапе оформления.'),
       step(1,'Активная численность',f.active,'Тип «Активная»: юридическая без подрядчиков, стажёров, декрета, прогульщиков и учебных юнитов.'),
@@ -9303,9 +9389,12 @@ function genderBlock(ctx,sel){
   const mi=order[0], fi=order[1];
   const segs=order.map(i=>({id:cats[i].id,name:genName(cats[i]),n:v[i],bg:isMale(cats[i])?'var(--pt-m)':cats[i].na?'var(--pt-na)':'var(--pt-f)',on:sel.has(cats[i].id)}));
   const age=i=>{const a=D.avgAge(ctx.lp,S.mixSel,'gender',i);return a==null?'':'средний возраст <b>'+num1(a)+'</b>'};
-  return '<section class="pf-s">'+U.pfHead('Пол',ratio(v[mi],v[fi]))+
+  /* 23.10: в карточках — фигурки «мальчик / девочка» цветом категории */
+  const gIco=c=>c.na?'':isMale(c)?'male':'female';
+  return '<section class="pf-s">'+U.pfHead('Пол',ratio(v[mi],v[fi]),'people')+
     U.shareBar({segs:segs,names:true})+
-    U.shareCards({cards:order.map(i=>({id:cats[i].id,name:genName(cats[i]),n:v[i],sub:age(i),bg:segs[order.indexOf(i)].bg,on:sel.has(cats[i].id)}))})+'</section>';
+    U.shareCards({cards:order.map(i=>({id:cats[i].id,name:genName(cats[i]),n:v[i],sub:age(i),bg:segs[order.indexOf(i)].bg,
+      icon:gIco(cats[i]),on:sel.has(cats[i].id)}))})+'</section>';
 }
 /* ступени возраста — от светлой к густой, как у порядковых шкал отчёта */
 const RAMP=['var(--pt-s1)','var(--pt-s2)','var(--pt-s3)','var(--pt-s4)','var(--pt-s5)'];
@@ -9319,20 +9408,23 @@ function ageBlock(ctx,sel){
   if(m&&gSel.some(Boolean))m.forEach(r=>r.forEach((_,j)=>{if(!gSel[j])r[j]=0}));
   const gi=G?G.cats.map((c,i)=>i):[], mi=gi.find(i=>isMale(G.cats[i])), fi=gi.find(i=>!isMale(G.cats[i]));
   const known=A.cats.filter(c=>!c.na).length;
-  const bg=(c,i)=>c.na?'var(--pt-na)':RAMP[Math.min(RAMP.length-1,Math.round(i*(RAMP.length-1)/Math.max(1,known-1)))];
-  const segs=A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:bg(c,i),dk:!c.na&&i>=1,on:sel.has(c.id)}));
+  const ri=i=>Math.min(RAMP.length-1,Math.round(i*(RAMP.length-1)/Math.max(1,known-1)));
+  const bg=(c,i)=>c.na?'var(--pt-na)':RAMP[ri(i)];
+  /* белый текст — только на двух густых ступенях: на светлых (23.10 — палитра светлее) он не читается */
+  const segs=A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:bg(c,i),dk:!c.na&&ri(i)>=3,on:sel.has(c.id)}));
   const avg=D.avgAge(ctx.lp,S.mixSel);
-  return '<section class="pf-s">'+U.pfHead('Возраст',avg==null?'':'средний возраст команды — <b>'+num1(avg)+'</b>')+
+  return '<section class="pf-s">'+U.pfHead('Возраст',avg==null?'':'средний возраст команды — <b>'+num1(avg)+'</b>','hourglass')+
     U.shareBar({segs:segs,names:true})+
     U.shareCards({cards:A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:segs[i].bg,on:sel.has(c.id),
       sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';
 }
-/* регион (22.10) — внизу портрета таблицей: регионов десятки, полоса из них не читается. Нет разреза
-   или в отборе ни у кого нет региона — блока нет */
+/* регион (22.10) — внизу портрета таблицей: регионов десятки, полоса из них не читается. 23.10, заказчик: первые
+   десять и «Остальные» (кто в них — в подсказке). Нет разреза или в отборе ни у кого нет региона — блока нет */
 function regionBlock(ctx,sel){
   const S=ctx.S, R=D.MIX_BY_KEY.region;
   if(!R||!D.mixParts(ctx.lp,'region',S.mixSel).some(v=>v>0))return '';
-  return '<section class="pf-s">'+dimTable(R,ctx.lp,sel,S.mixSel,{sort:true})+'</section>';
+  return '<section class="pf-s">'+U.pfHead('Регион','','pin')+
+    dimTable(Object.assign({},R,{name:'',hint:null}),ctx.lp,sel,S.mixSel,{sort:true,top:10,word:['регион','региона','регионов']})+'</section>';
 }
 function portrait(ctx){
   const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), path=S.selNode||S.unit;
@@ -9340,7 +9432,78 @@ function portrait(ctx){
   return '<div class="pf">'+funnelBlock(ctx,path,sel)+genderBlock(ctx,sel)+ageBlock(ctx,sel)+regionBlock(ctx,sel)+'</div>';
 }
 
-/* ---------- Три таблицы на вкладке: «Уровень позиции» и «Оформление» ----------
+/* ---------- «Уровень позиции» и «Оформление» историей (23.10) ----------
+   Заказчик: «разбавить визуализациями, не только таблички с барчартами» — как портрет: у каждого раздела иконка,
+   заголовок и подпись с главным; порядковые разрезы (сеньорность, стаж) — полосой со ступенями цвета и карточками с
+   раскладом М · Ж, грейды — столбцами, тип занятости — полосой и карточками, формат работы — карточками с иконками,
+   компания — таблицей (на верхних уровнях их десятки: первые восемь и «Остальные»). */
+const selOf=S=>new Set(D.sliceParse(S.mixSel).map(p=>p.id));
+const has=(ctx,k)=>D.MIX_BY_KEY[k]&&D.mixParts(ctx.lp,k,ctx.S.mixSel).some(v=>v>0);
+function topOf(dim,v){
+  const tot=sumA(v);let b=-1;v.forEach((x,i)=>{if(x>0&&!dim.cats[i].na&&(b<0||x>v[b]))b=i});
+  return b<0||!tot?'':'чаще всего — <b>'+U.esc(dim.cats[b].name)+'</b> ('+pc(v[b],tot)+'%)';
+}
+/* порядковый разрез: полоса ступенями от светлой к густой и карточки (число, расклад М · Ж) */
+function ordBlock(ctx,key,sel,icon){
+  const S=ctx.S, A=D.MIX_BY_KEY[key], G=D.MIX_BY_KEY.gender;
+  const v=D.mixParts(ctx.lp,key,S.mixSel), m=G?D.mixMatrix(ctx.lp,key,'gender',S.mixSel):null;
+  const gSel=G?G.cats.map(c=>sel.has(c.id)):[];
+  if(m&&gSel.some(Boolean))m.forEach(r=>r.forEach((_,j)=>{if(!gSel[j])r[j]=0}));
+  const gi=G?G.cats.map((c,i)=>i):[], mi=gi.find(i=>isMale(G.cats[i])), fi=gi.find(i=>!isMale(G.cats[i]));
+  const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id));
+  const known=idx.filter(i=>!A.cats[i].na);
+  const ri=i=>Math.min(RAMP.length-1,Math.round(known.indexOf(i)*(RAMP.length-1)/Math.max(1,known.length-1)));
+  const segs=idx.map(i=>{const c=A.cats[i];return {id:c.id,name:c.name,n:v[i],bg:c.na?'var(--pt-na)':RAMP[ri(i)],dk:!c.na&&ri(i)>=3,on:sel.has(c.id)}});
+  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),icon)+U.shareBar({segs:segs,names:true})+
+    U.shareCards({cards:idx.map((i,k)=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:segs[k].bg,on:sel.has(A.cats[i].id),
+      sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';
+}
+function gradeBlock(ctx,sel){
+  const S=ctx.S, A=D.MIX_BY_KEY.grade, v=D.mixParts(ctx.lp,'grade',S.mixSel);
+  const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)), known=idx.filter(i=>!A.cats[i].na);
+  const ri=i=>Math.min(RAMP.length-1,Math.round(known.indexOf(i)*(RAMP.length-1)/Math.max(1,known.length-1)));
+  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),'grade')+
+    U.colChart({cols:idx.map(i=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:A.cats[i].na?'var(--pt-na)':RAMP[ri(i)],on:sel.has(A.cats[i].id)}))})+'</section>';
+}
+function levelView(ctx){
+  const S=ctx.S, sel=selOf(S);
+  if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
+  return '<div class="pf">'+(has(ctx,'seniority')?ordBlock(ctx,'seniority',sel,'stairs'):'')+(has(ctx,'grade')?gradeBlock(ctx,sel):'')+
+    (has(ctx,'tenure')?ordBlock(ctx,'tenure',sel,'calendar'):'')+'</div>'+clickNote(sel);
+}
+/* номинальный разрез: полоса по убыванию (самое большое — основным тоном, остальные — светлее) и карточки */
+/* тона через ступень, чтобы соседние куски различались; пятый и дальше — серо-голубой, а не почти белый */
+const NOM=['var(--pt-s5)','var(--pt-s3)','var(--pt-s2)','var(--pt-s1)','var(--pt-t1)'];
+function nomBlock(ctx,key,sel,icon){
+  const S=ctx.S, A=D.MIX_BY_KEY[key], v=D.mixParts(ctx.lp,key,S.mixSel);
+  const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)).sort((a,b)=>v[b]-v[a]);
+  const segs=idx.map((i,k)=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:A.cats[i].na?'var(--pt-na)':NOM[Math.min(NOM.length-1,k)],dk:k===0&&!A.cats[i].na,on:sel.has(A.cats[i].id)}));
+  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),icon)+U.shareBar({segs:segs,names:true})+
+    U.shareCards({many:segs.length>4,cards:segs.map(x=>({id:x.id,name:x.name,n:x.n,bg:x.bg,on:x.on,sub:pc(x.n,sumA(v))+'% команды'}))})+'</section>';
+}
+/* формат работы — карточки с иконками: офис, гибрид, удалённо */
+const WS_ICO=n=>/гибрид/i.test(n)?'hybrid':/удал|дистан/i.test(n)?'home':/офис/i.test(n)?'office':'case';
+function worksiteBlock(ctx,sel){
+  const S=ctx.S, A=D.MIX_BY_KEY.worksite, v=D.mixParts(ctx.lp,'worksite',S.mixSel);
+  const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)).sort((a,b)=>v[b]-v[a]);
+  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),'office')+
+    U.iconCards({cards:idx.map((i,k)=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],icon:WS_ICO(A.cats[i].name),
+      bg:A.cats[i].na?'var(--muted)':NOM[Math.min(2,k)],on:sel.has(A.cats[i].id)}))})+'</section>';
+}
+function workView(ctx){
+  const S=ctx.S, sel=selOf(S);
+  if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
+  const L=D.MIX_BY_KEY.legal;
+  return '<div class="pf">'+(has(ctx,'employment')?nomBlock(ctx,'employment',sel,'case'):'')+(has(ctx,'worksite')?worksiteBlock(ctx,sel):'')+
+    (has(ctx,'legal')?'<section class="pf-s">'+U.pfHead(L.name,topOf(L,D.mixParts(ctx.lp,'legal',S.mixSel)),'company')+
+      dimTable(Object.assign({},L,{name:'',hint:null}),ctx.lp,sel,S.mixSel,{sort:true,top:8,word:['компания','компании','компаний']})+'</section>':'')+
+    '</div>'+clickNote(sel);
+}
+function clickNote(sel){
+  return sel.size?'':'<div class="tbl-note">Клик по куску полосы, карточке, столбцу или строке — срез: пересчитаются все разрезы и таблица подразделений. Shift+клик — добавить к срезу.</div>';
+}
+
+/* ---------- Три таблицы на вкладке (прежний вид «Уровня позиции» и «Оформления») ----------
    22.10: таблицы — в столбик, одна под другой; строки — только те, что есть в данных, все значения
    явно (без «Остальных») */
 function trio(ctx,keys,sort){
@@ -9404,9 +9567,10 @@ SC.blocks.structure={
   },
   view(ctx){
     if(ctx.sub==='portrait')return portrait(ctx);
-    if(ctx.sub==='level')return trio(ctx,['seniority','grade','tenure'],false);
+    /* 23.10: историей, как портрет (прежние таблицы — trio) */
+    if(ctx.sub==='level')return levelView(ctx);
     /* 22.10: порядок — тип занятости, формат работы, компания */
-    if(ctx.sub==='work')return trio(ctx,['employment','worksite','legal'],true);
+    if(ctx.sub==='work')return workView(ctx);
     if(ctx.sub==='stream'){
       const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), dim=D.MIX_BY_KEY.stream;
       if(!dim)return U.empty('Стримов нет в данных','');
