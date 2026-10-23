@@ -745,6 +745,21 @@ function colChart(o){
       '<div class="cc-l">'+esc(x.name)+'</div></div>';
   }).join('')+'</div>';
 }
+/* Порядковый разрез строками сверху вниз (23.10, заказчик: грейдов и сеньорностей бывает много — столбцы и полоса
+   не вмещают): имя, полоса ступенью шкалы, число и доля, справа — расклад М · Ж (если передан). Клик по строке — срез */
+function ordRows(o){
+  const max=Math.max(1,...o.rows.map(x=>x.n)), tot=o.rows.reduce((a,x)=>a+x.n,0)||1, any=o.rows.some(x=>x.on);
+  return '<div class="ordr'+(any?' has-on':'')+(o.rows.some(x=>x.g)?' with-g':'')+'">'+o.rows.map(x=>{
+    const p=Math.round(x.n/tot*100);
+    return '<div class="or'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
+      tipAttr({title:x.name,rows:[{label:'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
+        note:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
+      '<span class="or-l">'+esc(x.name)+'</span>'+
+      '<span class="or-b"><i style="width:'+Math.max(1.5,x.n/max*100).toFixed(1)+'%;background:'+x.bg+'"></i></span>'+
+      '<span class="or-v"><b>'+D.fmtInt(x.n)+'</b><em>'+(x.n>0&&!p?'<1':p)+'%</em></span>'+
+      (x.g!=null?'<span class="or-g">'+x.g+'</span>':'')+'</div>';
+  }).join('')+'</div>';
+}
 /* Карточки с иконкой (формат работы, 23.10): иконка цветом категории, число, доля и полоска доли */
 function iconCards(o){
   const tot=o.cards.reduce((a,x)=>a+x.n,0)||1, any=o.cards.some(x=>x.on);
@@ -1114,6 +1129,6 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,colChart,iconCards,monKpi,segToggle,miniLines,
+  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,colChart,iconCards,ordRows,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

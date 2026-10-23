@@ -208,6 +208,19 @@ function ordBlock(ctx,key,sel,icon){
     U.shareCards({cards:idx.map((i,k)=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:segs[k].bg,on:sel.has(A.cats[i].id),
       sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';
 }
+/* грейды и сеньорность — строками сверху вниз (23.10: их бывает много), с раскладом М · Ж */
+function rowsBlock(ctx,key,sel,icon){
+  const S=ctx.S, A=D.MIX_BY_KEY[key], G=D.MIX_BY_KEY.gender;
+  const v=D.mixParts(ctx.lp,key,S.mixSel), m=G?D.mixMatrix(ctx.lp,key,'gender',S.mixSel):null;
+  const gSel=G?G.cats.map(c=>sel.has(c.id)):[];
+  if(m&&gSel.some(Boolean))m.forEach(r=>r.forEach((_,j)=>{if(!gSel[j])r[j]=0}));
+  const gi=G?G.cats.map((c,i)=>i):[], mi=gi.find(i=>isMale(G.cats[i])), fi=gi.find(i=>!isMale(G.cats[i]));
+  const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)), known=idx.filter(i=>!A.cats[i].na);
+  const ri=i=>Math.min(RAMP.length-1,1+Math.round(known.indexOf(i)*(RAMP.length-2)/Math.max(1,known.length-1)));
+  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),icon)+
+    U.ordRows({rows:idx.map(i=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:A.cats[i].na?'var(--pt-na)':RAMP[ri(i)],on:sel.has(A.cats[i].id),
+      g:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):null}))})+'</section>';
+}
 function gradeBlock(ctx,sel){
   const S=ctx.S, A=D.MIX_BY_KEY.grade, v=D.mixParts(ctx.lp,'grade',S.mixSel);
   const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)), known=idx.filter(i=>!A.cats[i].na);
@@ -218,7 +231,8 @@ function gradeBlock(ctx,sel){
 function levelView(ctx){
   const S=ctx.S, sel=selOf(S);
   if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
-  return '<div class="pf">'+(has(ctx,'seniority')?ordBlock(ctx,'seniority',sel,'stairs'):'')+(has(ctx,'grade')?gradeBlock(ctx,sel):'')+
+  /* 23.10, заказчик: сеньорность и грейды — строками сверху вниз (значений много), стаж — полосой-пилюлей */
+  return '<div class="pf">'+(has(ctx,'seniority')?rowsBlock(ctx,'seniority',sel,'stairs'):'')+(has(ctx,'grade')?rowsBlock(ctx,'grade',sel,'grade'):'')+
     (has(ctx,'tenure')?ordBlock(ctx,'tenure',sel,'calendar'):'')+'</div>'+clickNote(sel);
 }
 /* номинальный разрез: полоса по убыванию (самое большое — основным тоном, остальные — светлее) и карточки */
@@ -250,7 +264,7 @@ function workView(ctx){
     '</div>'+clickNote(sel);
 }
 function clickNote(sel){
-  return sel.size?'':'<div class="tbl-note">Клик по куску полосы, карточке, столбцу или строке — срез: пересчитаются все разрезы и таблица подразделений. Shift+клик — добавить к срезу.</div>';
+  return sel.size?'':'<div class="tbl-note">Клик по строке, куску полосы или карточке — срез: пересчитаются все разрезы и таблица подразделений. Shift+клик — добавить к срезу.</div>';
 }
 
 /* ---------- Три таблицы на вкладке (прежний вид «Уровня позиции» и «Оформления») ----------

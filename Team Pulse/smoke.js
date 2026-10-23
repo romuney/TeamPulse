@@ -857,7 +857,7 @@ checks.push(['марки графиков помечены data-s',
   const qual=A.go('structure','portrait');
   checks.push(['куски портрета и карточки кликаются: у них есть data-mix',
     /<span[^>]* data-mix="gender:f" style="flex:/.test(qual)&&/<div class="shc" data-mix="age:a0"/.test(qual)&&
-    /<div class="shc" data-mix="seniority:s"/.test(A.go('structure','level'))]);
+    /<div class="or" data-mix="seniority:s"/.test(A.go('structure','level'))]);
   const hcAll=D.lastVal(rl,'hc_total'), hcSen=D.lastValSlice(rl,'hc_total',['seniority:s']);
   checks.push(['срез режет численность, а не оставляет её прежней',
     hcSen>0&&hcSen<hcAll]);
@@ -901,7 +901,7 @@ checks.push(['марки графиков помечены data-s',
     totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
     totRow.indexOf('>'+D.fmtVal('hc_total',hcAll)+'<')<0]);
   checks.push(['выбранная категория помечена (карточка и кусок полосы)',
-    /<div class="shc on" data-mix="seniority:s"/.test(A.go('structure','level'))&&/<span class="[^"]*on[^"]*" data-mix="seniority:s"/.test(A.go('structure','level'))]);
+    /<div class="or on" data-mix="seniority:s"/.test(A.go('structure','level'))]);
 
   /* 7. Срез НЕ протекает на другие вкладки: подпись «N чел» стоит везде */
   const movSliced=A.go('movement','balance');
@@ -1582,7 +1582,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
     (pt.match(/class="gsp"/g)||[]).length===3&&(pt.match(/<span[^>]* data-mix="age:[^"]*" style="flex:/g)||[]).length===3&&
     /* 23.10: «Уровень позиции» — полосы и карточки сеньорности и стажа, столбцы грейдов; «Оформление» — полоса и
        карточки занятости, карточки формата с иконками, таблица компаний; у каждого раздела — иконка */
-    (lv.match(/<section class="pf-s">/g)||[]).length===3&&/class="cch/.test(lv)&&(lv.match(/class="shbar/g)||[]).length===2&&!/<div class="bt-group">/.test(lv)&&
+    /* 23.10: сеньорность и грейды — строками сверху вниз (с М · Ж), стаж — полосой-пилюлей с карточками */
+    (lv.match(/<section class="pf-s">/g)||[]).length===3&&(lv.match(/class="ordr/g)||[]).length===2&&(lv.match(/class="shbar/g)||[]).length===1&&
+    (lv.match(/<div class="or[^"]*" data-mix="grade:/g)||[]).length>=5&&!/<div class="bt-group">/.test(lv)&&
     /Тип занятости[\s\S]*Формат работы[\s\S]*Компания/.test(wk)&&/class="icards/.test(wk)&&(wk.match(/<div class="bt-group">/g)||[]).length===1&&
     (pt+lv+wk).match(/<svg class="ico pf-i"/g).length===10&&/data-mix="gender:[mf]"[^>]*>[\s\S]{0,400}?class="shc-ic"/.test(pt)]);
   /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».

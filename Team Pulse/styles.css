@@ -2317,6 +2317,22 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .cc-b{flex:1 1 auto;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)}
 .cc-b i{display:block;width:min(46px,72%);border-radius:var(--r2) var(--r2) 0 0;transition:height .3s}
 .cc-l{text-align:center;font-size:var(--fs-note);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* порядковый разрез строками (грейды, сеньорность): имя · полоса · число и доля · М / Ж */
+.ordr{display:flex;flex-direction:column;gap:2px}
+.or{display:grid;grid-template-columns:minmax(96px,150px) minmax(0,1fr) 92px;align-items:center;gap:var(--s6);
+  min-height:32px;padding:0 var(--s4);border-radius:var(--r2);cursor:pointer;transition:background .15s}
+.ordr.with-g .or{grid-template-columns:minmax(96px,150px) minmax(0,1fr) 92px 112px}
+.or:hover{background:#f3f6fb}
+.or.on{background:var(--blue-bg);box-shadow:inset 0 0 0 1.5px var(--act)}
+.ordr.has-on .or:not(.on){opacity:.55}
+.or-l{font-size:var(--fs-body);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.or-b{height:14px;background:var(--pt-track);border-radius:var(--r2);overflow:hidden}
+.or-b i{display:block;height:100%;border-radius:var(--r2);transition:width .3s}
+.or-v{display:flex;align-items:baseline;justify-content:flex-end;gap:var(--s3);font-variant-numeric:tabular-nums}
+.or-v b{font-size:var(--fs-body);font-weight:var(--fw-bold);color:var(--ink)}
+.or-v em{font-style:normal;font-size:var(--fs-note);color:var(--muted);min-width:34px;text-align:right}
+.or-g .gsp{margin:0}
+.or-g .gsp-t{font-size:var(--fs-micro);color:var(--muted)}
 /* карточки формата работы: иконка цветом категории, число, доля, полоска доли */
 .icards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s5)}
 .icd{background:#f6f7f9;border-radius:var(--r3);padding:var(--s6) var(--s7);display:flex;flex-direction:column;gap:var(--s2);cursor:pointer;

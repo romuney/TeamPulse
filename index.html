@@ -2325,6 +2325,22 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .cc-b{flex:1 1 auto;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)}
 .cc-b i{display:block;width:min(46px,72%);border-radius:var(--r2) var(--r2) 0 0;transition:height .3s}
 .cc-l{text-align:center;font-size:var(--fs-note);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* порядковый разрез строками (грейды, сеньорность): имя · полоса · число и доля · М / Ж */
+.ordr{display:flex;flex-direction:column;gap:2px}
+.or{display:grid;grid-template-columns:minmax(96px,150px) minmax(0,1fr) 92px;align-items:center;gap:var(--s6);
+  min-height:32px;padding:0 var(--s4);border-radius:var(--r2);cursor:pointer;transition:background .15s}
+.ordr.with-g .or{grid-template-columns:minmax(96px,150px) minmax(0,1fr) 92px 112px}
+.or:hover{background:#f3f6fb}
+.or.on{background:var(--blue-bg);box-shadow:inset 0 0 0 1.5px var(--act)}
+.ordr.has-on .or:not(.on){opacity:.55}
+.or-l{font-size:var(--fs-body);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.or-b{height:14px;background:var(--pt-track);border-radius:var(--r2);overflow:hidden}
+.or-b i{display:block;height:100%;border-radius:var(--r2);transition:width .3s}
+.or-v{display:flex;align-items:baseline;justify-content:flex-end;gap:var(--s3);font-variant-numeric:tabular-nums}
+.or-v b{font-size:var(--fs-body);font-weight:var(--fw-bold);color:var(--ink)}
+.or-v em{font-style:normal;font-size:var(--fs-note);color:var(--muted);min-width:34px;text-align:right}
+.or-g .gsp{margin:0}
+.or-g .gsp-t{font-size:var(--fs-micro);color:var(--muted)}
 /* карточки формата работы: иконка цветом категории, число, доля, полоска доли */
 .icards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s5)}
 .icd{background:#f6f7f9;border-radius:var(--r3);padding:var(--s6) var(--s7);display:flex;flex-direction:column;gap:var(--s2);cursor:pointer;
@@ -7082,6 +7098,21 @@ function colChart(o){
       '<div class="cc-l">'+esc(x.name)+'</div></div>';
   }).join('')+'</div>';
 }
+/* Порядковый разрез строками сверху вниз (23.10, заказчик: грейдов и сеньорностей бывает много — столбцы и полоса
+   не вмещают): имя, полоса ступенью шкалы, число и доля, справа — расклад М · Ж (если передан). Клик по строке — срез */
+function ordRows(o){
+  const max=Math.max(1,...o.rows.map(x=>x.n)), tot=o.rows.reduce((a,x)=>a+x.n,0)||1, any=o.rows.some(x=>x.on);
+  return '<div class="ordr'+(any?' has-on':'')+(o.rows.some(x=>x.g)?' with-g':'')+'">'+o.rows.map(x=>{
+    const p=Math.round(x.n/tot*100);
+    return '<div class="or'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
+      tipAttr({title:x.name,rows:[{label:'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
+        note:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
+      '<span class="or-l">'+esc(x.name)+'</span>'+
+      '<span class="or-b"><i style="width:'+Math.max(1.5,x.n/max*100).toFixed(1)+'%;background:'+x.bg+'"></i></span>'+
+      '<span class="or-v"><b>'+D.fmtInt(x.n)+'</b><em>'+(x.n>0&&!p?'<1':p)+'%</em></span>'+
+      (x.g!=null?'<span class="or-g">'+x.g+'</span>':'')+'</div>';
+  }).join('')+'</div>';
+}
 /* Карточки с иконкой (формат работы, 23.10): иконка цветом категории, число, доля и полоска доли */
 function iconCards(o){
   const tot=o.cards.reduce((a,x)=>a+x.n,0)||1, any=o.cards.some(x=>x.on);
@@ -7451,7 +7482,7 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,colChart,iconCards,monKpi,segToggle,miniLines,
+  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,colChart,iconCards,ordRows,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
 
@@ -8645,7 +8676,7 @@ const WHY={
     portrait:['Сколько людей в команде на каждой ступени — от юридической численности до HQ, — кто они по полу и возрасту.',
       'Кликните на кусок полосы или карточку — например, «Женщины»: все разрезы, карточки и таблица подразделений пересчитаются по этому срезу.'],
     level:['На каком уровне люди: {{Сеньорность|сеньорность}}, {{Грейд|грейд}} и стаж в компании.',
-      'Клик по куску полосы, карточке или столбцу грейда — срез; Shift+клик — добавить ещё одну категорию того же разреза.'],
+      'Клик по строке сеньорности или грейда, куску полосы стажа или карточке — срез; Shift+клик — добавить ещё одну категорию того же разреза.'],
     /* формата работы нет в данных пробника (схема 15.10) — тогда и про гибрид молчим */
     work:['В какой компании оформлены люди, на каком типе занятости и в каком формате работают.',
       'Много не штата — проверьте, не держатся ли на нём ключевые роли.'],
@@ -9465,6 +9496,19 @@ function ordBlock(ctx,key,sel,icon){
     U.shareCards({cards:idx.map((i,k)=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:segs[k].bg,on:sel.has(A.cats[i].id),
       sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';
 }
+/* грейды и сеньорность — строками сверху вниз (23.10: их бывает много), с раскладом М · Ж */
+function rowsBlock(ctx,key,sel,icon){
+  const S=ctx.S, A=D.MIX_BY_KEY[key], G=D.MIX_BY_KEY.gender;
+  const v=D.mixParts(ctx.lp,key,S.mixSel), m=G?D.mixMatrix(ctx.lp,key,'gender',S.mixSel):null;
+  const gSel=G?G.cats.map(c=>sel.has(c.id)):[];
+  if(m&&gSel.some(Boolean))m.forEach(r=>r.forEach((_,j)=>{if(!gSel[j])r[j]=0}));
+  const gi=G?G.cats.map((c,i)=>i):[], mi=gi.find(i=>isMale(G.cats[i])), fi=gi.find(i=>!isMale(G.cats[i]));
+  const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)), known=idx.filter(i=>!A.cats[i].na);
+  const ri=i=>Math.min(RAMP.length-1,1+Math.round(known.indexOf(i)*(RAMP.length-2)/Math.max(1,known.length-1)));
+  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),icon)+
+    U.ordRows({rows:idx.map(i=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:A.cats[i].na?'var(--pt-na)':RAMP[ri(i)],on:sel.has(A.cats[i].id),
+      g:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):null}))})+'</section>';
+}
 function gradeBlock(ctx,sel){
   const S=ctx.S, A=D.MIX_BY_KEY.grade, v=D.mixParts(ctx.lp,'grade',S.mixSel);
   const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)), known=idx.filter(i=>!A.cats[i].na);
@@ -9475,7 +9519,8 @@ function gradeBlock(ctx,sel){
 function levelView(ctx){
   const S=ctx.S, sel=selOf(S);
   if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
-  return '<div class="pf">'+(has(ctx,'seniority')?ordBlock(ctx,'seniority',sel,'stairs'):'')+(has(ctx,'grade')?gradeBlock(ctx,sel):'')+
+  /* 23.10, заказчик: сеньорность и грейды — строками сверху вниз (значений много), стаж — полосой-пилюлей */
+  return '<div class="pf">'+(has(ctx,'seniority')?rowsBlock(ctx,'seniority',sel,'stairs'):'')+(has(ctx,'grade')?rowsBlock(ctx,'grade',sel,'grade'):'')+
     (has(ctx,'tenure')?ordBlock(ctx,'tenure',sel,'calendar'):'')+'</div>'+clickNote(sel);
 }
 /* номинальный разрез: полоса по убыванию (самое большое — основным тоном, остальные — светлее) и карточки */
@@ -9507,7 +9552,7 @@ function workView(ctx){
     '</div>'+clickNote(sel);
 }
 function clickNote(sel){
-  return sel.size?'':'<div class="tbl-note">Клик по куску полосы, карточке, столбцу или строке — срез: пересчитаются все разрезы и таблица подразделений. Shift+клик — добавить к срезу.</div>';
+  return sel.size?'':'<div class="tbl-note">Клик по строке, куску полосы или карточке — срез: пересчитаются все разрезы и таблица подразделений. Shift+клик — добавить к срезу.</div>';
 }
 
 /* ---------- Три таблицы на вкладке (прежний вид «Уровня позиции» и «Оформления») ----------

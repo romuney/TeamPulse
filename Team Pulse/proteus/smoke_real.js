@@ -254,8 +254,8 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const naLast=sen.every((n,i)=>!na(n)||sen.slice(i).every(na));
   const tb=ten.filter(c=>!c.na).map(c=>D.bound(c.name,'mon')), tenOk=tb.every((v,i)=>!i||v>=tb[i-1]);
   const lv=A.go('structure','level');
-  ok(plusOk&&naLast&&tenOk&&(lv.match(/<section class="pf-s">/g)||[]).length===3&&/class="cch/.test(lv),
-    'уровень позиции на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, грейды столбцами');
+  ok(plusOk&&naLast&&tenOk&&(lv.match(/<section class="pf-s">/g)||[]).length===3&&(lv.match(/class="ordr/g)||[]).length===2,
+    'уровень позиции на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, сеньорность и грейды строками');
   /* мониторинг на настоящих данных: пока нет витрины по неделям — месяцы из основной таблицы */
   const mo=A.go('monitor','activity');
   ok(/class="kpi mk"/.test(mo)&&/к прошлому месяцу/.test(mo)&&/class="kpi mk dev"/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),
