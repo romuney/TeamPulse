@@ -662,9 +662,12 @@ function childrenOf(p){return NODES.filter(n=>n.parent===p).sort((a,b)=>a.sort-b
    он участвует в суммах всегда, а строкой виден, только если свои люди есть. */
 function rowsOf(p){return childrenOf(p).filter(n=>!n.hide)}
 /* У строки «Напрямую в «X»» переводы — это переходы между детьми юнита (у юнита
-   их нет, у детей есть): для суммы верно, как число строки — бессмыслица. */
+   их нет, у детей есть): для суммы верно, как число строки — бессмыслица.
+   Поставка 64: ответ с din / dout — у листа «Напрямую» свои переводы, как в мастер-отчёте:
+   тогда число строки осмысленно и показывается. */
 const DIRECT_NA=new Set(['transfer_in','transfer_out','internal_share']);
-function directNA(node,key){return !!(node&&node.direct&&DIRECT_NA.has(key))}
+const DIRECT_OWN=!!(REAL&&REAL.has('din')&&REAL.has('dout'));
+function directNA(node,key){return !DIRECT_OWN&&!!(node&&node.direct&&DIRECT_NA.has(key))}
 function descendantsOf(p){return NODES.filter(n=>n.path===p||n.path.startsWith(p+'/'))}
 function leavesUnder(p){return descendantsOf(p).filter(n=>n.leaf)}
 function ancestorsOf(p){const seg=p.split('/');const out=[];for(let i=1;i<=seg.length;i++){const q=seg.slice(0,i).join('/');if(NODE_BY_PATH[q])out.push(NODE_BY_PATH[q])}return out}
@@ -941,6 +944,19 @@ function reasonSeries(leafPaths,reasonKey){
 
 /* ---------- Агрегация с кешем ---------- */
 const _ac=new Map();
+/* Поставка 64: переводы по листьям не складываются (мастер-отчёт: «напрямую в юните» — свой узел, переход из
+   корня юнита в его подразделение для юнита внутренний). Когда агрегируются ровно листья юнита с подразделениями,
+   переводы — его собственная строка ответа (REAL.trfOwn); любой другой набор листьев — сумма, как раньше. */
+let _trfSig=null;
+function trfOwnOf(leafPaths,key){
+  if(!REAL||!REAL.trfOwn||(key!=='transfer_in'&&key!=='transfer_out'))return null;
+  if(!_trfSig){
+    _trfSig=new Map();
+    REAL.trfOwnPaths().forEach(p=>{_trfSig.set(leavesUnder(p).map(l=>l.path).join(','),p)});
+  }
+  const p=_trfSig.get(leafPaths.join(','));
+  return p?REAL.trfOwn(p,key):null;
+}
 /* Агрегация на расширенной сетке (18 точек).
    Производные метрики считаются как сумма числителей / сумма знаменателей —
    это точная групповая текучесть, а не среднее из процентов по листьям.
@@ -965,6 +981,9 @@ function aggregateExt(leafPaths,key){
        тот же (разность линейна), но без прохода по всем листьям дважды */
     const src=aggregateExt(leafPaths,m.ytdDelta);
     for(let i=0;i<NEXT;i++)out[i]=+(src[i]-src[ytdBase(i)]).toFixed(1);
+  } else if(COUNT_METRICS.has(key)&&trfOwnOf(leafPaths,key)){
+    const o=trfOwnOf(leafPaths,key);
+    for(let i=0;i<NEXT;i++)out[i]=+(+o[i]||0).toFixed(1);
   } else if(COUNT_METRICS.has(key)){
     for(let i=0;i<NEXT;i++){let s=0;leafPaths.forEach(p=>{s+=seriesExt(p,key)[i]});out[i]=+s.toFixed(1)}
   } else {
@@ -2423,9 +2442,14 @@ function trfReport(lp,month){
   if(i<0||!lp.length)return null;
   return {tin:Math.round(aggregate(lp,'transfer_in')[i]||0),tout:Math.round(aggregate(lp,'transfer_out')[i]||0)};
 }
+/* ключ узла детализации в ответе: лист «Напрямую в «X»» — узел X:d ноутбука (поставка 64) */
+function trdIdOf(path){
+  const id=REAL?REAL.idOf(path):null;
+  return id&&/·$/.test(id)?id.slice(0,-1)+':d':id;
+}
 function trfDetail(path,months,st){
   if(REAL){
-    const t=REAL.trd, id=REAL.idOf(path);
+    const t=REAL.trd, id=trdIdOf(path);
     if(!t||t.id!==id)return null;
     return {months:t.months,n:t.n,ev:t.ev,cut:t.n>t.ev.length};
   }
@@ -2483,7 +2507,7 @@ function aiProfile(lp){
   return {pen:pen,wau:wau,tools:tools};
 }
 
-window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,hcFunnel,avgAge,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,

@@ -645,7 +645,7 @@ function trdPaint(){
 function trdLoad(path,months){
   Object.assign(TRD,{open:true,path:path,months:months});
   if(ENV){
-    const id=unitId(path);
+    const id=D.trdIdOf(path);
     const cur=D.REAL.trd;
     const have=cur&&cur.id===id&&months.length===cur.months.length&&months.every(m=>cur.months.indexOf(m)>=0);
     TRD.loading=!have;
@@ -958,7 +958,7 @@ on(document,'click',e=>{
   const trdF=t.closest('[data-trdo]');
   if(trdF){TRD.only=trdF.dataset.trdo;trdPaint();return}
   if(t.closest('[data-trdcsv]')){
-    const csv=trdCSV(), nm='perevody_'+String((ENV?unitId(TRD.path):TRD.path)||'unit').replace(/\W+/g,'').slice(0,12)+'_'+TRD.months[0]+(TRD.months.length>1?'_13m':'')+'.csv';
+    const csv=trdCSV(), nm='perevody_'+String((ENV?D.trdIdOf(TRD.path):TRD.path)||'unit').replace(/\W+/g,'').slice(0,12)+'_'+TRD.months[0]+(TRD.months.length>1?'_13m':'')+'.csv';
     try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
       a.download=nm;(ROOTEL.body||ROOTEL).appendChild(a);a.click();a.remove()}
     catch(err){navigator.clipboard&&navigator.clipboard.writeText(csv)}

@@ -18,27 +18,15 @@ NB = os.path.join(HERE, 'hub_nb')
 STEPS = (1, 2, 3, 5, 6)       # правка 4 (уровень перевода в ключе hr_structure_overall) не нужна:
                               # переводы через границу узла считают параграфы hub по людям
 
+# 23.10, поставка 64: EXEC build_all_metrics — целиком код заказчика (hub_nb/exec_build_all_metrics.py): все разрезы
+# в fields, переводы ноутбук TP 2.0 больше не считает (transfers=False) — их считает «hub · 5 переходы»
+WHOLE = {'EXEC build_all_metrics': 'exec_build_all_metrics.py'}
+
 EXTRA = {
-    'EXEC build_all_metrics': [
-        ("build_all_metrics(\n    res_table_name='all_metrics',",
-         "# срез отчёта TeamPulse Hub — покраска (HQ, Line, Support). В hr_structure_overall не идёт:\n"
-         "# group_and_sum_metrics берёт ключами только fields. IT-код — в FIXED_DIMS, как в источнике\n"
-         "HUB_FIELDS = [\n"
-         "    {'name': 'emp_specialization_oper_code', 'alias': 'paint_cd'},\n"
-         "    # 21.10, из прод-ноутбуков HQ и УС: тип компании, специализация (внутри стрима), источник найма\n"
-         "    'type_company',\n"
-         "    {'name': 'employee_specialization_desc', 'alias': 'specialization'},\n"
-         "    'source_type_nm',\n"
-         "    # 22.10, поставка 60: тип численности целиком — фильтр отчёта (любой набор типов; «Активная» —\n"
-         "    # выбор по умолчанию, подрядчиков добавляют в фильтре)\n"
-         "    {'name': 'active_type_nm', 'alias': 'act_type_nm'},\n"
-         "    # 22.10, поставка 62: регион сотрудника — разрез портрета и конструктора\n"
-         "    {'name': 'residential_state_nm', 'alias': 'region'},\n"
-         "]\n\n"
-         "build_all_metrics(\n    res_table_name='all_metrics',"),
-        ("    fields=fields,", "    fields=fields + HUB_FIELDS,"),
-    ],
     'build_all_metrics': [
+        # 23.10, поставка 64 (заказчик): период расчёта — с начала прошлого года
+        ("\"date_trunc('year', (current_date - interval '2 year')::date)\"",
+         "\"date_trunc('year', (current_date - interval '1 year')::date)\""),
         # 21.10: обычные (non-regrettable) увольнения — как в прод-ноутбуке HQ (non_regrettable_set_hq)
         ("        for c in ('fire_flg', 'regrettable_fire_flg'):",
          "        for c in ('fire_flg', 'regrettable_fire_flg', 'non_regrettable_fire_flg'):"),
@@ -115,7 +103,8 @@ CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub che
                 'hub · 5 переходы'},
            61: {'_PARAMS_'},
            62: {'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 4 разрезы'},
-           63: {'hub · 2 логины и AI', 'hub · 5 переходы', 'to click'}}
+           63: {'hub · 2 логины и AI', 'hub · 5 переходы', 'to click'},
+           64: {'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 3 справочник и ряды', 'hub · 5 переходы'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 
@@ -172,6 +161,8 @@ def main():
             p = ps[item]
             assert p.get('isEnabled', True), p['title']
             title, shebang, code = p['title'], p['shebang'], patch(p['title'], p.get('code') or '')
+            if title in WHOLE:
+                code = open(os.path.join(NB, WHOLE[title]), encoding='utf-8').read()
         code = '\n'.join(line.rstrip() for line in code.split('\n')).strip('\n')
         out.append({'sid': str(uuid.uuid5(uuid.NAMESPACE_URL, 'teampulse-hub/' + title)), 'title': title,
                     'shebang': shebang, 'code': Lit(code), 'isEnabled': True})

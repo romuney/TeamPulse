@@ -39,7 +39,7 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
    на конец месяца, vcl — закрыто, vap — новые, vtd/vtn — дни и число закрытых для срока, vjn — закрыто
    джунами) и AI (aiw — WAU, aip / aic — проникновение по юниту и компании). Тоже необязательные; вакансии
    и AI — без фильтров среза (не люди) */
-const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit'];
+const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   perf_norm:'pnor',perf_low:'plow',perf_high:'phig',perf_gray:'pgry',
@@ -211,6 +211,11 @@ function build(data){
 
   const lastOf=a=>a[n-1]||0;
   const nodes=[], series={}, mixes={};
+  /* поставка 64: переводы не складываются по листьям — у мастер-отчёта «напрямую в юните» свой узел (din / dout
+     ноутбука), и переход из корня юнита в его подразделение для юнита внутренний, а для листьев — перевод. Поэтому
+     лист «Напрямую» берёт din / dout, а у юнита с подразделениями переводы — своя строка (trfOwn: data.js берёт её,
+     когда считает ровно листья этого юнита) */
+  const DIN=have.has('din')&&have.has('dout'), trfOwn={};
   /* в модель отчёта — как до 19.10: юниты ответа, путь к выбранному и пять верхних уровней;
      весь справочник — только окну настройки (pick ниже): 11 тыс. узлов в NODES замедлили бы
      каждый обход дерева */
@@ -256,6 +261,11 @@ function build(data){
         return s;
       });
     });
+    if(DIN){
+      own.tin=u.ser.din.slice();own.tout=u.ser.dout.slice();
+      if(own.tin.some(v=>v)||own.tout.some(v=>v))any=true;
+      trfOwn[p]={transfer_in:u.ser.tin,transfer_out:u.ser.tout};
+    }
     if(any){
       const dp=p+'/·';
       /* Строка видна, только если в юните сейчас есть свои люди (как в HRBP HUB):
@@ -363,6 +373,9 @@ function build(data){
       return s&&c&&s[c]?s[c]:null;
     },
     hasSeries(path){return !!series[path]},
+    /* поставка 64: переводы юнита с подразделениями — своей строкой (не сумма листьев); null — нет */
+    trfOwn(path,key){const o=trfOwn[path];return o&&o[key]?o[key]:null},
+    trfOwnPaths(){return Object.keys(trfOwn)},
     /* разрезы листа (или 'BASE'): {ключ:{значение:число}}; null — нет данных */
     mix(path){return mixes[path]||null},
     /* значения разреза с числом по базе — для категорий; значение, которого в базе

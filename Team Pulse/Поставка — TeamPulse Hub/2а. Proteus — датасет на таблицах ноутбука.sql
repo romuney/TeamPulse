@@ -43,6 +43,8 @@
     regrettable, non-regrettable, переводы в выбор и из выбора; pnor plow phig pgry — мониторинг;
     wday ovis — человеко-дни и посещения офиса; gapr gdec — T-рост; vop vcl vap vtd vtn vjn — вакансии
     (открыто на конец месяца, закрыто, новые, дни и число закрытых, закрыто джунами); aiw aip aic — AI.
+    hit — найм по дню события; din dout — переводы в и из «напрямую в юните» (люди в самом юните, без его
+    подразделений; поставка 64): у мастер-отчёта это свой узел, «юнит минус подразделения» для переводов не верен.
     В mx — разрезы ноутбука и вакансии (vs vr vp vl — открытые последнего месяца, vk vq — закрытые с
     начала года).
 
@@ -113,7 +115,7 @@
 {% set HI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'h'" ~ (" OR (ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 0)" if act_on else "") ~ ")" %}
 {% set TU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND " ~ FLG ~ ")" %}
 {#- Метрики: ключ, таблица (s — series, t — trf, v — vacancy, a — ai), выражение. Порядок — порядок в ms. -#}
-{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI]] %}
+{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU]] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
@@ -135,6 +137,8 @@ arrayConcat({{ parts|join(', ') }})
 {%- endmacro %}
 {#- Узлы ответа (множество для IN) и месяц строки от начала сетки — через проекцию общего скаляра. -#}
 {% set PK = '(SELECT tupleElement(arrayJoin(pks), 1) FROM cx)' %}
+{#- Поставка 64: «напрямую в юните» — узлы ответа с ':d' (переводы людей в самом юните, без подразделений) -#}
+{% set PKD = "(SELECT concat(tupleElement(arrayJoin(pks), 1), ':d') FROM cx)" %}
 {% set IDX = "toInt32(dateDiff('month', (SELECT m0 FROM cx), toDate(assumeNotNull(report_month))))" %}
 {% set GRID = 'report_month BETWEEN (SELECT m0 FROM cx) AND (SELECT lm FROM cx)' %}
 {% set FV = '(SELECT fv FROM fdv)' %}
@@ -228,6 +232,12 @@ WITH
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('t') }} AS a2
       FROM prod_proteus.teampulse_hub_trf
       WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond() }}
+      GROUP BY u2, i2
+      UNION ALL
+      {#- поставка 64: din / dout — переводы «напрямую в юните» (узел юнит:d ноутбука) в строку юнита #}
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, {{ IDX }} AS i2, {{ vec('d') }} AS a2
+      FROM prod_proteus.teampulse_hub_trf
+      WHERE ifNull(node_rk, '') IN {{ PKD }} AND {{ GRID }} AND {{ cond() }}
       GROUP BY u2, i2
       UNION ALL
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('v') }} AS a2

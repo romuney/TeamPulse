@@ -63,6 +63,11 @@ def master(rows, grid_start, lm, multi):
     for v in rs:
         ms = lambda d: dt.date(d.year, d.month, 1)
         nodes = [(v[f'k{i}'], v[f'ui{i}'], v[f'uo{i}']) for i in LV if v[f'k{i}'] != '-'] + ([('all', 0, 0)] if multi else [])
+        # поставка 64: «напрямую в юните» — самый глубокий юнит строки с ':d'; флаг — любой флаг юнита строки (в мастер-
+        # отчёте — строка юнита с уровнем ниже «-»: выгрузка боя 23.10, «Переводы5»)
+        deep = [v[f'k{i}'] for i in LV if v[f'k{i}'] != '-']
+        if deep:
+            nodes.append((deep[-1] + ':d', max(v[f'ui{i}'] for i in LV), max(v[f'uo{i}'] for i in LV)))
         cut = (v['pa'], v['it'], v['st'], v['ac'])
         xi = xo = none
         for n, ui, uo in nodes:
@@ -195,9 +200,11 @@ def main():
             if r['role'] not in ('scope', 'base', 'c', 'g', 'x'):
                 continue
             nodes += 1
-            for k in ('tin', 'tout', 'hit'):
+            # поставка 64: din / dout — переводы узла «напрямую в юните» (юнит:d)
+            for k, n, tk in (('tin', r['id'], 'tin'), ('tout', r['id'], 'tout'), ('hit', r['id'], 'hit'),
+                             ('din', r['id'] + ':d', 'tin'), ('dout', r['id'] + ':d', 'tout')):
                 a = [round(float(x), 1) for x in r['m_' + k].split(',')]
-                e = [float(T.get((r['id'], m), {}).get(k, 0)) for m in ms]
+                e = [float(T.get((n, m), {}).get(tk, 0)) for m in ms]
                 if a != e:
                     miss += 1
                     if miss <= 3:

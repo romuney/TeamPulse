@@ -63,8 +63,7 @@ def clean(col):
 SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in LV] + [f'lvl{i}_nm' for i in LV]
             + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'active_type_gr_nm', 'act_type_nm',
                'hc_total_cnt', 'hc_active_cnt', 'hire_amt', 'hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt',
-               'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt', 'transfer_in_amt', 'transfer_in_lvl',
-               'transfer_out_amt', 'transfer_out_lvl', 'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
+               'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt', 'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
                'work_day_amt', 'office_visit_amt', 'grt_approve_cnt', 'grt_decline_cnt',
                'gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
                'legal_organization', 'employee_stream', 'fire_reason_group', 'fire_initiative', 'specialization',
@@ -315,7 +314,6 @@ from {P}_cal c;
 def sql_series():
     sx_cols = ['report_month', 'hc_total_cnt', 'hc_active_cnt', 'hire_amt', 'transfer_candidate_amt',
                'transfer_internal_amt', 'hire_cnt', 'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt',
-               'transfer_in_lvl', 'transfer_in_amt', 'transfer_out_lvl', 'transfer_out_amt',
                'perf_normal', 'perf_low', 'perf_high', 'perf_gray', 'work_day_amt', 'office_visit_amt',
                'grt_approve_cnt', 'grt_decline_cnt']
     on = lambda a, b: wrap([f'{a}.{c} = {b}.{c}' for c in ('node_rk', 'paint_c', 'it_c', 'staff_c', 'act_c')],
@@ -348,8 +346,9 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        sum({num('hire_cnt')}) as hco,
        sum({num('fire_amt')}) as fire, sum({num('regret_fire_amt')}) as reg,
        sum({num('non_regret_fire_amt')}) as nreg,
-       sum(case when {num('transfer_in_lvl')} between 1 and d then {num('transfer_in_amt')} else 0 end) as tin,
-       sum(case when {num('transfer_out_lvl')} between 1 and d then {num('transfer_out_amt')} else 0 end) as tout,
+       -- переводы считает «hub · 5 переходы» (teampulse_hub_trf); с поставки 64 ноутбук TP 2.0 их не считает
+       -- (EXEC build_all_metrics: transfers=False) — колонки рядов остаются нулями, схема та же
+       0 as tin, 0 as tout,
        sum({num('perf_normal')}) as pnor, sum({num('perf_low')}) as plow,
        sum({num('perf_high')}) as phig, sum({num('perf_gray')}) as pgry,
        sum({num('work_day_amt')}) as wday, sum({num('office_visit_amt')}) as ovis,
@@ -489,12 +488,21 @@ def sql_trf():
                    ['hire_flg'] + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in LV for k in ('in', 'out')]
                    + [f'transfer_{d}_{t}_flg' for t, _, _ in tfl for d in ('to', 'out')]], ' ' * 7, sep=' or ', width=125)
     arr = lambda pre: 'ARRAY[' + ', '.join(f'r.{pre}{i}' for i in LV) + ']'
+    # поставка 64: «напрямую в юните» — люди в самом юните, без его подразделений (в мастер-отчёте — строка юнита с
+    # уровнем ниже «-»). Узел — самый глубокий юнит строки с ':d'; флаг — любой флаг юнита строки: сменился сам юнит
+    # или подразделение внутри него (из корня юнита в его подразделение — «из», обратно — «в»)
+    deep = 'coalesce(' + wrap([f"nullif(r.k{i}, '-')" for i in reversed(LV)], ' ' * 16) + ')'
+    gr = lambda pre: 'greatest(' + wrap([f'r.{pre}{i}' for i in LV], ' ' * 16) + ')'
+    direct = (f"    -- поставка 64: «напрямую в юните» — узел юнит:d, флаг — любой флаг юнита строки\n"
+              f"    select d.* from (\n        select r.*, {deep} || ':d' as node_rk,\n"
+              f"               {gr('ui')} as fu_in,\n               {gr('uo')} as fu_out\n"
+              f"        from r\n    ) d\n    where d.node_rk is not null\n    union all\n")
     # поставка 63: самый глубокий юнит дня (для детализации — подразделение по другую сторону перевода) и начало
     # детализации — 13 последних месяцев
     leaf = 'coalesce(' + ', '.join(f"nullif(nullif(x.lvl{i}_mapped_management_unit_rk::text, ''), '-')"
                                    for i in reversed(list(LV))) + ", '-')"
     ev0 = f"((select lm from {P}_cal) - interval '12 month')::date"
-    return f"""{head('5. Переводы — как в мастер-отчёте (поставки 59–63)',
+    return f"""{head('5. Переводы — как в мастер-отчёте (поставки 59–64)',
                'teampulse_hub_trf — узел × месяц × вид × срез × флаги: датасет считает из них переводы в выбор и из',
                'выбора под фильтры. Логика — мастер-отчёта (старый TeamPulse: transfer_in / transfer_out), сверена на',
                'выборках боя: событие — строка дня с флагом источника, «в» и «из» считаются отдельно, каждое — по',
@@ -509,6 +517,9 @@ def sql_trf():
                'типов active_type_nm, по умолчанию «Активная»). Флаг смены — как есть и при фильтре из нескольких',
                'значений (поставка 63, как мастер-отчёт: Подрядчики → Активная при «Активная + Подрядчики» — и «из», и',
                '«в»). in_ok = 0 — кандидат учебного юнита или стажёр: из «в» исключается всегда, при выборе типов — найм.',
+               'Узел <ключ юнита>:d (поставка 64) — «напрямую в юните»: люди в самом юните, без его подразделений (в',
+               'мастер-отчёте — строка юнита с уровнем ниже «-»); строка — в нём, если её самый глубокий юнит — этот, флаг —',
+               'любой флаг юнита строки.',
                'teampulse_hub_trfe (поставка 63) — события × узел за 13 месяцев для детализации переводов в отчёте.')}
 -- шаги — таблицами, не CTE: у таблицы есть статистика (analyze), и план не ошибается в числе строк
 -- (CTE оценивается в единицы строк — на объёме боя план выбирал вложенный цикл)
@@ -575,7 +586,7 @@ e as (
     ) z
     where z.node_rk <> '-'
     union all
-    -- общий корень над несколькими корнями: переход между корнями — внутри него, не перевод
+{direct}    -- общий корень над несколькими корнями: переход между корнями — внутри него, не перевод
     select r.*, '{HUB_ALL}', 0, 0 from r where {MO} = 1
 )
 select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok,
@@ -633,7 +644,7 @@ e as (
     ) z
     where z.node_rk <> '-'
     union all
-    select r.*, '{HUB_ALL}', 0, 0 from r where {MO} = 1
+{direct}    select r.*, '{HUB_ALL}', 0, 0 from r where {MO} = 1
 )
 select node_rk, report_month, ev_dt, trf_kind, emp_code, login, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs,
        in_ok, x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, x_unit

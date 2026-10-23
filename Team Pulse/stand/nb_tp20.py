@@ -190,10 +190,13 @@ COLS = (['calendar_dt', 'mdm_employee_rk']
         # 22.10, поставка 59: признак последнего дня месяца — по нему мастер-отчёт переносит перевод «из»
         + ['last_day_of_month_flg']
         # 22.10, поставка 62: регион сотрудника — разрез портрета и конструктора
-        + ['residential_state_nm'])
+        + ['residential_state_nm']
+        # 23.10, поставка 64: формат работы — в fields параграфа EXEC build_all_metrics заказчика
+        + ['type_of_work'])
 # регион — по ключу человека, без генератора: случайный ряд симуляции не сдвигается; у части людей пусто
 REGIONS = ['г. Москва', 'г. Москва', 'г. Москва', 'Московская область', 'г. Санкт-Петербург', 'Свердловская область',
            'Новосибирская область', 'Республика Татарстан', None]
+WORKS = ['Офис', 'Гибрид', 'Удалённо', 'Офис', None]
 
 
 def source_rows(U, people):
@@ -204,8 +207,11 @@ def source_rows(U, people):
             pu = path(U, at(p['unit'], d))
             prev = path(U, at(p['unit'], d - dt.timedelta(1))) if d > p['start'] else None
             nxt = path(U, at(p['unit'], d + dt.timedelta(1))) if d < last else None
-            inf = [int(prev is not None and (i >= len(pu) or i >= len(prev) or pu[i] != prev[i]) and i < len(pu)) for i in range(NL)]
-            outf = [int(nxt is not None and (i >= len(pu) or i >= len(nxt) or pu[i] != nxt[i]) and i < len(pu)) for i in range(NL)]
+            # флаг юнита уровня — значение уровня сменилось, в том числе на «-» и с «-» (поставка 64, как в выгрузке
+            # боя 23.10: из корня юнита в его подразделение — lvl5_out_trsf_flg = 1 у строки с 5-м уровнем «-»)
+            lv = lambda q, i: q[i] if i < len(q) else None
+            inf = [int(prev is not None and lv(pu, i) != lv(prev, i)) for i in range(NL)]
+            outf = [int(nxt is not None and lv(pu, i) != lv(nxt, i)) for i in range(NL)]
             g = at(p['grade'], d)
             fired = int(p['end'] == d)
             act = at(p['acth'], d)
@@ -235,7 +241,8 @@ def source_rows(U, people):
                    + [p['nonreg'] if fired else 0, p['company'], p['spec'], p['source']]
                    + [None, None, 0, 0]
                    + [int((d + dt.timedelta(1)).day == 1)]
-                   + [REGIONS[p['rk'] * 7 % len(REGIONS)]])
+                   + [REGIONS[p['rk'] * 7 % len(REGIONS)]]
+                   + [WORKS[p['rk'] * 3 % len(WORKS)]])
             d += dt.timedelta(1)
 
 
@@ -586,6 +593,8 @@ def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE, chg=()):
     T = defaultdict(lambda: defaultdict(float))
     root = ['all'] if ROOTS > 1 else []
     F = lambda p, d: pred(p, d) and (act is None or at(p['acth'], d) in act)
+    # поставка 64: «напрямую в юните» — свой узел (юнит + ':d'): люди в самом юните, без его подразделений
+    own = lambda u: path(U, u) + [u + ':d']
     for p in people:
         last = p['end'] or D1
         conv = {c for c, _ in p['conv']}
@@ -593,7 +602,7 @@ def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE, chg=()):
             if not (max(p['start'], D0) < d <= last):
                 continue
             a = d - dt.timedelta(1)
-            pa, pb = root + path(U, at(p['unit'], a)), root + path(U, at(p['unit'], d))
+            pa, pb = root + own(at(p['unit'], a)), root + own(at(p['unit'], d))
             fa, fb = F(p, a), F(p, d)
             m = dt.date(d.year, d.month, 1)
             for n in set(pa) | set(pb):

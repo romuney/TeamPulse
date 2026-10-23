@@ -130,6 +130,17 @@ e as (
     ) z
     where z.node_rk <> '-'
     union all
+    -- поставка 64: «напрямую в юните» — узел юнит:d, флаг — любой флаг юнита строки
+    select d.* from (
+        select r.*, coalesce(nullif(r.k11, '-'), nullif(r.k10, '-'), nullif(r.k9, '-'), nullif(r.k8, '-'),
+                nullif(r.k7, '-'), nullif(r.k6, '-'), nullif(r.k5, '-'), nullif(r.k4, '-'), nullif(r.k3, '-'),
+                nullif(r.k2, '-'), nullif(r.k1, '-')) || ':d' as node_rk,
+               greatest(r.ui1, r.ui2, r.ui3, r.ui4, r.ui5, r.ui6, r.ui7, r.ui8, r.ui9, r.ui10, r.ui11) as fu_in,
+               greatest(r.uo1, r.uo2, r.uo3, r.uo4, r.uo5, r.uo6, r.uo7, r.uo8, r.uo9, r.uo10, r.uo11) as fu_out
+        from r
+    ) d
+    where d.node_rk is not null
+    union all
     -- общий корень над несколькими корнями: переход между корнями — внутри него, не перевод
     select r.*, 'all', 0, 0 from r where (select mo from teampulse_hub_cal) = 1
 )
@@ -187,6 +198,17 @@ e as (
         from r
     ) z
     where z.node_rk <> '-'
+    union all
+    -- поставка 64: «напрямую в юните» — узел юнит:d, флаг — любой флаг юнита строки
+    select d.* from (
+        select r.*, coalesce(nullif(r.k11, '-'), nullif(r.k10, '-'), nullif(r.k9, '-'), nullif(r.k8, '-'),
+                nullif(r.k7, '-'), nullif(r.k6, '-'), nullif(r.k5, '-'), nullif(r.k4, '-'), nullif(r.k3, '-'),
+                nullif(r.k2, '-'), nullif(r.k1, '-')) || ':d' as node_rk,
+               greatest(r.ui1, r.ui2, r.ui3, r.ui4, r.ui5, r.ui6, r.ui7, r.ui8, r.ui9, r.ui10, r.ui11) as fu_in,
+               greatest(r.uo1, r.uo2, r.uo3, r.uo4, r.uo5, r.uo6, r.uo7, r.uo8, r.uo9, r.uo10, r.uo11) as fu_out
+        from r
+    ) d
+    where d.node_rk is not null
     union all
     select r.*, 'all', 0, 0 from r where (select mo from teampulse_hub_cal) = 1
 )

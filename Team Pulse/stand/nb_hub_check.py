@@ -67,7 +67,9 @@ def main():
         # типы численности выбора: по умолчанию nb.ACTIVE («Активная»), «Вся» — все (None), иначе — названные
         av = flt.get('act_f')
         act = nb.ACTIVE if av is None else None if av == ['Вся'] else tuple(av)
-        for label, sql in (('файл 2 ', F2), ('файл 2а', F2A)):
+        # поставка 64: ноутбук отчёта не считает переводы (EXEC build_all_metrics, transfers=False) — файл 2 на его
+        # hr_structure_with_ssch не собирается (в бою файл 2 читает таблицу ноутбука TP 2.0); сверяется 2а
+        for label, sql in (('файл 2а', F2A),):
             T = nb.truth(U, people, perf, grt, raw.get(name, pred) if label == 'файл 2а' else pred,
                          agg=label == 'файл 2 ' and act is not None, act=act, hday=label == 'файл 2а')
             if label == 'файл 2 ' and ('paint_f' in flt or av not in (None, ['Вся'])):
@@ -132,6 +134,12 @@ def main():
                     exp = [round(T[(rk, m)][tk], 1) for m in ms]
                     if [round(x, 1) for x in a[k]] != exp:
                         bad[k] += 1
+                if label == 'файл 2а' and r.get('m_din') is not None:
+                    # поставка 64: переводы «напрямую в юните» — свой узел юнит:d (люди в самом юните)
+                    for k, tk in (('din', 'tin'), ('dout', 'tout')):
+                        got = [round(float(x), 1) for x in r['m_' + k].split(',')]
+                        if got != [round(T[(rk + ':d', m)][tk], 1) for m in ms]:
+                            bad[k] += 1
                 if label == 'файл 2а':
                     # поставка 50: обычные увольнения (под фильтрами), вакансии и AI (без фильтров)
                     for k, src in [('nreg', T)] + [(k, TV) for k in ('vop', 'vcl', 'vap', 'vtd', 'vtn', 'vjn')] + \

@@ -1,4 +1,4 @@
-# Детализация переводов (поставка 63): засчитанные события месяца = переводы отчёта — для подразделений разной
+# Детализация переводов (поставки 63–64): засчитанные события месяца = переводы отчёта — для подразделений разной
 # глубины и разных фильтров. Датасет 2а с trd_f (подразделение) и trm_f (13 месяцев) отдаёт строку ev; её «ok»
 # по месяцам и видам сверяются с рядами tin / tout строки scope того же ответа (unit_f — то же подразделение).
 #   python3 stand/trd_check.py <папка стенда>
@@ -28,11 +28,13 @@ def main():
     m0 = dt.date.fromisoformat(meta['m0'])
     bad, total = 0, 0
     for name, flt in CASES:
-        for n in nodes:
-            f = dict(flt, unit_f=[n], trd_f=[n], trm_f=[m.isoformat()[:7] for m in months])
+        # поставка 64: и узел «напрямую в юните» (юнит:d) — его переводы в строке юнита: din / dout
+        for n, kin, kout in [(x, 'tin', 'tout') for x in nodes] + [(x + ':d', 'din', 'dout') for x in nodes]:
+            u = n[:-2] if n.endswith(':d') else n
+            f = dict(flt, unit_f=[u], trd_f=[n], trm_f=[m.isoformat()[:7] for m in months])
             _, rr = hc.run(db, hc.F2A, f)
             sc = next(r for r in rr if r['role'] == 'scope')
-            ser = {k: [float(x) for x in sc['m_' + k].split(',')] for k in ('tin', 'tout')}
+            ser = {k: [float(x) for x in sc['m_' + c].split(',')] for k, c in (('tin', kin), ('tout', kout))}
             ev = next((r for r in rr if r['role'] == 'ev'), None)
             got = Counter()
             for l in (ev['j'] if ev else '').split('\n'):
@@ -48,7 +50,7 @@ def main():
                     if got[(m.isoformat()[:7], k)] != want[k]:
                         bad += 1
                         print(f'  РАСХОЖДЕНИЕ {name} · узел {n} · {m:%Y-%m} · {k}: детализация {got[(m.isoformat()[:7], k)]}, отчёт {want[k]}')
-        print(f'{name:28}: узлов {len(nodes)} × 13 мес × в/из — проверено')
+        print(f'{name:28}: узлов {len(nodes)} и столько же «напрямую» × 13 мес × в/из — проверено')
     print(f'ИТОГ: {total - bad} из {total} — ' + ('детализация = числам отчёта' if not bad else f'{bad} расхождений'))
     sys.exit(1 if bad else 0)
 

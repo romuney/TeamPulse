@@ -28,8 +28,9 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        sum(coalesce(e.hire_cnt, 0)) as hco,
        sum(coalesce(e.fire_amt, 0)) as fire, sum(coalesce(e.regret_fire_amt, 0)) as reg,
        sum(coalesce(e.non_regret_fire_amt, 0)) as nreg,
-       sum(case when coalesce(e.transfer_in_lvl, 0) between 1 and d then coalesce(e.transfer_in_amt, 0) else 0 end) as tin,
-       sum(case when coalesce(e.transfer_out_lvl, 0) between 1 and d then coalesce(e.transfer_out_amt, 0) else 0 end) as tout,
+       -- переводы считает «hub · 5 переходы» (teampulse_hub_trf); с поставки 64 ноутбук TP 2.0 их не считает
+       -- (EXEC build_all_metrics: transfers=False) — колонки рядов остаются нулями, схема та же
+       0 as tin, 0 as tout,
        sum(coalesce(e.perf_normal, 0)) as pnor, sum(coalesce(e.perf_low, 0)) as plow,
        sum(coalesce(e.perf_high, 0)) as phig, sum(coalesce(e.perf_gray, 0)) as pgry,
        sum(coalesce(e.work_day_amt, 0)) as wday, sum(coalesce(e.office_visit_amt, 0)) as ovis,
@@ -40,9 +41,8 @@ from (
     from (
         select s.report_month, s.hc_total_cnt, s.hc_active_cnt, s.hire_amt, s.transfer_candidate_amt,
                s.transfer_internal_amt, s.hire_cnt, s.fire_amt, s.regret_fire_amt, s.non_regret_fire_amt,
-               s.transfer_in_lvl, s.transfer_in_amt, s.transfer_out_lvl, s.transfer_out_amt, s.perf_normal,
-               s.perf_low, s.perf_high, s.perf_gray, s.work_day_amt, s.office_visit_amt, s.grt_approve_cnt,
-               s.grt_decline_cnt,
+               s.perf_normal, s.perf_low, s.perf_high, s.perf_gray, s.work_day_amt, s.office_visit_amt,
+               s.grt_approve_cnt, s.grt_decline_cnt,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
