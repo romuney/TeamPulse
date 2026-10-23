@@ -161,7 +161,8 @@ button,select,input,textarea{font-family:inherit}
 
 /* ===== Layout ===== */
 .layout{display:flex;min-height:calc(100vh - 168px);align-items:stretch}
-.nav{width:236px;flex:0 0 236px;background:#fff;border-right:1px solid var(--line);padding:16px 12px 44px}
+/* 23.10, заказчик (видео): серой линии у правого края «Сводки» нет — белая панель и белая шапка отчёта одно целое */
+.nav{width:236px;flex:0 0 236px;background:#fff;padding:16px 12px 44px}
 .nav-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:var(--fw-bold);margin:0 0 9px;padding:0 10px}
 .nav-i{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;text-align:left;padding:10px 11px;border-radius:var(--r3);font-size:var(--fs-lead);font-weight:var(--fw-body);color:var(--ink2);cursor:pointer;margin-bottom:2px;transition:background .15s}
 .nav-i:hover{background:#f4f6fa}
@@ -1426,7 +1427,9 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .split-gut{display:none}
 .split-gut{position:relative;align-self:stretch;justify-content:center;align-items:center;
   cursor:col-resize;outline:none;touch-action:none}
-.split-gut i{display:block;width:4px;height:44px;border-radius:var(--r-pill);background:var(--line);
+/* 23.10, заказчик (видео): серая «ручка» между таблицей и графиками читалась как лишняя линия у края графиков —
+   в покое её не видно, появляется под мышью и пока тянут (курсор col-resize и подсказка остаются) */
+.split-gut i{display:block;width:4px;height:44px;border-radius:var(--r-pill);background:transparent;
   transition:background .12s,height .12s}
 .split-gut:hover i,.split-gut:focus-visible i,.split-drag .split-gut i{background:var(--act);height:64px}
 /* пока тянут — курсор и выделение не скачут, подсказка не едет за мышью */
@@ -1560,6 +1563,15 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 @media (prefers-reduced-motion:reduce){.tp-load,.ld-f img,.ld-c span{animation:none}.ld-f img,.ld-c span:first-child{opacity:1}}
 /* корень отчёта внутри хоста ECharts: он и прокручивается (prelude.js) */
 .tp-overlay{background:var(--bg)}
+/* 23.10, заказчик (видео): серая полоса прокрутки у правого края чарта — убрана, прокрутка колесом и тачпадом
+   та же. Внутренние прокрутки (таблица подразделений, списки) — тонкие и видны, только пока над ними мышь */
+.tp-overlay{scrollbar-width:none}
+.tp-overlay::-webkit-scrollbar{width:0;height:0}
+:where(.tp-overlay *){scrollbar-width:thin;scrollbar-color:transparent transparent}
+:where(.tp-overlay *:hover){scrollbar-color:var(--muted2) transparent}
+:where(.tp-overlay *)::-webkit-scrollbar{width:6px;height:6px;background:transparent}
+:where(.tp-overlay *)::-webkit-scrollbar-thumb{background:transparent;border-radius:3px}
+:where(.tp-overlay *:hover)::-webkit-scrollbar-thumb{background:var(--muted2)}
 /* «План метрик» в справке — только в пробнике */
 .plan-t{width:100%;border-collapse:collapse;font-size:var(--fs-note);margin-top:var(--s4)}
 .plan-t th,.plan-t td{text-align:left;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line2);vertical-align:top}
