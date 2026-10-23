@@ -732,19 +732,6 @@ function ico(name,cls){
 function pfHead(name,aside,icon){
   return '<div class="pf-h">'+(icon?ico(icon,'pf-i'):'')+'<span class="pf-t">'+esc(name)+'</span>'+(aside?'<span class="pf-a">'+aside+'</span>':'')+'</div>';
 }
-/* Столбцы порядкового разреза (грейды, 23.10): высота — люди, цвет — ступень шкалы; клик по столбцу — срез */
-function colChart(o){
-  const max=Math.max(1,...o.cols.map(x=>x.n)), tot=o.cols.reduce((a,x)=>a+x.n,0)||1, any=o.cols.some(x=>x.on);
-  return '<div class="cch'+(any?' has-on':'')+'">'+o.cols.map(x=>{
-    const p=Math.round(x.n/tot*100);
-    return '<div class="cc'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
-      tipAttr({title:x.name,rows:[{label:'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
-        note:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
-      '<div class="cc-v"><b>'+D.fmtInt(x.n)+'</b><em>'+(x.n>0&&!p?'<1':p)+'%</em></div>'+
-      '<div class="cc-b"><i style="height:'+Math.max(2,x.n/max*100).toFixed(1)+'%;background:'+x.bg+'"></i></div>'+
-      '<div class="cc-l">'+esc(x.name)+'</div></div>';
-  }).join('')+'</div>';
-}
 /* Порядковый разрез строками сверху вниз (23.10, заказчик: грейдов и сеньорностей бывает много — столбцы и полоса
    не вмещают): имя, полоса ступенью шкалы, число и доля, справа — расклад М · Ж (если передан). Клик по строке — срез */
 function ordRows(o){
@@ -1129,6 +1116,6 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,colChart,iconCards,ordRows,monKpi,segToggle,miniLines,
+  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,iconCards,ordRows,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

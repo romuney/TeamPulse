@@ -221,13 +221,6 @@ function rowsBlock(ctx,key,sel,icon){
     U.ordRows({rows:idx.map(i=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:A.cats[i].na?'var(--pt-na)':RAMP[ri(i)],on:sel.has(A.cats[i].id),
       g:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):null}))})+'</section>';
 }
-function gradeBlock(ctx,sel){
-  const S=ctx.S, A=D.MIX_BY_KEY.grade, v=D.mixParts(ctx.lp,'grade',S.mixSel);
-  const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)), known=idx.filter(i=>!A.cats[i].na);
-  const ri=i=>Math.min(RAMP.length-1,Math.round(known.indexOf(i)*(RAMP.length-1)/Math.max(1,known.length-1)));
-  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),'grade')+
-    U.colChart({cols:idx.map(i=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:A.cats[i].na?'var(--pt-na)':RAMP[ri(i)],on:sel.has(A.cats[i].id)}))})+'</section>';
-}
 function levelView(ctx){
   const S=ctx.S, sel=selOf(S);
   if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
@@ -265,18 +258,6 @@ function workView(ctx){
 }
 function clickNote(sel){
   return sel.size?'':'<div class="tbl-note">Клик по строке, куску полосы или карточке — срез: пересчитаются все разрезы и таблица подразделений. Shift+клик — добавить к срезу.</div>';
-}
-
-/* ---------- Три таблицы на вкладке (прежний вид «Уровня позиции» и «Оформления») ----------
-   22.10: таблицы — в столбик, одна под другой; строки — только те, что есть в данных, все значения
-   явно (без «Остальных») */
-function trio(ctx,keys,sort){
-  const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id));
-  /* разрез, где в отборе ни у кого нет значения, — без таблицы */
-  const list=keys.filter(k=>D.MIX_BY_KEY[k]&&D.mixParts(ctx.lp,k,S.mixSel).some(v=>v>0))
-    .map(k=>dimTable(D.MIX_BY_KEY[k],ctx.lp,sel,S.mixSel,{sort:sort}));
-  return '<div class="st-trio">'+list.join('')+'</div>'+
-    (sel.size?'':'<div class="tbl-note">Клик по строке — срез: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.</div>');
 }
 
 /* ---------- Конструктор ----------
@@ -331,7 +312,7 @@ SC.blocks.structure={
   },
   view(ctx){
     if(ctx.sub==='portrait')return portrait(ctx);
-    /* 23.10: историей, как портрет (прежние таблицы — trio) */
+    /* 23.10: историей, как портрет */
     if(ctx.sub==='level')return levelView(ctx);
     /* 22.10: порядок — тип занятости, формат работы, компания */
     if(ctx.sub==='work')return workView(ctx);
