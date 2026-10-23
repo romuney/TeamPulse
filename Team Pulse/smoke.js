@@ -184,13 +184,15 @@ const appSrc=fs.readFileSync(path.join(dir,'app.js'),'utf8');
 const cssAll=fs.readFileSync(path.join(dir,'styles.css'),'utf8');
 checks.push(['один скролл: таблица подразделений sticky с высотой окна, графики без своей прокрутки',
   /@media \(min-width:1121px\)\{\s*\.split\{height:auto;min-height:0;align-items:start\}/.test(cssAll)&&
-  /\.split>\.split-l\{position:sticky;top:calc\(var\(--head-h,0px\) \+ 12px\);height:calc\(100vh - var\(--head-h,0px\) - 38px\)/.test(cssAll)&&
-  /\.split>\.split-r\{min-height:calc\(100vh - var\(--head-h,0px\) - 38px\)\}/.test(cssAll)&&
+  /* 23.10: на странице с полкой срезов панели прилипают ниже неё (--shelf-h) */
+  /\.split>\.split-l\{position:sticky;top:calc\(var\(--head-h,0px\) \+ var\(--shelf-h,0px\) \+ 12px\);height:calc\(100vh - var\(--head-h,0px\) - var\(--shelf-h,0px\) - 38px\)/.test(cssAll)&&
+  /\.split>\.split-r\{min-height:calc\(100vh - var\(--head-h,0px\) - var\(--shelf-h,0px\) - 38px\)\}/.test(cssAll)&&
+  /\.content:has\(\.sl-shelf\)\{--shelf-h:46px\}/.test(cssAll)&&
   /\.split-r \.panel-b,\.split-r \.panel-b\.st-on\{overflow:visible;height:auto\}/.test(cssAll)&&
   /overscroll-behavior:contain/.test(cssAll)&&
   /* края карточки графиков видны всегда и стоят на одной линии с таблицей (скриншот 20.10) */
-  /max-height:calc\(100vh - var\(--head-h,0px\) - 38px\)/.test(cssAll)&&/\.split-r>\.panel-cap\{position:sticky;bottom:26px/.test(cssAll)&&
-  /\.split-r>\.panel-h\{position:sticky;top:calc\(var\(--head-h,0px\) \+ 12px\)/.test(cssAll)&&
+  /max-height:calc\(100vh - var\(--head-h,0px\) - var\(--shelf-h,0px\) - 38px\)/.test(cssAll)&&/\.split-r>\.panel-cap\{position:sticky;bottom:26px/.test(cssAll)&&
+  /\.split-r>\.panel-h\{position:sticky;top:calc\(var\(--head-h,0px\) \+ var\(--shelf-h,0px\) \+ 12px\)/.test(cssAll)&&
   /class="panel-cap"/.test(A.go('turnover','dynamics'))]);
 checks.push(['перезапуск скрипта держит прокрутку экрана и панелей',
   /STORE\.scroll=\{k:viewKey\(\)/.test(appSrc)&&/back=ENV&&\(!pend0\|\|pend0==='stale'\)&&STORE\.scroll/.test(appSrc)&&
@@ -754,7 +756,7 @@ checks.push(['марки графиков помечены data-s',
   /* 1. Разрезов девять, и это реестр, а не ветки в if */
   checks.push(['разрезы состава объявлены списком: от грейда до специализации',
     dims.map(d=>d.key).join(',')===
-    'grade,seniority,gender,age,tenure,employment,contract,worksite,legal,region,stream,spec']);
+    'grade,seniority,gender,age,tenure,employment,contract,worksite,ctype,legal,region,stream,spec']);
   checks.push(['грейд и сеньорность — РАЗНЫЕ разрезы: числовой и текстовый',
     byKey.grade.cats.every(c=>/^Грейд \d$/.test(c.name))&&
     byKey.seniority.cats.map(c=>c.name).join(',')==='Junior,Middle,Senior,Lead и выше']);
@@ -857,7 +859,7 @@ checks.push(['марки графиков помечены data-s',
   const qual=A.go('structure','portrait');
   checks.push(['куски портрета и карточки кликаются: у них есть data-mix',
     /<span[^>]* data-mix="gender:f" style="flex:/.test(qual)&&/<div class="shc" data-mix="age:a0"/.test(qual)&&
-    /<div class="or" data-mix="seniority:s"/.test(A.go('structure','level'))]);
+    /<tr class="urow" data-mix="seniority:s"/.test(A.go('structure','level'))]);
   const hcAll=D.lastVal(rl,'hc_total'), hcSen=D.lastValSlice(rl,'hc_total',['seniority:s']);
   checks.push(['срез режет численность, а не оставляет её прежней',
     hcSen>0&&hcSen<hcAll]);
@@ -901,7 +903,7 @@ checks.push(['марки графиков помечены data-s',
     totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
     totRow.indexOf('>'+D.fmtVal('hc_total',hcAll)+'<')<0]);
   checks.push(['выбранная категория помечена (карточка и кусок полосы)',
-    /<div class="or on" data-mix="seniority:s"/.test(A.go('structure','level'))]);
+    /<tr class="urow sel" data-mix="seniority:s"/.test(A.go('structure','level'))]);
 
   /* 7. Срез НЕ протекает на другие вкладки: подпись «N чел» стоит везде */
   const movSliced=A.go('movement','balance');
@@ -1582,11 +1584,16 @@ checks.push(['третьей палитры нет: в экранах ни од�
     (pt.match(/class="gsp"/g)||[]).length===3&&(pt.match(/<span[^>]* data-mix="age:[^"]*" style="flex:/g)||[]).length===3&&
     /* 23.10: «Уровень позиции» — полосы и карточки сеньорности и стажа, столбцы грейдов; «Оформление» — полоса и
        карточки занятости, карточки формата с иконками, таблица компаний; у каждого раздела — иконка */
-    /* 23.10: сеньорность и грейды — строками сверху вниз (с М · Ж), стаж — полосой-пилюлей с карточками */
-    (lv.match(/<section class="pf-s">/g)||[]).length===3&&(lv.match(/class="ordr/g)||[]).length===2&&(lv.match(/class="shbar/g)||[]).length===1&&
-    (lv.match(/<div class="or[^"]*" data-mix="grade:/g)||[]).length>=5&&!/<div class="bt-group">/.test(lv)&&
-    /Тип занятости[\s\S]*Формат работы[\s\S]*Компания/.test(wk)&&/class="icards/.test(wk)&&(wk.match(/<div class="bt-group">/g)||[]).length===1&&
-    (pt+lv+wk).match(/<svg class="ico pf-i"/g).length===10&&/data-mix="gender:[mf]"[^>]*>[\s\S]{0,400}?class="shc-ic"/.test(pt)]);
+    /* 23.10, заказчик: визуализация одна на весь отчёт — стаж пилюлей сверху без карточек, сеньорность и грейды —
+       общей таблицей с полосой (как стримы и компании), без М · Ж; «Оформление» — тип занятости, формат, тип компании
+       пилюлей с карточками (по три в ряд), компания — таблицей */
+    (lv.match(/<section class="pf-s">/g)||[]).length===3&&lv.indexOf('class="shbar')<lv.indexOf('<div class="bt-group">')&&
+    (lv.match(/<div class="bt-group">/g)||[]).length===2&&!/class="shcards/.test(lv)&&!/class="gsp/.test(lv)&&
+    (lv.match(/<tr class="urow[^"]*" data-mix="grade:/g)||[]).length>=5&&
+    /Тип занятости[\s\S]*Формат работы[\s\S]*Тип компании[\s\S]*Компания/.test(wk)&&(wk.match(/class="shbar/g)||[]).length===3&&
+    /class="shcards c3/.test(wk)&&
+    (wk.match(/<div class="bt-group">/g)||[]).length===1&&
+    (pt+lv+wk).match(/<svg class="ico pf-i"/g).length===11&&/data-mix="gender:[mf]"[^>]*>[\s\S]{0,400}?class="shc-ic"/.test(pt)]);
   /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
      Матрица: длинная ось — 8 + «Остальные» (не срез), сумма та же; стримы ушедших — 8 строк. */
   {
@@ -1653,8 +1660,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !/[Вв]оронка найма|[Лл]оу-перформ|[Пп]рогноз текучести/.test(op)]);
   /* 21.10, правки Антона: «сверены» — численность, найм, отток; лишние строки сняты; «данные есть» отмечены */
   checks.push(['готовность: «сверены» у численности, найма и оттока; лишних строк нет; где данные есть — отмечено',
-    [...D.VERIFIED].sort().join()==='attrition,hc_active,hc_total,hire'&&pn.ok===3&&pn.data>=4&&/✓ сверены/.test(op)&&
-    !/одной воронкой|Пол и возраст|Регион сотрудника|Списки ушедших|AI-рекомендации/.test(op)&&
+    /* 23.10, сверка с данными: регион — настоящий график (правка 22.10), «тип компании» и состав мониторинга — в отчёте */
+    [...D.VERIFIED].sort().join()==='attrition,hc_active,hc_total,hire'&&pn.ok===3&&pn.data>=3&&/✓ сверены/.test(op)&&
+    !/одной воронкой|Пол и возраст|Списки ушедших|AI-рекомендации/.test(op)&&
     /считается только для HQ-численности/.test(op)&&/только для eligible-популяции/.test(op)]);
   checks.push(['«в разработке»: в навигации блок частично (найм — план, AI — инструменты; офис — посещаемость живая)',
     /data-tab="ai"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&

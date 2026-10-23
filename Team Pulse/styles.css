@@ -134,10 +134,13 @@ button,select,input,textarea{font-family:inherit}
 .reporthead{background:#fff;border-bottom:1px solid var(--line);padding:15px 22px 16px}
 .rh-row{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
 .rh-main{min-width:0;flex:1}
-.rh-crumbs{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);margin-bottom:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.rh-crumbs .sep{color:var(--muted2)}
-.rh-crumbs button{border:0;background:transparent;padding:0;font:inherit;color:var(--blue);cursor:pointer}
-.rh-crumbs button:hover{text-decoration:underline}
+/* 23.10, Антон: путь и управление над отчётом заметнее — текст темнее и крупнее, ссылки пути — кобальтом с подложкой
+   при наведении, «Назад» / «Уровнем выше» — кнопками с рамкой акцентного тона: видно, что здесь можно переходить */
+.rh-crumbs{font-size:var(--fs-body);color:var(--ink2);font-weight:var(--fw-body);margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rh-crumbs .sep{color:var(--muted)}
+.rh-crumbs button{border:0;background:transparent;padding:2px 6px;margin:0 -4px;border-radius:var(--r2);font:inherit;color:var(--act);cursor:pointer;
+  font-weight:var(--fw-bold);transition:background .15s}
+.rh-crumbs button:hover{background:var(--blue-bg);text-decoration:none}
 .rh-title{font-size:23px;font-weight:var(--fw-bold);letter-spacing:-.4px;margin:0 0 8px;line-height:1.2}
 .rh-title .lvl{font-size:11px;font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.4px;color:var(--blue);background:var(--blue-bg);border-radius:var(--r2);padding:3px 8px;margin-left:10px;vertical-align:middle}
 .rh-side{display:flex;align-items:center;gap:10px}
@@ -1087,6 +1090,11 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   border-radius:var(--r2);margin-bottom:var(--s5);box-shadow:0 -10px 0 var(--bg),0 10px 0 var(--bg)}
 .sl-shelf .chip.sl{padding:2px 8px}
 .note-inline.slice.sl-shelf .sl-x{flex:1 1 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 23.10, заказчик: полка не должна закрывать шапки таблицы и правой панели — они прилипают НИЖЕ неё: на странице
+   с полкой их отступ сверху больше на её высоту (--shelf-h). Полка поэтому строго в одну строку: высота известна */
+.content:has(.sl-shelf){--shelf-h:46px}
+.sl-shelf{flex-wrap:nowrap!important;overflow:hidden}
+.sl-shelf .chip.sl{min-width:0;flex:0 1 auto!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sl-shelf.empty{background:var(--card);border-style:dashed;border-color:var(--line)}
 .sl-shelf.empty .sl-t{color:var(--muted)}
 .k-ph{visibility:hidden}
@@ -1396,9 +1404,9 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 
 /* ---------- Путь над отчётом: «← Назад» и «↑ Уровнем выше» ---------- */
 .rh-crumbs .nbs{display:inline-flex;gap:var(--s3);margin-right:var(--s4)}
-.rh-crumbs .nb{display:inline-flex;align-items:center;height:22px;padding:0 var(--s5);border:1px solid var(--line);
-  border-radius:var(--r-pill);background:#fff;color:var(--ink2);font-size:var(--fs-note);white-space:nowrap}
-.rh-crumbs .nb:hover{border-color:var(--act-line);background:var(--blue-bg);color:var(--act-ink);text-decoration:none}
+.rh-crumbs .nb{display:inline-flex;align-items:center;height:26px;padding:0 var(--s6);margin:0;border:1px solid var(--act-line);
+  border-radius:var(--r-pill);background:#fff;color:var(--act-ink);font-size:var(--fs-note);font-weight:var(--fw-bold);white-space:nowrap}
+.rh-crumbs .nb:hover{border-color:var(--act);background:var(--blue-bg);color:var(--act-ink);text-decoration:none}
 
 /* ИТОГО — под шапкой, какой бы высоты она ни вышла (--thead-h ставит app.js) */
 .ptable tr.total.top td{top:var(--thead-h,29px)}
@@ -2086,9 +2094,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    (Refactoring UI: меньше рамок — тень, фон, воздух). Градиент настроения прежний, хвост белый:
    на сером фоне (#f4f5f7) карточка видна целиком и без рамки (20.10, фото с ноутбука) */
 .in-card,.in-lead,.bk-top{border:0;box-shadow:var(--shadow-soft)}
-.in-card.high,.bk-top.high{background:linear-gradient(103deg,#ffe4e8 0%,#fff3f5 42%,#fff 82%)}
-.in-card.mid,.bk-top.mid{background:linear-gradient(103deg,#ffedcf 0%,#fff7ea 42%,#fff 82%)}
-.in-card.good,.bk-top.good{background:linear-gradient(103deg,#dcf4e5 0%,#f1faf4 42%,#fff 82%)}
+/* 23.10, Антон: вывод блока легче — заливка вдвое бледнее, красный тише (розово-пудровый, а не алый); состояния
+   по-прежнему различимы: тёплый, песочный, мятный */
+.in-card.high,.bk-top.high{background:linear-gradient(103deg,#fdeef0 0%,#fef6f7 42%,#fff 82%)}
+.in-card.mid,.bk-top.mid{background:linear-gradient(103deg,#fdf3e2 0%,#fffaf2 42%,#fff 82%)}
+.in-card.good,.bk-top.good{background:linear-gradient(103deg,#e8f6ed 0%,#f5fbf7 42%,#fff 82%)}
 .in-lead,.bk-top.none{background:linear-gradient(103deg,#eaeef8 0%,#f6f8fc 46%,#fff 100%)}
 .in-ico{flex:0 0 auto;display:inline-flex}
 .in-ico img{display:block;filter:drop-shadow(0 3px 6px rgba(20,28,45,.14))}
@@ -2102,8 +2112,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* категория — точкой своего цвета и обычным регистром, без капса и без огонька (огонёк — один, в сводке) */
 .in-t{display:flex;align-items:center;gap:var(--s4);font-size:var(--fs-body);font-weight:var(--fw-bold)}
 .in-tag::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;margin-right:6px;vertical-align:1px}
-.high .in-tag,.bk-top.high .bk-tag{color:var(--red-tx)} .mid .in-tag,.bk-top.mid .bk-tag{color:var(--warn-tx)}
-.good .in-tag,.bk-top.good .bk-tag{color:var(--green-tx)}
+.high .in-tag,.bk-top.high .bk-tag{color:#b8505c} .mid .in-tag,.bk-top.mid .bk-tag{color:var(--warn-tx)}
+.good .in-tag,.bk-top.good .bk-tag{color:#2f8a55}
 .in-blk{color:var(--muted);font-size:var(--fs-body)}
 .in-row{display:flex;gap:var(--s7);align-items:flex-start}
 .in-txt{flex:1;min-width:0}
@@ -2190,9 +2200,9 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .split>.panel{height:auto}
   /* таблица — всегда во всю высоту окна, даже короткая: пустого фона под ней нет (20.10, скриншот
      заказчика); карточка графиков не ниже неё — края на одной линии и на коротких главах */
-  .split>.split-l{position:sticky;top:calc(var(--head-h,0px) + 12px);height:calc(100vh - var(--head-h,0px) - 38px);
-    max-height:calc(100vh - var(--head-h,0px) - 38px)}
-  .split>.split-r{min-height:calc(100vh - var(--head-h,0px) - 38px)}
+  .split>.split-l{position:sticky;top:calc(var(--head-h,0px) + var(--shelf-h,0px) + 12px);height:calc(100vh - var(--head-h,0px) - var(--shelf-h,0px) - 38px);
+    max-height:calc(100vh - var(--head-h,0px) - var(--shelf-h,0px) - 38px)}
+  .split>.split-r{min-height:calc(100vh - var(--head-h,0px) - var(--shelf-h,0px) - 38px)}
   .split-l .tbl-wrap{flex:1 1 auto;min-height:0}
   .split-l .tbl-wrap{overscroll-behavior:contain}
   .split-gut{align-self:stretch}
@@ -2210,7 +2220,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    содержимое, и углы карточки остаются круглыми. */
 @media (min-width:1121px){
   .split>.split-r{overflow:visible}
-  .split-r>.panel-h{position:sticky;top:calc(var(--head-h,0px) + 12px);z-index:6;background:#fff;
+  .split-r>.panel-h{position:sticky;top:calc(var(--head-h,0px) + var(--shelf-h,0px) + 12px);z-index:6;background:#fff;
     border-radius:var(--radius) var(--radius) 0 0}
   /* низ: 26 px — нижний отступ страницы на широком экране (24) и 2 px под раскладкой; таблица слева
      кончается там же (12 сверху + высота окна − 38), поэтому края совпадают и в середине прокрутки,
@@ -2275,13 +2285,17 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .shbar span{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;white-space:nowrap;overflow:hidden;
   color:var(--ink);font-variant-numeric:tabular-nums;transition:opacity .15s}
 .shbar span b{font-weight:var(--fw-bold)}
+/* подпись куска — по центру, а не влезла — многоточием в конце (23.10: «Технологическая компания» резалась с краёв) */
+.shbar .shb-t{font-style:normal;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 var(--s3)}
 .shbar span.dk{color:#fff}
 .shbar span:hover{filter:brightness(.95) saturate(1.3)}
 .shbar.has-on span:not(.on){opacity:.42}
 .shbar span.on{box-shadow:inset 0 0 0 2px var(--act)}
 /* карточки категорий: метка цвета и имя, число, пояснение */
 .shcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--s5)}
-.shcards.many{grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}   /* 23.10: пять и больше — в один ряд */
+/* 23.10, Антон: число колонок задаёт разметка (до четырёх — в ряд, больше — по три); ширина карточек одна */
+.shcards.c1{grid-template-columns:minmax(0,1fr)}.shcards.c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.shcards.c3{grid-template-columns:repeat(3,minmax(0,1fr))}.shcards.c4{grid-template-columns:repeat(4,minmax(0,1fr))}
 .shc{background:#f6f7f9;border-radius:var(--r3);padding:var(--s6) var(--s7);display:flex;flex-direction:column;gap:var(--s2);
   transition:background .15s,box-shadow .15s}
 .shc:hover{background:#eef1f6}
@@ -2303,35 +2317,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pf-h .pf-i{align-self:center;color:var(--pt-hi);margin-right:calc(var(--s3) - var(--s5))}
 .shc-ic{display:inline-flex;flex:none}
 .shc-ic .ico{width:20px;height:20px;stroke-width:1.9}
-/* порядковый разрез строками (грейды, сеньорность): имя · полоса · число и доля · М / Ж */
-.ordr{display:flex;flex-direction:column;gap:2px}
-.or{display:grid;grid-template-columns:minmax(96px,150px) minmax(0,1fr) 92px;align-items:center;gap:var(--s6);
-  min-height:32px;padding:0 var(--s4);border-radius:var(--r2);cursor:pointer;transition:background .15s}
-.ordr.with-g .or{grid-template-columns:minmax(96px,150px) minmax(0,1fr) 92px 112px}
-.or:hover{background:#f3f6fb}
-.or.on{background:var(--blue-bg);box-shadow:inset 0 0 0 1.5px var(--act)}
-.ordr.has-on .or:not(.on){opacity:.55}
-.or-l{font-size:var(--fs-body);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.or-b{height:14px;background:var(--pt-track);border-radius:var(--r2);overflow:hidden}
-.or-b i{display:block;height:100%;border-radius:var(--r2);transition:width .3s}
-.or-v{display:flex;align-items:baseline;justify-content:flex-end;gap:var(--s3);font-variant-numeric:tabular-nums}
-.or-v b{font-size:var(--fs-body);font-weight:var(--fw-bold);color:var(--ink)}
-.or-v em{font-style:normal;font-size:var(--fs-note);color:var(--muted);min-width:34px;text-align:right}
-.or-g .gsp{margin:0}
-.or-g .gsp-t{font-size:var(--fs-micro);color:var(--muted)}
-/* карточки формата работы: иконка цветом категории, число, доля, полоска доли */
-.icards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--s5)}
-.icd{background:#f6f7f9;border-radius:var(--r3);padding:var(--s6) var(--s7);display:flex;flex-direction:column;gap:var(--s2);cursor:pointer;
-  transition:background .15s}
-.icd:hover{background:#eef1f6}
-.icd.on{background:var(--blue-bg);box-shadow:inset 0 0 0 1.5px var(--act)}
-.icards.has-on .icd:not(.on){opacity:.6}
-.icd-i .ico{width:30px;height:30px;stroke-width:1.6}
-.icd-t{font-size:var(--fs-body);color:var(--ink2);margin-top:var(--s2)}
-.icd-n{font-size:var(--fs-note);color:var(--muted)}
-.icd-n b{font-size:20px;font-weight:var(--fw-bold);color:var(--ink);font-variant-numeric:tabular-nums;margin-right:2px}
-.icd-b{height:5px;border-radius:3px;background:var(--line2);overflow:hidden;margin-top:var(--s2)}
-.icd-b i{display:block;height:100%;border-radius:3px}
+
 /* конструктор: легенда заливки, полный экран */
 .mx-foot{display:flex;align-items:center;gap:var(--s8);flex-wrap:wrap;margin-top:var(--s5)}
 .mx-foot .tbl-note{margin-top:0}

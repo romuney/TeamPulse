@@ -94,8 +94,8 @@ function focusCount(c,k,o){
   const tot=sum(rows.map(r=>r.v)), hc=sum(rows.map(r=>r.hc));
   if(!tot)return {};
   rows.sort((a,b)=>b.v-a.v);
-  const mx=rows[0].v||1;
-  const focus={cap:o.cap,rows:rows.slice(0,4).map(r=>({name:r.name,val:D.fmtInt(r.v),w:r.v/mx,path:r.path}))};
+  /* 23.10, Антон: полоса — доля от суммы по подразделениям (шкала 0–100%), не от максимума */
+  const focus={cap:o.cap,rows:rows.slice(0,4).map(r=>({name:r.name,val:D.fmtInt(r.v),w:r.v/tot,path:r.path}))};
   const top=rows[0], sv=pc(top.v,tot), sh=pc(top.hc,hc);
   const act=top.v>=3&&sv-sh>=8?{text:'Начните с «'+top.name+'»: **'+sv+'%** '+o.what+' при **'+sh+'%** людей.',
     node:top.path,name:top.name}:null;
@@ -115,8 +115,8 @@ function focusRate(c,k,cap){
   /* хуже — выше: сортируем так, чтобы первой стояла строка, которую разбирать */
   const dir=m.better==='higher'?1:-1;
   rows.sort((a,b)=>dir*(a.v-b.v));
-  const mx=Math.max.apply(null,rows.map(r=>r.v))||1;
-  const focus={cap:cap,rows:rows.slice(0,4).map(r=>({name:r.name,val:f(k,r.v),w:r.v/mx,st:r.st,path:r.path}))};
+  const mx=Math.max.apply(null,rows.map(r=>r.v))||1, sm=rows.reduce((a,r)=>a+Math.max(0,r.v),0);
+  const focus={cap:cap,rows:rows.slice(0,4).map(r=>({name:r.name,val:f(k,r.v),w:U.barW(k,r.v,m.fmt==='pct'?0:sm,mx)/100,st:r.st,path:r.path}))};
   const bad=rows.filter(r=>r.st==='bad');
   const act=bad.length===1?{text:(kpi?'Не дотягивает до цели только «':'Хуже базы только «')+bad[0].name+'»: **'+f(k,bad[0].v)+'** при '+
     (kpi?'цели ':'базе ')+f(k,base)+'.',node:bad[0].path,name:bad[0].name}:null;

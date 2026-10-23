@@ -383,6 +383,13 @@ function kpiCard(o){
    курсор, ховер и выделение у них те же, что у сводной таблицы слева, — новых
    правил взаимодействия в отчёте не заводится.
    ========================================================================== */
+/* 23.10, Антон: горизонтальная полоса — в шкале 0–100%, не от максимума выборки: у счётной величины — доля от
+   итога (tot), у процентной метрики — сам процент; от максимума — только у величин без процента (срок в днях) */
+function barW(key,v,tot,max){
+  const m=D.METRIC_BY_KEY[key]||{};
+  const w=m.fmt==='pct'?v:tot?v/tot*100:max?v/max*100:0;
+  return Math.max(0,Math.min(100,w||0));
+}
 function barTable(o){
   /* 22.10: только строки, которые есть в данных — категория без людей (0 или нет значения) не
      выводится; выбранная в срезе остаётся, чтобы её можно было снять. o.keepZero — таблица, где
@@ -475,7 +482,7 @@ function barTable(o){
         rows:[{label:o.valueHead||'Значение',value:D.fmtVal(key,x.value),color:G.soft(x.color||G.C_LINE)}]
           .concat(withShare?[{label:'доля',value:share.toFixed(share<10?1:0).replace('.',',')+'%'}]:[]),
         note:x.tip||null})+
-        '><span class="cellbar"><i style="width:'+(x.value/max*100).toFixed(1)+'%'+
+        '><span class="cellbar"><i style="width:'+barW(key,x.value,withShare?sum:0,max).toFixed(1)+'%'+
         /* полоса в ячейке — мягкий тон цвета строки: это фон под числом */
         (x.color?';background:'+G.soft(x.color):'')+'"></i></span></td></tr>';
   });
@@ -683,14 +690,17 @@ function shareBar(o){
       ' style="flex:'+(x.n/tot*100).toFixed(2)+' 1 0;background:'+x.bg+'"'+
       tipAttr({title:x.name,rows:[{label:'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
         note:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
-      (p>=6?(o.names&&p>=14?esc(x.name)+' ':'')+'<b>'+p+'%</b>':'')+'</span>';
+      (p>=6?'<em class="shb-t">'+(o.names&&p>=14?esc(x.name)+' ':'')+'<b>'+p+'%</b></em>':'')+'</span>';
   }).join('')+'</div>';
 }
 /* Карточки категорий под полосой: метка цвета, имя, число и строка пояснения
    (sub — разметка: средний возраст, «М 58% · Ж 42%»). */
 function shareCards(o){
   const any=o.cards.some(x=>x.on);
-  return '<div class="shcards'+(any?' has-on':'')+(o.many?' many':'')+'">'+o.cards.map(x=>
+  /* 23.10, Антон: до четырёх карточек — в один ряд, больше — по три в ряд (без «одной в последней строке» там,
+     где этого можно избежать); ширина у всех одна */
+  const n=o.cards.length, cols=n<=4?n:3;
+  return '<div class="shcards c'+cols+(any?' has-on':'')+'">'+o.cards.map(x=>
     '<div class="shc'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
       tipAttr({title:x.name,text:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'})+'>'+
       '<div class="shc-h">'+(x.icon?'<span class="shc-ic" style="color:'+x.bg+'">'+ico(x.icon)+'</span>':'<i style="background:'+x.bg+'"></i>')+esc(x.name)+'</div>'+
@@ -731,34 +741,6 @@ function ico(name,cls){
 /* Заголовок раздела портрета: иконка, имя и подпись справа от него (соотношение, средний возраст) */
 function pfHead(name,aside,icon){
   return '<div class="pf-h">'+(icon?ico(icon,'pf-i'):'')+'<span class="pf-t">'+esc(name)+'</span>'+(aside?'<span class="pf-a">'+aside+'</span>':'')+'</div>';
-}
-/* Порядковый разрез строками сверху вниз (23.10, заказчик: грейдов и сеньорностей бывает много — столбцы и полоса
-   не вмещают): имя, полоса ступенью шкалы, число и доля, справа — расклад М · Ж (если передан). Клик по строке — срез */
-function ordRows(o){
-  const max=Math.max(1,...o.rows.map(x=>x.n)), tot=o.rows.reduce((a,x)=>a+x.n,0)||1, any=o.rows.some(x=>x.on);
-  return '<div class="ordr'+(any?' has-on':'')+(o.rows.some(x=>x.g)?' with-g':'')+'">'+o.rows.map(x=>{
-    const p=Math.round(x.n/tot*100);
-    return '<div class="or'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
-      tipAttr({title:x.name,rows:[{label:'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
-        note:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
-      '<span class="or-l">'+esc(x.name)+'</span>'+
-      '<span class="or-b"><i style="width:'+Math.max(1.5,x.n/max*100).toFixed(1)+'%;background:'+x.bg+'"></i></span>'+
-      '<span class="or-v"><b>'+D.fmtInt(x.n)+'</b><em>'+(x.n>0&&!p?'<1':p)+'%</em></span>'+
-      (x.g!=null?'<span class="or-g">'+x.g+'</span>':'')+'</div>';
-  }).join('')+'</div>';
-}
-/* Карточки с иконкой (формат работы, 23.10): иконка цветом категории, число, доля и полоска доли */
-function iconCards(o){
-  const tot=o.cards.reduce((a,x)=>a+x.n,0)||1, any=o.cards.some(x=>x.on);
-  return '<div class="icards'+(any?' has-on':'')+'">'+o.cards.map(x=>{
-    const p=Math.round(x.n/tot*100);
-    return '<div class="icd'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
-      tipAttr({title:x.name,text:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'})+'>'+
-      '<span class="icd-i" style="color:'+x.bg+'">'+ico(x.icon||'case')+'</span>'+
-      '<div class="icd-t">'+esc(x.name)+'</div>'+
-      '<div class="icd-n"><b>'+D.fmtInt(x.n)+'</b> чел · '+(x.n>0&&!p?'<1':p)+'%</div>'+
-      '<div class="icd-b"><i style="width:'+p+'%;background:'+x.bg+'"></i></div></div>';
-  }).join('')+'</div>';
 }
 
 /* ============================================================================
@@ -884,7 +866,7 @@ function storyRail(o){
       tipAttr({title:r.name,text:'Клик — графики этой вкладки по «'+r.name+'».'})+'><td class="txt"><span class="row-label">'+
       '<span class="row-body">'+esc(r.name)+'</span></span></td>'+
       '<td class="lead'+(r.st?' '+esc(r.st):'')+'">'+esc(r.val)+'</td>'+
-      '<td class="barcell"><span class="cellbar"><i style="width:'+Math.max(4,Math.round((r.w||0)*100))+'%"></i></span></td></tr>').join('')+
+      '<td class="barcell"><span class="cellbar"><i style="width:'+Math.max(1,Math.round((r.w||0)*100))+'%"></i></span></td></tr>').join('')+
     '</tbody></table></div>';
   if(o.act)h+='<div class="st-act"><div class="st-cap">Что сделать</div><p>'+richText(o.act.text)+'</p>'+
     (o.act.node?'<button class="btn xs" data-selnode="'+esc(o.act.node)+'">Показать «'+esc(o.act.name)+'»</button>':'')+'</div>';
@@ -1116,6 +1098,6 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,iconCards,ordRows,monKpi,segToggle,miniLines,
+  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

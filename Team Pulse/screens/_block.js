@@ -269,12 +269,14 @@ function wherePanel(sum,mainK,S,rootNode){
   const small=r=>r.small&&m.fmt==='pct', sv=r=>small(r)||r.v==null?-1e18:r.v;
   const rows=c?c.where.rows:INS.unitsOf(S).map(u=>({n:u.n,hc:u.hc,small:u.hc<INS.CARD.small,v:D.lastVal(u.lp,key)}))
     .sort((a,x)=>sv(x)-sv(a));
+  /* 23.10, Антон: полоса в шкале 0–100% — доля вклада в отклонение, доля от суммы по подразделениям или сам процент */
   const top=rows.slice(0,4), max=Math.max(1e-9,...top.map(r=>c?r.exc:small(r)?0:Math.abs(r.v||0)));
+  const tot=c?c.where.tot:rows.reduce((a,r)=>a+(small(r)||r.v==null?0:Math.abs(r.v)),0);
   let h='<div class="bk-wh"><div class="bk-wt">Где это происходит</div><div class="bk-ws">'+(c?'Подразделения по вкладу в отклонение: «'+esc(m.name)+'»'
     :'Подразделения по метрике «'+esc(m.name)+'»')+'</div>';
   if(!rows.length)h+='<div class="bk-wn">У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры по команде.</div>';
   top.forEach(r=>{
-    const w=c?r.exc/max:small(r)?0:Math.abs(r.v||0)/max, hd=r.n.head;
+    const w=(c?Math.min(100,r.exc/tot*100):small(r)?0:U.barW(key,Math.abs(r.v||0),tot,max))/100, hd=r.n.head;
     h+='<button class="bk-wr" data-wsel="'+esc(r.n.path)+'"'+(small(r)?U.tipAttr({title:r.n.name,text:'Меньше '+INS.CARD.small+' человек: доли не оцениваем — слишком мало людей.'}):'')+'>'+
       '<span class="bk-wu"><b>'+esc(r.n.name)+'</b><span>'+D.fmtInt(r.hc)+' чел'+(hd&&hd.login?' · '+esc(hd.login):'')+'</span></span>'+
       '<span class="bk-wv">'+(small(r)||r.v==null?'—':D.fmtVal(key,r.v))+'</span>'+

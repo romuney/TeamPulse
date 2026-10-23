@@ -349,13 +349,21 @@ const DEV_PLAN=[
     {what:'Водопад за год, дерево подразделений и фильтры',aud:'all',stage:'0',now:'live'},
     {what:'Тип оформления, формат работы, сеньорность, грейд, стаж, юрлицо, стримы',aud:'all',stage:'0',now:'live'},
     {what:'Специализации внутри стримов',aud:'all',stage:'4',now:'live'},
-    {what:'Тип компании',aud:'hq',stage:'0',now:'data',src:'дашборд HQ',need:'данные собраны (поставка 50), нужен график'},
+    /* 23.10, сверка с данными (Антон, п. 5): регион и тип компании — в отчёте; формат работы по профилю — собран, но не
+       выведен; воронка и средний возраст на настоящих данных — заглушки до таблицы состава */
+    {what:'Регион сотрудника',aud:'all',stage:'4',now:'live'},
+    {what:'Тип компании',aud:'hq',stage:'0',now:'live'},
+    {what:'Формат работы по профилю сотрудника: офис, гибрид, удалённо',aud:'all',stage:'4',now:'data',
+      need:'колонка собрана в ноутбуке (поставка 64), в разрезы отчёта ещё не выведена; сейчас «Формат работы» — по типу договора'},
+    {what:'Воронка численности (юридическая → активная → HQ) и средний возраст',aud:'all',stage:'0',now:'dev',
+      need:'нужна таблица состава: все типы численности и покраски сразу (запрос 0к)'},
     {what:'Пересечения разрезов: срез по клику, «разрез × разрез»',aud:'all',stage:'0',now:'dev',
       need:'пока оценка по подразделениям; точные — отдельной выгрузкой'},
   ]},
   {blk:'Движение персонала',rows:[
     {what:'Найм и отток: за месяц, год к году и по подразделениям',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Переводы между подразделениями, водопад движения',aud:'all',stage:'0',now:'live'},
+    {what:'Переводы «напрямую в юните», детализация переводов и выгрузка для сверки',aud:'all',stage:'0',now:'live'},
     {what:'Движение по специализациям',aud:'hq',stage:'4',now:'data',
       need:'численность, найм и уходы по специализациям собраны; переводов по специализациям ещё нет; нужен график'}]},
   {blk:'Отток и текучесть',rows:[
@@ -389,9 +397,9 @@ const DEV_PLAN=[
     {what:'Повышение грейда и смена специализации, время до повышения (T@T)',aud:'hq',stage:'6',now:'dev'}]},
   {blk:'Мониторинг работы',rows:[
     {what:'Недоработчики и переработчики',aud:'hq',stage:'0',now:'live',hq:1},
-    {what:'Состав по категориям: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'data',need:'данные есть, нужен график',hq:1},
-    {what:'Звонки, прогулы, работа в выходные',aud:'hq',stage:'5',now:'todo'},
-    {what:'Активность и звонки по месяцам, сегментация команды по нагрузке',aud:'hq',stage:'5',now:'todo'},
+    {what:'Состав по категориям по месяцам: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'live',hq:1},
+    {what:'Звонки, прогулы, работа в выходные',aud:'hq',stage:'5',now:'dev',need:'нужна витрина мониторинга по неделям (запрос 0л)'},
+    {what:'Активность и звонки по неделям, сегментация команды по нагрузке',aud:'hq',stage:'5',now:'dev',need:'нужна витрина мониторинга по неделям (запрос 0л)'},
     {what:'Итоги ревью: распределение оценок, улучшили и ухудшили, по группам',aud:'us',stage:'5',now:'dev',
       need:'ревью учитывается только для eligible-популяции'}]},
   {blk:'Посещаемость офисов',rows:[
@@ -1227,6 +1235,9 @@ const MIX_DIMS=[
 {key:'worksite',name:'Формат работы',short:'Формат',group:'work',
  cats:[{key:'off',name:'Офис',w:1.10},{key:'hyb',name:'Гибрид',w:1.60},
        {key:'rem',name:'Дистанционно',w:0.80}]},
+{key:'ctype',name:'Тип компании',short:'Тип компании',group:'work',
+ hint:'Тип компании группы, в которой оформлен сотрудник.',
+ cats:[{key:'c1',name:'Банк',w:0.62},{key:'c2',name:'Технологическая компания',w:0.27},{key:'c3',name:'Сервисная компания',w:0.11}]},
 {key:'legal',name:'Компания',short:'Компания',group:'work',
  hint:'Компания группы, в которой оформлен сотрудник.',
  cats:[{key:'l1',name:'Основное юрлицо',w:0.50},{key:'l2',name:'Технологии',w:0.24},
@@ -1298,10 +1309,13 @@ const MIX_DIMS=[
    «Формат работы: Офис, Гибрид, Дистанционно»), а не тип договора: колонка c → worksite */
 /* 22.10, поставка 62: регион (rg — residential_state_nm) и специализации внутри стрима (ws — «стрим|специализация»);
    на таблицах до поставки 62 ws нет — специализации плоским списком из sp */
-const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',legal:'o',stream:'w',employment:'r',spec:'sp',region:'rg'};
+/* 23.10, Антон: тип компании (tc — type_company, уже в таблице разрезов) — график перед «Компанией» */
+const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',ctype:'tc',legal:'o',stream:'w',employment:'r',spec:'sp',region:'rg'};
 const REAL_WS=!!(REAL&&Object.keys(REAL.mixVals('ws')).length);
 if(REAL_WS)REAL_DIM.spec='ws';
 const NONE_NAME='Не указано';
+/* 23.10, заказчик: «Стаж от 1 до 2 лет», «Стаж более 5 лет» — слово «стаж» повторяет название разреза: убираем */
+const tenName=v=>{const t=String(v||'').replace(/^\s*стаж\s+/i,'');return t?t.charAt(0).toUpperCase()+t.slice(1):t};
 /* «до 25 лет» → 24,5; «1-3 года» → 12 мес; «более 5 лет» → 60,5 мес: число и сторона.
    Сторона — по слову прямо перед числом или «+» и «и старше» после него: в настоящих
    значениях (19.10) слово впереди — «Стаж менее 3 мес», и «менее» в начале строки не искалось,
@@ -1338,7 +1352,7 @@ if(REAL){
   for(let i=MIX_DIMS.length-1;i>=0;i--){
     const d=MIX_DIMS[i], k=REAL_DIM[d.key], vals=k?REAL.mixVals(k):{};
     if(!k||!Object.keys(vals).length){MIX_DIMS.splice(i,1);continue}
-    d.cats=realOrder(d.key,vals).map((v,j)=>({key:'v'+j,name:v||NONE_NAME,raw:v,na:isNA(v)}));
+    d.cats=realOrder(d.key,vals).map((v,j)=>({key:'v'+j,name:(d.key==='tenure'?tenName(v):v)||NONE_NAME,raw:v,na:isNA(v)}));
     delete d.childDim;delete d.parentDim;
     if(d.key==='stream'){d.name='Стрим';d.hint='Чем люди занимаются.'}
   }
@@ -2176,7 +2190,7 @@ const EXIT_STREAM_K={dev:1.0,qa:1.1,ana:0.9,ops:0.85,ml:0.95,des:1.0,prod:0.9,su
 function exitProfile(lp,win){
   win=win||'ytd';
   if(REAL){
-    const list=(k,dimKey)=>{const x=realExit(lp,k);return realExitList(k,dimKey).map((v,i)=>({key:k+i,name:v||NONE_NAME,value:Math.round(x[v]||0)}))};
+    const list=(k,dimKey)=>{const x=realExit(lp,k);return realExitList(k,dimKey).map((v,i)=>({key:k+i,name:(k==='xt'?tenName(v):v)||NONE_NAME,value:Math.round(x[v]||0)}))};
     const ten=list('xt','tenure');
     ten.forEach(t=>{t.early=bound(t.name,'mon')<12});
     return {total:sumWin(aggregate(lp,'attrition'),win),tenure:ten,grade:list('xg','grade'),stream:list('xs')};

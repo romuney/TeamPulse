@@ -173,8 +173,7 @@ function ageBlock(ctx,sel){
 function regionBlock(ctx,sel){
   const S=ctx.S, R=D.MIX_BY_KEY.region;
   if(!R||!D.mixParts(ctx.lp,'region',S.mixSel).some(v=>v>0))return '';
-  return '<section class="pf-s">'+U.pfHead('Регион','','pin')+
-    dimTable(Object.assign({},R,{name:'',hint:null}),ctx.lp,sel,S.mixSel,{sort:true,top:10,word:['регион','региона','регионов']})+'</section>';
+  return tableBlock(ctx,'region',sel,'pin',{sort:true,top:10,word:['регион','региона','регионов']});
 }
 function portrait(ctx){
   const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), path=S.selNode||S.unit;
@@ -182,78 +181,58 @@ function portrait(ctx){
   return '<div class="pf">'+funnelBlock(ctx,path,sel)+genderBlock(ctx,sel)+ageBlock(ctx,sel)+regionBlock(ctx,sel)+'</div>';
 }
 
-/* ---------- «Уровень позиции» и «Оформление» историей (23.10) ----------
-   Заказчик: «разбавить визуализациями, не только таблички с барчартами» — как портрет: у каждого раздела иконка,
-   заголовок и подпись с главным; порядковые разрезы (сеньорность, стаж) — полосой со ступенями цвета и карточками с
-   раскладом М · Ж, грейды — столбцами, тип занятости — полосой и карточками, формат работы — карточками с иконками,
-   компания — таблицей (на верхних уровнях их десятки: первые восемь и «Остальные»). */
+/* ---------- «Уровень позиции» и «Оформление» (23.10) ----------
+   Заказчик: визуализация одна на весь отчёт — разбивка «сверху вниз» везде одной и той же таблицей с полосой
+   (dimTable, как у стримов, компаний, регионов), доля категорий — пилюлей с карточками, как в портрете. Своих
+   полос, столбцов и карточек у вкладок нет. «Уровень позиции»: стаж — пилюлей сверху (она же фильтр: клик режет
+   сеньорность и грейды), сеньорность и грейды — таблицами (значений бывает много); разбивки М · Ж здесь нет — её
+   нет и в «Оформлении», и в «Стримах». «Оформление»: тип занятости, формат работы, тип компании — пилюлей с
+   карточками (по три в ряд), компания — таблицей. */
 const selOf=S=>new Set(D.sliceParse(S.mixSel).map(p=>p.id));
 const has=(ctx,k)=>D.MIX_BY_KEY[k]&&D.mixParts(ctx.lp,k,ctx.S.mixSel).some(v=>v>0);
 function topOf(dim,v){
   const tot=sumA(v);let b=-1;v.forEach((x,i)=>{if(x>0&&!dim.cats[i].na&&(b<0||x>v[b]))b=i});
   return b<0||!tot?'':'чаще всего — <b>'+U.esc(dim.cats[b].name)+'</b> ('+pc(v[b],tot)+'%)';
 }
-/* порядковый разрез: полоса ступенями от светлой к густой и карточки (число, расклад М · Ж) */
-function ordBlock(ctx,key,sel,icon){
-  const S=ctx.S, A=D.MIX_BY_KEY[key], G=D.MIX_BY_KEY.gender;
-  const v=D.mixParts(ctx.lp,key,S.mixSel), m=G?D.mixMatrix(ctx.lp,key,'gender',S.mixSel):null;
-  const gSel=G?G.cats.map(c=>sel.has(c.id)):[];
-  if(m&&gSel.some(Boolean))m.forEach(r=>r.forEach((_,j)=>{if(!gSel[j])r[j]=0}));
-  const gi=G?G.cats.map((c,i)=>i):[], mi=gi.find(i=>isMale(G.cats[i])), fi=gi.find(i=>!isMale(G.cats[i]));
-  const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id));
-  const known=idx.filter(i=>!A.cats[i].na);
-  const ri=i=>Math.min(RAMP.length-1,Math.round(known.indexOf(i)*(RAMP.length-1)/Math.max(1,known.length-1)));
-  const segs=idx.map(i=>{const c=A.cats[i];return {id:c.id,name:c.name,n:v[i],bg:c.na?'var(--pt-na)':RAMP[ri(i)],dk:!c.na&&ri(i)>=3,on:sel.has(c.id)}});
-  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),icon)+U.shareBar({segs:segs,names:true})+
-    U.shareCards({cards:idx.map((i,k)=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:segs[k].bg,on:sel.has(A.cats[i].id),
-      sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';
+/* разбивка таблицей под заголовком раздела с иконкой — та же dimTable, что у стримов и компаний */
+function tableBlock(ctx,key,sel,icon,o){
+  const S=ctx.S, A=D.MIX_BY_KEY[key];
+  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,D.mixParts(ctx.lp,key,S.mixSel)),icon)+
+    dimTable(Object.assign({},A,{name:'',hint:null}),ctx.lp,sel,S.mixSel,o||{})+'</section>';
 }
-/* грейды и сеньорность — строками сверху вниз (23.10: их бывает много), с раскладом М · Ж */
-function rowsBlock(ctx,key,sel,icon){
-  const S=ctx.S, A=D.MIX_BY_KEY[key], G=D.MIX_BY_KEY.gender;
-  const v=D.mixParts(ctx.lp,key,S.mixSel), m=G?D.mixMatrix(ctx.lp,key,'gender',S.mixSel):null;
-  const gSel=G?G.cats.map(c=>sel.has(c.id)):[];
-  if(m&&gSel.some(Boolean))m.forEach(r=>r.forEach((_,j)=>{if(!gSel[j])r[j]=0}));
-  const gi=G?G.cats.map((c,i)=>i):[], mi=gi.find(i=>isMale(G.cats[i])), fi=gi.find(i=>!isMale(G.cats[i]));
+/* стаж — порядковый: пилюля ступенями от светлой к густой, без карточек */
+function tenurePill(ctx,sel){
+  const S=ctx.S, A=D.MIX_BY_KEY.tenure, v=D.mixParts(ctx.lp,'tenure',S.mixSel);
   const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)), known=idx.filter(i=>!A.cats[i].na);
-  const ri=i=>Math.min(RAMP.length-1,1+Math.round(known.indexOf(i)*(RAMP.length-2)/Math.max(1,known.length-1)));
-  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),icon)+
-    U.ordRows({rows:idx.map(i=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:A.cats[i].na?'var(--pt-na)':RAMP[ri(i)],on:sel.has(A.cats[i].id),
-      g:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):null}))})+'</section>';
+  const ri=i=>Math.min(RAMP.length-1,Math.round(known.indexOf(i)*(RAMP.length-1)/Math.max(1,known.length-1)));
+  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),'calendar')+
+    U.shareBar({segs:idx.map(i=>{const c=A.cats[i];return {id:c.id,name:c.name,n:v[i],bg:c.na?'var(--pt-na)':RAMP[ri(i)],dk:!c.na&&ri(i)>=3,on:sel.has(c.id)}}),names:true})+'</section>';
 }
 function levelView(ctx){
   const S=ctx.S, sel=selOf(S);
   if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
-  /* 23.10, заказчик: сеньорность и грейды — строками сверху вниз (значений много), стаж — полосой-пилюлей */
-  return '<div class="pf">'+(has(ctx,'seniority')?rowsBlock(ctx,'seniority',sel,'stairs'):'')+(has(ctx,'grade')?rowsBlock(ctx,'grade',sel,'grade'):'')+
-    (has(ctx,'tenure')?ordBlock(ctx,'tenure',sel,'calendar'):'')+'</div>'+clickNote(sel);
+  return '<div class="pf">'+(has(ctx,'tenure')?tenurePill(ctx,sel):'')+(has(ctx,'seniority')?tableBlock(ctx,'seniority',sel,'stairs'):'')+
+    (has(ctx,'grade')?tableBlock(ctx,'grade',sel,'grade'):'')+'</div>'+clickNote(sel);
 }
-/* номинальный разрез: полоса по убыванию (самое большое — основным тоном, остальные — светлее) и карточки */
-/* тона через ступень, чтобы соседние куски различались; пятый и дальше — серо-голубой, а не почти белый */
+/* номинальный разрез: пилюля по убыванию (самое большое — основным тоном, остальные — светлее) и карточки по три в ряд;
+   тона через ступень, чтобы соседние куски различались; пятый и дальше — серо-голубой, а не почти белый */
 const NOM=['var(--pt-s5)','var(--pt-s3)','var(--pt-s2)','var(--pt-s1)','var(--pt-t1)'];
-function nomBlock(ctx,key,sel,icon){
+const WS_ICO=n=>/гибрид/i.test(n)?'hybrid':/удал|дистан/i.test(n)?'home':/офис/i.test(n)?'office':'';
+function nomBlock(ctx,key,sel,icon,cardIco){
   const S=ctx.S, A=D.MIX_BY_KEY[key], v=D.mixParts(ctx.lp,key,S.mixSel);
   const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)).sort((a,b)=>v[b]-v[a]);
   const segs=idx.map((i,k)=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],bg:A.cats[i].na?'var(--pt-na)':NOM[Math.min(NOM.length-1,k)],dk:k===0&&!A.cats[i].na,on:sel.has(A.cats[i].id)}));
   return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),icon)+U.shareBar({segs:segs,names:true})+
-    U.shareCards({many:segs.length>4,cards:segs.map(x=>({id:x.id,name:x.name,n:x.n,bg:x.bg,on:x.on,sub:pc(x.n,sumA(v))+'% команды'}))})+'</section>';
-}
-/* формат работы — карточки с иконками: офис, гибрид, удалённо */
-const WS_ICO=n=>/гибрид/i.test(n)?'hybrid':/удал|дистан/i.test(n)?'home':/офис/i.test(n)?'office':'case';
-function worksiteBlock(ctx,sel){
-  const S=ctx.S, A=D.MIX_BY_KEY.worksite, v=D.mixParts(ctx.lp,'worksite',S.mixSel);
-  const idx=A.cats.map((c,i)=>i).filter(i=>v[i]>0||sel.has(A.cats[i].id)).sort((a,b)=>v[b]-v[a]);
-  return '<section class="pf-s">'+U.pfHead(A.name,topOf(A,v),'office')+
-    U.iconCards({cards:idx.map((i,k)=>({id:A.cats[i].id,name:A.cats[i].name,n:v[i],icon:WS_ICO(A.cats[i].name),
-      bg:A.cats[i].na?'var(--muted)':NOM[Math.min(2,k)],on:sel.has(A.cats[i].id)}))})+'</section>';
+    U.shareCards({cards:segs.map(x=>({id:x.id,name:x.name,n:x.n,bg:x.bg,on:x.on,icon:cardIco?cardIco(x.name):'',sub:pc(x.n,sumA(v))+'% команды'}))})+'</section>';
 }
 function workView(ctx){
   const S=ctx.S, sel=selOf(S);
   if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
-  const L=D.MIX_BY_KEY.legal;
-  return '<div class="pf">'+(has(ctx,'employment')?nomBlock(ctx,'employment',sel,'case'):'')+(has(ctx,'worksite')?worksiteBlock(ctx,sel):'')+
-    (has(ctx,'legal')?'<section class="pf-s">'+U.pfHead(L.name,topOf(L,D.mixParts(ctx.lp,'legal',S.mixSel)),'company')+
-      dimTable(Object.assign({},L,{name:'',hint:null}),ctx.lp,sel,S.mixSel,{sort:true,top:8,word:['компания','компании','компаний']})+'</section>':'')+
+  /* 23.10, Антон: порядок — тип занятости, формат работы, тип компании, компания */
+  return '<div class="pf">'+(has(ctx,'employment')?nomBlock(ctx,'employment',sel,'case'):'')+
+    (has(ctx,'worksite')?nomBlock(ctx,'worksite',sel,'office',WS_ICO):'')+
+    (has(ctx,'ctype')?nomBlock(ctx,'ctype',sel,'company'):'')+
+    (has(ctx,'legal')?tableBlock(ctx,'legal',sel,'company',{sort:true,top:8,word:['компания','компании','компаний']}):'')+
     '</div>'+clickNote(sel);
 }
 function clickNote(sel){
@@ -264,7 +243,7 @@ function clickNote(sel){
    Измерения — по файлу «Структура»: сеньорность, грейд, стаж, пол, возраст, стрим,
    компания, занятость, формат, регион; специализация — только в строках (в колонках её
    десятки). 22.10: «Остальных» нет — все значения явно; строк и колонок без людей нет. */
-const CON_DIMS=['seniority','grade','tenure','gender','age','stream','legal','employment','worksite','region'];
+const CON_DIMS=['seniority','grade','tenure','gender','age','stream','ctype','legal','employment','worksite','region'];
 const conDims=()=>CON_DIMS.filter(k=>D.MIX_BY_KEY[k]).map(k=>D.MIX_BY_KEY[k]);
 function mxAxis(dim,tot,sel){
   const keep=dim.cats.map((_,i)=>i).filter(i=>tot[i]>0||sel.has(dim.cats[i].id));
