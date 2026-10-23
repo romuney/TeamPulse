@@ -202,7 +202,9 @@ button,select,input,textarea{font-family:inherit}
 .kpis.compact .k-val{font-size:var(--fs-hero)}
 .kpis.compact .k-row{margin-top:6px;gap:8px}
 .kpi{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:15px 17px}
-.kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);margin-bottom:7px;display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0}
+.kpi .k-label .k-ln{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.kpi .k-label>:not(.k-ln){flex:none}
 .kpi .k-val{font-size:27px;font-weight:var(--fw-bold);letter-spacing:-.6px;line-height:1.1}
 .kpi .k-row{display:flex;align-items:center;gap:9px;margin-top:8px;flex-wrap:wrap}
 /* пустой второй ряд карточка рисует всегда (ей нужно ровно четыре строки),
@@ -1290,7 +1292,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Имя подразделения — липкое: если таблица всё равно шире панели, она
    прокручивается внутри неё, а строку по-прежнему видно. Фон ячейки берётся
    у строки, иначе числа проезжали бы под прозрачным именем. */
-.split-l .ptable.dense th{white-space:normal;vertical-align:bottom;line-height:1.2}
+/* 23.10, заказчик: шапки — в одну строку на всех листах («ПЕРЕВОДЫ / В» в две строки — «стрёмно»); подписи
+   колонок короткие (metric.short), полностью — в подсказке; плашка «в разраб.» — в той же строке */
+.split-l .ptable.dense th{white-space:nowrap;vertical-align:bottom;line-height:1.2}
+.ptable th .dev-tag.sm{display:inline-block;margin:0 0 0 var(--s2);vertical-align:1px}
 .split-l .ptable.dense th.txt{white-space:nowrap}
 .split-l .ptable.dense tbody tr{background:#fff}
 .split-l .ptable.dense td.txt{position:sticky;left:0;z-index:1;background:inherit}
@@ -2726,9 +2731,9 @@ const METRICS=[
   calc:'Как в методологии HR: найм в компанию + переводы в боевую группу + переводы стажёров в штат. Подрядчики в найм не входят.'},
 {key:'attrition',block:'movement',aud:'all',name:'Отток',short:'Отток',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Сколько человек уволились из компании за месяц, по любой причине.',
   calc:'Переводы с сохранением непрерывного стажа — не увольнения (методология HR).'},
-{key:'transfer_in',block:'movement',aud:'all',name:'Переводы в команду',short:'Переводы в',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек за месяц пришли в команду из других подразделений — или стали подходить под выбранные фильтры: например, при фильтре HQ — кто стал HQ.',
+{key:'transfer_in',block:'movement',aud:'all',name:'Переводы в команду',short:'Перев. в',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек за месяц пришли в команду из других подразделений — или стали подходить под выбранные фильтры: например, при фильтре HQ — кто стал HQ.',
   calc:'Перевод в выбор: вчера человек был вне команды или не подходил под фильтры (покраска, IT-код, штат, тип численности), сегодня — в команде и подходит. Считается по дням; найм, перевод стажёра в штат и из учебной группы в боевую — это найм, не перевод. Без фильтров смена покраски или штата — не перевод; на активной численности возвращение из декрета — перевод. Переходы между подразделениями внутри команды сюда не попадают.'},
-{key:'transfer_out',block:'movement',aud:'all',name:'Переводы из команды',short:'Переводы из',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек за месяц ушли из команды в другие подразделения — или перестали подходить под выбранные фильтры: например, при фильтре «Штат» — кто перешёл на ГПД.',
+{key:'transfer_out',block:'movement',aud:'all',name:'Переводы из команды',short:'Перев. из',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек за месяц ушли из команды в другие подразделения — или перестали подходить под выбранные фильтры: например, при фильтре «Штат» — кто перешёл на ГПД.',
   calc:'Перевод из выбора: вчера человек был в команде и подходил под фильтры (покраска, IT-код, штат, тип численности), сегодня — вне команды или не подходит. Считается по дням; увольнение — не перевод. Без фильтров смена покраски или штата — не перевод; на активной численности уход в декрет — перевод. Переходы между подразделениями внутри команды сюда не попадают.'},
 /* Итог движения персонала: найм + переводы в − отток − переводы из за вычетом
    прочих изменений. Пять потоков без итога не отвечали на вопрос «команда
@@ -2741,43 +2746,43 @@ const METRICS=[
 /* 15.10: «Коэффициент замещения» и «Найм на 100 человек» сняты — в каталоге
    графиков HQ и УС («Team Pulse — сводка графиков.md») их нет, это производные,
    придуманные для макета. */
-{key:'turnover_m',block:'turnover',aud:'all',name:'Текучесть месячная',short:'Тек. за месяц',fmt:'pct',better:'lower',unit:'%',anchor:null,
+{key:'turnover_m',block:'turnover',aud:'all',name:'Текучесть месячная',short:'Тек. мес.',fmt:'pct',better:'lower',unit:'%',anchor:null,
   derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Какая доля команды уволилась за месяц: отток к среднесписочной численности.',
   calc:'Отток ÷ среднесписочная × 100%. Среднесписочная — полусумма активной численности на конец прошлого и этого месяца: упрощённый способ из методологии HR, как в HR Executive Report.'},
-{key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с января',fmt:'pct',better:'lower',unit:'%',anchor:null,
+{key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с янв.',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR (YTD Turnover): сумма месячной текучести с января.'},
-{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательный отток',short:'Нежелат. отток',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательный отток',short:'Нежелат.',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
   calc:'Сумма месячной: нежелательные увольнения ÷ среднесписочная × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
-{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательный отток',short:'Желат. отток',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
+{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательный отток',short:'Желат.',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
   hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.'+HQ_ONLY,
   calc:'Сумма месячной: желательные увольнения ÷ среднесписочная × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
-{key:'time_to_fill',block:'hiring',aud:'us',name:'Срок закрытия вакансии',short:'Срок закрытия',fmt:'days',better:'lower',unit:'дн',anchor:47,hint:'Сколько дней в среднем вакансия открыта до закрытия.'},
+{key:'time_to_fill',block:'hiring',aud:'us',name:'Срок закрытия вакансии',short:'Срок',fmt:'days',better:'lower',unit:'дн',anchor:47,hint:'Сколько дней в среднем вакансия открыта до закрытия.'},
 /* План-факт подбора, доля джунов и внутренний найм — пробелы бизнес-анализа:
    в дашборде 34661 они есть, в Hub не было. Все три — доли потока, поэтому
    считаются с начала года: за один месяц у команды из десяти человек
    знаменатель часто ноль или единица, и процент прыгал бы на десятки пунктов.
    У выполнения плана есть цель: сам план и есть ориентир, сравнивать его со
    средней по компании — мерить не тем. Пороги 95 / 80 — черновик. */
-{key:'hire_plan',block:'hiring',aud:'us',name:'Выполнение плана найма',short:'План',fmt:'pct',better:'higher',unit:'%',anchor:null,
+{key:'hire_plan',card:'План найма',block:'hiring',aud:'us',name:'Выполнение плана найма',short:'План',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'hire',den:'pf_plan',scale:100,win:'ytd'},kpi:{green:95,red:80},
   hint:'Какая часть плана найма выполнена с начала года: массовый и профильный найм вместе.'},
 {key:'junior_share',block:'hiring',aud:'all',name:'Доля джунов в найме',short:'Джуны',fmt:'pct',better:'flat',unit:'%',anchor:null,
   derived:{num:'hire_jun',den:'hire',scale:100,win:'ytd'},
   hint:'Доля джунов среди принятых с начала года. Сколько их брать — выбор стратегии найма.'},
-{key:'internal_share',block:'hiring',aud:'all',name:'Доля внутреннего найма',short:'Внутренний найм',fmt:'pct',better:'flat',unit:'%',anchor:null,
+{key:'internal_share',block:'hiring',aud:'all',name:'Доля внутреннего найма',short:'Внутр. найм',fmt:'pct',better:'flat',unit:'%',anchor:null,
   derived:{num:'transfer_in',den:['hire','transfer_in'],scale:100,win:'ytd'},
   hint:'Доля пришедших переводом из других подразделений среди всех пришедших с начала года.'},
 {key:'tgrowth_pass',block:'tgrowth',aud:'hq',name:'Одобренные заявки на T-рост',short:'Одобрено',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Заявки на T-рост, одобренные за месяц.'},
 {key:'tgrowth_deny',block:'tgrowth',aud:'hq',name:'Отклонённые заявки на T-рост',short:'Отклонено',fmt:'int',flow:true,better:'lower',unit:'шт',anchor:null,hint:'Заявки на T-рост, отклонённые за месяц.'},
 {key:'tgrowth_conv',block:'tgrowth',aud:'hq',name:'Конверсия T-роста',short:'Конверсия',fmt:'pct',better:'higher',unit:'%',anchor:68,hint:'Доля одобренных среди рассмотренных за месяц заявок на T-рост.'},
 /* T@T — время до повышения из сервиса «Рост» (дашборд HQ 34136) */
-{key:'tgrowth_tat',block:'tgrowth',aud:'hq',name:'Время до повышения (T@T)',short:'T@T',fmt:'mon',better:'lower',unit:'мес',anchor:16,
+{key:'tgrowth_tat',card:'Время до повышения',block:'tgrowth',aud:'hq',name:'Время до повышения (T@T)',short:'T@T',fmt:'mon',better:'lower',unit:'мес',anchor:16,
   hint:'Сколько месяцев в среднем прошло с прошлого повышения у тех, кого повысили в этом месяце.'},
 /* 15.10: «Лоу-перформеры» сняты: такого понятия в компании нет (владелец борда,
    «Team Pulse 2.0 — сверка с каталогом.md»). Оценки ревью — в «Статусе ревью». */
@@ -6684,7 +6689,8 @@ function opStory(chart,st,about){
     '<div class="op-sta"><div class="op-sth">О метрике</div>'+about+'</div></div></div>';
 }
 function kpiCard(o){
-  return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.tag||'')+(o.q||'')+'</div>'+
+  /* 23.10: подпись — в одну строку; не влезло — многоточие, полное имя — в подсказке значка «i» */
+  return '<div class="kpi"><div class="k-label"><span class="k-ln">'+esc(o.label)+'</span>'+(o.tag||'')+(o.q||'')+'</div>'+
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
     '<div class="k-row">'+(o.row2||'')+'</div>'+
@@ -9094,7 +9100,8 @@ function renderBlock(S,expanded,mixOpen,view){
     const mom=sliced?D.sliceDeltaMoM(rl,m.key,selIds):D.deltasOf(rl,m.key).mom;
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
     const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    h+=U.kpiCard({label:m.name,tag:(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+U.matureTag(m.key),
+    /* m.card — короче имени для карточки (23.10: подпись в одну строку и с плашкой «в разраб.») */
+    h+=U.kpiCard({label:m.card||m.name,tag:(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+U.matureTag(m.key),
       q:U.infoDot(m.key),
       value:D.fmtVal(m.key,v),
       row1:U.momChip(m.key,mom)+cardSpark(m.key,ser,st,S,bl),
@@ -10388,7 +10395,7 @@ function render(S,openRows){
     /* Месяц сравнения подписан в шапке колонки, а не у каждой строки: «за месяц»
        само по себе не говорило, с чем сравнивается число, а повторять «к маю»
        девятнадцать раз незачем. */
-    const thSub=s=>'<span class="th-sub">'+esc(s)+'</span>';
+    const cap1=s=>s.charAt(0).toUpperCase()+s.slice(1);
     /* Общая каретка предлагает свернуть только когда раскрыты ВСЕ строки блока */
     const bMets=D.visibleMetricsOfBlock(b.key,S);
     const allOpen=bMets.length>0&&bMets.every(m=>openRows.has(m.key));
@@ -10398,9 +10405,10 @@ function render(S,openRows){
       '<colgroup><col style="width:26%"><col style="width:12%"><col style="width:10%"><col style="width:10%"><col>'+
       '<col style="width:19%"><col style="width:28px"></colgroup>'+
       '<thead><tr><th>Метрика</th><th class="num">Значение</th>'+
-      '<th class="num">За месяц'+thSub(D.CMP.momFull)+'</th>'+
-      '<th class="num">За год'+thSub(D.CMP.yoy)+'</th><th class="mid">12 мес</th>'+
-      '<th class="mid">Ориентир'+thSub('цель KPI или база')+'</th>'+
+      /* 23.10, заказчик: шапки — в одну строку; «за месяц / за год» — месяцем сравнения, пояснение — в подсказке */
+      '<th class="num"'+U.tipAttr({title:'За месяц',text:'Изменение '+D.CMP.momFull+'.'})+'>'+esc(cap1(D.CMP.momFull))+'</th>'+
+      '<th class="num"'+U.tipAttr({title:'За год',text:'Изменение '+D.CMP.yoy+'.'})+'>'+esc(cap1(D.CMP.yoy))+'</th><th class="mid">12 мес</th>'+
+      '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Цель KPI, а где её нет — база.'})+'>Ориентир</th>'+
       /* Общая каретка стоит над колонкой строчных кареток: строки блока
          раскрывают графики по одной, и раскрыть их разом должно быть можно
          одной кнопкой — правило то же, что у ИТОГО в сводной таблице. */

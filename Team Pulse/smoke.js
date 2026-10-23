@@ -245,8 +245,9 @@ checks.push(['минус во всех дельтах типографский, 
   checks.push(['подпись месяца берётся из одного места, а не пишется руками',
     D.CMP.momShort==='к '+'маю'&&D.CMP.momFull==='к маю 2026'&&D.CMP.yoy==='к июню 2025']);
   checks.push(['шапки колонок «за месяц» и «за год» называют свои месяцы',
-    opHtml.indexOf('За месяц<span class="th-sub">'+D.CMP.momFull)>0&&
-    opHtml.indexOf('За год<span class="th-sub">'+D.CMP.yoy)>0]);
+    /* 23.10: шапка в одну строку — месяцем сравнения («К маю 2026») */
+    opHtml.indexOf('>К '+D.CMP.momFull.slice(2)+'</th>')>0&&
+    opHtml.indexOf('>К '+D.CMP.yoy.slice(2)+'</th>')>0]);
   /* в строках таблицы месяц не повторяется: он уже назван в шапке */
   checks.push(['в колонках таблицы месяц не дублируется у каждой строки',
     !/class="d-vs"/.test(opHtml.split('<table class="mtable"').slice(1).join(''))]);

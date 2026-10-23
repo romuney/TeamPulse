@@ -167,7 +167,7 @@ function render(S,openRows){
     /* Месяц сравнения подписан в шапке колонки, а не у каждой строки: «за месяц»
        само по себе не говорило, с чем сравнивается число, а повторять «к маю»
        девятнадцать раз незачем. */
-    const thSub=s=>'<span class="th-sub">'+esc(s)+'</span>';
+    const cap1=s=>s.charAt(0).toUpperCase()+s.slice(1);
     /* Общая каретка предлагает свернуть только когда раскрыты ВСЕ строки блока */
     const bMets=D.visibleMetricsOfBlock(b.key,S);
     const allOpen=bMets.length>0&&bMets.every(m=>openRows.has(m.key));
@@ -177,9 +177,10 @@ function render(S,openRows){
       '<colgroup><col style="width:26%"><col style="width:12%"><col style="width:10%"><col style="width:10%"><col>'+
       '<col style="width:19%"><col style="width:28px"></colgroup>'+
       '<thead><tr><th>Метрика</th><th class="num">Значение</th>'+
-      '<th class="num">За месяц'+thSub(D.CMP.momFull)+'</th>'+
-      '<th class="num">За год'+thSub(D.CMP.yoy)+'</th><th class="mid">12 мес</th>'+
-      '<th class="mid">Ориентир'+thSub('цель KPI или база')+'</th>'+
+      /* 23.10, заказчик: шапки — в одну строку; «за месяц / за год» — месяцем сравнения, пояснение — в подсказке */
+      '<th class="num"'+U.tipAttr({title:'За месяц',text:'Изменение '+D.CMP.momFull+'.'})+'>'+esc(cap1(D.CMP.momFull))+'</th>'+
+      '<th class="num"'+U.tipAttr({title:'За год',text:'Изменение '+D.CMP.yoy+'.'})+'>'+esc(cap1(D.CMP.yoy))+'</th><th class="mid">12 мес</th>'+
+      '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Цель KPI, а где её нет — база.'})+'>Ориентир</th>'+
       /* Общая каретка стоит над колонкой строчных кареток: строки блока
          раскрывают графики по одной, и раскрыть их разом должно быть можно
          одной кнопкой — правило то же, что у ИТОГО в сводной таблице. */

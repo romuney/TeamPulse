@@ -352,7 +352,8 @@ function opStory(chart,st,about){
     '<div class="op-sta"><div class="op-sth">О метрике</div>'+about+'</div></div></div>';
 }
 function kpiCard(o){
-  return '<div class="kpi"><div class="k-label">'+esc(o.label)+(o.tag||'')+(o.q||'')+'</div>'+
+  /* 23.10: подпись — в одну строку; не влезло — многоточие, полное имя — в подсказке значка «i» */
+  return '<div class="kpi"><div class="k-label"><span class="k-ln">'+esc(o.label)+'</span>'+(o.tag||'')+(o.q||'')+'</div>'+
     '<div class="k-val">'+o.value+'</div>'+
     '<div class="k-row">'+(o.row1||'')+'</div>'+
     '<div class="k-row">'+(o.row2||'')+'</div>'+

@@ -194,7 +194,9 @@ button,select,input,textarea{font-family:inherit}
 .kpis.compact .k-val{font-size:var(--fs-hero)}
 .kpis.compact .k-row{margin-top:6px;gap:8px}
 .kpi{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:15px 17px}
-.kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);margin-bottom:7px;display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0}
+.kpi .k-label .k-ln{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.kpi .k-label>:not(.k-ln){flex:none}
 .kpi .k-val{font-size:27px;font-weight:var(--fw-bold);letter-spacing:-.6px;line-height:1.1}
 .kpi .k-row{display:flex;align-items:center;gap:9px;margin-top:8px;flex-wrap:wrap}
 /* пустой второй ряд карточка рисует всегда (ей нужно ровно четыре строки),
@@ -1282,7 +1284,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Имя подразделения — липкое: если таблица всё равно шире панели, она
    прокручивается внутри неё, а строку по-прежнему видно. Фон ячейки берётся
    у строки, иначе числа проезжали бы под прозрачным именем. */
-.split-l .ptable.dense th{white-space:normal;vertical-align:bottom;line-height:1.2}
+/* 23.10, заказчик: шапки — в одну строку на всех листах («ПЕРЕВОДЫ / В» в две строки — «стрёмно»); подписи
+   колонок короткие (metric.short), полностью — в подсказке; плашка «в разраб.» — в той же строке */
+.split-l .ptable.dense th{white-space:nowrap;vertical-align:bottom;line-height:1.2}
+.ptable th .dev-tag.sm{display:inline-block;margin:0 0 0 var(--s2);vertical-align:1px}
 .split-l .ptable.dense th.txt{white-space:nowrap}
 .split-l .ptable.dense tbody tr{background:#fff}
 .split-l .ptable.dense td.txt{position:sticky;left:0;z-index:1;background:inherit}
