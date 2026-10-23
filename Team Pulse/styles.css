@@ -940,6 +940,14 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    остаётся только узкой: там в ней кнопка навигации. Закрытый месяц — в чипе «Период». */
 .tp-pilot .logo{display:none}
 @media(min-width:781px){.tp-pilot .apphead{display:none}.tp-pilot{--head-h:0px}}
+/* 23.10, заказчик: у белых панелей борда — «Сводка» слева и заголовок отчёта справа сверху — скруглены углы, которые
+   смотрят в серое: у «Сводки» левый верхний, левый нижний и правый нижний, у заголовка правый верхний и правый нижний.
+   Угол, где заголовок примыкает к «Сводке», остаётся прямым. Под панелями — серый фон отчёта, чтобы скругление было видно */
+@media(min-width:781px){
+  .tp-pilot{background:var(--bg)}
+  .tp-pilot .nav{border-radius:var(--r4) 0 var(--r4) var(--r4)}
+  .tp-pilot .reporthead{border-radius:0 var(--r4) var(--r4) 0}
+}
 
 .layout{min-height:calc(100vh - var(--head-h));align-items:stretch}
 .nav{position:sticky;top:var(--head-h);height:calc(100vh - var(--head-h));

@@ -114,7 +114,8 @@ function selLabel(S){
    линия, прошлый — бледная. */
 /* цвет линии потока — тот же, что на вкладках блока: пришли — C_IN, ушли —
    C_OUT; одиночные метрики — кобальтом */
-const YOY_COLOR={attrition:G.C_OUT,transfer_out:G.C_OUT,tgrowth_deny:G.C_OUT,
+/* численность — серым (23.10), как во всех отчётах */
+const YOY_COLOR={hc_total:G.C_CNT,hc_active:G.C_CNT,hc_avg:G.C_CNT,attrition:G.C_OUT,transfer_out:G.C_OUT,tgrowth_deny:G.C_OUT,
   hire:G.C_IN,transfer_in:G.C_IN,vac_closed:G.C_IN,tgrowth_pass:G.C_IN,vac_open:G.C_VAC,ai_wau:G.C_AI};
 function yoyChart(key,lp,bl,S,opt){
   opt=opt||{};
@@ -123,9 +124,10 @@ function yoyChart(key,lp,bl,S,opt){
   const y0=D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
   const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=cmp?D.yoySeries(bl,key).cur:null;
   const col=opt.color||YOY_COLOR[key]||G.C_LINE;
-  /* счётный поток (найм, уход…) — бар этого года, позади прозрачный бар прошлого (15.10) */
-  const flow=!!(D.METRIC_BY_KEY[key]||{}).flow;
-  const legend=(flow?[{name:String(D.YEAR_CUR),color:G.soft(col)},{name:String(D.YEAR_PREV),color:col,ghost:true}]
+  /* счётный поток (найм, уход…) — бар этого года, позади прозрачный бар прошлого (15.10); численность — так же,
+     серым (23.10) */
+  const flow=G.asBars(key);
+  const legend=(flow?[{name:String(D.YEAR_CUR),color:G.soft(col)},{name:String(D.YEAR_PREV),color:G.ghostCol(col),ghost:true}]
       :[{name:String(D.YEAR_CUR),color:col},{name:String(D.YEAR_PREV),color:G.C_PREV}])
     .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
   /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше

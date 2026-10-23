@@ -451,6 +451,11 @@ const C_MK='#1f1f1f', C_MK_PREV='#7d8494';
    «выглядят стрёмно, особенно на пустых месяцах». Выключили этот год в
    легенде — прошлый становится обычным баром. */
 const GHOST_OP=.18;
+/* 23.10, заказчик: численность — серыми барами, как во всех отчётах (линией она читалась другой метрикой). Прошлый
+   год — тот же прозрачный бар позади, но тоном подписей осей: серый на 18% от серого не видно */
+const HC_BARS=new Set(['hc_total','hc_active','hc_avg']);
+function asBars(key){return !!(CD.METRIC_BY_KEY[key]||{}).flow||HC_BARS.has(key)}
+function ghostCol(col){return col===C_CNT?C_AXIS:col}
 const ghostW=(bw,bandW)=>Math.min(bandW*0.86,bw*1.5);
 
 /* Месяц скользящего окна на оси года: {i: месяц 0–11, s: серия}. Акценты
@@ -474,7 +479,7 @@ function yoyRoom(ya,marks){return (ya&&ya.notes.length?ANN_ROOM:0)+(marks&&marks
    Пункты — те же кнопки, что в шапке графика (lgItem): клик скрывает линию
    во всех панелях графика, наведение подсвечивает её. */
 function yoyKey(w,y,col,off,lock,flow){
-  const it=flow?[{name:String(CD.YEAR_CUR),color:soft(col)},{name:String(CD.YEAR_PREV),color:col,ghost:true}]
+  const it=flow?[{name:String(CD.YEAR_CUR),color:soft(col)},{name:String(CD.YEAR_PREV),color:ghostCol(col),ghost:true}]
     :[{name:String(CD.YEAR_CUR),color:col},{name:String(CD.YEAR_PREV),color:C_PREV}], ids=['main','prev'];
   let x=w,s='';
   for(let i=it.length-1;i>=0;i--){const r=lgItem(x,y,it[i],ids[i],off,lock);s+=r.s;x=r.x}
@@ -539,7 +544,7 @@ function mkMark(cx,cy,m,dly){
    ========================================================================== */
 function yoyPlot(p,ar){
   const key=p.key, cur=p.cur, prev=p.prev, bench=p.bench||null, off=p.off||NOSET;
-  const nm=CD.METRIC_BY_KEY[key]||{}, col=p.color||C_LINE;
+  const nm=CD.METRIC_BY_KEY[key]||{}, col=p.color||C_LINE, flow=asBars(key);
   const x0=ar.x0, plotW=ar.plotW, top=ar.top, bot=ar.bot, bandW=plotW/12, d0=ar.delay||0;
   const showMain=!off.has('main'), showPrev=!off.has('prev'), showBench=!!bench&&!off.has('bench');
   const nowI=CD.CUR_LEN-1, ya=p.ann||null, marks=p.marks||[];
@@ -555,10 +560,10 @@ function yoyPlot(p,ar){
   /* Бары: акцент главы — светлая полоса за месяцем и контур бара, а не другой тон
      (16.10, заказчик: «не нужно затенять 2026 год — он весь одного цвета, инсайты
      выделяй по-другому»). У заметки полоса уже есть — второй не рисуем. */
-  if(nm.flow&&ya&&ya.hi)ya.hi.forEach(z=>{if(z.s==='main'&&!ya.notes.some(n=>n.i===z.i))
+  if(flow&&ya&&ya.hi)ya.hi.forEach(z=>{if(z.s==='main'&&!ya.notes.some(n=>n.i===z.i))
     s+=rect(x0+bandW*z.i+2,top-4,bandW-4,bot-top+4,C_BAND,6)});
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
-  s+=yoyAxis(X,bandW,top,bot,nowI,!!nm.flow,key);
+  s+=yoyAxis(X,bandW,top,bot,nowI,flow,key);
   /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
   const part=CD.matures(key), curS=part?cur.map((v,i)=>i===nowI?null:v):cur;
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
@@ -567,7 +572,7 @@ function yoyPlot(p,ar){
      «всё, что связано с наймом и оттоком, — обязательно барчарты»): этот год —
      мягким баром, прошлый — позади него тем же цветом, шире и почти прозрачно
      (15.10). Выключили этот год — прошлый становится обычным баром. */
-  const flow=!!nm.flow, bw=Math.max(6,Math.min(30,bandW*0.58)), gw=ghostW(bw,bandW);
+  const bw=Math.max(6,Math.min(30,bandW*0.58)), gw=ghostW(bw,bandW);
   if(showPrev&&!flow)s+='<path class="lnb"'+sAttr('prev')+' d="'+polyD(prev,X,Y)+'" fill="none" stroke="'+C_PREV+'"'
     +' stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
   if(showBench)s+='<path class="lnb"'+sAttr('bench')+' d="'+polyD(bench,X,Y)+'" fill="none" stroke="'+C_BENCH+'"'
@@ -599,7 +604,7 @@ function yoyPlot(p,ar){
       /* прошлый год — позади, шире и почти прозрачно тем же цветом; без этого
          года — обычным баром */
       if(showPrev&&pv!=null)s+=showMain
-        ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),col,' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
+        ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),ghostCol(col),' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
         :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
       /* этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
          и контуром основным цветом, заливка та же */
@@ -758,7 +763,7 @@ function drawPanels(a,w,h){
     const base=pi*panelH, ya=yas[pi];
     const top=base+HEAD+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
-    s+=yoyKey(w,base-1,p.color||C_LINE,off,false,!!(CD.METRIC_BY_KEY[p.key]||{}).flow);
+    s+=yoyKey(w,base-1,p.color||C_LINE,off,false,asBars(p.key));
     s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,color:p.color,ann:ya,off:off},
       {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
   });
@@ -1236,7 +1241,7 @@ function toggleSeries(cid,sid){
 function reset(){_specs=new Map();_sid=0}
 
 window.TPDRAW={chart,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
-  sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,
+  sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,asBars,ghostCol,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
   C_VAC,C_UNDER,C_REVIEW,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y,C_AI,C_MON,MON_CATS};
