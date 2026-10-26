@@ -192,7 +192,11 @@ button,select,input,textarea{font-family:inherit}
 .kpis.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .kpis.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
-.kpis.n5{grid-template-columns:repeat(5,minmax(0,1fr))}
+/* 26.10, правки: KPI, которым тесно в одной строке, — по три в строку, как карточки .shcards: до четырёх — одной
+   строкой, больше — сеткой по три (пять — 3 + 2, шесть — 3 + 3, восемь — 3 + 3 + 2); семь — 4 + 3, чтобы внизу не
+   осталась одна карточка */
+.kpis.n5,.kpis.n6,.kpis.n8{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpis.n7{grid-template-columns:repeat(4,minmax(0,1fr))}
 .kpis.compact{gap:12px;margin-bottom:16px}
 .kpis.compact .kpi{padding:13px 15px}
 .kpis.compact .k-val{font-size:var(--fs-hero)}
@@ -431,7 +435,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   /* классы n2…n5 задают колонки жёстче, чем базовое правило, поэтому на узком
      экране их приходится переопределять явно — иначе пять карточек движения
      персонала остались бы впятером и на планшете */
-  .kpis,.kpis.n4,.kpis.n5{grid-template-columns:repeat(3,minmax(160px,1fr))}
+  .kpis{grid-template-columns:repeat(3,minmax(160px,1fr))}
+  .kpis.n4{grid-template-columns:repeat(2,minmax(0,1fr))}
   .content{padding:22px}
   .reporthead{padding-left:22px;padding-right:22px}
 }
@@ -440,13 +445,13 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .reporthead{padding:14px}.rh-row{align-items:flex-start}.rh-title{font-size:22px}.rh-side{display:none}
   .layout{display:block}.nav{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(82vw,300px);transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 28px rgba(20,28,45,.18);padding-top:18px}.nav.open{transform:translateX(0)}
   .nav-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}.nav-scrim.open{display:block}
-  .content{padding:16px}.kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
+  .content{padding:16px}.kpis,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
   .panel{overflow-x:auto}.mtable,.ptable{min-width:760px}.page-h h2{font-size:21px}.block-h{align-items:flex-start}
   .modal{width:calc(100vw - 20px);max-height:92vh}.modal-b{padding:16px}.modal-f{padding:12px;flex-wrap:wrap}
 }
 @media(max-width:480px){
   .apphead .primary{padding:8px 10px;font-size:11px}.logo{font-size:14px}.rh-title .lvl{display:block;margin:5px 0 0;width:max-content}
-  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}.chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
+  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:1fr}.chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
   .legend{gap:8px 12px}.panel-h{padding:12px}.panel-b{padding:10px}
   .mpick-l{grid-template-columns:1fr}.mpick{max-height:200px}
 }
@@ -1234,13 +1239,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    one-pager стала дайджестом из восьми карточек. Колонка на метрику — только
    на широком экране: семь карточек по 150px не вмещают пилюлю со спарклайном.
    Ниже — по четыре в ряд; восемь карточек дайджеста — всегда два ряда по четыре. */
-.kpis.n6{grid-template-columns:repeat(6,minmax(0,1fr))}
-.kpis.n7{grid-template-columns:repeat(7,minmax(0,1fr))}
-.kpis.n8{grid-template-columns:repeat(4,minmax(0,1fr))}
-@media(max-width:1599px){.kpis.n6,.kpis.n7{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:1100px){.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:repeat(3,minmax(160px,1fr))}}
-@media(max-width:780px){.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:480px){.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:1fr}}
 
 /* ---------- Таблица показателей (U.statTable) ----------
    План-факт подбора и заявки «Роста»: строки — разные величины, колонки —
@@ -1586,6 +1584,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* 21.10, правки Антона: «данные есть» — данные пришли, графика нет; «✓ сверены» — с мастер-источником */
 .plan-tag.data{color:var(--green-tx);background:var(--card);border-color:var(--green-bg);border-style:dashed}
 .live-tag.ok{color:#fff;background:var(--green-tx);border-color:var(--green-tx)}
+/* 26.10: «расхождение» — число настоящее, но с мастер-источником не сходится (желательный и нежелательный отток) */
+.live-tag.bad{color:#9a5b00;background:#fff4dc;border-color:#f0c36d}
 /* для кого: все / HQ / УС — подпись, не цветовая категория */
 .aud-tag{display:inline-block;min-width:28px;padding:0 var(--s2);border-radius:var(--r1);font-size:var(--fs-micro);
   font-weight:var(--fw-bold);line-height:16px;text-align:center;color:var(--ink2);background:var(--line2)}
@@ -2274,20 +2274,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pf-a{font-size:var(--fs-body);color:var(--muted)}
 .pf-a b{color:var(--ink);font-weight:var(--fw-bold)}
 .pf [data-mix]{cursor:pointer}
-/* воронка: подпись | дорожка со ступенью по центру | число и доля от юридической */
-.hfun{display:flex;flex-direction:column;gap:var(--s3)}
-.hf-st{display:grid;grid-template-columns:minmax(150px,190px) 1fr 110px;align-items:center;gap:var(--s6);min-height:38px}
-.hf-lb{font-size:var(--fs-lead);color:var(--ink2);display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
-.hf-cur{font-size:var(--fs-micro);font-weight:var(--fw-bold);letter-spacing:.3px;text-transform:uppercase;color:var(--act);
-  background:var(--blue-bg);border-radius:var(--r-pill);padding:2px 7px}
-.hf-tr{display:flex;justify-content:center;height:34px}
-.hf-tr i{display:block;height:100%;border-radius:var(--r2);transition:width .3s}
-.hf-tr i.s0{background:var(--pt-s1)}.hf-tr i.s1{background:var(--pt-s2)}.hf-tr i.s2{background:var(--pt-s3)}
-.hf-st.cur .hf-tr i{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--act-line)}
-.hf-v{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
-.hf-v b{font-size:var(--fs-head);font-weight:var(--fw-bold);color:var(--ink);font-variant-numeric:tabular-nums}
-.hf-v em{font-style:normal;font-size:var(--fs-note);color:var(--muted)}
-.hf-st:hover .hf-tr i{filter:brightness(.96) saturate(1.2)}
 /* полоса долей: кусок — доля; выбранный в срезе — обводка, остальные того же разреза бледнее */
 .shbar{display:flex;height:38px;border-radius:var(--r2);overflow:hidden;gap:2px;font-size:var(--fs-body);margin-bottom:var(--s6)}
 .shbar span{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;white-space:nowrap;overflow:hidden;
@@ -2336,7 +2322,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .mx-full{position:fixed;inset:16px;z-index:70;background:var(--card);border-radius:var(--r5);box-shadow:var(--shadow-lg);
   padding:var(--s9) var(--s10);overflow:auto}
 .mx-full-h{font-size:var(--fs-head);font-weight:var(--fw-bold);color:var(--ink);margin-bottom:var(--s8)}
-@media (max-width:780px){.hf-st{grid-template-columns:1fr 84px;row-gap:4px}.hf-lb{grid-column:1/-1}.mx-full{inset:0;border-radius:0}}
+@media (max-width:780px){.mx-full{inset:0;border-radius:0}}
 /* пять шагов (структура, 21.10): активный шире — его подпись видна целиком */
 .st-steps.n5 .st-step.on{flex-grow:1.7}
 

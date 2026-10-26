@@ -7,9 +7,9 @@
    прокрутка на три экрана, где ни один разрез не виден целиком.
 
    21.10 — раскладка по файлу «Структура» (п. 8 правок Антона; у файла приоритет):
-   1. «Портрет сотрудника» — три блока сверху вниз: воронка численности
-      (юридическая → активная → HQ), пол (полоса М : Ж и две карточки со средним
-      возрастом), возраст (полоса до 25 / 25–30 / 30+ и карточки с раскладом М · Ж).
+   1. «Портрет сотрудника» — блоки сверху вниз: пол (полоса М : Ж и две карточки со средним
+      возрастом), возраст (полоса до 25 / 25–30 / 30+ и карточки с раскладом М · Ж), регион.
+      26.10: воронки численности (юридическая → активная → HQ) нет — заказчик её не делает.
    2. «Уровень позиции» — три таблицы: сеньорность, грейд, стаж.
    3. «Оформление» — три таблицы по убыванию: тип занятости, формат, компания (22.10).
    22.10: регион — таблицей внизу портрета; таблицы вкладок — в столбик; строки — только те,
@@ -101,9 +101,7 @@ function treeTable(dim,lp,sel,mixSel,open){
 }
 
 /* ---------- Портрет сотрудника ----------
-   Три блока сверху вниз: воронка, пол, возраст. Ступени воронки — тип численности и
-   покраска, поэтому её не режут фильтры шапки «Численность» и «Покраска»; срез состава —
-   режет (подсказка ступени называет его). */
+   Блоки сверху вниз: пол, возраст, регион (26.10: без воронки численности). */
 const sumA=a=>a.reduce((x,y)=>x+y,0);
 const pc=(a,b)=>b?Math.round(a/b*100):0;
 const num1=v=>v==null?'—':(Math.round(v*10)/10).toFixed(1).replace('.',',');
@@ -115,21 +113,6 @@ const genName=c=>GEN_PL[String(c.name).toLowerCase()]||c.name;
 function ratio(m,f){
   if(!m||!f)return '';
   return m>=f?'М : Ж = '+num1(m/f)+' : 1':'М : Ж = 1 : '+num1(f/m);
-}
-function funnelBlock(ctx,path,sel){
-  const S=ctx.S, f=D.hcFunnel(path,S);
-  if(!f)return U.devNote({stage:4,t:'Воронке нужны все типы численности и покраски сразу — их привезёт таблица состава вместе с точным срезом.'});
-  const parts=D.sliceParse(S.mixSel), sl=parts.length?'Срез: '+D.sliceLabel(S.mixSel)+'.':'', flt=D.filterChips(S).filter(x=>x.k!=='paint'&&x.k!=='hcType').map(x=>x.label);
-  const ctxNote=[sl,flt.length?'Фильтры отчёта: '+flt.join(', ')+'.':''].filter(Boolean).join('\n');
-  const cur=S.hcType==='all'?0:S.paint==='HQ'?2:1;
-  const step=(i,name,n,text)=>({name:name,n:n,p:pc(n,f.legal),cur:cur===i,
-    tip:{title:name,text:text,rows:[{label:'Человек',value:D.fmtInt(n)}].concat(i?[{label:'От юридической',value:pc(n,f.legal)+'%'}]:[]),
-      note:ctxNote||null}});
-  return '<section class="pf-s">'+U.pfHead('Воронка численности','юридическая → активная → HQ','funnel')+
-    U.funnelSteps({steps:[
-      step(0,'Юр. численность',f.legal,'Все сотрудники, кроме тех, кто на этапе оформления.'),
-      step(1,'Активная численность',f.active,'Тип «Активная»: юридическая без подрядчиков, стажёров, декрета, прогульщиков и учебных юнитов.'),
-      step(2,'HQ',f.hq,'Активные сотрудники в покраске HQ.')]})+'</section>';
 }
 function genderBlock(ctx,sel){
   const S=ctx.S, G=D.MIX_BY_KEY.gender;
@@ -176,9 +159,9 @@ function regionBlock(ctx,sel){
   return tableBlock(ctx,'region',sel,'pin',{sort:true,top:10,word:['регион','региона','регионов']});
 }
 function portrait(ctx){
-  const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), path=S.selNode||S.unit;
+  const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id));
   if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
-  return '<div class="pf">'+funnelBlock(ctx,path,sel)+genderBlock(ctx,sel)+ageBlock(ctx,sel)+regionBlock(ctx,sel)+'</div>';
+  return '<div class="pf">'+genderBlock(ctx,sel)+ageBlock(ctx,sel)+regionBlock(ctx,sel)+'</div>';
 }
 
 /* ---------- «Уровень позиции» и «Оформление» (23.10) ----------
@@ -285,7 +268,7 @@ SC.blocks.structure={
     .concat(D.MIX_BY_KEY.stream?[['stream','Стримы']]:[]).concat([['custom','Конструктор']]),
   defaultSub:'portrait',
   title(sub){
-    if(sub==='portrait')return 'Портрет сотрудника · воронка · пол · возраст';
+    if(sub==='portrait')return 'Портрет сотрудника · пол · возраст · регион';
     if(sub==='level')return 'Уровень позиции: сеньорность, грейд, стаж';
     if(sub==='work')return 'Оформление: тип занятости, формат работы, компания';
     if(sub==='stream')return 'Стримы и специализации';

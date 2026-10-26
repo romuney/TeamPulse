@@ -340,39 +340,46 @@ const PLAN_NOW={live:'настоящие',data:'данные есть',dev:'в �
 /* 21.10, правка Антона: «Данные сверены» — флаг ставится вручную, когда число в отчёте сверено с
    мастер-источником и совпало. Отчёт его не вычисляет и ничего по нему не пересчитывает. Сверены:
    численность (общая и активная), найм, отток. */
-const VERIFIED=new Set(['hc_total','hc_active','hire','attrition']);
+/* 26.10, правки: «Структура численности» и «Движение персонала» сверены целиком, «Отток и текучесть» — кроме
+   желательного и нежелательного: они настоящие, но с мастер-источником пока не сходятся (MISMATCH) */
+const VERIFIED=new Set(['hc_total','hc_active','hire','attrition','transfer_in','transfer_out','net_ytd','turnover_m','turnover_y']);
 const VERIFIED_TIP={title:'Данные сверены',
   text:'Данные настоящие и сверены с мастер-источником: значение в отчёте совпадает со значением в мастер-источнике.'};
+const MISMATCH=new Set(['regret','nonregret']);
+const MISMATCH_TIP={title:'Расхождение с мастер-источником',
+  text:'Данные настоящие, но значение в отчёте пока не совпадает с мастер-источником — ищем причину. До исправления это не сверенное число.'};
 const DEV_PLAN=[
   {blk:'Структура численности',rows:[
     {what:'Общая и активная численность',aud:'all',stage:'0',now:'live',ok:1},
-    {what:'Водопад за год, дерево подразделений и фильтры',aud:'all',stage:'0',now:'live'},
-    {what:'Тип оформления, формат работы, сеньорность, грейд, стаж, юрлицо, стримы',aud:'all',stage:'0',now:'live'},
-    {what:'Специализации внутри стримов',aud:'all',stage:'4',now:'live'},
-    /* 23.10, сверка с данными (Антон, п. 5): регион и тип компании — в отчёте; формат работы по профилю — собран, но не
-       выведен; воронка и средний возраст на настоящих данных — заглушки до таблицы состава */
-    {what:'Регион сотрудника',aud:'all',stage:'4',now:'live'},
-    {what:'Тип компании',aud:'hq',stage:'0',now:'live'},
-    {what:'Формат работы по профилю сотрудника: офис, гибрид, удалённо',aud:'all',stage:'4',now:'data',
-      need:'колонка собрана в ноутбуке (поставка 64), в разрезы отчёта ещё не выведена; сейчас «Формат работы» — по типу договора'},
-    {what:'Воронка численности (юридическая → активная → HQ) и средний возраст',aud:'all',stage:'0',now:'dev',
-      need:'нужна таблица состава: все типы численности и покраски сразу (запрос 0к)'},
+    {what:'Водопад за год, дерево подразделений и фильтры',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Тип оформления, формат работы, сеньорность, грейд, стаж, юрлицо, стримы',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Специализации внутри стримов',aud:'all',stage:'4',now:'live',ok:1},
+    /* 23.10, сверка с данными (Антон, п. 5): регион и тип компании — в отчёте. 26.10, правки: формат работы — по типу
+       договора, так и оставляем; воронки численности (юридическая → активная → HQ) не будет — строки нет;
+       средний возраст на настоящих данных — заглушка до таблицы состава */
+    {what:'Регион сотрудника',aud:'all',stage:'4',now:'live',ok:1},
+    {what:'Тип компании',aud:'hq',stage:'0',now:'live',ok:1},
+    {what:'Формат работы: офис, гибрид, удалённо — по типу договора',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Средний возраст',aud:'all',stage:'0',now:'dev',
+      need:'нужна таблица состава: возраст людей, а не только группы (запрос 0к)'},
     {what:'Пересечения разрезов: срез по клику, «разрез × разрез»',aud:'all',stage:'0',now:'dev',
       need:'пока оценка по подразделениям; точные — отдельной выгрузкой'},
   ]},
   {blk:'Движение персонала',rows:[
     {what:'Найм и отток: за месяц, год к году и по подразделениям',aud:'all',stage:'0',now:'live',ok:1},
-    {what:'Переводы между подразделениями, водопад движения',aud:'all',stage:'0',now:'live'},
-    {what:'Переводы «напрямую в юните», детализация переводов и выгрузка для сверки',aud:'all',stage:'0',now:'live'},
+    {what:'Переводы между подразделениями, водопад движения',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Переводы «напрямую в юните», детализация переводов и выгрузка для сверки',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Движение по специализациям',aud:'hq',stage:'4',now:'data',
       need:'численность, найм и уходы по специализациям собраны; переводов по специализациям ещё нет; нужен график'}]},
   {blk:'Отток и текучесть',rows:[
     {what:'Отток за месяц и с начала года',aud:'all',stage:'0',now:'live',ok:1},
-    {what:'Текучесть месячная и накопительная',aud:'all',stage:'0',now:'live'},
-    {what:'Нежелательный и желательный отток',aud:'hq',stage:'0',now:'live',hq:1},
-    {what:'Светофор текучести: нежелательная и обычная с порогами прод-отчёта HQ (4%, 5–15%, бенчмарк 12/15%)',aud:'hq',stage:'0',now:'live',hq:1},
-    {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live'},
-    {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live'},
+    {what:'Текучесть месячная и накопительная',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Нежелательный и желательный отток',aud:'hq',stage:'0',now:'live',hq:1,bad:1,
+      need:'не сходятся с мастер-источником — ищем причину'},
+    {what:'Светофор «Как уходит HQ?»: текучесть HQ, желательная и нежелательная с начала года против порогов прод-отчёта HQ (бенчмарк 12/15%, 5–15%, 4%)',
+      aud:'hq',stage:'0',now:'live',hq:1,bad:1,need:'текучесть HQ сверена; желательная и нежелательная пока не сходятся'},
+    {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live',ok:1},
     /* 21.10, ревизия источника (п. 10): по инициатору знаменатель — среднесписочная подразделения, она есть;
        по стажу, специализации и грейду численность по группе — только за последний месяц */
     {what:'Текучесть (а не отток) по инициатору увольнения',aud:'all',stage:'0',now:'data',
@@ -418,8 +425,8 @@ const DEV_PLAN=[
 ];
 /* сколько строк плана в каком статусе — для сводки готовности */
 function planCount(){
-  const n={live:0,data:0,dev:0,todo:0,extra:0,ok:0};
-  DEV_PLAN.forEach(g=>g.rows.forEach(r=>{n[r.now]++;if(r.ok)n.ok++}));
+  const n={live:0,data:0,dev:0,todo:0,extra:0,ok:0,bad:0};
+  DEV_PLAN.forEach(g=>g.rows.forEach(r=>{n[r.now]++;if(r.ok)n.ok++;if(r.bad)n.bad++}));
   return n;
 }
 function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
@@ -1816,22 +1823,6 @@ function aggregateSlice(lp,key,sel){
 }
 function lastValSlice(lp,key,sel){return aggregateSlice(lp,key,sel)[LAST]}
 
-/* ---------- Портрет сотрудника (21.10, файл «Структура», п. 8 Антона) ----------
-   Воронка численности: юридическая → активная → HQ по выбранному подразделению. Ступени —
-   это и есть тип численности и покраска, поэтому фильтры шапки «Численность» и «Покраска»
-   воронку не режут; ИТ, штат и срез состава — режут. В пробнике воронки пока нет: ответ
-   датасета уже отфильтрован по типу и покраске (появится с таблицей состава ноутбука). */
-function hcFunnel(path,st){
-  if(REAL)return null;
-  const sel=st.mixSel||[], base=Object.assign({},st,{paint:'all'});
-  const all=leavesUnder(path).map(l=>l.path).filter(p=>leafPasses(p,base));
-  const hq=all.filter(p=>(NODE_BY_PATH[p]||{}).paint==='HQ');
-  const m0=HC_MODE;
-  setHcMode('all');const legal=lastValSlice(all,'hc_total',sel);
-  setHcMode('active');const act=lastValSlice(all,'hc_total',sel), hqv=hq.length?lastValSlice(hq,'hc_total',sel):0;
-  setHcMode(m0);
-  return {legal:Math.round(legal),active:Math.round(act),hq:Math.round(hqv)};
-}
 /* ============================================================================
    Мониторинг рабочей активности (21.10, файл Антона «Мониторинг работы»)
    Неделя — пн–вс; последняя закрытая — та, что кончилась до даты данных. KPI, таблица и
@@ -2149,7 +2140,10 @@ function vacancyBreakdown(lp){
   if(!REAL||!Object.keys(REAL.mixVals('vk')).length&&!Object.keys(REAL.mixVals('vs')).length)return null;
   const list=k=>{const x=realExit(lp,k);return realExitList(k).map((v,i)=>({key:k+i,name:v||NONE_NAME,value:Math.round(x[v]||0)}))
     .filter(r=>r.value>0)};
-  return {status:list('vs'),reason:list('vr'),spec:list('vp'),pos:list('vl'),channel:list('vk'),cand:list('vq')};
+  /* 26.10, правки: специализации — по числу открытых вакансий выбранного подразделения, по убыванию (realExitList
+     ставит их по всей компании, у юнита порядок был бы чужим) */
+  const desc=a=>a.sort((x,y)=>y.value-x.value||x.name.localeCompare(y.name));
+  return {status:list('vs'),reason:list('vr'),spec:desc(list('vp')),pos:list('vl'),channel:list('vk'),cand:list('vq')};
 }
 function realExitList(k,dimKey){
   const vals=REAL.mixVals(k);
@@ -2523,9 +2517,9 @@ function aiProfile(lp){
   return {pen:pen,wau:wau,tools:tools};
 }
 
-window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,hcFunnel,avgAge,monData,MON_WEEKS,MON_MONTHS,
+  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,trfMonths,trfReport,trfDetail,

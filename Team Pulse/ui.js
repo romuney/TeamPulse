@@ -254,7 +254,8 @@ function betterWord(m){
 /* что это и как считается (calc — по методологии HR из Data Detective): подсказка «i» и шапки
    таблиц показывают оба, подпись под названием метрики — только hint */
 function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')+
-  (D.VERIFIED.has(m.key)?'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')}
+  (D.VERIFIED.has(m.key)?'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')+
+  (D.MISMATCH.has(m.key)?'\nРасхождение с мастер-источником: число настоящее, но пока не совпадает с ним — ищем причину.':'')}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';
   return '<span class="info"'+tipAttr({title:m.name,text:metricText(m),note:betterWord(m)})+' aria-label="О метрике">i</span>';
@@ -668,23 +669,10 @@ function sliceNote(parts,extra){
 }
 
 /* ============================================================================
-   Портрет сотрудника (21.10, файл «Структура», п. 8 Антона): воронка численности,
-   полоса долей и карточки категорий. Клик по куску полосы или по карточке — срез
+   Портрет сотрудника (21.10, файл «Структура», п. 8 Антона): полоса долей и карточки
+   категорий (26.10: воронки численности нет). Клик по куску полосы или по карточке — срез
    (data-mix), Shift+клик — добавить категорию того же разреза.
    ========================================================================== */
-/* Воронка: ступени по центру, ширина — от самой большой; слева подпись, справа число
-   и доля от первой ступени. cur — ступень, на которой стоит отчёт (тип численности
-   и покраска в шапке). */
-function funnelSteps(o){
-  const max=Math.max(1,...o.steps.map(x=>x.n));
-  return '<div class="hfun">'+o.steps.map((x,i)=>{
-    const w=Math.max(6,x.n/max*100);
-    return '<div class="hf-st'+(x.cur?' cur':'')+'"'+tipAttr(x.tip)+'>'+
-      '<div class="hf-lb">'+esc(x.name)+(x.cur?'<span class="hf-cur">в отчёте</span>':'')+'</div>'+
-      '<div class="hf-tr"><i class="s'+i+'" style="width:'+w.toFixed(1)+'%"></i></div>'+
-      '<div class="hf-v"><b>'+D.fmtInt(x.n)+'</b>'+(i?'<em>'+x.p+'% от юр.</em>':'<em>чел</em>')+'</div></div>';
-  }).join('')+'</div>';
-}
 /* Полоса долей: кусок — доля, внутри — доля в процентах, если влезает. seg.bg — цвет
    (токен), seg.dk — тёмный фон, текст белый. Выбранная в срезе категория — с обводкой,
    остальные куски того же разреза тогда приглушены. */
@@ -724,7 +712,6 @@ function genderSplit(m,f){
 /* Иконки разделов «Структуры численности» (23.10, заказчик: «на SVG — иконки: мальчик, девочка, возраст, уровень»).
    Линейные, 24×24, цвет — currentColor: в заголовке — тоном подписи, в карточке — цветом категории. */
 const ICO={
-  funnel:'M3 5h18l-7 8v5l-4 2v-7z',
   people:'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5.2a3 3 0 0 1 0 5.6M21 20c0-2.6-1.6-4.8-3.8-5.6',
   male:'M12 7.5a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6zM8.5 22v-6.5H7v-4A2.5 2.5 0 0 1 9.5 9h5a2.5 2.5 0 0 1 2.5 2.5v4h-1.5V22',
   female:'M12 7.5a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6zM9.5 22v-5H6.5l2.8-6.4A2.6 2.6 0 0 1 11.7 9h.6a2.6 2.6 0 0 1 2.4 1.6l2.8 6.4h-3V22',
@@ -1064,6 +1051,7 @@ function devNote(d){
    Что · для кого · где сейчас · откуда и что нужно. Тот же план — в справке
    и в сводке готовности на One-pager. */
 function planNow(r){
+  if(r.now==='live'&&r.bad)return '<span class="live-tag bad"'+tipAttr(D.MISMATCH_TIP)+'>расхождение</span>';
   if(r.now==='live'&&r.ok)return '<span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены</span>';
   return r.now==='live'?'<span class="live-tag">настоящие</span>'
     :r.now==='dev'?devTag(r.stage)
@@ -1074,7 +1062,8 @@ function planTable(groups){
   return '<label>План Team Pulse 2.0</label><div class="fhint">Всё, что есть в дашбордах HQ и УС, — по блокам отчёта.</div>'+
     '<ul class="plan-lg">'+
       '<li><span class="live-tag ok">✓ сверены</span> настоящие и сверены с мастер-источником: число в отчёте совпадает с ним — '+n.ok+'</li>'+
-      '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+(n.live-n.ok)+'</li>'+
+      '<li><span class="live-tag bad">расхождение</span> настоящие, но с мастер-источником пока не сходятся — '+n.bad+'</li>'+
+      '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+(n.live-n.ok-n.bad)+'</li>'+
       '<li><span class="plan-tag data">данные есть</span> данные пришли, графика ещё нет — '+n.data+'</li>'+
       '<li>'+devTag(null,false)+' в отчёте есть, цифры пока условные — '+n.dev+'</li>'+
       '<li><span class="plan-tag todo">добавить</span> в отчёте ещё нет — '+n.todo+'</li>'+
@@ -1097,6 +1086,7 @@ function devSummary(o){
     '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на настоящих данных · '+
       '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>'+
       ' · <span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены '+D.VERIFIED.size+'</span>'+
+      (D.MISMATCH.size?' · <span class="live-tag bad"'+tipAttr(D.MISMATCH_TIP)+'>расхождение '+D.MISMATCH.size+'</span>':'')+
       (n.todo?' · <span class="plan-tag todo">ещё добавить '+n.todo+'</span>':'')+'</span>'+
     '<span class="dev-sum-more">весь план ▾</span></summary>'+
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
@@ -1104,6 +1094,6 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
+  shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();

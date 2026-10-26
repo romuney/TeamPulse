@@ -200,7 +200,11 @@ button,select,input,textarea{font-family:inherit}
 .kpis.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .kpis.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
-.kpis.n5{grid-template-columns:repeat(5,minmax(0,1fr))}
+/* 26.10, правки: KPI, которым тесно в одной строке, — по три в строку, как карточки .shcards: до четырёх — одной
+   строкой, больше — сеткой по три (пять — 3 + 2, шесть — 3 + 3, восемь — 3 + 3 + 2); семь — 4 + 3, чтобы внизу не
+   осталась одна карточка */
+.kpis.n5,.kpis.n6,.kpis.n8{grid-template-columns:repeat(3,minmax(0,1fr))}
+.kpis.n7{grid-template-columns:repeat(4,minmax(0,1fr))}
 .kpis.compact{gap:12px;margin-bottom:16px}
 .kpis.compact .kpi{padding:13px 15px}
 .kpis.compact .k-val{font-size:var(--fs-hero)}
@@ -439,7 +443,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   /* классы n2…n5 задают колонки жёстче, чем базовое правило, поэтому на узком
      экране их приходится переопределять явно — иначе пять карточек движения
      персонала остались бы впятером и на планшете */
-  .kpis,.kpis.n4,.kpis.n5{grid-template-columns:repeat(3,minmax(160px,1fr))}
+  .kpis{grid-template-columns:repeat(3,minmax(160px,1fr))}
+  .kpis.n4{grid-template-columns:repeat(2,minmax(0,1fr))}
   .content{padding:22px}
   .reporthead{padding-left:22px;padding-right:22px}
 }
@@ -448,13 +453,13 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .reporthead{padding:14px}.rh-row{align-items:flex-start}.rh-title{font-size:22px}.rh-side{display:none}
   .layout{display:block}.nav{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(82vw,300px);transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 28px rgba(20,28,45,.18);padding-top:18px}.nav.open{transform:translateX(0)}
   .nav-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}.nav-scrim.open{display:block}
-  .content{padding:16px}.kpis,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
+  .content{padding:16px}.kpis,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
   .panel{overflow-x:auto}.mtable,.ptable{min-width:760px}.page-h h2{font-size:21px}.block-h{align-items:flex-start}
   .modal{width:calc(100vw - 20px);max-height:92vh}.modal-b{padding:16px}.modal-f{padding:12px;flex-wrap:wrap}
 }
 @media(max-width:480px){
   .apphead .primary{padding:8px 10px;font-size:11px}.logo{font-size:14px}.rh-title .lvl{display:block;margin:5px 0 0;width:max-content}
-  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5{grid-template-columns:1fr}.chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
+  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:1fr}.chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
   .legend{gap:8px 12px}.panel-h{padding:12px}.panel-b{padding:10px}
   .mpick-l{grid-template-columns:1fr}.mpick{max-height:200px}
 }
@@ -1242,13 +1247,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    one-pager стала дайджестом из восьми карточек. Колонка на метрику — только
    на широком экране: семь карточек по 150px не вмещают пилюлю со спарклайном.
    Ниже — по четыре в ряд; восемь карточек дайджеста — всегда два ряда по четыре. */
-.kpis.n6{grid-template-columns:repeat(6,minmax(0,1fr))}
-.kpis.n7{grid-template-columns:repeat(7,minmax(0,1fr))}
-.kpis.n8{grid-template-columns:repeat(4,minmax(0,1fr))}
-@media(max-width:1599px){.kpis.n6,.kpis.n7{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:1100px){.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:repeat(3,minmax(160px,1fr))}}
-@media(max-width:780px){.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:480px){.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:1fr}}
 
 /* ---------- Таблица показателей (U.statTable) ----------
    План-факт подбора и заявки «Роста»: строки — разные величины, колонки —
@@ -1594,6 +1592,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* 21.10, правки Антона: «данные есть» — данные пришли, графика нет; «✓ сверены» — с мастер-источником */
 .plan-tag.data{color:var(--green-tx);background:var(--card);border-color:var(--green-bg);border-style:dashed}
 .live-tag.ok{color:#fff;background:var(--green-tx);border-color:var(--green-tx)}
+/* 26.10: «расхождение» — число настоящее, но с мастер-источником не сходится (желательный и нежелательный отток) */
+.live-tag.bad{color:#9a5b00;background:#fff4dc;border-color:#f0c36d}
 /* для кого: все / HQ / УС — подпись, не цветовая категория */
 .aud-tag{display:inline-block;min-width:28px;padding:0 var(--s2);border-radius:var(--r1);font-size:var(--fs-micro);
   font-weight:var(--fw-bold);line-height:16px;text-align:center;color:var(--ink2);background:var(--line2)}
@@ -2282,20 +2282,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .pf-a{font-size:var(--fs-body);color:var(--muted)}
 .pf-a b{color:var(--ink);font-weight:var(--fw-bold)}
 .pf [data-mix]{cursor:pointer}
-/* воронка: подпись | дорожка со ступенью по центру | число и доля от юридической */
-.hfun{display:flex;flex-direction:column;gap:var(--s3)}
-.hf-st{display:grid;grid-template-columns:minmax(150px,190px) 1fr 110px;align-items:center;gap:var(--s6);min-height:38px}
-.hf-lb{font-size:var(--fs-lead);color:var(--ink2);display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
-.hf-cur{font-size:var(--fs-micro);font-weight:var(--fw-bold);letter-spacing:.3px;text-transform:uppercase;color:var(--act);
-  background:var(--blue-bg);border-radius:var(--r-pill);padding:2px 7px}
-.hf-tr{display:flex;justify-content:center;height:34px}
-.hf-tr i{display:block;height:100%;border-radius:var(--r2);transition:width .3s}
-.hf-tr i.s0{background:var(--pt-s1)}.hf-tr i.s1{background:var(--pt-s2)}.hf-tr i.s2{background:var(--pt-s3)}
-.hf-st.cur .hf-tr i{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--act-line)}
-.hf-v{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
-.hf-v b{font-size:var(--fs-head);font-weight:var(--fw-bold);color:var(--ink);font-variant-numeric:tabular-nums}
-.hf-v em{font-style:normal;font-size:var(--fs-note);color:var(--muted)}
-.hf-st:hover .hf-tr i{filter:brightness(.96) saturate(1.2)}
 /* полоса долей: кусок — доля; выбранный в срезе — обводка, остальные того же разреза бледнее */
 .shbar{display:flex;height:38px;border-radius:var(--r2);overflow:hidden;gap:2px;font-size:var(--fs-body);margin-bottom:var(--s6)}
 .shbar span{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0;white-space:nowrap;overflow:hidden;
@@ -2344,7 +2330,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .mx-full{position:fixed;inset:16px;z-index:70;background:var(--card);border-radius:var(--r5);box-shadow:var(--shadow-lg);
   padding:var(--s9) var(--s10);overflow:auto}
 .mx-full-h{font-size:var(--fs-head);font-weight:var(--fw-bold);color:var(--ink);margin-bottom:var(--s8)}
-@media (max-width:780px){.hf-st{grid-template-columns:1fr 84px;row-gap:4px}.hf-lb{grid-column:1/-1}.mx-full{inset:0;border-radius:0}}
+@media (max-width:780px){.mx-full{inset:0;border-radius:0}}
 /* пять шагов (структура, 21.10): активный шире — его подпись видна целиком */
 .st-steps.n5 .st-step.on{flex-grow:1.7}
 
@@ -2888,39 +2874,46 @@ const PLAN_NOW={live:'настоящие',data:'данные есть',dev:'в �
 /* 21.10, правка Антона: «Данные сверены» — флаг ставится вручную, когда число в отчёте сверено с
    мастер-источником и совпало. Отчёт его не вычисляет и ничего по нему не пересчитывает. Сверены:
    численность (общая и активная), найм, отток. */
-const VERIFIED=new Set(['hc_total','hc_active','hire','attrition']);
+/* 26.10, правки: «Структура численности» и «Движение персонала» сверены целиком, «Отток и текучесть» — кроме
+   желательного и нежелательного: они настоящие, но с мастер-источником пока не сходятся (MISMATCH) */
+const VERIFIED=new Set(['hc_total','hc_active','hire','attrition','transfer_in','transfer_out','net_ytd','turnover_m','turnover_y']);
 const VERIFIED_TIP={title:'Данные сверены',
   text:'Данные настоящие и сверены с мастер-источником: значение в отчёте совпадает со значением в мастер-источнике.'};
+const MISMATCH=new Set(['regret','nonregret']);
+const MISMATCH_TIP={title:'Расхождение с мастер-источником',
+  text:'Данные настоящие, но значение в отчёте пока не совпадает с мастер-источником — ищем причину. До исправления это не сверенное число.'};
 const DEV_PLAN=[
   {blk:'Структура численности',rows:[
     {what:'Общая и активная численность',aud:'all',stage:'0',now:'live',ok:1},
-    {what:'Водопад за год, дерево подразделений и фильтры',aud:'all',stage:'0',now:'live'},
-    {what:'Тип оформления, формат работы, сеньорность, грейд, стаж, юрлицо, стримы',aud:'all',stage:'0',now:'live'},
-    {what:'Специализации внутри стримов',aud:'all',stage:'4',now:'live'},
-    /* 23.10, сверка с данными (Антон, п. 5): регион и тип компании — в отчёте; формат работы по профилю — собран, но не
-       выведен; воронка и средний возраст на настоящих данных — заглушки до таблицы состава */
-    {what:'Регион сотрудника',aud:'all',stage:'4',now:'live'},
-    {what:'Тип компании',aud:'hq',stage:'0',now:'live'},
-    {what:'Формат работы по профилю сотрудника: офис, гибрид, удалённо',aud:'all',stage:'4',now:'data',
-      need:'колонка собрана в ноутбуке (поставка 64), в разрезы отчёта ещё не выведена; сейчас «Формат работы» — по типу договора'},
-    {what:'Воронка численности (юридическая → активная → HQ) и средний возраст',aud:'all',stage:'0',now:'dev',
-      need:'нужна таблица состава: все типы численности и покраски сразу (запрос 0к)'},
+    {what:'Водопад за год, дерево подразделений и фильтры',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Тип оформления, формат работы, сеньорность, грейд, стаж, юрлицо, стримы',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Специализации внутри стримов',aud:'all',stage:'4',now:'live',ok:1},
+    /* 23.10, сверка с данными (Антон, п. 5): регион и тип компании — в отчёте. 26.10, правки: формат работы — по типу
+       договора, так и оставляем; воронки численности (юридическая → активная → HQ) не будет — строки нет;
+       средний возраст на настоящих данных — заглушка до таблицы состава */
+    {what:'Регион сотрудника',aud:'all',stage:'4',now:'live',ok:1},
+    {what:'Тип компании',aud:'hq',stage:'0',now:'live',ok:1},
+    {what:'Формат работы: офис, гибрид, удалённо — по типу договора',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Средний возраст',aud:'all',stage:'0',now:'dev',
+      need:'нужна таблица состава: возраст людей, а не только группы (запрос 0к)'},
     {what:'Пересечения разрезов: срез по клику, «разрез × разрез»',aud:'all',stage:'0',now:'dev',
       need:'пока оценка по подразделениям; точные — отдельной выгрузкой'},
   ]},
   {blk:'Движение персонала',rows:[
     {what:'Найм и отток: за месяц, год к году и по подразделениям',aud:'all',stage:'0',now:'live',ok:1},
-    {what:'Переводы между подразделениями, водопад движения',aud:'all',stage:'0',now:'live'},
-    {what:'Переводы «напрямую в юните», детализация переводов и выгрузка для сверки',aud:'all',stage:'0',now:'live'},
+    {what:'Переводы между подразделениями, водопад движения',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Переводы «напрямую в юните», детализация переводов и выгрузка для сверки',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Движение по специализациям',aud:'hq',stage:'4',now:'data',
       need:'численность, найм и уходы по специализациям собраны; переводов по специализациям ещё нет; нужен график'}]},
   {blk:'Отток и текучесть',rows:[
     {what:'Отток за месяц и с начала года',aud:'all',stage:'0',now:'live',ok:1},
-    {what:'Текучесть месячная и накопительная',aud:'all',stage:'0',now:'live'},
-    {what:'Нежелательный и желательный отток',aud:'hq',stage:'0',now:'live',hq:1},
-    {what:'Светофор текучести: нежелательная и обычная с порогами прод-отчёта HQ (4%, 5–15%, бенчмарк 12/15%)',aud:'hq',stage:'0',now:'live',hq:1},
-    {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live'},
-    {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live'},
+    {what:'Текучесть месячная и накопительная',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Нежелательный и желательный отток',aud:'hq',stage:'0',now:'live',hq:1,bad:1,
+      need:'не сходятся с мастер-источником — ищем причину'},
+    {what:'Светофор «Как уходит HQ?»: текучесть HQ, желательная и нежелательная с начала года против порогов прод-отчёта HQ (бенчмарк 12/15%, 5–15%, 4%)',
+      aud:'hq',stage:'0',now:'live',hq:1,bad:1,need:'текучесть HQ сверена; желательная и нежелательная пока не сходятся'},
+    {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live',ok:1},
     /* 21.10, ревизия источника (п. 10): по инициатору знаменатель — среднесписочная подразделения, она есть;
        по стажу, специализации и грейду численность по группе — только за последний месяц */
     {what:'Текучесть (а не отток) по инициатору увольнения',aud:'all',stage:'0',now:'data',
@@ -2966,8 +2959,8 @@ const DEV_PLAN=[
 ];
 /* сколько строк плана в каком статусе — для сводки готовности */
 function planCount(){
-  const n={live:0,data:0,dev:0,todo:0,extra:0,ok:0};
-  DEV_PLAN.forEach(g=>g.rows.forEach(r=>{n[r.now]++;if(r.ok)n.ok++}));
+  const n={live:0,data:0,dev:0,todo:0,extra:0,ok:0,bad:0};
+  DEV_PLAN.forEach(g=>g.rows.forEach(r=>{n[r.now]++;if(r.ok)n.ok++;if(r.bad)n.bad++}));
   return n;
 }
 function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
@@ -4364,22 +4357,6 @@ function aggregateSlice(lp,key,sel){
 }
 function lastValSlice(lp,key,sel){return aggregateSlice(lp,key,sel)[LAST]}
 
-/* ---------- Портрет сотрудника (21.10, файл «Структура», п. 8 Антона) ----------
-   Воронка численности: юридическая → активная → HQ по выбранному подразделению. Ступени —
-   это и есть тип численности и покраска, поэтому фильтры шапки «Численность» и «Покраска»
-   воронку не режут; ИТ, штат и срез состава — режут. В пробнике воронки пока нет: ответ
-   датасета уже отфильтрован по типу и покраске (появится с таблицей состава ноутбука). */
-function hcFunnel(path,st){
-  if(REAL)return null;
-  const sel=st.mixSel||[], base=Object.assign({},st,{paint:'all'});
-  const all=leavesUnder(path).map(l=>l.path).filter(p=>leafPasses(p,base));
-  const hq=all.filter(p=>(NODE_BY_PATH[p]||{}).paint==='HQ');
-  const m0=HC_MODE;
-  setHcMode('all');const legal=lastValSlice(all,'hc_total',sel);
-  setHcMode('active');const act=lastValSlice(all,'hc_total',sel), hqv=hq.length?lastValSlice(hq,'hc_total',sel):0;
-  setHcMode(m0);
-  return {legal:Math.round(legal),active:Math.round(act),hq:Math.round(hqv)};
-}
 /* ============================================================================
    Мониторинг рабочей активности (21.10, файл Антона «Мониторинг работы»)
    Неделя — пн–вс; последняя закрытая — та, что кончилась до даты данных. KPI, таблица и
@@ -4697,7 +4674,10 @@ function vacancyBreakdown(lp){
   if(!REAL||!Object.keys(REAL.mixVals('vk')).length&&!Object.keys(REAL.mixVals('vs')).length)return null;
   const list=k=>{const x=realExit(lp,k);return realExitList(k).map((v,i)=>({key:k+i,name:v||NONE_NAME,value:Math.round(x[v]||0)}))
     .filter(r=>r.value>0)};
-  return {status:list('vs'),reason:list('vr'),spec:list('vp'),pos:list('vl'),channel:list('vk'),cand:list('vq')};
+  /* 26.10, правки: специализации — по числу открытых вакансий выбранного подразделения, по убыванию (realExitList
+     ставит их по всей компании, у юнита порядок был бы чужим) */
+  const desc=a=>a.sort((x,y)=>y.value-x.value||x.name.localeCompare(y.name));
+  return {status:list('vs'),reason:list('vr'),spec:desc(list('vp')),pos:list('vl'),channel:list('vk'),cand:list('vq')};
 }
 function realExitList(k,dimKey){
   const vals=REAL.mixVals(k);
@@ -5071,9 +5051,9 @@ function aiProfile(lp){
   return {pen:pen,wau:wau,tools:tools};
 }
 
-window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,hcFunnel,avgAge,monData,MON_WEEKS,MON_MONTHS,
+  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,trfMonths,trfReport,trfDetail,
@@ -6601,7 +6581,8 @@ function betterWord(m){
 /* что это и как считается (calc — по методологии HR из Data Detective): подсказка «i» и шапки
    таблиц показывают оба, подпись под названием метрики — только hint */
 function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')+
-  (D.VERIFIED.has(m.key)?'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')}
+  (D.VERIFIED.has(m.key)?'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')+
+  (D.MISMATCH.has(m.key)?'\nРасхождение с мастер-источником: число настоящее, но пока не совпадает с ним — ищем причину.':'')}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';
   return '<span class="info"'+tipAttr({title:m.name,text:metricText(m),note:betterWord(m)})+' aria-label="О метрике">i</span>';
@@ -7015,23 +6996,10 @@ function sliceNote(parts,extra){
 }
 
 /* ============================================================================
-   Портрет сотрудника (21.10, файл «Структура», п. 8 Антона): воронка численности,
-   полоса долей и карточки категорий. Клик по куску полосы или по карточке — срез
+   Портрет сотрудника (21.10, файл «Структура», п. 8 Антона): полоса долей и карточки
+   категорий (26.10: воронки численности нет). Клик по куску полосы или по карточке — срез
    (data-mix), Shift+клик — добавить категорию того же разреза.
    ========================================================================== */
-/* Воронка: ступени по центру, ширина — от самой большой; слева подпись, справа число
-   и доля от первой ступени. cur — ступень, на которой стоит отчёт (тип численности
-   и покраска в шапке). */
-function funnelSteps(o){
-  const max=Math.max(1,...o.steps.map(x=>x.n));
-  return '<div class="hfun">'+o.steps.map((x,i)=>{
-    const w=Math.max(6,x.n/max*100);
-    return '<div class="hf-st'+(x.cur?' cur':'')+'"'+tipAttr(x.tip)+'>'+
-      '<div class="hf-lb">'+esc(x.name)+(x.cur?'<span class="hf-cur">в отчёте</span>':'')+'</div>'+
-      '<div class="hf-tr"><i class="s'+i+'" style="width:'+w.toFixed(1)+'%"></i></div>'+
-      '<div class="hf-v"><b>'+D.fmtInt(x.n)+'</b>'+(i?'<em>'+x.p+'% от юр.</em>':'<em>чел</em>')+'</div></div>';
-  }).join('')+'</div>';
-}
 /* Полоса долей: кусок — доля, внутри — доля в процентах, если влезает. seg.bg — цвет
    (токен), seg.dk — тёмный фон, текст белый. Выбранная в срезе категория — с обводкой,
    остальные куски того же разреза тогда приглушены. */
@@ -7071,7 +7039,6 @@ function genderSplit(m,f){
 /* Иконки разделов «Структуры численности» (23.10, заказчик: «на SVG — иконки: мальчик, девочка, возраст, уровень»).
    Линейные, 24×24, цвет — currentColor: в заголовке — тоном подписи, в карточке — цветом категории. */
 const ICO={
-  funnel:'M3 5h18l-7 8v5l-4 2v-7z',
   people:'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5.2a3 3 0 0 1 0 5.6M21 20c0-2.6-1.6-4.8-3.8-5.6',
   male:'M12 7.5a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6zM8.5 22v-6.5H7v-4A2.5 2.5 0 0 1 9.5 9h5a2.5 2.5 0 0 1 2.5 2.5v4h-1.5V22',
   female:'M12 7.5a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6zM9.5 22v-5H6.5l2.8-6.4A2.6 2.6 0 0 1 11.7 9h.6a2.6 2.6 0 0 1 2.4 1.6l2.8 6.4h-3V22',
@@ -7411,6 +7378,7 @@ function devNote(d){
    Что · для кого · где сейчас · откуда и что нужно. Тот же план — в справке
    и в сводке готовности на One-pager. */
 function planNow(r){
+  if(r.now==='live'&&r.bad)return '<span class="live-tag bad"'+tipAttr(D.MISMATCH_TIP)+'>расхождение</span>';
   if(r.now==='live'&&r.ok)return '<span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены</span>';
   return r.now==='live'?'<span class="live-tag">настоящие</span>'
     :r.now==='dev'?devTag(r.stage)
@@ -7421,7 +7389,8 @@ function planTable(groups){
   return '<label>План Team Pulse 2.0</label><div class="fhint">Всё, что есть в дашбордах HQ и УС, — по блокам отчёта.</div>'+
     '<ul class="plan-lg">'+
       '<li><span class="live-tag ok">✓ сверены</span> настоящие и сверены с мастер-источником: число в отчёте совпадает с ним — '+n.ok+'</li>'+
-      '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+(n.live-n.ok)+'</li>'+
+      '<li><span class="live-tag bad">расхождение</span> настоящие, но с мастер-источником пока не сходятся — '+n.bad+'</li>'+
+      '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+(n.live-n.ok-n.bad)+'</li>'+
       '<li><span class="plan-tag data">данные есть</span> данные пришли, графика ещё нет — '+n.data+'</li>'+
       '<li>'+devTag(null,false)+' в отчёте есть, цифры пока условные — '+n.dev+'</li>'+
       '<li><span class="plan-tag todo">добавить</span> в отчёте ещё нет — '+n.todo+'</li>'+
@@ -7444,6 +7413,7 @@ function devSummary(o){
     '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на настоящих данных · '+
       '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>'+
       ' · <span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены '+D.VERIFIED.size+'</span>'+
+      (D.MISMATCH.size?' · <span class="live-tag bad"'+tipAttr(D.MISMATCH_TIP)+'>расхождение '+D.MISMATCH.size+'</span>':'')+
       (n.todo?' · <span class="plan-tag todo">ещё добавить '+n.todo+'</span>':'')+'</span>'+
     '<span class="dev-sum-more">весь план ▾</span></summary>'+
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
@@ -7451,7 +7421,7 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  funnelSteps,shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
+  shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
 })();
 
@@ -8642,7 +8612,7 @@ function glossary(term){
 }
 const WHY={
   structure:{
-    portrait:['Сколько людей в команде на каждой ступени — от юридической численности до HQ, — кто они по полу и возрасту.',
+    portrait:['Кто в команде: пол, возраст и регион.',
       'Кликните на кусок полосы или карточку — например, «Женщины»: все разрезы, карточки и таблица подразделений пересчитаются по этому срезу.'],
     level:['На каком уровне люди: {{Сеньорность|сеньорность}}, {{Грейд|грейд}} и стаж в компании.',
       'Клик по строке сеньорности или грейда, куску полосы стажа или карточке — срез; Shift+клик — добавить ещё одну категорию того же разреза.'],
@@ -9089,7 +9059,7 @@ function renderBlock(S,expanded,mixOpen,view){
      персонала их семь — полоса на ноутбуке переносится на два ряда по четыре. */
   /* свой KPI-полосы блок (мониторинг, 21.10): снимок недели по выбранной строке таблицы */
   /* 23.10: у «Структуры численности» KPI-полосы нет — её единственная метрика (численность) уже стоит в «Итого»
-     таблицы и в воронке портрета; на её месте — полка среза */
+     таблицы; на её месте — полка среза */
   if(mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
   else if(b.key!=='structure'){
   h+='<div class="kpis compact n'+Math.min(8,mets.length)+'">';
@@ -9266,9 +9236,9 @@ window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotR
    прокрутка на три экрана, где ни один разрез не виден целиком.
 
    21.10 — раскладка по файлу «Структура» (п. 8 правок Антона; у файла приоритет):
-   1. «Портрет сотрудника» — три блока сверху вниз: воронка численности
-      (юридическая → активная → HQ), пол (полоса М : Ж и две карточки со средним
-      возрастом), возраст (полоса до 25 / 25–30 / 30+ и карточки с раскладом М · Ж).
+   1. «Портрет сотрудника» — блоки сверху вниз: пол (полоса М : Ж и две карточки со средним
+      возрастом), возраст (полоса до 25 / 25–30 / 30+ и карточки с раскладом М · Ж), регион.
+      26.10: воронки численности (юридическая → активная → HQ) нет — заказчик её не делает.
    2. «Уровень позиции» — три таблицы: сеньорность, грейд, стаж.
    3. «Оформление» — три таблицы по убыванию: тип занятости, формат, компания (22.10).
    22.10: регион — таблицей внизу портрета; таблицы вкладок — в столбик; строки — только те,
@@ -9360,9 +9330,7 @@ function treeTable(dim,lp,sel,mixSel,open){
 }
 
 /* ---------- Портрет сотрудника ----------
-   Три блока сверху вниз: воронка, пол, возраст. Ступени воронки — тип численности и
-   покраска, поэтому её не режут фильтры шапки «Численность» и «Покраска»; срез состава —
-   режет (подсказка ступени называет его). */
+   Блоки сверху вниз: пол, возраст, регион (26.10: без воронки численности). */
 const sumA=a=>a.reduce((x,y)=>x+y,0);
 const pc=(a,b)=>b?Math.round(a/b*100):0;
 const num1=v=>v==null?'—':(Math.round(v*10)/10).toFixed(1).replace('.',',');
@@ -9374,21 +9342,6 @@ const genName=c=>GEN_PL[String(c.name).toLowerCase()]||c.name;
 function ratio(m,f){
   if(!m||!f)return '';
   return m>=f?'М : Ж = '+num1(m/f)+' : 1':'М : Ж = 1 : '+num1(f/m);
-}
-function funnelBlock(ctx,path,sel){
-  const S=ctx.S, f=D.hcFunnel(path,S);
-  if(!f)return U.devNote({stage:4,t:'Воронке нужны все типы численности и покраски сразу — их привезёт таблица состава вместе с точным срезом.'});
-  const parts=D.sliceParse(S.mixSel), sl=parts.length?'Срез: '+D.sliceLabel(S.mixSel)+'.':'', flt=D.filterChips(S).filter(x=>x.k!=='paint'&&x.k!=='hcType').map(x=>x.label);
-  const ctxNote=[sl,flt.length?'Фильтры отчёта: '+flt.join(', ')+'.':''].filter(Boolean).join('\n');
-  const cur=S.hcType==='all'?0:S.paint==='HQ'?2:1;
-  const step=(i,name,n,text)=>({name:name,n:n,p:pc(n,f.legal),cur:cur===i,
-    tip:{title:name,text:text,rows:[{label:'Человек',value:D.fmtInt(n)}].concat(i?[{label:'От юридической',value:pc(n,f.legal)+'%'}]:[]),
-      note:ctxNote||null}});
-  return '<section class="pf-s">'+U.pfHead('Воронка численности','юридическая → активная → HQ','funnel')+
-    U.funnelSteps({steps:[
-      step(0,'Юр. численность',f.legal,'Все сотрудники, кроме тех, кто на этапе оформления.'),
-      step(1,'Активная численность',f.active,'Тип «Активная»: юридическая без подрядчиков, стажёров, декрета, прогульщиков и учебных юнитов.'),
-      step(2,'HQ',f.hq,'Активные сотрудники в покраске HQ.')]})+'</section>';
 }
 function genderBlock(ctx,sel){
   const S=ctx.S, G=D.MIX_BY_KEY.gender;
@@ -9435,9 +9388,9 @@ function regionBlock(ctx,sel){
   return tableBlock(ctx,'region',sel,'pin',{sort:true,top:10,word:['регион','региона','регионов']});
 }
 function portrait(ctx){
-  const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id)), path=S.selNode||S.unit;
+  const S=ctx.S, sel=new Set(D.sliceParse(S.mixSel).map(p=>p.id));
   if(!Math.round(D.lastValSlice(ctx.lp,'hc_total',S.mixSel)))return U.empty('Здесь никого нет','Снимите срез или один из фильтров в шапке.');
-  return '<div class="pf">'+funnelBlock(ctx,path,sel)+genderBlock(ctx,sel)+ageBlock(ctx,sel)+regionBlock(ctx,sel)+'</div>';
+  return '<div class="pf">'+genderBlock(ctx,sel)+ageBlock(ctx,sel)+regionBlock(ctx,sel)+'</div>';
 }
 
 /* ---------- «Уровень позиции» и «Оформление» (23.10) ----------
@@ -9544,7 +9497,7 @@ SC.blocks.structure={
     .concat(D.MIX_BY_KEY.stream?[['stream','Стримы']]:[]).concat([['custom','Конструктор']]),
   defaultSub:'portrait',
   title(sub){
-    if(sub==='portrait')return 'Портрет сотрудника · воронка · пол · возраст';
+    if(sub==='portrait')return 'Портрет сотрудника · пол · возраст · регион';
     if(sub==='level')return 'Уровень позиции: сеньорность, грейд, стаж';
     if(sub==='work')return 'Оформление: тип занятости, формат работы, компания';
     if(sub==='stream')return 'Стримы и специализации';
@@ -9793,8 +9746,9 @@ function planTable(lp,S){
 }
 
 SC.blocks.hiring={
-  subTabs:[['vacancies','Вакансии и срок закрытия'],['plan','План-факт'],['profile','Профиль найма']],
-  defaultSub:'vacancies',
+  /* 26.10, правки: «Кого и откуда берём?» → «Успеваем закрывать вакансии?» → «Выполняем план?» */
+  subTabs:[['profile','Профиль найма'],['vacancies','Вакансии и срок закрытия'],['plan','План-факт']],
+  defaultSub:'profile',
   title(sub){return sub==='plan'?'План-факт подбора: массовый и профильный найм'
     :sub==='profile'?'Откуда приходят и кого нанимаем'
     :'Вакансии и скорость их закрытия'},

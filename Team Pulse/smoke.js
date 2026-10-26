@@ -281,9 +281,11 @@ checks.push(['минус во всех дельтах типографский, 
   checks.push(['полоса KPI выровнена subgrid, а не надеждой на короткие заголовки',
     /\.kpi\{display:grid;grid-template-rows:subgrid;grid-row:span5;row-gap:0\}/.test(css)&&
     /@supports\(grid-template-rows:subgrid\)/.test(css)]);
-  checks.push(['метрики движения персонала стоят своим числом колонок',
+  /* 26.10, правки: KPI, которым тесно в строке, — по три в строку (как .shcards): до четырёх — одной строкой */
+  checks.push(['KPI: до четырёх — одной строкой, больше — по три в строку (семь — 4 + 3)',
     nMv===5&&new RegExp('class="kpis compact n'+nMv+'"').test(mvHtml)&&
-    new RegExp('\\.kpis\\.n'+nMv+'\\{grid-template-columns:repeat\\('+nMv).test(css)]);
+    /\.kpis\.n4\{grid-template-columns:repeat\(4,/.test(css)&&
+    /\.kpis\.n5,\.kpis\.n6,\.kpis\.n8\{grid-template-columns:repeat\(3,/.test(css)&&/\.kpis\.n7\{grid-template-columns:repeat\(4,/.test(css)]);
 })();
 
 /* Есть утверждённый KPI — сравниваемся с ним, и базы рядом нет: два ориентира
@@ -361,8 +363,9 @@ checks.push(['состав по файлу «Структура»: портре�
 /* итерация 28 (бизнес-анализ): план-факт и профиль найма, заявки и статусы
    роста, бронирование и «кто ходит» встали своими вкладками; срок закрытия
    по-прежнему панелью к вакансиям, конверсия T-роста — рядом с решениями */
-checks.push(['срок закрытия не отдельная вкладка, план-факт и профиль найма — свои; воронки нет (15.10)',
-  subsOf('hiring')==='vacancies,plan,profile']);
+/* 26.10, правки: порядок глав найма — «Кого и откуда берём?» → «Успеваем закрывать вакансии?» → «Выполняем план?» */
+checks.push(['найм: профиль → вакансии → план-факт; срок закрытия не отдельная вкладка; воронки нет (15.10)',
+  subsOf('hiring')==='profile,vacancies,plan'&&SC.blocks.hiring.defaultSub==='profile']);
 checks.push(['T-рост: конверсия с решениями на одной вкладке, заявки и статусы — на своих',
   subsOf('tgrowth')==='flow,requests,statuses']);
 checks.push(['офис — календарь, «кто и где ходит» (22.10: города, кто ходит и динамика — одна вкладка), бронирование',
@@ -1583,13 +1586,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
      ними; «Пол» и «Возраст» — отдельными разделами, «Тип договора» — своим */
   /* 20.10, вариант E: «Кто в команде?» — 3 раздела (квалификация, опыт, «Пол и возраст»), легенды
      под шкалой нет — тонкая полоса базы, края шкалы; грейды — столбиками (вариант D) */
-  /* 21.10, файл «Структура»: портрет — воронка, пол, возраст; ступень воронки, на которой стоит
-     отчёт (HQ, активная), равна численности в карточке; «Уровень позиции» и «Оформление» — по три таблицы */
+  /* 21.10, файл «Структура»: портрет — пол, возраст, регион (26.10: воронки численности нет — заказчик её не делает);
+     «Уровень позиции» и «Оформление» — по три таблицы */
   const lv=A.go('structure','level');
   const hcR=D.fmtInt(Math.round(D.lastVal(D.reportLeaves(A.st()),'hc_total')));
-  const curN=(pt.match(/<div class="hf-st cur"[\s\S]*?<div class="hf-v"><b>([^<]+)<\/b>/)||[])[1];
-  checks.push(['портрет по файлу «Структура»: воронка, пол, возраст; куски и карточки кликаются; ступень отчёта = численности',
-    (pt.match(/<section class="pf-s">/g)||[]).length===4&&/>Регион</.test(pt)&&(pt.match(/<div class="hf-st/g)||[]).length===3&&curN===hcR&&
+  checks.push(['портрет по файлу «Структура»: пол, возраст, регион, воронки нет; куски и карточки кликаются',
+    (pt.match(/<section class="pf-s">/g)||[]).length===3&&/>Регион</.test(pt)&&!/hf-st|Воронка|юридическ/i.test(pt)&&!!hcR&&
     /М : Ж = /.test(pt)&&/средний возраст команды/.test(pt)&&(pt.match(/средний возраст <b>/g)||[]).length===2&&
     (pt.match(/<div class="shc[^"]*" data-mix="gender:/g)||[]).length===2&&(pt.match(/<div class="shc[^"]*" data-mix="age:/g)||[]).length===3&&
     (pt.match(/class="gsp"/g)||[]).length===3&&(pt.match(/<span[^>]* data-mix="age:[^"]*" style="flex:/g)||[]).length===3&&
@@ -1604,7 +1606,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /Тип занятости[\s\S]*Формат работы[\s\S]*Тип компании[\s\S]*Компания/.test(wk)&&(wk.match(/class="shbar/g)||[]).length===3&&
     /class="shcards c3/.test(wk)&&
     (wk.match(/<div class="bt-group">/g)||[]).length===1&&
-    (pt+lv+wk).match(/<svg class="ico pf-i"/g).length===11&&/data-mix="gender:[mf]"[^>]*>[\s\S]{0,400}?class="shc-ic"/.test(pt)]);
+    (pt+lv+wk).match(/<svg class="ico pf-i"/g).length===10&&/data-mix="gender:[mf]"[^>]*>[\s\S]{0,400}?class="shc-ic"/.test(pt)]);
   /* 23.10, Антон: «показываем 10 регионов, потом всё собирает в остальное — я просил, чтобы он открывал это остальное».
      «Остальные» — строка с кареткой (свёрнута по умолчанию); раскрытая — спрятанные значения вторым уровнем,
      каждое со срезом; ИТОГО и масштаб полос — по верхнему уровню. Пустые не показываются. */
@@ -1649,17 +1651,15 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /:root\{--row-h:36px;--row-sec-h:28px;--bar-h:10px;--bar-r:2px;/.test(cssStd)&&
     /#view\.ptable>tbody>tr>td\{height:var\(--row-h\)/.test(cssStd)&&
     !/\.pt-hb\{|\.pt-row|height:40px;padding-top:4px|\.btable\.lite\.cellbar\{height:8px|\.st-focustd\.bari/.test(cssStd)]);
-  /* 21.10: срез «Женщины» — кусок и карточка выделены, в карточках возраста «М 0% · Ж 100%»,
-     ступень отчёта в воронке — численность среза */
+  /* 21.10: срез «Женщины» — кусок и карточка выделены, в карточках возраста «М 0% · Ж 100%» */
   A.mix(['gender:f']);
   const ps=A.go('structure','portrait');
   const S0=A.st(), rl=D.reportLeaves(S0);
   const ages=D.mixParts(rl,'age',['gender:f']), nF=ages.reduce((a,b)=>a+b,0);
-  const curF=(ps.match(/<div class="hf-st cur"[\s\S]*?<div class="hf-v"><b>([^<]+)<\/b>/)||[])[1];
-  checks.push(['портрет под срезом «Женщины»: выбранное выделено, возраст — только женщины, ступень отчёта = численности среза',
+  checks.push(['портрет под срезом «Женщины»: выбранное выделено, возраст — только женщины',
     /<span class="on" data-mix="gender:f"/.test(ps)&&/<div class="shc on" data-mix="gender:f"/.test(ps)&&
     (ps.match(/М <b>0%<\/b> · Ж <b>100%<\/b>/g)||[]).length===ages.filter(v=>v>0).length&&
-    curF===D.fmtInt(nF)&&/class="note-inline slice sl-shelf"/.test(ps)&&/Сбросить всё/.test(ps)]);
+    nF>0&&/class="note-inline slice sl-shelf"/.test(ps)&&/Сбросить всё/.test(ps)]);
   A.mix([]);
 })();
 
@@ -1681,11 +1681,15 @@ checks.push(['третьей палитры нет: в экранах ни од�
     D.DEV_PLAN.every(g=>g.rows.every(r=>D.AUD_LABEL[r.aud]&&D.PLAN_NOW[r.now]&&(r.now!=='dev'||D.devPlan(r.stage))))&&
     pn.todo>0&&/ещё добавить/.test(op)&&/class="aud-tag hq"/.test(op)&&/class="aud-tag us"/.test(op)&&
     !/[Вв]оронка найма|[Лл]оу-перформ|[Пп]рогноз текучести/.test(op)]);
-  /* 21.10, правки Антона: «сверены» — численность, найм, отток; лишние строки сняты; «данные есть» отмечены */
-  checks.push(['готовность: «сверены» у численности, найма и оттока; лишних строк нет; где данные есть — отмечено',
+  /* 21.10, правки Антона: «сверены» — численность, найм, отток; лишние строки сняты; «данные есть» отмечены.
+     26.10, правки: структура и движение сверены целиком, отток — кроме желательного и нежелательного (расхождение);
+     воронки численности в плане нет */
+  checks.push(['готовность: структура и движение сверены, отток — кроме желательного и нежелательного; воронки нет',
     /* 23.10, сверка с данными: регион — настоящий график (правка 22.10), «тип компании» и состав мониторинга — в отчёте */
-    [...D.VERIFIED].sort().join()==='attrition,hc_active,hc_total,hire'&&pn.ok===3&&pn.data>=3&&/✓ сверены/.test(op)&&
-    !/одной воронкой|Пол и возраст|Списки ушедших|AI-рекомендации/.test(op)&&
+    [...D.VERIFIED].sort().join()==='attrition,hc_active,hc_total,hire,net_ytd,transfer_in,transfer_out,turnover_m,turnover_y'&&
+    [...D.MISMATCH].sort().join()==='nonregret,regret'&&pn.bad===2&&pn.ok>=12&&pn.data>=2&&/✓ сверены/.test(op)&&/расхождение 2/.test(op)&&
+    D.DEV_PLAN.filter(g=>/Структура|Движение/.test(g.blk)).every(g=>g.rows.every(r=>r.now!=='live'||r.ok))&&
+    !/одной воронкой|[Вв]оронка численности|Пол и возраст|Списки ушедших|AI-рекомендации/.test(op)&&
     /считается только для HQ-численности/.test(op)&&/только для eligible-популяции/.test(op)]);
   checks.push(['«в разработке»: в навигации блок частично (найм — план, AI — инструменты; офис — посещаемость живая)',
     /data-tab="ai"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&
