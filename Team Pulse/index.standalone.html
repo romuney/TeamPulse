@@ -2512,7 +2512,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
       </div>
       <div class="fgrp">
         <label>3 · Где есть цель KPI — сравниваем с ней</label>
-        <div class="fhint">Нежелательный отток для HQ и выполнение плана найма сравниваются с целью KPI, а не с базой. Цель KPI или база — это и есть ориентир.</div>
+        <div class="fhint">Нежелательная текучесть для HQ и выполнение плана найма сравниваются с целью KPI, а не с базой. Цель KPI или база — это и есть ориентир.</div>
       </div>
       <div class="fgrp">
         <label>4 · «+3 к маю» — изменение за месяц</label>
@@ -2732,11 +2732,11 @@ const METRICS=[
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с янв.',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR (YTD Turnover): сумма месячной текучести с января.'},
-{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательный отток',short:'Нежелат.',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть',short:'Нежелат.',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
   calc:'Сумма месячной: нежелательные увольнения ÷ среднесписочная × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
-{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательный отток',short:'Желат.',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
+{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть',short:'Желат.',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
   hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.'+HQ_ONLY,
   calc:'Сумма месячной: желательные увольнения ÷ среднесписочная × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
@@ -2908,7 +2908,7 @@ const DEV_PLAN=[
   {blk:'Отток и текучесть',rows:[
     {what:'Отток за месяц и с начала года',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Текучесть месячная и накопительная',aud:'all',stage:'0',now:'live',ok:1},
-    {what:'Нежелательный и желательный отток',aud:'hq',stage:'0',now:'live',hq:1,bad:1,
+    {what:'Нежелательная и желательная текучесть',aud:'hq',stage:'0',now:'live',hq:1,bad:1,
       need:'не сходятся с мастер-источником — ищем причину'},
     {what:'Светофор «Как уходит HQ?»: текучесть HQ, желательная и нежелательная с начала года против порогов прод-отчёта HQ (бенчмарк 12/15%, 5–15%, 4%)',
       aud:'hq',stage:'0',now:'live',hq:1,bad:1,need:'текучесть HQ сверена; желательная и нежелательная пока не сходятся'},
@@ -3640,6 +3640,38 @@ function kpiAt(key,st,mm){
   if(!k.annual)return k;
   const f=(mm+1)/12;
   return {green:+(k.green*f).toFixed(2),red:+(k.red*f).toFixed(2),annual:{green:k.green,red:k.red}};
+}
+
+/* ---------- «Как уходит HQ?» (26.10, правки) ----------
+   Светофор текучести HQ: текучесть, желательная и нежелательная с начала года — всегда по активной численности
+   HQ выбранного подразделения, что бы ни стояло в фильтрах покраски и типа численности (IT-код и штат действуют).
+   Пробник — строка hq датасета 2а (поставка 65): те же ряды, что у scope, но с покраской HQ и типом «Активная».
+   Датасет без неё — светофор по строке scope, только если фильтры и так «HQ + Активная»; иначе null.
+   Макет — команды с покраской HQ под юнитом на активной численности. */
+const HQ_LIGHT=[{key:'turnover_y',label:'Тотал HQ текучесть YTD'},{key:'nonregret',label:'Желательная текучесть YTD'},
+  {key:'regret',label:'Нежелательная текучесть YTD'}];
+function hqLeaves(st){
+  if(REAL){
+    if(REAL.hasSeries('HQ'))return ['HQ'];
+    return st.paint==='HQ'&&st.hcType==='active'?reportLeaves(st):null;
+  }
+  const s=Object.assign({},st,{paint:'HQ'});
+  return leavesUnder(st.unit).map(l=>l.path).filter(p=>leafPasses(p,s));
+}
+function hqLight(st){
+  const lp=hqLeaves(st);
+  if(!lp)return null;
+  const m0=HC_MODE, sh=Object.assign({},st,{paint:'HQ',hcType:'active'});
+  if(!REAL)setHcMode('active');
+  const hc=lp.length?Math.round(lastVal(lp,'hc_total')):0;
+  const rows=HQ_LIGHT.map(x=>{
+    const ser=aggregate(lp,x.key), v=ser[LAST], kpi=kpiFor(x.key,sh);
+    const dl=deltasOf(lp,x.key);
+    return Object.assign({},x,{ser:ser,v:v,mom:dl.mom,yoyD:dl.yoy,ya:aggregateExt(lp,x.key)[NEXT-13],kpi:kpi,
+      st:kpi?stateForKpi(x.key,v,kpi):'neutral',yoy:yoySeries(lp,x.key)});
+  });
+  if(!REAL)setHcMode(m0);
+  return {lp:lp,hc:hc,rows:rows,st:sh};
 }
 
 /* ---------- Форматирование ---------- */
@@ -5053,7 +5085,7 @@ function aiProfile(lp){
 
 window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,monData,MON_WEEKS,MON_MONTHS,
+  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,HQ_LIGHT,hqLeaves,hqLight,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,trfMonths,trfReport,trfDetail,
@@ -8179,7 +8211,7 @@ const Q={
   /* 21.10, файл «Структура»: вкладки называются как в файле */
   structure:{portrait:'Портрет сотрудника',level:'Уровень позиции',work:'Оформление',stream:'Стримы',custom:'Конструктор'},
   movement:{balance:'Растём или сжимаемся?',dynamics:'Что двигало численность?'},
-  turnover:{dynamics:'Сколько уходит?',reasons:'Почему уходят?',who:'Кто уходит?'},
+  turnover:{dynamics:'Сколько уходит?',reasons:'Почему уходят?',who:'Кто уходит?',hq:'Как уходит HQ?'},
   hiring:{vacancies:'Успеваем закрывать вакансии?',plan:'Выполняем план?',profile:'Кого и откуда берём?'},
   tgrowth:{flow:'Растут ли люди внутри?',requests:'Как быстро растут?',statuses:'Кто сейчас в росте?'},
   monitor:{activity:'Рабочая активность',review:'Как прошло ревью?'},
@@ -8248,6 +8280,21 @@ CH.turnover={
         g.name+'» ('+g.value+') и в стриме «'+s.name+'» ('+s.value+').',
       facts:ex.tenure.map(t=>t.name+' — **'+t.value+'**'),
       act:ep>=40?{text:'Ранний уход — вопрос найма и адаптации: проверьте онбординг тех, кто пришёл за последний год.'}:null};
+  },
+  /* 26.10, правки: светофор HQ — по активной численности HQ, что бы ни стояло в фильтрах покраски и типа */
+  hq(c){
+    const h=D.hqLight(c.S);
+    if(!h)return {sum:'нет данных',st:'n',head:'Светофору HQ нужны данные'};
+    if(!h.hc)return {sum:'нет HQ',st:'n',head:'В подразделении нет HQ-сотрудников'};
+    const t=h.rows[0], nr=h.rows[1], rg=h.rows[2], bad=h.rows.filter(r=>r.st==='bad');
+    const nm={turnover_y:'текучесть HQ',nonregret:'желательная',regret:'нежелательная'};
+    const tgt=r=>r.kpi?(r.kpi.red!==r.kpi.green?'коридор '+f(r.key,r.kpi.green)+'–'+f(r.key,r.kpi.red):'цель '+f(r.key,r.kpi.green)):'без цели';
+    return {sum:'текучесть '+f('turnover_y',t.v),st:bad.length?'bad':h.rows.every(r=>r.st==='good')?'good':'n',
+      head:bad.length?(bad.length===3?'Все три показателя HQ выше порога':U.esc(bad.map(r=>nm[r.key]).join(' и ').replace(/^./,x=>x.toUpperCase()))+
+        ' — выше порога'):'HQ уходит в пределах порогов',
+      lede:'Активная численность HQ — **'+pl(h.hc,PPL)+'**. С января: текучесть **'+f('turnover_y',t.v)+'** ('+tgt(t)+
+        '), желательная **'+f('nonregret',nr.v)+'** ('+tgt(nr)+'), нежелательная **'+f('regret',rg.v)+'** ('+tgt(rg)+').',
+      facts:h.rows.map(r=>r.ya!=null?r.label.replace(' YTD','')+' год назад к этому месяцу — **'+f(r.key,r.ya)+'**':null)};
   }
 };
 
@@ -8585,9 +8632,9 @@ const GL={
   'Среднесписочная численность':{text:'Полусумма активной численности на конец прошлого и этого месяца — упрощённый способ из методологии HR. Знаменатель текучести.'},
   'Активная численность':{metric:'hc_active'},
   'База':{text:'Та же метрика по всей компании с теми же фильтрами, что в шапке.\nПереход в подразделение базу не меняет.'},
-  'Нежелательный уход':{text:'Уход, о котором компания сожалеет. По методологии HR: сотрудник ушёл сам, не из-за релокации, со стажем от 12 месяцев; MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3. В причинах отмечен ★.\nИз таких уходов считается нежелательный отток.'},
-  'Нежелательный отток':{metric:'regret'},
-  'Желательный отток':{metric:'nonregret'},
+  'Нежелательный уход':{text:'Уход, о котором компания сожалеет. По методологии HR: сотрудник ушёл сам, не из-за релокации, со стажем от 12 месяцев; MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3. В причинах отмечен ★.\nИз таких уходов считается нежелательная текучесть.'},
+  'Нежелательная текучесть':{metric:'regret'},
+  'Желательная текучесть':{metric:'nonregret'},
   'Срок закрытия вакансии':{metric:'time_to_fill'},
   'Выполнение плана найма':{metric:'hire_plan'},
   'T-рост':{text:'Карьерный рост внутри компании: сотрудник подаёт заявку на повышение грейда или смену специализации, её одобряют или отклоняют.'},
@@ -8634,7 +8681,11 @@ const WHY={
     reasons:['Причины отделяют {{Нежелательный уход|нежелательные уходы}} (★) от неизбежных.',
       'Первая причина со ★ — главный рычаг удержания: оплата, рост или руководитель.'],
     who:['Стаж, {{Грейд|грейд}} и стрим ушедших показывают, кого именно теряем.',
-      'Много уходов в первый год — вопрос найма и адаптации. Уходят опытные — вопрос роста и вознаграждения.']},
+      'Много уходов в первый год — вопрос найма и адаптации. Уходят опытные — вопрос роста и вознаграждения.'],
+    /* 26.10, правки: светофор HQ */
+    hq:['Светофор HQ: {{Текучесть|текучесть}}, {{Желательная текучесть|желательная}} и {{Нежелательная текучесть|нежелательная}} '+
+      'с начала года против порогов отчёта HQ — всегда по активной численности HQ.',
+      'Красная нежелательная — разберите причины со ★ в «Почему уходят?». Желательная выше коридора — проверьте, не теряете ли нужных людей.']},
   hiring:{
     vacancies:['Открытые вакансии — это недостающие люди, а {{Срок закрытия вакансии|срок закрытия}} — сколько команда работает не в полном составе.',
       'Вакансии копятся месяцами — пересмотрите требования и каналы подбора.'],
@@ -9623,19 +9674,51 @@ SC.blocks.movement={
    стрим ушедших. Окно у всех разбивок — с начала года: так их считает Proteus
    («отток YTD по грейду, стажу, специализации»), и так же копится
    накопительная текучесть на соседней вкладке.
+
+   26.10, правки: «Как уходит HQ?» — светофор: текучесть HQ, желательная и нежелательная с начала года против
+   порогов прод-отчёта HQ, всегда по активной численности HQ (D.hqLight): фильтры покраски и типа численности
+   на неё не действуют. Карточки — те же kpiCard, что в полосе KPI блока; под ними — те же панели «год к году».
    ========================================================================== */
 (function(){
 'use strict';
 const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
 
+/* светофор «Как уходит HQ?» — та же таблица, что светофор One-pager: полоса сигнала у названия, значение, изменения
+   к прошлому месяцу и году, спарклайн, ориентир (цель или коридор) с сигналом */
+function hqView(ctx){
+  const h=D.hqLight(ctx.S);
+  if(!h)return U.empty('Светофору HQ нужны данные','Обновите датасет 2а (поставка 65) — или поставьте в шапке покраску «HQ» и тип «Активная».');
+  if(!h.hc)return U.empty('В подразделении нет HQ-сотрудников','Светофор считается только по активной численности HQ.');
+  const f=(k,v)=>D.fmtVal(k,v), esc=U.esc, cap1=x=>x.charAt(0).toUpperCase()+x.slice(1);
+  const tgt=r=>{const c=U.targetCell(r.key,r.v,null,r.kpi);
+    return r.kpi&&r.kpi.red!==r.kpi.green?c.replace('цель '+f(r.key,r.kpi.green),'коридор '+f(r.key,r.kpi.green)+'–'+f(r.key,r.kpi.red)):c};
+  /* правая панель узкая — колонки светофора: метрика, значение, год назад, ориентир с сигналом */
+  const t='<table class="mtable hq-tl"><colgroup><col style="width:40%"><col style="width:15%"><col style="width:16%"><col></colgroup>'+
+    '<thead><tr><th>Метрика</th><th class="num">Значение</th><th class="num">Год назад</th>'+
+    '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Порог отчёта HQ: цель или коридор на этот месяц — доля годового.'})+
+    '>Ориентир</th></tr></thead><tbody>'+
+    h.rows.map(r=>'<tr class="mrow"><td class="m-name bar-'+r.st+'">'+esc(r.label)+U.infoDot(r.key)+'</td>'+
+      '<td class="m-val">'+f(r.key,r.v)+'</td><td class="col-num">'+(r.ya==null?'—':f(r.key,r.ya))+'</td>'+
+      '<td class="col-tgt">'+tgt(r)+'</td></tr>').join('')+'</tbody></table>';
+  const color={turnover_y:G.C_TURN_Y,nonregret:G.C_OUT,regret:G.C_REGRET};
+  return '<div class="tbl-note hq-note">Всегда по активной численности HQ: покраска и тип численности в шапке здесь не действуют, '+
+      'IT-код и штат — действуют.</div>'+t+
+    G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key]}))},
+      {h:520,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
+    '<div class="tbl-note">Ориентир на месяц — доля годового порога отчёта HQ: бенчмарк текучести 15% за год (у IT — 12%), '+
+      'коридор желательной 5–15%, цель нежелательной — 4%. Желательная и нежелательная пока не сходятся с мастер-источником.</div>';
+}
+
 SC.blocks.turnover={
-  subTabs:[['dynamics','Отток и текучесть'],['reasons','Почему уходят'],['who','Кто уходит']],
+  subTabs:[['dynamics','Отток и текучесть'],['reasons','Почему уходят'],['who','Кто уходит'],['hq','Как уходит HQ']],
   defaultSub:'dynamics',
   title(sub){return sub==='reasons'?'Почему уходят: инициатор и причины'
     :sub==='who'?'Кто уходит: стаж, грейд, стрим'
+    :sub==='hq'?'Как уходит HQ: текучесть с начала года против порогов'
     :'Отток и текучесть по месяцам'},
   view(ctx){
     const lp=ctx.lp, ytd=' с начала года';
+    if(ctx.sub==='hq')return hqView(ctx);
     if(ctx.sub==='reasons'){
       /* Инициатор — сумма причин: у каждой причины ровно один инициатор, поэтому
          две таблицы не расходятся. ★ — нежелательный уход; причины по убыванию,
@@ -10178,7 +10261,7 @@ const noEval=(m,kpi)=>!kpi&&(!D.comparable(m.key)||m.better==='flat');
 /* ---------- «О метрике» в раскрытой строке ----------
    Как в HRBP HUB: что это, как считаем (дробью, словами) и с чем сравниваем.
    Имена слагаемых — по-русски: служебных рядов в METRICS нет. */
-const PART={regret_m:'нежелательный отток за месяц',hc_avg:'средняя численность за месяц',pf_plan:'план найма',hire_jun:'принятые джуны',
+const PART={regret_m:'нежелательные уходы за месяц',hc_avg:'средняя численность за месяц',pf_plan:'план найма',hire_jun:'принятые джуны',
   rev_eval:'оценённые в ревью',rev_up:'улучшили оценку',ovis:'дни в офисе',
   wday:'отработанные дни',regret_cnt:'нежелательные уходы',
   tgrowth_pass:'одобренные заявки',tgrowth_deny:'отклонённые заявки'};
@@ -10668,7 +10751,7 @@ function pilotChips(){
   if(STORE.warn)h+='<span class="chip warn">'+esc(STORE.warn)+'</span>';
   h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на настоящих данных',
     text:'Настоящие цифры:',
-    list:['численность, найм, отток, переводы','текучесть, нежелательный и желательный отток','посещаемость офиса и T-рост — если данные уже пришли'],
+    list:['численность, найм, отток, переводы','текучесть, нежелательная и желательная','посещаемость офиса и T-рост — если данные уже пришли'],
     note:'С полосатой меткой «в разработке» — условные цифры. Данные по '+D.CMP.cur+' включительно: текущий месяц ещё не закрыт.'})+
     '><span class="pl-t">Пробник · часть данных в разработке</span></span>';
   return h;

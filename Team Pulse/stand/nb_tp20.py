@@ -536,6 +536,7 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, h
             for n in path(U, at(p['unit'], p['end'])):
                 T[(n, m)]['fire'] += ok(p, m)
                 T[(n, m)]['nreg'] += ok(p, m) and p['nonreg']
+                T[(n, m)]['reg'] += ok(p, m) and p['regret']    # поставка 65: светофор HQ сверяет и нежелательные
         if p['start'] > D0:
             m = dt.date(p['start'].year, p['start'].month, 1)
             for n in path(U, at(p['unit'], p['start'])):

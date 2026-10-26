@@ -221,6 +221,25 @@ def main():
                         own = T[(rk, ms[-1])]['hc'] - sum(T[(c, ms[-1])]['hc'] for c in kids[rk])
                         if (hd and hd != 'h' + rk) or (own > 0 and not hd):
                             bad['логин руководителя'] += 1
+            if label == 'файл 2а':
+                # поставка 65: строка hq — светофор «Как уходит HQ?»: выбранный юнит под «HQ + Активная» (покраска и тип
+                # численности из фильтров не действуют, IT-код и штат — как выбраны); сверяются численность, ССЧ,
+                # увольнения, нежелательные и обычные — всё, из чего считаются три метрики светофора
+                itv = {x.lower() for x in flt.get('it_f', [])}
+                stv = {x.lower() for x in flt.get('staff_f', [])}
+                pred_hq = lambda p, d: A(p, 'oper', d) == 'HQ' and (not itv or A(p, 'it', d).lower() in itv) and (
+                    not stv or ('штат' if A(p, 'rel', d) == 'Штатный сотрудник' else 'не штат') in stv)
+                Th = nb.truth(U, people, perf, grt, pred_hq, act=nb.ACTIVE, hday=True)
+                hq = [r for r in rows if r['role'] == 'hq']
+                if len(hq) != 1:
+                    bad['строка hq: ' + str(len(hq))] += 1
+                for r in hq:
+                    rk = r['id']
+                    ks = [k for k in U if U[k][1] is None] if rk == 'all' else [rk]
+                    for k, tk in (('hc', 'hc'), ('avg', 'ssch'), ('fire', 'fire'), ('reg', 'reg'), ('nreg', 'nreg')):
+                        got = [round(float(x), 1) for x in r['m_' + k].split(',')]
+                        if got != [round(sum(Th[(x, m)][tk] for x in ks), 1) for m in ms]:
+                            bad['hq ' + k] += 1
             if label == 'файл 2а' and not hit[0]:
                 bad['найм из переходов (hit) пуст'] += 1
             if bal[0]:

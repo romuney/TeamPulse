@@ -282,6 +282,9 @@ function build(data){
   if(baseRow){
     series.BASE=parseSer(baseRow);mixes.BASE=parseMx(baseRow.mx);
   }
+  /* поставка 65: светофор «Как уходит HQ?» — выбранный юнит под «HQ + Активная» (строка hq; датасет до 65 — без неё) */
+  const hqRow=by('hq')[0];
+  if(hqRow&&str(hqRow.ms||hqRow.m_hc))series.HQ=parseSer(hqRow);
 
   /* Окно настройки (19.10, как в HRBP HUB): дерево всего справочника, логин руководителя и
      «сколько людей попадёт в выбор» — по fd, без запроса. Пути — как у модели ('T/id/…'). */

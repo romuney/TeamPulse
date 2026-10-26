@@ -198,11 +198,11 @@ const METRICS=[
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с янв.',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR (YTD Turnover): сумма месячной текучести с января.'},
-{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательный отток',short:'Нежелат.',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть',short:'Нежелат.',fmt:'pct',better:'lower',unit:'%',anchor:5.1,kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
   calc:'Сумма месячной: нежелательные увольнения ÷ среднесписочная × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
-{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательный отток',short:'Желат.',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
+{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть',short:'Желат.',fmt:'pct',better:'lower',unit:'%',anchor:8.2,kpi:{green:5,red:15,annual:true},
   hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.'+HQ_ONLY,
   calc:'Сумма месячной: желательные увольнения ÷ среднесписочная × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
@@ -374,7 +374,7 @@ const DEV_PLAN=[
   {blk:'Отток и текучесть',rows:[
     {what:'Отток за месяц и с начала года',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Текучесть месячная и накопительная',aud:'all',stage:'0',now:'live',ok:1},
-    {what:'Нежелательный и желательный отток',aud:'hq',stage:'0',now:'live',hq:1,bad:1,
+    {what:'Нежелательная и желательная текучесть',aud:'hq',stage:'0',now:'live',hq:1,bad:1,
       need:'не сходятся с мастер-источником — ищем причину'},
     {what:'Светофор «Как уходит HQ?»: текучесть HQ, желательная и нежелательная с начала года против порогов прод-отчёта HQ (бенчмарк 12/15%, 5–15%, 4%)',
       aud:'hq',stage:'0',now:'live',hq:1,bad:1,need:'текучесть HQ сверена; желательная и нежелательная пока не сходятся'},
@@ -1106,6 +1106,38 @@ function kpiAt(key,st,mm){
   if(!k.annual)return k;
   const f=(mm+1)/12;
   return {green:+(k.green*f).toFixed(2),red:+(k.red*f).toFixed(2),annual:{green:k.green,red:k.red}};
+}
+
+/* ---------- «Как уходит HQ?» (26.10, правки) ----------
+   Светофор текучести HQ: текучесть, желательная и нежелательная с начала года — всегда по активной численности
+   HQ выбранного подразделения, что бы ни стояло в фильтрах покраски и типа численности (IT-код и штат действуют).
+   Пробник — строка hq датасета 2а (поставка 65): те же ряды, что у scope, но с покраской HQ и типом «Активная».
+   Датасет без неё — светофор по строке scope, только если фильтры и так «HQ + Активная»; иначе null.
+   Макет — команды с покраской HQ под юнитом на активной численности. */
+const HQ_LIGHT=[{key:'turnover_y',label:'Тотал HQ текучесть YTD'},{key:'nonregret',label:'Желательная текучесть YTD'},
+  {key:'regret',label:'Нежелательная текучесть YTD'}];
+function hqLeaves(st){
+  if(REAL){
+    if(REAL.hasSeries('HQ'))return ['HQ'];
+    return st.paint==='HQ'&&st.hcType==='active'?reportLeaves(st):null;
+  }
+  const s=Object.assign({},st,{paint:'HQ'});
+  return leavesUnder(st.unit).map(l=>l.path).filter(p=>leafPasses(p,s));
+}
+function hqLight(st){
+  const lp=hqLeaves(st);
+  if(!lp)return null;
+  const m0=HC_MODE, sh=Object.assign({},st,{paint:'HQ',hcType:'active'});
+  if(!REAL)setHcMode('active');
+  const hc=lp.length?Math.round(lastVal(lp,'hc_total')):0;
+  const rows=HQ_LIGHT.map(x=>{
+    const ser=aggregate(lp,x.key), v=ser[LAST], kpi=kpiFor(x.key,sh);
+    const dl=deltasOf(lp,x.key);
+    return Object.assign({},x,{ser:ser,v:v,mom:dl.mom,yoyD:dl.yoy,ya:aggregateExt(lp,x.key)[NEXT-13],kpi:kpi,
+      st:kpi?stateForKpi(x.key,v,kpi):'neutral',yoy:yoySeries(lp,x.key)});
+  });
+  if(!REAL)setHcMode(m0);
+  return {lp:lp,hc:hc,rows:rows,st:sh};
 }
 
 /* ---------- Форматирование ---------- */
@@ -2519,7 +2551,7 @@ function aiProfile(lp){
 
 window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,monData,MON_WEEKS,MON_MONTHS,
+  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,HQ_LIGHT,hqLeaves,hqLight,monData,MON_WEEKS,MON_MONTHS,
   netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,trfMonths,trfReport,trfDetail,

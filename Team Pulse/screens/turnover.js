@@ -17,19 +17,51 @@
    стрим ушедших. Окно у всех разбивок — с начала года: так их считает Proteus
    («отток YTD по грейду, стажу, специализации»), и так же копится
    накопительная текучесть на соседней вкладке.
+
+   26.10, правки: «Как уходит HQ?» — светофор: текучесть HQ, желательная и нежелательная с начала года против
+   порогов прод-отчёта HQ, всегда по активной численности HQ (D.hqLight): фильтры покраски и типа численности
+   на неё не действуют. Карточки — те же kpiCard, что в полосе KPI блока; под ними — те же панели «год к году».
    ========================================================================== */
 (function(){
 'use strict';
 const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
 
+/* светофор «Как уходит HQ?» — та же таблица, что светофор One-pager: полоса сигнала у названия, значение, изменения
+   к прошлому месяцу и году, спарклайн, ориентир (цель или коридор) с сигналом */
+function hqView(ctx){
+  const h=D.hqLight(ctx.S);
+  if(!h)return U.empty('Светофору HQ нужны данные','Обновите датасет 2а (поставка 65) — или поставьте в шапке покраску «HQ» и тип «Активная».');
+  if(!h.hc)return U.empty('В подразделении нет HQ-сотрудников','Светофор считается только по активной численности HQ.');
+  const f=(k,v)=>D.fmtVal(k,v), esc=U.esc, cap1=x=>x.charAt(0).toUpperCase()+x.slice(1);
+  const tgt=r=>{const c=U.targetCell(r.key,r.v,null,r.kpi);
+    return r.kpi&&r.kpi.red!==r.kpi.green?c.replace('цель '+f(r.key,r.kpi.green),'коридор '+f(r.key,r.kpi.green)+'–'+f(r.key,r.kpi.red)):c};
+  /* правая панель узкая — колонки светофора: метрика, значение, год назад, ориентир с сигналом */
+  const t='<table class="mtable hq-tl"><colgroup><col style="width:40%"><col style="width:15%"><col style="width:16%"><col></colgroup>'+
+    '<thead><tr><th>Метрика</th><th class="num">Значение</th><th class="num">Год назад</th>'+
+    '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Порог отчёта HQ: цель или коридор на этот месяц — доля годового.'})+
+    '>Ориентир</th></tr></thead><tbody>'+
+    h.rows.map(r=>'<tr class="mrow"><td class="m-name bar-'+r.st+'">'+esc(r.label)+U.infoDot(r.key)+'</td>'+
+      '<td class="m-val">'+f(r.key,r.v)+'</td><td class="col-num">'+(r.ya==null?'—':f(r.key,r.ya))+'</td>'+
+      '<td class="col-tgt">'+tgt(r)+'</td></tr>').join('')+'</tbody></table>';
+  const color={turnover_y:G.C_TURN_Y,nonregret:G.C_OUT,regret:G.C_REGRET};
+  return '<div class="tbl-note hq-note">Всегда по активной численности HQ: покраска и тип численности в шапке здесь не действуют, '+
+      'IT-код и штат — действуют.</div>'+t+
+    G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key]}))},
+      {h:520,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
+    '<div class="tbl-note">Ориентир на месяц — доля годового порога отчёта HQ: бенчмарк текучести 15% за год (у IT — 12%), '+
+      'коридор желательной 5–15%, цель нежелательной — 4%. Желательная и нежелательная пока не сходятся с мастер-источником.</div>';
+}
+
 SC.blocks.turnover={
-  subTabs:[['dynamics','Отток и текучесть'],['reasons','Почему уходят'],['who','Кто уходит']],
+  subTabs:[['dynamics','Отток и текучесть'],['reasons','Почему уходят'],['who','Кто уходит'],['hq','Как уходит HQ']],
   defaultSub:'dynamics',
   title(sub){return sub==='reasons'?'Почему уходят: инициатор и причины'
     :sub==='who'?'Кто уходит: стаж, грейд, стрим'
+    :sub==='hq'?'Как уходит HQ: текучесть с начала года против порогов'
     :'Отток и текучесть по месяцам'},
   view(ctx){
     const lp=ctx.lp, ytd=' с начала года';
+    if(ctx.sub==='hq')return hqView(ctx);
     if(ctx.sub==='reasons'){
       /* Инициатор — сумма причин: у каждой причины ровно один инициатор, поэтому
          две таблицы не расходятся. ★ — нежелательный уход; причины по убыванию,

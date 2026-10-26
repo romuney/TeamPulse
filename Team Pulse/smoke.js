@@ -301,7 +301,7 @@ checks.push(['минус во всех дельтах типографский, 
   /* сравнение ищем в видимом тексте карточки: слово «база» встречается ещё и
      внутри подсказки к пилюле изменения, и по нему проверять нельзя */
   const cards=opHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
-  const card=cards.filter(c=>/Нежелательный отток/.test(c))[0]||'';
+  const card=cards.filter(c=>/Нежелательная текучесть/.test(c))[0]||'';
   const subs=(card.match(/<span class="k-sub">[^<]*</g)||[]).join('|');
   checks.push(['в hero-карточке метрики с KPI стоит цель, а базы нет',
     /* 21.10, поставка 50: годовая цель HQ (4%) — на месяц её доля: в макете июнь, 4 × 6 / 12 = 2,0% */
@@ -1420,9 +1420,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* экран: степпер на все главы, текущая отмечена, вывод и колонка на месте */
   const to=A.go('turnover','dynamics');
   const nSteps=(to.match(/class="st-step[^"]*" data-subtab=/g)||[]).length;
-  checks.push(['история: степпер на все вкладки блока, текущая отмечена, «вкладка 1 из 3» в шапке',
+  checks.push(['история: степпер на все вкладки блока, текущая отмечена, «вкладка 1 из 4» в шапке',
     nSteps===SC.blocks.turnover.subTabs.length&&/class="st-step on" data-subtab="dynamics"/.test(to)&&
-    /вкладка 1 из 3/.test(to)&&/<div class="st-head"><h3>/.test(to)&&/<aside class="st-rail">/.test(to)&&
+    /вкладка 1 из 4/.test(to)&&/<div class="st-head"><h3>/.test(to)&&/<aside class="st-rail">/.test(to)&&
     !/class="st-next"/.test(to)]);
   /* цифры вывода — те же, что на графике */
   const rl=D.reportLeaves(st0), n12=D.aggregate(rl,'attrition').reduce((a,b)=>a+b,0);
@@ -1714,7 +1714,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const BAN=[/hr_structure_overall|vacancy_daily|plan_fact_tf|atributy_nayma|junior_ratio|ys_all_fire|initiative_reason|mdm_employee|review_digest|review_table|sigareta|penetration_(unit|company)|office_visit_amt|work_day_amt|grt_[a-z]+_cnt|fire_initiative|fire_reason|mapping_channel|summary_score|management_head/,
     /заглушк|демо-данн|в макете|на проде|сгенерирован|ответ 0а|SOURCES\.md|ClickHouse|Helicopter|датасет/i,
     /* 21.10: «Тип занятости», «Штат (ТК РФ)», «Дистанционно» вернулись — так в файле «Структура» (у него приоритет) */
-    /Нежелательная текучесть|Прошли T-рост|Отказано в T-росте|Time-to-fill|[Лл]оу-перформ|Прогноз (годовой )?текучести/,
+    /* 26.10, правки: принятая терминология — «Нежелательная / Желательная текучесть»; «…отток» — старое имя */
+    /[Нн]ежелательный отток|[Жж]елательный отток|Прошли T-рост|Отказано в T-росте|Time-to-fill|[Лл]оу-перформ|Прогноз (годовой )?текучести/,
     /степпер|[Пп]озитивное направление|Снять разрез|Сбросить разрезы|глава \d+ из/];
   const hits=[];
   BAN.forEach(re=>{const m=text.match(new RegExp(re.source,re.flags.replace('g','')+'g'));if(m)hits.push(...new Set(m))});

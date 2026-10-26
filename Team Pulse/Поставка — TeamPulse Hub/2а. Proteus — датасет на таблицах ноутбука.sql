@@ -30,6 +30,8 @@
              фильтры (cuts), эхо применённых фильтров, значения фильтров с численностью компании,
              словари распределения fdv, mk — порядок метрик в ms
       scope  выбранный юнит          base  вся компания под теми же фильтрами
+      hq     выбранный юнит под «HQ + Активная» (поставка 65, светофор «Как уходит HQ?»): покраска HQ и тип
+             «Активная» вместо выбранных, IT-код и штат — как выбраны; ряды только из teampulse_hub_series
       dict   1 строка, j — все узлы: «id \t pid \t уровень \t детей \t имя \t руководитель \t fd»
              через \n. fd — численность узла в последнем месяце по сочетаниям значений фильтров без учёта
              применённых: «код:число» через пробел, код = ((номер покраски × число IT + номер IT) ×
@@ -98,6 +100,13 @@
 {%- set parts = [] -%}
 {%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set hv = 'lowerUTF8(' ~ c[2] ~ ') IN ' ~ ql(F[c[0]]) -%}{%- set _ = parts.append(("(" ~ c[2] ~ " = '∅' OR " ~ hv ~ ")") if c[0] == 'act' else hv) -%}{%- endif -%}{%- endfor -%}
 {{- parts|join(' AND ') if parts else '1' -}}
+{%- endmacro %}
+{#- Поставка 65: строка hq — светофор «Как уходит HQ?» всегда по активной численности HQ: покраска HQ и тип «Активная»
+    вместо выбранных в фильтрах, IT-код и штат — как выбраны. -#}
+{% macro cond_hq() -%}
+{%- set parts = ["lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')", "(" ~ AC ~ " = '∅' OR lowerUTF8(" ~ AC ~ ") IN " ~ ql(ACT_DEF) ~ ")"] -%}
+{%- for c in CUTS -%}{%- if c[0] in ('it', 'staff') and F[c[0]]|length > 0 -%}{%- set _ = parts.append('lowerUTF8(' ~ c[2] ~ ') IN ' ~ ql(F[c[0]])) -%}{%- endif -%}{%- endfor -%}
+{{- parts|join(' AND ') -}}
 {%- endmacro %}
 {#- Переводы (поставка 59) — как в мастер-отчёте (старый TeamPulse: transfer_in / transfer_out), сверено на выборках
     боя. Строка переходов ноутбука — событие дня с флагом источника; срез строки — состояние этого дня (фильтры —
@@ -266,6 +275,28 @@ WITH
       GROUP BY u2
     )
   ),
+  {#- Поставка 65: ряды выбранного юнита под «HQ + Активная» — светофор HQ; нулевые строки — все месяцы #}
+  mh AS (
+    SELECT i6, sumForEach(a6) AS s6
+    FROM
+    (
+      SELECT {{ IDX }} AS i6, {{ vec('s') }} AS a6
+      FROM prod_proteus.teampulse_hub_series
+      WHERE ifNull(node_rk, '') = (SELECT s FROM cx) AND {{ GRID }} AND {{ cond_hq() }}
+      GROUP BY i6
+      UNION ALL
+      SELECT toInt32(arrayJoin(range(n))) AS i6, arrayWithConstant({{ M|length }}, toFloat64(0)) AS a6
+      FROM cx
+    )
+    GROUP BY i6
+  ),
+  arh AS (
+    SELECT arrayMap(k -> arrayMap(g -> g[k], gh), range(1, {{ M|length + 1 }})) AS th
+    FROM (
+      SELECT arraySlice(arrayMap(x -> x.2, arraySort(groupArray((i6, s6)))), 1, any(nh)) AS gh
+      FROM (SELECT i6, s6, (SELECT n FROM cx) AS nh FROM mh)
+    )
+  ),
   {#- Разрезы узлов ответа под фильтрами: «ключ \t значение \t число» через \n, отсортировано #}
   mxr AS (
     SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(concat(k3, '\t', v3, '\t', toString(round(n4, 1))))), '\n') AS mxs
@@ -328,6 +359,14 @@ FROM
   INNER JOIN arr AS a ON a.rk = p.pn
   LEFT JOIN mxr AS x ON x.mu = p.pn
   WHERE p.po <= 2 OR a.lv5 > 0
+
+  UNION ALL
+
+  {#- поставка 65: светофор HQ — выбранный юнит под «HQ + Активная» #}
+  SELECT toUInt8(4) AS o, 'hq' AS role, (SELECT s FROM cx) AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids, '' AS j,
+         arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(x, 1)), r1), ','), h.th), ';') AS ms,
+         '' AS mx
+  FROM arh AS h
 
   UNION ALL
 

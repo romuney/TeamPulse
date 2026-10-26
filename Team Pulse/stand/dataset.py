@@ -51,7 +51,7 @@ def expand(rows):
     mk = json.loads(meta['j']).get('mk', '').split(',')
     for r in rows:
         ms = r.pop('ms', '')
-        if r.get('role') in ('scope', 'base', 'c', 'g', 'x'):
+        if r.get('role') in ('scope', 'base', 'c', 'g', 'x', 'hq'):     # hq — светофор HQ (поставка 65)
             r.update({'m_' + k: v for k, v in zip(mk, ms.split(';'))})
         else:
             r.update({'m_' + k: '' for k in mk})
