@@ -443,7 +443,8 @@ def sql_mix():
                'инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),',
                'найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Поставка 66 (посещения Адели):',
                'oc / ocp — посещений и людей по городу офиса за последний месяц, dw / do — календарь двух последних',
-               "месяцев: людей с рабочим днём и из них в офисе, значение — дата. Пустое значение — ''.")}
+               'месяцев: людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору',
+               "и месяцу всей сетки, значение «инициатор|ГГГГ-ММ» (текучесть по инициатору). Пустое значение — ''.")}
 
 -- численность последнего месяца
 drop table if exists {P}_mixr;
@@ -478,6 +479,14 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
 from ({expl(['hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt', 'source_type_nm', 'grade',
              'specialization'], ytd)}) e
 where {hire_e} > 0;
+
+-- 26.10-б: увольнения по инициатору и месяцу за всю сетку — «Текучесть по инициатору» (датасет отдаёт выбранному юниту)
+insert into {P}_mixr
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'xim' as mx_key,
+       {a['fi']} || '|' || to_char(e.report_month, 'YYYY-MM') as mx_val,
+       {num('fire_amt')} as mx_n
+from ({expl(['report_month', 'fire_amt', 'fire_initiative'], f'and s.report_month >= (select grid_start from {P}_cal)')}) e
+where {num('fire_amt')} > 0;
 
 -- поставка 66: посещения офисов последнего месяца по городам (office_city_visits_json — параграф with_office_traffic):
 -- oc — посещений, ocp — людей, которые были в офисе этого города
@@ -846,6 +855,11 @@ def sql_checks():
          f"""(select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key in ('dw', 'do'))
        - (select sum(wday_amt + ovis_amt) from {P}_series
           where node_rk = {root} and report_month >= ({lm} - interval '1 month')::date)"""),
+        # 26.10-б: увольнения по инициатору и месяцу (xim) в сумме — увольнения рядов за сетку
+        ('увольнения по инициатору и месяцу - ряды (корень, вся сетка)', 1,
+         f"""(select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'xim')
+       - (select sum(fire_cnt) from {P}_series where node_rk = {root}
+          and report_month >= (select grid_start from {P}_meta))"""),
         # справочно: посещение без города в разрез по городам не попадает
         ('города - посещения последнего месяца (корень)', 0,
          f"""coalesce((select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'oc'), 0)

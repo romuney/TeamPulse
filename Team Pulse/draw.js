@@ -587,13 +587,15 @@ function yoyPlot(p,ar){
     const c=cur[i], pv=prev[i], b=bench?bench[i]:null, cx=X(i);
     const rows=[];
     if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:col});
+    /* p.tipRows(i) — части значения этого года в подсказке (26.10-б: виды найма), сериями на графике их нет */
+    if(showMain&&c!=null&&p.tipRows)p.tipRows(i).forEach(r=>rows.push(r));
     if(showPrev&&pv!=null)rows.push({label:String(yP),value:CD.fmtVal(key,pv),color:C_PREV});
     if(showBench&&b!=null)rows.push({label:p.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
     const note=part&&i===nowI?PART_NOTE():c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
       :c==null?'Месяц ещё не закрыт':null;
     const nmM=CD.MONTH_NOM[i];
     const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
-    s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+(nm.name?' · '+nm.name:''),rows,note})+'>';
+    s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+((p.tipName||nm.name)?' · '+(p.tipName||nm.name):''),rows,note})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(ar.hitTop)+'" width="'+num(bandW)+'" height="'+num(bot-ar.hitTop)+'"/>';
     /* акцент главы — крупная залитая точка у линии и светлая полоса за месяцем
        у баров; остальные точки, бары и подписи не приглушаются (13.10: «всё
@@ -628,10 +630,11 @@ function yoyPlot(p,ar){
       /* этот год выключен — прошлый показан обычными барами и подписан так же */
       lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));
     }else if(!flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
-      const both=i===nowI&&showPrev&&pv!=null, below=both&&pv>c;
+      /* под точкой у оси места нет (значение около нуля): там подпись легла бы на месяц — тогда над точкой */
+      const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null, below=both&&pv>c&&rm(c);
       const sh=mkAt(i,'main')?5:0;
       lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
-      if(both)lbl+=txt(cx,below?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
+      if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }
     /* две отметки в одном месяце на близких значениях (этот год и прошлый
@@ -665,7 +668,7 @@ function drawYoy(a,w,h){
   const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(a.metricKey,o.kpi);
   return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+
     yoyPlot({key:a.metricKey,cur:a.cur,prev:a.prev,bench:a.bench,color:o.color,kpi:o.kpi,
-      ann:ya,marks:o.marks,gap:o.gap,off:offOf(o),benchName:o.benchName,link:o.link},
+      ann:ya,marks:o.marks,gap:o.gap,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName},
       {x0:x0,plotW:plotW,top:plotTop,bot:plotBot,hitTop:hh}));
 }
 
@@ -1093,9 +1096,8 @@ function perAxis(P,X,h,mark,bandW){
   return P.map((p,i)=>i===mark||(last-i)%step===0?txt(X(i),h-8,p.label,i===mark?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
 }
 function drawStack(a,w,h){
-  /* 26.10: свои категории (a.cats — [ключ, имя, цвет]; найм по видам) и без отметки периода (a.still) */
-  const o=a.opt||{}, P=a.periods, off=offOf(o), mark=a.mark, CATS=a.cats||MON_CATS, COL={};
-  CATS.forEach(c=>{COL[c[0]]=c[2]||C_MON[c[0]]});
+  /* 26.10-б: найм по видам ушёл в подсказку «Найм, чел» — категории снова только мониторинга */
+  const o=a.opt||{}, P=a.periods, off=offOf(o), mark=a.mark, CATS=MON_CATS, COL=C_MON;
   const cats=CATS.filter(c=>!off.has(c[0]));
   /* узкая панель: легенда не влезает рядом с заголовком — встаёт второй строкой */
   const lgW=(o.legend||[]).reduce((v,it)=>v+textW(it.name,11.5)+30,0), two=textW(o.title||'',TTL_SZ)+lgW+24>w;
@@ -1121,9 +1123,9 @@ function drawStack(a,w,h){
     });
     const t=tot[i];
     const all=p.hc||tot[i];
-    s+='<g class="barg'+(a.still?'':' pmk'+(on?' on':'')+'" data-pmark="'+i)+'"'+tip({title:p.full,
+    s+='<g class="barg pmk'+(on?' on':'')+'" data-pmark="'+i+'"'+tip({title:p.full,
       rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+(all?Math.round((p[c[0]]||0)/all*100):0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
-      note:(a.still?'':on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. ')+'Всего — '+CD.fmtInt(all)+' чел.'})+'>'+
+      note:(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. ')+'Всего — '+CD.fmtInt(all)+' чел.'})+'>'+
       (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+
       '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+segs+'</g>';
     if(t)s+=txt(cx,Y(t)-VAL_DY,CD.fmtInt(t),valOpt({delay:200+dly}));

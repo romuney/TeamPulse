@@ -114,7 +114,8 @@ const YOY_COLOR={hc_total:G.C_CNT,hc_active:G.C_CNT,hc_avg:G.C_CNT,attrition:G.C
   hire:G.C_IN,transfer_in:G.C_IN,vac_closed:G.C_IN,tgrowth_pass:G.C_IN,vac_open:G.C_VAC,ai_wau:G.C_AI};
 function yoyChart(key,lp,bl,S,opt){
   opt=opt||{};
-  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
+  /* opt.noBench (26.10-б) — без линии базы: ряд не метрики целиком, а её части (текучесть по инициатору) */
+  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi&&!opt.noBench, bench=D.benchmarkLabel(S);
   /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент; opt.yser (поставка 66) —
      свой ряд «год к году» той же метрики (настоящая посещаемость выбранного сегмента) */
   const y0=opt.yser||D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
@@ -173,7 +174,7 @@ function cardSpark(key,ser,st,S,bl){
 function cardBase(key,kpi){return !kpi&&key==='ai_penetration'&&D.comparable(key)}
 /* Значение того же месяца год назад — прямо из расширенной сетки, а не
    «значение минус изменение»: у доли без знаменателя изменения нет. */
-function yearAgo(lp,key){return D.aggregateExt(lp,key)[D.NEXT-13]}
+function yearAgo(lp,key){return D.aggregateExt(lp,key)[D.NEXT-13-(D.closedOnly(key)?1:0)]}
 
 /* ---------- пробник: что на вкладке — заглушка ----------
    В Proteus (TP_REAL) живые только метрики и ряды из hr_structure_overall:

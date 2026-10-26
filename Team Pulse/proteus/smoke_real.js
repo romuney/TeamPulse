@@ -170,15 +170,17 @@ ok(near(D.lastVal(rl,'turnover_m'),tm),'текучесть месячная = у
 const jan=D.MONTHS_EXT.findIndex((m,k)=>k<=i&&m.m===0&&m.y===D.MONTHS_EXT[i].y);
 let ty=0;for(let k=jan;k<=i;k++)ty+=avg[k]?+(fire[k]/avg[k]*100).toFixed(2):0;
 ok(near(D.lastVal(rl,'turnover_y'),+ty.toFixed(2)),'текучесть накопительная = сумма месячных с января');
-let ry=0;for(let k=jan;k<=i;k++)ry+=avg[k]?+(reg[k]/avg[k]*100).toFixed(2):0;
-ok(near(D.lastVal(rl,'regret'),+ry.toFixed(2)),'regret = накопительная доля нежелательных увольнений к ССЧ');
+/* 26.10-б: желательная и нежелательная — по последнему закрытому месяцу (D.lastIdx), накопительно с его января */
+const ic=D.lastIdx('regret')+R.pre, janC=D.MONTHS_EXT.findIndex((m,k)=>k<=ic&&m.m===0&&m.y===D.MONTHS_EXT[ic].y);
+let ry=0;for(let k=janC;k<=ic;k++)ry+=avg[k]?+(reg[k]/avg[k]*100).toFixed(2):0;
+ok(near(D.lastVal(rl,'regret'),+ry.toFixed(2)),'regret = накопительная доля нежелательных увольнений к ССЧ'+(ic<i?' (закрытый месяц)':''));
 ok(D.isStub('vac_open')===!R.has('vop')&&D.isStub('ai_penetration')===!R.has('aip')&&D.isStub('nonregret')===!R.has('nreg')&&
   !D.isStub('turnover_m')&&!D.isStub('hc_total'),
   'заглушки помечены: вакансии, AI и желательный отток — '+(R.has('vop')?'живые (поставка 50)':'демо')+', численность и текучесть — живые');
 /* 21.10, поставка 50: метрики из прод-ноутбуков HQ и УС — по формулам из настоящих рядов */
 if(R.has('nreg')){
   const nr=arr(scopeRow,'nreg');
-  let ny=0;for(let k=jan0();k<=i;k++)ny+=avg[k]?+(nr[k]/avg[k]*100).toFixed(2):0;
+  let ny=0;for(let k=janC;k<=ic;k++)ny+=avg[k]?+(nr[k]/avg[k]*100).toFixed(2):0;
   ok(near(D.lastVal(rl,'nonregret'),+ny.toFixed(2)),'желательный отток = накопительная доля желательных увольнений к ССЧ');
 }
 if(R.has('vop')){
@@ -261,9 +263,11 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   {
     const h=D.hqLight(A.st()), hv=A.go('turnover','hq');
     if(R.hasSeries('HQ')){
-      const want=D.aggregate(['HQ'],'turnover_y')[D.LAST];
+      /* 26.10-б: все три — по последнему закрытому месяцу, «накопительно» вместо «YTD», блок сверен */
+      const want=D.aggregate(['HQ'],'turnover_y')[D.LAST-(D.PARTIAL?1:0)];
       ok(!!h&&h.lp[0]==='HQ'&&h.rows.length===3&&h.rows[0].v===want&&/class="mtable hq-tl"/.test(hv)&&
-        (hv.match(/<tr class="mrow"/g)||[]).length===3&&/Тотал HQ текучесть YTD/.test(hv),
+        (hv.match(/<tr class="mrow"/g)||[]).length===3&&/Тотал HQ текучесть накопительно/.test(hv)&&!/YTD/.test(hv.split('hq-note')[1]||'')&&
+        /hq-note"><span class="live-tag ok"/.test(hv),
         'светофор HQ по строке hq: '+h.rows.map(r=>r.label.split(' ')[0]+' '+D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+h.hc+' чел');
     }else ok(h?A.st().paint==='HQ'&&A.st().hcType==='active':/Светофору HQ нужны данные/.test(hv),
       'светофор HQ без строки hq: '+(h?'по scope (фильтры «HQ + Активная»)':'просьба обновить датасет'));
@@ -273,9 +277,11 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const lpS=D.reportLeaves(A.st()), hk=D.hireKinds(lpS), pr=A.go('hiring','profile');
     if(R.has('hcd')){
       const hy=D.yoySeries(lpS,'hire').cur;
-      ok(!!hk&&hk.every((p,m)=>p.co+p.cand+p.int===(hy[m]||0))&&/Динамика найма по видам/.test(pr),
+      /* 26.10-б: «Найм, чел» год к году, виды — в подсказке месяца */
+      ok(!!hk&&hk.every((p,m)=>p.co+p.cand+p.int===(hy[m]||0))&&/Найм, чел/.test(pr)&&/· Из учебной группы в боевую/.test(pr),
         'найм по видам: '+['co','cand','int'].map(k=>k+' '+hk.reduce((a,p)=>a+p[k],0)).join(', ')+' с января');
-    }else ok(!hk&&/class="dev-note/.test(pr.split('Откуда пришли')[0]),'найм по видам без hcd / hst — «в разработке», не выдуманные числа');
+    }else ok(!hk&&/Найм, чел/.test(pr)&&!/· Найм в компанию/.test(pr.split('Откуда пришли')[0]),
+      'найм по видам без hcd / hst — «Найм, чел» без видов в подсказке, не выдуманные числа');
   }
   /* портрет на настоящих значениях: пол — полоса и карточки, возраст — кусок на каждую группу с людьми,
      каждый окрашен; среднего возраста в пробнике нет (появится с таблицей состава). 26.10: воронки численности нет
@@ -338,6 +344,20 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const sq=hn?A.setup(last.slice(0,4).toLowerCase()):'';
     ok(!!hn&&/<mark class="ut-hl">/.test(sq)&&sq.indexOf(hn.name)>=0&&sq.indexOf(' · '+hn.head)>=0,
       'окно настройки: имя руководителя под юнитом и поиск по фамилии («'+last.slice(0,4)+'»)');
+  }
+  /* 26.10-б, правки п. 8: текучесть по инициатору — из разреза xim выбранного юнита; в сумме по инициаторам — текучесть
+     месячная; график первым в «Почему уходят», таблицы под ним. П. 1: движение по специализациям — из hsp / xsp */
+  {
+    const xs=D.exitInitTurnover(rl), rv=A.go('turnover','reasons'), mv=A.go('movement','dynamics');
+    if(R.scopeMix&&R.scopeMix('xim')){
+      const y=D.yoySeries(rl,'turnover_m'), sumAt=i=>xs.reduce((a,x)=>a+(x.cur[i]||0),0);
+      ok(xs.length>0&&y.cur.every((v,i)=>v==null||Math.abs(sumAt(i)-v)<0.05)&&
+        rv.indexOf('Текучесть по инициатору')<rv.indexOf('bt-cap">Инициатор увольнения')&&
+        /data-exitini=/.test(rv),'текучесть по инициатору: '+xs.map(x=>x.name).join(', ')+' — в сумме текучесть месячная, график над таблицами');
+    }else ok(xs===null&&/Придёт со следующим обновлением отчёта/.test(rv),'текучесть по инициатору: датасет без xim — «в разработке»');
+    const sm=D.specMovement(rl), h=Object.values(R.mixVals('hsp')||{}).length;
+    ok(!h||sm.length>0&&/Движение по специализациям/.test(mv)&&mv.indexOf('Движение по специализациям')>mv.indexOf('Переводы внутри компании')&&
+      sm.every(z=>z.hire+z.exit>0),'движение по специализациям: '+sm.length+' специализаций с движением, после переводов');
   }
   const nSt=Object.keys(R.mixVals('xs')||{}).length, who=A.go('turnover','who');
   const st=(who.split('bt-group').find(x=>/>Стрим</.test(x))||'');

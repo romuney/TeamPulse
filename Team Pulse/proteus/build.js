@@ -137,7 +137,7 @@ const head=HEAD.replace(/^\/\/ ?/gm,'').replace(/^=+\n|\n=+\n$/g,'').trim();
 MIN.minifyChart(out+tail,head,{cssVars:['TP_CSS']}).then(r=>{
   const code=r.code, v=MIN.verify(code,out+tail);
   if(!/(^|[;}\n])option=\{[^]*\};?\n$/.test(code))v.fails.push('option не последний после сжатия');
-  if(Buffer.byteLength(code)>BUDGET_KIB*1024)v.fails.push('больше бюджета '+BUDGET_KIB+' КиБ: '+(Buffer.byteLength(code)/1024).toFixed(0)+' КиБ');
+  if(Buffer.byteLength(code)>BUDGET_KIB*1024)v.fails.push('больше бюджета '+BUDGET_KIB+' КиБ: '+(Buffer.byteLength(code)/1024).toFixed(1)+' КиБ');
   v.warns.forEach(t=>console.error('  ! '+t));
   if(!v.ok||v.fails.length){console.error('СЖАТИЕ НЕ ПРОШЛО:\n  '+v.fails.join('\n  '));process.exit(1)}
   fs.writeFileSync(OUT,code);

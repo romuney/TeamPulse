@@ -98,7 +98,7 @@ function parseMx(s){
 function mxMinus(u,kids){
   const out={};
   Object.keys(u).forEach(k=>{
-    if(k==='dw'||k==='do')return;          /* календарь посещений — только у выбранного юнита (dayMix) */
+    if(k==='dw'||k==='do'||k==='xim')return;   /* календарь посещений и уходы по инициатору — только у выбранного юнита */
     Object.keys(u[k]).forEach(v=>{
       let s=u[k][v];
       kids.forEach(c=>{s-=((c[k]||{})[v]||0)});
@@ -396,6 +396,8 @@ function build(data){
     /* поставка 66: календарь посещений выбранного юнита — {dw:{дата:людей с рабочим днём}, do:{дата:из них в офисе}};
        null — в ответе его нет */
     dayMix(){const m=scopeU&&scopeU.mx;return m&&m.dw&&Object.keys(m.dw).length?{dw:m.dw,do:m.do||{}}:null},
+    /* 26.10-б: разрез выбранного юнита (xim — увольнения по инициатору и месяцу); null — нет в ответе */
+    scopeMix(k){const m=scopeU&&scopeU.mx;return m&&m[k]&&Object.keys(m[k]).length?m[k]:null},
     /* значения разреза с числом по базе — для категорий; значение, которого в базе
        нет (не должно быть: листья внутри компании), добавляется с числом листа */
     mixVals(k){

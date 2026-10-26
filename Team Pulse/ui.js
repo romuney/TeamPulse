@@ -123,7 +123,7 @@ function deltaChip(key,dv,o){
      пока чинили тут, пилюля «К базе» в сводной таблице оставалась с дефисом */
   const txt=D.fmtDelta(key,dv);
   /* вызревающий месяц (20.10): неполный месяц против полного — без оценки и с пояснением */
-  if(D.matures(key))return '<span class="delta neu part"'+tipAttr(D.MATURE_TIP)+'>'+txt+vs+'</span>';
+  if(D.matures(key)&&!D.closedOnly(key))return '<span class="delta neu part"'+tipAttr(D.MATURE_TIP)+'>'+txt+vs+'</span>';
   /* поток за незакрытый месяц (21.10): без метки «вызревает», но и без оценки — месяц ещё идёт */
   if(D.partFlow(key))return '<span class="delta neu"'+tipAttr(D.PART_TIP)+'>'+txt+vs+'</span>';
   if(m.better==='flat')return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
@@ -135,9 +135,11 @@ function deltaChip(key,dv,o){
    разъезжались между one-pager и детальными вкладками. */
 /* Метка «вызревает» у значения потока за незакрытый месяц (20.10) */
 function matureTag(key,small){
+  /* 26.10-б: значение по закрытому месяцу — метка месяца вместо «вызревает» */
+  if(D.closedOnly(key))return '<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.CLOSED_TIP)+'>за '+D.CLOSED_SHORT+'</span>';
   return D.matures(key)?'<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.MATURE_TIP)+'>по '+D.ASOF_SHORT+'</span>':'';
 }
-function momChip(key,dv){return deltaChip(key,dv,{vs:D.CMP.momShort,tip:D.CMP.momTip})}
+function momChip(key,dv){const c=D.closedOnly(key);return deltaChip(key,dv,{vs:c?D.CMP.momShortC:D.CMP.momShort,tip:c?D.CMP.momTipC:D.CMP.momTip})}
 
 /* Иконка перехода на внешний дашборд. Символ ↗ брался из шрифта и в разных
    начертаниях получался то мелким, то съехавшим по базовой линии. */

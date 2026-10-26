@@ -73,17 +73,22 @@ select 13 as n, 'календарь - ряды: рабочие дни и пос�
        - (select sum(wday_amt + ovis_amt) from teampulse_hub_series
           where node_rk = (select root_rk from teampulse_hub_meta) and report_month >= ((select last_month from teampulse_hub_meta) - interval '1 month')::date))::float8 as val
 union all
-select 14 as n, 'города - посещения последнего месяца (корень)'::text as check_nm, 0 as must,
+select 14 as n, 'увольнения по инициатору и месяцу - ряды (корень, вся сетка)'::text as check_nm, 1 as must,
+       ((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'xim')
+       - (select sum(fire_cnt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta)
+          and report_month >= (select grid_start from teampulse_hub_meta)))::float8 as val
+union all
+select 15 as n, 'города - посещения последнего месяца (корень)'::text as check_nm, 0 as must,
        (coalesce((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'oc'), 0)
        - (select sum(ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta) and report_month = (select last_month from teampulse_hub_meta)))::float8 as val
 union all
-select 15 as n, 'вакансии: корень - снимок (открытые на конец последнего месяца)'::text as check_nm, 0 as must,
+select 16 as n, 'вакансии: корень - снимок (открытые на конец последнего месяца)'::text as check_nm, 0 as must,
        (coalesce((select sum(vac_open_cnt) from teampulse_hub_vacancy
                    where node_rk = (select root_rk from teampulse_hub_meta)
                      and report_month = (select last_month from teampulse_hub_meta)), 0)
        - coalesce((select sum(open_cnt) from structure_x_vacancy where report_month = (select last_month from teampulse_hub_meta)), 0))::float8 as val
 union all
-select 16 as n, 'вакансии: корень - снимок (закрытые за всё время сетки)'::text as check_nm, 0 as must,
+select 17 as n, 'вакансии: корень - снимок (закрытые за всё время сетки)'::text as check_nm, 0 as must,
        (coalesce((select sum(vac_close_cnt) from teampulse_hub_vacancy where node_rk = (select root_rk from teampulse_hub_meta)), 0)
        - coalesce((select sum(close_cnt) from structure_x_vacancy
                    where report_month >= (select grid_start from teampulse_hub_meta)), 0))::float8 as val

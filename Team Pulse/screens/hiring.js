@@ -68,11 +68,11 @@ SC.blocks.hiring={
     }
     if(ctx.sub==='profile'){
       const hp=D.hiringProfile(lp,'ytd'), sub=' с начала года';
-      /* 26.10, правки: динамика найма по видам — стопкой по месяцам этого года, как состав мониторинга */
+      /* 26.10-б, правки п. 7: «Найм, чел» — год к году, как «Отток, чел» (бар этого года, позади — прошлый, легенда по
+         годам); виды найма — только в подсказке месяца. Без видов в данных — подсказка без них */
       const hk=D.hireKinds(lp);
-      const dyn=hk?G.chart('stack',{periods:hk,cats:D.HIRE_KINDS,still:true},{title:'Динамика найма по видам, чел · '+D.YEAR_CUR,
-          legend:D.HIRE_KINDS.map(c=>({name:c[3]||c[1],color:c[2]})),h:270})
-        :U.devNote({stage:'0',t:'Виды найма придут со следующим обновлением отчёта.'});
+      const dyn=SC.metricLine('hire',lp,ctx.bl,ctx.S,{title:'Найм, чел',h:270,fill:false,color:G.C_IN,ann:ctx.ann.hire,
+        tipRows:hk?i=>D.HIRE_KINDS.map(c=>({label:'· '+c[1],value:D.fmtInt(hk[i][c[0]]),color:c[2]})):null});
       const tbl=(cap,capSub,items,o)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:'Человек',
         metricKey:'hire',compact:true,items:items},o||{}));
       /* Каналы — по убыванию, переводы — последней строкой и своим цветом

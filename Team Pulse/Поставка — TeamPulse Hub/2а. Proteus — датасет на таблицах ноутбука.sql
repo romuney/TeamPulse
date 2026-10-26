@@ -54,6 +54,7 @@
     В mx — разрезы ноутбука и вакансии (vs vr vp vl — открытые последнего месяца, vk vq — закрытые с
     начала года). Поставка 66: mh — численность руководителей (1) и остальных; oc ocp — посещения и люди по городу
     офиса за последний месяц; dw do — календарь посещений по дням двух месяцев, только у выбранного юнита.
+    26.10-б: xim — увольнения по инициатору и месяцу («инициатор|ГГГГ-ММ»), тоже только у выбранного юнита.
 
     Фильтры — кросс-фильтры чарта: unit_f — ключ узла, paint_f — покраска (HQ, Line, Support),
     it_f — IT-код (IT, Digital, NonIT), staff_f — «Штат» / «Не штат», act_f — типы численности
@@ -319,8 +320,8 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ cond() }}
-        {#- поставка 66: календарь посещений по дням — только у выбранного юнита #}
-        AND (ifNull(mx_key, '') NOT IN ('dw', 'do') OR ifNull(node_rk, '') = (SELECT s FROM cx))
+        {#- поставка 66: календарь посещений по дням, 26.10-б: увольнения по инициатору и месяцу — только у выбранного юнита #}
+        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'xim') OR ifNull(node_rk, '') = (SELECT s FROM cx))
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL

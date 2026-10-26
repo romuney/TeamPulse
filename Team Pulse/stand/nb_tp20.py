@@ -690,6 +690,22 @@ def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE, chg=()):
     return T
 
 
+def truth_fire_init(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
+    """26.10-б: увольнения узла rk по инициатору и месяцу за всю сетку — {«инициатор|ГГГГ-ММ»: число}; срез и тип —
+    на день ухода, как увольнения в truth"""
+    out = defaultdict(float)
+    for p in people:
+        if not p['end']:
+            continue
+        m = dt.date(p['end'].year, p['end'].month, 1)
+        last = min(eom(m), p['end'])
+        if not (pred(p, last) and (act is None or at(p['acth'], last) in act)):
+            continue
+        if rk in path(U, at(p['unit'], p['end'])):
+            out[(p['init'] or '') + '|' + m.strftime('%Y-%m')] += 1
+    return dict(out)
+
+
 def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
     """поставка 66 (посещения Адели), правда по людям под фильтры (pred, типы численности act; None — все):
     T  (узел, месяц) → рабочие дни (wday), посещения (ovis), бронирования (bk — дней с бронью, bkv — бронь без

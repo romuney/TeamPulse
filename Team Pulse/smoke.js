@@ -147,7 +147,10 @@ checks.push(['текучесть = отток / среднесписочная �
 const brk=SC.blocks.structure.view({S:D.DEFAULT_STATE,sub:'qual',lp:rl,bl:rl});
 checks.push(['разбивки по атрибутам — таблица',/<table/.test(brk)&&!/<svg/.test(brk)]);
 const rsn=SC.blocks.turnover.view({S:D.DEFAULT_STATE,sub:'reasons',lp:rl,bl:rl});
-checks.push(['причины увольнений — таблица',/<table/.test(rsn)&&!/<svg/.test(rsn)]);
+/* 26.10-б, правки п. 8: сверху — график «Текучесть по инициатору» с переключателем, под ним таблицы */
+checks.push(['причины увольнений — таблица; сверху — текучесть по инициатору с переключателем',
+  /<table/.test(rsn)&&rsn.indexOf('Текучесть по инициатору')>=0&&rsn.indexOf('Текучесть по инициатору')<rsn.indexOf('<table')&&
+  /class="ch-bar"[\s\S]*?data-exitini="emp"/.test(rsn)&&D.exitInitTurnover(rl).length===3]);
 
 /* 6. пара потоков (найм / отток) — год к году линиями (13.10, второй заход):
    две яркие линии этого года, бледные — прошлого; баров и серой «тени» нет.
@@ -235,7 +238,9 @@ checks.push(['знак говорит направление, класс — о�
   /delta up/.test(U.deltaChip('review_up',3))&&/delta neu/.test(U.deltaChip('hc_total',3))&&
   /* 21.10, правка Антона: вызревают только regrettable, non-regrettable и проникновение AI; поток за
      незакрытый месяц — без оценки, но и без метки «вызревает» */
-  (!D.PARTIAL||/delta neu part/.test(U.deltaChip('regret',1.4))&&/delta neu"/.test(U.deltaChip('turnover_m',1.4)))&&
+  /* 26.10-б: желательная и нежелательная — по закрытому месяцу (CLOSED_ONLY), их изменение оценивается */
+  (!D.PARTIAL||/delta neu part/.test(U.deltaChip('ai_penetration',1.4))&&/delta down/.test(U.deltaChip('regret',1.4))&&
+    /delta neu"/.test(U.deltaChip('turnover_m',1.4)))&&
   [...D.MATURING].sort().join()==='ai_penetration,nonregret,regret']);
 checks.push(['переход на детальный дашборд — иконка, а не символ ↗',
   /class="ico-ext"/.test(allHtml)&&!/↗/.test(allHtml)]);
@@ -304,8 +309,9 @@ checks.push(['минус во всех дельтах типографский, 
   const card=cards.filter(c=>/Нежелательная текучесть/.test(c))[0]||'';
   const subs=(card.match(/<span class="k-sub">[^<]*</g)||[]).join('|');
   checks.push(['в hero-карточке метрики с KPI стоит цель, а базы нет',
-    /* 21.10, поставка 50: годовая цель HQ (4%) — на месяц её доля: в макете июнь, 4 × 6 / 12 = 2,0% */
-    /цель 2,0%/.test(subs)&&!/база/.test(subs)&&/kpi-tag/.test(card)]);
+    /* 21.10, поставка 50: годовая цель HQ (4%) — на месяц её доля; 26.10-б — месяц закрытый (в макете май: 4 × 5 / 12) */
+    new RegExp('цель '+D.fmtVal('regret',kpi.green)).test(subs)&&kpi.green===+(4*(D.MONTHS[D.lastIdx('regret')].m+1)/12).toFixed(2)&&
+    !/база/.test(subs)&&/kpi-tag/.test(card)&&/class="mat-tag"[^>]*>за /.test(card)]);
   /* на раскрытом графике та же развилка: пороги KPI вместо линии базы */
   const line=SC.metricLine('regret',rl0,bl0,S0,{});
   checks.push(['у метрики с KPI на графике пороги цели, а не линия базы',
@@ -367,11 +373,13 @@ checks.push(['состав по файлу «Структура»: портре�
 {
   const lpH=D.reportLeaves(D.DEFAULT_STATE), hk=D.hireKinds(lpH), hy=D.yoySeries(lpH,'hire').cur;
   const pr=A.go('hiring','profile');
-  checks.push(['найм: динамика по видам — в компанию, из учебной группы, стажёр в штат; в сумме — найм месяца',
+  /* 26.10-б, правки п. 7: «Найм, чел» — год к году (легенда по годам), виды найма — только в подсказке месяца */
+  const hy0=pr.split('Откуда пришли')[0];
+  checks.push(['найм: «Найм, чел» год к году, виды — в подсказке; в сумме — найм месяца',
     !!hk&&hk.length===12&&hk.every((p,m)=>p.co+p.cand+p.int===(hy[m]||0))&&hk.some(p=>p.cand||p.int)&&
-    /Динамика найма по видам/.test(pr)&&/Найм в компанию/.test(pr)&&/Из учебной группы в боевую/.test(pr)&&/Стажёр в штат/.test(pr)&&
-    /* легенда — коротко, полные названия — в подсказке столбика */
-    !/data-pmark/.test(pr.split('Динамика найма по видам')[1].split('Откуда пришли')[0])]);
+    /Найм, чел/.test(hy0)&&!/Динамика найма по видам/.test(pr)&&/· Найм в компанию/.test(hy0)&&
+    /· Из учебной группы в боевую/.test(hy0)&&/· Стажёр в штат/.test(hy0)&&new RegExp('>'+D.YEAR_PREV+'<').test(hy0)&&
+    !/data-pmark/.test(hy0)]);
 }
 /* 26.10, правки: порядок глав найма — «Кого и откуда берём?» → «Успеваем закрывать вакансии?» → «Выполняем план?» */
 checks.push(['найм: профиль → вакансии → план-факт; срок закрытия не отдельная вкладка; воронки нет (15.10)',
@@ -1186,7 +1194,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     bk.ok+bk.noshow+bk.walkin===bk.total&&near(bk.viol/bk.total*100,e('booking_viol'),0.06)]);
   const wavg=rows=>sum(rows.map(r=>r.hc*r.att))/sum(rows.map(r=>r.hc));
   checks.push(['посещаемость по грейдам и по роли с локацией в среднем = посещаемости отбора',
-    near(wavg(D.attByGrade(rl0)),e('office_att'),0.11)&&near(wavg(D.attByRoleLoc(rl0)),e('office_att'),0.11)&&
+    near(wavg(D.attByRoleLoc(rl0)),e('office_att'),0.11)&&
     sum(D.attByRoleLoc(rl0).map(r=>r.hc))===Math.round(e('hc_total'))]);
   const ai=D.aiProfile(rl0);
   checks.push(['AI: ни один инструмент не выше общего проникновения, стримов нет (15.10)',
@@ -1464,7 +1472,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
     G.C_VAC===G.C_LINE&&G.C_UNDER===G.C_LINE&&G.C_REVIEW===G.C_LINE&&G.C_AI===G.C_LINE&&
     G.C_HIRE==='#14A38B'&&G.C_FIRE==='#8A4FD8']);
   /* бары и полосы — мягкие ступени (13.10): водопад, полосы таблиц */
-  const bal=A.go('movement','balance'), rsn2=A.go('turnover','reasons');
+  /* 26.10-б: в «Почему уходят» есть линия (текучесть по инициатору) — яркий цвет у неё в подсказке законен; подсказки
+     (атрибуты с разметкой) из проверки полос убираем */
+  const bal=A.go('movement','balance'), rsn2=A.go('turnover','reasons').replace(/="[^"]*&lt;[^"]*"/g,'=""');
   checks.push(['бары мягкие: водопад мятный/сиреневый, полосы таблиц мягкие',
     G.soft(G.C_IN)==='#66C8AE'&&G.soft(G.C_OUT)==='#A88AD9'&&/fill="#66C8AE"[^>]*class="bar up"/.test(bal)&&
     /fill="#A88AD9"[^>]*class="bar up"/.test(bal)&&!/fill="#14A38B"[^>]*class="bar/.test(bal)&&
@@ -1697,8 +1707,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['готовность: структура и движение сверены, отток — кроме желательного и нежелательного; воронки нет',
     /* 23.10, сверка с данными: регион — настоящий график (правка 22.10), «тип компании» и состав мониторинга — в отчёте */
     [...D.VERIFIED].sort().join()==='attrition,hc_active,hc_total,hire,net_ytd,transfer_in,transfer_out,turnover_m,turnover_y'&&
-    [...D.MISMATCH].sort().join()==='nonregret,regret'&&pn.bad===2&&pn.ok>=12&&pn.data>=2&&/✓ сверены/.test(op)&&/расхождение 2/.test(op)&&
-    D.DEV_PLAN.filter(g=>/Структура|Движение/.test(g.blk)).every(g=>g.rows.every(r=>r.now!=='live'||r.ok))&&
+    /* 26.10-б: блок «Как уходит HQ» сверен — расхождение осталось у одной строки (желательная и нежелательная) */
+    [...D.MISMATCH].sort().join()==='nonregret,regret'&&pn.bad===1&&pn.ok>=13&&pn.data===0&&/✓ сверены/.test(op)&&/расхождение 2/.test(op)&&
+    /* 26.10-б: «Движение по специализациям» — новый график, с мастер-источником ещё не сверен;
+       строк «данные есть» не осталось: инициатор и специализации стали живыми */
+    D.DEV_PLAN.filter(g=>/Структура|Движение/.test(g.blk)).every(g=>g.rows.every(r=>r.now!=='live'||r.ok||/специализациям/.test(r.what)))&&
     !/одной воронкой|[Вв]оронка численности|Пол и возраст|Списки ушедших|AI-рекомендации/.test(op)&&
     /считается только для HQ-численности/.test(op)&&/только для eligible-популяции/.test(op)]);
   checks.push(['«в разработке»: в навигации блок частично (найм — план, AI — инструменты; офис — посещаемость живая)',

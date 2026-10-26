@@ -177,14 +177,15 @@ def main():
                     # сегмент mh (численность руководителей и остальных), города последнего месяца (oc ocp) — по значениям
                     want_v = {'mh': {v: n for v, n in MH[rk].items() if n}, 'oc': {v: n for v, n in Co[rk]['oc'].items() if n},
                               'ocp': {v: n for v, n in Co[rk]['ocp'].items() if n}}
-                    # календарь (dw dw) — только у выбранного юнита; у остальных узлов ответа его нет
+                    # календарь (dw dw) и уходы по инициатору и месяцу (xim, 26.10-б) — только у выбранного юнита
                     if r['role'] == 'scope':
+                        want_v['xim'] = nb.truth_fire_init(U, people, rk, raw.get(name, pred), act)
                         days = sorted(d for (n_, d) in Dd if n_ == rk)
                         want_v['dw'] = {str(d): Dd[(rk, d)]['dw'] for d in days if Dd[(rk, d)]['dw']}
                         want_v['do'] = {str(d): Dd[(rk, d)]['do'] for d in days if Dd[(rk, d)]['do']}
                         if not want_v['dw']:
                             bad['календарь пуст'] += 1
-                    elif mxv.get('dw') or mxv.get('do'):
+                    elif mxv.get('dw') or mxv.get('do') or mxv.get('xim'):
                         bad['календарь не у выбранного'] += 1
                     for kk, w in want_v.items():
                         g = mxv.get(kk, {})

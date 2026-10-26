@@ -18,6 +18,7 @@
    («отток YTD по грейду, стажу, специализации»), и так же копится
    накопительная текучесть на соседней вкладке.
 
+   26.10-б: «Почему уходят» — сверху «Текучесть по инициатору» (initChart), под ней таблицы.
    26.10, правки: «Как уходит HQ?» — светофор: текучесть HQ, желательная и нежелательная с начала года против
    порогов прод-отчёта HQ, всегда по активной численности HQ (D.hqLight): фильтры покраски и типа численности
    на неё не действуют. Карточки — те же kpiCard, что в полосе KPI блока; под ними — те же панели «год к году».
@@ -44,11 +45,29 @@ function hqView(ctx){
       '<td class="m-val">'+f(r.key,r.v)+'</td><td class="col-num">'+(r.ya==null?'—':f(r.key,r.ya))+'</td>'+
       '<td class="col-tgt">'+tgt(r)+'</td></tr>').join('')+'</tbody></table>';
   const color={turnover_y:G.C_TURN_Y,nonregret:G.C_OUT,regret:G.C_REGRET};
-  return '<div class="tbl-note hq-note">Всегда по активной численности HQ: покраска и тип численности в шапке здесь не действуют, '+
-      'IT-код и штат — действуют.</div>'+t+
+  /* 26.10-б, правки п. 4–5: значения — накопительно по последнему закрытому месяцу (незакрытый — только на графиках);
+     данные блока сверены */
+  return '<div class="tbl-note hq-note"><span class="live-tag ok"'+U.tipAttr(D.VERIFIED_TIP)+'>✓ сверены</span> '+
+      'Накопительно по '+esc(D.MONTH_NOM[h.month.m])+(D.PARTIAL?' (закрытый месяц; '+esc(D.MONTH_NOM[D.ASOF.m])+' — на графиках)':'')+
+      '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+t+
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key]}))},
       {h:520,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
+}
+
+/* 26.10-б, правки п. 8: «Текучесть по инициатору» — первым в «Почему уходят»: месячная текучесть уходов выбранного
+   инициатора год к году; переключатель инициатора — справа сверху (только инициаторы с уходами), по умолчанию — с
+   наибольшим числом уходов. Без линии базы: это часть текучести, не метрика целиком */
+const INI_SHORT={emp:'Сотрудник',org:'Работодатель',oth:'Другое'};
+function initChart(ctx){
+  const xs=D.exitInitTurnover(ctx.lp);
+  if(!xs)return U.devNote({stage:'0',t:'Придёт со следующим обновлением отчёта.'});
+  if(!xs.length)return '';
+  const c=xs.find(x=>x.key===ctx.S.exitIni)||xs.slice().sort((a,b)=>b.n-a.n)[0];
+  return '<div class="ch-bar"><span class="ch-ttl">Текучесть по инициатору, %</span>'+
+      U.segToggle('data-exitini',xs.map(x=>[x.key,INI_SHORT[x.key]||x.name]),c.key)+'</div>'+
+    SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:240,fill:false,
+      color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)});
 }
 
 SC.blocks.turnover={
@@ -72,7 +91,7 @@ SC.blocks.turnover={
          инициатора — сумма причин, под ней три самые частые. Состояние — в том
          же наборе раскрытых строк, что у стримов (ключи «exitinit:…»). */
       const open=ctx.mixOpen||new Set(), ini=D.exitInitiators(lp,'ytd'), items=[];
-      const topOf=k=>rs.filter(r=>r.init===k&&r.value>0).sort((a,b)=>b.value-a.value).slice(0,3);
+      const topOf=k=>(ini.find(x=>x.key===k)||{top:[]}).top;
       ini.forEach(x=>{
         const k='exitinit:'+x.key, top=topOf(x.key), on=top.length>0&&open.has(k);
         items.push({name:x.name,note:on?'':x.note,value:x.value,color:G.C_OUT,depth:1,exp:top.length?k:null,open:on});
@@ -80,7 +99,7 @@ SC.blocks.turnover={
           mark:r.regret,depth:2}));
       });
       const expable=ini.filter(x=>topOf(x.key).length);
-      return U.btStack([
+      return initChart(ctx)+U.btStack([
         U.btGroup({cap:'Инициатор увольнения',capSub:ytd+' · раскройте — три главные причины',head:'',valueHead:'Человек',
           metricKey:'attrition',compact:true,tree:true,items:items,
           expAll:{key:'exitinit',open:expable.length>0&&expable.every(x=>open.has('exitinit:'+x.key))}}),

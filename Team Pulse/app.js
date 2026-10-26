@@ -1088,6 +1088,9 @@ on(document,'click',e=>{
   }
   /* мониторинг (21.10): «Месяцы / Недели», отметка периода кликом по столбику или точке
      (повторный клик снимает), сортировка таблицы подразделений по колонке */
+  /* 26.10-б: переключатель инициатора у «Текучести по инициатору» */
+  const ei=t.closest('[data-exitini]');
+  if(ei){S.exitIni=ei.dataset.exitini;render(true);return}
   const gr=t.closest('[data-mongran]');
   if(gr){S.monGran=gr.dataset.mongran;S.monMark=null;render(true);return}
   const pm=t.closest('[data-pmark]');

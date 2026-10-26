@@ -117,7 +117,8 @@ CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub che
            64: {'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 3 справочник и ряды', 'hub · 5 переходы'},
            65: {'hub · 5 переходы'},
            66: {'EXEC build_all_metrics', 'unit_head_structure', 'org_structure', 'with_office_traffic', 'office_traffic',
-                'hub · 0 колонки', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды', 'hub · 4 разрезы', 'hub checks'}}
+                'hub · 0 колонки', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды', 'hub · 4 разрезы', 'hub checks'},
+           67: {'hub · 4 разрезы', 'hub checks'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 
