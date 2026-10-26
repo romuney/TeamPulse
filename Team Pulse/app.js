@@ -394,8 +394,8 @@ function utCenter(){
 }
 /* ---------- Дерево выбора юнита (19.10, как в HRBP HUB) ----------
    Всё дерево (в пробнике — справочник датасета): компания и два уровня под ней раскрыты,
-   путь к выбранному — тоже; глубже — по стрелке. Поиск — по названию и логину
-   руководителя, без запроса. Число у строки — сколько людей попадёт в выбор с набранными
+   путь к выбранному — тоже; глубже — по стрелке. Поиск — по названию, логину и имени
+   руководителя (имя — с поставки 66), без запроса. Число у строки — сколько людей попадёт в выбор с набранными
    фильтрами (последний закрытый месяц); прежний датасет без fd — без чисел. */
 let UT={q:'',open:{}};
 const UT_MAX=600;
@@ -413,11 +413,18 @@ function utHl(text,q){
   const at=q?text.toLowerCase().indexOf(q):-1;
   return at<0?esc(text):esc(text.slice(0,at))+'<mark class="ut-hl">'+esc(text.slice(at,at+q.length))+'</mark>'+esc(text.slice(at+q.length));
 }
+/* руководитель под именем юнита: «Имя Фамилия · логин»; что совпало с поиском — подсвечено (поставка 66) */
+function utHead(i,q){
+  const hn=i.hname||'', hl=i.head||'';
+  if(!hn&&!hl)return '';
+  return '<span class="ut-h"'+U.tipAttr({title:'Руководитель подразделения',text:hn&&hl?hn+' · '+hl:hn||hl})+'>'+
+    (hn?utHl(hn,q):'')+(hn&&hl?' · ':'')+(hl?utHl(hl,q):'')+'</span>';
+}
 function utRow(p,i,depth,tw,extra){
   return '<div class="ut-r'+(DRAFT.unit===p?' cur':'')+'" data-upick="'+esc(p)+'" role="option" aria-selected="'+(DRAFT.unit===p)+'"'+
     (depth!=null?' style="padding-left:'+(9+depth*16)+'px"':'')+'>'+tw+
     '<span class="ut-n">'+(extra&&extra.name||esc(i.name))+(extra&&extra.path?'<span class="ut-p">'+esc(extra.path)+'</span>':'')+
-    (i.head?'<span class="ut-h"'+U.tipAttr({title:'Руководитель подразделения',text:i.head})+'>'+(extra&&extra.head||esc(i.head))+'</span>':'')+'</span>'+
+    utHead(i,extra&&extra.q||'')+'</span>'+
     '<span class="ut-l">ур. '+i.lvl+'</span>'+utCount(p)+'</div>';
 }
 function utListHTML(){
@@ -435,13 +442,16 @@ function utListHTML(){
     })(P.root,0);
     return out.s;
   }
-  /* поиск: и по названию, и по логину руководителя; сначала совпадение с начала, выше уровнем */
+  /* поиск: по названию, логину и имени руководителя (имя — с поставки 66; «Иван Петров» находится и по фамилии);
+     сначала совпадение с начала слова, выше уровнем */
   const hits=[];
   P.all().forEach(p=>{
     const i=P.info(p);if(!i)return;
-    const an=i.name.toLowerCase().indexOf(q), ah=i.head?i.head.toLowerCase().indexOf(q):-1;
-    if(an<0&&ah<0)return;
-    hits.push({p,i,byHead:an<0,rank:(an===0||(an<0&&ah===0)?0:1)*100+i.lvl});
+    const an=i.name.toLowerCase().indexOf(q), ah=i.head?i.head.toLowerCase().indexOf(q):-1,
+      hn=(i.hname||'').toLowerCase(), am=hn.indexOf(q);
+    if(an<0&&ah<0&&am<0)return;
+    const start=an===0||(an<0&&(ah===0||am===0||(am>0&&hn[am-1]===' ')));
+    hits.push({p,i,byHead:an<0,rank:(start?0:1)*100+i.lvl});
   });
   if(!hits.length)return '<div class="ut-none">Ничего не найдено</div>';
   hits.sort((a,b)=>a.rank-b.rank||a.i.name.localeCompare(b.i.name,'ru'));
@@ -449,7 +459,7 @@ function utListHTML(){
     const chain=h.p.split('/'), names=[];
     for(let k=Math.max(1,chain.length-4);k<chain.length;k++){const x=P.info(chain.slice(0,k).join('/'));if(x)names.push(x.name)}
     return utRow(h.p,h.i,null,'<span class="ut-sp"></span>',{name:h.byHead?esc(h.i.name):utHl(h.i.name,q),
-      path:names.join(' › '),head:h.byHead?utHl(h.i.head,q):''});
+      path:names.join(' › '),q:h.byHead?q:''});
   }).join('')+(hits.length>80?'<div class="ut-none">Показаны 80 из '+hits.length+' — уточните запрос</div>':'');
 }
 function utRender(){

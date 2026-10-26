@@ -19,7 +19,8 @@ paragraphs:
     # TeamPulse Hub — ноутбук сборки (копия TP 2.0 под отчёт)
 
     Тот же конвейер, что TP 2.0: источник по дням → человек × месяц × юнит → перформанс, посещаемость,
-    T-рост → `hr_structure_overall` для других отчётов. Плюс таблицы **`teampulse_hub_*`**: в них
+    T-рост. Таблица `hr_structure_overall` для других отчётов — в ноутбуке TP 2.0, здесь её нет. Здесь — таблицы
+    **`teampulse_hub_*`**: в них
     посчитано всё, что нужно отчёту TeamPulse Hub. Виртуальный датасет отчёта не кешируется, поэтому
     на каждый запрос он только выбирает узлы ответа (выбранный юнит, базу и три уровня под ним) и
     склеивает строки — без дерева, без склейки копий, без истории в нынешней структуре.
@@ -41,16 +42,18 @@ paragraphs:
        С поставки 58 (22.10) это параграфы gp — SQL выполняется прямо в GP, по шагу на параграф. Python остался
        в одном коротком параграфе — `hub · 2 логины и AI`: там сначала проверка, есть ли источник.
     7. Убраны выключенные и отладочные параграфы (`get_hr_structure`, `join_structure_combos`,
-       `Untitled …`, `select …`, `tst`).
+       `Untitled …`, `select …`, `tst`), с поставки 66 — и `group_and_sum_metrics`, `calc_ssch` (`hr_structure_overall`).
+    8. Поставка 66 — параграфы Адели: `unit_head_structure` (руководитель юнита), `org_structure` с ним,
+       `with_office_traffic` с бронированиями и городами, `office_traffic` — календарь посещений по дням.
 
     **Таблицы для отчёта** (выгрузка — параграф `to click`, база `prod_proteus`):
 
     | Таблица | Строка | Что в ней |
     |---|---|---|
     | `teampulse_hub_meta` | одна | последний месяц (и текущий незакрытый), дата данных `data_dt`, начало сетки, корень, юнит по умолчанию |
-    | `teampulse_hub_unit` | узел нынешней структуры | родитель, уровень, имя, число подразделений, путь ключами, логин руководителя (`head_login`: окно настройки отчёта показывает его под именем юнита и ищет по нему) |
-    | `teampulse_hub_series` | узел × месяц × срез | численность, активная, ССЧ, найм (в компанию + из учебной группы в боевую + стажёры в штат — методология DD), увольнения, regret, переводы через границу узла, мониторинг, посещаемость, T-рост — по всему поддереву |
-    | `teampulse_hub_mix` | узел × срез × разрез × значение | численность по атрибутам, увольнения с начала года по причинам, инициативе, стажу, грейду, стриму |
+    | `teampulse_hub_unit` | узел нынешней структуры | родитель, уровень, имя, число подразделений, путь ключами, логин и имя руководителя (`head_login`, `head_nm`: окно настройки отчёта показывает их под именем юнита и ищет по ним) |
+    | `teampulse_hub_series` | узел × месяц × срез | численность, активная, ССЧ, найм (в компанию + из учебной группы в боевую + стажёры в штат — методология DD), увольнения, regret, переводы через границу узла, мониторинг, посещаемость, бронирования, посещаемость руководителей, T-рост — по всему поддереву |
+    | `teampulse_hub_mix` | узел × срез × разрез × значение | численность по атрибутам, увольнения с начала года по причинам, инициативе, стажу, грейду, стриму; посещения по городам за последний месяц и календарь посещений по дням двух месяцев |
     | `teampulse_hub_trf` | узел × месяц × вид × срез до × срез после | переходы людей по дням (с 21.10): вошёл в узел, вышел, остался со сменой среза (покраска, IT, штат, тип численности). Датасет считает из них переводы в выбор и из выбора под любые фильтры |
     | `teampulse_hub_vacancy` | узел × месяц × разрезы вакансии | открыто на конец месяца, закрыто, новые, срок закрытия (сумма дней и число); из снимка `structure_x_vacancy` (поставка 50) |
     | `teampulse_hub_ai` | узел × месяц | WAU AI-инструментов, проникновение по юниту и компании — из источника отчёта HQ |
@@ -86,16 +89,18 @@ paragraphs:
     hr_executive_proteus (по дням)
       └─ build_all_metrics ──────────────── all_metrics: человек × месяц × юнит
            ├─ with_performance / with_office_traffic / with_TRost  → …_and_grt (одна строка человека — last_row_flg)
-           │    ├─ group_and_sum_metrics → calc_ssch → hr_structure_with_ssch
            │    └─ hub · 0 … hub · 6 (gp) → teampulse_hub_meta / _unit / _series / _mix / _trf / _vacancy / _ai ─┐
            │                                hub checks (gp)                                                      │
-           └─ org_structure                                                                                      │
+           ├─ office_traffic → office_traffic_calendar (посещения по дням) → hub · 4                             │
+           └─ org_structure ← unit_head_structure (руководитель юнита) → hub · 2 (имя руководителя)              │
+    office_traffic_attendance → with_office_traffic (бронирования, города), office_traffic                       │
     vacancy_daily → structure_x_vacancy (gp) → hub · 6                                                           │
                                              to click (gp_to_click) ←────────────────────────────────────────────┘
                                                teampulse_hub_*
     ```
 
-    Виртуальный датасет отчёта (файл 2а поставки) читает только `teampulse_hub_*`.
+    Виртуальный датасет отчёта (файл 2а поставки) читает только `teampulse_hub_*`. `hr_structure_overall` выгружает
+    ноутбук TP 2.0 (`group_and_sum_metrics` и `calc_ssch` — там).
   isEnabled: true
 - sid: 7484e4c5-6771-5dac-a53e-6dba58b71763
   title: 'step1: tables_wait'
@@ -505,6 +510,8 @@ paragraphs:
         'fire_initiative',
         'type_company',
         'source_type_nm',
+        # 26.10, поставка 66 (Адель): признак руководителя — сегмент «Руководители / Сотрудники» посещаемости
+        'management_head_flg',
         # dict без match — то же самое, но с явным alias
         {'name': 'active_type_nm',                  'alias': 'act_type_nm'},
         {'name': 'employment_relation_type_desc',   'alias': 'employment_relation_type'},
@@ -536,13 +543,62 @@ paragraphs:
         # debug = True
     )
   isEnabled: true
+- sid: 5a37a6ea-4940-5119-8efb-247c24fc4158
+  title: unit_head_structure
+  shebang: gp
+  code: |-
+    -- =============================================================================
+    -- TeamPulse Hub · руководитель юнита по месяцам: имя и логин (Адель, 23.10; поставка 66)
+    -- Руководитель — сотрудник с management_head_flg = 1, юнит — его management_unit_rk, на последний день
+    -- месяца (у текущего — на последний день данных). Имя — «Имя Фамилия»: его ищут в фильтре юнита отчёта.
+    -- Поставка 66: одна строка на юнит и месяц. У юнита бывает несколько строк с флагом (две должности,
+    -- соруководители, две даты в месяце) — org_structure, который присоединяет таблицу, размножал строки юнита.
+    -- Берётся последняя дата месяца, при равенстве — меньший mdm_employee_rk. Нет фамилии — только имя.
+    -- =============================================================================
+    DROP TABLE IF EXISTS unit_head_structure;
+    create table unit_head_structure as
+
+    with unit_heads as (
+    select
+        business_dt::DATE AS business_dt,
+        management_unit_rk,
+        management_unit_nm,
+        mdm_employee_rk,
+        last_nm,first_nm,
+        nullif(trim(coalesce(first_nm, '') || ' ' || coalesce(last_nm, '')), '') as full_nm,
+        ad_login
+
+    from prod_v_emart.mdm_employee_structure_d
+    where
+        (last_day_flg = 1 or last_day_of_month_flg = 1)
+        and management_head_flg=1
+    )
+        --AND company_fire_flg = 0
+
+
+    select distinct on (uh.management_unit_rk, date_trunc('month', uh.business_dt)::DATE)
+        uh.management_unit_rk
+        , date_trunc('month', uh.business_dt)::DATE as report_month
+        , uh.mdm_employee_rk as leader_mdm_employee_rk
+        , uh.first_nm as leader_first_nm
+        , uh.full_nm as leader_full_nm
+        , uh.ad_login as leader_login
+
+    from unit_heads uh
+    order by uh.management_unit_rk, date_trunc('month', uh.business_dt)::DATE, uh.business_dt desc, uh.mdm_employee_rk
+
+    distributed by (management_unit_rk);
+  isEnabled: true
 - sid: 957e1dfb-0b94-55a0-a3d9-b073d4ae22ef
   title: org_structure
   shebang: gp
   code: |-
+    -- 23.10 (Адель): + руководитель юнита на месяц — логин и имя (unit_head_structure; с поставки 66 там одна строка
+    -- на юнит и месяц, строки юнита не размножаются)
     DROP TABLE IF EXISTS org_structure;
     CREATE TABLE org_structure AS
 
+    with prep as(
     SELECT
         report_month,
         mng_unit_rk,
@@ -566,6 +622,15 @@ paragraphs:
         leaf_lvl,
         lvl1_nm, lvl2_nm, lvl3_nm, lvl4_nm, lvl5_nm,
         lvl6_nm, lvl7_nm, lvl8_nm, lvl9_nm, lvl10_nm, lvl11_nm
+    )
+
+    SELECT prep.*
+        , uhs.leader_login -- логин руководителя
+        , uhs.leader_full_nm -- имя руководителя
+    FROM prep
+    LEFT JOIN unit_head_structure uhs
+        ON prep.mng_unit_rk = uhs.management_unit_rk AND prep.report_month = uhs.report_month
+
 
     DISTRIBUTED BY (mng_unit_rk);
 
@@ -630,31 +695,174 @@ paragraphs:
   title: with_office_traffic
   shebang: gp
   code: |-
+    -- =============================================================================
+    -- TeamPulse Hub
+    -- добавлены города посещений для статистики посещений (Адель, 23.10): бронирования, нарушения
+    -- бронирования и посещения по городам. С поставки 66 — в отчёте: «hub · 3» (ряды бронирований),
+    -- «hub · 4» (города последнего месяца)
+    -- ======================================================================
     drop table if exists all_metrics_with_performance_and_office_traffic ;
     create table all_metrics_with_performance_and_office_traffic as
 
-    with office_traffic as (
+    with base as (
         select date_trunc('month', calendar_dt) as month
             , mdm_employee_rk
-            , count(work_day_flg) as work_day_amt
-            , sum(office_visit_flg) as office_visit_amt
-        from usr_cross_data.office_traffic_attendance --usr_cross_data.hr_digest_office
-        where 1=1 --mdm_employee_rk = 614029
-            and work_day_flg=1
-        group by date_trunc('month', calendar_dt), mdm_employee_rk
+            , calendar_dt
+            , work_day_flg
+            , coalesce(office_visit_flg, 0)      as office_visit_flg
+            , coalesce(booking_flg, 0)           as booking_flg
+            , coalesce(booking_violation_flg, 0) as booking_violation_flg --бронь без посещения
+            , coalesce(visit_violation_flg, 0)   as visit_violation_flg   --посещение без брони
+            , office_city_nm
+        from usr_cross_data.office_traffic_attendance
+        where work_day_flg = 1
+    )
+    -- общие метрики за месяц
+    , office_traffic as (
+        select month
+            , mdm_employee_rk
+            , count(work_day_flg)        as work_day_amt
+            , sum(office_visit_flg)      as office_visit_amt
+            , sum(booking_flg)           as booking_amt
+            , sum(booking_violation_flg) as booking_viol_amt
+            , sum(visit_violation_flg)   as visit_viol_amt
+        from base
+        group by month, mdm_employee_rk
+    )
+    -- посещения в разрезе городов
+    , city_visits as (
+        select month
+            , mdm_employee_rk
+            , office_city_nm
+            , sum(office_visit_flg) as visit_count
+        from base
+        where office_city_nm is not null
+        group by month, mdm_employee_rk, office_city_nm
+        having sum(office_visit_flg) > 0
+    )
+    -- сворачиваем в json
+    , city_json as (
+        select month
+            , mdm_employee_rk
+            , json_agg(
+                  json_build_object(
+                      'office_city_nm', office_city_nm,
+                      'visit_count',    visit_count
+                  )
+                  order by visit_count desc, office_city_nm
+              ) as office_city_visits_json
+        from city_visits
+        group by month, mdm_employee_rk
     )
 
     select m.*
         , o.work_day_amt
         , o.office_visit_amt
+        , o.booking_amt
+        , o.booking_viol_amt
+        , o.visit_viol_amt
+        , c.office_city_visits_json
     from all_metrics_with_performance_added m
     left join office_traffic o
         on o.month = m.report_month
         and o.mdm_employee_rk = m.mdm_employee_rk
         and m.last_row_flg = 1
+    left join city_json c
+        on  c.month           = m.report_month
+        and c.mdm_employee_rk = m.mdm_employee_rk
+        and m.last_row_flg    = 1
 
     distributed by (mdm_employee_rk, report_month)
     ;
+  isEnabled: true
+- sid: 62af96fd-c837-5418-b407-9a9f8e22d9af
+  title: office_traffic
+  shebang: gp
+  code: |-
+    -- =============================================================================
+    -- TeamPulse Hub
+    -- календарь посещений на последние 2 месяца (Адель, 23.10; поставка 66 — исправлен и дополнен)
+    -- юнит × день × срез отчёта: людей с рабочим днём (cnt_work_day) и из них в офисе (cnt_office_visit);
+    -- посещаемость дня = cnt_office_visit / cnt_work_day. За месяц сумма — те же рабочие дни и посещения, что
+    -- у with_office_traffic (проверка в «hub checks»). В отчёт календарь раскладывает по узлам «hub · 4».
+    -- Поставка 66, к версии 23.10:
+    --   - date_trunck → date_trunc, запятая после cnt_work_day;
+    --   - без условия office_visit_flg = 1: с ним в таблице только дни в офисе, и cnt_work_day = cnt_office_visit —
+    --     посещаемость дня всегда 100%;
+    --   - человек — одной строкой месяца (last_row_flg = 1, как у посещений в with_office_traffic): у перешедшего
+    --     в месяце строк несколько, и его дни считались в каждой;
+    --   - срезы отчёта (покраска, IT-код, тип оформления, тип численности) и ключи уровней — по ним отчёт
+    --     фильтрует календарь и раскладывает его по узлам;
+    --   - два месяца — последний месяц all_metrics и прошлый (первое условие — отсечение партиций по дате).
+    -- ======================================================================
+    drop table if exists office_traffic_calendar ;
+    create table office_traffic_calendar as
+
+    with calendar as (
+    select calendar_dt::date as calendar_dt
+            , date_trunc('month', calendar_dt)::date as report_month
+            , mdm_employee_rk
+            --, office_city_nm
+            , coalesce(region_visit_flg, 0) as region_visit_flg
+            , coalesce(office_visit_flg, 0) as office_visit_flg
+            , day_short_nm
+            , day_sort
+        from usr_cross_data.office_traffic_attendance
+        where calendar_dt >= date_trunc('month', current_date - interval '3 month')
+        and calendar_dt >= (select max(report_month)::date - interval '1 month' from all_metrics)
+        and work_day_flg = 1
+    )
+
+    select c.report_month,
+        c.calendar_dt,
+        am.mng_unit_rk,
+        am.leaf_lvl
+        , am.lvl1_rk
+        , am.lvl2_rk
+        , am.lvl3_rk
+        , am.lvl4_rk
+        , am.lvl5_rk
+        , am.lvl6_rk
+        , am.lvl7_rk
+        , am.lvl8_rk
+        , am.lvl9_rk
+        , am.lvl10_rk
+        , am.lvl11_rk
+        , am.lvl1_nm
+        , am.lvl2_nm
+        , am.lvl3_nm
+        , am.lvl4_nm
+        , am.lvl5_nm
+        , am.lvl6_nm
+        , am.lvl7_nm
+        , am.lvl8_nm
+        , am.lvl9_nm
+        , am.lvl10_nm
+        , am.lvl11_nm
+        , am.paint_cd
+        , am.emp_specialization_it_code
+        , am.employment_relation_type
+        , am.act_type_nm
+        , count(*) as cnt_work_day
+        , sum(c.office_visit_flg) as cnt_office_visit
+        , sum(c.region_visit_flg) as cnt_region_visit
+        , max(c.day_sort) as day_sort
+        , max(c.day_short_nm) as day_short_nm
+
+    from all_metrics am
+    join calendar c on am.mdm_employee_rk = c.mdm_employee_rk and am.report_month = c.report_month
+    where am.last_row_flg = 1
+    group by c.report_month,
+        c.calendar_dt,
+        am.mng_unit_rk,
+        am.leaf_lvl,
+        am.lvl1_rk, am.lvl2_rk, am.lvl3_rk, am.lvl4_rk, am.lvl5_rk, am.lvl6_rk, am.lvl7_rk, am.lvl8_rk, am.lvl9_rk, am.lvl10_rk, am.lvl11_rk,
+        am.lvl1_nm, am.lvl2_nm, am.lvl3_nm, am.lvl4_nm, am.lvl5_nm, am.lvl6_nm, am.lvl7_nm, am.lvl8_nm, am.lvl9_nm, am.lvl10_nm, am.lvl11_nm,
+        am.paint_cd, am.emp_specialization_it_code, am.employment_relation_type, am.act_type_nm
+
+    distributed by (mng_unit_rk);
+
+    analyze office_traffic_calendar;
   isEnabled: true
 - sid: 03cfb5b5-e6dc-5721-81b5-100b00ebe352
   title: with_TRost
@@ -783,8 +991,34 @@ paragraphs:
             ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'type_company'),
             ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'source_type_nm'),
             ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'region'),
+            ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'booking_amt'),
+            ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'booking_viol_amt'),
+            ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'visit_viol_amt'),
+            ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'office_city_visits_json'),
+            ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'management_head_flg'),
             ('', 'org_structure', 'report_month'),
             ('', 'org_structure', 'mng_unit_rk'),
+            ('', 'office_traffic_calendar', 'report_month'),
+            ('', 'office_traffic_calendar', 'calendar_dt'),
+            ('', 'office_traffic_calendar', 'mng_unit_rk'),
+            ('', 'office_traffic_calendar', 'leaf_lvl'),
+            ('', 'office_traffic_calendar', 'lvl1_rk'),
+            ('', 'office_traffic_calendar', 'lvl2_rk'),
+            ('', 'office_traffic_calendar', 'lvl3_rk'),
+            ('', 'office_traffic_calendar', 'lvl4_rk'),
+            ('', 'office_traffic_calendar', 'lvl5_rk'),
+            ('', 'office_traffic_calendar', 'lvl6_rk'),
+            ('', 'office_traffic_calendar', 'lvl7_rk'),
+            ('', 'office_traffic_calendar', 'lvl8_rk'),
+            ('', 'office_traffic_calendar', 'lvl9_rk'),
+            ('', 'office_traffic_calendar', 'lvl10_rk'),
+            ('', 'office_traffic_calendar', 'lvl11_rk'),
+            ('', 'office_traffic_calendar', 'paint_cd'),
+            ('', 'office_traffic_calendar', 'emp_specialization_it_code'),
+            ('', 'office_traffic_calendar', 'employment_relation_type'),
+            ('', 'office_traffic_calendar', 'act_type_nm'),
+            ('', 'office_traffic_calendar', 'cnt_work_day'),
+            ('', 'office_traffic_calendar', 'cnt_office_visit'),
             ('usr_cross_data', 'hr_executive_proteus', 'calendar_dt'),
             ('usr_cross_data', 'hr_executive_proteus', 'mdm_employee_rk'),
             ('usr_cross_data', 'hr_executive_proteus', 'lvl1_mapped_management_unit_rk'),
@@ -865,7 +1099,7 @@ paragraphs:
     have as (
         select table_schema as sch, table_name as tbl, column_name as col
         from information_schema.columns
-        where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'hr_executive_proteus', 'vacancy_daily')
+        where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'office_traffic_calendar', 'hr_executive_proteus', 'vacancy_daily')
     )
     select case when count(*) = 0 then 'колонки на месте'
                 else ('НЕТ КОЛОНОК (параграф «hub · 0 колонки»): '
@@ -990,652 +1224,6 @@ paragraphs:
            coalesce(sum(case when in_structure = 0 then open_cnt + close_cnt end), 0) as in_units_without_people
     from structure_x_vacancy;
   isEnabled: true
-- sid: 717dfd33-5771-5550-986b-2c8e24465d97
-  title: group_and_sum_metrics
-  shebang: python
-  code: |-
-    # =============================================================================
-    # Блок 3 — group_and_sum_metrics + calc_ssch
-    # =============================================================================
-    from dal_client import query as dal
-    import re as _re
-
-    # ── регулярки ────────────────────────────────────────────────────────────────
-    _IDENT_RE = _re.compile(r'^[A-Za-z_][A-Za-z0-9_$]*$')
-    _LVL_RK = _re.compile(r'^lvl(\d+)_rk$')
-    _LVL_NM = _re.compile(r'^lvl(\d+)_nm$')
-    _NM_RE = _re.compile(r'^lvl\d+_nm$')
-    _NOT_METRIC_RE = _re.compile(r'(_lvl|_rk|_id)$')
-    _NON_ADDITIVE_RE = _re.compile(r'(_rate|_pct|_share|_ratio|^avg_|_avg|_fte)$')
-
-    # ── типы, которые считаем числовыми ─────────────────────────────────────────
-    _NUMERIC_TYPES = {
-        'smallint', 'integer', 'bigint', 'decimal', 'numeric',
-        'real', 'double precision',
-    }
-
-    # ── числовые колонки, которые НЕ метрики ────────────────────────────────────
-    _NOT_METRICS = {
-        'mdm_employee_rk', 'leaf_lvl', 'lvl', 'parent_lvl', 'rn', 'last_row_flg',
-        'employee_rk', 'person_rk',
-        'mng_unit_rk',
-        'transfer_in_lvl', 'transfer_out_lvl',
-    }
-
-    # ── метрики по умолчанию (для фолбэка в partition_cols_from_table) ───────────
-    DEFAULT_METRICS = {
-        'hc_total_cnt', 'hc_active_cnt', 'hire_cnt', 'hire_amt',
-        'hire_to_active_amt', 'transfer_candidate_amt', 'transfer_internal_amt',
-        'fire_amt', 'regret_fire_amt',
-        'transfer_in_amt', 'transfer_in_lvl', 'transfer_out_amt', 'transfer_out_lvl',
-        'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
-        'work_day_amt', 'office_visit_amt',
-        'grt_approve_cnt', 'grt_decline_cnt', 'grt_cancel_cnt', 'grt_inprogress_cnt',
-        'ssch', 'lag_hc_total_cnt', 'lag_hc_active_cnt',
-        'ssch_hc_total_cnt', 'ssch_hc_active_cnt',
-    }
-
-    # ── кэш схемы таблиц ────────────────────────────────────────────────────────
-    _TABLE_CACHE: dict = {}
-
-    # ═════════════════════════════════════════════════════════════════════════════
-    # Утилиты
-    # ═════════════════════════════════════════════════════════════════════════════
-
-    def _ident(n: str) -> str:
-        if not isinstance(n, str) or not _IDENT_RE.match(n):
-            raise ValueError(f'bad ident: {n!r}')
-        return n
-
-    def _qualified(t: str) -> str:
-        parts = t.split('.')
-        if len(parts) > 2:
-            raise ValueError(f'bad table: {t!r}')
-        return '.'.join(_ident(p) for p in parts)
-
-    def _key_of(field) -> str:
-        if isinstance(field, dict):
-            return field.get('alias') or field['name']
-        return field
-
-    def _resolve_col(all_cols, name, alternatives=()):
-        """Возвращает реальное имя колонки с автофолбэком."""
-        all_set = set(all_cols) if not isinstance(all_cols, set) else all_cols
-        if name in all_set:
-            return name
-        for alt in alternatives:
-            if alt in all_set:
-                print(f'[INFO] {name} → {alt}')
-                return alt
-        raise ValueError(f'{name} нет в таблице (и альтернатив нет)')
-
-    # ═════════════════════════════════════════════════════════════════════════════
-    # Схема таблицы
-    # ═════════════════════════════════════════════════════════════════════════════
-
-    def table_schema_info(table: str) -> list[tuple[str, str]]:
-        """[(column_name, data_type), ...] — всегда свежие данные."""
-        parts = table.split('.')
-        tbl = _ident(parts[-1])
-        sch = (f"table_schema = '{_ident(parts[0])}'" if len(parts) == 2
-               else "table_schema not in ('pg_catalog','information_schema','pg_toast')")
-        df = dal.get_df(datasource='gp', query=f"""
-            select column_name, data_type
-            from information_schema.columns
-            where {sch} and table_name = '{tbl}'
-            order by ordinal_position""")
-        if df.empty:
-            raise ValueError(f'Таблица {table!r} не найдена')
-        info = list(zip(df['column_name'], df['data_type']))
-        _TABLE_CACHE[table] = info
-        return info
-
-    def table_columns(table: str) -> list[str]:
-        if table in _TABLE_CACHE:
-            return [c for c, _ in _TABLE_CACHE[table]]
-        return [c for c, _ in table_schema_info(table)]
-
-    def numeric_columns(table: str) -> list[str]:
-        out = []
-        for c, t in table_schema_info(table):
-            if t not in _NUMERIC_TYPES:
-                continue
-            if c in _NOT_METRICS or _NOT_METRIC_RE.search(c):
-                continue
-            if _NON_ADDITIVE_RE.search(c):
-                print(f'[WARN] {c} похоже на неаддитивную метрику — '
-                      f'sum() может быть бессмысленным; добавь в exclude=')
-            out.append(c)
-        return out
-
-    # ═════════════════════════════════════════════════════════════════════════════
-    # Детект схемы и путевые ключи
-    # ═════════════════════════════════════════════════════════════════════════════
-
-    def _detect_schema(all_cols: list) -> str:
-        all_set = set(all_cols)
-        if 'mng_unit_rk' in all_set and any(_LVL_NM.match(c) for c in all_cols):
-            return 'chain'
-        if any(_LVL_RK.match(c) for c in all_cols):
-            return 'new'
-        if 'mngt_unit_rk' in all_set and 'lvl' in all_set:
-            return 'old'
-        raise ValueError(
-            'Не удалось определить схему: нет ни mng_unit_rk+lvlN_nm, '
-            'ни lvlN_rk, ни mngt_unit_rk+lvl')
-
-    def _build_path_keys(all_cols: list, schema: str, target_lvl: int | None) -> list[str]:
-        all_set = set(all_cols)
-
-        if schema == 'chain':
-            found = sorted(int(m.group(1)) for c in all_cols if (m := _LVL_NM.match(c)))
-            path = ['report_month'] if 'report_month' in all_set else []
-            if not path:
-                print('[WARN] report_month не найден — агрегация по всей истории!')
-            if target_lvl is None:
-                path += [c for c in ('mng_unit_rk', 'leaf_lvl') if c in all_set]
-                path += [f'lvl{n}_nm' for n in found]
-            else:
-                use_up_to = min(target_lvl, found[-1]) if found else 0
-                path += [f'lvl{n}_nm' for n in found if n <= use_up_to]
-                print(f'[INFO] rollup до lvl{use_up_to} по наименованиям')
-            return path
-
-        if schema == 'new':
-            found = sorted(int(m.group(1)) for c in all_cols if (m := _LVL_RK.match(c)))
-            use_up_to = min(target_lvl, found[-1]) if target_lvl else found[-1]
-            path = ['report_month'] if 'report_month' in all_set else []
-            for n in range(1, use_up_to + 1):
-                for col in (f'lvl{n}_rk', f'lvl{n}_nm'):
-                    if col in all_set:
-                        path.append(col)
-            return path
-
-        # old
-        if target_lvl is not None:
-            print(f'[INFO] старая схема: target_lvl игнорируется')
-        path = []
-        for col in ('month', 'mngt_unit_rk', 'mngt_unit_nm', 'lvl',
-                    'parent_mngt_unit_rk', 'parent_mngt_unit_nm', 'parent_lvl'):
-            if col in all_set:
-                path.append(col)
-        return path
-
-    # ═════════════════════════════════════════════════════════════════════════════
-    # partition_cols_from_table
-    # ═════════════════════════════════════════════════════════════════════════════
-
-    def partition_cols_from_table(table, order_col='month', fields=None):
-        """
-        Ключи партиционирования = путевые ключи + FIXED_DIMS + разрезы из fields,
-        минус order_col, минус lvlN_nm.
-        """
-        all_cols = table_columns(table)
-        all_set = set(all_cols)
-        schema = _detect_schema(all_cols)
-        order_col = _resolve_col(all_set, order_col, ('report_month', 'month'))
-
-        path_keys = _build_path_keys(all_cols, schema, target_lvl=None)
-
-        cols = [c for c in path_keys
-                if c != order_col and not _NM_RE.match(c)]
-        seen = set(cols)
-
-        # ── FIXED_DIMS: всегда ──
-        for d in FIXED_DIMS:
-            alias = d['alias']
-            if alias in all_set and alias not in seen:
-                cols.append(alias)
-                seen.add(alias)
-
-        # ── пользовательские разрезы ──
-        if fields is not None:
-            for f in (fields or []):
-                k = _key_of(f)
-                if k not in all_set:
-                    print(f'[SKIP] {k} нет в {table}')
-                    continue
-                if k not in seen and not _NM_RE.match(k):
-                    cols.append(k)
-                    seen.add(k)
-        else:
-            for c in all_cols:
-                if (c not in seen and c not in DEFAULT_METRICS
-                        and c != order_col and not _NM_RE.match(c)):
-                    cols.append(c)
-                    seen.add(c)
-
-        if not cols:
-            raise ValueError(f'Пустой partition_cols для {table}')
-
-        nm_cols = [c for c in path_keys if _NM_RE.match(c)]
-        if nm_cols:
-            print(f'[INFO] lvlN_nm исключены из PARTITION BY: {nm_cols}')
-        print(f'[INFO] схема: {schema}, order: {order_col}, '
-              f'partition_cols ({len(cols)}): {cols}')
-        return cols, order_col
-
-    # ═════════════════════════════════════════════════════════════════════════════
-    # group_and_sum_metrics
-    # ═════════════════════════════════════════════════════════════════════════════
-
-    def group_and_sum_metrics(
-        fields,
-        source_table: str = 'f_person_month',
-        target_lvl: int | None = None,
-        metrics: list | None = None,
-        target_table: str | None = None,
-        where: str | None = None,
-        exclude: tuple = (),
-        coalesce_nulls: bool = True,
-        return_df: bool = False,
-        distributed_by=None,
-        debug: bool = False,
-    ):
-        source_table = _qualified(source_table)
-
-        # ── свежая схема ──
-        _TABLE_CACHE.pop(source_table, None)
-        all_cols = table_columns(source_table)
-        all_set = set(all_cols)
-        schema = _detect_schema(all_cols)
-        print(f'[INFO] схема: {schema}')
-
-        # 1. путевые ключи
-        path_keys = _build_path_keys(all_cols, schema, target_lvl)
-        path_set = set(path_keys)
-
-        # 2. FIXED_DIMS — всегда
-        fixed_keys: list[str] = []
-        for d in FIXED_DIMS:
-            alias = d['alias']
-            if alias in all_set and alias not in path_set and alias not in fixed_keys:
-                fixed_keys.append(alias)
-
-        # 3. пользовательские разрезы
-        user_keys: list[str] = []
-        seen = path_set | set(fixed_keys)
-        for f in (fields or []):
-            k = _key_of(f)
-            if k not in all_set:
-                print(f'[WARN] {k} нет в {source_table}, пропущена')
-                continue
-            if k not in seen:
-                user_keys.append(k)
-                seen.add(k)
-
-        keys = [_ident(k) for k in path_keys + fixed_keys + user_keys]
-        if not keys:
-            raise ValueError('Пустой GROUP BY')
-        keys_set = set(keys)
-        exclude_set = set(exclude)
-
-        # 4. метрики
-        if metrics is None:
-            chosen = numeric_columns(source_table)
-            print(f'[INFO] метрики определены автоматически: {len(chosen)} шт.')
-        else:
-            chosen = list(metrics)
-            absent = [m for m in chosen if m not in all_set]
-            if absent:
-                print(f'[WARN] метрик нет в таблице, пропущены: {absent}')
-
-        metric_names = [
-            _ident(m) for m in chosen
-            if m in all_set and m not in keys_set and m not in exclude_set
-        ]
-        if not metric_names:
-            raise ValueError('Нет ни одной метрики для суммирования')
-
-        print(f'[INFO] fixed_dims: {fixed_keys}')
-        print(f'[INFO] user_dims:  {user_keys}')
-        print(f'[INFO] суммируются ({len(metric_names)}): {metric_names}')
-
-        # 5. SQL
-        keys_sql = ',\n       '.join(keys)
-        sum_sql = ',\n       '.join(
-            f'coalesce(sum({m}), 0) AS {m}' if coalesce_nulls
-            else f'sum({m}) AS {m}'
-            for m in metric_names
-        )
-        group_by = ', '.join(str(i) for i in range(1, len(keys) + 1))
-
-        select_sql = f"""
-    SELECT {keys_sql},
-           {sum_sql}
-    FROM {source_table}
-    {('WHERE ' + where) if where else ''}
-    GROUP BY {group_by}"""
-
-        if debug:
-            print(select_sql)
-            return select_sql
-
-        if target_table:
-            target_table = _qualified(target_table)
-            dist = (f"distributed by ({', '.join(_ident(c) for c in distributed_by)})"
-                    if distributed_by else 'distributed randomly')
-            dal.get_df(datasource='gp', query=f'drop table if exists {target_table}')
-            dal.get_df(datasource='gp',
-                       query=f'create table {target_table} as\n{select_sql}\n{dist}')
-            dal.get_df(datasource='gp', query=f'analyze {target_table}')
-            cnt = dal.get_df(datasource='gp',
-                             query=f'select count(*) as cnt from {target_table}')['cnt'].iloc[0]
-            print(f'[OK] {target_table}: {cnt} строк')
-            if not return_df:
-                return None
-
-        return dal.get_df(datasource='gp', query=select_sql)
-
-    # ═════════════════════════════════════════════════════════════════════════════
-    # calc_ssch
-    # ═════════════════════════════════════════════════════════════════════════════
-
-    def calc_ssch(
-        source_table,
-        res_table_name,
-        metric_col='hc_active_cnt',
-        ssch_col_name='ssch',
-        emit_lag=False,
-        lag_col_name=None,
-        partition_cols=None,
-        order_col='month',
-        fill_first=True,
-        additional_metrics=None,
-        where_clause='',
-        fields=None,
-        distributed_by=None,
-        return_df=False,
-    ):
-        source_table = _qualified(source_table)
-        res_table_name = _qualified(res_table_name)
-
-        _TABLE_CACHE.pop(source_table, None)
-        all_cols = table_columns(source_table)
-        all_set = set(all_cols)
-
-        order_col = _resolve_col(all_set, order_col, ('report_month', 'month'))
-
-        if metric_col not in all_set:
-            cands = [c for c in DEFAULT_METRICS if c in all_set]
-            raise ValueError(f'{metric_col} нет в {source_table}. Кандидаты: {cands[:5]}')
-
-        _ident(ssch_col_name)
-        if lag_col_name is None:
-            lag_col_name = f'lag_{metric_col}'
-        _ident(lag_col_name)
-
-        if partition_cols is None:
-            partition_cols, order_col = partition_cols_from_table(
-                source_table, order_col=order_col, fields=fields)
-        else:
-            missing = [c for c in partition_cols if c not in all_set]
-            if missing:
-                raise ValueError(f'partition_cols: нет в {source_table}: {missing}')
-
-        partition_sql = ', '.join(_ident(c) for c in partition_cols)
-        over = f'PARTITION BY {partition_sql} ORDER BY {_ident(order_col)}'
-        lag_expr = f'LAG({_ident(metric_col)}) OVER ({over})'
-
-        if fill_first:
-            ssch_formula = (
-                f'CASE WHEN {lag_expr} IS NULL '
-                f'THEN {_ident(metric_col)}::NUMERIC '
-                f'ELSE ({lag_expr} + {_ident(metric_col)}) / 2.0 END')
-        else:
-            ssch_formula = f'({lag_expr} + {_ident(metric_col)}) / 2.0'
-
-        # ── защита от дублей колонок ──
-        new_cols = {ssch_col_name}
-        if emit_lag:
-            new_cols.add(lag_col_name)
-        if additional_metrics:
-            new_cols |= set(additional_metrics.keys())
-        base_cols = [c for c in all_cols if c not in new_cols]
-        base_sql = ', '.join(_ident(c) for c in base_cols)
-
-        lag_sql = f',\n       {lag_expr} AS {_ident(lag_col_name)}' if emit_lag else ''
-
-        additional_sql = ''
-        if additional_metrics:
-            parts = [
-                f"{formula.replace('{ssch}', f'({ssch_formula})')} AS {_ident(name)}"
-                for name, formula in additional_metrics.items()
-            ]
-            additional_sql = ',\n       ' + ',\n       '.join(parts)
-
-        where_sql = f'WHERE 1=1 {where_clause}' if where_clause else ''
-
-        select_sql = f"""
-    SELECT {base_sql}{lag_sql},
-           {ssch_formula} AS {_ident(ssch_col_name)}{additional_sql}
-    FROM {source_table}
-    {where_sql}"""
-
-        print(select_sql)
-
-        dist = (f'distributed by ({", ".join(_ident(c) for c in distributed_by)})'
-                if distributed_by else 'distributed randomly')
-
-        dal.get_df(datasource='gp', query=f'drop table if exists {res_table_name}')
-        dal.get_df(datasource='gp',
-                   query=f'create table {res_table_name} as\n{select_sql}\n{dist}')
-        dal.get_df(datasource='gp', query=f'analyze {res_table_name}')
-
-        cnt = dal.get_df(datasource='gp',
-                         query=f'select count(*) as cnt from {res_table_name}')['cnt'].iloc[0]
-        print(f'[OK] SSCH → {res_table_name}: {cnt} строк')
-
-        return dal.get_df(datasource='gp', query=select_sql) if return_df else None
-  isEnabled: true
-- sid: ee552411-4fc5-5ceb-8a9e-4d200f0d42aa
-  title: EXEC group
-  shebang: python
-  code: |-
-    group_and_sum_metrics(
-        fields=fields,
-        source_table='all_metrics_with_performance_and_office_traffic_and_grt',
-        target_table='hr_structure_grouped',
-        #distributed_by=['mngt_unit_rk'],
-    )
-  isEnabled: true
-- sid: 418e9eec-2565-5b30-99d9-8164506f6f96
-  title: calc_ssch
-  shebang: python
-  code: |-
-    # ── константы ────────────────────────────────────────────────────────────────
-    # колонки, которые точно метрики (не ключи партиционирования)
-    DEFAULT_METRICS = {
-        'hc_total_cnt', 'hc_active_cnt', 'hire_cnt', 'hire_amt',
-        'hire_to_active_amt', 'transfer_candidate_amt', 'transfer_internal_amt',
-        'fire_amt', 'regret_fire_amt',
-        'transfer_in_amt', 'transfer_in_lvl', 'transfer_out_amt', 'transfer_out_lvl',
-        'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
-        'work_day_amt', 'office_visit_amt',
-        'grt_approve_cnt', 'grt_decline_cnt', 'grt_cancel_cnt', 'grt_inprogress_cnt',
-    }
-
-    # колонки-наименования: нужны в выводе, но НЕ в PARTITION BY
-    _NM_RE = _re.compile(r'^lvl\d+_nm$')
-
-
-    def _resolve_col(all_cols, name, alternatives=()):
-        """Возвращает реальное имя колонки с автофолбэком month/report_month."""
-        if name in all_cols:
-            return name
-        for alt in alternatives:
-            if alt in all_cols:
-                print(f'[INFO] {name} нет в таблице, использую {alt}')
-                return alt
-        raise ValueError(f'{name} нет в таблице. Есть: {all_cols}')
-
-
-    def partition_cols_from_table(table, order_col='month', fields=None):
-        """
-        Ключи партиционирования = идентификационные ключи (юниты) + разрезы,
-        БЕЗ наименований (lvlN_nm) и БЕЗ order_col.
-        """
-        all_cols = table_columns(table)
-        all_set = set(all_cols)
-        schema = _detect_schema(all_cols)
-        order_col = _resolve_col(all_cols, order_col, ('report_month', 'month'))
-
-        path_keys = _build_path_keys(all_cols, schema, target_lvl=None)
-        path_set = set(path_keys)
-
-        # ── отсеиваем наименования: они не стабильны между месяцами ──
-        cols = [c for c in path_keys
-                if c != order_col and not _NM_RE.match(c)]
-
-        if fields:
-            for f in fields:
-                k = _key_of(f)
-                if k not in all_set:
-                    print(f'[SKIP] {k} нет в {table} — не партиционируем')
-                    continue
-                if k not in path_set and k not in cols and not _NM_RE.match(k):
-                    cols.append(k)
-        else:
-            metric_set = DEFAULT_METRICS
-            for c in all_cols:
-                if (c not in cols and c not in metric_set
-                        and c != order_col and not _NM_RE.match(c)):
-                    cols.append(c)
-
-        cols = [c for c in cols if c != order_col]
-        if not cols:
-            raise ValueError(f'Не удалось определить partition_cols для {table}')
-
-        nm_cols = [c for c in path_keys if _NM_RE.match(c)]
-        if nm_cols:
-            print(f'[INFO] lvlN_nm исключены из PARTITION BY: {nm_cols}')
-        print(f'[INFO] схема: {schema}, order: {order_col}, partition_cols: {cols}')
-        return cols, order_col
-
-
-    def calc_ssch(
-        source_table,
-        res_table_name,
-        metric_col='hc_total_cnt',
-        ssch_col_name=None,
-        lag_col_name=None,
-        partition_cols=None,
-        order_col='month',
-        fill_first=True,
-        additional_metrics=None,
-        where_clause='',
-        fields=None,
-        distributed_by=None,
-        return_df=False,
-    ):
-        """
-        SSCH = (lag + текущ) / 2, для первого месяца = текущ (fill_first=True).
-        PARTITION BY = идентификационные ключи (юниты rk + разрезы), ORDER BY = месяц.
-        lvlN_nm выносятся в SELECT, но НЕ в PARTITION BY.
-        """
-        source_table = _qualified(source_table)
-        res_table_name = _qualified(res_table_name)
-
-        # ── кэш сбрасываем, чтобы читать актуальную схему ──
-        _TABLE_CACHE.pop(source_table, None)
-        all_cols = table_columns(source_table)
-        all_set = set(all_cols)
-
-        order_col = _resolve_col(all_cols, order_col, ('report_month', 'month'))
-
-        if metric_col not in all_set:
-            cands = [c for c in DEFAULT_METRICS if c in all_set]
-            raise ValueError(
-                f'{metric_col} нет в {source_table}. '
-                f'Кандидаты: {cands[:5]}'
-            )
-
-        if ssch_col_name is None:
-            ssch_col_name = f'ssch_{metric_col}'
-        if lag_col_name is None:
-            lag_col_name = f'lag_{metric_col}'
-        _ident(ssch_col_name)
-        _ident(lag_col_name)
-
-        # ── partition_cols ──
-        if partition_cols is None:
-            partition_cols, order_col = partition_cols_from_table(
-                source_table, order_col=order_col, fields=fields,
-            )
-        else:
-            missing = [c for c in partition_cols if c not in all_set]
-            if missing:
-                raise ValueError(f'partition_cols: нет в {source_table}: {missing}')
-
-        partition_sql = ', '.join(_ident(c) for c in partition_cols)
-        over = f'PARTITION BY {partition_sql} ORDER BY {_ident(order_col)}'
-
-        # ── исключаем из SELECT * колонки, которые будут пересозданы ──
-        # (защита от дублей при повторном прогоне)
-        new_cols = {lag_col_name, ssch_col_name}
-        if additional_metrics:
-            new_cols |= set(additional_metrics.keys())
-        base_cols = [c for c in all_cols if c not in new_cols]
-        base_sql = ', '.join(_ident(c) for c in base_cols)
-
-        # ── LAG / SSCH ──
-        lag_expr = f'LAG({_ident(metric_col)}) OVER ({over})'
-
-        if fill_first:
-            ssch_formula = (
-                f'CASE WHEN {lag_expr} IS NULL '
-                f'THEN {_ident(metric_col)}::NUMERIC '
-                f'ELSE ({lag_expr} + {_ident(metric_col)}) / 2.0 END'
-            )
-        else:
-            ssch_formula = f'({lag_expr} + {_ident(metric_col)}) / 2.0'
-
-        # ── additional_metrics ──
-        additional_sql = ''
-        if additional_metrics:
-            parts = [
-                f"{formula.replace('{ssch}', f'({ssch_formula})')} AS {_ident(name)}"
-                for name, formula in additional_metrics.items()
-            ]
-            additional_sql = ',\n       ' + ',\n       '.join(parts)
-
-        where_sql = f'WHERE 1=1 {where_clause}' if where_clause else ''
-
-        select_sql = f"""
-    SELECT {base_sql},
-           {lag_expr} AS {_ident(lag_col_name)},
-           {ssch_formula} AS {_ident(ssch_col_name)}{additional_sql}
-    FROM {source_table}
-    {where_sql}"""
-
-        print(select_sql)
-
-        dist = (f'distributed by ({", ".join(_ident(c) for c in distributed_by)})'
-                if distributed_by else 'distributed randomly')
-
-        dal.get_df(datasource='gp', query=f'drop table if exists {res_table_name}')
-        dal.get_df(datasource='gp',
-                   query=f'create table {res_table_name} as\n{select_sql}\n{dist}')
-        dal.get_df(datasource='gp', query=f'analyze {res_table_name}')
-
-        cnt = dal.get_df(datasource='gp',
-                         query=f'select count(*) as cnt from {res_table_name}')['cnt'].iloc[0]
-        print(f'[OK] SSCH сохранено в {res_table_name}: {cnt} строк')
-
-        return dal.get_df(datasource='gp', query=select_sql) if return_df else None
-  isEnabled: true
-- sid: 480882bf-cb75-5b6d-95ce-373ff20e6304
-  title: EXEC calc_ssch
-  shebang: python
-  code: |-
-    calc_ssch(
-        source_table='hr_structure_grouped',
-        res_table_name='hr_structure_with_ssch',
-        metric_col='hc_active_cnt',
-        fields=fields,                        # те же разрезы, что в group_and_sum_metrics
-        order_col='month'
-    )
-  isEnabled: true
 - sid: 966fe7ea-c161-5a71-a8c5-db4302f620c0
   title: hub · 1 структура
   shebang: gp
@@ -1736,7 +1324,8 @@ paragraphs:
     # Остальная сборка — параграфы gp (SQL). Здесь Python, потому что сначала нужно проверить, есть ли
     # источник и его колонки, — SQL так не умеет. Два коротких запроса; тяжёлых шагов здесь нет.
     # Нет источника — таблица пустая, отчёт работает: логины пустые, AI «в разработке».
-    #   teampulse_hub_head  юнит → логин руководителя на дату данных (для teampulse_hub_unit, параграф «hub · 3»)
+    #   teampulse_hub_head  юнит → логин руководителя на дату данных и его имя (для teampulse_hub_unit, параграф
+    #                       «hub · 3»; имя — с поставки 66, из unit_head_structure Адели)
     #   teampulse_hub_login сотрудник → логин на ту же дату (детализация переводов, параграф «hub · 5», поставка 63)
     #   teampulse_hub_ai    узел × месяц: WAU AI-инструментов и проникновение (по юниту и компании)
     # =============================================================================
@@ -1750,6 +1339,8 @@ paragraphs:
                     ('prod_v_emart.mdm_employee_structure_d', 'business_dt')]
     HUB_HEAD_COLS = {'mdm_employee_rk', 'management_head_flg', 'ad_login', 'management_head_ad_login'}
     HUB_AI_SRC = 'usr_mlpa.ai_bi_all_copilots_usage_digest_monthly'
+    # поставка 66 (Адель): имя и фамилия руководителя — параграф unit_head_structure (руководитель юнита по месяцам)
+    HUB_HEAD_NM = 'unit_head_structure'
 
 
     def _hub_q(sql):
@@ -1768,6 +1359,18 @@ paragraphs:
 
     _cal = _hub_q(f'select lm, grid_start from {HUB_P}_cal').iloc[0]
     _lm, _gs = str(_cal['lm'])[:10], str(_cal['grid_start'])[:10]
+
+    # поставка 66: имя руководителя по логину — из unit_head_structure, последний месяц, где этот логин руководит
+    # юнитом (не позже последнего месяца отчёта). Нет таблицы — имена пустые, логины остаются
+    _nm = "(select ''::text as login, ''::text as nm where false)"
+    if {'report_month', 'leader_login', 'leader_full_nm'} <= _hub_cols(HUB_HEAD_NM):
+        _nm = f"""(
+            select distinct on (login) login, nm
+            from (select lower(trim(leader_login::text)) as login, trim(leader_full_nm::text) as nm, report_month
+                  from {HUB_HEAD_NM}
+                  where report_month <= '{_lm}'::date) x
+            where login <> '' and coalesce(nm, '') <> ''
+            order by login, report_month desc, nm)"""
 
     # 4. руководитель юнита на конец последнего месяца — голосами, как в HRBP HUB: 3 — сам руководитель
     #    (management_head_flg = 1) в юните → его ad_login; 2 — люди юнита → их management_head_ad_login;
@@ -1793,6 +1396,8 @@ paragraphs:
         _hub_q(f"""
     drop table if exists {HUB_P}_head;
     create table {HUB_P}_head as
+    select hd.unit_rk, hd.head_login, coalesce(nm.nm, '') as head_nm
+    from (
     select distinct on (unit_rk) unit_rk, head_login
     from (
         select v.unit_rk, v.head_login, max(v.w) as w, count(*) as n
@@ -1815,9 +1420,11 @@ paragraphs:
         group by v.unit_rk, v.head_login
     ) t
     order by unit_rk, w desc, n desc, head_login
+    ) hd
+    left join {_nm} nm on nm.login = hd.head_login
     distributed by (unit_rk)""")
-        print(f"[OK] {HUB_P}_head: логины из {_t} на {_hdt} — "
-              f"{_hub_q(f'select count(*) as n from {HUB_P}_head')['n'].iloc[0]} юнитов")
+        _hn = _hub_q(f"select count(*) as n, count(nullif(head_nm, '')) as nm from {HUB_P}_head").iloc[0]
+        print(f"[OK] {HUB_P}_head: логины из {_t} на {_hdt} — {_hn['n']} юнитов, с именем руководителя — {_hn['nm']}")
         # поставка 63: логины сотрудников на ту же дату — для детализации переводов (hub · 5). Ушедших до этой
         # даты нет — у них в детализации только шифр
         _hub_q(f"""
@@ -1828,7 +1435,7 @@ paragraphs:
     else:
         _hub_q(f"""
     drop table if exists {HUB_P}_head;
-    create table {HUB_P}_head as select ''::text as unit_rk, ''::text as head_login where false
+    create table {HUB_P}_head as select ''::text as unit_rk, ''::text as head_login, ''::text as head_nm where false
     distributed by (unit_rk)""")
         _hub_q(f"""
     drop table if exists {HUB_P}_login;
@@ -1878,14 +1485,17 @@ paragraphs:
     -- =============================================================================
     -- TeamPulse Hub · 3. Справочник узлов и ряды (поставка 58: SQL вместо build_hub)
     -- teampulse_hub_unit — узлы: родитель, уровень, имя, число подразделений, путь, логин руководителя;
-    -- teampulse_hub_series — узел × месяц × срез: численность, ССЧ, найм, увольнения, переводы и др.
+    -- teampulse_hub_series — узел × месяц × срез: численность, ССЧ, найм, увольнения, переводы и др.;
+    -- с поставки 66 — бронирования (bk, bkv, vsv) и посещаемость руководителей (hwd, hov), имя руководителя.
     -- =============================================================================
 
-    -- 5. справочник узлов: + число подразделений и логин руководителя (teampulse_hub_head — параграф «hub · 2»)
+    -- 5. справочник узлов: + число подразделений, логин и имя руководителя (teampulse_hub_head — параграф «hub · 2»;
+    --    имя — с поставки 66, из unit_head_structure)
     drop table if exists teampulse_hub_unit;
     create table teampulse_hub_unit as
     select n.rk as unit_rk, n.prk as parent_rk, n.lv as unit_lvl, n.nm as unit_nm,
-           coalesce(k.kids, 0)::int as kids_cnt, n.pth as path_rk, coalesce(h.head_login, '') as head_login
+           coalesce(k.kids, 0)::int as kids_cnt, n.pth as path_rk, coalesce(h.head_login, '') as head_login,
+           coalesce(h.head_nm, '') as head_nm
     from teampulse_hub_node n
     left join (select prk, count(*) as kids from teampulse_hub_node where prk <> '' group by prk) k on k.prk = n.rk
     left join teampulse_hub_head h on h.unit_rk = n.rk
@@ -1911,7 +1521,12 @@ paragraphs:
            sum(coalesce(e.perf_normal, 0)) as pnor, sum(coalesce(e.perf_low, 0)) as plow,
            sum(coalesce(e.perf_high, 0)) as phig, sum(coalesce(e.perf_gray, 0)) as pgry,
            sum(coalesce(e.work_day_amt, 0)) as wday, sum(coalesce(e.office_visit_amt, 0)) as ovis,
-           sum(coalesce(e.grt_approve_cnt, 0)) as gapr, sum(coalesce(e.grt_decline_cnt, 0)) as gdec
+           sum(coalesce(e.grt_approve_cnt, 0)) as gapr, sum(coalesce(e.grt_decline_cnt, 0)) as gdec,
+           -- поставка 66 (Адель): бронирования — дней с бронью, бронь без посещения, посещение без брони; рабочие
+           -- дни и посещения руководителей (management_head_flg = 1) — сегмент «Руководители» посещаемости
+           sum(coalesce(e.booking_amt, 0)) as bk, sum(coalesce(e.booking_viol_amt, 0)) as bkv, sum(coalesce(e.visit_viol_amt, 0)) as vsv,
+           sum(case when e.management_head_flg::text = '1' then coalesce(e.work_day_amt, 0) else 0 end) as hwd,
+           sum(case when e.management_head_flg::text = '1' then coalesce(e.office_visit_amt, 0) else 0 end) as hov
     from (
         select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
                generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
@@ -1919,7 +1534,8 @@ paragraphs:
             select s.report_month, s.hc_total_cnt, s.hc_active_cnt, s.hire_amt, s.transfer_candidate_amt,
                    s.transfer_internal_amt, s.hire_cnt, s.fire_amt, s.regret_fire_amt, s.non_regret_fire_amt,
                    s.perf_normal, s.perf_low, s.perf_high, s.perf_gray, s.work_day_amt, s.office_visit_amt,
-                   s.grt_approve_cnt, s.grt_decline_cnt,
+                   s.grt_approve_cnt, s.grt_decline_cnt, s.booking_amt, s.booking_viol_amt, s.visit_viol_amt,
+                   s.management_head_flg,
                    (select pre from teampulse_hub_cal) || coalesce(u.cp,
                        array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                           s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
@@ -1956,7 +1572,9 @@ paragraphs:
            coalesce(c.pnor, 0) as pnor_cnt, coalesce(c.plow, 0) as plow_cnt,
            coalesce(c.phig, 0) as phig_cnt, coalesce(c.pgry, 0) as pgry_cnt,
            coalesce(c.wday, 0) as wday_amt, coalesce(c.ovis, 0) as ovis_amt,
-           coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt
+           coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt,
+           coalesce(c.bk, 0) as bk_amt, coalesce(c.bkv, 0) as bkv_amt, coalesce(c.vsv, 0) as vsv_amt,
+           coalesce(c.hwd, 0) as hwd_amt, coalesce(c.hov, 0) as hov_amt
     from k
     left join teampulse_hub_sx c
            on c.node_rk = k.node_rk and c.paint_c = k.paint_c and c.it_c = k.it_c and c.staff_c = k.staff_c and
@@ -1978,16 +1596,18 @@ paragraphs:
     -- =============================================================================
     -- TeamPulse Hub · 4. Разрезы (поставка 58: SQL вместо build_hub)
     -- teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам
-    -- (g a t gr s c o w r sp tc rg ws), увольнения с начала его года (xr причина, xq regret по причине, xi
+    -- (g a t gr s c o w r sp tc rg ws mh), увольнения с начала его года (xr причина, xq regret по причине, xi
     -- инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),
-    -- найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Пустое значение — ''.
+    -- найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Поставка 66 (посещения Адели):
+    -- oc / ocp — посещений и людей по городу офиса за последний месяц, dw / do — календарь двух последних
+    -- месяцев: людей с рабочим днём и из них в офисе, значение — дата. Пустое значение — ''.
     -- =============================================================================
 
     -- численность последнего месяца
     drop table if exists teampulse_hub_mixr;
     create table teampulse_hub_mixr as
     select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
-           unnest(ARRAY['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws']) as mx_key,
+           unnest(ARRAY['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws', 'mh']) as mx_key,
            unnest(ARRAY[coalesce(nullif(translate(e.gender::text, E'\t\n|', '  /'), '-'), ''),
                         coalesce(nullif(translate(e.type_age::text, E'\t\n|', '  /'), '-'), ''),
                         coalesce(nullif(translate(e.experience_group_nm::text, E'\t\n|', '  /'), '-'), ''),
@@ -2000,7 +1620,8 @@ paragraphs:
                         coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), ''),
                         coalesce(nullif(translate(e.type_company::text, E'\t\n|', '  /'), '-'), ''),
                         coalesce(nullif(translate(e.region::text, E'\t\n|', '  /'), '-'), ''),
-                        coalesce(nullif(translate(e.employee_stream::text, E'\t\n|', '  /'), '-'), '') || '|' || coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
+                        coalesce(nullif(translate(e.employee_stream::text, E'\t\n|', '  /'), '-'), '') || '|' || coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), ''),
+                        coalesce(nullif(translate(e.management_head_flg::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
            coalesce(e.hc_total_cnt, 0) as mx_n
     from (
         select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
@@ -2008,7 +1629,7 @@ paragraphs:
         from (
             select s.hc_total_cnt, s.gender, s.type_age, s.experience_group_nm, s.grade, s.seniority,
                    s.employee_contract_type, s.legal_organization, s.employee_stream, s.employment_relation_type,
-                   s.specialization, s.type_company, s.region,
+                   s.specialization, s.type_company, s.region, s.management_head_flg,
                    (select pre from teampulse_hub_cal) || coalesce(u.cp,
                        array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                           s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
@@ -2091,6 +1712,64 @@ paragraphs:
         ) x
     ) e
     where greatest(coalesce(e.hire_cnt, 0), coalesce(e.transfer_candidate_amt, 0), coalesce(e.transfer_internal_amt, 0)) > 0;
+
+    -- поставка 66: посещения офисов последнего месяца по городам (office_city_visits_json — параграф with_office_traffic):
+    -- oc — посещений, ocp — людей, которые были в офисе этого города
+    insert into teampulse_hub_mixr
+    select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
+           unnest(ARRAY['oc', 'ocp']) as mx_key,
+           unnest(ARRAY[c.city, c.city]) as mx_val,
+           unnest(ARRAY[c.vis, 1]) as mx_n
+    from (
+        select j.node_rk, j.paint_c, j.it_c, j.staff_c, j.act_c, coalesce(nullif(translate((j.v ->> 'office_city_nm')::text, E'\t\n|', '  /'), '-'), '') as city,
+               coalesce((j.v ->> 'visit_count')::numeric, 0) as vis
+        from (
+            select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
+            from (
+        select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
+               generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
+        from (
+            select s.office_city_visits_json,
+                   (select pre from teampulse_hub_cal) || coalesce(u.cp,
+                       array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
+                                          s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
+                                          s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
+                   coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
+                   case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
+                   coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
+            from all_metrics_with_performance_and_office_traffic_and_grt s
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+            where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal) and s.office_city_visits_json is not null
+        ) x
+    ) e
+        ) j
+    ) c
+    where c.vis > 0;
+
+    -- поставка 66: календарь посещений двух последних месяцев (office_traffic_calendar — параграф office_traffic):
+    -- dw — людей с рабочим днём, do — из них в офисе; значение — дата
+    insert into teampulse_hub_mixr
+    select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+           unnest(ARRAY['dw', 'do']) as mx_key,
+           unnest(ARRAY[to_char(e.calendar_dt, 'YYYY-MM-DD'), to_char(e.calendar_dt, 'YYYY-MM-DD')]) as mx_val,
+           unnest(ARRAY[coalesce(e.cnt_work_day, 0), coalesce(e.cnt_office_visit, 0)]) as mx_n
+    from (
+        select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
+               generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
+        from (
+            select s.calendar_dt, s.cnt_work_day, s.cnt_office_visit,
+                   (select pre from teampulse_hub_cal) || coalesce(u.cp,
+                       array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
+                                          s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
+                                          s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
+                   coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
+                   case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
+                   coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
+            from office_traffic_calendar s
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+            where s.leaf_lvl > 0 and s.report_month between ((select lm from teampulse_hub_cal) - interval '1 month')::date and (select lm from teampulse_hub_cal)
+        ) x
+    ) e;
 
     drop table if exists teampulse_hub_mix;
     create table teampulse_hub_mix as
@@ -2428,30 +2107,30 @@ paragraphs:
     -- =============================================================================
     drop table if exists teampulse_hub_chk;
     create table teampulse_hub_chk as
-    select 1 as n, 'корень − люди: численность последнего месяца'::text as check_nm, 1 as must,
+    select 1 as n, 'корень - люди: численность последнего месяца'::text as check_nm, 1 as must,
            ((select sum(hc_cnt) from teampulse_hub_series
               where node_rk = (select root_rk from teampulse_hub_meta)
                 and report_month = (select last_month from teampulse_hub_meta))
            - (select sum(hc_total_cnt) from all_metrics_with_performance_and_office_traffic_and_grt
               where leaf_lvl > 0 and report_month = (select last_month from teampulse_hub_meta)))::float8 as val
     union all
-    select 2 as n, 'корень − люди: увольнения за всё время'::text as check_nm, 1 as must,
+    select 2 as n, 'корень - люди: увольнения за всё время'::text as check_nm, 1 as must,
            ((select sum(fire_cnt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta))
            - (select sum(fire_amt) from all_metrics_with_performance_and_office_traffic_and_grt where leaf_lvl > 0))::float8 as val
     union all
-    select 3 as n, 'корень − люди: перформанс за всё время'::text as check_nm, 1 as must,
+    select 3 as n, 'корень - люди: перформанс за всё время'::text as check_nm, 1 as must,
            ((select sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) from teampulse_hub_series
               where node_rk = (select root_rk from teampulse_hub_meta))
            - (select sum(perf_normal + perf_low + perf_high + perf_gray) from all_metrics_with_performance_and_office_traffic_and_grt
               where leaf_lvl > 0))::float8 as val
     union all
-    select 4 as n, 'корень − разрез по полу (численность)'::text as check_nm, 1 as must,
+    select 4 as n, 'корень - разрез по полу (численность)'::text as check_nm, 1 as must,
            ((select sum(hc_cnt) from teampulse_hub_series
               where node_rk = (select root_rk from teampulse_hub_meta)
                 and report_month = (select last_month from teampulse_hub_meta))
            - (select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'g'))::float8 as val
     union all
-    select 5 as n, 'повторы ключа «узел × месяц × срез»'::text as check_nm, 1 as must,
+    select 5 as n, 'повторы ключа «узел x месяц x срез»'::text as check_nm, 1 as must,
            ((select count(*) from (select 1 from teampulse_hub_series
                                     group by node_rk, report_month, paint_cd, it_cd, staff_cd, act_cd
                                     having count(*) > 1) t))::float8 as val
@@ -2481,13 +2160,31 @@ paragraphs:
                        group by 1) k on k.parent_rk = u.unit_rk
             where h.hc - coalesce(k.hc, 0) < -0.5))::float8 as val
     union all
-    select 11 as n, 'вакансии: корень − снимок (открытые на конец последнего месяца)'::text as check_nm, 0 as must,
+    select 11 as n, 'корень - люди: рабочие дни и посещения офиса за всё время'::text as check_nm, 1 as must,
+           ((select sum(wday_amt + ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta))
+           - (select sum(coalesce(work_day_amt, 0) + coalesce(office_visit_amt, 0)) from all_metrics_with_performance_and_office_traffic_and_grt where leaf_lvl > 0))::float8 as val
+    union all
+    select 12 as n, 'корень - люди: бронирования за всё время'::text as check_nm, 1 as must,
+           ((select sum(bk_amt + bkv_amt + vsv_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta))
+           - (select sum(coalesce(booking_amt, 0) + coalesce(booking_viol_amt, 0) + coalesce(visit_viol_amt, 0)) from all_metrics_with_performance_and_office_traffic_and_grt
+              where leaf_lvl > 0))::float8 as val
+    union all
+    select 13 as n, 'календарь - ряды: рабочие дни и посещения двух последних месяцев (корень)'::text as check_nm, 1 as must,
+           ((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key in ('dw', 'do'))
+           - (select sum(wday_amt + ovis_amt) from teampulse_hub_series
+              where node_rk = (select root_rk from teampulse_hub_meta) and report_month >= ((select last_month from teampulse_hub_meta) - interval '1 month')::date))::float8 as val
+    union all
+    select 14 as n, 'города - посещения последнего месяца (корень)'::text as check_nm, 0 as must,
+           (coalesce((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'oc'), 0)
+           - (select sum(ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta) and report_month = (select last_month from teampulse_hub_meta)))::float8 as val
+    union all
+    select 15 as n, 'вакансии: корень - снимок (открытые на конец последнего месяца)'::text as check_nm, 0 as must,
            (coalesce((select sum(vac_open_cnt) from teampulse_hub_vacancy
                        where node_rk = (select root_rk from teampulse_hub_meta)
                          and report_month = (select last_month from teampulse_hub_meta)), 0)
            - coalesce((select sum(open_cnt) from structure_x_vacancy where report_month = (select last_month from teampulse_hub_meta)), 0))::float8 as val
     union all
-    select 12 as n, 'вакансии: корень − снимок (закрытые за всё время сетки)'::text as check_nm, 0 as must,
+    select 16 as n, 'вакансии: корень - снимок (закрытые за всё время сетки)'::text as check_nm, 0 as must,
            (coalesce((select sum(vac_close_cnt) from teampulse_hub_vacancy where node_rk = (select root_rk from teampulse_hub_meta)), 0)
            - coalesce((select sum(close_cnt) from structure_x_vacancy
                        where report_month >= (select grid_start from teampulse_hub_meta)), 0))::float8 as val

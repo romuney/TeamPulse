@@ -39,7 +39,10 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
    на конец месяца, vcl — закрыто, vap — новые, vtd/vtn — дни и число закрытых для срока, vjn — закрыто
    джунами) и AI (aiw — WAU, aip / aic — проникновение по юниту и компании). Тоже необязательные; вакансии
    и AI — без фильтров среза (не люди) */
-const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout','hcd','hst'];
+/* Поставка 66 (посещения Адели): bk bkv vsv — дни с бронью, бронь без прихода, приход без брони; hwd hov — рабочие дни
+   и посещения руководителей (у остальных — wds ovs: всё минус руководители) */
+const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout','hcd','hst',
+  'bk','bkv','vsv','hwd','hov'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   perf_norm:'pnor',perf_low:'plow',perf_high:'phig',perf_gray:'pgry',
@@ -47,14 +50,15 @@ const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fir
   nonregret_cnt:'nreg',vac_open:'vop',vac_closed:'vcl',vac_new:'vap',ttf_days:'vtd',ttf_n:'vtn',vac_jun:'vjn',
   ai_wau:'aiw',ai_penetration:'aip',ai_pen_co:'aic',ai_den:'aid',
   /* поставка 65: найм по видам — из учебной группы в боевую, стажёр в штат (части hit) */
-  hire_cand:'hcd',hire_int:'hst'};
+  hire_cand:'hcd',hire_int:'hst',
+  bk_days:'bk',bk_noshow:'bkv',bk_walkin:'vsv',wday_lead:'hwd',ovis_lead:'hov',wday_staff:'wds',ovis_staff:'ovs'};
 /* метрики, которые оживают, когда в ответе есть их колонки */
 const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec'],
   nonregret:['nreg'],vac_open:['vop'],vac_closed:['vcl'],time_to_fill:['vtd','vtn'],junior_share:['vjn','vcl'],
-  ai_wau:['aiw'],ai_penetration:['aip']};
+  ai_wau:['aiw'],ai_penetration:['aip'],booking_viol:['bk','bkv','vsv']};
 /* колонки, которые оживляют метрику, только если в них есть данные: пустая витрина (нет источника
    вакансий или AI, нет флага обычного увольнения) даёт нули — метрика остаётся «в разработке» */
-const LIVE_NZ=['nreg','vop','vcl','aiw','aip','hit'];
+const LIVE_NZ=['nreg','vop','vcl','aiw','aip','hit','bk','hwd'];
 /* Метрики без источника в hr_structure_overall: в пробнике — заглушки на генераторе
    макета (по численности юнита), с пометкой «демо». План подключения —
    «Поставка — TeamPulse Hub/План метрик.md». */
@@ -94,6 +98,7 @@ function parseMx(s){
 function mxMinus(u,kids){
   const out={};
   Object.keys(u).forEach(k=>{
+    if(k==='dw'||k==='do')return;          /* календарь посещений — только у выбранного юнита (dayMix) */
     Object.keys(u[k]).forEach(v=>{
       let s=u[k][v];
       kids.forEach(c=>{s-=((c[k]||{})[v]||0)});
@@ -138,14 +143,18 @@ function build(data){
      проникновение узла = Σ WAU / Σ aid — ровно доля источника */
   const AID=have.has('aip')&&have.has('aiw');
   if(AID)cols.push('aid');
+  /* сегмент «Сотрудники» посещаемости — всё минус руководители: ряды складываются, как численность */
+  const SEG=have.has('hwd')&&have.has('hov')&&have.has('wday')&&have.has('ovis');
+  if(SEG)cols.push('wds','ovs');
   /* поставка 56: найм по дню события (hit — из переходов ноутбука: найм в компанию и, на активной, переходы
      кандидатов и стажёров) — тем же счётом, что переводы, поэтому водопад сходится без «прочего». Прежние
      таблицы его не везут (нули) — тогда найм из рядов, как раньше */
   const HIT=have.has('hit');
   const parseSer=r=>{
     const ser={};
-    cols.forEach(c=>{if(c!=='aid')ser[c]=parseArr(raw(r,c),n)});
+    cols.forEach(c=>{if(c!=='aid'&&c!=='wds'&&c!=='ovs')ser[c]=parseArr(raw(r,c),n)});
     if(AID)ser.aid=ser.aiw.map((w,k)=>ser.aip[k]?+(w*100/ser.aip[k]).toFixed(3):0);
+    if(SEG){ser.wds=ser.wday.map((w,k)=>w-ser.hwd[k]);ser.ovs=ser.ovis.map((v,k)=>v-ser.hov[k])}
     if(HIT)ser.hire=ser.hit;
     return ser;
   };
@@ -173,13 +182,14 @@ function build(data){
      уровень, детей, имя, логин руководителя, fd» (fd — численность узла в последнем месяце по
      сочетаниям значений фильтров, «код:число» через пробел; код — номера значений в meta.fdv
      смешанной системой: покраска, IT, штат, пустой словарь — разреза нет). Прежний датасет —
-     пять полей: тогда в окне настройки нет ни логинов, ни чисел «после применения». */
+     пять полей: тогда в окне настройки нет ни логинов, ни чисел «после применения». С поставки 66 восьмое
+     поле — имя руководителя (окно настройки ищет и по нему). */
   const byId={};
   str((by('dict')[0]||{}).j).split('\n').forEach(line=>{
     if(!line)return;
     const f=line.split('\t'), nw=f.length>=7;
     byId[f[0]]={id:f[0],pid:f[1]||'',lvl:num(f[2]),kids:num(f[3]),name:nw?f[4]:f.slice(4).join('\t'),
-      head:nw?str(f[5]).trim():'',fd:nw?str(f[6]):''};
+      head:nw?str(f[5]).trim():'',fd:nw?str(f[6]):'',hname:nw?str(f[7]).trim():''};
   });
   const DEPTH={scope:0,c:1,g:2,x:3};
   const units=[];
@@ -190,7 +200,7 @@ function build(data){
       mx:parseMx(r.mx)};
     u.ser=parseSer(r);
     units.push(u);
-    byId[u.id]=Object.assign(byId[u.id]||{head:'',fd:''},{id:u.id,pid:u.pid,lvl:u.lvl,kids:u.kids,name:u.name});
+    byId[u.id]=Object.assign(byId[u.id]||{head:'',fd:'',hname:''},{id:u.id,pid:u.pid,lvl:u.lvl,kids:u.kids,name:u.name});
   });
   const scopeU=units.find(u=>u.depth===0)||null;
   let rootId=str(meta.root)||(scopeU?scopeU.id:'');
@@ -232,7 +242,7 @@ function build(data){
     if(p==null)return;
     const parts=p.split('/');
     nodes.push({id:id,path:p,parent:parts.length>1?parts.slice(0,-1).join('/'):null,level:u.lvl||parts.length,
-      name:u.name||'—',sort:0,leaf:false,kids:u.kids,outside:true,head:u.head?{name:'',login:u.head}:null});
+      name:u.name||'—',sort:0,leaf:false,kids:u.kids,outside:true,head:u.head||u.hname?{name:u.hname||'',login:u.head}:null});
   });
   const nodeBy={};
   nodes.forEach(x=>{nodeBy[x.path]=x});
@@ -312,7 +322,7 @@ function build(data){
     ok:fdOk,
     root:'T',
     kids(p){const id=idOfPath(p);return (kidsBy[id]||[]).map(k=>pathOf(k)).filter(Boolean)},
-    info(p){const u=byId[idOfPath(p)];return u?{name:u.name||'—',lvl:u.lvl,head:u.head||'',kids:(kidsBy[u.id]||[]).length}:null},
+    info(p){const u=byId[idOfPath(p)];return u?{name:u.name||'—',lvl:u.lvl,head:u.head||'',hname:u.hname||'',kids:(kidsBy[u.id]||[]).length}:null},
     all(){return Object.keys(byId).map(id=>pathOf(id)).filter(Boolean)},
     /* люди узла в последнем месяце при значениях фильтров sel {paint,it,staff,act: значение, набор значений
        (тип численности — поставка 61) или null}; null — нет fd */
@@ -383,6 +393,9 @@ function build(data){
     trfOwnPaths(){return Object.keys(trfOwn)},
     /* разрезы листа (или 'BASE'): {ключ:{значение:число}}; null — нет данных */
     mix(path){return mixes[path]||null},
+    /* поставка 66: календарь посещений выбранного юнита — {dw:{дата:людей с рабочим днём}, do:{дата:из них в офисе}};
+       null — в ответе его нет */
+    dayMix(){const m=scopeU&&scopeU.mx;return m&&m.dw&&Object.keys(m.dw).length?{dw:m.dw,do:m.do||{}}:null},
     /* значения разреза с числом по базе — для категорий; значение, которого в базе
        нет (не должно быть: листья внутри компании), добавляется с числом листа */
     mixVals(k){

@@ -3,7 +3,8 @@
 # Остальная сборка — параграфы gp (SQL). Здесь Python, потому что сначала нужно проверить, есть ли
 # источник и его колонки, — SQL так не умеет. Два коротких запроса; тяжёлых шагов здесь нет.
 # Нет источника — таблица пустая, отчёт работает: логины пустые, AI «в разработке».
-#   teampulse_hub_head  юнит → логин руководителя на дату данных (для teampulse_hub_unit, параграф «hub · 3»)
+#   teampulse_hub_head  юнит → логин руководителя на дату данных и его имя (для teampulse_hub_unit, параграф
+#                       «hub · 3»; имя — с поставки 66, из unit_head_structure Адели)
 #   teampulse_hub_login сотрудник → логин на ту же дату (детализация переводов, параграф «hub · 5», поставка 63)
 #   teampulse_hub_ai    узел × месяц: WAU AI-инструментов и проникновение (по юниту и компании)
 # =============================================================================
@@ -17,6 +18,8 @@ HUB_HEAD_SRC = [('usr_cross_data.hr_executive_proteus', 'calendar_dt'),
                 ('prod_v_emart.mdm_employee_structure_d', 'business_dt')]
 HUB_HEAD_COLS = {'mdm_employee_rk', 'management_head_flg', 'ad_login', 'management_head_ad_login'}
 HUB_AI_SRC = 'usr_mlpa.ai_bi_all_copilots_usage_digest_monthly'
+# поставка 66 (Адель): имя и фамилия руководителя — параграф unit_head_structure (руководитель юнита по месяцам)
+HUB_HEAD_NM = 'unit_head_structure'
 
 
 def _hub_q(sql):
@@ -35,6 +38,18 @@ def _hub_cols(table):
 
 _cal = _hub_q(f'select lm, grid_start from {HUB_P}_cal').iloc[0]
 _lm, _gs = str(_cal['lm'])[:10], str(_cal['grid_start'])[:10]
+
+# поставка 66: имя руководителя по логину — из unit_head_structure, последний месяц, где этот логин руководит
+# юнитом (не позже последнего месяца отчёта). Нет таблицы — имена пустые, логины остаются
+_nm = "(select ''::text as login, ''::text as nm where false)"
+if {'report_month', 'leader_login', 'leader_full_nm'} <= _hub_cols(HUB_HEAD_NM):
+    _nm = f"""(
+        select distinct on (login) login, nm
+        from (select lower(trim(leader_login::text)) as login, trim(leader_full_nm::text) as nm, report_month
+              from {HUB_HEAD_NM}
+              where report_month <= '{_lm}'::date) x
+        where login <> '' and coalesce(nm, '') <> ''
+        order by login, report_month desc, nm)"""
 
 # 4. руководитель юнита на конец последнего месяца — голосами, как в HRBP HUB: 3 — сам руководитель
 #    (management_head_flg = 1) в юните → его ad_login; 2 — люди юнита → их management_head_ad_login;
@@ -60,6 +75,8 @@ if _hdt:
     _hub_q(f"""
 drop table if exists {HUB_P}_head;
 create table {HUB_P}_head as
+select hd.unit_rk, hd.head_login, coalesce(nm.nm, '') as head_nm
+from (
 select distinct on (unit_rk) unit_rk, head_login
 from (
     select v.unit_rk, v.head_login, max(v.w) as w, count(*) as n
@@ -82,9 +99,11 @@ from (
     group by v.unit_rk, v.head_login
 ) t
 order by unit_rk, w desc, n desc, head_login
+) hd
+left join {_nm} nm on nm.login = hd.head_login
 distributed by (unit_rk)""")
-    print(f"[OK] {HUB_P}_head: логины из {_t} на {_hdt} — "
-          f"{_hub_q(f'select count(*) as n from {HUB_P}_head')['n'].iloc[0]} юнитов")
+    _hn = _hub_q(f"select count(*) as n, count(nullif(head_nm, '')) as nm from {HUB_P}_head").iloc[0]
+    print(f"[OK] {HUB_P}_head: логины из {_t} на {_hdt} — {_hn['n']} юнитов, с именем руководителя — {_hn['nm']}")
     # поставка 63: логины сотрудников на ту же дату — для детализации переводов (hub · 5). Ушедших до этой
     # даты нет — у них в детализации только шифр
     _hub_q(f"""
@@ -95,7 +114,7 @@ distributed by (erk)""")
 else:
     _hub_q(f"""
 drop table if exists {HUB_P}_head;
-create table {HUB_P}_head as select ''::text as unit_rk, ''::text as head_login where false
+create table {HUB_P}_head as select ''::text as unit_rk, ''::text as head_login, ''::text as head_nm where false
 distributed by (unit_rk)""")
     _hub_q(f"""
 drop table if exists {HUB_P}_login;

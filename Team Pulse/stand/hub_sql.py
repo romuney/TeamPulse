@@ -27,6 +27,7 @@ DAY = 'usr_cross_data.hr_executive_proteus'
 VAC_SRC = 'usr_cross_data.vacancy_daily'
 VAC = 'structure_x_vacancy'
 STRUCT = 'org_structure'
+CAL = 'office_traffic_calendar'      # поставка 66: календарь посещений Адели (параграф office_traffic)
 HUB_ALL = 'all'
 STAFF = 'Штатный сотрудник'
 VAC_OK_GROUP = 'Согласованные'
@@ -67,7 +68,12 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
                'work_day_amt', 'office_visit_amt', 'grt_approve_cnt', 'grt_decline_cnt',
                'gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
                'legal_organization', 'employee_stream', 'fire_reason_group', 'fire_initiative', 'specialization',
-               'type_company', 'source_type_nm', 'region'])
+               'type_company', 'source_type_nm', 'region',
+               # поставка 66 (Адель): бронирования, города посещений (with_office_traffic), признак руководителя
+               'booking_amt', 'booking_viol_amt', 'visit_viol_amt', 'office_city_visits_json', 'management_head_flg'])
+CAL_COLS = (['report_month', 'calendar_dt', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in LV]
+            + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'act_type_nm', 'cnt_work_day',
+               'cnt_office_visit'])
 TYPES = ('hq', 'it', 'employment_relation_type', 'active_type')
 DAY_COLS = (['calendar_dt', 'mdm_employee_rk'] + [f'lvl{i}_mapped_management_unit_rk' for i in LV]
             + ['emp_specialization_oper_code', 'emp_specialization_it_code', 'employment_relation_type_desc',
@@ -82,6 +88,7 @@ VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'close_flg', 'end_of_m
 
 def sql_cols():
     need = ([('', SRC, c) for c in SRC_COLS] + [('', STRUCT, c) for c in ('report_month', 'mng_unit_rk')]
+            + [('', CAL, c) for c in CAL_COLS]
             + [tuple(DAY.split('.')) + (c,) for c in DAY_COLS] + [tuple(VAC_SRC.split('.')) + (c,) for c in VAC_COLS])
     vals = ',\n'.join(f"        ('{s}', '{t}', '{c}')" for s, t, c in need)
     tabs = ', '.join(f"'{t}'" for t in dict.fromkeys(t for _, t, _ in need))
@@ -202,10 +209,11 @@ PRE = f'(select pre from {P}_cal)'          # 'all|' — если корней �
 MO = f'(select mo from {P}_cal)'            # 1 — общий корень над несколькими корнями
 
 
-def expl(cols, where):
+def expl(cols, where, src=SRC):
     """строки источника людей → узлы нынешней структуры: путь юнита в последнем месяце (переехал — прошлое
     едет с ним), юнита нет — свой путь; d — глубина узла. Только нужные колонки: развёртка по узлам множит
-    строки на глубину"""
+    строки на глубину. src — таблица с колонками пути и срезов источника людей (поставка 66: и календарь
+    посещений office_traffic_calendar)"""
     sel = wrap([f's.{c}' for c in cols], ' ' * 15)
     return f"""
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
@@ -217,7 +225,7 @@ def expl(cols, where):
                {cut('paint_cd', 'paint_c')}, {cut('emp_specialization_it_code', 'it_c')},
                {staff_c} as staff_c,
                {act_c} as act_c
-        from {SRC} s
+        from {src} s
         left join {P}_upath u on u.unit_rk = s.mng_unit_rk::text
         where s.leaf_lvl > 0 {where}
     ) x
@@ -315,18 +323,23 @@ def sql_series():
     sx_cols = ['report_month', 'hc_total_cnt', 'hc_active_cnt', 'hire_amt', 'transfer_candidate_amt',
                'transfer_internal_amt', 'hire_cnt', 'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt',
                'perf_normal', 'perf_low', 'perf_high', 'perf_gray', 'work_day_amt', 'office_visit_amt',
-               'grt_approve_cnt', 'grt_decline_cnt']
+               'grt_approve_cnt', 'grt_decline_cnt', 'booking_amt', 'booking_viol_amt', 'visit_viol_amt',
+               'management_head_flg']
+    head_e = lambda c: f"case when e.management_head_flg::text = '1' then {num(c)} else 0 end"
     on = lambda a, b: wrap([f'{a}.{c} = {b}.{c}' for c in ('node_rk', 'paint_c', 'it_c', 'staff_c', 'act_c')],
                            ' ' * 7, sep=' and ', width=100)
     return f"""{head('3. Справочник узлов и ряды (поставка 58: SQL вместо build_hub)',
                'teampulse_hub_unit — узлы: родитель, уровень, имя, число подразделений, путь, логин руководителя;',
-               'teampulse_hub_series — узел × месяц × срез: численность, ССЧ, найм, увольнения, переводы и др.')}
+               'teampulse_hub_series — узел × месяц × срез: численность, ССЧ, найм, увольнения, переводы и др.;',
+               'с поставки 66 — бронирования (bk, bkv, vsv) и посещаемость руководителей (hwd, hov), имя руководителя.')}
 
--- 5. справочник узлов: + число подразделений и логин руководителя (teampulse_hub_head — параграф «hub · 2»)
+-- 5. справочник узлов: + число подразделений, логин и имя руководителя (teampulse_hub_head — параграф «hub · 2»;
+--    имя — с поставки 66, из unit_head_structure)
 drop table if exists {P}_unit;
 create table {P}_unit as
 select n.rk as unit_rk, n.prk as parent_rk, n.lv as unit_lvl, n.nm as unit_nm,
-       coalesce(k.kids, 0)::int as kids_cnt, n.pth as path_rk, coalesce(h.head_login, '') as head_login
+       coalesce(k.kids, 0)::int as kids_cnt, n.pth as path_rk, coalesce(h.head_login, '') as head_login,
+       coalesce(h.head_nm, '') as head_nm
 from {P}_node n
 left join (select prk, count(*) as kids from {P}_node where prk <> '' group by prk) k on k.prk = n.rk
 left join {P}_head h on h.unit_rk = n.rk
@@ -352,7 +365,12 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        sum({num('perf_normal')}) as pnor, sum({num('perf_low')}) as plow,
        sum({num('perf_high')}) as phig, sum({num('perf_gray')}) as pgry,
        sum({num('work_day_amt')}) as wday, sum({num('office_visit_amt')}) as ovis,
-       sum({num('grt_approve_cnt')}) as gapr, sum({num('grt_decline_cnt')}) as gdec
+       sum({num('grt_approve_cnt')}) as gapr, sum({num('grt_decline_cnt')}) as gdec,
+       -- поставка 66 (Адель): бронирования — дней с бронью, бронь без посещения, посещение без брони; рабочие
+       -- дни и посещения руководителей (management_head_flg = 1) — сегмент «Руководители» посещаемости
+       sum({num('booking_amt')}) as bk, sum({num('booking_viol_amt')}) as bkv, sum({num('visit_viol_amt')}) as vsv,
+       sum({head_e('work_day_amt')}) as hwd,
+       sum({head_e('office_visit_amt')}) as hov
 from ({expl(sx_cols, '')}) e
 group by 1, 2, 3, 4, 5, 6
 {dist('node_rk')};
@@ -378,7 +396,9 @@ select k.node_rk, k.report_month, k.paint_c as paint_cd, k.it_c as it_cd, k.staf
        coalesce(c.pnor, 0) as pnor_cnt, coalesce(c.plow, 0) as plow_cnt,
        coalesce(c.phig, 0) as phig_cnt, coalesce(c.pgry, 0) as pgry_cnt,
        coalesce(c.wday, 0) as wday_amt, coalesce(c.ovis, 0) as ovis_amt,
-       coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt
+       coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt,
+       coalesce(c.bk, 0) as bk_amt, coalesce(c.bkv, 0) as bkv_amt, coalesce(c.vsv, 0) as vsv_amt,
+       coalesce(c.hwd, 0) as hwd_amt, coalesce(c.hov, 0) as hov_amt
 from k
 left join {P}_sx c
        on {on('c', 'k')}
@@ -398,11 +418,13 @@ def sql_mix():
         ('g', 'gender'), ('a', 'type_age'), ('t', 'experience_group_nm'), ('gr', 'grade'), ('s', 'seniority'),
         ('c', 'employee_contract_type'), ('o', 'legal_organization'), ('w', 'employee_stream'),
         ('r', 'employment_relation_type'), ('fr', 'fire_reason_group'), ('fi', 'fire_initiative'),
-        ('sp', 'specialization'), ('tc', 'type_company'), ('hs', 'source_type_nm'), ('rg', 'region'))}
+        ('sp', 'specialization'), ('tc', 'type_company'), ('hs', 'source_type_nm'), ('rg', 'region'),
+        ('mh', 'management_head_flg'))}
     # 22.10, поставка 62: регион (rg) и пара «стрим|специализация» (ws) — специализации внутри стрима. В значении
     # «|» не встречается: clean() меняет его на «/»
     a['ws'] = a['w'] + " || '|' || " + a['sp']
-    hc_keys = ['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws']
+    # поставка 66: mh — признак руководителя (1 — руководитель): численность сегментов посещаемости
+    hc_keys = ['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws', 'mh']
     # 22.10, поставка 60: найм в компанию — с любым типом численности (hire_cnt): срез — тип на конец месяца целиком,
     # и найм в любой выбранный тип попадает в разбивки (hire_amt — только «Активная»). У «Активной» — то же, что было
     hire_e = f"greatest({num('hire_cnt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
@@ -410,14 +432,18 @@ def sql_mix():
            f"{' ' * 30}when {num('transfer_candidate_amt')} > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end")
     attrs = ['gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
              'legal_organization', 'employee_stream', 'employment_relation_type', 'specialization', 'type_company',
-             'region']
+             'region', 'management_head_flg']
     lm = f'(select lm from {P}_cal)'
     ytd = f"and s.report_month between date_trunc('year', {lm})::date and {lm}"
+    city = clean("(j.v ->> 'office_city_nm')")
+    two = f"and s.report_month between ({lm} - interval '1 month')::date and {lm}"
     return f"""{head('4. Разрезы (поставка 58: SQL вместо build_hub)',
                'teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам',
-               '(g a t gr s c o w r sp tc rg ws), увольнения с начала его года (xr причина, xq regret по причине, xi',
+               '(g a t gr s c o w r sp tc rg ws mh), увольнения с начала его года (xr причина, xq regret по причине, xi',
                'инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),',
-               "найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Пустое значение — ''.")}
+               'найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Поставка 66 (посещения Адели):',
+               'oc / ocp — посещений и людей по городу офиса за последний месяц, dw / do — календарь двух последних',
+               "месяцев: людей с рабочим днём и из них в офисе, значение — дата. Пустое значение — ''.")}
 
 -- численность последнего месяца
 drop table if exists {P}_mixr;
@@ -452,6 +478,32 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
 from ({expl(['hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt', 'source_type_nm', 'grade',
              'specialization'], ytd)}) e
 where {hire_e} > 0;
+
+-- поставка 66: посещения офисов последнего месяца по городам (office_city_visits_json — параграф with_office_traffic):
+-- oc — посещений, ocp — людей, которые были в офисе этого города
+insert into {P}_mixr
+select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
+       unnest(ARRAY['oc', 'ocp']) as mx_key,
+       unnest(ARRAY[c.city, c.city]) as mx_val,
+       unnest(ARRAY[c.vis, 1]) as mx_n
+from (
+    select j.node_rk, j.paint_c, j.it_c, j.staff_c, j.act_c, {city} as city,
+           coalesce((j.v ->> 'visit_count')::numeric, 0) as vis
+    from (
+        select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
+        from ({expl(['office_city_visits_json'], f'and s.report_month = {lm} and s.office_city_visits_json is not null')}) e
+    ) j
+) c
+where c.vis > 0;
+
+-- поставка 66: календарь посещений двух последних месяцев (office_traffic_calendar — параграф office_traffic):
+-- dw — людей с рабочим днём, do — из них в офисе; значение — дата
+insert into {P}_mixr
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+       unnest(ARRAY['dw', 'do']) as mx_key,
+       unnest(ARRAY[to_char(e.calendar_dt, 'YYYY-MM-DD'), to_char(e.calendar_dt, 'YYYY-MM-DD')]) as mx_val,
+       unnest(ARRAY[{num('cnt_work_day')}, {num('cnt_office_visit')}]) as mx_n
+from ({expl(['calendar_dt', 'cnt_work_day', 'cnt_office_visit'], two, CAL)}) e;
 
 drop table if exists {P}_mix;
 create table {P}_mix as
@@ -743,26 +795,26 @@ def sql_checks():
                      where report_month = {lm} group by 1)"""
     checks = [
         # (проверка, обязательная: 1 — не сошлось → ошибка и выгрузки нет; 0 — справочно, SQL)
-        ('корень − люди: численность последнего месяца', 1,
+        ('корень - люди: численность последнего месяца', 1,
          f"""(select sum(hc_cnt) from {P}_series
           where node_rk = {root}
             and report_month = {lm})
        - (select sum(hc_total_cnt) from {SRC}
           where leaf_lvl > 0 and report_month = {lm})"""),
-        ('корень − люди: увольнения за всё время', 1,
+        ('корень - люди: увольнения за всё время', 1,
          f"""(select sum(fire_cnt) from {P}_series where node_rk = {root})
        - (select sum(fire_amt) from {SRC} where leaf_lvl > 0)"""),
-        ('корень − люди: перформанс за всё время', 1,
+        ('корень - люди: перформанс за всё время', 1,
          f"""(select sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) from {P}_series
           where node_rk = {root})
        - (select sum(perf_normal + perf_low + perf_high + perf_gray) from {SRC}
           where leaf_lvl > 0)"""),
-        ('корень − разрез по полу (численность)', 1,
+        ('корень - разрез по полу (численность)', 1,
          f"""(select sum(hc_cnt) from {P}_series
           where node_rk = {root}
             and report_month = {lm})
        - (select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'g')"""),
-        ('повторы ключа «узел × месяц × срез»', 1,
+        ('повторы ключа «узел x месяц x срез»', 1,
          f"""(select count(*) from (select 1 from {P}_series
                                 group by node_rk, report_month, paint_cd, it_cd, staff_cd, act_cd
                                 having count(*) > 1) t)"""),
@@ -782,13 +834,29 @@ def sql_checks():
                    join {hcl} h2 on h2.node_rk = u2.unit_rk
                    group by 1) k on k.parent_rk = u.unit_rk
         where h.hc - coalesce(k.hc, 0) < -0.5)"""),
+        # поставка 66: посещения Адели — ряды бронирований и календарь сходятся с источником людей
+        ('корень - люди: рабочие дни и посещения офиса за всё время', 1,
+         f"""(select sum(wday_amt + ovis_amt) from {P}_series where node_rk = {root})
+       - (select sum(coalesce(work_day_amt, 0) + coalesce(office_visit_amt, 0)) from {SRC} where leaf_lvl > 0)"""),
+        ('корень - люди: бронирования за всё время', 1,
+         f"""(select sum(bk_amt + bkv_amt + vsv_amt) from {P}_series where node_rk = {root})
+       - (select sum(coalesce(booking_amt, 0) + coalesce(booking_viol_amt, 0) + coalesce(visit_viol_amt, 0)) from {SRC}
+          where leaf_lvl > 0)"""),
+        ('календарь - ряды: рабочие дни и посещения двух последних месяцев (корень)', 1,
+         f"""(select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key in ('dw', 'do'))
+       - (select sum(wday_amt + ovis_amt) from {P}_series
+          where node_rk = {root} and report_month >= ({lm} - interval '1 month')::date)"""),
+        # справочно: посещение без города в разрез по городам не попадает
+        ('города - посещения последнего месяца (корень)', 0,
+         f"""coalesce((select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'oc'), 0)
+       - (select sum(ovis_amt) from {P}_series where node_rk = {root} and report_month = {lm})"""),
         # справочно: вакансия юнита вне дерева людей в корень не попадёт
-        ('вакансии: корень − снимок (открытые на конец последнего месяца)', 0,
+        ('вакансии: корень - снимок (открытые на конец последнего месяца)', 0,
          f"""coalesce((select sum(vac_open_cnt) from {P}_vacancy
                    where node_rk = {root}
                      and report_month = {lm}), 0)
        - coalesce((select sum(open_cnt) from {VAC} where report_month = {lm}), 0)"""),
-        ('вакансии: корень − снимок (закрытые за всё время сетки)', 0,
+        ('вакансии: корень - снимок (закрытые за всё время сетки)', 0,
          f"""coalesce((select sum(vac_close_cnt) from {P}_vacancy where node_rk = {root}), 0)
        - coalesce((select sum(close_cnt) from {VAC}
                    where report_month >= (select grid_start from {P}_meta)), 0)"""),

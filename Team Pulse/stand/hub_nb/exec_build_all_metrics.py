@@ -10,6 +10,8 @@ fields = [
     'fire_initiative',
     'type_company',
     'source_type_nm',
+    # 26.10, поставка 66 (Адель): признак руководителя — сегмент «Руководители / Сотрудники» посещаемости
+    'management_head_flg',
     # dict без match — то же самое, но с явным alias
     {'name': 'active_type_nm',                  'alias': 'act_type_nm'},
     {'name': 'employment_relation_type_desc',   'alias': 'employment_relation_type'},

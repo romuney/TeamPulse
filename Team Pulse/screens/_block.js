@@ -115,8 +115,9 @@ const YOY_COLOR={hc_total:G.C_CNT,hc_active:G.C_CNT,hc_avg:G.C_CNT,attrition:G.C
 function yoyChart(key,lp,bl,S,opt){
   opt=opt||{};
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
-  /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент */
-  const y0=D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
+  /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент; opt.yser (поставка 66) —
+     свой ряд «год к году» той же метрики (настоящая посещаемость выбранного сегмента) */
+  const y0=opt.yser||D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
   /* opt.ref (26.10, AI BI.md): свой пунктир вместо базы — {name, cur}: численность команды под WAU */
   const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=opt.ref?opt.ref.cur:cmp?D.yoySeries(bl,key).cur:null;
   const col=opt.color||YOY_COLOR[key]||G.C_LINE;
@@ -218,6 +219,19 @@ const DEV_LIVE={
     '*':{stage:7,t:'Посещаемость за месяц — настоящая (вкладка «Кто и где ходит?»). '+
       'Календарь по дням, сегменты, города и бронирование пока условные.'}}
 };
+/* поставка 66 (посещения Адели): вкладки «Офиса», чьи данные пришли в ответе, — без отметки */
+if(D.OFF_LIVE){
+  const o=DEV_LIVE.office, L=D.OFF_LIVE, rest=[];
+  if(L.cal)o.subs.push('calendar');else rest.push('календарь по дням');
+  if(L.seg&&L.city)o.subs.push('attend');
+  else if(L.seg||L.city)o.part.attend={stage:7,part:true,t:'Посещаемость по месяцам и '+(L.seg?'сегменты':'города')+
+    ' — настоящие. '+(L.seg?'Города':'Сегменты')+' пока условные.'};
+  if(!L.seg)rest.push('сегменты');
+  if(!L.city)rest.push('города');
+  if(L.bk){o.live.push('booking_viol');o.subs.push('booking')}else rest.push('бронирование');
+  if(rest.length<4)o['*']={stage:7,t:'Посещаемость за месяц — настоящая. '+rest.join(', ').replace(/^./,c=>c.toUpperCase())+
+    ' пока условные.'};
+}
 function devOf(bk,sub){
   const lv=DEV_LIVE[bk];
   if(lv&&lv.live.every(k=>!D.isDev(k)))return lv.subs.indexOf(sub)>=0?null:(lv.part&&lv.part[sub])||lv['*'];

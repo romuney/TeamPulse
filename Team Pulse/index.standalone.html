@@ -2411,7 +2411,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
            у строки — сколько людей попадёт в выбор с набранными фильтрами -->
       <div class="fgrp">
         <label>1 · Подразделение</label>
-        <div class="ut-s"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="utQ" type="text" placeholder="Юнит или логин руководителя" autocomplete="off" spellcheck="false"></div>
+        <div class="ut-s"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="utQ" type="text" placeholder="Юнит, имя или логин руководителя" autocomplete="off" spellcheck="false"></div>
         <div class="ut-list" id="utList" role="listbox" aria-label="Подразделения"></div>
         <div class="fhint" id="utHint">Ваша команда. На базу сравнения не влияет.</div>
       </div>
@@ -2781,6 +2781,11 @@ if(REAL){
   ov.underwork={derived:{num:'perf_low',den:PERF,scale:100},anchor:null};
   ov.overwork={derived:{num:'perf_high',den:PERF,scale:100},anchor:null};
   if(REAL.has('wday')&&REAL.has('ovis'))ov.office_att={derived:{num:'ovis',den:'wday',scale:100},anchor:null};
+  /* поставка 66 (посещения Адели): нарушения — бронь без прихода и приход без брони среди всех офисных дней (с бронью
+     или приходом) */
+  if(REAL.has('bk')&&REAL.has('bkv')&&REAL.has('vsv'))ov.booking_viol={derived:{num:['bk_noshow','bk_walkin'],
+    den:['bk_days','bk_walkin'],scale:100},anchor:null,
+    calc:'(Бронь без прихода + приход без брони) ÷ (дни с бронью + приход без брони) за месяц, человеко-дни.'};
   if(REAL.has('gapr')&&REAL.has('gdec'))ov.tgrowth_conv={derived:{num:'tgrowth_pass',den:['tgrowth_pass','tgrowth_deny'],scale:100},
     anchor:null};
   /* поставка 50: обычная текучесть, вакансии и AI — из необязательных колонок (real.js, LIVE_WITH) */
@@ -2798,7 +2803,10 @@ const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
 /* Служебные производные ряды: метрикой отчёта не являются, но считаются тем же
    способом, что и метрики (числитель / знаменатель). */
 const SERVICE_DEF=REAL?{regret_m:{derived:{num:'regret_cnt',den:'hc_avg',scale:100}},
-  nonregret_m:{derived:{num:'nonregret_cnt',den:'hc_avg',scale:100}}}:{};
+  nonregret_m:{derived:{num:'nonregret_cnt',den:'hc_avg',scale:100}},
+  /* поставка 66: посещаемость руководителей и остальных — динамика сегмента на вкладке «Офис» */
+  office_lead:{derived:{num:'ovis_lead',den:'wday_lead',scale:100}},
+  office_staff:{derived:{num:'ovis_staff',den:'wday_staff',scale:100}}}:{};
 function defOf(key){return METRIC_BY_KEY[key]||SERVICE_DEF[key]||{}}
 /* метрика без источника: в пробнике — заглушка на генераторе, «демо» в интерфейсе */
 function isStub(key){return !!(METRIC_BY_KEY[key]&&METRIC_BY_KEY[key].stub)}
@@ -2812,7 +2820,7 @@ const DEV_STAGE={nonregret:0,vac_open:2,vac_closed:2,time_to_fill:2,hire_plan:2,
   underwork:5,overwork:5,review_up:5,tgrowth_tat:6,tgrowth_pass:6,tgrowth_deny:6,tgrowth_conv:6,
   booking_viol:7,office_att:7,ai_penetration:8,ai_wau:8};
 /* живые с колонок разведки 12.10 (в датасете с восьмой поставки) */
-const DEV_LIVE_NEW=new Set(['office_att','tgrowth_pass','tgrowth_deny','tgrowth_conv','underwork','overwork',
+const DEV_LIVE_NEW=new Set(['office_att','booking_viol','tgrowth_pass','tgrowth_deny','tgrowth_conv','underwork','overwork',
   /* поставка 50: из прод-ноутбуков HQ и УС */
   'nonregret','vac_open','vac_closed','time_to_fill','junior_share','ai_penetration','ai_wau']);
 function isDev(key){return REAL?isStub(key):!!DEV_STAGE[key]&&!DEV_LIVE_NEW.has(key)}
@@ -2921,10 +2929,14 @@ const DEV_PLAN=[
       need:'ревью учитывается только для eligible-популяции'}]},
   {blk:'Посещаемость офисов',rows:[
     {what:'Посещаемость офиса по месяцам',aud:'hq',stage:'0',now:'live'},
-    {what:'Бронь без прихода и приход без брони',aud:'hq',stage:'7',now:'dev'},
-    {what:'Посещаемость руководителей и сотрудников в Москве и регионах, по грейду',aud:'hq',stage:'7',now:'dev'},
-    {what:'Посещаемость и нарушения брони по городам',aud:'hq',stage:'7',now:'dev'},
-    {what:'Календарь посещаемости по дням',aud:'hq',stage:'7',now:'dev',need:'нужны отметки по дням; в дашбордах HQ и УС его нет, решено оставить'}]},
+    /* поставка 66: посещения Адели — бронирования, руководители, города офиса, календарь по дням */
+    {what:'Бронь без прихода и приход без брони',aud:'hq',stage:'7',now:'live'},
+    {what:'Посещаемость руководителей и сотрудников',aud:'hq',stage:'7',now:'live'},
+    {what:'Посещаемость в Москве и регионах, по грейду',aud:'hq',stage:'7',now:'todo',
+      need:'регион и грейд в разрезе посещаемости — соберём из тех же данных'},
+    {what:'Посещения по городам офиса',aud:'hq',stage:'7',now:'live'},
+    {what:'Нарушения брони по городам',aud:'hq',stage:'7',now:'todo',need:'город у бронирования в выгрузке посещений'},
+    {what:'Календарь посещаемости по дням, два месяца',aud:'hq',stage:'7',now:'live'}]},
   {blk:'AI-инструменты',rows:[
     /* 26.10, правки: разбор «AI BI.md» (поставка — «AI BI — разбор метрик.md»): по месяцам есть проникновение и WAU,
        всё остальное — из недельной выгрузки AI-статистики по людям, которой в отчёте нет */
@@ -2940,7 +2952,7 @@ const DEV_PLAN=[
     {what:'Конструктор AI: два разреза × численность, активные, проникновение',aud:'hq',stage:'8',now:'todo',need:AIW}]},
   {blk:'Весь отчёт',rows:[
     {what:'Руководитель подразделения: логин',aud:'all',stage:'0',now:'live'},
-    {what:'Руководитель подразделения: имя',aud:'all',stage:'—',now:'todo',need:'имя есть в источнике — соберём вместе с логином'}]}
+    {what:'Руководитель подразделения: имя, поиск по нему в фильтре',aud:'all',stage:'0',now:'live'}]}
 ];
 /* сколько строк плана в каком статусе — для сводки готовности */
 function planCount(){
@@ -2961,7 +2973,10 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
      отработанные человеко-дни и посещения офиса — слагаемые посещаемости */
   'regret_cnt','wday','ovis','perf_norm','perf_low','perf_high','perf_gray',
   /* 26.10, правки: найм по видам — в компанию, из учебной группы в боевую, стажёр в штат (в сумме — найм) */
-  'hire_co','hire_cand','hire_int']);
+  'hire_co','hire_cand','hire_int',
+  /* поставка 66 (посещения Адели): дни с бронью, бронь без прихода, приход без брони; рабочие дни и посещения
+     руководителей и остальных — слагаемые нарушений бронирования и посещаемости сегмента */
+  'bk_days','bk_noshow','bk_walkin','wday_lead','ovis_lead','wday_staff','ovis_staff']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -3243,7 +3258,8 @@ const PICK=REAL?REAL.pick:{
   ok:true,root:'T',
   kids:p=>childrenOf(p).filter(n=>!n.direct).map(n=>n.path),
   info(p){const n=NODE_BY_PATH[p];
-    return n?{name:n.name,lvl:n.level,head:n.head?n.head.login:'',kids:childrenOf(p).filter(x=>!x.direct).length}:null},
+    return n?{name:n.name,lvl:n.level,head:n.head?n.head.login:'',hname:n.head?n.head.name:'',
+      kids:childrenOf(p).filter(x=>!x.direct).length}:null},
   all:()=>NODES.filter(n=>!n.direct).map(n=>n.path)
 };
 /* d — ключи состояния (paint, itSeg, staffType, hcType, hcSet); null — посчитать нельзя (прежний датасет без fd) */
@@ -3304,10 +3320,11 @@ const SEAS_HIRE=[0.82,1.12,1.24,1.16,0.96,0.90,0.76,0.94,1.28,1.20,1.04,0.66];
    Нулевой знаменатель — null, а не ноль: «джунов 0%» при нуле принятых —
    ложь, честный ответ «не из чего считать». Экраны рисуют его прочерком. */
 function ratioAt(get,d,i){
-  const num=get(d.num), dens=[].concat(d.den).map(get);
+  /* числитель, как и знаменатель, — ключ или сумма ключей (поставка 66: нарушения бронирования — две части) */
+  const nums=[].concat(d.num).map(get), dens=[].concat(d.den).map(get);
   const from=d.win==='ytd'?YEAR_START_EXT[i]:i;
   let n=0,dd=0;
-  for(let j=from;j<=i;j++){n+=num[j]||0;dens.forEach(x=>{dd+=x[j]||0})}
+  for(let j=from;j<=i;j++){nums.forEach(x=>{n+=x[j]||0});dens.forEach(x=>{dd+=x[j]||0})}
   return dd?+((n/dd)*(d.scale||1)).toFixed(d.dp||2):null;
 }
 /* Run-rate: накопленное с января делится на число прошедших месяцев года
@@ -4520,7 +4537,14 @@ const DOW_SHORT=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 /* MONTH_GEN (родительный падеж) объявлен в шапке файла: его читает и календарь
    («15 июня 2026, понедельник»), и подсказка изменения («против мая 2026»). */
 const CAL_MONTH=LAST;              /* календарь строится за последний месяц окна */
-const DOW_MONTHS=3;                /* дни недели усредняем за 3 месяца: по одному выборка коротка */
+/* Поставка 66 (посещения Адели): живые данные вкладки. Календарь — люди с рабочим днём и из них в офисе по
+   дням двух месяцев (выбранный юнит, разрезы dw / do); сегмент — руководители и остальные (ряды hwd / hov,
+   численность — разрез mh); города офиса — посещения последнего месяца (oc / ocp); бронирования — ряды
+   bk / bkv / vsv. Чего нет в ответе — генератор макета, как раньше. */
+const OFF_DAYS=REAL&&REAL.dayMix?REAL.dayMix():null;
+const OFF_LIVE={cal:!!OFF_DAYS,seg:!!(REAL&&REAL.has('hwd')&&REAL.has('hov')),
+  city:!!(REAL&&Object.keys(REAL.mixVals('oc')).length),bk:!!(REAL&&REAL.has('bk')&&REAL.has('bkv')&&REAL.has('vsv'))};
+const DOW_MONTHS=OFF_DAYS?2:3;     /* дни недели усредняем за 3 месяца (на настоящих — за два месяца календаря) */
 
 function lpSeed(lp,salt){return 'off'+salt+'#'+lp.length+'#'+hashStr(lp.join(','))}
 
@@ -4578,6 +4602,7 @@ const CAL_MONTHS=2;
 const CAL_TODAY=15;
 function attLast(lp,months){
   months=months||CAL_MONTHS;
+  if(OFF_DAYS)return attLastReal(lp,months);
   const out=[];
   for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
     const blk=attDays(lp,i);
@@ -4594,11 +4619,34 @@ function attLast(lp,months){
 /* Среднее по дням недели за последние DOW_MONTHS месяцев */
 function attByDow(lp,months){
   months=months||DOW_MONTHS;
+  if(OFF_DAYS){
+    /* настоящие: все посещения дня недели к его рабочим дням за два месяца; дней без рабочих — нет */
+    const a=DOW_NAME.map(()=>({w:0,v:0}));
+    attLastReal(lp,months).forEach(b=>b.days.forEach(d=>{a[d.dow].w+=d.w;a[d.dow].v+=d.v}));
+    return a.map((x,i)=>({name:DOW_NAME[i],value:x.w?+(x.v/x.w*100).toFixed(1):0,weekend:i>=5,w:x.w})).filter(x=>x.w);
+  }
   const acc=DOW_NAME.map(()=>({s:0,n:0}));
   for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
     attDays(lp,i).days.forEach(d=>{acc[d.dow].s+=d.val;acc[d.dow].n++});
   }
   return acc.map((a,i)=>({name:DOW_NAME[i],value:a.n?+(a.s/a.n).toFixed(1):0,weekend:i>=5}));
+}
+
+/* Календарь на настоящих (поставка 66): посещаемость дня — из офиса к людям с рабочим днём; день без рабочих
+   (выходной, праздник) — без значения. Текущий месяц — по дату данных */
+function attLastReal(lp,months){
+  const out=[];
+  for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
+    const mm=MONTHS[i], nd=new Date(mm.y,mm.m+1,0).getDate(), pre=mm.y+'-'+String(mm.m+1).padStart(2,'0')+'-';
+    const to=i===LAST&&ASOF.y===mm.y&&ASOF.m===mm.m?Math.min(ASOF.d,nd):nd, days=[];
+    for(let d=1;d<=to;d++){
+      const k=pre+String(d).padStart(2,'0'), w=OFF_DAYS.dw[k]||0, v=(OFF_DAYS.do||{})[k]||0;
+      days.push({day:d,dow:(new Date(mm.y,mm.m,d).getDay()+6)%7,weekend:!w,val:w?+(v/w*100).toFixed(1):null,w:w,v:v});
+    }
+    out.push({y:mm.y,m:mm.m,label:mm.label,base:lp.length?aggregate(lp,'office_att')[i]:0,
+      from:1,to:to,full:to===nd,first:(new Date(mm.y,mm.m,1).getDay()+6)%7,days:days});
+  }
+  return out;
 }
 
 /* Офисы — только как слагаемые городов (officeByCity): рейтинг офисов снят
@@ -4928,6 +4976,11 @@ function workdays(mIdx){
   return w;
 }
 function bookingQuality(lp){
+  if(OFF_LIVE.bk){
+    /* поставка 66: настоящие — дни с бронью (из них без прихода) и приход без брони за последний месяц */
+    const bk=lastVal(lp,'bk_days'), ns=lastVal(lp,'bk_noshow'), wi=lastVal(lp,'bk_walkin');
+    return {total:bk+wi,ok:bk-ns,noshow:ns,walkin:wi,viol:ns+wi,visits:bk-ns+wi,month:monthNom(CUR_M)};
+  }
   const hc=lastVal(lp,'hc_total'), att=lastVal(lp,'office_att')/100, v=lastVal(lp,'booking_viol')/100;
   const V=Math.round(hc*workdays(LAST)*att), r=rng(lpSeed(lp,'bk'));
   const q=0.52+r()*0.18;                     /* доля «бронь без прихода» среди нарушений */
@@ -4976,6 +5029,7 @@ function attByRoleLoc(lp){
    выбора отличается от общей: на него умножается ряд динамики. */
 const OFF_SEGS=[{key:'lead',name:'Руководители',rows:['rm','rt']},{key:'staff',name:'Сотрудники',rows:['lm','lt']}];
 function officeCross(lp,seg,city){
+  if(OFF_LIVE.seg||OFF_LIVE.city)return officeReal(lp,seg);
   const base=lastVal(lp,'office_att')||0, rl=attByRoleLoc(lp), cities=officeByCity(lp);
   const segs=OFF_SEGS.map(s=>{
     const rows=rl.filter(r=>s.rows.indexOf(r.key)>=0), hc=rows.reduce((a,r)=>a+r.hc,0);
@@ -4989,6 +5043,22 @@ function officeCross(lp,seg,city){
     segs:segs.map(s=>({key:s.key,name:s.name,hc:c?Math.round(c.hc*share(s)):s.hc,att:c?+(c.att*s.f).toFixed(1):s.att})),
     cities:cities.map(x=>({name:x.name,offices:x.offices,hc:sg?Math.round(x.hc*share(sg)):x.hc,att:sg?+(x.att*sg.f).toFixed(1):x.att})),
     seg:sg,city:c,att:+att.toFixed(1),factor:base?att/base:1};
+}
+
+/* Поставка 66, настоящие: сегмент — руководители (признак руководителя) и остальные, посещаемость последнего месяца
+   и динамика выбранного сегмента (yser — ряд «год к году»); города офиса — посещения и люди за последний месяц, без
+   выбора: посещаемость города не считается — у посещения есть город, у сотрудника его нет */
+function officeReal(lp,seg){
+  const mh=realExit(lp,'mh'), hcAll=Object.keys(mh).reduce((a,k)=>a+mh[k],0), lead=mh['1']||0;
+  const att=(v,w)=>{const W=lastVal(lp,w);return W?+(lastVal(lp,v)/W*100).toFixed(1):0};
+  const segs=OFF_LIVE.seg?[{key:'lead',name:'Руководители',hc:lead,att:att('ovis_lead','wday_lead')},
+    {key:'staff',name:'Сотрудники',hc:hcAll-lead,att:att('ovis_staff','wday_staff')}]:[];
+  const sg=seg?segs.find(x=>x.key===seg)||null:null;
+  const oc=realExit(lp,'oc'), op=realExit(lp,'ocp'), tot=Object.keys(oc).reduce((a,k)=>a+oc[k],0);
+  const cities=Object.keys(oc).filter(k=>oc[k]>0).map(k=>({name:k||NONE_NAME,visits:Math.round(oc[k]),people:Math.round(op[k]||0),
+    share:tot?+(oc[k]/tot*100).toFixed(1):0})).sort((a,b)=>b.visits-a.visits||a.name.localeCompare(b.name,'ru'));
+  return {real:true,segs:segs,cities:cities,seg:sg,city:null,att:sg?sg.att:lastVal(lp,'office_att')||0,factor:1,
+    yser:sg?yoySeries(lp,sg.key==='lead'?'office_lead':'office_staff'):null};
 }
 
 /* ---------- Детализация переводов (поставка 63) ----------
@@ -5092,7 +5162,7 @@ window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SI
   PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,tgrowthProfile,TG_TYPES,TG_STATUS,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  bookingQuality,officeByCity,attByGrade,attByRoleLoc,ROLE_LOC,aiProfile,AI_TOOLS};
+  bookingQuality,officeByCity,attByGrade,attByRoleLoc,ROLE_LOC,aiProfile,AI_TOOLS,OFF_LIVE};
 
 </script>
 <script>
@@ -6116,7 +6186,7 @@ function drawCalendar(a,w,h){
   const hUsed=gridTop+rows*ch+(rows-1)*gap;
   /* Шкала ОДНА на все блоки: свой максимум в каждом месяце красил бы одинаковый
      процент по-разному слева и справа, и сравнить месяцы стало бы нельзя. */
-  const allWd=blocks.reduce((acc,b)=>acc.concat(b.days.filter(d=>!d.weekend).map(d=>d.val)),[]);
+  const allWd=blocks.reduce((acc,b)=>acc.concat(b.days.filter(d=>!d.weekend&&d.val!=null).map(d=>d.val)),[]);
   const max=niceMax(allWd);
   const num1=v=>(+v).toFixed(1).replace('.',',');
   /* Подписи в клетке рисуются, только если помещаются. Два месяца рядом ужимают
@@ -6138,20 +6208,21 @@ function drawCalendar(a,w,h){
       /* позиция считается от ПЕРВОГО дня окна в этом месяце, а не от первого
          числа: окно может начинаться с середины месяца */
       const idx=b.first+di, x=bx+(idx%7)*(cw+gap), y=gridTop+Math.floor(idx/7)*(ch+gap);
-      const t=Math.max(0,Math.min(1,d.val/max));
+      /* поставка 66: на настоящих у нерабочего дня значения нет (null) — клетка как у выходного */
+      const t=Math.max(0,Math.min(1,(d.val||0)/max)), nv=d.val==null;
       const fill=d.weekend?'#f4f5f7':mixRGB(CAL_LO,CAL_HI,t);
       /* на тёмной половине шкалы цифра белая, иначе её не прочесть */
       const ink=d.weekend?C_AXIS:(t>0.62?'#fff':C_LABEL);
       const dly=(bi*40)+di*9;
       s+='<g class="barg"'+tip({
         title:d.day+' '+CD.MONTH_GEN[b.m]+' '+b.y+', '+CD.DOW_NAME[d.dow].toLowerCase(),
-        rows:[{label:'Посещаемость',value:num1(d.val)+'%',color:fill}],
-        note:d.weekend?'выходной':'в среднем по будням месяца: '+num1(b.base)+'%'})+'>';
+        rows:nv?[]:[{label:'Посещаемость',value:num1(d.val)+'%',color:fill}],
+        note:d.weekend?(nv&&d.dow<5?'нерабочий день':'выходной'):'посещаемость месяца: '+num1(b.base)+'%'})+'>';
       s+=rect(x,y,cw,ch,fill,7,' class="fade" style="animation-delay:'+dly+'ms"');
       if(showDay)s+=txt(x+6,y+13,String(d.day),{size:9.5,weight:400,fill:ink,anchor:'start',
         cls:'fade',delay:dly});
       /* halo здесь не нужен: цвет цифры уже выбран под заливку ячейки */
-      if(showVal)s+=txt(x+cw/2,y+(showDay?ch/2+9:ch/2+4),num1(d.val),
+      if(showVal&&!nv)s+=txt(x+cw/2,y+(showDay?ch/2+9:ch/2+4),num1(d.val),
         {size:VAL_SZ,weight:VAL_W,fill:ink,cls:'fade',delay:60+dly});
       s+='</g>';
     });
@@ -8695,9 +8766,9 @@ const WHY={
   office:{
     calendar:['В какие дни офис заполнен, а в какие пустует. От этого зависят командные дни и аренда.',
       'Пустые дни — кандидаты на общий «офисный день» команды.'],
-    attend:['{{Посещаемость офиса|Посещаемость}} по месяцам, ниже — руководители и сотрудники, ниже — города. Клик по строке — '+
-      'динамика по ней; сегмент и город складываются.',
-      'Руководители ходят реже сотрудников или город отстаёт — сверьте с правилами гибрида и бронированием.'],
+    attend:['{{Посещаемость офиса|Посещаемость}} по месяцам, ниже — руководители и сотрудники, ниже — города, где бывают '+
+      'в офисе. Клик по сегменту — динамика по нему.',
+      'Руководители ходят реже сотрудников — сверьте с правилами гибрида и бронированием.'],
     booking:['{{Нарушения бронирования|Нарушения брони}} — место забронировали и не пришли или пришли без брони.',
       'Нарушений много — места простаивают, а план офиса расходится с жизнью.']},
   ai:{
@@ -8845,8 +8916,9 @@ const YOY_COLOR={hc_total:G.C_CNT,hc_active:G.C_CNT,hc_avg:G.C_CNT,attrition:G.C
 function yoyChart(key,lp,bl,S,opt){
   opt=opt||{};
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
-  /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент */
-  const y0=D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
+  /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент; opt.yser (поставка 66) —
+     свой ряд «год к году» той же метрики (настоящая посещаемость выбранного сегмента) */
+  const y0=opt.yser||D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
   /* opt.ref (26.10, AI BI.md): свой пунктир вместо базы — {name, cur}: численность команды под WAU */
   const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=opt.ref?opt.ref.cur:cmp?D.yoySeries(bl,key).cur:null;
   const col=opt.color||YOY_COLOR[key]||G.C_LINE;
@@ -8948,6 +9020,19 @@ const DEV_LIVE={
     '*':{stage:7,t:'Посещаемость за месяц — настоящая (вкладка «Кто и где ходит?»). '+
       'Календарь по дням, сегменты, города и бронирование пока условные.'}}
 };
+/* поставка 66 (посещения Адели): вкладки «Офиса», чьи данные пришли в ответе, — без отметки */
+if(D.OFF_LIVE){
+  const o=DEV_LIVE.office, L=D.OFF_LIVE, rest=[];
+  if(L.cal)o.subs.push('calendar');else rest.push('календарь по дням');
+  if(L.seg&&L.city)o.subs.push('attend');
+  else if(L.seg||L.city)o.part.attend={stage:7,part:true,t:'Посещаемость по месяцам и '+(L.seg?'сегменты':'города')+
+    ' — настоящие. '+(L.seg?'Города':'Сегменты')+' пока условные.'};
+  if(!L.seg)rest.push('сегменты');
+  if(!L.city)rest.push('города');
+  if(L.bk){o.live.push('booking_viol');o.subs.push('booking')}else rest.push('бронирование');
+  if(rest.length<4)o['*']={stage:7,t:'Посещаемость за месяц — настоящая. '+rest.join(', ').replace(/^./,c=>c.toUpperCase())+
+    ' пока условные.'};
+}
 function devOf(bk,sub){
   const lv=DEV_LIVE[bk];
   if(lv&&lv.live.every(k=>!D.isDev(k)))return lv.subs.indexOf(sub)>=0?null:(lv.part&&lv.part[sub])||lv['*'];
@@ -10086,9 +10171,10 @@ SC.blocks.monitor={
    и причин увольнений). Доля отключена: доля одного процента в сумме процентов
    ничего не значит.
 
-   ВНИМАНИЕ: подневных отметок и привязки людей к офисам в модели нет — данные
-   сгенерированы. В UI это помечено сносками,
-   иначе на реальных данных их примут за работающий расчёт.
+   Поставка 66 (посещения Адели): в пробнике всё это — на настоящих данных, если они есть в ответе
+   (D.OFF_LIVE): календарь по дням двух месяцев, сегмент — руководители и сотрудники (клик — их
+   динамика), города офиса — посещения последнего месяца (без выбора: город есть у посещения, а не у
+   сотрудника), бронирования. Чего нет — генератор макета.
    ========================================================================== */
 (function(){
 'use strict';
@@ -10097,10 +10183,26 @@ const esc=U.esc;
 
 /* 15.10: сноска «в макете сгенерировано» снята — что цифры условные, говорит
    плашка «в разработке» над вкладкой; сноска объясняет только, как читать */
-const CAL_NOTE='Среднее по будням за полный месяц равно посещаемости этого месяца.';
+const CAL_NOTE='Посещаемость дня — доля сотрудников с рабочим днём, которые пришли в офис. Посещаемость месяца — те же доли с учётом числа людей в каждый день.';
 
 /* выбор сегмента и города — подпись для графика и полки */
 const offLabel=x=>[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).join(' · ');
+
+/* Поставка 66: «Кто и где ходит» на настоящих — динамика (по сегменту, если выбран), сегмент со счётом людей,
+   города офиса: посещения, люди и доля посещений. Город не выбирается: посещаемости города нет — есть посещения */
+function attendReal(ctx,x,lbl,attTbl){
+  const S=ctx.S;
+  return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
+      title:'Посещаемость офиса'+(lbl?': '+lbl:'')+', %'})+
+    (x.segs.length?attTbl('Сегмент',D.CMP.cur,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
+      value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
+      attrTip:'Клик — динамика посещаемости только у «'+s.name+'».'})),'Сравнение сегментов'):'')+
+    (x.cities.length?U.btGroup({cap:'Город офиса',capSub:D.CMP.cur+' · посещения',head:'',valueHead:'Посещений',
+      barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,items:x.cities.map(c=>({name:c.name,
+        note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE}))}):'')+
+    '<div class="tbl-note">Клик по сегменту — его динамика; Escape или «Сбросить всё» — снять. Руководители — по признаку '+
+      'руководителя подразделения. Город — где было посещение: один человек может бывать в нескольких городах.</div>';
+}
 
 SC.blocks.office={
   subTabs:[['calendar','Календарь'],['attend','Кто и где ходит'],['booking','Бронирование']],
@@ -10113,7 +10215,7 @@ SC.blocks.office={
     if(S.subTab!=='attend')return '';
     const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[];
     if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"'});
-    if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
+    if(S.offCity&&!D.OFF_LIVE.city)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
     return U.shelf({chips:chips,extra:'динамика и таблицы — по выбору',clear:'data-offclear="1"',
       clearTip:'Снять выбор сегмента и локации. То же — клавиша Escape.'});
   },
@@ -10128,6 +10230,7 @@ SC.blocks.office={
     if(ctx.sub==='attend'){
       const S=ctx.S, x=D.officeCross(ctx.lp,S.offSeg,S.offCity), lbl=offLabel(x);
       if(!x.cities.length&&!x.segs.some(s=>s.hc))return U.empty('Нет данных о посещаемости','В отборе нет сотрудников.');
+      if(x.real)return attendReal(ctx,x,lbl,attTbl);
       return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,scale:x.factor,h:260,fill:false,
           title:'Посещаемость офиса'+(lbl?': '+lbl:'')+', %'})+
         attTbl('Сегмент',x.city?x.city.name+' · '+D.CMP.cur:D.CMP.cur,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,
@@ -10254,7 +10357,9 @@ const noEval=(m,kpi)=>!kpi&&(!D.comparable(m.key)||m.better==='flat');
 const PART={regret_m:'нежелательные уходы за месяц',hc_avg:'средняя численность за месяц',pf_plan:'план найма',hire_jun:'принятые джуны',
   rev_eval:'оценённые в ревью',rev_up:'улучшили оценку',ovis:'дни в офисе',
   wday:'отработанные дни',regret_cnt:'нежелательные уходы',
-  tgrowth_pass:'одобренные заявки',tgrowth_deny:'отклонённые заявки'};
+  tgrowth_pass:'одобренные заявки',tgrowth_deny:'отклонённые заявки',
+  /* поставка 66: части нарушений бронирования */
+  bk_days:'дни с бронью',bk_noshow:'бронь без прихода',bk_walkin:'приход без брони'};
 /* строчная — только первая буква: «T-рост», «AI», «WAU» остаются как есть */
 const partName=k=>{const n=PART[k]||(D.METRIC_BY_KEY[k]||{}).name||k;return n.charAt(0).toLowerCase()+n.slice(1)};
 /* Формула метрики — MathML (14.10, заказчик: «формулы выделять и использовать
@@ -10263,8 +10368,9 @@ const partName=k=>{const n=PART[k]||(D.METRIC_BY_KEY[k]||{}).name||k;return n.ch
    окно расчёта словами. Шрифт формулы — Arial, как везде в отчёте (styles.css). */
 const mt=t=>'<mtext>'+esc(t)+'</mtext>';
 function fracML(dv){
-  const den=Array.isArray(dv.den)?'<mrow>'+dv.den.map(k=>mt(partName(k))).join('<mo>+</mo>')+'</mrow>':mt(partName(dv.den));
-  return '<mfrac>'+mt(partName(dv.num))+den+'</mfrac>'+(dv.scale===100?'<mo>×</mo><mn>100</mn>':'');
+  /* числитель, как и знаменатель, — ключ или сумма ключей (поставка 66: нарушения бронирования) */
+  const sum=x=>Array.isArray(x)?'<mrow>'+x.map(k=>mt(partName(k))).join('<mo>+</mo>')+'</mrow>':mt(partName(x));
+  return '<mfrac>'+sum(dv.num)+sum(dv.den)+'</mfrac>'+(dv.scale===100?'<mo>×</mo><mn>100</mn>':'');
 }
 function formulaOf(m){
   if(m.derived)return {ml:fracML(m.derived),
@@ -10856,8 +10962,8 @@ function utCenter(){
 }
 /* ---------- Дерево выбора юнита (19.10, как в HRBP HUB) ----------
    Всё дерево (в пробнике — справочник датасета): компания и два уровня под ней раскрыты,
-   путь к выбранному — тоже; глубже — по стрелке. Поиск — по названию и логину
-   руководителя, без запроса. Число у строки — сколько людей попадёт в выбор с набранными
+   путь к выбранному — тоже; глубже — по стрелке. Поиск — по названию, логину и имени
+   руководителя (имя — с поставки 66), без запроса. Число у строки — сколько людей попадёт в выбор с набранными
    фильтрами (последний закрытый месяц); прежний датасет без fd — без чисел. */
 let UT={q:'',open:{}};
 const UT_MAX=600;
@@ -10875,11 +10981,18 @@ function utHl(text,q){
   const at=q?text.toLowerCase().indexOf(q):-1;
   return at<0?esc(text):esc(text.slice(0,at))+'<mark class="ut-hl">'+esc(text.slice(at,at+q.length))+'</mark>'+esc(text.slice(at+q.length));
 }
+/* руководитель под именем юнита: «Имя Фамилия · логин»; что совпало с поиском — подсвечено (поставка 66) */
+function utHead(i,q){
+  const hn=i.hname||'', hl=i.head||'';
+  if(!hn&&!hl)return '';
+  return '<span class="ut-h"'+U.tipAttr({title:'Руководитель подразделения',text:hn&&hl?hn+' · '+hl:hn||hl})+'>'+
+    (hn?utHl(hn,q):'')+(hn&&hl?' · ':'')+(hl?utHl(hl,q):'')+'</span>';
+}
 function utRow(p,i,depth,tw,extra){
   return '<div class="ut-r'+(DRAFT.unit===p?' cur':'')+'" data-upick="'+esc(p)+'" role="option" aria-selected="'+(DRAFT.unit===p)+'"'+
     (depth!=null?' style="padding-left:'+(9+depth*16)+'px"':'')+'>'+tw+
     '<span class="ut-n">'+(extra&&extra.name||esc(i.name))+(extra&&extra.path?'<span class="ut-p">'+esc(extra.path)+'</span>':'')+
-    (i.head?'<span class="ut-h"'+U.tipAttr({title:'Руководитель подразделения',text:i.head})+'>'+(extra&&extra.head||esc(i.head))+'</span>':'')+'</span>'+
+    utHead(i,extra&&extra.q||'')+'</span>'+
     '<span class="ut-l">ур. '+i.lvl+'</span>'+utCount(p)+'</div>';
 }
 function utListHTML(){
@@ -10897,13 +11010,16 @@ function utListHTML(){
     })(P.root,0);
     return out.s;
   }
-  /* поиск: и по названию, и по логину руководителя; сначала совпадение с начала, выше уровнем */
+  /* поиск: по названию, логину и имени руководителя (имя — с поставки 66; «Иван Петров» находится и по фамилии);
+     сначала совпадение с начала слова, выше уровнем */
   const hits=[];
   P.all().forEach(p=>{
     const i=P.info(p);if(!i)return;
-    const an=i.name.toLowerCase().indexOf(q), ah=i.head?i.head.toLowerCase().indexOf(q):-1;
-    if(an<0&&ah<0)return;
-    hits.push({p,i,byHead:an<0,rank:(an===0||(an<0&&ah===0)?0:1)*100+i.lvl});
+    const an=i.name.toLowerCase().indexOf(q), ah=i.head?i.head.toLowerCase().indexOf(q):-1,
+      hn=(i.hname||'').toLowerCase(), am=hn.indexOf(q);
+    if(an<0&&ah<0&&am<0)return;
+    const start=an===0||(an<0&&(ah===0||am===0||(am>0&&hn[am-1]===' ')));
+    hits.push({p,i,byHead:an<0,rank:(start?0:1)*100+i.lvl});
   });
   if(!hits.length)return '<div class="ut-none">Ничего не найдено</div>';
   hits.sort((a,b)=>a.rank-b.rank||a.i.name.localeCompare(b.i.name,'ru'));
@@ -10911,7 +11027,7 @@ function utListHTML(){
     const chain=h.p.split('/'), names=[];
     for(let k=Math.max(1,chain.length-4);k<chain.length;k++){const x=P.info(chain.slice(0,k).join('/'));if(x)names.push(x.name)}
     return utRow(h.p,h.i,null,'<span class="ut-sp"></span>',{name:h.byHead?esc(h.i.name):utHl(h.i.name,q),
-      path:names.join(' › '),head:h.byHead?utHl(h.i.head,q):''});
+      path:names.join(' › '),q:h.byHead?q:''});
   }).join('')+(hits.length>80?'<div class="ut-none">Показаны 80 из '+hits.length+' — уточните запрос</div>':'');
 }
 function utRender(){

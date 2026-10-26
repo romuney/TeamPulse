@@ -20,7 +20,10 @@ STEPS = (1, 2, 3, 5, 6)       # правка 4 (уровень перевода 
 
 # 23.10, поставка 64: EXEC build_all_metrics — целиком код заказчика (hub_nb/exec_build_all_metrics.py): все разрезы
 # в fields, переводы ноутбук TP 2.0 больше не считает (transfers=False) — их считает «hub · 5 переходы»
-WHOLE = {'EXEC build_all_metrics': 'exec_build_all_metrics.py'}
+# 26.10, поставка 66 (Адель, «TeamPulse_Hub_23.10_14»): org_structure — с руководителем юнита, with_office_traffic — с
+# бронированиями и городами посещений; её же новые параграфы unit_head_structure и office_traffic — в PLAN
+WHOLE = {'EXEC build_all_metrics': 'exec_build_all_metrics.py', 'org_structure': 'org_structure.sql',
+         'with_office_traffic': 'with_office_traffic.sql'}
 
 EXTRA = {
     'build_all_metrics': [
@@ -72,14 +75,19 @@ EXTRA = {
 # порядок и состав: индекс параграфа TP 2.0 или новый параграф (заголовок, shebang, файл)
 PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md', 'about.md'),
         0, ('new', 'Схема', 'md', 'scheme.md'),
-        2, 3, 4, 5, 6, 7, 14, 15, 16,
+        2, 3, 4, 5, 6,
+        ('new', 'unit_head_structure', 'gp', 'unit_head_structure.sql'),
+        7, 14, 15,
+        ('new', 'office_traffic', 'gp', 'office_traffic.sql'),
+        16,
         # 22.10, поставка 58: сборка таблиц отчёта — параграфами gp (stand/hub_sql.py → hub_nb/sql_*.sql), без
         # Python, который ждал больше ста запросов в одном параграфе. Сначала — проверка колонок источников
         ('new', 'hub · 0 колонки', 'gp', 'sql_0_cols.sql'),
         # 21.10: вместо vacancy_daily TP 2.0 (JSON по юниту, org_structure LEFT JOIN — терял вакансии
         # юнитов без людей) — плоский снимок structure_x_vacancy; витрина — «hub · 6»
         ('new', 'structure_x_vacancy', 'gp', 'sql_vacancy.sql'),
-        19, 20, 22, 23,
+        # 26.10, поставка 66: group_and_sum_metrics, EXEC group, calc_ssch, EXEC calc_ssch (TP 2.0: 19, 20, 22, 23) — не
+        # в ноутбуке отчёта (Адель выключила): hr_structure_overall выгружает ноутбук TP 2.0, отчёт их таблиц не читает
         ('new', 'hub · 1 структура', 'gp', 'sql_1_structure.sql'),
         ('new', 'hub · 2 логины и AI', 'python', 'hub_optional.py'),
         ('new', 'hub · 3 справочник и ряды', 'gp', 'sql_3_series.sql'),
@@ -98,6 +106,8 @@ OUT_1A = os.path.join(DIR, '1а. Helicopter — изменённые параг�
 P58 = ['hub · 0 колонки', 'structure_x_vacancy', 'hub · 1 структура', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды',
        'hub · 4 разрезы', 'hub · 5 переходы', 'hub · 6 вакансии и meta', 'hub checks']
 TP20 = ['_PARAMS_', 'EXEC build_all_metrics']          # параграфы TP 2.0, которые меняют поставки 60–62
+# поставка 66: параграфы Адели (посещения, руководитель юнита) — с исправлениями
+P66 = ['unit_head_structure', 'org_structure', 'with_office_traffic', 'office_traffic']
 CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub checks'},
            60: {'_PARAMS_', 'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 3 справочник и ряды', 'hub · 4 разрезы',
                 'hub · 5 переходы'},
@@ -105,7 +115,9 @@ CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub che
            62: {'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 4 разрезы'},
            63: {'hub · 2 логины и AI', 'hub · 5 переходы', 'to click'},
            64: {'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 3 справочник и ряды', 'hub · 5 переходы'},
-           65: {'hub · 5 переходы'}}
+           65: {'hub · 5 переходы'},
+           66: {'EXEC build_all_metrics', 'unit_head_structure', 'org_structure', 'with_office_traffic', 'office_traffic',
+                'hub · 0 колонки', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды', 'hub · 4 разрезы', 'hub checks'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 
@@ -116,7 +128,7 @@ def write_1a(out):
     assert '{{' not in head
     by = {p['title']: p for p in out}
     parts = [head.rstrip('\n')]
-    for i, t in enumerate(TP20 + P58 + ['to click'], 1):   # to click — с поставки 63 (таблица детализации)
+    for i, t in enumerate(TP20 + P66 + P58 + ['to click'], 1):   # to click — с поставки 63 (таблица детализации)
         p = by[t]
         lang = 'sql' if p['shebang'] == 'gp' else 'python'
         ds = [str(d) for d in sorted(CHANGED) if t in CHANGED[d]]
@@ -125,7 +137,7 @@ def write_1a(out):
         parts.append(f"\n### {i}. {t} — {p['shebang']}{mark}\n\n```{lang}\n{p['code']}\n```")
     with open(OUT_1A, 'w', encoding='utf-8') as f:
         f.write('\n'.join(parts) + '\n')
-    print(f'{os.path.basename(OUT_1A)}: параграфов {len(TP20) + len(P58)}')
+    print(f'{os.path.basename(OUT_1A)}: параграфов {len(TP20) + len(P66) + len(P58) + 1}')
 
 
 def patch(title, code):

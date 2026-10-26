@@ -210,8 +210,10 @@ if(hasNew){
   ok(near(D.lastVal(rl,'tgrowth_pass'),ga)&&near(D.lastVal(rl,'tgrowth_deny'),gd)&&
     near(D.lastVal(rl,'tgrowth_conv'),ga+gd?+(ga/(ga+gd)*100).toFixed(2):null),
     'T-рост: одобрено, отклонено, конверсия = одобрено / (одобрено + отклонено)');
-  ok(!D.isStub('office_att')&&!D.isStub('tgrowth_conv')&&D.isStub('tgrowth_tat')&&D.isStub('booking_viol'),
-    'посещаемость и решения T-роста — живые, T@T и бронирование — демо');
+  /* поставка 66 (посещения Адели): с рядами бронирований бронирование живое */
+  const BK=R.has('bk');
+  ok(!D.isStub('office_att')&&!D.isStub('tgrowth_conv')&&D.isStub('tgrowth_tat')&&D.isStub('booking_viol')===!BK,
+    'посещаемость и решения T-роста — живые, T@T — демо, бронирование — '+(BK?'живое':'демо'));
 }else{
   ok(NEWC.every(c=>!R.has(c))&&D.isStub('office_att')&&D.isStub('tgrowth_conv')&&!R.missing.length,
     'ответ без колонок 12.10: посещаемость и T-рост — демо, «нет колонок» не поднимается');
@@ -315,6 +317,28 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
         (hd?', поиск по логину':', логинов в справочнике нет'));
     } else ok(rowsN>0&&!/class="ut-c/.test(su)&&!/opt-n/.test(su),'окно настройки: прежний датасет без fd — дерево без чисел');
   }
+  /* поставка 66 (посещения Адели): «Офис» на настоящих — календарь из разрезов dw / do выбранного юнита (в сумме —
+     рабочие дни двух месяцев), бронирование и руководители — из рядов ответа, города офиса — из разреза oc; имя
+     руководителя в окне настройки и поиск по нему */
+  if(D.OFF_LIVE.cal&&D.OFF_LIVE.bk&&D.OFF_LIVE.seg&&D.OFF_LIVE.city){
+    const cal=D.attLast(rl), sw=cal.reduce((a,b)=>a+b.days.reduce((x,d)=>x+(d.w||0),0),0);
+    const L=R.n-1, wd2=arr(scopeRow,'wday')[L]+arr(scopeRow,'wday')[L-1];
+    const bk=arr(scopeRow,'bk')[L], bkv=arr(scopeRow,'bkv')[L], vsv=arr(scopeRow,'vsv')[L];
+    const hwd=arr(scopeRow,'hwd')[L], hov=arr(scopeRow,'hov')[L];
+    const x=D.officeCross(rl,null,null), viol=D.lastVal(rl,'booking_viol');
+    const oc=x.cities.reduce((a,c)=>a+c.visits,0);
+    const raw=String(scopeRow.mx).split('\n').filter(l=>l.indexOf('oc\t')===0).reduce((a,l)=>a+ +l.split('\t')[2],0);
+    const ofA2=A.go('office','attend'), ofB2=A.go('office','booking');
+    ok(cal.length===2&&Math.round(sw)===Math.round(wd2)&&near(viol,bk+vsv?+((bkv+vsv)/(bk+vsv)*100).toFixed(2):null)&&
+       x.segs[0].att===(hwd?+(hov/hwd*100).toFixed(1):0)&&Math.round(oc)===Math.round(raw)&&/Город офиса/.test(ofA2)&&
+       /Бронь без прихода/.test(ofB2),
+      'офис на настоящих: календарь — рабочие дни '+Math.round(sw)+' = ряды двух месяцев, нарушения брони '+
+      D.fmtVal('booking_viol',viol)+', руководители '+x.segs[0].att+'%, городов '+x.cities.length);
+    const hn=R.pick.all().map(p=>R.pick.info(p)).find(i=>i&&/ /.test(i.hname)), last=hn?hn.hname.split(' ').pop():'';
+    const sq=hn?A.setup(last.slice(0,4).toLowerCase()):'';
+    ok(!!hn&&/<mark class="ut-hl">/.test(sq)&&sq.indexOf(hn.name)>=0&&sq.indexOf(' · '+hn.head)>=0,
+      'окно настройки: имя руководителя под юнитом и поиск по фамилии («'+last.slice(0,4)+'»)');
+  }
   const nSt=Object.keys(R.mixVals('xs')||{}).length, who=A.go('turnover','who');
   const st=(who.split('bt-group').find(x=>/>Стрим</.test(x))||'');
   ok(nSt<=9||/>Остальные<span class="unit-sub">\d+ стрим/.test(st)||(st.match(/<tr/g)||[]).length<=10,
@@ -331,10 +355,13 @@ ok(!/data-openunit="[^"]*\/·"/.test(exp),'у строки «Напрямую» 
 ok(!/NaN|undefined/.test(html.replace(/data-[a-z-]+="[^"]*"/g,'')),'в разметке нет NaN и undefined');
 ok(/dev-tag/.test(html)&&/dev-sum/.test(html),'метрики без источника помечены «в разработке», сводка готовности на One-pager');
 /* плашки «в разработке» по вкладкам: с колонками 12.10 у живых вкладок плашки нет */
-const tgF=A.go('tgrowth','flow'), ofD=A.go('office','attend'), ofC=A.go('office','calendar');
-ok(hasNew?!/dev-note/.test(tgF)&&/Посещаемость по месяцам — настоящая/.test(ofD)&&/Посещаемость за месяц — настоящая/.test(ofC)
+const tgF=A.go('tgrowth','flow'), ofD=A.go('office','attend'), ofC=A.go('office','calendar'), ofB=A.go('office','booking');
+/* поставка 66: посещения Адели в ответе — вкладки «Офиса» без «в разработке» */
+const OFL=D.OFF_LIVE, offAll=OFL.cal&&OFL.seg&&OFL.city&&OFL.bk;
+ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
+           :/Посещаемость по месяцам — настоящая/.test(ofD)&&/Посещаемость за месяц — настоящая/.test(ofC))
          :/dev-note/.test(tgF)&&/dev-note/.test(ofD),
-  hasNew?'плашки: решения T-роста и посещаемость — без «в разработке», календарь офиса — с уточнением'
+  hasNew?'плашки: решения T-роста и посещаемость — без «в разработке», '+(offAll?'вкладки офиса — тоже':'календарь офиса — с уточнением')
         :'плашки: T-рост и посещаемость — «в разработке»');
 /* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
 /* поставка 50: с витриной вакансий глава вакансий живая — демо-глава тогда «Итоги ревью» */

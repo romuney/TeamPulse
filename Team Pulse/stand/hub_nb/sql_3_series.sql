@@ -1,14 +1,17 @@
 -- =============================================================================
 -- TeamPulse Hub · 3. Справочник узлов и ряды (поставка 58: SQL вместо build_hub)
 -- teampulse_hub_unit — узлы: родитель, уровень, имя, число подразделений, путь, логин руководителя;
--- teampulse_hub_series — узел × месяц × срез: численность, ССЧ, найм, увольнения, переводы и др.
+-- teampulse_hub_series — узел × месяц × срез: численность, ССЧ, найм, увольнения, переводы и др.;
+-- с поставки 66 — бронирования (bk, bkv, vsv) и посещаемость руководителей (hwd, hov), имя руководителя.
 -- =============================================================================
 
--- 5. справочник узлов: + число подразделений и логин руководителя (teampulse_hub_head — параграф «hub · 2»)
+-- 5. справочник узлов: + число подразделений, логин и имя руководителя (teampulse_hub_head — параграф «hub · 2»;
+--    имя — с поставки 66, из unit_head_structure)
 drop table if exists teampulse_hub_unit;
 create table teampulse_hub_unit as
 select n.rk as unit_rk, n.prk as parent_rk, n.lv as unit_lvl, n.nm as unit_nm,
-       coalesce(k.kids, 0)::int as kids_cnt, n.pth as path_rk, coalesce(h.head_login, '') as head_login
+       coalesce(k.kids, 0)::int as kids_cnt, n.pth as path_rk, coalesce(h.head_login, '') as head_login,
+       coalesce(h.head_nm, '') as head_nm
 from teampulse_hub_node n
 left join (select prk, count(*) as kids from teampulse_hub_node where prk <> '' group by prk) k on k.prk = n.rk
 left join teampulse_hub_head h on h.unit_rk = n.rk
@@ -34,7 +37,12 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        sum(coalesce(e.perf_normal, 0)) as pnor, sum(coalesce(e.perf_low, 0)) as plow,
        sum(coalesce(e.perf_high, 0)) as phig, sum(coalesce(e.perf_gray, 0)) as pgry,
        sum(coalesce(e.work_day_amt, 0)) as wday, sum(coalesce(e.office_visit_amt, 0)) as ovis,
-       sum(coalesce(e.grt_approve_cnt, 0)) as gapr, sum(coalesce(e.grt_decline_cnt, 0)) as gdec
+       sum(coalesce(e.grt_approve_cnt, 0)) as gapr, sum(coalesce(e.grt_decline_cnt, 0)) as gdec,
+       -- поставка 66 (Адель): бронирования — дней с бронью, бронь без посещения, посещение без брони; рабочие
+       -- дни и посещения руководителей (management_head_flg = 1) — сегмент «Руководители» посещаемости
+       sum(coalesce(e.booking_amt, 0)) as bk, sum(coalesce(e.booking_viol_amt, 0)) as bkv, sum(coalesce(e.visit_viol_amt, 0)) as vsv,
+       sum(case when e.management_head_flg::text = '1' then coalesce(e.work_day_amt, 0) else 0 end) as hwd,
+       sum(case when e.management_head_flg::text = '1' then coalesce(e.office_visit_amt, 0) else 0 end) as hov
 from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
@@ -42,7 +50,8 @@ from (
         select s.report_month, s.hc_total_cnt, s.hc_active_cnt, s.hire_amt, s.transfer_candidate_amt,
                s.transfer_internal_amt, s.hire_cnt, s.fire_amt, s.regret_fire_amt, s.non_regret_fire_amt,
                s.perf_normal, s.perf_low, s.perf_high, s.perf_gray, s.work_day_amt, s.office_visit_amt,
-               s.grt_approve_cnt, s.grt_decline_cnt,
+               s.grt_approve_cnt, s.grt_decline_cnt, s.booking_amt, s.booking_viol_amt, s.visit_viol_amt,
+               s.management_head_flg,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
@@ -79,7 +88,9 @@ select k.node_rk, k.report_month, k.paint_c as paint_cd, k.it_c as it_cd, k.staf
        coalesce(c.pnor, 0) as pnor_cnt, coalesce(c.plow, 0) as plow_cnt,
        coalesce(c.phig, 0) as phig_cnt, coalesce(c.pgry, 0) as pgry_cnt,
        coalesce(c.wday, 0) as wday_amt, coalesce(c.ovis, 0) as ovis_amt,
-       coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt
+       coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt,
+       coalesce(c.bk, 0) as bk_amt, coalesce(c.bkv, 0) as bkv_amt, coalesce(c.vsv, 0) as vsv_amt,
+       coalesce(c.hwd, 0) as hwd_amt, coalesce(c.hov, 0) as hov_amt
 from k
 left join teampulse_hub_sx c
        on c.node_rk = k.node_rk and c.paint_c = k.paint_c and c.it_c = k.it_c and c.staff_c = k.staff_c and

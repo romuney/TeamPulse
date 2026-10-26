@@ -192,14 +192,37 @@ COLS = (['calendar_dt', 'mdm_employee_rk']
         # 22.10, поставка 62: регион сотрудника — разрез портрета и конструктора
         + ['residential_state_nm']
         # 23.10, поставка 64: формат работы — в fields параграфа EXEC build_all_metrics заказчика
-        + ['type_of_work'])
+        + ['type_of_work']
+        # 26.10, поставка 66 (Адель): признак руководителя юнита — в fields (сегмент посещаемости)
+        + ['management_head_flg'])
 # регион — по ключу человека, без генератора: случайный ряд симуляции не сдвигается; у части людей пусто
 REGIONS = ['г. Москва', 'г. Москва', 'г. Москва', 'Московская область', 'г. Санкт-Петербург', 'Свердловская область',
            'Новосибирская область', 'Республика Татарстан', None]
 WORKS = ['Офис', 'Гибрид', 'Удалённо', 'Офис', None]
 
 
+def heads(U, people):
+    """месяц → юнит → руководитель (rk): живой человек юнита на конец месяца с меньшим rk (structure_rows,
+    management_head_flg источника по дням — поставка 66)"""
+    alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])
+    H = {}
+    for m in months():
+        e, h = eom(m), {}
+        for p in people:
+            if alive(p, e):
+                u = at(p['unit'], e)
+                h[u] = min(h.get(u, p['rk']), p['rk'])
+        H[m] = h
+    return H
+
+
+def head_flg(H, p, d):
+    """руководитель ли человек в день d: руководитель своего юнита на конец месяца дня"""
+    return int(H[dt.date(d.year, d.month, 1)].get(at(p['unit'], d)) == p['rk'])
+
+
 def source_rows(U, people):
+    H = heads(U, people)
     for p in people:
         last = p['end'] or D1
         d = max(p['start'], D0)
@@ -242,7 +265,8 @@ def source_rows(U, people):
                    + [None, None, 0, 0]
                    + [int((d + dt.timedelta(1)).day == 1)]
                    + [REGIONS[p['rk'] * 7 % len(REGIONS)]]
-                   + [WORKS[p['rk'] * 3 % len(WORKS)]])
+                   + [WORKS[p['rk'] * 3 % len(WORKS)]]
+                   + [head_flg(H, p, d)])
             d += dt.timedelta(1)
 
 
@@ -426,9 +450,32 @@ def side(people):
         d = max(p['start'], D0)
         while d <= last:
             if d.weekday() < 5:
-                office.append((d, p['rk'], 1, int(random.random() < .4)))
+                ov = int(random.random() < .4)
+                office.append((d, p['rk'], 1, ov) + office_row(p['rk'], d, ov))
             d += dt.timedelta(1)
     return perf, office, grt
+
+
+# 26.10, поставка 66 (посещения Адели): бронирование, город офиса, визит в другой регион, день недели — по ключу
+# человека и дню, без генератора (случайный ряд симуляции не сдвигается)
+OFFICE_CITY = ['Москва', 'Москва', 'Санкт-Петербург', 'Екатеринбург', 'Казань', 'Новосибирск']
+OFFICE_EXT = ['booking_flg', 'booking_violation_flg', 'visit_violation_flg', 'office_city_nm', 'region_visit_flg',
+              'day_short_nm', 'day_sort']
+
+
+def office_row(rk, d, ov):
+    """дополнение строки посещаемости (OFFICE_EXT): бронь, бронь без посещения, посещение без брони, город офиса
+    (у посещения или брони), посещение в другом городе, день недели и его номер"""
+    h = (rk * 7919 + d.toordinal() * 104729) % 1000
+    if ov:
+        bk, bkv, vsv = int(h < 780), 0, int(h >= 780)
+    else:
+        bk = bkv = int(h < 60)
+        vsv = 0
+    home = OFFICE_CITY[rk % len(OFFICE_CITY)]
+    city = (OFFICE_CITY[(rk + d.day) % len(OFFICE_CITY)] if h % 17 == 0 else home) if (ov or bk) else None
+    return (bk, bkv, vsv, city, int(bool(ov) and city != home), ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][d.weekday()],
+            d.weekday() + 1)
 
 
 def load(pg, U, people):
@@ -443,8 +490,11 @@ def load(pg, U, people):
     perf, office, grt = side(people)
     pg.run("CREATE TABLE prod_v_sse_crossdata.performance_metric_m (mdm_employee_rk bigint, calendar_dt date, performance_category text)")
     pg.copy('prod_v_sse_crossdata.performance_metric_m', ['mdm_employee_rk', 'calendar_dt', 'performance_category'], perf)
-    pg.run("CREATE TABLE usr_cross_data.office_traffic_attendance (calendar_dt date, mdm_employee_rk bigint, work_day_flg int, office_visit_flg int)")
-    pg.copy('usr_cross_data.office_traffic_attendance', ['calendar_dt', 'mdm_employee_rk', 'work_day_flg', 'office_visit_flg'], office)
+    pg.run("CREATE TABLE usr_cross_data.office_traffic_attendance (calendar_dt date, mdm_employee_rk bigint, work_day_flg int, "
+           "office_visit_flg int, booking_flg int, booking_violation_flg int, visit_violation_flg int, office_city_nm text, "
+           "region_visit_flg int, day_short_nm text, day_sort int)")
+    pg.copy('usr_cross_data.office_traffic_attendance', ['calendar_dt', 'mdm_employee_rk', 'work_day_flg', 'office_visit_flg']
+            + OFFICE_EXT, office)
     pg.run("""CREATE TABLE prod_v_dds.mdm_employee_application_grt (mdm_employee_application_rk bigint, create_dttm timestamp,
               current_grade_num int, required_grade_num int, head_approve_flg int, mdm_employee_appl_status_cd text,
               deleted_flg int, valid_to_dttm date)""")
@@ -455,10 +505,14 @@ def load(pg, U, people):
     # 19.10: структура сотрудников с логинами — источник логина руководителя юнита (build_hub, как
     # в HRBP HUB). На конец каждого месяца: руководитель юнита — живой человек юнита с меньшим rk,
     # его логин h<юнит>, его руководитель — h<родитель>; у остальных руководитель — h<юнит>
+    # 26.10, поставка 66: + юнит, имя и фамилия, признаки последнего дня — для unit_head_structure Адели
     pg.run("""CREATE TABLE prod_v_emart.mdm_employee_structure_d (business_dt date, mdm_employee_rk bigint,
-              management_head_flg int, ad_login text, management_head_ad_login text)""")
+              management_head_flg int, ad_login text, management_head_ad_login text, management_unit_rk text,
+              management_unit_nm text, first_nm text, last_nm text, last_day_flg int, last_day_of_month_flg int)""")
     pg.copy('prod_v_emart.mdm_employee_structure_d', ['business_dt', 'mdm_employee_rk', 'management_head_flg', 'ad_login',
-                                                     'management_head_ad_login'], structure_rows(U, people))
+                                                     'management_head_ad_login', 'management_unit_rk', 'management_unit_nm',
+                                                     'first_nm', 'last_nm', 'last_day_flg', 'last_day_of_month_flg'],
+            structure_rows(U, people))
     # 21.10: вакансии по дням (источник structure_x_vacancy)
     vtyp = lambda c: 'date' if c in ('issue_day', 'approved_dt') else 'int' if c.endswith('_flg') else 'text'
     pg.run(f"CREATE TABLE usr_cross_data.vacancy_daily ({', '.join(f'{c} {vtyp(c)}' for c in VAC_COLS)})")
@@ -475,6 +529,17 @@ def load(pg, U, people):
     return perf, office, grt
 
 
+FIRST_NM = ['Анна', 'Мария', 'Елена', 'Ольга', 'Алексей', 'Дмитрий', 'Сергей', 'Павел', 'Игорь']
+LAST_NM = ['Соколов', 'Волков', 'Лебедев', 'Козлов', 'Новиков', 'Морозов', 'Павлов', None]
+
+
+def person_nm(rk):
+    """имя и фамилия сотрудника стенда (у части — без фамилии)"""
+    f = FIRST_NM[rk % len(FIRST_NM)]
+    ln = LAST_NM[rk * 5 % len(LAST_NM)]
+    return f, (ln + ('а' if f in ('Анна', 'Мария', 'Елена', 'Ольга') else '') if ln else None)
+
+
 def structure_rows(U, people):
     alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])
     for m in months():
@@ -483,13 +548,16 @@ def structure_rows(U, people):
         for p in people:
             if alive(p, e):
                 here[at(p['unit'], e)].append(p['rk'])
+        # поставка 66: признаки дня — последний загруженный день (last_day_flg) и конец полного месяца
+        ld, lm_ = int(e == D1), int((e + dt.timedelta(1)).day == 1)
         for u, rks in here.items():
             hd = min(rks)
             for rk in rks:
+                nm = person_nm(rk)
                 if rk == hd:
-                    yield (e, rk, 1, 'h' + u, 'h' + U[u][1] if U[u][1] else None)
+                    yield (e, rk, 1, 'h' + u, 'h' + U[u][1] if U[u][1] else None, u, U[u][0]) + nm + (ld, lm_)
                 else:
-                    yield (e, rk, 0, 'u' + str(rk), 'h' + u)
+                    yield (e, rk, 0, 'u' + str(rk), 'h' + u, u, U[u][0]) + nm + (ld, lm_)
 
 
 # ---- правда по людям --------------------------------------------------------
@@ -620,6 +688,57 @@ def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE, chg=()):
                     if d not in conv:
                         T[(n, m)]['tin'] += 1
     return T
+
+
+def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
+    """поставка 66 (посещения Адели), правда по людям под фильтры (pred, типы численности act; None — все):
+    T  (узел, месяц) → рабочие дни (wday), посещения (ovis), бронирования (bk — дней с бронью, bkv — бронь без
+       посещения, vsv — посещение без брони), рабочие дни и посещения руководителей (hwd, hov);
+    Dd (узел, день) двух последних месяцев → dw (люди с рабочим днём), do (из них в офисе);
+    C  узел → {'oc': {город: посещений}, 'ocp': {город: людей}} за последний месяц;
+    MH узел → {'1': руководителей, '0': остальных} — численность на конец последнего месяца.
+    Человек месяца — его последняя строка в месяце (last_row_flg): юнит, срез и признак руководителя — на последний
+    день в месяце, как у посещений в with_office_traffic и календаря office_traffic"""
+    T, Dd = defaultdict(lambda: defaultdict(float)), defaultdict(lambda: defaultdict(float))
+    C = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
+    MH = defaultdict(lambda: defaultdict(float))
+    H = heads(U, people)
+    byrk = {p['rk']: p for p in people}
+    root = ['all'] if ROOTS > 1 else []
+    ms = months()
+    lm, two = ms[-1], set(ms[-2:])
+    ld = lambda p, m: min(eom(m), p['end'] or D1)
+    ok = lambda p, m: pred(p, ld(p, m)) and (act is None or at(p['acth'], ld(p, m)) in act)
+    nodes = lambda p, d: root + path(U, at(p['unit'], d))
+    city = defaultdict(lambda: defaultdict(float))
+    for r in office:
+        d, rk, wd, ov, bk, bkv, vsv, cty = r[:8]
+        p, m = byrk[rk], dt.date(d.year, d.month, 1)
+        if not ok(p, m):
+            continue
+        last = ld(p, m)
+        hf = head_flg(H, p, last)
+        for n in nodes(p, last):
+            t = T[(n, m)]
+            t['wday'] += wd; t['ovis'] += ov; t['bk'] += bk; t['bkv'] += bkv; t['vsv'] += vsv
+            t['hwd'] += wd * hf; t['hov'] += ov * hf
+            if m in two:
+                Dd[(n, d)]['dw'] += wd
+                Dd[(n, d)]['do'] += ov
+        if m == lm and ov and cty:
+            city[rk][cty] += ov
+    for rk, cs in city.items():
+        p = byrk[rk]
+        for n in nodes(p, ld(p, lm)):
+            for c, v in cs.items():
+                C[n]['oc'][c] += v
+                C[n]['ocp'][c] += 1
+    e = eom(lm)
+    for p in people:
+        if p['start'] <= e and (p['end'] is None or e < p['end']) and ok(p, lm):
+            for n in nodes(p, e):
+                MH[n][str(head_flg(H, p, e))] += 1
+    return T, Dd, C, MH
 
 
 # ---- прогон ноутбука ----------------------------------------------------------
@@ -904,7 +1023,9 @@ def main():
         run_yaml(pg, os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', '1. Helicopter — ноут TeamPulse Hub.yaml'), a.hub)
         # hr_structure_overall в бою выгружает ноутбук TP 2.0, наш её не трогает (21.10) — стенд выгружает сам:
         # её читает файл 2
-        gp_to_click_mock(pg, a.hub)(gp_table='hr_structure_with_ssch', clickhouse_table='prod_proteus.hr_structure_overall')
+        # поставка 66: group_and_sum_metrics / calc_ssch убраны из ноутбука отчёта (Адель) — таблицы может не быть
+        if len(pg.run("select 1 from information_schema.tables where table_name = 'hr_structure_with_ssch'")):
+            gp_to_click_mock(pg, a.hub)(gp_table='hr_structure_with_ssch', clickhouse_table='prod_proteus.hr_structure_overall')
         return
     if a.steps:
         rows = []

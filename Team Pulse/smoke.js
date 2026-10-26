@@ -1679,9 +1679,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const devK=D.METRICS.filter(m=>D.isDev(m.key)).map(m=>m.key);
   checks.push(['«в разработке»: у метрик без источника метка с этапом, у живых — нет',
     /* 21.10, поставка 50: вакансии, Non-regrettable и AI ожили — в разработке остались план найма,
-       T@T, ревью и бронирование */
-    devK.length>=4&&devK.every(k=>D.devStage(k)!=null)&&!D.isDev('hc_total')&&!D.isDev('turnover_m')&&
-    !D.isDev('office_att')&&!D.isDev('vac_open')&&!D.isDev('ai_penetration')&&D.isDev('hire_plan')&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
+       T@T, ревью и бронирование; поставка 66 (посещения Адели) — ожило и бронирование */
+    devK.length>=3&&devK.every(k=>D.devStage(k)!=null)&&!D.isDev('hc_total')&&!D.isDev('turnover_m')&&
+    !D.isDev('office_att')&&!D.isDev('booking_viol')&&!D.isDev('vac_open')&&!D.isDev('ai_penetration')&&D.isDev('hire_plan')&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
   checks.push(['«в разработке»: сводка готовности на One-pager с планом этапов',
     /class="dev-sum"/.test(op)&&new RegExp('<b>'+(D.METRICS.length-devK.length)+' из '+D.METRICS.length+'</b>').test(op)&&
     (op.match(/<tr class="plan-(live|data|dev|todo|extra)">/g)||[]).length===D.DEV_PLAN.reduce((a,g)=>a+g.rows.length,0)]);

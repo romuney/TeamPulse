@@ -17,9 +17,10 @@
    и причин увольнений). Доля отключена: доля одного процента в сумме процентов
    ничего не значит.
 
-   ВНИМАНИЕ: подневных отметок и привязки людей к офисам в модели нет — данные
-   сгенерированы. В UI это помечено сносками,
-   иначе на реальных данных их примут за работающий расчёт.
+   Поставка 66 (посещения Адели): в пробнике всё это — на настоящих данных, если они есть в ответе
+   (D.OFF_LIVE): календарь по дням двух месяцев, сегмент — руководители и сотрудники (клик — их
+   динамика), города офиса — посещения последнего месяца (без выбора: город есть у посещения, а не у
+   сотрудника), бронирования. Чего нет — генератор макета.
    ========================================================================== */
 (function(){
 'use strict';
@@ -28,10 +29,26 @@ const esc=U.esc;
 
 /* 15.10: сноска «в макете сгенерировано» снята — что цифры условные, говорит
    плашка «в разработке» над вкладкой; сноска объясняет только, как читать */
-const CAL_NOTE='Среднее по будням за полный месяц равно посещаемости этого месяца.';
+const CAL_NOTE='Посещаемость дня — доля сотрудников с рабочим днём, которые пришли в офис. Посещаемость месяца — те же доли с учётом числа людей в каждый день.';
 
 /* выбор сегмента и города — подпись для графика и полки */
 const offLabel=x=>[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).join(' · ');
+
+/* Поставка 66: «Кто и где ходит» на настоящих — динамика (по сегменту, если выбран), сегмент со счётом людей,
+   города офиса: посещения, люди и доля посещений. Город не выбирается: посещаемости города нет — есть посещения */
+function attendReal(ctx,x,lbl,attTbl){
+  const S=ctx.S;
+  return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
+      title:'Посещаемость офиса'+(lbl?': '+lbl:'')+', %'})+
+    (x.segs.length?attTbl('Сегмент',D.CMP.cur,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
+      value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
+      attrTip:'Клик — динамика посещаемости только у «'+s.name+'».'})),'Сравнение сегментов'):'')+
+    (x.cities.length?U.btGroup({cap:'Город офиса',capSub:D.CMP.cur+' · посещения',head:'',valueHead:'Посещений',
+      barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,items:x.cities.map(c=>({name:c.name,
+        note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE}))}):'')+
+    '<div class="tbl-note">Клик по сегменту — его динамика; Escape или «Сбросить всё» — снять. Руководители — по признаку '+
+      'руководителя подразделения. Город — где было посещение: один человек может бывать в нескольких городах.</div>';
+}
 
 SC.blocks.office={
   subTabs:[['calendar','Календарь'],['attend','Кто и где ходит'],['booking','Бронирование']],
@@ -44,7 +61,7 @@ SC.blocks.office={
     if(S.subTab!=='attend')return '';
     const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[];
     if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"'});
-    if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
+    if(S.offCity&&!D.OFF_LIVE.city)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
     return U.shelf({chips:chips,extra:'динамика и таблицы — по выбору',clear:'data-offclear="1"',
       clearTip:'Снять выбор сегмента и локации. То же — клавиша Escape.'});
   },
@@ -59,6 +76,7 @@ SC.blocks.office={
     if(ctx.sub==='attend'){
       const S=ctx.S, x=D.officeCross(ctx.lp,S.offSeg,S.offCity), lbl=offLabel(x);
       if(!x.cities.length&&!x.segs.some(s=>s.hc))return U.empty('Нет данных о посещаемости','В отборе нет сотрудников.');
+      if(x.real)return attendReal(ctx,x,lbl,attTbl);
       return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,scale:x.factor,h:260,fill:false,
           title:'Посещаемость офиса'+(lbl?': '+lbl:'')+', %'})+
         attTbl('Сегмент',x.city?x.city.name+' · '+D.CMP.cur:D.CMP.cur,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,

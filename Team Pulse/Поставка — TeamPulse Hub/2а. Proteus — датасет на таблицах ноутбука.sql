@@ -32,8 +32,8 @@
       scope  выбранный юнит          base  вся компания под теми же фильтрами
       hq     выбранный юнит под «HQ + Активная» (поставка 65, светофор «Как уходит HQ?»): покраска HQ и тип
              «Активная» вместо выбранных, IT-код и штат — как выбраны; ряды только из teampulse_hub_series
-      dict   1 строка, j — все узлы: «id \t pid \t уровень \t детей \t имя \t руководитель \t fd»
-             через \n. fd — численность узла в последнем месяце по сочетаниям значений фильтров без учёта
+      dict   1 строка, j — все узлы: «id \t pid \t уровень \t детей \t имя \t логин руководителя \t fd \t имя
+             руководителя» через \n (имя — с поставки 66; окно настройки ищет и по нему). fd — численность узла в последнем месяце по сочетаниям значений фильтров без учёта
              применённых: «код:число» через пробел, код = ((номер покраски × число IT + номер IT) ×
              число значений штата + номер штата) × число типов численности + номер типа (номера —
              в meta.fdv). Окно настройки считает по нему «сколько людей попадёт в выбор» без запроса
@@ -49,8 +49,11 @@
     подразделений; поставка 64): у мастер-отчёта это свой узел, «юнит минус подразделения» для переводов не верен.
     hcd hst — найм по видам (поставка 65): из учебной группы в боевую и стажёр в штат — части hit; найм в компанию =
     hit − hcd − hst. Колонка cv_k переходов — матчером: таблица ноутбука до 65 её не знает — обе нули.
+    Поставка 66 (посещения Адели): bk bkv vsv — дней с бронью, бронь без посещения, посещение без брони; hwd hov —
+    рабочие дни и посещения руководителей. Колонки рядов — матчером: таблица ноутбука до 66 их не знает — нули.
     В mx — разрезы ноутбука и вакансии (vs vr vp vl — открытые последнего месяца, vk vq — закрытые с
-    начала года).
+    начала года). Поставка 66: mh — численность руководителей (1) и остальных; oc ocp — посещения и люди по городу
+    офиса за последний месяц; dw do — календарь посещений по дням двух месяцев, только у выбранного юнита.
 
     Фильтры — кросс-фильтры чарта: unit_f — ключ узла, paint_f — покраска (HQ, Line, Support),
     it_f — IT-код (IT, Digital, NonIT), staff_f — «Штат» / «Не штат», act_f — типы численности
@@ -128,11 +131,13 @@
 {#- Поставка 65: вид перехода в найм (cv_k: c — из учебной группы в боевую, s — стажёр в штат) — матчером. Найм по
     видам — те же переходы, что во второй части HI (только при выбранных типах численности). -#}
 {% set CVK = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^cv_k$') APPLY(toString)], CAST([''], 'Array(Nullable(String))')), 1), '')" %}
+{#- Поставка 66: ряд таблицы series — матчером: таблица ноутбука до 66 колонки не знает — нули. -#}
+{% macro optf(c) -%}ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^{{ c }}$') APPLY(toFloat64)], [toFloat64(0)]), 1), 0){%- endmacro %}
 {% macro hk(v) -%}
 {%- if act_on -%}toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND {{ FLG }} AND ifNull(in_ok, 1) = 0 AND {{ CVK }} = '{{ v }}'){%- else -%}toFloat64(0){%- endif -%}
 {%- endmacro %}
 {#- Метрики: ключ, таблица (s — series, t — trf, v — vacancy, a — ai), выражение. Порядок — порядок в ms. -#}
-{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')]] %}
+{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')]] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
@@ -204,11 +209,12 @@ WITH
     SELECT c.1 AS lm, c.2 AS m0, c.3 AS n, c.4 AS r, c.5 AS d, c.6 AS dd, c.7 AS s, c.8 AS pks
     FROM (SELECT (SELECT c0 FROM cx0) AS c)
   ),
-  {#- head_login — матчером: таблица без колонки даёт пустой логин #}
+  {#- head_login и head_nm (поставка 66) — матчером: таблица без колонки даёт пустой логин и имя #}
   st2 AS (
     SELECT ifNull(unit_rk, '') AS id, ifNull(parent_rk, '') AS pid, toInt32(ifNull(unit_lvl, 0)) AS lv,
            ifNull(unit_nm, '') AS nm0, toUInt32(ifNull(kids_cnt, 0)) AS kd,
-           arrayStringConcat(arrayMap(x -> ifNull(x, ''), arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^head_login$')]))) AS hd
+           arrayStringConcat(arrayMap(x -> ifNull(x, ''), arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^head_login$')]))) AS hd,
+           replaceAll(replaceAll(arrayStringConcat(arrayMap(x -> ifNull(x, ''), arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^head_nm$')]))), char(9), ' '), char(10), ' ') AS hn
     FROM prod_proteus.teampulse_hub_unit
   ),
   {#- Численность последнего месяца по значениям фильтров (ряды узла — уже вся ветка); fv — порядок значений,
@@ -313,6 +319,8 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ cond() }}
+        {#- поставка 66: календарь посещений по дням — только у выбранного юнита #}
+        AND (ifNull(mx_key, '') NOT IN ('dw', 'do') OR ifNull(node_rk, '') = (SELECT s FROM cx))
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL
@@ -380,7 +388,7 @@ FROM
 
   SELECT toUInt8(3) AS o, 'dict' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids,
          arrayStringConcat(arraySort(groupArray(concat(t.id, '\t', t.pid, '\t', toString(t.lv), '\t',
-                                             toString(t.kd), '\t', t.nm0, '\t', t.hd, '\t', ifNull(f.fds, '')))), '\n') AS j,
+                                             toString(t.kd), '\t', t.nm0, '\t', t.hd, '\t', ifNull(f.fds, ''), '\t', t.hn))), '\n') AS j,
          '' AS ms, '' AS mx
   FROM st2 AS t
   LEFT JOIN fdr AS f ON f.fr = t.id

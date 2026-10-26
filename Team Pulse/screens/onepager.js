@@ -22,7 +22,9 @@ const noEval=(m,kpi)=>!kpi&&(!D.comparable(m.key)||m.better==='flat');
 const PART={regret_m:'нежелательные уходы за месяц',hc_avg:'средняя численность за месяц',pf_plan:'план найма',hire_jun:'принятые джуны',
   rev_eval:'оценённые в ревью',rev_up:'улучшили оценку',ovis:'дни в офисе',
   wday:'отработанные дни',regret_cnt:'нежелательные уходы',
-  tgrowth_pass:'одобренные заявки',tgrowth_deny:'отклонённые заявки'};
+  tgrowth_pass:'одобренные заявки',tgrowth_deny:'отклонённые заявки',
+  /* поставка 66: части нарушений бронирования */
+  bk_days:'дни с бронью',bk_noshow:'бронь без прихода',bk_walkin:'приход без брони'};
 /* строчная — только первая буква: «T-рост», «AI», «WAU» остаются как есть */
 const partName=k=>{const n=PART[k]||(D.METRIC_BY_KEY[k]||{}).name||k;return n.charAt(0).toLowerCase()+n.slice(1)};
 /* Формула метрики — MathML (14.10, заказчик: «формулы выделять и использовать
@@ -31,8 +33,9 @@ const partName=k=>{const n=PART[k]||(D.METRIC_BY_KEY[k]||{}).name||k;return n.ch
    окно расчёта словами. Шрифт формулы — Arial, как везде в отчёте (styles.css). */
 const mt=t=>'<mtext>'+esc(t)+'</mtext>';
 function fracML(dv){
-  const den=Array.isArray(dv.den)?'<mrow>'+dv.den.map(k=>mt(partName(k))).join('<mo>+</mo>')+'</mrow>':mt(partName(dv.den));
-  return '<mfrac>'+mt(partName(dv.num))+den+'</mfrac>'+(dv.scale===100?'<mo>×</mo><mn>100</mn>':'');
+  /* числитель, как и знаменатель, — ключ или сумма ключей (поставка 66: нарушения бронирования) */
+  const sum=x=>Array.isArray(x)?'<mrow>'+x.map(k=>mt(partName(k))).join('<mo>+</mo>')+'</mrow>':mt(partName(x));
+  return '<mfrac>'+sum(dv.num)+sum(dv.den)+'</mfrac>'+(dv.scale===100?'<mo>×</mo><mn>100</mn>':'');
 }
 function formulaOf(m){
   if(m.derived)return {ml:fracML(m.derived),

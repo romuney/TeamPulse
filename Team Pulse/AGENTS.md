@@ -2724,3 +2724,34 @@ trfDetail` (макет — генератор, засчитанных ровно
   разворачивает и `hq`; `trf_master_check` суммирует строки по `cv_k` и проверяет, что `cv_k` ровно у in_ok = 0.
   Всё зелёное на s65 (13 наборов фильтров, детализация 1040/1040, переводы = мастер-отчёт обоими режимами).
 - Бюджет пробника 514/515 КиБ: сняты мёртвые `netGrowth`, `nodesBelow`, `deltas`, `fmtCompact`, `aiIco` и стили `.ai-ico`.
+
+**26.10, поставка 66 — посещения Адели и имя руководителя в фильтре (её ноутбук «TeamPulse_Hub_23.10_14»).**
+- Ноутбук (`stand/mk_hub_yaml.py`): параграфы Адели — `unit_head_structure` (новый, `hub_nb/unit_head_structure.sql`),
+  `org_structure` и `with_office_traffic` (WHOLE, её код), `office_traffic` (новый, `hub_nb/office_traffic.sql`) — на
+  её местах; `management_head_flg` в `fields` EXEC build_all_metrics. group/calc (TP 2.0: 19, 20, 22, 23) из PLAN убраны —
+  у неё выключены. Её «hub checks» без «−» и «×» — так и в `hub_sql.sql_checks()`. Исправлено у неё: календарь —
+  `date_trunck`, запятая, без `office_visit_flg = 1` (иначе посещаемость дня 100%), `last_row_flg = 1`, + срезы и
+  `lvlN_rk`, окно — от `max(report_month)` all_metrics; руководитель — `distinct on (юнит, месяц)` (иначе org_structure
+  размножал строки), имя без фамилии не теряется. Стенд: прогон — тот же порядок, что у неё (её отличия от нашего — только
+  отладочные select и форматирование).
+- Таблицы: `teampulse_hub_series` + `bk_amt bkv_amt vsv_amt` (бронь, бронь без прихода, приход без брони), `hwd_amt
+  hov_amt` (рабочие дни и посещения руководителей); `teampulse_hub_mix` + `mh` (численность по признаку руководителя),
+  `oc / ocp` (посещения и люди по городу офиса, последний месяц, из `office_city_visits_json` через
+  `json_array_elements`), `dw / do` (календарь двух месяцев по дням из `office_traffic_calendar` — `expl(..., src=CAL)`);
+  `teampulse_hub_unit.head_nm` (hub · 2: имя по логину из `unit_head_structure`, последний месяц, где логин руководит).
+  «hub checks»: + посещения и бронирования корень − люди, календарь − ряды (обязательные), города − посещения (справочно).
+- 2а: метрики `bk bkv vsv hwd hov` матчером (`optf`), `head_nm` матчером → 8-е поле dict; `dw/do` в mx только у
+  выбранного юнита. real.js: OPT + новые, `wds/ovs` (всё минус руководители) в cols, `dayMix()` (mx scope; в mxMinus
+  календарь не идёт), `hname` в справочнике, `head:{name,login}`.
+- Чарт: `booking_viol` — derived с числителем-суммой (`ratioAt` и `fracML` One-pager понимают массив); `D.OFF_LIVE`
+  {cal, seg, city, bk}; календарь `attLastReal` (нерабочий день — `val:null`, `drawCalendar` рисует его как выходной),
+  дни недели за 2 месяца; `officeReal` — сегменты (клик → `yoyChart(opt.yser)` по `office_lead/office_staff`) и города
+  без выбора (посещаемости города нет — есть посещения); `bookingQuality` из рядов. Плашки «в разработке» вкладок офиса
+  — по `OFF_LIVE` (`DEV_LIVE.office`). Окно настройки: «Имя Фамилия · логин», поиск по имени, фамилии и логину
+  (`utHead`). План: офис — live / todo (регион и грейд, нарушения по городам), имя руководителя — live.
+- Стенд: `nb_tp20` — посещаемость с бронью, городом, днём недели (по ключу и дню, без генератора), `management_head_flg`
+  по дням (`heads`: руководитель юнита на конец месяца, как `structure_rows`), структура — юнит, имя, фамилия, признаки
+  дня; `truth_office` (ряды, календарь, города, сегмент). `nb_hub_check`: ряды, mx (`mh oc ocp`, `dw do` только у
+  scope), имя руководителя — зелёные на s66 при 13 наборах; детализация 1040/1040, переводы = мастер-отчёт обоими
+  режимами. smoke_real: проверка «офис на настоящих» и поиск по фамилии; ответы ans66a/b/c — сырые (ms), не через
+  `dataset.query` (тот разворачивает ms в m_*). Пробник 509/515 КиБ.

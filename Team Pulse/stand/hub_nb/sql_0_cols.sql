@@ -67,8 +67,34 @@ with need (sch, tbl, col) as (
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'type_company'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'source_type_nm'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'region'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'booking_amt'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'booking_viol_amt'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'visit_viol_amt'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'office_city_visits_json'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'management_head_flg'),
         ('', 'org_structure', 'report_month'),
         ('', 'org_structure', 'mng_unit_rk'),
+        ('', 'office_traffic_calendar', 'report_month'),
+        ('', 'office_traffic_calendar', 'calendar_dt'),
+        ('', 'office_traffic_calendar', 'mng_unit_rk'),
+        ('', 'office_traffic_calendar', 'leaf_lvl'),
+        ('', 'office_traffic_calendar', 'lvl1_rk'),
+        ('', 'office_traffic_calendar', 'lvl2_rk'),
+        ('', 'office_traffic_calendar', 'lvl3_rk'),
+        ('', 'office_traffic_calendar', 'lvl4_rk'),
+        ('', 'office_traffic_calendar', 'lvl5_rk'),
+        ('', 'office_traffic_calendar', 'lvl6_rk'),
+        ('', 'office_traffic_calendar', 'lvl7_rk'),
+        ('', 'office_traffic_calendar', 'lvl8_rk'),
+        ('', 'office_traffic_calendar', 'lvl9_rk'),
+        ('', 'office_traffic_calendar', 'lvl10_rk'),
+        ('', 'office_traffic_calendar', 'lvl11_rk'),
+        ('', 'office_traffic_calendar', 'paint_cd'),
+        ('', 'office_traffic_calendar', 'emp_specialization_it_code'),
+        ('', 'office_traffic_calendar', 'employment_relation_type'),
+        ('', 'office_traffic_calendar', 'act_type_nm'),
+        ('', 'office_traffic_calendar', 'cnt_work_day'),
+        ('', 'office_traffic_calendar', 'cnt_office_visit'),
         ('usr_cross_data', 'hr_executive_proteus', 'calendar_dt'),
         ('usr_cross_data', 'hr_executive_proteus', 'mdm_employee_rk'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl1_mapped_management_unit_rk'),
@@ -149,7 +175,7 @@ with need (sch, tbl, col) as (
 have as (
     select table_schema as sch, table_name as tbl, column_name as col
     from information_schema.columns
-    where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'hr_executive_proteus', 'vacancy_daily')
+    where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'office_traffic_calendar', 'hr_executive_proteus', 'vacancy_daily')
 )
 select case when count(*) = 0 then 'колонки на месте'
             else ('НЕТ КОЛОНОК (параграф «hub · 0 колонки»): '

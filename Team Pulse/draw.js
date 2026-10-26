@@ -1018,7 +1018,7 @@ function drawCalendar(a,w,h){
   const hUsed=gridTop+rows*ch+(rows-1)*gap;
   /* Шкала ОДНА на все блоки: свой максимум в каждом месяце красил бы одинаковый
      процент по-разному слева и справа, и сравнить месяцы стало бы нельзя. */
-  const allWd=blocks.reduce((acc,b)=>acc.concat(b.days.filter(d=>!d.weekend).map(d=>d.val)),[]);
+  const allWd=blocks.reduce((acc,b)=>acc.concat(b.days.filter(d=>!d.weekend&&d.val!=null).map(d=>d.val)),[]);
   const max=niceMax(allWd);
   const num1=v=>(+v).toFixed(1).replace('.',',');
   /* Подписи в клетке рисуются, только если помещаются. Два месяца рядом ужимают
@@ -1040,20 +1040,21 @@ function drawCalendar(a,w,h){
       /* позиция считается от ПЕРВОГО дня окна в этом месяце, а не от первого
          числа: окно может начинаться с середины месяца */
       const idx=b.first+di, x=bx+(idx%7)*(cw+gap), y=gridTop+Math.floor(idx/7)*(ch+gap);
-      const t=Math.max(0,Math.min(1,d.val/max));
+      /* поставка 66: на настоящих у нерабочего дня значения нет (null) — клетка как у выходного */
+      const t=Math.max(0,Math.min(1,(d.val||0)/max)), nv=d.val==null;
       const fill=d.weekend?'#f4f5f7':mixRGB(CAL_LO,CAL_HI,t);
       /* на тёмной половине шкалы цифра белая, иначе её не прочесть */
       const ink=d.weekend?C_AXIS:(t>0.62?'#fff':C_LABEL);
       const dly=(bi*40)+di*9;
       s+='<g class="barg"'+tip({
         title:d.day+' '+CD.MONTH_GEN[b.m]+' '+b.y+', '+CD.DOW_NAME[d.dow].toLowerCase(),
-        rows:[{label:'Посещаемость',value:num1(d.val)+'%',color:fill}],
-        note:d.weekend?'выходной':'в среднем по будням месяца: '+num1(b.base)+'%'})+'>';
+        rows:nv?[]:[{label:'Посещаемость',value:num1(d.val)+'%',color:fill}],
+        note:d.weekend?(nv&&d.dow<5?'нерабочий день':'выходной'):'посещаемость месяца: '+num1(b.base)+'%'})+'>';
       s+=rect(x,y,cw,ch,fill,7,' class="fade" style="animation-delay:'+dly+'ms"');
       if(showDay)s+=txt(x+6,y+13,String(d.day),{size:9.5,weight:400,fill:ink,anchor:'start',
         cls:'fade',delay:dly});
       /* halo здесь не нужен: цвет цифры уже выбран под заливку ячейки */
-      if(showVal)s+=txt(x+cw/2,y+(showDay?ch/2+9:ch/2+4),num1(d.val),
+      if(showVal&&!nv)s+=txt(x+cw/2,y+(showDay?ch/2+9:ch/2+4),num1(d.val),
         {size:VAL_SZ,weight:VAL_W,fill:ink,cls:'fade',delay:60+dly});
       s+='</g>';
     });

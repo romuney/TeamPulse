@@ -76,6 +76,8 @@ def main():
                 continue                         # в hr_structure_overall нет покраски и типов численности целиком
             if label == 'файл 2а':               # найм на конец месяца — для разбивок найма (mx)
                 Te = nb.truth(U, people, perf, grt, raw.get(name, pred), act=act)
+                # поставка 66: посещения Адели — ряды бронирований и руководителей, города, календарь, сегмент
+                To, Dd, Co, MH = nb.truth_office(U, people, office, raw.get(name, pred), act)
             if label == 'файл 2а':               # 21.10: переводы 2а — под фильтры (переходы ноутбука)
                 # поставка 63: смена атрибута, по которому стоит фильтр, — перевод и внутри выбора
                 chg = [h for k, h in (('paint_f', 'operh'), ('it_f', 'ith'), ('staff_f', 'relh')) if k in flt]
@@ -157,11 +159,37 @@ def main():
                             bad[k] += 1
                     # новые разрезы: в сумме — численность последнего месяца (sp, tc), увольнения (xsp, xtc)
                     # и найм (hk, hch, hg, hsp — на активной) с начала года
-                    mx = defaultdict(float)
+                    mx, mxv = defaultdict(float), defaultdict(dict)
                     for line in (r.get('mx') or '').split('\n'):
                         if line.count('\t') == 2:
-                            kk, _, n = line.split('\t')
+                            kk, vv, n = line.split('\t')
                             mx[kk] += float(n)
+                            mxv[kk][vv] = float(n)
+                    # поставка 66: посещения Адели. Ряды: рабочие дни и посещения (wday ovis), бронирования (bk bkv vsv),
+                    # руководители (hwd hov) — под фильтрами
+                    for k in ('wday', 'ovis', 'bk', 'bkv', 'vsv', 'hwd', 'hov'):
+                        if r.get('m_' + k) is None:
+                            bad['нет ряда ' + k] += 1
+                            continue
+                        got = [round(float(x), 1) for x in r['m_' + k].split(',')]
+                        if got != [round(To[(rk, m)][k], 1) for m in ms]:
+                            bad[k] += 1
+                    # сегмент mh (численность руководителей и остальных), города последнего месяца (oc ocp) — по значениям
+                    want_v = {'mh': {v: n for v, n in MH[rk].items() if n}, 'oc': {v: n for v, n in Co[rk]['oc'].items() if n},
+                              'ocp': {v: n for v, n in Co[rk]['ocp'].items() if n}}
+                    # календарь (dw dw) — только у выбранного юнита; у остальных узлов ответа его нет
+                    if r['role'] == 'scope':
+                        days = sorted(d for (n_, d) in Dd if n_ == rk)
+                        want_v['dw'] = {str(d): Dd[(rk, d)]['dw'] for d in days if Dd[(rk, d)]['dw']}
+                        want_v['do'] = {str(d): Dd[(rk, d)]['do'] for d in days if Dd[(rk, d)]['do']}
+                        if not want_v['dw']:
+                            bad['календарь пуст'] += 1
+                    elif mxv.get('dw') or mxv.get('do'):
+                        bad['календарь не у выбранного'] += 1
+                    for kk, w in want_v.items():
+                        g = mxv.get(kk, {})
+                        if set(g) != set(w) or any(abs(g[v] - w[v]) > 0.05 for v in w):
+                            bad['mx ' + kk] += 1
                     ytd = [m for m in ms if m.year == ms[-1].year]
                     # поставка 62: регион (rg) и пара «стрим|специализация» (ws) — тоже численность
                     want_mx = {'sp': T[(rk, ms[-1])]['hc'], 'tc': T[(rk, ms[-1])]['hc'],
@@ -229,6 +257,18 @@ def main():
                         own = T[(rk, ms[-1])]['hc'] - sum(T[(c, ms[-1])]['hc'] for c in kids[rk])
                         if (hd and hd != 'h' + rk) or (own > 0 and not hd):
                             bad['логин руководителя'] += 1
+                        # поставка 66: имя руководителя (8-е поле) — из unit_head_structure по логину; у юнита со своими
+                        # людьми — имя его руководителя (stand: person_nm)
+                        hn = l[7] if len(l) > 7 else None
+                        if hn is None:
+                            bad['dict без имени руководителя'] += 1
+                        elif own > 0:
+                            hrk = min(p['rk'] for p in people if p['start'] <= nb.eom(ms[-1])
+                                      and (p['end'] is None or nb.eom(ms[-1]) < p['end'])
+                                      and nb.at(p['unit'], nb.eom(ms[-1])) == rk)
+                            f_, l_ = nb.person_nm(hrk)
+                            if hn != (f_ + ' ' + l_ if l_ else f_):
+                                bad['имя руководителя'] += 1
             if label == 'файл 2а':
                 # поставка 65: строка hq — светофор «Как уходит HQ?»: выбранный юнит под «HQ + Активная» (покраска и тип
                 # численности из фильтров не действуют, IT-код и штат — как выбраны); сверяются численность, ССЧ,
