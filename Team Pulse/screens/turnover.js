@@ -34,9 +34,9 @@ function hqView(ctx){
   if(!h.hc)return U.empty('В подразделении нет HQ-сотрудников','Светофор считается только по активной численности HQ.');
   const f=(k,v)=>D.fmtVal(k,v), esc=U.esc, cap1=x=>x.charAt(0).toUpperCase()+x.slice(1);
   const tgt=r=>{const c=U.targetCell(r.key,r.v,null,r.kpi);
-    return r.kpi&&r.kpi.red!==r.kpi.green?c.replace('цель '+f(r.key,r.kpi.green),'коридор '+f(r.key,r.kpi.green)+'–'+f(r.key,r.kpi.red)):c};
+    return r.kpi&&r.kpi.red!==r.kpi.green?c.replace('цель '+f(r.key,r.kpi.green),'коридор '+f(r.key,r.kpi.green).replace('%','')+'–'+f(r.key,r.kpi.red)):c};
   /* правая панель узкая — колонки светофора: метрика, значение, год назад, ориентир с сигналом */
-  const t='<table class="mtable hq-tl"><colgroup><col style="width:40%"><col style="width:15%"><col style="width:16%"><col></colgroup>'+
+  const t='<table class="mtable hq-tl"><colgroup><col style="width:43%"><col style="width:14%"><col style="width:15%"><col></colgroup>'+
     '<thead><tr><th>Метрика</th><th class="num">Значение</th><th class="num">Год назад</th>'+
     '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Порог отчёта HQ: цель или коридор на этот месяц — доля годового.'})+
     '>Ориентир</th></tr></thead><tbody>'+
@@ -48,8 +48,7 @@ function hqView(ctx){
       'IT-код и штат — действуют.</div>'+t+
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key]}))},
       {h:520,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
-    '<div class="tbl-note">Ориентир на месяц — доля годового порога отчёта HQ: бенчмарк текучести 15% за год (у IT — 12%), '+
-      'коридор желательной 5–15%, цель нежелательной — 4%. Желательная и нежелательная пока не сходятся с мастер-источником.</div>';
+    '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
 }
 
 SC.blocks.turnover={
@@ -57,7 +56,7 @@ SC.blocks.turnover={
   defaultSub:'dynamics',
   title(sub){return sub==='reasons'?'Почему уходят: инициатор и причины'
     :sub==='who'?'Кто уходит: стаж, грейд, стрим'
-    :sub==='hq'?'Как уходит HQ: текучесть с начала года против порогов'
+    :sub==='hq'?'Как уходит HQ: светофор текучести'
     :'Отток и текучесть по месяцам'},
   view(ctx){
     const lp=ctx.lp, ytd=' с начала года';

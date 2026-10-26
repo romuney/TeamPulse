@@ -40,7 +40,6 @@ function currentRoot(S){return S.unit}
    уровнях имя сжималось бы в столбик, а длинный список переставал читаться. */
 const TREE_DEPTH=3;
 function rowLeaves(path,S){return D.leavesUnder(path).map(l=>l.path).filter(p=>D.leafPasses(p,S))}
-function sumS(s){return s.reduce((a,b)=>a+b,0)}
 /* основная метрика таблицы: первая сравнимая среди ВЫБРАННЫХ метрик блока,
    иначе просто первая выбранная. Скрытая метрика главной быть не может —
    от неё зависит колонка «К базе» и подсветка строк. */
@@ -96,10 +95,6 @@ function pivotRows(root,expanded,isEmpty,q,cmp){
 /* Имя того, что сейчас показано в правой панели: выбранная строка таблицы,
    иначе юнит отчёта. Именно этим именем
    подписана синяя линия в легенде: «значение» ничего не объясняет. */
-function selLabel(S){
-  const n=D.NODE_BY_PATH[S.selNode]||D.NODE_BY_PATH[S.unit];
-  return n?n.name:'Ваша команда';
-}
 /* ---------- Динамика: только «год к году» ----------
    13.10 заказчик: «убери 12 мес, оставь только год к году» — как в HRBP HUB.
    Переключателя масштаба больше нет: каждый график динамики стоит на оси
@@ -122,18 +117,19 @@ function yoyChart(key,lp,bl,S,opt){
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi, bench=D.benchmarkLabel(S);
   /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент */
   const y0=D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
-  const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=cmp?D.yoySeries(bl,key).cur:null;
+  /* opt.ref (26.10, AI BI.md): свой пунктир вместо базы — {name, cur}: численность команды под WAU */
+  const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=opt.ref?opt.ref.cur:cmp?D.yoySeries(bl,key).cur:null;
   const col=opt.color||YOY_COLOR[key]||G.C_LINE;
   /* счётный поток (найм, уход…) — бар этого года, позади прозрачный бар прошлого (15.10); численность — так же,
      серым (23.10) */
   const flow=G.asBars(key);
   const legend=(flow?[{name:String(D.YEAR_CUR),color:G.soft(col)},{name:String(D.YEAR_PREV),color:G.ghostCol(col),ghost:true}]
       :[{name:String(D.YEAR_CUR),color:col},{name:String(D.YEAR_PREV),color:G.C_PREV}])
-    .concat(cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
+    .concat(opt.ref?[{name:opt.ref.name,color:G.C_BENCH,dash:true}]:cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
   /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
      базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
-    Object.assign({legend,benchName:bench,kpi:kpi,h:300,fill:true,gap:cmp},opt,{color:col}));
+    Object.assign({legend,benchName:opt.ref?opt.ref.name:bench,kpi:kpi,h:300,fill:true,gap:cmp&&!opt.ref},opt,{color:col}));
 }
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
@@ -529,6 +525,6 @@ function renderBlock(S,expanded,mixOpen,view){
   return h+'</div>';
 }
 
-window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,sumS,blockMain,pivotRows,
-  expandableRows,devOf,blockDev,metricLine,yoyChart,yoyPanels,yoyPair,selLabel,yearAgo,TREE_DEPTH};
+window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,blockMain,pivotRows,
+  expandableRows,devOf,blockDev,metricLine,yoyChart,yoyPanels,yoyPair,yearAgo,TREE_DEPTH};
 })();

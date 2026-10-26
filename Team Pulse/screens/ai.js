@@ -32,9 +32,12 @@ SC.blocks.ai={
           ai.tools.map(t=>({name:t.name,value:t.value,color:G.C_AI})),'Сравнение инструментов')+
         '<div class="tbl-note">Проценты не складываются: один человек может пользоваться несколькими инструментами.</div>';
     }
+    /* 26.10, AI BI.md: под WAU пунктиром — численность команды, от которой считается проникновение (знаменатель
+       источника; в макете — активная численность) */
+    const den=D.yoySeries(ctx.lp,D.METRIC_BY_KEY.ai_penetration.derived.den).cur;
     return SC.metricLine('ai_penetration',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Проникновение AI, %',ann:ctx.ann.ai_penetration})+
       SC.yoyChart('ai_wau',ctx.lp,ctx.bl,ctx.S,
-        {h:300,title:'Активные пользователи AI (WAU), чел',color:G.C_AI,ann:ctx.ann.ai_wau});
+        {h:300,title:'Активные пользователи AI (WAU), чел',color:G.C_AI,ann:ctx.ann.ai_wau,ref:{name:'Численность команды',cur:den}});
   }
 };
 })();

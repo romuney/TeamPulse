@@ -52,7 +52,7 @@ SC.blocks.hiring={
   subTabs:[['profile','Профиль найма'],['vacancies','Вакансии и срок закрытия'],['plan','План-факт']],
   defaultSub:'profile',
   title(sub){return sub==='plan'?'План-факт подбора: массовый и профильный найм'
-    :sub==='profile'?'Найм по видам, откуда приходят и кого нанимаем'
+    :sub==='profile'?'Виды найма и каналы'
     :'Вакансии и скорость их закрытия'},
   view(ctx){
     const lp=ctx.lp;
@@ -71,7 +71,7 @@ SC.blocks.hiring={
       /* 26.10, правки: динамика найма по видам — стопкой по месяцам этого года, как состав мониторинга */
       const hk=D.hireKinds(lp);
       const dyn=hk?G.chart('stack',{periods:hk,cats:D.HIRE_KINDS,still:true},{title:'Динамика найма по видам, чел · '+D.YEAR_CUR,
-          legend:D.HIRE_KINDS.map(c=>({name:c[1],color:c[2]})),h:270})
+          legend:D.HIRE_KINDS.map(c=>({name:c[3]||c[1],color:c[2]})),h:270})
         :U.devNote({stage:'0',t:'Виды найма придут со следующим обновлением отчёта.'});
       const tbl=(cap,capSub,items,o)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:'Человек',
         metricKey:'hire',compact:true,items:items},o||{}));

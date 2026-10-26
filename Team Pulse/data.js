@@ -348,6 +348,7 @@ const VERIFIED_TIP={title:'Данные сверены',
 const MISMATCH=new Set(['regret','nonregret']);
 const MISMATCH_TIP={title:'Расхождение с мастер-источником',
   text:'Данные настоящие, но значение в отчёте пока не совпадает с мастер-источником — ищем причину. До исправления это не сверенное число.'};
+const AIW='нужна недельная AI-выгрузка по людям';
 const DEV_PLAN=[
   {blk:'Структура численности',rows:[
     {what:'Общая и активная численность',aud:'all',stage:'0',now:'live',ok:1},
@@ -417,9 +418,18 @@ const DEV_PLAN=[
     {what:'Посещаемость и нарушения брони по городам',aud:'hq',stage:'7',now:'dev'},
     {what:'Календарь посещаемости по дням',aud:'hq',stage:'7',now:'dev',need:'нужны отметки по дням; в дашбордах HQ и УС его нет, решено оставить'}]},
   {blk:'AI-инструменты',rows:[
-    {what:'Проникновение AI и активные пользователи',aud:'hq',stage:'8',now:'live',hq:1},
-    {what:'Какими инструментами пользуются и как часто',aud:'hq',stage:'8',now:'dev'},
-    {what:'Инструменты по покраске, AI у стажёров',aud:'hq',stage:'8',now:'todo'}]},
+    /* 26.10, правки: разбор «AI BI.md» (поставка — «AI BI — разбор метрик.md»): по месяцам есть проникновение и WAU,
+       всё остальное — из недельной выгрузки AI-статистики по людям, которой в отчёте нет */
+    {what:'Проникновение: команда против компании, по месяцам',aud:'hq',stage:'8',now:'live',hq:1},
+    {what:'Активные пользователи (WAU) и численность команды, по месяцам',aud:'hq',stage:'8',now:'live',hq:1},
+    {what:'WAU и проникновение по неделям',aud:'hq',stage:'8',now:'todo',need:AIW},
+    {what:'Частота использования (0–7 дней) и инструментов на человека',aud:'hq',stage:'8',now:'todo',need:AIW},
+    {what:'Топ инструментов',aud:'hq',stage:'8',now:'dev',need:'сейчас условно; '+AIW},
+    {what:'Воронка сообщений и топ задач Copilot, Nestor IDE, Nessy CLI',aud:'hq',stage:'8',now:'todo',
+      need:AIW+'; и как считать «не классифицировано» при выборке'},
+    {what:'Проникновение по IT / Non-IT / Digital и инструментам',aud:'hq',stage:'8',now:'todo',need:AIW},
+    {what:'Стажёры: пользуются ли AI, чем, как часто',aud:'hq',stage:'8',now:'todo',need:AIW},
+    {what:'Конструктор AI: два разреза × численность, активные, проникновение',aud:'hq',stage:'8',now:'todo',need:AIW}]},
   {blk:'Весь отчёт',rows:[
     {what:'Руководитель подразделения: логин',aud:'all',stage:'0',now:'live'},
     {what:'Руководитель подразделения: имя',aud:'all',stage:'—',now:'todo',need:'имя есть в источнике — соберём вместе с логином'}]}
@@ -615,7 +625,6 @@ const ROOT=REAL?(NODES.find(n=>n.path==='T')||{id:'T',path:'T',parent:null,level
 if(!REAL||!NODES.some(n=>n.path==='T'))NODES.push(ROOT);
 let sortCtr=1;
 const pad2=n=>String(n).padStart(2,'0');
-function nodeCode(path){return path.split('/').slice(1).map(s=>String(parseInt(s,10))).join('.')}
 
 function leafAttrs(path,blockSeg){
   const rp=rng('paint'+path)();
@@ -2247,7 +2256,9 @@ const HIRE_CHANNELS=[
 ];
 /* 26.10, правки: динамика найма по видам — месяцы этого года, стопкой: в компанию, из учебной группы в боевую,
    стажёр в штат (в сумме — найм отчёта). null — пробник без рядов hcd / hst (датасет 2а до поставки 65) */
-const HIRE_KINDS=[['co','Найм в компанию','#66C8AE'],['cand','Из учебной группы в боевую','#14A38B'],['int','Стажёр в штат','#9ED9C6']];
+/* [ключ, имя (подсказка), цвет, короткое имя (легенда узкой панели)] */
+const HIRE_KINDS=[['co','Найм в компанию','#66C8AE','В компанию'],['cand','Из учебной группы в боевую','#14A38B','Из учебной группы'],
+  ['int','Стажёр в штат','#9ED9C6','Стажёр в штат']];
 function hireKinds(lp){
   if(REAL&&!REAL.has('hcd'))return null;
   const y={co:yoySeries(lp,'hire_co').cur,cand:yoySeries(lp,'hire_cand').cur,int:yoySeries(lp,'hire_int').cur};
