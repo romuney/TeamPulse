@@ -517,6 +517,8 @@ def sql_trf():
                'типов active_type_nm, по умолчанию «Активная»). Флаг смены — как есть и при фильтре из нескольких',
                'значений (поставка 63, как мастер-отчёт: Подрядчики → Активная при «Активная + Подрядчики» — и «из», и',
                '«в»). in_ok = 0 — кандидат учебного юнита или стажёр: из «в» исключается всегда, при выборе типов — найм.',
+               'cv_k (поставка 65) — вид такого перехода: c — из учебной группы в боевую, s — стажёр в штат (динамика',
+               'найма по видам в отчёте); у остальных строк пусто.',
                'Узел <ключ юнита>:d (поставка 64) — «напрямую в юните»: люди в самом юните, без его подразделений (в',
                'мастер-отчёте — строка юнита с уровнем ниже «-»); строка — в нём, если её самый глубокий юнит — этот, флаг —',
                'любой флаг юнита строки.',
@@ -534,6 +536,7 @@ select distinct x.mdm_employee_rk as e, x.calendar_dt::date as dt,
        {staff_e} as st,
        {act_e} as ac,
        {dflg('hire_flg')} as hf, least({dflg('transfer_candidate_flg')} + {dflg('transfer_internal_flg')}, 1) as cv,
+       {dflg('transfer_candidate_flg')} as cc,
        {dflg('fire_flg')} as fx, {dflg('last_day_of_month_flg')} as ld,
        {types}
 from {DAY} x
@@ -590,31 +593,33 @@ e as (
     select r.*, '{HUB_ALL}', 0, 0 from r where {MO} = 1
 )
 select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok,
-       x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, count(*) as trf_cnt
+       x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, count(*) as trf_cnt
 from (
     -- в: флаг «в» на строке; найм — отдельно (h)
     select e.node_rk, date_trunc('month', e.dt)::date as report_month, 'i' as trf_kind,
            e.pa as paint_cd, e.it as it_cd, e.st as staff_cd, e.ac as act_cd,
            e.fu_in as fu, e.ia as fa, e.ip as fp, e.ii as fi, e.ist as fs, 1 - e.cv as in_ok,
-           e.xi_pa as x_paint_cd, e.xi_it as x_it_cd, e.xi_st as x_staff_cd, e.xi_ac as x_act_cd
+           e.xi_pa as x_paint_cd, e.xi_it as x_it_cd, e.xi_st as x_staff_cd, e.xi_ac as x_act_cd,
+           -- поставка 65: вид перехода в найм — c из учебной группы в боевую, s стажёр в штат
+           case when e.cv = 0 then '' when e.cc = 1 then 'c' else 's' end as cv_k
     from e
     where e.hf = 0 and (e.fu_in = 1 or e.ia = 1 or e.ip = 1 or e.ii = 1 or e.ist = 1)
     union all
     -- из: флаг «из» на строке, без увольнения; последний день месяца — в следующий месяц
     select e.node_rk, date_trunc('month', e.dt + e.ld)::date, 'o',
            e.pa, e.it, e.st, e.ac, e.fu_out, e.oa, e.oq, e.oi, e.ost, 1,
-           e.xo_pa, e.xo_it, e.xo_st, e.xo_ac
+           e.xo_pa, e.xo_it, e.xo_st, e.xo_ac, ''
     from e
     where e.fx = 0 and (e.fu_out = 1 or e.oa = 1 or e.oq = 1 or e.oi = 1 or e.ost = 1)
     union all
     -- найм в компанию: узлы и срез дня найма
     select e.node_rk, date_trunc('month', e.dt)::date, 'h', e.pa, e.it, e.st, e.ac, 0, 0, 0, 0, 0, 1,
-           null::text, null::text, null::text, null::text
+           null::text, null::text, null::text, null::text, ''
     from e
     where e.hf = 1
 ) t
 where report_month between (select grid_start from {P}_cal) and (select lm from {P}_cal)
-group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
+group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
 ) q
 {dist('node_rk')};
 

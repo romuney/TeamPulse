@@ -315,12 +315,6 @@ function targetCell(key,val,baseVal,kpi){
 
    Если mascot.js по какой-то причине не подключён, возвращаемся к текстовому
    варианту: плашка не должна разваливаться. */
-function aiIco(big){
-  const M=window.TPMASCOT;
-  const im=M?M.img('ai',big?54:36,{alt:'AI-подсказка Пульса'}):'';
-  return im?'<span class="ai-ico pic'+(big?' big':'')+'">'+im+'</span>'
-           :'<span class="ai-ico">AI</span>';
-}
 
 /* ---------- Карточка KPI ----------
    Четыре строки РОВНО ВСЕГДА: заголовок, значение, первый ряд, второй ряд.
@@ -1092,7 +1086,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,aiIco,kpiCard,
+window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};

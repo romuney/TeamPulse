@@ -393,6 +393,7 @@ const DEV_PLAN=[
     {what:'Доля джунов в закрытых вакансиях',aud:'all',stage:'2',now:'live'},
     {what:'Доля внутреннего найма: переводы среди всех пришедших',aud:'all',stage:'0',now:'live'},
     {what:'Найм по грейдам и источникам привлечения',aud:'hq',stage:'2',now:'live'},
+    {what:'Динамика найма по видам: в компанию, из учебной группы в боевую, стажёр в штат',aud:'all',stage:'0',now:'live'},
     {what:'Найм стажёров, Digital и Non-Digital, по типу компании, возрасту, специализации',aud:'hq',stage:'2',now:'todo'},
     {what:'Найм по регионам против плана, план найма по специализациям в регионах',aud:'hq',stage:'2',now:'todo'},
     {what:'Массовый найм: план и факт по целевым действиям и по оформленным',aud:'us',stage:'2',now:'dev',
@@ -440,7 +441,9 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
   'nonregret_cnt','vac_new','vac_jun','ttf_days','ttf_n','ai_den',
   /* пробник: нежелательные увольнения — слагаемое regret;
      отработанные человеко-дни и посещения офиса — слагаемые посещаемости */
-  'regret_cnt','wday','ovis','perf_norm','perf_low','perf_high','perf_gray']);
+  'regret_cnt','wday','ovis','perf_norm','perf_low','perf_high','perf_gray',
+  /* 26.10, правки: найм по видам — в компанию, из учебной группы в боевую, стажёр в штат (в сумме — найм) */
+  'hire_co','hire_cand','hire_int']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -688,15 +691,6 @@ function leavesUnder(p){return descendantsOf(p).filter(n=>n.leaf)}
 function ancestorsOf(p){const seg=p.split('/');const out=[];for(let i=1;i<=seg.length;i++){const q=seg.slice(0,i).join('/');if(NODE_BY_PATH[q])out.push(NODE_BY_PATH[q])}return out}
 function levelLabel(l){return LEVEL_NAME[l]||('ур. '+l)}
 /* узлы уровня -1 / -2 от выбранного; если детей нет — сам узел */
-function nodesBelow(path,depth){
-  let cur=[NODE_BY_PATH[path]];
-  for(let d=0;d<depth;d++){
-    const next=[];
-    cur.forEach(n=>{const k=childrenOf(n.path);next.push(...(k.length?k:[n]))});
-    cur=[...new Map(next.map(n=>[n.path,n])).values()];
-  }
-  return cur.sort((a,b)=>a.sort-b.sort);
-}
 
 /* ---------- Фильтр листьев ---------- */
 function leafPasses(leafPath,st){
@@ -857,6 +851,19 @@ function seriesRaw(leafPath,key){
   if(REAL){const rs=REAL.series(leafPath,key);if(rs){_sc[ck]=rs;return rs}}
   const m=defOf(key), b=leafBase(leafPath), n=NODE_BY_PATH[leafPath]||{};
   const out=new Array(NEXT);
+  /* найм в компанию — остаток найма за вычетом переходов из учебной группы и стажёров (их ряды — пробник: hcd, hst
+     датасета 2а; макет — каждый принятый с долей команды) */
+  if(key==='hire_co'){
+    const h=seriesExt(leafPath,'hire'), c=seriesRaw(leafPath,'hire_cand'), t=seriesRaw(leafPath,'hire_int');
+    for(let i=0;i<NEXT;i++)out[i]=Math.max(0,h[i]-c[i]-t[i]);
+    _sc[ck]=out;return out;
+  }
+  if(!REAL&&(key==='hire_cand'||key==='hire_int')){
+    const h=seriesExt(leafPath,'hire'), r=rng(lpSeed([leafPath],key)), p=key==='hire_cand'?0.12:0.08;
+    for(let i=0;i<NEXT;i++){let v=0;for(let k=0;k<h[i];k++)if(r()<p)v++;out[i]=v}
+    if(key==='hire_int'){const c=seriesRaw(leafPath,'hire_cand');for(let i=0;i<NEXT;i++)out[i]=Math.min(out[i],h[i]-c[i])}
+    _sc[ck]=out;return out;
+  }
 
   /* среднесписочная: полусумма численности на начало и конец месяца */
   if(key==='hc_avg'){
@@ -1020,10 +1027,6 @@ function aggregate(leafPaths,key){
 function lastVal(leafPaths,key){return aggregate(leafPaths,key)[LAST]}
 
 /* ---------- Сравнение и светофор ---------- */
-function deltas(series){
-  const cur=series[LAST];
-  return {mom:+(cur-series[LAST-1]).toFixed(1), yoy:+(cur-series[0]).toFixed(1)};
-}
 /* Настоящий YoY: последний месяц окна против того же месяца год назад.
    Берётся с расширенной сетки — июнь 2026 против июня 2025, а не против июля 2025.
    Для накопительной текучести это единственный осмысленный вариант: сравнивать
@@ -1173,8 +1176,6 @@ function fmtDelta(key,v){
   if(m.fmt==='ratio')return s+(+v).toFixed(2).replace('.',',').replace('-','\u2212');
   return s+(+v).toFixed(1).replace('.',',').replace('-','\u2212')+'\u2009п.п.';
 }
-function fmtCompact(v){return Math.abs(v)>=1000?(v/1000).toFixed(1).replace('.',',')+'K':fmtInt(v)}
-
 /* ---------- Дефолтный state ---------- */
 /* В пробнике юнит и фильтры — те, что применил датасет (эхо в meta): отчёт
    показывает ровно то, что пришло, а не то, что хотелось бы. */
@@ -2102,10 +2103,6 @@ function officeRank(lp){
 }
 
 /* итоговый прирост численности за период */
-function netGrowth(lp){
-  const hc=aggregate(lp,'hc_total');
-  return hc[LAST]-hc[0];
-}
 
 /* ============================================================================
    Разбивки потоков и состояний за окно (итерация 28, бизнес-анализ 07.10.2026)
@@ -2248,6 +2245,14 @@ const HIRE_CHANNELS=[
 {key:'agency',name:'Кадровые агентства',wIT:0.05,wNon:0.12},
 {key:'campus',name:'Вузы и стажировки',wIT:0.11,wNon:0.10}
 ];
+/* 26.10, правки: динамика найма по видам — месяцы этого года, стопкой: в компанию, из учебной группы в боевую,
+   стажёр в штат (в сумме — найм отчёта). null — пробник без рядов hcd / hst (датасет 2а до поставки 65) */
+const HIRE_KINDS=[['co','Найм в компанию','#66C8AE'],['cand','Из учебной группы в боевую','#14A38B'],['int','Стажёр в штат','#9ED9C6']];
+function hireKinds(lp){
+  if(REAL&&!REAL.has('hcd'))return null;
+  const y={co:yoySeries(lp,'hire_co').cur,cand:yoySeries(lp,'hire_cand').cur,int:yoySeries(lp,'hire_int').cur};
+  return MONTH_NOM.map((nm,m)=>({label:MONTH_ABBR[m],full:nm+' '+YEAR_CUR,co:y.co[m]||0,cand:y.cand[m]||0,int:y.int[m]||0}));
+}
 function hiringProfile(lp,win){
   win=win||'ytd';
   const total=sumWin(aggregate(lp,'hire'),win);
@@ -2551,17 +2556,17 @@ function aiProfile(lp){
 
 window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,HQ_LIGHT,hqLeaves,hqLight,monData,MON_WEEKS,MON_MONTHS,
-  netGrowth,MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
+  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,HQ_LIGHT,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
+  MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,trfMonths,trfReport,trfDetail,
   COUNT_METRICS,vacancyBreakdown,kpiAt,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
-  childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,nodesBelow,
+  childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
-  metricSeries,reasonSeries,aggregate,lastVal,deltas,deltasOf,compareState,stateForKpi,kpiFor,comparable,
+  metricSeries,reasonSeries,aggregate,lastVal,deltasOf,compareState,stateForKpi,kpiFor,comparable,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
-  fmtInt,fmtVal,fmtDelta,fmtCompact,DEFAULT_STATE,
+  fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */

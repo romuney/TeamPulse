@@ -171,11 +171,17 @@ def main():
         'active_type_nm'))
     src = pg.run(f'select {cols} from usr_cross_data.hr_executive_proteus').to_dict('records')
     ev = master(src, cal.grid_start, cal.lm, int(cal.mo) == 1)
+    # поставка 65: строки разделены ещё и видом перехода в найм (cv_k) — мастер-отчёт его не знает: суммируем
     tab = pg.run('select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok, '
-                 'x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, trf_cnt from teampulse_hub_trf')
+                 'x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, sum(trf_cnt) from teampulse_hub_trf '
+                 'group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17')
     nn = lambda x: None if x is None or x != x else x
     got = Counter({tuple(nn(x) for x in r[:-1]): int(r[-1]) for r in tab.itertuples(index=False, name=None)})
     bad = (ev - got) + (got - ev)
+    # вид перехода — ровно у переходов кандидата или стажёра (in_ok = 0), у остальных пусто
+    cvb = int(pg.run("select count(*) from teampulse_hub_trf where (in_ok = 0) <> (coalesce(cv_k, '') <> '')").iloc[0, 0])
+    if cvb:
+        bad[('cv_k не там, где in_ok = 0',)] = cvb
     print(f'таблица: строк {len(got)}, событий {sum(got.values())}; мастер-отчёт на Python: строк {len(ev)}, '
           f'событий {sum(ev.values())}; расхождений {len(bad)}')
     for k in list(bad)[:10]:

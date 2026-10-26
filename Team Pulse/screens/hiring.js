@@ -52,7 +52,7 @@ SC.blocks.hiring={
   subTabs:[['profile','Профиль найма'],['vacancies','Вакансии и срок закрытия'],['plan','План-факт']],
   defaultSub:'profile',
   title(sub){return sub==='plan'?'План-факт подбора: массовый и профильный найм'
-    :sub==='profile'?'Откуда приходят и кого нанимаем'
+    :sub==='profile'?'Найм по видам, откуда приходят и кого нанимаем'
     :'Вакансии и скорость их закрытия'},
   view(ctx){
     const lp=ctx.lp;
@@ -68,6 +68,11 @@ SC.blocks.hiring={
     }
     if(ctx.sub==='profile'){
       const hp=D.hiringProfile(lp,'ytd'), sub=' с начала года';
+      /* 26.10, правки: динамика найма по видам — стопкой по месяцам этого года, как состав мониторинга */
+      const hk=D.hireKinds(lp);
+      const dyn=hk?G.chart('stack',{periods:hk,cats:D.HIRE_KINDS,still:true},{title:'Динамика найма по видам, чел · '+D.YEAR_CUR,
+          legend:D.HIRE_KINDS.map(c=>({name:c[1],color:c[2]})),h:270})
+        :U.devNote({stage:'0',t:'Виды найма придут со следующим обновлением отчёта.'});
       const tbl=(cap,capSub,items,o)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:'Человек',
         metricKey:'hire',compact:true,items:items},o||{}));
       /* Каналы — по убыванию, переводы — последней строкой и своим цветом
@@ -75,7 +80,7 @@ SC.blocks.hiring={
       const ch=hp.channels.slice().sort((a,b)=>b.value-a.value).map(c=>({name:c.name,value:c.value,color:G.C_IN}))
         .concat([{name:'Переводы из других команд',note:'их доля и есть доля внутреннего найма',
           value:hp.tin,color:G.C_HIRE_I}]);
-      return U.btStack([
+      return dyn+U.btStack([
         tbl('Откуда пришли','найм и переводы'+sub,ch),
         tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]
         /* поставка 50: путь в команду — найм в компанию, из учебной группы, стажёр в штат (как в HQ) */

@@ -30,7 +30,7 @@ const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
    к прошлому месяцу и году, спарклайн, ориентир (цель или коридор) с сигналом */
 function hqView(ctx){
   const h=D.hqLight(ctx.S);
-  if(!h)return U.empty('Светофору HQ нужны данные','Обновите датасет 2а (поставка 65) — или поставьте в шапке покраску «HQ» и тип «Активная».');
+  if(!h)return U.empty('Светофору HQ нужны данные','Они придут со следующим обновлением отчёта. Пока — поставьте в шапке покраску «HQ» и тип «Активная».');
   if(!h.hc)return U.empty('В подразделении нет HQ-сотрудников','Светофор считается только по активной численности HQ.');
   const f=(k,v)=>D.fmtVal(k,v), esc=U.esc, cap1=x=>x.charAt(0).toUpperCase()+x.slice(1);
   const tgt=r=>{const c=U.targetCell(r.key,r.v,null,r.kpi);

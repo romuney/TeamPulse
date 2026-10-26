@@ -134,6 +134,14 @@ def main():
                     exp = [round(T[(rk, m)][tk], 1) for m in ms]
                     if [round(x, 1) for x in a[k]] != exp:
                         bad[k] += 1
+                if label == 'файл 2а' and r.get('m_hcd') is not None:
+                    # поставка 65: найм по видам — из учебной группы в боевую (hcd) и стажёр в штат (hst)
+                    for k in ('hcd', 'hst'):
+                        got = [round(float(x), 1) for x in r['m_' + k].split(',')]
+                        if got != [round(T[(rk, m)][k], 1) for m in ms]:
+                            bad[k] += 1
+                    if not any(float(x) for x in r['m_hcd'].split(',') + r['m_hst'].split(',')) and act and rk == 'all':
+                        bad['найм по видам пуст'] += 1
                 if label == 'файл 2а' and r.get('m_din') is not None:
                     # поставка 64: переводы «напрямую в юните» — свой узел юнит:d (люди в самом юните)
                     for k, tk in (('din', 'tin'), ('dout', 'tout')):

@@ -824,8 +824,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .logo .mark.pic{background:none;border-radius:0;width:26px;height:26px;
   display:inline-flex;align-items:center;justify-content:center}
 
-/* Значок AI-плашки: подложка убрана, персонаж говорит сам за себя */
-.ai-ico.pic{background:none;width:22px;height:22px;padding:0}
 
 /* Разделитель навигации — росчерк кардиограммы. Тот же мотив, что на повязке
    огонька: один знак, повторённый в разных местах, и есть узнаваемость. */
@@ -911,19 +909,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 }
 @media print{.pulse-panel,.nav-foot{display:none!important}}
 
-/* ============================================================================
-   Значок AI-подсказки (итерация 17): огонёк 36 px выходит телом за верх
-   строки, большой — 54 px. Плашки «Главное в блоке» с 20.10 нет — выводы
-   стали карточками (ниже, «Сначала выводы»).
-   ========================================================================== */
-.ai-ico.pic{width:36px;height:36px;margin:-14px 0 -6px -3px;
-  filter:drop-shadow(0 4px 8px rgba(93,63,211,.24))}
-.ai-ico.pic.big{width:54px;height:54px;margin:-22px 0 -10px -5px}
-@media(max-width:780px){
-  /* на узком экране огонёк уводим внутрь: выступ там некуда девать */
-  .ai-ico.pic{width:30px;height:30px;margin:-8px 0 -4px -2px}
-  .ai-ico.pic.big{width:42px;height:42px;margin:-12px 0 -6px -3px}
-}
 
 /* ---------- Огонёк в шапках модалок ----------
    Grid, а не flex: заголовок и подзаголовок остаются отдельными строками,
@@ -1049,18 +1034,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .mtable td.col-spark{padding:11px 10px}
 @media(max-width:1100px){.mtable td.col-spark .spark{width:min(100%,132px)}}
 
-/* ---------- Огонёк в AI-плашке растёт плавно ----------
-   При раскрытии рисуется новая картинка, поэтому переход по width невозможен —
-   анимируем масштаб от прежнего размера (36/54 ≈ 0.667) из нижнего левого угла,
-   чтобы огонёк «поднимался», а не выстреливал из центра. */
-@keyframes ai-grow{
-  from{transform:scale(.667);opacity:.55}
-  60%{opacity:1}
-  to{transform:scale(1);opacity:1}
-}
-.ai-ico.pic.big{transform-origin:8% 88%;
-  animation:ai-grow .52s cubic-bezier(.32,.5,.28,1) both}
-@media(prefers-reduced-motion:reduce){.ai-ico.pic.big{animation:none}}
+
 
 /* ---------- Справка: разводка без второго портрета ---------- */
 .help-pulse{gap:0}

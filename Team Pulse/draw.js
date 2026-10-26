@@ -1092,8 +1092,10 @@ function perAxis(P,X,h,mark,bandW){
   return P.map((p,i)=>i===mark||(last-i)%step===0?txt(X(i),h-8,p.label,i===mark?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
 }
 function drawStack(a,w,h){
-  const o=a.opt||{}, P=a.periods, off=offOf(o), mark=a.mark;
-  const cats=MON_CATS.filter(c=>!off.has(c[0]));
+  /* 26.10: свои категории (a.cats — [ключ, имя, цвет]; найм по видам) и без отметки периода (a.still) */
+  const o=a.opt||{}, P=a.periods, off=offOf(o), mark=a.mark, CATS=a.cats||MON_CATS, COL={};
+  CATS.forEach(c=>{COL[c[0]]=c[2]||C_MON[c[0]]});
+  const cats=CATS.filter(c=>!off.has(c[0]));
   /* узкая панель: легенда не влезает рядом с заголовком — встаёт второй строкой */
   const lgW=(o.legend||[]).reduce((v,it)=>v+textW(it.name,11.5)+30,0), two=textW(o.title||'',TTL_SZ)+lgW+24>w;
   const hh=headH(o.title,o.legend)+(two?22:0);
@@ -1113,13 +1115,14 @@ function drawStack(a,w,h){
       /* 2px просвет между кусками — цвета соседей не сливаются */
       const yt=y1+(lastSeg?0:1), yb=y0-(ci?1:0);
       const ex=' class="bar up"'+sAttr(c[0])+' style="animation-delay:'+dly+'ms"';
-      segs+=lastSeg?barUp(cx-bw/2,yt,bw,yb-yt,C_MON[c[0]],ex):rect(cx-bw/2,yt,bw,Math.max(0,yb-yt),C_MON[c[0]],0,ex);
+      segs+=lastSeg?barUp(cx-bw/2,yt,bw,yb-yt,COL[c[0]],ex):rect(cx-bw/2,yt,bw,Math.max(0,yb-yt),COL[c[0]],0,ex);
       acc+=v;
     });
     const t=tot[i];
-    s+='<g class="barg pmk'+(on?' on':'')+'" data-pmark="'+i+'"'+tip({title:p.full,
-      rows:MON_CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+(p.hc?Math.round((p[c[0]]||0)/p.hc*100):0)+'%',color:off.has(c[0])?C_OFF:C_MON[c[0]]})),
-      note:(on?'Период отмечен на линиях. Клик — снять отметку.':'Клик — отметить период на линиях.')+' Всего — '+CD.fmtInt(p.hc)+' чел.'})+'>'+
+    const all=p.hc||tot[i];
+    s+='<g class="barg'+(a.still?'':' pmk'+(on?' on':'')+'" data-pmark="'+i)+'"'+tip({title:p.full,
+      rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+(all?Math.round((p[c[0]]||0)/all*100):0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
+      note:(a.still?'':on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. ')+'Всего — '+CD.fmtInt(all)+' чел.'})+'>'+
       (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+
       '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+segs+'</g>';
     if(t)s+=txt(cx,Y(t)-VAL_DY,CD.fmtInt(t),valOpt({delay:200+dly}));

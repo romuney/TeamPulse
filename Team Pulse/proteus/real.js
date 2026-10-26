@@ -39,13 +39,15 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
    на конец месяца, vcl — закрыто, vap — новые, vtd/vtn — дни и число закрытых для срока, vjn — закрыто
    джунами) и AI (aiw — WAU, aip / aic — проникновение по юниту и компании). Тоже необязательные; вакансии
    и AI — без фильтров среза (не люди) */
-const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout'];
+const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout','hcd','hst'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   perf_norm:'pnor',perf_low:'plow',perf_high:'phig',perf_gray:'pgry',
   wday:'wday',ovis:'ovis',tgrowth_pass:'gapr',tgrowth_deny:'gdec',
   nonregret_cnt:'nreg',vac_open:'vop',vac_closed:'vcl',vac_new:'vap',ttf_days:'vtd',ttf_n:'vtn',vac_jun:'vjn',
-  ai_wau:'aiw',ai_penetration:'aip',ai_pen_co:'aic',ai_den:'aid'};
+  ai_wau:'aiw',ai_penetration:'aip',ai_pen_co:'aic',ai_den:'aid',
+  /* поставка 65: найм по видам — из учебной группы в боевую, стажёр в штат (части hit) */
+  hire_cand:'hcd',hire_int:'hst'};
 /* метрики, которые оживают, когда в ответе есть их колонки */
 const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec'],
   nonregret:['nreg'],vac_open:['vop'],vac_closed:['vcl'],time_to_fill:['vtd','vtn'],junior_share:['vjn','vcl'],

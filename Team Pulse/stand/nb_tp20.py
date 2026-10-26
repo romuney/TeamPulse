@@ -541,12 +541,15 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, h
             m = dt.date(p['start'].year, p['start'].month, 1)
             for n in path(U, at(p['unit'], p['start'])):
                 T[(n, m)]['hire'] += PH(p, m, p['start']) and inA(at(p['acth'], p['start']))
-        for c, _ in (p['conv'] if act else []):   # найм по методологии DD: переход в активную — тоже найм
+        for c, fl in (p['conv'] if act else []):   # найм по методологии DD: переход в активную — тоже найм
             if not (inA(at(p['acth'], c)) and not inA(at(p['acth'], c - dt.timedelta(1)))):
                 continue                          # переход внутри выбора или вне его — не вход в выбор
             m = dt.date(c.year, c.month, 1)
+            # поставка 65: вид — из учебной группы в боевую (hcd) или стажёр в штат (hst)
+            kd = 'hcd' if fl == 'transfer_candidate_flg' else 'hst'
             for n in path(U, at(p['unit'], c)):
                 T[(n, m)]['hire'] += PH(p, m, c)
+                T[(n, m)][kd] += PH(p, m, c)
             # agg — таблица, где люди уже сложены (hr_structure_overall, файл 2): тип активности
             # там на конец месяца, и стажёр, принятый и переведённый в одном месяце, — ещё и в
             # найме в компанию (hire_amt). Разделить без людей нельзя — правда с тем же завышением
