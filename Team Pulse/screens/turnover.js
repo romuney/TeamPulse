@@ -81,12 +81,14 @@ SC.blocks.turnover={
     const lp=ctx.lp, ytd=' с начала года';
     if(ctx.sub==='hq')return hqView(ctx);
     if(ctx.sub==='reasons'){
-      /* Инициатор — сумма причин: у каждой причины ровно один инициатор, поэтому
-         две таблицы не расходятся. ★ — нежелательный уход; причины по убыванию,
+      /* Инициатор — по каждому уходу (пары «причина|инициатор»): одна причина бывает у разных инициаторов, поэтому
+         у причины со смешанными инициаторами подпись — «сотрудник 24 · работодатель 4». ★ — нежелательный уход; причины по убыванию,
          как в разборе «сверху вниз». Шапки первых колонок пустые: имя таблицы
          стоит подписью прямо над ней (правило 10f). */
       const rs=D.exitReasons(lp,'ytd');
       const initName=k=>(D.EXIT_INITIATORS.find(x=>x.key===k)||{}).name||'';
+      const reasonInit=r=>{const sp=r.split||{}, ks=Object.keys(sp).filter(k=>Math.round(sp[k])>0);
+        return ks.length>1?ks.map(k=>INI_SHORT[k].toLowerCase()+' '+Math.round(sp[k])).join(' · '):initName(ks[0]||r.init).toLowerCase()};
       /* Инициатор раскрывается в топ-3 своих причин (14.10, заказчик): строка
          инициатора — сумма причин, под ней три самые частые. Состояние — в том
          же наборе раскрытых строк, что у стримов (ключи «exitinit:…»). */
@@ -104,7 +106,7 @@ SC.blocks.turnover={
           metricKey:'attrition',compact:true,tree:true,items:items,
           expAll:{key:'exitinit',open:expable.length>0&&expable.every(x=>open.has('exitinit:'+x.key))}}),
         U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Человек',metricKey:'attrition',sort:true,compact:true,
-          items:rs.map(r=>({name:r.name,note:initName(r.init).toLowerCase(),value:r.value,
+          items:rs.map(r=>({name:r.name,note:reasonInit(r),value:r.value,
             mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+
         '<div class="tbl-note">★ — нежелательный уход: причина, на которую компания могла повлиять. '+
         'ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+').</div>';

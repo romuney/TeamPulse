@@ -416,7 +416,7 @@ const DEV_PLAN=[
     {what:'Доля джунов в закрытых вакансиях',aud:'all',stage:'2',now:'live'},
     {what:'Доля внутреннего найма: переводы среди всех пришедших',aud:'all',stage:'0',now:'live'},
     {what:'Найм по грейдам и источникам привлечения',aud:'hq',stage:'2',now:'live'},
-    {what:'Динамика найма по видам: в компанию, из учебной группы в боевую, стажёр в штат',aud:'all',stage:'0',now:'live'},
+    {what:'Найм, чел: виды найма — в подсказке',aud:'all',stage:'0',now:'live'},
     {what:'Найм стажёров, Digital и Non-Digital, по типу компании, возрасту, специализации',aud:'hq',stage:'2',now:'todo'},
     {what:'Найм по регионам против плана, план найма по специализациям в регионах',aud:'hq',stage:'2',now:'todo'},
     {what:'Массовый найм: план и факт по целевым действиям и по оформленным',aud:'us',stage:'2',now:'dev',
@@ -2265,15 +2265,19 @@ function exitReasons(lp,win){
   win=win||'ytd';
   if(REAL){
     const xr=realExit(lp,'xr'), xq=realExit(lp,'xq'), xp=realExit(lp,'xp'), base=REAL.mixVals('xp');
+    /* уходы причины v по инициаторам из пар «причина|инициатор» */
+    const byInit=(src,v)=>{const o={};Object.keys(src).forEach(pv=>{const j=pv.lastIndexOf('|');
+      if(pv.slice(0,j)===v){const k=initKey(pv.slice(j+1));o[k]=(o[k]||0)+src[pv]}});return o};
     return realExitList('xr').map((v,i)=>{
-      /* инициатор причины — тот, что чаще всего стоит при ней по всей компании */
-      const ini={};
-      Object.keys(base).forEach(pv=>{const j=pv.lastIndexOf('|');if(pv.slice(0,j)===v){const k=initKey(pv.slice(j+1));ini[k]=(ini[k]||0)+base[pv]}});
+      /* инициатор причины — тот, что чаще всего стоит при ней по всей компании; split — как делятся уходы этой
+         причины у выбранных подразделений (26.10-б: при смешанных инициаторах подпись называет оба, иначе
+         «по инициативе сотрудника» при 28 уходах спорило с 24 в раскрытии инициатора) */
+      const ini=byInit(base,v), split=byInit(xp,v);
       const init=Object.keys(ini).sort((a,b)=>ini[b]-ini[a])[0]||'oth';
       const n=Math.round(xr[v]||0);
       /* regret в таблице — у каждого ухода, а не у причины: ★ — причина, где таких
          большинство, а счёт нежелательных — точный (regretN) */
-      return {key:'r'+i,name:v||NONE_NAME,regret:(xq[v]||0)>0&&(xq[v]||0)*2>=n,regretN:Math.round(xq[v]||0),init:init,value:n};
+      return {key:'r'+i,name:v||NONE_NAME,regret:(xq[v]||0)>0&&(xq[v]||0)*2>=n,regretN:Math.round(xq[v]||0),init:init,split:split,value:n};
     });
   }
   const total=sumWin(aggregate(lp,'attrition'),win), r=rng(lpSeed(lp,'rsn'+win));

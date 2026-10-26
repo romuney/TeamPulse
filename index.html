@@ -2937,7 +2937,7 @@ const DEV_PLAN=[
     {what:'Доля джунов в закрытых вакансиях',aud:'all',stage:'2',now:'live'},
     {what:'Доля внутреннего найма: переводы среди всех пришедших',aud:'all',stage:'0',now:'live'},
     {what:'Найм по грейдам и источникам привлечения',aud:'hq',stage:'2',now:'live'},
-    {what:'Динамика найма по видам: в компанию, из учебной группы в боевую, стажёр в штат',aud:'all',stage:'0',now:'live'},
+    {what:'Найм, чел: виды найма — в подсказке',aud:'all',stage:'0',now:'live'},
     {what:'Найм стажёров, Digital и Non-Digital, по типу компании, возрасту, специализации',aud:'hq',stage:'2',now:'todo'},
     {what:'Найм по регионам против плана, план найма по специализациям в регионах',aud:'hq',stage:'2',now:'todo'},
     {what:'Массовый найм: план и факт по целевым действиям и по оформленным',aud:'us',stage:'2',now:'dev',
@@ -4786,15 +4786,19 @@ function exitReasons(lp,win){
   win=win||'ytd';
   if(REAL){
     const xr=realExit(lp,'xr'), xq=realExit(lp,'xq'), xp=realExit(lp,'xp'), base=REAL.mixVals('xp');
+    /* уходы причины v по инициаторам из пар «причина|инициатор» */
+    const byInit=(src,v)=>{const o={};Object.keys(src).forEach(pv=>{const j=pv.lastIndexOf('|');
+      if(pv.slice(0,j)===v){const k=initKey(pv.slice(j+1));o[k]=(o[k]||0)+src[pv]}});return o};
     return realExitList('xr').map((v,i)=>{
-      /* инициатор причины — тот, что чаще всего стоит при ней по всей компании */
-      const ini={};
-      Object.keys(base).forEach(pv=>{const j=pv.lastIndexOf('|');if(pv.slice(0,j)===v){const k=initKey(pv.slice(j+1));ini[k]=(ini[k]||0)+base[pv]}});
+      /* инициатор причины — тот, что чаще всего стоит при ней по всей компании; split — как делятся уходы этой
+         причины у выбранных подразделений (26.10-б: при смешанных инициаторах подпись называет оба, иначе
+         «по инициативе сотрудника» при 28 уходах спорило с 24 в раскрытии инициатора) */
+      const ini=byInit(base,v), split=byInit(xp,v);
       const init=Object.keys(ini).sort((a,b)=>ini[b]-ini[a])[0]||'oth';
       const n=Math.round(xr[v]||0);
       /* regret в таблице — у каждого ухода, а не у причины: ★ — причина, где таких
          большинство, а счёт нежелательных — точный (regretN) */
-      return {key:'r'+i,name:v||NONE_NAME,regret:(xq[v]||0)>0&&(xq[v]||0)*2>=n,regretN:Math.round(xq[v]||0),init:init,value:n};
+      return {key:'r'+i,name:v||NONE_NAME,regret:(xq[v]||0)>0&&(xq[v]||0)*2>=n,regretN:Math.round(xq[v]||0),init:init,split:split,value:n};
     });
   }
   const total=sumWin(aggregate(lp,'attrition'),win), r=rng(lpSeed(lp,'rsn'+win));
@@ -9932,12 +9936,14 @@ SC.blocks.turnover={
     const lp=ctx.lp, ytd=' с начала года';
     if(ctx.sub==='hq')return hqView(ctx);
     if(ctx.sub==='reasons'){
-      /* Инициатор — сумма причин: у каждой причины ровно один инициатор, поэтому
-         две таблицы не расходятся. ★ — нежелательный уход; причины по убыванию,
+      /* Инициатор — по каждому уходу (пары «причина|инициатор»): одна причина бывает у разных инициаторов, поэтому
+         у причины со смешанными инициаторами подпись — «сотрудник 24 · работодатель 4». ★ — нежелательный уход; причины по убыванию,
          как в разборе «сверху вниз». Шапки первых колонок пустые: имя таблицы
          стоит подписью прямо над ней (правило 10f). */
       const rs=D.exitReasons(lp,'ytd');
       const initName=k=>(D.EXIT_INITIATORS.find(x=>x.key===k)||{}).name||'';
+      const reasonInit=r=>{const sp=r.split||{}, ks=Object.keys(sp).filter(k=>Math.round(sp[k])>0);
+        return ks.length>1?ks.map(k=>INI_SHORT[k].toLowerCase()+' '+Math.round(sp[k])).join(' · '):initName(ks[0]||r.init).toLowerCase()};
       /* Инициатор раскрывается в топ-3 своих причин (14.10, заказчик): строка
          инициатора — сумма причин, под ней три самые частые. Состояние — в том
          же наборе раскрытых строк, что у стримов (ключи «exitinit:…»). */
@@ -9955,7 +9961,7 @@ SC.blocks.turnover={
           metricKey:'attrition',compact:true,tree:true,items:items,
           expAll:{key:'exitinit',open:expable.length>0&&expable.every(x=>open.has('exitinit:'+x.key))}}),
         U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Человек',metricKey:'attrition',sort:true,compact:true,
-          items:rs.map(r=>({name:r.name,note:initName(r.init).toLowerCase(),value:r.value,
+          items:rs.map(r=>({name:r.name,note:reasonInit(r),value:r.value,
             mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+
         '<div class="tbl-note">★ — нежелательный уход: причина, на которую компания могла повлиять. '+
         'ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+').</div>';
