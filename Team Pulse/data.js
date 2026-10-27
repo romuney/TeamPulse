@@ -73,7 +73,7 @@ function closedOnly(key){return PARTIAL&&CLOSED_ONLY.has(key)}
    оно точное, но месяц ещё идёт. Метки «вызревает» у них нет; выводы и оценка изменения — по последнему
    закрытому месяцу, иначе неполный месяц против полного дал бы ложное «лучше, чем год назад». */
 const PART_FLOW=new Set(['hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y',
-  'vac_closed','hire_plan','tgrowth_pass','tgrowth_deny','underwork','overwork']);
+  'vac_closed','hire_plan','tgrowth_pass','tgrowth_deny','underwork','overwork','time_to_fill','tgrowth_conv']);
 function partFlow(key){return PARTIAL&&PART_FLOW.has(key)}
 /* короткий родительный — «1–19 окт.» */
 const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'];
@@ -82,7 +82,8 @@ const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','и�
    Потоки водопада — со второго месяца окна, иначе потоки первого уходили бы в «Прочее» */
 const WIN_FROM=MONTH_ABBR[MONTHS[0].m]+' '+MONTHS[0].y;               /* «окт. 2025» */
 const WIN_TO=MONTH_ABBR[ASOF.m]+' '+ASOF.y;                            /* «окт. 2026» */
-const WIN_SINCE='с '+MONTH_ABBR_GEN[MONTHS[0].m]+' '+MONTHS[0].y;      /* «с окт. 2025», «с июля 2025» */
+/* 26.10, ревью критиков: водопад начинается с численности НА КОНЕЦ первого месяца, потоки — со второго */
+const WIN_SINCE='с конца '+MONTH_ABBR[MONTHS[0].m]+' '+MONTHS[0].y;   /* «с конца нояб. 2025» */
 function winSum(lp,key){return aggregate(lp,key).slice(1).reduce((a,v)=>a+(v||0),0)}
 /* подсказка у вызревающего значения — одна на весь отчёт */
 const MATURE_TIP={title:'Значение вызревает',
@@ -98,6 +99,8 @@ const PART_TIP={title:'Месяц ещё идёт',
   note:'Неполный месяц с полным не оцениваем: выводы — по последнему закрытому месяцу.'};
 const CMP={
   cur:monthNom(CUR_M),
+  /* период незакрытого месяца — «1–12 октября 2026» (26.10, ревью критиков: «за октябрь» читалось как полный месяц) */
+  span:PARTIAL?'1–'+ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y:monthNom(CUR_M),
   /* короткая подпись стоит прямо в пилюле изменения, полная — в шапках колонок */
   momShort:'к '+MONTH_DAT[PREV_M.m],
   momFull:'к '+MONTH_DAT[PREV_M.m]+' '+PREV_M.y,
@@ -108,6 +111,9 @@ const CMP={
   /* у значения по закрытому месяцу (CLOSED_ONLY) — закрытый против предыдущего */
   momShortC:'к '+MONTH_DAT[MONTHS[LAST-2].m],
   momTipC:{title:'Изменение за месяц',text:monthNom(PREV_M)+' против '+monthGen(MONTHS[LAST-2])+'.'},
+  /* и за год — закрытый месяц против того же месяца год назад (ревью критиков 26.10: под «к октябрю 2025» стоял сентябрь) */
+  yoyShortC:'к '+MONTH_DAT[PREV_M.m]+' '+(PREV_M.y-1),
+  yoyTipC:{title:'Изменение за год',text:monthNom(PREV_M)+' против '+MONTH_GEN[PREV_M.m]+' '+(PREV_M.y-1)+'.'},
   yoyTip:{title:'Изменение за год',
     text:monthNom(CUR_M)+' против '+monthGen(YOY_M)+' — того же месяца год назад.'}
 };
@@ -1685,6 +1691,13 @@ function mixParts(lp,dimKey,sel,skip){
   return roundParts(raw,raw.reduce((a,b)=>a+b,0));
 }
 function mixCats(dimKey){return (MIX_BY_KEY[dimKey]||{cats:[]}).cats}
+/* доля категории в численности на последний месяц, по имени (26.10, ревью критиков: «Кто уходит?» — уходы против доли
+   в команде, иначе зоной риска выглядит просто самая большая группа) */
+function teamShare(lp,dimKey){
+  const v=mixParts(lp,dimKey), t=v.reduce((a,b)=>a+b,0), o={};
+  mixCats(dimKey).forEach((c,i)=>{o[c.name]=t?v[i]/t:0});
+  return o;
+}
 
 /* ---------- Двухуровневый разрез: стрим → специализации ----------
    Округляется СВЕРХУ ВНИЗ: сначала стримы к численности отбора, потом
@@ -2553,13 +2566,13 @@ function bookingQuality(lp){
   if(OFF_LIVE.bk){
     /* поставка 66: настоящие — дни с бронью (из них без прихода) и приход без брони за последний месяц */
     const bk=lastVal(lp,'bk_days'), ns=lastVal(lp,'bk_noshow'), wi=lastVal(lp,'bk_walkin');
-    return {total:bk+wi,ok:bk-ns,noshow:ns,walkin:wi,viol:ns+wi,visits:bk-ns+wi,month:monthNom(CUR_M)};
+    return {total:bk+wi,ok:bk-ns,noshow:ns,walkin:wi,viol:ns+wi,visits:bk-ns+wi,month:CMP.span};
   }
   const hc=lastVal(lp,'hc_total'), att=lastVal(lp,'office_att')/100, v=lastVal(lp,'booking_viol')/100;
   const V=Math.round(hc*workdays(LAST)*att), r=rng(lpSeed(lp,'bk'));
   const q=0.52+r()*0.18;                     /* доля «бронь без прихода» среди нарушений */
   const T=Math.round(V/(1-v*q)), viol=Math.round(T*v), noshow=Math.round(viol*q);
-  return {total:T,ok:T-viol,noshow:noshow,walkin:viol-noshow,viol:viol,visits:T-noshow,month:monthNom(CUR_M)};
+  return {total:T,ok:T-viol,noshow:noshow,walkin:viol-noshow,viol:viol,visits:T-noshow,month:CMP.span};
 }
 function officeByCity(lp){
   const by={};
@@ -2719,7 +2732,7 @@ window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SI
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,trfMonths,trfReport,trfDetail,
-  COUNT_METRICS,vacancyBreakdown,kpiAt,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
+  COUNT_METRICS,vacancyBreakdown,kpiAt,teamShare,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
   metricSeries,reasonSeries,aggregate,lastVal,deltasOf,compareState,stateForKpi,kpiFor,comparable,

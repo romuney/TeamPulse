@@ -34,7 +34,7 @@ function balancedSteps(lp){
      бывает только при сбое данных: изменение численности без события в источнике. Ноль — столбца нет;
      не ноль — столбец с объяснением, молча спрятать невязку было бы обманом */
   const other=end-(begin+hire+tin+attr+tout);
-  return [{name:'Начало',sub:D.WIN_FROM,value:begin,total:true},{name:'Найм',value:hire},
+  return [{name:'Начало',sub:'на конец '+D.WIN_FROM,value:begin,total:true},{name:'Найм',value:hire},
     {name:'Переводы в',value:tin},{name:'Отток',value:attr},{name:'Переводы из',value:tout}].concat(
     Math.abs(other)<0.5?[]:[{name:'Прочее',value:other,note:D.REAL?'Изменение численности без найма, увольнения или '+
       'перевода в источнике — сбой данных. Найм, отток и переводы покрывают всё движение людей.':

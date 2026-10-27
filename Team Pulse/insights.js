@@ -248,9 +248,10 @@ function overview(S,rl,bl,all){
    ========================================================================== */
 const CARD={small:30,conc:0.5,show:4};
 const PPL=['человек','человека','человек'], LEAVE=['уход','ухода','уходов'];
-/* в чём считать отклонение — по числителю метрики; null — не люди (дни в офисе) */
+/* в чём считать отклонение — по числителю метрики; null — не люди и не штуки (дни в офисе, дни открытия вакансий:
+   «≈ 171 человек» у срока закрытия — дни × вакансии, ревью критиков 26.10) */
 const NOUN={attrition:LEAVE,regret_cnt:LEAVE,tgrowth_pass:['заявка','заявки','заявок'],
-  vac_closed:['вакансия','вакансии','вакансий'],ovis:null};
+  vac_closed:['вакансия','вакансии','вакансий'],ovis:null,ttf_days:null};
 /* доли не людей: дни в офисе, нарушения брони, заявки T-роста (макет) */
 const NOPPL=new Set(['office_att','booking_viol','tgrowth_conv']);
 const TODO_LEAVE='разобрать уходы: причины и кто уходит';
@@ -313,13 +314,14 @@ function denOf(lp,dv,L){
   ks.forEach(k=>{const e=D.aggregateExt(lp,k);for(let i=y0;i<=L;i++)s+=e[i]||0});
   return dv.win==='sum'?s/(L-y0+1):s;
 }
-/* Отклонение в штуках: |v − ref| в долях знаменателя → {n, noun, win}; не люди — null */
-function excess(key,lp,v,ref,L){
+/* Отклонение в штуках: |v − ref| в долях знаменателя → {n, noun, win}; не люди — null. w — вес для «Где это
+   происходит»: у числителя не в штуках (NOUN null) — |v − ref| × знаменатель, без существительного */
+function excess(key,lp,v,ref,L,w){
   const m=D.METRIC_BY_KEY[key];
   if(v==null||ref==null||NOPPL.has(key))return null;
   if(L==null)L=factL(key);
   const dv=ratioDef(m);
-  if(dv)return NOUN[dv.num]===null?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv,L),noun:NOUN[dv.num]||PPL,win:dv.win};
+  if(dv)return NOUN[dv.num]===null&&!w?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv,L),noun:NOUN[dv.num]||PPL,win:dv.win};
   if(m.fmt==='pct')return {n:Math.abs(v-ref)/100*(D.aggregateExt(lp,'hc_total')[L]||0),noun:PPL,win:m.ytd?'sum':null};
   if(m.fmt==='int')return {n:Math.abs(v-ref),noun:NOUN[key]||PPL,win:null};
   return null;
@@ -340,11 +342,11 @@ function whereOf(f,S){
     if(f.kind==='spike'){
       const a=D.aggregateExt(u.lp,'attrition');let us=0;
       for(let i=L-11;i<L;i++)us+=a[i]||0;
-      r.v=a[L]||0;r.exc=Math.max(0,r.v-us/11);return r;
+      r.v=a[L]||0;r.ref=us/11;r.exc=Math.max(0,r.v-r.ref);return r;
     }
     const e=D.aggregateExt(u.lp,f.key), ref=f.kind==='yoy'?e[L-12]:f.ref;
-    r.v=e[L];
-    if(!r.small&&r.v!=null&&ref!=null&&isBad(m,r.v,ref)){const x=excess(f.key,u.lp,r.v,ref,L);r.exc=x?x.n:0}
+    r.v=e[L];r.ref=ref;
+    if(!r.small&&r.v!=null&&ref!=null&&isBad(m,r.v,ref)){const x=excess(f.key,u.lp,r.v,ref,L,1);r.exc=x?x.n:0}
     return r;
   });
   rows.sort((a,c)=>c.exc-a.exc||c.hc-a.hc);
@@ -403,7 +405,7 @@ function cardOf(f,S,rl,bl){
     else body.push(bad?'Это '+q+' сверх '+w+when+'.':'Это на '+q+' меньше '+w+when+'.');
   }
   const wh=bad&&/^(dev|yoy|spike)$/.test(f.kind)?whereOf(f,S):null;
-  if(wh&&wh.top)body.push((wh.share>=0.8?'Почти всё':'Больше половины')+' — в <b>«'+esc(wh.top.n.name)+'»</b>.');
+  if(wh&&wh.top)body.push((wh.share>=0.8?'Почти вся эта разница':'Больше половины этой разницы')+' — в <b>«'+esc(wh.top.n.name)+'»</b>.');
   if(f.kind==='dev'&&f.pv!=null&&!leave)body.push('Год назад — '+esc(fv(f.pv))+'.');
   if(f.kind==='dev'&&f.tr)body.push(esc(cap(trendWord(m)))+'.');
   let todo='Держать курс: отдельных действий не нужно.';

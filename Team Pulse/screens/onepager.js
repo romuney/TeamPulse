@@ -99,7 +99,8 @@ function insightCard(c){
    строку метрики в «Все метрики». Заглушки — отдельной пилюлей «в разработке». */
 function normOf(S,rl,all){
   const has=new Set(all.map(c=>c.key));
-  return D.METRICS.filter(m=>D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!has.has(m.key)&&D.lastVal(rl,m.key)!=null);
+  /* поток незакрытого месяца «в норме» не бывает: месяц ещё идёт (26.10, ревью критиков) */
+  return D.METRICS.filter(m=>D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!D.partFlow(m.key)&&!has.has(m.key)&&D.lastVal(rl,m.key)!=null);
 }
 function normRow(S,rl,ok){
   const NP=7, dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
@@ -190,7 +191,7 @@ function render(S,openRows){
       '<th class="col-caret">'+U.allCaret('data-opexpall',b.key+'|'+(allOpen?'0':'1'),allOpen,
         'Графики всех метрик блока разом.')+'</th></tr></thead><tbody>';
     bMets.forEach(m=>{
-      const s=D.aggregate(rl,m.key), v=s[D.lastIdx(m.key)], dl=D.deltasOf(rl,m.key);
+      const s=D.aggregate(rl,m.key), v=s[D.lastIdx(m.key)], dl=D.deltasOf(rl,m.key), cl=D.closedOnly(m.key);
       const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
       const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
       /* база помесячно: спарклайн красит КАЖДЫЙ месяц по своему месяцу базы,
@@ -201,8 +202,9 @@ function render(S,openRows){
       t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
         '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+U.matureTag(m.key,true)+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
         '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
-        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:D.CMP.momTip})+'</td>'+
-        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:D.CMP.yoyTip})+'</td>'+
+        /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
+        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip})+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,cl?{vs:D.CMP.yoyShortC,tip:D.CMP.yoyTipC}:{tip:D.CMP.yoyTip})+'</td>'+
         /* Короткая динамика — у всех метрик одним видом, спарклайном (13.10:
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
            точек, ориентир — пунктиром; у метрики без оценки точек нет. */

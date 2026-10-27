@@ -490,7 +490,11 @@ function yoyKey(w,y,col,off,lock,flow){
 /* Незакрытый месяц (20.10): у последнего месяца на оси — по какое число данные: «1–19 окт.»
    у вызревающей метрики (поток за неполный месяц), «19 окт.» у состояния (численность на дату) */
 function nowLabel(lb,key){return CD.PARTIAL?(CD.matures(key)||CD.partFlow(key)?'1–':'')+CD.ASOF.d+' '+CD.MONTH_ABBR_GEN[CD.ASOF.m]:lb}
-const PART_NOTE=()=>'Месяц не закрыт: данные по '+CD.ASOF_LABEL+', значение вырастет к концу месяца.';
+const PART_NOTE=k=>'Месяц не закрыт: данные по '+CD.ASOF_LABEL+(asBars(k)?', значение вырастет к концу месяца.':', значение ещё изменится.');
+/* 26.10, ревью критиков: у неполного месяца потока — период вместо имени месяца и без «год к году» (12 дней против
+   полного месяца давали ложное «−9»); будущие месяцы — «ещё впереди», а не «не закрыт» */
+const tipMon=(i,nowI,pf)=>pf&&i===nowI&&CD.PARTIAL?'1–'+CD.ASOF.d+' '+CD.MONTH_GEN[i]:CD.MONTH_NOM[i].replace(/^./,x=>x.toUpperCase());
+const tipAhead=(i,nowI)=>i>nowI?tipMon(i)+' '+CD.YEAR_CUR+' ещё впереди — показан '+CD.YEAR_PREV:'Месяц ещё не закрыт';
 function yoyAxis(X,bandW,top,bot,nowI,bars,key){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
   let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
@@ -591,11 +595,10 @@ function yoyPlot(p,ar){
     if(showMain&&c!=null&&p.tipRows)p.tipRows(i).forEach(r=>rows.push(r));
     if(showPrev&&pv!=null)rows.push({label:String(yP),value:CD.fmtVal(key,pv),color:C_PREV});
     if(showBench&&b!=null)rows.push({label:p.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
-    const note=part&&i===nowI?PART_NOTE():c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
-      :c==null?'Месяц ещё не закрыт':null;
-    const nmM=CD.MONTH_NOM[i];
+    const pf=part||CD.partFlow(key), note=pf&&i===nowI?PART_NOTE(key):c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
+      :c==null?tipAhead(i,nowI):null;
     const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
-    s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1)+((p.tipName||nm.name)?' · '+(p.tipName||nm.name):''),rows,note})+'>';
+    s+='<g class="ptg" data-mi="'+i+'"'+tip({title:tipMon(i,nowI,pf)+((p.tipName||nm.name)?' · '+(p.tipName||nm.name):''),rows,note})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(ar.hitTop)+'" width="'+num(bandW)+'" height="'+num(bot-ar.hitTop)+'"/>';
     /* акцент главы — крупная залитая точка у линии и светлая полоса за месяцем
        у баров; остальные точки, бары и подписи не приглушаются (13.10: «всё
@@ -714,9 +717,9 @@ function drawPair(a,w,h){
       if(pa!=null)rows.push({label:nameA+' · '+yP,value:CD.fmtVal(A.key,pa),color:C_PREV})}
     if(sB){if(vb!=null)rows.push({label:nameB+' · '+yC,value:CD.fmtVal(B.key,vb),color:fB});
       if(pb!=null)rows.push({label:nameB+' · '+yP,value:CD.fmtVal(B.key,pb),color:C_PREV})}
-    const nmM=CD.MONTH_NOM[i], dly=DRAW_MS*(i/Math.max(1,nowI))*0.5;
-    s+='<g class="ptg" data-mi="'+i+'"'+tip({title:nmM[0].toUpperCase()+nmM.slice(1),rows,
-      note:part&&i===nowI?PART_NOTE():va==null&&vb==null?'Месяц ещё не закрыт':null})+'>';
+    const pf=part||CD.partFlow(A.key), dly=DRAW_MS*(i/Math.max(1,nowI))*0.5;
+    s+='<g class="ptg" data-mi="'+i+'"'+tip({title:tipMon(i,nowI,pf),rows,
+      note:pf&&i===nowI?PART_NOTE(A.key):va==null&&vb==null?tipAhead(i,nowI):null})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
     /* вверх — приход, вниз — уход. Прошлый год — позади, шире и почти прозрачно
        тем же цветом; выключили этот год — прошлый обычными барами */

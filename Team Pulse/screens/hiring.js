@@ -38,7 +38,7 @@ function planTable(lp,S){
     {name:'Закрыто в срок',fmt:'pct',vals:pf.onTime},
     {name:'Среднее время закрытия',fmt:'days',vals:pf.days},
     {name:'Доля закрытых',note:'среди закрытых и открытых',fmt:'pct',vals:pf.share},
-    {sec:'Вакансии на конец месяца · '+D.CMP.cur},
+    {sec:D.PARTIAL?'Вакансии на '+D.ASOF_LABEL:'Вакансии на конец месяца · '+D.CMP.cur},
     {name:'Открыто',fmt:'int',vals:pf.open}]
     .concat(pf.status.map(x=>({name:x.name,note:x.note,fmt:'int',vals:x.vals,sub:true})))
     .concat([
@@ -100,7 +100,7 @@ SC.blocks.hiring={
     const vt=(cap,capSub,items,color,head)=>U.btGroup({cap:cap,capSub:capSub,head:'',valueHead:head,metricKey:'vac_open',
       compact:true,items:items.map(x=>({name:x.name,value:x.value,color:color}))});
     const open=[['Открытые по статусу',vb.status],['Открытые по причине',vb.reason],['Открытые по уровню позиции',vb.pos],
-      ['Открытые по специализации',vb.spec]].filter(x=>x[1].length).map(x=>vt(x[0],'на '+D.CMP.cur,x[1],G.C_VAC,'Вакансий'));
+      ['Открытые по специализации',vb.spec]].filter(x=>x[1].length).map(x=>vt(x[0],'на '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur),x[1],G.C_VAC,'Вакансий'));
     const closed=[['Закрытые по каналу',vb.channel],['Закрытые по уровню кандидата',vb.cand]].filter(x=>x[1].length)
       .map(x=>vt(x[0],'с начала года',x[1],G.C_IN,'Вакансий'));
     return panels+U.btStack(open.slice(0,2))+U.btStack(open.slice(2).concat(closed).slice(0,3))+

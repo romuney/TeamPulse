@@ -20,7 +20,8 @@
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
 const C=G.C_MON;
-const pctOf=(v,t)=>t?(Math.round(v/t*1000)/10).toFixed(1).replace('.',',')+'%':'—';
+/* доля — тем же округлением, что метрика «Недоработчики» (ratioAt → fmtVal): иначе 8,4% и 8,5% за один месяц */
+const pctOf=(v,t)=>t?D.fmtVal('underwork',+(v/t*100).toFixed(2)):'—';
 /* последняя закрытая неделя и предыдущая; в пробнике без витрины по неделям — месяцы */
 function wk(md){const W=md.weeks||md.months;return {cur:W[W.length-1],prev:W[W.length-2]||W[W.length-1]}}
 const NOW_ASK='появится с витриной мониторинга по неделям';
@@ -42,7 +43,7 @@ SC.blocks.monitor={
     const w=wk(md), cur=w.cur, prev=w.prev, sh=v=>pctOf(v,cur.hc)+' численности';
     /* пробник без витрины по неделям: последний закрытый месяц против прошлого, по основной таблице */
     if(md.monthly)return '<div class="mk-cap">Последний закрытый месяц — <b>'+U.esc(cur.full.toLowerCase())+'</b> · изменение — к прошлому месяцу'+
-        ' · активная численность HQ · недели, звонки, прогулы и выходные — с витриной мониторинга</div>'+
+        ' · люди с категорией мониторинга · недели, звонки, прогулы и выходные — когда подключим табель по неделям</div>'+
       '<div class="kpis compact n5 mks">'+[
       U.monKpi({label:'Недоработка',value:cur.under,share:sh(cur.under),delta:cur.under-prev.under,bad:'up',vs:'к прошлому месяцу',
         info:{title:'Недоработка',text:'Сотрудники с активностью ниже нормы (категории low и super_low) в последнем закрытом месяце.'}}),
@@ -75,11 +76,12 @@ SC.blocks.monitor={
   /* колонки таблицы подразделений: последняя закрытая неделя, сортировка по клику на шапку,
      мини-график — доля недо- и переработки от численности недели за 12 закрытых недель */
   cols:[
-    {k:'hc',name:'Чел.',tip:'Активная численность HQ в последней закрытой неделе.',val:md=>wk(md).cur.hc},
-    {k:'under',name:'Недоработка',tip:'Недоработка (low и super_low) в последней закрытой неделе, человек.',val:md=>wk(md).cur.under,share:true},
-    {k:'over',name:'Переработка',tip:'Переработка (high и super_high) в последней закрытой неделе, человек.',val:md=>wk(md).cur.over,share:true},
+    /* 26.10, ревью критиков: знаменатель — люди с категорией мониторинга, а не «активная численность HQ» (343 > 337) */
+    {k:'hc',name:'В мониторинге, чел.',tip:'Люди с категорией мониторинга в последнем закрытом периоде: норма, недоработка, переработка, не размечено.',val:md=>wk(md).cur.hc},
+    {k:'under',name:'Недоработка',tip:'Активность ниже нормы в последнем закрытом периоде, человек.',val:md=>wk(md).cur.under,share:true},
+    {k:'over',name:'Переработка',tip:'Активность выше нормы в последнем закрытом периоде, человек.',val:md=>wk(md).cur.over,share:true},
     {k:'talk',name:'Толк 20–30%',tip:'Сотрудники, у которых звонки в Толк занимают 20–30% рабочего времени.',val:md=>md.monthly?null:wk(md).cur.t23,share:true},
-    {k:'spark',name:'Динамика, %',tip:'Доля недоработки (оранжевая) и переработки (красная) от численности: 12 закрытых недель (в пробнике без витрины по неделям — 6 месяцев).',
+    {k:'spark',name:'Динамика, %',tip:'Доля недоработки (оранжевая) и переработки (красная): 12 закрытых недель, а пока недельных данных нет — 6 закрытых месяцев.',
       spark:md=>{const W=(md.weeks||md.months).slice(-12), n=W.length-1, u=W.map(x=>x.hc?x.under/x.hc*100:null), o=W.map(x=>x.hc?x.over/x.hc*100:null);
         const f=v=>v==null?'—':(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%';
         return U.miniLines([{vals:u,color:C.under},{vals:o,color:C.over}],{tip:{title:md.weeks?'12 закрытых недель':'6 закрытых месяцев',

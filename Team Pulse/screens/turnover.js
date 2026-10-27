@@ -87,8 +87,10 @@ SC.blocks.turnover={
          стоит подписью прямо над ней (правило 10f). */
       const rs=D.exitReasons(lp,'ytd');
       const initName=k=>(D.EXIT_INITIATORS.find(x=>x.key===k)||{}).name||'';
+      /* 26.10, ревью критиков: у причины — и число нежелательных («нежелат. 9»): ★ одна не раскладывала 17 нежелательных */
       const reasonInit=r=>{const sp=r.split||{}, ks=Object.keys(sp).filter(k=>Math.round(sp[k])>0);
-        return ks.length>1?ks.map(k=>INI_SHORT[k].toLowerCase()+' '+Math.round(sp[k])).join(' · '):initName(ks[0]||r.init).toLowerCase()};
+        return (ks.length>1?ks.map(k=>INI_SHORT[k].toLowerCase()+' '+Math.round(sp[k])).join(' · '):initName(ks[0]||r.init).toLowerCase())+
+          (r.regretN?' · нежелат. '+r.regretN:'')};
       /* Инициатор раскрывается в топ-3 своих причин (14.10, заказчик): строка
          инициатора — сумма причин, под ней три самые частые. Состояние — в том
          же наборе раскрытых строк, что у стримов (ключи «exitinit:…»). */
@@ -108,7 +110,7 @@ SC.blocks.turnover={
         U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Человек',metricKey:'attrition',sort:true,compact:true,
           items:rs.map(r=>({name:r.name,note:reasonInit(r),value:r.value,
             mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+
-        '<div class="tbl-note">★ — нежелательный уход: причина, на которую компания могла повлиять. '+
+        '<div class="tbl-note">'+(rs.some(r=>r.regret)?'★ — у причины больше половины уходов нежелательные. ':'')+
         'ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+').</div>';
     }
     if(ctx.sub==='who'){
@@ -117,16 +119,20 @@ SC.blocks.turnover={
          в подписи, чтобы не складывать две строки в уме. */
       const ex=D.exitProfile(lp,'ytd');
       const early=ex.tenure.filter(t=>t.early).reduce((a,t)=>a+t.value,0);
-      const grp=(cap,sub,items,sort,top)=>U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'Человек',
-        metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>({name:x.name,value:x.value,color:G.C_OUT})),
-        top:top?top.n:0,restWord:top?top.word:null});
+      /* 26.10, ревью критиков: под строкой — доля группы в команде; уходят чаще своей доли (×1,2 и на 3 человека
+         больше ожидаемого) — сказано прямо */
+      const grp=(cap,sub,items,dim,sort,top)=>{const ts=D.teamShare(lp,dim);return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'Человек',
+        metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>{const t=ts[x.name], e=t*ex.total;
+          return {name:x.name,note:t!=null?'в команде '+U.pct(t*100)+(x.value>=1.2*e&&x.value-e>=3?' · уходят чаще своей доли':''):'',value:x.value,color:G.C_OUT}}),
+        top:top?top.n:0,restWord:top?top.word:null})};
       return U.btStack([
         grp('Стаж на момент ухода',ytd+(ex.total?' · ранний уход, до года: '+D.fmtInt(early)+' чел, '+
-          U.pct(early/ex.total*100):''),ex.tenure),
-        grp('Грейд',ytd,ex.grade),
+          U.pct(early/ex.total*100):''),ex.tenure,'tenure'),
+        grp('Грейд',ytd,ex.grade,'grade'),
         /* стримов на верхних уровнях десятки — первые 8 и «Остальные» (16.10) */
-        grp('Стрим',ytd,ex.stream,true,{n:8,word:['стрим','стрима','стримов']})])+
-        '<div class="tbl-note">ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+'). Стаж и грейд — на дату ухода.</div>';
+        grp('Стрим',ytd,ex.stream,'stream',true,{n:8,word:['стрим','стрима','стримов']})])+
+        '<div class="tbl-note">ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+'). Стаж и грейд — на дату ухода, доля в команде — '+
+        'по численности на последний месяц.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся
        только отток, потому что отток — счётные люди за месяц. Все три — год

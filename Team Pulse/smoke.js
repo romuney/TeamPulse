@@ -234,7 +234,9 @@ checks.push(['нулевое изменение — просто ноль',
 /* у срока закрытия рост плохой, у «улучшили оценку» — хороший, у численности (better:flat) без
    оценки; 20.10: у вызревающей метрики (текучесть за незакрытый месяц) — без оценки, пунктиром */
 checks.push(['знак говорит направление, класс — оценку',
-  /delta down/.test(U.deltaChip('time_to_fill',1.4))&&/delta up/.test(U.deltaChip('time_to_fill',-1.4))&&
+  /* 26.10, ревью критиков: срок закрытия — поток незакрытого месяца (PART_FLOW), направление проверяем на нежелательной */
+  /delta down/.test(U.deltaChip('regret',1.4))&&/delta up/.test(U.deltaChip('regret',-1.4))&&
+  (!D.PARTIAL||/delta neu"/.test(U.deltaChip('time_to_fill',1.4)))&&
   /delta up/.test(U.deltaChip('review_up',3))&&/delta neu/.test(U.deltaChip('hc_total',3))&&
   /* 21.10, правка Антона: вызревают только regrettable, non-regrettable и проникновение AI; поток за
      незакрытый месяц — без оценки, но и без метки «вызревает» */
@@ -262,8 +264,10 @@ checks.push(['минус во всех дельтах типографский, 
     opHtml.indexOf('>К '+D.CMP.momFull.slice(2)+'</th>')>0&&
     opHtml.indexOf('>К '+D.CMP.yoy.slice(2)+'</th>')>0]);
   /* в строках таблицы месяц не повторяется: он уже назван в шапке */
+  /* 26.10, ревью критиков: кроме строк по закрытому месяцу — у них месяц не тот, что в шапке, и он подписан в пилюле */
   checks.push(['в колонках таблицы месяц не дублируется у каждой строки',
-    !/class="d-vs"/.test(opHtml.split('<table class="mtable"').slice(1).join(''))]);
+    opHtml.split('<table class="mtable"').slice(1).join('').split('<tr class="mrow').slice(1)
+      .every(r=>!/class="d-vs"/.test(r)||D.closedOnly(r.match(/data-metric="(\w+)"/)[1]))]);
 
   /* Строка one-pager раскрывает график — и об этом теперь говорит каретка */
   checks.push(['у строки one-pager есть каретка раскрытия справа',
@@ -1512,10 +1516,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['выводы: до восьми, по тяжести, внутри — по людям сверх ориентира; заглушек нет',
     cs.length<=8&&cs.every((c,i,a)=>!i||rank[a[i-1].sev]<rank[c.sev]||(a[i-1].sev===c.sev&&a[i-1].ppl>=c.ppl))&&
     cs.every(c=>!D.isStub(c.key))]);
+  /* 26.10, ревью критиков: у метрик не о людях (срок закрытия в днях) — без «≈ N человек разницы» */
+  checks.push(['«≈ N человек» — только у метрик о людях',cs.filter(c=>c.key==='time_to_fill').every(c=>!/человек/.test(c.body.join(' ')))]);
   /* подразделение названо, только если у него больше половины отклонения; < 30 — вклада нет */
   const wh=cs.filter(c=>c.where);
   checks.push(['«где»: имя подразделения — только при > 50% отклонения, команды меньше 30 человек не оцениваются',
-    cs.every(c=>/Больше половины|Почти всё/.test(c.body)===!!(c.where&&c.where.top))&&
+    cs.every(c=>/Больше половины этой разницы|Почти вся эта разница/.test(c.body)===!!(c.where&&c.where.top))&&
     wh.every(c=>c.where.rows.every(r=>!r.small||!r.exc||c.fact.kind==='spike')&&(!c.where.top||c.where.top.exc/c.where.tot>0.5))&&
     cs.every(c=>!c.where||!c.where.top||c.btn.go===c.block+'|'+c.where.top.n.path)]);
   /* отчёт меньше 30 человек: доли не оцениваются — в выводах нет процентных метрик */
@@ -1744,6 +1750,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
   BAN.forEach(re=>{const m=text.match(new RegExp(re.source,re.flags.replace('g','')+'g'));if(m)hits.push(...new Set(m))});
   if(hits.length)console.log('    найдено:',hits.slice(0,12).join(' | '));
   checks.push(['тексты для руководителя: без технических имён и старых названий (TEXT_GUIDE.md)',!hits.length]);
+  /* 26.10, ревью критиков: пока месяц идёт, «за октябрь» не пишем — «1–12 октября», «на 12 октября» */
+  const curNom=D.MONTH_NOM[D.ASOF.m], partHit=D.PARTIAL&&new RegExp('[Зз]а '+curNom+'(?!я)').exec(allHtml);
+  if(partHit)console.log('    найдено:',allHtml.slice(Math.max(0,partHit.index-60),partHit.index+40).replace(/<[^>]+>/g,''));
+  checks.push(['неполный месяц в прозе — периодом, а не «за '+curNom+'»',!partHit]);
   /* одно понятие — одно название: имя метрики в карточке, таблице и подсказке берётся из METRICS */
   const names=D.METRICS.map(m=>m.name);
   checks.push(['словарь: названия метрик уникальны и совпадают с TEXT_GUIDE.md',

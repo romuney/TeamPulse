@@ -283,18 +283,24 @@ function wherePanel(sum,mainK,S,rootNode){
   /* 23.10, Антон: полоса в шкале 0–100% — доля вклада в отклонение, доля от суммы по подразделениям или сам процент */
   const top=rows.slice(0,4), max=Math.max(1e-9,...top.map(r=>c?r.exc:small(r)?0:Math.abs(r.v||0)));
   const tot=c?c.where.tot:rows.reduce((a,r)=>a+(small(r)||r.v==null?0:Math.abs(r.v)),0);
-  let h='<div class="bk-wh"><div class="bk-wt">Где это происходит</div><div class="bk-ws">'+(c?'Подразделения по вкладу в отклонение: «'+esc(m.name)+'»'
+  /* 26.10, ревью критиков: в режиме вклада число — доля в разнице (ровно то, что кодирует полоса), значение и ориентир —
+     серой строкой; без вклада (значение не хуже ориентира) — прочерк. Месяц вывода назван, если он не последний */
+  const fc=c&&c.fact, rw=fc&&(fc.kind==='yoy'?'год назад':fc.kind==='spike'?'обычно':fc.kpi?'цель':'база');
+  const fk=fc&&fc.kind==='spike'?'attrition':key;
+  let h='<div class="bk-wh"><div class="bk-wt">Где это происходит</div><div class="bk-ws">'+(c?'Доля в разнице с '+
+    (fc.kind==='yoy'?'прошлым годом':fc.kind==='spike'?'обычным уровнем':fc.kpi?'целью':'базой')+': «'+esc(m.name)+'»'+(fc.mon?' · за '+fc.mon:'')
     :'Подразделения по метрике «'+esc(m.name)+'»')+'</div>';
   if(!rows.length)h+='<div class="bk-wn">У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры по команде.</div>';
   top.forEach(r=>{
     const w=(c?Math.min(100,r.exc/tot*100):small(r)?0:U.barW(key,Math.abs(r.v||0),tot,max))/100, hd=r.n.head;
     h+='<button class="bk-wr" data-wsel="'+esc(r.n.path)+'"'+(small(r)?U.tipAttr({title:r.n.name,text:'Меньше '+INS.CARD.small+' человек: доли не оцениваем — слишком мало людей.'}):'')+'>'+
-      '<span class="bk-wu"><b>'+esc(r.n.name)+'</b><span>'+D.fmtInt(r.hc)+' чел'+(hd&&hd.login?' · '+esc(hd.login):'')+'</span></span>'+
-      '<span class="bk-wv">'+(small(r)||r.v==null?'—':D.fmtVal(key,r.v))+'</span>'+
+      '<span class="bk-wu"><b>'+esc(r.n.name)+'</b><span>'+D.fmtInt(r.hc)+' чел'+(hd&&hd.login?' · '+esc(hd.login):'')+'</span>'+
+      (c&&!small(r)&&r.v!=null?'<span>'+D.fmtVal(fk,r.v)+(r.ref!=null?' · '+rw+' '+D.fmtVal(fk,r.ref):'')+'</span>':'')+'</span>'+
+      '<span class="bk-wv">'+(small(r)||r.v==null?'—':c?(r.exc>0?Math.round(r.exc/tot*100)+'%':'—'):D.fmtVal(key,r.v))+'</span>'+
       '<span class="bk-wb"><i class="'+(c?c.sev:'n')+'" style="width:'+(w*100).toFixed(1)+'%"></i></span></button>';
   });
   return h+'<button class="bk-more" data-blkjump="1">'+(rows.length>top.length?'Ещё '+(rows.length-top.length)+' — ':'Подробнее — ')+
-    'в таблице подразделений ниже ↓</button></div>';
+    'в таблице подразделений ниже'+(fc&&fc.mon&&D.partFlow(key)?' (там — по '+D.ASOF_SHORT+')':'')+' ↓</button></div>';
 }
 
 /* ---------- рендер детальной вкладки ----------
@@ -438,10 +444,14 @@ function renderBlock(S,expanded,mixOpen,view){
      Колонки «К базе» / «К цели KPI» больше нет (итерация 32, заказчик: «непонятно,
      по какой логике он появляется»). Ориентир — база или цель — живёт в
      KPI-карточках над таблицей и на графиках главы. */
-  const tcell=(c,md,lead)=>{
+  /* 26.10, ревью критиков (правило UI-24, как у карточек): у подразделения меньше 30 человек доли не оцениваем —
+     прочерк; численность и счётчики остаются */
+  const SMALL=INS.CARD.small, smallTd=hc=>'<td'+U.tipAttr({title:'Меньше '+SMALL+' человек',text:'Доли не оцениваем: один человек сдвигает долю на '+
+    D.fmtVal('turnover_m',+(100/hc).toFixed(1))+'.'})+'>—</td>';
+  const tcell=(c,md,lead,unit)=>{
     if(!md)return '<td>—</td>';
-    if(c.spark)return '<td class="sp">'+c.spark(md)+'</td>';
-    const v=c.val(md), hc=tcols[0].val(md);
+    const v=c.val&&c.val(md), hc=tcols[0].val(md);
+    if(c.spark)return unit&&hc&&hc<SMALL?smallTd(hc):'<td class="sp">'+c.spark(md)+'</td>';
     if(v==null)return '<td'+U.tipAttr({title:c.name,text:'Появится с витриной мониторинга по неделям.'})+'>—</td>';
     return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+D.fmtInt(v)+'</td>';
   };
@@ -494,9 +504,9 @@ function renderBlock(S,expanded,mixOpen,view){
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
-      (tcols?tcols.map((c,i)=>tcell(c,tdata(lp),i===1)).join('')
-      :mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+
-        (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>').join(''))+'</tr>';
+      (tcols?tcols.map((c,i)=>tcell(c,tdata(lp),i===1,1)).join('')
+      :mets.map(m=>{const hc=val(lp,'hc_total');return m.fmt==='pct'&&hc&&hc<SMALL?smallTd(hc):'<td'+(m.key===mainK?' class="lead"':'')+'>'+
+        (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>'}).join(''))+'</tr>';
   });
   /* пустые состояния — строкой в таблице, а не вместо неё: ИТОГО остаётся */
   const ncol=1+(tcols?tcols.length:mets.length);

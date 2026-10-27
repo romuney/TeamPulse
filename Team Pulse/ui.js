@@ -126,7 +126,8 @@ function deltaChip(key,dv,o){
   if(D.matures(key)&&!D.closedOnly(key))return '<span class="delta neu part"'+tipAttr(D.MATURE_TIP)+'>'+txt+vs+'</span>';
   /* поток за незакрытый месяц (21.10): без метки «вызревает», но и без оценки — месяц ещё идёт */
   if(D.partFlow(key))return '<span class="delta neu"'+tipAttr(D.PART_TIP)+'>'+txt+vs+'</span>';
-  if(m.better==='flat')return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
+  /* заглушку не оцениваем и цветом пилюли (ревью критиков 26.10) */
+  if(m.better==='flat'||D.isStub(key))return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=m.better==='lower'?dv<0:dv>0;
   return '<span class="delta '+(good?'up':'down')+'"'+at+'>'+txt+vs+'</span>';
 }
@@ -294,14 +295,15 @@ function targetCell(key,val,baseVal,kpi){
     const st=D.stateForKpi(key,val,kpi), m=D.METRIC_BY_KEY[key];
     const badTxt=m.better==='lower'?'выше порога':'ниже порога';
     return '<div class="tgt"><span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'+
-      '<span class="sig-chip '+st+'">'+(st==='good'?'в цели':st==='warn'?'зона риска':badTxt)+'</span></div>';
+      /* 26.10, ревью критиков: без оценки (заглушка) — «без оценки», а не «ниже порога» при 157,6% от цели */
+      '<span class="sig-chip '+st+'">'+(st==='good'?'в цели':st==='warn'?'зона риска':st==='bad'?badTxt:'без оценки')+'</span></div>';
   }
   if(!D.comparable(key))return '<div class="tgt">'+noCmpMark()+'</div>';
   if(baseVal==null)return '<div class="tgt">—</div>';
   const st=D.compareState(key,val,baseVal), diff=val-baseVal, m=D.METRIC_BY_KEY[key];
   const lbl=m.better==='flat'
     ? (Math.abs(diff)<0.05?'как база':(diff>0?'выше базы':'ниже базы'))
-    : (st==='good'?'лучше базы':st==='bad'?'хуже базы':'на уровне');
+    : (st==='good'?'лучше базы':st==='bad'?'хуже базы':st==='warn'?'на уровне':'без оценки');
   return '<div class="tgt"><b>'+D.fmtVal(key,baseVal)+'</b><span class="sig-chip '+st+'">'+lbl+'</span></div>';
 }
 
@@ -1002,11 +1004,12 @@ function blockNav(items){
 function trafficLegend(){
   /* два цвета и серый: жёлтого в светофоре нет. «На уровне ±5%» и «без оценки»
      делят один серый — оба означают «повода вмешиваться нет». */
-  return '<div class="legend"><span class="sw"><span class="dot" style="background:#bff2cd"></span>лучше ориентира</span>'+
-    '<span class="sw"><span class="dot" style="background:#ffcccc"></span>хуже ориентира</span>'+
+  /* 26.10, ревью критиков: цвет пилюль изменений — к прошлому периоду, а не к ориентиру */
+  return '<div class="legend"><span class="sw"><span class="dot" style="background:#bff2cd"></span>лучше</span>'+
+    '<span class="sw"><span class="dot" style="background:#ffcccc"></span>хуже</span>'+
     '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне (±5%) или без оценки</span>'+
     '<span class="sw lg-note"'+tipAttr({title:'Ориентир',text:'Цель KPI, а где её нет — база: та же метрика по всей компании с теми же фильтрами.'})+
-    '>ориентир — цель KPI или база</span></div>';
+    '>к ориентиру — в колонке «Ориентир», к прошлому периоду — в колонках изменений</span></div>';
 }
 
 /* ============================================================================
