@@ -1377,6 +1377,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;padding:0 1px}
 /* предки находок — контекст, а не результат: тише */
 .ptable tr.urow.anc td.txt .row-body{color:var(--muted)}
+.ptable td.small-n,.ptable.dense td.lead.small-n{color:var(--muted)}
+.ptable td.small-n svg{opacity:.5}
+.ptable tr.tree-note td.txt{padding:var(--s4) var(--pad-cell);color:var(--muted);font-size:var(--fs-note);white-space:normal;cursor:default}
+.bk-wv.sm-n{color:var(--muted);font-weight:var(--fw-body)}
 .ptable tr.tree-empty td.txt{padding:var(--s8) var(--pad-cell);color:var(--muted);white-space:normal;cursor:default}
 
 /* ---------- Путь над отчётом: «← Назад» и «↑ Уровнем выше» ---------- */
@@ -2017,6 +2021,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 :root{--row-h:36px;--row-sec-h:28px;--bar-h:10px;--bar-r:2px;--bar-track:#f1f3f6}
 #view .ptable>tbody>tr>td{height:var(--row-h);padding-top:0;padding-bottom:0;vertical-align:middle;line-height:1.25}
 #view .ptable>tbody>tr.st-sec>td,#view .ptable>tbody>tr.hx-sec>td{height:var(--row-sec-h);padding-top:0;padding-bottom:var(--s2);vertical-align:bottom}
+#view .ptable>tbody>tr.tree-note>td{height:auto}
 #view .ptable>tbody>tr.tree-empty>td{height:auto;padding-top:var(--s6);padding-bottom:var(--s6);white-space:normal}
 /* матрица: клетки с зазором 2px — сама клетка на 2px ниже, шаг строки тот же */
 #view .mxtable>tbody>tr>td{height:calc(var(--row-h) - 2px)}
@@ -9238,10 +9243,12 @@ function wherePanel(sum,mainK,S,rootNode){
   if(!rows.length)h+='<div class="bk-wn">У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры по команде.</div>';
   top.forEach(r=>{
     const w=(c?Math.min(100,r.exc/tot*100):small(r)?0:U.barW(key,Math.abs(r.v||0),tot,max))/100, hd=r.n.head;
-    h+='<button class="bk-wr" data-wsel="'+esc(r.n.path)+'"'+(small(r)?U.tipAttr({title:r.n.name,text:'Меньше '+INS.CARD.small+' человек: доли не оцениваем — слишком мало людей.'}):'')+'>'+
+    /* 27.10: у команды меньше 30 человек значение видно (серым), но во вклад и в рейтинг она не идёт */
+    h+='<button class="bk-wr" data-wsel="'+esc(r.n.path)+'"'+(small(r)?U.tipAttr({title:r.n.name,text:'Меньше '+INS.CARD.small+
+      ' человек: доля неустойчивая — во вклад и в сравнение не идёт.'}):'')+'>'+
       '<span class="bk-wu"><b>'+esc(r.n.name)+'</b><span>'+D.fmtInt(r.hc)+' чел'+(hd&&hd.login?' · '+esc(hd.login):'')+'</span>'+
-      (c&&!small(r)&&r.v!=null?'<span>'+D.fmtVal(fk,r.v)+(r.ref!=null?' · '+rw+' '+D.fmtVal(fk,r.ref):'')+'</span>':'')+'</span>'+
-      '<span class="bk-wv">'+(small(r)||r.v==null?'—':c?(r.exc>0?Math.round(r.exc/tot*100)+'%':'—'):D.fmtVal(key,r.v))+'</span>'+
+      (c&&r.v!=null?'<span>'+D.fmtVal(fk,r.v)+(r.ref!=null?' · '+rw+' '+D.fmtVal(fk,r.ref):'')+'</span>':'')+'</span>'+
+      '<span class="bk-wv'+(small(r)?' sm-n':'')+'">'+(r.v==null?'—':small(r)?(c?'':D.fmtVal(key,r.v)):c?Math.round(r.exc/tot*100)+'%':D.fmtVal(key,r.v))+'</span>'+
       '<span class="bk-wb"><i class="'+(c?c.sev:'n')+'" style="width:'+(w*100).toFixed(1)+'%"></i></span></button>';
   });
   return h+'<button class="bk-more" data-blkjump="1">'+(rows.length>top.length?'Ещё '+(rows.length-top.length)+' — ':'Подробнее — ')+
@@ -9389,14 +9396,16 @@ function renderBlock(S,expanded,mixOpen,view){
      Колонки «К базе» / «К цели KPI» больше нет (итерация 32, заказчик: «непонятно,
      по какой логике он появляется»). Ориентир — база или цель — живёт в
      KPI-карточках над таблицей и на графиках главы. */
-  /* 26.10, ревью критиков (правило UI-24, как у карточек): у подразделения меньше 30 человек доли не оцениваем —
-     прочерк; численность и счётчики остаются */
-  const SMALL=INS.CARD.small, smallTd=hc=>'<td'+U.tipAttr({title:'Меньше '+SMALL+' человек',text:'Доли не оцениваем: один человек сдвигает долю на '+
-    D.fmtVal('turnover_m',+(100/hc).toFixed(1))+'.'})+'>—</td>';
+  /* 26.10, ревью критиков (правило UI-24, как у карточек): у подразделения меньше 30 человек доля неустойчива. 27.10:
+     значение не прячем (прочерк читался как пропавшие данные) — серым, с подсказкой и строкой-пояснением под таблицей */
+  const SMALL=INS.CARD.small, isSm=hc=>hc&&hc<SMALL;
+  let anySm=false;
+  const smAttr=(hc,cls)=>{anySm=true;return ' class="small-n'+(cls?' '+cls:'')+'"'+U.tipAttr({title:'Меньше '+SMALL+' человек',
+    text:'Один человек сдвигает долю на '+(100/hc).toFixed(1).replace('.',',')+' п.п.'})};
   const tcell=(c,md,lead,unit)=>{
     if(!md)return '<td>—</td>';
     const v=c.val&&c.val(md), hc=tcols[0].val(md);
-    if(c.spark)return unit&&hc&&hc<SMALL?smallTd(hc):'<td class="sp">'+c.spark(md)+'</td>';
+    if(c.spark)return '<td'+(unit&&isSm(hc)?smAttr(hc,'sp'):' class="sp"')+'>'+c.spark(md)+'</td>';
     if(v==null)return '<td'+U.tipAttr({title:c.name,text:'Появится с витриной мониторинга по неделям.'})+'>—</td>';
     return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+D.fmtInt(v)+'</td>';
   };
@@ -9450,7 +9459,8 @@ function renderBlock(S,expanded,mixOpen,view){
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
       (tcols?tcols.map((c,i)=>tcell(c,tdata(lp),i===1,1)).join('')
-      :mets.map(m=>{const hc=val(lp,'hc_total');return m.fmt==='pct'&&hc&&hc<SMALL?smallTd(hc):'<td'+(m.key===mainK?' class="lead"':'')+'>'+
+      :mets.map(m=>{const hc=val(lp,'hc_total'), ld=m.key===mainK?'lead':'';
+        return '<td'+(m.fmt==='pct'&&isSm(hc)&&!D.directNA(r.n,m.key)?smAttr(hc,ld):ld?' class="lead"':'')+'>'+
         (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>'}).join(''))+'</tr>';
   });
   /* пустые состояния — строкой в таблице, а не вместо неё: ИТОГО остаётся */
@@ -9458,6 +9468,8 @@ function renderBlock(S,expanded,mixOpen,view){
   if(!rows.length)tbl+='<tr class="tree-empty"><td class="txt" colspan="'+ncol+'">'+
     (tq?'В трёх уровнях вниз нет «'+esc(tq)+'». Другое подразделение компании выберите в «Настрой свой дашборд».'
       :'У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры в строке ИТОГО.')+'</td></tr>';
+  if(anySm)tbl+='<tr class="tree-note"><td class="txt" colspan="'+ncol+'">Серым — доли подразделений меньше '+SMALL+
+    ' человек: они неустойчивые.</td></tr>';
   tbl+='</tbody></table>';
   /* Подсказка о глубине — в подзаголовке панели: три уровня вниз, глубже —
      переходом. Пока взят срез состава, подзаголовок говорит о нём. */

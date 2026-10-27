@@ -1369,6 +1369,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;padding:0 1px}
 /* предки находок — контекст, а не результат: тише */
 .ptable tr.urow.anc td.txt .row-body{color:var(--muted)}
+.ptable td.small-n,.ptable.dense td.lead.small-n{color:var(--muted)}
+.ptable td.small-n svg{opacity:.5}
+.ptable tr.tree-note td.txt{padding:var(--s4) var(--pad-cell);color:var(--muted);font-size:var(--fs-note);white-space:normal;cursor:default}
+.bk-wv.sm-n{color:var(--muted);font-weight:var(--fw-body)}
 .ptable tr.tree-empty td.txt{padding:var(--s8) var(--pad-cell);color:var(--muted);white-space:normal;cursor:default}
 
 /* ---------- Путь над отчётом: «← Назад» и «↑ Уровнем выше» ---------- */
@@ -2009,6 +2013,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 :root{--row-h:36px;--row-sec-h:28px;--bar-h:10px;--bar-r:2px;--bar-track:#f1f3f6}
 #view .ptable>tbody>tr>td{height:var(--row-h);padding-top:0;padding-bottom:0;vertical-align:middle;line-height:1.25}
 #view .ptable>tbody>tr.st-sec>td,#view .ptable>tbody>tr.hx-sec>td{height:var(--row-sec-h);padding-top:0;padding-bottom:var(--s2);vertical-align:bottom}
+#view .ptable>tbody>tr.tree-note>td{height:auto}
 #view .ptable>tbody>tr.tree-empty>td{height:auto;padding-top:var(--s6);padding-bottom:var(--s6);white-space:normal}
 /* матрица: клетки с зазором 2px — сама клетка на 2px ниже, шаг строки тот же */
 #view .mxtable>tbody>tr>td{height:calc(var(--row-h) - 2px)}
