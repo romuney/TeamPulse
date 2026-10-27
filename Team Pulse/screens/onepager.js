@@ -161,8 +161,8 @@ function render(S,openRows){
   h+='<div id="op-all"></div>';
   /* Готовность к живым данным (14.10): сколько метрик уже считается из
      источника и что подключать дальше — одной строкой, план раскрывается. */
-  const live=D.METRICS.filter(m=>!D.isDev(m.key)).length;
-  if(live<D.METRICS.length)h+=U.devSummary({live,total:D.METRICS.length,plan:D.DEV_PLAN});
+  const live=D.SHOWN.filter(m=>!D.isDev(m.key)).length;
+  if(live<D.SHOWN.length)h+=U.devSummary({live,total:D.SHOWN.length,plan:D.DEV_PLAN});
   h+=U.trafficLegend();
 
   /* мини-навигация по блокам: липкая, с точкой худшего сигнала */
@@ -187,8 +187,9 @@ function render(S,openRows){
       '<col style="width:19%"><col style="width:28px"></colgroup>'+
       '<thead><tr><th>Метрика</th><th class="num">Значение</th>'+
       /* 23.10, заказчик: шапки — в одну строку; «за месяц / за год» — месяцем сравнения, пояснение — в подсказке */
-      '<th class="num"'+U.tipAttr({title:'За месяц',text:'Изменение '+D.CMP.momFull+'.'})+'>'+esc(cap1(D.CMP.momFull))+'</th>'+
-      '<th class="num"'+U.tipAttr({title:'За год',text:'Изменение '+D.CMP.yoy+'.'})+'>'+esc(cap1(D.CMP.yoy))+'</th><th class="mid">12 мес</th>'+
+      /* 27.10-в, п. 1: шапки — MoM и YoY; месяцы сравнения — в подсказке */
+      '<th class="num"'+U.tipAttr({title:'MoM — месяц к месяцу',text:'Изменение '+D.CMP.momFull+'.'})+'>MoM</th>'+
+      '<th class="num"'+U.tipAttr({title:'YoY — год к году',text:'Изменение '+D.CMP.yoy+'.'})+'>YoY</th><th class="mid">12 мес</th>'+
       '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Цель KPI, а где её нет — база.'})+'>Ориентир</th>'+
       /* Общая каретка стоит над колонкой строчных кареток: строки блока
          раскрывают графики по одной, и раскрыть их разом должно быть можно

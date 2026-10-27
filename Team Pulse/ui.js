@@ -1064,14 +1064,16 @@ function planTable(groups){
   return '<label>План Team Pulse 2.0</label><div class="fhint">Всё, что есть в дашбордах HQ и УС, — по блокам отчёта.</div>'+
     '<ul class="plan-lg">'+
       '<li><span class="live-tag ok">✓ сверены</span> настоящие и сверены с мастер-источником: число в отчёте совпадает с ним — '+n.ok+'</li>'+
-      '<li><span class="live-tag bad">расхождение</span> настоящие, но с мастер-источником пока не сходятся — '+n.bad+'</li>'+
+      /* 27.10-в, п. 10: расхождений не осталось — пункт легенды только когда они есть */
+      (n.bad?'<li><span class="live-tag bad">расхождение</span> настоящие, но с мастер-источником пока не сходятся — '+n.bad+'</li>':'')+
       '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+(n.live-n.ok-n.bad)+'</li>'+
       '<li><span class="plan-tag data">данные есть</span> данные пришли, графика ещё нет — '+n.data+'</li>'+
       '<li>'+devTag(null,false)+' в отчёте есть, цифры пока условные — '+n.dev+'</li>'+
       '<li><span class="plan-tag todo">добавить</span> в отчёте ещё нет — '+n.todo+'</li>'+
       '<li><span class="plan-tag extra">решить</span> в отчёте есть, в дашбордах HQ и УС нет — '+n.extra+'</li></ul>'+
     '<table class="plan-t"><thead><tr><th>Что</th><th>Для кого</th><th>Сейчас</th><th>Откуда · что нужно</th></tr></thead><tbody>'+
-    groups.map(g=>'<tr class="plan-g"><td colspan="4">'+esc(g.blk)+'</td></tr>'+g.rows.map(r=>{
+    /* 27.10-в, п. 12–13: строки следующих релизов (next) в плане не показываем */
+    groups.map(g=>'<tr class="plan-g"><td colspan="4">'+esc(g.blk)+'</td></tr>'+g.rows.filter(r=>!r.next).map(r=>{
       const st=D.devPlan(r.stage), src=r.src||(st?st.src:''), need=r.need||(r.now!=='live'&&st&&st.need!=='—'?st.need:'');
       return '<tr class="plan-'+r.now+'"><td>'+esc(r.what)+'</td><td><span class="aud-tag '+r.aud+'">'+esc(D.AUD_LABEL[r.aud])+
         '</span></td><td>'+planNow(r)+'</td><td>'+(r.stage&&r.stage!=='0'&&r.stage!=='—'&&r.now!=='live'?'<b>этап '+esc(r.stage)+'</b> · ':'')+

@@ -57,6 +57,10 @@ root.style.cssText='position:absolute;left:0;top:0;width:100%;height:100%;overfl
 if(host!==document.body&&getComputedStyle(host).position==='static')host.style.position='relative';
 host.appendChild(root);
 root.innerHTML=TP_HTML;
+/* 27.10-в, п. 22: высота плитки дашборда — левая навигация по ней, а не по окну браузера (100vh больше плитки, и низ
+   навигации уходил за край); прокручивается содержимое, навигация видна целиком */
+const vh=()=>root.style.setProperty('--vh',root.clientHeight+'px');
+vh();window.addEventListener('resize',vh);store.listeners.push({t:window,type:'resize',fn:vh});
 
 window.TP_REAL=window.TPREAL.build(typeof data!=='undefined'?data:[]);
 /* поставка 69: нет зоны доступа — экран «Нет доступа», дальше отчёт не собирается (tpStop ловит обёртка сборки) */

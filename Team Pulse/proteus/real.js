@@ -85,14 +85,18 @@ function parseArr(s,n){
 }
 function ym(s){const p=str(s).split('-');return {y:+p[0]||1970,m:(+p[1]||1)-1}}
 function invert(o){const r={};Object.keys(o).forEach(k=>{r[o[k]]=k});return r}
-/* разрезы юнита: «ключ \t значение \t число» через \n → {ключ:{значение:число}} */
+/* разрезы юнита: «ключ \t значение \t число» через \n → {ключ:{значение:число}}.
+   27.10-в, п. 19: грейды 20 и выше — одной категорией «20+» (состав, уходы и найм по грейду) */
+const GRADE_MX={gr:1,xg:1,hg:1};
+function gradeOf(v){const g=/^\s*(?:грейд\s*)?(\d+)\s*$/i.exec(v);return g&&+g[1]>=20?'20+':v}
 function parseMx(s){
   const out={};
   str(s).split('\n').forEach(line=>{
     if(!line)return;
     const f=line.split('\t');
     if(f.length<3)return;
-    (out[f[0]]=out[f[0]]||{})[f[1]]=num(f[2]);
+    const o=out[f[0]]=out[f[0]]||{}, v=GRADE_MX[f[0]]?gradeOf(f[1]):f[1];
+    o[v]=(o[v]||0)+num(f[2]);
   });
   return out;
 }

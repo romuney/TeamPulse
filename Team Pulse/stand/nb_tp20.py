@@ -727,6 +727,7 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
     ok = lambda p, m: pred(p, ld(p, m)) and (act is None or at(p['acth'], ld(p, m)) in act)
     nodes = lambda p, d: root + path(U, at(p['unit'], d))
     city = defaultdict(lambda: defaultdict(float))
+    vcity = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     for r in office:
         d, rk, wd, ov, bk, bkv, vsv, cty = r[:8]
         p, m = byrk[rk], dt.date(d.year, d.month, 1)
@@ -743,12 +744,22 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
                 Dd[(n, d)]['do'] += ov
         if m == lm and ov and cty:
             city[rk][cty] += ov
+        # 27.10-в, п. 14: нарушения брони по городу (ov) и база (ob) — последнего месяца
+        if m == lm and cty and (bk or vsv):
+            vcity[rk][cty]['ov'] += bkv + vsv
+            vcity[rk][cty]['ob'] += bk + vsv
     for rk, cs in city.items():
         p = byrk[rk]
         for n in nodes(p, ld(p, lm)):
             for c, v in cs.items():
                 C[n]['oc'][c] += v
                 C[n]['ocp'][c] += 1
+    for rk, cs in vcity.items():
+        p = byrk[rk]
+        for n in nodes(p, ld(p, lm)):
+            for c, v in cs.items():
+                C[n]['ov'][c] += v['ov']
+                C[n]['ob'][c] += v['ob']
     e = eom(lm)
     for p in people:
         if p['start'] <= e and (p['end'] is None or e < p['end']) and ok(p, lm):

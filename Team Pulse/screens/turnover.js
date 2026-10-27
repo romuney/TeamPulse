@@ -50,7 +50,8 @@ function hqView(ctx){
   return '<div class="tbl-note hq-note"><span class="live-tag ok"'+U.tipAttr(D.VERIFIED_TIP)+'>✓ сверены</span> '+
       'Накопительно по '+esc(D.MONTH_NOM[h.month.m])+(D.PARTIAL?' (закрытый месяц; '+esc(D.MONTH_NOM[D.ASOF.m])+' — на графиках)':'')+
       '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+t+
-    G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key]}))},
+    /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
+    G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true}))},
       {h:520,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
 }
@@ -67,9 +68,17 @@ function initChart(ctx){
   return '<div class="ch-bar"><span class="ch-ttl">Текучесть по инициатору, %</span>'+
       U.segToggle('data-exitini',xs.map(x=>[x.key,INI_SHORT[x.key]||x.name]),c.key)+'</div>'+
     SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:240,fill:false,
-      color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)});
+      color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+
+    /* 27.10-в, п. 11: под ней — накопительная того же инициатора (переключатель общий): сумма месячной с января, как
+       «Текучесть накопительная»; в сумме по инициаторам — она и есть */
+    '<div class="ch-bar"><span class="ch-ttl">Накопительная текучесть по инициатору, %</span></div>'+
+    SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:240,
+      fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)});
 }
+/* сумма месячной с января по ряду года; месяцы без значения остаются пустыми */
+function cumY(a){let t=0;return a.map(v=>v==null?null:+(t+=v).toFixed(2))}
 
+SC.cumY=cumY;
 SC.blocks.turnover={
   subTabs:[['dynamics','Отток и текучесть'],['reasons','Почему уходят'],['who','Кто уходит'],['hq','Как уходит HQ']],
   defaultSub:'dynamics',
@@ -121,10 +130,10 @@ SC.blocks.turnover={
       const early=ex.tenure.filter(t=>t.early).reduce((a,t)=>a+t.value,0);
       /* 26.10, ревью критиков: под строкой — доля группы в команде; уходят чаще своей доли (×1,2 и на 3 человека
          больше ожидаемого) — сказано прямо */
-      const grp=(cap,sub,items,dim,sort,top)=>{const ts=D.teamShare(lp,dim);return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'Человек',
+      const grp=(cap,sub,items,dim,sort,top)=>{const ts=D.teamShare(lp,dim);return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Человек',
         metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>{const t=ts[x.name], e=t*ex.total;
           return {name:x.name,note:t!=null?'в команде '+U.pct(t*100)+(x.value>=1.2*e&&x.value-e>=3?' · уходят чаще своей доли':''):'',value:x.value,color:G.C_OUT}}),
-        top:top?top.n:0,restWord:top?top.word:null})};
+        top:top?top.n:0,restWord:top?top.word:null},top?SC.rest(ctx,'x'+dim,top.n,top.word):{}))};
       return U.btStack([
         grp('Стаж на момент ухода',ytd+(ex.total?' · ранний уход, до года: '+D.fmtInt(early)+' чел, '+
           U.pct(early/ex.total*100):''),ex.tenure,'tenure'),

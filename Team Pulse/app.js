@@ -524,7 +524,7 @@ function metricOpts(){
       '<div class="mpick-l">'+items+'</div></div>';
   }).join('');
   const hidB=D.BLOCKS.length-D.visibleBlocks(DRAFT).length;
-  $('#metricCount').innerHTML='Выбрано <b>'+D.visibleCount(DRAFT)+'</b> из '+D.METRICS.length+' метрик'+
+  $('#metricCount').innerHTML='Выбрано <b>'+D.visibleCount(DRAFT)+'</b> из '+D.SHOWN.length+' метрик'+
     (cur?'':' — свой набор')+'. Отключённые пропадут из One-pager, карточек и таблиц; графики в блоках останутся.'+
     (hidB?' Скрыто блоков: <b>'+hidB+'</b> — они уйдут и из меню слева.':'');
 }
@@ -897,7 +897,8 @@ on(document,'click',e=>{
 
   /* навигация по разделам */
   const tab=t.closest('[data-tab]');
-  if(tab){S.tab=tab.dataset.tab;S.subTab=null;S.mainMetric=null;S.selNode=null;openRows.clear();render();return}
+  /* 27.10-в, п. 21: выбранное слева подразделение остаётся выбранным на всех вкладках — KPI каждой вкладки по нему */
+  if(tab){S.tab=tab.dataset.tab;S.subTab=null;S.mainMetric=null;openRows.clear();render();return}
   const sub=t.closest('[data-subtab]');
   if(sub){S.subTab=sub.dataset.subtab;render(true);return}
   /* масштаб динамики один на все детальные вкладки: переключили на «год к
@@ -960,6 +961,9 @@ on(document,'click',e=>{
   /* 26.10-б: переключатель инициатора у «Текучести по инициатору» */
   const ei=t.closest('[data-exitini]');
   if(ei){S.exitIni=ei.dataset.exitini;render(true);return}
+  /* 27.10-в, п. 8: статус роста — его тепловая таблица на вкладке «Как растут по грейдам?» */
+  const rs=t.closest('[data-rostst]');
+  if(rs){S.rostSt=rs.dataset.rostst;render(true);return}
   const gr=t.closest('[data-mongran]');
   if(gr){S.monGran=gr.dataset.mongran;S.monMark=null;render(true);return}
   const pm=t.closest('[data-pmark]');

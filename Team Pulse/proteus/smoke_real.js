@@ -114,7 +114,9 @@ const i=R.n-1;
    с начала года — ровно числа колонки mx выбранного юнита */
 {
   const mx={};
-  String(scopeRow.mx||'').split('\n').forEach(l=>{if(!l)return;const f=l.split('\t');(mx[f[0]]=mx[f[0]]||{})[f[1]]=+f[2]});
+  /* 27.10-в, п. 19: грейды 20 и выше в отчёте — одной категорией «20+» */
+  String(scopeRow.mx||'').split('\n').forEach(l=>{if(!l)return;const f=l.split('\t'), o=mx[f[0]]=mx[f[0]]||{},
+    v=f[0]==='gr'&&/^\d+$/.test(f[1])&&+f[1]>=20?'20+':f[1];o[v]=(o[v]||0)+ +f[2]});
   const hcL=arr(scopeRow,'hc')[i];
   const dimOk=['gender','grade','seniority','tenure','employment'].every(k=>{
     const parts=D.mixParts(rl,k), cats=D.mixCats(k), src=mx[{gender:'g',grade:'gr',seniority:'s',tenure:'t',employment:'r'}[k]]||{};
@@ -369,6 +371,12 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       ok(xs.length>0&&y.cur.every((v,i)=>v==null||Math.abs(sumAt(i)-v)<0.05)&&
         rv.indexOf('Текучесть по инициатору')<rv.indexOf('bt-cap">Инициатор увольнения')&&
         /data-exitini=/.test(rv),'текучесть по инициатору: '+xs.map(x=>x.name).join(', ')+' — в сумме текучесть месячная, график над таблицами');
+      /* 27.10-в, п. 11: накопительная по инициатору — под месячной; в сумме по инициаторам — текучесть накопительная */
+      const yy=D.yoySeries(rl,'turnover_y'), cumAt=i=>xs.reduce((a,x)=>a+(SC.cumY(x.cur)[i]||0),0);
+      ok(yy.cur.every((v,i)=>v==null||Math.abs(cumAt(i)-v)<0.1)&&
+        rv.indexOf('Накопительная текучесть по инициатору')>rv.indexOf('Текучесть по инициатору')&&
+        rv.indexOf('Накопительная текучесть по инициатору')<rv.indexOf('bt-cap">Инициатор увольнения'),
+        'накопительная по инициатору — под месячной, в сумме = текучесть накопительная');
     }else ok(xs===null&&/Придёт со следующим обновлением отчёта/.test(rv),'текучесть по инициатору: датасет без xim — «в разработке»');
     const sm=D.specMovement(rl), h=Object.values(R.mixVals('hsp')||{}).length;
     ok(!h||sm.length>0&&/Движение по специализациям/.test(mv)&&mv.indexOf('Движение по специализациям')>mv.indexOf('Переводы внутри компании')&&
@@ -398,9 +406,31 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
          :/dev-note/.test(tgF)&&/dev-note/.test(ofD),
   hasNew?'плашки: решения T-роста и посещаемость — без «в разработке», '+(offAll?'вкладки офиса — тоже':'календарь офиса — с уточнением')
         :'плашки: T-рост и посещаемость — «в разработке»');
+/* 27.10-в, п. 19: грейды 20 и выше — одной категорией «20+», после 19; п. 5 и 15: «Остальные» городов офиса раскрываются */
+{
+  const rawG=new Set();rows.forEach(r=>String(r.mx||'').split('\n').forEach(l=>{const f=l.split('\t');if(/^(gr|xg|hg)$/.test(f[0])&&+f[1]>=20)rawG.add(f[1])}));
+  if(rawG.size){
+    const gc=D.MIX_BY_KEY.grade.cats.map(c=>c.name), ex=D.exitProfile(rl,'ytd').grade.map(x=>x.name);
+    ok(gc.filter(n=>/20\+/.test(n)).length===1&&!gc.some(n=>/^(Грейд )?2\d$/.test(n))&&/20\+/.test(gc.filter(n=>!/Не указано/.test(n)).slice(-1)[0])&&
+      ex.some(n=>/20\+/.test(n))&&!ex.some(n=>/^(Грейд )?2\d$/.test(n)),'грейды '+[...rawG].sort().join(', ')+' — одной категорией «20+» в конце: '+gc.join(', '));
+  }
+  const at=A.go('office','attend'), nC=(at.match(/data-btexp="rest:ocity"/g)||[]).length;
+  if(nC){const op=A.mixOpen(['rest:ocity']);A.mixOpen([]);
+    ok(/class="urow" data-btexp="rest:ocity"/.test(at)&&(op.match(/<tr class="lvl2"/g)||[]).length>=1,'города офиса: первые 10 и «Остальные», раскрываются')}
+}
+/* 27.10-в, п. 14: нарушения брони по городам (разрезы ov / ob) — после «Бронирований и посещений», в сумме = нарушениям
+   бронирования месяца; без разрезов в ответе — строка «появятся со следующим обновлением», не условные числа */
+{
+  const vc=D.violByCity(rl), bq=D.bookingQuality(rl), bk=A.go('office','booking');
+  if(D.OFF_LIVE.vcity)ok(vc.length>0&&Math.abs(vc.reduce((a,c)=>a+c.viol,0)-bq.viol)<=vc.length&&
+      bk.indexOf('Нарушения брони по городам')>bk.indexOf('Бронирования и посещения'),
+    'нарушения брони по городам: '+vc.length+' городов, в сумме '+vc.reduce((a,c)=>a+c.viol,0)+' = нарушениям месяца '+bq.viol);
+  else if(D.OFF_LIVE.bk)ok(vc===null&&/появятся со следующим обновлением/.test(bk),'нарушения брони по городам: ответ без разреза — «появятся»');
+}
 /* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
 /* поставка 50: с витриной вакансий глава вакансий живая — демо-глава тогда «Итоги ревью» */
-const hv=R.has('vop')?A.go('monitor','review'):A.go('hiring','vacancies'), td=A.go('turnover','dynamics');
+/* 27.10-в, п. 4: ревью скрыто — демо-глава теперь «Чем пользуются?» вкладки AI */
+const hv=R.has('vop')?A.go('ai','tools'):A.go('hiring','vacancies'), td=A.go('turnover','dynamics');
 /* «Зачем смотреть» на демо-главе есть — это объяснение, а не вывод из цифр */
 ok(!/<div class="st-head"><h3>/.test(hv)&&/<div class="st-head"><h3>/.test(td)&&/<div class="st-why">/.test(hv),
   'история: у демо-главы нет вывода (только «зачем смотреть»), у живой (отток) — есть');

@@ -42,21 +42,27 @@ function balancedSteps(lp){
 /* 26.10-б, правки п. 1: «Движение по специализациям» — после переводов: с начала года пришли и ушли по специализации,
    сальдо и двусторонняя полоса (ушли — влево, пришли — вправо, общая шкала). Первые 12 по обороту, остальные — одной
    строкой. Только специализации с движением */
-function specMove(lp){
+/* 27.10-в, п. 5: «Остальные» раскрываются вторым уровнем, как регион в «Структуре»; «сальдо» → «итого» */
+function specMove(lp,ctx){
   const rs=D.specMovement(lp);
   if(!rs.length)return '';
-  const top=rs.slice(0,12), rest=rs.slice(12);
+  const K='rest:spm', open=!!(ctx&&ctx.mixOpen.has(K)), top=rs.slice(0,12), rest=rs.slice(12);
   if(rest.length)top.push({name:'Остальные',note:rest.length+' '+U.plural(rest.length,['специализация','специализации','специализаций']),
     hire:rest.reduce((a,z)=>a+z.hire,0),exit:rest.reduce((a,z)=>a+z.exit,0),
-    net:rest.reduce((a,z)=>a+z.net,0),tip:rest.map(z=>z.name).join(', ')});
+    net:rest.reduce((a,z)=>a+z.net,0),tip:rest.map(z=>z.name).join(', '),exp:1});
   const max=Math.max(1,...top.map(z=>Math.max(z.hire,z.exit))), w=v=>(v/max*100).toFixed(1)+'%', esc=U.esc;
-  const sg=v=>(v>0?'+':'')+D.fmtInt(v);
+  if(open)rest.forEach(z=>top.push(Object.assign({sub:1},z)));
+  const sg=v=>(v>0?'+':'')+D.fmtInt(v), tree=rest.length>0;
+  const lbl=z=>!tree?'':z.exp?'<button class="caret-btn"'+(open?' data-open="1"':'')+' data-btexp="'+K+'" aria-label="'+
+    (open?'Свернуть':'Раскрыть')+'">'+(open?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>';
   return '<div class="bt-group spm"><div class="bt-cap">Движение по специализациям<span class="bt-sub">с начала года, чел</span></div>'+
     '<table class="ptable btable compact"><colgroup><col><col style="width:64px"><col style="width:64px"><col style="width:68px">'+
     '<col style="width:34%"></colgroup><thead><tr><th class="txt"></th><th class="num">Пришли</th><th class="num">Ушли</th>'+
-    '<th class="num">Сальдо</th><th class="bar-th">Ушли · пришли</th></tr></thead><tbody>'+
-    top.map(z=>'<tr'+(z.tip?U.tipAttr({title:'Остальные',text:z.tip}):'')+'><td class="txt">'+esc(z.name)+
-      (z.note?'<span class="unit-sub">'+esc(z.note)+'</span>':'')+'</td>'+
+    '<th class="num">Итого</th><th class="bar-th">Ушли · пришли</th></tr></thead><tbody>'+
+    top.map(z=>'<tr'+(z.exp?' class="urow" data-btexp="'+K+'"'+U.tipAttr({title:'Остальные',
+        text:(open?'Клик — свернуть.':'Клик — показать все.')+'\n'+z.tip}):z.sub?' class="lvl2"':'')+'><td class="txt">'+
+      (tree?'<span class="row-label">'+lbl(z)+'<span class="row-body">':'')+esc(z.name)+
+      (z.note?'<span class="unit-sub">'+esc(z.note)+'</span>':'')+(tree?'</span></span>':'')+'</td>'+
       '<td class="num">'+D.fmtInt(z.hire)+'</td><td class="num">'+D.fmtInt(z.exit)+'</td>'+
       '<td class="num spm-n '+(z.net>0?'pos':z.net<0?'neg':'')+'">'+sg(z.net).replace('-','−')+'</td>'+
       '<td class="barcell"><span class="dvbar"><span class="dv-l"><i style="width:'+w(z.exit)+'"></i></span>'+
@@ -87,7 +93,7 @@ SC.blocks.movement={
            иначе водопад рядом красит те же переводы зелёным и красным. */
         SC.yoyPair(ctx.lp,'transfer_in','transfer_out',
         {h:240,title:'Переводы внутри компании, чел',
-         legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]})+specMove(ctx.lp);
+         legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]})+specMove(ctx.lp,ctx);
     }
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
     return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,

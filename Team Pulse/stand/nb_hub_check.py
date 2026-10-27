@@ -176,7 +176,9 @@ def main():
                             bad[k] += 1
                     # сегмент mh (численность руководителей и остальных), города последнего месяца (oc ocp) — по значениям
                     want_v = {'mh': {v: n for v, n in MH[rk].items() if n}, 'oc': {v: n for v, n in Co[rk]['oc'].items() if n},
-                              'ocp': {v: n for v, n in Co[rk]['ocp'].items() if n}}
+                              'ocp': {v: n for v, n in Co[rk]['ocp'].items() if n},
+                              # 27.10-в, п. 14: нарушения брони по городам (ov) и база (ob)
+                              'ov': {v: n for v, n in Co[rk]['ov'].items() if n}, 'ob': {v: n for v, n in Co[rk]['ob'].items() if n}}
                     # календарь (dw dw) и уходы по инициатору и месяцу (xim, 26.10-б) — только у выбранного юнита
                     if r['role'] == 'scope':
                         want_v['xim'] = nb.truth_fire_init(U, people, rk, raw.get(name, pred), act)

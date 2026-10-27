@@ -32,16 +32,20 @@ with base as (
     from base
     group by month, mdm_employee_rk
 )
--- посещения в разрезе городов
+-- посещения в разрезе городов; 27.10-в: и брони с нарушениями (дни с бронью, бронь без посещения, посещение без
+-- брони) — для «Нарушений брони по городам»; город с одной бронью без прихода тоже попадает
 , city_visits as (
     select month
         , mdm_employee_rk
         , office_city_nm
-        , sum(office_visit_flg) as visit_count
+        , sum(office_visit_flg)      as visit_count
+        , sum(booking_flg)           as booking_count
+        , sum(booking_violation_flg) as booking_viol_count
+        , sum(visit_violation_flg)   as visit_viol_count
     from base
     where office_city_nm is not null
     group by month, mdm_employee_rk, office_city_nm
-    having sum(office_visit_flg) > 0
+    having sum(office_visit_flg) + sum(booking_flg) + sum(visit_violation_flg) > 0
 )
 -- сворачиваем в json
 , city_json as (
@@ -49,8 +53,11 @@ with base as (
         , mdm_employee_rk
         , json_agg(
               json_build_object(
-                  'office_city_nm', office_city_nm,
-                  'visit_count',    visit_count
+                  'office_city_nm',     office_city_nm,
+                  'visit_count',        visit_count,
+                  'booking_count',      booking_count,
+                  'booking_viol_count', booking_viol_count,
+                  'visit_viol_count',   visit_viol_count
               )
               order by visit_count desc, office_city_nm
           ) as office_city_visits_json

@@ -33,7 +33,8 @@ function monPh(title,what){
 }
 
 SC.blocks.monitor={
-  subTabs:[['activity','Рабочая активность'],['review','Ревью']],
+  /* 27.10-в, п. 4: ревью скрыто до следующего релиза (D.OFF_SUBS) */
+  subTabs:[['activity','Рабочая активность'],['review','Ревью']].filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])),
   defaultSub:'activity',
   /* KPI-полоса блока (вместо карточек метрик): снимок последней закрытой недели по
      выбранной строке таблицы — клик по строке пересчитывает и её */

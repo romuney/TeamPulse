@@ -88,6 +88,8 @@ const C_VAC=C_LINE,            /* открытые вакансии */
       /* Использование AI — данные, а не AI-подсказка: фиолетовый --ai занят
          плашками Пульса, и столбики WAU в нём читались бы как подсказка. */
       C_AI=C_LINE;
+/* 27.10-в, T-рост: статусы «повторно в росте» и «нет заявки», отказ в тепловой таблице успешности */
+const C_ROST={again:'#E8A33D',none:'#9AA0AC',no:'#D64545'};
 const PALETTE=[C_TR_IN,C_HIRE_I,C_HIRE_D,C_HIRE,C_FIRE,C_TR_OUT,C_CNT,C_OTHER];
 
 /* ---------- Бары и полосы — мягкие ступени тех же тонов ----------
@@ -267,7 +269,7 @@ const C_OFF='#c7c8cc';
 function seriesOf(kind,legend){
   if(!legend||!legend.length)return[];
   const ids=SERIES[kind]||[];
-  return legend.map((it,i)=>ids[i]||'');
+  return legend.map((it,i)=>it.id||ids[i]||'');
 }
 function sAttr(sid){return sid?' data-s="'+sid+'"':''}
 const NOSET={has:function(){return false},size:0};
@@ -305,19 +307,23 @@ function lgItem(x,y,it,sid,off,lock){
     +tip({title:it.name,text:lock?'Эту серию не скрыть: график держится на ней.':dead?'Клик — вернуть.':'Клик — скрыть, наведение — подсветить.'})+'>'
     +g+'<rect class="hit" x="'+num(mx-4)+'" y="'+num(y)+'" width="'+num(tw+16+6+8)+'" height="18"/></g>'};
 }
+/* 27.10-в, п. 18: узкий график — легенда не помещается рядом с заголовком и встаёт второй строкой под ним */
+function wraps(w,title,legend){
+  return !!(w&&title&&legend&&legend.length&&textW(title,TTL_SZ)+legend.reduce((v,it)=>v+textW(it.name,11.5)+30,0)+24>w);
+}
 function header(w,title,legend,ctx){
   ctx=ctx||{};
   const off=ctx.off, lock=LOCKED[ctx.kind];
   let s='';
   if(title)s+=txt(0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
   if(legend&&legend.length){
-    const ids=seriesOf(ctx.kind,legend);
+    const ids=seriesOf(ctx.kind,legend), y=wraps(w,title,legend)?22:0;
     let x=w;
-    for(let i=legend.length-1;i>=0;i--){const r=lgItem(x,0,legend[i],ids[i],off,lock);s+=r.s;x=r.x}
+    for(let i=legend.length-1;i>=0;i--){const r=lgItem(x,y,legend[i],ids[i],off,lock);s+=r.s;x=r.x}
   }
   return s;
 }
-function headH(title,legend){return (title||(legend&&legend.length))?24:0}
+function headH(title,legend,w){return (title||(legend&&legend.length))?24+(wraps(w,title,legend)?22:0):0}
 
 /* Ось X всех графиков динамики — двенадцать месяцев календарного года
    (yoyAxis ниже): с 13.10 скользящего окна «12 мес» на графиках нет. */
@@ -568,12 +574,13 @@ function yoyPlot(p,ar){
   if(flow&&ya&&ya.hi)ya.hi.forEach(z=>{if(z.s==='main'&&!ya.notes.some(n=>n.i===z.i))
     s+=rect(x0+bandW*z.i+2,top-4,bandW-4,bot-top+4,C_BAND,6)});
   /* 27.10, Антон (вопрос 2): ставка незакрытого месяца на линии — серая полоса за месяцем, точка полая, подпись «· 12 дн» */
-  const pl=!flow&&CD.PARTIAL&&CD.partFlow(key);
+  /* p.mature — вызревает и метрика, у которой это не свойство ключа (HQ текучесть в «Как уходит HQ?», 27.10-в, п. 6) */
+  const part=p.mature?CD.PARTIAL:CD.matures(key), curS=part?cur.map((v,i)=>i===nowI?null:v):cur;
+  const pl=!flow&&CD.PARTIAL&&CD.partFlow(key)&&!part;
   if(pl)s+=rect(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4,C_BAND,6);
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
   s+=yoyAxis(X,bandW,top,bot,nowI,flow,key);
   /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
-  const part=CD.matures(key), curS=part?cur.map((v,i)=>i===nowI?null:v):cur;
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
   if(p.gap&&showMain&&showBench)s+=gapFill(key,cur,bench,X,Y);
   /* Счётный поток (найм, уход, переводы, решения) — барами (14.10, заказчик:
@@ -668,7 +675,7 @@ function yoyPlot(p,ar){
 }
 function drawYoy(a,w,h){
   const o=a.opt||{};
-  const hh=headH(o.title,o.legend);
+  const hh=headH(o.title,o.legend,w);
   h=h||o.h||280;
   const ya=yoyAnn(annOf(o));
   const plotTop=hh+LBL_ROOM+yoyRoom(ya,o.marks), plotBot=h-AXIS_H+12;
@@ -695,7 +702,7 @@ function drawYoy(a,w,h){
 function drawPair(a,w,h){
   const o=a.opt||{}, A=a.a, B=a.b;
   const nameA=o.aName||(CD.METRIC_BY_KEY[A.key]||{}).name||'', nameB=o.bName||(CD.METRIC_BY_KEY[B.key]||{}).name||'';
-  const hh=headH(o.title,o.legend);
+  const hh=headH(o.title,o.legend,w);
   h=h||o.h||300;
   const off=offOf(o), sA=!off.has('a'), sB=!off.has('b'), sC=!off.has('cur'), sP=!off.has('prev');
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/12, nowI=CD.CUR_LEN-1, X=i=>x0+bandW*(i+0.5);
@@ -774,7 +781,7 @@ function drawPanels(a,w,h){
     const top=base+HEAD+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
     s+=yoyKey(w,base-1,p.color||C_LINE,off,false,asBars(p.key));
-    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,color:p.color,ann:ya,off:off},
+    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,color:p.color,ann:ya,off:off,mature:p.mature},
       {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
   });
   return svg(w,h,s);
@@ -786,7 +793,7 @@ function drawPanels(a,w,h){
    ========================================================================== */
 function drawWaterfall(a,w,h){
   const steps=a.steps, o=a.opt||{};
-  const hh=headH(o.title,o.legend);
+  const hh=headH(o.title,o.legend,w);
   h=h||o.h||320;
   /* вторая строка подписи — дата у «Начало» и «Конец» (20.10) */
   const subs=steps.some(st=>st.sub), plotTop=hh+LBL_ROOM, plotBot=h-AXIS_H-(subs?13:0);
@@ -1104,18 +1111,18 @@ function perAxis(P,X,h,mark,bandW){
 }
 function drawStack(a,w,h){
   /* 26.10-б: найм по видам ушёл в подсказку «Найм, чел» — категории снова только мониторинга */
-  const o=a.opt||{}, P=a.periods, off=offOf(o), mark=a.mark, CATS=MON_CATS, COL=C_MON;
+  /* a.cats (27.10-в, T-рост) — свои категории [ключ, имя, цвет]; без них — категории мониторинга */
+  const o=a.opt||{}, P=a.periods, off=offOf(o), mark=a.mark, CATS=a.cats||MON_CATS, COL=a.cats?{}:C_MON;
+  if(a.cats)a.cats.forEach(c=>{COL[c[0]]=c[2]});
   const cats=CATS.filter(c=>!off.has(c[0]));
-  /* узкая панель: легенда не влезает рядом с заголовком — встаёт второй строкой */
-  const lgW=(o.legend||[]).reduce((v,it)=>v+textW(it.name,11.5)+30,0), two=textW(o.title||'',TTL_SZ)+lgW+24>w;
-  const hh=headH(o.title,o.legend)+(two?22:0);
+  /* узкая панель: легенда не влезает рядом с заголовком — встаёт второй строкой (header / headH), график выше на строку */
+  const two=wraps(w,o.title,o.legend), hh=headH(o.title,o.legend,w);
   h=(h||o.h||260)+(two?22:0);
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/P.length, X=i=>x0+bandW*(i+0.5);
   const tot=P.map(p=>cats.reduce((v,c)=>v+(p[c[0]]||0),0));
   const max=niceMax(tot), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
   const bw=Math.max(8,Math.min(42,bandW*0.6));
-  let s=two?header(w,o.title,null,{})+'<g transform="translate(0,22)">'+header(w,null,o.legend,{kind:'stack',off:o.off})+'</g>'
-    :header(w,o.title,o.legend,{kind:'stack',off:o.off});
+  let s=header(w,o.title,o.legend,{kind:'stack',off:o.off});
   P.forEach((p,i)=>{
     const cx=X(i), on=mark===i, dly=i*28;
     const live=cats.filter(c=>(p[c[0]]||0)>0);
@@ -1132,7 +1139,7 @@ function drawStack(a,w,h){
     const all=p.hc||tot[i];
     s+='<g class="barg pmk'+(on?' on':'')+'" data-pmark="'+i+'"'+tip({title:p.full,
       rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+(all?Math.round((p[c[0]]||0)/all*100):0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
-      note:(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. ')+'Всего — '+CD.fmtInt(all)+' чел.'})+'>'+
+      note:a.cats?'Всего — '+CD.fmtInt(all)+(a.unit||'')+'.':(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. ')+'Всего — '+CD.fmtInt(all)+' чел.'})+'>'+
       (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+
       '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+segs+'</g>';
     if(t)s+=txt(cx,Y(t)-VAL_DY,CD.fmtInt(t),valOpt({delay:200+dly}));
@@ -1256,6 +1263,6 @@ function reset(){_specs=new Map();_sid=0}
 window.TPDRAW={chart,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,asBars,ghostCol,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
-  C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,
+  C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,C_ROST,
   C_VAC,C_UNDER,C_REVIEW,C_OFFICE,C_REGRET,C_NOREG,C_TURN_Y,C_AI,C_MON,MON_CATS};
 })();

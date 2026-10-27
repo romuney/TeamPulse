@@ -1,52 +1,87 @@
 /* ============================================================================
-   screens/tgrowth.js — T-рост. Три вкладки:
+   screens/tgrowth.js — T-рост. Три вкладки (27.10-в, п. 8 — по описанию вкладки «Рост» дашборда HQ):
 
-   «Конверсия и решения» — сверху конверсия в повышение с базой сравнения,
-                           снизу то, из чего она считается: прошли вверх,
-                           отказано вниз от общего нуля.
-   «Заявки и T@T»        — время до повышения и заявки за 12 месяцев по типу:
-                           повышение грейда и смена специализации (сервис
-                           «Рост» из HQ-дашборда 34136, итерация 28).
-   «Статусы по грейдам»  — тепловая таблица «грейд × статус роста»: где люди
-                           растут, где застряли, где рост недоступен.
+   «Растут ли люди внутри?»   — как было: конверсия с базой сравнения, под ней
+                                одобренные и отклонённые заявки год к году.
+   «Как растут по грейдам?»   — статусы роста людей за 12 месяцев (пять статусов),
+                                тепловая таблица выбранного статуса: текущий грейд ×
+                                тип роста; повышения грейда — успешно закрытые заявки
+                                «Рост» и T@T по месяцам и успешность по желаемому грейду.
+   «Как меняют специализацию?» — то же для смены специализации: по месяцам и
+                                успешность по желаемой специализации.
 
-   Конверсия и решения — одна вкладка, а не две: конверсия и есть отношение этих
-   двух рядов, и вопрос «почему она просела» закрывается тем, что оба графика
-   видны сразу — упал числитель или вырос знаменатель.
+   Прежние «Заявки и T@T» и «Статусы по грейдам» (tgrowthProfile) — в истории; новые
+   вкладки читают D.rostProfile. Источника у них пока нет — плашка «в разработке».
    ========================================================================== */
 (function(){
 'use strict';
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
-const esc=U.esc;
-const pct=(a,b)=>b?+(a/b*100).toFixed(1):null;
+const esc=U.esc, sum=a=>a.reduce((x,y)=>x+y,0);
+/* цвета статусов — как в «Росте»: зелёный, голубой, жёлтый, серый, фиолетовый */
+const ST_COL={done:G.C_HIRE,first:G.C_TR_IN,again:G.C_ROST.again,none:G.C_ROST.none,denied:G.C_FIRE};
+const C_R=G.C_HIRE_D, C_T=G.C_TR_IN, C_NO=G.C_ROST.no;
+/* заливка клетки: от белого к цвету статуса по доле от максимума таблицы */
+function ramp(hex,t){
+  const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)), k=0.12+0.78*Math.max(0,Math.min(1,t));
+  return 'rgb('+c.map(v=>Math.round(255+(v-255)*k)).join(',')+')';
+}
+const cell=(v,t,hex,txt)=>'<td'+(v?' style="background:'+ramp(hex,t)+';color:'+(t>0.62?'#fff':'inherit')+'"':'')+'>'+txt+'</td>';
+/* тепловая таблица «текущий грейд × тип роста» в людях; ИТОГО — первой строкой, как во всём отчёте */
+function gradeHeat(s){
+  const max=Math.max(1,...s.rows.map(r=>Math.max(...r.cells))), tot=s.cols.map((_,j)=>sum(s.rows.map(r=>r.cells[j]))), hex=ST_COL[s.key];
+  return '<div class="mx-wrap"><table class="ptable stable dense rost-t"><thead><tr><th class="txt">Текущий грейд</th>'+
+    s.cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'<th class="st-tot">Всего</th></tr></thead><tbody>'+
+    '<tr class="total top"><td class="txt">ИТОГО</td>'+tot.map(v=>'<td>'+D.fmtInt(v)+'</td>').join('')+'<td>'+D.fmtInt(sum(tot))+'</td></tr>'+
+    s.rows.map(r=>'<tr><td class="txt">'+esc(r.name)+'</td>'+r.cells.map(v=>cell(v,v/max,hex,v?D.fmtInt(v):'—')).join('')+
+      '<td class="lead">'+D.fmtInt(sum(r.cells))+'</td></tr>').join('')+'</tbody></table></div>';
+}
+/* успешность заявок потока: заявка, успешно, отказ, % отказа — чем выше отказ, тем краснее */
+function succTable(cap,sub,rows,head){
+  if(!rows.length)return '';
+  const pc=x=>x.apps?x.no/x.apps*100:0, top=Math.max(1,...rows.map(pc));
+  const T={apps:sum(rows.map(x=>x.apps)),ok:sum(rows.map(x=>x.ok)),no:sum(rows.map(x=>x.no))};
+  const tr=(x,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(x.name)+'</td><td>'+D.fmtInt(x.apps)+'</td><td>'+
+    D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':cell(x.no,pc(x)/top,C_NO,U.pct(pc(x))))+'</tr>';
+  return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+'</span></div>'+
+    '<table class="ptable stable dense rost-t"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
+    '<th>Отказ</th><th>% отказа</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
+    rows.map(x=>tr(x)).join('')+'</tbody></table></div>';
+}
+/* закрытые заявки потока по месяцам: «Рост» и T@T столбиком; над графиком — итог за 12 месяцев */
+function flowBlock(f,what,head){
+  return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
+      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» за 12 месяцев · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
+    G.chart('stack',{periods:f.months,cats:[['rost','Рост',C_R],['tat','T@T',C_T]],unit:' заявок'},
+      {title:head,h:250,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
+}
+function grades(ctx,p){
+  const cur=p.st.find(x=>x.key===ctx.S.rostSt)||p.st[0];
+  return U.btGroup({cap:'Статусы роста',capSub:'активная численность HQ · за 12 месяцев',head:'',valueHead:'Человек',
+      metricKey:'hc_total',compact:true,items:p.st.map(s=>({name:s.name,value:s.n,color:ST_COL[s.key],on:s===cur,
+        attr:'data-rostst="'+s.key+'"',attrTip:'Клик — «'+s.name+'» по текущему грейду. '+s.tip}))})+
+    '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
+      esc(cur.tip)+'</span></div>'+gradeHeat(cur)+'</div>'+
+    flowBlock(p.grade,'на повышение грейда','Повышение грейда по месяцам: «Рост» и T@T, заявок')+
+    U.btStack([succTable('Повышение грейда: «Рост»','первые 5 по заявкам',p.grade.rostT,'Желаемый грейд'),
+      succTable('Повышение грейда: T@T','за 12 месяцев',p.grade.tatT,'Желаемый грейд')])+
+    '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
+}
+function specs(p){
+  return flowBlock(p.spec,'на смену специализации','Смена специализации по месяцам: «Рост» и T@T, заявок')+
+    U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам',p.spec.rostT,'Желаемая специализация'),
+      succTable('Смена специализации: T@T','первые 4 по заявкам',p.spec.tatT,'Желаемая специализация')])+
+    '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; % отказа — доля отказов среди заявок.</div>';
+}
 
 SC.blocks.tgrowth={
-  subTabs:[['flow','Конверсия и решения'],['requests','Заявки и T@T'],['statuses','Статусы по грейдам']],
+  subTabs:[['flow','Конверсия и решения'],['grades','По грейдам'],['spec','Смена специализации']],
   defaultSub:'flow',
-  title(sub){return sub==='requests'?'Заявки на рост и время до повышения'
-    :sub==='statuses'?'Статусы карьерного роста по грейдам'
+  title(sub){return sub==='grades'?'Как растут по грейдам: статусы роста и повышения'
+    :sub==='spec'?'Как меняют специализацию: заявки «Рост» и T@T'
     :'Конверсия T-роста и решения по заявкам'},
   view(ctx){
-    if(ctx.sub==='requests'){
-      const tg=D.tgrowthProfile(ctx.lp);
-      /* Конверсия в таблице — за 12 месяцев, а метрика блока — за месяц:
-         окно названо в шапке колонки, чтобы два числа не путали. */
-      return SC.metricLine('tgrowth_tat',ctx.lp,ctx.bl,ctx.S,
-          {h:250,fill:false,title:'Время до повышения (T@T), мес',ann:ctx.ann.tgrowth_tat})+
-        '<div class="bt-group"><div class="bt-cap">Заявки на T-рост по типу<span class="bt-sub">за 12 месяцев</span></div>'+
-        U.statTable({cols:['Заявок','Одобрено','Отклонено','Конверсия'],fmts:['int','int','int','pct'],
-          rows:[{name:'ИТОГО',total:true,vals:[tg.pass+tg.deny,tg.pass,tg.deny,pct(tg.pass,tg.pass+tg.deny)]}]
-            .concat(tg.types.map(t=>({name:t.name,vals:[t.pass+t.deny,t.pass,t.deny,pct(t.pass,t.pass+t.deny)]})))})+
-        '</div><div class="tbl-note">Те же решения, что на вкладке «Растут ли люди внутри?», за 12 месяцев.</div>';
-    }
-    if(ctx.sub==='statuses'){
-      const tg=D.tgrowthProfile(ctx.lp);
-      const tot=D.TG_STATUS.map((_,j)=>tg.rows.reduce((a,r)=>a+r.cells[j],0));
-      return U.heatTable({corner:'Грейд',cols:D.TG_STATUS.map(x=>({name:x.name,tip:x.tip})),
-          total:{name:'ИТОГО',cells:tot},
-          groups:[{name:'Грейд',rows:tg.rows.map(r=>({name:r.name,cells:r.cells}))}]})+
-        '<div class="tbl-note">В клетке — доля людей грейда. Сколько это человек — в подсказке и в последней колонке.</div>';
-    }
+    if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp));
+    if(ctx.sub==='spec')return specs(D.rostProfile(ctx.lp));
     return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
         {h:300,title:'Одобренные и отклонённые заявки',

@@ -43,9 +43,10 @@ function attendReal(ctx,x,lbl,attTbl){
     (x.segs.length?attTbl('Сегмент',D.CMP.span,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
       value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
       attrTip:'Клик — динамика посещаемости только у «'+s.name+'».'})),'Сравнение сегментов'):'')+
-    (x.cities.length?U.btGroup({cap:'Город офиса',capSub:D.CMP.span+' · посещения',head:'',valueHead:'Посещений',
-      barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,items:x.cities.map(c=>({name:c.name,
-        note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE}))}):'')+
+    /* 27.10-в, п. 15: по убыванию посещений, первые 10 и раскрываемые «Остальные» */
+    (x.cities.length?U.btGroup(Object.assign({cap:'Город офиса',capSub:D.CMP.span+' · посещения',head:'',valueHead:'Посещений',
+      barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>({name:c.name,
+        note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE}))},SC.rest(ctx,'ocity',10,['город','города','городов']))):'')+
     '<div class="tbl-note">Клик по сегменту — его динамика, Escape — снять. Город — где было посещение: человек бывает в нескольких.</div>';
 }
 
@@ -90,7 +91,7 @@ SC.blocks.office={
     }
 
     if(ctx.sub==='booking'){
-      const bk=D.bookingQuality(ctx.lp);
+      const bk=D.bookingQuality(ctx.lp), vc=D.violByCity(ctx.lp);
       /* Человеко-дни, а не люди: один сотрудник за месяц может и прийти без
          брони, и не прийти по брони. Нарушения — две нижние строки. */
       return SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,
@@ -100,7 +101,14 @@ SC.blocks.office={
           {name:'Бронь и приход',value:bk.ok,color:G.C_OFFICE},
           {name:'Бронь без прихода',note:'нарушение: место простояло',value:bk.noshow,color:G.C_OFFICE},
           {name:'Приход без брони',note:'нарушение: место не учтено',value:bk.walkin,color:G.C_OFFICE}]})+
-        '<div class="tbl-note">Две нижние строки — нарушения. Их доля и есть «Нарушения бронирования» за '+esc(D.CMP.span)+'.</div>';
+        '<div class="tbl-note">Две нижние строки — нарушения. Их доля и есть «Нарушения бронирования» за '+esc(D.CMP.span)+'.</div>'+
+        /* 27.10-в, п. 14–15: после «Бронирований и посещений» — нарушения по городам: по убыванию, первые 10 и
+           раскрываемые «Остальные» */
+        (!vc?'<div class="tbl-note">Нарушения брони по городам появятся со следующим обновлением отчёта.</div>'
+        :vc.length?U.btGroup(Object.assign({cap:'Нарушения брони по городам',capSub:D.CMP.span+', человеко-дни',head:'',
+          valueHead:'Нарушений',metricKey:'hc_total',compact:true,total:false,sort:true,items:vc.map(c=>({name:c.name,
+            note:c.pct!=null?U.pct(c.pct)+' от дней с бронью':'',value:c.viol,color:G.C_OFFICE}))},
+          SC.rest(ctx,'vcity',10,['город','города','городов']))):'');
     }
 
     /* календарь + дни недели: сетка отвечает «в какие дни», таблица — «в какие

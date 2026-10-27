@@ -49,7 +49,8 @@ function planTable(lp,S){
 
 SC.blocks.hiring={
   /* 26.10, правки: «Кого и откуда берём?» → «Успеваем закрывать вакансии?» → «Выполняем план?» */
-  subTabs:[['profile','Профиль найма'],['vacancies','Вакансии и срок закрытия'],['plan','План-факт']],
+  /* 27.10-в, п. 4: «Выполняем план?» скрыт до следующего релиза — вкладка и её код на месте (D.OFF_SUBS) */
+  subTabs:[['profile','Профиль найма'],['vacancies','Вакансии и срок закрытия'],['plan','План-факт']].filter(t=>!D.OFF_SUBS.has('hiring.'+t[0])),
   defaultSub:'profile',
   title(sub){return sub==='plan'?'План-факт подбора: массовый и профильный найм'
     :sub==='profile'?'Виды найма и каналы'
@@ -97,10 +98,12 @@ SC.blocks.hiring={
     /* поставка 50: вакансии в разрезах — из витрины вакансий (пробник); в макете их нет */
     const vb=D.vacancyBreakdown(lp);
     if(!vb)return panels;
-    const vt=(cap,capSub,items,color,head)=>U.btGroup({cap:cap,capSub:capSub,head:'',valueHead:head,metricKey:'vac_open',
-      compact:true,items:items.map(x=>({name:x.name,value:x.value,color:color}))});
+    /* 27.10-в, п. 7: специализаций десятки — по убыванию, первые 10 и раскрываемые «Остальные» */
+    const vt=(cap,capSub,items,color,head,rs)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:head,metricKey:'vac_open',
+      compact:true,sort:!!rs,items:items.map(x=>({name:x.name,value:x.value,color:color}))},rs||{}));
     const open=[['Открытые по статусу',vb.status],['Открытые по причине',vb.reason],['Открытые по уровню позиции',vb.pos],
-      ['Открытые по специализации',vb.spec]].filter(x=>x[1].length).map(x=>vt(x[0],'на '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur),x[1],G.C_VAC,'Вакансий'));
+      ['Открытые по специализации',vb.spec,SC.rest(ctx,'vspec',10,['специализация','специализации','специализаций'])]]
+      .filter(x=>x[1].length).map(x=>vt(x[0],'на '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur),x[1],G.C_VAC,'Вакансий',x[2]));
     const closed=[['Закрытые по каналу',vb.channel],['Закрытые по уровню кандидата',vb.cand]].filter(x=>x[1].length)
       .map(x=>vt(x[0],'с начала года',x[1],G.C_IN,'Вакансий'));
     return panels+U.btStack(open.slice(0,2))+U.btStack(open.slice(2).concat(closed).slice(0,3))+

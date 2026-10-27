@@ -505,6 +505,24 @@ from (
 ) c
 where c.vis > 0;
 
+-- 27.10-в, п. 14: нарушения брони по городам последнего месяца: ov — нарушений (бронь без посещения + посещение без
+-- брони), ob — база (дней с бронью + посещений без брони), как «Нарушения бронирования» за месяц
+insert into {P}_mixr
+select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
+       unnest(ARRAY['ov', 'ob']) as mx_key,
+       unnest(ARRAY[c.city, c.city]) as mx_val,
+       unnest(ARRAY[c.viol, c.base]) as mx_n
+from (
+    select j.node_rk, j.paint_c, j.it_c, j.staff_c, j.act_c, {city} as city,
+           coalesce((j.v ->> 'booking_viol_count')::numeric, 0) + coalesce((j.v ->> 'visit_viol_count')::numeric, 0) as viol,
+           coalesce((j.v ->> 'booking_count')::numeric, 0) + coalesce((j.v ->> 'visit_viol_count')::numeric, 0) as base
+    from (
+        select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
+        from ({expl(['office_city_visits_json'], f'and s.report_month = {lm} and s.office_city_visits_json is not null')}) e
+    ) j
+) c
+where c.base > 0;
+
 -- поставка 66: календарь посещений двух последних месяцев (office_traffic_calendar — параграф office_traffic):
 -- dw — людей с рабочим днём, do — из них в офисе; значение — дата
 insert into {P}_mixr

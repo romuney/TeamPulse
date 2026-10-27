@@ -136,6 +136,9 @@ function yoyChart(key,lp,bl,S,opt){
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
 function metricLine(key,lp,bl,S,opt){return yoyChart(key,lp,bl,S,opt)}
+/* 27.10-в, п. 5: длинный список — первые n и «Остальные», которые раскрываются вторым уровнем (как регион в «Структуре»);
+   раскрытие помнит общий набор mixOpen под ключом rest:<k> */
+function rest(ctx,k,n,word){return {top:n,restWord:word,restKey:'rest:'+k,restOpen:!!(ctx.mixOpen&&ctx.mixOpen.has('rest:'+k))}}
 /* Несколько метрик одной главы — панели друг под другом, у каждой своя шкала
    и своя легенда «этот год / прошлый»; клик по ней скрывает линию во всех
    панелях графика. items: [{key, name, color, ann}] */
@@ -214,7 +217,7 @@ const DEV_LIVE={
     '*':{stage:8,t:'Проникновение и активные пользователи — настоящие (вкладка «Проникновение»). Какими инструментами пользуются — пока условно.'}},
   tgrowth:{live:['tgrowth_conv'],subs:['flow'],
     '*':{stage:6,t:'Решения по заявкам и конверсия — настоящие (вкладка «Растут ли люди внутри?»). '+
-      'Типы заявок, T@T и статусы по грейдам пока условные.'}},
+      'Как растут по грейдам и меняют специализацию — пока условно: нужны данные сервиса «Рост».'}},
   office:{live:['office_att'],subs:[],
     part:{attend:{stage:7,part:true,t:'Посещаемость по месяцам — настоящая. Сегменты и города пока условные.'}},
     '*':{stage:7,t:'Посещаемость за месяц — настоящая (вкладка «Кто и где ходит?»). '+
@@ -387,16 +390,24 @@ function renderBlock(S,expanded,mixOpen,view){
   /* свой KPI-полосы блок (мониторинг, 21.10): снимок недели по выбранной строке таблицы */
   /* 23.10: у «Структуры численности» KPI-полосы нет — её единственная метрика (численность) уже стоит в «Итого»
      таблицы; на её месте — полка среза */
+  /* 27.10-в, п. 20: «Переводы в» и «Переводы из» — одной карточкой «Переводы» (в − из) на месте первой из них */
+  const kmets=mets.reduce((a,m)=>{
+    if(m.key==='transfer_in'||m.key==='transfer_out'){if(a.some(x=>x.key==='transfer_net'))return a;m=D.METRIC_BY_KEY.transfer_net}
+    a.push(m);return a},[]);
+  /* 27.10-в, п. 21: строка, выбранная в таблице слева, — и KPI блока по ней; над карточками сказано, по чему они */
+  const kl=sel!==root?rowLeaves(sel,S):rl;
   if(mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
   else if(b.key!=='structure'){
-  h+='<div class="kpis compact n'+Math.min(8,mets.length)+'">';
-  mets.forEach(m=>{
+  if(sel!==root)h+='<div class="kpi-sel">Карточки — по «<b>'+esc(selNode.name)+'</b>»<button class="nb" data-selnode="'+esc(root)+
+    '">Всё подразделение</button></div>';
+  h+='<div class="kpis compact n'+Math.min(8,kmets.length)+'">';
+  kmets.forEach(m=>{
     const sliced=selIds.length&&D.sliceable(m.key);
-    const ser=sliced?D.aggregateSlice(rl,m.key,selIds):D.aggregate(rl,m.key);
-    const v=val(rl,m.key);
+    const ser=sliced?D.aggregateSlice(kl,m.key,selIds):D.aggregate(kl,m.key);
+    const v=val(kl,m.key);
     /* Изменение по срезу считается по окну, а не по расширенной сетке: срез
        на неё не ходит. Для численности это тот же прошлый месяц. */
-    const mom=sliced?D.sliceDeltaMoM(rl,m.key,selIds):D.deltasOf(rl,m.key).mom;
+    const mom=sliced?D.sliceDeltaMoM(kl,m.key,selIds):D.deltasOf(kl,m.key).mom;
     const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
     const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
     /* m.card — короче имени для карточки (23.10: подпись в одну строку и с плашкой «в разраб.») */
@@ -408,7 +419,7 @@ function renderBlock(S,expanded,mixOpen,view){
            :cardBase(m.key,kpi)?U.byCompany(m.key,bv,S):'',
       /* по срезу состава прошлогоднего значения нет: срез живёт только в окне */
       /* место строки остаётся (visibility), иначе карточки ниже на строку и отчёт прыгает при срезе (22.10) */
-      row3:sliced?'<span class="k-ph">год назад <b>—</b></span>':'год назад <b>'+D.fmtVal(m.key,yearAgo(rl,m.key))+'</b>'});
+      row3:sliced?'<span class="k-ph">год назад <b>—</b></span>':'год назад <b>'+D.fmtVal(m.key,yearAgo(kl,m.key))+'</b>'});
   });
   h+='</div>';
   }
@@ -560,5 +571,5 @@ function renderBlock(S,expanded,mixOpen,view){
 }
 
 window.TPSCREENS={blocks,renderBlock,currentRoot,rowLeaves,blockMain,pivotRows,
-  expandableRows,devOf,blockDev,metricLine,yoyChart,yoyPanels,yoyPair,yearAgo,TREE_DEPTH};
+  expandableRows,devOf,blockDev,metricLine,rest,yoyChart,yoyPanels,yoyPair,yearAgo,TREE_DEPTH};
 })();

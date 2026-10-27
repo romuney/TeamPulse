@@ -160,7 +160,7 @@ button,select,input,textarea{font-family:inherit}
    плашка занимала строку и ничего не сообщала. */
 
 /* ===== Layout ===== */
-.layout{display:flex;min-height:calc(100vh - 168px);align-items:stretch}
+.layout{display:flex;min-height:calc(var(--vh,100vh) - 168px);align-items:stretch}
 /* 23.10, заказчик (видео): серой линии у правого края «Сводки» нет — белая панель и белая шапка отчёта одно целое */
 .nav{width:236px;flex:0 0 236px;background:#fff;padding:16px 12px 44px}
 .nav-h{font-size:var(--fs-cap);text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:var(--fw-bold);margin:0 0 9px;padding:0 10px}
@@ -485,7 +485,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* Состояние «отклонений нет» — одна строка вместо пустой подсказки */
 
 /* ===== Итерация 12: таблица слева, визуализация справа ===== */
-.split{display:grid;grid-template-columns:minmax(min-content,.7fr) 16px minmax(400px,1.3fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(100vh - 330px),620px);min-height:440px}
+.split{display:grid;grid-template-columns:minmax(min-content,.7fr) 16px minmax(400px,1.3fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(var(--vh,100vh) - 330px),620px);min-height:440px}
 .split>.panel{min-height:0;height:100%;display:flex;flex-direction:column}
 .split .panel-h{flex:0 0 auto;min-height:54px}
 .split .panel-b{flex:1;min-height:0}
@@ -947,8 +947,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .tp-pilot .reporthead{border-radius:0 var(--r4) var(--r4) 0}
 }
 
-.layout{min-height:calc(100vh - var(--head-h));align-items:stretch}
-.nav{position:sticky;top:var(--head-h);height:calc(100vh - var(--head-h));
+.layout{min-height:calc(var(--vh,100vh) - var(--head-h));align-items:stretch}
+.nav{position:sticky;top:var(--head-h);height:calc(var(--vh,100vh) - var(--head-h));
   display:flex;flex-direction:column;overflow-y:auto;padding-bottom:16px}
 .nav-foot{position:static;bottom:auto;padding-top:18px}
 .main-col{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
@@ -973,7 +973,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* Скроллится только список метрик — само окно остаётся целиком на экране */
 .setup-cols .fgrp.last .mpick{max-height:min(48vh,400px)}
 #setupOvl{padding:34px 18px;align-items:center}
-#setupOvl .modal{max-height:calc(100vh - 68px);display:flex;flex-direction:column}
+#setupOvl .modal{max-height:calc(var(--vh,100vh) - 68px);display:flex;flex-direction:column}
 #setupOvl .modal-b{flex:1;min-height:0;overflow:auto}
 
 /* ---------- Рабочая зона детальной вкладки во весь экран ----------
@@ -992,7 +992,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Правило только для широких экранов: ниже 1120px .split уже разложен в одну
    колонку с height:auto, и фиксировать высоту там нельзя — пороги обязаны совпадать. */
 @media(min-width:1121px){
-  .split{height:clamp(520px,calc(100vh - var(--head-h) - 28px),1040px)}
+  .split{height:clamp(520px,calc(var(--vh,100vh) - var(--head-h) - 28px),1040px)}
   .content{padding-bottom:24px}
 }
 
@@ -2168,9 +2168,9 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .split>.panel{height:auto}
   /* таблица — всегда во всю высоту окна, даже короткая: пустого фона под ней нет (20.10, скриншот
      заказчика); карточка графиков не ниже неё — края на одной линии и на коротких главах */
-  .split>.split-l{position:sticky;top:calc(var(--head-h,0px) + var(--shelf-h,0px) + 12px);height:calc(100vh - var(--head-h,0px) - var(--shelf-h,0px) - 38px);
-    max-height:calc(100vh - var(--head-h,0px) - var(--shelf-h,0px) - 38px)}
-  .split>.split-r{min-height:calc(100vh - var(--head-h,0px) - var(--shelf-h,0px) - 38px)}
+  .split>.split-l{position:sticky;top:calc(var(--head-h,0px) + var(--shelf-h,0px) + 12px);height:calc(var(--vh,100vh) - var(--head-h,0px) - var(--shelf-h,0px) - 38px);
+    max-height:calc(var(--vh,100vh) - var(--head-h,0px) - var(--shelf-h,0px) - 38px)}
+  .split>.split-r{min-height:calc(var(--vh,100vh) - var(--head-h,0px) - var(--shelf-h,0px) - 38px)}
   .split-l .tbl-wrap{flex:1 1 auto;min-height:0}
   .split-l .tbl-wrap{overscroll-behavior:contain}
   .split-gut{align-self:stretch}
@@ -2331,3 +2331,23 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .tp-noacc{display:flex;flex-direction:column;gap:var(--s4);max-width:520px;margin:15vh auto;padding:var(--s10);text-align:center;color:var(--ink)}
 .tp-noacc b{font-size:18px;font-weight:var(--fw-bold)}
 .tp-noacc span{color:var(--muted)}
+
+/* 27.10-в, п. 8: T-рост — итог потока над графиком, тепловые таблицы статусов и успешности */
+.rost-kpi{margin:var(--s6) 0 var(--s2);color:var(--muted)}
+.rost-kpi b{color:var(--ink);font-size:16px}
+.ptable.rost-t{width:100%;table-layout:fixed}
+.ptable.rost-t th{white-space:normal;line-height:1.25;vertical-align:bottom;text-transform:none;letter-spacing:0;overflow-wrap:anywhere}
+.ptable.rost-t td,.ptable.rost-t th{text-align:right}
+.ptable.rost-t td.txt,.ptable.rost-t th.txt{text-align:left;width:26%}
+
+/* 27.10-в, п. 21: карточки KPI по выбранной слева строке */
+.kpi-sel{display:flex;align-items:center;gap:var(--s4);margin:0 0 var(--s3);color:var(--muted)}
+.kpi-sel b{color:var(--ink)}
+
+/* 27.10-в, п. 16: закреплённый первый столбец — и его шапка закреплена и лежит выше соседних шапок (у них z-index 3),
+   итог первым столбцом — выше итоговых клеток; иначе при прокрутке вбок колонки наезжали на заголовок */
+.ptable thead th.mx-corner,.split-l .ptable.dense thead th.txt:first-child{position:sticky;left:0;z-index:5;background:#fff}
+.ptable tr.total.top td.txt{z-index:4}
+/* 27.10-в, п. 17 и 22: высоты раскладки — от видимой высоты отчёта (--vh: в Proteus — высота плитки, её ставит prelude;
+   в макете — 100vh). От 100vh окна браузера, которое выше плитки, низ навигации уходил за край, а закреплённая таблица
+   подразделений уезжала шапкой вверх и оставляла пустоту внизу */
