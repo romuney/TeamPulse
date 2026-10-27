@@ -42,7 +42,18 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        -- дни и посещения руководителей (management_head_flg = 1) — сегмент «Руководители» посещаемости
        sum(coalesce(e.booking_amt, 0)) as bk, sum(coalesce(e.booking_viol_amt, 0)) as bkv, sum(coalesce(e.visit_viol_amt, 0)) as vsv,
        sum(case when e.management_head_flg::text = '1' then coalesce(e.work_day_amt, 0) else 0 end) as hwd,
-       sum(case when e.management_head_flg::text = '1' then coalesce(e.office_visit_amt, 0) else 0 end) as hov
+       sum(case when e.management_head_flg::text = '1' then coalesce(e.office_visit_amt, 0) else 0 end) as hov,
+       -- поставка 71 (Адель, мониторинг по дням): людей с прогулами 2–5 и больше 5 дней, с работой в выходные 2–5 и
+       -- больше 5 дней, со звонками 20–30%, 30–50% и больше 50% рабочего времени; часы рабочего дня и звонков —
+       -- сумма средних по людям с данными (hrn — сколько таких людей): среднее по команде — hrs / hrn, доля звонков —
+       -- tlk / hrs
+       sum((e.absence_segment_cd = '2-5')::int) as ab25, sum((e.absence_segment_cd = '5+')::int) as ab5,
+       sum((e.weekend_segment_cd = '2-5')::int) as we25, sum((e.weekend_segment_cd = '5+')::int) as we5,
+       sum((e.talk_segment_cd = '20-30%')::int) as t23, sum((e.talk_segment_cd = '30-50%')::int) as t35,
+       sum((e.talk_segment_cd = '50%+')::int) as t5,
+       sum(case when coalesce(e.duration_hour, 0) > 0 then coalesce(e.duration_hour, 0) else 0 end) as hrs,
+       sum((coalesce(e.duration_hour, 0) > 0)::int) as hrn,
+       sum(case when coalesce(e.duration_hour, 0) > 0 then coalesce(e.talk_call_duration_h, 0) else 0 end) as tlk
 from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
@@ -51,7 +62,8 @@ from (
                s.transfer_internal_amt, s.hire_cnt, s.fire_amt, s.regret_fire_amt, s.non_regret_fire_amt,
                s.perf_normal, s.perf_low, s.perf_high, s.perf_gray, s.work_day_amt, s.office_visit_amt,
                s.grt_approve_cnt, s.grt_decline_cnt, s.booking_amt, s.booking_viol_amt, s.visit_viol_amt,
-               s.management_head_flg,
+               s.management_head_flg, s.duration_hour, s.talk_call_duration_h, s.absence_segment_cd,
+               s.weekend_segment_cd, s.talk_segment_cd,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
@@ -90,7 +102,11 @@ select k.node_rk, k.report_month, k.paint_c as paint_cd, k.it_c as it_cd, k.staf
        coalesce(c.wday, 0) as wday_amt, coalesce(c.ovis, 0) as ovis_amt,
        coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt,
        coalesce(c.bk, 0) as bk_amt, coalesce(c.bkv, 0) as bkv_amt, coalesce(c.vsv, 0) as vsv_amt,
-       coalesce(c.hwd, 0) as hwd_amt, coalesce(c.hov, 0) as hov_amt
+       coalesce(c.hwd, 0) as hwd_amt, coalesce(c.hov, 0) as hov_amt,
+       coalesce(c.ab25, 0) as ab25_cnt, coalesce(c.ab5, 0) as ab5_cnt, coalesce(c.we25, 0) as we25_cnt,
+       coalesce(c.we5, 0) as we5_cnt, coalesce(c.t23, 0) as t23_cnt, coalesce(c.t35, 0) as t35_cnt,
+       coalesce(c.t5, 0) as t5_cnt, coalesce(c.hrs, 0) as hrs_amt, coalesce(c.hrn, 0) as hrn_cnt,
+       coalesce(c.tlk, 0) as tlk_amt
 from k
 left join teampulse_hub_sx c
        on c.node_rk = k.node_rk and c.paint_c = k.paint_c and c.it_c = k.it_c and c.staff_c = k.staff_c and

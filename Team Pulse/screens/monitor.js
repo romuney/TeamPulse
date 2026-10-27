@@ -14,6 +14,9 @@
    часов в день и доли звонков, в таблице подразделений — колонки мониторинга и
    мини-график недо- и переработки за 12 недель. Клик по строке таблицы пересчитывает KPI
    и графики, клик по столбику отмечает период на линиях, Escape снимает выбор.
+
+   Поставка 71 (мониторинг по дням Адели): на настоящих данных — по месяцам звонки в Толк, прогулы и работа в
+   выходные (KPI с изменением к прошлому месяцу), линии часов в день и доли звонков. Недели — с витриной по неделям.
    ========================================================================== */
 (function(){
 'use strict';
@@ -43,16 +46,29 @@ SC.blocks.monitor={
     if(!md)return '';
     const w=wk(md), cur=w.cur, prev=w.prev, sh=v=>pctOf(v,cur.hc)+' численности';
     /* пробник без витрины по неделям: последний закрытый месяц против прошлого, по основной таблице */
+    const vs='к прошлому месяцу', both=(x,a,b)=>x[a]+x[b];
     if(md.monthly)return '<div class="mk-cap">Последний закрытый месяц — <b>'+U.esc(cur.full.toLowerCase())+'</b> · изменение — к прошлому месяцу'+
-        ' · люди с категорией мониторинга · недели, звонки, прогулы и выходные — когда подключим табель по неделям</div>'+
+        ' · люди с категорией мониторинга · '+(md.daily?'недели — с витриной мониторинга по неделям':
+          'недели, звонки, прогулы и выходные — когда подключим табель по неделям')+'</div>'+
       '<div class="kpis compact n5 mks">'+[
       U.monKpi({label:'Недоработка',value:cur.under,share:sh(cur.under),delta:cur.under-prev.under,bad:'up',vs:'к прошлому месяцу',
         info:{title:'Недоработка',text:'Сотрудники с активностью ниже нормы (категории low и super_low) в последнем закрытом месяце.'}}),
       U.monKpi({label:'Переработка',value:cur.over,share:sh(cur.over),delta:cur.over-prev.over,bad:'up',vs:'к прошлому месяцу',
         info:{title:'Переработка',text:'Сотрудники с активностью выше нормы (категории high и super_high) в последнем закрытом месяце.'}}),
-      U.monKpi({label:'Звонки в Толк 20–30%',dev:5,devText:NOW_ASK}),
-      U.monKpi({label:'Прогулы',dev:5,devText:NOW_ASK}),
-      U.monKpi({label:'Работа в выходные',dev:5,devText:NOW_ASK})].join('')+'</div>';
+      md.daily?U.monKpi({label:'Звонки в Толк 20–30%',value:cur.t23,share:sh(cur.t23),delta:cur.t23-prev.t23,bad:'none',vs:vs,
+        info:{title:'Звонки в Толк',text:'Сотрудники, у которых разговоры в Толк заняли 20–30% рабочего времени в последнем закрытом месяце. Ниже — у кого больше.\nИзменение без цвета: какая доля нормальна, зависит от роли.'},
+        parts:[{name:'30–50%',n:cur.t35,color:C.talk},{name:'больше 50%',n:cur.t5,color:C.talk2}]})
+        :U.monKpi({label:'Звонки в Толк 20–30%',dev:5,devText:NOW_ASK}),
+      md.daily?U.monKpi({label:'Прогулы',value:both(cur,'ab25','ab5'),share:sh(both(cur,'ab25','ab5')),
+        delta:both(cur,'ab25','ab5')-both(prev,'ab25','ab5'),bad:'up',vs:vs,
+        info:{title:'Прогулы',text:'Сотрудники, у которых в последнем закрытом месяце больше одного прогула — планового рабочего дня без работы.'},
+        parts:[{name:'2–5 дней',n:cur.ab25,color:C.per},{name:'больше 5 дней',n:cur.ab5,color:C.per2}]})
+        :U.monKpi({label:'Прогулы',dev:5,devText:NOW_ASK}),
+      md.daily?U.monKpi({label:'Работа в выходные',value:both(cur,'we25','we5'),share:sh(both(cur,'we25','we5')),
+        delta:both(cur,'we25','we5')-both(prev,'we25','we5'),bad:'up',vs:vs,
+        info:{title:'Работа в выходные',text:'Сотрудники, которые в последнем закрытом месяце работали в выходные больше одного дня.'},
+        parts:[{name:'2–5 дней',n:cur.we25,color:C.per},{name:'больше 5 дней',n:cur.we5,color:C.per2}]})
+        :U.monKpi({label:'Работа в выходные',dev:5,devText:NOW_ASK})].join('')+'</div>';
     const wkTip='Неделя '+cur.full.replace('Неделя ','')+' против '+prev.full.replace('Неделя ','')+'.';
     return '<div class="mk-cap">Последняя закрытая неделя — <b>'+U.esc(cur.full.replace('Неделя ',''))+'</b> · сравнение с '+
         U.esc(prev.full.replace('Неделя ',''))+' · активная численность HQ, '+D.fmtInt(cur.hc)+' чел</div>'+
@@ -81,7 +97,7 @@ SC.blocks.monitor={
     {k:'hc',name:'В мониторинге, чел.',tip:'Люди с категорией мониторинга в последнем закрытом периоде: норма, недоработка, переработка, не размечено.',val:md=>wk(md).cur.hc},
     {k:'under',name:'Недоработка',tip:'Активность ниже нормы в последнем закрытом периоде, человек.',val:md=>wk(md).cur.under,share:true},
     {k:'over',name:'Переработка',tip:'Активность выше нормы в последнем закрытом периоде, человек.',val:md=>wk(md).cur.over,share:true},
-    {k:'talk',name:'Толк 20–30%',tip:'Сотрудники, у которых звонки в Толк занимают 20–30% рабочего времени.',val:md=>md.monthly?null:wk(md).cur.t23,share:true},
+    {k:'talk',name:'Толк 20–30%',tip:'Сотрудники, у которых звонки в Толк занимают 20–30% рабочего времени.',val:md=>md.monthly&&!md.daily?null:wk(md).cur.t23,share:true},
     {k:'spark',name:'Динамика, %',tip:'Доля недоработки (оранжевая) и переработки (красная): 12 закрытых недель, а пока недельных данных нет — 6 закрытых месяцев.',
       spark:md=>{const W=(md.weeks||md.months).slice(-12), n=W.length-1, u=W.map(x=>x.hc?x.under/x.hc*100:null), o=W.map(x=>x.hc?x.over/x.hc*100:null);
         const f=v=>v==null?'—':(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%';
@@ -114,15 +130,19 @@ SC.blocks.monitor={
     const P=gran==='m'?md.months:md.weeks.slice(-12);
     const mark=S.monMark!=null&&S.monMark<P.length?S.monMark:null;
     const mk=mark!=null?P[mark]:null;
-    /* пробник без витрины по неделям: месяцы из основной таблицы, линий нет */
+    /* пробник без витрины по неделям: месяцы из основной таблицы; линии часов и звонков — с мониторингом по дням
+       (поставка 71), без него — заглушки */
     if(md.monthly)return '<div class="mon-bar"><span class="mon-note">'+(mk?'Отмечен период: <b>'+U.esc(mk.full)+'</b> · Escape — снять'
+        :md.daily?'По месяцам. Клик по столбику отмечает месяц на линиях. Недели — с витриной мониторинга по неделям'
         :'По месяцам, из основной таблицы. Недели, часы в день и звонки в Толк — с витриной мониторинга')+'</span></div>'+
       G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
+      (md.daily?G.chart('pline',{periods:P,key:'hours',mark:mark},{title:'Рабочая активность, ч/день',name:'Часов в день',h:190})+
+        G.chart('pline',{periods:P,key:'talk',mark:mark},{title:'Доля звонков в Толк, % рабочего времени',name:'Звонки в Толк',fmt:'pct',h:190}):
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
       monPh('Рабочая активность, ч/день','Средняя рабочая активность в часах в день по месяцам и неделям.')+
-      monPh('Доля звонков в Толк, % рабочего времени','Доля разговоров в Толк от рабочего времени, среднее по месяцам и неделям.');
+      monPh('Доля звонков в Толк, % рабочего времени','Доля разговоров в Толк от рабочего времени, среднее по месяцам и неделям.'));
     return '<div class="mon-bar">'+U.segToggle('data-mongran',[['m','Месяцы'],['w','Недели']],gran)+
         '<span class="mon-note">'+(mk?'Отмечен период: <b>'+U.esc(mk.full)+'</b> · Escape — снять':'Клик по столбику отмечает период на линиях')+'</span></div>'+
       G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',

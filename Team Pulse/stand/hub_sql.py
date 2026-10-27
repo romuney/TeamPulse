@@ -70,7 +70,19 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
                'legal_organization', 'employee_stream', 'fire_reason_group', 'fire_initiative', 'specialization',
                'type_company', 'source_type_nm', 'region',
                # поставка 66 (Адель): бронирования, города посещений (with_office_traffic), признак руководителя
-               'booking_amt', 'booking_viol_amt', 'visit_viol_amt', 'office_city_visits_json', 'management_head_flg'])
+               'booking_amt', 'booking_viol_amt', 'visit_viol_amt', 'office_city_visits_json', 'management_head_flg',
+               # поставка 71 (Адель, with_performance): мониторинг по дням — часы, звонки, сегменты прогулов, выходных, звонков
+               'duration_hour', 'talk_call_duration_h', 'absence_segment_cd', 'weekend_segment_cd', 'talk_segment_cd',
+               'last_row_flg', 'mdm_employee_rk'])
+# поставка 71: заявки T-роста — rost_info (по заявке) и structure_x_rost (заявка к структуре), параграфы Адели
+ROST = 'rost_info'
+ROST_COLS = ['mdm_employee_rk', 'month', 'create_dttm', 'is_approved', 'is_declined', 'is_inprogress',
+             'grade_change_application_flg', 'specialization_change_application_flg', 'tat_flg']
+SXR = 'structure_x_rost'
+SXR_COLS = (['mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in range(1, 12)]
+            + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'act_type_nm', 'month',
+               'is_approved', 'is_declined', 'grade_change_application_flg', 'specialization_change_application_flg',
+               'tat_flg', 'required_grade_num', 'required_specialization'])
 CAL_COLS = (['report_month', 'calendar_dt', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in LV]
             + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'act_type_nm', 'cnt_work_day',
                'cnt_office_visit'])
@@ -88,6 +100,7 @@ VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'close_flg', 'end_of_m
 
 def sql_cols():
     need = ([('', SRC, c) for c in SRC_COLS] + [('', STRUCT, c) for c in ('report_month', 'mng_unit_rk')]
+            + [('', ROST, c) for c in ROST_COLS] + [('', SXR, c) for c in SXR_COLS]
             + [('', CAL, c) for c in CAL_COLS]
             + [tuple(DAY.split('.')) + (c,) for c in DAY_COLS] + [tuple(VAC_SRC.split('.')) + (c,) for c in VAC_COLS])
     vals = ',\n'.join(f"        ('{s}', '{t}', '{c}')" for s, t, c in need)
@@ -324,7 +337,8 @@ def sql_series():
                'transfer_internal_amt', 'hire_cnt', 'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt',
                'perf_normal', 'perf_low', 'perf_high', 'perf_gray', 'work_day_amt', 'office_visit_amt',
                'grt_approve_cnt', 'grt_decline_cnt', 'booking_amt', 'booking_viol_amt', 'visit_viol_amt',
-               'management_head_flg']
+               'management_head_flg', 'duration_hour', 'talk_call_duration_h', 'absence_segment_cd',
+               'weekend_segment_cd', 'talk_segment_cd']
     head_e = lambda c: f"case when e.management_head_flg::text = '1' then {num(c)} else 0 end"
     on = lambda a, b: wrap([f'{a}.{c} = {b}.{c}' for c in ('node_rk', 'paint_c', 'it_c', 'staff_c', 'act_c')],
                            ' ' * 7, sep=' and ', width=100)
@@ -370,7 +384,18 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        -- дни и посещения руководителей (management_head_flg = 1) — сегмент «Руководители» посещаемости
        sum({num('booking_amt')}) as bk, sum({num('booking_viol_amt')}) as bkv, sum({num('visit_viol_amt')}) as vsv,
        sum({head_e('work_day_amt')}) as hwd,
-       sum({head_e('office_visit_amt')}) as hov
+       sum({head_e('office_visit_amt')}) as hov,
+       -- поставка 71 (Адель, мониторинг по дням): людей с прогулами 2–5 и больше 5 дней, с работой в выходные 2–5 и
+       -- больше 5 дней, со звонками 20–30%, 30–50% и больше 50% рабочего времени; часы рабочего дня и звонков —
+       -- сумма средних по людям с данными (hrn — сколько таких людей): среднее по команде — hrs / hrn, доля звонков —
+       -- tlk / hrs
+       sum((e.absence_segment_cd = '2-5')::int) as ab25, sum((e.absence_segment_cd = '5+')::int) as ab5,
+       sum((e.weekend_segment_cd = '2-5')::int) as we25, sum((e.weekend_segment_cd = '5+')::int) as we5,
+       sum((e.talk_segment_cd = '20-30%')::int) as t23, sum((e.talk_segment_cd = '30-50%')::int) as t35,
+       sum((e.talk_segment_cd = '50%+')::int) as t5,
+       sum(case when {num('duration_hour')} > 0 then {num('duration_hour')} else 0 end) as hrs,
+       sum(({num('duration_hour')} > 0)::int) as hrn,
+       sum(case when {num('duration_hour')} > 0 then {num('talk_call_duration_h')} else 0 end) as tlk
 from ({expl(sx_cols, '')}) e
 group by 1, 2, 3, 4, 5, 6
 {dist('node_rk')};
@@ -398,7 +423,11 @@ select k.node_rk, k.report_month, k.paint_c as paint_cd, k.it_c as it_cd, k.staf
        coalesce(c.wday, 0) as wday_amt, coalesce(c.ovis, 0) as ovis_amt,
        coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt,
        coalesce(c.bk, 0) as bk_amt, coalesce(c.bkv, 0) as bkv_amt, coalesce(c.vsv, 0) as vsv_amt,
-       coalesce(c.hwd, 0) as hwd_amt, coalesce(c.hov, 0) as hov_amt
+       coalesce(c.hwd, 0) as hwd_amt, coalesce(c.hov, 0) as hov_amt,
+       coalesce(c.ab25, 0) as ab25_cnt, coalesce(c.ab5, 0) as ab5_cnt, coalesce(c.we25, 0) as we25_cnt,
+       coalesce(c.we5, 0) as we5_cnt, coalesce(c.t23, 0) as t23_cnt, coalesce(c.t35, 0) as t35_cnt,
+       coalesce(c.t5, 0) as t5_cnt, coalesce(c.hrs, 0) as hrs_amt, coalesce(c.hrn, 0) as hrn_cnt,
+       coalesce(c.tlk, 0) as tlk_amt
 from k
 left join {P}_sx c
        on {on('c', 'k')}
@@ -412,6 +441,77 @@ drop table if exists {P}_sx;
 select (select count(*) from {P}_unit) as unit_rows, (select count(*) from {P}_series) as series_rows;
 """
 
+
+
+def rost_mix():
+    """поставка 71: разрезы T-роста — rm (заявки с итогом по месяцам), rq (успешность по желаемому за 12 месяцев), rs
+    (статус роста человека на последний месяц); у датасета 2а — только выбранному подразделению"""
+    rt = lambda e: (f"case when coalesce({e}grade_change_application_flg, 0) = 1 "
+                    f"and coalesce({e}specialization_change_application_flg, 0) = 1 then 'gs'\n"
+                    f"{' ' * 12}when coalesce({e}grade_change_application_flg, 0) = 1 then 'g' "
+                    f"when coalesce({e}specialization_change_application_flg, 0) = 1 then 's' end")
+    tat = "(case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end)"
+    res = "(case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end)"
+    m12 = f"((select lm from {P}_cal) - interval '11 month')::date"
+    lm = f'(select lm from {P}_cal)'
+    rcols = ['month', 'is_approved', 'is_declined', 'grade_change_application_flg', 'specialization_change_application_flg',
+             'tat_flg', 'required_grade_num', 'required_specialization']
+    ex_rm = expl(rcols, f'and s.month >= (select grid_start from {P}_cal)', SXR)
+    ex_rq = expl(rcols, f'and s.month >= {m12} and s.month <= {lm}', SXR)
+    ex_rs = expl(['report_month', 'grade', 'mdm_employee_rk', 'hc_total_cnt', 'last_row_flg'],
+                 f'and s.report_month = {lm} and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1')
+    return f"""-- поставка 71: T-рост по вкладке «Рост» дашборда HQ (параграфы Адели rost_info, with_TRost, structure_x_rost); датасет
+-- 2а отдаёт эти разрезы только выбранному подразделению. Тип заявки: g — смена грейда, s — специализации, gs — обоих;
+-- поток: 1 — T@T, 0 — «Рост»; итог: ok — одобрена, no — отклонена (отменённые и в работе — не итог).
+-- rm — заявки с итогом по месяцам подачи сетки: «ГГГГ-ММ|тип|поток|итог»
+insert into {P}_mixr
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rm' as mx_key,
+       to_char(e.month, 'YYYY-MM') || '|' || ({rt('e.')}) || '|' || {tat} || '|' || {res} as mx_val,
+       1 as mx_n
+from ({ex_rm}) e
+where ({rt('e.')}) is not null and {res} is not null;
+
+-- rq — за 12 месяцев до последнего: «вид|поток|итог|желаемое», вид g — желаемый грейд, s — желаемая специализация
+insert into {P}_mixr
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
+       'g|' || {tat} || '|' || {res} || '|' || coalesce(e.required_grade_num::text, '') as mx_val, 1 as mx_n
+from ({ex_rq}) e
+where coalesce(e.grade_change_application_flg, 0) = 1 and {res} is not null
+union all
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
+       's|' || {tat} || '|' || {res} || '|' || {clean('e.required_specialization')} as mx_val, 1 as mx_n
+from ({ex_rq}) e
+where coalesce(e.specialization_change_application_flg, 0) = 1 and {res} is not null;
+
+-- rs — статус роста человека на последний месяц (люди численности, одна строка человека): «статус|тип|грейд». За 12
+-- месяцев: одобрена и сейчас есть заявка в работе — again («в росте повторно»); только одобрена — done; в работе без
+-- одобренной — first; отклонена без одобренной и без заявки в работе — denied; иначе — none (тип пустой). Тип — у
+-- последней заявки, по которой дан статус
+insert into {P}_mixr
+with r as (
+    select mdm_employee_rk,
+           max((is_approved = 1 and month >= {m12})::int) as ok12,
+           max((is_inprogress = 1)::int) as act,
+           max((is_declined = 1 and month >= {m12})::int) as dcl12,
+           (array_agg({rt('')} order by create_dttm desc) filter (where is_approved = 1 and month >= {m12}))[1] as t_ok,
+           (array_agg({rt('')} order by create_dttm desc) filter (where is_inprogress = 1))[1] as t_act,
+           (array_agg({rt('')} order by create_dttm desc) filter (where is_declined = 1 and month >= {m12}))[1] as t_dcl
+    from {ROST}
+    group by mdm_employee_rk
+), p as (
+    select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, {clean('e.grade')} as gr,
+           case when r.ok12 = 1 and r.act = 1 then 'again' when r.ok12 = 1 then 'done' when r.act = 1 then 'first'
+                when r.dcl12 = 1 then 'denied' else 'none' end as st,
+           case when r.ok12 = 1 and r.act = 1 then r.t_act when r.ok12 = 1 then r.t_ok when r.act = 1 then r.t_act
+                when r.dcl12 = 1 then r.t_dcl else '' end as tp
+    from ({ex_rs}) e
+    left join r on r.mdm_employee_rk = e.mdm_employee_rk
+)
+select node_rk, paint_c, it_c, staff_c, act_c, 'rs' as mx_key, st || '|' || coalesce(tp, '') || '|' || gr as mx_val,
+       1 as mx_n
+from p;
+
+"""
 
 def sql_mix():
     a = {k: clean(f'e.{c}') for k, c in (
@@ -437,6 +537,7 @@ def sql_mix():
     ytd = f"and s.report_month between date_trunc('year', {lm})::date and {lm}"
     city = clean("(j.v ->> 'office_city_nm')")
     two = f"and s.report_month between ({lm} - interval '1 month')::date and {lm}"
+    ROST_MIX = rost_mix()
     return f"""{head('4. Разрезы (поставка 58: SQL вместо build_hub)',
                'teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам',
                '(g a t gr s c o w r sp tc rg ws mh), увольнения с начала его года (xr причина, xq regret по причине, xi',
@@ -488,7 +589,7 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'xim' as mx_key,
 from ({expl(['report_month', 'fire_amt', 'fire_initiative'], f'and s.report_month >= (select grid_start from {P}_cal)')}) e
 where {num('fire_amt')} > 0;
 
--- поставка 66: посещения офисов последнего месяца по городам (office_city_visits_json — параграф with_office_traffic):
+{ROST_MIX}-- поставка 66: посещения офисов последнего месяца по городам (office_city_visits_json — параграф with_office_traffic):
 -- oc — посещений, ocp — людей, которые были в офисе этого города
 insert into {P}_mixr
 select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
@@ -878,6 +979,23 @@ def sql_checks():
          f"""(select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'xim')
        - (select sum(fire_cnt) from {P}_series where node_rk = {root}
           and report_month >= (select grid_start from {P}_meta))"""),
+        # поставка 71: мониторинг по дням — люди в сегментах (корень, вся сетка) против людей источника
+        ('мониторинг: люди в сегментах прогулов, выходных и звонков - люди (корень, вся сетка)', 1,
+         f"""(select sum(ab25_cnt + ab5_cnt + we25_cnt + we5_cnt + t23_cnt + t35_cnt + t5_cnt) from {P}_series
+          where node_rk = {root})
+       - (select sum((absence_segment_cd in ('2-5', '5+'))::int + (weekend_segment_cd in ('2-5', '5+'))::int
+                     + (talk_segment_cd in ('20-30%', '30-50%', '50%+'))::int) from {SRC}
+          where leaf_lvl > 0 and report_month >= (select grid_start from {P}_meta))"""),
+        # поставка 71: статус роста — у каждого человека численности последнего месяца (корень)
+        ('T-рост: статусы роста - численность последнего месяца (корень)', 1,
+         f"""(select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'rs')
+       - (select sum(hc_cnt) from {P}_series where node_rk = {root} and report_month = {lm})"""),
+        # справочно: заявка вне дерева людей (юнит не в структуре) в корень не попадёт
+        ('T-рост: заявки с итогом по месяцам - заявки (корень, вся сетка)', 0,
+         f"""coalesce((select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'rm'), 0)
+       - (select count(*) from {SXR} where leaf_lvl > 0 and month >= (select grid_start from {P}_meta)
+          and (is_approved = 1 or is_declined = 1)
+          and (grade_change_application_flg = 1 or specialization_change_application_flg = 1))"""),
         # справочно: посещение без города в разрез по городам не попадает
         ('города - посещения последнего месяца (корень)', 0,
          f"""coalesce((select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'oc'), 0)

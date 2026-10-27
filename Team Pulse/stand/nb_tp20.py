@@ -453,7 +453,44 @@ def side(people):
                 ov = int(random.random() < .4)
                 office.append((d, p['rk'], 1, ov) + office_row(p['rk'], d, ov))
             d += dt.timedelta(1)
-    return perf, office, grt
+    return perf, office, grt_ext(people, grt)
+
+
+# 27.10, поставка 71 (Адель): у заявки T-роста — грейд и специализация сейчас и желаемые, поток T@T (желаемый уровень
+# T@T). По ключу человека и дню, без генератора: случайный ряд симуляции не сдвигается. Тип: смена грейда (65%),
+# специализации (20%), обоих (15%); T@T — у каждой четвёртой
+SPECS = ['Backend', 'Frontend', 'Аналитик данных', 'QA', 'Продуктовый менеджер', 'Аккаунт-менеджер', 'Операционист']
+
+
+def grt_ext(people, grt):
+    byrk = {p['rk']: p for p in people}
+    out = []
+    for rk, ts, st, dl, vt in grt:
+        p, h = byrk[rk], (rk * 7919 + ts.toordinal() * 104729 + ts.day) % 1000
+        kind = 'g' if h < 650 else 's' if h < 850 else 'gs'
+        g, sp = at(p['grade'], ts.date()), SPECS.index(p['spec']) + 1
+        out.append((rk, ts, st, dl, vt, g, g + 1 if 'g' in kind else g, sp, sp % len(SPECS) + 1 if 's' in kind else sp,
+                    1 if h % 4 == 0 else None))
+    return out
+
+
+def mon_days(people):
+    """поставка 71: мониторинг по дням (performance_metric_d): плановый рабочий день, часы, баланс (−1 — прогул, 1 —
+    работа в выходной), часы звонков. Склонность к прогулам, выходным и доля звонков — у человека своя; по ключу
+    человека и дню, без генератора"""
+    out = []
+    for p in people:
+        rk, d, last = p['rk'], max(p['start'], D0), p['end'] or D1
+        talk, ab, we = (rk * 37 % 100) / 100 * 0.6, 5 + rk % 6 * 40, rk % 7 * 90
+        while d <= last:
+            h = (rk * 7919 + d.toordinal() * 104729) % 1000
+            plan = int(d.weekday() < 5)
+            bal = -1 if plan and h < ab else 1 if not plan and h < we else 0
+            dur = 0.0 if bal == -1 else round(7 + h % 30 / 10, 1) if plan else 4.0 if bal == 1 else 0.0
+            if plan or bal == 1:
+                out.append((rk, d, dur, plan, bal, round(dur * talk, 2) if plan else 0.0))
+            d += dt.timedelta(1)
+    return out
 
 
 # 26.10, поставка 66 (посещения Адели): бронирование, город офиса, визит в другой регион, день недели — по ключу
@@ -497,9 +534,21 @@ def load(pg, U, people):
             + OFFICE_EXT, office)
     pg.run("""CREATE TABLE prod_v_dds.mdm_employee_application_grt (mdm_employee_application_rk bigint, create_dttm timestamp,
               current_grade_num int, required_grade_num int, head_approve_flg int, mdm_employee_appl_status_cd text,
-              deleted_flg int, valid_to_dttm date)""")
+              deleted_flg int, valid_to_dttm date, current_specialization_dk int, required_specialization_dk int,
+              required_tat_level_num int)""")
     pg.copy('prod_v_dds.mdm_employee_application_grt', ['mdm_employee_application_rk', 'create_dttm', 'mdm_employee_appl_status_cd',
-                                                       'deleted_flg', 'valid_to_dttm'], grt)
+                                                       'deleted_flg', 'valid_to_dttm', 'current_grade_num', 'required_grade_num',
+                                                       'current_specialization_dk', 'required_specialization_dk',
+                                                       'required_tat_level_num'], grt)
+    # поставка 71: справочник специализаций (rost_info Адели) и мониторинг по дням (with_performance Адели)
+    pg.run("CREATE TABLE prod_v_dds_dic.employee_specialization (employee_specialization_dk int, employee_specialization_desc text, "
+           "valid_to_dttm date)")
+    pg.copy('prod_v_dds_dic.employee_specialization', ['employee_specialization_dk', 'employee_specialization_desc', 'valid_to_dttm'],
+            [(i + 1, s_, '5999-01-01') for i, s_ in enumerate(SPECS)])
+    pg.run("CREATE TABLE prod_v_sse_crossdata.performance_metric_d (mdm_employee_rk bigint, calendar_dt date, duration_hour numeric, "
+           "plan_working_day_flg int, working_balance int, talk_call_duration_h numeric)")
+    pg.copy('prod_v_sse_crossdata.performance_metric_d', ['mdm_employee_rk', 'calendar_dt', 'duration_hour', 'plan_working_day_flg',
+                                                         'working_balance', 'talk_call_duration_h'], mon_days(people))
     pg.run("""CREATE TABLE prod_v_dds_dic.mdm_employee_appl_status (mdm_employee_appl_status_cd text, mdm_employee_appl_status_desc text);
               INSERT INTO prod_v_dds_dic.mdm_employee_appl_status VALUES ('FNS','Одобрена'),('DCL','Отклонена'),('CNL','Отменена'),('INP','В работе')""")
     # 19.10: структура сотрудников с логинами — источник логина руководителя юнита (build_hub, как
@@ -643,7 +692,7 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, h
             continue
         for n in path(U, last_unit(byrk[rk_], m)):
             T[(n, m)]['perf'] += 1
-    for rk_, ts, st, _, _ in grt:
+    for rk_, ts, st in (r[:3] for r in grt):
         m = dt.date(ts.year, ts.month, 1)
         if rk_ not in byrk or not ok(byrk[rk_], m):
             continue
@@ -766,6 +815,92 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
             for n in nodes(p, e):
                 MH[n][str(head_flg(H, p, e))] += 1
     return T, Dd, C, MH
+
+
+def mon_month(md):
+    """поставка 71: мониторинг человека за месяц, как performance_metric_d_aggr Адели: средние часы рабочего дня и звонков
+    по плановым дням, прогулы, работа в выходной, доля разговоров и сегменты"""
+    from decimal import Decimal, ROUND_HALF_UP
+    A = defaultdict(lambda: [0.0, 0, 0, 0, 0.0])
+    for rk, d, dur, plan, bal, talk in md:
+        a = A[(rk, dt.date(d.year, d.month, 1))]
+        if plan:
+            a[0] += dur; a[1] += 1; a[4] += talk
+        a[2] += bal == -1; a[3] += bal == 1
+    out = {}
+    for k, (ds, pd, ab, wo, ts) in A.items():
+        dur = ds / pd if pd else 0.0
+        sh = float(Decimal(100.0 * ts / ds).quantize(Decimal('0.1'), ROUND_HALF_UP)) if pd and ds else 0.0
+        out[k] = dict(dur=dur, talk=ts / pd if pd else 0.0, ab=ab, wo=wo,
+                      ts='нет данных' if dur <= 0 else 'до 20%' if sh < 20 else '20-30%' if sh <= 30 else
+                         '30-50%' if sh <= 50 else '50%+',
+                      as_='0-1' if ab <= 1 else '2-5' if ab <= 5 else '5+', ws='0-1' if wo <= 1 else '2-5' if wo <= 5 else '5+')
+    return out
+
+
+def truth_mon(U, people, mm, pred=lambda p, d: True, act=ACTIVE):
+    """поставка 71: ряды мониторинга по дням — узел × месяц: ab25 ab5 we25 we5 t23 t35 t5 (люди в сегментах), hrs, hrn,
+    tlk (сумма средних часов дня и звонков по людям с часами, сколько таких людей). Человек месяца — его последняя строка
+    (юнит и срез на последний день в месяце), как перформанс"""
+    T = defaultdict(lambda: defaultdict(float))
+    root = ['all'] if ROOTS > 1 else []
+    byrk = {p['rk']: p for p in people}
+    for (rk, m), x in mm.items():
+        p = byrk[rk]
+        d = min(eom(m), p['end'] or D1)
+        if not (pred(p, d) and (act is None or at(p['acth'], d) in act)):
+            continue
+        for n in root + path(U, at(p['unit'], d)):
+            t = T[(n, m)]
+            t['ab25'] += x['as_'] == '2-5'; t['ab5'] += x['as_'] == '5+'
+            t['we25'] += x['ws'] == '2-5'; t['we5'] += x['ws'] == '5+'
+            t['t23'] += x['ts'] == '20-30%'; t['t35'] += x['ts'] == '30-50%'; t['t5'] += x['ts'] == '50%+'
+            if x['dur'] > 0:
+                t['hrs'] += x['dur']; t['hrn'] += 1; t['tlk'] += x['talk']
+    return T
+
+
+def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
+    """поставка 71: разрезы T-роста узла rk — rm (заявки с итогом по месяцам сетки), rq (успешность по желаемому за 12
+    месяцев до последнего), rs (статус роста людей численности последнего месяца); как hub · 4"""
+    byrk = {p['rk']: p for p in people}
+    ms = months()
+    lm, g0 = ms[-1], ms[0]
+    m12 = ms[-12]
+    ok = lambda p, d: pred(p, d) and (act is None or at(p['acth'], d) in act)
+    tp = lambda r: 'gs' if r[5] != r[6] and r[7] != r[8] else 'g' if r[5] != r[6] else 's' if r[7] != r[8] else None
+    out = {'rm': defaultdict(float), 'rq': defaultdict(float), 'rs': defaultdict(float)}
+    apps = defaultdict(list)
+    inn = lambda u: rk == 'all' or rk in path(U, u)     # общий корень (NB_ROOTS=2) — все юниты
+    for r in grt:
+        apps[r[0]].append(r)
+        p, m = byrk[r[0]], dt.date(r[1].year, r[1].month, 1)
+        d = min(eom(m), p['end'] or D1)
+        res = 'ok' if r[2] == 'FNS' else 'no' if r[2] == 'DCL' else None
+        if res is None or not ok(p, d) or not inn(at(p['unit'], d)):
+            continue
+        tat = '1' if r[9] is not None else '0'
+        if tp(r) and m >= g0:
+            out['rm'][f"{m:%Y-%m}|{tp(r)}|{tat}|{res}"] += 1
+        if m12 <= m <= lm:
+            if r[5] != r[6]:
+                out['rq'][f"g|{tat}|{res}|{r[6]}"] += 1
+            if r[7] != r[8]:
+                out['rq'][f"s|{tat}|{res}|{SPECS[r[8] - 1]}"] += 1
+    e = eom(lm)
+    for p in people:
+        if not (p['start'] <= e and (p['end'] is None or e < p['end']) and ok(p, e) and inn(at(p['unit'], e))):
+            continue
+        a = apps.get(p['rk'], [])
+        mo = lambda r: dt.date(r[1].year, r[1].month, 1)
+        last = lambda f: (sorted([r for r in a if f(r)], key=lambda r: r[1])[-1:] or [None])[0]
+        o = last(lambda r: r[2] == 'FNS' and mo(r) >= m12)
+        ac = last(lambda r: r[2] == 'INP')
+        dc = last(lambda r: r[2] == 'DCL' and mo(r) >= m12)
+        st, r_ = ('again', ac) if o and ac else ('done', o) if o else ('first', ac) if ac else ('denied', dc) if dc else ('none', None)
+        out['rs'][f"{st}|{(tp(r_) or '') if r_ else ''}|{at(p['grade'], e)}"] += 1
+    return {k: dict(v) for k, v in out.items()}
+
 
 
 # ---- прогон ноутбука ----------------------------------------------------------

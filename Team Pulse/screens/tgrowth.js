@@ -11,7 +11,8 @@
                                 успешность по желаемой специализации.
 
    Прежние «Заявки и T@T» и «Статусы по грейдам» (tgrowthProfile) — в истории; новые
-   вкладки читают D.rostProfile. Источника у них пока нет — плашка «в разработке».
+   вкладки читают D.rostProfile. Поставка 71: на настоящих данных — разрезы «Роста» выбранного подразделения
+   (параграфы Адели); без них — условные числа с плашкой «в разработке».
    ========================================================================== */
 (function(){
 'use strict';
@@ -56,7 +57,7 @@ function flowBlock(f,what,head){
 }
 function grades(ctx,p){
   const cur=p.st.find(x=>x.key===ctx.S.rostSt)||p.st[0];
-  return U.btGroup({cap:'Статусы роста',capSub:'активная численность HQ · за 12 месяцев',head:'',valueHead:'Человек',
+  return U.btGroup({cap:'Статусы роста',capSub:p.real?'численность последнего месяца · заявки за 12 месяцев':'активная численность HQ · за 12 месяцев',head:'',valueHead:'Человек',
       metricKey:'hc_total',compact:true,items:p.st.map(s=>({name:s.name,value:s.n,color:ST_COL[s.key],on:s===cur,
         attr:'data-rostst="'+s.key+'"',attrTip:'Клик — «'+s.name+'» по текущему грейду. '+s.tip}))})+
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+

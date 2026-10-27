@@ -78,17 +78,34 @@ select 14 as n, 'увольнения по инициатору и месяцу 
        - (select sum(fire_cnt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta)
           and report_month >= (select grid_start from teampulse_hub_meta)))::float8 as val
 union all
-select 15 as n, 'города - посещения последнего месяца (корень)'::text as check_nm, 0 as must,
+select 15 as n, 'мониторинг: люди в сегментах прогулов, выходных и звонков - люди (корень, вся сетка)'::text as check_nm, 1 as must,
+       ((select sum(ab25_cnt + ab5_cnt + we25_cnt + we5_cnt + t23_cnt + t35_cnt + t5_cnt) from teampulse_hub_series
+          where node_rk = (select root_rk from teampulse_hub_meta))
+       - (select sum((absence_segment_cd in ('2-5', '5+'))::int + (weekend_segment_cd in ('2-5', '5+'))::int
+                     + (talk_segment_cd in ('20-30%', '30-50%', '50%+'))::int) from all_metrics_with_performance_and_office_traffic_and_grt
+          where leaf_lvl > 0 and report_month >= (select grid_start from teampulse_hub_meta)))::float8 as val
+union all
+select 16 as n, 'T-рост: статусы роста - численность последнего месяца (корень)'::text as check_nm, 1 as must,
+       ((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'rs')
+       - (select sum(hc_cnt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta) and report_month = (select last_month from teampulse_hub_meta)))::float8 as val
+union all
+select 17 as n, 'T-рост: заявки с итогом по месяцам - заявки (корень, вся сетка)'::text as check_nm, 0 as must,
+       (coalesce((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'rm'), 0)
+       - (select count(*) from structure_x_rost where leaf_lvl > 0 and month >= (select grid_start from teampulse_hub_meta)
+          and (is_approved = 1 or is_declined = 1)
+          and (grade_change_application_flg = 1 or specialization_change_application_flg = 1)))::float8 as val
+union all
+select 18 as n, 'города - посещения последнего месяца (корень)'::text as check_nm, 0 as must,
        (coalesce((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'oc'), 0)
        - (select sum(ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta) and report_month = (select last_month from teampulse_hub_meta)))::float8 as val
 union all
-select 16 as n, 'вакансии: корень - снимок (открытые на конец последнего месяца)'::text as check_nm, 0 as must,
+select 19 as n, 'вакансии: корень - снимок (открытые на конец последнего месяца)'::text as check_nm, 0 as must,
        (coalesce((select sum(vac_open_cnt) from teampulse_hub_vacancy
                    where node_rk = (select root_rk from teampulse_hub_meta)
                      and report_month = (select last_month from teampulse_hub_meta)), 0)
        - coalesce((select sum(open_cnt) from structure_x_vacancy where report_month = (select last_month from teampulse_hub_meta)), 0))::float8 as val
 union all
-select 17 as n, 'вакансии: корень - снимок (закрытые за всё время сетки)'::text as check_nm, 0 as must,
+select 20 as n, 'вакансии: корень - снимок (закрытые за всё время сетки)'::text as check_nm, 0 as must,
        (coalesce((select sum(vac_close_cnt) from teampulse_hub_vacancy where node_rk = (select root_rk from teampulse_hub_meta)), 0)
        - coalesce((select sum(close_cnt) from structure_x_vacancy
                    where report_month >= (select grid_start from teampulse_hub_meta)), 0))::float8 as val

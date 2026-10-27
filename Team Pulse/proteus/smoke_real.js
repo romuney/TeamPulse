@@ -83,7 +83,9 @@ const KEYS=[['hc_total','hc'],['hc_active','act'],['hc_avg','avg'],['hire',R.has
   ['transfer_in','tin'],['transfer_out','tout'],['regret_cnt','reg'],
   ['perf_norm','pnor'],['perf_low','plow'],['perf_high','phig'],['perf_gray','pgry']]
   /* колонки разведки 12.10 — если ответ их везёт */
-  .concat([['wday','wday'],['ovis','ovis'],['tgrowth_pass','gapr'],['tgrowth_deny','gdec']].filter(([,c])=>R.has(c)));
+  .concat([['wday','wday'],['ovis','ovis'],['tgrowth_pass','gapr'],['tgrowth_deny','gdec']].filter(([,c])=>R.has(c)))
+  /* поставка 71: мониторинг по дням — люди в сегментах, суммы часов и звонков */
+  .concat(['ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk'].filter(c=>R.has(c)).map(c=>['mon_'+c,c]));
 let treeOk=true, checked=0;
 rows.filter(r=>['scope','c','g','x'].indexOf(r.role)>=0).forEach(r=>{
   const node=D.NODES.find(n=>n.id===r.id);
@@ -310,8 +312,17 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     lv.indexOf('class="shbar')<lv.indexOf('<div class="bt-group">')&&ten.every(c=>!/^\s*стаж\s/i.test(c.name)),
     'уровень позиции на настоящих значениях: '+sen.length+' ступеней и '+ten.length+' групп стажа по порядку, стаж пилюлей без слова «Стаж», сеньорность и грейды таблицами');
   /* мониторинг на настоящих данных: пока нет витрины по неделям — месяцы из основной таблицы */
-  const mo=A.go('monitor','activity');
-  ok(/class="kpi mk"/.test(mo)&&/к прошлому месяцу/.test(mo)&&/class="kpi mk dev"/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),
+  const mo=A.go('monitor','activity'), MD=D.monData(rl);
+  if(R.has('hrn')&&MD&&MD.daily){
+    /* поставка 71: мониторинг по дням — KPI последнего закрытого месяца = строке выбранного юнита, линии часов и звонков */
+    const lc=MD.months[MD.months.length-1], k=R.n-1-(D.PARTIAL?1:0), v=c=>arr(scopeRow,c)[k];
+    const hrs=v('hrs'), hrn=v('hrn'), tlk=v('tlk');
+    ok(['ab25','ab5','we25','we5','t23','t35','t5'].every(c=>lc[c]===Math.round(v(c)))&&
+       near(lc.hours,hrn?+(hrs/hrn).toFixed(2):null)&&near(lc.talk,hrs?+(tlk/hrs*100).toFixed(1):null)&&
+       /class="kpi mk"/.test(mo)&&!/class="kpi mk dev"/.test(mo)&&!/mon-ph/.test(mo)&&/Доля звонков в Толк/.test(mo)&&/data-pmark="0"/.test(mo),
+      'мониторинг по дням: прогулы '+(lc.ab25+lc.ab5)+', выходные '+(lc.we25+lc.we5)+', звонки 20–30% '+lc.t23+
+      ', '+lc.hours+' ч/день, звонки '+lc.talk+'% — как в строке юнита; линии часов и звонков, без «в разработке»');
+  }else ok(/class="kpi mk"/.test(mo)&&/к прошлому месяцу/.test(mo)&&/class="kpi mk dev"/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),
     'мониторинг: категории по месяцам из основной таблицы, недели и звонки — «в разработке»');
   /* 19.10, заказчик: окно настройки как в HRBP HUB — дерево всего справочника, логин руководителя
      и поиск по нему, у строк и кнопок фильтров — сколько людей попадёт в выбор (fd справочника) */
@@ -426,6 +437,25 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
       bk.indexOf('Нарушения брони по городам')>bk.indexOf('Бронирования и посещения'),
     'нарушения брони по городам: '+vc.length+' городов, в сумме '+vc.reduce((a,c)=>a+c.viol,0)+' = нарушениям месяца '+bq.viol);
   else if(D.OFF_LIVE.bk)ok(vc===null&&/появятся со следующим обновлением/.test(bk),'нарушения брони по городам: ответ без разреза — «появятся»');
+}
+/* поставка 71: T-рост по разрезам «Роста» выбранного юнита (rs, rm, rq) — статусы в сумме = людям разреза, успешно
+   закрытые по месяцам = rm, успешность = rq; вкладки без «в разработке». Без разрезов — условные цифры с плашкой */
+{
+  const tg=A.go('tgrowth','grades'), ts=A.go('tgrowth','spec');
+  if(D.ROST_LIVE){
+    const mx={};String(scopeRow.mx||'').split('\n').forEach(l=>{const f=l.split('\t');if(/^r[smq]$/.test(f[0]))(mx[f[0]]=mx[f[0]]||{})[f[1]]=+f[2]});
+    const sm=o=>Object.keys(o||{}).reduce((a,k)=>a+o[k],0), p=D.rostProfile(rl);
+    /* на графике — 12 месяцев отчёта; rm — с начала сетки */
+    const ym=new Set(D.MONTHS.map(m=>m.y+'-'+String(m.m+1).padStart(2,'0')));
+    const okM=t=>Object.keys(mx.rm||{}).filter(k=>{const f=k.split('|');return f[3]==='ok'&&f[1].indexOf(t)>=0&&ym.has(f[0])}).reduce((a,k)=>a+mx.rm[k],0);
+    const pm=f=>f.months.reduce((a,m)=>a+m.rost+m.tat,0);
+    const rq=(t,fl)=>Object.keys(mx.rq||{}).filter(k=>{const f=k.split('|');return f[0]===t&&f[1]===fl}).reduce((a,k)=>a+mx.rq[k],0);
+    const pa=x=>x.reduce((a,r)=>a+r.apps,0);
+    ok(p.real&&p.hc===sm(mx.rs)&&p.st.reduce((a,s)=>a+s.n,0)===p.hc&&pm(p.grade)===okM('g')&&pm(p.spec)===okM('s')&&pm(p.grade)===p.grade.rost+p.grade.tat&&
+       pa(p.grade.tatT)===rq('g','1')&&pa(p.grade.rostT)<=rq('g','0')&&!/dev-note/.test(tg+ts),
+      'T-рост по «Росту»: статусы '+p.st.map(s=>s.key+' '+s.n).join(', ')+' = '+p.hc+' чел; успешно закрытые по месяцам — грейд '+
+      pm(p.grade)+', специализация '+pm(p.spec)+'; без «в разработке»');
+  }else ok(/dev-/.test(tg),'T-рост по грейдам: без разрезов «Роста» — условные цифры с плашкой');
 }
 /* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
 /* поставка 50: с витриной вакансий глава вакансий живая — демо-глава тогда «Итоги ревью» */

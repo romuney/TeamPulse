@@ -42,7 +42,10 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
 /* Поставка 66 (посещения Адели): bk bkv vsv — дни с бронью, бронь без прихода, приход без брони; hwd hov — рабочие дни
    и посещения руководителей (у остальных — wds ovs: всё минус руководители) */
 const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout','hcd','hst',
-  'bk','bkv','vsv','hwd','hov','rh','nrh','avh'];
+  'bk','bkv','vsv','hwd','hov','rh','nrh','avh',
+  /* поставка 71 (мониторинг по дням Адели): люди в сегментах прогулов (ab25 ab5), работы в выходной (we25 we5) и доли
+     звонков (t23 t35 t5); сумма средних часов дня (hrs) и звонков (tlk) по людям с часами, сколько их (hrn) */
+  'ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   /* поставка 69 (Антон, вопрос 4): желательная и нежелательная — всегда по активной численности HQ узла */
@@ -53,7 +56,9 @@ const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fir
   ai_wau:'aiw',ai_penetration:'aip',ai_pen_co:'aic',ai_den:'aid',
   /* поставка 65: найм по видам — из учебной группы в боевую, стажёр в штат (части hit) */
   hire_cand:'hcd',hire_int:'hst',
-  bk_days:'bk',bk_noshow:'bkv',bk_walkin:'vsv',wday_lead:'hwd',ovis_lead:'hov',wday_staff:'wds',ovis_staff:'ovs'};
+  bk_days:'bk',bk_noshow:'bkv',bk_walkin:'vsv',wday_lead:'hwd',ovis_lead:'hov',wday_staff:'wds',ovis_staff:'ovs',
+  mon_ab25:'ab25',mon_ab5:'ab5',mon_we25:'we25',mon_we5:'we5',mon_t23:'t23',mon_t35:'t35',mon_t5:'t5',
+  mon_hrs:'hrs',mon_hrn:'hrn',mon_tlk:'tlk'};
 /* метрики, которые оживают, когда в ответе есть их колонки */
 const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec'],
   nonregret:['nreg'],vac_open:['vop'],vac_closed:['vcl'],time_to_fill:['vtd','vtn'],junior_share:['vjn','vcl'],

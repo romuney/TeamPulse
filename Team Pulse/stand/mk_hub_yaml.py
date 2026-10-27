@@ -23,7 +23,9 @@ STEPS = (1, 2, 3, 5, 6)       # правка 4 (уровень перевода 
 # 26.10, поставка 66 (Адель, «TeamPulse_Hub_23.10_14»): org_structure — с руководителем юнита, with_office_traffic — с
 # бронированиями и городами посещений; её же новые параграфы unit_head_structure и office_traffic — в PLAN
 WHOLE = {'EXEC build_all_metrics': 'exec_build_all_metrics.py', 'org_structure': 'org_structure.sql',
-         'with_office_traffic': 'with_office_traffic.sql'}
+         'with_office_traffic': 'with_office_traffic.sql',
+         # 27.10, поставка 71 (Адель, «TeamPulse_Hub_27.10»): мониторинг по дням и заявки T-роста — её параграфы
+         'with_performance': 'with_performance.sql', 'with_TRost': 'with_TRost.sql'}
 
 EXTRA = {
     'build_all_metrics': [
@@ -79,7 +81,10 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
         ('new', 'unit_head_structure', 'gp', 'unit_head_structure.sql'),
         7, 14, 15,
         ('new', 'office_traffic', 'gp', 'office_traffic.sql'),
+        # поставка 71: заявки T-роста — rost_info (по заявке), with_TRost (к людям), structure_x_rost (к структуре)
+        ('new', 'rost_info', 'gp', 'rost_info.sql'),
         16,
+        ('new', 'structure_x_rost', 'gp', 'structure_x_rost.sql'),
         # 22.10, поставка 58: сборка таблиц отчёта — параграфами gp (stand/hub_sql.py → hub_nb/sql_*.sql), без
         # Python, который ждал больше ста запросов в одном параграфе. Сначала — проверка колонок источников
         ('new', 'hub · 0 колонки', 'gp', 'sql_0_cols.sql'),
@@ -107,7 +112,8 @@ P58 = ['hub · 0 колонки', 'structure_x_vacancy', 'hub · 1 структ�
        'hub · 4 разрезы', 'hub · 5 переходы', 'hub · 6 вакансии и meta', 'hub checks']
 TP20 = ['_PARAMS_', 'EXEC build_all_metrics']          # параграфы TP 2.0, которые меняют поставки 60–62
 # поставка 66: параграфы Адели (посещения, руководитель юнита) — с исправлениями
-P66 = ['unit_head_structure', 'org_structure', 'with_office_traffic', 'office_traffic']
+P66 = ['unit_head_structure', 'org_structure', 'with_performance', 'with_office_traffic', 'office_traffic', 'rost_info',
+       'with_TRost', 'structure_x_rost']
 CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub checks'},
            60: {'_PARAMS_', 'EXEC build_all_metrics', 'hub · 0 колонки', 'hub · 3 справочник и ряды', 'hub · 4 разрезы',
                 'hub · 5 переходы'},
@@ -118,7 +124,10 @@ CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub che
            65: {'hub · 5 переходы'},
            66: {'EXEC build_all_metrics', 'unit_head_structure', 'org_structure', 'with_office_traffic', 'office_traffic',
                 'hub · 0 колонки', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды', 'hub · 4 разрезы', 'hub checks'},
-           67: {'hub · 4 разрезы', 'hub checks'}}
+           67: {'hub · 4 разрезы', 'hub checks'},
+           70: {'with_office_traffic', 'hub · 4 разрезы'},
+           71: {'with_performance', 'rost_info', 'with_TRost', 'structure_x_rost', 'hub · 0 колонки',
+                'hub · 3 справочник и ряды', 'hub · 4 разрезы', 'hub checks'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 

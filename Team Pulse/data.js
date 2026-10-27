@@ -460,13 +460,16 @@ const DEV_PLAN=[
   {blk:'T-рост',rows:[
     {what:'Одобренные и отклонённые заявки, конверсия',aud:'hq',stage:'0',now:'live'},
     /* 27.10-в, п. 8: вкладка по описанию «Рост» дашборда HQ */
-    {what:'Как растут по грейдам: статусы роста, тепловые карты по грейду, повышения «Рост» и T@T',aud:'hq',stage:'6',now:'dev'},
-    {what:'Как меняют специализацию: смены «Рост» и T@T по месяцам, успешность по желаемой специализации',aud:'hq',stage:'6',now:'dev'}]},
+    /* поставка 71: параграфы «Роста» Адели (rost_info, with_TRost, structure_x_rost) */
+    {what:'Как растут по грейдам: статусы роста, тепловые карты по грейду, повышения «Рост» и T@T',aud:'hq',stage:'0',now:'live'},
+    {what:'Как меняют специализацию: смены «Рост» и T@T по месяцам, успешность по желаемой специализации',aud:'hq',stage:'0',now:'live'}]},
   {blk:'Мониторинг работы',rows:[
     {what:'Недоработчики и переработчики',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Состав по категориям по месяцам: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'live',hq:1},
-    {what:'Звонки, прогулы, работа в выходные',aud:'hq',stage:'5',now:'dev',need:'нужна витрина мониторинга по неделям (запрос 0л)'},
-    {what:'Активность и звонки по неделям, сегментация команды по нагрузке',aud:'hq',stage:'5',now:'dev',need:'нужна витрина мониторинга по неделям (запрос 0л)'},
+    /* поставка 71: мониторинг по дням Адели — по месяцам; недели — с витриной по неделям */
+    {what:'Звонки, прогулы, работа в выходные по месяцам',aud:'hq',stage:'0',now:'live',hq:1},
+    {what:'Часы в день и доля звонков по месяцам',aud:'hq',stage:'0',now:'live',hq:1},
+    {what:'Мониторинг по неделям: категории, звонки, прогулы, выходные',aud:'hq',stage:'5',now:'dev',need:'нужна витрина мониторинга по неделям (запрос 0л)'},
     {what:'Итоги ревью: распределение оценок, улучшили и ухудшили, по группам',aud:'us',stage:'5',now:'dev',next:1,
       need:'ревью учитывается только для eligible-популяции'}]},
   {blk:'Посещаемость офисов',rows:[
@@ -522,7 +525,9 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
   'hire_co','hire_cand','hire_int',
   /* поставка 66 (посещения Адели): дни с бронью, бронь без прихода, приход без брони; рабочие дни и посещения
      руководителей и остальных — слагаемые нарушений бронирования и посещаемости сегмента */
-  'bk_days','bk_noshow','bk_walkin','wday_lead','ovis_lead','wday_staff','ovis_staff']);
+  'bk_days','bk_noshow','bk_walkin','wday_lead','ovis_lead','wday_staff','ovis_staff',
+  /* поставка 71: мониторинг по дням — люди в сегментах, суммы средних часов дня и звонков по людям */
+  'mon_ab25','mon_ab5','mon_we25','mon_we5','mon_t23','mon_t35','mon_t5','mon_hrs','mon_hrn','mon_tlk']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -2039,18 +2044,29 @@ const MON_SUM=['hc','grey','under','normal','over','u12','u2p','o12','o2p','t23'
    месяцы — среднее недель месяца. null — данных нет.
    Пробник, пока витрины мониторинга по неделям нет: категории по месяцам из основной
    таблицы (perf_* — нормал, недоработка, переработка, не размечено), последние 6 закрытых
-   месяцев; недель, часов в день, звонков, прогулов и выходных нет (monthly:true). */
+   месяцев; недель нет (monthly:true).
+   Поставка 71 (мониторинг по дням Адели, daily:true): за месяц — люди с 2–5 и больше 5 прогулами и днями работы в
+   выходной, люди с долей звонков 20–30, 30–50 и больше 50% рабочего времени; часы в день — среднее по людям с часами,
+   доля звонков — их часы звонков к часам работы. Без этих колонок в ответе — как раньше */
+const MON_DK=['ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk'];
 function monMonthly(lp){
   const A=k=>aggregate(lp,k), u=A('perf_low'), nr=A('perf_norm'), o=A('perf_high'), g=A('perf_gray');
   if(!u.concat(o,nr).some(v=>v>0))return null;
+  const day=!!(REAL.has&&REAL.has('hrn'))&&A('mon_hrn').some(v=>v>0), S={};
+  if(day)MON_DK.forEach(k=>{S[k]=A('mon_'+k)});
   const end=PARTIAL?LAST-1:LAST, months=[];
   for(let i=Math.max(0,end-5);i<=end;i++){
     const x={label:MONTHS[i].label,full:MONTH_NOM_CAP(MONTHS[i].m)+' '+MONTHS[i].y,
       under:Math.round(u[i]||0),normal:Math.round(nr[i]||0),over:Math.round(o[i]||0),grey:Math.round(g[i]||0)};
     x.hc=x.under+x.normal+x.over+x.grey;
+    if(day){
+      MON_DK.slice(0,7).forEach(k=>{x[k]=Math.round(S[k][i]||0)});
+      x.hours=S.hrn[i]?+(S.hrs[i]/S.hrn[i]).toFixed(2):null;
+      x.talk=S.hrs[i]?+(S.tlk[i]/S.hrs[i]*100).toFixed(1):null;
+    }
     months.push(x);
   }
-  return {monthly:true,weeks:null,months:months};
+  return {monthly:true,daily:day,weeks:null,months:months};
 }
 function monData(lp){
   if(!lp.length)return null;
@@ -2549,7 +2565,57 @@ const ROST_ST=[
   {key:'none',name:'Нет заявки',tip:'Заявок за 12 месяцев не было: «Нет развития» — рост недоступен, «Рост доступен» — могут подать.',
    w:0.77,cols:['Нет развития','Рост доступен'],cw:[0.4,0.6]},
   {key:'denied',name:'Заявка отклонена',tip:'Была отклонённая заявка, успешных и активных нет.',w:0.04,cols:ROST_T2,cw:[0.75,0.25]}];
+/* поставка 71 (параграфы Адели rost_info, with_TRost, structure_x_rost): T-рост выбранного подразделения из разрезов
+   датасета — rs (статус роста человека численности последнего месяца: «статус|тип|грейд»), rm (заявки с итогом по месяцам
+   подачи: «ГГГГ-ММ|тип|поток|итог»), rq (за 12 месяцев: «вид|поток|итог|желаемое»). Тип: g — грейд, s — специализация,
+   gs — оба; поток 1 — T@T, 0 — «Рост»; итог ok / no. Грейды от 20 — «20+», как в портрете. null — разрезов в ответе нет */
+const ROST_LIVE=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('rs'));
+const ROST_TP={g:0,s:1,gs:2};
+const rostGrade=g=>/^\d+$/.test(g)&&+g>=20?'20+':isNA(g||'')?NONE_NAME:g;
+function rostReal(){
+  const rs=REAL.scopeMix('rs'), rm=REAL.scopeMix('rm')||{}, rq=REAL.scopeMix('rq')||{};
+  const st=ROST_ST.map(s=>({key:s.key,name:s.name,n:0,rows:{},
+    /* «нет развития» и «рост доступен» источник не различает — одна колонка */
+    tip:s.key==='none'?'Заявок за 12 месяцев не было.':s.tip,cols:s.key==='none'?['Нет заявки']:s.cols.slice()}));
+  const by={};st.forEach(s=>{by[s.key]=s});
+  Object.keys(rs).forEach(v=>{
+    const p=v.split('|'), s=by[p[0]], n=+rs[v]||0, j=p[0]==='none'?0:ROST_TP[p[1]];
+    if(!s||!n)return;
+    s.n+=n;
+    if(j==null)return;
+    if(j===2&&s.cols.length<3)s.cols.push('Грейд и специализация');
+    const g=rostGrade(p.slice(2).join('|'));(s.rows[g]||(s.rows[g]=[0,0,0]))[j]+=n;
+  });
+  const gk=g=>g===NONE_NAME?999:g==='20+'?20:isNaN(+g)?500:+g;
+  st.forEach(s=>{s.rows=Object.keys(s.rows).sort((a,b)=>gk(a)-gk(b)||a.localeCompare(b,'ru'))
+    .map(g=>({name:g,cells:s.rows[g].slice(0,s.cols.length)})).filter(x=>x.cells.some(v=>v>0))});
+  const at={};MONTHS.forEach((m,i)=>{at[m.y+'-'+String(m.m+1).padStart(2,'0')]=i});
+  /* успешно закрытые по месяцам и за 12 месяцев (с текущим), успешность по желаемому: kd — g (грейд) или s */
+  const flow=(kd,nR,nT)=>{
+    const mo=MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,rost:0,tat:0}));
+    let R=0,T=0;
+    Object.keys(rm).forEach(v=>{
+      const p=v.split('|'), i=at[p[0]], n=+rm[v]||0;
+      if(p[3]!=='ok'||p[1].indexOf(kd)<0||i==null)return;
+      mo[i][p[2]==='1'?'tat':'rost']+=n;
+      if(i>LAST-12){if(p[2]==='1')T+=n;else R+=n}
+    });
+    const succ=t=>{
+      const o={};
+      Object.keys(rq).forEach(v=>{
+        const p=v.split('|'), w=p.slice(3).join('|'), n=+rq[v]||0;
+        if(p[0]!==kd||p[1]!==t||(p[2]!=='ok'&&p[2]!=='no'))return;
+        const nm=kd==='g'?rostGrade(w):isNA(w)?NONE_NAME:w, x=o[nm]||(o[nm]={name:nm,apps:0,ok:0,no:0});
+        x.apps+=n;x[p[2]]+=n;
+      });
+      return Object.keys(o).map(k=>o[k]).sort((a,b)=>b.apps-a.apps||a.name.localeCompare(b.name,'ru'));
+    };
+    return {rost:R,tat:T,months:mo,rostT:succ('0').slice(0,nR),tatT:succ('1').slice(0,nT)};
+  };
+  return {real:true,hc:st.reduce((a,s)=>a+s.n,0),st:st,grade:flow('g',5,99),spec:flow('s',5,4)};
+}
 function rostProfile(lp){
+  if(ROST_LIVE)return rostReal();
   const r=rng(lpSeed(lp,'rost')), cats=MIX_BY_KEY.grade.cats, gp=mixParts(lp,'grade').map(v=>Math.round(v));
   const hc=gp.reduce((a,b)=>a+b,0), n=gp.length;
   const stT=splitBy(hc,jitter(r,ROST_ST.map(s=>s.w),0.2));
@@ -2752,5 +2818,5 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
   PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
-  planFact,PF_STATUS,rostProfile,ROST_ST,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
+  planFact,PF_STATUS,rostProfile,ROST_ST,ROST_LIVE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   exitInitTurnover,specMovement,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,AI_TOOLS,OFF_LIVE};

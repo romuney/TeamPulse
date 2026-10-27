@@ -33,6 +33,7 @@ def main():
     db = os.path.join(d, 'db')
     U, people = nb.simulate()
     perf, office, grt = nb.side(people)
+    MM = nb.mon_month(nb.mon_days(people))      # поставка 71: мониторинг по дням — месяц человека
     names = {k: tuple(U[x][0] for x in nb.path(U, k)) for k in U}
     # 21.10, поставка 50: вакансии и AI — не люди, фильтры среза на них не действуют: правда одна
     TV, TA = nb.truth_vac(U, nb.vacancies(U)), nb.truth_ai(U, people)
@@ -78,6 +79,7 @@ def main():
                 Te = nb.truth(U, people, perf, grt, raw.get(name, pred), act=act)
                 # поставка 66: посещения Адели — ряды бронирований и руководителей, города, календарь, сегмент
                 To, Dd, Co, MH = nb.truth_office(U, people, office, raw.get(name, pred), act)
+                Tm = nb.truth_mon(U, people, MM, raw.get(name, pred), act)
             if label == 'файл 2а':               # 21.10: переводы 2а — под фильтры (переходы ноутбука)
                 # поставка 63: смена атрибута, по которому стоит фильтр, — перевод и внутри выбора
                 chg = [h for k, h in (('paint_f', 'operh'), ('it_f', 'ith'), ('staff_f', 'relh')) if k in flt]
@@ -174,6 +176,15 @@ def main():
                         got = [round(float(x), 1) for x in r['m_' + k].split(',')]
                         if got != [round(To[(rk, m)][k], 1) for m in ms]:
                             bad[k] += 1
+                    # поставка 71: мониторинг по дням (with_performance Адели) — люди в сегментах прогулов, работы в
+                    # выходной и доли звонков, сумма средних часов дня и звонков — под фильтрами
+                    for k in ('ab25', 'ab5', 'we25', 'we5', 't23', 't35', 't5', 'hrs', 'hrn', 'tlk'):
+                        if r.get('m_' + k) is None:
+                            bad['нет ряда ' + k] += 1
+                            continue
+                        got = [float(x) for x in r['m_' + k].split(',')]
+                        if any(abs(g - Tm[(rk, m)][k]) > 0.06 for g, m in zip(got, ms)):
+                            bad[k] += 1
                     # сегмент mh (численность руководителей и остальных), города последнего месяца (oc ocp) — по значениям
                     want_v = {'mh': {v: n for v, n in MH[rk].items() if n}, 'oc': {v: n for v, n in Co[rk]['oc'].items() if n},
                               'ocp': {v: n for v, n in Co[rk]['ocp'].items() if n},
@@ -187,7 +198,11 @@ def main():
                         want_v['do'] = {str(d): Dd[(rk, d)]['do'] for d in days if Dd[(rk, d)]['do']}
                         if not want_v['dw']:
                             bad['календарь пуст'] += 1
-                    elif mxv.get('dw') or mxv.get('do') or mxv.get('xim'):
+                        # поставка 71: T-рост — заявки по месяцам (rm), успешность по желаемому (rq), статусы (rs)
+                        want_v.update(nb.truth_rost(U, people, grt, rk, raw.get(name, pred), act))
+                        if not want_v['rs']:
+                            bad['T-рост пуст'] += 1
+                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs')):
                         bad['календарь не у выбранного'] += 1
                     for kk, w in want_v.items():
                         g = mxv.get(kk, {})
