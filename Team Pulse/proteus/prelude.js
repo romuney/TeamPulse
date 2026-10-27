@@ -59,6 +59,12 @@ host.appendChild(root);
 root.innerHTML=TP_HTML;
 
 window.TP_REAL=window.TPREAL.build(typeof data!=='undefined'?data:[]);
+/* поставка 69: нет зоны доступа — экран «Нет доступа», дальше отчёт не собирается (tpStop ловит обёртка сборки) */
+if(window.TP_REAL.noAccess){
+  root.innerHTML='<div class="tp-noacc"><b>Нет доступа к отчёту</b><span>Отчёт показывает подразделения, где вы '+
+    'руководитель. Если доступ нужен — напишите владельцу отчёта.</span></div>';
+  throw {tpStop:1};
+}
 window.TP_ENV={root:root,scroller:root,store:store,
   on(t,type,fn,opt){t.addEventListener(type,fn,opt);store.listeners.push({t:t,type:type,fn:fn,opt:opt})},
   /* маска целиком (юнит + фильтры), пустых значений не шлём — как в HRBP HUB */

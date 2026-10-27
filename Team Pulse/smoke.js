@@ -1587,16 +1587,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
 /* 14.10: «Портрет команды» — первая глава структуры: три графика с выводами,
    клик по куску — срез, рассказ пересчитывается под срез */
 (function(){
-  /* 22.10, поставка 63: детализация переводов — засчитанные события месяца = переводы отчёта, есть и
-     незасчитанные (с причиной); кнопка детализации — на вкладках «Движения персонала» */
-  {
-    const S0=A.st(), lp=D.reportLeaves(S0), ms=D.trfMonths(), dt=D.trfDetail(S0.unit,ms,S0);
-    const okAll=ms.every(m=>{const r=D.trfReport(lp,m);if(!r)return true;
-      return dt.ev.filter(e=>e.month===m&&e.kind==='i'&&e.st==='ok').length===r.tin&&dt.ev.filter(e=>e.month===m&&e.kind==='o'&&e.st==='ok').length===r.tout});
-    checks.push(['детализация переводов: засчитанные события = переводы отчёта по месяцам, незасчитанные — с причиной, кнопка в «Движении»',
-      ms.length===Math.min(13,D.MONTHS.length)&&okAll&&dt.ev.some(e=>e.st!=='ok')&&dt.ev.every(e=>/^(ok|flt|attr|cand|hire)$/.test(e.st))&&
-      /data-trd="1"/.test(A.go('movement','balance'))&&/data-trd="1"/.test(A.go('movement','dynamics'))]);
-  }
+  /* 27.10, поставка 69 (Антон, вопрос 6): детализация переводов нужна была для сверки — её больше нет */
+  checks.push(['детализации переводов нет: ни кнопки, ни окна',
+    !/data-trd|trdOvl/.test(A.go('movement','balance')+A.go('movement','dynamics'))&&!D.trfDetail]);
   A.mix([]);
   const pt=A.go('structure','portrait');
   /* 22.10: полка срезов sticky; 23.10: тонкая (одна строка), подложка цвета страницы закрывает уехавшее под неё.

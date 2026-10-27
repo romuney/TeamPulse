@@ -23,9 +23,6 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 /* 20.10: начало — численность на 1-е число первого месяца окна (а не на конец этого месяца:
    его найм и отток уже в потоках, и месяц уходил в «Прочее»), конец — на дату данных; даты —
    под подписями «Начало» и «Конец» */
-/* поставка 63: детализация переводов — кто перевёлся, по месяцам, со сверкой с отчётом и выгрузкой */
-const TRD_BTN='<div class="trd-open"><button class="btn ghost" data-trd="1">Кто перевёлся — детализация переводов</button>'+
-  '<span class="tbl-note">Подразделение — выбранная строка таблицы, иначе юнит отчёта.</span></div>';
 function balancedSteps(lp){
   const hc=D.aggregate(lp,'hc_total'), begin=hc[0], end=hc[D.LAST];
   const hire=D.winSum(lp,'hire'), tin=D.winSum(lp,'transfer_in');
@@ -90,13 +87,13 @@ SC.blocks.movement={
            иначе водопад рядом красит те же переводы зелёным и красным. */
         SC.yoyPair(ctx.lp,'transfer_in','transfer_out',
         {h:240,title:'Переводы внутри компании, чел',
-         legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]})+TRD_BTN+specMove(ctx.lp);
+         legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]})+specMove(ctx.lp);
     }
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
     return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
         title:'Изменение численности, чел',
         legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
-      U.storyFacts(ctx.story&&ctx.story.insights,'Что важно')+TRD_BTN;
+      U.storyFacts(ctx.story&&ctx.story.insights,'Что важно');
   }
 };
 })();

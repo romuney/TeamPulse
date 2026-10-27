@@ -106,13 +106,13 @@ const HEAD=`// =================================================================
 `;
 let src='var TP_CSS='+JSON.stringify(css)+';\nvar TP_HTML='+JSON.stringify(body)+';\n'+
   'try{\n'+FILES.map(f=>'/* '+f+' */\n(function(){\n'+read(f)+'\n})();').join('\n')+
-  '\n}catch(err){\n'+
+  '\n}catch(err){if(!(err&&err.tpStop)){\n'+
   '  var _h=document.querySelectorAll("[_echarts_instance_]");\n'+
   '  var _box=_h.length?_h[_h.length-1]:document.body, _m=document.createElement("div");\n'+
   '  _m.style.cssText="position:absolute;inset:0;padding:24px;font:14px Arial,sans-serif;color:#d11414;background:#fff;z-index:20";\n'+
   '  _m.textContent="TeamPulse Hub: ошибка чарта — "+(err&&err.message?err.message:String(err));\n'+
   '  _box.appendChild(_m);\n'+
-  '}\n';
+  '}}\n';
 
 const out=babel.transformSync(src,{
   sourceType:'script',comments:false,compact:false,babelrc:false,configFile:false,

@@ -42,9 +42,11 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
 /* Поставка 66 (посещения Адели): bk bkv vsv — дни с бронью, бронь без прихода, приход без брони; hwd hov — рабочие дни
    и посещения руководителей (у остальных — wds ovs: всё минус руководители) */
 const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout','hcd','hst',
-  'bk','bkv','vsv','hwd','hov'];
+  'bk','bkv','vsv','hwd','hov','rh','nrh','avh'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
+  /* поставка 69 (Антон, вопрос 4): желательная и нежелательная — всегда по активной численности HQ узла */
+  regret_hq_cnt:'rh',nonregret_hq_cnt:'nrh',hc_avg_hq:'avh',
   perf_norm:'pnor',perf_low:'plow',perf_high:'phig',perf_gray:'pgry',
   wday:'wday',ovis:'ovis',tgrowth_pass:'gapr',tgrowth_deny:'gdec',
   nonregret_cnt:'nreg',vac_open:'vop',vac_closed:'vcl',vac_new:'vap',ttf_days:'vtd',ttf_n:'vtn',vac_jun:'vjn',
@@ -188,8 +190,9 @@ function build(data){
   str((by('dict')[0]||{}).j).split('\n').forEach(line=>{
     if(!line)return;
     const f=line.split('\t'), nw=f.length>=7;
+    /* поставка 69: девятое поле «a» — предок корня зоны доступа: только имя для пути, выбрать нельзя */
     byId[f[0]]={id:f[0],pid:f[1]||'',lvl:num(f[2]),kids:num(f[3]),name:nw?f[4]:f.slice(4).join('\t'),
-      head:nw?str(f[5]).trim():'',fd:nw?str(f[6]):'',hname:nw?str(f[7]).trim():''};
+      head:nw?str(f[5]).trim():'',fd:nw?str(f[6]):'',hname:nw?str(f[7]).trim():'',anc:f[8]==='a'};
   });
   const DEPTH={scope:0,c:1,g:2,x:3};
   const units=[];
@@ -242,7 +245,7 @@ function build(data){
     if(p==null)return;
     const parts=p.split('/');
     nodes.push({id:id,path:p,parent:parts.length>1?parts.slice(0,-1).join('/'):null,level:u.lvl||parts.length,
-      name:u.name||'—',sort:0,leaf:false,kids:u.kids,outside:true,head:u.head||u.hname?{name:u.hname||'',login:u.head}:null});
+      name:u.name||'—',sort:0,leaf:false,kids:u.kids,outside:true,anc:u.anc,head:u.head||u.hname?{name:u.hname||'',login:u.head}:null});
   });
   const nodeBy={};
   nodes.forEach(x=>{nodeBy[x.path]=x});
@@ -318,16 +321,19 @@ function build(data){
     });
     return u._fd;
   }
+  /* поставка 69, доступ по зоне: корни зоны (полный доступ — корень компании); окно выбора начинается с них */
+  const zoneIds=(Array.isArray(meta.zone)?meta.zone:[]).map(str).filter(id=>byId[id]);
+  const zoneRoots=meta.full===1||!zoneIds.length?['T']:zoneIds.map(id=>pathOf(id)).filter(Boolean);
   const pick={
     ok:fdOk,
-    root:'T',
-    kids(p){const id=idOfPath(p);return (kidsBy[id]||[]).map(k=>pathOf(k)).filter(Boolean)},
+    root:zoneRoots[0],roots:zoneRoots,base:'T',
+    kids(p){const id=idOfPath(p);return (kidsBy[id]||[]).filter(k=>!byId[k].anc).map(k=>pathOf(k)).filter(Boolean)},
     info(p){const u=byId[idOfPath(p)];return u?{name:u.name||'—',lvl:u.lvl,head:u.head||'',hname:u.hname||'',kids:(kidsBy[u.id]||[]).length}:null},
-    all(){return Object.keys(byId).map(id=>pathOf(id)).filter(Boolean)},
+    all(){return Object.keys(byId).filter(id=>!byId[id].anc).map(id=>pathOf(id)).filter(Boolean)},
     /* люди узла в последнем месяце при значениях фильтров sel {paint,it,staff,act: значение, набор значений
        (тип численности — поставка 61) или null}; null — нет fd */
     count(p,sel){
-      if(!fdOk)return null;
+      if(!fdOk||(byId[idOfPath(p)]||{}).anc)return null;
       const want=FDK.map(k=>sel&&sel[k]!=null?[].concat(sel[k]).map(v=>String(v).toLowerCase()):null);
       let s=0;
       fdOf(idOfPath(p)).forEach(r=>{
@@ -368,6 +374,8 @@ function build(data){
     req:(Array.isArray(meta.req)?meta.req:[]).map(str),
     truncated:!rows.some(r=>str(r.role)==='end'),
     missing,noMeta:!by('meta').length,
+    /* поставка 69: логин без зоны доступа — датасет отдаёт только meta с ok 0 */
+    noAccess:meta.ok===0,
     empty:!scopeU,
     nodes,
     applied:{paint:one(meta.paint,pv),itSeg:one(meta.it,iv),staffType:one(meta.staff,sv),
@@ -407,21 +415,6 @@ function build(data){
     },
     lastHc(path){const s=series[path];return s?lastOf(s.hc):0},
     idOf(path){const node=nodeBy[path];return node?node.id:null},
-    /* имя подразделения по ключу — из справочника ответа (детализация переводов: «откуда» и «куда») */
-    nameOfId(id){const u=byId[id];return u?u.name:''},
-    /* поставка 63: детализация переводов — строка ev ответа (только по запросу trd_f): узел, месяцы запроса,
-       сколько событий всего и сами события (не больше 5000) */
-    trd:(function(){
-      const r=rows.find(x=>str(x.role)==='ev');
-      if(!r)return null;
-      const ev=str(r.j).split('\n').filter(Boolean).map(l=>{
-        const f=l.split('\t'), fl=(f[14]||'00000').split('').map(Number);
-        return {dt:f[0],month:str(f[1]).slice(0,7),kind:f[2],login:f[3],code:f[4],
-          cut:{paint:f[5],it:f[6],staff:f[7],act:f[8]},x:{paint:f[9],it:f[10],staff:f[11],act:f[12],unit:f[13]},
-          f:{u:fl[0],a:fl[1],p:fl[2],i:fl[3],s:fl[4]},inOk:f[15]!=='0',st:f[16]||''};
-      });
-      return {id:str(r.id),months:str(r.pid).split(',').filter(Boolean).map(m=>m.slice(0,7)),n:num(r.nm),ev:ev};
-    })(),
     /* значения фильтров для кросс-фильтра: ключ макета → значение колонки датасета */
     filterValue(kind,key){return ({paint:PAINT_V,itSeg:IT_V,staffType:STAFF_V,hcType:ACT_V}[kind]||{})[key]||null}
   };

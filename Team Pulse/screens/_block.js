@@ -466,7 +466,9 @@ function renderBlock(S,expanded,mixOpen,view){
     (tcols?tcols.map(c=>{const on=tsc===c;return '<th'+(c.val?' class="tsort'+(on?' on':'')+'" data-tsort="'+(on&&tsd<0?c.k+':a':on?'':c.k+':d')+'"':'')+
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+'</th>'}).join('')
-    :mets.map(m=>'<th'+U.tipAttr({title:m.name,text:U.metricText(m)})+'>'+esc(m.short)+
+    /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
+    :mets.map(m=>'<th'+U.tipAttr({title:m.name,text:U.metricText(m),note:D.closedOnly(m.key)?D.CLOSED_TIP.text:
+      D.PARTIAL&&(D.partFlow(m.key)||D.matures(m.key))?D.PART_TIP.text:null})+'>'+esc(m.short)+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.

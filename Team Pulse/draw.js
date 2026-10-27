@@ -499,7 +499,8 @@ function yoyAxis(X,bandW,top,bot,nowI,bars,key){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
   let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
-    if(bandW>=31||i%2===0||i===nowI)
+    /* «1–12 окт.» шире месяца: на узкой оси соседей не подписываем — иначе «сен1–12 окт.нояб.» (ревью критиков, 24) */
+    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1))
       s+=txt(X(i),bot+15,i===nowI?nowLabel(lb,key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
   });
   return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1);
@@ -566,6 +567,9 @@ function yoyPlot(p,ar){
      выделяй по-другому»). У заметки полоса уже есть — второй не рисуем. */
   if(flow&&ya&&ya.hi)ya.hi.forEach(z=>{if(z.s==='main'&&!ya.notes.some(n=>n.i===z.i))
     s+=rect(x0+bandW*z.i+2,top-4,bandW-4,bot-top+4,C_BAND,6)});
+  /* 27.10, Антон (вопрос 2): ставка незакрытого месяца на линии — серая полоса за месяцем, точка полая, подпись «· 12 дн» */
+  const pl=!flow&&CD.PARTIAL&&CD.partFlow(key);
+  if(pl)s+=rect(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4,C_BAND,6);
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
   s+=yoyAxis(X,bandW,top,bot,nowI,flow,key);
   /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
@@ -617,7 +621,7 @@ function yoyPlot(p,ar){
         (part&&i===nowI?' stroke="'+col+'" stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"':bm?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
       if(showPrev&&pv!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
-      if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm?col:'#fff')+'" stroke="'+col+'"'
+      if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm&&!(pl&&i===nowI)?col:'#fff')+'" stroke="'+col+'"'
         +' stroke-width="2"'+(part&&i===nowI?' stroke-dasharray="2 1.6"':'')+' style="animation-delay:'+num(dly)+'ms"/>';
     }
     s+='</g>';
@@ -636,7 +640,7 @@ function yoyPlot(p,ar){
       /* под точкой у оси места нет (значение около нуля): там подпись легла бы на месяц — тогда над точкой */
       const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null, below=both&&pv>c&&rm(c);
       const sh=mkAt(i,'main')?5:0;
-      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
+      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main'}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }
@@ -704,7 +708,7 @@ function drawPair(a,w,h){
   let s=header(w,o.title,o.legend,{kind:'pair',off:o.off});
   const part=CD.matures(A.key)&&sC, pp=' stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"';
   CD.MONTH_ABBR.forEach((lb,i)=>{
-    if(bandW>=31||i%2===0||i===nowI)
+    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1))
       s+=txt(X(i),h-6,i===nowI?nowLabel(lb,A.key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
   });
   const yC=String(CD.YEAR_CUR), yP=String(CD.YEAR_PREV);

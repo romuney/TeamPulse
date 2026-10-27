@@ -176,8 +176,6 @@ function request(next){
     renderHead();return;
   }
   const mask=maskOf(next);
-  /* новый выбор отчёта — детализация переводов закрывается: её события — для прежнего выбора */
-  TRD.open=false;
   const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
   unitNames[next.unit]=nm;
   unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||unitNames[S.unit]||'';
@@ -287,7 +285,8 @@ function pilotChips(){
 
 /* ---------- шапка и навигация ---------- */
 function renderHead(){
-  const n=D.NODE_BY_PATH[S.unit], par=D.NODE_BY_PATH[n.parent];
+  /* поставка 69: выше зоны доступа — нельзя: предок корня зоны (anc) не кнопка и не «Уровнем выше» */
+  const n=D.NODE_BY_PATH[S.unit], par0=D.NODE_BY_PATH[n.parent], par=par0&&!par0.anc?par0:null;
   const pp=unitBack[unitBack.length-1];
   const prev=D.NODE_BY_PATH[pp]||(pp&&unitNames[pp]?{name:unitNames[pp]}:null);
   /* «← Назад» и «↑ Уровнем выше» стоят перед путём: путь отвечает «где я»,
@@ -299,7 +298,7 @@ function renderHead(){
   $('#crumbs').innerHTML=(nav?'<span class="nbs">'+nav+'</span>':'')+D.ancestorsOf(S.unit).map((a,i,arr)=>
     i===arr.length-1
       ? '<span>'+esc(a.name)+'</span>'
-      : '<button data-crumb="'+a.path+'">'+esc(a.name)+'</button><span class="sep">/</span>'
+      : (a.anc?'<span>'+esc(a.name)+'</span>':'<button data-crumb="'+a.path+'">'+esc(a.name)+'</button>')+'<span class="sep">/</span>'
   ).join('');
   $('#unitTitle').innerHTML=esc(n.name)+'<span class="lvl">'+esc(D.levelLabel(n.level))+'</span>';
   /* Нет разрезов — нет и плашки «Разрезы не выбраны»: пустое состояние занимало
@@ -431,7 +430,7 @@ function utListHTML(){
   const q=UT.q.trim().toLowerCase(), P=D.PICK, root=P.info(P.root), lvl0=root?root.lvl:1;
   if(!q){
     const out={s:'',n:0};
-    (function walk(p,depth){
+    const walk=(p,depth)=>{
       const i=P.info(p);
       if(!i||out.n>=UT_MAX)return;
       out.n++;
@@ -439,7 +438,9 @@ function utListHTML(){
       out.s+=utRow(p,i,depth,kids.length?'<button class="ut-tw" data-utw="'+esc(p)+'" aria-expanded="'+!!open+'">'+(open?'▾':'▸')+'</button>':'<span class="ut-sp"></span>');
       if(open)kids.map(k=>[k,P.info(k)]).filter(x=>x[1]).sort((a,b)=>a[1].name.localeCompare(b[1].name,'ru'))
         .forEach(x=>walk(x[0],depth+1));
-    })(P.root,0);
+    };
+    /* поставка 69: окно начинается с корней зоны доступа (у полного доступа — корень компании) */
+    (P.roots||[P.root]).forEach(r=>walk(r,0));
     return out.s;
   }
   /* поиск: по названию, логину и имени руководителя (имя — с поставки 66; «Иван Петров» находится и по фамилии);
@@ -490,7 +491,7 @@ function paintOpts(){
   const d=Object.assign({},S,DRAFT);
   /* итог «после Применить»: юнит и база с набранными фильтрами; без fd (прежний датасет) —
      численность по уже применённым, как раньше */
-  const tn=D.draftCount(d.unit,d), bn=D.draftCount(D.PICK.root,d);
+  const tn=D.draftCount(d.unit,d), bn=D.draftCount(D.PICK.base||D.PICK.root,d);
   const nm=(D.PICK.info(d.unit)||D.NODE_BY_PATH[d.unit]||{}).name||'';
   const rl=D.reportLeaves(d), bl=D.benchmarkLeaves(d);
   $('#benchPreview').innerHTML=(tn!=null?'После «Применить» — ваша команда: <b>':'Ваша команда: <b>')+esc(nm)+'</b>, '+
@@ -561,119 +562,6 @@ function toggleMetric(key){
 }
 function closeSetup(){$('#setupOvl').classList.add('hidden');DRAFT=null;HCDD=false}
 
-/* ---------- Детализация переводов (поставка 63) ----------
-   Кто перевёлся в подразделение и из него: события за выбранные месяцы, что сработало (флаг юнита или смены
-   атрибута), что было по другую сторону и засчитано ли событие — тем же правилом, что переводы отчёта. Итог
-   месяца сверяется с числами отчёта. «Выгрузить для сверки» — CSV без логинов и названий: шифр сотрудника и
-   флаги, его можно присылать на разбор. Подразделение — выбранная строка таблицы, иначе юнит отчёта.
-   На бою события приходят по запросу (trd_f, trm_f) строкой ev датасета 2а; в макете — генератор. */
-const TRD=keep('trd',{open:false,path:null,months:[],kind:'all',only:'all',loading:false});
-const TRD_FL=[['u','подразделение'],['a','тип численности'],['p','покраска'],['i','IT'],['s','оформление']];
-const TRD_X={a:'act',p:'paint',i:'it',s:'staff'};
-const trdMonthName=m=>{const [y,mm]=m.split('-').map(Number);return D.MONTH_ABBR[mm-1]+' '+y};
-function trdNodeName(k){
-  if(!k)return '—';
-  if(D.REAL)return D.REAL.nameOfId(k)||k;
-  return (D.NODE_BY_PATH[k]||{}).name||k;
-}
-/* срез строки вне фильтров отчёта — каким именно */
-function trdOutside(e){
-  const lc=x=>String(x||'').toLowerCase(), out=[];
-  if(S.paint!=='all'&&lc(e.cut.paint)!==lc(S.paint))out.push('покраска '+e.cut.paint);
-  if(S.itSeg!=='all'&&lc(e.cut.it)!==lc(S.itSeg))out.push('IT-код '+e.cut.it);
-  if(S.staffType!=='all'&&(e.cut.staff==='Штат')!==(S.staffType==='staff'))out.push(lc(e.cut.staff));
-  const sel=D.hcSel(S);
-  if(sel&&sel.map(lc).indexOf(lc(e.cut.act))<0)out.push('тип «'+e.cut.act+'»');
-  return out.join(', ')||'срез строки';
-}
-function trdWhy(e){
-  if(e.st==='ok')return 'засчитано';
-  if(e.st==='flt')return 'вне фильтров: '+trdOutside(e);
-  if(e.st==='attr')return 'смена атрибута без фильтра по нему';
-  if(e.st==='hire')return 'кандидат или стажёр — это найм';
-  if(e.st==='cand')return 'кандидат или стажёр — не перевод';
-  return e.st||'—';
-}
-/* что сработало и что было по другую сторону: «в» — вчера → сегодня, «из» — сегодня → завтра */
-function trdChange(e){
-  return TRD_FL.filter(([k])=>e.f[k]).map(([k,nm])=>{
-    if(k==='u')return nm+': '+(e.kind==='i'?'из «'+trdNodeName(e.x.unit)+'»':'в «'+trdNodeName(e.x.unit)+'»');
-    const a=TRD_X[k], was=e.kind==='i'?e.x[a]:e.cut[a], now=e.kind==='i'?e.cut[a]:e.x[a];
-    return nm+': '+(was||'?')+' → '+(now||'?');
-  });
-}
-function trdLp(path){return SC.rowLeaves(path,S)}
-function trdData(){return TRD.path?D.trfDetail(TRD.path,TRD.months,S):null}
-function trdHTML(){
-  const months=D.trfMonths(), node=D.NODE_BY_PATH[TRD.path]||{name:unitNames[TRD.path]||''};
-  const dt=trdData();
-  const chip=(attr,v,on,label)=>'<button class="opt'+(on?' on':'')+'" '+attr+'="'+esc(v)+'">'+esc(label)+'</button>';
-  let h='<div class="modal-h trd-h"><div><h3>Переводы: '+esc(node.name)+'</h3>'+
-    '<p>Кто перевёлся в подразделение и из него, что сработало и засчитано ли событие — тем же правилом, что числа отчёта. '+
-    'Фильтры — как в отчёте: '+esc(D.benchmarkLabel(S))+'.</p></div>'+
-    '<button class="btn ghost trd-x" data-trdx="1" aria-label="Закрыть">✕</button></div><div class="modal-b">'+
-    '<div class="trd-ctl"><div class="opts tight">'+months.map(m=>chip('data-trdm',m,TRD.months.length===1&&TRD.months[0]===m,trdMonthName(m))).join('')+
-      chip('data-trdm','all',TRD.months.length>1,'13 месяцев')+'</div>'+
-    '<div class="trd-ctl2">'+U.segToggle('data-trdk',[['all','В и из'],['i','В'],['o','Из']],TRD.kind)+
-      U.segToggle('data-trdo',[['all','Все события'],['ok','Засчитанные']],TRD.only)+'</div></div>';
-  if(TRD.loading||!dt)return h+'<div class="trd-load">'+(TRD.loading?'Собираем события…':'Событий нет: выберите месяц.')+'</div></div>';
-  const ev=dt.ev.filter(e=>(TRD.kind==='all'||e.kind===TRD.kind)&&(TRD.only==='all'||e.st==='ok'));
-  /* сверка с отчётом: засчитанные события месяца = переводы отчёта */
-  const lp=trdLp(TRD.path);
-  const sums=dt.months.map(m=>{
-    const r=D.trfReport(lp,m)||{tin:null,tout:null};
-    const ci=dt.ev.filter(e=>e.month===m&&e.kind==='i'&&e.st==='ok').length, co=dt.ev.filter(e=>e.month===m&&e.kind==='o'&&e.st==='ok').length;
-    const ai=dt.ev.filter(e=>e.month===m&&e.kind==='i').length, ao=dt.ev.filter(e=>e.month===m&&e.kind==='o').length;
-    const ok=r.tin==null||(ci===r.tin&&co===r.tout);
-    return '<tr'+(ok?'':' class="trd-bad"')+'><td class="txt">'+esc(trdMonthName(m))+'</td><td>'+ci+' <span class="trd-of">из '+ai+'</span></td><td>'+
-      co+' <span class="trd-of">из '+ao+'</span></td><td>'+(r.tin==null?'—':r.tin+' / '+r.tout)+'</td><td class="txt">'+(r.tin==null?'':ok?'✓ сходится':'не сходится')+'</td></tr>';
-  }).join('');
-  h+='<table class="ptable dense trd-sum"><thead><tr><th class="txt">Месяц</th><th>В: засчитано</th><th>Из: засчитано</th>'+
-    '<th>В отчёте в / из</th><th class="txt"></th></tr></thead><tbody>'+sums+'</tbody></table>';
-  if(dt.cut)h+='<div class="tbl-note">Показаны первые '+D.fmtInt(dt.ev.length)+' событий из '+D.fmtInt(dt.n)+' — выберите один месяц.</div>';
-  h+='<div class="trd-wrap"><table class="ptable dense trd-tbl"><colgroup><col style="width:10%"><col style="width:12%">'+
-    '<col style="width:5%"><col style="width:15%"><col style="width:36%"><col style="width:22%"></colgroup><thead><tr><th class="txt">Дата</th><th class="txt">Месяц</th>'+
-    '<th class="txt"></th><th class="txt">Сотрудник</th><th class="txt">Что сработало</th><th class="txt">Итог</th></tr></thead><tbody>'+
-    (ev.length?ev.map(e=>'<tr class="'+(e.st==='ok'?'':'trd-no')+'"><td class="txt">'+esc(e.dt)+'</td><td class="txt">'+esc(trdMonthName(e.month))+
-      (e.dt.slice(0,7)!==e.month?'<span class="unit-sub">последний день месяца — в следующий</span>':'')+'</td>'+
-      '<td class="txt"><span class="trd-k '+e.kind+'">'+(e.kind==='i'?'в':'из')+'</span></td>'+
-      '<td class="txt">'+esc(e.login||'—')+'<span class="unit-sub">'+esc(e.code)+'</span></td>'+
-      '<td class="txt">'+trdChange(e).map(x=>'<div>'+esc(x)+'</div>').join('')+'</td>'+
-      '<td class="txt">'+(e.st==='ok'?'<b class="trd-ok">засчитано</b>':esc(trdWhy(e)))+'</td></tr>').join('')
-      :'<tr><td class="txt" colspan="6">Событий нет.</td></tr>')+'</tbody></table></div></div>'+
-    '<div class="modal-f"><span class="sp tbl-note">В выгрузке нет логинов и названий подразделений — шифр сотрудника и флаги. '+
-      'Добавьте пометки в колонку note и пришлите файл в чат.</span>'+
-    '<button class="btn ghost" data-trdcopy="1">Скопировать</button><button class="btn primary" data-trdcsv="1">Выгрузить для сверки</button></div>';
-  return h;
-}
-function trdPaint(){
-  const o=$('#trdOvl');if(!o)return;
-  o.classList.toggle('hidden',!TRD.open);
-  if(TRD.open)$('#trdBody').innerHTML=trdHTML();
-}
-/* открыть или перезапросить: в макете события считаются сразу, на бою — запрос с trd_f и trm_f */
-function trdLoad(path,months){
-  Object.assign(TRD,{open:true,path:path,months:months});
-  if(ENV){
-    const id=D.trdIdOf(path);
-    const cur=D.REAL.trd;
-    const have=cur&&cur.id===id&&months.length===cur.months.length&&months.every(m=>cur.months.indexOf(m)>=0);
-    TRD.loading=!have;
-    if(!have){
-      const mask=maskOf(curReq()).concat([{column:'trd_f',operator:'IN',value:[id]},{column:'trm_f',operator:'IN',value:months.slice()}]);
-      emitPend(mask,true);
-    }
-  }
-  trdPaint();
-}
-function trdCSV(){
-  const dt=trdData();if(!dt)return '';
-  const q=v=>{v=v==null?'':String(v);return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
-  const head=['emp_code','event_date','report_month','kind','unit_flag','type_flag','paint_flag','it_flag','staff_flag','cand_or_intern',
-    'paint','it','staff','type','x_paint','x_it','x_staff','x_type','x_unit_key','counted','why','note'];
-  return '\ufeff'+head.join(';')+'\n'+dt.ev.map(e=>[e.code,e.dt,e.month,e.kind==='i'?'in':'out',e.f.u,e.f.a,e.f.p,e.f.i,e.f.s,e.inOk?0:1,
-    e.cut.paint,e.cut.it,e.cut.staff,e.cut.act,e.x.paint,e.x.it,e.x.staff,e.x.act,e.x.unit,e.st==='ok'?1:0,e.st,''].map(q).join(';')).join('\n')+'\n';
-}
 /* Тип численности (поставка 61): все значения active_type_nm выпадающим списком — их много. Кнопка — выбор и
    сколько людей в нём; в списке — каждый тип с галочкой и числом людей. По умолчанию отмечена «Активная» */
 let HCDD=false;
@@ -785,8 +673,6 @@ function render(keepScroll,quiet){
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
   if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
-  /* детализация переводов переживает перезапуск чарта: пришли события — снимаем «Собираем…» */
-  if(TRD.open){if(TRD.loading&&D.trfDetail(TRD.path,TRD.months,S))TRD.loading=false;trdPaint()}
 }
 
 /* Крест в матрицах (итерация 32, фидбэк 12.10): строку подсвечивает CSS
@@ -965,23 +851,6 @@ on(document,'click',e=>{
   if(t.closest('#btnHelpClose')){$('#helpOvl').classList.add('hidden');return}
   if(t.id==='setupOvl'){closeSetup();return}
   /* детализация переводов (поставка 63) */
-  if(t.id==='trdOvl'||t.closest('[data-trdx]')){TRD.open=false;trdPaint();return}
-  const trdO=t.closest('[data-trd]');
-  if(trdO){const ms=D.trfMonths();trdLoad(S.selNode||S.unit,TRD.months.length?TRD.months:[ms[ms.length-2]||ms[0]]);return}
-  const trdM=t.closest('[data-trdm]');
-  if(trdM){trdLoad(TRD.path,trdM.dataset.trdm==='all'?D.trfMonths():[trdM.dataset.trdm]);return}
-  const trdK=t.closest('[data-trdk]');
-  if(trdK){TRD.kind=trdK.dataset.trdk;trdPaint();return}
-  const trdF=t.closest('[data-trdo]');
-  if(trdF){TRD.only=trdF.dataset.trdo;trdPaint();return}
-  if(t.closest('[data-trdcsv]')){
-    const csv=trdCSV(), nm='perevody_'+String((ENV?D.trdIdOf(TRD.path):TRD.path)||'unit').replace(/\W+/g,'').slice(0,12)+'_'+TRD.months[0]+(TRD.months.length>1?'_13m':'')+'.csv';
-    try{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-      a.download=nm;(ROOTEL.body||ROOTEL).appendChild(a);a.click();a.remove()}
-    catch(err){navigator.clipboard&&navigator.clipboard.writeText(csv)}
-    return;
-  }
-  if(t.closest('[data-trdcopy]')){navigator.clipboard&&navigator.clipboard.writeText(trdCSV());return}
   if(t.id==='helpOvl'){$('#helpOvl').classList.add('hidden');return}
   if(t.closest('#navToggle')){navOpen(!$('#sideNav').classList.contains('open'));return}
   if(t.id==='navScrim'){navOpen(false);return}
@@ -1246,7 +1115,6 @@ on(document,'keydown',e=>{
   if(e.key==='Escape'&&tq&&e.target.matches&&e.target.matches('[data-tsearch]')){searchInput('',0);return}
   /* Escape (файл «Структура»): сначала выход из полноэкранного конструктора, потом — сброс
      всех срезов состава; окна и меню закрываются, как раньше */
-  if(e.key==='Escape'&&TRD.open){TRD.open=false;trdPaint();return}
   if(e.key==='Escape'){
     const ovl=!$('#setupOvl').classList.contains('hidden')||!$('#helpOvl').classList.contains('hidden');
     closeSetup();$('#helpOvl').classList.add('hidden');navOpen(false);pulse(false);

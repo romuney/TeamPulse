@@ -182,6 +182,8 @@ const AUD_LABEL={all:'все',hq:'HQ',us:'УС'};
 /* 21.10, правка Антона: метрики, которые считаются только для HQ-численности, — так и подписаны
    (описание, подсказки, готовность данных, вкладки) */
 const HQ_ONLY=' Считается только для HQ-численности.';
+/* поставка 69: в ответе 2а есть ряды желательных и нежелательных уходов по активной численности HQ узла */
+const HQR=!!(REAL&&REAL.has('rh')&&REAL.has('nrh')&&REAL.has('avh'));
 const METRICS=[
 {key:'hc_active',block:'structure',aud:'all',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники на конец месяца с типом численности «Активная». Без подрядчиков, стажёров и неактивных: тех, кто в декрете, в учебной группе или не выходит на работу.',
   calc:'Тип численности «Активная». Не входят:\n• подрядчики — их добавляют в фильтре «Тип численности»;\n• стажёры;\n• неактивные: декрет, прогул, мобилизация, учебные группы, POS-агенты и амбассадоры.\nПо ней считают текучесть и сравнивают подразделения.'},
@@ -309,13 +311,22 @@ if(REAL){
   if(REAL.has('vop'))ov.vac_open={calc:'Вакансии в работе (согласованные) на конец месяца, у незакрытого — на последний загруженный день. Вакансия — не человек: фильтры среза на неё не действуют.'};
   if(REAL.has('aip')&&REAL.has('aiw'))ov.ai_penetration={derived:{num:'ai_wau',den:'ai_den',scale:100},anchor:null,
     calc:'Как в отчёте HQ: доля активных пользователей AI-инструментов в подразделении, посчитанная в источнике. Источник — по подразделению, без фильтров среза.'};
+  /* поставка 69 (Антон, вопрос 4 — «Б»): желательная и нежелательная всегда по активной численности HQ узла,
+     цель — при любых фильтрах */
+  if(HQR){
+    const T=' Всегда по активной численности HQ: фильтры покраски и типа численности на неё не действуют.';
+    ov.regret.hint='Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ.'+T;
+    ov.regret.calc=METRICS.find(m=>m.key==='regret').calc.replace('среднесписочная','среднесписочная HQ');
+    ov.nonregret=Object.assign(ov.nonregret||{},{hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Коридор — 5–15% за год, на каждый месяц — его доля.'+T,
+      calc:METRICS.find(m=>m.key==='nonregret').calc.replace('среднесписочная','среднесписочная HQ')});
+  }
   METRICS.forEach(m=>{if(ov[m.key])Object.assign(m,ov[m.key]);if(REAL.stub.has(m.key))m.stub=true});
 }
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
 /* Служебные производные ряды: метрикой отчёта не являются, но считаются тем же
    способом, что и метрики (числитель / знаменатель). */
-const SERVICE_DEF=Object.assign({regret_m:{derived:{num:'regret_cnt',den:'hc_avg',scale:100}},
-  nonregret_m:{derived:{num:'nonregret_cnt',den:'hc_avg',scale:100}}},REAL?{
+const SERVICE_DEF=Object.assign({regret_m:{derived:HQR?{num:'regret_hq_cnt',den:'hc_avg_hq',scale:100}:{num:'regret_cnt',den:'hc_avg',scale:100}},
+  nonregret_m:{derived:HQR?{num:'nonregret_hq_cnt',den:'hc_avg_hq',scale:100}:{num:'nonregret_cnt',den:'hc_avg',scale:100}}},REAL?{
   /* поставка 66: посещаемость руководителей и остальных — динамика сегмента на вкладке «Офис» */
   office_lead:{derived:{num:'ovis_lead',den:'wday_lead',scale:100}},
   office_staff:{derived:{num:'ovis_staff',den:'wday_staff',scale:100}}}:{});
@@ -483,7 +494,7 @@ function metricsOfBlock(k){return METRICS.filter(m=>m.block===k)}
    rev_eval / rev_up — оценённые в цикле ревью и улучшившие оценку. */
 const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny',
   'ai_wau','pf_plan','hire_jun','rev_eval','rev_up',
-  'nonregret_cnt','vac_new','vac_jun','ttf_days','ttf_n','ai_den',
+  'nonregret_cnt','regret_hq_cnt','nonregret_hq_cnt','hc_avg_hq','vac_new','vac_jun','ttf_days','ttf_n','ai_den',
   /* пробник: нежелательные увольнения — слагаемое regret;
      отработанные человеко-дни и посещения офиса — слагаемые посещаемости */
   'regret_cnt','wday','ovis','perf_norm','perf_low','perf_high','perf_gray',
@@ -1162,7 +1173,7 @@ function kpiFor(key,st){return kpiAt(key,st,MONTHS[lastIdx(key)].m)}
 function kpiAt(key,st,mm){
   const m=METRIC_BY_KEY[key];
   if(!m.kpi)return null;
-  if((key==='regret'||key==='nonregret'||key==='turnover_y')&&st.paint!=='HQ')return null;
+  if((key==='turnover_y'||!HQR&&(key==='regret'||key==='nonregret'))&&st.paint!=='HQ')return null;
   let k=m.kpi;
   if(k.bench){const b=st.itSeg==='IT'?12:15;k={green:b,red:b,annual:true}}
   if(!k.annual)return k;
@@ -1178,7 +1189,8 @@ function kpiAt(key,st,mm){
    Макет — команды с покраской HQ под юнитом на активной численности. */
 /* 26.10-б, правки п. 4–5: все три — по последнему закрытому месяцу (вызревающий — только на графике), «накопительно»
    вместо «YTD» */
-const HQ_LIGHT=[{key:'turnover_y',label:'Тотал HQ текучесть накопительно'},{key:'nonregret',label:'Желательная текучесть накопительно'},
+/* 27.10, Антон (вопрос 8): «HQ текучесть накопительная» вместо «Тотал HQ текучесть накопительно» */
+const HQ_LIGHT=[{key:'turnover_y',label:'HQ текучесть накопительная'},{key:'nonregret',label:'Желательная текучесть накопительно'},
   {key:'regret',label:'Нежелательная текучесть накопительно'}];
 function hqLeaves(st){
   if(REAL){
@@ -2647,70 +2659,6 @@ function officeReal(lp,seg){
     yser:sg?yoySeries(lp,sg.key==='lead'?'office_lead':'office_staff'):null};
 }
 
-/* ---------- Детализация переводов (поставка 63) ----------
-   Кто перевёлся в подразделение и из него за выбранные месяцы: событие — строка источника за день с флагом,
-   «засчитано / почему нет» — тем же правилом, что переводы отчёта. На бою события приходят строкой ev
-   датасета 2а по запросу (trd_f — подразделение, trm_f — месяцы); в макете — генератор, согласованный с
-   рядами переводов: засчитанных событий месяца ровно столько, сколько переводов в отчёте.
-   Событие: dt, month ('ГГГГ-ММ' — месяц отчёта, «из» в последний день — следующий), kind ('i' | 'o'), login,
-   code (шифр сотрудника), cut (срез дня: paint, it, staff, act), x (по другую сторону: вчера для «в», завтра
-   для «из»; unit — подразделение), f (флаги: u — юнит этого уровня, a — тип, p — покраска, i — IT,
-   s — оформление), inOk (не кандидат и не стажёр), st (ok, flt, attr, cand, hire) */
-const mkey=mo=>mo.y+'-'+String(mo.m+1).padStart(2,'0');
-/* месяцы детализации — 13 последних месяцев отчёта (как таблица событий ноутбука) */
-function trfMonths(){return MONTHS.slice(-13).map(mkey)}
-function trfReport(lp,month){
-  const i=MONTHS.findIndex(mo=>mkey(mo)===month);
-  if(i<0||!lp.length)return null;
-  return {tin:Math.round(aggregate(lp,'transfer_in')[i]||0),tout:Math.round(aggregate(lp,'transfer_out')[i]||0)};
-}
-/* ключ узла детализации в ответе: лист «Напрямую в «X»» — узел X:d ноутбука (поставка 64) */
-function trdIdOf(path){
-  const id=REAL?REAL.idOf(path):null;
-  return id&&/·$/.test(id)?id.slice(0,-1)+':d':id;
-}
-function trfDetail(path,months,st){
-  if(REAL){
-    const t=REAL.trd, id=trdIdOf(path);
-    if(!t||t.id!==id)return null;
-    return {months:t.months,n:t.n,ev:t.ev,cut:t.n>t.ev.length};
-  }
-  const lp=leavesUnder(path).map(l=>l.path).filter(p=>leafPasses(p,st));
-  const others=NODES.filter(n=>n.path!==path&&n.path.indexOf(path+'/')!==0&&n.parent);
-  const r=rng(lpSeed(lp,'trd'+path)), pick=a=>a[Math.floor(r()*a.length)];
-  const hex=k=>{let h='';for(let j=0;j<10;j++)h+='0123456789abcdef'[Math.floor(r()*16)];return h};
-  const people=Array.from({length:60},(_,k)=>({login:'user'+(100+Math.floor(r()*900)),code:hex(k)}));
-  const ev=[];
-  const base={paint:st.paint&&st.paint!=='all'?st.paint:'HQ',it:st.itSeg&&st.itSeg!=='all'?st.itSeg:'IT',
-    staff:st.staffType==='nonstaff'?'Не штат':'Штат',act:'Активная'};
-  months.forEach(m=>{
-    const rep=trfReport(lp,m);
-    if(!rep)return;
-    const [y,mm]=m.split('-').map(Number), days=new Date(y,mm,0).getDate();
-    const day=d=>m+'-'+String(d).padStart(2,'0');
-    const add=(kind,o)=>{
-      const p=pick(people), d=1+Math.floor(r()*(days-1));
-      ev.push(Object.assign({dt:day(d),month:m,kind:kind,login:p.login,code:p.code,cut:Object.assign({},base),
-        x:{paint:'',it:'',staff:'',act:'',unit:''},f:{u:0,a:0,p:0,i:0,s:0},inOk:true,st:'ok'},o(p)));
-    };
-    const unitEv=()=>({f:{u:1,a:0,p:0,i:0,s:0},x:{paint:base.paint,it:base.it,staff:base.staff,act:base.act,unit:pick(others).path}});
-    for(let k=0;k<rep.tin;k++)add('i',()=>r()<0.8?unitEv():
-      {f:{u:0,a:1,p:0,i:0,s:0},x:{paint:base.paint,it:base.it,staff:base.staff,act:'Декрет',unit:path}});
-    for(let k=0;k<rep.tout;k++)add('o',()=>Object.assign(unitEv(),
-      /* часть «из» — в последний день прошлого месяца: такие идут следующим месяцем */
-      k===0&&r()<0.6?{dt:(mm===1?(y-1)+'-12':y+'-'+String(mm-1).padStart(2,'0'))+'-'+
-        String(new Date(y,mm-1,0).getDate()).padStart(2,'0')}:{}));
-    /* события, которые отчёт не засчитывает: стажёр в штат, строка вне фильтров, смена атрибута без фильтра */
-    if(r()<0.8)add('i',()=>({f:{u:0,a:1,p:0,i:0,s:0},inOk:false,st:st.hcType==='all'?'cand':'hire',
-      x:{paint:base.paint,it:base.it,staff:base.staff,act:'Стажеры',unit:path}}));
-    if(r()<0.6)add('o',()=>Object.assign(unitEv(),{cut:Object.assign({},base,{act:'Стажеры'}),st:'flt'}));
-    if(r()<0.5&&(!st.paint||st.paint==='all'))add('i',()=>({f:{u:0,a:0,p:1,i:0,s:0},st:'attr',
-      x:{paint:'Line',it:base.it,staff:base.staff,act:base.act,unit:path}}));
-  });
-  ev.sort((a,b)=>a.month<b.month?-1:a.month>b.month?1:a.dt<b.dt?-1:a.dt>b.dt?1:a.kind<b.kind?-1:1);
-  return {months:months,n:ev.length,ev:ev,cut:false};
-}
-
 /* ---------- AI: инструменты и стримы ----------
    Проникновение по инструменту не больше общего: инструменты пересекаются,
    человек с двумя инструментами в общем проникновении один. Поэтому у
@@ -2729,13 +2677,13 @@ function aiProfile(lp){
   return {pen:pen,wau:wau,tools:tools};
 }
 
-window.TPDATA={REAL,trdIdOf,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,
+window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,
   CLOSED_ONLY,closedOnly,lastIdx,CLOSED_TIP,CLOSED_SHORT,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,HQ_LIGHT,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
-  attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,trfMonths,trfReport,trfDetail,
+  attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
   COUNT_METRICS,vacancyBreakdown,kpiAt,teamShare,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,

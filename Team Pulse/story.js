@@ -227,7 +227,7 @@ CH.turnover={
       lede:'Активная численность HQ — **'+pl(h.hc,PPL)+'**. Накопительно с января по '+D.MONTH_NOM[h.month.m]+': текучесть **'+
         f('turnover_y',t.v)+'** ('+tgt(t)+'), желательная **'+f('nonregret',nr.v)+'** ('+tgt(nr)+'), нежелательная **'+
         f('regret',rg.v)+'** ('+tgt(rg)+').',
-      facts:h.rows.map(r=>r.ya!=null?r.label.replace(' накопительно','')+' год назад к этому месяцу — **'+f(r.key,r.ya)+'**':null)};
+      facts:h.rows.map(r=>r.ya!=null?r.label.replace(/ накопительн\S+/,'')+' год назад к этому месяцу — **'+f(r.key,r.ya)+'**':null)};
   }
 };
 

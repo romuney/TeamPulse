@@ -138,7 +138,8 @@ function deltaChip(key,dv,o){
 function matureTag(key,small){
   /* 26.10-б: значение по закрытому месяцу — метка месяца вместо «вызревает» */
   if(D.closedOnly(key))return '<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.CLOSED_TIP)+'>за '+D.CLOSED_SHORT+'</span>';
-  return D.matures(key)?'<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.MATURE_TIP)+'>по '+D.ASOF_SHORT+'</span>':'';
+  /* 27.10, Антон (вопрос 1): поток и ставка незакрытого месяца — за текущий месяц, период подписан */
+  return D.matures(key)||D.partFlow(key)?'<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.matures(key)?D.MATURE_TIP:D.PART_TIP)+'>по '+D.ASOF_SHORT+'</span>':'';
 }
 function momChip(key,dv){const c=D.closedOnly(key);return deltaChip(key,dv,{vs:c?D.CMP.momShortC:D.CMP.momShort,tip:c?D.CMP.momTipC:D.CMP.momTip})}
 
@@ -346,6 +347,8 @@ function opStory(chart,st,about){
     '<li'+(it.n?' data-mk="'+it.n+'"':'')+' data-mi="'+(it.mi||[]).join(',')+'">'+
     (it.n?'<i class="op-insn'+(it.s==='prev'?' prev':'')+'">'+it.n+'</i>':'<i class="op-insb"></i>')+
     '<span>'+it.html+'</span></li>').join('')+'</ol>';
+  /* поставка 69: у маленькой команды пунктов может не быть — честная строка вместо пустого места */
+  else l='<p class="op-stp">Заметных изменений за год нет.</p>';
   return '<div class="op-story" data-oplink="1"><div class="op-stc">'+chart+'</div><div class="op-sts">'+
     (l?'<div class="op-sth">Что видно</div>'+l:'')+
     '<div class="op-sta"><div class="op-sth">О метрике</div>'+about+'</div></div></div>';

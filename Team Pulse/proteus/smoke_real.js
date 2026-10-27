@@ -60,6 +60,7 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  setup:q=>{openSetup();if(q){UT.q=q;utRender()}const h=$("#utList").innerHTML+"|"+$("#benchPreview").innerHTML+"|"+$("#optStaff").innerHTML;closeSetup();return h},'+
   '\n  mixOpen:list=>{mixOpen.clear();(list||[]).forEach(k=>mixOpen.add(k));render();return $("#view").innerHTML},'+
+  '\n  head:()=>{render();return $("#crumbs").innerHTML},'+
   '\n  st:()=>S};');
 const A=require(probe);
 fs.unlinkSync(probe);
@@ -171,17 +172,19 @@ const jan=D.MONTHS_EXT.findIndex((m,k)=>k<=i&&m.m===0&&m.y===D.MONTHS_EXT[i].y);
 let ty=0;for(let k=jan;k<=i;k++)ty+=avg[k]?+(fire[k]/avg[k]*100).toFixed(2):0;
 ok(near(D.lastVal(rl,'turnover_y'),+ty.toFixed(2)),'текучесть накопительная = сумма месячных с января');
 /* 26.10-б: желательная и нежелательная — по последнему закрытому месяцу (D.lastIdx), накопительно с его января */
+/* поставка 69 (Антон, вопрос 4): с рядами rh / nrh / avh — всегда по активной численности HQ узла */
 const ic=D.lastIdx('regret')+R.pre, janC=D.MONTHS_EXT.findIndex((m,k)=>k<=ic&&m.m===0&&m.y===D.MONTHS_EXT[ic].y);
-let ry=0;for(let k=janC;k<=ic;k++)ry+=avg[k]?+(reg[k]/avg[k]*100).toFixed(2):0;
-ok(near(D.lastVal(rl,'regret'),+ry.toFixed(2)),'regret = накопительная доля нежелательных увольнений к ССЧ'+(ic<i?' (закрытый месяц)':''));
+const HQR=R.has('rh')&&R.has('nrh')&&R.has('avh'), avR=HQR?arr(scopeRow,'avh'):avg, rgR=HQR?arr(scopeRow,'rh'):reg;
+let ry=0;for(let k=janC;k<=ic;k++)ry+=avR[k]?+(rgR[k]/avR[k]*100).toFixed(2):0;
+ok(near(D.lastVal(rl,'regret'),+ry.toFixed(2)),'regret = накопительная доля нежелательных увольнений к ССЧ'+(HQR?' HQ':'')+(ic<i?' (закрытый месяц)':''));
 ok(D.isStub('vac_open')===!R.has('vop')&&D.isStub('ai_penetration')===!R.has('aip')&&D.isStub('nonregret')===!R.has('nreg')&&
   !D.isStub('turnover_m')&&!D.isStub('hc_total'),
   'заглушки помечены: вакансии, AI и желательный отток — '+(R.has('vop')?'живые (поставка 50)':'демо')+', численность и текучесть — живые');
 /* 21.10, поставка 50: метрики из прод-ноутбуков HQ и УС — по формулам из настоящих рядов */
 if(R.has('nreg')){
-  const nr=arr(scopeRow,'nreg');
-  let ny=0;for(let k=janC;k<=ic;k++)ny+=avg[k]?+(nr[k]/avg[k]*100).toFixed(2):0;
-  ok(near(D.lastVal(rl,'nonregret'),+ny.toFixed(2)),'желательный отток = накопительная доля желательных увольнений к ССЧ');
+  const nr=arr(scopeRow,HQR?'nrh':'nreg');
+  let ny=0;for(let k=janC;k<=ic;k++)ny+=avR[k]?+(nr[k]/avR[k]*100).toFixed(2):0;
+  ok(near(D.lastVal(rl,'nonregret'),+ny.toFixed(2)),'желательный отток = накопительная доля желательных увольнений к ССЧ'+(HQR?' HQ':''));
 }
 if(R.has('vop')){
   const vo=arr(scopeRow,'vop'), vc=arr(scopeRow,'vcl'), vd=arr(scopeRow,'vtd'), vn=arr(scopeRow,'vtn'), vj=arr(scopeRow,'vjn');
@@ -195,7 +198,8 @@ if(R.has('vop')){
     'вакансии в разрезах: статусы открытых — из колонки mx');
 }
 if(R.has('aip')){
-  ok(near(D.lastVal(rl,'ai_penetration'),arr(scopeRow,'aip')[i])&&near(D.lastVal(rl,'ai_wau'),arr(scopeRow,'aiw')[i]),
+  /* ниже компании доля собрана из листьев (WAU ÷ знаменатель), витрина округляет её до десятых */
+  ok(Math.abs(D.lastVal(rl,'ai_penetration')-arr(scopeRow,'aip')[i])<0.051&&near(D.lastVal(rl,'ai_wau'),arr(scopeRow,'aiw')[i]),
     'AI: проникновение и WAU — из витрины, как в отчёте HQ');
 }
 if(Object.keys(R.mixVals('hk')).length){
@@ -266,7 +270,7 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       /* 26.10-б: все три — по последнему закрытому месяцу, «накопительно» вместо «YTD», блок сверен */
       const want=D.aggregate(['HQ'],'turnover_y')[D.LAST-(D.PARTIAL?1:0)];
       ok(!!h&&h.lp[0]==='HQ'&&h.rows.length===3&&h.rows[0].v===want&&/class="mtable hq-tl"/.test(hv)&&
-        (hv.match(/<tr class="mrow"/g)||[]).length===3&&/Тотал HQ текучесть накопительно/.test(hv)&&!/YTD/.test(hv.split('hq-note')[1]||'')&&
+        (hv.match(/<tr class="mrow"/g)||[]).length===3&&/HQ текучесть накопительная/.test(hv)&&!/YTD/.test(hv.split('hq-note')[1]||'')&&
         /hq-note"><span class="live-tag ok"/.test(hv),
         'светофор HQ по строке hq: '+h.rows.map(r=>r.label.split(' ')[0]+' '+D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+h.hc+' чел');
     }else ok(h?A.st().paint==='HQ'&&A.st().hcType==='active':/Светофору HQ нужны данные/.test(hv),
@@ -312,16 +316,27 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   {
     const su=A.setup(), rowsN=(su.match(/data-upick="/g)||[]).length;
     if(R.pick.ok){
-      const top=+((su.match(/data-upick="T"[^>]*>[\s\S]*?<span class="ut-c[^"]*">([\d\s ]+)</)||[])[1]||'').replace(/\s/g,'');
-      const baseHc=Math.round(arr(baseRow,'hc')[R.n-1]);
+      /* поставка 69: у зоны доступа дерево начинается с её корня, у корня — численность выбранного юнита-корня */
+      const zr=R.pick.root, zEsc=zr.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      const top=+((su.match(new RegExp('data-upick="'+zEsc+'"[^>]*>[\\s\\S]*?<span class="ut-c[^"]*">([\\d\\s ]+)<'))||[])[1]||'').replace(/\s/g,'');
+      const baseHc=zr==='T'?Math.round(arr(baseRow,'hc')[R.n-1]):R.pick.count(zr,{act:D.hcSel(D.DEFAULT_STATE)});
       const sv=(su.split('|')[2].match(/<span class="opt-n">([\d\s ]+)</g)||[]).map(x=>+x.replace(/\D/g,''));
       const hd=R.pick.all().map(p=>R.pick.info(p)).find(i=>i&&i.head);
       const sq=hd?A.setup(hd.head.slice(0,4)):'';
       ok(rowsN>0&&top===baseHc&&sv.length===3&&sv[1]+sv[2]===sv[0]&&/После «Применить»/.test(su)&&
          (!hd||(/<mark class="ut-hl">/.test(sq)&&/class="ut-h"/.test(su))),
-        'окно настройки: дерево '+R.pick.all().length+' узлов, у корня '+top+' = компания, штат + не штат = все'+
+        'окно настройки: дерево '+R.pick.all().length+' узлов, у корня '+top+(zr==='T'?' = компания':' = корень зоны')+', штат + не штат = все'+
         (hd?', поиск по логину':', логинов в справочнике нет'));
     } else ok(rowsN>0&&!/class="ut-c/.test(su)&&!/opt-n/.test(su),'окно настройки: прежний датасет без fd — дерево без чисел');
+  }
+  /* поставка 69 (Антон, вопрос 10): зона доступа — выбрать можно только свою ветку; предки корня зоны в пути
+     текстом, без кнопок и без «Уровнем выше» */
+  if(R.pick.root!=='T'){
+    const anc=D.NODES.filter(n=>n.anc), hd=A.head(), su=A.setup();
+    ok(anc.length>0&&R.pick.all().every(p=>!(D.NODE_BY_PATH[p]||{}).anc)&&
+       anc.every(n=>hd.indexOf('data-crumb="'+n.path+'"')<0&&su.indexOf('data-upick="'+n.path+'"')<0)&&
+       (D.DEFAULT_STATE.unit!==R.pick.root||!/Уровнем выше/.test(hd))&&R.noAccess===false,
+      'зона доступа: '+R.pick.roots.length+' корень, '+anc.length+' предка в пути текстом, выбрать выше зоны нельзя');
   }
   /* поставка 66 (посещения Адели): «Офис» на настоящих — календарь из разрезов dw / do выбранного юнита (в сумме —
      рабочие дни двух месяцев), бронирование и руководители — из рядов ответа, города офиса — из разреза oc; имя
@@ -397,12 +412,15 @@ const all=D.METRICS.filter(m=>D.metricVisible(m.key,D.DEFAULT_STATE)).map(m=>m.k
 const opAll=A.op(all), stories=opAll.split('<div class="op-story"').slice(1);
 const live=all.filter(k=>!D.isStub(k)), stubs=all.filter(k=>D.isStub(k));
 const ov=window.TPINSIGHTS.overview(D.DEFAULT_STATE,D.reportLeaves(D.DEFAULT_STATE),D.benchmarkLeaves(D.DEFAULT_STATE));
+/* поставка 69: в формулах «О метрике» нет технических имён рядов */
+const techIn=stories.map(x=>(x.match(/<mtext>([a-z_]+)<\/mtext>/g)||[])).flat();
+ok(!techIn.length,'формулы «О метрике» — словами, без технических имён'+(techIn.length?': '+techIn.join(' '):''));
 ok(stories.length===all.length&&
    stories.filter(x=>/поэтому выводов нет/.test(x)).length===stubs.length&&
-   stories.filter(x=>/<ol class="op-ins">/.test(x)).length===live.length&&
+   stories.filter(x=>/<ol class="op-ins">|Заметных изменений за год нет/.test(x)).length===live.length&&
    ov.every(x=>!D.isStub(x.key))&&A.op([])&&true,
   'one-pager: «Что видно» у '+live.length+' живых метрик, у '+stubs.length+' заглушек — «выводов нет», в сводке заглушек нет');
-if(stories.filter(x=>/<ol class="op-ins">/.test(x)).length!==live.length)
+if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений за год нет/.test(x)).length!==live.length)
   console.log('       без «Что видно»: '+all.filter((k,i)=>!D.isStub(k)&&!/<ol class="op-ins">/.test(stories[i]||'')).join(', ')+
     '\n       '+all.map((k,i)=>!D.isStub(k)&&!/<ol class="op-ins">/.test(stories[i]||'')?stories[i].replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').slice(0,400):'').filter(Boolean).join('\n       '));
 

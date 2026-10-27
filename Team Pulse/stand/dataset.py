@@ -28,9 +28,14 @@ CFG = {
 T = 'prod_proteus.hr_structure_overall'
 
 
-def render(filters, user='tester'):
+def render(filters, user='tester', full=('tester',)):
+    """full — логины полного доступа (поставка 69: список FULL в 2а пустой, его заполняет владелец); стенд по
+    умолчанию даёт его своему логину tester — прежние сверки идут по всей компании"""
     env = jinja2.Environment(extensions=['jinja2.ext.do'])
-    tpl = env.from_string(open(SQL, encoding='utf-8').read())
+    src = open(SQL, encoding='utf-8').read()
+    if full:
+        src = src.replace('{% set FULL = [] %}', '{% set FULL = ' + repr(list(full)) + ' %}')
+    tpl = env.from_string(src)
     return tpl.render(filter_values=lambda col: list(filters.get(col, [])),
                       current_username=lambda: user)
 
