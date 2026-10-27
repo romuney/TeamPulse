@@ -1712,7 +1712,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
      воронки численности в плане нет */
   checks.push(['готовность: структура и движение сверены, отток — кроме желательного и нежелательного; воронки нет',
     /* 23.10, сверка с данными: регион — настоящий график (правка 22.10), «тип компании» и состав мониторинга — в отчёте */
-    [...D.VERIFIED].sort().join()==='attrition,hc_active,hc_total,hire,net_ytd,transfer_in,transfer_out,turnover_m,turnover_y'&&
+    /* 27.10: сверки 0з и 0ж — вакансии и проникновение AI */
+    [...D.VERIFIED].sort().join()==='ai_penetration,attrition,hc_active,hc_total,hire,net_ytd,transfer_in,transfer_out,turnover_m,turnover_y,vac_closed,vac_open'&&
     /* 26.10-б: блок «Как уходит HQ» сверен — расхождение осталось у одной строки (желательная и нежелательная) */
     [...D.MISMATCH].sort().join()==='nonregret,regret'&&pn.bad===1&&pn.ok>=13&&pn.data===0&&/✓ сверены/.test(op)&&/расхождение 2/.test(op)&&
     /* 26.10-б: «Движение по специализациям» — новый график, с мастер-источником ещё не сверен;
