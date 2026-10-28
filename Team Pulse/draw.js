@@ -1149,7 +1149,7 @@ function drawStack(a,w,h){
 }
 function drawPline(a,w,h){
   const o=a.opt||{}, P=a.periods, key=a.key, mark=a.mark, col=o.color||C_LINE;
-  const fmt=v=>v==null?'—':o.fmt==='pct'?(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%':(Math.round(v*10)/10).toFixed(1).replace('.',',');
+  const fmt=v=>v==null?'—':o.fmt==='int'?CD.fmtInt(v):o.fmt==='pct'?(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%':(Math.round(v*10)/10).toFixed(1).replace('.',',');
   const vals=P.map(p=>p[key]);
   const hh=headH(o.title,null);
   h=h||o.h||200;

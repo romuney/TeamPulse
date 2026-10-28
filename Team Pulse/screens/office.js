@@ -104,8 +104,8 @@ SC.blocks.office={
         '<div class="tbl-note">Две нижние строки — нарушения. Их доля и есть «Нарушения бронирования» за '+esc(D.CMP.span)+'.</div>'+
         /* 27.10-в, п. 14–15: после «Бронирований и посещений» — нарушения по городам: по убыванию, первые 10 и
            раскрываемые «Остальные» */
-        (!vc?'<div class="tbl-note">Нарушения брони по городам появятся со следующим обновлением отчёта.</div>'
-        :vc.length?U.btGroup(Object.assign({cap:'Нарушения брони по городам',capSub:D.CMP.span+', человеко-дни',head:'',
+        (!vc?'<div class="tbl-note">Нарушения бронирования по городам появятся, когда ноутбук отчёта обновят до поставки 70.</div>'
+        :vc.length?U.btGroup(Object.assign({cap:'Нарушения бронирования по городам',capSub:D.CMP.span+', человеко-дни',head:'',
           valueHead:'Нарушений',metricKey:'hc_total',compact:true,total:false,sort:true,items:vc.map(c=>({name:c.name,
             note:c.pct!=null?U.pct(c.pct)+' от дней с бронью':'',value:c.viol,color:G.C_OFFICE}))},
           SC.rest(ctx,'vcity',10,['город','города','городов']))):'');

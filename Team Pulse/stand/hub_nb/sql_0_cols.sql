@@ -158,6 +158,7 @@ with need (sch, tbl, col) as (
         ('usr_cross_data', 'hr_executive_proteus', 'transfer_internal_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'fire_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'last_day_of_month_flg'),
+        ('usr_cross_data', 'hr_executive_proteus', 'employee_specialization_desc'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl1_mngt_unit_in_trsf_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl1_mngt_unit_out_trsf_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl2_mngt_unit_in_trsf_flg'),

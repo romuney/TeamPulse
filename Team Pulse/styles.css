@@ -2351,3 +2351,4 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* 27.10-в, п. 17 и 22: высоты раскладки — от видимой высоты отчёта (--vh: в Proteus — высота плитки, её ставит prelude;
    в макете — 100vh). От 100vh окна браузера, которое выше плитки, низ навигации уходил за край, а закреплённая таблица
    подразделений уезжала шапкой вверх и оставляла пустоту внизу */
+.ptable.spm4{table-layout:fixed;width:100%}.ptable.spm4 th.bar-th{white-space:normal;line-height:1.2}.ptable.spm4 th.num{white-space:normal;line-height:1.2}.ptable.spm4 td.txt{white-space:normal}

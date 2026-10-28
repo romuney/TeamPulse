@@ -156,7 +156,7 @@ const BLOCKS=[
 {key:'turnover',name:'Отток и текучесть',hint:'Сколько уходит, кто и почему.',drillUrl:'#/detail/turnover',dash:['34661','34136']},
 {key:'hiring',name:'Найм и вакансии',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
 {key:'tgrowth',name:'T-рост',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
-{key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью. Мониторинг считается только для HQ-численности, ревью — для eligible-популяции.',drillUrl:'#/detail/monitor',dash:['34661']},
+{key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью. Мониторинг — под выбранными фильтрами (по умолчанию вся активная численность), ревью — для eligible-популяции.',drillUrl:'#/detail/monitor',dash:['34661']},
 {key:'office',name:'Посещаемость офисов',hint:'Кто, когда и где ходит в офис; соблюдают ли бронь.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
    У Hub были AI-подсказки, но не было метрик внедрения AI. */
@@ -229,11 +229,11 @@ const METRICS=[
   calc:'Как в методологии HR: сумма месячной текучести с января — накопительно.'},
 /* 26.10-б, правки п. 3: желательная и нежелательная — накопительно с января (сумма месячной) и в макете: карточка
    показывает YTD по последнему закрытому месяцу (CLOSED_ONLY) */
-{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть',short:'Нежелат.',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'regret_m',kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть HQ',short:'Нежелат. HQ',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'regret_m',kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
   calc:'Сумма месячной: нежелательные увольнения ÷ среднесписочная × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
-{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть',short:'Желат.',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'nonregret_m',kpi:{green:5,red:15,annual:true},
+{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть HQ',short:'Желат. HQ',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'nonregret_m',kpi:{green:5,red:15,annual:true},
   hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Для HQ — коридор 5–15% за год, на каждый месяц — его доля.'+HQ_ONLY,
   calc:'Сумма месячной: желательные увольнения ÷ среднесписочная × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Коридор на месяц: 5% и 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
@@ -480,24 +480,26 @@ const DEV_PLAN=[
     /* 27.10-в, п. 13: Москва и регионы, грейды — не в этом релизе */
     {what:'Посещаемость в Москве и регионах, по грейду',aud:'hq',stage:'7',now:'todo',next:1,need:'соберём из тех же данных'},
     {what:'Посещения по городам офиса',aud:'hq',stage:'7',now:'live'},
-    {what:'Нарушения брони по городам',aud:'hq',stage:'7',now:'todo',need:'город у брони в выгрузке'},
+    {what:'Нарушения бронирования по городам',aud:'hq',stage:'7',now:'live'},
     {what:'Календарь посещаемости по дням, два месяца',aud:'hq',stage:'7',now:'live'}]},
   {blk:'AI-инструменты',rows:[
+    /* 28.10, п. 4: все графики ниже — на вкладке «Как пользуются», числа условные до недельной выгрузки */
     /* 26.10, правки: разбор «AI BI.md» (поставка — «AI BI — разбор метрик.md»): по месяцам есть проникновение и WAU,
        всё остальное — из недельной выгрузки AI-статистики по людям, которой в отчёте нет */
     {what:'Проникновение: команда против компании, по месяцам',aud:'hq',stage:'8',now:'live',hq:1,ok:1},
     {what:'Активные пользователи (WAU) и численность команды, по месяцам',aud:'hq',stage:'8',now:'live',hq:1},
-    {what:'WAU и проникновение по неделям',aud:'hq',stage:'8',now:'todo',need:AIW},
-    {what:'Частота использования (0–7 дней) и инструментов на человека',aud:'hq',stage:'8',now:'todo',need:AIW},
+    {what:'WAU и проникновение по неделям',aud:'hq',stage:'8',now:'dev',need:AIW},
+    {what:'Частота использования (0–7 дней) и инструментов на человека',aud:'hq',stage:'8',now:'dev',need:AIW},
     {what:'Топ инструментов',aud:'hq',stage:'8',now:'dev',need:'сейчас условно; '+AIW},
-    {what:'Воронка сообщений и топ задач Copilot, Nestor IDE, Nessy CLI',aud:'hq',stage:'8',now:'todo',
+    {what:'Воронка сообщений и топ задач Copilot, Nestor IDE, Nessy CLI',aud:'hq',stage:'8',now:'dev',
       need:AIW+'; и как считать «не классифицировано» при выборке'},
-    {what:'Проникновение по IT / Non-IT / Digital и инструментам',aud:'hq',stage:'8',now:'todo',need:AIW},
-    {what:'Стажёры: пользуются ли AI, чем, как часто',aud:'hq',stage:'8',now:'todo',need:AIW},
-    {what:'Конструктор AI: два разреза × численность, активные, проникновение',aud:'hq',stage:'8',now:'todo',need:AIW}]},
+    {what:'Проникновение по IT / Non-IT / Digital и инструментам',aud:'hq',stage:'8',now:'dev',need:AIW},
+    {what:'Стажёры: пользуются ли AI, чем, как часто',aud:'hq',stage:'8',now:'dev',need:AIW},
+    {what:'Конструктор AI: два разреза × численность, активные, проникновение',aud:'hq',stage:'8',now:'dev',need:AIW}]},
   {blk:'Весь отчёт',rows:[
-    {what:'Руководитель подразделения: логин',aud:'all',stage:'0',now:'live'},
-    {what:'Руководитель подразделения: имя, поиск по нему в фильтре',aud:'all',stage:'0',now:'live'}]}
+    /* 28.10, п. 6: логины и имена руководителей сверены */
+    {what:'Руководитель подразделения: логин',aud:'all',stage:'0',now:'live',ok:1},
+    {what:'Руководитель подразделения: имя, поиск по нему в фильтре',aud:'all',stage:'0',now:'live',ok:1}]}
 ];
 /* сколько строк плана в каком статусе — для сводки готовности */
 function planCount(){
@@ -1229,8 +1231,8 @@ function kpiAt(key,st,mm){
 /* 26.10-б, правки п. 4–5: все три — по последнему закрытому месяцу (вызревающий — только на графике), «накопительно»
    вместо «YTD» */
 /* 27.10, Антон (вопрос 8): «HQ текучесть накопительная» вместо «Тотал HQ текучесть накопительно» */
-const HQ_LIGHT=[{key:'turnover_y',label:'HQ текучесть накопительная'},{key:'nonregret',label:'Желательная текучесть накопительно'},
-  {key:'regret',label:'Нежелательная текучесть накопительно'}];
+const HQ_LIGHT=[{key:'turnover_y',label:'HQ текучесть накопительная'},{key:'nonregret',label:'Желательная текучесть HQ накопительно'},
+  {key:'regret',label:'Нежелательная текучесть HQ накопительно'}];
 function hqLeaves(st){
   if(REAL){
     if(REAL.hasSeries('HQ'))return ['HQ'];
@@ -1982,7 +1984,7 @@ function lastValSlice(lp,key,sel){return aggregateSlice(lp,key,sel)[lastIdx(key)
    состав — за последнюю закрытую неделю против предыдущей; линии — по неделям или месяцам.
    На проде — витрина мониторинга по неделям (категория активности человека за неделю, часы
    в день, доля звонков в Толк, прогулы, работа в выходные); в макете — генератор по листам.
-   Считается только для активной численности HQ.
+   28.10, п. 3: под выбранными фильтрами, как весь отчёт (по умолчанию — вся активная численность), не только HQ.
    ========================================================================== */
 const MON_SHORT=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
 const MON_NW=26;            /* недель в ряду: полгода — хватает и на месяцы */
@@ -2434,21 +2436,30 @@ function exitProfile(lp,win){
 /* ---------- Движение по специализациям (26.10-б, правки п. 1) ----------
    С начала года по специализации: пришли (найм отчёта), ушли (отток), сальдо. Пробник — разрезы ноутбука hsp и xsp
    (найм и увольнения с начала года по специализации, под фильтрами); макет — найм и отток, разложенные по численности
-   специализаций. Только специализации с движением, по убыванию оборота (пришли + ушли). Переводов по специализации в
-   данных нет — их здесь нет */
+   специализаций. Только специализации с движением, по убыванию оборота (пришли + ушли).
+   28.10, п. 1: четыре составляющих — найм, переводы в, отток, переводы из; итого = найм + в − отток − из. Пробник —
+   разрезы выбранного юнита tsh / tsi / tso (переходы ноутбука по специализации строки: найм по дню события, как
+   карточка «Найм», переводы — как карточки переводов) и xsp (отток); в сумме по специализациям — карточки с начала
+   года. Без tsh (ноутбук до 28.10) — как раньше: найм hsp, отток xsp, переводов нет (trf:false) */
+const SPM_TRF=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('tsh'));
 function specMovement(lp){
   let rows;
+  const nm=v=>isNA(v)?NONE_NAME:v;
   if(REAL){
-    const h=realExit(lp,'hsp'), x=realExit(lp,'xsp');
-    rows=Object.keys(Object.assign({},h,x)).map(v=>({name:v||NONE_NAME,hire:Math.round(h[v]||0),exit:Math.round(x[v]||0)}));
+    const x=realExit(lp,'xsp'), h=SPM_TRF?REAL.scopeMix('tsh'):realExit(lp,'hsp'),
+      ti=SPM_TRF?REAL.scopeMix('tsi')||{}:{}, to=SPM_TRF?REAL.scopeMix('tso')||{}:{}, by={};
+    const add=(o,k)=>Object.keys(o).forEach(v=>{const z=by[nm(v)]||(by[nm(v)]={name:nm(v),hire:0,tin:0,exit:0,tout:0});z[k]+=o[v]});
+    add(h,'hire');add(ti,'tin');add(x,'exit');add(to,'tout');
+    rows=Object.keys(by).map(k=>by[k]);
+    rows.forEach(z=>['hire','tin','exit','tout'].forEach(k=>{z[k]=Math.round(z[k])}));
   }else{
     const cats=(MIX_BY_KEY.spec||{cats:[]}).cats, hc=mixParts(lp,'spec'), r=rng(lpSeed(lp,'spm'));
-    const hs=splitBy(sumWin(aggregate(lp,'hire'),'ytd'),jitter(r,hc.map(v=>v+1e-6),0.5));
-    const xs=splitBy(sumWin(aggregate(lp,'attrition'),'ytd'),jitter(r,hc.map(v=>v+1e-6),0.5));
-    rows=cats.map((c,i)=>({name:c.name,hire:hs[i]||0,exit:xs[i]||0}));
+    const sp=k=>splitBy(sumWin(aggregate(lp,k),'ytd'),jitter(r,hc.map(v=>v+1e-6),0.5));
+    const hs=sp('hire'), xs=sp('attrition'), ts=sp('transfer_in'), os=sp('transfer_out');
+    rows=cats.map((c,i)=>({name:c.name,hire:hs[i]||0,tin:ts[i]||0,exit:xs[i]||0,tout:os[i]||0}));
   }
-  return rows.filter(z=>z.hire+z.exit>0).map(z=>Object.assign(z,{net:z.hire-z.exit}))
-    .sort((a,b)=>b.hire+b.exit-(a.hire+a.exit)||a.name.localeCompare(b.name,'ru'));
+  return rows.filter(z=>z.hire+z.tin+z.exit+z.tout>0).map(z=>Object.assign(z,{net:z.hire+z.tin-z.exit-z.tout}))
+    .sort((a,b)=>b.hire+b.tin+b.exit+b.tout-(a.hire+a.tin+a.exit+a.tout)||a.name.localeCompare(b.name,'ru'));
 }
 
 /* ---------- Откуда приходят: каналы, сеньорность, грейд ----------
@@ -2798,6 +2809,36 @@ function aiProfile(lp){
     value:+Math.min(pen,pen*t.k*(t.it?Math.min(1,it*1.2):1)*(0.9+r()*0.2)).toFixed(1)}));
   return {pen:pen,wau:wau,tools:tools};
 }
+/* 28.10, п. 4: все графики AI из «Готовности данных» — на вкладке «Как пользуются». Источника для них в отчёте нет
+   (нужна недельная AI-выгрузка по людям, разбор — «AI BI — разбор метрик.md»): числа условные, от проникновения и
+   численности команды. Недели — 12 последних закрытых; частота — дней с AI в неделю у активных; инструментов на
+   человека; воронка сообщений и топ задач по инструментам разработчика; проникновение по IT-коду и инструменту;
+   стажёры; конструктор — IT-код × покраска */
+const AI_TASKS=['Написание кода','Поиск ошибок','Тесты','Ревью кода','Документация','Анализ данных'];
+const AI_DEV=['Copilot','Nestor IDE','Nessy CLI'];
+function aiUsage(lp){
+  const ai=aiProfile(lp), r=rng(lpSeed(lp,'aiu')), hc=Math.max(1,Math.round(lastVal(lp,'hc_total'))), pen=ai.pen||0;
+  const act=Math.round(hc*pen/100), it=hcIT(lp), cl=(v,a,z)=>Math.max(a,Math.min(z,v));
+  const weeks=MON_WEEKS.slice(-12).map((w,i)=>{const p=+cl(pen*(0.9+0.012*i+(r()-0.5)*0.06),0,100).toFixed(1);
+    return {label:w.label,full:'Неделя '+w.full,pen:p,wau:Math.round(hc*p/100)}});
+  const freq=splitBy(act,jitter(r,[0.22,0.2,0.17,0.15,0.14,0.08,0.03],0.25)).map((n,i)=>({name:(i+1)+' '+U_DAYS(i+1),value:n}));
+  const per=splitBy(act,jitter(r,[0.46,0.31,0.15,0.08],0.2)).map((n,i)=>({name:i<3?String(i+1):'4 и больше',value:n}));
+  const msgs=Math.round(act*it*(18+r()*10)), cls=Math.round(msgs*(0.7+r()*0.15));
+  const dev=AI_DEV.map((t,j)=>{const m=Math.round(cls*[0.55,0.3,0.15][j]);
+    return {name:t,msgs:m,tasks:splitBy(m,jitter(r,[0.34,0.2,0.14,0.13,0.11,0.08],0.3)).map((v,k)=>({name:AI_TASKS[k],value:v}))
+      .sort((a,b)=>b.value-a.value)}});
+  const segs=[['IT',it*0.85],['Digital',it*0.15],['Non-IT',1-it]].map(([nm,w])=>({name:nm,hc:Math.round(hc*w)}))
+    .filter(x=>x.hc>0);
+  const bySeg=segs.map(x=>({name:x.name,hc:x.hc,cells:ai.tools.map(t=>+cl(t.value*(x.name==='Non-IT'&&/разработчик/.test(t.name)?0.1:
+    x.name==='IT'?1.15:0.85)*(0.9+r()*0.2),0,100).toFixed(1))}));
+  const ihc=Math.max(1,Math.round(hc*(0.03+r()*0.03))), ipen=+cl(pen*(1.05+r()*0.2),0,100).toFixed(1);
+  const cons=segs.map(x=>PAINTS.slice(1).map((pt,k)=>{const n=Math.round(x.hc*[0.62,0.25,0.13][k]),pp=+cl(pen*(0.85+r()*0.3),0,100).toFixed(1);
+    return {seg:x.name,paint:pt.name,hc:n,act:Math.round(n*pp/100),pen:pp}})).reduce((a,b)=>a.concat(b),[]).filter(x=>x.hc>0);
+  return {pen:pen,act:act,weeks:weeks,freq:freq,per:per,msgs:msgs,cls:cls,dev:dev,tools:ai.tools,bySeg:bySeg,
+    intern:{hc:ihc,pen:ipen,act:Math.round(ihc*ipen/100),tools:ai.tools.map(t=>({name:t.name,value:+cl(t.value*(0.9+r()*0.3),0,100).toFixed(1)})),
+      freq:splitBy(Math.round(ihc*ipen/100),jitter(r,[0.3,0.4,0.3],0.2))},cons:cons};
+}
+const U_DAYS=n=>n===1?'день':n<5?'дня':'дней';
 
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,CLOSED_TIP,CLOSED_SHORT,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
@@ -2819,4 +2860,4 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,ROST_ST,ROST_LIVE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  exitInitTurnover,specMovement,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,AI_TOOLS,OFF_LIVE};
+  exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};

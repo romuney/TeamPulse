@@ -202,7 +202,14 @@ def main():
                         want_v.update(nb.truth_rost(U, people, grt, rk, raw.get(name, pred), act))
                         if not want_v['rs']:
                             bad['T-рост пуст'] += 1
-                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs')):
+                        # 28.10, п. 1: найм, переводы в и из по специализации — в сумме = рядам с начала года
+                        ytd_ = [m for m in ms if m.year == ms[-1].year]
+                        for kk, tk in (('tsh', 'hire'), ('tsi', 'tin'), ('tso', 'tout')):
+                            if abs(mx[kk] - sum(T[(rk, m)][tk] for m in ytd_)) > 0.5:
+                                bad['mx ' + kk] += 1
+                        if not mxv.get('tsh'):
+                            bad['движение по специализациям пусто'] += 1
+                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'tsh', 'tsi', 'tso')):
                         bad['календарь не у выбранного'] += 1
                     for kk, w in want_v.items():
                         g = mxv.get(kk, {})

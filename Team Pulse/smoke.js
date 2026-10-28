@@ -312,7 +312,7 @@ checks.push(['минус во всех дельтах типографский, 
   /* сравнение ищем в видимом тексте карточки: слово «база» встречается ещё и
      внутри подсказки к пилюле изменения, и по нему проверять нельзя */
   const cards=opHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
-  const card=cards.filter(c=>/Нежелательная текучесть/.test(c))[0]||'';
+  const card=cards.filter(c=>/Нежелательная текучесть HQ/.test(c))[0]||'';
   const subs=(card.match(/<span class="k-sub">[^<]*</g)||[]).join('|');
   checks.push(['в hero-карточке метрики с KPI стоит цель, а базы нет',
     /* 21.10, поставка 50: годовая цель HQ (4%) — на месяц её доля; 26.10-б — месяц закрытый (в макете май: 4 × 5 / 12) */
@@ -402,7 +402,9 @@ checks.push(['T-рост: конверсия с решениями на одно
   subsOf('tgrowth')==='flow,grades,spec']);
 checks.push(['офис — календарь, «кто и где ходит» (22.10: города, кто ходит и динамика — одна вкладка), бронирование',
   subsOf('office')==='calendar,attend,booking']);
-checks.push(['AI — проникновение, инструменты и стримы',subsOf('ai')==='adoption,tools']);
+/* 28.10, п. 4: все графики AI из «Готовности данных» — вкладка «Как пользуются» (условные) */
+checks.push(['AI — проникновение, инструменты, как пользуются (все графики из готовности данных)',subsOf('ai')==='adoption,tools,usage'&&
+  ['по неделям','Частота использования','Инструментов на человека','Воронка сообщений','Топ задач','по IT-коду','Стажёры','Конструктор'].every(t=>allHtml.indexOf(t)>=0)]);
 /* неизвестная под-вкладка из старой ссылки не должна ломать экран */
 checks.push(['неизвестная под-вкладка откатывается на дефолтную',
   A.go('hiring','speed').length>400&&A.go('tgrowth','conv').length>400]);
@@ -1728,6 +1730,15 @@ checks.push(['третьей палитры нет: в экранах ни од�
     D.DEV_PLAN.filter(g=>/Структура|Движение/.test(g.blk)).every(g=>g.rows.every(r=>r.now!=='live'||r.ok||/специализациям/.test(r.what)))&&
     !/одной воронкой|[Вв]оронка численности|Пол и возраст|Списки ушедших|AI-рекомендации/.test(op)&&
     /считается только для HQ-численности/.test(op)]);
+  /* 28.10, п. 1: движение по специализациям — найм, переводы в, отток, переводы из; в сумме = те же ряды с начала года */
+  {
+    const lp=D.reportLeaves(D.DEFAULT_STATE), sm=D.specMovement(lp), S=k=>sm.reduce((a,z)=>a+z[k],0), Y=k=>D.sumWin(D.aggregate(lp,k),'ytd');
+    const mvh=A.go('movement','dynamics');
+    checks.push(['движение по специализациям: найм, переводы в, отток, переводы из; суммы = ряды с начала года, итого = в − из',
+      Math.abs(S('hire')-Y('hire'))<1&&Math.abs(S('tin')-Y('transfer_in'))<1&&Math.abs(S('exit')-Y('attrition'))<1&&
+      Math.abs(S('tout')-Y('transfer_out'))<1&&sm.every(z=>z.net===z.hire+z.tin-z.exit-z.tout)&&
+      /<th class="num">Переводы в<\/th>/.test(mvh)&&/<th class="num">Переводы из<\/th>/.test(mvh)]);
+  }
   checks.push(['«в разработке»: в навигации блок частично (найм — план, AI — инструменты; офис — посещаемость живая)',
     /data-tab="ai"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&
     !/data-tab="movement"[^>]*>[^<]*<span class="ico[^"]*"><\/span>[^<]*<span class="nav-dev/.test(nav)&&SC.blockDev('office')==='part']);
@@ -1752,7 +1763,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const BAN=[/hr_structure_overall|vacancy_daily|plan_fact_tf|atributy_nayma|junior_ratio|ys_all_fire|initiative_reason|mdm_employee|review_digest|review_table|sigareta|penetration_(unit|company)|office_visit_amt|work_day_amt|grt_[a-z]+_cnt|fire_initiative|fire_reason|mapping_channel|summary_score|management_head/,
     /заглушк|демо-данн|в макете|на проде|сгенерирован|ответ 0а|SOURCES\.md|ClickHouse|Helicopter|датасет/i,
     /* 21.10: «Тип занятости», «Штат (ТК РФ)», «Дистанционно» вернулись — так в файле «Структура» (у него приоритет) */
-    /* 26.10, правки: принятая терминология — «Нежелательная / Желательная текучесть»; «…отток» — старое имя */
+    /* 26.10, правки: принятая терминология — «Нежелательная / Желательная текучесть HQ»; «…отток» — старое имя */
     /[Нн]ежелательный отток|[Жж]елательный отток|Прошли T-рост|Отказано в T-росте|Time-to-fill|[Лл]оу-перформ|Прогноз (годовой )?текучести/,
     /степпер|[Пп]озитивное направление|Снять разрез|Сбросить разрезы|глава \d+ из/];
   const hits=[];
