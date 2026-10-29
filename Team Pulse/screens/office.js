@@ -47,7 +47,7 @@ function attendReal(ctx,x,lbl,attTbl){
     (x.cities.length?U.btGroup(Object.assign({cap:'Город офиса',capSub:D.CMP.span+' · посещения',head:'',valueHead:'Посещений',
       barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>({name:c.name,
         note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE}))},SC.rest(ctx,'ocity',10,['город','города','городов']))):'')+
-    '<div class="tbl-note">Клик по сегменту — его динамика, Escape — снять. Город — где было посещение: человек бывает в нескольких.</div>';
+    '<div class="tbl-note">Город — где было посещение: человек бывает в нескольких.</div>';
 }
 
 SC.blocks.office={
@@ -85,8 +85,7 @@ SC.blocks.office={
           note:D.fmtInt(c.hc)+' чел · '+c.offices+' '+U.plural(c.offices,['офис','офиса','офисов']),
           value:c.att,color:G.C_OFFICE,on:S.offCity===c.name,attr:'data-offcity="'+esc(c.name)+'"',
           attrTip:'Клик — посещаемость только в «'+c.name+'»: пересчитаются динамика и сегменты.'})),'Сравнение городов')+
-        '<div class="tbl-note">Клик по строке — выбор: динамика и другая таблица пересчитаются. Сегмент и город складываются; '+
-          'Escape или «Сбросить всё» — снять. В городе — среднее по его офисам с учётом числа людей.</div>';
+        '<div class="tbl-note">В городе — среднее по его офисам с учётом числа людей.</div>';
     }
 
     if(ctx.sub==='booking'){

@@ -446,7 +446,11 @@ function renderBlock(S,expanded,mixOpen,view){
       :mod.shelfChips?mod.shelfChips(S):[]);
   h+='<div class="sel-row">'+(selChips.length?'<span class="sel-lbl">Выбрано</span>'+U.selBar(selChips)+
     (sel!==root&&!selNode.direct?U.openUnitBtn(sel,selNode.name,'Открыть'):''):
-    '<span class="sel-hint">'+(b.key==='structure'?'Клик по подразделению, куску полосы или строке таблицы — таблица и графики покажут только выбранное'
+    /* единственное место с общей подсказкой про клик (поставка 82): в сносках и «Что с этим делать» её больше нет;
+       тонкости (Shift+клик, Escape) — в подсказке при наведении */
+    '<span class="sel-hint"'+U.tipAttr({title:'Как выбрать',text:b.key==='structure'?
+      'Shift+клик — добавить ещё одну категорию того же разреза. Выборы по разным разрезам складываются. Escape — снять всё.'
+      :'Повторный клик или Escape — снять выбор.'})+'>'+(b.key==='structure'?'Клик по подразделению, куску полосы или строке таблицы — таблица и графики покажут только выбранное'
       :mod.shelfChips&&S.subTab==='attend'?'Клик по подразделению, сегменту или городу — таблицы и динамика покажут только выбранное'
       :'Клик по подразделению в таблице — графики покажут только его, на всех вкладках')+'</span>')+'</div>';
   h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'" id="bk-det"'+
@@ -542,8 +546,8 @@ function renderBlock(S,expanded,mixOpen,view){
   /* Подсказка о глубине — в подзаголовке панели: три уровня вниз, глубже —
      переходом. Пока взят срез состава, подзаголовок говорит о нём. */
   h+=U.panel({cls:'split-l',title:'Подразделения',
-    subHtml:slice.length?esc('численность по срезу: '+D.sliceLabel(selIds))
-      :'три уровня вниз · глубже — значок '+U.icoOpen(),
+    /* 31.10 (поставка 82): что выбрано — в строке «Выбрано» над карточками, здесь не повторяем */
+    subHtml:'три уровня вниз · глубже — значок '+U.icoOpen(),
     tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Название, логин, ФИО'})+U.unitHide(),
     body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share)+U.unitRail(INS.unitsOf(S).length);
 

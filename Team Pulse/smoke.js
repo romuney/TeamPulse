@@ -1623,7 +1623,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* 31.10 (поставка 82): полки над таблицами нет — выбранное пилюлями в шапке карточки графиков, строка шапки
      всегда одной высоты: экран при выборе не сдвигается */
   checks.push(['полки срезов нет; строка выбора над карточками — всегда, одной высоты, липкая; в покое — подсказка',
-    !/sl-shelf/.test(pt)&&!/\.sl-shelf/.test(cssAll)&&/class="sel-row"><span class="sel-hint">/.test(pt)&&
+    !/sl-shelf/.test(pt)&&!/\.sl-shelf/.test(cssAll)&&/class="sel-row"><span class="sel-hint"/.test(pt)&&
     /\.sel-row\{display:flex;align-items:center;gap:8px;height:36px/.test(cssAll)&&/\.split\{--shelf-h:48px\}/.test(cssAll)]);
   /* 15.10: два обзора в стиле портрета — сверху обзор (пилюля), ниже разбивка */
   const wk=A.go('structure','work');

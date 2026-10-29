@@ -43,7 +43,8 @@ const D=window.TPDATA, U=window.TPUI, SC=window.TPSCREENS;
    таблицами, и повторять «191 · 100%» над каждым разрезом незачем. Когда
    соседний разрез режет таблицу, её сумма другая — её и пишем у среза. */
 function sliceSub(others,sum){
-  return others.length?'срез: '+others.map(p=>p.cat.name).join(' · ')+' · '+D.fmtInt(sum)+' чел':'';
+  /* 31.10 (поставка 82): что выбрано — пилюлями над карточками; у таблицы — только сколько людей под выбором */
+  return others.length?D.fmtInt(sum)+' чел под выбором':'';
 }
 function dimTable(dim,lp,sel,mixSel,o){
   o=o||{};
@@ -221,7 +222,8 @@ function workView(ctx){
     '</div>'+clickNote(sel);
 }
 function clickNote(sel){
-  return sel.size?'':'<div class="tbl-note">Клик по строке, куску полосы или карточке — срез: пересчитаются все разрезы и таблица подразделений. Shift+клик — добавить к срезу.</div>';
+  /* 31.10 (поставка 82): подсказка про клик — одна, в строке «Выбрано» над карточками */
+  return '';
 }
 
 /* ---------- Конструктор ----------
@@ -253,7 +255,7 @@ function constructor_(ctx){
     const axes=[R.key,C.key];
     const outer=D.otherParts(S.mixSel,axes);
     const inner=D.sliceParse(S.mixSel).filter(p=>axes.indexOf(p.dim.key)>=0);
-    const cap=[outer.length?'срез: '+outer.map(p=>p.cat.name).join(' · '):'',
+    const cap=[outer.length?'по выбору выше':'',
       inner.length?'выделено в таблице: '+inner.map(p=>p.cat.name).join(' · '):''].filter(Boolean).join('  ·  ');
     const mx=mxCap(R,C,D.mixMatrix(ctx.lp,R.key,C.key,S.mixSel),sel);
     h+=U.matrixTable({rowDim:mx.rowDim,colDim:mx.colDim,mode:S.mixMode,sel:sel,cap:cap,cells:mx.cells})+
