@@ -2470,16 +2470,16 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 }
 .unit-head.login{color:var(--muted);border-bottom:1px dotted var(--muted2);cursor:help}
 /* Поставка 82: что выбрано — строка пилюль над обеими карточками (срез меняет и таблицу, и графики). Строка всегда
-   есть и одной высоты (36px + 12px до карточек): выбрали или сняли — ничего не сдвигается; липнет при прокрутке,
+   есть и одной высоты (24px — по пилюле, 11px до карточек; сверху чуть больше — его съедает тень вывода): выбрали или сняли — ничего не сдвигается; липнет при прокрутке,
    шапки карточек прилипают под ней */
-.sel-row{display:flex;align-items:center;gap:8px;height:36px;margin:0 0 12px;padding:0 2px;white-space:nowrap;overflow:hidden;
+.sel-row{display:flex;align-items:center;gap:8px;height:24px;margin:0 0 11px;padding:0 2px;white-space:nowrap;overflow:hidden;
   font-size:12px;color:var(--muted)}
 .sel-lbl{flex:0 0 auto;color:var(--muted)}
 .sel-hint{overflow:hidden;text-overflow:ellipsis}
 .sel-hint::before{content:"↳ ";color:var(--muted2)}
 @media (min-width:1121px){
-  .sel-row{position:sticky;top:calc(var(--head-h,0px) + 6px);z-index:7;background:var(--bg);box-shadow:0 -12px 0 var(--bg),0 18px 0 var(--bg)}
-  .split{--shelf-h:48px}
+  .sel-row{position:sticky;top:calc(var(--head-h,0px) + 6px);z-index:7;background:var(--bg);box-shadow:0 -12px 0 var(--bg),0 11px 0 var(--bg)}
+  .split{--shelf-h:29px}
 }
 .sel-bar{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
 .sel-pill{display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 2px 0 9px;border-radius:11px;min-width:0;
