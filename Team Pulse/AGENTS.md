@@ -3004,3 +3004,16 @@ smoke: структура, нет ряда прошлого года, перек
 строки по убыванию. movement.js: `S.spmSort` (app.js data-spmsort), шапки `th.tsort`. Ноутбук: `rq` — пятое поле
 «текущее» (SXR_COLS + current_grade_num, current_specialization), стенд nb_tp20 — то же; data.js rostReal/mock —
 «текущее → желаемое». Стенд s81: датасет 2а = правда; smoke_real — проверка направления.
+
+**31.10, поставка 82 — вёрстка, выбор, скорость.** Скорость (профиль CDP, ×4 CPU): app.js `navSig` — кэш по срезу (JSON
+S без UI-ключей `NAV_UI`); draw.js `lazy()` — на время сборки экрана `chart()` без чернового полотна (только при
+`HTMLElement`, в node — как раньше), `remeasure` — два прохода (свои высоты, потом `fill`), чтение размеров до записи,
+без forced reflow ради `.anim`. Маска над липкой шапкой — класс `.ph-stuck` (app.js `phStuck`, rAF на scroll) для обеих
+карточек (`.split>.panel>.panel-h`). Таблица подразделений: `.split>.split-l` stretch + `overflow:clip`, липнут шапка
+и `.tbl-wrap`. Строки юнитов: численность + `U.unitHead(n,q)` (логин, ФИО в подсказке), поиск по name/head.login/
+head.name. Широкая панель: `.st-grid.has-rail>.st-main` stretch (≥980); `@container stp (min-width:1080px)` — `.bt-stack`
+сеткой по два, нечётная последняя в одну колонку; ≥1280 — `.sm-grid` мониторинга (6 колонок: первый во всю ширину,
+2–3 по половине, остальные по трети), `.bt-group.spm` ≤960px, многопанельные графики `--np × 200px`. Выбор: полка
+`.sl-shelf` и `U.shelf/sliceNote` удалены; `U.selBar/sliceChips`, office `shelfChips`; `.sel-row` перед `.split`
+(24px + 11px, sticky, `--shelf-h:29px`), `data-selclear`. Подсказка про клик — только в `.sel-hint`; clickNote
+структуры пустой, WHY без инструкций по клику, подпись таблиц структуры — «N чел под выбором».
