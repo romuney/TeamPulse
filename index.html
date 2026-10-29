@@ -1397,23 +1397,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .split-drag,.split-drag *{cursor:col-resize!important;user-select:none!important}
 .split-drag .tip{visibility:hidden}
 
-/* Итерация 32: таблица подразделений — по переключателю, по умолчанию скрыта.
-   Свитч с подписью в правом углу шапки панели графиков: это место не сдвигается
-   ни в одном режиме. Поле под него — у блока заголовка, как раньше у иконки. */
-.unit-toggle{display:inline-flex;align-items:center;gap:var(--s4);flex:0 0 auto;height:30px;
-  padding:0 var(--s5) 0 var(--s4);border:1px solid var(--line);border-radius:var(--r-pill);background:#fff;
-  color:var(--ink2);font:inherit;font-size:var(--fs-note);font-weight:var(--fw-body);cursor:pointer;white-space:nowrap}
-.unit-toggle:hover{border-color:var(--act-line);color:var(--ink)}
-.unit-toggle:focus-visible{outline:1.5px solid var(--act);outline-offset:2px}
-.ut-sw{position:relative;width:26px;height:16px;border-radius:var(--r-pill);background:var(--muted2);transition:background .15s}
-.ut-sw i{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;
-  box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
-.unit-toggle.on .ut-sw{background:var(--act)}
-.unit-toggle.on .ut-sw i{transform:translateX(10px)}
-.unit-toggle.on{color:var(--act-ink);border-color:var(--act-line);background:var(--blue-bg)}
-.panel-h .h-txt.has-btn{position:relative;flex:1 1 auto;padding-right:150px}
-.panel-h .h-txt>.unit-toggle{position:absolute;right:0;top:50%;transform:translateY(-50%)}
-
 /* графики во всю ширину — на любой ширине окна: таблица и разделитель не видны */
 .split.m-charts{grid-template-columns:minmax(0,1fr);column-gap:0}
 .split.m-charts>.split-l,.split.m-charts>.split-gut{display:none}
@@ -1429,8 +1412,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .split.wide-l.wide-l{grid-template-columns:1fr;column-gap:0}
   .split.wide-l.wide-l>.split-gut{display:none}
 }
-@media(max-width:480px){.panel-h .h-txt.has-btn{padding-right:0}
-  .panel-h .h-txt>.unit-toggle{position:static;transform:none;margin-top:var(--s4);align-self:flex-start}}
 
 /* ===== Итерация 31: пробник Proteus ==========================================
    Метрика или разбивка без источника — заглушка на генераторе. 14.10 серая
@@ -2414,6 +2395,31 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .is-scrolling .content{pointer-events:none}
 .op-nav::after{content:"";position:absolute;left:0;right:0;top:100%;height:16px;pointer-events:none;
   background:linear-gradient(var(--bg),rgba(244,245,247,0))}
+
+/* ==========================================================================
+   30.10, шаг 2 — таблица подразделений сворачивается на самой таблице (заказчик), у маленькой команды
+   свёрнута по умолчанию; выводы — пилюлями, меньше букв.
+   ========================================================================== */
+.split-rail{display:none}
+.split.m-charts.m-charts{grid-template-columns:40px minmax(0,1fr);column-gap:16px}
+.split.m-charts>.split-rail{display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 0;border:0;cursor:pointer;
+  background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm,0 1px 2px rgba(16,24,40,.05));color:var(--ink2);font:inherit;
+  align-self:start;min-height:220px}
+@media (min-width:1121px){.split.m-charts>.split-rail{position:sticky;top:var(--sp-top)}}
+.split-rail:hover{color:var(--act-ink);background:var(--blue-bg)}
+.split-rail .sr-ch{font-size:16px;line-height:1;color:var(--act)}
+.split-rail .sr-t{writing-mode:vertical-rl;transform:rotate(180deg);font-size:var(--fs-body);white-space:nowrap}
+.unit-hide{flex:0 0 auto;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);
+  font-size:16px;line-height:1;cursor:pointer;margin-left:var(--s4)}
+.unit-hide:hover{color:var(--act);border-color:var(--act-line);background:var(--blue-bg)}
+.panel-h .tsearch+.unit-hide{align-self:center}
+/* пилюли фактов: в выводе блока и в карточках выводов главной */
+.bk-pl,.in-pl{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.bk-p,.in-pl span{display:inline-flex;align-items:baseline;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.75);
+  border:1px solid var(--line);font-size:var(--fs-body);color:#5b6475;line-height:1.35}
+.bk-p b,.in-pl b{font-weight:var(--fw-bold);color:var(--ink)}
+.bk-p.high{border-color:#f5b5b5;background:#fff5f5}.bk-p.mid{border-color:#f3d7a1;background:#fffaf0}.bk-p.good{border-color:#b7e6c6;background:#f4fcf6}
+.bk-top.solo{grid-template-columns:minmax(0,1fr)}
 
 </style>
 </head>
@@ -6907,20 +6913,18 @@ function openUnitBtn(path,name,label){
       note:'Вернуться — «← Назад» над отчётом.'})+'>'+icoOpen()+(label?esc(label):'')+'</button>';
 }
 
-/* ---------- Таблица подразделений: показать / скрыть (итерация 32) ----------
-   Таблица — основа фильтрации и видна по умолчанию; убрать её, чтобы отдать
-   графикам всю ширину, можно одним переключателем — свитч с подписью, а не пара
-   иконок «развернуть / свернуть»:
-   по иконке было не понять, что именно развернётся. Переключатель стоит в правом
-   углу шапки панели графиков — это место не сдвигается ни в одном режиме.
-   shown — видна ли таблица сейчас. */
-function unitToggle(shown){
-  const lbl=shown?'Скрыть таблицу подразделений':'Показать таблицу подразделений';
-  return '<button class="unit-toggle'+(shown?' on':'')+'" data-splitmode="'+(shown?'charts':'both')+'"'+
-    ' role="switch" aria-checked="'+(shown?'true':'false')+'" aria-label="'+lbl+'"'+
-    tipAttr({title:lbl,text:shown?'Графики займут всю ширину.'
-      :'Слева появится таблица подразделений. Клик по строке — графики этого подразделения.'})+
-    '><span class="ut-sw" aria-hidden="true"><i></i></span><span class="ut-l">Подразделения</span></button>';
+/* 30.10, шаг 2 (заказчик: «подразделения должны отключаться прямо на блоке с подразделениями»): кнопка
+   «свернуть» — в шапке таблицы; свёрнутая таблица — узкая полоска слева от графиков, клик раскрывает обратно */
+function unitHide(){
+  return '<button class="unit-hide" data-splitmode="charts" aria-label="Свернуть таблицу подразделений"'+
+    tipAttr({title:'Свернуть таблицу',text:'Графики займут всю ширину. Вернуть — полоска «Подразделения» слева.'})+
+    '><span aria-hidden="true">‹</span></button>';
+}
+function unitRail(n){
+  return '<button class="split-rail" data-splitmode="both" aria-label="Показать таблицу подразделений"'+
+    tipAttr({title:'Подразделения',text:n?'Таблица подразделений: клик по строке — графики этого подразделения.'
+      :'Подразделений уровнем ниже нет — в таблице только ИТОГО.'})+
+    '><span class="sr-ch" aria-hidden="true">›</span><span class="sr-t">Подразделения'+(n?' · '+n:'')+'</span></button>';
 }
 /* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
    его с клавиатуры, двойной клик возвращает ширину по умолчанию. */
@@ -7744,8 +7748,9 @@ function trafficLegend(){
   return '<div class="legend"><span class="sw"><span class="dot" style="background:#bff2cd"></span>лучше</span>'+
     '<span class="sw"><span class="dot" style="background:#ffcccc"></span>хуже</span>'+
     '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне (±5%) или без оценки</span>'+
-    '<span class="sw lg-note"'+tipAttr({title:'Ориентир',text:'Цель KPI, а где её нет — база: та же метрика по всей компании с теми же фильтрами.'})+
-    '>к ориентиру — в колонке «Ориентир», к прошлому периоду — в колонках изменений</span></div>';
+    /* 30.10, шаг 2: пояснение — в подсказке, под выводами меньше букв */
+    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI, а где её нет — к базе: та же метрика по всей компании с теми же фильтрами. Колонки MoM и YoY — к прошлому периоду.'})+
+    '>как читать</span></div>';
 }
 
 /* ============================================================================
@@ -7834,7 +7839,7 @@ function devSummary(o){
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
-  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
+  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
 })();
 
 </script>
@@ -8383,6 +8388,12 @@ function cardOf(f,S,rl,bl){
   const x=f.kind==='dev'?excess(f.key,rl,f.v,f.ref,Lf):f.kind==='yoy'?excess(f.key,rl,f.v,f.pv,Lf)
     :f.kind==='trend'?excess(f.key,rl,f.tr.b,f.tr.a,Lf):f.kind==='spike'?{n:f.v-f.usual,noun:LEAVE}:null;
   const n=x?Math.round(x.n):0, q=n>=1?'<b>≈ '+ppl(n,x.noun)+'</b>':'';
+  /* 30.10, шаг 2: те же факты короткими пилюлями — «меньше букв, главное видно сразу» */
+  const pills=[];
+  if(leave){const e=D.aggregateExt(rl,'attrition');let a=0,p=0;for(let i=y0;i<=Lf;i++){a+=e[i]||0;p+=e[i-12]||0}
+    pills.push('ушли с января <b>'+D.fmtInt(Math.round(a))+'</b> · год назад '+D.fmtInt(Math.round(p)))}
+  if(q)pills.push(f.kind==='yoy'?q+' разницы с прошлым годом':f.kind==='trend'?q+' за '+OBS.trend+' мес.':f.kind==='spike'?q+' сверх обычного'
+    :m.better==='higher'?(bad?'не хватает '+q:q+' сверх '+(f.kpi?'цели':'базы')):q+(bad?' сверх ':' ниже ')+(f.kpi?'цели':'базы'));
   if(q){
     const w=f.kpi?'цели':'базы', when=x.win?' с начала года':f.kind==='dev'?' за месяц':'';
     if(f.kind==='yoy')body.push('<!--ppl-->Это '+q+' разницы с прошлым годом.');
@@ -8393,6 +8404,8 @@ function cardOf(f,S,rl,bl){
   }
   const wh=bad&&/^(dev|yoy|spike)$/.test(f.kind)?whereOf(f,S):null;
   if(wh&&wh.top)body.push((wh.share>=0.8?'Почти вся эта разница':'Больше половины этой разницы')+' — в <b>«'+esc(wh.top.n.name)+'»</b>.');
+  if(wh&&wh.top)pills.push((wh.share>=0.8?'почти всё':'больше половины')+' — <b>«'+esc(wh.top.n.name)+'»</b>');
+  if(f.kind==='dev'&&f.pv!=null)pills.push('год назад '+esc(fv(f.pv)));
   if(f.kind==='dev'&&f.pv!=null&&!leave)body.push('Год назад — '+esc(fv(f.pv))+'.');
   if(f.kind==='dev'&&f.tr)body.push(esc(cap(trendWord(m)))+'.');
   let todo='Держать курс: отдельных действий не нужно.';
@@ -8402,7 +8415,11 @@ function cardOf(f,S,rl,bl){
     const h=wh&&wh.top&&wh.top.n.head, who=h&&(h.login||h.name);
     todo='<b>Что сделать:</b> '+(wh&&wh.top?'начать с «'+esc(wh.top.n.name)+'»'+(who?' ('+esc(who)+')':'')+' — ':'')+esc(t)+'.';
   }
-  return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,
+  /* пилюля-итог для вывода блока: метрика, значение и с чем сравниваем */
+  const ref=f.kind==='dev'?(f.kpi?'цель ':'база ')+fv(f.ref):f.kind==='yoy'?'год назад '+fv(f.pv)
+    :f.kind==='trend'?fv(f.tr.a)+' → '+fv(f.tr.b):'';
+  const kp=esc(m.name)+' <b>'+esc(fv(f.kind==='trend'?f.tr.b:f.v))+'</b>'+(ref?' · '+esc(ref):'');
+  return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,pills,kp,
     ppl:n,where:wh,chart:miniOf(f,rl,bl),
     btn:wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:{label:'Открыть «'+b.name+'»',tab:bk}};
 }
@@ -8423,6 +8440,7 @@ function cards(S,rl,bl,all){
   out.forEach(c=>{
     const b=c.body.slice();
     if(c.leave&&!said){said=true;b.unshift(c.leave);if(c.fact.kind==='yoy')b.splice(b.findIndex(t=>/^<!--ppl-->/.test(t)),1)}
+    else if(c.leave)c.pills=c.pills.filter(t=>!/^ушли с января/.test(t));
     c.body=b.join(' ').replace(/<!--ppl-->/g,'');
   });
   return all?out:out.slice(0,OBS.max);
@@ -9410,16 +9428,26 @@ function conclusion(sum,b,S){
   if(!sum.list.length){
     const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)), cmp=vis.filter(m=>D.comparable(m.key)||D.kpiFor(m.key,S));
     head='Заметных отклонений нет';
-    facts=[cmp.length?'Проверили <b>'+cmp.length+' '+U.plural(cmp.length,['метрику','метрики','метрик'])+
-        '</b>: ни одна не отличается от ориентира на '+INS.INS_GAP+'% и больше и не сдвинулась заметно за год.'
-        :'Метрики блока — количества: с базой они не сравниваются, смотрим тренды.',
-      'Ни одна метрика не ухудшается '+INS.INS_TREND+' месяца подряд.'];
+    facts='<div class="bk-pl">'+(cmp.length?'<span class="bk-p"'+U.tipAttr({title:'Что проверили',
+        text:'Ни одна метрика не отличается от ориентира на '+INS.INS_GAP+'% и больше и не сдвинулась заметно за год.'})+
+        '>проверили <b>'+cmp.length+' '+U.plural(cmp.length,['метрику','метрики','метрик'])+'</b> — отклонений нет</span>'
+        :'<span class="bk-p">метрики блока — количества, смотрим тренды</span>')+
+      '<span class="bk-p">ничего не ухудшается '+INS.INS_TREND+' мес. подряд</span></div>';
     todo='Отдельных действий не нужно.';
-  }else facts=sum.list.slice(0,3).map(c=>'<b>'+esc(c.head)+'.</b> '+c.body);
+  }
+  /* 30.10, шаг 2 («полаконичнее, поменьше букв»): вывод — заголовок, пилюли (метрики вывода с ориентиром и
+     главные факты первой проблемы: люди, где) и одно действие; три абзаца фактов сняты */
+  if(facts==null){
+    const lead=sum.list.find(c=>c.sev!=='good')||sum.list[0];
+    const kp=sum.list.slice(0,3).map(c=>'<span class="bk-p '+c.sev+'">'+c.kp+'</span>');
+    /* «где» — уже в заголовке и в панели справа, «год назад» — в пилюле метрики */
+    const more=(lead.pills||[]).filter(t=>!/^(год назад|почти всё|больше половины)/.test(t)).map(t=>'<span class="bk-p">'+t+'</span>');
+    facts='<div class="bk-pl">'+kp.concat(more).join('')+'</div>';
+  }
   /* огонёк по настроению вывода (20.10, заказчик): тревога, насторожен, улыбка, спокоен */
   const op=window.TPSCREENS.onepager||{}, ico=op.moodIco?op.moodIco(op.MOOD_ICO[sum.sev],52,BK_TAG[sum.sev]):'';
   return '<div class="bk-sum '+sum.sev+'">'+ico+'<div class="bk-sx"><div class="bk-tag">Вывод блока · '+BK_TAG[sum.sev]+'</div>'+
-    '<div class="bk-h">'+esc(head)+'</div><ol class="bk-f">'+facts.map(f=>'<li>'+f+'</li>').join('')+'</ol>'+
+    '<div class="bk-h">'+esc(head)+'</div>'+facts+
     '<div class="bk-do">'+todo+'</div></div></div>';
 }
 /* Где это происходит: подразделения первого уровня по вкладу в отклонение
@@ -9524,7 +9552,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
      это происходит → таблица»). Факты — те же карточки, что на главной. */
   const sum=INS.blockSummary(b.key,S,rl,bl);
-  h+='<div class="bk-top '+sum.sev+'">'+conclusion(sum,b,S)+wherePanel(sum,mainK,S,rootNode)+'</div>';
+  /* 30.10, шаг 2: нет подразделений ниже — «Где это происходит» не показываем (одна фраза «нет подразделений») */
+  const hasU=INS.unitsOf(S).length>0;
+  h+='<div class="bk-top '+sum.sev+(hasU?'':' solo')+'">'+conclusion(sum,b,S)+(hasU?wherePanel(sum,mainK,S,rootNode):'')+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -9593,7 +9623,10 @@ function renderBlock(S,expanded,mixOpen,view){
      Разметка всегда полная — обе панели и разделитель, — а что видно, решает CSS:
      ниже 1121px (широкой таблице — 1241px) показанная таблица встаёт над графиками. */
   const sp=view&&view.split||{};
-  const mode=sp.mode==='charts'?'charts':'both', share=sp.share!=null?sp.share:null;
+  /* 30.10, шаг 2: у маленькой команды (нет подразделений ниже или меньше 30 человек) таблица по умолчанию
+     свёрнута в полоску слева — графики во всю ширину; выбор пользователя (sp.mode) — главнее */
+  const hcR=D.lastVal(rl,'hc_total'), smallTeam=!INS.unitsOf(S).length||(hcR!=null&&hcR<INS.CARD.small);
+  const mode=sp.mode==='charts'||sp.mode==='both'?sp.mode:smallTeam?'charts':'both', share=sp.share!=null?sp.share:null;
   h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'" id="bk-det"'+
     (share!=null?' style="--split-l:'+(share*100).toFixed(2)+'fr;--split-r:'+((1-share)*100).toFixed(2)+'fr"':'')+'>';
 
@@ -9688,8 +9721,8 @@ function renderBlock(S,expanded,mixOpen,view){
   h+=U.panel({cls:'split-l',title:'Подразделения',
     subHtml:slice.length?esc('численность по срезу: '+D.sliceLabel(selIds))
       :'три уровня вниз · глубже — значок '+U.icoOpen(),
-    tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'}),
-    body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share);
+    tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'})+U.unitHide(),
+    body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share)+U.unitRail(INS.unitsOf(S).length);
 
   /* 5b · правая панель — история блока по главам (итерация 32, концепция B).
      Глава = под-вкладка. TPSTORY считает по выбранному узлу вопрос, ответ и
@@ -9713,7 +9746,6 @@ function renderBlock(S,expanded,mixOpen,view){
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
     subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть')):' · всё подразделение')+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
-    hBtn:U.unitToggle(mode==='both'),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';
@@ -10976,7 +11008,9 @@ function insightCard(c){
   return '<div class="in-card '+c.sev+'"><div class="in-t"><span class="in-tag">'+esc(c.tag)+'</span>'+
     '<span class="in-blk">· '+esc(c.blockName)+'</span></div>'+
     '<div class="in-row"><div class="in-txt"><div class="in-h">'+esc(c.head)+'</div>'+
-      (c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
+      /* 30.10, шаг 2: факты — пилюлями, а не абзацем */
+      (c.pills&&c.pills.length?'<div class="in-pl">'+c.pills.map(t=>'<span>'+t+'</span>').join('')+'</div>'
+        :c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
     (c.chart?'<button class="in-mini" data-opfact="'+esc(c.key)+'"'+U.tipAttr({title:D.METRIC_BY_KEY[c.key].name,
       text:'Этот год против ориентира.',note:'Нажмите — откроется подробный график.'})+'>'+c.chart+'</button>':'')+'</div>'+
     '<div class="in-a"><span class="in-do">'+c.todo+'</span><button class="in-go"'+go+'>'+esc(c.btn.label)+'</button></div></div>';
@@ -11175,7 +11209,7 @@ let tq='';
    перетаскивания разделителя (null — раскладка по умолчанию). Один выбор
    на все блоки: «мне нужна таблица» — предпочтение, а не свойство
    вкладки. В ссылку не едет, как и раскрытия. */
-let splitMode='both', splitShare=null;
+let splitMode=null, splitUnit=null, splitShare=null;   /* null — авто: маленькая команда свёрнута (30.10) */
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -11339,7 +11373,7 @@ function arrive(){
       itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType,hcType:D.DEFAULT_STATE.hcType,
       hcSet:D.DEFAULT_STATE.hcSet.slice()});
     const ui=STORE.ui||{};
-    tq=ui.tq||'';splitMode=ui.splitMode==='charts'?'charts':'both';splitShare=ui.splitShare!=null?ui.splitShare:null;
+    tq=ui.tq||'';splitMode=ui.splitMode==='charts'||ui.splitMode==='both'?ui.splitMode:null;splitUnit=ui.splitUnit||null;splitShare=ui.splitShare!=null?ui.splitShare:null;
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;
@@ -11784,7 +11818,7 @@ function render(keepScroll,quiet){
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
     ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
+    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitUnit===S.unit?splitMode:null,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   /* после смены вкладки или главы (S.subTab подставляется при сборке) */
@@ -11805,7 +11839,7 @@ function render(keepScroll,quiet){
   else if(keepScroll)window.scrollTo(0,yy);
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
-  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
+  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitUnit,splitShare}}
 }
 
 /* Крест в матрицах (итерация 32, фидбэк 12.10): строку подсвечивает CSS
@@ -12075,7 +12109,7 @@ on(document,'click',e=>{
   if(ex){e.stopPropagation();const p=ex.dataset.exp;expanded.has(p)?expanded.delete(p):expanded.add(p);render(true);return}
   /* «во всю ширину» и полоса свёрнутой панели — один обработчик: режим едет в атрибуте */
   const smode=t.closest('[data-splitmode]');
-  if(smode){splitMode=smode.dataset.splitmode;render(true);return}
+  if(smode){splitMode=smode.dataset.splitmode;splitUnit=S.unit;render(true);return}
   /* «Открыть юнит» живёт ВНУТРИ строки .urow — проверка строго до неё, иначе
      клик по иконке снимал бы выбор строки вместо перехода */
   const ou=t.closest('[data-openunit]');

@@ -65,7 +65,7 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\n  setupUnits:q=>{openSetup();if(q){UT.q=q;utRender()}const h=$("#utList").innerHTML+$("#benchPreview").innerHTML+$("#optStaff").innerHTML;closeSetup();return h},'+
   '\n  home:()=>{S.unit=D.DEFAULT_STATE.unit;unitBack.length=0;tq="";S.selNode=null;expanded.clear()},'+
   /* итерация 30: ширина колонок — режим и доля таблицы */
-  '\n  split:(m,sh)=>{splitMode=m;splitShare=sh;render(true);return $("#view").innerHTML},'+
+  '\n  split:(m,sh)=>{splitMode=m;splitUnit=S.unit;splitShare=sh;render(true);return $("#view").innerHTML},'+
   /* срез состава живёт в S, но кликом его ставит обработчик — зовём его напрямую */
   '\n  mix:list=>{S.mixSel=(list||[]).slice()},'+
   '\n  mixClick:spec=>{toggleMix(spec);return S.mixSel.slice()},'+
@@ -1369,18 +1369,20 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['между таблицей и графиками — разделитель: separator с клавиатурой и подсказкой',
     /<div class="split-gut" data-split="1" role="separator" aria-orientation="vertical"[^>]*tabindex="0"/.test(both)&&
     /class="split m-both"/.test(both)&&!/class="split[^"]* custom"/.test(both)]);
-  checks.push(['переключатель таблицы — свитч с подписью в углу шапки панели графиков, иконок «во всю ширину» нет',
-    /<div class="h-txt has-btn"><span>Отток и текучесть по месяцам<\/span>[\s\S]*?<button class="unit-toggle on" data-splitmode="charts" role="switch" aria-checked="true"[\s\S]*?<span class="ut-l">Подразделения<\/span><\/button><\/div>/.test(both)&&
-    /\.panel-h\.h-txt>\.unit-toggle\{position:absolute;right:0/.test(css)&&
-    !/split-btn|split-rail|data-splitmode="table"/.test(both)]);
+  /* 30.10, шаг 2: таблица сворачивается кнопкой в своей шапке, свёрнутая — полоска «Подразделения» слева */
+  checks.push(['таблица сворачивается на самой таблице: кнопка «‹» в её шапке, в шапке графиков переключателя нет',
+    /<div class="panel split-l">[\s\S]*?<button class="unit-hide" data-splitmode="charts"/.test(both)&&
+    !/unit-toggle/.test(both)&&/<button class="split-rail" data-splitmode="both"/.test(both)&&
+    /\.split-rail\{display:none\}/.test(css)&&!/data-splitmode="table"/.test(both)]);
   const chs=A.split('charts',null);
   checks.push(['графики во всю ширину: переключатель предлагает показать таблицу, разметка таблицы на месте',
     /class="split m-charts"/.test(chs)&&
-    /<button class="unit-toggle" data-splitmode="both" role="switch" aria-checked="false"/.test(chs)&&
+    /\.split\.m-charts>\.split-rail\{display:flex/.test(css)&&/\.split\.m-charts\.m-charts\{grid-template-columns:40pxminmax\(0,1fr\)/.test(css)&&
     /class="panel split-l"/.test(chs)]);
-  checks.push(['таблица подразделений по умолчанию видна — основа фильтрации; старое «table» читается как обе колонки',
-    /let splitMode='both'/.test(appSrc)&&/splitMode=ui\.splitMode==='charts'\?'charts':'both'/.test(appSrc)&&
-    /class="split m-both"/.test(A.split('table',null))]);
+  /* 30.10, шаг 2: по умолчанию (авто) таблица видна, у маленькой команды — свёрнута; выбор держится на своём подразделении */
+  checks.push(['таблица подразделений по умолчанию видна, у маленькой команды свёрнута; старое «table» — авто',
+    /let splitMode=null, splitUnit=null/.test(appSrc)&&/mode:splitUnit===S\.unit\?splitMode:null/.test(appSrc)&&
+    /class="split m-both"/.test(A.split('table',null))&&/smallTeam\?'charts':'both'/.test(fs.readFileSync(path.join(dir,'screens/_block.js'),'utf8'))]);
   const cust=A.split('both',0.62);
   A.go('onepager',null);
   checks.push(['доля после перетаскивания — переменные сетки, separator знает своё значение',
@@ -1546,13 +1548,13 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const tTop=A.top('turnover'), sumT=I.blockSummary('turnover',S0,rl0,bl0), moodT={high:'тревог|Требует',mid:'Посмотреть',good:'Хорошая',none:'спокойно'};
   checks.push(['вкладка блока: огонёк по настроению, вывод и «где» в одной карточке, таблица и главы открыты',
     new RegExp('<div class="bk-top '+sumT.sev+'"><div class="bk-sum '+sumT.sev+'"><span class="in-ico"><img').test(tTop)&&
-    /<div class="bk-tag">Вывод блока · /.test(tTop)&&/<ol class="bk-f"><li>/.test(tTop)&&
+    /<div class="bk-tag">Вывод блока · /.test(tTop)&&/<div class="bk-pl"><span class="bk-p (high|mid|good)">/.test(tTop)&&
     /class="bk-wh"><div class="bk-wt">Где это происходит/.test(tTop)&&/data-blkjump="1">[^<]*в таблице подразделений ниже/.test(tTop)&&
     !/kpis compact/.test(tTop)&&/class="split[^"]*" id="bk-det"/.test(tTop)&&!/data-blkopen|class="bk-det/.test(tTop)&&
     D.BLOCKS.every(b=>{const sv=I.blockSummary(b.key,S0,rl0,bl0).sev;
       return new RegExp('bk-sum '+sv+'"><span class="in-ico"><img[^>]*alt="'+{high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'}[sv]+'"').test(A.top(b.key))})]);
   checks.push(['вывод блока: «всё спокойно» там, где фактов нет, и строки «где» ведут к подразделению',
-    D.BLOCKS.every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-f"><li><b>/.test(h))})&&
+    D.BLOCKS.every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-pl"><span class="bk-p (high|mid|good)"/.test(h))})&&
     /data-wsel="/.test(A.top('structure'))]);
   /* раскрытая строка: номера пунктов «Что видно» = номерные отметки на полотне */
   const keys=['turnover_y','attrition','turnover_m','hc_total','regret'];

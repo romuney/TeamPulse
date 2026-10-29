@@ -512,7 +512,8 @@ if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений з
   const tops=D.visibleBlocks(S0).map(b=>A.top(b.key));
   ok(/<div class="in-lead">/.test(home)&&cs.every(c=>!D.isStub(c.key)&&c.head&&/class="mini"/.test(c.chart))&&
     cs.filter(c=>/С января ушли/.test(c.body)).length<=1&&
-    tops.every(h=>/class="bk-sum (high|mid|good|none)"/.test(h)&&/Где это происходит/.test(h)&&/id="bk-det"/.test(h)),
+    /* 30.10, шаг 2: без подразделений ниже «где» не показывается — карточка вывода во всю ширину */
+    tops.every(h=>/class="bk-sum (high|mid|good|none)"/.test(h)&&(I.unitsOf(S0).length?/Где это происходит/.test(h):/bk-top [a-z]+ solo/.test(h))&&/id="bk-det"/.test(h)),
     'главная и блоки «сначала выводы»: '+cs.length+' '+(cs.length===1?'вывод':'выводов')+' без заглушек, у '+tops.length+' блоков — вывод и «где»');
 }
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');

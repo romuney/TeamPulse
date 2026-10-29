@@ -266,16 +266,26 @@ function conclusion(sum,b,S){
   if(!sum.list.length){
     const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)), cmp=vis.filter(m=>D.comparable(m.key)||D.kpiFor(m.key,S));
     head='Заметных отклонений нет';
-    facts=[cmp.length?'Проверили <b>'+cmp.length+' '+U.plural(cmp.length,['метрику','метрики','метрик'])+
-        '</b>: ни одна не отличается от ориентира на '+INS.INS_GAP+'% и больше и не сдвинулась заметно за год.'
-        :'Метрики блока — количества: с базой они не сравниваются, смотрим тренды.',
-      'Ни одна метрика не ухудшается '+INS.INS_TREND+' месяца подряд.'];
+    facts='<div class="bk-pl">'+(cmp.length?'<span class="bk-p"'+U.tipAttr({title:'Что проверили',
+        text:'Ни одна метрика не отличается от ориентира на '+INS.INS_GAP+'% и больше и не сдвинулась заметно за год.'})+
+        '>проверили <b>'+cmp.length+' '+U.plural(cmp.length,['метрику','метрики','метрик'])+'</b> — отклонений нет</span>'
+        :'<span class="bk-p">метрики блока — количества, смотрим тренды</span>')+
+      '<span class="bk-p">ничего не ухудшается '+INS.INS_TREND+' мес. подряд</span></div>';
     todo='Отдельных действий не нужно.';
-  }else facts=sum.list.slice(0,3).map(c=>'<b>'+esc(c.head)+'.</b> '+c.body);
+  }
+  /* 30.10, шаг 2 («полаконичнее, поменьше букв»): вывод — заголовок, пилюли (метрики вывода с ориентиром и
+     главные факты первой проблемы: люди, где) и одно действие; три абзаца фактов сняты */
+  if(facts==null){
+    const lead=sum.list.find(c=>c.sev!=='good')||sum.list[0];
+    const kp=sum.list.slice(0,3).map(c=>'<span class="bk-p '+c.sev+'">'+c.kp+'</span>');
+    /* «где» — уже в заголовке и в панели справа, «год назад» — в пилюле метрики */
+    const more=(lead.pills||[]).filter(t=>!/^(год назад|почти всё|больше половины)/.test(t)).map(t=>'<span class="bk-p">'+t+'</span>');
+    facts='<div class="bk-pl">'+kp.concat(more).join('')+'</div>';
+  }
   /* огонёк по настроению вывода (20.10, заказчик): тревога, насторожен, улыбка, спокоен */
   const op=window.TPSCREENS.onepager||{}, ico=op.moodIco?op.moodIco(op.MOOD_ICO[sum.sev],52,BK_TAG[sum.sev]):'';
   return '<div class="bk-sum '+sum.sev+'">'+ico+'<div class="bk-sx"><div class="bk-tag">Вывод блока · '+BK_TAG[sum.sev]+'</div>'+
-    '<div class="bk-h">'+esc(head)+'</div><ol class="bk-f">'+facts.map(f=>'<li>'+f+'</li>').join('')+'</ol>'+
+    '<div class="bk-h">'+esc(head)+'</div>'+facts+
     '<div class="bk-do">'+todo+'</div></div></div>';
 }
 /* Где это происходит: подразделения первого уровня по вкладу в отклонение
@@ -380,7 +390,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
      это происходит → таблица»). Факты — те же карточки, что на главной. */
   const sum=INS.blockSummary(b.key,S,rl,bl);
-  h+='<div class="bk-top '+sum.sev+'">'+conclusion(sum,b,S)+wherePanel(sum,mainK,S,rootNode)+'</div>';
+  /* 30.10, шаг 2: нет подразделений ниже — «Где это происходит» не показываем (одна фраза «нет подразделений») */
+  const hasU=INS.unitsOf(S).length>0;
+  h+='<div class="bk-top '+sum.sev+(hasU?'':' solo')+'">'+conclusion(sum,b,S)+(hasU?wherePanel(sum,mainK,S,rootNode):'')+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -449,7 +461,10 @@ function renderBlock(S,expanded,mixOpen,view){
      Разметка всегда полная — обе панели и разделитель, — а что видно, решает CSS:
      ниже 1121px (широкой таблице — 1241px) показанная таблица встаёт над графиками. */
   const sp=view&&view.split||{};
-  const mode=sp.mode==='charts'?'charts':'both', share=sp.share!=null?sp.share:null;
+  /* 30.10, шаг 2: у маленькой команды (нет подразделений ниже или меньше 30 человек) таблица по умолчанию
+     свёрнута в полоску слева — графики во всю ширину; выбор пользователя (sp.mode) — главнее */
+  const hcR=D.lastVal(rl,'hc_total'), smallTeam=!INS.unitsOf(S).length||(hcR!=null&&hcR<INS.CARD.small);
+  const mode=sp.mode==='charts'||sp.mode==='both'?sp.mode:smallTeam?'charts':'both', share=sp.share!=null?sp.share:null;
   h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'" id="bk-det"'+
     (share!=null?' style="--split-l:'+(share*100).toFixed(2)+'fr;--split-r:'+((1-share)*100).toFixed(2)+'fr"':'')+'>';
 
@@ -544,8 +559,8 @@ function renderBlock(S,expanded,mixOpen,view){
   h+=U.panel({cls:'split-l',title:'Подразделения',
     subHtml:slice.length?esc('численность по срезу: '+D.sliceLabel(selIds))
       :'три уровня вниз · глубже — значок '+U.icoOpen(),
-    tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'}),
-    body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share);
+    tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'})+U.unitHide(),
+    body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share)+U.unitRail(INS.unitsOf(S).length);
 
   /* 5b · правая панель — история блока по главам (итерация 32, концепция B).
      Глава = под-вкладка. TPSTORY считает по выбранному узлу вопрос, ответ и
@@ -569,7 +584,6 @@ function renderBlock(S,expanded,mixOpen,view){
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
     subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть')):' · всё подразделение')+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
-    hBtn:U.unitToggle(mode==='both'),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';

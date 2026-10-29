@@ -170,20 +170,18 @@ function openUnitBtn(path,name,label){
       note:'Вернуться — «← Назад» над отчётом.'})+'>'+icoOpen()+(label?esc(label):'')+'</button>';
 }
 
-/* ---------- Таблица подразделений: показать / скрыть (итерация 32) ----------
-   Таблица — основа фильтрации и видна по умолчанию; убрать её, чтобы отдать
-   графикам всю ширину, можно одним переключателем — свитч с подписью, а не пара
-   иконок «развернуть / свернуть»:
-   по иконке было не понять, что именно развернётся. Переключатель стоит в правом
-   углу шапки панели графиков — это место не сдвигается ни в одном режиме.
-   shown — видна ли таблица сейчас. */
-function unitToggle(shown){
-  const lbl=shown?'Скрыть таблицу подразделений':'Показать таблицу подразделений';
-  return '<button class="unit-toggle'+(shown?' on':'')+'" data-splitmode="'+(shown?'charts':'both')+'"'+
-    ' role="switch" aria-checked="'+(shown?'true':'false')+'" aria-label="'+lbl+'"'+
-    tipAttr({title:lbl,text:shown?'Графики займут всю ширину.'
-      :'Слева появится таблица подразделений. Клик по строке — графики этого подразделения.'})+
-    '><span class="ut-sw" aria-hidden="true"><i></i></span><span class="ut-l">Подразделения</span></button>';
+/* 30.10, шаг 2 (заказчик: «подразделения должны отключаться прямо на блоке с подразделениями»): кнопка
+   «свернуть» — в шапке таблицы; свёрнутая таблица — узкая полоска слева от графиков, клик раскрывает обратно */
+function unitHide(){
+  return '<button class="unit-hide" data-splitmode="charts" aria-label="Свернуть таблицу подразделений"'+
+    tipAttr({title:'Свернуть таблицу',text:'Графики займут всю ширину. Вернуть — полоска «Подразделения» слева.'})+
+    '><span aria-hidden="true">‹</span></button>';
+}
+function unitRail(n){
+  return '<button class="split-rail" data-splitmode="both" aria-label="Показать таблицу подразделений"'+
+    tipAttr({title:'Подразделения',text:n?'Таблица подразделений: клик по строке — графики этого подразделения.'
+      :'Подразделений уровнем ниже нет — в таблице только ИТОГО.'})+
+    '><span class="sr-ch" aria-hidden="true">›</span><span class="sr-t">Подразделения'+(n?' · '+n:'')+'</span></button>';
 }
 /* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
    его с клавиатуры, двойной клик возвращает ширину по умолчанию. */
@@ -1007,8 +1005,9 @@ function trafficLegend(){
   return '<div class="legend"><span class="sw"><span class="dot" style="background:#bff2cd"></span>лучше</span>'+
     '<span class="sw"><span class="dot" style="background:#ffcccc"></span>хуже</span>'+
     '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне (±5%) или без оценки</span>'+
-    '<span class="sw lg-note"'+tipAttr({title:'Ориентир',text:'Цель KPI, а где её нет — база: та же метрика по всей компании с теми же фильтрами.'})+
-    '>к ориентиру — в колонке «Ориентир», к прошлому периоду — в колонках изменений</span></div>';
+    /* 30.10, шаг 2: пояснение — в подсказке, под выводами меньше букв */
+    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI, а где её нет — к базе: та же метрика по всей компании с теми же фильтрами. Колонки MoM и YoY — к прошлому периоду.'})+
+    '>как читать</span></div>';
 }
 
 /* ============================================================================
@@ -1097,5 +1096,5 @@ function devSummary(o){
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
-  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitToggle,splitGut};
+  statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
 })();

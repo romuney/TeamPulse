@@ -50,7 +50,7 @@ let tq='';
    перетаскивания разделителя (null — раскладка по умолчанию). Один выбор
    на все блоки: «мне нужна таблица» — предпочтение, а не свойство
    вкладки. В ссылку не едет, как и раскрытия. */
-let splitMode='both', splitShare=null;
+let splitMode=null, splitUnit=null, splitShare=null;   /* null — авто: маленькая команда свёрнута (30.10) */
 
 /* ---------- URL ---------- */
 function urlParams(){
@@ -214,7 +214,7 @@ function arrive(){
       itSeg:D.DEFAULT_STATE.itSeg,staffType:D.DEFAULT_STATE.staffType,hcType:D.DEFAULT_STATE.hcType,
       hcSet:D.DEFAULT_STATE.hcSet.slice()});
     const ui=STORE.ui||{};
-    tq=ui.tq||'';splitMode=ui.splitMode==='charts'?'charts':'both';splitShare=ui.splitShare!=null?ui.splitShare:null;
+    tq=ui.tq||'';splitMode=ui.splitMode==='charts'||ui.splitMode==='both'?ui.splitMode:null;splitUnit=ui.splitUnit||null;splitShare=ui.splitShare!=null?ui.splitShare:null;
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;
@@ -659,7 +659,7 @@ function render(keepScroll,quiet){
   renderHead();renderNav();writeURL();
   $('#view').innerHTML = S.tab==='onepager'
     ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitMode,share:splitShare}});
+    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitUnit===S.unit?splitMode:null,share:splitShare}});
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   /* после смены вкладки или главы (S.subTab подставляется при сборке) */
@@ -680,7 +680,7 @@ function render(keepScroll,quiet){
   else if(keepScroll)window.scrollTo(0,yy);
   else window.scrollTo({top:0,behavior:'smooth'});
   spyBlocks();
-  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitShare}}
+  if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitUnit,splitShare}}
 }
 
 /* Крест в матрицах (итерация 32, фидбэк 12.10): строку подсвечивает CSS
@@ -950,7 +950,7 @@ on(document,'click',e=>{
   if(ex){e.stopPropagation();const p=ex.dataset.exp;expanded.has(p)?expanded.delete(p):expanded.add(p);render(true);return}
   /* «во всю ширину» и полоса свёрнутой панели — один обработчик: режим едет в атрибуте */
   const smode=t.closest('[data-splitmode]');
-  if(smode){splitMode=smode.dataset.splitmode;render(true);return}
+  if(smode){splitMode=smode.dataset.splitmode;splitUnit=S.unit;render(true);return}
   /* «Открыть юнит» живёт ВНУТРИ строки .urow — проверка строго до неё, иначе
      клик по иконке снимал бы выбор строки вместо перехода */
   const ou=t.closest('[data-openunit]');

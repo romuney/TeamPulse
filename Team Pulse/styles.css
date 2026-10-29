@@ -1389,23 +1389,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .split-drag,.split-drag *{cursor:col-resize!important;user-select:none!important}
 .split-drag .tip{visibility:hidden}
 
-/* Итерация 32: таблица подразделений — по переключателю, по умолчанию скрыта.
-   Свитч с подписью в правом углу шапки панели графиков: это место не сдвигается
-   ни в одном режиме. Поле под него — у блока заголовка, как раньше у иконки. */
-.unit-toggle{display:inline-flex;align-items:center;gap:var(--s4);flex:0 0 auto;height:30px;
-  padding:0 var(--s5) 0 var(--s4);border:1px solid var(--line);border-radius:var(--r-pill);background:#fff;
-  color:var(--ink2);font:inherit;font-size:var(--fs-note);font-weight:var(--fw-body);cursor:pointer;white-space:nowrap}
-.unit-toggle:hover{border-color:var(--act-line);color:var(--ink)}
-.unit-toggle:focus-visible{outline:1.5px solid var(--act);outline-offset:2px}
-.ut-sw{position:relative;width:26px;height:16px;border-radius:var(--r-pill);background:var(--muted2);transition:background .15s}
-.ut-sw i{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;
-  box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
-.unit-toggle.on .ut-sw{background:var(--act)}
-.unit-toggle.on .ut-sw i{transform:translateX(10px)}
-.unit-toggle.on{color:var(--act-ink);border-color:var(--act-line);background:var(--blue-bg)}
-.panel-h .h-txt.has-btn{position:relative;flex:1 1 auto;padding-right:150px}
-.panel-h .h-txt>.unit-toggle{position:absolute;right:0;top:50%;transform:translateY(-50%)}
-
 /* графики во всю ширину — на любой ширине окна: таблица и разделитель не видны */
 .split.m-charts{grid-template-columns:minmax(0,1fr);column-gap:0}
 .split.m-charts>.split-l,.split.m-charts>.split-gut{display:none}
@@ -1421,8 +1404,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .split.wide-l.wide-l{grid-template-columns:1fr;column-gap:0}
   .split.wide-l.wide-l>.split-gut{display:none}
 }
-@media(max-width:480px){.panel-h .h-txt.has-btn{padding-right:0}
-  .panel-h .h-txt>.unit-toggle{position:static;transform:none;margin-top:var(--s4);align-self:flex-start}}
 
 /* ===== Итерация 31: пробник Proteus ==========================================
    Метрика или разбивка без источника — заглушка на генераторе. 14.10 серая
@@ -2406,3 +2387,28 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .is-scrolling .content{pointer-events:none}
 .op-nav::after{content:"";position:absolute;left:0;right:0;top:100%;height:16px;pointer-events:none;
   background:linear-gradient(var(--bg),rgba(244,245,247,0))}
+
+/* ==========================================================================
+   30.10, шаг 2 — таблица подразделений сворачивается на самой таблице (заказчик), у маленькой команды
+   свёрнута по умолчанию; выводы — пилюлями, меньше букв.
+   ========================================================================== */
+.split-rail{display:none}
+.split.m-charts.m-charts{grid-template-columns:40px minmax(0,1fr);column-gap:16px}
+.split.m-charts>.split-rail{display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 0;border:0;cursor:pointer;
+  background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm,0 1px 2px rgba(16,24,40,.05));color:var(--ink2);font:inherit;
+  align-self:start;min-height:220px}
+@media (min-width:1121px){.split.m-charts>.split-rail{position:sticky;top:var(--sp-top)}}
+.split-rail:hover{color:var(--act-ink);background:var(--blue-bg)}
+.split-rail .sr-ch{font-size:16px;line-height:1;color:var(--act)}
+.split-rail .sr-t{writing-mode:vertical-rl;transform:rotate(180deg);font-size:var(--fs-body);white-space:nowrap}
+.unit-hide{flex:0 0 auto;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--muted);
+  font-size:16px;line-height:1;cursor:pointer;margin-left:var(--s4)}
+.unit-hide:hover{color:var(--act);border-color:var(--act-line);background:var(--blue-bg)}
+.panel-h .tsearch+.unit-hide{align-self:center}
+/* пилюли фактов: в выводе блока и в карточках выводов главной */
+.bk-pl,.in-pl{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}
+.bk-p,.in-pl span{display:inline-flex;align-items:baseline;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.75);
+  border:1px solid var(--line);font-size:var(--fs-body);color:#5b6475;line-height:1.35}
+.bk-p b,.in-pl b{font-weight:var(--fw-bold);color:var(--ink)}
+.bk-p.high{border-color:#f5b5b5;background:#fff5f5}.bk-p.mid{border-color:#f3d7a1;background:#fffaf0}.bk-p.good{border-color:#b7e6c6;background:#f4fcf6}
+.bk-top.solo{grid-template-columns:minmax(0,1fr)}
