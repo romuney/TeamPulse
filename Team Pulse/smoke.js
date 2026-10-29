@@ -203,7 +203,12 @@ checks.push(['один скролл: таблица подразделений s
   /max-height:calc\(var\(--vh,100vh\) - var\(--head-h,0px\) - var\(--shelf-h,0px\) - 38px\)/.test(cssAll)&&
   /* 30.10, шаг 1 (модель «как в GA»): таблица — по содержимому, у карточки графиков липнут шапка и шаги главы,
      нижней маски нет; горизонтальный скролл .content — только уже 1280 */
-  !/\.split-r>\.panel-cap\{position:sticky/.test(cssAll)&&/\.split-r>\.panel-h\{position:sticky;top:var\(--sp-top\)/.test(cssAll)&&
+  !/\.split-r>\.panel-cap\{position:sticky/.test(cssAll)&&/\.split>\.panel>\.panel-h\{position:sticky;top:var\(--sp-top\)/.test(cssAll)&&
+  /* 31.10 (поставка 82): таблица — карточка во всю высоту ряда, липнут её шапка и сама таблица; маска над
+     шапкой — только у прилипшей (.ph-stuck из app.js) */
+  /\.split>\.split-l\{position:relative;top:auto;align-self:stretch/.test(cssAll)&&
+  /\.split-l \.tbl-wrap\{position:sticky;top:calc\(var\(--sp-top\) \+ var\(--rph,59px\)\)/.test(cssAll)&&
+  /\.split>\.panel\.ph-stuck>\.panel-h::before\{opacity:1\}/.test(cssAll)&&/classList\.toggle\('ph-stuck'/.test(appSrc)&&
   /\.split-r \.st-steps\{position:sticky;top:calc\(var\(--sp-top\) \+ var\(--rph,59px\)\)/.test(cssAll)&&
   /\.split>\.split-l\{height:auto\}/.test(cssAll)&&/\.split>\.split-r\{min-height:0\}/.test(cssAll)&&
   /@media\(min-width:781px\) and \(max-width:1279px\)\{\s*\.content\{overflow-x:auto\}/.test(cssAll)]);
@@ -1283,9 +1288,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
     ex.some(p=>D.NODE_BY_PATH[p].level===n0.level+2)]);
 
   const closed=A.go('turnover','dynamics');
-  checks.push(['свёрнутая таблица — только первый уровень, с подписью уровня',
+  /* 31.10 (поставка 82): под названием — численность и логин руководителя, без уровня и ФИО */
+  checks.push(['свёрнутая таблица — только первый уровень; под названием численность и логин, без уровня',
     (closed.match(/ data-node="/g)||[]).length===lv1.length&&
-    !/<tr class="urow lvl2/.test(closed)&&/<span class="unit-sub">Деп\. · /.test(closed)]);
+    !/<tr class="urow lvl2/.test(closed)&&/<span class="unit-sub">[\d\s\u00a0]+ чел/.test(closed)&&
+    !/<span class="unit-sub">Деп\. · /.test(closed)&&/class="unit-head login"/.test(closed)]);
   const open=A.expAll();
   const rows3=(open.match(/<tr class="urow lvl3[^"]*" data-node="/g)||[]).length;
   checks.push(['раскрытая таблица — все три уровня, третий без кареток',

@@ -1200,22 +1200,33 @@ function chart(kind,args,opt){
   /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px */
   const mh=kind==='panels'?panelsMin(args.panels):0;
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
-    (mh?' style="min-height:'+mh+'px"':'')+'>'+build(spec,NOMINAL_W,NOMINAL_H)+'</div>';
+    (mh?' style="min-height:'+mh+'px"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
 }
+/* 31.10 (поставка 82): экран приложения сразу перемеряет графики под настоящую ширину — черновое полотно 900px
+   строилось и разбиралось браузером зря (треть времени клика). На время сборки экрана app.js включает «ленивый»
+   режим: контейнер пустой, полотно рисует remeasure(). Вне него (проверки в node, другие вызовы) — как раньше */
+let _lazy=false;
+function lazy(on){_lazy=!!on&&typeof HTMLElement!=='undefined'}
 
 /* animate=true — только на первую отрисовку после рендера. На resize анимацию
    не проигрываем: дёргающиеся при каждом ресайзе графики раздражают. */
 function remeasure(root,animate){
   if(!root||!root.querySelectorAll)return;
+  /* 31.10 (поставка 82, «подлагивает»): сначала меряем все полотна, потом пишем — чтение размера после
+     записи innerHTML заставляло браузер пересчитывать раскладку на каждом графике (до трети времени клика) */
+  /* Два прохода: сначала графики своей высоты, потом «заполняющие» — их высота зависит от соседей */
   const nodes=root.querySelectorAll('.svgchart[data-cid]');
-  for(let i=0;i<nodes.length;i++){
-    const el=nodes[i], sp=_specs.get(el.getAttribute('data-cid'));
-    if(!sp)continue;
-    const w=el.clientWidth||(el.parentNode&&el.parentNode.clientWidth)||NOMINAL_W;
-    const h=sp.opt.fill?(el.clientHeight||sp.opt.h||null):(sp.opt.h||null);
-    el.innerHTML=build(sp,w,h);
-    if(animate){el.classList.remove('anim');void el.offsetWidth;el.classList.add('anim')}
-  }
+  [false,true].forEach(fill=>{
+    const job=[];
+    for(let i=0;i<nodes.length;i++){
+      const el=nodes[i], sp=_specs.get(el.getAttribute('data-cid'));
+      if(!sp||!!sp.opt.fill!==fill)continue;
+      const w=el.clientWidth||(el.parentNode&&el.parentNode.clientWidth)||NOMINAL_W;
+      job.push([el,sp,w,fill?(el.clientHeight||sp.opt.h||null):(sp.opt.h||null)]);
+    }
+    /* анимация висит на детях полотна, а они только что созданы заново — перезапуск без лишнего пересчёта раскладки */
+    job.forEach(j=>{j[0].innerHTML=build(j[1],j[2],j[3]);if(animate)j[0].classList.add('anim')});
+  });
 }
 /* ---------- Перерисовка ОДНОГО графика ----------
    Легенде нельзя звать render(): тот пересобирает весь экран и теряет
@@ -1265,7 +1276,7 @@ function toggleSeries(cid,sid){
 /* _off сознательно НЕ чистим — см. комментарий у его объявления */
 function reset(){_specs=new Map();_sid=0}
 
-window.TPDRAW={chart,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
+window.TPDRAW={chart,lazy,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,asBars,ghostCol,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,C_ROST,

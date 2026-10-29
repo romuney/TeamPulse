@@ -85,7 +85,9 @@ function pivotRows(root,expanded,isEmpty,q,cmp){
     });
   })(root,1);
   if(!needle)return rows;
-  const hits=rows.filter(r=>r.n.name.toLowerCase().indexOf(needle)>=0).map(r=>r.n.path);
+  /* поиск — по названию, логину и фамилии-имени руководителя */
+  const has=t=>!!t&&String(t).toLowerCase().indexOf(needle)>=0;
+  const hits=rows.filter(r=>has(r.n.name)||r.n.head&&(has(r.n.head.login)||has(r.n.head.name))).map(r=>r.n.path);
   return rows.filter(r=>{
     r.hit=hits.indexOf(r.n.path)>=0;
     r.anc=!r.hit&&hits.some(h=>h.indexOf(r.n.path+'/')===0);
@@ -501,13 +503,14 @@ function renderBlock(S,expanded,mixOpen,view){
       (canExp?'<button class="caret-btn"'+(isOpen?' data-open="1"':'')+' data-exp="'+r.n.path+'" aria-label="'+
         (isOpen?'Свернуть':'Раскрыть')+'">'+(isOpen?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>')+
       '<span class="row-body">'+(tq?U.hlText(r.n.name,tq):esc(r.n.name))+
-      '<span class="unit-sub">'+esc(r.n.direct?'без подразделения':D.LEVEL_SHORT[r.n.level]||D.levelLabel(r.n.level))+' · '+
+      /* 31.10 (поставка 82, «перегруз под названием»): без уровня и ФИО — численность и логин руководителя */
+      '<span class="unit-sub">'+(r.n.direct?'без подразделения · ':'')+
         D.fmtVal('hc_total',val(lp,'hc_total'))+' чел'+
       (below?' · <span class="below"'+U.tipAttr({title:'Ниже ещё '+below+' '+U.plural(below,['подразделение','подразделения','подразделений']),
           text:'Таблица показывает три уровня вниз.\nГлубже — выберите строку и нажмите значок у её названия.'})+
         '>ниже ещё '+below+'</span>':'')+
       /* руководитель — в той же второй строке: строка таблицы везде в две строки текста (16.10) */
-      (U.unitHead(r.n)?' · '+U.unitHead(r.n):'')+'</span></span>'+
+      (U.unitHead(r.n)?' · '+U.unitHead(r.n,tq):'')+'</span></span>'+
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
@@ -529,7 +532,7 @@ function renderBlock(S,expanded,mixOpen,view){
   h+=U.panel({cls:'split-l',title:'Подразделения',
     subHtml:slice.length?esc('численность по срезу: '+D.sliceLabel(selIds))
       :'три уровня вниз · глубже — значок '+U.icoOpen(),
-    tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'})+U.unitHide(),
+    tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Название, логин, ФИО'})+U.unitHide(),
     body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share)+U.unitRail(INS.unitsOf(S).length);
 
   /* 5b · правая панель — история блока по главам (итерация 32, концепция B).

@@ -2367,8 +2367,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .split>.split-l{height:auto}
   .split>.split-r{min-height:0}
   .split-l .tbl-wrap{flex:0 1 auto}
-  .split-r>.panel-h{position:sticky;top:var(--sp-top);z-index:6;background:#fff;border-radius:var(--radius) var(--radius) 0 0}
-  .split-r>.panel-h::before{content:"";position:absolute;left:-4px;right:-4px;bottom:calc(100% - var(--radius));
+  .split>.panel>.panel-h{position:sticky;top:var(--sp-top);z-index:6;background:#fff;border-radius:var(--radius) var(--radius) 0 0}
+  .split>.panel>.panel-h::before{content:"";position:absolute;left:-4px;right:-4px;bottom:calc(100% - var(--radius));
     height:calc(14px + var(--radius));pointer-events:none;
     background:radial-gradient(circle at 100% 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) left 4px bottom/var(--radius) var(--radius) no-repeat,
       radial-gradient(circle at 0 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) right 4px bottom/var(--radius) var(--radius) no-repeat,
@@ -2448,3 +2448,33 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .unit-hide svg,.split-rail .sr-ch svg{width:16px;height:16px}
 .unit-hide:hover,.split-rail:hover .sr-ch{background:var(--act);border-color:var(--act);color:#fff}
 .spm4 th.tsort.on::after{content:" ↓"}
+
+/* Поставка 82. Подразделения скрыты на большом экране: глава вставала шириной своего графика (900px)
+   и прижималась влево — в колонке «графики, под ними „Что важно“» глава тянется на всю панель.
+   Широкая панель (≥1280px) — графики и таблицы встают рядом и переносятся блоками по месту:
+   график не уже 460px, таблица не уже 600px; заголовок, сноски и одиночные блоки — на всю ширину */
+@container stp (min-width:980px){
+  .st-grid.has-rail>.st-main{align-self:stretch;min-width:0}
+}
+.ch-blk{min-width:0}
+@container stp (min-width:1280px){
+  .st-main{flex-direction:row;flex-wrap:wrap;align-content:flex-start;column-gap:var(--s10)}
+  .st-main>*{flex:1 1 100%;min-width:0}
+  .st-main>.svgchart,.st-main>.ch-blk{flex:1 1 460px}
+  .st-main>.svgchart.fill{flex:1 1 460px;height:440px}
+  .st-main>.bt-stack{flex-direction:row;flex-wrap:wrap;column-gap:var(--s10);align-items:flex-start}
+  .st-main>.bt-stack>*{flex:1 1 600px;min-width:0}
+  .st-main>.bt-stack>.bt-group+.bt-group{padding-top:0}
+}
+/* Поставка 82: полоса-маска над липкой шапкой — только когда шапка прилипла (класс .ph-stuck ставит app.js) */
+@media (min-width:1121px){
+  .split>.panel>.panel-h::before{opacity:0}
+  .split>.panel.ph-stuck>.panel-h::before{opacity:1}
+  /* Таблица подразделений — карточка во всю высоту ряда, как карточка графиков справа (заказчик, 31.10);
+     прилипают её шапка и сама таблица (не выше окна — тогда своя прокрутка), фон карточки тянется до низа */
+  .split>.split-l{position:relative;top:auto;align-self:stretch;height:auto;max-height:none;overflow:clip}
+  .split-l .tbl-wrap{position:sticky;top:calc(var(--sp-top) + var(--rph,59px));flex:0 1 auto;
+    max-height:calc(var(--vh,100vh) - var(--sp-top) - var(--rph,59px) - 26px)}
+  .st-grid.has-rail>.st-rail{align-self:stretch}
+}
+.unit-head.login{color:var(--muted);border-bottom:1px dotted var(--muted2);cursor:help}

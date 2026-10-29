@@ -267,11 +267,13 @@ const NOCMP_HINT='Это количество, а не доля: оно зави
 function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Без сравнения',text:NOCMP_HINT})+'>—</span>'} /* 30.10, шаг 1: прочерк вместо «не сравнивается» в каждой строке; почему — в подсказке */
 /* Руководитель юнита под именем строки (14.10): «Имя Фамилия · логин».
    Нет данных (пробник без источника, строка «Напрямую в «X»») — ничего. */
-function unitHead(n){
+/* 31.10 (поставка 82): в строке — только логин, фамилия и имя — в подсказке на нём; q — подсветка найденного */
+function unitHead(n,q){
   const h=n&&n.head;
   if(!h||!(h.name||h.login))return '';
-  return '<span class="unit-head"'+tipAttr({title:'Руководитель подразделения',text:(h.name||'')+(h.login?' · '+h.login:'')})+'>'+
-    esc(h.name||'')+(h.login?' <span class="login">'+esc(h.login)+'</span>':'')+'</span>';
+  const t=h.login||h.name;
+  return '<span class="unit-head login"'+tipAttr({title:'Руководитель подразделения',text:(h.name||'')+(h.login&&h.name?' · '+h.login:'')})+'>'+
+    (q?hlText(t,q):esc(t))+'</span>';
 }
 /* Строка сравнения в KPI-карточке «по компании X» (14.10: вместо «база X»;
    осталась только у «Проникновения AI»). Что именно за база — в подсказке. */

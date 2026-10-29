@@ -65,15 +65,15 @@ function initChart(ctx){
   if(!xs)return U.devNote({stage:'0',t:'Придёт со следующим обновлением отчёта.'});
   if(!xs.length)return '';
   const c=xs.find(x=>x.key===ctx.S.exitIni)||xs.slice().sort((a,b)=>b.n-a.n)[0];
-  return '<div class="ch-bar"><span class="ch-ttl">Текучесть по инициатору, %</span>'+
+  return '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Текучесть по инициатору, %</span>'+
       U.segToggle('data-exitini',xs.map(x=>[x.key,INI_SHORT[x.key]||x.name]),c.key)+'</div>'+
     SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:240,fill:false,
-      color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+
+      color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>'+
     /* 27.10-в, п. 11: под ней — накопительная того же инициатора (переключатель общий): сумма месячной с января, как
        «Текучесть накопительная»; в сумме по инициаторам — она и есть */
-    '<div class="ch-bar"><span class="ch-ttl">Накопительная текучесть по инициатору, %</span></div>'+
+    '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Накопительная текучесть по инициатору, %</span></div>'+
     SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:240,
-      fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)});
+      fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>';
 }
 /* сумма месячной с января по ряду года; месяцы без значения остаются пустыми */
 function cumY(a){let t=0;return a.map(v=>v==null?null:+(t+=v).toFixed(2))}

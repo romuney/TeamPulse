@@ -2375,8 +2375,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .split>.split-l{height:auto}
   .split>.split-r{min-height:0}
   .split-l .tbl-wrap{flex:0 1 auto}
-  .split-r>.panel-h{position:sticky;top:var(--sp-top);z-index:6;background:#fff;border-radius:var(--radius) var(--radius) 0 0}
-  .split-r>.panel-h::before{content:"";position:absolute;left:-4px;right:-4px;bottom:calc(100% - var(--radius));
+  .split>.panel>.panel-h{position:sticky;top:var(--sp-top);z-index:6;background:#fff;border-radius:var(--radius) var(--radius) 0 0}
+  .split>.panel>.panel-h::before{content:"";position:absolute;left:-4px;right:-4px;bottom:calc(100% - var(--radius));
     height:calc(14px + var(--radius));pointer-events:none;
     background:radial-gradient(circle at 100% 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) left 4px bottom/var(--radius) var(--radius) no-repeat,
       radial-gradient(circle at 0 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) right 4px bottom/var(--radius) var(--radius) no-repeat,
@@ -2456,6 +2456,36 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .unit-hide svg,.split-rail .sr-ch svg{width:16px;height:16px}
 .unit-hide:hover,.split-rail:hover .sr-ch{background:var(--act);border-color:var(--act);color:#fff}
 .spm4 th.tsort.on::after{content:" ↓"}
+
+/* Поставка 82. Подразделения скрыты на большом экране: глава вставала шириной своего графика (900px)
+   и прижималась влево — в колонке «графики, под ними „Что важно“» глава тянется на всю панель.
+   Широкая панель (≥1280px) — графики и таблицы встают рядом и переносятся блоками по месту:
+   график не уже 460px, таблица не уже 600px; заголовок, сноски и одиночные блоки — на всю ширину */
+@container stp (min-width:980px){
+  .st-grid.has-rail>.st-main{align-self:stretch;min-width:0}
+}
+.ch-blk{min-width:0}
+@container stp (min-width:1280px){
+  .st-main{flex-direction:row;flex-wrap:wrap;align-content:flex-start;column-gap:var(--s10)}
+  .st-main>*{flex:1 1 100%;min-width:0}
+  .st-main>.svgchart,.st-main>.ch-blk{flex:1 1 460px}
+  .st-main>.svgchart.fill{flex:1 1 460px;height:440px}
+  .st-main>.bt-stack{flex-direction:row;flex-wrap:wrap;column-gap:var(--s10);align-items:flex-start}
+  .st-main>.bt-stack>*{flex:1 1 600px;min-width:0}
+  .st-main>.bt-stack>.bt-group+.bt-group{padding-top:0}
+}
+/* Поставка 82: полоса-маска над липкой шапкой — только когда шапка прилипла (класс .ph-stuck ставит app.js) */
+@media (min-width:1121px){
+  .split>.panel>.panel-h::before{opacity:0}
+  .split>.panel.ph-stuck>.panel-h::before{opacity:1}
+  /* Таблица подразделений — карточка во всю высоту ряда, как карточка графиков справа (заказчик, 31.10);
+     прилипают её шапка и сама таблица (не выше окна — тогда своя прокрутка), фон карточки тянется до низа */
+  .split>.split-l{position:relative;top:auto;align-self:stretch;height:auto;max-height:none}
+  .split-l .tbl-wrap{position:sticky;top:calc(var(--sp-top) + var(--rph,59px));flex:0 1 auto;
+    max-height:calc(var(--vh,100vh) - var(--sp-top) - var(--rph,59px) - 26px)}
+  .st-grid.has-rail>.st-rail{align-self:stretch}
+}
+.unit-head.login{color:var(--muted);border-bottom:1px dotted var(--muted2);cursor:help}
 
 </style>
 </head>
@@ -6714,22 +6744,33 @@ function chart(kind,args,opt){
   /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px */
   const mh=kind==='panels'?panelsMin(args.panels):0;
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
-    (mh?' style="min-height:'+mh+'px"':'')+'>'+build(spec,NOMINAL_W,NOMINAL_H)+'</div>';
+    (mh?' style="min-height:'+mh+'px"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
 }
+/* 31.10 (поставка 82): экран приложения сразу перемеряет графики под настоящую ширину — черновое полотно 900px
+   строилось и разбиралось браузером зря (треть времени клика). На время сборки экрана app.js включает «ленивый»
+   режим: контейнер пустой, полотно рисует remeasure(). Вне него (проверки в node, другие вызовы) — как раньше */
+let _lazy=false;
+function lazy(on){_lazy=!!on&&typeof HTMLElement!=='undefined'}
 
 /* animate=true — только на первую отрисовку после рендера. На resize анимацию
    не проигрываем: дёргающиеся при каждом ресайзе графики раздражают. */
 function remeasure(root,animate){
   if(!root||!root.querySelectorAll)return;
+  /* 31.10 (поставка 82, «подлагивает»): сначала меряем все полотна, потом пишем — чтение размера после
+     записи innerHTML заставляло браузер пересчитывать раскладку на каждом графике (до трети времени клика) */
+  /* Два прохода: сначала графики своей высоты, потом «заполняющие» — их высота зависит от соседей */
   const nodes=root.querySelectorAll('.svgchart[data-cid]');
-  for(let i=0;i<nodes.length;i++){
-    const el=nodes[i], sp=_specs.get(el.getAttribute('data-cid'));
-    if(!sp)continue;
-    const w=el.clientWidth||(el.parentNode&&el.parentNode.clientWidth)||NOMINAL_W;
-    const h=sp.opt.fill?(el.clientHeight||sp.opt.h||null):(sp.opt.h||null);
-    el.innerHTML=build(sp,w,h);
-    if(animate){el.classList.remove('anim');void el.offsetWidth;el.classList.add('anim')}
-  }
+  [false,true].forEach(fill=>{
+    const job=[];
+    for(let i=0;i<nodes.length;i++){
+      const el=nodes[i], sp=_specs.get(el.getAttribute('data-cid'));
+      if(!sp||!!sp.opt.fill!==fill)continue;
+      const w=el.clientWidth||(el.parentNode&&el.parentNode.clientWidth)||NOMINAL_W;
+      job.push([el,sp,w,fill?(el.clientHeight||sp.opt.h||null):(sp.opt.h||null)]);
+    }
+    /* анимация висит на детях полотна, а они только что созданы заново — перезапуск без лишнего пересчёта раскладки */
+    job.forEach(j=>{j[0].innerHTML=build(j[1],j[2],j[3]);if(animate)j[0].classList.add('anim')});
+  });
 }
 /* ---------- Перерисовка ОДНОГО графика ----------
    Легенде нельзя звать render(): тот пересобирает весь экран и теряет
@@ -6779,7 +6820,7 @@ function toggleSeries(cid,sid){
 /* _off сознательно НЕ чистим — см. комментарий у его объявления */
 function reset(){_specs=new Map();_sid=0}
 
-window.TPDRAW={chart,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
+window.TPDRAW={chart,lazy,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,asBars,ghostCol,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,C_ROST,
@@ -7057,11 +7098,13 @@ const NOCMP_HINT='Это количество, а не доля: оно зави
 function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Без сравнения',text:NOCMP_HINT})+'>—</span>'} /* 30.10, шаг 1: прочерк вместо «не сравнивается» в каждой строке; почему — в подсказке */
 /* Руководитель юнита под именем строки (14.10): «Имя Фамилия · логин».
    Нет данных (пробник без источника, строка «Напрямую в «X»») — ничего. */
-function unitHead(n){
+/* 31.10 (поставка 82): в строке — только логин, фамилия и имя — в подсказке на нём; q — подсветка найденного */
+function unitHead(n,q){
   const h=n&&n.head;
   if(!h||!(h.name||h.login))return '';
-  return '<span class="unit-head"'+tipAttr({title:'Руководитель подразделения',text:(h.name||'')+(h.login?' · '+h.login:'')})+'>'+
-    esc(h.name||'')+(h.login?' <span class="login">'+esc(h.login)+'</span>':'')+'</span>';
+  const t=h.login||h.name;
+  return '<span class="unit-head login"'+tipAttr({title:'Руководитель подразделения',text:(h.name||'')+(h.login&&h.name?' · '+h.login:'')})+'>'+
+    (q?hlText(t,q):esc(t))+'</span>';
 }
 /* Строка сравнения в KPI-карточке «по компании X» (14.10: вместо «база X»;
    осталась только у «Проникновения AI»). Что именно за база — в подсказке. */
@@ -9302,7 +9345,9 @@ function pivotRows(root,expanded,isEmpty,q,cmp){
     });
   })(root,1);
   if(!needle)return rows;
-  const hits=rows.filter(r=>r.n.name.toLowerCase().indexOf(needle)>=0).map(r=>r.n.path);
+  /* поиск — по названию, логину и фамилии-имени руководителя */
+  const has=t=>!!t&&String(t).toLowerCase().indexOf(needle)>=0;
+  const hits=rows.filter(r=>has(r.n.name)||r.n.head&&(has(r.n.head.login)||has(r.n.head.name))).map(r=>r.n.path);
   return rows.filter(r=>{
     r.hit=hits.indexOf(r.n.path)>=0;
     r.anc=!r.hit&&hits.some(h=>h.indexOf(r.n.path+'/')===0);
@@ -9718,13 +9763,14 @@ function renderBlock(S,expanded,mixOpen,view){
       (canExp?'<button class="caret-btn"'+(isOpen?' data-open="1"':'')+' data-exp="'+r.n.path+'" aria-label="'+
         (isOpen?'Свернуть':'Раскрыть')+'">'+(isOpen?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>')+
       '<span class="row-body">'+(tq?U.hlText(r.n.name,tq):esc(r.n.name))+
-      '<span class="unit-sub">'+esc(r.n.direct?'без подразделения':D.LEVEL_SHORT[r.n.level]||D.levelLabel(r.n.level))+' · '+
+      /* 31.10 (поставка 82, «перегруз под названием»): без уровня и ФИО — численность и логин руководителя */
+      '<span class="unit-sub">'+(r.n.direct?'без подразделения · ':'')+
         D.fmtVal('hc_total',val(lp,'hc_total'))+' чел'+
       (below?' · <span class="below"'+U.tipAttr({title:'Ниже ещё '+below+' '+U.plural(below,['подразделение','подразделения','подразделений']),
           text:'Таблица показывает три уровня вниз.\nГлубже — выберите строку и нажмите значок у её названия.'})+
         '>ниже ещё '+below+'</span>':'')+
       /* руководитель — в той же второй строке: строка таблицы везде в две строки текста (16.10) */
-      (U.unitHead(r.n)?' · '+U.unitHead(r.n):'')+'</span></span>'+
+      (U.unitHead(r.n)?' · '+U.unitHead(r.n,tq):'')+'</span></span>'+
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
@@ -9746,7 +9792,7 @@ function renderBlock(S,expanded,mixOpen,view){
   h+=U.panel({cls:'split-l',title:'Подразделения',
     subHtml:slice.length?esc('численность по срезу: '+D.sliceLabel(selIds))
       :'три уровня вниз · глубже — значок '+U.icoOpen(),
-    tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Поиск по таблице'})+U.unitHide(),
+    tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Название, логин, ФИО'})+U.unitHide(),
     body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share)+U.unitRail(INS.unitsOf(S).length);
 
   /* 5b · правая панель — история блока по главам (итерация 32, концепция B).
@@ -10266,15 +10312,15 @@ function initChart(ctx){
   if(!xs)return U.devNote({stage:'0',t:'Придёт со следующим обновлением отчёта.'});
   if(!xs.length)return '';
   const c=xs.find(x=>x.key===ctx.S.exitIni)||xs.slice().sort((a,b)=>b.n-a.n)[0];
-  return '<div class="ch-bar"><span class="ch-ttl">Текучесть по инициатору, %</span>'+
+  return '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Текучесть по инициатору, %</span>'+
       U.segToggle('data-exitini',xs.map(x=>[x.key,INI_SHORT[x.key]||x.name]),c.key)+'</div>'+
     SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:240,fill:false,
-      color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+
+      color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>'+
     /* 27.10-в, п. 11: под ней — накопительная того же инициатора (переключатель общий): сумма месячной с января, как
        «Текучесть накопительная»; в сумме по инициаторам — она и есть */
-    '<div class="ch-bar"><span class="ch-ttl">Накопительная текучесть по инициатору, %</span></div>'+
+    '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Накопительная текучесть по инициатору, %</span></div>'+
     SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:240,
-      fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)});
+      fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>';
 }
 /* сумма месячной с января по ряду года; месяцы без значения остаются пустыми */
 function cumY(a){let t=0;return a.map(v=>v==null?null:+(t+=v).toFixed(2))}
@@ -11510,7 +11556,17 @@ function renderHead(){
 }
 /* 30.10, шаг 1 (критики: «красные точки у 5 из 8 пунктов — ощущение пожара»): красная точка — только у блока, вывод
    которого «Требует действий»; остальные — серые. Тот же источник, что у вывода блока, — точка и вывод не спорят */
+/* 31.10 (поставка 82, «подлагивает»): сигналы всех блоков пересчитывались на каждый клик — шаг главы, вкладку,
+   сортировку — до четверти времени клика. Сигнал зависит от среза, не от того, что открыто: кэш по срезу */
+const NAV_UI=new Set(['tab','subTab','tsort','spmSort','aiGran','monGran','exitIni','mixSel','mixRows','mixCols','mixMode',
+  'mxFull','aiOpen','offCity','offSeg','rostSt']);
+let _navKey=null, _navMemo={};
 function navSig(bk){
+  const k=JSON.stringify(S,(n,v)=>NAV_UI.has(n)?undefined:v);
+  if(k!==_navKey){_navKey=k;_navMemo={}}
+  return _navMemo[bk]||(_navMemo[bk]=navSig0(bk));
+}
+function navSig0(bk){
   const I=window.TPINSIGHTS;
   if(!I||!I.blockSummary)return D.blockSignal(bk,S).state==='bad'?'bad':'neutral';
   try{return I.blockSummary(bk,S,D.reportLeaves(S),D.benchmarkLeaves(S)).sev==='high'?'bad':'neutral'}catch(e){return 'neutral'}
@@ -11837,9 +11893,12 @@ function render(keepScroll,quiet){
   if(S.tab!=='onepager'&&!(D.BLOCK_BY_KEY[S.tab]&&D.blockVisible(S.tab,S))){S.tab='onepager';S.subTab=null}
   G.reset();
   renderHead();renderNav();writeURL();
-  $('#view').innerHTML = S.tab==='onepager'
-    ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitUnit===S.unit?splitMode:null,share:splitShare}});
+  if(G.lazy)G.lazy(true);
+  try{
+    $('#view').innerHTML = S.tab==='onepager'
+      ? SC.onepager.render(S,openRows)
+      : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitUnit===S.unit?splitMode:null,share:splitShare}});
+  }finally{if(G.lazy)G.lazy(false)}
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   /* после смены вкладки или главы (S.subTab подставляется при сборке) */
@@ -11923,9 +11982,16 @@ function stickTotals(){
     if(h)t.style.setProperty('--thead-h',Math.round(h)+'px');
   });
   /* 30.10: шаги главы прилипают ровно под липкую шапку карточки графиков — её высота зависит от переносов */
-  $$('.split-r').forEach(r=>{const ph=r.querySelector(':scope>.panel-h');
+  $$('.split-r,.split-l').forEach(r=>{const ph=r.querySelector(':scope>.panel-h');
     if(ph)r.style.setProperty('--rph',Math.round(ph.getBoundingClientRect().height)+'px')});
+  phStuck();
 }
+/* 31.10 (поставка 82): полоса цвета фона над липкой шапкой карточки (прячет уезжающее содержимое и держит углы)
+   нужна, только когда шапка прилипла; в покое она ложилась на тень сводки над карточкой — «артефакт справа» */
+let _ps=0;
+function phStuck(){_ps=0;$$('.split>.panel').forEach(p=>{const ph=p.querySelector(':scope>.panel-h');
+  if(ph)p.classList.toggle('ph-stuck',ph.getBoundingClientRect().top-p.getBoundingClientRect().top>1)})}
+on(ENV?ENV.scroller:window,'scroll',()=>{if(!_ps)_ps=requestAnimationFrame(phStuck)},{passive:true});
 
 /* ---------- разделитель «таблица | графики» ----------
    Тянется мышью или пальцем: доля пишется в переменные сетки на лету, без

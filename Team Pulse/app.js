@@ -333,7 +333,17 @@ function renderHead(){
 }
 /* 30.10, шаг 1 (критики: «красные точки у 5 из 8 пунктов — ощущение пожара»): красная точка — только у блока, вывод
    которого «Требует действий»; остальные — серые. Тот же источник, что у вывода блока, — точка и вывод не спорят */
+/* 31.10 (поставка 82, «подлагивает»): сигналы всех блоков пересчитывались на каждый клик — шаг главы, вкладку,
+   сортировку — до четверти времени клика. Сигнал зависит от среза, не от того, что открыто: кэш по срезу */
+const NAV_UI=new Set(['tab','subTab','tsort','spmSort','aiGran','monGran','exitIni','mixSel','mixRows','mixCols','mixMode',
+  'mxFull','aiOpen','offCity','offSeg','rostSt']);
+let _navKey=null, _navMemo={};
 function navSig(bk){
+  const k=JSON.stringify(S,(n,v)=>NAV_UI.has(n)?undefined:v);
+  if(k!==_navKey){_navKey=k;_navMemo={}}
+  return _navMemo[bk]||(_navMemo[bk]=navSig0(bk));
+}
+function navSig0(bk){
   const I=window.TPINSIGHTS;
   if(!I||!I.blockSummary)return D.blockSignal(bk,S).state==='bad'?'bad':'neutral';
   try{return I.blockSummary(bk,S,D.reportLeaves(S),D.benchmarkLeaves(S)).sev==='high'?'bad':'neutral'}catch(e){return 'neutral'}
@@ -660,9 +670,12 @@ function render(keepScroll,quiet){
   if(S.tab!=='onepager'&&!(D.BLOCK_BY_KEY[S.tab]&&D.blockVisible(S.tab,S))){S.tab='onepager';S.subTab=null}
   G.reset();
   renderHead();renderNav();writeURL();
-  $('#view').innerHTML = S.tab==='onepager'
-    ? SC.onepager.render(S,openRows)
-    : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitUnit===S.unit?splitMode:null,share:splitShare}});
+  if(G.lazy)G.lazy(true);
+  try{
+    $('#view').innerHTML = S.tab==='onepager'
+      ? SC.onepager.render(S,openRows)
+      : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitUnit===S.unit?splitMode:null,share:splitShare}});
+  }finally{if(G.lazy)G.lazy(false)}
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   /* после смены вкладки или главы (S.subTab подставляется при сборке) */
@@ -746,9 +759,16 @@ function stickTotals(){
     if(h)t.style.setProperty('--thead-h',Math.round(h)+'px');
   });
   /* 30.10: шаги главы прилипают ровно под липкую шапку карточки графиков — её высота зависит от переносов */
-  $$('.split-r').forEach(r=>{const ph=r.querySelector(':scope>.panel-h');
+  $$('.split-r,.split-l').forEach(r=>{const ph=r.querySelector(':scope>.panel-h');
     if(ph)r.style.setProperty('--rph',Math.round(ph.getBoundingClientRect().height)+'px')});
+  phStuck();
 }
+/* 31.10 (поставка 82): полоса цвета фона над липкой шапкой карточки (прячет уезжающее содержимое и держит углы)
+   нужна, только когда шапка прилипла; в покое она ложилась на тень сводки над карточкой — «артефакт справа» */
+let _ps=0;
+function phStuck(){_ps=0;$$('.split>.panel').forEach(p=>{const ph=p.querySelector(':scope>.panel-h');
+  if(ph)p.classList.toggle('ph-stuck',ph.getBoundingClientRect().top-p.getBoundingClientRect().top>1)})}
+on(ENV?ENV.scroller:window,'scroll',()=>{if(!_ps)_ps=requestAnimationFrame(phStuck)},{passive:true});
 
 /* ---------- разделитель «таблица | графики» ----------
    Тянется мышью или пальцем: доля пишется в переменные сетки на лету, без
