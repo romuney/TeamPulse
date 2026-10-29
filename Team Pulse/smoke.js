@@ -953,8 +953,9 @@ checks.push(['марки графиков помечены data-s',
     /class="sel-pill"[^>]*><span class="sp-d">[^<]+:<\/span> <b>[^<]+<\/b><button class="x" data-mix="seniority:s"/.test(sliced)&&
     !/Срез состава/.test(sliced)&&!/sl-shelf/.test(sliced)&&!/data-selclear/.test(sliced)]);
   /* 23.10: у «Структуры численности» KPI-полосы нет — численность в «Итого» таблицы */
-  checks.push(['у «Структуры численности» нет KPI-полосы и полки среза над таблицами',
-    !/class="kpis compact/.test(sliced)&&sliced.indexOf('sel-pill')>sliced.indexOf('class="split')]);
+  checks.push(['у «Структуры численности» нет KPI-полосы; выбранное — строкой над обеими карточками',
+    !/class="kpis compact/.test(sliced)&&sliced.indexOf('sel-pill')>sliced.indexOf('class="sel-row"')&&
+    sliced.indexOf('sel-pill')<sliced.indexOf('class="split')]);
   const totRow=(sliced.match(/<tr class="total top">[\s\S]*?<\/tr>/)||[''])[0];
   checks.push(['ИТОГО таблицы подразделений тоже по срезу',
     totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
@@ -1621,9 +1622,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const pt=A.go('structure','portrait');
   /* 31.10 (поставка 82): полки над таблицами нет — выбранное пилюлями в шапке карточки графиков, строка шапки
      всегда одной высоты: экран при выборе не сдвигается */
-  checks.push(['полки срезов нет; пилюли выбора — в строке шапки карточки графиков постоянной высоты',
-    !/sl-shelf/.test(pt)&&!/\.sl-shelf/.test(cssAll)&&
-    /\.split-r>\.panel-h \.sub\{display:flex;align-items:center;gap:6px;min-height:22px/.test(cssAll)]);
+  checks.push(['полки срезов нет; строка выбора над карточками — всегда, одной высоты, липкая; в покое — подсказка',
+    !/sl-shelf/.test(pt)&&!/\.sl-shelf/.test(cssAll)&&/class="sel-row"><span class="sel-hint">/.test(pt)&&
+    /\.sel-row\{display:flex;align-items:center;gap:8px;height:36px/.test(cssAll)&&/\.split\{--shelf-h:48px\}/.test(cssAll)]);
   /* 15.10: два обзора в стиле портрета — сверху обзор (пилюля), ниже разбивка */
   const wk=A.go('structure','work');
   /* 16.10: разделы — в двух колонках, выровненных по высоте (pt-cols), без пустот между

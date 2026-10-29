@@ -436,6 +436,19 @@ function renderBlock(S,expanded,mixOpen,view){
      свёрнута в полоску слева — графики во всю ширину; выбор пользователя (sp.mode) — главнее */
   const hcR=D.lastVal(rl,'hc_total'), smallTeam=!INS.unitsOf(S).length||(hcR!=null&&hcR<INS.CARD.small);
   const mode=sp.mode==='charts'||sp.mode==='both'?sp.mode:smallTeam?'charts':'both', share=sp.share!=null?sp.share:null;
+  /* 31.10 (поставка 82, заказчик): всё, что выбрано кликом, — пилюлями в строке над обеими карточками: срез меняет и
+     таблицу слева, и графики справа. Подразделение (действует на всех вкладках), срез структуры, сегмент и город
+     посещаемости. Строка липкая и всегда одной высоты: выбрали или сняли — ничего не сдвигается; в покое — подсказка,
+     что можно кликнуть */
+  const selChips=(sel!==root?[{dim:'Подразделение',cat:selNode.name,attr:'data-selnode="'+esc(root)+'"',
+      tip:'Графики и главы — по этому подразделению, на всех вкладках. × — вернуть «'+D.NODE_BY_PATH[root].name+'» целиком.'}]:[])
+    .concat(b.key==='structure'?U.sliceChips(slice,'Таблица и графики — по срезу, база и выводы — по всей команде.')
+      :mod.shelfChips?mod.shelfChips(S):[]);
+  h+='<div class="sel-row">'+(selChips.length?'<span class="sel-lbl">Выбрано</span>'+U.selBar(selChips)+
+    (sel!==root&&!selNode.direct?U.openUnitBtn(sel,selNode.name,'Открыть'):''):
+    '<span class="sel-hint">'+(b.key==='structure'?'Клик по подразделению, куску полосы или строке таблицы — таблица и графики покажут только выбранное'
+      :mod.shelfChips&&S.subTab==='attend'?'Клик по подразделению, сегменту или городу — таблицы и динамика покажут только выбранное'
+      :'Клик по подразделению в таблице — графики покажут только его, на всех вкладках')+'</span>')+'</div>';
   h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'" id="bk-det"'+
     (share!=null?' style="--split-l:'+(share*100).toFixed(2)+'fr;--split-r:'+((1-share)*100).toFixed(2)+'fr"':'')+'>';
 
@@ -553,15 +566,8 @@ function renderBlock(S,expanded,mixOpen,view){
     rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act})});
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
-  /* 31.10 (поставка 82, заказчик): всё, что выбрано кликом, — пилюлями: подразделение (действует на всех вкладках),
-     срез структуры, сегмент и город посещаемости. Ничего не выбрано — прежняя серая строка */
-  const selChips=(sel!==root?[{dim:'Подразделение',cat:selNode.name,attr:'data-selnode="'+esc(root)+'"',
-      tip:'Графики и главы — по этому подразделению, на всех вкладках. × — вернуть «'+D.NODE_BY_PATH[root].name+'» целиком.'}]:[])
-    .concat(b.key==='structure'?U.sliceChips(slice,'Таблица и графики — по срезу, база и выводы — по всей команде.')
-      :mod.shelfChips?mod.shelfChips(S):[]);
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
-    subHtml:selChips.length?U.selBar(selChips)+(sel!==root&&!selNode.direct?U.openUnitBtn(sel,selNode.name):'')
-      :esc(selNode.name)+' · всё подразделение'+
+    subHtml:esc(selNode.name)+(sel!==root?'':' · всё подразделение')+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
     body:body,bodyCls:'st-on',foot:true});
 
