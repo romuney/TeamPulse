@@ -2458,21 +2458,34 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .spm4 th.tsort.on::after{content:" ↓"}
 
 /* Поставка 82. Подразделения скрыты на большом экране: глава вставала шириной своего графика (900px)
-   и прижималась влево — в колонке «графики, под ними „Что важно“» глава тянется на всю панель.
-   Широкая панель (≥1280px) — графики и таблицы встают рядом и переносятся блоками по месту:
-   график не уже 460px, таблица не уже 600px; заголовок, сноски и одиночные блоки — на всю ширину */
+   и прижималась влево — в колонке «графики, под ними „Что важно“» глава тянется на всю панель. */
 @container stp (min-width:980px){
   .st-grid.has-rail>.st-main{align-self:stretch;min-width:0}
 }
 .ch-blk{min-width:0}
-@container stp (min-width:1280px){
-  .st-main{flex-direction:row;flex-wrap:wrap;align-content:flex-start;column-gap:var(--s10)}
-  .st-main>*{flex:1 1 100%;min-width:0}
-  .st-main>.svgchart,.st-main>.ch-blk{flex:1 1 460px}
-  .st-main>.svgchart.fill{flex:1 1 460px;height:440px}
-  .st-main>.bt-stack{flex-direction:row;flex-wrap:wrap;column-gap:var(--s10);align-items:flex-start}
-  .st-main>.bt-stack>*{flex:1 1 600px;min-width:0}
+.sm-grid{display:flex;flex-direction:column;gap:var(--chart-gap)}
+/* Широкая панель (≥1280px) — рядом встают только равноправные разрезы одного вопроса, а не всё подряд:
+   — графики с общей осью месяцев остаются друг под другом: их читают месяц под месяцем («сверху итог, ниже потоки»);
+   — таблицы-разрезы одного стека (инициатор и причины, статус и причина вакансий, «Рост» и T@T) — парами,
+     нечётная последняя — на всю ширину;
+   — малые кратные мониторинга (одна ось периодов, один масштаб чтения) — сеткой по три. */
+@container stp (min-width:1080px){
+  .st-main>.bt-stack{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px var(--s10);align-items:start}
   .st-main>.bt-stack>.bt-group+.bt-group{padding-top:0}
+}
+@container stp (min-width:1280px){
+  /* нечётная последняя — тоже в одну колонку: колонки цифр и полос совпадают по всей главе, а не уезжают */
+  /* мониторинг: «Состав» отвечает на заголовок главы — на всю ширину; ниже две средние (часы, доля звонков)
+     парой и три «сколько людей» (прогулы, выходные, звонки от 20%) тройкой — каждая строка одного типа */
+  .sm-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--chart-gap) var(--s10);align-items:start}
+  .sm-grid>*{grid-column:span 2;min-width:0}
+  .sm-grid>:first-child{grid-column:1/-1}
+  .sm-grid>:nth-child(2),.sm-grid>:nth-child(3){grid-column:span 3}
+  /* таблица без полос (движение по специализациям) — не шире 960px: цифры не уезжают от названий */
+  .st-main>.bt-group.spm{max-width:960px}
+  /* несколько графиков в одном полотне (отток, вакансии, HQ) на ширине 1500px сплющивались в полоски —
+     по 200px на график */
+  .st-main>.svgchart[style*="--np"]{min-height:calc(var(--np) * 200px)!important}
 }
 /* Поставка 82: полоса-маска над липкой шапкой — только когда шапка прилипла (класс .ph-stuck ставит app.js) */
 @media (min-width:1121px){
@@ -2480,7 +2493,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .split>.panel.ph-stuck>.panel-h::before{opacity:1}
   /* Таблица подразделений — карточка во всю высоту ряда, как карточка графиков справа (заказчик, 31.10);
      прилипают её шапка и сама таблица (не выше окна — тогда своя прокрутка), фон карточки тянется до низа */
-  .split>.split-l{position:relative;top:auto;align-self:stretch;height:auto;max-height:none}
+  .split>.split-l{position:relative;top:auto;align-self:stretch;height:auto;max-height:none;overflow:clip}
   .split-l .tbl-wrap{position:sticky;top:calc(var(--sp-top) + var(--rph,59px));flex:0 1 auto;
     max-height:calc(var(--vh,100vh) - var(--sp-top) - var(--rph,59px) - 26px)}
   .st-grid.has-rail>.st-rail{align-self:stretch}
@@ -6744,7 +6757,7 @@ function chart(kind,args,opt){
   /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px */
   const mh=kind==='panels'?panelsMin(args.panels):0;
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
-    (mh?' style="min-height:'+mh+'px"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
+    (mh?' style="min-height:'+mh+'px;--np:'+args.panels.length+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
 }
 /* 31.10 (поставка 82): экран приложения сразу перемеряет графики под настоящую ширину — черновое полотно 900px
    строилось и разбиралось браузером зря (треть времени клика). На время сборки экрана app.js включает «ленивый»
@@ -10488,11 +10501,12 @@ SC.blocks.hiring={
       const ch=hp.channels.map(c=>({name:c.name,value:c.value,color:G.C_IN}))
         .concat([{name:'Переводы из других команд',note:'их доля и есть доля внутреннего найма',
           value:hp.tin,color:G.C_HIRE_I}]).sort((a,b)=>b.value-a.value);
-      return dyn+U.btStack([
-        tbl('Откуда пришли','найм и переводы'+sub,ch),
-        tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]
+      /* 31.10 (поставка 82): «Откуда» и «Как пришли» — один вопрос про путь в команду, идут подряд (на широкой
+         панели — рядом), «Грейд принятых» — уже про то, кого взяли */
+      return dyn+U.btStack([tbl('Откуда пришли','найм и переводы'+sub,ch)]
         /* поставка 50: путь в команду — найм в компанию, из учебной группы, стажёр в штат (как в HQ) */
-        .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})),{sort:true})]:[]))+
+        .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})),{sort:true})]:[])
+        .concat([tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]))+
         '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+'). В первой таблице — вместе '+
         'с переводами из других подразделений.</div>';
     }
@@ -10710,7 +10724,8 @@ SC.blocks.monitor={
     if(md.monthly)return '<div class="mon-bar"><span class="mon-note">'+(mk?'Отмечен период: <b>'+U.esc(mk.full)+'</b> · Escape — снять'
         :md.daily?'По месяцам. Клик по столбику отмечает месяц на линиях. Недели — с витриной мониторинга по неделям'
         :'По месяцам, из основной таблицы. Недели, часы в день и звонки в Толк — с витриной мониторинга')+'</span></div>'+
-      G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
+      /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой */
+      '<div class="sm-grid">'+G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       (md.daily?G.chart('pline',{periods:P,key:'hours',mark:mark},{title:'Рабочая активность, ч/день',name:'Часов в день',h:190})+
         G.chart('pline',{periods:P,key:'talk',mark:mark},{title:'Доля звонков в Толк, % рабочего времени',name:'Звонки в Толк',fmt:'pct',h:190})+
@@ -10718,14 +10733,14 @@ SC.blocks.monitor={
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
       monPh('Рабочая активность, ч/день','Средняя рабочая активность в часах в день по месяцам и неделям.')+
-      monPh('Доля звонков в Толк, % рабочего времени','Доля разговоров в Толк от рабочего времени, среднее по месяцам и неделям.'));
+      monPh('Доля звонков в Толк, % рабочего времени','Доля разговоров в Толк от рабочего времени, среднее по месяцам и неделям.'))+'</div>';
     return '<div class="mon-bar">'+U.segToggle('data-mongran',[['m','Месяцы'],['w','Недели']],gran)+
         '<span class="mon-note">'+(mk?'Отмечен период: <b>'+U.esc(mk.full)+'</b> · Escape — снять':'Клик по столбику отмечает период на линиях')+'</span></div>'+
-      G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
+      '<div class="sm-grid">'+G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       G.chart('pline',{periods:P,key:'hours',mark:mark},{title:'Рабочая активность, ч/день',name:'Часов в день',h:190})+
       G.chart('pline',{periods:P,key:'talk',mark:mark},{title:'Доля звонков в Толк, % рабочего времени',name:'Звонки в Толк',fmt:'pct',h:190})+
-      extraCharts(P,mark);
+      extraCharts(P,mark)+'</div>';
   }
 };
 })();

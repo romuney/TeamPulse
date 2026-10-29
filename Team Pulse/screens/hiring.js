@@ -82,11 +82,12 @@ SC.blocks.hiring={
       const ch=hp.channels.map(c=>({name:c.name,value:c.value,color:G.C_IN}))
         .concat([{name:'Переводы из других команд',note:'их доля и есть доля внутреннего найма',
           value:hp.tin,color:G.C_HIRE_I}]).sort((a,b)=>b.value-a.value);
-      return dyn+U.btStack([
-        tbl('Откуда пришли','найм и переводы'+sub,ch),
-        tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]
+      /* 31.10 (поставка 82): «Откуда» и «Как пришли» — один вопрос про путь в команду, идут подряд (на широкой
+         панели — рядом), «Грейд принятых» — уже про то, кого взяли */
+      return dyn+U.btStack([tbl('Откуда пришли','найм и переводы'+sub,ch)]
         /* поставка 50: путь в команду — найм в компанию, из учебной группы, стажёр в штат (как в HQ) */
-        .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})),{sort:true})]:[]))+
+        .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})),{sort:true})]:[])
+        .concat([tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]))+
         '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+'). В первой таблице — вместе '+
         'с переводами из других подразделений.</div>';
     }

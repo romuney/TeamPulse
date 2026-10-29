@@ -1200,7 +1200,7 @@ function chart(kind,args,opt){
   /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px */
   const mh=kind==='panels'?panelsMin(args.panels):0;
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
-    (mh?' style="min-height:'+mh+'px"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
+    (mh?' style="min-height:'+mh+'px;--np:'+args.panels.length+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
 }
 /* 31.10 (поставка 82): экран приложения сразу перемеряет графики под настоящую ширину — черновое полотно 900px
    строилось и разбиралось браузером зря (треть времени клика). На время сборки экрана app.js включает «ленивый»

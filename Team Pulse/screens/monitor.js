@@ -90,7 +90,8 @@ SC.blocks.monitor={
     if(md.monthly)return '<div class="mon-bar"><span class="mon-note">'+(mk?'Отмечен период: <b>'+U.esc(mk.full)+'</b> · Escape — снять'
         :md.daily?'По месяцам. Клик по столбику отмечает месяц на линиях. Недели — с витриной мониторинга по неделям'
         :'По месяцам, из основной таблицы. Недели, часы в день и звонки в Толк — с витриной мониторинга')+'</span></div>'+
-      G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
+      /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой */
+      '<div class="sm-grid">'+G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       (md.daily?G.chart('pline',{periods:P,key:'hours',mark:mark},{title:'Рабочая активность, ч/день',name:'Часов в день',h:190})+
         G.chart('pline',{periods:P,key:'talk',mark:mark},{title:'Доля звонков в Толк, % рабочего времени',name:'Звонки в Толк',fmt:'pct',h:190})+
@@ -98,14 +99,14 @@ SC.blocks.monitor={
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
       monPh('Рабочая активность, ч/день','Средняя рабочая активность в часах в день по месяцам и неделям.')+
-      monPh('Доля звонков в Толк, % рабочего времени','Доля разговоров в Толк от рабочего времени, среднее по месяцам и неделям.'));
+      monPh('Доля звонков в Толк, % рабочего времени','Доля разговоров в Толк от рабочего времени, среднее по месяцам и неделям.'))+'</div>';
     return '<div class="mon-bar">'+U.segToggle('data-mongran',[['m','Месяцы'],['w','Недели']],gran)+
         '<span class="mon-note">'+(mk?'Отмечен период: <b>'+U.esc(mk.full)+'</b> · Escape — снять':'Клик по столбику отмечает период на линиях')+'</span></div>'+
-      G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
+      '<div class="sm-grid">'+G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       G.chart('pline',{periods:P,key:'hours',mark:mark},{title:'Рабочая активность, ч/день',name:'Часов в день',h:190})+
       G.chart('pline',{periods:P,key:'talk',mark:mark},{title:'Доля звонков в Толк, % рабочего времени',name:'Звонки в Толк',fmt:'pct',h:190})+
-      extraCharts(P,mark);
+      extraCharts(P,mark)+'</div>';
   }
 };
 })();
