@@ -309,12 +309,12 @@ function wherePanel(sum,mainK,S,rootNode){
   if(!rows.length)h+='<div class="bk-wn">У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры по команде.</div>';
   top.forEach(r=>{
     const w=(c?Math.min(100,r.exc/tot*100):small(r)?0:U.barW(key,Math.abs(r.v||0),tot,max))/100, hd=r.n.head;
-    /* 27.10: у команды меньше 30 человек значение видно (серым), но во вклад и в рейтинг она не идёт */
+    /* 27.10: у команды меньше 30 человек процент — серым; 30.10 (критики): вклад в людях у неё считается и показан */
     h+='<button class="bk-wr" data-wsel="'+esc(r.n.path)+'"'+(small(r)?U.tipAttr({title:r.n.name,text:'Меньше '+INS.CARD.small+
-      ' человек: доля неустойчивая — во вклад и в сравнение не идёт.'}):'')+'>'+
+      ' человек: процент неустойчивый, но вклад в разницу — в людях — честный.'}):'')+'>'+
       '<span class="bk-wu"><b>'+esc(r.n.name)+'</b><span>'+D.fmtInt(r.hc)+' чел'+(hd&&hd.login?' · '+esc(hd.login):'')+'</span>'+
       (c&&r.v!=null?'<span>'+D.fmtVal(fk,r.v)+(r.ref!=null?' · '+rw+' '+D.fmtVal(fk,r.ref):'')+'</span>':'')+'</span>'+
-      '<span class="bk-wv'+(small(r)?' sm-n':'')+'">'+(r.v==null?'—':small(r)?(c?'':D.fmtVal(key,r.v)):c?Math.round(r.exc/tot*100)+'%':D.fmtVal(key,r.v))+'</span>'+
+      '<span class="bk-wv'+(small(r)&&!c?' sm-n':'')+'">'+(c?Math.round(r.exc/tot*100)+'%':r.v==null?'—':D.fmtVal(key,r.v))+'</span>'+
       '<span class="bk-wb"><i class="'+(c?c.sev:'n')+'" style="width:'+(w*100).toFixed(1)+'%"></i></span></button>';
   });
   return h+'<button class="bk-more" data-blkjump="1">'+(rows.length>top.length?'Ещё '+(rows.length-top.length)+' — ':'Подробнее — ')+

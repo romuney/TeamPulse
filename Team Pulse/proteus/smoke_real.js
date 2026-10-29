@@ -108,7 +108,7 @@ ok(D.MONTHS.length===12&&D.MONTHS_EXT.length===R.n&&D.MONTHS[11].y*12+D.MONTHS[1
 const i=R.n-1;
 {
   const pn=arr(scopeRow,'pnor')[i], pl=arr(scopeRow,'plow')[i], ph=arr(scopeRow,'phig')[i], pg=arr(scopeRow,'pgry')[i], t=pn+pl+ph+pg;
-  ok(near(D.lastVal(rl,'underwork'),t?+(pl/t*100).toFixed(2):null)&&near(D.lastVal(rl,'overwork'),t?+(ph/t*100).toFixed(2):null)&&
+  ok(near(D.aggregate(rl,'underwork')[D.LAST],t?+(pl/t*100).toFixed(2):null)&&near(D.aggregate(rl,'overwork')[D.LAST],t?+(ph/t*100).toFixed(2):null)&&
     !D.isStub('underwork')&&!D.isStub('overwork'),
     'недоработчики и переработчики = недоработка / переработка ко всем четырём категориям мониторинга — живые');
 }
@@ -194,7 +194,7 @@ if(R.has('vop')){
   const vo=arr(scopeRow,'vop'), vc=arr(scopeRow,'vcl'), vd=arr(scopeRow,'vtd'), vn=arr(scopeRow,'vtn'), vj=arr(scopeRow,'vjn');
   let cj=0,cc=0;for(let k=jan0();k<=i;k++){cj+=vj[k];cc+=vc[k]}
   ok(near(D.lastVal(rl,'vac_open'),vo[i])&&near(D.lastVal(rl,'vac_closed'),vc[i])&&
-    near(D.lastVal(rl,'time_to_fill'),vn[i]?+(vd[i]/vn[i]).toFixed(2):null)&&
+    near(D.aggregate(rl,'time_to_fill')[D.LAST],vn[i]?+(vd[i]/vn[i]).toFixed(2):null)&&
     near(D.lastVal(rl,'junior_share'),cc?+(cj/cc*100).toFixed(2):null),
     'вакансии: открытые, закрытые, срок = дни / закрытые, доля джунов = закрытые джунами / закрытые с начала года');
   const vb=D.vacancyBreakdown(rl), sumK=k=>rl.reduce((a,p)=>{const o=(R.mix(p)||{})[k]||{};return a+Object.keys(o).reduce((x,v)=>x+o[v],0)},0);
@@ -218,7 +218,7 @@ if(hasNew){
   const wd=arr(scopeRow,'wday')[i], ov=arr(scopeRow,'ovis')[i], ga=arr(scopeRow,'gapr')[i], gd=arr(scopeRow,'gdec')[i];
   ok(near(D.lastVal(rl,'office_att'),wd?+(ov/wd*100).toFixed(2):null),'посещаемость = посещения офиса / отработанные дни × 100');
   ok(near(D.lastVal(rl,'tgrowth_pass'),ga)&&near(D.lastVal(rl,'tgrowth_deny'),gd)&&
-    near(D.lastVal(rl,'tgrowth_conv'),ga+gd?+(ga/(ga+gd)*100).toFixed(2):null),
+    near(D.aggregate(rl,'tgrowth_conv')[D.LAST],ga+gd?+(ga/(ga+gd)*100).toFixed(2):null),
     'T-рост: одобрено, отклонено, конверсия = одобрено / (одобрено + отклонено)');
   /* поставка 66 (посещения Адели): с рядами бронирований бронирование живое */
   const BK=R.has('bk');
@@ -516,5 +516,8 @@ if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений з
     tops.every(h=>/class="bk-sum (high|mid|good|none)"/.test(h)&&(I.unitsOf(S0).length?/Где это происходит/.test(h):/bk-top [a-z]+ solo/.test(h))&&/id="bk-det"/.test(h)),
     'главная и блоки «сначала выводы»: '+cs.length+' '+(cs.length===1?'вывод':'выводов')+' без заглушек, у '+tops.length+' блоков — вывод и «где»');
 }
+/* 30.10: доли и средние, которые за неполный месяц неточны, в таблицах и выводах — по закрытому месяцу */
+ok(['time_to_fill','tgrowth_conv','underwork','overwork'].every(k=>!D.PARTIAL||D.lastIdx(k)===D.LAST-1),
+  'срок закрытия, конверсия T-роста, недоработчики и переработчики — по закрытому месяцу');
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);

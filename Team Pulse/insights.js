@@ -220,12 +220,14 @@ function overview(S,rl,bl,all){
         body:'Уволились за месяц, по любой причине.',kind:'spike',v:last,usual,L:La});
   }
   /* численность за год: найм, уходы, переводы — из чего сложилось */
-  const hc=D.aggregateExt(rl,'hc_total'), from=hc[L-12], to=hc[L];
+  /* 30.10, критики: рост был назван тремя способами (+13% за год, +30 с начала года, водопад) — карточка теперь
+     с начала года, как сводка над карточками: на конец декабря → сейчас, потоки — тоже с января */
+  const hc=D.aggregateExt(rl,'hc_total'), y0=D.YEAR_START_EXT[L], from=hc[y0-1], to=hc[L];
   if(from&&Math.abs(to-from)/from>=OBS.dev){
-    const sm=k=>D.aggregate(rl,k).reduce((x,y)=>x+(y||0),0);
+    const sm=k=>{const e=D.aggregateExt(rl,k);let x=0;for(let i=y0;i<=L;i++)x+=e[i]||0;return x};
     const dp=Math.round(Math.abs(to-from)/from*100);
     out.push({key:'hc_total',sev:'mid',pri:5,w:0,
-      lead:'Численность '+(to>from?'+':'−')+dp+'% за год: '+D.fmtInt(from)+' → '+D.fmtInt(to),
+      lead:'Численность '+(to>from?'+':'−')+dp+'% с начала года: '+D.fmtInt(from)+' → '+D.fmtInt(to),
       body:'Найм '+D.fmtInt(sm('hire'))+', отток '+D.fmtInt(sm('attrition'))+', переводы в команду '+
         D.fmtInt(sm('transfer_in'))+' и из неё '+D.fmtInt(sm('transfer_out'))+'.',kind:'hc',v:to,pv:from,L});
   }
@@ -292,7 +294,7 @@ const ppl=(n,noun)=>D.fmtInt(n)+' '+U.plural(Math.round(n),noun||PPL);
 function say(f){
   const m=D.METRIC_BY_KEY[f.key], bad=f.sev!=='good';
   if(f.kind==='spike')return 'всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[f.L].m];
-  if(f.kind==='hc')return 'численность '+(f.v>f.pv?'выросла':'сократилась')+' на '+Math.round(Math.abs(f.v-f.pv)/f.pv*100)+'% за год';
+  if(f.kind==='hc')return 'численность '+(f.v>f.pv?'выросла':'сократилась')+' на '+Math.round(Math.abs(f.v-f.pv)/f.pv*100)+'% с начала года';
   if(f.kind==='trend')return lc(m.name)+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд';
   if(f.key==='hire_plan'&&f.kind==='dev')return bad?'найм отстаёт от плана':'план найма выполняется с запасом';
   const st=(SAY[f.key]||[lc(m.name)+' хуже',lc(m.name)+' лучше'])[bad?0:1];
@@ -344,7 +346,9 @@ function whereOf(f,S){
     }
     const e=D.aggregateExt(u.lp,f.key), ref=f.kind==='yoy'?e[L-12]:f.ref;
     r.v=e[L];r.ref=ref;
-    if(!r.small&&r.v!=null&&ref!=null&&isBad(m,r.v,ref)){const x=excess(f.key,u.lp,r.v,ref,L,1);r.exc=x?x.n:0}
+    /* 30.10, критики: «Деп 3.3 — 100%, хотя у Деп 3.1 текучесть втрое выше»: вклад — в людях, он у маленького
+       подразделения тоже честный; «меньше 30 человек» гасит только его процент, а не вклад */
+    if(r.v!=null&&ref!=null&&isBad(m,r.v,ref)){const x=excess(f.key,u.lp,r.v,ref,L,1);r.exc=x?x.n:0}
     return r;
   });
   rows.sort((a,c)=>c.exc-a.exc||c.hc-a.hc);
@@ -430,12 +434,16 @@ function cardOf(f,S,rl,bl){
     btn:wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:{label:'Открыть «'+b.name+'»',tab:bk}};
 }
 /* Отчёт меньше 30 человек: доли не оцениваются — остаются всплеск и численность */
+const SMALL_OK=new Set(['underwork','overwork']), SMALL_PPL=3;
 function smallReport(rl){const hc=D.lastVal(rl,'hc_total');return hc!=null&&hc<CARD.small}
 /* Все карточки по отбору: по тяжести, внутри — по людям сверх ориентира; до восьми */
 function cards(S,rl,bl,all){
   const sm=smallReport(rl), rank={high:0,mid:1,good:2};
-  const list=overview(S,rl,bl,true).filter(f=>!(sm&&D.METRIC_BY_KEY[f.key].fmt==='pct'&&f.kind!=='spike'&&f.kind!=='hc'))
-    .map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}));
+  /* 30.10, критики (маленькая команда: «переработка у 7 из 17, а отчёт пишет всё спокойно»): доли недоработчиков и
+     переработчиков — это люди; у маленькой команды их оцениваем, если разница — от SMALL_PPL человек */
+  const list=overview(S,rl,bl,true).map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}))
+    .filter(c=>!(sm&&D.METRIC_BY_KEY[c.key].fmt==='pct'&&c.fact.kind!=='spike'&&c.fact.kind!=='hc'&&
+      !(SMALL_OK.has(c.key)&&c.sev!=='good'&&c.ppl>=SMALL_PPL)));
   list.sort((a,c)=>rank[a.sev]-rank[c.sev]||c.ppl-a.ppl||a.i-c.i);
   /* одна история — одна карточка: текучесть месячная и с начала года об одном
      («уходят чаще») — остаётся первая; «С января ушли N» — тоже один раз, а там,
@@ -460,7 +468,7 @@ function lead(S,rl,list,norm){
   const nAct=list.filter(c=>c.sev!=='good').length;
   let h='<b>'+esc(team+(bad?', но '+say(bad.fact):good?', и '+say(good.fact):', заметных отклонений нет'))+'.</b> '+
     esc(ppl(hc))+' — '+(net?'на '+D.fmtInt(Math.abs(net))+' '+(net>0?'больше':'меньше')+', чем на начало года':'столько же, сколько на начало года')+'.';
-  if(smallReport(rl))h+=' В команде меньше '+CARD.small+' человек — доли (текучесть, проценты) не оцениваем: слишком мало людей.';
+  if(smallReport(rl))h+=' В команде меньше '+CARD.small+' человек — текучесть в процентах не оцениваем: слишком мало людей; недоработку и переработку смотрим в людях.';
   h+=nAct?' Ниже — '+nAct+' '+U.plural(nAct,['вывод, на который','вывода, на которые','выводов, на которые'])+' стоит потратить время':' Требующего действий нет';
   return h+(norm?'; остальные '+norm+' '+U.plural(norm,['метрика','метрики','метрик'])+' в норме.':'.');
 }
