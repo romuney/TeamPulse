@@ -65,7 +65,7 @@ function judge(k,c){
     const s=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,base);
     st=s==='good'?'good':s==='bad'?'bad':'n';
   }
-  return {v:v,base:base,kpi:kpi,st:st,i:i};
+  return {v:v,base:base,kpi:kpi,st:st,i:i,k:k};
 }
 /* «в базе «всё HQ»» — база всегда названа, как в чипе шапки */
 const inBase=c=>'в базе «'+c.bench+'»';
@@ -144,9 +144,19 @@ const Q={
 function vsBase(j,c,more,less,same){
   /* 30.10, критики: «Конверсия на уровне базы» при пустом значении — за месяц нет событий, так и пишем */
   if(j.v==null)return 'За '+mNom(j.i)+' нет данных — не с чем сравнить';
-  return j.st==='bad'||j.st==='good'
+  return (j.st==='bad'||j.st==='good'
     ? ((j.v>j.base)?more:less)+', чем '+inBase(c)
-    : same+' «'+c.bench+'»';
+    : same+' «'+c.bench+'»')+yoyTail(j,c,more,less);
+}
+/* 30.10, критики («две точки сравнения»): глава сравнивает с базой, вывод блока — с прошлым годом. Если год к году
+   картина обратная, заголовок говорит обе вещи сразу: «Повышают чаще, чем в базе, но реже, чем год назад» */
+const ADV=t=>t.split(' ').pop();
+function yoyTail(j,c,more,less){
+  const py=j.k?yearAgo(c.lp,j.k):null;
+  if(py==null||j.v==null||!py||Math.abs(j.v-py)/Math.abs(py)<0.05)return '';
+  const up=j.v>py, vsB=j.st==='bad'||j.st==='good'?j.v>j.base:null;
+  const t=up?more:less;
+  return vsB===up?'':', но '+(vsB==null?t.charAt(0).toLowerCase()+t.slice(1):ADV(t))+', чем год назад';
 }
 
 /* значение за месяц и база; пустое — «нет данных», а не «— при базе 37,5%» */
@@ -163,9 +173,9 @@ CH.turnover={
        ухода судим по накопительной текучести, как «Текучесть YoY KPI» */
     const fc=judge('turnover_y',c), tm=judge('turnover_m',c), ya=yearAgo(c.lp,'turnover_y');
     const pk=spikeAt(a,3);
-    let head=fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
-      :'Темп ухода — на уровне базы «'+c.bench+'»';
-    if(pk>=0)head+=', но '+mPrep(pk)+' был всплеск';
+    let head=(fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
+      :'Темп ухода — на уровне базы «'+c.bench+'»')+yoyTail(fc,c,'Уходят чаще','Уходят реже');
+    if(pk>=0)head+=(/, но /.test(head)?'; ':', но ')+mPrep(pk)+' был всплеск';
     const fo=focusCount(c,'attrition',{cap:'Где уходят · за год',what:'общего оттока'});
     /* 26.10, ревью критиков: ставки — по последнему закрытому месяцу (jIdx), уходы — людьми с января */
     return {sum:pl(y,EXITS)+' с января',st:fc.st,head:head,

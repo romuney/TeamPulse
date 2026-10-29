@@ -39,57 +39,7 @@ SC.blocks.monitor={
   /* 27.10-в, п. 4: ревью скрыто до следующего релиза (D.OFF_SUBS) */
   subTabs:[['activity','Рабочая активность'],['review','Ревью']].filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])),
   defaultSub:'activity',
-  /* KPI-полоса блока (вместо карточек метрик): снимок последней закрытой недели по
-     выбранной строке таблицы — клик по строке пересчитывает и её */
-  kpis(c){
-    const md=D.monData(c.lp);
-    if(!md)return '';
-    const w=wk(md), cur=w.cur, prev=w.prev, sh=v=>pctOf(v,cur.hc)+' численности';
-    /* пробник без витрины по неделям: последний закрытый месяц против прошлого, по основной таблице */
-    const vs='к прошлому месяцу', both=(x,a,b)=>x[a]+x[b];
-    if(md.monthly)return '<div class="mk-cap">Последний закрытый месяц — <b>'+U.esc(cur.full.toLowerCase())+'</b> · изменение — к прошлому месяцу'+
-        ' · люди с категорией мониторинга · '+(md.daily?'недели — с витриной мониторинга по неделям':
-          'недели, звонки, прогулы и выходные — когда подключим табель по неделям')+'</div>'+
-      '<div class="kpis compact n5 mks">'+[
-      U.monKpi({label:'Недоработка',value:cur.under,share:sh(cur.under),delta:cur.under-prev.under,bad:'up',vs:'к прошлому месяцу',
-        info:{title:'Недоработка',text:'Сотрудники с активностью ниже нормы (категории low и super_low) в последнем закрытом месяце.'}}),
-      U.monKpi({label:'Переработка',value:cur.over,share:sh(cur.over),delta:cur.over-prev.over,bad:'up',vs:'к прошлому месяцу',
-        info:{title:'Переработка',text:'Сотрудники с активностью выше нормы (категории high и super_high) в последнем закрытом месяце.'}}),
-      md.daily?U.monKpi({label:'Звонки в Толк 20–30%',value:cur.t23,share:sh(cur.t23),delta:cur.t23-prev.t23,bad:'none',vs:vs,
-        info:{title:'Звонки в Толк',text:'Сотрудники, у которых разговоры в Толк заняли 20–30% рабочего времени в последнем закрытом месяце. Ниже — у кого больше.\nИзменение без цвета: какая доля нормальна, зависит от роли.'},
-        parts:[{name:'30–50%',n:cur.t35,color:C.talk},{name:'больше 50%',n:cur.t5,color:C.talk2}]})
-        :U.monKpi({label:'Звонки в Толк 20–30%',dev:5,devText:NOW_ASK}),
-      md.daily?U.monKpi({label:'Прогулы',value:both(cur,'ab25','ab5'),share:sh(both(cur,'ab25','ab5')),
-        delta:both(cur,'ab25','ab5')-both(prev,'ab25','ab5'),bad:'up',vs:vs,
-        info:{title:'Прогулы',text:'Сотрудники, у которых в последнем закрытом месяце больше одного прогула — планового рабочего дня без работы.'},
-        parts:[{name:'2–5 дней',n:cur.ab25,color:C.per},{name:'больше 5 дней',n:cur.ab5,color:C.per2}]})
-        :U.monKpi({label:'Прогулы',dev:5,devText:NOW_ASK}),
-      md.daily?U.monKpi({label:'Работа в выходные',value:both(cur,'we25','we5'),share:sh(both(cur,'we25','we5')),
-        delta:both(cur,'we25','we5')-both(prev,'we25','we5'),bad:'up',vs:vs,
-        info:{title:'Работа в выходные',text:'Сотрудники, которые в последнем закрытом месяце работали в выходные больше одного дня.'},
-        parts:[{name:'2–5 дней',n:cur.we25,color:C.per},{name:'больше 5 дней',n:cur.we5,color:C.per2}]})
-        :U.monKpi({label:'Работа в выходные',dev:5,devText:NOW_ASK})].join('')+'</div>';
-    const wkTip='Неделя '+cur.full.replace('Неделя ','')+' против '+prev.full.replace('Неделя ','')+'.';
-    return '<div class="mk-cap">Последняя закрытая неделя — <b>'+U.esc(cur.full.replace('Неделя ',''))+'</b> · сравнение с '+
-        U.esc(prev.full.replace('Неделя ',''))+' · в мониторинге '+D.fmtInt(cur.hc)+' чел</div>'+
-      '<div class="kpis compact n5 mks">'+[
-      U.monKpi({label:'Недоработка',value:cur.under,share:sh(cur.under),delta:cur.under-prev.under,bad:'up',deltaTip:wkTip,
-        info:{title:'Недоработка',text:'Сотрудники с недельной активностью ниже нормы (категории low и super_low) в последней закрытой неделе.\nРазбивка — сколько недель подряд человек в недоработке.'},
-        parts:[{name:'1–2 недели',n:cur.u12,color:C.under},{name:'больше 2 недель',n:cur.u2p,color:C.under2}]}),
-      U.monKpi({label:'Переработка',value:cur.over,share:sh(cur.over),delta:cur.over-prev.over,bad:'up',deltaTip:wkTip,
-        info:{title:'Переработка',text:'Сотрудники с недельной активностью выше нормы (категории high и super_high).\nРазбивка — сколько недель подряд человек в переработке.'},
-        parts:[{name:'1–2 недели',n:cur.o12,color:C.over},{name:'больше 2 недель',n:cur.o2p,color:C.over2}]}),
-      U.monKpi({label:'Звонки в Толк 20–30%',value:cur.t23,share:sh(cur.t23),delta:cur.t23-prev.t23,bad:'none',deltaTip:wkTip,
-        info:{title:'Звонки в Толк',text:'Сотрудники, у которых разговоры в Толк занимают 20–30% рабочего времени. Ниже — у кого больше.\nИзменение без цвета: какая доля нормальна, зависит от роли.'},
-        parts:[{name:'30–50%',n:cur.t35,color:C.talk},{name:'больше 50%',n:cur.t5,color:C.talk2}]}),
-      U.monKpi({label:'Прогулы',value:md.ab25+md.ab5,noDelta:'за 12 недель: '+md.period,
-        info:{title:'Прогулы',text:'Сотрудники, у которых больше одного дня отсутствия за период — последние 12 закрытых недель.\nПоказатель за период: сравнения с прошлой неделей нет.'},
-        parts:[{name:'2–5 дней',n:md.ab25,color:C.per},{name:'больше 5 дней',n:md.ab5,color:C.per2}]}),
-      U.monKpi({label:'Работа в выходные',value:md.we25+md.we5,noDelta:'за 12 недель: '+md.period,
-        info:{title:'Работа в выходные',text:'Сотрудники, которые выходили на работу в выходные больше одного дня за период — последние 12 закрытых недель.\nПоказатель за период: сравнения с прошлой неделей нет.'},
-        parts:[{name:'2–5 дней',n:md.we25,color:C.per},{name:'больше 5 дней',n:md.we5,color:C.per2}]})
-    ].join('')+'</div>';
-  },
+  /* 30.10: KPI-полоса блока снята по просьбе заказчика (плашки KPI — ни на одной вкладке) */
   /* колонки таблицы подразделений: последний закрытый период, сортировка по клику на шапку */
   cols:[
     /* 26.10, ревью критиков: знаменатель — люди с категорией мониторинга, а не «активная численность HQ» (343 > 337) */

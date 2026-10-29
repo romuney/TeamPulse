@@ -413,7 +413,8 @@ function renderBlock(S,expanded,mixOpen,view){
   const kl=sel!==root?rowLeaves(sel,S):rl;
   /* 29.10, п. 9: верхние карточки KPI блоков сняты — они дублировали таблицу подразделений и графики. Своя полоса
      «Мониторинга» (звонки, прогулы, выходные — их больше нигде нет) остаётся. Код карточек — на месте (KPI_TOP) */
-  if(mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
+  /* 30.10, заказчик: «убери на всех вкладках плашки KPI» — и полосу «Мониторинга» тоже (код — на месте, KPI_TOP) */
+  if(KPI_TOP&&mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
   else if(KPI_TOP&&b.key!=='structure'){
   if(sel!==root)h+='<div class="kpi-sel">Карточки — по «<b>'+esc(selNode.name)+'</b>»<button class="nb" data-selnode="'+esc(root)+
     '">Всё подразделение</button></div>';

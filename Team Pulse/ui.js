@@ -739,25 +739,7 @@ function pfHead(name,aside,icon){
 /* ============================================================================
    Мониторинг рабочей активности (21.10, файл Антона)
    ========================================================================== */
-/* KPI мониторинга: значение — за последнюю закрытую неделю; изменение — к прошлой неделе:
-   bad:'up' — рост плохо (недо- и переработка), 'none' — без цвета (звонки: норма зависит
-   от роли); у показателей за период (прогулы, выходные) изменения нет — вместо него подпись
-   периода. Ниже — разбивка на две части с метками цвета. */
-function monKpi(o){
-  /* dev — показателя ещё нет в данных (пробник без витрины мониторинга по неделям) */
-  if(o.dev)return '<div class="kpi mk dev"><div class="k-label">'+esc(o.label)+devTag(o.dev,true)+'</div>'+
-    '<div class="k-val">—</div><div class="k-row"><span class="k-sub">'+esc(o.devText||'появится с витриной мониторинга')+'</span></div></div>';
-  const sign=v=>(v>0?'+':v<0?'−':'')+D.fmtInt(Math.abs(v));
-  const cls=o.delta==null?'':o.delta===0?'flat':o.bad==='up'?(o.delta>0?'down':'up'):'neu';
-  const chip=o.delta==null?'<span class="k-sub">'+esc(o.noDelta||'')+'</span>'
-    :'<span class="delta '+cls+'"'+tipAttr({title:o.label,text:o.deltaTip||'',note:o.bad==='up'?'Рост — плохо: красным.':'Без цвета: какая доля нормальна, зависит от роли.'})+'>'+
-      sign(o.delta)+'<span class="d-vs">'+esc(o.vs||'к прошлой неделе')+'</span></span>';
-  return '<div class="kpi mk"><div class="k-label">'+esc(o.label)+
-      (o.info?'<span class="info"'+tipAttr(o.info)+' aria-label="Что это">i</span>':'')+'</div>'+
-    '<div class="k-val">'+D.fmtInt(o.value)+'<span class="mk-u">чел</span>'+(o.share!=null?'<span class="mk-sh">'+o.share+'</span>':'')+'</div>'+
-    '<div class="k-row">'+chip+'</div>'+
-    (o.parts&&o.parts.length?'<div class="mk-split">'+o.parts.map(p=>'<span'+(p.tip?tipAttr(p.tip):'')+'><i style="background:'+p.color+'"></i>'+esc(p.name)+' <b>'+D.fmtInt(p.n)+'</b></span>').join('')+'</div>':'')+'</div>';
-}
+/* 30.10: KPI-полоса мониторинга снята (заказчик: «убери плашки KPI на всех вкладках»), monKpi удалён */
 /* переключатель «Месяцы / Недели» — те же кнопки-опции, что в конструкторе */
 function segToggle(attr,opts,cur){
   return '<div class="opts tight seg-t">'+opts.map(x=>'<button class="opt'+(x[0]===cur?' on':'')+'" '+attr+'="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>';
@@ -1095,6 +1077,6 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
+  shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
 })();

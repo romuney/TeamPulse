@@ -332,7 +332,8 @@ function headH(title,legend,w){return (title||(legend&&legend.length))?24+(wraps
    больше не пишут: разъехавшиеся на пару пикселей отступы читаются как грязь. */
 const AXIS_H=30;        /* месяц + год под ним — единая высота оси везде */
 const HEAD_GAP=8;       /* воздух под заголовком — один на все графики */
-const VAL_SZ=11, VAL_W=700;  /* ЕДИНСТВЕННЫЙ кегль подписи значения */
+/* 30.10, типограф: подписи значений — обычным начертанием, жирная только у текущего месяца (VAL_NOW) */
+const VAL_SZ=11, VAL_W=400, VAL_NOW=700;  /* ЕДИНСТВЕННЫЙ кегль подписи значения */
 const VAL_DY=9;         /* отступ базовой линии подписи от марки */
 const VAL_ASC=8.5;      /* высота цифры при VAL_SZ */
 /* место над самой высокой маркой: подпись целиком плюс воздух до заголовка */
@@ -643,7 +644,7 @@ function yoyPlot(p,ar){
     if(flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
       /* подпись — над баром этого года, даже если прозрачный бар прошлого выше:
          над ним цифра читалась как его значение */
-      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
+      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main',weight:i===nowI?VAL_NOW:VAL_W}));
     }else if(flow&&!showMain&&showPrev&&pv!=null&&lblAt(i,nowI,step)){
       /* этот год выключен — прошлый показан обычными барами и подписан так же */
       lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));
@@ -651,7 +652,7 @@ function yoyPlot(p,ar){
       /* под точкой у оси места нет (значение около нуля): там подпись легла бы на месяц — тогда над точкой */
       const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null, below=both&&pv>c&&rm(c);
       const sh=mkAt(i,'main')?5:0;
-      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main'}));
+      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===nowI?VAL_NOW:VAL_W}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }

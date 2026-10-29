@@ -261,8 +261,9 @@ checks.push(['минус во всех дельтах типографский, 
 (function(){
   const opHtml=A.go('onepager',null), mvHtml=A.go('movement','balance');
   /* 29.10, п. 9: верхних карточек KPI в блоках нет (своя полоса — только у «Мониторинга») */
+  /* 30.10, заказчик: плашек KPI нет ни на одной вкладке, и у «Мониторинга» тоже */
   checks.push(['верхних карточек KPI в блоках нет',
-    D.BLOCKS.every(b=>b.key==='monitor'||!/class="kpis compact|class="kpi">/.test(A.top(b.key)))&&/class="kpis compact n5 mks"/.test(A.top('monitor'))]);
+    D.BLOCKS.every(b=>!/class="kpis compact|class="kpi">/.test(A.top(b.key)))]);
   checks.push(['подпись месяца берётся из одного места, а не пишется руками',
     D.CMP.momShort==='к '+'маю'&&D.CMP.momFull==='к маю 2026'&&D.CMP.yoy==='к июню 2025']);
   /* 27.10-в, п. 1: шапки — MoM и YoY, месяцы сравнения — в их подсказках */

@@ -320,10 +320,10 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const hrs=v('hrs'), hrn=v('hrn'), tlk=v('tlk');
     ok(['ab25','ab5','we25','we5','t23','t35','t5'].every(c=>lc[c]===Math.round(v(c)))&&
        near(lc.hours,hrn?+(hrs/hrn).toFixed(2):null)&&near(lc.talk,hrs?+(tlk/hrs*100).toFixed(1):null)&&
-       /class="kpi mk"/.test(mo)&&!/class="kpi mk dev"/.test(mo)&&!/mon-ph/.test(mo)&&/Доля звонков в Толк/.test(mo)&&/data-pmark="0"/.test(mo),
+       !/class="kpi mk/.test(mo)&&!/mon-ph/.test(mo)&&/Доля звонков в Толк/.test(mo)&&/data-pmark="0"/.test(mo),
       'мониторинг по дням: прогулы '+(lc.ab25+lc.ab5)+', выходные '+(lc.we25+lc.we5)+', звонки 20–30% '+lc.t23+
-      ', '+lc.hours+' ч/день, звонки '+lc.talk+'% — как в строке юнита; линии часов и звонков, без «в разработке»');
-  }else ok(/class="kpi mk"/.test(mo)&&/к прошлому месяцу/.test(mo)&&/class="kpi mk dev"/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),
+      ', '+lc.hours+' ч/день, звонки '+lc.talk+'% — как в строке юнита; линии часов и звонков, плашек KPI нет (30.10)');
+  }else ok(!/class="kpi mk/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),
     'мониторинг: категории по месяцам из основной таблицы, недели и звонки — «в разработке»');
   /* 19.10, заказчик: окно настройки как в HRBP HUB — дерево всего справочника, логин руководителя
      и поиск по нему, у строк и кнопок фильтров — сколько людей попадёт в выбор (fd справочника) */

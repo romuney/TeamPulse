@@ -2414,3 +2414,18 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .bk-p b,.in-pl b{font-weight:var(--fw-bold);color:var(--ink)}
 .bk-p.high{border-color:#f5b5b5;background:#fff5f5}.bk-p.mid{border-color:#f3d7a1;background:#fffaf0}.bk-p.good{border-color:#b7e6c6;background:#f4fcf6}
 .bk-top.solo{grid-template-columns:minmax(0,1fr)}
+
+/* ==========================================================================
+   30.10, типограф (третий заход критиков: «жирное и цветное везде», серый 2,5–3:1, обрезанные шаги).
+   — Серый темнее: вторичный текст и подписи ≈ 4,5:1 на белом.
+   — Жирное — заголовки и одно ключевое число; внутри пилюль число тёмным, но обычным; в ИТОГО жирная только подпись.
+   — Метки «по 12.10» / «за сент.» — на сплошной светлой подложке, без пунктира.
+   — Шаги главы не режутся многоточием: подпись в две строки.
+   ========================================================================== */
+:root{--muted:#6b717c;--muted2:#8a909c}
+.page-h p b{font-weight:var(--fw-body);color:var(--ink2)}
+.bk-p b,.in-pl b{font-weight:var(--fw-body)}
+.ptable tr.total td{font-weight:var(--fw-body)}
+.ptable tr.total td.txt,.ptable tr.total td:first-child{font-weight:var(--fw-bold)}
+.mat-tag{border:0;background:#eef0f3;color:var(--ink2)}
+.st-q,.st-s{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}

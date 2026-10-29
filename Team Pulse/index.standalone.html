@@ -2423,6 +2423,21 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .bk-p.high{border-color:#f5b5b5;background:#fff5f5}.bk-p.mid{border-color:#f3d7a1;background:#fffaf0}.bk-p.good{border-color:#b7e6c6;background:#f4fcf6}
 .bk-top.solo{grid-template-columns:minmax(0,1fr)}
 
+/* ==========================================================================
+   30.10, типограф (третий заход критиков: «жирное и цветное везде», серый 2,5–3:1, обрезанные шаги).
+   — Серый темнее: вторичный текст и подписи ≈ 4,5:1 на белом.
+   — Жирное — заголовки и одно ключевое число; внутри пилюль число тёмным, но обычным; в ИТОГО жирная только подпись.
+   — Метки «по 12.10» / «за сент.» — на сплошной светлой подложке, без пунктира.
+   — Шаги главы не режутся многоточием: подпись в две строки.
+   ========================================================================== */
+:root{--muted:#6b717c;--muted2:#8a909c}
+.page-h p b{font-weight:var(--fw-body);color:var(--ink2)}
+.bk-p b,.in-pl b{font-weight:var(--fw-body)}
+.ptable tr.total td{font-weight:var(--fw-body)}
+.ptable tr.total td.txt,.ptable tr.total td:first-child{font-weight:var(--fw-bold)}
+.mat-tag{border:0;background:#eef0f3;color:var(--ink2)}
+.st-q,.st-s{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
 </style>
 </head>
 <body>
@@ -5805,7 +5820,8 @@ function headH(title,legend,w){return (title||(legend&&legend.length))?24+(wraps
    больше не пишут: разъехавшиеся на пару пикселей отступы читаются как грязь. */
 const AXIS_H=30;        /* месяц + год под ним — единая высота оси везде */
 const HEAD_GAP=8;       /* воздух под заголовком — один на все графики */
-const VAL_SZ=11, VAL_W=700;  /* ЕДИНСТВЕННЫЙ кегль подписи значения */
+/* 30.10, типограф: подписи значений — обычным начертанием, жирная только у текущего месяца (VAL_NOW) */
+const VAL_SZ=11, VAL_W=400, VAL_NOW=700;  /* ЕДИНСТВЕННЫЙ кегль подписи значения */
 const VAL_DY=9;         /* отступ базовой линии подписи от марки */
 const VAL_ASC=8.5;      /* высота цифры при VAL_SZ */
 /* место над самой высокой маркой: подпись целиком плюс воздух до заголовка */
@@ -6116,7 +6132,7 @@ function yoyPlot(p,ar){
     if(flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
       /* подпись — над баром этого года, даже если прозрачный бар прошлого выше:
          над ним цифра читалась как его значение */
-      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main'}));
+      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main',weight:i===nowI?VAL_NOW:VAL_W}));
     }else if(flow&&!showMain&&showPrev&&pv!=null&&lblAt(i,nowI,step)){
       /* этот год выключен — прошлый показан обычными барами и подписан так же */
       lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));
@@ -6124,7 +6140,7 @@ function yoyPlot(p,ar){
       /* под точкой у оси места нет (значение около нуля): там подпись легла бы на месяц — тогда над точкой */
       const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null, below=both&&pv>c&&rm(c);
       const sh=mkAt(i,'main')?5:0;
-      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main'}));
+      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===nowI?VAL_NOW:VAL_W}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }
@@ -7487,25 +7503,7 @@ function pfHead(name,aside,icon){
 /* ============================================================================
    Мониторинг рабочей активности (21.10, файл Антона)
    ========================================================================== */
-/* KPI мониторинга: значение — за последнюю закрытую неделю; изменение — к прошлой неделе:
-   bad:'up' — рост плохо (недо- и переработка), 'none' — без цвета (звонки: норма зависит
-   от роли); у показателей за период (прогулы, выходные) изменения нет — вместо него подпись
-   периода. Ниже — разбивка на две части с метками цвета. */
-function monKpi(o){
-  /* dev — показателя ещё нет в данных (пробник без витрины мониторинга по неделям) */
-  if(o.dev)return '<div class="kpi mk dev"><div class="k-label">'+esc(o.label)+devTag(o.dev,true)+'</div>'+
-    '<div class="k-val">—</div><div class="k-row"><span class="k-sub">'+esc(o.devText||'появится с витриной мониторинга')+'</span></div></div>';
-  const sign=v=>(v>0?'+':v<0?'−':'')+D.fmtInt(Math.abs(v));
-  const cls=o.delta==null?'':o.delta===0?'flat':o.bad==='up'?(o.delta>0?'down':'up'):'neu';
-  const chip=o.delta==null?'<span class="k-sub">'+esc(o.noDelta||'')+'</span>'
-    :'<span class="delta '+cls+'"'+tipAttr({title:o.label,text:o.deltaTip||'',note:o.bad==='up'?'Рост — плохо: красным.':'Без цвета: какая доля нормальна, зависит от роли.'})+'>'+
-      sign(o.delta)+'<span class="d-vs">'+esc(o.vs||'к прошлой неделе')+'</span></span>';
-  return '<div class="kpi mk"><div class="k-label">'+esc(o.label)+
-      (o.info?'<span class="info"'+tipAttr(o.info)+' aria-label="Что это">i</span>':'')+'</div>'+
-    '<div class="k-val">'+D.fmtInt(o.value)+'<span class="mk-u">чел</span>'+(o.share!=null?'<span class="mk-sh">'+o.share+'</span>':'')+'</div>'+
-    '<div class="k-row">'+chip+'</div>'+
-    (o.parts&&o.parts.length?'<div class="mk-split">'+o.parts.map(p=>'<span'+(p.tip?tipAttr(p.tip):'')+'><i style="background:'+p.color+'"></i>'+esc(p.name)+' <b>'+D.fmtInt(p.n)+'</b></span>').join('')+'</div>':'')+'</div>';
-}
+/* 30.10: KPI-полоса мониторинга снята (заказчик: «убери плашки KPI на всех вкладках»), monKpi удалён */
 /* переключатель «Месяцы / Недели» — те же кнопки-опции, что в конструкторе */
 function segToggle(attr,opts,cur){
   return '<div class="opts tight seg-t">'+opts.map(x=>'<button class="opt'+(x[0]===cur?' on':'')+'" '+attr+'="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>';
@@ -7843,7 +7841,7 @@ function devSummary(o){
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
-  shareBar,shareCards,genderSplit,pfHead,ico,barW,monKpi,segToggle,miniLines,
+  shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
 })();
 
@@ -8559,7 +8557,7 @@ function judge(k,c){
     const s=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,base);
     st=s==='good'?'good':s==='bad'?'bad':'n';
   }
-  return {v:v,base:base,kpi:kpi,st:st,i:i};
+  return {v:v,base:base,kpi:kpi,st:st,i:i,k:k};
 }
 /* «в базе «всё HQ»» — база всегда названа, как в чипе шапки */
 const inBase=c=>'в базе «'+c.bench+'»';
@@ -8638,9 +8636,19 @@ const Q={
 function vsBase(j,c,more,less,same){
   /* 30.10, критики: «Конверсия на уровне базы» при пустом значении — за месяц нет событий, так и пишем */
   if(j.v==null)return 'За '+mNom(j.i)+' нет данных — не с чем сравнить';
-  return j.st==='bad'||j.st==='good'
+  return (j.st==='bad'||j.st==='good'
     ? ((j.v>j.base)?more:less)+', чем '+inBase(c)
-    : same+' «'+c.bench+'»';
+    : same+' «'+c.bench+'»')+yoyTail(j,c,more,less);
+}
+/* 30.10, критики («две точки сравнения»): глава сравнивает с базой, вывод блока — с прошлым годом. Если год к году
+   картина обратная, заголовок говорит обе вещи сразу: «Повышают чаще, чем в базе, но реже, чем год назад» */
+const ADV=t=>t.split(' ').pop();
+function yoyTail(j,c,more,less){
+  const py=j.k?yearAgo(c.lp,j.k):null;
+  if(py==null||j.v==null||!py||Math.abs(j.v-py)/Math.abs(py)<0.05)return '';
+  const up=j.v>py, vsB=j.st==='bad'||j.st==='good'?j.v>j.base:null;
+  const t=up?more:less;
+  return vsB===up?'':', но '+(vsB==null?t.charAt(0).toLowerCase()+t.slice(1):ADV(t))+', чем год назад';
 }
 
 /* значение за месяц и база; пустое — «нет данных», а не «— при базе 37,5%» */
@@ -8657,9 +8665,9 @@ CH.turnover={
        ухода судим по накопительной текучести, как «Текучесть YoY KPI» */
     const fc=judge('turnover_y',c), tm=judge('turnover_m',c), ya=yearAgo(c.lp,'turnover_y');
     const pk=spikeAt(a,3);
-    let head=fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
-      :'Темп ухода — на уровне базы «'+c.bench+'»';
-    if(pk>=0)head+=', но '+mPrep(pk)+' был всплеск';
+    let head=(fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
+      :'Темп ухода — на уровне базы «'+c.bench+'»')+yoyTail(fc,c,'Уходят чаще','Уходят реже');
+    if(pk>=0)head+=(/, но /.test(head)?'; ':', но ')+mPrep(pk)+' был всплеск';
     const fo=focusCount(c,'attrition',{cap:'Где уходят · за год',what:'общего оттока'});
     /* 26.10, ревью критиков: ставки — по последнему закрытому месяцу (jIdx), уходы — людьми с января */
     return {sum:pl(y,EXITS)+' с января',st:fc.st,head:head,
@@ -9591,7 +9599,8 @@ function renderBlock(S,expanded,mixOpen,view){
   const kl=sel!==root?rowLeaves(sel,S):rl;
   /* 29.10, п. 9: верхние карточки KPI блоков сняты — они дублировали таблицу подразделений и графики. Своя полоса
      «Мониторинга» (звонки, прогулы, выходные — их больше нигде нет) остаётся. Код карточек — на месте (KPI_TOP) */
-  if(mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
+  /* 30.10, заказчик: «убери на всех вкладках плашки KPI» — и полосу «Мониторинга» тоже (код — на месте, KPI_TOP) */
+  if(KPI_TOP&&mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
   else if(KPI_TOP&&b.key!=='structure'){
   if(sel!==root)h+='<div class="kpi-sel">Карточки — по «<b>'+esc(selNode.name)+'</b>»<button class="nb" data-selnode="'+esc(root)+
     '">Всё подразделение</button></div>';
@@ -10596,57 +10605,7 @@ SC.blocks.monitor={
   /* 27.10-в, п. 4: ревью скрыто до следующего релиза (D.OFF_SUBS) */
   subTabs:[['activity','Рабочая активность'],['review','Ревью']].filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])),
   defaultSub:'activity',
-  /* KPI-полоса блока (вместо карточек метрик): снимок последней закрытой недели по
-     выбранной строке таблицы — клик по строке пересчитывает и её */
-  kpis(c){
-    const md=D.monData(c.lp);
-    if(!md)return '';
-    const w=wk(md), cur=w.cur, prev=w.prev, sh=v=>pctOf(v,cur.hc)+' численности';
-    /* пробник без витрины по неделям: последний закрытый месяц против прошлого, по основной таблице */
-    const vs='к прошлому месяцу', both=(x,a,b)=>x[a]+x[b];
-    if(md.monthly)return '<div class="mk-cap">Последний закрытый месяц — <b>'+U.esc(cur.full.toLowerCase())+'</b> · изменение — к прошлому месяцу'+
-        ' · люди с категорией мониторинга · '+(md.daily?'недели — с витриной мониторинга по неделям':
-          'недели, звонки, прогулы и выходные — когда подключим табель по неделям')+'</div>'+
-      '<div class="kpis compact n5 mks">'+[
-      U.monKpi({label:'Недоработка',value:cur.under,share:sh(cur.under),delta:cur.under-prev.under,bad:'up',vs:'к прошлому месяцу',
-        info:{title:'Недоработка',text:'Сотрудники с активностью ниже нормы (категории low и super_low) в последнем закрытом месяце.'}}),
-      U.monKpi({label:'Переработка',value:cur.over,share:sh(cur.over),delta:cur.over-prev.over,bad:'up',vs:'к прошлому месяцу',
-        info:{title:'Переработка',text:'Сотрудники с активностью выше нормы (категории high и super_high) в последнем закрытом месяце.'}}),
-      md.daily?U.monKpi({label:'Звонки в Толк 20–30%',value:cur.t23,share:sh(cur.t23),delta:cur.t23-prev.t23,bad:'none',vs:vs,
-        info:{title:'Звонки в Толк',text:'Сотрудники, у которых разговоры в Толк заняли 20–30% рабочего времени в последнем закрытом месяце. Ниже — у кого больше.\nИзменение без цвета: какая доля нормальна, зависит от роли.'},
-        parts:[{name:'30–50%',n:cur.t35,color:C.talk},{name:'больше 50%',n:cur.t5,color:C.talk2}]})
-        :U.monKpi({label:'Звонки в Толк 20–30%',dev:5,devText:NOW_ASK}),
-      md.daily?U.monKpi({label:'Прогулы',value:both(cur,'ab25','ab5'),share:sh(both(cur,'ab25','ab5')),
-        delta:both(cur,'ab25','ab5')-both(prev,'ab25','ab5'),bad:'up',vs:vs,
-        info:{title:'Прогулы',text:'Сотрудники, у которых в последнем закрытом месяце больше одного прогула — планового рабочего дня без работы.'},
-        parts:[{name:'2–5 дней',n:cur.ab25,color:C.per},{name:'больше 5 дней',n:cur.ab5,color:C.per2}]})
-        :U.monKpi({label:'Прогулы',dev:5,devText:NOW_ASK}),
-      md.daily?U.monKpi({label:'Работа в выходные',value:both(cur,'we25','we5'),share:sh(both(cur,'we25','we5')),
-        delta:both(cur,'we25','we5')-both(prev,'we25','we5'),bad:'up',vs:vs,
-        info:{title:'Работа в выходные',text:'Сотрудники, которые в последнем закрытом месяце работали в выходные больше одного дня.'},
-        parts:[{name:'2–5 дней',n:cur.we25,color:C.per},{name:'больше 5 дней',n:cur.we5,color:C.per2}]})
-        :U.monKpi({label:'Работа в выходные',dev:5,devText:NOW_ASK})].join('')+'</div>';
-    const wkTip='Неделя '+cur.full.replace('Неделя ','')+' против '+prev.full.replace('Неделя ','')+'.';
-    return '<div class="mk-cap">Последняя закрытая неделя — <b>'+U.esc(cur.full.replace('Неделя ',''))+'</b> · сравнение с '+
-        U.esc(prev.full.replace('Неделя ',''))+' · в мониторинге '+D.fmtInt(cur.hc)+' чел</div>'+
-      '<div class="kpis compact n5 mks">'+[
-      U.monKpi({label:'Недоработка',value:cur.under,share:sh(cur.under),delta:cur.under-prev.under,bad:'up',deltaTip:wkTip,
-        info:{title:'Недоработка',text:'Сотрудники с недельной активностью ниже нормы (категории low и super_low) в последней закрытой неделе.\nРазбивка — сколько недель подряд человек в недоработке.'},
-        parts:[{name:'1–2 недели',n:cur.u12,color:C.under},{name:'больше 2 недель',n:cur.u2p,color:C.under2}]}),
-      U.monKpi({label:'Переработка',value:cur.over,share:sh(cur.over),delta:cur.over-prev.over,bad:'up',deltaTip:wkTip,
-        info:{title:'Переработка',text:'Сотрудники с недельной активностью выше нормы (категории high и super_high).\nРазбивка — сколько недель подряд человек в переработке.'},
-        parts:[{name:'1–2 недели',n:cur.o12,color:C.over},{name:'больше 2 недель',n:cur.o2p,color:C.over2}]}),
-      U.monKpi({label:'Звонки в Толк 20–30%',value:cur.t23,share:sh(cur.t23),delta:cur.t23-prev.t23,bad:'none',deltaTip:wkTip,
-        info:{title:'Звонки в Толк',text:'Сотрудники, у которых разговоры в Толк занимают 20–30% рабочего времени. Ниже — у кого больше.\nИзменение без цвета: какая доля нормальна, зависит от роли.'},
-        parts:[{name:'30–50%',n:cur.t35,color:C.talk},{name:'больше 50%',n:cur.t5,color:C.talk2}]}),
-      U.monKpi({label:'Прогулы',value:md.ab25+md.ab5,noDelta:'за 12 недель: '+md.period,
-        info:{title:'Прогулы',text:'Сотрудники, у которых больше одного дня отсутствия за период — последние 12 закрытых недель.\nПоказатель за период: сравнения с прошлой неделей нет.'},
-        parts:[{name:'2–5 дней',n:md.ab25,color:C.per},{name:'больше 5 дней',n:md.ab5,color:C.per2}]}),
-      U.monKpi({label:'Работа в выходные',value:md.we25+md.we5,noDelta:'за 12 недель: '+md.period,
-        info:{title:'Работа в выходные',text:'Сотрудники, которые выходили на работу в выходные больше одного дня за период — последние 12 закрытых недель.\nПоказатель за период: сравнения с прошлой неделей нет.'},
-        parts:[{name:'2–5 дней',n:md.we25,color:C.per},{name:'больше 5 дней',n:md.we5,color:C.per2}]})
-    ].join('')+'</div>';
-  },
+  /* 30.10: KPI-полоса блока снята по просьбе заказчика (плашки KPI — ни на одной вкладке) */
   /* колонки таблицы подразделений: последний закрытый период, сортировка по клику на шапку */
   cols:[
     /* 26.10, ревью критиков: знаменатель — люди с категорией мониторинга, а не «активная численность HQ» (343 > 337) */
