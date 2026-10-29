@@ -163,7 +163,9 @@ function render(S,openRows){
      источника и что подключать дальше — одной строкой, план раскрывается. */
   const live=D.SHOWN.filter(m=>!D.isDev(m.key)).length;
   /* 29.10, п. 3: сводка — всегда; полоса — сверенные метрики */
-  h+=U.devSummary({live,total:D.SHOWN.length,ver:D.SHOWN.filter(m=>D.VERIFIED.has(m.key)).length,plan:D.DEV_PLAN});
+  /* 30.10, шаг 1: служебная сводка «Готовность данных» — в самом низу главной, а не между выводами и таблицами
+     (критики: «шум в зоне главного внимания») */
+  const devS=U.devSummary({live,total:D.SHOWN.length,ver:D.SHOWN.filter(m=>D.VERIFIED.has(m.key)).length,plan:D.DEV_PLAN});
   h+=U.trafficLegend();
 
   /* мини-навигация по блокам: липкая, с точкой худшего сигнала */
@@ -232,7 +234,7 @@ function render(S,openRows){
     h+=U.panel({body:t+'</tbody></table>'});
   });
 
-  return h;
+  return h+devS;
 }
 
 SC.onepager={render,insightCard,moodIco,MOOD_ICO};

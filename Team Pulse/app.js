@@ -279,7 +279,8 @@ function pilotChips(){
     text:'Настоящие цифры:',
     list:['численность, найм, отток, переводы','текучесть, нежелательная и желательная','посещаемость офиса и T-рост — если данные уже пришли'],
     note:'С полосатой меткой «в разработке» — условные цифры. Данные по '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur)+' включительно: текущий месяц ещё не закрыт.'})+
-    '><span class="pl-t">Пробник · часть данных в разработке</span></span>';
+    /* 30.10, шаг 1: служебная метка — коротко, подробности в подсказке */
+    '><span class="pl-t">О данных</span></span>';
   return h;
 }
 
@@ -327,12 +328,19 @@ function renderHead(){
   /* 20.10: последний месяц — текущий, данные по дату данных; закрыт — как раньше */
   if(fr)fr.innerHTML='<span class="dot"></span>'+(D.PARTIAL?'данные на <b>'+esc(D.ASOF_LABEL)+'</b>':'закрытый месяц <b>'+esc(D.CMP.cur)+'</b>');
 }
+/* 30.10, шаг 1 (критики: «красные точки у 5 из 8 пунктов — ощущение пожара»): красная точка — только у блока, вывод
+   которого «Требует действий»; остальные — серые. Тот же источник, что у вывода блока, — точка и вывод не спорят */
+function navSig(bk){
+  const I=window.TPINSIGHTS;
+  if(!I||!I.blockSummary)return D.blockSignal(bk,S).state==='bad'?'bad':'neutral';
+  try{return I.blockSummary(bk,S,D.reportLeaves(S),D.benchmarkLeaves(S)).sev==='high'?'bad':'neutral'}catch(e){return 'neutral'}
+}
 function renderNav(){
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */
   $('#navBlocks').innerHTML=D.visibleBlocks(S).map(b=>
     /* точка у пункта — худший сигнал блока, тем же цветом, что в мини-навигации
        One-pager: в какой блок идти, видно с любой вкладки */
-    '<button class="nav-i'+(S.tab===b.key?' active':'')+'" data-tab="'+b.key+'"><span class="ico sig-'+D.blockSignal(b.key,S).state+'"></span>'+esc(b.name)+
+    '<button class="nav-i'+(S.tab===b.key?' active':'')+'" data-tab="'+b.key+'"><span class="ico sig-'+navSig(b.key)+'"></span>'+esc(b.name)+
       navDev(b.key)+'</button>').join('');
   $$('.nav-i[data-tab="onepager"]').forEach(b=>b.classList.toggle('active',S.tab==='onepager'));
 }
@@ -734,6 +742,9 @@ function stickTotals(){
     const h=t.tHead?t.tHead.getBoundingClientRect().height:0;
     if(h)t.style.setProperty('--thead-h',Math.round(h)+'px');
   });
+  /* 30.10: шаги главы прилипают ровно под липкую шапку карточки графиков — её высота зависит от переносов */
+  $$('.split-r').forEach(r=>{const ph=r.querySelector(':scope>.panel-h');
+    if(ph)r.style.setProperty('--rph',Math.round(ph.getBoundingClientRect().height)+'px')});
 }
 
 /* ---------- разделитель «таблица | графики» ----------
@@ -802,6 +813,11 @@ function spyBlocks(){
   nav.querySelectorAll('[data-jump]').forEach(b=>b.classList.toggle('on',b.dataset.jump===cur));
 }
 on(ENV?ENV.scroller:window,'scroll',()=>{if(!_spy)_spy=requestAnimationFrame(spyBlocks)},{passive:true});
+/* 30.10 (запись прокрутки по кадрам): пока колёсико крутит страницу, наведение не срабатывает —
+   иначе под неподвижным курсором вспыхивают столбцы и строки, которые проезжают мимо */
+let _scT=0;
+on(ENV?ENV.scroller:window,'scroll',()=>{document.documentElement.classList.add('is-scrolling');
+  clearTimeout(_scT);_scT=setTimeout(()=>document.documentElement.classList.remove('is-scrolling'),160)},{passive:true});
 /* Proteus перезапускает скрипт не только на ответ датасета, но и на ресайз и перерисовку ячейки
    (гайд, CJ-10): prelude.js ставит новый корень, и прокрутка начиналась бы сверху — 20.10, видео
    заказчика: во вкладке блока отчёт каждые пару секунд «прыгал» к выводу. Прокрутку экрана и

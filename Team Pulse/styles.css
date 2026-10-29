@@ -2186,34 +2186,13 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    таблица слева, а нижний край — к низу окна на уровне низа таблицы. Графики прокручиваются между ними.
    Над шапкой и под краем — полоса цвета фона с вырезанными скруглениями: она закрывает уезжающее
    содержимое, и углы карточки остаются круглыми. */
+/* 30.10, шаг 1 (критики: «правая часть со скруглениями, таблица нет, по высоте не соотносятся»): карточка графиков
+   прокручивается обычной карточкой — без липкой шапки и полос-масок над и под ней (они давали тень-призрак внизу);
+   липнет только таблица слева и в конце прокрутки встаёт вровень с низом карточки графиков */
 @media (min-width:1121px){
   .split>.split-r{overflow:visible}
-  .split-r>.panel-h{position:sticky;top:calc(var(--head-h,0px) + var(--shelf-h,0px) + 12px);z-index:6;background:#fff;
-    border-radius:var(--radius) var(--radius) 0 0}
-  /* низ: 26 px — нижний отступ страницы на широком экране (24) и 2 px под раскладкой; таблица слева
-     кончается там же (12 сверху + высота окна − 38), поэтому края совпадают и в середине прокрутки,
-     и в самом конце страницы */
-  .split-r>.panel-h::before{content:"";position:absolute;left:-4px;right:-4px;pointer-events:none;height:calc(14px + var(--radius))}
-  .split-r>.panel-cap::after{content:"";position:absolute;left:-4px;right:-4px;pointer-events:none;height:calc(26px + var(--radius))}
-  .split-r>.panel-h::before{bottom:calc(100% - var(--radius));
-    background:radial-gradient(circle at 100% 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) left 4px bottom/var(--radius) var(--radius) no-repeat,
-      radial-gradient(circle at 0 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) right 4px bottom/var(--radius) var(--radius) no-repeat,
-      linear-gradient(var(--bg),var(--bg)) left top/100% 14px no-repeat,
-      linear-gradient(var(--bg),var(--bg)) left top/4px 100% no-repeat,linear-gradient(var(--bg),var(--bg)) right top/4px 100% no-repeat}
-  .split-r>.panel-cap{position:sticky;bottom:26px;z-index:6;height:14px;background:#fff;border-radius:0 0 var(--radius) var(--radius)}
-  .split-r>.panel-cap::after{top:calc(100% - var(--radius));
-    background:radial-gradient(circle at 100% 0,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) left 4px top/var(--radius) var(--radius) no-repeat,
-      radial-gradient(circle at 0 0,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) right 4px top/var(--radius) var(--radius) no-repeat,
-      linear-gradient(var(--bg),var(--bg)) left bottom/100% 26px no-repeat,
-      linear-gradient(var(--bg),var(--bg)) left top/4px 100% no-repeat,linear-gradient(var(--bg),var(--bg)) right top/4px 100% no-repeat}
-}
-@media (max-width:1240px) and (min-width:1121px){
-  .split.wide-l>.split-l{position:static;max-height:none}
-  .split.wide-l>.split-r>.panel-h,.split.wide-l>.split-r>.panel-cap{position:static}
-  .split.wide-l>.split-r>.panel-h::before,.split.wide-l>.split-r>.panel-cap::after{content:none}
 }
 .panel-cap{display:none}
-@media (min-width:1121px){.split-r>.panel-cap{display:block}}
 
 /* Вызревающий месяц (20.10): метка «по 19.10» у потока за незакрытый месяц — нейтральная,
    пунктирная, как незавершённое; пилюля изменения у такой метрики — без оценки */
@@ -2356,7 +2335,74 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    (меню слева остаётся целиком), шире 1920 — не растягивается. min-width — у содержимого: при окне 1280 ему остаётся
    ≈944 px (без меню, отступов и полей) */
 :root{--shell:1920px}
-@media(min-width:781px){
+/* 30.10, шаг 1: прокрутка по горизонтали — только когда окно уже 1280: overflow у .content делает его контейнером
+   прокрутки, и липкая таблица подразделений переставала липнуть (скриншот 29.10: левая карточка кончалась раньше) */
+@media(min-width:781px) and (max-width:1279px){
   .content{overflow-x:auto}
   .content>*{min-width:940px}
 }
+
+/* ==========================================================================
+   30.10, шаг 1 — типографическая шкала (разбор критиков: «всё жирное, всё чёрное, заголовки конкурируют»).
+   Пять ролей: заголовок (одно жирное на блок), число, текст 13/400, вторичное 12/400 серым, рубрика 11 капсом.
+   Внутри текста выделение — цветом (тёмный на сером), а не весом; тег статуса — цветом и точкой, не жирным.
+   Искусственный полужирный (text-stroke) снят. Блок — поверх прежних правил, чтобы его можно было снять целиком.
+   ========================================================================== */
+.in-h,.bk-h{font-size:15px}
+.st-head h3{font-size:15px}
+.page-h h2{font-size:17px}
+.in-t,.bk-tag{font-weight:var(--fw-body)}
+.in-b{color:#5b6475}.in-b b{font-weight:var(--fw-body);color:var(--ink)}
+.bk-f b{font-weight:var(--fw-body);color:var(--ink)}
+.in-pill b{font-weight:var(--fw-body);color:var(--ink)}
+.chip.bench b{font-weight:var(--fw-body);color:var(--ink)}
+.st-head .st-why b{font-weight:var(--fw-body);color:var(--ink2)}.st-head .st-why{color:#5b6475}
+.st-facts b,.st-ins b{font-weight:var(--fw-body);color:var(--ink)}
+.panel-h{font-size:14px;color:var(--ink2)}
+.bt-cap{font-weight:var(--fw-body);color:var(--ink2)}
+.bk-wt{font-size:11px;font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;color:var(--muted2)}
+.bk-wu b{font-weight:var(--fw-body);color:var(--ink)}
+.ptable.dense td.lead,#view .btable td.lead,#view .stable td.lead{font-weight:var(--fw-body);color:var(--ink)}
+.ptable td.txt .row-body,.m-name{-webkit-text-stroke:0}
+/* 30.10, шаг 1: служебный шум шапки — без технического «Ур. N» у названия; мета (база, тип, период) — тише */
+.rh-title .lvl{display:none}
+.chips .chip.bench{color:#5b6475}
+.nocmp{border:0!important;background:none!important;color:var(--muted2)!important;padding:0!important}
+
+/* ==========================================================================
+   30.10, шаг 1 — прокрутка вкладки блока по модели «Google Analytics» (выбор заказчика после записи прокрутки
+   по кадрам: правая карточка резалась о верх и теряла углы, заголовок и шаги; левая была растянута на весь
+   экран с пустотой под тремя строками).
+   — Страница прокручивается целиком. Таблица слева прилипает, но высотой по содержимому (не больше окна —
+     тогда у неё своя прокрутка); карточка графиков — своей высоты, края колонок не обязаны совпадать.
+   — У карточки графиков прилипают шапка и шаги главы: всегда видно, что за глава и какой шаг. Над шапкой —
+     полоса цвета фона с вырезанными скруглениями: уезжающие графики не просвечивают, углы карточки целые.
+   — Верхний край окна прокрутки — мягкое затухание, а не ровный срез.
+   ========================================================================== */
+@media (min-width:1121px){
+  .split{--sp-top:calc(var(--head-h,0px) + var(--shelf-h,0px) + 12px)}
+  .split>.split-l{height:auto}
+  .split>.split-r{min-height:0}
+  .split-l .tbl-wrap{flex:0 1 auto}
+  .split-r>.panel-h{position:sticky;top:var(--sp-top);z-index:6;background:#fff;border-radius:var(--radius) var(--radius) 0 0}
+  .split-r>.panel-h::before{content:"";position:absolute;left:-4px;right:-4px;bottom:calc(100% - var(--radius));
+    height:calc(14px + var(--radius));pointer-events:none;
+    background:radial-gradient(circle at 100% 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) left 4px bottom/var(--radius) var(--radius) no-repeat,
+      radial-gradient(circle at 0 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) right 4px bottom/var(--radius) var(--radius) no-repeat,
+      linear-gradient(var(--bg),var(--bg)) left top/100% 14px no-repeat,
+      linear-gradient(var(--bg),var(--bg)) left top/4px 100% no-repeat,linear-gradient(var(--bg),var(--bg)) right top/4px 100% no-repeat}
+  .split-r .st-steps{position:sticky;top:calc(var(--sp-top) + var(--rph,59px));z-index:5;background:#fff;
+    box-shadow:0 -16px 0 #fff,-20px 0 0 #fff,20px 0 0 #fff,-20px -16px 0 #fff,20px -16px 0 #fff}
+  /* под шагами — подложка во всю ширину карточки и мягкий переход: уезжающие графики не режутся о край шагов */
+  .split-r .st-steps::after{content:"";position:absolute;left:-20px;right:-20px;top:100%;height:14px;pointer-events:none;
+    background:linear-gradient(#fff,rgba(255,255,255,0))}
+}
+@media (min-width:1121px){
+  .content::before{content:"";display:block;position:sticky;top:0;z-index:7;height:14px;margin:-18px -26px 4px;
+    background:linear-gradient(var(--bg),rgba(244,245,247,0));pointer-events:none}
+}
+/* закреплённые вкладки one-pager — непрозрачная подложка и тонкая линия, без просвечивающих заголовков */
+.op-nav{background:var(--bg);box-shadow:0 1px 0 var(--line)}
+.is-scrolling .content{pointer-events:none}
+.op-nav::after{content:"";position:absolute;left:0;right:0;top:100%;height:16px;pointer-events:none;
+  background:linear-gradient(var(--bg),rgba(244,245,247,0))}

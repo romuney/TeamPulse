@@ -200,9 +200,13 @@ checks.push(['один скролл: таблица подразделений s
   /\.split-r \.panel-b,\.split-r \.panel-b\.st-on\{overflow:visible;height:auto\}/.test(cssAll)&&
   /overscroll-behavior:contain/.test(cssAll)&&
   /* края карточки графиков видны всегда и стоят на одной линии с таблицей (скриншот 20.10) */
-  /max-height:calc\(var\(--vh,100vh\) - var\(--head-h,0px\) - var\(--shelf-h,0px\) - 38px\)/.test(cssAll)&&/\.split-r>\.panel-cap\{position:sticky;bottom:26px/.test(cssAll)&&
-  /\.split-r>\.panel-h\{position:sticky;top:calc\(var\(--head-h,0px\) \+ var\(--shelf-h,0px\) \+ 12px\)/.test(cssAll)&&
-  /class="panel-cap"/.test(A.go('turnover','dynamics'))]);
+  /max-height:calc\(var\(--vh,100vh\) - var\(--head-h,0px\) - var\(--shelf-h,0px\) - 38px\)/.test(cssAll)&&
+  /* 30.10, шаг 1 (модель «как в GA»): таблица — по содержимому, у карточки графиков липнут шапка и шаги главы,
+     нижней маски нет; горизонтальный скролл .content — только уже 1280 */
+  !/\.split-r>\.panel-cap\{position:sticky/.test(cssAll)&&/\.split-r>\.panel-h\{position:sticky;top:var\(--sp-top\)/.test(cssAll)&&
+  /\.split-r \.st-steps\{position:sticky;top:calc\(var\(--sp-top\) \+ var\(--rph,59px\)\)/.test(cssAll)&&
+  /\.split>\.split-l\{height:auto\}/.test(cssAll)&&/\.split>\.split-r\{min-height:0\}/.test(cssAll)&&
+  /@media\(min-width:781px\) and \(max-width:1279px\)\{\s*\.content\{overflow-x:auto\}/.test(cssAll)]);
 checks.push(['перезапуск скрипта держит прокрутку экрана и панелей',
   /STORE\.scroll=\{k:viewKey\(\)/.test(appSrc)&&/back=ENV&&\(!pend0\|\|pend0==='stale'\)&&STORE\.scroll/.test(appSrc)&&
   /ENV\.scroller\.scrollTop=back\.y/.test(appSrc)&&/STORE\.scroll=null/.test(appSrc)]);

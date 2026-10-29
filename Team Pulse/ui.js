@@ -266,7 +266,7 @@ function infoDot(key){
 }
 
 const NOCMP_HINT='Это количество, а не доля: оно зависит от размера подразделения, поэтому с базой не сравнивается.';
-function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Без сравнения',text:NOCMP_HINT})+'>не сравнивается</span>'}
+function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Без сравнения',text:NOCMP_HINT})+'>—</span>'} /* 30.10, шаг 1: прочерк вместо «не сравнивается» в каждой строке; почему — в подсказке */
 /* Руководитель юнита под именем строки (14.10): «Имя Фамилия · логин».
    Нет данных (пробник без источника, строка «Напрямую в «X»») — ничего. */
 function unitHead(n){
@@ -836,12 +836,15 @@ function chapters(list,active){
    строку прячет CSS — совет уже в колонке. */
 /* why / todo — «Зачем смотреть» и «Что с этим делать»: обычным текстом, не
    в подсказке (фидбэк 12.10); термины в них — с определениями по наведению */
+const ST_ACT=false;
 function storyHead(head,lede,act,why,todo){
   if(!head&&!lede&&!why)return'';
   return '<div class="st-head">'+(head?'<h3>'+richText(head)+'</h3>':'')+(lede?'<p>'+richText(lede)+'</p>':'')+
     (why||todo?'<div class="st-why">'+(why?'<p><b>Зачем смотреть.</b> '+richText(why)+'</p>':'')+
       (todo?'<p><b>Что с этим делать.</b> '+richText(todo)+'</p>':'')+'</div>':'')+
-    (act?'<div class="st-act-in"><span>'+richText(act.text)+'</span>'+
+    /* 30.10, шаг 1: совет «Что сделать» — один на вкладку, в выводе блока сверху; здесь и в колонке справа его нет
+       (критики: «начните с 3.3» и «начните с 3.1» на одном экране) */
+    (act&&ST_ACT?'<div class="st-act-in"><span>'+richText(act.text)+'</span>'+
       (act.node?'<button class="btn xs" data-selnode="'+esc(act.node)+'">Показать «'+esc(act.name)+'»</button>':'')+'</div>':'')+
     '</div>';
 }
@@ -855,7 +858,7 @@ function storyRail(o){
     facts.map(x=>'<li>'+richText(x)+'</li>').join('')+'</ul></div>';
   /* 29.10, п. 5: в саммари главы — только текст: таблица «Где …» дублировала таблицу подразделений слева, её больше
      нет; где сосредоточено — одной фразой в «Что сделать» (o.act) */
-  if(o.act)h+='<div class="st-act"><div class="st-cap">Что сделать</div><p>'+richText(o.act.text)+'</p>'+
+  if(o.act&&ST_ACT)h+='<div class="st-act"><div class="st-cap">Что сделать</div><p>'+richText(o.act.text)+'</p>'+
     (o.act.node?'<button class="btn xs" data-selnode="'+esc(o.act.node)+'">Показать «'+esc(o.act.name)+'»</button>':'')+'</div>';
   return h?'<aside class="st-rail">'+h+'</aside>':'';
 }
