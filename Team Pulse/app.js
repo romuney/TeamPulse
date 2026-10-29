@@ -679,7 +679,7 @@ function render(keepScroll,quiet){
   if(sc){if(keepScroll)sc.scrollTop=yy;else if(sc.scrollTo)sc.scrollTo({top:0,behavior:'smooth'})}
   else if(keepScroll)window.scrollTo(0,yy);
   else window.scrollTo({top:0,behavior:'smooth'});
-  spyBlocks();
+  spyBlocks();requestAnimationFrame(navFree);
   if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitUnit,splitShare}}
 }
 
@@ -813,6 +813,12 @@ function spyBlocks(){
   nav.querySelectorAll('[data-jump]').forEach(b=>b.classList.toggle('on',b.dataset.jump===cur));
 }
 on(ENV?ENV.scroller:window,'scroll',()=>{if(!_spy)_spy=requestAnimationFrame(spyBlocks)},{passive:true});
+/* 30.10: «Сводка» слева примыкает к белой шапке отчёта прямым углом; когда шапка уехала вверх, угол плавно
+   скругляется (сводка круглая со всех сторон), вернулись наверх — снова смыкается с шапкой */
+let _nf=0;
+function navFree(){_nf=0;const nv=$('.nav'),rh=$('.reporthead');if(!nv||!rh)return;
+  ROOTEL.classList.toggle('nav-free',rh.getBoundingClientRect().bottom<=nv.getBoundingClientRect().top+16)}
+on(ENV?ENV.scroller:window,'scroll',()=>{if(!_nf)_nf=requestAnimationFrame(navFree)},{passive:true});
 /* 30.10 (запись прокрутки по кадрам): пока колёсико крутит страницу, наведение не срабатывает —
    иначе под неподвижным курсором вспыхивают столбцы и строки, которые проезжают мимо */
 let _scT=0;

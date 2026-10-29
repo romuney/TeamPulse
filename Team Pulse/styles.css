@@ -945,6 +945,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .tp-pilot{background:var(--bg)}
   .tp-pilot .nav{border-radius:var(--r4) 0 var(--r4) var(--r4)}
   .tp-pilot .reporthead{border-radius:0 var(--r4) var(--r4) 0}
+  .tp-pilot .nav{transition:border-top-right-radius .2s ease}
+  .tp-pilot.nav-free .nav{border-top-right-radius:var(--r4)}
 }
 
 .layout{min-height:calc(var(--vh,100vh) - var(--head-h));align-items:stretch}
