@@ -616,15 +616,16 @@ const EXIT_INITIATORS=[
 {key:'oth',name:'Другое',note:'соглашение сторон, конец договора, не указано'}
 ];
 
-/* ---------- Атрибуты фильтров ---------- */
-const PAINTS=[{key:'all',name:'Все покраски',chip:null},{key:'HQ',name:'HQ',chip:'HQ'},{key:'Line',name:'Line',chip:'Line'},{key:'Support',name:'Support',chip:'Support'}];
+/* ---------- Атрибуты фильтров ----------
+   Поставка 84 (заказчик): в окне настройки подписи короткие — «Все», «IT», «Штат», без «только» */
+const PAINTS=[{key:'all',name:'Все',chip:null},{key:'HQ',name:'HQ',chip:'HQ'},{key:'Line',name:'Line',chip:'Line'},{key:'Support',name:'Support',chip:'Support'}];
 /* В пробнике у IT-специализации три значения — IT, Digital и NonIT: Digital
    третьим значением, как в hr_structure_overall, а не внутри IT. */
 const ITSEGS=REAL
-  ? [{key:'all',name:'IT, Digital и nonIT',chip:null},{key:'IT',name:'Только IT',chip:'IT'},
-     {key:'Digital',name:'Только Digital',chip:'Digital'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}]
-  : [{key:'all',name:'IT и nonIT',chip:null},{key:'IT',name:'Только IT',chip:'IT'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}];
-const STAFFTYPES=[{key:'all',name:'Штат и не штат',chip:null},{key:'staff',name:'Только штат',chip:'штат'},{key:'nonstaff',name:'Только не штат',chip:'не штат'}];
+  ? [{key:'all',name:'Все',chip:null},{key:'IT',name:'IT',chip:'IT'},
+     {key:'Digital',name:'Digital',chip:'Digital'},{key:'nonIT',name:'nonIT',chip:'nonIT'}]
+  : [{key:'all',name:'Все',chip:null},{key:'IT',name:'IT',chip:'IT'},{key:'nonIT',name:'nonIT',chip:'nonIT'}];
+const STAFFTYPES=[{key:'all',name:'Все',chip:null},{key:'staff',name:'Штат',chip:'штат'},{key:'nonstaff',name:'Не штат',chip:'не штат'}];
 /* Тип численности (22.10, поставка 61): фильтр людей по active_type_nm — любой набор типов,
    выпадающим списком (типов много). По умолчанию — тип «Активная» (в пробнике — meta.act_def датасета);
    подрядчики в активную не входят — их добавляют галочкой. Отмечены все — все, кто числится. Не разрез:

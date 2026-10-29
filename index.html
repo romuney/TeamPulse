@@ -2502,6 +2502,13 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   background:var(--blue-bg);color:var(--act-ink);font-size:12px}
 .page-h .ph-scope::before{content:"i";display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;
   background:var(--act);color:#fff;font:700 10px/1 Arial}
+/* поставка 84 (заказчик): галочка была повёрнутым уголком из рамок — после поворота она съезжала вниз-вправо.
+   Теперь векторная, по центру квадрата */
+.mp-i.on .box::after{inset:0;left:0;top:0;width:auto;height:auto;border:0;transform:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.6 9.6 3.6' fill='none' stroke='%23fff' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+/* пилюли фильтров окна настройки — компактнее (подписи короткие: «Все», «IT», «Штат») */
+#optPaint .opt,#optIt .opt,#optStaff .opt{padding:5px 10px}
+#optPaint .opt .opt-n,#optIt .opt .opt-n,#optStaff .opt .opt-n{margin-left:5px}
 
 </style>
 </head>
@@ -3290,15 +3297,16 @@ const EXIT_INITIATORS=[
 {key:'oth',name:'Другое',note:'соглашение сторон, конец договора, не указано'}
 ];
 
-/* ---------- Атрибуты фильтров ---------- */
-const PAINTS=[{key:'all',name:'Все покраски',chip:null},{key:'HQ',name:'HQ',chip:'HQ'},{key:'Line',name:'Line',chip:'Line'},{key:'Support',name:'Support',chip:'Support'}];
+/* ---------- Атрибуты фильтров ----------
+   Поставка 84 (заказчик): в окне настройки подписи короткие — «Все», «IT», «Штат», без «только» */
+const PAINTS=[{key:'all',name:'Все',chip:null},{key:'HQ',name:'HQ',chip:'HQ'},{key:'Line',name:'Line',chip:'Line'},{key:'Support',name:'Support',chip:'Support'}];
 /* В пробнике у IT-специализации три значения — IT, Digital и NonIT: Digital
    третьим значением, как в hr_structure_overall, а не внутри IT. */
 const ITSEGS=REAL
-  ? [{key:'all',name:'IT, Digital и nonIT',chip:null},{key:'IT',name:'Только IT',chip:'IT'},
-     {key:'Digital',name:'Только Digital',chip:'Digital'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}]
-  : [{key:'all',name:'IT и nonIT',chip:null},{key:'IT',name:'Только IT',chip:'IT'},{key:'nonIT',name:'Только nonIT',chip:'nonIT'}];
-const STAFFTYPES=[{key:'all',name:'Штат и не штат',chip:null},{key:'staff',name:'Только штат',chip:'штат'},{key:'nonstaff',name:'Только не штат',chip:'не штат'}];
+  ? [{key:'all',name:'Все',chip:null},{key:'IT',name:'IT',chip:'IT'},
+     {key:'Digital',name:'Digital',chip:'Digital'},{key:'nonIT',name:'nonIT',chip:'nonIT'}]
+  : [{key:'all',name:'Все',chip:null},{key:'IT',name:'IT',chip:'IT'},{key:'nonIT',name:'nonIT',chip:'nonIT'}];
+const STAFFTYPES=[{key:'all',name:'Все',chip:null},{key:'staff',name:'Штат',chip:'штат'},{key:'nonstaff',name:'Не штат',chip:'не штат'}];
 /* Тип численности (22.10, поставка 61): фильтр людей по active_type_nm — любой набор типов,
    выпадающим списком (типов много). По умолчанию — тип «Активная» (в пробнике — meta.act_def датасета);
    подрядчики в активную не входят — их добавляют галочкой. Отмечены все — все, кто числится. Не разрез:

@@ -2494,3 +2494,10 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   background:var(--blue-bg);color:var(--act-ink);font-size:12px}
 .page-h .ph-scope::before{content:"i";display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;
   background:var(--act);color:#fff;font:700 10px/1 Arial}
+/* поставка 84 (заказчик): галочка была повёрнутым уголком из рамок — после поворота она съезжала вниз-вправо.
+   Теперь векторная, по центру квадрата */
+.mp-i.on .box::after{inset:0;left:0;top:0;width:auto;height:auto;border:0;transform:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.6 9.6 3.6' fill='none' stroke='%23fff' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+/* пилюли фильтров окна настройки — компактнее (подписи короткие: «Все», «IT», «Штат») */
+#optPaint .opt,#optIt .opt,#optStaff .opt{padding:5px 10px}
+#optPaint .opt .opt-n,#optIt .opt .opt-n,#optStaff .opt .opt-n{margin-left:5px}
