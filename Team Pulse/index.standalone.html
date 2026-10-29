@@ -11840,7 +11840,7 @@ function render(keepScroll,quiet){
   if(sc){if(keepScroll)sc.scrollTop=yy;else if(sc.scrollTo)sc.scrollTo({top:0,behavior:'smooth'})}
   else if(keepScroll)window.scrollTo(0,yy);
   else window.scrollTo({top:0,behavior:'smooth'});
-  spyBlocks();requestAnimationFrame(navFree);
+  spyBlocks();navFree();
   if(STORE){STORE.S=S;STORE.ui={tq,splitMode,splitUnit,splitShare}}
 }
 
@@ -11977,7 +11977,7 @@ on(ENV?ENV.scroller:window,'scroll',()=>{if(!_spy)_spy=requestAnimationFrame(spy
 /* 30.10: «Сводка» слева примыкает к белой шапке отчёта прямым углом; когда шапка уехала вверх, угол плавно
    скругляется (сводка круглая со всех сторон), вернулись наверх — снова смыкается с шапкой */
 let _nf=0;
-function navFree(){_nf=0;const nv=$('.nav'),rh=$('.reporthead');if(!nv||!rh)return;
+function navFree(){_nf=0;const nv=$('.nav'),rh=$('.reporthead');if(!nv||!rh||!ROOTEL.classList)return;
   ROOTEL.classList.toggle('nav-free',rh.getBoundingClientRect().bottom<=nv.getBoundingClientRect().top+16)}
 on(ENV?ENV.scroller:window,'scroll',()=>{if(!_nf)_nf=requestAnimationFrame(navFree)},{passive:true});
 /* 30.10 (запись прокрутки по кадрам): пока колёсико крутит страницу, наведение не срабатывает —
