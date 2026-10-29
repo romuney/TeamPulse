@@ -991,6 +991,9 @@ on(document,'click',e=>{
   if(rs){S.rostSt=rs.dataset.rostst;render(true);return}
   const gr=t.closest('[data-mongran]');
   if(gr){S.monGran=gr.dataset.mongran;S.monMark=null;render(true);return}
+  /* 31.10, AI: месяц / неделя у «Пользуются ли AI?» */
+  const ag=t.closest('[data-aigran]');
+  if(ag){S.aiGran=ag.dataset.aigran;render(true);return}
   const pm=t.closest('[data-pmark]');
   if(pm){e.stopPropagation();const i=+pm.dataset.pmark;S.monMark=S.monMark===i?null:i;render(true);return}
   const tso=t.closest('[data-tsort]');

@@ -394,8 +394,23 @@ checks.push(['T-рост: конверсия с решениями на одно
 checks.push(['офис — календарь, «кто и где ходит» (22.10: города, кто ходит и динамика — одна вкладка), бронирование',
   subsOf('office')==='calendar,attend,booking']);
 /* 28.10, п. 4: все графики AI из «Готовности данных» — вкладка «Как пользуются» (условные) */
-checks.push(['AI — проникновение, инструменты, как пользуются (все графики из готовности данных)',subsOf('ai')==='adoption,tools,usage'&&
-  ['по неделям','Частота использования','Инструментов на человека','Воронка сообщений','Топ задач','по IT-коду','Стажёры','Конструктор'].every(t=>allHtml.indexOf(t)>=0)]);
+/* 31.10, «AI.md»: три раздела — пользуются ли, кто, как; без сравнения с прошлым годом; месяц / неделя */
+const aiA=A.go('ai','adoption'), aiW=A.go('ai','who'), aiU=A.go('ai','usage');
+checks.push(['AI — «Пользуются ли AI?», «Кто пользуется?», «Как пользуется?», без прошлого года',subsOf('ai')==='adoption,who,usage'&&
+  /data-aigran="m"/.test(aiA)&&/data-aigran="w"/.test(aiA)&&/Проникновение AI по месяцам/.test(aiA)&&/Активные пользователи AI по месяцам/.test(aiA)&&
+  !new RegExp('data-sid="prev"|>'+D.YEAR_PREV+'<').test(aiA)&&
+  ['Стажёры','Какими инструментами пользуются стажёры','Как часто пользуются стажёры','Инструменты по покраске','NonIT','Конструктор'].every(t=>aiW.indexOf(t)>=0)&&
+  ['Частота использования','Инструментов на человека','Топ инструментов','Воронка сообщений','Классификация сообщений'].every(t=>aiU.indexOf(t)>=0)]);
+/* 31.10, «AI.md»: расчёты сходятся — частота и инструментов на человека = активные, классы = классифицированные,
+   % стажёров = из людей, проникновение = активные / численность того же месяца, сегменты IT / Digital / NonIT все */
+{
+  const lp=D.reportLeaves(D.DEFAULT_STATE), u=D.aiUsage(lp), sm=a=>a.reduce((x,y)=>x+y.value,0);
+  const pen=D.aggregate(lp,'ai_penetration'), wau=D.aggregate(lp,'ai_wau'), den=D.aggregate(lp,D.METRIC_BY_KEY.ai_penetration.derived.den);
+  checks.push(['AI: суммы сходятся, % стажёров из людей, проникновение = активные / численность месяца',
+    sm(u.freq)===u.act&&sm(u.per)===u.act&&u.dev.reduce((a,d)=>a+sm(d.tasks),0)===u.cls&&u.dev.reduce((a,d)=>a+d.msgs,0)===u.cls&&
+    Math.abs(u.intern.pen-u.intern.act/u.intern.hc*100)<0.06&&u.intern.freq.reduce((a,b)=>a+b,0)===u.intern.act&&
+    u.bySeg.map(x=>x.name).join()==='IT,Digital,NonIT'&&pen.every((p,i)=>p==null||!den[i]||Math.abs(p-wau[i]/den[i]*100)<0.06)]);
+}
 /* неизвестная под-вкладка из старой ссылки не должна ломать экран */
 checks.push(['неизвестная под-вкладка откатывается на дефолтную',
   A.go('hiring','speed').length>400&&A.go('tgrowth','conv').length>400]);
@@ -1207,7 +1222,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     sum(D.attByRoleLoc(rl0).map(r=>r.hc))===Math.round(e('hc_total'))]);
   const ai=D.aiProfile(rl0);
   checks.push(['AI: ни один инструмент не выше общего проникновения, стримов нет (15.10)',
-    !ai.streams&&ai.tools.every(t=>t.value<=ai.pen)&&!/Сравнение стримов/.test(A.go('ai','tools'))]);
+    !ai.streams&&ai.tools.every(t=>t.value<=ai.pen)&&!/Сравнение стримов/.test(A.go('ai','usage'))]);
   /* 14.10: «Оформление» и «География» — одна глава «Как оформлены и где работают» */
   /* 22.10: регион — внизу портрета таблицей и в конструкторе; в «Оформлении» его нет */
   checks.push(['регион — в портрете и конструкторе, не в «Оформлении»; матрица «регион × специализация» сходится',
@@ -1243,7 +1258,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* 15.10, редполитика (TEXT_GUIDE.md): сноски — как читать таблицу, а не как устроены данные */
   checks.push(['сноски вкладок без кухни: ни «на проде», ни «в макете», ни имён таблиц',
     [['hiring','profile'],['turnover','reasons'],['turnover','who'],
-     ['office','booking'],['ai','tools'],['tgrowth','grades']].every(([b,sb])=>{
+     ['office','booking'],['ai','who'],['ai','usage'],['tgrowth','grades']].every(([b,sb])=>{
       const h=A.go(b,sb), notes=(h.match(/<div class="tbl-note">[\s\S]*?<\/div>/g)||[]).join(' ');
       return notes&&!/на проде|в макете|сгенерирован|_[a-z]+_|SOURCES|дашборд \d/i.test(notes);
     })]);
@@ -1735,7 +1750,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /data-tab="ai"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&
     !/data-tab="movement"[^>]*>[^<]*<span class="ico[^"]*"><\/span>[^<]*<span class="nav-dev/.test(nav)&&SC.blockDev('office')==='part']);
   /* 27.10-в, п. 4: план найма скрыт — плашку проверяем на T-росте «По грейдам» */
-  const hv=A.go('hiring','vacancies'), hp=A.go('tgrowth','grades'), mv=A.go('movement',null), at=A.go('ai','tools');
+  const hv=A.go('hiring','vacancies'), hp=A.go('tgrowth','grades'), mv=A.go('movement',null), at=A.go('ai','who');
   checks.push(['«в разработке»: плашка вкладки — источник и «что нужно» по-человечески, шаги степпера помечены',
     /class="dev-note"[\s\S]*?источник: [^<]+[\s\S]*?Что нужно:/.test(hp)&&!/dev-note/.test(hv)&&
     /st-step[^"]*dev-full/.test(hp)&&!/st-step[^"]*dev-/.test(hv)&&/class="dev-note"/.test(at)&&/st-step[^"]*dev-full/.test(at)&&!/dev-note/.test(mv)]);

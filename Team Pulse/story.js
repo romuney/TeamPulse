@@ -137,16 +137,16 @@ const Q={
   tgrowth:{flow:'Растут ли люди внутри?',grades:'Как растут по грейдам?',spec:'Как меняют специализацию?'},
   monitor:{activity:'Рабочая активность',review:'Как прошло ревью?'},
   office:{calendar:'Когда ходят?',attend:'Кто и где ходит?',booking:'Соблюдают бронь?'},
-  ai:{adoption:'Пользуются ли AI?',tools:'Чем пользуются?',usage:'Как пользуются?'}
+  ai:{adoption:'Пользуются ли AI?',who:'Кто пользуется?',usage:'Как пользуется?'}
 };
 
 /* сравнение с базой одной фразой: «чаще / реже / на уровне» */
-function vsBase(j,c,more,less,same){
+function vsBase(j,c,more,less,same,noYoy){
   /* 30.10, критики: «Конверсия на уровне базы» при пустом значении — за месяц нет событий, так и пишем */
   if(j.v==null)return 'За '+mNom(j.i)+' нет данных — не с чем сравнить';
   return (j.st==='bad'||j.st==='good'
     ? ((j.v>j.base)?more:less)+', чем '+inBase(c)
-    : same+' «'+c.bench+'»')+yoyTail(j,c,more,less);
+    : same+' «'+c.bench+'»')+(noYoy?'':yoyTail(j,c,more,less));
 }
 /* 30.10, критики («две точки сравнения»): глава сравнивает с базой, вывод блока — с прошлым годом. Если год к году
    картина обратная, заголовок говорит обе вещи сразу: «Повышают чаще, чем в базе, но реже, чем год назад» */
@@ -434,25 +434,30 @@ CH.office={
 
 /* ===== AI-инструменты ===== */
 CH.ai={
+  /* 31.10, «AI.md», п. 1: без сравнения с прошлым годом — база и последние 12 месяцев */
   adoption(c){
-    const p=judge('ai_penetration',c), s0=yearAgo(c.lp,'ai_penetration'), wau=D.lastVal(c.lp,'ai_wau');
+    const p=judge('ai_penetration',c), s=ser(c.lp,'ai_penetration'), wau=D.lastVal(c.lp,'ai_wau');
+    const i0=s.findIndex(v=>v!=null), s0=i0>=0?s[i0]:null;
     const fo=focusRate(c,'ai_penetration','Проникновение по подразделениям');
     return {sum:f('ai_penetration',p.v),st:p.st,
-      head:vsBase(p,c,'AI пользуются больше','AI пользуются меньше','Проникновение AI — на уровне базы')+
+      head:vsBase(p,c,'AI пользуются больше','AI пользуются меньше','Проникновение AI — на уровне базы',true)+
         (p.base!=null?': '+f('ai_penetration',p.v)+' против '+f('ai_penetration',p.base):''),
-      /* 26.10, ревью критиков: «за год» — к тому же месяцу год назад, как в карточке (было — к первому месяцу окна) */
-      lede:s0!=null&&p.v!=null?'За год проникновение '+(p.v>=s0?'выросло':'снизилось')+' с **'+f('ai_penetration',s0)+
-        '** до **'+f('ai_penetration',p.v)+'**; активных пользователей в неделю — **'+D.fmtInt(wau)+'**.':'',
-      focus:fo.focus,act:fo.act,ann:{ai_penetration:{hi:[D.LAST]},ai_wau:{hi:[D.LAST]}}};
+      lede:s0!=null&&p.v!=null?'За 12 месяцев проникновение '+(p.v>=s0?'выросло':'снизилось')+' с **'+f('ai_penetration',s0)+
+        '** ('+mNom(i0)+') до **'+f('ai_penetration',p.v)+'**; активных пользователей — **'+D.fmtInt(wau)+'**.':'',
+      focus:fo.focus,act:fo.act};
   },
-  tools(c){
-    const ai=D.aiProfile(c.lp);
-    const ts=ai.tools.slice().sort((a,b)=>b.value-a.value), t=ts[0], w=ts[ts.length-1];
+  who(c){
+    const u=D.aiUsage(c.lp), it=u.intern;
+    return {sum:'стажёры — '+f('ai_penetration',it.pen),st:'n',
+      head:'AI пользуются '+f('ai_penetration',it.pen)+' стажёров — '+(it.pen>=u.pen?'не меньше':'меньше')+', чем в команде ('+f('ai_penetration',u.pen)+')',
+      lede:'Стажёров **'+D.fmtInt(it.hc)+'**, из них с AI — **'+D.fmtInt(it.act)+'**. Ниже — какими инструментами пользуются IT, Digital и NonIT.'};
+  },
+  usage(c){
+    const u=D.aiUsage(c.lp), ts=u.tools.slice().sort((a,b)=>b.value-a.value), t=ts[0];
     if(!t)return {sum:'нет данных',st:'n'};
     return {sum:'лидер — «'+t.name+'»',st:'n',
       head:'«'+t.name+'» — самый популярный инструмент: '+f('ai_penetration',t.value)+' сотрудников',
-      lede:'Реже всего пользуются «'+w.name+'» — **'+f('ai_penetration',w.value)+'**. Всего AI пользуются **'+
-        f('ai_penetration',ai.pen)+'** сотрудников.'};
+      lede:'Классифицировано **'+Math.round(u.cls/(u.msgs||1)*100)+'%** сообщений инструментов разработчика.'};
   }
 };
 
@@ -665,10 +670,10 @@ const WHY={
   ai:{
     adoption:['{{Проникновение AI|Проникновение}} — какая доля людей пользуется AI каждую неделю, {{WAU}} — сколько это человек.',
       'Отстающие подразделения — кандидаты на обучение и пилоты.'],
-    tools:['Какими AI-инструментами пользуются и насколько широко.',
-      'Инструмент, которым почти не пользуются, — спросите команду, чего в нём не хватает.'],
-    usage:['Как часто и для каких задач пользуются AI: по неделям, по дням в неделю, по сегментам и у стажёров.',
-      'Пользуются редко — покажите команде задачи, где AI экономит время; стажёры отстают — добавьте AI в онбординг.']}
+    who:['Кто пользуется AI: стажёры и сегменты IT, Digital и NonIT по инструментам.',
+      'Стажёры отстают — добавьте AI в онбординг. Сегмент почти не пользуется инструментом — спросите, чего в нём не хватает.'],
+    usage:['Как часто и чем пользуются AI: дни в неделю, инструментов на человека, топ инструментов и для каких задач пишут сообщения.',
+      'Пользуются редко — покажите команде задачи, где AI экономит время.']}
 };
 
 /* ---------- сборка книги блока ----------

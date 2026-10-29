@@ -6,11 +6,10 @@
    самый заметный разрыв бизнес-анализа. «Команда против компании» — ровно та
    механика, на которой стоит весь отчёт: база сравнения выводится из фильтров.
 
-   «Проникновение»        — доля сотрудников с AI за неделю против базы и
-                            активные пользователи (WAU) по месяцам.
-   «Инструменты»          — чем пользуются. Разбивка по стримам снята 15.10:
-                            в каталоге HQ — «по покраске в разрезе инструментов»
-                            (в плане подключения).
+   31.10 (файл «AI.md»): три раздела без сравнения с прошлым годом —
+   «Пользуются ли AI?»  — проникновение и активные пользователи одной линией за 12 месяцев, месяц / неделя;
+   «Кто пользуется?»    — стажёры, инструменты по покраске IT / Digital / NonIT, конструктор;
+   «Как пользуется?»    — частота, инструментов на человека, топ инструментов, воронка и классификация сообщений.
    ========================================================================== */
 (function(){
 'use strict';
@@ -25,54 +24,75 @@ function tbl(cap,sub,head,rows){
     '</tr></thead><tbody>'+rows.map(r=>'<tr'+(r.cls?' class="'+r.cls+'"':'')+'>'+r.c.map((v,i)=>'<td'+(i?'':' class="txt"')+'>'+
       esc(String(v))+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
 }
-function bars(cap,sub,items,valueHead){
-  return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:valueHead||'Человек',metricKey:'hc_total',compact:true,
-    items:items.map(x=>({name:x.name,value:x.value,color:G.C_AI}))});
+function bars(cap,sub,items,valueHead,o){
+  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:valueHead||'Человек',metricKey:'hc_total',compact:true,
+    items:items.map(x=>({name:x.name,note:x.note,value:x.value,color:G.C_AI}))},o||{}));
 }
-function usage(u){
-  const P=v=>D.fmtVal('ai_penetration',v), I=D.fmtInt;
-  return G.chart('pline',{periods:u.weeks,key:'pen'},{title:'Проникновение AI по неделям, %',name:'Проникновение',fmt:'pct',h:200})+
-    G.chart('pline',{periods:u.weeks,key:'wau'},{title:'Активные пользователи AI по неделям (WAU), чел',name:'WAU',fmt:'int',h:200})+
-    U.btStack([bars('Частота использования','дней с AI за неделю · активные пользователи',u.freq),
-      bars('Инструментов на человека','активные пользователи',u.per)])+
-    tbl('Воронка сообщений','инструменты разработчика · за неделю',['','Сообщений'],
-      [{c:['Все сообщения',I(u.msgs)]},{c:['Классифицированы',I(u.cls)]},{c:['Не классифицированы',I(u.msgs-u.cls)]}])+
-    U.btStack(u.dev.map(d=>bars('Топ задач: '+d.name,'сообщений · всего '+I(d.msgs),d.tasks,'Сообщений')))+
-    tbl('Проникновение по IT-коду и инструменту','% численности сегмента',['IT-код','Численность'].concat(u.tools.map(t=>t.name)),
-      u.bySeg.map(x=>({c:[x.name,I(x.hc)].concat(x.cells.map(P))})))+
-    tbl('Стажёры','пользуются ли AI и как часто',['','Значение'],
-      [{c:['Стажёров',I(u.intern.hc)]},{c:['Пользуются AI',I(u.intern.act)+' · '+P(u.intern.pen)]},
-       {c:['1–2 дня в неделю',I(u.intern.freq[0])]},{c:['3–4 дня',I(u.intern.freq[1])]},{c:['5 дней и больше',I(u.intern.freq[2])]}]
-       .concat(u.intern.tools.map(t=>({c:[t.name,P(t.value)]}))))+
+/* проценты — без колонки «Доля» и без ИТОГО: проценты не складываются */
+const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'% людей',{metricKey:'ai_penetration',share:false,total:false});
+
+/* 31.10, файл «AI.md», п. 1 и 4: без сравнения с прошлым годом — одна линия за последние 12 месяцев (ось — месяцы окна
+   отчёта, сколько их есть), переключатель «Месяц / Неделя». Проникновение и активные пользователи по месяцам — из
+   источника (знаменатель проникновения — численность того же месяца под фильтрами); по неделям — условно (D.aiUsage) */
+function adoption(ctx){
+  const S=ctx.S, gran=S.aiGran==='w'?'w':'m', u=D.aiUsage(ctx.lp);
+  const pen=D.aggregate(ctx.lp,'ai_penetration'), wau=D.aggregate(ctx.lp,'ai_wau');
+  const P=gran==='w'?u.weeks:D.MONTHS.map((m,i)=>({label:m.label,full:D.MONTH_NOM[m.m]+' '+m.y,pen:pen[i],wau:wau[i]}));
+  const per=gran==='w'?'по неделям':'по месяцам';
+  return '<div class="mon-bar">'+U.segToggle('data-aigran',[['m','Месяц'],['w','Неделя']],gran)+
+      '<span class="mon-note">'+(gran==='w'?'12 последних закрытых недель':'Последние 12 месяцев')+'</span></div>'+
+    (gran==='w'?U.devNote({stage:8,part:true,t:'По неделям — пока условно: нужна недельная AI-выгрузка. По месяцам — настоящие данные.'}):'')+
+    G.chart('pline',{periods:P,key:'pen'},{title:'Проникновение AI '+per+', %',name:'Проникновение',fmt:'pct',color:G.C_AI,h:230})+
+    G.chart('pline',{periods:P,key:'wau'},{title:'Активные пользователи AI '+per+', чел',name:'Активные пользователи',fmt:'int',color:G.C_AI,h:230})+
+    '<div class="tbl-note">Проникновение — активные пользователи AI к численности того же периода под выбранными фильтрами.</div>';
+}
+/* п. 3: «Кто пользуется?» — стажёры (сколько и сколько из них с AI, инструменты, частота), ниже — инструменты × покраска
+   IT / Digital / NonIT и конструктор IT-код × покраска */
+function who(u){
+  const P=v=>D.fmtVal('ai_penetration',v), I=D.fmtInt, it=u.intern;
+  const segs=u.bySeg;
+  return U.btStack([
+      bars('Стажёры','сколько стажёров и сколько из них пользуются AI',
+        [{name:'Стажёров',value:it.hc},{name:'Пользуются AI',note:P(it.pen)+' стажёров',value:it.act}],'Человек',{share:false,total:false}),
+      pctBars('Какими инструментами пользуются стажёры','% стажёров · хотя бы раз за неделю',it.tools.slice().sort((a,b)=>b.value-a.value)),
+      bars('Как часто пользуются стажёры','дней с AI за неделю · стажёры с AI',
+        [{name:'1–2 дня',value:it.freq[0]},{name:'3–4 дня',value:it.freq[1]},{name:'5 дней и больше',value:it.freq[2]}])])+
+    tbl('Инструменты по покраске','% численности сегмента · IT / Digital / NonIT',
+      ['Инструмент'].concat(segs.map(x=>x.name+' · '+I(x.hc)+' чел')),
+      u.tools.map((t,j)=>({c:[t.name].concat(segs.map(x=>P(x.cells[j])))})))+
     tbl('Конструктор: IT-код × покраска','численность, активные пользователи, проникновение',
       ['IT-код · покраска','Численность','Активные','Проникновение'],u.cons.map(x=>({c:[x.seg+' · '+x.paint,I(x.hc),I(x.act),P(x.pen)]})))+
-    '<div class="tbl-note">Все графики вкладки — условные: нужна недельная AI-выгрузка по людям (план подключения, этап 8).</div>';
+    '<div class="tbl-note">Проценты по инструментам не складываются: один человек может пользоваться несколькими.</div>';
+}
+/* п. 5: «Как пользуется?» — частота, инструментов на человека, топ инструментов, воронка и классификация сообщений */
+function usage(u){
+  const I=D.fmtInt, act=u.per.reduce((a,x)=>a+x.value,0);
+  /* инструментов на человека: распределение активных пользователей; среднее — «4 и больше» считаем как 4 (нижняя граница) */
+  const avg=act?u.per.reduce((a,x,i)=>a+x.value*(i+1),0)/act:0;
+  /* классификация: задачи по всем инструментам разработчика, сумма = классифицированные сообщения */
+  const cls={};u.dev.forEach(d=>d.tasks.forEach(t=>{cls[t.name]=(cls[t.name]||0)+t.value}));
+  const clsItems=Object.keys(cls).map(k=>({name:k,value:cls[k]})).sort((a,b)=>b.value-a.value);
+  return U.btStack([
+      bars('Частота использования','дней с AI за неделю · активные пользователи',u.freq),
+      bars('Инструментов на человека','активные пользователи · в среднем '+(Math.round(avg*10)/10).toString().replace('.',',')+' (4+ считаем за 4)',u.per),
+      pctBars('Топ инструментов','% сотрудников · хотя бы раз за неделю',u.tools.slice().sort((a,b)=>b.value-a.value),'% сотрудников'),
+      bars('Воронка сообщений','инструменты разработчика · за неделю',
+        [{name:'Все сообщения',value:u.msgs},{name:'Классифицированы',note:Math.round(u.cls/(u.msgs||1)*100)+'%',value:u.cls},
+         {name:'Не классифицированы',note:Math.round((u.msgs-u.cls)/(u.msgs||1)*100)+'%',value:u.msgs-u.cls}],'Сообщений',{share:false,total:false}),
+      bars('Классификация сообщений','классифицированные сообщения по задачам · всего '+I(u.cls),clsItems,'Сообщений')])+
+    '<div class="tbl-note">Классифицированные и не классифицированные в сумме дают все сообщения; классы — только у классифицированных.</div>';
 }
 
 SC.blocks.ai={
-  subTabs:[['adoption','Проникновение'],['tools','Инструменты'],['usage','Как пользуются']],
+  /* 31.10, «AI.md», п. 2: три раздела — пользуются ли, кто, как */
+  subTabs:[['adoption','Пользуются ли AI?'],['who','Кто пользуется?'],['usage','Как пользуется?']],
   defaultSub:'adoption',
-  title(sub){return sub==='tools'?'Какими AI-инструментами пользуются':sub==='usage'?'Как пользуются AI: частота, задачи, сегменты'
-    :'Внедрение AI-инструментов'},
+  title(sub){return sub==='who'?'Кто пользуется AI':sub==='usage'?'Как пользуются AI: частота, инструменты, сообщения'
+    :'Пользуются ли AI: проникновение и активные пользователи'},
   view(ctx){
     if(ctx.sub==='usage')return usage(D.aiUsage(ctx.lp));
-    if(ctx.sub==='tools'){
-      const ai=D.aiProfile(ctx.lp);
-      /* Проценты не складываются: человек с двумя инструментами в общем
-         проникновении один. Поэтому ни ИТОГО, ни «Доли» — общий процент
-         назван в подписи таблицы. */
-      const tbl=(cap,capSub,items,barHead)=>U.btGroup({cap:cap,capSub:capSub,head:'',metricKey:'ai_penetration',
-        valueHead:'Сотрудников',barHead:barHead,share:false,total:false,compact:true,items:items});
-      return tbl('Инструменты','хотя бы раз за неделю · всего '+D.fmtVal('ai_penetration',ai.pen),
-          ai.tools.map(t=>({name:t.name,value:t.value,color:G.C_AI})),'Сравнение инструментов')+
-        '<div class="tbl-note">Проценты не складываются: один человек может пользоваться несколькими инструментами.</div>';
-    }
-    /* 26.10, AI BI.md: под WAU пунктиром — численность команды, от которой считается проникновение (знаменатель
-       источника; в макете — активная численность) */
-    const den=D.yoySeries(ctx.lp,D.METRIC_BY_KEY.ai_penetration.derived.den).cur;
-    return SC.metricLine('ai_penetration',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Проникновение AI, %',ann:ctx.ann.ai_penetration})+
-      SC.yoyChart('ai_wau',ctx.lp,ctx.bl,ctx.S,
-        {h:300,title:'Активные пользователи AI (WAU), чел',color:G.C_AI,ann:ctx.ann.ai_wau,ref:{name:'Численность команды',cur:den}});
+    if(ctx.sub==='who')return who(D.aiUsage(ctx.lp));
+    return adoption(ctx);
   }
 };
 })();

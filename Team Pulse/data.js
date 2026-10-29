@@ -2837,19 +2837,22 @@ function aiUsage(lp){
   const freq=splitBy(act,jitter(r,[0.22,0.2,0.17,0.15,0.14,0.08,0.03],0.25)).map((n,i)=>({name:(i+1)+' '+U_DAYS(i+1),value:n}));
   const per=splitBy(act,jitter(r,[0.46,0.31,0.15,0.08],0.2)).map((n,i)=>({name:i<3?String(i+1):'4 и больше',value:n}));
   const msgs=Math.round(act*it*(18+r()*10)), cls=Math.round(msgs*(0.7+r()*0.15));
-  const dev=AI_DEV.map((t,j)=>{const m=Math.round(cls*[0.55,0.3,0.15][j]);
+  /* 31.10: сообщения по инструментам в сумме = классифицированные (остаток округления — последнему) */
+  const devM=[0.55,0.3].map(x=>Math.round(cls*x));devM.push(cls-devM[0]-devM[1]);
+  const dev=AI_DEV.map((t,j)=>{const m=devM[j];
     return {name:t,msgs:m,tasks:splitBy(m,jitter(r,[0.34,0.2,0.14,0.13,0.11,0.08],0.3)).map((v,k)=>({name:AI_TASKS[k],value:v}))
       .sort((a,b)=>b.value-a.value)}});
-  const segs=[['IT',it*0.85],['Digital',it*0.15],['Non-IT',1-it]].map(([nm,w])=>({name:nm,hc:Math.round(hc*w)}))
-    .filter(x=>x.hc>0);
-  const bySeg=segs.map(x=>({name:x.name,hc:x.hc,cells:ai.tools.map(t=>+cl(t.value*(x.name==='Non-IT'&&/разработчик/.test(t.name)?0.1:
+  /* 31.10, «AI.md» п. 3: колонки IT / Digital / NonIT всегда (сегмент без людей — прочерк) */
+  const segs=[['IT',it*0.85],['Digital',it*0.15],['NonIT',1-it]].map(([nm,w])=>({name:nm,hc:Math.round(hc*w)}));
+  const bySeg=segs.map(x=>({name:x.name,hc:x.hc,cells:ai.tools.map(t=>!x.hc?null:+cl(t.value*(x.name==='NonIT'&&/разработчик/.test(t.name)?0.1:
     x.name==='IT'?1.15:0.85)*(0.9+r()*0.2),0,100).toFixed(1))}));
-  const ihc=Math.max(1,Math.round(hc*(0.03+r()*0.03))), ipen=+cl(pen*(1.05+r()*0.2),0,100).toFixed(1);
+  /* 31.10: процент стажёров с AI — из людей (5 из 11 = 45,5%), а не отдельным числом */
+  const ihc=Math.max(1,Math.round(hc*(0.03+r()*0.03))), iact=Math.round(ihc*cl(pen*(1.05+r()*0.2),0,100)/100), ipen=+(iact/ihc*100).toFixed(1);
   const cons=segs.map(x=>PAINTS.slice(1).map((pt,k)=>{const n=Math.round(x.hc*[0.62,0.25,0.13][k]),pp=+cl(pen*(0.85+r()*0.3),0,100).toFixed(1);
-    return {seg:x.name,paint:pt.name,hc:n,act:Math.round(n*pp/100),pen:pp}})).reduce((a,b)=>a.concat(b),[]).filter(x=>x.hc>0);
+    return {seg:x.name,paint:pt.name,hc:n,act:Math.round(n*pp/100),pen:pp}})).reduce((a,b)=>a.concat(b),[]);
   return {pen:pen,act:act,weeks:weeks,freq:freq,per:per,msgs:msgs,cls:cls,dev:dev,tools:ai.tools,bySeg:bySeg,
-    intern:{hc:ihc,pen:ipen,act:Math.round(ihc*ipen/100),tools:ai.tools.map(t=>({name:t.name,value:+cl(t.value*(0.9+r()*0.3),0,100).toFixed(1)})),
-      freq:splitBy(Math.round(ihc*ipen/100),jitter(r,[0.3,0.4,0.3],0.2))},cons:cons};
+    intern:{hc:ihc,pen:ipen,act:iact,tools:ai.tools.map(t=>({name:t.name,value:+cl(t.value*(0.9+r()*0.3),0,100).toFixed(1)})),
+      freq:splitBy(iact,jitter(r,[0.3,0.4,0.3],0.2))},cons:cons.filter(x=>x.hc>0)};
 }
 const U_DAYS=n=>n===1?'день':n<5?'дня':'дней';
 
