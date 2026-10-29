@@ -3029,3 +3029,12 @@ smoke: имя вкладки, дисклеймер, цвета, подсказк
 (chip-подписи для шапки прежние). CSS хвост: `.mp-i.on .box::after` — SVG-галочка во весь квадрат (был повёрнутый
 уголок из рамок, визуально смещался вниз-вправо); `#optPaint/#optIt/#optStaff .opt` — padding 5px 10px.
 
+**31.10, поставка 85 — вес чарта 533 → 502 КиБ, бюджет 510.** build.js `fold()`: в модулях (кроме proteus/) условия по REAL /
+D.REAL / ENV (`if(X)`, `X?`, `!X`, `X&&`) заменяются константами — в Proteus TP_REAL и TP_ENV есть всегда (prelude.js), сжатие
+выбрасывает ветки макета; плюс проход terser passes:3 без переименований перед MIN.minifyChart. Ветки «колонки нет в
+датасете → заглушка» (роадмап «в разработке») НЕ трогаются: это `REAL&&REAL.has(…)`, их fold не сворачивает. Удалено: полоса
+KPI (_block: KPI_TOP, kmets, cardSpark, cardBase), ui.js kpiCard/byCompany/momChip/miniLines, CSS семейств kpis/kpi/k-*,
+bk-w*/bk-f/bk-more, note-inline, dvbar/dv-*, mk-*, c-bar/c-v, sbg, spm-n, th-sub, neg (скрипт классов без ссылок в коде;
+динамические bar-/sig-/lvl/n/dev- оставлены), картинки маскота ai/s_ai/s_base. «План-факт» и «Ревью» (OFF_SUBS) — оставлены:
+роадмап. Проверка равенства: eq (HTML #view 24 экранов) и попиксельно 69 снимков без анимации + окна — совпадают.
+

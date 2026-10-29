@@ -81,8 +81,12 @@ const MIN=require('./min.cjs');
    27.10, поставка 71 (мониторинг по дням и «Рост» из ноутбука Адели: KPI звонков, прогулов и выходных, линии часов и
    звонков, T-рост по разрезам rs / rm / rq): 524 → 528 — ≈+0,04 с на запрос.
    28.10, поставка 72 (итерация 28.10: вкладка AI «Как пользуются» — все графики из «Готовности данных», движение по
-   специализациям с переводами): 528 → 534 — ≈+0,1 с на запрос. */
-const BUDGET_KIB=534;
+   специализациям с переводами): 528 → 534 — ≈+0,1 с на запрос.
+   31.10, поставка 85 (вес чарта): 533 → 502 КиБ, бюджет 534 → 510 (≈−0,6 с на запрос). Константы REAL/ENV в сборке
+   (fold, −15), код снятой полосы KPI и неиспользуемые компоненты (−13), мёртвые стили (−3), неиспользуемые картинки маскота
+   (−6). Заглушки метрик «в разработке» (данные, которых ещё нет в датасете), «План-факт» и «Ревью» оставлены — это роадмап.
+   Проверено: HTML 24 экранов и 69 снимков (3 ширины) + окна совпадают со старой сборкой байт в байт / пиксель в пиксель. */
+const BUDGET_KIB=510;
 const dir=path.join(__dirname,'..');
 const OUT=path.join(dir,'Поставка — TeamPulse Hub','3. Proteus — чарт TeamPulse Hub.js');
 const read=f=>fs.readFileSync(path.join(dir,f),'utf8');
@@ -92,6 +96,21 @@ const FILES=['proteus/real.js','proteus/prelude.js','data.js','draw.js','ui.js',
   'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js','screens/hiring.js',
   'screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js','screens/onepager.js','app.js'];
 
+/* 31.10, поставка 85 (вес чарта): в Proteus модель данных (window.TP_REAL) и окружение (window.TP_ENV) есть ВСЕГДА —
+   их кладёт prelude.js до модулей (нет доступа — сборка останавливается раньше). Проверки «макет или Proteus» в исходниках
+   (REAL, D.REAL, ENV) в сборке заменяются константой «да», и сжатие выбрасывает демо-ветки и генератор макета целиком.
+   Макет и smoke.js работают на исходниках как раньше. Подставляются только условия: if(X), X?…:…, !X, X&&…;
+   обращения к полям (REAL.months, ENV.scroller) и объявления не трогаются. */
+function fold(src){
+  let n=0;const r=(re,to)=>{src=src.replace(re,(...m)=>{n++;return typeof to==='function'?to(...m):to})};
+  ['(?:D\\.)?REAL','ENV'].forEach(nm=>{
+    r(new RegExp('if\\(\\s*'+nm+'\\s*\\)','g'),'if(!0)');
+    r(new RegExp('!'+nm+'(?![\\w.$])','g'),'!1');
+    r(new RegExp('(^|[^\\w.$])'+nm+'(?=\\s*(?:\\?(?!\\.)|&&))','g'),(m,pre)=>pre+'!0');
+  });
+  fold.n=(fold.n||0)+n;
+  return src;
+}
 const index=read('index.html');
 const body=index.slice(index.indexOf('<body>')+6,index.lastIndexOf('</body>'))
   .replace(/<script[\s\S]*?<\/script>/g,'')
@@ -112,7 +131,7 @@ const HEAD=`// =================================================================
 // ============================================================================
 `;
 let src='var TP_CSS='+JSON.stringify(css)+';\nvar TP_HTML='+JSON.stringify(body)+';\n'+
-  'try{\n'+FILES.map(f=>'/* '+f+' */\n(function(){\n'+read(f)+'\n})();').join('\n')+
+  'try{\n'+FILES.map(f=>'/* '+f+' */\n(function(){\n'+(/^proteus\//.test(f)?read(f):fold(read(f)))+'\n})();').join('\n')+
   '\n}catch(err){if(!(err&&err.tpStop)){\n'+
   '  var _h=document.querySelectorAll("[_echarts_instance_]");\n'+
   '  var _box=_h.length?_h[_h.length-1]:document.body, _m=document.createElement("div");\n'+
@@ -145,8 +164,13 @@ if(fail.length){console.error('СБОРКА НЕ ПРОШЛА:\n  '+fail.join('\
 
 /* 6. сжатие: шапка — комментарием сборки, код — terser, TP_CSS — cssMin */
 const head=HEAD.replace(/^\/\/ ?/gm,'').replace(/^=+\n|\n=+\n$/g,'').trim();
-MIN.minifyChart(out+tail,head,{cssVars:['TP_CSS']}).then(r=>{
-  const code=r.code, v=MIN.verify(code,out+tail);
+/* поставка 85: перед основным сжатием — проход terser без переименований в несколько итераций: после подстановки
+   констант (fold) выпадают демо-ветки, за ними — ставшие ненужными функции генератора макета */
+require('terser').minify(out+tail,{ecma:5,toplevel:false,mangle:false,
+  compress:{toplevel:false,keep_fargs:true,passes:3,unused:true,dead_code:true,reduce_funcs:false},format:{comments:false,beautify:true}})
+.then(pre=>MIN.minifyChart(pre.code,head,{cssVars:['TP_CSS']}).then(r=>({r,src:pre.code})))
+.then(({r,src})=>{
+  const code=r.code, v=MIN.verify(code,src);
   if(!/(^|[;}\n])option=\{[^]*\};?\n$/.test(code))v.fails.push('option не последний после сжатия');
   if(Buffer.byteLength(code)>BUDGET_KIB*1024)v.fails.push('больше бюджета '+BUDGET_KIB+' КиБ: '+(Buffer.byteLength(code)/1024).toFixed(1)+' КиБ');
   v.warns.forEach(t=>console.error('  ! '+t));

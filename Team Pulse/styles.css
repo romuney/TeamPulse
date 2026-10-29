@@ -187,31 +187,31 @@ button,select,input,textarea{font-family:inherit}
 .block-h .btn{margin-left:auto}
 
 /* ===== KPI ===== */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:14px;margin-bottom:18px}
-.kpis.n1{grid-template-columns:minmax(0,260px)}
-.kpis.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.kpis.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.kpis.n4{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+
+
+
+
 /* 26.10, правки: KPI, которым тесно в одной строке, — по три в строку, как карточки .shcards: до четырёх — одной
    строкой, больше — сеткой по три (пять — 3 + 2, шесть — 3 + 3, восемь — 3 + 3 + 2); семь — 4 + 3, чтобы внизу не
    осталась одна карточка */
-.kpis.n5,.kpis.n6,.kpis.n8{grid-template-columns:repeat(3,minmax(0,1fr))}
-.kpis.n7{grid-template-columns:repeat(4,minmax(0,1fr))}
-.kpis.compact{gap:12px;margin-bottom:16px}
-.kpis.compact .kpi{padding:13px 15px}
-.kpis.compact .k-val{font-size:var(--fs-hero)}
-.kpis.compact .k-row{margin-top:6px;gap:8px}
-.kpi{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:15px 17px}
-.kpi .k-label{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);margin-bottom:7px;display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0}
-.kpi .k-label .k-ln{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.kpi .k-label>:not(.k-ln){flex:none}
-.kpi .k-val{font-size:27px;font-weight:var(--fw-bold);letter-spacing:-.6px;line-height:1.1}
-.kpi .k-row{display:flex;align-items:center;gap:9px;margin-top:8px;flex-wrap:wrap}
+
+
+
+
+
+
+
+
+
+
+
+
 /* пустой второй ряд карточка рисует всегда (ей нужно ровно четыре строки),
    но воздуха он не занимает */
-.kpi .k-row:empty{margin:0}
-.kpi .k-sub{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body)}
-.kpi .k-sub b{color:var(--ink);font-weight:var(--fw-body)}
+
+
+
 
 /* ---------- Одна высота строк во всей полосе KPI ----------
    Заголовок метрики в одной карточке переносился на две строки — и её
@@ -227,9 +227,7 @@ button,select,input,textarea{font-family:inherit}
    subgrid унаследовал бы междукарточные 14px и разорвал бы карточку. Правило
    под @supports: без subgrid карточка обязана остаться обычным блоком, иначе
    grid-row:span 5 растянул бы её по пустым строкам. */
-@supports (grid-template-rows:subgrid){
-  .kpi{display:grid;grid-template-rows:subgrid;grid-row:span 5;row-gap:0}
-}
+
 
 /* ===== Панели ===== */
 .panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
@@ -263,8 +261,7 @@ button,select,input,textarea{font-family:inherit}
 .mtable thead th.num{text-align:right}
 /* месяц сравнения второй строкой шапки: «за месяц» без него не говорит,
    с чем сравнивается число. Не капсом — это пояснение, а не имя колонки */
-.mtable thead th .th-sub{display:block;margin-top:2px;font-size:var(--fs-micro);font-weight:var(--fw-body);
-  text-transform:none;letter-spacing:0;color:var(--muted2)}
+
 .mtable tbody tr{border-bottom:1px solid var(--line2)}
 .mtable tbody tr:last-child{border-bottom:0}
 .mrow{cursor:pointer}
@@ -334,7 +331,7 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 /* ===== AI-подсказка ===== */
 
 /* ===== Заметки, легенда, пустые состояния ===== */
-.note-inline{font-size:12px;color:var(--muted);background:#fff;border:1px dashed var(--line);border-radius:var(--r3);padding:11px 14px;margin-bottom:14px;line-height:1.5}
+
 .legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:0 0 14px;font-size:12px;color:var(--ink2)}
 .legend .sw{display:inline-flex;align-items:center;gap:6px;font-weight:var(--fw-body)}
 .legend .dot{width:11px;height:11px;border-radius:var(--r1);display:inline-block}
@@ -434,8 +431,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   /* классы n2…n5 задают колонки жёстче, чем базовое правило, поэтому на узком
      экране их приходится переопределять явно — иначе пять карточек движения
      персонала остались бы впятером и на планшете */
-  .kpis{grid-template-columns:repeat(3,minmax(160px,1fr))}
-  .kpis.n4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  
+  
   .content{padding:22px}
   .reporthead{padding-left:22px;padding-right:22px}
 }
@@ -444,18 +441,18 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .reporthead{padding:14px}.rh-row{align-items:flex-start}.rh-title{font-size:22px}.rh-side{display:none}
   .layout{display:block}.nav{position:fixed;z-index:120;left:0;top:0;bottom:0;width:min(82vw,300px);transform:translateX(-105%);transition:transform .22s ease;box-shadow:8px 0 28px rgba(20,28,45,.18);padding-top:18px}.nav.open{transform:translateX(0)}
   .nav-scrim{position:fixed;z-index:110;inset:0;background:rgba(20,28,45,.38)}.nav-scrim.open{display:block}
-  .content{padding:16px}.kpis,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.kpi{min-width:0}
+  .content{padding:16px}
   .panel{overflow-x:auto}.mtable,.ptable{min-width:760px}.page-h h2{font-size:21px}.block-h{align-items:flex-start}
   .modal{width:calc(100vw - 20px);max-height:92vh}.modal-b{padding:16px}.modal-f{padding:12px;flex-wrap:wrap}
 }
 @media(max-width:480px){
   .apphead .primary{padding:8px 10px;font-size:11px}.logo{font-size:14px}.rh-title .lvl{display:block;margin:5px 0 0;width:max-content}
-  .kpis,.kpis.n2,.kpis.n3,.kpis.n4,.kpis.n5,.kpis.n6,.kpis.n7,.kpis.n8{grid-template-columns:1fr}.chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
+  .chips{gap:5px}.chip{font-size:var(--fs-cap)}.sub-tabs{display:flex;overflow-x:auto;width:100%;white-space:nowrap}.sub-tab{padding:8px 11px}
   .legend{gap:8px 12px}.panel-h{padding:12px}.panel-b{padding:10px}
   .mpick-l{grid-template-columns:1fr}.mpick{max-height:200px}
 }
 @media print{
-  body{background:#fff}.apphead,.nav,.sub-tabs,.btn,.in-go,.nav-scrim{display:none!important}.layout{display:block}.content{padding:0;max-width:none}.reporthead{padding:10px 0;border:0}.panel,.kpi,.in-card,.bk-top,.in-lead{box-shadow:none;break-inside:avoid}.detail-chart{height:230px}.chips .x{display:none}
+  body{background:#fff}.apphead,.nav,.sub-tabs,.btn,.in-go,.nav-scrim{display:none!important}.layout{display:block}.content{padding:0;max-width:none}.reporthead{padding:10px 0;border:0}.panel,.in-card,.bk-top,.in-lead{box-shadow:none;break-inside:avoid}.detail-chart{height:230px}.chips .x{display:none}
 }
 
 /* ===== Итерация 8: переделка детальных вкладок ===== */
@@ -693,7 +690,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    мышью тяжело, а в полосу — легко. fill-opacity:0 вместо fill:none —
    иначе элемент не участвует в hit-тесте. */
 .hit{fill:#245FD4;fill-opacity:0;transition:fill-opacity .12s}
-.barg:hover .hit,.ptg:hover .hit,.sbg:hover .hit{fill-opacity:.05}
+.barg:hover .hit,.ptg:hover .hit{fill-opacity:.05}
 /* наведение на бар делает его чуть ЯРЧЕ — насыщеннее (15.10); осветлять нельзя:
    мягкий бар на светлом фоне почти исчезал — «при наведении исчезает бар» (14.10) */
 .barg:hover .bar{filter:saturate(1.6) brightness(.97)}
@@ -753,7 +750,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .mtable td.col-tgt{text-align:center}
 .mtable td.col-tgt .tgt{text-align:center}
 .mtable td.col-spark .spark{width:100%;display:block}
-.k-row .spark{flex:1 1 auto;min-width:56px;max-width:110px}
+
 
 /* Раскрытая метрика: воздух сверху и снизу, иначе заголовок графика прижат
    к верхней границе, а ось X наезжает на следующую метрику. */
@@ -781,8 +778,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* заголовок блока не прячется под липкой полосой при прыжке */
 .block-h[id]{scroll-margin-top:calc(var(--head-h,0px) + 64px)}
 @media print{.op-nav{display:none}}
-.kpi .k-row.k-yoy{margin-top:var(--s2);font-size:var(--fs-note);color:var(--muted)}
-.kpi .k-row.k-yoy b{color:var(--ink);font-weight:var(--fw-body)}
+
+
 
 /* ---------- Структура: разбивки не должны слипаться ---------- */
 .bt-stack{gap:28px}
@@ -1053,7 +1050,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .mon-ph{padding:var(--s6) var(--s7);border:1px dashed var(--line);border-radius:var(--r3);min-height:120px}
 .mon-ph .tbl-note{margin-top:var(--s4)}
 /* полка срезов над таблицами снята в поставке 82 — выбранное пилюлями в шапке карточки графиков (.sel-bar) */
-.k-ph{visibility:hidden}
+
 /* детализация переводов (поставка 63) */
 
 /* ---------- Конструктор своего среза ----------
@@ -1332,7 +1329,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ptable td.small-n,.ptable.dense td.lead.small-n{color:var(--muted)}
 .ptable td.small-n svg{opacity:.5}
 .ptable tr.tree-note td.txt{padding:var(--s4) var(--pad-cell);color:var(--muted);font-size:var(--fs-note);white-space:normal;cursor:default}
-.bk-wv.sm-n{color:var(--muted);font-weight:var(--fw-body)}
+
 .ptable tr.tree-empty td.txt{padding:var(--s8) var(--pad-cell);color:var(--muted);white-space:normal;cursor:default}
 
 /* ---------- Путь над отчётом: «← Назад» и «↑ Уровнем выше» ---------- */
@@ -1985,7 +1982,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 
 
 #view .st-focus{table-layout:fixed}
-#view .st-focus col.c-v{width:64px}#view .st-focus col.c-bar{width:38%}
+
 #view .hxtable td.txt{color:var(--ink)}
 /* таблица подразделений: название забирает всё, что не нужно числам, — числа
    по своей ширине; имя и вторая строка режутся реже */
@@ -2087,29 +2084,27 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .bk-sx{flex:1;min-width:0}
 .bk-tag{font-size:var(--fs-body);font-weight:var(--fw-bold);color:var(--muted)}
 .bk-h{margin:2px 0 var(--s4);font-size:var(--fs-head);font-weight:var(--fw-bold);line-height:1.35;color:var(--ink)}
-.bk-f{list-style:none;counter-reset:bkf;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--s3)}
-.bk-f li{counter-increment:bkf;position:relative;padding-left:26px;font-size:var(--fs-body);line-height:1.5;color:var(--ink2)}
-.bk-f li:before{content:counter(bkf);position:absolute;left:0;top:1px;width:18px;height:18px;border-radius:50%;background:var(--act);color:#fff;
-  font-size:10.5px;font-weight:var(--fw-bold);display:flex;align-items:center;justify-content:center}
-.bk-f b{color:var(--ink);font-weight:var(--fw-bold)}
+
+
+
+
 .bk-do{margin-top:var(--s4);font-size:var(--fs-body);line-height:1.45;color:var(--ink2)}
-.bk-wh{display:flex;flex-direction:column;min-width:0;border-left:1px solid rgba(20,28,45,.08);padding-left:var(--s9)}
-.bk-wt{font-size:var(--fs-lead);font-weight:var(--fw-bold);color:var(--ink)}
-.bk-ws{font-size:var(--fs-note);color:var(--muted);margin:1px 0 var(--s3)}
-.bk-wn{font-size:var(--fs-note);color:var(--muted);padding:var(--s3) 0}
-.bk-wr{display:grid;grid-template-columns:minmax(0,1fr) 58px 30%;align-items:center;gap:var(--s5);width:100%;border:0;border-top:1px solid rgba(20,28,45,.06);
-  background:none;padding:5px var(--s3);margin:0 calc(-1 * var(--s3));box-sizing:content-box;font:inherit;text-align:left;cursor:pointer;border-radius:var(--r2)}
-.bk-wr:hover{background:rgba(255,255,255,.7)}
-.bk-wu{min-width:0;display:flex;flex-direction:column;font-size:var(--fs-body);color:var(--ink)}
-.bk-wu b{font-weight:var(--fw-bold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.bk-wu span{font-size:var(--fs-note);color:var(--muted)}
-.bk-wv{font-size:var(--fs-body);font-weight:var(--fw-bold);text-align:right;font-variant-numeric:tabular-nums}
-.bk-wb{height:6px;border-radius:3px;background:rgba(20,28,45,.07);overflow:hidden}
-.bk-wb i{display:block;height:100%;border-radius:3px;background:var(--bar-soft)}
-.bk-wb i.high{background:var(--red)} .bk-wb i.mid{background:var(--warn)}
-.bk-more{align-self:flex-start;margin-top:var(--s4);border:0;background:none;padding:0;font:inherit;font-size:var(--fs-body);color:var(--act);cursor:pointer}
-.bk-more:hover{color:var(--act-ink);text-decoration:underline}
-@media (max-width:1100px){.bk-top{grid-template-columns:1fr}.bk-wh{border-left:0;padding-left:0;border-top:1px solid rgba(20,28,45,.08);padding-top:var(--s5)}}
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+@media (max-width:1100px){.bk-top{grid-template-columns:1fr}}
 @media (max-width:900px){.in-grid{grid-template-columns:1fr}}
 @media (max-width:600px){.in-row{flex-direction:column}.in-a{flex-wrap:wrap}.in-lead{padding:var(--s7)}.bk-sum .in-ico{display:none}}
 
@@ -2226,15 +2221,15 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-steps.n5 .st-step.on{flex-grow:1.7}
 
 /* ===== Мониторинг рабочей активности (21.10, файл Антона) ===== */
-.mk-cap{font-size:var(--fs-note);color:var(--muted);margin:0 0 var(--s5)}
-.mk-cap b{color:var(--ink2);font-weight:var(--fw-bold)}
-.kpi.mk .k-val{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
-.kpi.mk .mk-u{font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);letter-spacing:0}
-.kpi.mk .mk-sh{font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);letter-spacing:0;margin-left:auto}
-.mk-split{display:flex;flex-direction:column;gap:3px;margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--line2)}
-.mk-split span{display:flex;align-items:center;gap:6px;font-size:var(--fs-note);color:var(--muted)}
-.mk-split span b{margin-left:auto;color:var(--ink);font-weight:var(--fw-bold);font-variant-numeric:tabular-nums}
-.mk-split i{width:8px;height:8px;border-radius:2px;flex:none}
+
+
+
+
+
+
+
+
+
 .mon-bar{display:flex;align-items:center;gap:var(--s8);flex-wrap:wrap;margin-bottom:var(--s6)}
 .mon-note{font-size:var(--fs-note);color:var(--muted)}
 .mon-note b{color:var(--ink2);font-weight:var(--fw-bold)}
@@ -2248,8 +2243,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ts-ar{margin-left:3px}
 .ptable td.sp{width:92px;padding-top:2px;padding-bottom:2px}
 .mini{display:inline-flex;vertical-align:middle;line-height:0}
-.kpi.mk.dev .k-val{color:var(--muted2)}
-.kpi.mk.dev .k-label{gap:6px}
+
+
 /* структура (21.10): длинные названия в лёгких таблицах — в две строки той же высоты */
 #view .btable.lite td.txt .row-body.two{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;line-height:1.15;overflow:hidden;overflow-wrap:anywhere}
 /* 26.10-б: заголовок графика с переключателем справа (текучесть по инициатору) — кегль и жирность заголовков графиков */
@@ -2257,14 +2252,14 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ch-ttl{font-size:12px;font-weight:var(--fw-bold);color:var(--ink)}
 /* 26.10-б: движение по специализациям — двусторонняя полоса: ушли влево от оси, пришли вправо, одна шкала; цвета —
    мягкие найма и ухода (SOFT в draw.js), сальдо — их яркие */
-.dvbar{display:flex;align-items:center;height:13px}
-.dvbar .dv-l,.dvbar .dv-r{flex:1 1 0;height:100%;display:flex;background:#f1f3f6}
-.dvbar .dv-l{justify-content:flex-end;border-right:1px solid #c9ced6;border-radius:var(--r1) 0 0 var(--r1)}
-.dvbar .dv-r{border-radius:0 var(--r1) var(--r1) 0}
-.dvbar i{display:block;height:100%;min-width:0}
-.dvbar .dv-l i{background:#A88AD9;border-radius:2px 0 0 2px}
-.dvbar .dv-r i{background:#66C8AE;border-radius:0 2px 2px 0}
-.spm-n.pos{color:#14A38B}.spm-n.neg{color:#8A4FD8}
+
+
+
+
+
+
+
+
 
 /* поставка 69: нет зоны доступа */
 .tp-noacc{display:flex;flex-direction:column;gap:var(--s4);max-width:520px;margin:15vh auto;padding:var(--s10);text-align:center;color:var(--ink)}
@@ -2280,8 +2275,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ptable.rost-t td.txt,.ptable.rost-t th.txt{text-align:left;width:26%}
 
 /* 27.10-в, п. 21: карточки KPI по выбранной слева строке */
-.kpi-sel{display:flex;align-items:center;gap:var(--s4);margin:0 0 var(--s3);color:var(--muted)}
-.kpi-sel b{color:var(--ink)}
+
+
 
 /* 27.10-в, п. 16: закреплённый первый столбец — и его шапка закреплена и лежит выше соседних шапок (у них z-index 3),
    итог первым столбцом — выше итоговых клеток; иначе при прокрутке вбок колонки наезжали на заголовок */
@@ -2313,15 +2308,15 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .page-h h2{font-size:17px}
 .in-t,.bk-tag{font-weight:var(--fw-body)}
 .in-b{color:#5b6475}.in-b b{font-weight:var(--fw-body);color:var(--ink)}
-.bk-f b{font-weight:var(--fw-body);color:var(--ink)}
+
 .in-pill b{font-weight:var(--fw-body);color:var(--ink)}
 .chip.bench b{font-weight:var(--fw-body);color:var(--ink)}
 .st-head .st-why b{font-weight:var(--fw-body);color:var(--ink2)}.st-head .st-why{color:#5b6475}
 .st-facts b,.st-ins b{font-weight:var(--fw-body);color:var(--ink)}
 .panel-h{font-size:14px;color:var(--ink2)}
 .bt-cap{font-weight:var(--fw-body);color:var(--ink2)}
-.bk-wt{font-size:11px;font-weight:var(--fw-bold);text-transform:uppercase;letter-spacing:.3px;color:var(--muted2)}
-.bk-wu b{font-weight:var(--fw-body);color:var(--ink)}
+
+
 .ptable.dense td.lead,#view .btable td.lead,#view .stable td.lead{font-weight:var(--fw-body);color:var(--ink)}
 .ptable td.txt .row-body,.m-name{-webkit-text-stroke:0}
 /* 30.10, шаг 1: служебный шум шапки — без технического «Ур. N» у названия; мета (база, тип, период) — тише */

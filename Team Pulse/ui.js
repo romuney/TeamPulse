@@ -141,8 +141,6 @@ function matureTag(key,small){
   /* 27.10, Антон (вопрос 1): поток и ставка незакрытого месяца — за текущий месяц, период подписан */
   return D.matures(key)||D.partFlow(key)?'<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.matures(key)?D.MATURE_TIP:D.PART_TIP)+'>по '+D.ASOF_SHORT+'</span>':'';
 }
-function momChip(key,dv){const c=D.closedOnly(key);return deltaChip(key,dv,{vs:c?D.CMP.momShortC:D.CMP.momShort,tip:c?D.CMP.momTipC:D.CMP.momTip})}
-
 /* Иконка перехода на внешний дашборд. Символ ↗ брался из шрифта и в разных
    начертаниях получался то мелким, то съехавшим по базовой линии. */
 function icoExt(){
@@ -279,13 +277,6 @@ function unitTip(name,hc,head){
   return tipAttr({title:name,rows:[{label:'Численность',value:hc==null||hc===''?'—':hc},
     {label:'Руководитель',value:head.name||'—'},{label:'Логин',value:head.login||'—'}]});
 }
-/* Строка сравнения в KPI-карточке «по компании X» (14.10: вместо «база X»;
-   осталась только у «Проникновения AI»). Что именно за база — в подсказке. */
-function byCompany(key,bv,S){
-  return '<span class="k-sub"'+tipAttr({title:'По компании',text:'Та же метрика по всей компании с теми же фильтрами — база «'+
-    D.benchmarkLabel(S)+'».'})+'>по компании '+D.fmtVal(key,bv)+'</span>';
-}
-
 /* ---------- Ячейка «сравнение с базой» / «против KPI» ----------
    Порядок проверок не косметика: **есть утверждённый KPI — сравниваем с ним,
    и только с ним**. Средняя по базе рядом с целью KPI заставляла выбирать,
@@ -357,17 +348,6 @@ function opStory(chart,st,about){
     (l?'<div class="op-sth">Что видно</div>'+l:'')+
     '<div class="op-sta"><div class="op-sth">О метрике</div>'+about+'</div></div></div>';
 }
-function kpiCard(o){
-  /* 23.10: подпись — в одну строку; не влезло — многоточие, полное имя — в подсказке значка «i» */
-  return '<div class="kpi"><div class="k-label"><span class="k-ln">'+esc(o.label)+'</span>'+(o.tag||'')+(o.q||'')+'</div>'+
-    '<div class="k-val">'+o.value+'</div>'+
-    '<div class="k-row">'+(o.row1||'')+'</div>'+
-    '<div class="k-row">'+(o.row2||'')+'</div>'+
-    /* пятая строка — «год назад»: рисуется всегда, как и второй ряд, иначе
-       subgrid потерял бы общий шаг строк у карточек с ней и без неё */
-    '<div class="k-row k-yoy">'+(o.row3||'')+'</div></div>';
-}
-
 /* ============================================================================
    barTable — разбивка таблицей. Именно таблица, а не горизонтальный бар-чарт.
 
@@ -742,18 +722,6 @@ function pfHead(name,aside,icon){
 function segToggle(attr,opts,cur){
   return '<div class="opts tight seg-t">'+opts.map(x=>'<button class="opt'+(x[0]===cur?' on':'')+'" '+attr+'="'+esc(x[0])+'">'+esc(x[1])+'</button>').join('')+'</div>';
 }
-/* мини-график строки таблицы: несколько тонких линий на общей шкале от нуля, без подписей;
-   что за линии и значения по неделям — в подсказке */
-function miniLines(series,o){
-  o=o||{};
-  const w=o.w||84, h=o.h||22, all=[].concat(...series.map(x=>x.vals)).filter(v=>v!=null);
-  const max=Math.max(1e-9,...all), n=series[0].vals.length;
-  const X=i=>2+(w-4)*i/Math.max(1,n-1), Y=v=>h-2-(h-4)*v/max;
-  const body=series.map(x=>'<polyline fill="none" stroke="'+x.color+'" stroke-width="1.6" stroke-linejoin="round" points="'+
-    x.vals.map((v,i)=>v==null?'':X(i).toFixed(1)+','+Y(v).toFixed(1)).filter(Boolean).join(' ')+'"/>').join('');
-  return '<span class="mini"'+(o.tip?tipAttr(o.tip):'')+'><svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" aria-hidden="true">'+body+'</svg></span>';
-}
-
 /* ---------- Панель с шапкой ---------- */
 /* subHtml — подзаголовок с разметкой (кнопка «Открыть юнит», иконка в
    подсказке о глубине); обычный sub по-прежнему экранируется.
@@ -1073,8 +1041,8 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,kpiCard,
+window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
-  shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,miniLines,
+  shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
 })();

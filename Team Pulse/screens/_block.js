@@ -163,20 +163,6 @@ function yoyPair(lp,aKey,bKey,opt){
     Object.assign({h:300,fill:true,aName:lg[0]&&lg[0].name,bName:lg[1]&&lg[1].name},opt||{},{legend:lg}));
 }
 
-/* Спарклайн в карточке KPI блока (рекомендация бизнес-анализа: динамика
-   читается без перехода на график). Тот же спарклайн, что в колонке «12 мес»
-   one-pager: серая линия, у метрики со светофором точка каждого месяца
-   окрашена сравнением с базой этого месяца или с целью KPI и пунктир
-   ориентира; у метрики без оценки — только последняя точка. */
-function cardSpark(key,ser,st,S,bl){
-  const kpi=D.kpiFor(key,S);
-  /* 14.10: в KPI-карточках спарклайн без точек, ориентир — только цель KPI
-     и база у «Проникновения AI» (там же подпись «по компании») */
-  return G.sparkLine(ser,st,84,24,{key:key,kpi:kpi,ink:true,dots:false,
-    base:cardBase(key,kpi)?D.aggregate(bl,key):null});
-}
-/* Сравнение с базой в KPI-карточке — только у «Проникновения AI» (14.10). */
-function cardBase(key,kpi){return !kpi&&key==='ai_penetration'&&D.comparable(key)}
 /* Значение того же месяца год назад — прямо из расширенной сетки, а не
    «значение минус изменение»: у доли без знаменателя изменения нет. */
 function yearAgo(lp,key){return D.aggregateExt(lp,key)[D.NEXT-13-(D.closedOnly(key)?1:0)]}
@@ -211,7 +197,6 @@ const DEV_TABS={
 /* Колонки разведки 12.10 оживляют часть вкладок: решения и конверсию T-роста
    и посещаемость за месяц. Там отметки нет, на соседних — уточнённый текст:
    что из блока живое, а что ещё нет. Без колонок — прежние записи DEV_TABS. */
-const KPI_TOP=false;
 const DEV_LIVE={
   /* поставка 50 (21.10, из прод-ноутбуков HQ и УС): вакансии, найм по источникам и AI — живые */
   hiring:{live:['vac_open','vac_closed','time_to_fill'],subs:['vacancies','profile'],
@@ -379,41 +364,7 @@ function renderBlock(S,expanded,mixOpen,view){
   /* 23.10: у «Структуры численности» KPI-полосы нет — её единственная метрика (численность) уже стоит в «Итого»
      таблицы; на её месте — полка среза */
   /* 27.10-в, п. 20: «Переводы в» и «Переводы из» — одной карточкой «Переводы» (в − из) на месте первой из них */
-  const kmets=mets.reduce((a,m)=>{
-    if(m.key==='transfer_in'||m.key==='transfer_out'){if(a.some(x=>x.key==='transfer_net'))return a;m=D.METRIC_BY_KEY.transfer_net}
-    a.push(m);return a},[]);
-  /* 27.10-в, п. 21: строка, выбранная в таблице слева, — и KPI блока по ней; над карточками сказано, по чему они */
-  const kl=sel!==root?rowLeaves(sel,S):rl;
-  /* 29.10, п. 9: верхние карточки KPI блоков сняты — они дублировали таблицу подразделений и графики. Своя полоса
-     «Мониторинга» (звонки, прогулы, выходные — их больше нигде нет) остаётся. Код карточек — на месте (KPI_TOP) */
-  /* 30.10, заказчик: «убери на всех вкладках плашки KPI» — и полосу «Мониторинга» тоже (код — на месте, KPI_TOP) */
-  if(KPI_TOP&&mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
-  else if(KPI_TOP&&b.key!=='structure'){
-  if(sel!==root)h+='<div class="kpi-sel">Карточки — по «<b>'+esc(selNode.name)+'</b>»<button class="nb" data-selnode="'+esc(root)+
-    '">Всё подразделение</button></div>';
-  h+='<div class="kpis compact n'+Math.min(8,kmets.length)+'">';
-  kmets.forEach(m=>{
-    const sliced=selIds.length&&D.sliceable(m.key);
-    const ser=sliced?D.aggregateSlice(kl,m.key,selIds):D.aggregate(kl,m.key);
-    const v=val(kl,m.key);
-    /* Изменение по срезу считается по окну, а не по расширенной сетке: срез
-       на неё не ходит. Для численности это тот же прошлый месяц. */
-    const mom=sliced?D.sliceDeltaMoM(kl,m.key,selIds):D.deltasOf(kl,m.key).mom;
-    const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
-    const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
-    /* m.card — короче имени для карточки (23.10: подпись в одну строку и с плашкой «в разраб.») */
-    h+=U.kpiCard({label:m.card||m.name,tag:(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+U.matureTag(m.key),
-      q:U.infoDot(m.key),
-      value:D.fmtVal(m.key,v),
-      row1:U.momChip(m.key,mom)+cardSpark(m.key,ser,st,S,bl),
-      row2:kpi?'<span class="k-sub">цель '+D.fmtVal(m.key,kpi.green)+'</span><span class="kpi-tag">KPI</span>'
-           :cardBase(m.key,kpi)?U.byCompany(m.key,bv,S):'',
-      /* по срезу состава прошлогоднего значения нет: срез живёт только в окне */
-      /* место строки остаётся (visibility), иначе карточки ниже на строку и отчёт прыгает при срезе (22.10) */
-      row3:sliced?'<span class="k-ph">год назад <b>—</b></span>':'год назад <b>'+D.fmtVal(m.key,yearAgo(kl,m.key))+'</b>'});
-  });
-  h+='</div>';
-  }
+  /* KPI-карточки блока сняты (29–30.10), их код удалён в поставке 85 */
 
   /* 4a · что сейчас срезано. Плашка стоит под карточками, а не только в той
      таблице, по которой кликнули: без неё «191 → 59» в карточке выглядит

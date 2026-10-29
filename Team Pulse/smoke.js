@@ -293,9 +293,8 @@ checks.push(['минус во всех дельтах типографский, 
      после итерации 28 их семь (замещение и найм на 100 человек) */
   /* 27.10-в, п. 20: «Переводы в» и «Переводы из» — одной карточкой «Переводы» */
   const nMv=D.visibleMetricsOfBlock('movement',A.st()).filter(m=>m.key!=='transfer_out').length;
-  checks.push(['полоса KPI выровнена subgrid, а не надеждой на короткие заголовки',
-    /\.kpi\{display:grid;grid-template-rows:subgrid;grid-row:span5;row-gap:0\}/.test(css)&&
-    /@supports\(grid-template-rows:subgrid\)/.test(css)]);
+  /* поставка 85: полоса KPI снята (29–30.10), её стили и код удалены */
+  checks.push(['полосы KPI нет — ни разметки, ни стилей',!/\.kpis[{.,]/.test(css)&&!/class="kpis/.test(allHtml)]);
 })();
 
 /* Есть утверждённый KPI — сравниваемся с ним, и базы рядом нет: два ориентира
