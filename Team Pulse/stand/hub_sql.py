@@ -85,7 +85,7 @@ SXR = 'structure_x_rost'
 SXR_COLS = (['mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in range(1, 12)]
             + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'act_type_nm', 'month', 'finish_month',
                'is_approved', 'is_declined', 'grade_change_application_flg', 'specialization_change_application_flg',
-               'tat_flg', 'required_grade_num', 'required_specialization'])
+               'tat_flg', 'required_grade_num', 'required_specialization', 'current_grade_num', 'current_specialization'])
 CAL_COLS = (['report_month', 'calendar_dt', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in LV]
             + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'act_type_nm', 'cnt_work_day',
                'cnt_office_visit'])
@@ -458,7 +458,8 @@ def rost_mix():
     lm = f'(select lm from {P}_cal)'
     w12 = f"({lm} - interval '12 month')::date"
     rcols = ['finish_month', 'is_approved', 'is_declined', 'grade_change_application_flg',
-             'specialization_change_application_flg', 'tat_flg', 'required_grade_num', 'required_specialization']
+             'specialization_change_application_flg', 'tat_flg', 'required_grade_num', 'required_specialization',
+             'current_grade_num', 'current_specialization']
     ex_rm = expl(rcols, f'and s.finish_month >= (select grid_start from {P}_cal) and s.finish_month <= {lm}', SXR)
     ex_rq = expl(rcols, f'and s.finish_month >= {w12} and s.finish_month <= {lm}', SXR)
     ex_rs = expl(['report_month', 'grade', 'mdm_employee_rk', 'hc_total_cnt', 'last_row_flg'],
@@ -474,13 +475,15 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rm' as mx_key,
 from ({ex_rm}) e
 where {res} is not null;
 
--- rq — за окно (с начала месяца 12 месяцев назад): «вид|поток|итог|желаемое», g — желаемый грейд, s — желаемая
--- специализация
+-- rq — за окно (с начала месяца 12 месяцев назад): «вид|поток|итог|желаемое|текущее», g — грейд, s — специализация
+-- (поставка 81: текущее — откуда переходят, в отчёте «текущий → желаемый»)
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
        {rt('e.')} || '|' || {tat} || '|' || {res} || '|' ||
            (case when {rt('e.')} = 'g' then coalesce(e.required_grade_num::text, '')
-                 else {clean('e.required_specialization')} end) as mx_val, 1 as mx_n
+                 else {clean('e.required_specialization')} end) || '|' ||
+           (case when {rt('e.')} = 'g' then coalesce(e.current_grade_num::text, '')
+                 else {clean('e.current_specialization')} end) as mx_val, 1 as mx_n
 from ({ex_rq}) e
 where {res} is not null;
 

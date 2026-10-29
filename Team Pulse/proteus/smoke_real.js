@@ -513,8 +513,16 @@ if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений з
   ok(/<div class="in-lead">/.test(home)&&cs.every(c=>!D.isStub(c.key)&&c.head&&/class="mini"/.test(c.chart))&&
     cs.filter(c=>/С января ушли/.test(c.body)).length<=1&&
     /* 30.10, шаг 2: без подразделений ниже «где» не показывается — карточка вывода во всю ширину */
-    tops.every(h=>/class="bk-sum (high|mid|good|none)"/.test(h)&&(I.unitsOf(S0).length?/Где это происходит/.test(h):/bk-top [a-z]+ solo/.test(h))&&/id="bk-det"/.test(h)),
-    'главная и блоки «сначала выводы»: '+cs.length+' '+(cs.length===1?'вывод':'выводов')+' без заглушек, у '+tops.length+' блоков — вывод и «где»');
+    /* 31.10: «Саммари» — только текст, без таблиц (файл итерации, п. 2 и 6) */
+    tops.every(h=>/class="bk-sum (high|mid|good|none)"/.test(h)&&/bk-top [a-z]+ solo/.test(h)&&!/class="bk-wh"/.test(h)&&/id="bk-det"/.test(h)),
+    'главная и блоки «сначала выводы»: '+cs.length+' '+(cs.length===1?'вывод':'выводов')+' без заглушек, у '+tops.length+' блоков — вывод текстом, без таблиц');
+/* поставка 81: T-рост — направление перехода «текущее → желаемое» в таблицах смены грейда и специализации */
+{
+  const rp=D.rostProfile(D.reportLeaves(D.DEFAULT_STATE)), rows=rp.grade.rostT.concat(rp.spec.rostT);
+  const newRq=rows.length&&rows.some(x=>/ → /.test(x.name));
+  ok(!rows.length||newRq||!Object.keys(window.TP_REAL.scopeMix('rq')||{}).some(v=>v.split('|').length>4),
+    'T-рост: строки смены грейда и специализации — «текущее → желаемое»'+(newRq?' ('+rows[0].name+')':' (ответ до поставки 81 — только желаемое)'));
+}
 }
 /* 30.10: доли и средние, которые за неполный месяц неточны, в таблицах и выводах — по закрытому месяцу */
 ok(['time_to_fill','tgrowth_conv','underwork','overwork'].every(k=>!D.PARTIAL||D.lastIdx(k)===D.LAST-1),

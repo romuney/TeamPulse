@@ -998,6 +998,8 @@ on(document,'click',e=>{
   if(pm){e.stopPropagation();const i=+pm.dataset.pmark;S.monMark=S.monMark===i?null:i;render(true);return}
   const tso=t.closest('[data-tsort]');
   if(tso){S.tsort=tso.dataset.tsort;render(true);return}
+  const sps=t.closest('[data-spmsort]');
+  if(sps){S.spmSort=sps.dataset.spmsort;render(true);return}
   /* конструктор на весь экран и обратно */
   const fs=t.closest('[data-mxfull]');
   if(fs){S.mxFull=fs.dataset.mxfull==='1';render(true);return}

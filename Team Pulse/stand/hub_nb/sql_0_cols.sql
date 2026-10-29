@@ -118,6 +118,8 @@ with need (sch, tbl, col) as (
         ('', 'structure_x_rost', 'tat_flg'),
         ('', 'structure_x_rost', 'required_grade_num'),
         ('', 'structure_x_rost', 'required_specialization'),
+        ('', 'structure_x_rost', 'current_grade_num'),
+        ('', 'structure_x_rost', 'current_specialization'),
         ('prod_v_dds_dic', 'employee_specialization', 'employee_specialization_dk'),
         ('prod_v_dds_dic', 'employee_specialization', 'deleted_flg'),
         ('prod_v_dds_dic', 'employee_specialization', 'valid_from_dttm'),

@@ -288,38 +288,7 @@ function conclusion(sum,b,S){
     '<div class="bk-h">'+esc(head)+'</div>'+facts+
     '<div class="bk-do">'+todo+'</div></div></div>';
 }
-/* Где это происходит: подразделения первого уровня по вкладу в отклонение
-   (люди сверх ориентира); нет отклонения — по значению главной метрики.
-   Меньше 30 человек доли не оцениваются — прочерк. Клик — графики по нему. */
-function wherePanel(sum,mainK,S,rootNode){
-  const c=sum.list.find(x=>x.where&&x.where.tot>0), key=c?c.key:mainK, m=D.METRIC_BY_KEY[key];
-  const small=r=>r.small&&m.fmt==='pct', sv=r=>small(r)||r.v==null?-1e18:r.v;
-  const rows=c?c.where.rows:INS.unitsOf(S).map(u=>({n:u.n,hc:u.hc,small:u.hc<INS.CARD.small,v:D.lastVal(u.lp,key)}))
-    .sort((a,x)=>sv(x)-sv(a));
-  /* 23.10, Антон: полоса в шкале 0–100% — доля вклада в отклонение, доля от суммы по подразделениям или сам процент */
-  const top=rows.slice(0,4), max=Math.max(1e-9,...top.map(r=>c?r.exc:small(r)?0:Math.abs(r.v||0)));
-  const tot=c?c.where.tot:rows.reduce((a,r)=>a+(small(r)||r.v==null?0:Math.abs(r.v)),0);
-  /* 26.10, ревью критиков: в режиме вклада число — доля в разнице (ровно то, что кодирует полоса), значение и ориентир —
-     серой строкой; без вклада (значение не хуже ориентира) — прочерк. Месяц вывода назван, если он не последний */
-  const fc=c&&c.fact, rw=fc&&(fc.kind==='yoy'?'год назад':fc.kind==='spike'?'обычно':fc.kpi?'цель':'база');
-  const fk=fc&&fc.kind==='spike'?'attrition':key;
-  let h='<div class="bk-wh"><div class="bk-wt">Где это происходит</div><div class="bk-ws">'+(c?'Доля в разнице с '+
-    (fc.kind==='yoy'?'прошлым годом':fc.kind==='spike'?'обычным уровнем':fc.kpi?'целью':'базой')+': «'+esc(m.name)+'»'+(fc.mon?' · за '+fc.mon:'')
-    :'Подразделения по метрике «'+esc(m.name)+'»')+'</div>';
-  if(!rows.length)h+='<div class="bk-wn">У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры по команде.</div>';
-  top.forEach(r=>{
-    const w=(c?Math.min(100,r.exc/tot*100):small(r)?0:U.barW(key,Math.abs(r.v||0),tot,max))/100, hd=r.n.head;
-    /* 27.10: у команды меньше 30 человек процент — серым; 30.10 (критики): вклад в людях у неё считается и показан */
-    h+='<button class="bk-wr" data-wsel="'+esc(r.n.path)+'"'+(small(r)?U.tipAttr({title:r.n.name,text:'Меньше '+INS.CARD.small+
-      ' человек: процент неустойчивый, но вклад в разницу — в людях — честный.'}):'')+'>'+
-      '<span class="bk-wu"><b>'+esc(r.n.name)+'</b><span>'+D.fmtInt(r.hc)+' чел'+(hd&&hd.login?' · '+esc(hd.login):'')+'</span>'+
-      (c&&r.v!=null?'<span>'+D.fmtVal(fk,r.v)+(r.ref!=null?' · '+rw+' '+D.fmtVal(fk,r.ref):'')+'</span>':'')+'</span>'+
-      '<span class="bk-wv'+(small(r)&&!c?' sm-n':'')+'">'+(c?Math.round(r.exc/tot*100)+'%':r.v==null?'—':D.fmtVal(key,r.v))+'</span>'+
-      '<span class="bk-wb"><i class="'+(c?c.sev:'n')+'" style="width:'+(w*100).toFixed(1)+'%"></i></span></button>';
-  });
-  return h+'<button class="bk-more" data-blkjump="1">'+(rows.length>top.length?'Ещё '+(rows.length-top.length)+' — ':'Подробнее — ')+
-    'в таблице подразделений ниже'+(fc&&fc.mon&&D.partFlow(key)?' (там — по '+D.ASOF_SHORT+')':'')+' ↓</button></div>';
-}
+/* 31.10: «Где это происходит» в «Саммари» снята (файл итерации, п. 2 и 6) — функция wherePanel удалена */
 
 /* ---------- рендер детальной вкладки ----------
    view — состояние показа, которое в ссылку не едет: tq — поиск по таблице. */
@@ -390,9 +359,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
      это происходит → таблица»). Факты — те же карточки, что на главной. */
   const sum=INS.blockSummary(b.key,S,rl,bl);
-  /* 30.10, шаг 2: нет подразделений ниже — «Где это происходит» не показываем (одна фраза «нет подразделений») */
-  const hasU=INS.unitsOf(S).length>0;
-  h+='<div class="bk-top '+sum.sev+(hasU?'':' solo')+'">'+conclusion(sum,b,S)+(hasU?wherePanel(sum,mainK,S,rootNode):'')+'</div>';
+  /* 31.10, файл итерации п. 2 и 6: в «Саммари» только короткий текстовый вывод — таблица «Где это происходит» снята на
+     всех вкладках (подразделения — в таблице ниже), блок в одну колонку и ниже по высоте */
+  h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и

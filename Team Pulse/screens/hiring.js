@@ -78,14 +78,15 @@ SC.blocks.hiring={
         metricKey:'hire',compact:true,items:items},o||{}));
       /* Каналы — по убыванию, переводы — последней строкой и своим цветом
          «внутреннего найма»: это не канал подбора, а другой путь в команду. */
-      const ch=hp.channels.slice().sort((a,b)=>b.value-a.value).map(c=>({name:c.name,value:c.value,color:G.C_IN}))
+      /* 31.10, файл итерации п. 4: «Откуда пришли» — все строки по убыванию, переводы — на своём месте по значению */
+      const ch=hp.channels.map(c=>({name:c.name,value:c.value,color:G.C_IN}))
         .concat([{name:'Переводы из других команд',note:'их доля и есть доля внутреннего найма',
-          value:hp.tin,color:G.C_HIRE_I}]);
+          value:hp.tin,color:G.C_HIRE_I}]).sort((a,b)=>b.value-a.value);
       return dyn+U.btStack([
         tbl('Откуда пришли','найм и переводы'+sub,ch),
         tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]
         /* поставка 50: путь в команду — найм в компанию, из учебной группы, стажёр в штат (как в HQ) */
-        .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]:[]))+
+        .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})),{sort:true})]:[]))+
         '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+'). В первой таблице — вместе '+
         'с переводами из других подразделений.</div>';
     }
@@ -99,13 +100,15 @@ SC.blocks.hiring={
     const vb=D.vacancyBreakdown(lp);
     if(!vb)return panels;
     /* 27.10-в, п. 7: специализаций десятки — по убыванию, первые 10 и раскрываемые «Остальные» */
-    const vt=(cap,capSub,items,color,head,rs)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:head,metricKey:'vac_open',
-      compact:true,sort:!!rs,items:items.map(x=>({name:x.name,value:x.value,color:color}))},rs||{}));
-    const open=[['Открытые по статусу',vb.status],['Открытые по причине',vb.reason],['Открытые по уровню позиции',vb.pos],
+    /* 31.10, файл итерации п. 4: по убыванию — статус, причина, специализация, канал; уровень позиции и кандидата —
+       по старшинству (порядковые) */
+    const vt=(cap,capSub,items,color,head,rs,ord)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:head,metricKey:'vac_open',
+      compact:true,sort:!ord,items:items.map(x=>({name:x.name,value:x.value,color:color}))},rs||{}));
+    const open=[['Открытые по статусу',vb.status],['Открытые по причине',vb.reason],['Открытые по уровню позиции',vb.pos,null,1],
       ['Открытые по специализации',vb.spec,SC.rest(ctx,'vspec',10,['специализация','специализации','специализаций'])]]
-      .filter(x=>x[1].length).map(x=>vt(x[0],'на '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur),x[1],G.C_VAC,'Вакансий',x[2]));
-    const closed=[['Закрытые по каналу',vb.channel],['Закрытые по уровню кандидата',vb.cand]].filter(x=>x[1].length)
-      .map(x=>vt(x[0],'с начала года',x[1],G.C_IN,'Вакансий'));
+      .filter(x=>x[1].length).map(x=>vt(x[0],'на '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur),x[1],G.C_VAC,'Вакансий',x[2],x[3]));
+    const closed=[['Закрытые по каналу',vb.channel],['Закрытые по уровню кандидата',vb.cand,null,1]].filter(x=>x[1].length)
+      .map(x=>vt(x[0],'с начала года',x[1],G.C_IN,'Вакансий',x[2],x[3]));
     return panels+U.btStack(open.slice(0,2))+U.btStack(open.slice(2).concat(closed).slice(0,3))+
       '<div class="tbl-note">Вакансии — по подразделению: фильтры покраски, IT, штата и типа численности на них не действуют.</div>';
   }

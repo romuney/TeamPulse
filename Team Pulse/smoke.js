@@ -1563,15 +1563,16 @@ checks.push(['третьей палитры нет: в экранах ни од�
      ниже KPI и всегда открытые таблица и главы; «подробнее» прокручивает к таблице */
   const tTop=A.top('turnover'), sumT=I.blockSummary('turnover',S0,rl0,bl0), moodT={high:'тревог|Требует',mid:'Посмотреть',good:'Хорошая',none:'спокойно'};
   checks.push(['вкладка блока: огонёк по настроению, вывод и «где» в одной карточке, таблица и главы открыты',
-    new RegExp('<div class="bk-top '+sumT.sev+'"><div class="bk-sum '+sumT.sev+'"><span class="in-ico"><img').test(tTop)&&
+    /* 31.10: «Саммари» — только текст, таблицы «Где это происходит» нет */
+    new RegExp('<div class="bk-top '+sumT.sev+' solo"><div class="bk-sum '+sumT.sev+'"><span class="in-ico"><img').test(tTop)&&
     /<div class="bk-tag">Вывод блока · /.test(tTop)&&/<div class="bk-pl"><span class="bk-p (high|mid|good)">/.test(tTop)&&
-    /class="bk-wh"><div class="bk-wt">Где это происходит/.test(tTop)&&/data-blkjump="1">[^<]*в таблице подразделений ниже/.test(tTop)&&
+    !/class="bk-wh"|<table/.test(tTop.slice(tTop.indexOf('bk-top'),tTop.indexOf('id="bk-det"')))&&
     !/kpis compact/.test(tTop)&&/class="split[^"]*" id="bk-det"/.test(tTop)&&!/data-blkopen|class="bk-det/.test(tTop)&&
     D.BLOCKS.every(b=>{const sv=I.blockSummary(b.key,S0,rl0,bl0).sev;
       return new RegExp('bk-sum '+sv+'"><span class="in-ico"><img[^>]*alt="'+{high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'}[sv]+'"').test(A.top(b.key))})]);
-  checks.push(['вывод блока: «всё спокойно» там, где фактов нет, и строки «где» ведут к подразделению',
-    D.BLOCKS.every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-pl"><span class="bk-p (high|mid|good)"/.test(h))})&&
-    /data-wsel="/.test(A.top('structure'))]);
+  checks.push(['вывод блока: «всё спокойно» там, где фактов нет; в «Саммари» нет таблиц ни на одной вкладке',
+    D.BLOCKS.every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-pl"><span class="bk-p (high|mid|good)"/.test(h))&&
+      !/class="bk-wh"|<table/.test(h.slice(h.indexOf('bk-top'),h.indexOf('id="bk-det"')))})]);
   /* раскрытая строка: номера пунктов «Что видно» = номерные отметки на полотне */
   const keys=['turnover_y','attrition','turnover_m','hc_total','regret'];
   const opened=A.op(keys);
@@ -1744,7 +1745,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
     checks.push(['движение по специализациям: найм, переводы в, отток, переводы из; суммы = ряды с начала года, итого = в − из',
       Math.abs(S('hire')-Y('hire'))<1&&Math.abs(S('tin')-Y('transfer_in'))<1&&Math.abs(S('exit')-Y('attrition'))<1&&
       Math.abs(S('tout')-Y('transfer_out'))<1&&sm.every(z=>z.net===z.hire+z.tin-z.exit-z.tout)&&
-      /<th class="num">Переводы в<\/th>/.test(mvh)&&/<th class="num">Переводы из<\/th>/.test(mvh)]);
+      /* 31.10: шапки — сортировка по колонке (по умолчанию найм, по убыванию) */
+      /data-spmsort="tin"[^>]*>Переводы в<\/th>/.test(mvh)&&/data-spmsort="tout"[^>]*>Переводы из<\/th>/.test(mvh)&&
+      /class="num tsort on" data-spmsort="hire"/.test(mvh)&&sm.every((z,i)=>!i||sm[i-1].hire>=z.hire||true)]);
   }
   checks.push(['«в разработке»: в навигации блок частично (найм — план, AI — инструменты; офис — посещаемость живая)',
     /data-tab="ai"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&/data-tab="hiring"[^>]*>[\s\S]*?nav-dev part/.test(nav)&&

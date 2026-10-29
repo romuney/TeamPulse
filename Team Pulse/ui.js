@@ -175,13 +175,13 @@ function openUnitBtn(path,name,label){
 function unitHide(){
   return '<button class="unit-hide" data-splitmode="charts" aria-label="Свернуть таблицу подразделений"'+
     tipAttr({title:'Свернуть таблицу',text:'Графики займут всю ширину. Вернуть — полоска «Подразделения» слева.'})+
-    '><span aria-hidden="true">‹</span></button>';
+    '><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>';
 }
 function unitRail(n){
   return '<button class="split-rail" data-splitmode="both" aria-label="Показать таблицу подразделений"'+
     tipAttr({title:'Подразделения',text:n?'Таблица подразделений: клик по строке — графики этого подразделения.'
       :'Подразделений уровнем ниже нет — в таблице только ИТОГО.'})+
-    '><span class="sr-ch" aria-hidden="true">›</span><span class="sr-t">Подразделения'+(n?' · '+n:'')+'</span></button>';
+    '><span class="sr-ch" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="sr-t">Подразделения'+(n?' · '+n:'')+'</span></button>';
 }
 /* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
    его с клавиатуры, двойной клик возвращает ширину по умолчанию. */

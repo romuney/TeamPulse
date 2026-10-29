@@ -158,7 +158,7 @@ from (
     from (
         select s.finish_month, s.is_approved, s.is_declined, s.grade_change_application_flg,
                s.specialization_change_application_flg, s.tat_flg, s.required_grade_num,
-               s.required_specialization,
+               s.required_specialization, s.current_grade_num, s.current_specialization,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
@@ -173,20 +173,22 @@ from (
 ) e
 where (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) is not null;
 
--- rq — за окно (с начала месяца 12 месяцев назад): «вид|поток|итог|желаемое», g — желаемый грейд, s — желаемая
--- специализация
+-- rq — за окно (с начала месяца 12 месяцев назад): «вид|поток|итог|желаемое|текущее», g — грейд, s — специализация
+-- (поставка 81: текущее — откуда переходят, в отчёте «текущий → желаемый»)
 insert into teampulse_hub_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
        (case when coalesce(e.specialization_change_application_flg, 0) = 1 then 's' else 'g' end) || '|' || (case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end) || '|' || (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) || '|' ||
            (case when (case when coalesce(e.specialization_change_application_flg, 0) = 1 then 's' else 'g' end) = 'g' then coalesce(e.required_grade_num::text, '')
-                 else coalesce(nullif(translate(e.required_specialization::text, E'\t\n|', '  /'), '-'), '') end) as mx_val, 1 as mx_n
+                 else coalesce(nullif(translate(e.required_specialization::text, E'\t\n|', '  /'), '-'), '') end) || '|' ||
+           (case when (case when coalesce(e.specialization_change_application_flg, 0) = 1 then 's' else 'g' end) = 'g' then coalesce(e.current_grade_num::text, '')
+                 else coalesce(nullif(translate(e.current_specialization::text, E'\t\n|', '  /'), '-'), '') end) as mx_val, 1 as mx_n
 from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
     from (
         select s.finish_month, s.is_approved, s.is_declined, s.grade_change_application_flg,
                s.specialization_change_application_flg, s.tat_flg, s.required_grade_num,
-               s.required_specialization,
+               s.required_specialization, s.current_grade_num, s.current_specialization,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,

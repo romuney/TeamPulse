@@ -2996,3 +2996,11 @@ usage — частота, инструментов на человека (+ ср
 инструментам разработчика). data.js aiUsage: сегменты всегда три (NonIT), сообщения по инструментам в сумме = cls,
 ipen = iact / ihc. story.js: CH.ai adoption без «год назад» (`vsBase(..., noYoy)`), who, usage; Q/WHY под новые ключи.
 smoke: структура, нет ряда прошлого года, переключатель, суммы сходятся.
+
+**31.10, поставка 81 — итерация «Задача 2» (7 пунктов, файл в архиве пользователя).** CSS хвост: `@container stp
+(min-width:980px)` — `.st-grid.has-rail` колонкой («Что важно» под графиками); `.bk-top.solo` компактнее; стрелки в
+круге (`.unit-hide`, `.split-rail .sr-ch`, svg). _block.js: `wherePanel` удалён, `.bk-top` всегда `solo`. hiring.js:
+`vt(..., ord)` — порядковые (уровень позиции / кандидата) без сортировки, остальные по убыванию; «Откуда пришли» — все
+строки по убыванию. movement.js: `S.spmSort` (app.js data-spmsort), шапки `th.tsort`. Ноутбук: `rq` — пятое поле
+«текущее» (SXR_COLS + current_grade_num, current_specialization), стенд nb_tp20 — то же; data.js rostReal/mock —
+«текущее → желаемое». Стенд s81: датасет 2а = правда; smoke_real — проверка направления.

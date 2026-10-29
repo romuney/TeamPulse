@@ -2626,10 +2626,13 @@ function rostReal(){
     Object.keys(rq).forEach(v=>{const p=v.split('|');if(p[0]===kd&&p[2]==='ok'){if(p[1]==='1')T+=+rq[v]||0;else R+=+rq[v]||0}});
     const succ=t=>{
       const o={};
+      /* поставка 81: «вид|поток|итог|желаемое|текущее» — строка «текущее → желаемое»; ответ до 81 без текущего —
+         только желаемое. Пусто — «не указан», грейды 20 и выше — «20+» (rostGrade) */
+      const lab=w=>kd==='g'?rostGrade(w):isNA(w)?NONE_NAME:w;
       Object.keys(rq).forEach(v=>{
-        const p=v.split('|'), w=p.slice(3).join('|'), n=+rq[v]||0;
+        const p=v.split('|'), n=+rq[v]||0;
         if(p[0]!==kd||p[1]!==t||(p[2]!=='ok'&&p[2]!=='no'))return;
-        const nm=kd==='g'?rostGrade(w):isNA(w)?NONE_NAME:w, x=o[nm]||(o[nm]={name:nm,apps:0,ok:0,no:0});
+        const nm=p.length>4?lab(p[4])+' → '+lab(p[3]):lab(p.slice(3).join('|')), x=o[nm]||(o[nm]={name:nm,apps:0,ok:0,no:0});
         x.apps+=n;x[p[2]]+=n;
       });
       return Object.keys(o).map(k=>o[k]).sort((a,b)=>b.apps-a.apps||a.name.localeCompare(b.name,'ru'));
@@ -2650,18 +2653,19 @@ function rostProfile(lp){
   const col=(k,js)=>st.find(x=>x.key===k).rows.reduce((a,x)=>a+js.reduce((b,j)=>b+x.cells[j],0),0);
   const mon=t=>splitBy(t,MONTHS.map((_,i)=>0.7+r()*0.6-(PARTIAL&&i===LAST?0.4:0)));
   /* успешность по желаемому: успешно — доля итога, отказ — 15–45% заявок */
-  const succ=(tot,names)=>splitBy(tot,names.map(()=>0.4+r())).map((ok,i)=>{const no=Math.round(ok*(0.18+r()*0.6));
-    return {name:names[i],apps:ok+no,ok:ok,no:no}}).filter(x=>x.apps>0).sort((a,b)=>b.apps-a.apps);
-  const flow=(tot,names,nR,nT)=>{
+  /* поставка 81: строка — «текущее → желаемое» (from(i) — откуда переходят к names[i]) */
+  const succ=(tot,names,from)=>splitBy(tot,names.map(()=>0.4+r())).map((ok,i)=>{const no=Math.round(ok*(0.18+r()*0.6));
+    return {name:(from?from(i)+' → ':'')+names[i],apps:ok+no,ok:ok,no:no}}).filter(x=>x.apps>0).sort((a,b)=>b.apps-a.apps);
+  const flow=(tot,names,nR,nT,from)=>{
     const R=Math.round(tot*(0.72+r()*0.12)), T=tot-R, mr=mon(R), mt=mon(T);
     return {rost:R,tat:T,months:MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,
-      rost:mr[i],tat:mt[i]})),rostT:succ(R,names).slice(0,nR),tatT:succ(T,names).slice(0,nT)};
+      rost:mr[i],tat:mt[i]})),rostT:succ(R,names,from).slice(0,nR),tatT:succ(T,names,from).slice(0,nT)};
   };
   const named=d=>[...new Set((MIX_BY_KEY[d]?MIX_BY_KEY[d].cats:[]).map(c=>c.name.split('|').pop()).filter(x=>!isNA(x)))];
   /* заявок закрыто больше, чем людей: у одного бывает несколько */
   return {hc:hc,st:st,
-    grade:flow(Math.round(col('done',[0,2])*1.08),named('grade').slice(1),5,99),
-    spec:flow(Math.round(col('done',[1,2])*1.08),named('spec'),5,4)};
+    grade:flow(Math.round(col('done',[0,2])*1.08),named('grade').slice(1),5,99,i=>named('grade')[i]),
+    spec:flow(Math.round(col('done',[1,2])*1.08),named('spec'),5,4,i=>{const a=named('spec');return a[(i+1)%a.length]})};
 }
 
 /* ---------- Ревью: последний цикл ----------

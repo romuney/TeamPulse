@@ -47,6 +47,10 @@ function balancedSteps(lp){
 function specMove(lp,ctx){
   const rs=D.specMovement(lp);
   if(!rs.length)return '';
+  /* 31.10, файл итерации п. 4: сортировка по любой числовой колонке — клик по шапке (по умолчанию — найм), по убыванию;
+     «Остальные» — после сортировки, раскрываются как раньше */
+  const sk=ctx&&ctx.S&&ctx.S.spmSort||'hire';
+  rs.sort((a,b)=>(b[sk]||0)-(a[sk]||0)||a.name.localeCompare(b.name,'ru'));
   const trf=!D.REAL||D.SPM_TRF, K='rest:spm', open=!!(ctx&&ctx.mixOpen.has(K)), top=rs.slice(0,12), rest=rs.slice(12);
   const S=(a,k)=>a.reduce((t,z)=>t+z[k],0), agg=(a,o)=>Object.assign(o,{hire:S(a,'hire'),tin:S(a,'tin'),exit:S(a,'exit'),
     tout:S(a,'tout'),net:S(a,'net')});
@@ -66,7 +70,8 @@ function specMove(lp,ctx){
       cols.map(c=>'<td class="num">'+D.fmtInt(z[c[0]])+'</td>').join('')+'</tr>';
   return '<div class="bt-group spm"><div class="bt-cap">Движение по специализациям<span class="bt-sub">с начала года, чел</span></div>'+
     '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col style="width:62px">').join('')+
-    '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num">'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
+    '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num tsort'+(c[0]===sk?' on':'')+'" data-spmsort="'+c[0]+'"'+
+      U.tipAttr({title:c[1],text:c[0]===sk?'Строки — по этой колонке, от большего.':'Клик — отсортировать по этой колонке, от большего.'})+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
     row(tot)+top.map(row).join('')+'</tbody></table></div>'+
     '<div class="tbl-note">С начала года; ИТОГО — как в карточках движения.'+(trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
 }

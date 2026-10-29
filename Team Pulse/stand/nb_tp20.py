@@ -929,7 +929,9 @@ def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
         if g0 <= fm <= lm:
             out['rm'][f"{fm:%Y-%m}|{tp(r)}|{tat}|{res}"] += 1
         if w12 <= fm <= lm:
-            out['rq'][f"{tp(r)}|{tat}|{res}|{r[6] if tp(r) == 'g' else SPECS[r[8] - 1]}"] += 1
+            # поставка 81: пятое поле — текущее (откуда переходят)
+            out['rq'][f"{tp(r)}|{tat}|{res}|{r[6] if tp(r) == 'g' else SPECS[r[8] - 1]}|"
+                      f"{r[5] if tp(r) == 'g' else SPECS[r[7] - 1]}"] += 1
     e = eom(lm)
     win = defaultdict(list)
     for r in hq:
