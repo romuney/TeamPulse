@@ -645,29 +645,21 @@ function heatLegend(){
     [0.04,0.25,0.5,0.75,1].map(t=>G.heat(t)).join(',')+')"></i><span>больше</span></div>';
 }
 
-/* ---------- Плашка взятого среза ----------
-   Срез обязан быть виден там, где он меняет цифры, — рядом с карточками, а не
-   только в таблице, по которой кликнули. Иначе «191 → 59» выглядит поломкой
-   отчёта. Чип снимается кликом, как разрезы в шапке. */
-/* 22.10: полка срезов закреплена у верхнего края окна (sticky) и стоит всегда: пока срезов нет, она
-   скрыта visibility:hidden, а не display:none — место под неё оставлено, и отчёт не прыгает, когда
-   срез появляется. o: title, chips [{dim, cat, attr — атрибут кнопки «×»}], extra, clear — атрибут
-   «Сбросить всё», clearTip */
-function shelf(o){
-  /* 23.10, заказчик: «Срез состава» никто не понимает, пунктир — не надо. Ничего не выбрано — полки нет совсем
-     (и места под неё при прокрутке); выбрано — сплошная голубая полоса: что выбрано (чипы с ×) и «Сбросить всё»,
-     без подписи. Как взять срез, сказано в «Что с этим делать» у главы */
-  const chips=o.chips||[];
+/* ---------- Что выбрано: пилюли в шапке карточки графиков ----------
+   31.10 (поставка 82, заказчик): отдельная липкая полка над таблицами вставлялась в поток — страница прыгала,
+   отступы между блоками менялись, полоса выглядела чужой. Теперь всё выбранное кликом — подразделение в таблице,
+   срез структуры, сегмент и город посещаемости — пилюлями в строке под заголовком карточки графиков: она и так
+   липкая, место строки занято всегда, при выборе ничего не сдвигается. chips: [{dim, cat, attr — атрибут «×», tip}] */
+function selBar(chips){
   if(!chips.length)return '';
-  return '<div class="note-inline slice sl-shelf">'+
-    chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
-      '<button class="x" '+c.attr+tipAttr({title:'Снять',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join('')+
-    '<span class="sl-x">'+esc(o.extra||'')+'</span>'+
-    '<button class="btn ghost xs" '+o.clear+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять весь выбор. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+  return '<span class="sel-bar">'+chips.map(c=>'<span class="sel-pill"'+(c.tip?tipAttr({title:c.dim+': '+c.cat,text:c.tip}):'')+'>'+
+      '<span class="sp-d">'+esc(c.dim)+':</span> <b>'+esc(c.cat)+'</b>'+
+      '<button class="x" '+c.attr+' aria-label="Снять: '+esc(c.dim)+'">×</button></span>').join('')+
+    (chips.length>1?'<button class="sel-clear" data-selclear="1"'+tipAttr({title:'Сбросить всё',text:'Снять весь выбор. То же — клавиша Escape.'})+'>Сбросить всё</button>':'')+
+    '</span>';
 }
-function sliceNote(parts,extra){
-  return shelf({extra:extra,clear:'data-mixclear="1"',clearTip:'Снять весь выбор. То же — клавиша Escape.',
-    chips:parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"'}))});
+function sliceChips(parts,tip){
+  return parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"',tip:tip}));
 }
 
 /* ============================================================================
@@ -1078,7 +1070,7 @@ function devSummary(o){
 }
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,kpiCard,
-  barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
+  barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
 })();

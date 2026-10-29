@@ -990,6 +990,7 @@ on(document,'click',e=>{
   /* Срез состава — СТРОГО до .urow: строка разбивки и есть .urow, и общий
      обработчик выбора подразделения перехватил бы её первым. */
   if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
+  if(t.closest('[data-selclear]')){S.mixSel=[];S.selNode=null;S.offSeg=null;S.offCity=null;render(true);return}
   /* посещаемость (22.10): сегмент и город — свой фильтр вкладки, складываются; повторный клик снимает */
   if(t.closest('[data-offclear]')){S.offSeg=null;S.offCity=null;render(true);return}
   const osg=t.closest('[data-offseg]');

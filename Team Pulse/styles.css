@@ -1050,31 +1050,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    там же, где название, — значок тот же, что у метрик, второго не заводим. */
 .bt-cap{display:flex;align-items:center;gap:6px}
 
-/* ---------- Плашка взятого среза ----------
-   Стоит под карточками KPI, потому что меняет именно их цифры. Оформлена
-   синим, а не серым пунктиром обычной сноски: это не пояснение, а активное
-   состояние отчёта, которое пользователь включил и должен видеть. */
-.note-inline.slice{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;
-  border-style:solid;border-color:var(--act-line);background:var(--blue-bg);color:var(--ink2)}
-.note-inline.slice .chip.sl{background:#fff;border-color:var(--act-line);flex:0 0 auto}
-.note-inline.slice .sl-x{flex:1 1 240px;min-width:0;font-size:var(--fs-note);color:var(--muted)}
-.note-inline.slice .btn.xs{flex:0 0 auto;padding:4px 9px}
 /* мониторинг (22.10): блок графика без данных в пробнике — заголовок и плашка на месте графика */
 .mon-ph{padding:var(--s6) var(--s7);border:1px dashed var(--line);border-radius:var(--r3);min-height:120px}
 .mon-ph .tbl-note{margin-top:var(--s4)}
-/* 22.10: полка срезов закреплена у верхнего края при прокрутке. 23.10: тонкая — одна строка; подложка цвета
-   страницы выше и ниже (тени без размытия) закрывает то, что уезжает под полку, — она читается продолжением
-   шапки, а не карточкой поверх графиков. 23.10, заказчик: пустой полки нет — она есть, только когда что-то
-   выбрано (сплошная голубая, без подписи и пунктира); появилась или ушла — app.js держит экран на месте */
-.sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;min-height:36px;box-sizing:border-box;padding:4px 8px 4px 14px;text-align:left;
-  border-radius:var(--r2);margin-bottom:var(--s5);box-shadow:0 -10px 0 var(--bg),0 10px 0 var(--bg)}
-.sl-shelf .chip.sl{padding:2px 8px}
-.note-inline.slice.sl-shelf .sl-x{flex:1 1 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* 23.10, заказчик: полка не должна закрывать шапки таблицы и правой панели — они прилипают НИЖЕ неё: на странице
-   с полкой их отступ сверху больше на её высоту (--shelf-h). Полка поэтому строго в одну строку: высота известна */
-.content:has(.sl-shelf){--shelf-h:46px}
-.sl-shelf{flex-wrap:nowrap!important;overflow:hidden}
-.sl-shelf .chip.sl{min-width:0;flex:0 1 auto!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* полка срезов над таблицами снята в поставке 82 — выбранное пилюлями в шапке карточки графиков (.sel-bar) */
 .k-ph{visibility:hidden}
 /* детализация переводов (поставка 63) */
 
@@ -1144,7 +1123,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .mx-bar{flex-direction:column;align-items:stretch;gap:var(--s4)}
   .mx-bar .ctl select{width:100%}
   .mx-bar .mx-swap{align-self:flex-end;margin:0}
-  .note-inline.slice .sl-x{flex-basis:100%}
   /* На узком экране колонка названий больше не забирает остаток ширины:
      иначе в кадре оставались одни названия, а числа уезжали за правый край,
      и матрица открывалась пустой. Название переносится по строкам, клетки
@@ -2491,3 +2469,16 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .st-grid.has-rail>.st-rail{align-self:stretch}
 }
 .unit-head.login{color:var(--muted);border-bottom:1px dotted var(--muted2);cursor:help}
+/* Поставка 82: что выбрано — пилюли в шапке карточки графиков. Строка подзаголовка всегда одной высоты (22px):
+   появились пилюли или ушли — шапка, шаги и графики не сдвигаются ни на пиксель */
+.split-r>.panel-h .sub{display:flex;align-items:center;gap:6px;min-height:22px;white-space:nowrap;overflow:hidden}
+.sel-bar{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
+.sel-pill{display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 2px 0 9px;border-radius:11px;min-width:0;
+  background:var(--blue-bg);box-shadow:inset 0 0 0 1px var(--act-line);color:var(--act-ink);font-size:12px;line-height:22px}
+.sel-pill .sp-d{color:var(--muted)}
+.sel-pill b{font-weight:var(--fw-bold);overflow:hidden;text-overflow:ellipsis;max-width:240px}
+.sel-pill .x{width:18px;height:18px;border:0;border-radius:50%;background:transparent;color:var(--act-ink);cursor:pointer;font-size:14px;line-height:18px;padding:0}
+.sel-pill .x:hover{background:rgba(31,95,224,.12)}
+.sel-clear{border:0;background:transparent;color:var(--act);font:inherit;font-size:12px;cursor:pointer;padding:0 4px}
+.sel-clear:hover{text-decoration:underline}
+.split-r>.panel-h .sub .open-unit{flex:0 0 auto}

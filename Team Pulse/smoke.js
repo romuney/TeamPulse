@@ -196,7 +196,6 @@ checks.push(['один скролл: таблица подразделений s
   /* 23.10: на странице с полкой срезов панели прилипают ниже неё (--shelf-h) */
   /\.split>\.split-l\{position:sticky;top:calc\(var\(--head-h,0px\) \+ var\(--shelf-h,0px\) \+ 12px\);height:calc\(var\(--vh,100vh\) - var\(--head-h,0px\) - var\(--shelf-h,0px\) - 38px\)/.test(cssAll)&&
   /\.split>\.split-r\{min-height:calc\(var\(--vh,100vh\) - var\(--head-h,0px\) - var\(--shelf-h,0px\) - 38px\)\}/.test(cssAll)&&
-  /\.content:has\(\.sl-shelf\)\{--shelf-h:46px\}/.test(cssAll)&&
   /\.split-r \.panel-b,\.split-r \.panel-b\.st-on\{overflow:visible;height:auto\}/.test(cssAll)&&
   /overscroll-behavior:contain/.test(cssAll)&&
   /* края карточки графиков видны всегда и стоят на одной линии с таблицей (скриншот 20.10) */
@@ -537,7 +536,7 @@ checks.push(['рейтинга офисов нет (15.10), в таблице г
   checks.push(['посещаемость: сегмент + город — выбор складывается, динамика и таблицы пересчитаны, сброс — общий вид',
     /class="urow sel" data-offseg="lead"/.test(hSeg)&&/Посещаемость офиса: Руководители, %/.test(hSeg)&&
     /Посещаемость офиса: Руководители · /.test(hBoth)&&/class="urow sel" data-offcity="/.test(hBoth)&&
-    /Сегмент: <b>Руководители<\/b>/.test(hBoth)&&/Локация: <b>/.test(hBoth)&&
+    /Сегмент:<\/span> <b>Руководители<\/b>/.test(hBoth)&&/Локация:<\/span> <b>/.test(hBoth)&&/data-selclear="1"/.test(hBoth)&&
     xb.att!==x0.att&&Math.abs(xb.factor*D.lastVal(rl0,'office_att')-xb.att)<0.06&&
     hOff===offHtml&&!/sl-shelf"/.test(hOff)]);
 }
@@ -949,13 +948,13 @@ checks.push(['марки графиков помечены data-s',
   /* 6. Срез виден в карточках, в таблице подразделений и в плашке */
   A.mix(['seniority:s']);
   const sliced=A.go('structure','portrait');
-  checks.push(['срез подписан полкой',
-    /* 23.10, заказчик: без подписи «Срез состава» — только что выбрано и «Сбросить всё» */
-    /class="note-inline slice sl-shelf"><span class="chip sl">[^<]+: <b>/.test(sliced)&&!/Срез состава/.test(sliced)&&
-    /data-mixclear="1"/.test(sliced)]);
+  /* 31.10 (поставка 82): срез — пилюлей в шапке карточки графиков, отдельной полки нет; «Сбросить всё» — от двух пилюль */
+  checks.push(['срез подписан пилюлей в шапке карточки графиков',
+    /class="sel-pill"[^>]*><span class="sp-d">[^<]+:<\/span> <b>[^<]+<\/b><button class="x" data-mix="seniority:s"/.test(sliced)&&
+    !/Срез состава/.test(sliced)&&!/sl-shelf/.test(sliced)&&!/data-selclear/.test(sliced)]);
   /* 23.10: у «Структуры численности» KPI-полосы нет — численность в «Итого» таблицы */
-  checks.push(['у «Структуры численности» нет KPI-полосы, полка среза — на её месте',
-    !/class="kpis compact/.test(sliced)&&sliced.indexOf('sl-shelf')<sliced.indexOf('class="split')]);
+  checks.push(['у «Структуры численности» нет KPI-полосы и полки среза над таблицами',
+    !/class="kpis compact/.test(sliced)&&sliced.indexOf('sel-pill')>sliced.indexOf('class="split')]);
   const totRow=(sliced.match(/<tr class="total top">[\s\S]*?<\/tr>/)||[''])[0];
   checks.push(['ИТОГО таблицы подразделений тоже по срезу',
     totRow.indexOf('>'+D.fmtVal('hc_total',hcSen)+'<')>=0&&
@@ -1312,10 +1311,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['без выбора строки кнопки перехода нет — клик по строке не уводит',
     !/data-openunit=/.test(closed)]);
   const pick=lv1[0].path, picked=A.sel(pick);
-  checks.push(['у выбранной строки и в шапке правой панели — «Открыть»',
+  /* 31.10 (поставка 82): выбранное подразделение — пилюлей «Подразделение: …» в шапке карточки графиков, рядом — «Открыть» */
+  checks.push(['у выбранной строки и в шапке правой панели — «Открыть»; в шапке — пилюля подразделения',
     (picked.match(new RegExp('data-openunit="'+pick+'"','g'))||[]).length===2&&
     new RegExp('<tr class="urow[^"]* sel" data-node="'+pick+'">[\\s\\S]*?data-openunit="'+pick+'"').test(picked)&&
-    />Открыть<\/button>/.test(picked)]);
+    /class="sel-pill"[^>]*><span class="sp-d">Подразделение:<\/span> <b>/.test(picked)]);
   checks.push(['кнопки ↓ и временного корня больше нет',
     !/data-drill|data-undrill|Временный корень/.test(picked)&&!('drillRoot' in D.DEFAULT_STATE)]);
 
@@ -1619,13 +1619,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !/data-trd|trdOvl/.test(A.go('movement','balance')+A.go('movement','dynamics'))&&!D.trfDetail]);
   A.mix([]);
   const pt=A.go('structure','portrait');
-  /* 22.10: полка срезов sticky; 23.10: тонкая (одна строка), подложка цвета страницы закрывает уехавшее под неё.
-     23.10, заказчик: без среза полки нет совсем (ни пунктира, ни места при прокрутке); появилась или ушла —
-     прокрутка сдвигается на сдвиг сетки, таблица и графики остаются на месте экрана */
-  checks.push(['полка срезов: sticky, тонкая, с подложкой; без срезов её нет, пунктира нет; экран не прыгает',
-    !/sl-shelf/.test(pt)&&!/\.sl-shelf[^{]*\{[^}]*dashed/.test(css)&&/yy\+=at1-at0/.test(appSrc)&&
-    /\.sl-shelf\{position:sticky;top:var\(--head-h,0px\);/.test(css)&&/\.sl-shelf\{[^}]*box-shadow:0 -10px 0 var\(--bg\),0 10px 0 var\(--bg\)/.test(cssAll)&&
-    !/\.sl-shelf[^{]*\{[^}]*display:none/.test(css)]);
+  /* 31.10 (поставка 82): полки над таблицами нет — выбранное пилюлями в шапке карточки графиков, строка шапки
+     всегда одной высоты: экран при выборе не сдвигается */
+  checks.push(['полки срезов нет; пилюли выбора — в строке шапки карточки графиков постоянной высоты',
+    !/sl-shelf/.test(pt)&&!/\.sl-shelf/.test(cssAll)&&
+    /\.split-r>\.panel-h \.sub\{display:flex;align-items:center;gap:6px;min-height:22px/.test(cssAll)]);
   /* 15.10: два обзора в стиле портрета — сверху обзор (пилюля), ниже разбивка */
   const wk=A.go('structure','work');
   /* 16.10: разделы — в двух колонках, выровненных по высоте (pt-cols), без пустот между
@@ -1705,7 +1703,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['портрет под срезом «Женщины»: выбранное выделено, возраст — только женщины',
     /<span class="on" data-mix="gender:f"/.test(ps)&&/<div class="shc on" data-mix="gender:f"/.test(ps)&&
     (ps.match(/М <b>0%<\/b> · Ж <b>100%<\/b>/g)||[]).length===ages.filter(v=>v>0).length&&
-    nF>0&&/class="note-inline slice sl-shelf"/.test(ps)&&/Сбросить всё/.test(ps)]);
+    nF>0&&/class="sel-pill"/.test(ps)&&/data-mix="gender:f" aria-label="Снять/.test(ps)]);
   A.mix([]);
 })();
 

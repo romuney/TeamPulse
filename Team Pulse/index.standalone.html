@@ -1058,31 +1058,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    там же, где название, — значок тот же, что у метрик, второго не заводим. */
 .bt-cap{display:flex;align-items:center;gap:6px}
 
-/* ---------- Плашка взятого среза ----------
-   Стоит под карточками KPI, потому что меняет именно их цифры. Оформлена
-   синим, а не серым пунктиром обычной сноски: это не пояснение, а активное
-   состояние отчёта, которое пользователь включил и должен видеть. */
-.note-inline.slice{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;
-  border-style:solid;border-color:var(--act-line);background:var(--blue-bg);color:var(--ink2)}
-.note-inline.slice .chip.sl{background:#fff;border-color:var(--act-line);flex:0 0 auto}
-.note-inline.slice .sl-x{flex:1 1 240px;min-width:0;font-size:var(--fs-note);color:var(--muted)}
-.note-inline.slice .btn.xs{flex:0 0 auto;padding:4px 9px}
 /* мониторинг (22.10): блок графика без данных в пробнике — заголовок и плашка на месте графика */
 .mon-ph{padding:var(--s6) var(--s7);border:1px dashed var(--line);border-radius:var(--r3);min-height:120px}
 .mon-ph .tbl-note{margin-top:var(--s4)}
-/* 22.10: полка срезов закреплена у верхнего края при прокрутке. 23.10: тонкая — одна строка; подложка цвета
-   страницы выше и ниже (тени без размытия) закрывает то, что уезжает под полку, — она читается продолжением
-   шапки, а не карточкой поверх графиков. 23.10, заказчик: пустой полки нет — она есть, только когда что-то
-   выбрано (сплошная голубая, без подписи и пунктира); появилась или ушла — app.js держит экран на месте */
-.sl-shelf{position:sticky;top:var(--head-h,0px);z-index:30;min-height:36px;box-sizing:border-box;padding:4px 8px 4px 14px;text-align:left;
-  border-radius:var(--r2);margin-bottom:var(--s5);box-shadow:0 -10px 0 var(--bg),0 10px 0 var(--bg)}
-.sl-shelf .chip.sl{padding:2px 8px}
-.note-inline.slice.sl-shelf .sl-x{flex:1 1 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* 23.10, заказчик: полка не должна закрывать шапки таблицы и правой панели — они прилипают НИЖЕ неё: на странице
-   с полкой их отступ сверху больше на её высоту (--shelf-h). Полка поэтому строго в одну строку: высота известна */
-.content:has(.sl-shelf){--shelf-h:46px}
-.sl-shelf{flex-wrap:nowrap!important;overflow:hidden}
-.sl-shelf .chip.sl{min-width:0;flex:0 1 auto!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* полка срезов над таблицами снята в поставке 82 — выбранное пилюлями в шапке карточки графиков (.sel-bar) */
 .k-ph{visibility:hidden}
 /* детализация переводов (поставка 63) */
 
@@ -1152,7 +1131,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
   .mx-bar{flex-direction:column;align-items:stretch;gap:var(--s4)}
   .mx-bar .ctl select{width:100%}
   .mx-bar .mx-swap{align-self:flex-end;margin:0}
-  .note-inline.slice .sl-x{flex-basis:100%}
   /* На узком экране колонка названий больше не забирает остаток ширины:
      иначе в кадре оставались одни названия, а числа уезжали за правый край,
      и матрица открывалась пустой. Название переносится по строкам, клетки
@@ -2499,6 +2477,19 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .st-grid.has-rail>.st-rail{align-self:stretch}
 }
 .unit-head.login{color:var(--muted);border-bottom:1px dotted var(--muted2);cursor:help}
+/* Поставка 82: что выбрано — пилюли в шапке карточки графиков. Строка подзаголовка всегда одной высоты (22px):
+   появились пилюли или ушли — шапка, шаги и графики не сдвигаются ни на пиксель */
+.split-r>.panel-h .sub{display:flex;align-items:center;gap:6px;min-height:22px;white-space:nowrap;overflow:hidden}
+.sel-bar{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
+.sel-pill{display:inline-flex;align-items:center;gap:3px;height:22px;padding:0 2px 0 9px;border-radius:11px;min-width:0;
+  background:var(--blue-bg);box-shadow:inset 0 0 0 1px var(--act-line);color:var(--act-ink);font-size:12px;line-height:22px}
+.sel-pill .sp-d{color:var(--muted)}
+.sel-pill b{font-weight:var(--fw-bold);overflow:hidden;text-overflow:ellipsis;max-width:240px}
+.sel-pill .x{width:18px;height:18px;border:0;border-radius:50%;background:transparent;color:var(--act-ink);cursor:pointer;font-size:14px;line-height:18px;padding:0}
+.sel-pill .x:hover{background:rgba(31,95,224,.12)}
+.sel-clear{border:0;background:transparent;color:var(--act);font:inherit;font-size:12px;cursor:pointer;padding:0 4px}
+.sel-clear:hover{text-decoration:underline}
+.split-r>.panel-h .sub .open-unit{flex:0 0 auto}
 
 </style>
 </head>
@@ -7489,29 +7480,21 @@ function heatLegend(){
     [0.04,0.25,0.5,0.75,1].map(t=>G.heat(t)).join(',')+')"></i><span>больше</span></div>';
 }
 
-/* ---------- Плашка взятого среза ----------
-   Срез обязан быть виден там, где он меняет цифры, — рядом с карточками, а не
-   только в таблице, по которой кликнули. Иначе «191 → 59» выглядит поломкой
-   отчёта. Чип снимается кликом, как разрезы в шапке. */
-/* 22.10: полка срезов закреплена у верхнего края окна (sticky) и стоит всегда: пока срезов нет, она
-   скрыта visibility:hidden, а не display:none — место под неё оставлено, и отчёт не прыгает, когда
-   срез появляется. o: title, chips [{dim, cat, attr — атрибут кнопки «×»}], extra, clear — атрибут
-   «Сбросить всё», clearTip */
-function shelf(o){
-  /* 23.10, заказчик: «Срез состава» никто не понимает, пунктир — не надо. Ничего не выбрано — полки нет совсем
-     (и места под неё при прокрутке); выбрано — сплошная голубая полоса: что выбрано (чипы с ×) и «Сбросить всё»,
-     без подписи. Как взять срез, сказано в «Что с этим делать» у главы */
-  const chips=o.chips||[];
+/* ---------- Что выбрано: пилюли в шапке карточки графиков ----------
+   31.10 (поставка 82, заказчик): отдельная липкая полка над таблицами вставлялась в поток — страница прыгала,
+   отступы между блоками менялись, полоса выглядела чужой. Теперь всё выбранное кликом — подразделение в таблице,
+   срез структуры, сегмент и город посещаемости — пилюлями в строке под заголовком карточки графиков: она и так
+   липкая, место строки занято всегда, при выборе ничего не сдвигается. chips: [{dim, cat, attr — атрибут «×», tip}] */
+function selBar(chips){
   if(!chips.length)return '';
-  return '<div class="note-inline slice sl-shelf">'+
-    chips.map(c=>'<span class="chip sl">'+esc(c.dim)+': <b>'+esc(c.cat)+'</b>'+
-      '<button class="x" '+c.attr+tipAttr({title:'Снять',text:c.dim+': «'+c.cat+'»'})+'>×</button></span>').join('')+
-    '<span class="sl-x">'+esc(o.extra||'')+'</span>'+
-    '<button class="btn ghost xs" '+o.clear+tipAttr({title:'Сбросить всё',text:o.clearTip||'Снять весь выбор. То же — клавиша Escape.'})+'>Сбросить всё</button></div>';
+  return '<span class="sel-bar">'+chips.map(c=>'<span class="sel-pill"'+(c.tip?tipAttr({title:c.dim+': '+c.cat,text:c.tip}):'')+'>'+
+      '<span class="sp-d">'+esc(c.dim)+':</span> <b>'+esc(c.cat)+'</b>'+
+      '<button class="x" '+c.attr+' aria-label="Снять: '+esc(c.dim)+'">×</button></span>').join('')+
+    (chips.length>1?'<button class="sel-clear" data-selclear="1"'+tipAttr({title:'Сбросить всё',text:'Снять весь выбор. То же — клавиша Escape.'})+'>Сбросить всё</button>':'')+
+    '</span>';
 }
-function sliceNote(parts,extra){
-  return shelf({extra:extra,clear:'data-mixclear="1"',clearTip:'Снять весь выбор. То же — клавиша Escape.',
-    chips:parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"'}))});
+function sliceChips(parts,tip){
+  return parts.map(p=>({dim:p.dim.short||p.dim.name,cat:p.cat.name,attr:'data-mix="'+esc(p.id)+'"',tip:tip}));
 }
 
 /* ============================================================================
@@ -7922,7 +7905,7 @@ function devSummary(o){
 }
 
 window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,kpiCard,
-  barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,sliceNote,shelf,pct,panel,subTabs,empty,trafficLegend,
+  barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
 })();
@@ -9691,8 +9674,7 @@ function renderBlock(S,expanded,mixOpen,view){
      поломкой отчёта, а не ответом на свой же клик. */
   /* 22.10: полка срезов — у вкладок со срезами (структура — срез состава, посещаемость — сегмент и
      локация); sticky. 23.10: только когда что-то выбрано — пустой нет */
-  if(b.key==='structure')h+=U.sliceNote(slice,'таблица и графики — по срезу, база и выводы — по всей команде');
-  else if(mod.shelf)h+=mod.shelf(S);
+  /* 31.10 (поставка 82): отдельной полки больше нет — выбранное пилюлями в шапке карточки графиков (ниже, selChips) */
 
   /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
@@ -9827,8 +9809,15 @@ function renderBlock(S,expanded,mixOpen,view){
     rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act})});
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
+  /* 31.10 (поставка 82, заказчик): всё, что выбрано кликом, — пилюлями: подразделение (действует на всех вкладках),
+     срез структуры, сегмент и город посещаемости. Ничего не выбрано — прежняя серая строка */
+  const selChips=(sel!==root?[{dim:'Подразделение',cat:selNode.name,attr:'data-selnode="'+esc(root)+'"',
+      tip:'Графики и главы — по этому подразделению, на всех вкладках. × — вернуть «'+D.NODE_BY_PATH[root].name+'» целиком.'}]:[])
+    .concat(b.key==='structure'?U.sliceChips(slice,'Таблица и графики — по срезу, база и выводы — по всей команде.')
+      :mod.shelfChips?mod.shelfChips(S):[]);
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
-    subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть')):' · всё подразделение')+
+    subHtml:selChips.length?U.selBar(selChips)+(sel!==root&&!selNode.direct?U.openUnitBtn(sel,selNode.name):'')
+      :esc(selNode.name)+' · всё подразделение'+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
     body:body,bodyCls:'st-on',foot:true});
 
@@ -10805,14 +10794,13 @@ SC.blocks.office={
   title(sub){return sub==='attend'?'Кто и где ходит в офис: динамика, сегмент, локация'
     :sub==='booking'?'Качество бронирования рабочих мест'
     :'Когда люди приходят в офис'},
-  /* полка выбора вкладки «Кто и где ходит» — та же, что у структуры: sticky, только когда что-то выбрано */
-  shelf(S){
-    if(S.subTab!=='attend')return '';
-    const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[];
-    if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"'});
-    if(S.offCity&&!D.OFF_LIVE.city)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"'});
-    return U.shelf({chips:chips,extra:'динамика и таблицы — по выбору',clear:'data-offclear="1"',
-      clearTip:'Снять выбор сегмента и локации. То же — клавиша Escape.'});
+  /* выбор вкладки «Кто и где ходит» — пилюлями в шапке карточки графиков (поставка 82) */
+  shelfChips(S){
+    if(S.subTab!=='attend')return [];
+    const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[], tip='Динамика и таблицы — по выбору.';
+    if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"',tip:tip});
+    if(S.offCity&&!D.OFF_LIVE.city)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"',tip:tip});
+    return chips;
   },
   view(ctx){
     /* Таблицы посещаемости — проценты: доля процента в сумме процентов ничего
@@ -12228,6 +12216,7 @@ on(document,'click',e=>{
   /* Срез состава — СТРОГО до .urow: строка разбивки и есть .urow, и общий
      обработчик выбора подразделения перехватил бы её первым. */
   if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
+  if(t.closest('[data-selclear]')){S.mixSel=[];S.selNode=null;S.offSeg=null;S.offCity=null;render(true);return}
   /* посещаемость (22.10): сегмент и город — свой фильтр вкладки, складываются; повторный клик снимает */
   if(t.closest('[data-offclear]')){S.offSeg=null;S.offCity=null;render(true);return}
   const osg=t.closest('[data-offseg]');

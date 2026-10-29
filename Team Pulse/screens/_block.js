@@ -418,8 +418,7 @@ function renderBlock(S,expanded,mixOpen,view){
      поломкой отчёта, а не ответом на свой же клик. */
   /* 22.10: полка срезов — у вкладок со срезами (структура — срез состава, посещаемость — сегмент и
      локация); sticky. 23.10: только когда что-то выбрано — пустой нет */
-  if(b.key==='structure')h+=U.sliceNote(slice,'таблица и графики — по срезу, база и выводы — по всей команде');
-  else if(mod.shelf)h+=mod.shelf(S);
+  /* 31.10 (поставка 82): отдельной полки больше нет — выбранное пилюлями в шапке карточки графиков (ниже, selChips) */
 
   /* 5 · две колонки. Когда колонок метрик шесть и больше (движение персонала,
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
@@ -554,8 +553,15 @@ function renderBlock(S,expanded,mixOpen,view){
     rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act})});
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
+  /* 31.10 (поставка 82, заказчик): всё, что выбрано кликом, — пилюлями: подразделение (действует на всех вкладках),
+     срез структуры, сегмент и город посещаемости. Ничего не выбрано — прежняя серая строка */
+  const selChips=(sel!==root?[{dim:'Подразделение',cat:selNode.name,attr:'data-selnode="'+esc(root)+'"',
+      tip:'Графики и главы — по этому подразделению, на всех вкладках. × — вернуть «'+D.NODE_BY_PATH[root].name+'» целиком.'}]:[])
+    .concat(b.key==='structure'?U.sliceChips(slice,'Таблица и графики — по срезу, база и выводы — по всей команде.')
+      :mod.shelfChips?mod.shelfChips(S):[]);
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
-    subHtml:esc(selNode.name)+(sel!==root?' · выбрано'+(selNode.direct?'':U.openUnitBtn(sel,selNode.name,'Открыть')):' · всё подразделение')+
+    subHtml:selChips.length?U.selBar(selChips)+(sel!==root&&!selNode.direct?U.openUnitBtn(sel,selNode.name):'')
+      :esc(selNode.name)+' · всё подразделение'+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
     body:body,bodyCls:'st-on',foot:true});
 
