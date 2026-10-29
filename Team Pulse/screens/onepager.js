@@ -162,7 +162,8 @@ function render(S,openRows){
   /* Готовность к живым данным (14.10): сколько метрик уже считается из
      источника и что подключать дальше — одной строкой, план раскрывается. */
   const live=D.SHOWN.filter(m=>!D.isDev(m.key)).length;
-  if(live<D.SHOWN.length)h+=U.devSummary({live,total:D.SHOWN.length,plan:D.DEV_PLAN});
+  /* 29.10, п. 3: сводка — всегда; полоса — сверенные метрики */
+  h+=U.devSummary({live,total:D.SHOWN.length,ver:D.SHOWN.filter(m=>D.VERIFIED.has(m.key)).length,plan:D.DEV_PLAN});
   h+=U.trafficLegend();
 
   /* мини-навигация по блокам: липкая, с точкой худшего сигнала */

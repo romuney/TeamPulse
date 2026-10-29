@@ -51,30 +51,24 @@ function specMove(lp,ctx){
   const S=(a,k)=>a.reduce((t,z)=>t+z[k],0), agg=(a,o)=>Object.assign(o,{hire:S(a,'hire'),tin:S(a,'tin'),exit:S(a,'exit'),
     tout:S(a,'tout'),net:S(a,'net')});
   if(rest.length)top.push(agg(rest,{name:'Остальные',note:rest.length+' '+U.plural(rest.length,['специализация','специализации','специализаций']),
-    tip:rest.map(z=>z.name).join(', '),exp:1}));
+    exp:1}));
   const tot=agg(rs,{name:'ИТОГО',total:1});
-  const inn=z=>z.hire+(trf?z.tin:0), out=z=>z.exit+(trf?z.tout:0);
-  const max=Math.max(1,...top.map(z=>Math.max(inn(z),out(z)))), w=v=>(Math.min(1,v/max)*100).toFixed(1)+'%', esc=U.esc;
   if(open)rest.forEach(z=>top.push(Object.assign({sub:1},z)));
-  const sg=v=>(v>0?'+':'')+D.fmtInt(v), tree=rest.length>0;
+  const tree=rest.length>0, esc=U.esc;
   const lbl=z=>!tree?'':z.exp?'<button class="caret-btn"'+(open?' data-open="1"':'')+' data-btexp="'+K+'" aria-label="'+
     (open?'Свернуть':'Раскрыть')+'">'+(open?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>';
+  /* 29.10, п. 1: ровно четыре колонки — найм, переводы в, отток, переводы из (без «Итого» и полосы) */
   const cols=[['hire','Найм']].concat(trf?[['tin','Переводы в']]:[]).concat([['exit','Отток']]).concat(trf?[['tout','Переводы из']]:[]);
   const row=z=>'<tr'+(z.total?' class="total top"':z.exp?' class="urow" data-btexp="'+K+'"'+U.tipAttr({title:'Остальные',
-        text:(open?'Клик — свернуть.':'Клик — показать все.')+'\n'+z.tip}):z.sub?' class="lvl2"':'')+'><td class="txt">'+
+        text:open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):z.sub?' class="lvl2"':'')+'><td class="txt">'+
       (tree?'<span class="row-label">'+(z.total?'<span class="caret-spacer"></span>':lbl(z))+'<span class="row-body">':'')+esc(z.name)+
       (z.note?'<span class="unit-sub">'+esc(z.note)+'</span>':'')+(tree?'</span></span>':'')+'</td>'+
-      cols.map(c=>'<td class="num">'+D.fmtInt(z[c[0]])+'</td>').join('')+
-      '<td class="num spm-n '+(z.net>0?'pos':z.net<0?'neg':'')+'">'+sg(z.net).replace('-','−')+'</td>'+
-      '<td class="barcell">'+(z.total?'':'<span class="dvbar"><span class="dv-l"><i style="width:'+w(out(z))+'"></i></span>'+
-      '<span class="dv-r"><i style="width:'+w(inn(z))+'"></i></span></span>')+'</td></tr>';
+      cols.map(c=>'<td class="num">'+D.fmtInt(z[c[0]])+'</td>').join('')+'</tr>';
   return '<div class="bt-group spm"><div class="bt-cap">Движение по специализациям<span class="bt-sub">с начала года, чел</span></div>'+
-    '<div class="mx-wrap"><table class="ptable btable compact'+(trf?' spm4':'')+'"><colgroup><col>'+cols.map(()=>'<col style="width:'+(trf?60:64)+'px">').join('')+
-    '<col style="width:'+(trf?50:64)+'px"><col style="width:'+(trf?'60px':'34%')+'"></colgroup><thead><tr><th class="txt"></th>'+
-    cols.map(c=>'<th class="num">'+c[1]+'</th>').join('')+'<th class="num">Итого</th><th class="bar-th">Ушли · пришли</th></tr></thead><tbody>'+
+    '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col style="width:62px">').join('')+
+    '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num">'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
     row(tot)+top.map(row).join('')+'</tbody></table></div>'+
-    '<div class="tbl-note">С начала года. Итого = найм'+(trf?' + переводы в':'')+' − отток'+(trf?' − переводы из':'')+
-    '; ИТОГО — как в карточках движения.'+(trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
+    '<div class="tbl-note">С начала года; ИТОГО — как в карточках движения.'+(trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
 }
 
 SC.blocks.movement={

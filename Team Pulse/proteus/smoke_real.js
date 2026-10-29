@@ -222,7 +222,7 @@ if(hasNew){
     'T-рост: одобрено, отклонено, конверсия = одобрено / (одобрено + отклонено)');
   /* поставка 66 (посещения Адели): с рядами бронирований бронирование живое */
   const BK=R.has('bk');
-  ok(!D.isStub('office_att')&&!D.isStub('tgrowth_conv')&&D.isStub('tgrowth_tat')&&D.isStub('booking_viol')===!BK,
+  ok(!D.isStub('office_att')&&!D.isStub('tgrowth_conv')&&!D.METRIC_BY_KEY.tgrowth_tat&&D.isStub('booking_viol')===!BK,
     'посещаемость и решения T-роста — живые, T@T — демо, бронирование — '+(BK?'живое':'демо'));
 }else{
   ok(NEWC.every(c=>!R.has(c))&&D.isStub('office_att')&&D.isStub('tgrowth_conv')&&!R.missing.length,
@@ -298,7 +298,8 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const segs=(pt.split('<div class="shbar')[2]||'').split('</div>')[0].match(/<span[^>]*>/g)||[];
   const ageN=D.mixParts(D.reportLeaves(A.st()),'age').filter(v=>v>0).length;
   ok(/<div class="shbar/.test(pt)&&segs.length===ageN&&segs.every(x=>/background:var\(--pt-(s\d|na)\)/.test(x))&&
-    !/class="dev-note/.test(pt)&&!/средний возраст|Воронка/.test(pt),
+    /* поставка 73: средний возраст — только с полем age (разрез e) */
+    !/class="dev-note/.test(pt)&&!/Воронка/.test(pt)&&/средний возраст/.test(pt)===(D.avgAge(D.reportLeaves(A.st()),[])!=null),
     'портрет на настоящих значениях: '+ages.length+' возрастных групп полосой, каждая окрашена; без воронки и «в разработке»');
   /* уровень позиции: сеньорность по ступеням (Junior+ сразу за Junior, n/a в конце), стаж — по сроку */
   const sen=D.mixCats('seniority').map(c=>c.name), ten=D.mixCats('tenure');
@@ -451,7 +452,9 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
     const pm=f=>f.months.reduce((a,m)=>a+m.rost+m.tat,0);
     const rq=(t,fl)=>Object.keys(mx.rq||{}).filter(k=>{const f=k.split('|');return f[0]===t&&f[1]===fl}).reduce((a,k)=>a+mx.rq[k],0);
     const pa=x=>x.reduce((a,r)=>a+r.apps,0);
-    ok(p.real&&p.hc===sm(mx.rs)&&p.st.reduce((a,s)=>a+s.n,0)===p.hc&&pm(p.grade)===okM('g')&&pm(p.spec)===okM('s')&&pm(p.grade)===p.grade.rost+p.grade.tat&&
+    /* поставка 73: итог «за 12 месяцев» — как эталон «Роста», по окну rq (с начала месяца год назад) */
+    const rqOk=t=>Object.keys(mx.rq||{}).filter(k=>{const f=k.split('|');return f[0]===t&&f[2]==='ok'}).reduce((a,k)=>a+mx.rq[k],0);
+    ok(p.real&&p.hc===sm(mx.rs)&&p.st.reduce((a,s)=>a+s.n,0)===p.hc&&pm(p.grade)===okM('g')&&pm(p.spec)===okM('s')&&p.grade.rost+p.grade.tat===rqOk('g')&&p.spec.rost+p.spec.tat===rqOk('s')&&
        pa(p.grade.tatT)===rq('g','1')&&pa(p.grade.rostT)<=rq('g','0')&&!/dev-note/.test(tg+ts),
       'T-рост по «Росту»: статусы '+p.st.map(s=>s.key+' '+s.n).join(', ')+' = '+p.hc+' чел; успешно закрытые по месяцам — грейд '+
       pm(p.grade)+', специализация '+pm(p.spec)+'; без «в разработке»');
@@ -466,6 +469,14 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
     'движение по специализациям: найм '+S('hire')+' = '+Y('hire')+', в '+S('tin')+' = '+Y('transfer_in')+', отток '+S('exit')+' = '+
       Y('attrition')+', из '+S('tout')+' = '+Y('transfer_out'));
   else ok(!/Переводы из<\/th>/.test(mv)&&(!sm.length||/появятся, когда ноутбук отчёта обновят/.test(mv)),'движение по специализациям: без переходов по специализации — найм и отток');
+}
+/* поставка 73, 29.10, п. 8: средний возраст — из разреза e (возраст в годах) выбранного юнита */
+{
+  const e={};String(scopeRow.mx||'').split('\n').forEach(l=>{const f=l.split('\t');if(f[0]==='e')e[f[1]]=+f[2]});
+  const n=Object.values(e).reduce((a,b)=>a+b,0), want=n?Object.keys(e).reduce((a,k)=>a+(+k)*e[k],0)/n:null;
+  const got=D.avgAge(rl,[]), ps=A.go('structure','portrait');
+  if(n)ok(Math.abs(got-want)<0.01&&/средний возраст команды/.test(ps),'средний возраст '+got.toFixed(1)+' — из поля age ('+n+' чел), в портрете');
+  else ok(got==null,'средний возраст: без поля age — не показан');
 }
 /* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
 /* поставка 50: с витриной вакансий глава вакансий живая — демо-глава тогда «Итоги ревью» */

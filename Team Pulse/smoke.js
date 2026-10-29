@@ -242,8 +242,9 @@ checks.push(['знак говорит направление, класс — о�
      незакрытый месяц — без оценки, но и без метки «вызревает» */
   /* 26.10-б: желательная и нежелательная — по закрытому месяцу (CLOSED_ONLY), их изменение оценивается */
   (!D.PARTIAL||/delta neu part/.test(U.deltaChip('ai_penetration',1.4))&&/delta down/.test(U.deltaChip('regret',1.4))&&
-    /delta neu"/.test(U.deltaChip('turnover_m',1.4)))&&
-  [...D.MATURING].sort().join()==='ai_penetration,nonregret,regret']);
+    /delta neu part/.test(U.deltaChip('turnover_m',1.4)))&&
+  /* 29.10, п. 10: вызревает и общая текучесть (месячная и накопительная) */
+  [...D.MATURING].sort().join()==='ai_penetration,nonregret,regret,turnover_m,turnover_y']);
 checks.push(['переход на детальный дашборд — иконка, а не символ ↗',
   /class="ico-ext"/.test(allHtml)&&!/↗/.test(allHtml)]);
 checks.push(['минус во всех дельтах типографский, а не дефис',
@@ -255,8 +256,9 @@ checks.push(['минус во всех дельтах типографский, 
    в пилюле KPI-карточек и в шапках колонок one-pager. */
 (function(){
   const opHtml=A.go('onepager',null), mvHtml=A.go('movement','balance');
-  checks.push(['в карточке KPI подписан месяц, с которым сравнивается изменение',
-    /<span class="d-vs">к маю<\/span>/.test(mvHtml)]);
+  /* 29.10, п. 9: верхних карточек KPI в блоках нет (своя полоса — только у «Мониторинга») */
+  checks.push(['верхних карточек KPI в блоках нет',
+    D.BLOCKS.every(b=>b.key==='monitor'||!/class="kpis compact|class="kpi">/.test(A.top(b.key)))&&/class="kpis compact n5 mks"/.test(A.top('monitor'))]);
   checks.push(['подпись месяца берётся из одного места, а не пишется руками',
     D.CMP.momShort==='к '+'маю'&&D.CMP.momFull==='к маю 2026'&&D.CMP.yoy==='к июню 2025']);
   /* 27.10-в, п. 1: шапки — MoM и YoY, месяцы сравнения — в их подсказках */
@@ -282,21 +284,9 @@ checks.push(['минус во всех дельтах типографский, 
      после итерации 28 их семь (замещение и найм на 100 человек) */
   /* 27.10-в, п. 20: «Переводы в» и «Переводы из» — одной карточкой «Переводы» */
   const nMv=D.visibleMetricsOfBlock('movement',A.st()).filter(m=>m.key!=='transfer_out').length;
-  checks.push(['карточка KPI всегда из пяти строк: две строки сравнения плюс «год назад»',
-    (function(){
-      const cards=mvHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
-      return cards.length===nMv&&cards.every(c=>(c.match(/<div class="k-row">/g)||[]).length===2)&&
-        (mvHtml.match(/<div class="k-row k-yoy">/g)||[]).length===nMv;
-    })()]);
   checks.push(['полоса KPI выровнена subgrid, а не надеждой на короткие заголовки',
     /\.kpi\{display:grid;grid-template-rows:subgrid;grid-row:span5;row-gap:0\}/.test(css)&&
     /@supports\(grid-template-rows:subgrid\)/.test(css)]);
-  /* 26.10, правки: KPI, которым тесно в строке, — по три в строку (как .shcards): до четырёх — одной строкой */
-  checks.push(['KPI: до четырёх — одной строкой, больше — по три в строку (семь — 4 + 3)',
-    nMv===4&&new RegExp('class="kpis compact n'+nMv+'"').test(mvHtml)&&/>Переводы<\/span>/.test(mvHtml)&&
-    !/>Переводы в команду<\/span><\/div>/.test(mvHtml)&&
-    /\.kpis\.n4\{grid-template-columns:repeat\(4,/.test(css)&&
-    /\.kpis\.n5,\.kpis\.n6,\.kpis\.n8\{grid-template-columns:repeat\(3,/.test(css)&&/\.kpis\.n7\{grid-template-columns:repeat\(4,/.test(css)]);
 })();
 
 /* Есть утверждённый KPI — сравниваемся с ним, и базы рядом нет: два ориентира
@@ -314,10 +304,6 @@ checks.push(['минус во всех дельтах типографский, 
   const cards=opHtml.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[];
   const card=cards.filter(c=>/Нежелательная текучесть HQ/.test(c))[0]||'';
   const subs=(card.match(/<span class="k-sub">[^<]*</g)||[]).join('|');
-  checks.push(['в hero-карточке метрики с KPI стоит цель, а базы нет',
-    /* 21.10, поставка 50: годовая цель HQ (4%) — на месяц её доля; 26.10-б — месяц закрытый (в макете май: 4 × 5 / 12) */
-    new RegExp('цель '+D.fmtVal('regret',kpi.green)).test(subs)&&kpi.green===+(4*(D.MONTHS[D.lastIdx('regret')].m+1)/12).toFixed(2)&&
-    !/база/.test(subs)&&/kpi-tag/.test(card)&&/class="mat-tag"[^>]*>за /.test(card)]);
   /* на раскрытом графике та же развилка: пороги KPI вместо линии базы */
   const line=SC.metricLine('regret',rl0,bl0,S0,{});
   checks.push(['у метрики с KPI на графике пороги цели, а не линия базы',
@@ -337,7 +323,7 @@ checks.push(['минус во всех дельтах типографский, 
    «как считается» (calc, методология HR) она упоминается — это не строка отчёта:
    ищем её только как текст элемента, не внутри data-tip. */
 checks.push(['среднесписочной численности нет среди метрик отчёта',
-  !D.METRIC_BY_KEY['hc_avg']&&!/>Среднесписочная/.test(allHtml)&&D.METRICS.length===29&&D.SHOWN.length===26]);
+  !D.METRIC_BY_KEY['hc_avg']&&!/>Среднесписочная/.test(allHtml)&&D.METRICS.length===28&&D.SHOWN.length===25]);
 /* 19.10: определения — по методологии HR из Data Detective: у численности, найма, оттока,
    переводов и текучести есть «как считается» (calc), он виден в «i» и в словаре «Пульс» */
 checks.push(['метрики численности, движения и текучести описаны по методологии HR (calc в «i» и словаре)',
@@ -1162,7 +1148,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
 
   checks.push(['восемь блоков: AI-инструменты — восьмой, двадцать восемь метрик (21.10: + Non-regrettable), сравнимых шестнадцать',
     D.BLOCKS.length===8&&D.BLOCKS[7].key==='ai'&&D.metricsOfBlock('ai').length===2&&
-    D.METRICS.length===29&&D.METRICS.filter(m=>D.comparable(m.key)).length===16]);
+    D.METRICS.length===28&&D.METRICS.filter(m=>D.comparable(m.key)).length===15]);
 
   /* --- производные метрики: формулы --- */
   const e=k=>D.aggregate(rl0,k)[D.LAST];
@@ -1241,8 +1227,6 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['на главной нет KPI-карточек: сверху выводы, ниже таблицы метрик',
     !/class="kpis/.test(op)&&/class="in-lead"/.test(op)&&/class="mtable"/.test(op)]);
   const mv=A.go('movement','balance');
-  checks.push(['в карточках KPI блока есть спарклайн',
-    (mv.match(/<div class="kpi">[\s\S]*?<\/div><\/div>/g)||[]).filter(c=>/class="spark"/.test(c)).length===D.metricsOfBlock('movement').length-1]);
   /* 15.10: после чистки по каталогу ни в одном блоке нет 7 метрик — широкой
      таблицы нет, но правило раскладки остаётся на случай новых метрик */
   checks.push(['широкая сводная таблица — от 7 метрик (сейчас таких блоков нет), ниже 1240px встаёт над графиком',
@@ -1560,7 +1544,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     new RegExp('<div class="bk-top '+sumT.sev+'"><div class="bk-sum '+sumT.sev+'"><span class="in-ico"><img').test(tTop)&&
     /<div class="bk-tag">Вывод блока · /.test(tTop)&&/<ol class="bk-f"><li>/.test(tTop)&&
     /class="bk-wh"><div class="bk-wt">Где это происходит/.test(tTop)&&/data-blkjump="1">[^<]*в таблице подразделений ниже/.test(tTop)&&
-    /kpis compact/.test(tTop)&&/class="split[^"]*" id="bk-det"/.test(tTop)&&!/data-blkopen|class="bk-det/.test(tTop)&&
+    !/kpis compact/.test(tTop)&&/class="split[^"]*" id="bk-det"/.test(tTop)&&!/data-blkopen|class="bk-det/.test(tTop)&&
     D.BLOCKS.every(b=>{const sv=I.blockSummary(b.key,S0,rl0,bl0).sev;
       return new RegExp('bk-sum '+sv+'"><span class="in-ico"><img[^>]*alt="'+{high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'}[sv]+'"').test(A.top(b.key))})]);
   checks.push(['вывод блока: «всё спокойно» там, где фактов нет, и строки «где» ведут к подразделению',
@@ -1591,10 +1575,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const cardsH=(A.go('ai','adoption').match(/<div class="kpis[\s\S]*?<\/div><\/div><\/div>/)||[''])[0];
   checks.push(['короткая динамика One-pager — только линии-спарклайны, без точек (и в KPI-карточках блока)',
     !G.sparkBars&&cells.length>20&&cells.every(c=>/<svg[^>]*class="spark"/.test(c)&&!/class="sb"/.test(c)&&!dotRe.test(c))&&
-    /vector-effect="non-scaling-stroke"/.test(cells[0])&&cardsH.length>0&&!dotRe.test(cardsH)]);
+    /vector-effect="non-scaling-stroke"/.test(cells[0])&&!dotRe.test(cardsH)]);
   /* сравнение с базой в KPI-карточках — только у «Проникновения AI», подпись «по компании» */
-  checks.push(['KPI-карточки: «по компании» только у «Проникновения AI», «база» нигде',
-    (cardsH.match(/по компании /g)||[]).length===(D.metricVisible('ai_penetration',S0)?1:0)&&!/>база /.test(cardsH)]);
+  checks.push(['KPI-карточек в блоках нет — ни «по компании», ни «база»',!cardsH&&!/>база /.test(A.top('ai'))]);
   A.op([]);
 })();
 
@@ -1680,7 +1663,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
      та же таблица-разбивка; строка, полоса и шрифт — один стандарт в конце styles.css. */
   const cssStd=css.replace(/\s+/g,'');
   checks.push(['одна строка на весь отчёт: списки с полосами — таблица-разбивка, высота 36px, полоса одна, старых правил нет',
-    /<table class="ptable btable dense lite">/.test(wk)&&/<table class="ptable btable lite st-focus">/.test(A.go('turnover','dynamics'))&&
+    /<table class="ptable btable dense lite">/.test(wk)&&!/st-focus/.test(A.go("turnover","dynamics"))&&
     /:root\{--row-h:36px;--row-sec-h:28px;--bar-h:10px;--bar-r:2px;/.test(cssStd)&&
     /#view\.ptable>tbody>tr>td\{height:var\(--row-h\)/.test(cssStd)&&
     !/\.pt-hb\{|\.pt-row|height:40px;padding-top:4px|\.btable\.lite\.cellbar\{height:8px|\.st-focustd\.bari/.test(cssStd)]);
@@ -1703,10 +1686,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['«в разработке»: у метрик без источника метка с этапом, у живых — нет',
     /* 21.10, поставка 50: вакансии, Non-regrettable и AI ожили — в разработке остались план найма,
        T@T, ревью и бронирование; поставка 66 (посещения Адели) — ожило и бронирование */
-    devK.length>=1&&devK.every(k=>D.devStage(k)!=null)&&!D.isDev('hc_total')&&!D.isDev('turnover_m')&&
-    !D.isDev('office_att')&&!D.isDev('booking_viol')&&!D.isDev('vac_open')&&!D.isDev('ai_penetration')&&D.isDev('tgrowth_tat')&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
+    devK.every(k=>D.devStage(k)!=null)&&!D.isDev('hc_total')&&!D.isDev('turnover_m')&&
+    !D.isDev('office_att')&&!D.isDev('booking_viol')&&!D.isDev('vac_open')&&!D.isDev('ai_penetration')&&!D.METRIC_BY_KEY.tgrowth_tat&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
   checks.push(['«в разработке»: сводка готовности на One-pager с планом этапов',
-    /class="dev-sum"/.test(op)&&new RegExp('<b>'+(D.SHOWN.length-devK.length)+' из '+D.SHOWN.length+'</b>').test(op)&&
+    /* 29.10, п. 3: полоса — сверенные из всех показанных */
+    /class="dev-sum"/.test(op)&&new RegExp('<b>'+D.SHOWN.filter(m=>D.VERIFIED.has(m.key)).length+' из '+D.SHOWN.length+'</b> метрик сверено').test(op)&&
+    new RegExp('width:'+Math.round(D.SHOWN.filter(m=>D.VERIFIED.has(m.key)).length/D.SHOWN.length*100)+'%').test(op)&&
     (op.match(/<tr class="plan-(live|data|dev|todo|extra)">/g)||[]).length===D.DEV_PLAN.reduce((a,g)=>a+g.rows.filter(r=>!r.next).length,0)]);
   /* 15.10: план — каталог графиков HQ и УС; у каждой строки «для кого» и статус */
   const pn=D.planCount();
@@ -1727,7 +1712,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !D.MISMATCH.size&&pn.bad===0&&pn.ok>=16&&pn.data===0&&/✓ сверены/.test(op)&&!/расхождение/.test(op)&&
     /* 26.10-б: «Движение по специализациям» — новый график, с мастер-источником ещё не сверен;
        строк «данные есть» не осталось: инициатор и специализации стали живыми */
-    D.DEV_PLAN.filter(g=>/Структура|Движение/.test(g.blk)).every(g=>g.rows.every(r=>r.now!=='live'||r.ok||/специализациям/.test(r.what)))&&
+    D.DEV_PLAN.filter(g=>/Структура|Движение/.test(g.blk)).every(g=>g.rows.every(r=>r.now!=='live'||r.ok||/специализациям|Средний возраст/.test(r.what)))&&
     !/одной воронкой|[Вв]оронка численности|Пол и возраст|Списки ушедших|AI-рекомендации/.test(op)&&
     /считается только для HQ-численности/.test(op)]);
   /* 28.10, п. 1: движение по специализациям — найм, переводы в, отток, переводы из; в сумме = те же ряды с начала года */

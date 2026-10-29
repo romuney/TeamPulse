@@ -2922,3 +2922,17 @@ trfDetail` (макет — генератор, засчитанных ровно
   «Активная», HQ). 4: вкладка AI «Как пользуются» — `D.aiUsage` (условные), строки плана AI — dev. 5: «Нарушения
   бронирования по городам», строка плана — live. 6: руководитель (логин, имя) — `ok:1`. 7: имена метрик с «HQ» (sed по
   всем текстам, TEXT_GUIDE, short «Нежелат. HQ» / «Желат. HQ»).
+
+**29.10, поставка 73 — итерация 29.10 (11 пунктов, «Описание 1.md» в архиве пользователя) и «Рост» по эталону
+(ноутбуки «TeamPulse_Hub_28.10» Адели и «[Рост - отчет] Team Pulse» — в репозиторий не кладутся: в них имена юнитов).**
+- 1: specMove — ровно 4 колонки. 2: `tgrowth_tat` удалена из METRICS (STUB, insights, словарь, TEXT_GUIDE). 3: `devSummary`
+  — полоса и «N из M метрик сверено» по VERIFIED ∩ SHOWN, сводка всегда. 4: «Остальные» — подсказка «Кликни, чтобы
+  посмотреть остальные» вместо списка (barTable, specMove). 5: `storyRail` без таблицы focus. 6: yoyPlot — точки и бары
+  прошлого года до линии этого (отдельный проход). 7: `--shell:1920px`, `.content{overflow-x:auto}`, `.content>*`
+  min-width 1280 − меню − поля. 8: `avgAge` в пробнике — разрез `e` (age). 9: `KPI_TOP=false` в _block.js (полоса
+  «Мониторинга» оставлена). 10: MATURING + turnover_m, turnover_y.
+- «Рост»: rost_info из `usr_cross_data.mdm_employee_application_grt` (creator_mdm_employee_rk, month — старт, finish_month
+  — итог, тип по specialization_change_flg, HQ без стажёров); with_TRost по finish_month; rost_mix — rm по finish_month,
+  rq / rs по окну lm − 12 мес, rs: again / first / done / denied / none(av|nd); `av` — DAY.emp_specialization_dk ×
+  справочник с tgrowth_effective_dt. Чарт: «Нет развития / Рост доступен», итог за 12 месяцев — из rq.
+- Стенд: `age_num`, `emp_specialization_dk`, новая таблица заявок и справочник, `truth_rost` по эталону, `truth_age`.

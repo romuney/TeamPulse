@@ -592,6 +592,17 @@ function yoyPlot(p,ar){
     +' stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>';
   if(showBench)s+='<path class="lnb"'+sAttr('bench')+' d="'+polyD(bench,X,Y)+'" fill="none" stroke="'+C_BENCH+'"'
     +' stroke-width="2" stroke-dasharray="5 3"/>';
+  /* 29.10, п. 6: прошлый год — весь позади этого: его точки и бары рисуются до линии и точек этого года (раньше они
+     лежали в группах месяцев поверх линии этого года) */
+  for(let i=0;i<12;i++){
+    const pv=prev[i], cx=X(i);
+    if(!showPrev||pv==null)continue;
+    const bp=big(i,'prev')||!!noteAt(i,'prev');
+    if(flow)s+=showMain
+      ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),ghostCol(col),' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
+      :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
+    else s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
+  }
   if(showMain&&!flow)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+polyD(curS,X,Y)+'" fill="none" stroke="'+col+'"'
     +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"'+(d0?' style="animation-delay:'+d0+'ms"':'')+'/>';
   if(showMain&&!flow&&part&&nowI>0&&cur[nowI]!=null&&cur[nowI-1]!=null)s+='<path class="lnp"'+sAttr('main')+' d="'+
@@ -614,20 +625,13 @@ function yoyPlot(p,ar){
     /* акцент главы — крупная залитая точка у линии и светлая полоса за месяцем
        у баров; остальные точки, бары и подписи не приглушаются (13.10: «всё
        остальное стало нечитабельным»; 16.10: «год весь одного цвета») */
-    const bp=big(i,'prev')||!!noteAt(i,'prev');
     const bm=big(i,'main');
     if(flow){
-      /* прошлый год — позади, шире и почти прозрачно тем же цветом; без этого
-         года — обычным баром */
-      if(showPrev&&pv!=null)s+=showMain
-        ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),ghostCol(col),' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
-        :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
-      /* этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
+      /* прошлый год — позади (нарисован до этого года, выше); этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
          и контуром основным цветом, заливка та же */
       if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),soft(col),' class="bar up'+(part&&i===nowI?' part':'')+'"'+sAttr('main')+
         (part&&i===nowI?' stroke="'+col+'" stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"':bm?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
-      if(showPrev&&pv!=null)s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
       if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm&&!(pl&&i===nowI)?col:'#fff')+'" stroke="'+col+'"'
         +' stroke-width="2"'+(part&&i===nowI?' stroke-dasharray="2 1.6"':'')+' style="animation-delay:'+num(dly)+'ms"/>';
     }

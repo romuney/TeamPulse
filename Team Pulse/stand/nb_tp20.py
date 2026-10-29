@@ -194,7 +194,10 @@ COLS = (['calendar_dt', 'mdm_employee_rk']
         # 23.10, поставка 64: формат работы — в fields параграфа EXEC build_all_metrics заказчика
         + ['type_of_work']
         # 26.10, поставка 66 (Адель): признак руководителя юнита — в fields (сегмент посещаемости)
-        + ['management_head_flg'])
+        + ['management_head_flg']
+        # 29.10, поставка 73: возраст (поле age — fields Адели, средний возраст) и ключ специализации (рост доступен — по
+        # справочнику специализаций, как отчёт «Рост»)
+        + ['age', 'emp_specialization_dk'])
 # регион — по ключу человека, без генератора: случайный ряд симуляции не сдвигается; у части людей пусто
 REGIONS = ['г. Москва', 'г. Москва', 'г. Москва', 'Московская область', 'г. Санкт-Петербург', 'Свердловская область',
            'Новосибирская область', 'Республика Татарстан', None]
@@ -266,7 +269,8 @@ def source_rows(U, people):
                    + [int((d + dt.timedelta(1)).day == 1)]
                    + [REGIONS[p['rk'] * 7 % len(REGIONS)]]
                    + [WORKS[p['rk'] * 3 % len(WORKS)]]
-                   + [head_flg(H, p, d)])
+                   + [head_flg(H, p, d)]
+                   + [age_num(p), SPECS.index(p['spec']) + 1])
             d += dt.timedelta(1)
 
 
@@ -463,15 +467,31 @@ SPECS = ['Backend', 'Frontend', 'Аналитик данных', 'QA', 'Прод
 
 
 def grt_ext(people, grt):
+    """поставка 73 (эталон «Роста»): кортеж заявки — rk, создана, статус, deleted, valid_to, грейд сейчас / желаемый,
+    специализация сейчас / желаемая (ключ), T@T, итог (valid_from — последняя смена статуса: у закрытой — через 5–54
+    дня, у заявки в работе — день создания), старт согласования (hd1, у трети), покраска человека в день создания,
+    дата найма, номер заявки"""
     byrk = {p['rk']: p for p in people}
     out = []
-    for rk, ts, st, dl, vt in grt:
+    for i, (rk, ts, st, dl, vt) in enumerate(grt):
         p, h = byrk[rk], (rk * 7919 + ts.toordinal() * 104729 + ts.day) % 1000
         kind = 'g' if h < 650 else 's' if h < 850 else 'gs'
         g, sp = at(p['grade'], ts.date()), SPECS.index(p['spec']) + 1
+        fin = ts if st == 'INP' else min(ts + dt.timedelta(days=5 + h % 50), dt.datetime(D1.year, D1.month, D1.day, 12))
+        hd1 = ts + dt.timedelta(days=2) if h % 3 == 0 else None
         out.append((rk, ts, st, dl, vt, g, g + 1 if 'g' in kind else g, sp, sp % len(SPECS) + 1 if 's' in kind else sp,
-                    1 if h % 4 == 0 else None))
+                    1 if h % 4 == 0 else None, fin, hd1, attr(p, 'oper', ts.date()), p['hired'], 1000 + i))
     return out
+
+
+# поставка 73: «рост доступен» — у специализации в справочнике есть дата запуска T-роста (у двух последних — нет)
+SPEC_GROW = {s_: i < 5 for i, s_ in enumerate(SPECS)}
+
+
+def age_num(p):
+    """поставка 73: возраст в годах — в своей группе, по ключу человека (без генератора)"""
+    rk = p['rk']
+    return 21 + rk % 4 if p['age'] == 'до 25' else 25 + rk % 5 if p['age'] == 'от 25 до 30' else 30 + rk % 26
 
 
 def mon_days(people):
@@ -532,19 +552,25 @@ def load(pg, U, people):
            "region_visit_flg int, day_short_nm text, day_sort int)")
     pg.copy('usr_cross_data.office_traffic_attendance', ['calendar_dt', 'mdm_employee_rk', 'work_day_flg', 'office_visit_flg']
             + OFFICE_EXT, office)
-    pg.run("""CREATE TABLE prod_v_dds.mdm_employee_application_grt (mdm_employee_application_rk bigint, create_dttm timestamp,
-              current_grade_num int, required_grade_num int, head_approve_flg int, mdm_employee_appl_status_cd text,
-              deleted_flg int, valid_to_dttm date, current_specialization_dk int, required_specialization_dk int,
-              required_tat_level_num int)""")
-    pg.copy('prod_v_dds.mdm_employee_application_grt', ['mdm_employee_application_rk', 'create_dttm', 'mdm_employee_appl_status_cd',
-                                                       'deleted_flg', 'valid_to_dttm', 'current_grade_num', 'required_grade_num',
-                                                       'current_specialization_dk', 'required_specialization_dk',
-                                                       'required_tat_level_num'], grt)
-    # поставка 71: справочник специализаций (rost_info Адели) и мониторинг по дням (with_performance Адели)
+    # поставка 73: заявки T-роста — usr_cross_data.mdm_employee_application_grt, как эталон отчёта «Рост»
+    pg.run("""CREATE TABLE usr_cross_data.mdm_employee_application_grt (mdm_employee_application_id bigint,
+              creator_mdm_employee_rk bigint, company_hire_dt date, create_dt timestamp, hd1_init_dt timestamp,
+              valid_from_dttm timestamp, valid_to_dttm timestamp, current_grade_num int, required_grade_num int,
+              current_specialization_desc text, required_specialization_desc text, current_specialization_oper_code text,
+              mdm_employee_appl_status_cd text, specialization_change_flg int, current_tat_num int, required_tat_num int)""")
+    pg.copy('usr_cross_data.mdm_employee_application_grt',
+            ['mdm_employee_application_id', 'creator_mdm_employee_rk', 'company_hire_dt', 'create_dt', 'hd1_init_dt',
+             'valid_from_dttm', 'valid_to_dttm', 'current_grade_num', 'required_grade_num', 'current_specialization_desc',
+             'required_specialization_desc', 'current_specialization_oper_code', 'mdm_employee_appl_status_cd',
+             'specialization_change_flg', 'current_tat_num', 'required_tat_num'],
+            [(r[14], r[0], r[13], r[1], r[11], r[10], '5999-01-01 00:00:00', r[5], r[6], SPECS[r[7] - 1], SPECS[r[8] - 1],
+              'Hq' if r[12] == 'HQ' else r[12], r[2], int(r[7] != r[8]), None, r[9]) for r in grt])
+    # поставка 71: справочник специализаций (rost_info Адели), поставка 73 — с датой запуска T-роста
     pg.run("CREATE TABLE prod_v_dds_dic.employee_specialization (employee_specialization_dk int, employee_specialization_desc text, "
-           "valid_to_dttm date)")
-    pg.copy('prod_v_dds_dic.employee_specialization', ['employee_specialization_dk', 'employee_specialization_desc', 'valid_to_dttm'],
-            [(i + 1, s_, '5999-01-01') for i, s_ in enumerate(SPECS)])
+           "deleted_flg int, valid_from_dttm date, valid_to_dttm date, tgrowth_effective_dt date)")
+    pg.copy('prod_v_dds_dic.employee_specialization', ['employee_specialization_dk', 'employee_specialization_desc', 'deleted_flg',
+                                                       'valid_from_dttm', 'valid_to_dttm', 'tgrowth_effective_dt'],
+            [(i + 1, s_, 0, '2000-01-01', '5999-01-01', '2024-01-01' if SPEC_GROW[s_] else None) for i, s_ in enumerate(SPECS)])
     pg.run("CREATE TABLE prod_v_sse_crossdata.performance_metric_d (mdm_employee_rk bigint, calendar_dt date, duration_hour numeric, "
            "plan_working_day_flg int, working_balance int, talk_call_duration_h numeric)")
     pg.copy('prod_v_sse_crossdata.performance_metric_d', ['mdm_employee_rk', 'calendar_dt', 'duration_hour', 'plan_working_day_flg',
@@ -692,9 +718,14 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, h
             continue
         for n in path(U, last_unit(byrk[rk_], m)):
             T[(n, m)]['perf'] += 1
-    for rk_, ts, st in (r[:3] for r in grt):
-        m = dt.date(ts.year, ts.month, 1)
-        if rk_ not in byrk or not ok(byrk[rk_], m):
+    # поставка 73: решения T-роста — заявки HQ (покраска в день создания), в месяц итога; человек в этом месяце есть в
+    # таблице (строка месяца — его последняя)
+    for r in grt:
+        rk_, st, fin = r[0], r[2], r[10]
+        m = dt.date(fin.year, fin.month, 1)
+        p_ = byrk.get(rk_)
+        if r[12] != 'HQ' or p_ is None or m < D0 or not (p_['start'] <= eom(m) and (p_['end'] is None or p_['end'] >= m)) \
+                or not ok(p_, m):
             continue
         for n in path(U, last_unit(byrk[rk_], m)):
             T[(n, m)]['grt'] += 1
@@ -860,45 +891,68 @@ def truth_mon(U, people, mm, pred=lambda p, d: True, act=ACTIVE):
     return T
 
 
+def truth_age(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
+    """поставка 73: разрез e узла rk — возраст в годах → людей численности последнего месяца"""
+    e, out = eom(months()[-1]), defaultdict(float)
+    for p in people:
+        if p['start'] <= e and (p['end'] is None or e < p['end']) and pred(p, e) \
+                and (act is None or at(p['acth'], e) in act) and (rk == 'all' or rk in path(U, at(p['unit'], e))):
+            out[str(age_num(p))] += 1
+    return dict(out)
+
+
 def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
-    """поставка 71: разрезы T-роста узла rk — rm (заявки с итогом по месяцам сетки), rq (успешность по желаемому за 12
-    месяцев до последнего), rs (статус роста людей численности последнего месяца); как hub · 4"""
+    """поставка 73 (эталон «Роста»): разрезы T-роста узла rk — rm (заявки с итогом по месяцам итога), rq (успешность по
+    желаемому за окно — с начала месяца 12 месяцев назад), rs (статус роста людей численности последнего месяца). Заявки —
+    только HQ (покраска в день создания); юнит и срез заявки — человека в месяце начала (старт согласования, иначе
+    создание), как structure_x_rost; тип — s, если меняется специализация, иначе g"""
     byrk = {p['rk']: p for p in people}
     ms = months()
     lm, g0 = ms[-1], ms[0]
-    m12 = ms[-12]
+    w12 = dt.date(lm.year - 1, lm.month, 1)
+    mon = lambda t: dt.date(t.year, t.month, 1)
     ok = lambda p, d: pred(p, d) and (act is None or at(p['acth'], d) in act)
-    tp = lambda r: 'gs' if r[5] != r[6] and r[7] != r[8] else 'g' if r[5] != r[6] else 's' if r[7] != r[8] else None
+    inn = lambda u: rk == 'all' or rk in path(U, u)
+    has_row = lambda p, m: m >= D0 and p['start'] <= eom(m) and (p['end'] is None or p['end'] >= m)
+    tp = lambda r: 's' if r[7] != r[8] else 'g'
     out = {'rm': defaultdict(float), 'rq': defaultdict(float), 'rs': defaultdict(float)}
-    apps = defaultdict(list)
-    inn = lambda u: rk == 'all' or rk in path(U, u)     # общий корень (NB_ROOTS=2) — все юниты
-    for r in grt:
-        apps[r[0]].append(r)
-        p, m = byrk[r[0]], dt.date(r[1].year, r[1].month, 1)
-        d = min(eom(m), p['end'] or D1)
+    hq = [r for r in grt if r[12] == 'HQ']
+    for r in hq:
+        p, am, fm = byrk[r[0]], mon(r[11] or r[1]), mon(r[10])
         res = 'ok' if r[2] == 'FNS' else 'no' if r[2] == 'DCL' else None
-        if res is None or not ok(p, d) or not inn(at(p['unit'], d)):
+        if res is None or not has_row(p, am):
+            continue
+        d = min(eom(am), p['end'] or D1)
+        if not ok(p, d) or not inn(at(p['unit'], d)):
             continue
         tat = '1' if r[9] is not None else '0'
-        if tp(r) and m >= g0:
-            out['rm'][f"{m:%Y-%m}|{tp(r)}|{tat}|{res}"] += 1
-        if m12 <= m <= lm:
-            if r[5] != r[6]:
-                out['rq'][f"g|{tat}|{res}|{r[6]}"] += 1
-            if r[7] != r[8]:
-                out['rq'][f"s|{tat}|{res}|{SPECS[r[8] - 1]}"] += 1
+        if g0 <= fm <= lm:
+            out['rm'][f"{fm:%Y-%m}|{tp(r)}|{tat}|{res}"] += 1
+        if w12 <= fm <= lm:
+            out['rq'][f"{tp(r)}|{tat}|{res}|{r[6] if tp(r) == 'g' else SPECS[r[8] - 1]}"] += 1
     e = eom(lm)
+    win = defaultdict(list)
+    for r in hq:
+        if w12 <= mon(r[10]) <= lm:
+            win[r[0]].append(r)
     for p in people:
         if not (p['start'] <= e and (p['end'] is None or e < p['end']) and ok(p, e) and inn(at(p['unit'], e))):
             continue
-        a = apps.get(p['rk'], [])
-        mo = lambda r: dt.date(r[1].year, r[1].month, 1)
-        last = lambda f: (sorted([r for r in a if f(r)], key=lambda r: r[1])[-1:] or [None])[0]
-        o = last(lambda r: r[2] == 'FNS' and mo(r) >= m12)
-        ac = last(lambda r: r[2] == 'INP')
-        dc = last(lambda r: r[2] == 'DCL' and mo(r) >= m12)
-        st, r_ = ('again', ac) if o and ac else ('done', o) if o else ('first', ac) if ac else ('denied', dc) if dc else ('none', None)
-        out['rs'][f"{st}|{(tp(r_) or '') if r_ else ''}|{at(p['grade'], e)}"] += 1
+        a = win.get(p['rk'], [])
+        okA = [r for r in a if r[2] == 'FNS']
+        acA = [r for r in a if r[2] not in ('FNS', 'DCL', 'CNL')]
+        dcA = [r for r in a if r[2] == 'DCL']
+        g_ = lambda L: any(tp(r) == 'g' for r in L)
+        if acA:
+            st, t = ('again' if okA else 'first'), 'g' if g_(acA) else 's'
+        elif okA:
+            st = 'done'
+            t = 'gs' if g_(okA) and any(tp(r) == 's' for r in okA) else 'g' if g_(okA) else 's'
+        elif dcA:
+            st, t = 'denied', 'g' if g_(dcA) else 's'
+        else:
+            st, t = 'none', 'av' if SPEC_GROW[p['spec']] else 'nd'
+        out['rs'][f"{st}|{t}|{at(p['grade'], e)}"] += 1
     return {k: dict(v) for k, v in out.items()}
 
 

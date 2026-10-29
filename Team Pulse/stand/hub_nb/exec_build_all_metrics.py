@@ -3,6 +3,7 @@ fields = [
     # простая строка — coalesce(col::text, '-')
     'gender',
     'type_age',
+    'age',                 # 29.10, поставка 73 (Адель): возраст в годах — средний возраст
     'experience_group_nm',
     'grade',
     'seniority',

@@ -66,7 +66,7 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
                'hc_total_cnt', 'hc_active_cnt', 'hire_amt', 'hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt',
                'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt', 'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
                'work_day_amt', 'office_visit_amt', 'grt_approve_cnt', 'grt_decline_cnt',
-               'gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
+               'gender', 'type_age', 'age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
                'legal_organization', 'employee_stream', 'fire_reason_group', 'fire_initiative', 'specialization',
                'type_company', 'source_type_nm', 'region',
                # поставка 66 (Адель): бронирования, города посещений (with_office_traffic), признак руководителя
@@ -76,11 +76,14 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
                'last_row_flg', 'mdm_employee_rk'])
 # поставка 71: заявки T-роста — rost_info (по заявке) и structure_x_rost (заявка к структуре), параграфы Адели
 ROST = 'rost_info'
-ROST_COLS = ['mdm_employee_rk', 'month', 'create_dttm', 'is_approved', 'is_declined', 'is_inprogress',
+ROST_COLS = ['mdm_employee_rk', 'month', 'finish_month', 'create_dt', 'is_approved', 'is_declined', 'is_inprogress',
              'grade_change_application_flg', 'specialization_change_application_flg', 'tat_flg']
+# поставка 73: «рост доступен» — у специализации человека в справочнике есть дата запуска T-роста (как эталон «Роста»)
+SPEC_DIC = 'prod_v_dds_dic.employee_specialization'
+SPEC_DIC_COLS = ['employee_specialization_dk', 'deleted_flg', 'valid_from_dttm', 'valid_to_dttm', 'tgrowth_effective_dt']
 SXR = 'structure_x_rost'
 SXR_COLS = (['mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in range(1, 12)]
-            + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'act_type_nm', 'month',
+            + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'act_type_nm', 'month', 'finish_month',
                'is_approved', 'is_declined', 'grade_change_application_flg', 'specialization_change_application_flg',
                'tat_flg', 'required_grade_num', 'required_specialization'])
 CAL_COLS = (['report_month', 'calendar_dt', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in LV]
@@ -90,7 +93,7 @@ TYPES = ('hq', 'it', 'employment_relation_type', 'active_type')
 DAY_COLS = (['calendar_dt', 'mdm_employee_rk'] + [f'lvl{i}_mapped_management_unit_rk' for i in LV]
             + ['emp_specialization_oper_code', 'emp_specialization_it_code', 'employment_relation_type_desc',
                'active_type_nm', 'hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg', 'fire_flg',
-               'last_day_of_month_flg', 'employee_specialization_desc']
+               'last_day_of_month_flg', 'employee_specialization_desc', 'emp_specialization_dk']
             + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in LV for k in ('in', 'out')]
             + [f'transfer_{d}_{t}_flg' for t in TYPES for d in ('to', 'out')])
 VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'close_flg', 'end_of_month_flg', 'last_dt_flg', 'status_name',
@@ -101,6 +104,7 @@ VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'close_flg', 'end_of_m
 def sql_cols():
     need = ([('', SRC, c) for c in SRC_COLS] + [('', STRUCT, c) for c in ('report_month', 'mng_unit_rk')]
             + [('', ROST, c) for c in ROST_COLS] + [('', SXR, c) for c in SXR_COLS]
+            + [tuple(SPEC_DIC.split('.')) + (c,) for c in SPEC_DIC_COLS]
             + [('', CAL, c) for c in CAL_COLS]
             + [tuple(DAY.split('.')) + (c,) for c in DAY_COLS] + [tuple(VAC_SRC.split('.')) + (c,) for c in VAC_COLS])
     vals = ',\n'.join(f"        ('{s}', '{t}', '{c}')" for s, t, c in need)
@@ -444,78 +448,86 @@ select (select count(*) from {P}_unit) as unit_rows, (select count(*) from {P}_s
 
 
 def rost_mix():
-    """поставка 71: разрезы T-роста — rm (заявки с итогом по месяцам), rq (успешность по желаемому за 12 месяцев), rs
-    (статус роста человека на последний месяц); у датасета 2а — только выбранному подразделению"""
-    rt = lambda e: (f"case when coalesce({e}grade_change_application_flg, 0) = 1 "
-                    f"and coalesce({e}specialization_change_application_flg, 0) = 1 then 'gs'\n"
-                    f"{' ' * 12}when coalesce({e}grade_change_application_flg, 0) = 1 then 'g' "
-                    f"when coalesce({e}specialization_change_application_flg, 0) = 1 then 's' end")
+    """поставка 73: разрезы T-роста — по эталону отчёта «Рост» дашборда HQ (ноутбук «[Рост - отчет] Team Pulse»):
+    итог заявки — в месяц итога (finish_month), окно — с начала месяца 12 месяцев назад; rm (заявки с итогом по месяцам),
+    rq (успешность по желаемому за окно), rs (статус роста человека на последний месяц); у датасета 2а — только
+    выбранному подразделению"""
+    rt = lambda e: f"(case when coalesce({e}specialization_change_application_flg, 0) = 1 then 's' else 'g' end)"
     tat = "(case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end)"
     res = "(case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end)"
-    m12 = f"((select lm from {P}_cal) - interval '11 month')::date"
     lm = f'(select lm from {P}_cal)'
-    rcols = ['month', 'is_approved', 'is_declined', 'grade_change_application_flg', 'specialization_change_application_flg',
-             'tat_flg', 'required_grade_num', 'required_specialization']
-    ex_rm = expl(rcols, f'and s.month >= (select grid_start from {P}_cal)', SXR)
-    ex_rq = expl(rcols, f'and s.month >= {m12} and s.month <= {lm}', SXR)
+    w12 = f"({lm} - interval '12 month')::date"
+    rcols = ['finish_month', 'is_approved', 'is_declined', 'grade_change_application_flg',
+             'specialization_change_application_flg', 'tat_flg', 'required_grade_num', 'required_specialization']
+    ex_rm = expl(rcols, f'and s.finish_month >= (select grid_start from {P}_cal) and s.finish_month <= {lm}', SXR)
+    ex_rq = expl(rcols, f'and s.finish_month >= {w12} and s.finish_month <= {lm}', SXR)
     ex_rs = expl(['report_month', 'grade', 'mdm_employee_rk', 'hc_total_cnt', 'last_row_flg'],
                  f'and s.report_month = {lm} and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1')
-    return f"""-- поставка 71: T-рост по вкладке «Рост» дашборда HQ (параграфы Адели rost_info, with_TRost, structure_x_rost); датасет
--- 2а отдаёт эти разрезы только выбранному подразделению. Тип заявки: g — смена грейда, s — специализации, gs — обоих;
--- поток: 1 — T@T, 0 — «Рост»; итог: ok — одобрена, no — отклонена (отменённые и в работе — не итог).
--- rm — заявки с итогом по месяцам подачи сетки: «ГГГГ-ММ|тип|поток|итог»
+    return f"""-- поставка 73: T-рост по эталону отчёта «Рост» дашборда HQ. Тип заявки: s — смена специализации, g — повышение
+-- грейда; поток: 1 — T@T, 0 — «Рост»; итог: ok — завершена (рост состоялся), no — отклонена. Месяц — месяц итога
+-- (последней смены статуса), юнит — человека в месяце начала заявки (structure_x_rost).
+-- rm — заявки с итогом по месяцам сетки: «ГГГГ-ММ|тип|поток|итог»
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rm' as mx_key,
-       to_char(e.month, 'YYYY-MM') || '|' || ({rt('e.')}) || '|' || {tat} || '|' || {res} as mx_val,
+       to_char(e.finish_month, 'YYYY-MM') || '|' || {rt('e.')} || '|' || {tat} || '|' || {res} as mx_val,
        1 as mx_n
 from ({ex_rm}) e
-where ({rt('e.')}) is not null and {res} is not null;
+where {res} is not null;
 
--- rq — за 12 месяцев до последнего: «вид|поток|итог|желаемое», вид g — желаемый грейд, s — желаемая специализация
+-- rq — за окно (с начала месяца 12 месяцев назад): «вид|поток|итог|желаемое», g — желаемый грейд, s — желаемая
+-- специализация
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
-       'g|' || {tat} || '|' || {res} || '|' || coalesce(e.required_grade_num::text, '') as mx_val, 1 as mx_n
+       {rt('e.')} || '|' || {tat} || '|' || {res} || '|' ||
+           (case when {rt('e.')} = 'g' then coalesce(e.required_grade_num::text, '')
+                 else {clean('e.required_specialization')} end) as mx_val, 1 as mx_n
 from ({ex_rq}) e
-where coalesce(e.grade_change_application_flg, 0) = 1 and {res} is not null
-union all
-select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
-       's|' || {tat} || '|' || {res} || '|' || {clean('e.required_specialization')} as mx_val, 1 as mx_n
-from ({ex_rq}) e
-where coalesce(e.specialization_change_application_flg, 0) = 1 and {res} is not null;
+where {res} is not null;
 
--- rs — статус роста человека на последний месяц (люди численности, одна строка человека): «статус|тип|грейд». За 12
--- месяцев: одобрена и сейчас есть заявка в работе — again («в росте повторно»); только одобрена — done; в работе без
--- одобренной — first; отклонена без одобренной и без заявки в работе — denied; иначе — none (тип пустой). Тип — у
--- последней заявки, по которой дан статус
+-- rs — статус роста человека на последний месяц (люди численности, одна строка человека), как эталон: заявки с итогом
+-- в окне; в работе и завершена — again («прошёл рост и участвует снова»), только в работе — first («сейчас в росте»),
+-- только завершена — done («рост состоялся»), только отклонена — denied, иначе none. Тип: у again и first — заявки в
+-- работе (грейд, иначе специализация), у done — завершённых (оба типа — gs), у denied — отклонённых; у none — рост
+-- доступен (av: у специализации есть дата запуска T-роста в справочнике) или нет (nd). Значение «статус|тип|грейд»
 insert into {P}_mixr
 with r as (
     select mdm_employee_rk,
-           max((is_approved = 1 and month >= {m12})::int) as ok12,
-           max((is_inprogress = 1)::int) as act,
-           max((is_declined = 1 and month >= {m12})::int) as dcl12,
-           (array_agg({rt('')} order by create_dttm desc) filter (where is_approved = 1 and month >= {m12}))[1] as t_ok,
-           (array_agg({rt('')} order by create_dttm desc) filter (where is_inprogress = 1))[1] as t_act,
-           (array_agg({rt('')} order by create_dttm desc) filter (where is_declined = 1 and month >= {m12}))[1] as t_dcl
+           max(is_approved) as ok, max(is_inprogress) as act, max(is_declined) as dcl,
+           max((is_approved = 1 and grade_change_application_flg = 1)::int) as okg,
+           max((is_approved = 1 and specialization_change_application_flg = 1)::int) as oks,
+           max((is_inprogress = 1 and grade_change_application_flg = 1)::int) as actg,
+           max((is_declined = 1 and grade_change_application_flg = 1)::int) as dclg
     from {ROST}
+    where finish_month >= {w12} and finish_month <= {lm}
     group by mdm_employee_rk
+), av as (
+    select distinct d.mdm_employee_rk
+    from {DAY} d
+    join {SPEC_DIC} sd
+      on sd.employee_specialization_dk::text = d.emp_specialization_dk::text and coalesce(sd.deleted_flg, 0) = 0
+     and d.calendar_dt between sd.valid_from_dttm and sd.valid_to_dttm and sd.tgrowth_effective_dt is not null
+    where d.calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year')::date
+      and d.calendar_dt = (select dt from {P}_cal)
 ), p as (
     select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, {clean('e.grade')} as gr,
-           case when r.ok12 = 1 and r.act = 1 then 'again' when r.ok12 = 1 then 'done' when r.act = 1 then 'first'
-                when r.dcl12 = 1 then 'denied' else 'none' end as st,
-           case when r.ok12 = 1 and r.act = 1 then r.t_act when r.ok12 = 1 then r.t_ok when r.act = 1 then r.t_act
-                when r.dcl12 = 1 then r.t_dcl else '' end as tp
+           case when r.act = 1 and r.ok = 1 then 'again' when r.act = 1 then 'first' when r.ok = 1 then 'done'
+                when r.dcl = 1 then 'denied' else 'none' end as st,
+           case when r.act = 1 then (case when r.actg = 1 then 'g' else 's' end)
+                when r.ok = 1 then (case when r.okg = 1 and r.oks = 1 then 'gs' when r.okg = 1 then 'g' else 's' end)
+                when r.dcl = 1 then (case when r.dclg = 1 then 'g' else 's' end)
+                when a.mdm_employee_rk is not null then 'av' else 'nd' end as tp
     from ({ex_rs}) e
     left join r on r.mdm_employee_rk = e.mdm_employee_rk
+    left join av a on a.mdm_employee_rk = e.mdm_employee_rk
 )
-select node_rk, paint_c, it_c, staff_c, act_c, 'rs' as mx_key, st || '|' || coalesce(tp, '') || '|' || gr as mx_val,
-       1 as mx_n
+select node_rk, paint_c, it_c, staff_c, act_c, 'rs' as mx_key, st || '|' || tp || '|' || gr as mx_val, 1 as mx_n
 from p;
 
 """
 
 def sql_mix():
     a = {k: clean(f'e.{c}') for k, c in (
-        ('g', 'gender'), ('a', 'type_age'), ('t', 'experience_group_nm'), ('gr', 'grade'), ('s', 'seniority'),
+        ('g', 'gender'), ('a', 'type_age'), ('e', 'age'), ('t', 'experience_group_nm'), ('gr', 'grade'), ('s', 'seniority'),
         ('c', 'employee_contract_type'), ('o', 'legal_organization'), ('w', 'employee_stream'),
         ('r', 'employment_relation_type'), ('fr', 'fire_reason_group'), ('fi', 'fire_initiative'),
         ('sp', 'specialization'), ('tc', 'type_company'), ('hs', 'source_type_nm'), ('rg', 'region'),
@@ -524,13 +536,14 @@ def sql_mix():
     # «|» не встречается: clean() меняет его на «/»
     a['ws'] = a['w'] + " || '|' || " + a['sp']
     # поставка 66: mh — признак руководителя (1 — руководитель): численность сегментов посещаемости
-    hc_keys = ['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws', 'mh']
+    # поставка 73 (Адель): e — возраст в годах (средний возраст команды в портрете)
+    hc_keys = ['g', 'a', 'e', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws', 'mh']
     # 22.10, поставка 60: найм в компанию — с любым типом численности (hire_cnt): срез — тип на конец месяца целиком,
     # и найм в любой выбранный тип попадает в разбивки (hire_amt — только «Активная»). У «Активной» — то же, что было
     hire_e = f"greatest({num('hire_cnt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
     hch = (f"case when {num('hire_cnt')} > 0 then 'Найм в компанию'\n"
            f"{' ' * 30}when {num('transfer_candidate_amt')} > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end")
-    attrs = ['gender', 'type_age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
+    attrs = ['gender', 'type_age', 'age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
              'legal_organization', 'employee_stream', 'employment_relation_type', 'specialization', 'type_company',
              'region', 'management_head_flg']
     lm = f'(select lm from {P}_cal)'
@@ -997,9 +1010,8 @@ def sql_checks():
         # справочно: заявка вне дерева людей (юнит не в структуре) в корень не попадёт
         ('T-рост: заявки с итогом по месяцам - заявки (корень, вся сетка)', 0,
          f"""coalesce((select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'rm'), 0)
-       - (select count(*) from {SXR} where leaf_lvl > 0 and month >= (select grid_start from {P}_meta)
-          and (is_approved = 1 or is_declined = 1)
-          and (grade_change_application_flg = 1 or specialization_change_application_flg = 1))"""),
+       - (select count(*) from {SXR} where leaf_lvl > 0 and finish_month >= (select grid_start from {P}_meta)
+          and finish_month <= {lm} and (is_approved = 1 or is_declined = 1))"""),
         # справочно: посещение без города в разрез по городам не попадает
         ('города - посещения последнего месяца (корень)', 0,
          f"""coalesce((select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'oc'), 0)

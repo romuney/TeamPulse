@@ -409,8 +409,9 @@ function barTable(o){
        под строкой — спрятанные значения вторым уровнем, по каждому — срез */
     const restRow={name:'Остальные',note:rest.length+' '+plural(rest.length,o.restWord||['значение','значения','значений']),
       value:rest.reduce((a,x)=>a+x.value,0),color:rest[0].color,
-      tip:shown.map(x=>x.name+' — '+D.fmtVal(o.metricKey||'hc_total',x.value)).join(', ')+
-        (rest.length>shown.length?' и ещё '+(rest.length-shown.length):'')};
+      /* 29.10, п. 4: в подсказке не список значений, а их число и «кликни» (раскрываются) */
+      tip:o.restKey?(o.restOpen?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'):
+        rest.length+' '+plural(rest.length,o.restWord||['значение','значения','значений'])};
     if(o.restKey)Object.assign(restRow,{exp:o.restKey,open:!!o.restOpen,restRow:true});
     items=!rest.some(x=>x.value)?keep:keep.concat([restRow]).concat(o.restKey&&o.restOpen?
       rest.slice().sort((a,b)=>b.value-a.value).map(x=>Object.assign({},x,{depth:2})):[]);
@@ -462,7 +463,7 @@ function barTable(o){
       (x.node?' data-node="'+esc(x.node)+'"':'')+
       /* x.attr (22.10, посещаемость): свой фильтр вкладки — строка кликается, выбор складывается */
       (x.attr?' '+x.attr+tipAttr({title:x.name,text:x.on?'Выбрано. Клик — снять.':(x.attrTip||'Клик — показать только «'+x.name+'».')}):'')+
-      (x.restRow?' data-btexp="'+esc(x.exp)+'"'+tipAttr({title:x.name,text:(x.open?'Клик — свернуть.':'Клик — показать все.')+(x.tip?'\n'+x.tip:'')})
+      (x.restRow?' data-btexp="'+esc(x.exp)+'"'+tipAttr({title:x.name,text:x.open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'})
       :x.pick&&x.expRow?' data-btexp="'+esc(x.exp)+'" data-mixgrp="'+esc(x.pick)+'"'+
         tipAttr({title:x.name,
           text:(x.open?'Клик — свернуть специализации.':'Клик — раскрыть специализации.')+
@@ -852,16 +853,8 @@ function storyRail(o){
   const facts=(o.facts||[]).filter(Boolean);
   if(facts.length)h+='<div class="st-sec"><div class="st-cap">Что важно</div><ul class="st-facts">'+
     facts.map(x=>'<li>'+richText(x)+'</li>').join('')+'</ul></div>';
-  const fo=o.focus;
-  if(fo&&fo.rows&&fo.rows.length)h+='<div class="st-sec"><div class="st-cap">'+esc(fo.cap||'Где сосредоточено')+'</div>'+
-    /* та же таблица-разбивка, что во всём отчёте: строка, шрифт и полоса — общие */
-    '<table class="ptable btable lite st-focus"><colgroup><col><col class="c-v"><col class="c-bar"></colgroup><tbody>'+
-      fo.rows.map(r=>'<tr class="urow" data-selnode="'+esc(r.path)+'"'+
-      tipAttr({title:r.name,text:'Клик — графики этой вкладки по «'+r.name+'».'})+'><td class="txt"><span class="row-label">'+
-      '<span class="row-body">'+esc(r.name)+'</span></span></td>'+
-      '<td class="lead'+(r.st?' '+esc(r.st):'')+'">'+esc(r.val)+'</td>'+
-      '<td class="barcell"><span class="cellbar"><i style="width:'+Math.max(1,Math.round((r.w||0)*100))+'%"></i></span></td></tr>').join('')+
-    '</tbody></table></div>';
+  /* 29.10, п. 5: в саммари главы — только текст: таблица «Где …» дублировала таблицу подразделений слева, её больше
+     нет; где сосредоточено — одной фразой в «Что сделать» (o.act) */
   if(o.act)h+='<div class="st-act"><div class="st-cap">Что сделать</div><p>'+richText(o.act.text)+'</p>'+
     (o.act.node?'<button class="btn xs" data-selnode="'+esc(o.act.node)+'">Показать «'+esc(o.act.name)+'»</button>':'')+'</div>';
   return h?'<aside class="st-rail">'+h+'</aside>':'';
@@ -1083,13 +1076,15 @@ function planTable(groups){
 }
 /* Сводка готовности на One-pager: сколько метрик на живых данных, сколько
    графиков каталога ещё добавить. Раскрывается в полный план. o = {live, total, plan} */
+/* 29.10, п. 3 (решение — Дарья Стонис): полоса — сколько метрик уже сверено с мастер-источником, из всех метрик
+   отчёта; на настоящих данных и в разработке — рядом числом. o.ver — сверенные из показанных */
+const U_TIPV=()=>'<span class="info"'+tipAttr(D.VERIFIED_TIP)+' aria-label="Что значит «сверено»">i</span>';
 function devSummary(o){
-  const pc=o.total?Math.round(o.live/o.total*100):0, n=D.planCount();
+  const ver=o.ver==null?D.VERIFIED.size:o.ver, pc=o.total?Math.round(ver/o.total*100):0, n=D.planCount();
   return '<details class="dev-sum"><summary><span class="dev-sum-h">Готовность данных</span>'+
-    '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик на настоящих данных"><i style="width:'+pc+'%"></i></span>'+
-    '<span class="dev-sum-n"><b>'+o.live+' из '+o.total+'</b> метрик на настоящих данных · '+
-      '<span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>'+
-      ' · <span class="live-tag ok"'+tipAttr(D.VERIFIED_TIP)+'>✓ сверены '+D.VERIFIED.size+'</span>'+
+    '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик сверено"><i style="width:'+pc+'%"></i></span>'+
+    '<span class="dev-sum-n"><b>'+ver+' из '+o.total+'</b> метрик сверено'+U_TIPV()+' · на настоящих данных '+o.live+
+      (o.total-o.live?' · <span class="dev-tag sm-in">в разраб. '+(o.total-o.live)+'</span>':'')+
       (D.MISMATCH.size?' · <span class="live-tag bad"'+tipAttr(D.MISMATCH_TIP)+'>расхождение '+D.MISMATCH.size+'</span>':'')+
       (n.todo?' · <span class="plan-tag todo">ещё добавить '+n.todo+'</span>':'')+'</span>'+
     '<span class="dev-sum-more">весь план ▾</span></summary>'+

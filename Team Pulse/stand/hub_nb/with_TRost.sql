@@ -1,7 +1,7 @@
 -- =============================================================================
 -- TeamPulse Hub
 -- заявки T-роста к людям (Адель, 27.10): за месяц — одобрено, отклонено, отменено, в работе, из них T@T (к одной
--- строке человека в месяце); за всё время — сколько заявок подавал, признаки «ни разу», «впервые», «повторно»
+-- строке человека в месяце; поставка 73 — по месяцу итога заявки); за всё время — сколько заявок подавал, признаки «ни разу», «впервые», «повторно»
 -- =============================================================================
 drop table if exists all_metrics_with_performance_and_office_traffic_and_grt ;
 create table all_metrics_with_performance_and_office_traffic_and_grt as
@@ -12,19 +12,20 @@ with  grt_employee as (
     select mdm_employee_rk,
             count(*) as grt_app_cnt,
             sum(is_approved) as grt_approve_total,
-            max(create_dttm) filter (where is_approved = 1) as grt_last_approve_dttm
+            max(create_dt) filter (where is_approved = 1) as grt_last_approve_dttm
     from rost_info
     group by mdm_employee_rk
 )
 , grt_month as (
+    -- поставка 73: решения — в месяц итога (как эталон «Роста»: месяц смены статуса), а не подачи
     select mdm_employee_rk
-            , month
+            , finish_month as month
             , sum(is_approved) as is_approved
             , sum(is_declined) as is_declined
             , sum(is_cancelled) as is_cancelled
             , sum(is_inprogress) as is_inprogress
             , sum(tat_flg) as tat
-    from rost_info group by mdm_employee_rk, month
+    from rost_info group by mdm_employee_rk, finish_month
 )
 select m.*
     , coalesce(o.is_approved, 0) as grt_approve_cnt

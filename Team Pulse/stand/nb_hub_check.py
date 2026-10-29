@@ -200,6 +200,8 @@ def main():
                             bad['календарь пуст'] += 1
                         # поставка 71: T-рост — заявки по месяцам (rm), успешность по желаемому (rq), статусы (rs)
                         want_v.update(nb.truth_rost(U, people, grt, rk, raw.get(name, pred), act))
+                        # поставка 73: возраст в годах (e) — средний возраст команды
+                        want_v['e'] = nb.truth_age(U, people, rk, raw.get(name, pred), act)
                         if not want_v['rs']:
                             bad['T-рост пуст'] += 1
                         # 28.10, п. 1: найм, переводы в и из по специализации — в сумме = рядам с начала года

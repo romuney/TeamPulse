@@ -62,7 +62,8 @@ const ASOF_SHORT=String(ASOF.d).padStart(2,'0')+'.'+String(ASOF.m+1).padStart(2,
 /* 21.10, правка Антона: вызревающими могут быть только regrettable и non-regrettable текучесть и
    проникновение AI — их значение за последний месяц ещё уточняется (признак увольнения и статистика AI
    приходят позже). У остальных метрик статуса «вызревает» нет: ни метки «по 20.10», ни пунктира. */
-const MATURING=new Set(['regret','nonregret','ai_penetration']);
+/* 29.10, п. 10: и общая текучесть — месячная и накопительная: незакрытый месяц на графиках пунктиром, «вызревает» */
+const MATURING=new Set(['regret','nonregret','ai_penetration','turnover_m','turnover_y']);
 function matures(key){return PARTIAL&&MATURING.has(key)}
 /* 26.10-б, правки п. 3–4: желательная и нежелательная текучесть — везде (карточки, таблицы, сравнения, цели,
    выводы) по последнему ЗАКРЫТОМУ месяцу; вызревающий незакрытый месяц — только на графике динамики. Тотал HQ
@@ -259,9 +260,7 @@ const METRICS=[
 {key:'tgrowth_pass',block:'tgrowth',aud:'hq',name:'Одобренные заявки на T-рост',short:'Одобрено',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Заявки на T-рост, одобренные за месяц.'},
 {key:'tgrowth_deny',block:'tgrowth',aud:'hq',name:'Отклонённые заявки на T-рост',short:'Отклонено',fmt:'int',flow:true,better:'lower',unit:'шт',anchor:null,hint:'Заявки на T-рост, отклонённые за месяц.'},
 {key:'tgrowth_conv',block:'tgrowth',aud:'hq',name:'Конверсия T-роста',short:'Конверсия',fmt:'pct',better:'higher',unit:'%',anchor:68,hint:'Доля одобренных среди рассмотренных за месяц заявок на T-рост.'},
-/* T@T — время до повышения из сервиса «Рост» (дашборд HQ 34136) */
-{key:'tgrowth_tat',card:'Время до повышения',block:'tgrowth',aud:'hq',name:'Время до повышения (T@T)',short:'T@T',fmt:'mon',better:'lower',unit:'мес',anchor:16,
-  hint:'Сколько месяцев в среднем прошло с прошлого повышения у тех, кого повысили в этом месяце.'},
+/* 29.10, п. 2: «Время до повышения (T@T)» снята совсем — не считается и не показывается (T@T в «Росте» — поток заявок) */
 /* 15.10: «Лоу-перформеры» сняты: такого понятия в компании нет (владелец борда,
    «Team Pulse 2.0 — сверка с каталогом.md»). Оценки ревью — в «Статусе ревью». */
 {key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.'+HQ_ONLY,hqOnly:true},
@@ -349,7 +348,7 @@ function isStub(key){return !!(METRIC_BY_KEY[key]&&METRIC_BY_KEY[key].stub)}
    заглушка (isStub), в макете — та же разметка, иначе план не виден там, где
    отчёт смотрят чаще всего. Число — этап плана подключения (DEV_PLAN). */
 const DEV_STAGE={nonregret:0,vac_open:2,vac_closed:2,time_to_fill:2,hire_plan:2,junior_share:2,
-  underwork:5,overwork:5,review_up:5,tgrowth_tat:6,tgrowth_pass:6,tgrowth_deny:6,tgrowth_conv:6,
+  underwork:5,overwork:5,review_up:5,tgrowth_pass:6,tgrowth_deny:6,tgrowth_conv:6,
   booking_viol:7,office_att:7,ai_penetration:8,ai_wau:8};
 /* живые с колонок разведки 12.10 (в датасете с восьмой поставки) */
 const DEV_LIVE_NEW=new Set(['office_att','booking_viol','tgrowth_pass','tgrowth_deny','tgrowth_conv','underwork','overwork',
@@ -413,8 +412,8 @@ const DEV_PLAN=[
     {what:'Регион сотрудника',aud:'all',stage:'4',now:'live',ok:1},
     {what:'Тип компании',aud:'hq',stage:'0',now:'live',ok:1},
     {what:'Формат работы: офис, гибрид, удалённо — по типу договора',aud:'all',stage:'0',now:'live',ok:1},
-    {what:'Средний возраст',aud:'all',stage:'0',now:'dev',
-      need:'нужна таблица состава: возраст людей, а не только группы (запрос 0к)'},
+    /* 29.10, п. 8: поле age источника (ноутбук Адели 28.10) — средний возраст в портрете */
+    {what:'Средний возраст',aud:'all',stage:'0',now:'live'},
     {what:'Пересечения разрезов: срез по клику, «разрез × разрез»',aud:'all',stage:'0',now:'dev',
       need:'пока оценка по подразделениям; точные — отдельной выгрузкой'},
   ]},
@@ -2098,7 +2097,15 @@ function monData(lp){
    («средний возраст женщин»). Срез по возрасту оставляет только выбранные группы. */
 const AGE_MID=[22.6,27.4,37.3];
 function avgAge(lp,sel,dimKey,catIdx){
-  if(REAL||!MIX_BY_KEY.age)return null;
+  /* 29.10, п. 8: пробник — поле age источника (разрез e ноутбука: возраст → людей на последний месяц): среднее по
+     людям листьев. Без среза и без разбивки внутри категории — совместного распределения с полом в данных нет */
+  if(REAL){
+    if(dimKey||sliceParse(sel||[]).length)return null;
+    const e=realExit(lp,'e');let n=0,t=0;
+    Object.keys(e).forEach(v=>{const a=parseFloat(String(v).replace(',','.'));if(isFinite(a)&&a>0){n+=e[v];t+=a*e[v]}});
+    return n?t/n:null;
+  }
+  if(!MIX_BY_KEY.age)return null;
   const ages=sliceParse(sel).filter(p=>p.dim.key==='age').map(p=>p.idx);
   const keep=i=>!ages.length||ages.indexOf(i)>=0;
   let n=0, s=0;
@@ -2585,12 +2592,14 @@ const ROST_TP={g:0,s:1,gs:2};
 const rostGrade=g=>/^\d+$/.test(g)&&+g>=20?'20+':isNA(g||'')?NONE_NAME:g;
 function rostReal(){
   const rs=REAL.scopeMix('rs'), rm=REAL.scopeMix('rm')||{}, rq=REAL.scopeMix('rq')||{};
+  /* поставка 73 (эталон «Роста»): у «Нет заявки» — «Нет развития» (nd) и «Рост доступен» (av, у специализации есть
+     запуск T-роста). Ответ до 73 без признака — одна колонка */
+  const avl=Object.keys(rs).some(v=>/^none\|(av|nd)\|/.test(v));
   const st=ROST_ST.map(s=>({key:s.key,name:s.name,n:0,rows:{},
-    /* «нет развития» и «рост доступен» источник не различает — одна колонка */
-    tip:s.key==='none'?'Заявок за 12 месяцев не было.':s.tip,cols:s.key==='none'?['Нет заявки']:s.cols.slice()}));
+    tip:s.key==='none'&&!avl?'Заявок за 12 месяцев не было.':s.tip,cols:s.key==='none'&&!avl?['Нет заявки']:s.cols.slice()}));
   const by={};st.forEach(s=>{by[s.key]=s});
   Object.keys(rs).forEach(v=>{
-    const p=v.split('|'), s=by[p[0]], n=+rs[v]||0, j=p[0]==='none'?0:ROST_TP[p[1]];
+    const p=v.split('|'), s=by[p[0]], n=+rs[v]||0, j=p[0]==='none'?(p[1]==='av'?1:0):ROST_TP[p[1]];
     if(!s||!n)return;
     s.n+=n;
     if(j==null)return;
@@ -2609,8 +2618,9 @@ function rostReal(){
       const p=v.split('|'), i=at[p[0]], n=+rm[v]||0;
       if(p[3]!=='ok'||p[1].indexOf(kd)<0||i==null)return;
       mo[i][p[2]==='1'?'tat':'rost']+=n;
-      if(i>LAST-12){if(p[2]==='1')T+=n;else R+=n}
     });
+    /* итог за окно — как эталон: успешно закрытые с начала месяца 12 месяцев назад (разрез rq) */
+    Object.keys(rq).forEach(v=>{const p=v.split('|');if(p[0]===kd&&p[2]==='ok'){if(p[1]==='1')T+=+rq[v]||0;else R+=+rq[v]||0}});
     const succ=t=>{
       const o={};
       Object.keys(rq).forEach(v=>{

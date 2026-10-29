@@ -55,6 +55,7 @@ with need (sch, tbl, col) as (
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'grt_decline_cnt'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'gender'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'type_age'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'age'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'experience_group_nm'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'grade'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'seniority'),
@@ -83,7 +84,8 @@ with need (sch, tbl, col) as (
         ('', 'org_structure', 'mng_unit_rk'),
         ('', 'rost_info', 'mdm_employee_rk'),
         ('', 'rost_info', 'month'),
-        ('', 'rost_info', 'create_dttm'),
+        ('', 'rost_info', 'finish_month'),
+        ('', 'rost_info', 'create_dt'),
         ('', 'rost_info', 'is_approved'),
         ('', 'rost_info', 'is_declined'),
         ('', 'rost_info', 'is_inprogress'),
@@ -108,6 +110,7 @@ with need (sch, tbl, col) as (
         ('', 'structure_x_rost', 'employment_relation_type'),
         ('', 'structure_x_rost', 'act_type_nm'),
         ('', 'structure_x_rost', 'month'),
+        ('', 'structure_x_rost', 'finish_month'),
         ('', 'structure_x_rost', 'is_approved'),
         ('', 'structure_x_rost', 'is_declined'),
         ('', 'structure_x_rost', 'grade_change_application_flg'),
@@ -115,6 +118,11 @@ with need (sch, tbl, col) as (
         ('', 'structure_x_rost', 'tat_flg'),
         ('', 'structure_x_rost', 'required_grade_num'),
         ('', 'structure_x_rost', 'required_specialization'),
+        ('prod_v_dds_dic', 'employee_specialization', 'employee_specialization_dk'),
+        ('prod_v_dds_dic', 'employee_specialization', 'deleted_flg'),
+        ('prod_v_dds_dic', 'employee_specialization', 'valid_from_dttm'),
+        ('prod_v_dds_dic', 'employee_specialization', 'valid_to_dttm'),
+        ('prod_v_dds_dic', 'employee_specialization', 'tgrowth_effective_dt'),
         ('', 'office_traffic_calendar', 'report_month'),
         ('', 'office_traffic_calendar', 'calendar_dt'),
         ('', 'office_traffic_calendar', 'mng_unit_rk'),
@@ -159,6 +167,7 @@ with need (sch, tbl, col) as (
         ('usr_cross_data', 'hr_executive_proteus', 'fire_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'last_day_of_month_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'employee_specialization_desc'),
+        ('usr_cross_data', 'hr_executive_proteus', 'emp_specialization_dk'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl1_mngt_unit_in_trsf_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl1_mngt_unit_out_trsf_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl2_mngt_unit_in_trsf_flg'),
@@ -217,7 +226,7 @@ with need (sch, tbl, col) as (
 have as (
     select table_schema as sch, table_name as tbl, column_name as col
     from information_schema.columns
-    where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'rost_info', 'structure_x_rost', 'office_traffic_calendar', 'hr_executive_proteus', 'vacancy_daily')
+    where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'rost_info', 'structure_x_rost', 'employee_specialization', 'office_traffic_calendar', 'hr_executive_proteus', 'vacancy_daily')
 )
 select case when count(*) = 0 then 'колонки на месте'
             else ('НЕТ КОЛОНОК (параграф «hub · 0 колонки»): '

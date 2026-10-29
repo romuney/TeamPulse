@@ -209,6 +209,7 @@ const DEV_TABS={
 /* Колонки разведки 12.10 оживляют часть вкладок: решения и конверсию T-роста
    и посещаемость за месяц. Там отметки нет, на соседних — уточнённый текст:
    что из блока живое, а что ещё нет. Без колонок — прежние записи DEV_TABS. */
+const KPI_TOP=false;
 const DEV_LIVE={
   /* поставка 50 (21.10, из прод-ноутбуков HQ и УС): вакансии, найм по источникам и AI — живые */
   hiring:{live:['vac_open','vac_closed','time_to_fill'],subs:['vacancies','profile'],
@@ -398,8 +399,10 @@ function renderBlock(S,expanded,mixOpen,view){
     a.push(m);return a},[]);
   /* 27.10-в, п. 21: строка, выбранная в таблице слева, — и KPI блока по ней; над карточками сказано, по чему они */
   const kl=sel!==root?rowLeaves(sel,S):rl;
+  /* 29.10, п. 9: верхние карточки KPI блоков сняты — они дублировали таблицу подразделений и графики. Своя полоса
+     «Мониторинга» (звонки, прогулы, выходные — их больше нигде нет) остаётся. Код карточек — на месте (KPI_TOP) */
   if(mod.kpis)h+=mod.kpis({S,rl,lp:rowLeaves(sel,S),sel});
-  else if(b.key!=='structure'){
+  else if(KPI_TOP&&b.key!=='structure'){
   if(sel!==root)h+='<div class="kpi-sel">Карточки — по «<b>'+esc(selNode.name)+'</b>»<button class="nb" data-selnode="'+esc(root)+
     '">Всё подразделение</button></div>';
   h+='<div class="kpis compact n'+Math.min(8,kmets.length)+'">';

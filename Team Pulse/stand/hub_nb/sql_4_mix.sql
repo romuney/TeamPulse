@@ -13,9 +13,10 @@
 drop table if exists teampulse_hub_mixr;
 create table teampulse_hub_mixr as
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
-       unnest(ARRAY['g', 'a', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws', 'mh']) as mx_key,
+       unnest(ARRAY['g', 'a', 'e', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws', 'mh']) as mx_key,
        unnest(ARRAY[coalesce(nullif(translate(e.gender::text, E'\t\n|', '  /'), '-'), ''),
                     coalesce(nullif(translate(e.type_age::text, E'\t\n|', '  /'), '-'), ''),
+                    coalesce(nullif(translate(e.age::text, E'\t\n|', '  /'), '-'), ''),
                     coalesce(nullif(translate(e.experience_group_nm::text, E'\t\n|', '  /'), '-'), ''),
                     coalesce(nullif(translate(e.grade::text, E'\t\n|', '  /'), '-'), ''),
                     coalesce(nullif(translate(e.seniority::text, E'\t\n|', '  /'), '-'), ''),
@@ -33,7 +34,7 @@ from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
     from (
-        select s.hc_total_cnt, s.gender, s.type_age, s.experience_group_nm, s.grade, s.seniority,
+        select s.hc_total_cnt, s.gender, s.type_age, s.age, s.experience_group_nm, s.grade, s.seniority,
                s.employee_contract_type, s.legal_organization, s.employee_stream, s.employment_relation_type,
                s.specialization, s.type_company, s.region, s.management_head_flg,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
@@ -143,20 +144,19 @@ from (
 ) e
 where coalesce(e.fire_amt, 0) > 0;
 
--- поставка 71: T-рост по вкладке «Рост» дашборда HQ (параграфы Адели rost_info, with_TRost, structure_x_rost); датасет
--- 2а отдаёт эти разрезы только выбранному подразделению. Тип заявки: g — смена грейда, s — специализации, gs — обоих;
--- поток: 1 — T@T, 0 — «Рост»; итог: ok — одобрена, no — отклонена (отменённые и в работе — не итог).
--- rm — заявки с итогом по месяцам подачи сетки: «ГГГГ-ММ|тип|поток|итог»
+-- поставка 73: T-рост по эталону отчёта «Рост» дашборда HQ. Тип заявки: s — смена специализации, g — повышение
+-- грейда; поток: 1 — T@T, 0 — «Рост»; итог: ok — завершена (рост состоялся), no — отклонена. Месяц — месяц итога
+-- (последней смены статуса), юнит — человека в месяце начала заявки (structure_x_rost).
+-- rm — заявки с итогом по месяцам сетки: «ГГГГ-ММ|тип|поток|итог»
 insert into teampulse_hub_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rm' as mx_key,
-       to_char(e.month, 'YYYY-MM') || '|' || (case when coalesce(e.grade_change_application_flg, 0) = 1 and coalesce(e.specialization_change_application_flg, 0) = 1 then 'gs'
-            when coalesce(e.grade_change_application_flg, 0) = 1 then 'g' when coalesce(e.specialization_change_application_flg, 0) = 1 then 's' end) || '|' || (case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end) || '|' || (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) as mx_val,
+       to_char(e.finish_month, 'YYYY-MM') || '|' || (case when coalesce(e.specialization_change_application_flg, 0) = 1 then 's' else 'g' end) || '|' || (case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end) || '|' || (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) as mx_val,
        1 as mx_n
 from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
     from (
-        select s.month, s.is_approved, s.is_declined, s.grade_change_application_flg,
+        select s.finish_month, s.is_approved, s.is_declined, s.grade_change_application_flg,
                s.specialization_change_application_flg, s.tat_flg, s.required_grade_num,
                s.required_specialization,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
@@ -168,21 +168,23 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from structure_x_rost s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.month >= (select grid_start from teampulse_hub_cal)
+        where s.leaf_lvl > 0 and s.finish_month >= (select grid_start from teampulse_hub_cal) and s.finish_month <= (select lm from teampulse_hub_cal)
     ) x
 ) e
-where (case when coalesce(e.grade_change_application_flg, 0) = 1 and coalesce(e.specialization_change_application_flg, 0) = 1 then 'gs'
-            when coalesce(e.grade_change_application_flg, 0) = 1 then 'g' when coalesce(e.specialization_change_application_flg, 0) = 1 then 's' end) is not null and (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) is not null;
+where (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) is not null;
 
--- rq — за 12 месяцев до последнего: «вид|поток|итог|желаемое», вид g — желаемый грейд, s — желаемая специализация
+-- rq — за окно (с начала месяца 12 месяцев назад): «вид|поток|итог|желаемое», g — желаемый грейд, s — желаемая
+-- специализация
 insert into teampulse_hub_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
-       'g|' || (case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end) || '|' || (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) || '|' || coalesce(e.required_grade_num::text, '') as mx_val, 1 as mx_n
+       (case when coalesce(e.specialization_change_application_flg, 0) = 1 then 's' else 'g' end) || '|' || (case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end) || '|' || (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) || '|' ||
+           (case when (case when coalesce(e.specialization_change_application_flg, 0) = 1 then 's' else 'g' end) = 'g' then coalesce(e.required_grade_num::text, '')
+                 else coalesce(nullif(translate(e.required_specialization::text, E'\t\n|', '  /'), '-'), '') end) as mx_val, 1 as mx_n
 from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
     from (
-        select s.month, s.is_approved, s.is_declined, s.grade_change_application_flg,
+        select s.finish_month, s.is_approved, s.is_declined, s.grade_change_application_flg,
                s.specialization_change_application_flg, s.tat_flg, s.required_grade_num,
                s.required_specialization,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
@@ -194,58 +196,43 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from structure_x_rost s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.month >= ((select lm from teampulse_hub_cal) - interval '11 month')::date and s.month <= (select lm from teampulse_hub_cal)
+        where s.leaf_lvl > 0 and s.finish_month >= ((select lm from teampulse_hub_cal) - interval '12 month')::date and s.finish_month <= (select lm from teampulse_hub_cal)
     ) x
 ) e
-where coalesce(e.grade_change_application_flg, 0) = 1 and (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) is not null
-union all
-select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
-       's|' || (case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end) || '|' || (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) || '|' || coalesce(nullif(translate(e.required_specialization::text, E'\t\n|', '  /'), '-'), '') as mx_val, 1 as mx_n
-from (
-    select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
-           generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
-    from (
-        select s.month, s.is_approved, s.is_declined, s.grade_change_application_flg,
-               s.specialization_change_application_flg, s.tat_flg, s.required_grade_num,
-               s.required_specialization,
-               (select pre from teampulse_hub_cal) || coalesce(u.cp,
-                   array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
-                                      s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
-                                      s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
-               coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
-               case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
-               coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
-        from structure_x_rost s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.month >= ((select lm from teampulse_hub_cal) - interval '11 month')::date and s.month <= (select lm from teampulse_hub_cal)
-    ) x
-) e
-where coalesce(e.specialization_change_application_flg, 0) = 1 and (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) is not null;
+where (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) is not null;
 
--- rs — статус роста человека на последний месяц (люди численности, одна строка человека): «статус|тип|грейд». За 12
--- месяцев: одобрена и сейчас есть заявка в работе — again («в росте повторно»); только одобрена — done; в работе без
--- одобренной — first; отклонена без одобренной и без заявки в работе — denied; иначе — none (тип пустой). Тип — у
--- последней заявки, по которой дан статус
+-- rs — статус роста человека на последний месяц (люди численности, одна строка человека), как эталон: заявки с итогом
+-- в окне; в работе и завершена — again («прошёл рост и участвует снова»), только в работе — first («сейчас в росте»),
+-- только завершена — done («рост состоялся»), только отклонена — denied, иначе none. Тип: у again и first — заявки в
+-- работе (грейд, иначе специализация), у done — завершённых (оба типа — gs), у denied — отклонённых; у none — рост
+-- доступен (av: у специализации есть дата запуска T-роста в справочнике) или нет (nd). Значение «статус|тип|грейд»
 insert into teampulse_hub_mixr
 with r as (
     select mdm_employee_rk,
-           max((is_approved = 1 and month >= ((select lm from teampulse_hub_cal) - interval '11 month')::date)::int) as ok12,
-           max((is_inprogress = 1)::int) as act,
-           max((is_declined = 1 and month >= ((select lm from teampulse_hub_cal) - interval '11 month')::date)::int) as dcl12,
-           (array_agg(case when coalesce(grade_change_application_flg, 0) = 1 and coalesce(specialization_change_application_flg, 0) = 1 then 'gs'
-            when coalesce(grade_change_application_flg, 0) = 1 then 'g' when coalesce(specialization_change_application_flg, 0) = 1 then 's' end order by create_dttm desc) filter (where is_approved = 1 and month >= ((select lm from teampulse_hub_cal) - interval '11 month')::date))[1] as t_ok,
-           (array_agg(case when coalesce(grade_change_application_flg, 0) = 1 and coalesce(specialization_change_application_flg, 0) = 1 then 'gs'
-            when coalesce(grade_change_application_flg, 0) = 1 then 'g' when coalesce(specialization_change_application_flg, 0) = 1 then 's' end order by create_dttm desc) filter (where is_inprogress = 1))[1] as t_act,
-           (array_agg(case when coalesce(grade_change_application_flg, 0) = 1 and coalesce(specialization_change_application_flg, 0) = 1 then 'gs'
-            when coalesce(grade_change_application_flg, 0) = 1 then 'g' when coalesce(specialization_change_application_flg, 0) = 1 then 's' end order by create_dttm desc) filter (where is_declined = 1 and month >= ((select lm from teampulse_hub_cal) - interval '11 month')::date))[1] as t_dcl
+           max(is_approved) as ok, max(is_inprogress) as act, max(is_declined) as dcl,
+           max((is_approved = 1 and grade_change_application_flg = 1)::int) as okg,
+           max((is_approved = 1 and specialization_change_application_flg = 1)::int) as oks,
+           max((is_inprogress = 1 and grade_change_application_flg = 1)::int) as actg,
+           max((is_declined = 1 and grade_change_application_flg = 1)::int) as dclg
     from rost_info
+    where finish_month >= ((select lm from teampulse_hub_cal) - interval '12 month')::date and finish_month <= (select lm from teampulse_hub_cal)
     group by mdm_employee_rk
+), av as (
+    select distinct d.mdm_employee_rk
+    from usr_cross_data.hr_executive_proteus d
+    join prod_v_dds_dic.employee_specialization sd
+      on sd.employee_specialization_dk::text = d.emp_specialization_dk::text and coalesce(sd.deleted_flg, 0) = 0
+     and d.calendar_dt between sd.valid_from_dttm and sd.valid_to_dttm and sd.tgrowth_effective_dt is not null
+    where d.calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year')::date
+      and d.calendar_dt = (select dt from teampulse_hub_cal)
 ), p as (
     select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, coalesce(nullif(translate(e.grade::text, E'\t\n|', '  /'), '-'), '') as gr,
-           case when r.ok12 = 1 and r.act = 1 then 'again' when r.ok12 = 1 then 'done' when r.act = 1 then 'first'
-                when r.dcl12 = 1 then 'denied' else 'none' end as st,
-           case when r.ok12 = 1 and r.act = 1 then r.t_act when r.ok12 = 1 then r.t_ok when r.act = 1 then r.t_act
-                when r.dcl12 = 1 then r.t_dcl else '' end as tp
+           case when r.act = 1 and r.ok = 1 then 'again' when r.act = 1 then 'first' when r.ok = 1 then 'done'
+                when r.dcl = 1 then 'denied' else 'none' end as st,
+           case when r.act = 1 then (case when r.actg = 1 then 'g' else 's' end)
+                when r.ok = 1 then (case when r.okg = 1 and r.oks = 1 then 'gs' when r.okg = 1 then 'g' else 's' end)
+                when r.dcl = 1 then (case when r.dclg = 1 then 'g' else 's' end)
+                when a.mdm_employee_rk is not null then 'av' else 'nd' end as tp
     from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
@@ -264,9 +251,9 @@ with r as (
     ) x
 ) e
     left join r on r.mdm_employee_rk = e.mdm_employee_rk
+    left join av a on a.mdm_employee_rk = e.mdm_employee_rk
 )
-select node_rk, paint_c, it_c, staff_c, act_c, 'rs' as mx_key, st || '|' || coalesce(tp, '') || '|' || gr as mx_val,
-       1 as mx_n
+select node_rk, paint_c, it_c, staff_c, act_c, 'rs' as mx_key, st || '|' || tp || '|' || gr as mx_val, 1 as mx_n
 from p;
 
 -- поставка 66: посещения офисов последнего месяца по городам (office_city_visits_json — параграф with_office_traffic):

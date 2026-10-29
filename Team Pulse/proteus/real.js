@@ -70,7 +70,7 @@ const LIVE_NZ=['nreg','vop','vcl','aiw','aip','hit','bk','hwd'];
    макета (по численности юнита), с пометкой «демо». План подключения —
    «Поставка — TeamPulse Hub/План метрик.md». */
 const STUB=['nonregret','vac_open','vac_closed','time_to_fill','hire_plan','junior_share',
-  'tgrowth_pass','tgrowth_deny','tgrowth_conv','tgrowth_tat','review_up',
+  'tgrowth_pass','tgrowth_deny','tgrowth_conv','review_up',
   'office_att','booking_viol','ai_penetration','ai_wau'];
 /* План подключения живёт в data.js (D.DEV_PLAN; 15.10 — по каталогу графиков HQ и УС):
    им размечены и макет, и пробник — «в разработке» у метрик, вкладок и блоков. */

@@ -91,9 +91,8 @@ select 16 as n, 'T-рост: статусы роста - численность 
 union all
 select 17 as n, 'T-рост: заявки с итогом по месяцам - заявки (корень, вся сетка)'::text as check_nm, 0 as must,
        (coalesce((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'rm'), 0)
-       - (select count(*) from structure_x_rost where leaf_lvl > 0 and month >= (select grid_start from teampulse_hub_meta)
-          and (is_approved = 1 or is_declined = 1)
-          and (grade_change_application_flg = 1 or specialization_change_application_flg = 1)))::float8 as val
+       - (select count(*) from structure_x_rost where leaf_lvl > 0 and finish_month >= (select grid_start from teampulse_hub_meta)
+          and finish_month <= (select last_month from teampulse_hub_meta) and (is_approved = 1 or is_declined = 1)))::float8 as val
 union all
 select 18 as n, 'города - посещения последнего месяца (корень)'::text as check_nm, 0 as must,
        (coalesce((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'oc'), 0)
