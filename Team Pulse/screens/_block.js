@@ -356,7 +356,9 @@ function renderBlock(S,expanded,mixOpen,view){
     (dash?U.tipAttr({title:'Детальный дашборд',text:'«'+dash.name+'» в Proteus — все графики этого блока.',
       note:dash.only?'':'Для покраски HQ откроется HQ-версия.'}):'')+
     '>Детальный дашборд'+U.icoExt()+'</a></div>'+
-    '<p>'+esc(b.hint)+' '+cmpTxt+'</p></div>';
+    '<p>'+esc(b.hint)+' '+cmpTxt+'</p>'+
+    /* поставка 83: охват данных вкладки (у «Рост HQ» — только HQ) — сразу под описанием, до вывода и графиков */
+    (b.scope?'<p class="ph-scope">'+esc(b.scope)+'</p>':'')+'</div>';
 
   /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
      это происходит → таблица»). Факты — те же карточки, что на главной. */
@@ -518,7 +520,8 @@ function renderBlock(S,expanded,mixOpen,view){
       '<td class="txt"><span class="row-label">'+
       (canExp?'<button class="caret-btn"'+(isOpen?' data-open="1"':'')+' data-exp="'+r.n.path+'" aria-label="'+
         (isOpen?'Свернуть':'Раскрыть')+'">'+(isOpen?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>')+
-      '<span class="row-body">'+(tq?U.hlText(r.n.name,tq):esc(r.n.name))+
+      /* поставка 83: наведение на подразделение — численность, ФИ и логин руководителя */
+      '<span class="row-body"'+U.unitTip(r.n.name,D.fmtVal('hc_total',val(lp,'hc_total'))+' чел',r.n.head)+'>'+(tq?U.hlText(r.n.name,tq):esc(r.n.name))+
       /* 31.10 (поставка 82, «перегруз под названием»): без уровня и ФИО — численность и логин руководителя */
       '<span class="unit-sub">'+(r.n.direct?'без подразделения · ':'')+
         D.fmtVal('hc_total',val(lp,'hc_total'))+' чел'+

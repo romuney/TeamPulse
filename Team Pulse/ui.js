@@ -267,13 +267,17 @@ const NOCMP_HINT='Это количество, а не доля: оно зави
 function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Без сравнения',text:NOCMP_HINT})+'>—</span>'} /* 30.10, шаг 1: прочерк вместо «не сравнивается» в каждой строке; почему — в подсказке */
 /* Руководитель юнита под именем строки (14.10): «Имя Фамилия · логин».
    Нет данных (пробник без источника, строка «Напрямую в «X»») — ничего. */
-/* 31.10 (поставка 82): в строке — только логин, фамилия и имя — в подсказке на нём; q — подсветка найденного */
+/* 31.10 (поставки 82–83): в строке подразделения — численность и логин руководителя; без уровня и ФИ.
+   Логина нет — в строке ничего, в подсказке «—». q — подсветка найденного */
 function unitHead(n,q){
-  const h=n&&n.head;
-  if(!h||!(h.name||h.login))return '';
-  const t=h.login||h.name;
-  return '<span class="unit-head login"'+tipAttr({title:'Руководитель подразделения',text:(h.name||'')+(h.login&&h.name?' · '+h.login:'')})+'>'+
-    (q?hlText(t,q):esc(t))+'</span>';
+  const l=n&&n.head&&n.head.login;
+  return l?'<span class="unit-head login">'+(q?hlText(l,q):esc(l))+'</span>':'';
+}
+/* подсказка по наведению на подразделение (поставка 83): численность, ФИ и логин руководителя; пустое — «—» */
+function unitTip(name,hc,head){
+  head=head||{};
+  return tipAttr({title:name,rows:[{label:'Численность',value:hc==null||hc===''?'—':hc},
+    {label:'Руководитель',value:head.name||'—'},{label:'Логин',value:head.login||'—'}]});
 }
 /* Строка сравнения в KPI-карточке «по компании X» (14.10: вместо «база X»;
    осталась только у «Проникновения AI»). Что именно за база — в подсказке. */
@@ -1069,7 +1073,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,kpiCard,
+window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};

@@ -1800,6 +1800,18 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /t-li/.test(text)&&/class=&quot;t-x&quot;&gt;[^&]*&lt;\/span&gt;&lt;span class=&quot;t-x/.test(text)]);
 })();
 
+/* поставка 83 (задача 3): «Рост HQ», дисклеймер охвата, цвета Рост / T@T, подсказка подразделения */
+(function(){
+  const tg=A.go('tgrowth','grades'), bk=D.BLOCK_BY_KEY.tgrowth, G=global.window.TPDRAW;
+  checks.push(['вкладка «Рост HQ» (ключ tgrowth), под описанием — дисклеймер «только HQ»',
+    bk.name==='Рост HQ'&&/<h2>Рост HQ<\/h2>/.test(tg)&&/class="ph-scope">Сейчас данные по росту доступны только для HQ\./.test(tg)]);
+  checks.push(['цвета: Рост — #8fd8a9, T@T — #8fd8a980 (с прозрачностью), в графике и легенде',
+    G.C_ROST.rost==='#8fd8a9'&&G.C_ROST.tat==='#8fd8a980'&&/#8fd8a980/.test(tg)&&/#8fd8a9[^8]/.test(tg)]);
+  const tv=A.go('turnover','dynamics');
+  checks.push(['подразделение: в строке численность и логин, без уровня; в подсказке — численность, руководитель, логин',
+    /class="row-body" data-tip="[^"]*Численность[^"]*Руководитель[^"]*Логин/.test(tv)&&!/<span class="unit-sub">(Деп|Ком|Блок|ур)\./.test(tv)]);
+})();
+
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});
 
 console.log();

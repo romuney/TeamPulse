@@ -371,8 +371,10 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       D.fmtVal('booking_viol',viol)+', руководители '+x.segs[0].att+'%, городов '+x.cities.length);
     const hn=R.pick.all().map(p=>R.pick.info(p)).find(i=>i&&/ /.test(i.hname)), last=hn?hn.hname.split(' ').pop():'';
     const sq=hn?A.setup(last.slice(0,4).toLowerCase()):'';
-    ok(!!hn&&/<mark class="ut-hl">/.test(sq)&&sq.indexOf(hn.name)>=0&&sq.indexOf(' · '+hn.head)>=0,
-      'окно настройки: имя руководителя под юнитом и поиск по фамилии («'+last.slice(0,4)+'»)');
+    /* поставка 83: в строке дерева — логин руководителя, ФИ и численность — в подсказке; поиск по фамилии работает */
+    ok(!!hn&&sq.indexOf(hn.name)>=0&&sq.indexOf('<span class="ut-h">'+hn.head)>=0&&sq.indexOf(hn.hname)>=0&&
+       !/class="ut-l"/.test(sq),
+      'окно настройки: логин под юнитом, ФИ — в подсказке, поиск по фамилии («'+last.slice(0,4)+'»)');
   }
   /* 26.10-б, правки п. 8: текучесть по инициатору — из разреза xim выбранного юнита; в сумме по инициаторам — текучесть
      месячная; график первым в «Почему уходят», таблицы под ним. П. 1: движение по специализациям — из hsp / xsp */

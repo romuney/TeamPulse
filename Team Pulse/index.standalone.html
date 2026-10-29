@@ -383,7 +383,6 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .ut-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ut-h,.ut-p{display:block;color:var(--muted);font-size:10.5px;font-weight:var(--fw-body);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ut-p{margin-top:2px}
-.ut-l{color:var(--muted);font-size:10.5px;font-weight:var(--fw-body);white-space:nowrap}
 .ut-c{min-width:44px;text-align:right;font-size:12.5px;font-weight:var(--fw-body);color:var(--ink);font-variant-numeric:tabular-nums}
 .ut-c.zero{color:var(--muted)}
 .ut-r.cur .ut-c{color:#2b5fd0;font-weight:var(--fw-bold)}
@@ -2476,7 +2475,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
     max-height:calc(var(--vh,100vh) - var(--sp-top) - var(--rph,59px) - 26px)}
   .st-grid.has-rail>.st-rail{align-self:stretch}
 }
-.unit-head.login{color:var(--muted);border-bottom:1px dotted var(--muted2);cursor:help}
+.unit-head.login{color:var(--muted)}
 /* Поставка 82: что выбрано — строка пилюль над обеими карточками (срез меняет и таблицу, и графики). Строка всегда
    есть и одной высоты (24px — по пилюле, 11px до карточек; сверху чуть больше — его съедает тень вывода): выбрали или сняли — ничего не сдвигается; липнет при прокрутке,
    шапки карточек прилипают под ней */
@@ -2498,6 +2497,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .sel-pill .x:hover{background:rgba(31,95,224,.12)}
 .sel-clear{border:0;background:transparent;color:var(--act);font:inherit;font-size:12px;cursor:pointer;padding:0 4px}
 .sel-clear:hover{text-decoration:underline}
+/* поставка 83: охват данных вкладки — тихая строка с «i» под описанием блока, не плашка-ошибка */
+.page-h .ph-scope{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:3px 10px;border-radius:12px;
+  background:var(--blue-bg);color:var(--act-ink);font-size:12px}
+.page-h .ph-scope::before{content:"i";display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;
+  background:var(--act);color:#fff;font:700 10px/1 Arial}
 
 </style>
 </head>
@@ -2829,7 +2833,8 @@ const BLOCKS=[
 {key:'movement',name:'Движение персонала',hint:'Кто пришёл и кто ушёл: найм, отток, переводы. Растёт ли команда.',drillUrl:'#/detail/movement',dash:['34661','34136']},
 {key:'turnover',name:'Отток и текучесть',hint:'Сколько уходит, кто и почему.',drillUrl:'#/detail/turnover',dash:['34661','34136']},
 {key:'hiring',name:'Найм и вакансии',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
-{key:'tgrowth',name:'T-рост',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
+/* поставка 83 (задача 3): вкладка — «Рост HQ», ключ tgrowth не меняем (ссылки и сохранённые состояния); scope — дисклеймер охвата */
+{key:'tgrowth',name:'Рост HQ',scope:'Сейчас данные по росту доступны только для HQ.',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
 {key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью. Мониторинг — под выбранными фильтрами (по умолчанию вся активная численность), ревью — для eligible-популяции.',drillUrl:'#/detail/monitor',dash:['34661']},
 {key:'office',name:'Посещаемость офисов',hint:'Кто, когда и где ходит в офис; соблюдают ли бронь.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
@@ -3129,7 +3134,7 @@ const DEV_PLAN=[
     {what:'Массовый найм: план и факт по целевым действиям и по оформленным',aud:'us',stage:'2',now:'dev',next:1,
       need:'развести целевые действия и оформленных'},
     {what:'Профильный найм: заказы по статусам, закрытые в срок, просрочка, время закрытия',aud:'us',stage:'2',now:'dev',next:1}]},
-  {blk:'T-рост',rows:[
+  {blk:'Рост HQ',rows:[
     {what:'Одобренные и отклонённые заявки, конверсия',aud:'hq',stage:'0',now:'live'},
     /* 27.10-в, п. 8: вкладка по описанию «Рост» дашборда HQ */
     /* поставка 71: параграфы «Роста» Адели (rost_info, with_TRost, structure_x_rost) */
@@ -5645,7 +5650,8 @@ const C_VAC=C_LINE,            /* открытые вакансии */
          плашками Пульса, и столбики WAU в нём читались бы как подсказка. */
       C_AI=C_LINE;
 /* 27.10-в, T-рост: статусы «повторно в росте» и «нет заявки», отказ в тепловой таблице успешности */
-const C_ROST={again:'#E8A33D',none:'#9AA0AC',no:'#D64545'};
+/* поставка 83 (задача 3): потоки «Рост» и T@T — один зелёный, у T@T с прозрачностью 50% (#…80) */
+const C_ROST={again:'#E8A33D',none:'#9AA0AC',no:'#D64545',rost:'#8fd8a9',tat:'#8fd8a980'};
 const PALETTE=[C_TR_IN,C_HIRE_I,C_HIRE_D,C_HIRE,C_FIRE,C_TR_OUT,C_CNT,C_OTHER];
 
 /* ---------- Бары и полосы — мягкие ступени тех же тонов ----------
@@ -7110,13 +7116,17 @@ const NOCMP_HINT='Это количество, а не доля: оно зави
 function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Без сравнения',text:NOCMP_HINT})+'>—</span>'} /* 30.10, шаг 1: прочерк вместо «не сравнивается» в каждой строке; почему — в подсказке */
 /* Руководитель юнита под именем строки (14.10): «Имя Фамилия · логин».
    Нет данных (пробник без источника, строка «Напрямую в «X»») — ничего. */
-/* 31.10 (поставка 82): в строке — только логин, фамилия и имя — в подсказке на нём; q — подсветка найденного */
+/* 31.10 (поставки 82–83): в строке подразделения — численность и логин руководителя; без уровня и ФИ.
+   Логина нет — в строке ничего, в подсказке «—». q — подсветка найденного */
 function unitHead(n,q){
-  const h=n&&n.head;
-  if(!h||!(h.name||h.login))return '';
-  const t=h.login||h.name;
-  return '<span class="unit-head login"'+tipAttr({title:'Руководитель подразделения',text:(h.name||'')+(h.login&&h.name?' · '+h.login:'')})+'>'+
-    (q?hlText(t,q):esc(t))+'</span>';
+  const l=n&&n.head&&n.head.login;
+  return l?'<span class="unit-head login">'+(q?hlText(l,q):esc(l))+'</span>':'';
+}
+/* подсказка по наведению на подразделение (поставка 83): численность, ФИ и логин руководителя; пустое — «—» */
+function unitTip(name,hc,head){
+  head=head||{};
+  return tipAttr({title:name,rows:[{label:'Численность',value:hc==null||hc===''?'—':hc},
+    {label:'Руководитель',value:head.name||'—'},{label:'Логин',value:head.login||'—'}]});
 }
 /* Строка сравнения в KPI-карточке «по компании X» (14.10: вместо «база X»;
    осталась только у «Проникновения AI»). Что именно за база — в подсказке. */
@@ -7912,7 +7922,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,infoDot,NOCMP_HINT,targetCell,kpiCard,
+window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,momChip,icoExt,rowCaret,allCaret,noCmpMark,byCompany,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,kpiCard,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,miniLines,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
@@ -9620,7 +9630,9 @@ function renderBlock(S,expanded,mixOpen,view){
     (dash?U.tipAttr({title:'Детальный дашборд',text:'«'+dash.name+'» в Proteus — все графики этого блока.',
       note:dash.only?'':'Для покраски HQ откроется HQ-версия.'}):'')+
     '>Детальный дашборд'+U.icoExt()+'</a></div>'+
-    '<p>'+esc(b.hint)+' '+cmpTxt+'</p></div>';
+    '<p>'+esc(b.hint)+' '+cmpTxt+'</p>'+
+    /* поставка 83: охват данных вкладки (у «Рост HQ» — только HQ) — сразу под описанием, до вывода и графиков */
+    (b.scope?'<p class="ph-scope">'+esc(b.scope)+'</p>':'')+'</div>';
 
   /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
      это происходит → таблица»). Факты — те же карточки, что на главной. */
@@ -9782,7 +9794,8 @@ function renderBlock(S,expanded,mixOpen,view){
       '<td class="txt"><span class="row-label">'+
       (canExp?'<button class="caret-btn"'+(isOpen?' data-open="1"':'')+' data-exp="'+r.n.path+'" aria-label="'+
         (isOpen?'Свернуть':'Раскрыть')+'">'+(isOpen?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>')+
-      '<span class="row-body">'+(tq?U.hlText(r.n.name,tq):esc(r.n.name))+
+      /* поставка 83: наведение на подразделение — численность, ФИ и логин руководителя */
+      '<span class="row-body"'+U.unitTip(r.n.name,D.fmtVal('hc_total',val(lp,'hc_total'))+' чел',r.n.head)+'>'+(tq?U.hlText(r.n.name,tq):esc(r.n.name))+
       /* 31.10 (поставка 82, «перегруз под названием»): без уровня и ФИО — численность и логин руководителя */
       '<span class="unit-sub">'+(r.n.direct?'без подразделения · ':'')+
         D.fmtVal('hc_total',val(lp,'hc_total'))+' чел'+
@@ -10568,7 +10581,7 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 const esc=U.esc, sum=a=>a.reduce((x,y)=>x+y,0);
 /* цвета статусов — как в «Росте»: зелёный, голубой, жёлтый, серый, фиолетовый */
 const ST_COL={done:G.C_HIRE,first:G.C_TR_IN,again:G.C_ROST.again,none:G.C_ROST.none,denied:G.C_FIRE};
-const C_R=G.C_HIRE_D, C_T=G.C_TR_IN, C_NO=G.C_ROST.no;
+const C_R=G.C_ROST.rost, C_T=G.C_ROST.tat, C_NO=G.C_ROST.no;
 /* заливка клетки: от белого к цвету статуса по доле от максимума таблицы */
 function ramp(hex,t){
   const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)), k=0.12+0.78*Math.max(0,Math.min(1,t));
@@ -11678,19 +11691,18 @@ function utHl(text,q){
   const at=q?text.toLowerCase().indexOf(q):-1;
   return at<0?esc(text):esc(text.slice(0,at))+'<mark class="ut-hl">'+esc(text.slice(at,at+q.length))+'</mark>'+esc(text.slice(at+q.length));
 }
-/* руководитель под именем юнита: «Имя Фамилия · логин»; что совпало с поиском — подсвечено (поставка 66) */
+/* руководитель под именем юнита (поставка 83, как в таблице подразделений): в строке — только логин; ФИ, логин и
+   численность — в подсказке на строке; уровня нет. Поиск по ФИ работает по-прежнему (utListHTML) */
 function utHead(i,q){
-  const hn=i.hname||'', hl=i.head||'';
-  if(!hn&&!hl)return '';
-  return '<span class="ut-h"'+U.tipAttr({title:'Руководитель подразделения',text:hn&&hl?hn+' · '+hl:hn||hl})+'>'+
-    (hn?utHl(hn,q):'')+(hn&&hl?' · ':'')+(hl?utHl(hl,q):'')+'</span>';
+  return i.head?'<span class="ut-h">'+utHl(i.head,q)+'</span>':'';
 }
 function utRow(p,i,depth,tw,extra){
+  const n=D.draftCount(p,DRAFT);
   return '<div class="ut-r'+(DRAFT.unit===p?' cur':'')+'" data-upick="'+esc(p)+'" role="option" aria-selected="'+(DRAFT.unit===p)+'"'+
-    (depth!=null?' style="padding-left:'+(9+depth*16)+'px"':'')+'>'+tw+
+    (depth!=null?' style="padding-left:'+(9+depth*16)+'px"':'')+
+    U.unitTip(i.name,n==null?null:D.fmtInt(n)+' чел',{name:i.hname,login:i.head})+'>'+tw+
     '<span class="ut-n">'+(extra&&extra.name||esc(i.name))+(extra&&extra.path?'<span class="ut-p">'+esc(extra.path)+'</span>':'')+
-    utHead(i,extra&&extra.q||'')+'</span>'+
-    '<span class="ut-l">ур. '+i.lvl+'</span>'+utCount(p)+'</div>';
+    utHead(i,extra&&extra.q||'')+'</span>'+utCount(p)+'</div>';
 }
 function utListHTML(){
   const q=UT.q.trim().toLowerCase(), P=D.PICK, root=P.info(P.root), lvl0=root?root.lvl:1;

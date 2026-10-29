@@ -433,19 +433,18 @@ function utHl(text,q){
   const at=q?text.toLowerCase().indexOf(q):-1;
   return at<0?esc(text):esc(text.slice(0,at))+'<mark class="ut-hl">'+esc(text.slice(at,at+q.length))+'</mark>'+esc(text.slice(at+q.length));
 }
-/* руководитель под именем юнита: «Имя Фамилия · логин»; что совпало с поиском — подсвечено (поставка 66) */
+/* руководитель под именем юнита (поставка 83, как в таблице подразделений): в строке — только логин; ФИ, логин и
+   численность — в подсказке на строке; уровня нет. Поиск по ФИ работает по-прежнему (utListHTML) */
 function utHead(i,q){
-  const hn=i.hname||'', hl=i.head||'';
-  if(!hn&&!hl)return '';
-  return '<span class="ut-h"'+U.tipAttr({title:'Руководитель подразделения',text:hn&&hl?hn+' · '+hl:hn||hl})+'>'+
-    (hn?utHl(hn,q):'')+(hn&&hl?' · ':'')+(hl?utHl(hl,q):'')+'</span>';
+  return i.head?'<span class="ut-h">'+utHl(i.head,q)+'</span>':'';
 }
 function utRow(p,i,depth,tw,extra){
+  const n=D.draftCount(p,DRAFT);
   return '<div class="ut-r'+(DRAFT.unit===p?' cur':'')+'" data-upick="'+esc(p)+'" role="option" aria-selected="'+(DRAFT.unit===p)+'"'+
-    (depth!=null?' style="padding-left:'+(9+depth*16)+'px"':'')+'>'+tw+
+    (depth!=null?' style="padding-left:'+(9+depth*16)+'px"':'')+
+    U.unitTip(i.name,n==null?null:D.fmtInt(n)+' чел',{name:i.hname,login:i.head})+'>'+tw+
     '<span class="ut-n">'+(extra&&extra.name||esc(i.name))+(extra&&extra.path?'<span class="ut-p">'+esc(extra.path)+'</span>':'')+
-    utHead(i,extra&&extra.q||'')+'</span>'+
-    '<span class="ut-l">ур. '+i.lvl+'</span>'+utCount(p)+'</div>';
+    utHead(i,extra&&extra.q||'')+'</span>'+utCount(p)+'</div>';
 }
 function utListHTML(){
   const q=UT.q.trim().toLowerCase(), P=D.PICK, root=P.info(P.root), lvl0=root?root.lvl:1;

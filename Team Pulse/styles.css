@@ -375,7 +375,6 @@ background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 .ut-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ut-h,.ut-p{display:block;color:var(--muted);font-size:10.5px;font-weight:var(--fw-body);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ut-p{margin-top:2px}
-.ut-l{color:var(--muted);font-size:10.5px;font-weight:var(--fw-body);white-space:nowrap}
 .ut-c{min-width:44px;text-align:right;font-size:12.5px;font-weight:var(--fw-body);color:var(--ink);font-variant-numeric:tabular-nums}
 .ut-c.zero{color:var(--muted)}
 .ut-r.cur .ut-c{color:#2b5fd0;font-weight:var(--fw-bold)}
@@ -2468,7 +2467,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
     max-height:calc(var(--vh,100vh) - var(--sp-top) - var(--rph,59px) - 26px)}
   .st-grid.has-rail>.st-rail{align-self:stretch}
 }
-.unit-head.login{color:var(--muted);border-bottom:1px dotted var(--muted2);cursor:help}
+.unit-head.login{color:var(--muted)}
 /* Поставка 82: что выбрано — строка пилюль над обеими карточками (срез меняет и таблицу, и графики). Строка всегда
    есть и одной высоты (24px — по пилюле, 11px до карточек; сверху чуть больше — его съедает тень вывода): выбрали или сняли — ничего не сдвигается; липнет при прокрутке,
    шапки карточек прилипают под ней */
@@ -2490,3 +2489,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .sel-pill .x:hover{background:rgba(31,95,224,.12)}
 .sel-clear{border:0;background:transparent;color:var(--act);font:inherit;font-size:12px;cursor:pointer;padding:0 4px}
 .sel-clear:hover{text-decoration:underline}
+/* поставка 83: охват данных вкладки — тихая строка с «i» под описанием блока, не плашка-ошибка */
+.page-h .ph-scope{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:3px 10px;border-radius:12px;
+  background:var(--blue-bg);color:var(--act-ink);font-size:12px}
+.page-h .ph-scope::before{content:"i";display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;
+  background:var(--act);color:#fff;font:700 10px/1 Arial}
