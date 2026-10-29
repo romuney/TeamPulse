@@ -35,6 +35,17 @@ function monPh(title,what){
     '<div class="tbl-note">'+U.esc(what)+' Появится с витриной мониторинга.</div></div>';
 }
 
+/* 30.10, заказчик: плашки KPI сняты — прогулы, работа в выходные и звонки в Толк теперь графиками по периодам
+   (столбик — люди, части — сколько дней или какая доля звонков); нет таких данных в периоде — графика нет */
+function extraCharts(P,mark){
+  if(!P.length||P[P.length-1].ab25==null)return '';
+  const st=(t,cats)=>G.chart('stack',{periods:P,mark:mark,cats:cats,unit:' чел'},
+    {title:t,legend:cats.map(c=>({name:c[1],color:c[2]})),h:200});
+  return st('Прогулы, чел',[['ab25','2–5 дней',C.per],['ab5','больше 5 дней',C.per2]])+
+    st('Работа в выходные, чел',[['we25','2–5 дней',C.per],['we5','больше 5 дней',C.per2]])+
+    st('Звонки в Толк от 20% рабочего времени, чел',[['t23','20–30%',C.talk0],['t35','30–50%',C.talk],['t5','больше 50%',C.talk2]]);
+}
+
 SC.blocks.monitor={
   /* 27.10-в, п. 4: ревью скрыто до следующего релиза (D.OFF_SUBS) */
   subTabs:[['activity','Рабочая активность'],['review','Ревью']].filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])),
@@ -82,7 +93,8 @@ SC.blocks.monitor={
       G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       (md.daily?G.chart('pline',{periods:P,key:'hours',mark:mark},{title:'Рабочая активность, ч/день',name:'Часов в день',h:190})+
-        G.chart('pline',{periods:P,key:'talk',mark:mark},{title:'Доля звонков в Толк, % рабочего времени',name:'Звонки в Толк',fmt:'pct',h:190}):
+        G.chart('pline',{periods:P,key:'talk',mark:mark},{title:'Доля звонков в Толк, % рабочего времени',name:'Звонки в Толк',fmt:'pct',h:190})+
+        extraCharts(P,mark):
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
       monPh('Рабочая активность, ч/день','Средняя рабочая активность в часах в день по месяцам и неделям.')+
@@ -92,7 +104,8 @@ SC.blocks.monitor={
       G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       G.chart('pline',{periods:P,key:'hours',mark:mark},{title:'Рабочая активность, ч/день',name:'Часов в день',h:190})+
-      G.chart('pline',{periods:P,key:'talk',mark:mark},{title:'Доля звонков в Толк, % рабочего времени',name:'Звонки в Толк',fmt:'pct',h:190});
+      G.chart('pline',{periods:P,key:'talk',mark:mark},{title:'Доля звонков в Толк, % рабочего времени',name:'Звонки в Толк',fmt:'pct',h:190})+
+      extraCharts(P,mark);
   }
 };
 })();

@@ -1108,7 +1108,7 @@ function drawCalendar(a,w,h){
    ========================================================================== */
 const C_MON={under:'#E8A33D',normal:'#7FA2E6',over:'#C2513F',grey:'#D3D5DA',
   /* второй тон разбивки в KPI-карточках: «дольше 2 недель», «больше 50%», «больше 5 дней» */
-  under2:'#A86B12',over2:'#7F2A1D',talk:'#245FD4',talk2:'#1545A3',per:'#9AA0AC',per2:'#5B616D'};
+  under2:'#A86B12',over2:'#7F2A1D',talk0:'#C3D3F5',talk:'#245FD4',talk2:'#1545A3',per:'#9AA0AC',per2:'#5B616D'};
 const MON_CATS=[['under','Недоработка'],['normal','Нормал'],['over','Переработка'],['grey','Не размечено']];
 function perAxis(P,X,h,mark,bandW){
   const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
