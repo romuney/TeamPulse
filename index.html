@@ -137,6 +137,9 @@ button,select,input,textarea{font-family:inherit}
 .btn.primary:hover{background:var(--act-ink)}
 .btn.ghost{border-color:transparent;color:var(--blue)}
 .btn.ghost:hover{background:var(--blue-bg)}
+/* 31.10, п. 4: «Настрой свой дашборд» заметнее — без наведения фон как прежний hover, при наведении чуть плотнее */
+#btnSetup{background:var(--blue-bg)}
+#btnSetup:hover{background:#E0EAFF}
 
 /* ===== Заголовок отчёта в теле дашборда ===== */
 .reporthead{background:#fff;border-bottom:1px solid var(--line);padding:15px 22px 16px}
@@ -2293,7 +2296,9 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* 27.10-в, п. 17 и 22: высоты раскладки — от видимой высоты отчёта (--vh: в Proteus — высота плитки, её ставит prelude;
    в макете — 100vh). От 100vh окна браузера, которое выше плитки, низ навигации уходил за край, а закреплённая таблица
    подразделений уезжала шапкой вверх и оставляла пустоту внизу */
-.ptable.spm4{table-layout:fixed;width:100%}.ptable.spm4 th.bar-th{white-space:normal;line-height:1.2}.ptable.spm4 th.num{white-space:normal;line-height:1.2;letter-spacing:0;padding-left:2px;font-size:10px}.ptable.spm4 td.txt{white-space:normal}
+/* 31.10, п. 9: заголовки «Переводы в / из» в одну строку — ширина колонок по содержимому, узкая панель прокручивает
+   таблицу вбок (название специализации закреплено слева) */
+.ptable.spm4{table-layout:auto;width:100%}.ptable.spm4 th.bar-th{white-space:normal;line-height:1.2}.ptable.spm4 th.num{white-space:nowrap;line-height:1.2;letter-spacing:0;padding-left:8px;font-size:10px}.ptable.spm4 th.num.spm-hc{white-space:normal;min-width:44px}.ptable.spm4 td.num{white-space:nowrap;padding-left:8px}.ptable.spm4 td.txt{white-space:normal;min-width:110px;position:sticky;left:0;z-index:1;background:#fff}.ptable.spm4 thead th.txt{position:sticky;left:0;z-index:2;background:#fff}.ptable.spm4 td.spm-hc{color:var(--ink2)}.ptable.spm4 tr.total td.txt{background:#fafbfc}
 /* 29.10, п. 7: ширина под ноутбуки — рабочая область от 1280 до 1920 px по окну. Уже 1280 — прокручивается .content
    (меню слева остаётся целиком), шире 1920 — не растягивается. min-width — у содержимого: при окне 1280 ему остаётся
    ≈944 px (без меню, отступов и полей) */
@@ -2480,7 +2485,10 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .sel-hint{overflow:hidden;text-overflow:ellipsis}
 .sel-hint::before{content:"↳ ";color:var(--muted2)}
 @media (min-width:1121px){
-  .sel-row{position:sticky;top:calc(var(--head-h,0px) + 6px);z-index:7;background:var(--bg);box-shadow:0 -12px 0 var(--bg),0 11px 0 var(--bg)}
+  .sel-row{position:sticky;top:calc(var(--head-h,0px) + 6px);z-index:7}
+  /* 31.10: подложка шире ряда на 20px с боков — тени карточек под ним выходят за край и иначе торчали полосками слева и справа */
+  .sel-row.sr-stuck{background:var(--bg);box-shadow:0 -12px 0 var(--bg),0 11px 0 var(--bg),20px 0 0 var(--bg),-20px 0 0 var(--bg),
+    20px -12px 0 var(--bg),-20px -12px 0 var(--bg),20px 11px 0 var(--bg),-20px 11px 0 var(--bg)}
   .split{--shelf-h:29px}
 }
 .sel-bar{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden}
@@ -3073,7 +3081,7 @@ const PLAN_NOW={live:'настоящие',data:'данные есть',dev:'в �
    в источнике); переводы — один в один с мастер-отчётом во всех закрытых месяцах трёх выборок (0м) */
 /* 27.10-в, п. 10: желательная и нежелательная текучесть сходятся с мастер-источником — сверены */
 const VERIFIED=new Set(['hc_total','hc_active','hire','attrition','transfer_in','transfer_out','transfer_net','net_ytd','turnover_m',
-  'turnover_y','regret','nonregret','vac_open','vac_closed','ai_penetration']);
+  'turnover_y','regret','nonregret','vac_open','vac_closed','ai_penetration','tgrowth_pass','tgrowth_deny','tgrowth_conv']);
 const VERIFIED_TIP={title:'Данные сверены',
   text:'Данные настоящие и сверены с мастер-источником: значение в отчёте совпадает со значением в мастер-источнике.'};
 const MISMATCH=new Set([]);
@@ -3137,11 +3145,12 @@ const DEV_PLAN=[
       need:'развести целевые действия и оформленных'},
     {what:'Профильный найм: заказы по статусам, закрытые в срок, просрочка, время закрытия',aud:'us',stage:'2',now:'dev',next:1}]},
   {blk:'Рост HQ',rows:[
-    {what:'Одобренные и отклонённые заявки, конверсия',aud:'hq',stage:'0',now:'live'},
+    /* 31.10, п. 3: метрики «Рост HQ» сошлись с эталоном — сверены */
+    {what:'Одобренные и отклонённые заявки, конверсия',aud:'hq',stage:'0',now:'live',ok:1},
     /* 27.10-в, п. 8: вкладка по описанию «Рост» дашборда HQ */
     /* поставка 71: параграфы «Роста» Адели (rost_info, with_TRost, structure_x_rost) */
-    {what:'Как растут по грейдам: статусы роста, тепловые карты по грейду, повышения «Рост» и T@T',aud:'hq',stage:'0',now:'live'},
-    {what:'Как меняют специализацию: смены «Рост» и T@T по месяцам, успешность по желаемой специализации',aud:'hq',stage:'0',now:'live'}]},
+    {what:'Как растут по грейдам: статусы роста, тепловые карты по грейду, повышения «Рост» и T@T',aud:'hq',stage:'0',now:'live',ok:1},
+    {what:'Как меняют специализацию: смены «Рост» и T@T по месяцам, успешность по желаемой специализации',aud:'hq',stage:'0',now:'live',ok:1}]},
   {blk:'Мониторинг работы',rows:[
     {what:'Недоработчики и переработчики',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Состав по категориям по месяцам: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'live',hq:1},
@@ -5136,17 +5145,22 @@ function specMovement(lp){
   if(REAL){
     const x=realExit(lp,'xsp'), h=SPM_TRF?REAL.scopeMix('tsh'):realExit(lp,'hsp'),
       ti=SPM_TRF?REAL.scopeMix('tsi')||{}:{}, to=SPM_TRF?REAL.scopeMix('tso')||{}:{}, by={};
-    const add=(o,k)=>Object.keys(o).forEach(v=>{const z=by[nm(v)]||(by[nm(v)]={name:nm(v),hire:0,tin:0,exit:0,tout:0});z[k]+=o[v]});
-    add(h,'hire');add(ti,'tin');add(x,'exit');add(to,'tout');
+    /* 31.10, п. 7: на начало (sp0 — численность конца прошлого года) и на конец (sp — последний месяц); без sp0
+       (ноутбук до 31.10) — на начало пусто */
+    const s0=REAL.scopeMix('sp0'), s1=REAL.scopeMix('sp')||{};
+    const add=(o,k)=>Object.keys(o).forEach(v=>{const z=by[nm(v)]||(by[nm(v)]={name:nm(v),hc0:s0?0:null,hire:0,tin:0,exit:0,tout:0,hc1:0});z[k]+=o[v]});
+    add(h,'hire');add(ti,'tin');add(x,'exit');add(to,'tout');if(s0)add(s0,'hc0');add(s1,'hc1');
     rows=Object.keys(by).map(k=>by[k]);
-    rows.forEach(z=>['hire','tin','exit','tout'].forEach(k=>{z[k]=Math.round(z[k])}));
+    rows.forEach(z=>['hc0','hire','tin','exit','tout','hc1'].forEach(k=>{if(z[k]!=null)z[k]=Math.round(z[k])}));
   }else{
     const cats=(MIX_BY_KEY.spec||{cats:[]}).cats, hc=mixParts(lp,'spec'), r=rng(lpSeed(lp,'spm'));
     const sp=k=>splitBy(sumWin(aggregate(lp,k),'ytd'),jitter(r,hc.map(v=>v+1e-6),0.5));
     const hs=sp('hire'), xs=sp('attrition'), ts=sp('transfer_in'), os=sp('transfer_out');
-    rows=cats.map((c,i)=>({name:c.name,hire:hs[i]||0,tin:ts[i]||0,exit:xs[i]||0,tout:os[i]||0}));
+    /* на конец — численность специализации, на начало — она же до движений с начала года */
+    rows=cats.map((c,i)=>{const z={name:c.name,hire:hs[i]||0,tin:ts[i]||0,exit:xs[i]||0,tout:os[i]||0,hc1:Math.round(hc[i]||0)};
+      z.hc0=Math.max(0,z.hc1-z.hire-z.tin+z.exit+z.tout);return z});
   }
-  return rows.filter(z=>z.hire+z.tin+z.exit+z.tout>0).map(z=>Object.assign(z,{net:z.hire+z.tin-z.exit-z.tout}))
+  return rows.filter(z=>z.hire+z.tin+z.exit+z.tout+(z.hc0||0)+(z.hc1||0)>0).map(z=>Object.assign(z,{net:z.hire+z.tin-z.exit-z.tout}))
     .sort((a,b)=>b.hire+b.tin+b.exit+b.tout-(a.hire+a.tin+a.exit+a.tout)||a.name.localeCompare(b.name,'ru'));
 }
 
@@ -5271,6 +5285,10 @@ const ROST_ST=[
 const ROST_LIVE=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('rs'));
 const ROST_TP={g:0,s:1,gs:2};
 const rostGrade=g=>/^\d+$/.test(g)&&+g>=20?'20+':isNA(g||'')?NONE_NAME:g;
+/* 31.10: переходы по грейдам — по возрастанию грейдов (текущий, затем желаемый), «20+» после 19, «не указано» в конце */
+const grKey=g=>g===NONE_NAME?999:/20\+/.test(g)?20:(g.match(/\d+/)||[500])[0]*1;
+const byGrades=(a,b)=>{const x=a.name.split(' → '),y=b.name.split(' → ');
+  return grKey(x[0])-grKey(y[0])||grKey(x[1]||'')-grKey(y[1]||'')||a.name.localeCompare(b.name,'ru')};
 function rostReal(){
   const rs=REAL.scopeMix('rs'), rm=REAL.scopeMix('rm')||{}, rq=REAL.scopeMix('rq')||{};
   /* поставка 73 (эталон «Роста»): у «Нет заявки» — «Нет развития» (nd) и «Рост доступен» (av, у специализации есть
@@ -5315,7 +5333,8 @@ function rostReal(){
       });
       return Object.keys(o).map(k=>o[k]).sort((a,b)=>b.apps-a.apps||a.name.localeCompare(b.name,'ru'));
     };
-    return {rost:R,tat:T,months:mo,rostT:succ('0').slice(0,nR),tatT:succ('1').slice(0,nT)};
+    const top=(a,n)=>kd==='g'?a.sort(byGrades):a.slice(0,n);
+    return {rost:R,tat:T,months:mo,rostT:top(succ('0'),nR),tatT:top(succ('1'),nT)};
   };
   return {real:true,hc:st.reduce((a,s)=>a+s.n,0),st:st,grade:flow('g',5,99),spec:flow('s',5,4)};
 }
@@ -5334,15 +5353,16 @@ function rostProfile(lp){
   /* поставка 81: строка — «текущее → желаемое» (from(i) — откуда переходят к names[i]) */
   const succ=(tot,names,from)=>splitBy(tot,names.map(()=>0.4+r())).map((ok,i)=>{const no=Math.round(ok*(0.18+r()*0.6));
     return {name:(from?from(i)+' → ':'')+names[i],apps:ok+no,ok:ok,no:no}}).filter(x=>x.apps>0).sort((a,b)=>b.apps-a.apps);
-  const flow=(tot,names,nR,nT,from)=>{
+  const flow=(tot,names,nR,nT,from,g)=>{
+    const top=(a,n)=>g?a.sort(byGrades):a.slice(0,n);
     const R=Math.round(tot*(0.72+r()*0.12)), T=tot-R, mr=mon(R), mt=mon(T);
     return {rost:R,tat:T,months:MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,
-      rost:mr[i],tat:mt[i]})),rostT:succ(R,names,from).slice(0,nR),tatT:succ(T,names,from).slice(0,nT)};
+      rost:mr[i],tat:mt[i]})),rostT:top(succ(R,names,from),nR),tatT:top(succ(T,names,from),nT)};
   };
   const named=d=>[...new Set((MIX_BY_KEY[d]?MIX_BY_KEY[d].cats:[]).map(c=>c.name.split('|').pop()).filter(x=>!isNA(x)))];
   /* заявок закрыто больше, чем людей: у одного бывает несколько */
   return {hc:hc,st:st,
-    grade:flow(Math.round(col('done',[0,2])*1.08),named('grade').slice(1),5,99,i=>named('grade')[i]),
+    grade:flow(Math.round(col('done',[0,2])*1.08),named('grade').slice(1),5,99,i=>named('grade')[i],true),
     spec:flow(Math.round(col('done',[1,2])*1.08),named('spec'),5,4,i=>{const a=named('spec');return a[(i+1)%a.length]})};
 }
 
@@ -6067,18 +6087,32 @@ const PART_NOTE=k=>'Месяц не закрыт: данные по '+CD.ASOF_LA
    полного месяца давали ложное «−9»); будущие месяцы — «ещё впереди», а не «не закрыт» */
 const tipMon=(i,nowI,pf)=>pf&&i===nowI&&CD.PARTIAL?'1–'+CD.ASOF.d+' '+CD.MONTH_GEN[i]:CD.MONTH_NOM[i].replace(/^./,x=>x.toUpperCase());
 const tipAhead=(i,nowI)=>i>nowI?tipMon(i)+' '+CD.YEAR_CUR+' ещё впереди — показан '+CD.YEAR_PREV:'Месяц ещё не закрыт';
+/* 31.10, п. 8: текущий (незакрытый) месяц — штриховкой за месяцем и подписью обычным шрифтом, как остальные; акцент —
+   на закрытом месяце (жирная подпись месяца и значения). Месяц закрыт — он и есть закрытый */
+const closedIdx=nowI=>CD.PARTIAL?nowI-1:nowI;
+let _hid=0;
+function hatchBand(x,y,w,h){
+  const id='tpH'+(++_hid);
+  return '<defs><pattern id="'+id+'" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'+
+    '<rect width="2" height="6" fill="#DFE3EA"/></pattern></defs>'+rect(x,y,w,h,'url(#'+id+')',4,' class="hatch"');
+}
+const axLbl=(lb,i,nowI,key)=>[i===nowI?nowLabel(lb,key):lb,
+  i===closedIdx(nowI)?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}];
 function yoyAxis(X,bandW,top,bot,nowI,bars,key){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
   let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
     /* «1–12 окт.» шире месяца: на узкой оси соседей не подписываем — иначе «сен1–12 окт.нояб.» (ревью критиков, 24) */
-    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1))
-      s+=txt(X(i),bot+15,i===nowI?nowLabel(lb,key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1)){
+      const a=axLbl(lb,i,nowI,key);s+=txt(X(i),bot+15,a[0],a[1]);
+    }
   });
   return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1);
 }
 /* Подсветка месяцев для связки «пункт списка ↔ график»: невидимые полосы,
    которые проявляет класс on (app.js — наведение на пункт «Что видно»). */
+/* 31.10, п. 2: самая яркая клетка тепловых таблиц «Роста» — ffc3b1 с прозрачностью cc */
+const C_HEAT_RGB='255,195,177', HEAT_MAX=0.8;
 const C_LINK='#E6EEFC';         /* подсветка месяца — бледный тон кобальта */
 function yoyBands(x0,bandW,top,bot){
   let s='';
@@ -6143,7 +6177,7 @@ function yoyPlot(p,ar){
   /* p.mature — вызревает и метрика, у которой это не свойство ключа (HQ текучесть в «Как уходит HQ?», 27.10-в, п. 6) */
   const part=p.mature?CD.PARTIAL:CD.matures(key), curS=part?cur.map((v,i)=>i===nowI?null:v):cur;
   const pl=!flow&&CD.PARTIAL&&CD.partFlow(key)&&!part;
-  if(pl)s+=rect(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4,C_BAND,6);
+  if(CD.PARTIAL)s+=hatchBand(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4);
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
   s+=yoyAxis(X,bandW,top,bot,nowI,flow,key);
   /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
@@ -6209,7 +6243,7 @@ function yoyPlot(p,ar){
     if(flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
       /* подпись — над баром этого года, даже если прозрачный бар прошлого выше:
          над ним цифра читалась как его значение */
-      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main',weight:i===nowI?VAL_NOW:VAL_W}));
+      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
     }else if(flow&&!showMain&&showPrev&&pv!=null&&lblAt(i,nowI,step)){
       /* этот год выключен — прошлый показан обычными барами и подписан так же */
       lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));
@@ -6217,7 +6251,7 @@ function yoyPlot(p,ar){
       /* под точкой у оси места нет (значение около нуля): там подпись легла бы на месяц — тогда над точкой */
       const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null, below=both&&pv>c&&rm(c);
       const sh=mkAt(i,'main')?5:0;
-      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===nowI?VAL_NOW:VAL_W}));
+      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }
@@ -6284,9 +6318,11 @@ function drawPair(a,w,h){
   const bw=Math.max(6,Math.min(28,bandW*0.56)), gw=ghostW(bw,bandW);
   let s=header(w,o.title,o.legend,{kind:'pair',off:o.off});
   const part=CD.matures(A.key)&&sC, pp=' stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"';
+  if(CD.PARTIAL)s+=hatchBand(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4);
   CD.MONTH_ABBR.forEach((lb,i)=>{
-    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1))
-      s+=txt(X(i),h-6,i===nowI?nowLabel(lb,A.key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1)){
+      const a=axLbl(lb,i,nowI,A.key);s+=txt(X(i),h-6,a[0],a[1]);
+    }
   });
   const yC=String(CD.YEAR_CUR), yP=String(CD.YEAR_PREV);
   const stepA=labelStep(A.cur,A.key,bandW), stepB=labelStep(B.cur,B.key,bandW), step=Math.max(stepA,stepB);
@@ -6759,7 +6795,9 @@ function chart(kind,args,opt){
   opt=Object.assign({},opt||{});
   const id='k'+(++_sid);
   opt._key=kind+'|'+(opt.title||'')+'|'+id;
-  opt.off=_off.get(opt._key)||new Set();
+  /* 31.10, п. 6: opt.offDef — серии, выключенные по умолчанию (линия базы «Вся компания»): в легенде перечёркнута,
+     клик включает; выбор помнится в сессии, как любое выключение */
+  opt.off=_off.get(opt._key)||new Set(opt.offDef||[]);
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
   /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px */
@@ -6839,9 +6877,9 @@ function toggleSeries(cid,sid){
 }
 
 /* _off сознательно НЕ чистим — см. комментарий у его объявления */
-function reset(){_specs=new Map();_sid=0}
+function reset(){_specs=new Map();_sid=0;_hid=0}
 
-window.TPDRAW={chart,lazy,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
+window.TPDRAW={C_HEAT_RGB,HEAT_MAX,chart,lazy,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,asBars,ghostCol,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,C_ROST,
@@ -9374,7 +9412,8 @@ function yoyChart(key,lp,bl,S,opt){
   /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
      базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
-    Object.assign({legend,benchName:opt.ref?opt.ref.name:bench,kpi:kpi,h:300,fill:true,gap:cmp&&!opt.ref},opt,{color:col}));
+    Object.assign({legend,benchName:opt.ref?opt.ref.name:bench,kpi:kpi,h:300,fill:true,gap:cmp&&!opt.ref,
+      offDef:cmp&&!opt.ref?['bench']:null},opt,{color:col}));
 }
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
@@ -10138,8 +10177,8 @@ function specMove(lp,ctx){
   const sk=ctx&&ctx.S&&ctx.S.spmSort||'hire';
   rs.sort((a,b)=>(b[sk]||0)-(a[sk]||0)||a.name.localeCompare(b.name,'ru'));
   const trf=!D.REAL||D.SPM_TRF, K='rest:spm', open=!!(ctx&&ctx.mixOpen.has(K)), top=rs.slice(0,12), rest=rs.slice(12);
-  const S=(a,k)=>a.reduce((t,z)=>t+z[k],0), agg=(a,o)=>Object.assign(o,{hire:S(a,'hire'),tin:S(a,'tin'),exit:S(a,'exit'),
-    tout:S(a,'tout'),net:S(a,'net')});
+  const S=(a,k)=>a.some(z=>z[k]==null)?null:a.reduce((t,z)=>t+z[k],0), agg=(a,o)=>Object.assign(o,{hc0:S(a,'hc0'),
+    hire:S(a,'hire'),tin:S(a,'tin'),exit:S(a,'exit'),tout:S(a,'tout'),hc1:S(a,'hc1'),net:S(a,'net')});
   if(rest.length)top.push(agg(rest,{name:'Остальные',note:rest.length+' '+U.plural(rest.length,['специализация','специализации','специализаций']),
     exp:1}));
   const tot=agg(rs,{name:'ИТОГО',total:1});
@@ -10147,19 +10186,23 @@ function specMove(lp,ctx){
   const tree=rest.length>0, esc=U.esc;
   const lbl=z=>!tree?'':z.exp?'<button class="caret-btn"'+(open?' data-open="1"':'')+' data-btexp="'+K+'" aria-label="'+
     (open?'Свернуть':'Раскрыть')+'">'+(open?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>';
-  /* 29.10, п. 1: ровно четыре колонки — найм, переводы в, отток, переводы из (без «Итого» и полосы) */
-  const cols=[['hire','Найм']].concat(trf?[['tin','Переводы в']]:[]).concat([['exit','Отток']]).concat(trf?[['tout','Переводы из']]:[]);
+  /* 29.10, п. 1: найм, переводы в, отток, переводы из (без «Итого» и полосы). 31.10, п. 7: по краям — численность на
+     начало периода (до движений) и на конец (после них) */
+  const cols=[['hc0','На начало']].concat([['hire','Найм']]).concat(trf?[['tin','Переводы в']]:[]).concat([['exit','Отток']])
+    .concat(trf?[['tout','Переводы из']]:[]).concat([['hc1','На конец']]);
   const row=z=>'<tr'+(z.total?' class="total top"':z.exp?' class="urow" data-btexp="'+K+'"'+U.tipAttr({title:'Остальные',
         text:open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):z.sub?' class="lvl2"':'')+'><td class="txt">'+
       (tree?'<span class="row-label">'+(z.total?'<span class="caret-spacer"></span>':lbl(z))+'<span class="row-body">':'')+esc(z.name)+
       (z.note?'<span class="unit-sub">'+esc(z.note)+'</span>':'')+(tree?'</span></span>':'')+'</td>'+
-      cols.map(c=>'<td class="num">'+D.fmtInt(z[c[0]])+'</td>').join('')+'</tr>';
+      cols.map(c=>'<td class="num'+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'">'+(z[c[0]]==null?'—':D.fmtInt(z[c[0]]))+'</td>').join('')+'</tr>';
   return '<div class="bt-group spm"><div class="bt-cap">Движение по специализациям<span class="bt-sub">с начала года, чел</span></div>'+
-    '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col style="width:62px">').join('')+
-    '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num tsort'+(c[0]===sk?' on':'')+'" data-spmsort="'+c[0]+'"'+
+    '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col>').join('')+
+    '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num tsort'+(c[0]===sk?' on':'')+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'" data-spmsort="'+c[0]+'"'+
       U.tipAttr({title:c[1],text:c[0]===sk?'Строки — по этой колонке, от большего.':'Клик — отсортировать по этой колонке, от большего.'})+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
     row(tot)+top.map(row).join('')+'</tbody></table></div>'+
-    '<div class="tbl-note">С начала года; ИТОГО — как в карточках движения.'+(trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
+    '<div class="tbl-note">С начала года; ИТОГО — как в карточках движения. На начало — численность до наймов, увольнений и '+
+      'переводов года, на конец — после них. Переводы — смена специализации по флагам источника.'+
+      (trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
 }
 
 SC.blocks.movement={
@@ -10437,18 +10480,16 @@ SC.blocks.hiring={
         metricKey:'hire',compact:true,items:items},o||{}));
       /* Каналы — по убыванию, переводы — последней строкой и своим цветом
          «внутреннего найма»: это не канал подбора, а другой путь в команду. */
-      /* 31.10, файл итерации п. 4: «Откуда пришли» — все строки по убыванию, переводы — на своём месте по значению */
-      const ch=hp.channels.map(c=>({name:c.name,value:c.value,color:G.C_IN}))
-        .concat([{name:'Переводы из других команд',note:'их доля и есть доля внутреннего найма',
-          value:hp.tin,color:G.C_HIRE_I}]).sort((a,b)=>b.value-a.value);
+      /* 31.10, файл итерации п. 4: «Откуда пришли» — все строки по убыванию. Итерация 31.10, п. 5: строки «Переводы из
+         других команд» нет — в таблице только найм (переводы — во вкладке «Движение персонала») */
+      const ch=hp.channels.map(c=>({name:c.name,value:c.value,color:G.C_IN})).sort((a,b)=>b.value-a.value);
       /* 31.10 (поставка 82): «Откуда» и «Как пришли» — один вопрос про путь в команду, идут подряд (на широкой
          панели — рядом), «Грейд принятых» — уже про то, кого взяли */
-      return dyn+U.btStack([tbl('Откуда пришли','найм и переводы'+sub,ch)]
+      return dyn+U.btStack([tbl('Откуда пришли','найм'+sub,ch)]
         /* поставка 50: путь в команду — найм в компанию, из учебной группы, стажёр в штат (как в HQ) */
         .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})),{sort:true})]:[])
         .concat([tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]))+
-        '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+'). В первой таблице — вместе '+
-        'с переводами из других подразделений.</div>';
+        '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+').</div>';
     }
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
        в блоке оттока. Барами остаются штуки вакансий. */
@@ -10499,13 +10540,15 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 const esc=U.esc, sum=a=>a.reduce((x,y)=>x+y,0);
 /* цвета статусов — как в «Росте»: зелёный, голубой, жёлтый, серый, фиолетовый */
 const ST_COL={done:G.C_HIRE,first:G.C_TR_IN,again:G.C_ROST.again,none:G.C_ROST.none,denied:G.C_FIRE};
-const C_R=G.C_ROST.rost, C_T=G.C_ROST.tat, C_NO=G.C_ROST.no;
+const C_R=G.C_ROST.rost, C_T=G.C_ROST.tat;
 /* заливка клетки: от белого к цвету статуса по доле от максимума таблицы */
 function ramp(hex,t){
-  const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)), k=0.12+0.78*Math.max(0,Math.min(1,t));
+  const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)), k=0.08+0.34*Math.max(0,Math.min(1,t));   // 31.10: мягче — не ярче клетки отказов
   return 'rgb('+c.map(v=>Math.round(255+(v-255)*k)).join(',')+')';
 }
-const cell=(v,t,hex,txt)=>'<td'+(v?' style="background:'+ramp(hex,t)+';color:'+(t>0.62?'#fff':'inherit')+'"':'')+'>'+txt+'</td>';
+/* 31.10, п. 2: подсветка таблиц повышения и смены — мягкая, самая яркая клетка — G.C_HEAT_RGB с прозрачностью G.HEAT_MAX */
+const soft=(v,t,txt)=>'<td'+(v?' style="background:rgba('+G.C_HEAT_RGB+','+(0.12+(G.HEAT_MAX-0.12)*Math.max(0,Math.min(1,t))).toFixed(2)+')"':'')+'>'+txt+'</td>';
+const cell=(v,t,hex,txt)=>'<td'+(v?' style="background:'+ramp(hex,t)+'"':'')+'>'+txt+'</td>';
 /* тепловая таблица «текущий грейд × тип роста» в людях; ИТОГО — первой строкой, как во всём отчёте */
 function gradeHeat(s){
   const max=Math.max(1,...s.rows.map(r=>Math.max(...r.cells))), tot=s.cols.map((_,j)=>sum(s.rows.map(r=>r.cells[j]))), hex=ST_COL[s.key];
@@ -10521,7 +10564,7 @@ function succTable(cap,sub,rows,head){
   const pc=x=>x.apps?x.no/x.apps*100:0, top=Math.max(1,...rows.map(pc));
   const T={apps:sum(rows.map(x=>x.apps)),ok:sum(rows.map(x=>x.ok)),no:sum(rows.map(x=>x.no))};
   const tr=(x,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(x.name)+'</td><td>'+D.fmtInt(x.apps)+'</td><td>'+
-    D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':cell(x.no,pc(x)/top,C_NO,U.pct(pc(x))))+'</tr>';
+    D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
   return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+'</span></div>'+
     '<table class="ptable stable dense rost-t"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
     '<th>Отказ</th><th>% отказа</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
@@ -10542,8 +10585,8 @@ function grades(ctx,p){
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
       esc(cur.tip)+'</span></div>'+gradeHeat(cur)+'</div>'+
     flowBlock(p.grade,'на повышение грейда','Повышение грейда по месяцам: «Рост» и T@T, заявок')+
-    U.btStack([succTable('Повышение грейда: «Рост»','первые 5 по заявкам',p.grade.rostT,'Переход: текущий → желаемый грейд'),
-      succTable('Повышение грейда: T@T','за 12 месяцев',p.grade.tatT,'Переход: текущий → желаемый грейд')])+
+    U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов',p.grade.rostT,'Переход: текущий → желаемый грейд'),
+      succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Переход: текущий → желаемый грейд')])+
     '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
 }
 function specs(p){
@@ -11942,7 +11985,10 @@ function stickTotals(){
    нужна, только когда шапка прилипла; в покое она ложилась на тень сводки над карточкой — «артефакт справа» */
 let _ps=0;
 function phStuck(){_ps=0;$$('.split>.panel').forEach(p=>{const ph=p.querySelector(':scope>.panel-h');
-  if(ph)p.classList.toggle('ph-stuck',ph.getBoundingClientRect().top-p.getBoundingClientRect().top>1)})}
+  if(ph)p.classList.toggle('ph-stuck',ph.getBoundingClientRect().top-p.getBoundingClientRect().top>1)});
+  /* 31.10: подложка ряда пилюль — тоже только когда он прилип (наверху она срезала тень вывода и углов карточек) */
+  $$('.sel-row').forEach(r=>{const n=r.nextElementSibling;
+    r.classList.toggle('sr-stuck',!!n&&n.getBoundingClientRect().top<r.getBoundingClientRect().bottom+10)})}
 on(ENV?ENV.scroller:window,'scroll',()=>{if(!_ps)_ps=requestAnimationFrame(phStuck)},{passive:true});
 
 /* ---------- разделитель «таблица | графики» ----------
