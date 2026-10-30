@@ -215,9 +215,9 @@ function render(S,openRows){
       const open=openRows.has(m.key);
       t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
         '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
-        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.lab?'<span class="m-sub">'+esc(P.lab)+'</span>':'')+'</td>'+
+        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.lab?'<span class="m-per">'+esc(P.lab)+'</span>':'')+'</td>'+
         /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
-        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip})+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,Object.assign(cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip},{neu:/^на конец/.test(P.lab||'')}))+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:{title:'Год к году',text:(P.head||'')+' против того же периода год назад.'}})+'</td>'+
         /* Короткая динамика — у всех метрик одним видом, спарклайном (13.10:
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом

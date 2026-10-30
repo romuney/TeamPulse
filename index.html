@@ -294,6 +294,8 @@ button,select,input,textarea{font-family:inherit}
 .m-name.bar-warn{border-color:var(--bench)}
 .m-name.bar-neutral{border-color:var(--bench)}
 .m-val{text-align:right;font-size:var(--fs-head);font-weight:var(--fw-bold);white-space:nowrap}
+/* поставка 92: окно значения («янв.–сент.», «сейчас») — мелкой серой строкой под числом, не вторым значением */
+.m-val .m-per{display:block;font-size:11px;font-weight:var(--fw-body);color:var(--muted);margin-top:2px}
 .col-num{text-align:right}
 .tgt{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);line-height:1.4;white-space:nowrap;text-align:right}
 .tgt b{color:var(--ink2);font-weight:var(--fw-body);display:block;font-size:var(--fs-body)}
@@ -3899,7 +3901,7 @@ function periodTotal(lp,key,yser){
   }
   /* lab — окно коротко для подписи под числом: «янв.–сент.», «на конец сентября», «сейчас» */
   return {head:head,cur:fmtVal(key,cur),prev:prev==null?null:fmtVal(key,prev),delta:delta,good:good,c:c,strip:!stock&&!part,
-    v:cur,pv:prev,stock:stock,lab:stock?'сейчас':cum&&!part?'на конец '+MONTH_GEN[c]:span};
+    v:cur,pv:prev,stock:stock,lab:stock?'сейчас':cum&&!part?'на конец '+MONTH_ABBR_GEN[c]:span};
 }
 
 /* ---------- Сигнал блока ----------
@@ -7138,6 +7140,9 @@ function deltaChip(key,dv,o){
   /* типографский минус подставляет сам fmtDelta — здесь его больше не чиним:
      пока чинили тут, пилюля «К базе» в сводной таблице оставалась с дефисом */
   const txt=D.fmtDelta(key,dv);
+  /* поставка 92: после округления ноль («−0,0 п.п.») — серый ноль; o.neu — без оценки (накопительная месяц к месяцу копится) */
+  if(/^[+\u2212-]?0(,0+)?(\s|$)/.test(txt))return '<span class="delta flat"'+at+'>'+txt.replace(/^[+\u2212-]/,'')+vs+'</span>';
+  if(o&&o.neu)return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   /* поставка 90: изменения — только по закрытым месяцам и периодам, незакрытый месяц в пилюли не попадает */
   /* заглушку не оцениваем и цветом пилюли (ревью критиков 26.10) */
   if(m.better==='flat'||D.isStub(key))return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
@@ -11352,9 +11357,9 @@ function render(S,openRows){
       const open=openRows.has(m.key);
       t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
         '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
-        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.lab?'<span class="m-sub">'+esc(P.lab)+'</span>':'')+'</td>'+
+        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.lab?'<span class="m-per">'+esc(P.lab)+'</span>':'')+'</td>'+
         /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
-        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip})+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,Object.assign(cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip},{neu:/^на конец/.test(P.lab||'')}))+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:{title:'Год к году',text:(P.head||'')+' против того же периода год назад.'}})+'</td>'+
         /* Короткая динамика — у всех метрик одним видом, спарклайном (13.10:
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом

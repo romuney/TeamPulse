@@ -286,6 +286,8 @@ button,select,input,textarea{font-family:inherit}
 .m-name.bar-warn{border-color:var(--bench)}
 .m-name.bar-neutral{border-color:var(--bench)}
 .m-val{text-align:right;font-size:var(--fs-head);font-weight:var(--fw-bold);white-space:nowrap}
+/* поставка 92: окно значения («янв.–сент.», «сейчас») — мелкой серой строкой под числом, не вторым значением */
+.m-val .m-per{display:block;font-size:11px;font-weight:var(--fw-body);color:var(--muted);margin-top:2px}
 .col-num{text-align:right}
 .tgt{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);line-height:1.4;white-space:nowrap;text-align:right}
 .tgt b{color:var(--ink2);font-weight:var(--fw-body);display:block;font-size:var(--fs-body)}

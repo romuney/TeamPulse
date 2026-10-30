@@ -1217,7 +1217,7 @@ function periodTotal(lp,key,yser){
   }
   /* lab — окно коротко для подписи под числом: «янв.–сент.», «на конец сентября», «сейчас» */
   return {head:head,cur:fmtVal(key,cur),prev:prev==null?null:fmtVal(key,prev),delta:delta,good:good,c:c,strip:!stock&&!part,
-    v:cur,pv:prev,stock:stock,lab:stock?'сейчас':cum&&!part?'на конец '+MONTH_GEN[c]:span};
+    v:cur,pv:prev,stock:stock,lab:stock?'сейчас':cum&&!part?'на конец '+MONTH_ABBR_GEN[c]:span};
 }
 
 /* ---------- Сигнал блока ----------
