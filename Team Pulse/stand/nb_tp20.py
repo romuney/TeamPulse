@@ -726,13 +726,13 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, h
             continue
         for n in path(U, last_unit(byrk[rk_], m)):
             T[(n, m)]['perf'] += 1
-    # поставка 73: решения T-роста — в месяц итога (поставка 86: все блоки, фильтр HQ снят в rost_info); человек в этом месяце есть в
+    # поставка 73: решения T-роста — заявки HQ (покраска в день создания), в месяц итога; человек в этом месяце есть в
     # таблице (строка месяца — его последняя)
     for r in grt:
         rk_, st, fin = r[0], r[2], r[10]
         m = dt.date(fin.year, fin.month, 1)
         p_ = byrk.get(rk_)
-        if p_ is None or m < D0 or not (p_['start'] <= eom(m) and (p_['end'] is None or p_['end'] >= m)) \
+        if r[12] != 'HQ' or p_ is None or m < D0 or not (p_['start'] <= eom(m) and (p_['end'] is None or p_['end'] >= m)) \
                 or not ok(p_, m):
             continue
         for n in path(U, last_unit(byrk[rk_], m)):
@@ -912,7 +912,7 @@ def truth_age(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
 def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
     """поставка 73 (эталон «Роста»): разрезы T-роста узла rk — rm (заявки с итогом по месяцам итога), rq (успешность по
     желаемому за окно — с начала месяца 12 месяцев назад), rs (статус роста людей численности последнего месяца). Заявки —
-    всех блоков (поставка 86); юнит и срез заявки — человека в месяце начала (старт согласования, иначе
+    только HQ (покраска в день создания); юнит и срез заявки — человека в месяце начала (старт согласования, иначе
     создание), как structure_x_rost; тип — s, если меняется специализация, иначе g"""
     byrk = {p['rk']: p for p in people}
     ms = months()
@@ -924,7 +924,8 @@ def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
     has_row = lambda p, m: m >= D0 and p['start'] <= eom(m) and (p['end'] is None or p['end'] >= m)
     tp = lambda r: 's' if r[7] != r[8] else 'g'
     out = {'rm': defaultdict(float), 'rq': defaultdict(float), 'rs': defaultdict(float)}
-    for r in grt:
+    hq = [r for r in grt if r[12] == 'HQ']
+    for r in hq:
         p, am, fm = byrk[r[0]], mon(r[11] or r[1]), mon(r[10])
         res = 'ok' if r[2] == 'FNS' else 'no' if r[2] == 'DCL' else None
         if res is None or not has_row(p, am):
@@ -941,7 +942,7 @@ def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
                       f"{r[5] if tp(r) == 'g' else SPECS[r[7] - 1]}"] += 1
     e = eom(lm)
     win = defaultdict(list)
-    for r in grt:
+    for r in hq:
         if w12 <= mon(r[10]) <= lm:
             win[r[0]].append(r)
     for p in people:

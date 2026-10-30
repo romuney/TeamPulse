@@ -969,7 +969,7 @@ paragraphs:
         on ap.mdm_employee_appl_status_cd = s.mdm_employee_appl_status_cd
     where ap.valid_to_dttm = '5999-01-01 00:00:00'
         and ap.mdm_employee_appl_status_cd <> 'DRT'
-        --and ap.current_specialization_oper_code = 'Hq'
+        and ap.current_specialization_oper_code = 'Hq'   -- 31.10: фильтр HQ вернули (вкладка «Рост HQ»; у Адели 29.10 был снят)
         and coalesce(ap.current_specialization_desc, '') not in ('Стажеры IT', 'Стажеры Digital', 'Стажеры non-IT')
 
     distributed by (mdm_employee_rk, month);
