@@ -292,8 +292,8 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     if(R.hasSeries('HQ')){
       /* 26.10-б: все три — по последнему закрытому месяцу, «накопительно» вместо «YTD», блок сверен */
       const want=D.aggregate(['HQ'],'turnover_y')[D.LAST-(D.PARTIAL?1:0)];
-      ok(!!h&&h.lp[0]==='HQ'&&h.rows.length===3&&h.rows[0].v===want&&/class="mtable hq-tl"/.test(hv)&&
-        (hv.match(/<tr class="mrow"/g)||[]).length===3&&/HQ текучесть накопительная/.test(hv)&&!/YTD/.test(hv.split('hq-note')[1]||'')&&
+      ok(!!h&&h.lp[0]==='HQ'&&h.rows.length===3&&h.rows[0].v===want&&!/hq-tl/.test(hv)&&
+        !/<tr class="mrow"/.test(hv)&&/HQ текучесть накопительная/.test(hv)&&!/YTD/.test(hv.split('hq-note')[1]||'')&&
         /hq-note"><span class="live-tag ok"/.test(hv),
         'светофор HQ по строке hq: '+h.rows.map(r=>r.label.split(' ')[0]+' '+D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+h.hc+' чел');
       /* 31.10-б, п. 2: желательная (non-regrettable, nreg) и нежелательная (reg) — из рядов строки hq: накопительно = сумма

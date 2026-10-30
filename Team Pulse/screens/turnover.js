@@ -33,23 +33,15 @@ function hqView(ctx){
   const h=D.hqLight(ctx.S);
   if(!h)return U.empty('Светофору HQ нужны данные','Они придут со следующим обновлением отчёта. Пока — поставьте в шапке покраску «HQ» и тип «Активная».');
   if(!h.hc)return U.empty('В подразделении нет HQ-сотрудников','Светофор считается только по активной численности HQ.');
-  const f=(k,v)=>D.fmtVal(k,v), esc=U.esc, cap1=x=>x.charAt(0).toUpperCase()+x.slice(1);
-  const tgt=r=>{const c=U.targetCell(r.key,r.v,null,r.kpi);
-    return r.kpi&&r.kpi.red!==r.kpi.green?c.replace('цель '+f(r.key,r.kpi.green),'коридор '+f(r.key,r.kpi.green).replace('%','')+'–'+f(r.key,r.kpi.red)):c};
-  /* правая панель узкая — колонки светофора: метрика, значение, год назад, ориентир с сигналом */
-  const t='<table class="mtable hq-tl"><colgroup><col style="width:43%"><col style="width:14%"><col style="width:15%"><col></colgroup>'+
-    '<thead><tr><th>Метрика</th><th class="num">Значение</th><th class="num">Год назад</th>'+
-    '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Порог отчёта HQ: цель или коридор на этот месяц — доля годового.'})+
-    '>Ориентир</th></tr></thead><tbody>'+
-    h.rows.map(r=>'<tr class="mrow"><td class="m-name bar-'+r.st+'">'+esc(r.label)+U.infoDot(r.key)+'</td>'+
-      '<td class="m-val">'+f(r.key,r.v)+'</td><td class="col-num">'+(r.ya==null?'—':f(r.key,r.ya))+'</td>'+
-      '<td class="col-tgt">'+tgt(r)+'</td></tr>').join('')+'</tbody></table>';
+  const esc=U.esc;
+  /* поставка 90 (заказчик): таблица светофора снята — значения, год назад и пороги есть в тексте главы и в строке итога
+     над каждым графиком */
   const color={turnover_y:G.C_TURN_Y,nonregret:G.C_OUT,regret:G.C_REGRET};
   /* 26.10-б, правки п. 4–5: значения — накопительно по последнему закрытому месяцу (незакрытый — только на графиках);
      данные блока сверены */
   return '<div class="tbl-note hq-note"><span class="live-tag ok"'+U.tipAttr(D.VERIFIED_TIP)+'>✓ сверены</span> '+
       'Накопительно по '+esc(D.MONTH_NOM[h.month.m])+(D.PARTIAL?' (закрытый месяц; '+esc(D.MONTH_NOM[D.ASOF.m])+' — на графиках)':'')+
-      '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+t+
+      '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
       period:D.periodTotal(h.lp,r.key,r.yoy)}))},
