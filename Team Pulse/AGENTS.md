@@ -3172,3 +3172,10 @@ scope-only), data.js ROST_NODE, rostReal(lp) через realExit. П. 5, 7: draw
 smoke: п. 1/2/4/5-7; smoke_real: светофор по узлам = строка hq, «Рост» год к году частями. Бюджет: удалены мёртвые
 ASOF_SHORT, WIN_SINCE, MATURE/CLOSED/PART_TIP, CLOSED_SHORT, LEVEL_SHORT, deltasOf, MIX_LINK_TEXT, sliceDeltaMoM,
 SENIOR_UP, pctOf, NOW_ASK, C_ROST.no. Высота: draw.js CH_H 300 → 280.
+Ревью (2 агента, все вкладки): data.js selMix(lp,k) — разрез узла (общий предок листьев lp; переводы не складываются по
+листьям), если датасет отдаёт его у узлов (_nmx), иначе scopeMix; xim, tsh/tsi/tso, sp0/sp1 — через selMix; 2а — scope-only
+только dw do es en, tsh/tsi/tso из trf — node_rk IN PK. avgAge: срез по возрасту — clamp ageRange. ui.js metricText(m,s) —
+шапки без calc; placeTip — прижим к низу. draw.js: подпись незакрытого месяца под точкой (nb), perAxis p.cl, pline p.pt, stack
+без +22. styles.css: степпер через container query (n3/n4/n5+), text.fade без pointer-events, wide-l складывается до 1366.
+office.js — примечание у календаря при выбранной строке; app.js Escape снимает selNode; story.js тексты. Стенд: xim, e,
+спец. движение, sp0/sp1 — у каждого узла; smoke_real — по подразделениям инициатор = текучесть, специализации сходятся.
