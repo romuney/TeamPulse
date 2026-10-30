@@ -621,6 +621,8 @@ function yoyPlot(p,ar){
      странно»); не сравниваем их только словами — у него нет подписи значения прошлого года и «год к году» в подсказке */
   const noPrev=i=>CD.PARTIAL&&i===nowI&&showMain;
   /* бар частями снизу вверх; hz — незакрытый месяц: каждая часть своей штриховкой */
+  /* файл 6 (заказчик, вариант A): у бара частями оба года — рядом, прошлый слева; один год выключен — бар целиком */
+  const side=!!p.parts&&showMain&&showPrev, sw=Math.max(5,Math.min(bw*0.8,bandW*0.34)), sx=side?sw/2+1:0;
   const stk=(A,cols,i,cx,w,sr,hz)=>{let r='',yb=bot;A.forEach((a,k)=>{const hh=(a[i]||0)/max*(bot-top), hk=hz&&hatchFill(cols[k]);
     if(hh>0.5){r+=(hk?hk[0]:'')+barUp(cx-w/2,yb-hh,w,hh,hk?hk[1]:cols[k],' class="bar up'+(hk?' part':sr==='prev'?' ghost':'')+'"'+sAttr(sr));yb-=hh}});return r};
   /* засечки: тонкая вертикаль от оси X к каждой точке этого года — месяц точки читается без поиска по оси */
@@ -631,7 +633,7 @@ function yoyPlot(p,ar){
     const bp=big(i,'prev')||!!noteAt(i,'prev');
     /* файл 6, п. 5: p.parts — бар частями (Рост и T@T «Роста»): прошлый год — теми же частями своими цветами (серый и серый
        с прозрачностью), позади этого */
-    if(flow&&p.parts)s+=stk(p.parts.prev,p.parts.pcol,i,cx,showMain?gw:bw,'prev');
+    if(flow&&p.parts)s+=stk(p.parts.prev,p.parts.pcol,i,cx-sx,side?sw:showMain?gw:bw,'prev');
     else if(flow)s+=showMain
       ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),ghostCol(col),' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
       :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
@@ -664,7 +666,7 @@ function yoyPlot(p,ar){
       /* прошлый год — позади (нарисован до этого года, выше); этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
          и контуром основным цветом, заливка та же */
       const hz=CD.PARTIAL&&i===nowI&&hatchFill(col);
-      if(showMain&&c!=null&&p.parts)s+=stk(p.parts.cur,p.parts.col,i,cx,bw,'main',hz);
+      if(showMain&&c!=null&&p.parts)s+=stk(p.parts.cur,p.parts.col,i,cx+sx,side?sw:bw,'main',hz);
       else if(showMain&&c!=null)s+=(hz?hz[0]:'')+barUp(cx-bw/2,Y(c),bw,bot-Y(c),hz?hz[1]:soft(col),' class="bar up'+(hz?' part':'')+'"'+sAttr('main')+
         (bm&&!hz?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
@@ -676,10 +678,10 @@ function yoyPlot(p,ar){
        разведены по разные стороны: верхняя точка — над собой, нижняя — под
        собой. Иначе на близких значениях цифры легли бы одна на другую.
        У точки с номерной отметкой подпись отодвинута от кружка. */
-    if(flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
+    if(flow&&showMain&&c!=null&&!(p.parts&&!c)&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
       /* подпись — над баром этого года, даже если прозрачный бар прошлого выше:
          над ним цифра читалась как его значение */
-      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
+      lbl+=txt(cx+sx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
     }else if(flow&&!showMain&&showPrev&&pv!=null&&lblAt(i,nowI,step)){
       /* этот год выключен — прошлый показан обычными барами и подписан так же */
       lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));

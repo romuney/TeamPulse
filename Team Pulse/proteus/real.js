@@ -44,7 +44,7 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
 const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout','hcd','hst',
   'bk','bkv','vsv','hwd','hov','rh','nrh','avh',
   /* файл 6, п. 2: уходы по активной численности HQ у каждого узла — HQ-текучесть «Как уходит HQ» по выбранной строке */
-  'fh',
+  'fh','hch',
   /* 31.10-б, п. 6: одобренные и отклонённые заявки «Роста» без фильтра покраски — вкладка «Рост HQ» от него не зависит */
   'gah','gdh',
   /* поставка 71 (мониторинг по дням Адели): люди в сегментах прогулов (ab25 ab5), работы в выходной (we25 we5) и доли
@@ -53,7 +53,7 @@ const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   /* поставка 69 (Антон, вопрос 4): желательная и нежелательная — всегда по активной численности HQ узла */
-  regret_hq_cnt:'rh',nonregret_hq_cnt:'nrh',hc_avg_hq:'avh',attrition_hq_cnt:'fh',
+  regret_hq_cnt:'rh',nonregret_hq_cnt:'nrh',hc_avg_hq:'avh',attrition_hq_cnt:'fh',hc_hq:'hch',
   perf_norm:'pnor',perf_low:'plow',perf_high:'phig',perf_gray:'pgry',
   wday:'wday',ovis:'ovis',tgrowth_pass:'gapr',tgrowth_deny:'gdec',
   nonregret_cnt:'nreg',vac_open:'vop',vac_closed:'vcl',vac_new:'vap',ttf_days:'vtd',ttf_n:'vtn',vac_jun:'vjn',

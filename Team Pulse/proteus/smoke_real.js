@@ -307,7 +307,7 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       if(D.HQN){
         const st=A.st(), hn=D.hqLight(st,D.reportLeaves(st),st.unit);
         const kid=D.NODES.find(n=>n.parent===st.unit&&!n.direct&&!n.hide), hk=kid&&D.hqLight(st,D.leavesUnder(kid.path).map(l=>l.path),kid.path);
-        ok(!!hn&&hn.rows.every((r,i)=>Math.abs(r.v-h.rows[i].v)<0.051)&&Math.abs(hn.hc-h.hc)<=1&&(!hk||hk.rows.some((r,i)=>r.v!==hn.rows[i].v)),
+        ok(!!hn&&hn.rows.every((r,i)=>Math.abs(r.v-h.rows[i].v)<0.051)&&hn.hc===h.hc&&(!hk||hk.rows.some((r,i)=>r.v!==hn.rows[i].v)),
           'светофор HQ по узлам = строка hq ('+hn.rows.map(r=>D.fmtVal(r.key,r.v)).join(', ')+')'+(hk?'; «'+kid.name.slice(0,3)+'…»: '+
           hk.rows.map(r=>D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+hk.hc+' чел':''));
       }

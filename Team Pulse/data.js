@@ -517,7 +517,7 @@ const OFF_SUBS=new Set(['hiring.plan','monitor.review']);
    rev_eval / rev_up — оценённые в цикле ревью и улучшившие оценку. */
 const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','transfer_net','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny',
   'ai_wau','pf_plan','hire_jun','rev_eval','rev_up',
-  'nonregret_cnt','regret_hq_cnt','nonregret_hq_cnt','hc_avg_hq','attrition_hq_cnt','vac_new','vac_jun','ttf_days','ttf_n','ai_den',
+  'nonregret_cnt','regret_hq_cnt','nonregret_hq_cnt','hc_avg_hq','attrition_hq_cnt','hc_hq','vac_new','vac_jun','ttf_days','ttf_n','ai_den',
   /* пробник: нежелательные увольнения — слагаемое regret;
      отработанные человеко-дни и посещения офиса — слагаемые посещаемости */
   'regret_cnt','wday','ovis','perf_norm','perf_low','perf_high','perf_gray',
@@ -954,9 +954,9 @@ function seriesRaw(leafPath,key){
   }
   /* 27.10-в, п. 3: макет — нежелательные, желательные уходы и среднесписочная HQ: ряды команды HQ на активной
      численности при любом режиме численности, у остальных команд нули */
-  if(!REAL&&/^(regret_hq_cnt|nonregret_hq_cnt|hc_avg_hq|attrition_hq_cnt)$/.test(key)){
+  if(!REAL&&/^(regret_hq_cnt|nonregret_hq_cnt|hc_avg_hq|attrition_hq_cnt|hc_hq)$/.test(key)){
     const m0=HC_MODE;HC_MODE='active';
-    const src=n.paint==='HQ'?seriesExt(leafPath,key==='hc_avg_hq'?'hc_avg':key==='attrition_hq_cnt'?'attrition':key.replace('_hq','')):null;
+    const src=n.paint==='HQ'?seriesExt(leafPath,key==='hc_avg_hq'?'hc_avg':key==='hc_hq'?'hc_total':key==='attrition_hq_cnt'?'attrition':key.replace('_hq','')):null;
     HC_MODE=m0;
     for(let i=0;i<NEXT;i++)out[i]=src?src[i]:0;
     _sc[ck]=out;return out;
@@ -1162,7 +1162,7 @@ function yoySeries(leafPaths,key){return yoyOf(aggregateExt(leafPaths,key))}
    (численность, открытые вакансии) — сейчас, без вызревания. Январь без закрытых месяцев — неполный январь.
    Дельта — в единицах и % (при базе от 10), у процентов — п.п.; почти ноль — «без изменений» */
 /* поставка 90: у ставок «за месяц» — «в среднем за месяц», у срока — «в среднем за», у остальных долей — «за период» */
-const PT_CUM=new Set(['turnover_y','regret','nonregret','turnover_hq_y']), PT_STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau']),
+const PT_CUM=new Set(['turnover_y','regret','nonregret']), PT_STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau']),
   PT_MON=new Set(['turnover_m','underwork','overwork','ai_penetration']);
 function periodTotal(lp,key,yser){
   const m=METRIC_BY_KEY[key]||{}, d=defOf(key).derived, y=yser||yoySeries(lp,key);
@@ -1265,7 +1265,7 @@ const HQ_LIGHT=[{key:'turnover_y',label:'HQ текучесть накопите�
   {key:'regret',label:'Нежелательная текучесть HQ накопительно'}];
 /* файл 6, п. 2: с рядами HQ у каждого узла (fh rh nrh avh) светофор считается по листьям выбранной строки таблицы
    подразделений — выбор подразделения действует поверх обязательного «HQ + Активная»; без fh — как раньше (строка hq) */
-const HQN=REAL?!!(HQR&&REAL.has('fh')):true;
+const HQN=REAL?!!(HQR&&REAL.has('hch')):true;
 const HQ_SER={turnover_y:'turnover_hq_y'};
 function hqLeaves(st,lpSel,sel){
   /* макет: команды HQ под выбранной строкой при любой покраске в шапке (в пробнике её ряды HQ и так от покраски не зависят) */
@@ -1282,13 +1282,13 @@ function hqLight(st,lpSel,sel){
   if(!lp)return null;
   const m0=HC_MODE, sh=Object.assign({},st,{paint:'HQ',hcType:'active'});
   if(!REAL)setHcMode('active');
-  const hc=!lp.length?0:node?Math.round(aggregate(lp,'hc_avg_hq')[LAST-(PARTIAL?1:0)]||0):Math.round(lastVal(lp,'hc_total'));
+  const hc=!lp.length?0:node?Math.round(lastVal(lp,'hc_hq')):Math.round(lastVal(lp,'hc_total'));
   const L=LAST-(PARTIAL?1:0), mon=MONTHS[L];
   const rows=HQ_LIGHT.map(x=>{
     const ser=aggregate(lp,sk(x.key)), v=ser[L], kpi=kpiAt(x.key,sh,mon.m), e=aggregateExt(lp,sk(x.key)), i=L+PRE;
     const d=(a,b)=>a==null||b==null?null:+(a-b).toFixed(4);
     return Object.assign({},x,{ser:ser,v:v,mom:d(e[i],e[i-1]),yoyD:d(e[i],e[i-12]),ya:e[i-12],kpi:kpi,
-      st:kpi?stateForKpi(x.key,v,kpi):'neutral',yoy:yoySeries(lp,sk(x.key)),sk:sk(x.key)});
+      st:kpi?stateForKpi(x.key,v,kpi):'neutral',yoy:yoySeries(lp,sk(x.key))});
   });
   if(!REAL)setHcMode(m0);
   return {lp:lp,hc:hc,rows:rows,st:sh,month:mon};

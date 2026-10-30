@@ -359,7 +359,7 @@ def main():
                 for r in rows:
                     if r['role'] not in ('scope', 'c', 'g', 'x') or r.get('m_fh') is None or r['id'] not in U:
                         continue
-                    for k, tk in (('fh', 'fire'), ('rh', 'reg'), ('nrh', 'nreg'), ('avh', 'ssch')):
+                    for k, tk in (('fh', 'fire'), ('hch', 'hc'), ('rh', 'reg'), ('nrh', 'nreg'), ('avh', 'ssch')):
                         got = [round(float(x), 1) for x in r['m_' + k].split(',')]
                         if got != [round(Th[(r['id'], m)][tk], 1) for m in ms]:
                             bad['узел ' + k] += 1

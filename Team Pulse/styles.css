@@ -2280,7 +2280,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    переносит), полный текст — в подсказке; колонки «Заявка» и дальше не перекрываются */
 .ptable.rost-t.succ td.txt,.ptable.rost-t.succ th.txt{width:44%}
 .ptable.rost-t.succ td.txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
-.ptable.rost-t.succ tr:hover td.txt{white-space:nowrap;overflow:hidden}
 
 /* 27.10-в, п. 21: карточки KPI по выбранной слева строке */
 
