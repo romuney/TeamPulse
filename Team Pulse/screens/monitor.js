@@ -24,10 +24,8 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
 const C=G.C_MON;
 /* доля — тем же округлением, что метрика «Недоработчики» (ratioAt → fmtVal): иначе 8,4% и 8,5% за один месяц */
-const pctOf=(v,t)=>t?D.fmtVal('underwork',+(v/t*100).toFixed(2)):'—';
 /* последняя закрытая неделя и предыдущая; в пробнике без витрины по неделям — месяцы */
 function wk(md){const W=md.weeks||md.months;return {cur:W[W.length-1],prev:W[W.length-2]||W[W.length-1]}}
-const NOW_ASK='появится с витриной мониторинга по неделям';
 /* блок графика, данных для которого в пробнике нет: заголовок на месте, плашка «в разработке» */
 function monPh(title,what){
   return '<div class="mon-ph"><div class="bt-cap">'+U.esc(title)+'</div>'+

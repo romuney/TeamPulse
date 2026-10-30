@@ -90,7 +90,8 @@ const C_VAC=C_LINE,            /* открытые вакансии */
       C_AI=C_LINE;
 /* 27.10-в, T-рост: статусы «повторно в росте» и «нет заявки», отказ в тепловой таблице успешности */
 /* поставка 83 (задача 3): потоки «Рост» и T@T — один зелёный, у T@T с прозрачностью 50% (#…80) */
-const C_ROST={again:'#E8A33D',none:'#9AA0AC',no:'#D64545',rost:'#8fd8a9',tat:'#8fd8a980'};
+/* файл 6, п. 5: прошлый год Рост / T@T — серый (тон прошлого года отчёта) и серый с прозрачностью */
+const C_ROST={again:'#E8A33D',none:'#9AA0AC',rost:'#8fd8a9',tat:'#8fd8a980',rostP:'#b9bdc6',tatP:'#b9bdc680'};
 const PALETTE=[C_TR_IN,C_HIRE_I,C_HIRE_D,C_HIRE,C_FIRE,C_TR_OUT,C_CNT,C_OTHER];
 
 /* ---------- Бары и полосы — мягкие ступени тех же тонов ----------
@@ -619,13 +620,19 @@ function yoyPlot(p,ar){
   /* поставка 98 (заказчик): у незакрытого месяца бар и точка прошлого года есть, как у остальных месяцев («без них
      странно»); не сравниваем их только словами — у него нет подписи значения прошлого года и «год к году» в подсказке */
   const noPrev=i=>CD.PARTIAL&&i===nowI&&showMain;
+  /* бар частями снизу вверх; hz — незакрытый месяц: каждая часть своей штриховкой */
+  const stk=(A,cols,i,cx,w,sr,hz)=>{let r='',yb=bot;A.forEach((a,k)=>{const hh=(a[i]||0)/max*(bot-top), hk=hz&&hatchFill(cols[k]);
+    if(hh>0.5){r+=(hk?hk[0]:'')+barUp(cx-w/2,yb-hh,w,hh,hk?hk[1]:cols[k],' class="bar up'+(hk?' part':sr==='prev'?' ghost':'')+'"'+sAttr(sr));yb-=hh}});return r};
   /* засечки: тонкая вертикаль от оси X к каждой точке этого года — месяц точки читается без поиска по оси */
   if(showMain&&!flow)cur.forEach((c,i)=>{if(c!=null)s+=line(X(i),bot,X(i),Y(c),C_DIV,1)});
   for(let i=0;i<12;i++){
     const pv=prev[i], cx=X(i);
     if(!showPrev||pv==null)continue;
     const bp=big(i,'prev')||!!noteAt(i,'prev');
-    if(flow)s+=showMain
+    /* файл 6, п. 5: p.parts — бар частями (Рост и T@T «Роста»): прошлый год — теми же частями своими цветами (серый и серый
+       с прозрачностью), позади этого */
+    if(flow&&p.parts)s+=stk(p.parts.prev,p.parts.pcol,i,cx,showMain?gw:bw,'prev');
+    else if(flow)s+=showMain
       ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),ghostCol(col),' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
       :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
     else s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
@@ -657,7 +664,8 @@ function yoyPlot(p,ar){
       /* прошлый год — позади (нарисован до этого года, выше); этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
          и контуром основным цветом, заливка та же */
       const hz=CD.PARTIAL&&i===nowI&&hatchFill(col);
-      if(showMain&&c!=null)s+=(hz?hz[0]:'')+barUp(cx-bw/2,Y(c),bw,bot-Y(c),hz?hz[1]:soft(col),' class="bar up'+(hz?' part':'')+'"'+sAttr('main')+
+      if(showMain&&c!=null&&p.parts)s+=stk(p.parts.cur,p.parts.col,i,cx,bw,'main',hz);
+      else if(showMain&&c!=null)s+=(hz?hz[0]:'')+barUp(cx-bw/2,Y(c),bw,bot-Y(c),hz?hz[1]:soft(col),' class="bar up'+(hz?' part':'')+'"'+sAttr('main')+
         (bm&&!hz?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
       if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm&&!(pl&&i===nowI)?col:'#fff')+'" stroke="'+col+'"'
@@ -741,7 +749,7 @@ function drawYoy(a,w,h){
   const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(a.metricKey,o.kpi);
   return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+pt.s+
     yoyPlot({key:a.metricKey,cur:a.cur,prev:a.prev,bench:a.bench,color:o.color,kpi:o.kpi,
-      ann:ya,marks:o.marks,gap:o.gap,period:o.period,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName},
+      ann:ya,marks:o.marks,gap:o.gap,period:o.period,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName,parts:o.parts},
       {x0:x0,plotW:plotW,top:plotTop,bot:plotBot,hitTop:hh}));
 }
 

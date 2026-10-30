@@ -2760,7 +2760,6 @@ const PER_NAME=PER_PART?'1–'+ASOF.d+' января':PER_C?'январь–'+MO
 const PER_MON=PER_PART?'1–'+ASOF.d+' января '+ASOF.y:monthNom(MONTHS[PER_I]);
 function perVal(lp,key){return aggregate(lp,key)[PER_I]}
 const ASOF_LABEL=ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y;             /* «19 октября 2026» */
-const ASOF_SHORT=String(ASOF.d).padStart(2,'0')+'.'+String(ASOF.m+1).padStart(2,'0');  /* «19.10» */
 /* 21.10, правка Антона: вызревающими могут быть только regrettable и non-regrettable текучесть и
    проникновение AI — их значение за последний месяц ещё уточняется (признак увольнения и статистика AI
    приходят позже). У остальных метрик статуса «вызревает» нет: ни метки «по 20.10», ни пунктира. */
@@ -2791,21 +2790,7 @@ const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','и�
    Потоки водопада — со второго месяца окна, иначе потоки первого уходили бы в «Прочее» */
 const WIN_FROM=MONTH_ABBR[MONTHS[0].m]+' '+MONTHS[0].y;               /* «окт. 2025» */
 const WIN_TO=MONTH_ABBR[ASOF.m]+' '+ASOF.y;                            /* «окт. 2026» */
-/* 26.10, ревью критиков: водопад начинается с численности НА КОНЕЦ первого месяца, потоки — со второго */
-const WIN_SINCE='с конца '+MONTH_ABBR[MONTHS[0].m]+' '+MONTHS[0].y;   /* «с конца нояб. 2025» */
 function winSum(lp,key){return aggregate(lp,key).slice(1).reduce((a,v)=>a+(v||0),0)}
-/* подсказка у вызревающего значения — одна на весь отчёт */
-const MATURE_TIP={title:'Значение вызревает',
-  text:'Данные по **'+ASOF_LABEL+'**: значение за этот месяц может измениться — часть данных приходит позже.',
-  note:'Поэтому с прошлым месяцем и годом его не сравниваем, а выводы — по последнему закрытому месяцу.'};
-/* у потока за незакрытый месяц — без «вызревает»: просто период и почему без оценки */
-const CLOSED_TIP={title:'Закрытый месяц',
-  text:'Значение — за **'+monthNom(PREV_M)+'**: последний закрытый месяц.',
-  note:MONTH_NOM_CAP(CUR_M.m)+' ещё идёт: за неполный месяц это значение неточно, оно только на графике динамики.'};
-const CLOSED_SHORT=MONTH_ABBR[(ASOF.m+11)%12];
-const PART_TIP={title:'Месяц ещё идёт',
-  text:'Значение — за 1–'+ASOF.d+' '+MONTH_GEN[ASOF.m]+'.',
-  note:'Неполный месяц с полным не оцениваем: выводы — по последнему закрытому месяцу.'};
 const CMP={
   cur:monthNom(CUR_M),
   /* период незакрытого месяца — «1–12 октября 2026» (26.10, ревью критиков: «за октябрь» читалось как полный месяц) */
@@ -3361,7 +3346,6 @@ function setHcMode(t){HC_MODE=t==='all'?'all':'active'}
    level 1 компания, 2 блок, 3 департамент, 4 управление, 5 отдел, 6 команда (лист).
    В пробнике уровней одиннадцать и названий у них нет — «ур. N». */
 const LEVEL_NAME=REAL?{1:'Компания'}:{1:'Компания',2:'Блок',3:'Департамент',4:'Управление',5:'Отдел',6:'Команда'};
-const LEVEL_SHORT=REAL?{}:{2:'Блок',3:'Деп.',4:'Упр.',5:'Отд.',6:'Ком.'};
 const MAX_LEVEL=REAL?12:6;
 const BLOCK_DEFS=[
 {id:'01',name:'Технологические платформы',seg:'IT'},
@@ -3842,16 +3826,6 @@ function lastIdx(key){return LAST-(closedOnly(key)?1:0)}
 function lastVal(leafPaths,key){return aggregate(leafPaths,key)[lastIdx(key)]}
 
 /* ---------- Сравнение и светофор ---------- */
-/* Настоящий YoY: последний месяц окна против того же месяца год назад.
-   Берётся с расширенной сетки — июнь 2026 против июня 2025, а не против июля 2025.
-   Для накопительной текучести это единственный осмысленный вариант: сравнивать
-   июньский YTD с июльским YTD прошлого года бессмысленно, там разное число месяцев. */
-function deltasOf(leafPaths,key){
-  const e=aggregateExt(leafPaths,key), i=NEXT-1-(closedOnly(key)?1:0);
-  /* у отношения без знаменателя изменения нет: null, а не «минус всё значение» */
-  const d=(a,b)=>a==null||b==null?null:+(a-b).toFixed(4);
-  return {mom:d(e[i],e[i-1]), yoy:d(e[i],e[i-12])};
-}
 /* ---------- Год к году ----------
    Механика перенесена из HRBP HUB: ось — двенадцать месяцев календарного года,
    на ней две линии. Прошлый год целиком, текущий — отработанные месяцы и хвост
@@ -4376,7 +4350,6 @@ const MIX_LINKS=REAL?[]:[
 {a:'age',b:'gender',tilt:AGE_GENDER_TILT,
  label:'возраст и пол (среди молодых женщин чуть больше)'}
 ];
-const MIX_LINK_TEXT=MIX_LINKS.map(l=>l.label).join('; ');
 
 /* Связь вносится множителем, а потом распределение возвращается к исходным
    маргиналам (IPF, десяток итераций). Это принципиально: обе одномерные
@@ -4888,12 +4861,6 @@ function avgAge(lp,sel,dimKey,catIdx){
   }
   return n?s/n:null;
 }
-/* Изменение к прошлому месяцу по срезу: на расширенную сетку срез не ходит,
-   поэтому MoM считается по окну — для численности это тот же прошлый месяц. */
-function sliceDeltaMoM(lp,key,sel){
-  const s=aggregateSlice(lp,key,sel), i=lastIdx(key);
-  return +(s[i]-s[i-1]).toFixed(1);
-}
 
 /* ---------- Посещаемость офисов: подневно, по дням недели, по городам ----------
    ВАЖНО: ни подневных отметок, ни привязки людей к офисам в модели нет — здесь
@@ -5378,8 +5345,12 @@ const rostGrade=g=>/^\d+$/.test(g)&&+g>=20?'20+':isNA(g||'')?NONE_NAME:g;
 const grKey=g=>g===NONE_NAME?999:/20\+/.test(g)?20:(g.match(/\d+/)||[500])[0]*1;
 const byGrades=(a,b)=>{const x=a.name.split(' → '),y=b.name.split(' → ');
   return grKey(x[0])-grKey(y[0])||grKey(x[1]||'')-grKey(y[1]||'')||a.name.localeCompare(b.name,'ru')};
-function rostReal(){
-  const rs=REAL.scopeMix('rs'), rm=REAL.scopeMix('rm')||{}, rq=REAL.scopeMix('rq')||{};
+/* файл 6, п. 3 и 6: разрезы «Роста» у каждого узла — вкладка по листьям выбранной строки таблицы подразделений (их сумма на
+   корне = выбранный юнит); ответ, где они только у выбранного юнита, — как раньше. П. 4: в датасете — только численность HQ */
+const ROST_NODE=ROST_LIVE&&NODES.some(n=>n.leaf&&n.path!==NODES[0].path&&!!(REAL.mix(n.path)||{}).rs);
+function rostReal(lp){
+  const src=k=>ROST_NODE&&lp?realExit(lp,k):REAL.scopeMix(k)||{};
+  const rs=src('rs'), rm=src('rm'), rq=src('rq');
   /* поставка 73 (эталон «Роста»): у «Нет заявки» — «Нет развития» (nd) и «Рост доступен» (av, у специализации есть
      запуск T-роста). Ответ до 73 без признака — одна колонка */
   const avl=Object.keys(rs).some(v=>/^none\|(av|nd)\|/.test(v));
@@ -5397,16 +5368,9 @@ function rostReal(){
   const gk=g=>g===NONE_NAME?999:g==='20+'?20:isNaN(+g)?500:+g;
   st.forEach(s=>{s.rows=Object.keys(s.rows).sort((a,b)=>gk(a)-gk(b)||a.localeCompare(b,'ru'))
     .map(g=>({name:g,cells:s.rows[g].slice(0,s.cols.length)})).filter(x=>x.cells.some(v=>v>0))});
-  const at={};MONTHS.forEach((m,i)=>{at[m.y+'-'+String(m.m+1).padStart(2,'0')]=i});
   /* успешно закрытые по месяцам и за 12 месяцев (с текущим), успешность по желаемому: kd — g (грейд) или s */
   const flow=(kd,nR,nT)=>{
-    const mo=MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,rost:0,tat:0}));
     let R=0,T=0;
-    Object.keys(rm).forEach(v=>{
-      const p=v.split('|'), i=at[p[0]], n=+rm[v]||0;
-      if(p[3]!=='ok'||p[1].indexOf(kd)<0||i==null)return;
-      mo[i][p[2]==='1'?'tat':'rost']+=n;
-    });
     /* итог за окно — как эталон: успешно закрытые с начала месяца 12 месяцев назад (разрез rq) */
     Object.keys(rq).forEach(v=>{const p=v.split('|');if(p[0]===kd&&p[2]==='ok'){if(p[1]==='1')T+=+rq[v]||0;else R+=+rq[v]||0}});
     const succ=t=>{
@@ -5425,19 +5389,23 @@ function rostReal(){
     const top=(a,n)=>kd==='g'?a.sort(byGrades):a.slice(0,n);
     /* 31.10-б, п. 5: год к году — успешно закрытые по месяцам итога, январь–декабрь этого и прошлого года (rm — с начала
        прошлого года); Рост и T@T — частями в подсказке */
-    const yy={cur:new Array(CUR_LEN).fill(0),prev:new Array(12).fill(0),rost:new Array(12).fill(0),tat:new Array(12).fill(0)};
+    /* файл 6, п. 5: и прошлый год частями (prevR / prevT) — бары частями «Рост» и T@T у обоих лет */
+    const yy={cur:new Array(CUR_LEN).fill(0),prev:new Array(12).fill(0),rost:new Array(12).fill(0),tat:new Array(12).fill(0),
+      prevR:new Array(12).fill(0),prevT:new Array(12).fill(0)};
     Object.keys(rm).forEach(v=>{
       const p=v.split('|'), y=+p[0].slice(0,4), m=+p[0].slice(5,7)-1, n=+rm[v]||0;
       if(p[3]!=='ok'||p[1].indexOf(kd)<0)return;
-      if(y===YEAR_PREV)yy.prev[m]+=n;
+      if(y===YEAR_PREV){yy.prev[m]+=n;yy[p[2]==='1'?'prevT':'prevR'][m]+=n}
       else if(y===YEAR_CUR&&m<CUR_LEN){yy.cur[m]+=n;yy[p[2]==='1'?'tat':'rost'][m]+=n}
     });
-    return {rost:R,tat:T,months:mo,yoy:yy,rostT:top(succ('0'),nR),tatT:top(succ('1'),nT)};
+    return {rost:R,tat:T,yoy:yy,rostT:top(succ('0'),nR),tatT:top(succ('1'),nT)};
   };
   return {real:true,hc:st.reduce((a,s)=>a+s.n,0),st:st,grade:flow('g',5,99),spec:flow('s',5,4)};
 }
+/* файл 6, п. 4: численность HQ подразделения на «Рост HQ» — люди статусов роста (rs: численность HQ последнего месяца) */
+function rostHc(lp){const rs=realExit(lp,'rs');return Object.keys(rs).reduce((a,k)=>a+rs[k],0)}
 function rostProfile(lp){
-  if(ROST_LIVE)return rostReal();
+  if(ROST_LIVE)return rostReal(lp);
   const r=rng(lpSeed(lp,'rost')), cats=MIX_BY_KEY.grade.cats, gp=mixParts(lp,'grade').map(v=>Math.round(v));
   const hc=gp.reduce((a,b)=>a+b,0), n=gp.length;
   const stT=splitBy(hc,jitter(r,ROST_ST.map(s=>s.w),0.2));
@@ -5455,11 +5423,12 @@ function rostProfile(lp){
     const top=(a,n)=>g?a.sort(byGrades):a.slice(0,n);
     const R=Math.round(tot*(0.72+r()*0.12)), T=tot-R, mr=mon(R), mt=mon(T);
     /* 31.10-б, п. 5: год к году — месяцы этого года из окна, прошлый год — того же уровня */
-    const yy={cur:new Array(CUR_LEN).fill(0),prev:new Array(12).fill(0),rost:new Array(12).fill(0),tat:new Array(12).fill(0)};
+    const yy={cur:new Array(CUR_LEN).fill(0),prev:new Array(12).fill(0),rost:new Array(12).fill(0),tat:new Array(12).fill(0),
+      prevR:new Array(12).fill(0),prevT:new Array(12).fill(0)};
     MONTHS.forEach((m,i)=>{if(m.y===YEAR_CUR&&m.m<CUR_LEN){yy.cur[m.m]=mr[i]+mt[i];yy.rost[m.m]=mr[i];yy.tat[m.m]=mt[i]}});
-    const avg=Math.max(1,(R+T)/12);for(let m=0;m<12;m++)yy.prev[m]=Math.round(avg*(0.6+r()*0.8));
-    return {rost:R,tat:T,yoy:yy,months:MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,
-      rost:mr[i],tat:mt[i]})),rostT:top(succ(R,names,from),nR),tatT:top(succ(T,names,from),nT)};
+    const avg=Math.max(1,(R+T)/12);for(let m=0;m<12;m++){yy.prev[m]=Math.round(avg*(0.6+r()*0.8));
+      yy.prevT[m]=Math.round(yy.prev[m]*T/Math.max(1,R+T));yy.prevR[m]=yy.prev[m]-yy.prevT[m]}
+    return {rost:R,tat:T,yoy:yy,rostT:top(succ(R,names,from),nR),tatT:top(succ(T,names,from),nT)};
   };
   const named=d=>[...new Set((MIX_BY_KEY[d]?MIX_BY_KEY[d].cats:[]).map(c=>c.name.split('|').pop()).filter(x=>!isNA(x)))];
   /* заявок закрыто больше, чем людей: у одного бывает несколько */
@@ -5670,17 +5639,17 @@ function aiUsage(lp){
 }
 const U_DAYS=n=>n===1?'день':n<5?'дня':'дней';
 
-window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,
-  SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,CLOSED_TIP,CLOSED_SHORT,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
+window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
+  SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
+  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
-  COUNT_METRICS,vacancyBreakdown,kpiAt,teamShare,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,LEVEL_SHORT,
+  COUNT_METRICS,vacancyBreakdown,kpiAt,teamShare,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
-  metricSeries,reasonSeries,aggregate,lastVal,deltasOf,compareState,stateForKpi,kpiFor,comparable,
+  metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,kpiFor,comparable,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,
@@ -5689,7 +5658,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
   PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
-  planFact,PF_STATUS,rostProfile,ROST_ST,ROST_LIVE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
+  planFact,PF_STATUS,rostProfile,rostHc,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};
 
 </script>
@@ -5786,7 +5755,8 @@ const C_VAC=C_LINE,            /* открытые вакансии */
       C_AI=C_LINE;
 /* 27.10-в, T-рост: статусы «повторно в росте» и «нет заявки», отказ в тепловой таблице успешности */
 /* поставка 83 (задача 3): потоки «Рост» и T@T — один зелёный, у T@T с прозрачностью 50% (#…80) */
-const C_ROST={again:'#E8A33D',none:'#9AA0AC',no:'#D64545',rost:'#8fd8a9',tat:'#8fd8a980'};
+/* файл 6, п. 5: прошлый год Рост / T@T — серый (тон прошлого года отчёта) и серый с прозрачностью */
+const C_ROST={again:'#E8A33D',none:'#9AA0AC',rost:'#8fd8a9',tat:'#8fd8a980',rostP:'#b9bdc6',tatP:'#b9bdc680'};
 const PALETTE=[C_TR_IN,C_HIRE_I,C_HIRE_D,C_HIRE,C_FIRE,C_TR_OUT,C_CNT,C_OTHER];
 
 /* ---------- Бары и полосы — мягкие ступени тех же тонов ----------
@@ -6315,13 +6285,19 @@ function yoyPlot(p,ar){
   /* поставка 98 (заказчик): у незакрытого месяца бар и точка прошлого года есть, как у остальных месяцев («без них
      странно»); не сравниваем их только словами — у него нет подписи значения прошлого года и «год к году» в подсказке */
   const noPrev=i=>CD.PARTIAL&&i===nowI&&showMain;
+  /* бар частями снизу вверх; hz — незакрытый месяц: каждая часть своей штриховкой */
+  const stk=(A,cols,i,cx,w,sr,hz)=>{let r='',yb=bot;A.forEach((a,k)=>{const hh=(a[i]||0)/max*(bot-top), hk=hz&&hatchFill(cols[k]);
+    if(hh>0.5){r+=(hk?hk[0]:'')+barUp(cx-w/2,yb-hh,w,hh,hk?hk[1]:cols[k],' class="bar up'+(hk?' part':sr==='prev'?' ghost':'')+'"'+sAttr(sr));yb-=hh}});return r};
   /* засечки: тонкая вертикаль от оси X к каждой точке этого года — месяц точки читается без поиска по оси */
   if(showMain&&!flow)cur.forEach((c,i)=>{if(c!=null)s+=line(X(i),bot,X(i),Y(c),C_DIV,1)});
   for(let i=0;i<12;i++){
     const pv=prev[i], cx=X(i);
     if(!showPrev||pv==null)continue;
     const bp=big(i,'prev')||!!noteAt(i,'prev');
-    if(flow)s+=showMain
+    /* файл 6, п. 5: p.parts — бар частями (Рост и T@T «Роста»): прошлый год — теми же частями своими цветами (серый и серый
+       с прозрачностью), позади этого */
+    if(flow&&p.parts)s+=stk(p.parts.prev,p.parts.pcol,i,cx,showMain?gw:bw,'prev');
+    else if(flow)s+=showMain
       ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),ghostCol(col),' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
       :barUp(cx-bw/2,Y(pv),bw,bot-Y(pv),soft(col),' class="bar up"'+sAttr('prev'));
     else s+='<circle class="dotb"'+sAttr('prev')+' cx="'+num(cx)+'" cy="'+num(Y(pv))+'" r="'+(bp?4:2.4)+'" fill="'+C_PREV+'"/>';
@@ -6353,7 +6329,8 @@ function yoyPlot(p,ar){
       /* прошлый год — позади (нарисован до этого года, выше); этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
          и контуром основным цветом, заливка та же */
       const hz=CD.PARTIAL&&i===nowI&&hatchFill(col);
-      if(showMain&&c!=null)s+=(hz?hz[0]:'')+barUp(cx-bw/2,Y(c),bw,bot-Y(c),hz?hz[1]:soft(col),' class="bar up'+(hz?' part':'')+'"'+sAttr('main')+
+      if(showMain&&c!=null&&p.parts)s+=stk(p.parts.cur,p.parts.col,i,cx,bw,'main',hz);
+      else if(showMain&&c!=null)s+=(hz?hz[0]:'')+barUp(cx-bw/2,Y(c),bw,bot-Y(c),hz?hz[1]:soft(col),' class="bar up'+(hz?' part':'')+'"'+sAttr('main')+
         (bm&&!hz?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
       if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm&&!(pl&&i===nowI)?col:'#fff')+'" stroke="'+col+'"'
@@ -6437,7 +6414,7 @@ function drawYoy(a,w,h){
   const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(a.metricKey,o.kpi);
   return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+pt.s+
     yoyPlot({key:a.metricKey,cur:a.cur,prev:a.prev,bench:a.bench,color:o.color,kpi:o.kpi,
-      ann:ya,marks:o.marks,gap:o.gap,period:o.period,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName},
+      ann:ya,marks:o.marks,gap:o.gap,period:o.period,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName,parts:o.parts},
       {x0:x0,plotW:plotW,top:plotTop,bot:plotBot,hitTop:hh}));
 }
 
@@ -9283,7 +9260,6 @@ const senOf=c=>SEN[c.key]||c.name;
 const roleOf=c=>ROLE[c.key]||'сотрудник стрима «'+c.name+'»';
 const ageOf=c=>AGE_OF[c.key]||c.name.toLowerCase();
 const tenOf=c=>TEN_OF[c.key]||'в компании: '+c.name.toLowerCase();
-const SENIOR_UP=/senior|lead|head|chief|сеньор|лид|ведущ|руковод|expert|эксперт|principal/i;
 CH.structure.portrait=function(c){
   const sel=c.S.mixSel||[], P=k=>D.mixParts(c.lp,k,sel), B=k=>D.mixParts(c.bl,k,sel);
   /* Разрез, по которому взят срез, своей таблицей срез не режет (правило
@@ -9759,9 +9735,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* под-вкладка проверяется по списку блока: после перекомпоновки вкладок ссылка
      с ?sub=speed или ?sub=conv ведёт в никуда, и экран собирался бы наполовину */
   if(!S.subTab||!mod.subTabs.some(t=>t[0]===S.subTab))S.subTab=mod.defaultSub;
-  /* 31.10-б, п. 6: «Рост HQ» — только HQ-заявки по смыслу данных: фильтр покраски его не меняет (в пробнике — ряды и разрезы
-     датасета без покраски; в макете — строки без фильтра покраски) */
-  if(b.key==='tgrowth'&&S.paint!=='all')S=Object.assign({},S,{paint:'all'});
+  /* 31.10-б, п. 6: фильтр покраски «Рост HQ» не меняет; файл 6, п. 4: вкладка — только по численности HQ (в пробнике — ряды и
+     разрезы датасета с покраской HQ вместо выбранной, cond_rh; в макете — команды HQ) */
+  if(b.key==='tgrowth'&&S.paint!=='HQ')S=Object.assign({},S,{paint:'HQ'});
   const root=currentRoot(S), rootNode=D.NODE_BY_PATH[root];
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
   const mainK=blockMain(b.key,S);
@@ -9777,7 +9753,8 @@ function renderBlock(S,expanded,mixOpen,view){
      период под графиком: потоки и доли — с января по закрытый месяц, накопительные — на его конец, состояния — сейчас;
      окно подписано под названием колонки. Структура — состояния на сегодня со срезом (lastValSlice) */
   const ov=TBL_OVR[b.key]||{}, P0={}, pt=k=>P0[k]||(P0[k]=D.periodTotal(rl,k)||{});
-  const val=(lp,key)=>b.key==='structure'||pt(key).stock?D.lastValSlice(lp,key,selIds):(D.periodTotal(lp,key)||{}).v;
+  const val=(lp,key)=>b.key==='tgrowth'&&key==='hc_total'&&D.ROST_NODE?D.rostHc(lp):
+    b.key==='structure'||pt(key).stock?D.lastValSlice(lp,key,selIds):(D.periodTotal(lp,key)||{}).v;
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
@@ -10493,7 +10470,7 @@ function hqView(ctx){
       '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
-      period:D.periodTotal(h.lp,r.sk,r.yoy)}))},
+      period:D.periodTotal(h.lp,r.key,r.yoy)}))},
       {h:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
 }
@@ -10740,6 +10717,8 @@ const esc=U.esc, sum=a=>a.reduce((x,y)=>x+y,0);
 /* цвета статусов — как в «Росте»: зелёный, голубой, жёлтый, серый, фиолетовый */
 const ST_COL={done:G.C_HIRE,first:G.C_TR_IN,again:G.C_ROST.again,none:G.C_ROST.none,denied:G.C_FIRE};
 const C_R=G.C_ROST.rost, C_T=G.C_ROST.tat;
+/* файл 6, п. 5: прошлый год — серый (Рост) и серый с прозрачностью (T@T), зелёные — только у этого года */
+const C_RP=G.C_ROST.rostP, C_TP=G.C_ROST.tatP;
 /* заливка клетки: от белого к цвету статуса по доле от максимума таблицы */
 function ramp(hex,t){
   const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)), k=0.08+0.34*Math.max(0,Math.min(1,t));   // 31.10: мягче — не ярче клетки отказов
@@ -10771,22 +10750,17 @@ function succTable(cap,sub,rows,head){
     '<th>Отказ</th><th>% отказа</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
     rows.map(x=>tr(x)).join('')+'</tbody></table></div>';
 }
-/* закрытые заявки потока по месяцам: «Рост» и T@T столбиком; над графиком — итог за 12 месяцев */
-function flowBlock(f,what,head){
-  return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
-      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
-    G.chart('stack',{periods:f.months,cats:[['rost','Рост',C_R],['tat','T@T',C_T]],unit:' заявок'},
-      {title:head,h:300,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
-}
 /* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
-   «Рост» и T@T — в подсказке месяца; линии базы нет */
-function flowYoy(ctx,f,what,head){
+   линии базы нет. Файл 6, п. 5: бар частями — цветами «Рост» и T@T (C_ROST), прошлый год — серым и серым с прозрачностью;
+   п. 7: так же — смена специализации (key — ряд метрики графика для подписей и итога) */
+function flowYoy(ctx,f,what,head,tipName){
   const y=f.yoy;
-  if(!y)return flowBlock(f,what,head);
   return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
       'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
     SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:300,fill:false,
-      color:C_R,title:head,tipName:'повышение грейда',
+      color:C_R,title:head,tipName:tipName||'повышение грейда',
+      parts:{cur:[y.rost,y.tat],prev:[y.prevR,y.prevT],col:[C_R,C_T],pcol:[C_RP,C_TP]},
+      legend:[{name:D.YEAR_CUR+': Рост, T@T',split:[C_R,C_T]},{name:D.YEAR_PREV+': Рост, T@T',split:[C_RP,C_TP]}],
       tipRows:i=>[{label:'· Рост',value:D.fmtInt(y.rost[i]||0),color:C_R},{label:'· T@T',value:D.fmtInt(y.tat[i]||0),color:C_T}]});
 }
 function grades(ctx,p){
@@ -10801,8 +10775,8 @@ function grades(ctx,p){
       succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Переход: текущий → желаемый грейд')])+
     '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
 }
-function specs(p){
-  return flowBlock(p.spec,'на смену специализации','Смена специализации по месяцам: «Рост» и T@T, заявок')+
+function specs(ctx,p){
+  return flowYoy(ctx,p.spec,'на смену специализации','Смена специализации по месяцам, заявок','смена специализации')+
     U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам',p.spec.rostT,'Переход: текущая → желаемая специализация'),
       succTable('Смена специализации: T@T','первые 4 по заявкам',p.spec.tatT,'Переход: текущая → желаемая специализация')])+
     '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; % отказа — доля отказов среди заявок.</div>';
@@ -10816,7 +10790,7 @@ SC.blocks.tgrowth={
     :'Конверсия T-роста и решения по заявкам'},
   view(ctx){
     if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp));
-    if(ctx.sub==='spec')return specs(D.rostProfile(ctx.lp));
+    if(ctx.sub==='spec')return specs(ctx,D.rostProfile(ctx.lp));
     return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
         {h:300,title:'Одобренные и отклонённые заявки',
@@ -10853,10 +10827,8 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
 const C=G.C_MON;
 /* доля — тем же округлением, что метрика «Недоработчики» (ratioAt → fmtVal): иначе 8,4% и 8,5% за один месяц */
-const pctOf=(v,t)=>t?D.fmtVal('underwork',+(v/t*100).toFixed(2)):'—';
 /* последняя закрытая неделя и предыдущая; в пробнике без витрины по неделям — месяцы */
 function wk(md){const W=md.weeks||md.months;return {cur:W[W.length-1],prev:W[W.length-2]||W[W.length-1]}}
-const NOW_ASK='появится с витриной мониторинга по неделям';
 /* блок графика, данных для которого в пробнике нет: заголовок на месте, плашка «в разработке» */
 function monPh(title,what){
   return '<div class="mon-ph"><div class="bt-cap">'+U.esc(title)+'</div>'+

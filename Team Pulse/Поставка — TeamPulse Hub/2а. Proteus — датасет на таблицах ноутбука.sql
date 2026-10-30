@@ -135,6 +135,12 @@
 {%- for c in CUTS -%}{%- if c[0] != 'paint' and F[c[0]]|length > 0 -%}{%- set hv = 'lowerUTF8(' ~ c[2] ~ ') IN ' ~ ql(F[c[0]]) -%}{%- set _ = parts.append(("(" ~ c[2] ~ " = '∅' OR " ~ hv ~ ")") if c[0] == 'act' else hv) -%}{%- endif -%}{%- endfor -%}
 {{- parts|join(' AND ') if parts else '1' -}}
 {%- endmacro %}
+{#- Файл 6, п. 4: «Рост HQ» — только по численности HQ: покраска HQ вместо выбранной (фильтр покраски вкладку не меняет),
+    IT-код, штат и тип численности — как выбраны. По нему — ряды gah gdh и разрезы rm rq rs (были — cond_np, без покраски:
+    итог совпадал с «Все»). -#}
+{% macro cond_rh() -%}
+{{- "lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND " ~ cond_np() -}}
+{%- endmacro %}
 {#- Поставка 65: строка hq — светофор «Как уходит HQ?» всегда по активной численности HQ: покраска HQ и тип «Активная»
     вместо выбранных в фильтрах, IT-код и штат — как выбраны. -#}
 {% macro cond_hq() -%}
@@ -319,10 +325,10 @@ WITH
       WHERE ifNull(node_rk, '') IN {{ PKD }} AND {{ GRID }} AND {{ cond() }}
       GROUP BY u2, i2
       UNION ALL
-      {#- 31.10-б, п. 6: одобренные и отклонённые заявки «Роста» без фильтра покраски — у каждого узла ответа #}
+      {#- 31.10-б, п. 6; файл 6, п. 4: одобренные и отклонённые заявки «Роста» по численности HQ — у каждого узла ответа #}
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('g') }} AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond_np() }}
+      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond_rh() }}
       GROUP BY u2, i2
       UNION ALL
       {#- поставка 69: нежелательные, желательные и ССЧ по активной численности HQ — у каждого узла ответа #}
@@ -386,12 +392,13 @@ WITH
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
-      {#- 31.10-б, п. 6: разрезы «Роста» (rm rq rs) — без фильтра покраски, остальные — под все фильтры #}
+      {#- 31.10-б, п. 6; файл 6, п. 4: разрезы «Роста» (rm rq rs) — по численности HQ (cond_rh), остальные — под все фильтры #}
       WHERE ifNull(node_rk, '') IN {{ PK }}
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND {{ cond() }} OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND {{ cond_np() }})
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND {{ cond() }} OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND {{ cond_rh() }})
         {#- поставка 66: календарь посещений по дням, 26.10-б: увольнения по инициатору и месяцу — только у выбранного юнита #}
-        {#- поставка 71: T-рост (rm, rq, rs) — тоже только у выбранного юнита #}
-        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'sp0', 'sp1', 'es', 'en') OR ifNull(node_rk, '') = (SELECT s FROM cx))
+        {#- поставка 71: T-рост (rm, rq, rs) был только у выбранного юнита; файл 6, п. 3 и 6 — у каждого узла: выбор строки
+            таблицы подразделений фильтрует все блоки вкладки «Рост HQ» #}
+        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'xim', 'sp0', 'sp1', 'es', 'en') OR ifNull(node_rk, '') = (SELECT s FROM cx))
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL

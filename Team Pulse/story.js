@@ -532,7 +532,6 @@ const senOf=c=>SEN[c.key]||c.name;
 const roleOf=c=>ROLE[c.key]||'сотрудник стрима «'+c.name+'»';
 const ageOf=c=>AGE_OF[c.key]||c.name.toLowerCase();
 const tenOf=c=>TEN_OF[c.key]||'в компании: '+c.name.toLowerCase();
-const SENIOR_UP=/senior|lead|head|chief|сеньор|лид|ведущ|руковод|expert|эксперт|principal/i;
 CH.structure.portrait=function(c){
   const sel=c.S.mixSel||[], P=k=>D.mixParts(c.lp,k,sel), B=k=>D.mixParts(c.bl,k,sel);
   /* Разрез, по которому взят срез, своей таблицей срез не режет (правило

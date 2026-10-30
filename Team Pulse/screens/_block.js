@@ -300,9 +300,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* под-вкладка проверяется по списку блока: после перекомпоновки вкладок ссылка
      с ?sub=speed или ?sub=conv ведёт в никуда, и экран собирался бы наполовину */
   if(!S.subTab||!mod.subTabs.some(t=>t[0]===S.subTab))S.subTab=mod.defaultSub;
-  /* 31.10-б, п. 6: «Рост HQ» — только HQ-заявки по смыслу данных: фильтр покраски его не меняет (в пробнике — ряды и разрезы
-     датасета без покраски; в макете — строки без фильтра покраски) */
-  if(b.key==='tgrowth'&&S.paint!=='all')S=Object.assign({},S,{paint:'all'});
+  /* 31.10-б, п. 6: фильтр покраски «Рост HQ» не меняет; файл 6, п. 4: вкладка — только по численности HQ (в пробнике — ряды и
+     разрезы датасета с покраской HQ вместо выбранной, cond_rh; в макете — команды HQ) */
+  if(b.key==='tgrowth'&&S.paint!=='HQ')S=Object.assign({},S,{paint:'HQ'});
   const root=currentRoot(S), rootNode=D.NODE_BY_PATH[root];
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
   const mainK=blockMain(b.key,S);
@@ -318,7 +318,8 @@ function renderBlock(S,expanded,mixOpen,view){
      период под графиком: потоки и доли — с января по закрытый месяц, накопительные — на его конец, состояния — сейчас;
      окно подписано под названием колонки. Структура — состояния на сегодня со срезом (lastValSlice) */
   const ov=TBL_OVR[b.key]||{}, P0={}, pt=k=>P0[k]||(P0[k]=D.periodTotal(rl,k)||{});
-  const val=(lp,key)=>b.key==='structure'||pt(key).stock?D.lastValSlice(lp,key,selIds):(D.periodTotal(lp,key)||{}).v;
+  const val=(lp,key)=>b.key==='tgrowth'&&key==='hc_total'&&D.ROST_NODE?D.rostHc(lp):
+    b.key==='structure'||pt(key).stock?D.lastValSlice(lp,key,selIds):(D.periodTotal(lp,key)||{}).v;
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */

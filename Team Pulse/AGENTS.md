@@ -3159,3 +3159,16 @@ structure); perOf прячет lab===PER_SPAN — подпись колонки 
 ледов (исключение — строка 419). insights.js: заголовок dev/yoy — cap(say(f)) без цифры; big {v, name, chip, cls} и sub
 «год назад» (вместо пилюли); STOCK — «, сейчас» к имени. styles.css: .in-num, .in-mn, .in-sub, .page-h .per-line.
 smoke: проверка карточки (цифра в .in-num), найм/«Рост HQ» — окно в шапке, не в th-per (data-tip не считаем).
+
+**31.10, поставка 100 — файл 6 (9 пунктов).** П. 1: data.js avgAge — у карточки категории (dimKey) срез того же разреза
+снимается (было: смешивал категории); structure.js — «—» вместо пустоты, «в срезе». П. 2: 2а `['fh','h','fire_cnt']` (уходы
+HQ у каждого узла, cond_hq), real.js attrition_hq_cnt:'fh'; data.js HQN, SERVICE_DEF turnover_hq_m/turnover_hq_y, hqLight(st,
+lpSel, sel) — по листьям выбранной строки (макет — команды HQ под sel при любой покраске), HQ_SER turnover_y→turnover_hq_y;
+turnover.js и story.js передают ctx.lp/sel. П. 4: 2а cond_rh (покраска hq + cond_np) у gah/gdh и rm/rq/rs; _block.js —
+tgrowth с paint 'HQ' (было 'all'), hc строки — D.rostHc (сумма rs). П. 3, 6: rm/rq/rs — у каждого узла (сняты со
+scope-only), data.js ROST_NODE, rostReal(lp) через realExit. П. 5, 7: draw.js yoyPlot p.parts (stk — бар частями, прошлый —
+ghost своими цветами), C_ROST.rostP/tatP; tgrowth.js flowYoy у грейдов и специализаций, легенда split; flowBlock и months
+«Роста» удалены (бюджет 510). Стенд: nb_hub_check — узлы fh rh nrh avh = правда HQ, truth_rost у каждого узла с rost_pred (HQ).
+smoke: п. 1/2/4/5-7; smoke_real: светофор по узлам = строка hq, «Рост» год к году частями. Бюджет: удалены мёртвые
+ASOF_SHORT, WIN_SINCE, MATURE/CLOSED/PART_TIP, CLOSED_SHORT, LEVEL_SHORT, deltasOf, MIX_LINK_TEXT, sliceDeltaMoM,
+SENIOR_UP, pctOf, NOW_ASK, C_ROST.no.

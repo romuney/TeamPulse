@@ -486,9 +486,10 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
     const mx={};String(scopeRow.mx||'').split('\n').forEach(l=>{const f=l.split('\t');if(/^r[smq]$/.test(f[0]))(mx[f[0]]=mx[f[0]]||{})[f[1]]=+f[2]});
     const sm=o=>Object.keys(o||{}).reduce((a,k)=>a+o[k],0), p=D.rostProfile(rl);
     /* на графике — 12 месяцев отчёта; rm — с начала сетки */
-    const ym=new Set(D.MONTHS.map(m=>m.y+'-'+String(m.m+1).padStart(2,'0')));
-    const okM=t=>Object.keys(mx.rm||{}).filter(k=>{const f=k.split('|');return f[3]==='ok'&&f[1].indexOf(t)>=0&&ym.has(f[0])}).reduce((a,k)=>a+mx.rm[k],0);
-    const pm=f=>f.months.reduce((a,m)=>a+m.rost+m.tat,0);
+    /* файл 6, п. 5: год к году частями — этот год (по текущий месяц) и прошлый; части в сумме = месяцу */
+    const okM=t=>Object.keys(mx.rm||{}).filter(k=>{const f=k.split('|'), y=+f[0].slice(0,4), m=+f[0].slice(5,7)-1;
+      return f[3]==='ok'&&f[1].indexOf(t)>=0&&(y===D.YEAR_PREV||y===D.YEAR_CUR&&m<D.CUR_LEN)}).reduce((a,k)=>a+mx.rm[k],0);
+    const pm=f=>{const y=f.yoy, s=a=>a.reduce((x,v)=>x+v,0);return y.cur.every((v,m)=>v===y.rost[m]+y.tat[m])&&y.prev.every((v,m)=>v===y.prevR[m]+y.prevT[m])?s(y.cur)+s(y.prev):-1};
     const rq=(t,fl)=>Object.keys(mx.rq||{}).filter(k=>{const f=k.split('|');return f[0]===t&&f[1]===fl}).reduce((a,k)=>a+mx.rq[k],0);
     const pa=x=>x.reduce((a,r)=>a+r.apps,0);
     /* поставка 73: итог «за 12 месяцев» — как эталон «Роста», по окну rq (с начала месяца год назад) */

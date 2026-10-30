@@ -63,9 +63,12 @@ def main():
              ('Подрядчики + штат (2а)', {'act_f': ['Подрядчики'], 'staff_f': ['Штат']},
               lambda p, d: A(p, 'rel', d) == 'Штатный сотрудник')]
     raw = {}
-    # 31.10-б, п. 6: те же фильтры без покраски — эталон «Роста»
+    # 31.10-б, п. 6: те же фильтры без покраски; файл 6, п. 4 — и только HQ (rost_pred ниже): эталон «Роста»
     NP = {'покраска HQ (2а)': lambda p, d: True, 'покраска Line + Support (2а)': lambda p, d: True,
           'штат + HQ (2а)': lambda p, d: A(p, 'rel', d) == 'Штатный сотрудник'}
+    def rost_pred(name, pred):
+        b = NP.get(name, raw.get(name, pred))
+        return lambda p, d: b(p, d) and A(p, 'oper', d) == 'HQ'
     ok = True
     for name, flt, pred in cases:
         # типы численности выбора: по умолчанию nb.ACTIVE («Активная»), «Вся» — все (None), иначе — названные
@@ -193,6 +196,9 @@ def main():
                               'ocp': {v: n for v, n in Co[rk]['ocp'].items() if n},
                               # 27.10-в, п. 14: нарушения брони по городам (ov) и база (ob)
                               'ov': {v: n for v, n in Co[rk]['ov'].items() if n}, 'ob': {v: n for v, n in Co[rk]['ob'].items() if n}}
+                    # 31.10-б, п. 6: «Рост HQ» — без фильтра покраски; файл 6, п. 4 — только по численности HQ (cond_rh);
+                    # п. 3 и 6 — у каждого узла (выбор строки таблицы фильтрует вкладку)
+                    want_v.update(nb.truth_rost(U, people, grt, rk, rost_pred(name, pred), act))
                     # календарь (dw dw) и уходы по инициатору и месяцу (xim, 26.10-б) — только у выбранного юнита
                     if r['role'] == 'scope':
                         want_v['xim'] = nb.truth_fire_init(U, people, rk, raw.get(name, pred), act)
@@ -202,8 +208,6 @@ def main():
                         if not want_v['dw']:
                             bad['календарь пуст'] += 1
                         # поставка 71: T-рост — заявки по месяцам (rm), успешность по желаемому (rq), статусы (rs)
-                        # 31.10-б, п. 6: «Рост HQ» — без фильтра покраски (датасет — cond_np)
-                        want_v.update(nb.truth_rost(U, people, grt, rk, NP.get(name, raw.get(name, pred)), act))
                         # поставка 73: возраст в годах (e) — средний возраст команды
                         want_v['e'] = nb.truth_age(U, people, rk, raw.get(name, pred), act)
                         if not want_v['rs']:
@@ -245,7 +249,7 @@ def main():
                         # численности этого месяца
                         if abs(mx['sp1'] - T[(rk, nb.closed_month())]['hc']) > 0.5 or not mxv.get('sp1'):
                             bad['mx sp1'] += 1
-                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'tsh', 'tsi', 'tso', 'sp0', 'sp1', 'es', 'en')):
+                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'tsh', 'tsi', 'tso', 'sp0', 'sp1', 'es', 'en')):
                         bad['календарь не у выбранного'] += 1
                     for kk, w in want_v.items():
                         g = mxv.get(kk, {})

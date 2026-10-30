@@ -21,6 +21,8 @@ const esc=U.esc, sum=a=>a.reduce((x,y)=>x+y,0);
 /* цвета статусов — как в «Росте»: зелёный, голубой, жёлтый, серый, фиолетовый */
 const ST_COL={done:G.C_HIRE,first:G.C_TR_IN,again:G.C_ROST.again,none:G.C_ROST.none,denied:G.C_FIRE};
 const C_R=G.C_ROST.rost, C_T=G.C_ROST.tat;
+/* файл 6, п. 5: прошлый год — серый (Рост) и серый с прозрачностью (T@T), зелёные — только у этого года */
+const C_RP=G.C_ROST.rostP, C_TP=G.C_ROST.tatP;
 /* заливка клетки: от белого к цвету статуса по доле от максимума таблицы */
 function ramp(hex,t){
   const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)), k=0.08+0.34*Math.max(0,Math.min(1,t));   // 31.10: мягче — не ярче клетки отказов
@@ -52,22 +54,17 @@ function succTable(cap,sub,rows,head){
     '<th>Отказ</th><th>% отказа</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
     rows.map(x=>tr(x)).join('')+'</tbody></table></div>';
 }
-/* закрытые заявки потока по месяцам: «Рост» и T@T столбиком; над графиком — итог за 12 месяцев */
-function flowBlock(f,what,head){
-  return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
-      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
-    G.chart('stack',{periods:f.months,cats:[['rost','Рост',C_R],['tat','T@T',C_T]],unit:' заявок'},
-      {title:head,h:300,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
-}
 /* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
-   «Рост» и T@T — в подсказке месяца; линии базы нет */
-function flowYoy(ctx,f,what,head){
+   линии базы нет. Файл 6, п. 5: бар частями — цветами «Рост» и T@T (C_ROST), прошлый год — серым и серым с прозрачностью;
+   п. 7: так же — смена специализации (key — ряд метрики графика для подписей и итога) */
+function flowYoy(ctx,f,what,head,tipName){
   const y=f.yoy;
-  if(!y)return flowBlock(f,what,head);
   return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
       'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
     SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:300,fill:false,
-      color:C_R,title:head,tipName:'повышение грейда',
+      color:C_R,title:head,tipName:tipName||'повышение грейда',
+      parts:{cur:[y.rost,y.tat],prev:[y.prevR,y.prevT],col:[C_R,C_T],pcol:[C_RP,C_TP]},
+      legend:[{name:D.YEAR_CUR+': Рост, T@T',split:[C_R,C_T]},{name:D.YEAR_PREV+': Рост, T@T',split:[C_RP,C_TP]}],
       tipRows:i=>[{label:'· Рост',value:D.fmtInt(y.rost[i]||0),color:C_R},{label:'· T@T',value:D.fmtInt(y.tat[i]||0),color:C_T}]});
 }
 function grades(ctx,p){
@@ -82,8 +79,8 @@ function grades(ctx,p){
       succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Переход: текущий → желаемый грейд')])+
     '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
 }
-function specs(p){
-  return flowBlock(p.spec,'на смену специализации','Смена специализации по месяцам: «Рост» и T@T, заявок')+
+function specs(ctx,p){
+  return flowYoy(ctx,p.spec,'на смену специализации','Смена специализации по месяцам, заявок','смена специализации')+
     U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам',p.spec.rostT,'Переход: текущая → желаемая специализация'),
       succTable('Смена специализации: T@T','первые 4 по заявкам',p.spec.tatT,'Переход: текущая → желаемая специализация')])+
     '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; % отказа — доля отказов среди заявок.</div>';
@@ -97,7 +94,7 @@ SC.blocks.tgrowth={
     :'Конверсия T-роста и решения по заявкам'},
   view(ctx){
     if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp));
-    if(ctx.sub==='spec')return specs(D.rostProfile(ctx.lp));
+    if(ctx.sub==='spec')return specs(ctx,D.rostProfile(ctx.lp));
     return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
         {h:300,title:'Одобренные и отклонённые заявки',

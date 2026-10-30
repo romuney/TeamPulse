@@ -1212,7 +1212,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const tg=D.rostProfile(rl0), gp=D.mixParts(rl0,'grade').map(v=>Math.round(v));
   checks.push(['T-рост «Рост»: статусы = людям по грейдам, месяцы «Рост» и T@T = итогам, заявка = успешно + отказ',
     tg.st.length===5&&sum(tg.st.map(x=>x.n))===sum(gp)&&tg.st.every(x=>sum(x.rows.map(r=>sum(r.cells)))===x.n)&&
-    ['grade','spec'].every(k=>{const f=tg[k];return sum(f.months.map(m=>m.rost))===f.rost&&sum(f.months.map(m=>m.tat))===f.tat&&
+    /* файл 6, п. 5: бары частями — у обоих лет «Рост» + T@T = месяц */
+    ['grade','spec'].every(k=>{const f=tg[k], y=f.yoy;return y.cur.every((v,m)=>v===y.rost[m]+y.tat[m])&&y.prev.every((v,m)=>v===y.prevR[m]+y.prevT[m])&&
       f.rostT.concat(f.tatT).every(x=>x.apps===x.ok+x.no)&&f.rostT.length<=5})&&tg.spec.tatT.length<=4]);
   const rv=D.reviewProfile(rl0);
   checks.push(['ревью: «улучшили» = метрике, края каждой группы сходятся с общим распределением',
@@ -1846,6 +1847,34 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const tv=A.go('turnover','dynamics');
   checks.push(['подразделение: в строке численность и логин, без уровня; в подсказке — численность, руководитель, логин',
     /class="row-body" data-tip="[^"]*Численность[^"]*Руководитель[^"]*Логин/.test(tv)&&!/<span class="unit-sub">(Деп|Ком|Блок|ур)\./.test(tv)]);
+})();
+
+/* файл 6: средний возраст в срезе, «Как уходит HQ» по выбранной строке, «Рост HQ» только по HQ, цвета прошлого года */
+(function(){
+  const S=A.st(), G=global.window.TPDRAW, p0=S.paint, rl=D.reportLeaves(D.DEFAULT_STATE);
+  /* п. 1: карточка пола при срезе по полу показывает свою категорию, а не среднее обоих */
+  const Gd=D.MIX_BY_KEY.gender, g0=Gd&&Gd.cats[0], a0=Gd?D.avgAge(rl,[],'gender',0):null, a1=Gd?D.avgAge(rl,[],'gender',1):null;
+  checks.push(['п. 1: средний возраст карточки пола не меняется от среза по полу, «—» вместо пустоты',
+    !Gd||(D.avgAge(rl,[g0.id],'gender',1)===a1&&D.avgAge(rl,[Gd.cats[1].id],'gender',0)===a0&&
+      /средний возраст (в срезе|команды) — <b>/.test(A.go('structure','portrait')))]);
+  /* п. 2: светофор HQ — по выбранной строке; покраска в шапке его не меняет */
+  const kid=D.childrenOf(S.unit)[0];
+  const h0=D.hqLight(S,rl,S.unit), hk=kid&&D.hqLight(S,D.leavesUnder(kid.path).map(l=>l.path),kid.path);
+  S.paint='Line';const hl=D.hqLight(S,D.reportLeaves(S),S.unit);S.paint=p0;
+  checks.push(['п. 2: «Как уходит HQ» — по выбранному подразделению поверх HQ, покраска шапки не влияет',
+    !!h0&&!!hk&&hk.rows.some((r,i)=>r.v!==h0.rows[i].v)&&hl.rows.every((r,i)=>r.v===h0.rows[i].v)]);
+  /* п. 4: «Рост HQ» — только команды HQ при любой покраске; итог статусов = численность HQ */
+  const hqL=D.leavesUnder(S.unit).map(l=>l.path).filter(x=>D.leafPasses(x,Object.assign({},S,{paint:'HQ'})));
+  const tgA=(S.paint='all',A.go('tgrowth','grades'));S.paint=p0;
+  const nHQ=D.rostProfile(hqL).st.reduce((a,x)=>a+x.n,0), nAll=D.rostProfile(D.reportLeaves(Object.assign({},D.DEFAULT_STATE,{paint:'all'}))).st.reduce((a,x)=>a+x.n,0);
+  checks.push(['п. 4: «Рост HQ» — только HQ: при покраске «Все» статусы роста = численности HQ',
+    nHQ!==nAll&&tgA.indexOf('>'+D.fmtInt(nHQ)+'<')>=0]);
+  /* п. 5, 7: повышение грейда и смена специализации — год к году частями, прошлый год серым */
+  const sp=A.go('tgrowth','spec'), gr=A.go('tgrowth','grades');
+  checks.push(['п. 5, 7: Рост / T@T этого года — #8fd8a9 / #8fd8a980, прошлый — серый и серый с прозрачностью; смена специализации — год к году',
+    [sp,gr].every(h=>h.indexOf('fill="'+G.C_ROST.rostP+'" class="bar up ghost" data-s="prev"')>=0&&
+      h.indexOf(G.C_ROST.tatP)>=0&&/Рост, T@T/.test(h))&&
+    /Смена специализации по месяцам, заявок/.test(sp)&&!/data-s="prev"[^>]*fill="#8fd8a9/.test(sp)]);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});
