@@ -522,6 +522,24 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
       (off.length?'; не сходятся строки: '+off.map(z=>z.name+' '+bal(z)).join(', '):''));
   }
 }
+/* ревью 100: у выбранного подразделения (строка ниже юнита) — его же уходы по инициатору и движение по специализациям:
+   в сумме по инициаторам — его текучесть, таблица специализаций сходится, отток = его отток с начала года */
+{
+  const st=A.st(), kids=D.NODES.filter(n=>n.parent===st.unit&&!n.direct&&!n.hide);
+  if(R.scopeMix('xim')&&kids.length&&D.NODES.some(n=>n.leaf&&!n.direct&&n.parent&&(R.mix(n.path)||{}).xim)){
+    const bad=[];
+    kids.forEach(k=>{
+      const lp=D.leavesUnder(k.path).map(l=>l.path), xs=D.exitInitTurnover(lp)||[], y=D.yoySeries(lp,'turnover_m');
+      if(!y.cur.every((v,i)=>v==null||Math.abs(xs.reduce((a,x)=>a+(x.cur[i]||0),0)-v)<0.05))bad.push(k.name+': инициатор');
+      if(D.SPM_TRF&&R.scopeMix('sp1')){
+        const sm=D.specMovement(lp), S=q=>sm.reduce((a,z)=>a+z[q],0);
+        if(Math.abs(S('hc0')+S('hire')+S('tin')-S('exit')-S('tout')-S('hc1'))>0.5||
+          Math.abs(S('exit')-D.sumWin(D.aggregate(lp,'attrition'),'ytd'))>0.5)bad.push(k.name+': специализации');
+      }
+    });
+    ok(!bad.length,'по подразделениям ('+kids.length+'): инициатор = текучесть, специализации сходятся'+(bad.length?' — '+bad.join('; '):''));
+  }
+}
 /* поставка 73, 29.10, п. 8: средний возраст — из разреза e (возраст в годах) выбранного юнита */
 {
   const e={};String(scopeRow.mx||'').split('\n').forEach(l=>{const f=l.split('\t');if(f[0]==='e')e[f[1]]=+f[2]});

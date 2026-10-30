@@ -397,8 +397,10 @@ WITH
         AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND {{ cond() }} OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND {{ cond_rh() }})
         {#- поставка 66: календарь посещений по дням, 26.10-б: увольнения по инициатору и месяцу — только у выбранного юнита #}
         {#- поставка 71: T-рост (rm, rq, rs) был только у выбранного юнита; файл 6, п. 3 и 6 — у каждого узла: выбор строки
-            таблицы подразделений фильтрует все блоки вкладки «Рост HQ» #}
-        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'xim', 'sp0', 'sp1', 'es', 'en') OR ifNull(node_rk, '') = (SELECT s FROM cx))
+            таблицы подразделений фильтрует все блоки вкладки «Рост HQ». Поставка 100 (ревью): так же уходы по инициатору (xim),
+            движение по специализациям (tsh tsi tso sp0 sp1); только у юнита — календарь (dw do) и возраст по разрезам (es en:
+            ~2,5 КБ на узел; у подразделения средний возраст точный по e, срезы — оценкой от юнита) #}
+        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR ifNull(node_rk, '') = (SELECT s FROM cx))
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL
@@ -418,14 +420,14 @@ WITH
       ARRAY JOIN kvs AS kv
       GROUP BY u3, k3, v3
       UNION ALL
-      {#- 28.10, п. 1: найм, переводы в и из с начала года по специализации — только у выбранного юнита; поставка 90:
-          январь..cm #}
+      {#- 28.10, п. 1: найм, переводы в и из с начала года по специализации; поставка 90: январь..cm; поставка 100 (ревью) —
+          у каждого узла ответа (было — только у выбранного юнита) #}
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
       FROM
       (
         SELECT node_rk, {{ SPC }} AS spx, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu
         FROM prod_proteus.teampulse_hub_trf
-        WHERE ifNull(node_rk, '') = (SELECT s FROM cx) AND report_month >= toStartOfYear((SELECT cm FROM cx))
+        WHERE ifNull(node_rk, '') IN {{ PK }} AND report_month >= toStartOfYear((SELECT cm FROM cx))
           AND report_month <= (SELECT cm FROM cx) AND {{ cond() }}
       )
       ARRAY JOIN [('tsh', spx, th), ('tsi', spx, ti), ('tso', spx, tu)] AS kv

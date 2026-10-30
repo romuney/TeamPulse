@@ -1179,7 +1179,9 @@ on(document,'keydown',e=>{
     /* мониторинг: Escape снимает отметку периода и выбор строки таблицы */
     if(!ovl&&S.tab==='monitor'&&(S.monMark!=null||S.selNode)){S.monMark=null;S.selNode=null;render(true);return}
     if(!ovl&&S.tab==='office'&&(S.offSeg||S.offCity)){S.offSeg=null;S.offCity=null;render(true);return}
-    if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true)}
+    if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true);return}
+    /* ревью 100: подсказка «Повторный клик или Escape — снять выбор» — Escape снимает выбранное подразделение на всех вкладках */
+    if(!ovl&&S.selNode){S.selNode=null;render(true)}
   }
 });
 

@@ -1256,10 +1256,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const mv=A.go('movement','balance');
   /* 15.10: после чистки по каталогу ни в одном блоке нет 7 метрик — широкой
      таблицы нет, но правило раскладки остаётся на случай новых метрик */
-  checks.push(['широкая сводная таблица — от 7 метрик (сейчас таких блоков нет), ниже 1240px встаёт над графиком',
+  checks.push(['широкая сводная таблица — от 7 метрик или своих колонок (мониторинг), до 1366px встаёт над графиком',
     D.BLOCKS.every(b=>D.metricsOfBlock(b.key).length<7)&&!/class="split wide-l/.test(mv)&&
     /\.split\.wide-l\{grid-template-columns:minmax\(min-content,\.9fr\)/.test(css)&&
-    /@media\(max-width:1240px\)\{\.split\.wide-l\{grid-template-columns:1fr;height:auto\}/.test(css)]);
+    /@media\(max-width:1366px\)\{\.split\.wide-l\{grid-template-columns:1fr;height:auto\}/.test(css)]);
   checks.push(['имя подразделения липкое: широкая таблица прокручивается внутри панели',
     /\.split-l\.ptable\.densetd\.txt\{position:sticky;left:0/.test(css)]);
   /* 15.10, редполитика (TEXT_GUIDE.md): сноски — как читать таблицу, а не как устроены данные */

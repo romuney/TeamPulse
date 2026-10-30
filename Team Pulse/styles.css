@@ -1245,7 +1245,9 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    графиком раньше остальных — тем же приёмом, каким все блоки складываются
    ниже 1120px, и с теми же высотами. */
 .split.wide-l{grid-template-columns:minmax(min-content,.9fr) 16px minmax(400px,1.1fr)}
-@media(max-width:1240px){
+/* ревью 100: у широкой таблицы (мониторинг) рядом с графиками на 1280 не хватало 34 px — страница уезжала вбок;
+   складываем раньше: до 1366 px таблица над графиками */
+@media(max-width:1366px){
   .split.wide-l{grid-template-columns:1fr;height:auto}
   .split.wide-l>.panel{height:auto}
   .split.wide-l .split-l .tbl-wrap{max-height:430px}

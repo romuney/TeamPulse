@@ -182,7 +182,8 @@ CH.turnover={
     const pk=spikeAt(a,3);
     let head=(fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
       :'Темп ухода — на уровне базы «'+c.bench+'»')+yoyTail(fc,c,'Уходят чаще','Уходят реже');
-    if(pk>=0)head+=(/, но /.test(head)?'; ':', но ')+mPrep(pk)+' был всплеск';
+    /* ревью 100: «реже, но был всплеск» — противопоставление; к «чаще» всплеск добавляется через «;» */
+    if(pk>=0)head+=(/, но /.test(head)||fc.st==='bad'?'; ':', но ')+mPrep(pk)+' был всплеск';
     const fo=focusCount(c,'attrition',{cap:'Где уходят',what:'общего оттока',win:'ytd'});
     return {sum:pl(y,EXITS),st:fc.st,head:head,
       lede:'Ушли **'+pl(y,PPL)+'**'+ago(c.lp,'attrition')+'. Текучесть накопительная — **'+
@@ -336,8 +337,9 @@ CH.hiring={
     const ch=hp.channels.slice().sort((a,b)=>b.value-a.value), top=ch[0];
     return {sum:pl(hp.total,PPL),st:'n',
       head:'«'+top.name+'» — главный канал найма: '+top.value+' из '+hp.total,
-      lede:'Наняли **'+pl(hp.total,PPL)+'**'+ago(c.lp,'hire')+' и ещё **'+hp.tin+'** перешли из других подразделений. Джунов среди '+
-        'принятых — **'+hp.jun+'** ('+pc(hp.jun,hp.total)+'%).',
+      lede:'Наняли **'+pl(hp.total,PPL)+'**'+ago(c.lp,'hire')+' и ещё **'+hp.tin+'** перешли из других подразделений. '+
+        /* ревью 100: доля джунов — та же, что в колонке «Джуны» (на настоящих — среди закрытых вакансий) */
+        (D.REAL?'':'Джунов среди принятых — **'+hp.jun+'** ('+pc(hp.jun,hp.total)+'%).'),
       facts:ch.slice(0,3).map(x=>'«'+x.name+'» — **'+x.value+'**')};
   }
 };
@@ -364,8 +366,9 @@ CH.tgrowth={
   },
   spec(c){
     const p=D.rostProfile(c.lp), s=p.spec, t=s.rostT[0];
-    return {sum:(s.rost+s.tat)+' смен специализации',st:'n',
-      head:'Специализацию сменили по '+(s.rost+s.tat)+' '+U.plural(s.rost+s.tat,['заявке','заявкам','заявкам']),
+    const ns=s.rost+s.tat;
+    return {sum:ns?ns+' '+U.plural(ns,['смена','смены','смен'])+' специализации':'смен специализации нет',st:'n',
+      head:ns?'Специализацию сменили по '+ns+' '+U.plural(ns,['заявке','заявкам','заявкам']):'Специализацию не меняли',
       lede:'В «Росте» — **'+s.rost+'**, в T@T — **'+s.tat+'**.'+(t?' Чаще всего просятся в «'+t.name+'»: '+t.apps+' '+
         U.plural(t.apps,['заявка','заявки','заявок'])+', отказ — '+pc(t.no,t.apps)+'%.':'')};
   }
@@ -416,8 +419,9 @@ CH.office={
   attend(c){
     const S=c.S||{}, x=D.officeCross(c.lp,S.offSeg,S.offCity);
     const lbl=[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).join(' · ');
-    if(lbl)return {sum:lbl+' — '+f('office_att',x.att),st:'n',
-      head:'Посещаемость: '+lbl+' — '+f('office_att',x.att),
+    if(lbl)return {sum:x.seg?lbl+' — '+f('office_att',x.att):lbl,st:'n',
+      /* ревью 100: у города посещаемости нет — число в заголовке только у сегмента */
+      head:x.seg?'Посещаемость: '+x.seg.name+' — '+f('office_att',x.att)+(x.city?'; город — '+x.city.name:''):'Город офиса: '+x.city.name,
       lede:'Значение — за '+mNom(D.PER_I)+'; по всему отбору '+PT+' — **'+f('office_att',per(c.lp,'office_att').v)+'**. Снять выбор — Escape.'};
     const segs=x.segs.filter(s=>s.hc), cs=x.cities.filter(r=>r.hc);
     const v=judge('office_att',c), ya=yearAgo(c.lp,'office_att');

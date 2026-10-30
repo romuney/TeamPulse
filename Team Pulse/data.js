@@ -312,7 +312,8 @@ if(REAL){
   if(REAL.has('nreg'))ov.nonregret={ytd:'nonregret_m',anchor:null};
   if(REAL.has('vtd')&&REAL.has('vtn'))ov.time_to_fill={derived:{num:'ttf_days',den:'ttf_n',scale:1},anchor:null,
     calc:'Сумма дней от согласования до закрытия ÷ число закрытых за месяц вакансий. Вакансия — не человек: фильтры покраски, IT, штата и типа численности на неё не действуют.'};
-  if(REAL.has('vjn')&&REAL.has('vcl'))ov.junior_share={derived:{num:'vac_jun',den:'vac_closed',scale:100,win:'ytd'},
+  /* ревью 100: на настоящих — доля джунов среди закрытых вакансий; название говорит это, а не «в найме» */
+  if(REAL.has('vjn')&&REAL.has('vcl'))ov.junior_share={name:'Доля джунов в закрытых вакансиях',derived:{num:'vac_jun',den:'vac_closed',scale:100,win:'ytd'},
     hint:'Доля вакансий, закрытых джунами, среди всех закрытых с начала года. Сколько их брать — выбор стратегии найма.'};
   if(REAL.has('vop'))ov.vac_open={calc:'Вакансии в работе (согласованные) на конец месяца, у незакрытого — на последний загруженный день. Вакансия — не человек: фильтры среза на неё не действуют.'};
   if(REAL.has('aip')&&REAL.has('aiw'))ov.ai_penetration={derived:{num:'ai_wau',den:'ai_den',scale:100},anchor:null,
@@ -2135,6 +2136,9 @@ function monData(lp){
    возрастов приходит вместе с численностью); dimKey/catIdx — внутри категории
    («средний возраст женщин»). Срез по возрасту оставляет только выбранные группы. */
 const AGE_MID=[22.6,27.4,37.3];
+/* «до 25» → [0, 25]; «от 25 до 30» → [25, 30]; «30+», «старше 30» → [30, 99] */
+const ageRange=v=>{const t=String(v).toLowerCase(), n=(t.match(/\d+/g)||[]).map(Number);
+  return n.length>1?[n[0],n[1]]:n.length?/до|меньше|менее|младше/.test(t)?[0,n[0]]:[n[0],99]:[0,99]};
 function avgAge(lp,sel,dimKey,catIdx){
   /* 29.10, п. 8: пробник — поле age источника (разрез e ноутбука: возраст → людей на последний месяц): среднее по
      людям листьев. Без среза и без разбивки внутри категории — совместного распределения с полом в данных нет */
@@ -2152,7 +2156,7 @@ function avgAge(lp,sel,dimKey,catIdx){
       for(let i=cons.length-1;i>=0;i--)if(cons[i].dk===dimKey)cons.splice(i,1);
       cons.push({dk:dimKey,raw:d.cats[catIdx].raw})}}
     if(!cons.length)return base;
-    const es=REAL.scopeMix('es'), en=REAL.scopeMix('en');
+    const es=selMix(lp,'es'), en=selMix(lp,'en');
     if(!es||!en||base==null)return null;
     const by={};cons.forEach(c=>{(by[c.dk]=by[c.dk]||[]).push(c.raw)});
     const avgOf=(k,vals)=>{let s=0,m=0;vals.forEach(v=>{s+=es[k+'|'+v]||0;m+=en[k+'|'+v]||0});return m?s/m:null};
@@ -2160,6 +2164,9 @@ function avgAge(lp,sel,dimKey,catIdx){
     const unit=avgOf(g0,allV);
     let v=base;
     for(const dk in by){const k=REAL_DIM[dk], a=k?avgOf(k,by[dk]):null;if(a==null)return null;v+=a-(unit==null?base:unit)}
+    /* ревью 100: сдвиги разных разрезов складываются оценкой — со срезом по возрасту не выходим за его границы
+       («до 25» — не больше 25) */
+    if(by.age){const r=by.age.map(ageRange);v=Math.min(Math.max(v,Math.min(...r.map(x=>x[0]))),Math.max(...r.map(x=>x[1])))}
     return v;
   }
   if(!MIX_BY_KEY.age)return null;
@@ -2388,6 +2395,20 @@ function realExit(lp,k){
   lp.forEach(p=>{const m=REAL.mix(p), x=m&&m[k];if(x)Object.keys(x).forEach(v=>{acc[v]=(acc[v]||0)+x[v]})});
   return acc;
 }
+/* ревью 100: разрез, который датасет отдаёт у каждого узла (xim, tsh tsi tso, sp0 sp1 с поставки 100), — у самой
+   выбранной строки (общий предок листьев lp), а не суммой листьев: переводы между соседними командами для родителя
+   внутренние. Старый датасет отдаёт его только у выбранного юнита — тогда как раньше. null — разреза нет */
+let _nmx=null;
+function selMix(lp,k){
+  if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
+  const s=REAL.scopeMix(k);
+  if(!s||!lp||!_nmx.has(k))return s;
+  if(!lp.length)return {};
+  const sg=lp.map(p=>p.split('/'));let n=sg[0].length;
+  sg.forEach(a=>{let i=0;while(i<n&&a[i]===sg[0][i])i++;n=i});
+  const m=REAL.mix(sg[0].slice(0,n).join('/'));
+  return m?m[k]||{}:realExit(lp,k);
+}
 /* инициатива из таблицы → три корзины отчёта; формулировки уточнит запрос 0д */
 function initKey(t){
   return /сотрудн|работник|собствен|желани/i.test(t)?'emp':/работодат|компани|организац/i.test(t)?'org':'oth';
@@ -2454,7 +2475,7 @@ function exitInitTurnover(lp){
   const den=aggregateExt(lp,'hc_avg'), F={};
   EXIT_INITIATORS.forEach(x=>{F[x.key]=new Array(NEXT).fill(0)});
   if(REAL){
-    const xim=REAL.scopeMix&&REAL.scopeMix('xim'), at={};
+    const xim=selMix(lp,'xim'), at={};
     if(!xim)return null;
     MONTHS_EXT.forEach((mo,i)=>{at[mo.y+'-'+String(mo.m+1).padStart(2,'0')]=i});
     Object.keys(xim).forEach(v=>{const j=v.lastIndexOf('|'), i=at[v.slice(j+1)];if(i!=null)F[initKey(v.slice(0,j))][i]+=xim[v]});
@@ -2512,11 +2533,11 @@ function specMovement(lp){
   let rows;
   const nm=v=>isNA(v)?NONE_NAME:v;
   if(REAL){
-    const x=realExit(lp,'xsp'), h=SPM_TRF?REAL.scopeMix('tsh'):realExit(lp,'hsp'),
-      ti=SPM_TRF?REAL.scopeMix('tsi')||{}:{}, to=SPM_TRF?REAL.scopeMix('tso')||{}:{}, by={};
+    const x=realExit(lp,'xsp'), h=SPM_TRF?selMix(lp,'tsh'):realExit(lp,'hsp'),
+      ti=SPM_TRF?selMix(lp,'tsi')||{}:{}, to=SPM_TRF?selMix(lp,'tso')||{}:{}, by={};
     /* 31.10, п. 7: на начало (sp0 — численность конца прошлого года) и на конец (sp — последний месяц); без sp0
        (ноутбук до 31.10) — на начало пусто */
-    const s0=REAL.scopeMix('sp0'), s1=REAL.scopeMix('sp1')||REAL.scopeMix('sp')||{};
+    const s0=selMix(lp,'sp0'), s1=selMix(lp,'sp1')||realExit(lp,'sp');
     const add=(o,k)=>Object.keys(o).forEach(v=>{const z=by[nm(v)]||(by[nm(v)]={name:nm(v),hc0:s0?0:null,hire:0,tin:0,exit:0,tout:0,hc1:0});z[k]+=o[v]});
     add(h,'hire');add(ti,'tin');add(x,'exit');add(to,'tout');if(s0)add(s0,'hc0');add(s1,'hc1');
     rows=Object.keys(by).map(k=>by[k]);
@@ -2741,7 +2762,9 @@ function rostProfile(lp){
     MONTHS.forEach((m,i)=>{if(m.y===YEAR_CUR&&m.m<CUR_LEN){yy.cur[m.m]=mr[i]+mt[i];yy.rost[m.m]=mr[i];yy.tat[m.m]=mt[i]}});
     const avg=Math.max(1,(R+T)/12);for(let m=0;m<12;m++){yy.prev[m]=Math.round(avg*(0.6+r()*0.8));
       yy.prevT[m]=Math.round(yy.prev[m]*T/Math.max(1,R+T));yy.prevR[m]=yy.prev[m]-yy.prevT[m]}
-    return {rost:R,tat:T,yoy:yy,rostT:top(succ(R,names,from),nR),tatT:top(succ(T,names,from),nT)};
+    /* ревью 100: итог над графиком — те же месяцы, что «Всего за янв.–…» под ним */
+    const pr=a=>a.slice(0,PER_C+1).reduce((x,v)=>x+v,0), R1=pr(yy.rost), T1=pr(yy.tat);
+    return {rost:R1,tat:T1,yoy:yy,rostT:top(succ(R1,names,from),nR),tatT:top(succ(T1,names,from),nT)};
   };
   const named=d=>[...new Set((MIX_BY_KEY[d]?MIX_BY_KEY[d].cats:[]).map(c=>c.name.split('|').pop()).filter(x=>!isNA(x)))];
   /* заявок закрыто больше, чем людей: у одного бывает несколько */

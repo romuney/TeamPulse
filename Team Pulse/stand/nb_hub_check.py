@@ -199,57 +199,58 @@ def main():
                     # 31.10-б, п. 6: «Рост HQ» — без фильтра покраски; файл 6, п. 4 — только по численности HQ (cond_rh);
                     # п. 3 и 6 — у каждого узла (выбор строки таблицы фильтрует вкладку)
                     want_v.update(nb.truth_rost(U, people, grt, rk, rost_pred(name, pred), act))
-                    # календарь (dw dw) и уходы по инициатору и месяцу (xim, 26.10-б) — только у выбранного юнита
+                    # ревью 100: уходы по инициатору (xim), движение по специализациям (tsh tsi tso sp0 sp1), возраст по разрезам (es en)
+                    # — у каждого узла: выбор строки таблицы пересчитывает и их; только у выбранного юнита — календарь (dw do) и es en
+                    want_v['xim'] = nb.truth_fire_init(U, people, rk, raw.get(name, pred), act)
+                    # поставка 71: T-рост — заявки по месяцам (rm), успешность по желаемому (rq), статусы (rs)
+                    # поставка 73: возраст в годах (e) — средний возраст команды
+                    want_v['e'] = nb.truth_age(U, people, rk, raw.get(name, pred), act)
+                    # 28.10, п. 1: найм по специализации — в сумме = ряду с начала года. Переводы в и из по
+                    # специализациям — по флагам переводов под фильтры или смены специализации (поставка 90, truth_spec_move)
+                    ytd_ = nb.ytd_months()             # поставка 90: январь..последний закрытый месяц
+                    if abs(mx['tsh'] - sum(T[(rk, m)]['hire'] for m in ytd_)) > 0.5:
+                        bad['mx tsh'] += 1
+                    want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act, chg))
+                    # поставка 90: окно — январь..сентябрь стенда; у узких выборов («только Подрядчики») смен специализации
+                    # в нём нет и по правде — пустота проверяется только у выборов с «Активной» или «Вся»
+                    # 31.10-б, п. 1: es / en — по каждому разрезу в сумме те же люди с возрастом и та же сумма возрастов,
+                    # что в разрезе e (возраст → людей); у пола — ещё и по каждому значению против правды по людям
+                    ev = mxv.get('e', {})
+                    n_e = sum(ev.values()); s_e = sum(float(v.replace(',', '.')) * n for v, n in ev.items())
+                    for dk in (('g', 'a', 'gr', 'sp', 'rg') if r['role'] == 'scope' else ()):
+                        en_ = sum(n for v, n in mxv.get('en', {}).items() if v.startswith(dk + '|'))
+                        es_ = sum(n for v, n in mxv.get('es', {}).items() if v.startswith(dk + '|'))
+                        if abs(en_ - n_e) > 0.5 or abs(es_ - s_e) > 0.5 + 0.01 * s_e:
+                            bad['mx es/en ' + dk] += 1
+                    # 31.10-б, п. 9: посещения и люди-руководители по городу (ocl ocpl) — часть всех (oc ocp)
+                    for kl, ka in (('ocl', 'oc'), ('ocpl', 'ocp')):
+                        if any(n > mxv.get(ka, {}).get(v, 0) + 0.5 for v, n in mxv.get(kl, {}).items()):
+                            bad['mx ' + kl + ' больше ' + ka] += 1
+                    # п. 7: численность по специализации на начало года (sp0) — в сумме = численности декабря
+                    dec = [m for m in ms if m.year == ms[-1].year - 1][-1]
+                    if abs(mx['sp0'] - T[(rk, dec)]['hc']) > 0.5:
+                        bad['mx sp0'] += 1
+                    # поставка 90: численность по специализации на конец последнего закрытого месяца (sp1) — в сумме =
+                    # численности этого месяца
+                    if abs(mx['sp1'] - T[(rk, nb.closed_month())]['hc']) > 0.5 or (r['role'] == 'scope' and not mxv.get('sp1')):
+                        bad['mx sp1'] += 1
                     if r['role'] == 'scope':
-                        want_v['xim'] = nb.truth_fire_init(U, people, rk, raw.get(name, pred), act)
                         days = sorted(d for (n_, d) in Dd if n_ == rk)
                         want_v['dw'] = {str(d): Dd[(rk, d)]['dw'] for d in days if Dd[(rk, d)]['dw']}
                         want_v['do'] = {str(d): Dd[(rk, d)]['do'] for d in days if Dd[(rk, d)]['do']}
                         if not want_v['dw']:
                             bad['календарь пуст'] += 1
-                        # поставка 71: T-рост — заявки по месяцам (rm), успешность по желаемому (rq), статусы (rs)
-                        # поставка 73: возраст в годах (e) — средний возраст команды
-                        want_v['e'] = nb.truth_age(U, people, rk, raw.get(name, pred), act)
                         if not want_v['rs']:
                             bad['T-рост пуст'] += 1
-                        # 28.10, п. 1: найм по специализации — в сумме = ряду с начала года. Переводы в и из по
-                        # специализациям — по флагам переводов под фильтры или смены специализации (поставка 90, truth_spec_move)
-                        ytd_ = nb.ytd_months()             # поставка 90: январь..последний закрытый месяц
-                        if abs(mx['tsh'] - sum(T[(rk, m)]['hire'] for m in ytd_)) > 0.5:
-                            bad['mx tsh'] += 1
-                        want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act, chg))
                         if not mxv.get('tsh'):
                             bad['движение по специализациям пусто'] += 1
-                        # поставка 90: окно — январь..сентябрь стенда; у узких выборов («только Подрядчики») смен специализации
-                        # в нём нет и по правде — пустота проверяется только у выборов с «Активной» или «Вся»
                         if not want_v['tsi'] and (act is None or 'Активная' in act):
                             bad['переводы по специализациям пусты'] += 1
-                        # 31.10-б, п. 1: es / en — по каждому разрезу в сумме те же люди с возрастом и та же сумма возрастов,
-                        # что в разрезе e (возраст → людей); у пола — ещё и по каждому значению против правды по людям
-                        ev = mxv.get('e', {})
-                        n_e = sum(ev.values()); s_e = sum(float(v.replace(',', '.')) * n for v, n in ev.items())
-                        for dk in ('g', 'a', 'gr', 'sp', 'rg'):
-                            en_ = sum(n for v, n in mxv.get('en', {}).items() if v.startswith(dk + '|'))
-                            es_ = sum(n for v, n in mxv.get('es', {}).items() if v.startswith(dk + '|'))
-                            if abs(en_ - n_e) > 0.5 or abs(es_ - s_e) > 0.5 + 0.01 * s_e:
-                                bad['mx es/en ' + dk] += 1
                         if n_e and not mxv.get('en'):
                             bad['средний возраст по разрезам пуст'] += 1
-                        # 31.10-б, п. 9: посещения и люди-руководители по городу (ocl ocpl) — часть всех (oc ocp)
-                        for kl, ka in (('ocl', 'oc'), ('ocpl', 'ocp')):
-                            if any(n > mxv.get(ka, {}).get(v, 0) + 0.5 for v, n in mxv.get(kl, {}).items()):
-                                bad['mx ' + kl + ' больше ' + ka] += 1
                         if mxv.get('oc') and not mxv.get('ocl'):
                             bad['руководители по городам пусты'] += 1
-                        # п. 7: численность по специализации на начало года (sp0) — в сумме = численности декабря
-                        dec = [m for m in ms if m.year == ms[-1].year - 1][-1]
-                        if abs(mx['sp0'] - T[(rk, dec)]['hc']) > 0.5:
-                            bad['mx sp0'] += 1
-                        # поставка 90: численность по специализации на конец последнего закрытого месяца (sp1) — в сумме =
-                        # численности этого месяца
-                        if abs(mx['sp1'] - T[(rk, nb.closed_month())]['hc']) > 0.5 or not mxv.get('sp1'):
-                            bad['mx sp1'] += 1
-                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'tsh', 'tsi', 'tso', 'sp0', 'sp1', 'es', 'en')):
+                    elif any(mxv.get(k) for k in ('dw', 'do', 'es', 'en')):
                         bad['календарь не у выбранного'] += 1
                     for kk, w in want_v.items():
                         g = mxv.get(kk, {})
