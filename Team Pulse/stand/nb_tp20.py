@@ -303,7 +303,9 @@ def vacancies(U, seed=7):
             hold = adt + dt.timedelta(random.randint(15, 40)) if random.random() < .15 else None
             out.append(dict(id=f'VAC-{n}', unit=u, adt=adt, end=end, kind=kind, hold=hold,
                             reason=pick([('Замена сотрудника', .45), ('Новая позиция', .45), ('Расширение функции', .1)]),
-                            channel=pick([('Внешний найм', .7), ('Ротация', .2), ('Т-Образование', .1)]),
+                            # поставка 86: каналы из списка Адели + процессинг (юрлицо выдумано) + канал вне списка
+                            channel=pick([('Активный поиск', .4), ('Отклики с внешних площадок', .2), ('Ротация', .15),
+                                          ('Процессинг Тест', .1), ('Внешний найм', .15)]),
                             spec=pick([('Разработка', .4), ('Аналитика', .2), ('Тестирование', .15), ('Продажи', .15), ('Поддержка', .1)]),
                             pos=pick([('Junior', .3), ('Middle', .4), ('Senior', .25), ('Lead', .05)]),
                             cand=pick([('Junior', .3), ('Middle+', .45), ('Senior', .25)])))
@@ -341,12 +343,18 @@ def vacancy_rows(U, vacs):
             d = nxt
 
 
+VAC_CHANNELS = {'Активный поиск', 'Внешняяреферальная программа', 'Кадровое агентство', 'Найден руководителем', 'Наша база',
+                'Не удалось получить источник в Candy(Внешнийтип поиска)', 'Образовательные программы',
+                'Отклики с внешних площадок', 'Отклики с нашего сайта', 'Приведи друга', 'Ротация'}
+vac_ok = lambda v: v['channel'] in VAC_CHANNELS or v['channel'].startswith('Процессинг ')   # поставка 86, structure_x_vacancy
+
+
 def truth_vac(U, vacs):
     """узел × месяц → открыто на конец месяца (у текущего — на последний день), закрыто, новые, срок
     (сумма дней и число закрытых); как structure_x_vacancy + build_hub, шаг 11"""
     T = defaultdict(lambda: defaultdict(float))
     root = ['all'] if ROOTS > 1 else []
-    for v in vacs:
+    for v in filter(vac_ok, vacs):
         nodes = root + path(U, v['unit'])
         for m in months():
             e = eom(m)
@@ -718,13 +726,13 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, h
             continue
         for n in path(U, last_unit(byrk[rk_], m)):
             T[(n, m)]['perf'] += 1
-    # поставка 73: решения T-роста — заявки HQ (покраска в день создания), в месяц итога; человек в этом месяце есть в
+    # поставка 73: решения T-роста — в месяц итога (поставка 86: все блоки, фильтр HQ снят в rost_info); человек в этом месяце есть в
     # таблице (строка месяца — его последняя)
     for r in grt:
         rk_, st, fin = r[0], r[2], r[10]
         m = dt.date(fin.year, fin.month, 1)
         p_ = byrk.get(rk_)
-        if r[12] != 'HQ' or p_ is None or m < D0 or not (p_['start'] <= eom(m) and (p_['end'] is None or p_['end'] >= m)) \
+        if p_ is None or m < D0 or not (p_['start'] <= eom(m) and (p_['end'] is None or p_['end'] >= m)) \
                 or not ok(p_, m):
             continue
         for n in path(U, last_unit(byrk[rk_], m)):
@@ -904,7 +912,7 @@ def truth_age(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
 def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
     """поставка 73 (эталон «Роста»): разрезы T-роста узла rk — rm (заявки с итогом по месяцам итога), rq (успешность по
     желаемому за окно — с начала месяца 12 месяцев назад), rs (статус роста людей численности последнего месяца). Заявки —
-    только HQ (покраска в день создания); юнит и срез заявки — человека в месяце начала (старт согласования, иначе
+    всех блоков (поставка 86); юнит и срез заявки — человека в месяце начала (старт согласования, иначе
     создание), как structure_x_rost; тип — s, если меняется специализация, иначе g"""
     byrk = {p['rk']: p for p in people}
     ms = months()
@@ -916,8 +924,7 @@ def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
     has_row = lambda p, m: m >= D0 and p['start'] <= eom(m) and (p['end'] is None or p['end'] >= m)
     tp = lambda r: 's' if r[7] != r[8] else 'g'
     out = {'rm': defaultdict(float), 'rq': defaultdict(float), 'rs': defaultdict(float)}
-    hq = [r for r in grt if r[12] == 'HQ']
-    for r in hq:
+    for r in grt:
         p, am, fm = byrk[r[0]], mon(r[11] or r[1]), mon(r[10])
         res = 'ok' if r[2] == 'FNS' else 'no' if r[2] == 'DCL' else None
         if res is None or not has_row(p, am):
@@ -934,7 +941,7 @@ def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
                       f"{r[5] if tp(r) == 'g' else SPECS[r[7] - 1]}"] += 1
     e = eom(lm)
     win = defaultdict(list)
-    for r in hq:
+    for r in grt:
         if w12 <= mon(r[10]) <= lm:
             win[r[0]].append(r)
     for p in people:
