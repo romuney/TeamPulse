@@ -216,7 +216,9 @@ def main():
                         want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act))
                         if not mxv.get('tsh'):
                             bad['движение по специализациям пусто'] += 1
-                        if not want_v['tsi']:
+                        # поставка 90: окно — январь..сентябрь стенда; у узких выборов («только Подрядчики») смен специализации
+                        # в нём нет и по правде — пустота проверяется только у выборов с «Активной» или «Вся»
+                        if not want_v['tsi'] and (act is None or 'Активная' in act):
                             bad['переводы по специализациям пусты'] += 1
                         # 31.10-б, п. 1: es / en — по каждому разрезу в сумме те же люди с возрастом и та же сумма возрастов,
                         # что в разрезе e (возраст → людей); у пола — ещё и по каждому значению против правды по людям
@@ -239,7 +241,11 @@ def main():
                         dec = [m for m in ms if m.year == ms[-1].year - 1][-1]
                         if abs(mx['sp0'] - T[(rk, dec)]['hc']) > 0.5:
                             bad['mx sp0'] += 1
-                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'tsh', 'tsi', 'tso', 'sp0', 'es', 'en')):
+                        # поставка 90: численность по специализации на конец последнего закрытого месяца (sp1) — в сумме =
+                        # численности этого месяца
+                        if abs(mx['sp1'] - T[(rk, nb.closed_month())]['hc']) > 0.5 or not mxv.get('sp1'):
+                            bad['mx sp1'] += 1
+                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'tsh', 'tsi', 'tso', 'sp0', 'sp1', 'es', 'en')):
                         bad['календарь не у выбранного'] += 1
                     for kk, w in want_v.items():
                         g = mxv.get(kk, {})
