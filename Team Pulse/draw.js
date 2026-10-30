@@ -511,9 +511,11 @@ let _hid=0;
 function hatchFill(col){
   const id='tpH'+(++_hid);
   return ['<defs><pattern id="'+id+'" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'+
-    '<rect width="5" height="5" fill="'+soft(col)+'" fill-opacity=".3"/><rect width="2.5" height="5" fill="'+soft(col)+'"/></pattern></defs>','url(#'+id+')'];
+    '<rect width="5" height="5" fill="'+soft(col)+'" fill-opacity=".18"/><rect width="2" height="5" fill="'+soft(col)+'" fill-opacity=".7"/></pattern></defs>','url(#'+id+')'];
 }
-const axLbl=(lb,i,nowI,key)=>[i===nowI?nowLabel(lb,key):lb,
+/* поставка 90: на узкой оси (13" и уже) незакрытый месяц — коротко («окт.», неполноту говорит штриховка), чтобы рядом
+   поместилась жирная подпись закрытого месяца — она видна всегда */
+const axLbl=(lb,i,nowI,key,nr)=>[i===nowI&&!nr?nowLabel(lb,key):lb,
   i===closedIdx(nowI)?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}];
 /* поставка 90: месяцы итога за период (CD.periodTotal) — ось на них толще и темнее, вместо черты под осью */
 function yoyAxis(X,bandW,top,bot,nowI,bars,key,pr){
@@ -521,8 +523,8 @@ function yoyAxis(X,bandW,top,bot,nowI,bars,key,pr){
   let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
     /* «1–12 окт.» шире месяца: на узкой оси соседей не подписываем — иначе «сен1–12 окт.нояб.» (ревью критиков, 24) */
-    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1)){
-      const a=axLbl(lb,i,nowI,key);s+=txt(X(i),bot+15,a[0],a[1]);
+    if(bandW>=31||i%2===0||i===nowI||i===closedIdx(nowI)){
+      const a=axLbl(lb,i,nowI,key,bandW<56);s+=txt(X(i),bot+15,a[0],a[1]);
     }
   });
   return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1)+periodAxis(X,bandW,bot,pr);
@@ -612,9 +614,12 @@ function yoyPlot(p,ar){
     +' stroke-width="2" stroke-dasharray="5 3"/>';
   /* 29.10, п. 6: прошлый год — весь позади этого: его точки и бары рисуются до линии и точек этого года (раньше они
      лежали в группах месяцев поверх линии этого года) */
+  /* поставка 90 (заказчик): незакрытый месяц с прошлым годом не сравниваем — у него нет ни бара и точки прошлого года,
+     ни подписи, ни строки в подсказке; линия прошлого года идёт через месяц без точки */
+  const noPrev=i=>CD.PARTIAL&&i===nowI&&showMain;
   for(let i=0;i<12;i++){
     const pv=prev[i], cx=X(i);
-    if(!showPrev||pv==null)continue;
+    if(!showPrev||pv==null||noPrev(i))continue;
     const bp=big(i,'prev')||!!noteAt(i,'prev');
     if(flow)s+=showMain
       ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),ghostCol(col),' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
@@ -624,11 +629,11 @@ function yoyPlot(p,ar){
   if(showMain&&!flow)s+='<path class="ln"'+sAttr('main')+' pathLength="1" d="'+polyD(curS,X,Y)+'" fill="none" stroke="'+col+'"'
     +' stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"'+(d0?' style="animation-delay:'+d0+'ms"':'')+'/>';
   if(showMain&&!flow&&part&&nowI>0&&cur[nowI]!=null&&cur[nowI-1]!=null)s+='<path class="lnp"'+sAttr('main')+' d="'+
-    polyD([cur[nowI-1],cur[nowI]],i=>X(nowI-1+i),Y)+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-dasharray="4 3" stroke-linecap="round"/>';
+    polyD([cur[nowI-1],cur[nowI]],i=>X(nowI-1+i),Y)+'" fill="none" stroke="'+col+'" stroke-opacity=".45" stroke-width="2.2" stroke-dasharray="4 3" stroke-linecap="round"/>';
   const yC=CD.YEAR_CUR, yP=CD.YEAR_PREV, step=labelStep(cur,key,bandW);
   let lbl='', mk='';
   for(let i=0;i<12;i++){
-    const c=cur[i], pv=prev[i], b=bench?bench[i]:null, cx=X(i);
+    const c=cur[i], pv=noPrev(i)?null:prev[i], b=bench?bench[i]:null, cx=X(i);
     const rows=[];
     if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:col});
     /* p.tipRows(i) — части значения этого года в подсказке (26.10-б: виды найма), сериями на графике их нет */
@@ -652,7 +657,7 @@ function yoyPlot(p,ar){
         (bm&&!hz?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
       if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm&&!(pl&&i===nowI)?col:'#fff')+'" stroke="'+col+'"'
-        +' stroke-width="2"'+(part&&i===nowI?' stroke-dasharray="2 1.6"':'')+' style="animation-delay:'+num(dly)+'ms"/>';
+        +' stroke-width="2"'+(part&&i===nowI?' stroke-opacity=".45"':'')+' style="animation-delay:'+num(dly)+'ms"/>';
     }
     s+='</g>';
     /* Подписи. У последнего закрытого месяца подписаны обе линии, и подписи
@@ -765,15 +770,15 @@ function drawPair(a,w,h){
   let s=header(w,o.title,o.legend,{kind:'pair',off:o.off})+pt.s;
   const part=CD.matures(A.key)&&sC;
   CD.MONTH_ABBR.forEach((lb,i)=>{
-    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1)){
-      const a=axLbl(lb,i,nowI,A.key);s+=txt(X(i),h-6,a[0],a[1]);
+    if(bandW>=31||i%2===0||i===nowI||i===closedIdx(nowI)){
+      const a=axLbl(lb,i,nowI,A.key,bandW<56);s+=txt(X(i),h-6,a[0],a[1]);
     }
   });
   const yC=String(CD.YEAR_CUR), yP=String(CD.YEAR_PREV);
   const stepA=labelStep(A.cur,A.key,bandW), stepB=labelStep(B.cur,B.key,bandW), step=Math.max(stepA,stepB);
   let lbl='';
   for(let i=0;i<12;i++){
-    const cx=X(i), va=A.cur[i], vb=B.cur[i], pa=A.prev[i], pb=B.prev[i];
+    const np=CD.PARTIAL&&sC&&i===nowI, cx=X(i), va=A.cur[i], vb=B.cur[i], pa=np?null:A.prev[i], pb=np?null:B.prev[i];
     const rows=[];
     if(sA){if(va!=null)rows.push({label:nameA+' · '+yC,value:CD.fmtVal(A.key,va),color:fA});
       if(pa!=null)rows.push({label:nameA+' · '+yP,value:CD.fmtVal(A.key,pa),color:C_PREV})}
@@ -796,8 +801,9 @@ function drawPair(a,w,h){
     /* ноль не подписываем: у переводов он в каждом втором месяце и забивает полотно */
     /* подпись — у конца бара, который показан обычным: прозрачный бар прошлого
        года позади её не сдвигает */
-    if(sA&&up)lbl+=txt(cx,y0-up*u-VAL_DY,CD.fmtVal(A.key,up),valOpt({delay:dly,s:sC?'a':'prev'}));
-    if(sB&&dn)lbl+=txt(cx,y0+dn*u+VAL_DY+VAL_ASC,CD.fmtVal(B.key,dn),valOpt({delay:dly,s:sC?'b':'prev'}));
+    const wt=sC&&i===closedIdx(nowI)?VAL_NOW:VAL_W;
+    if(sA&&up)lbl+=txt(cx,y0-up*u-VAL_DY,CD.fmtVal(A.key,up),valOpt({delay:dly,s:sC?'a':'prev',weight:wt}));
+    if(sB&&dn)lbl+=txt(cx,y0+dn*u+VAL_DY+VAL_ASC,CD.fmtVal(B.key,dn),valOpt({delay:dly,s:sC?'b':'prev',weight:wt}));
   }
   /* ноль — поверх баров: от него растут оба потока */
   s+=line(x0,y0,x0+plotW,y0,C_ZERO,1)+periodAxis(X,bandW,y0,o.period);
