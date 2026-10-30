@@ -11,10 +11,32 @@
 -- =============================================================================
 drop table if exists structure_x_vacancy;
 create table structure_x_vacancy as
-with mx as (select max(issue_day)::date as last_dt from usr_cross_data.vacancy_daily),
-v as (
-    select vd.issue_full_nm::text as vac, vd.issue_day::date as dd, date_trunc('month', vd.issue_day)::date as report_month,
-           vd.approved_dt::date as adt, coalesce(vd.close_flg::int, 0) as cf,
+
+with mx as (
+        select max(issue_day)::date as last_dt 
+        from usr_cross_data.vacancy_daily
+),
+channels as (
+    select * from (values
+        ('Активный поиск'), 
+        ('Внешняяреферальная программа'), 
+        ('Кадровое агентство'), 
+        ('Найден руководителем'), 
+        ('Наша база'), 
+        ('Не удалось получить источник в Candy(Внешнийтип поиска)'),
+        ('Образовательные программы'), 
+        ('Отклики с внешних площадок'), 
+        ('Отклики с нашего сайта'),
+        ('Приведи друга'),
+        ('Ротация')
+    ) t(channel)
+)
+,v as (
+    select vd.issue_full_nm::text as vac
+            , vd.issue_day::date as dd
+            , date_trunc('month', vd.issue_day)::date as report_month
+            , vd.approved_dt::date as adt
+            , coalesce(vd.close_flg::int, 0) as cf,
            -- в работе на конец месяца; у незакрытого месяца — на последний загруженный день
            ((coalesce(vd.end_of_month_flg::int, 0) = 1 or vd.issue_day::date = (select last_dt from mx))
             and vd.status_name_chng_group = 'Согласованные')::int as of_,
@@ -75,8 +97,11 @@ v as (
            case when coalesce(vd.last_dt_flg::int, 0) = 1 and vd.status_name_chng_group = 'Согласованные'
                 then coalesce(nullif(vd.status_name::text, ''), '-') else '' end as status
     from usr_cross_data.vacancy_daily vd
-    where (coalesce(vd.close_flg::int, 0) = 1 or coalesce(vd.end_of_month_flg::int, 0) = 1 or vd.issue_day::date = vd.approved_dt::date
-           or vd.issue_day::date = (select last_dt from mx))
+    -- Адель, 29.10: только каналы подбора из списка; канал процессинга — по префиксу (название юрлица в репозиторий не кладём)
+    where (mapping_channel_name in (select channel from channels) or mapping_channel_name like 'Процессинг %') and
+        (coalesce(vd.close_flg::int, 0) = 1 or coalesce(vd.end_of_month_flg::int, 0) = 1 
+        or vd.issue_day::date = vd.approved_dt::date
+        or vd.issue_day::date = (select last_dt from mx))
 ),
 d as (
     select report_month, mng_unit_rk, leaf_lvl, unit_path, channel, search_reason, cand_lvl, position_lvl,
@@ -97,9 +122,11 @@ select d.report_month, d.mng_unit_rk, d.leaf_lvl, d.unit_path,
        d.channel, d.search_reason, d.cand_lvl, d.position_lvl, d.specialization, d.status,
        d.close_cnt, d.open_cnt, d.new_cnt, d.ttf_days, d.ttf_cnt
 from d
-left join (select distinct report_month::date as report_month, mng_unit_rk::text as mng_unit_rk
-           from org_structure) s
-       on s.report_month = d.report_month and s.mng_unit_rk = d.mng_unit_rk
+left join (
+    select distinct report_month::date as report_month
+        , mng_unit_rk::text as mng_unit_rk
+    from org_structure) s
+    on s.report_month = d.report_month and s.mng_unit_rk = d.mng_unit_rk
 distributed by (mng_unit_rk);
 
 -- итог: строк, открыто и закрыто (сумма по месяцам), из них в юнитах без людей

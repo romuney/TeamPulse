@@ -1,7 +1,7 @@
 -- =============================================================================
 -- TeamPulse Hub
 -- заявки T-роста (поставка 73 — по эталону отчёта «Рост» дашборда HQ и ноутбуку Адели 28.10): по заявке — сотрудник
--- (создатель заявки, creator_mdm_employee_rk; раньше стоял ключ заявки), месяц начала (дата старта согласования, иначе
+-- месяц начала (дата старта согласования, иначе
 -- создания — по нему юнит заявки), месяц итога (valid_from_dttm — последняя смена статуса: для одобренной и
 -- отклонённой — месяц решения), грейд и специализация сейчас и желаемые, статус, тип (смена специализации — по
 -- specialization_change_flg, иначе повышение грейда), поток T@T (у заявки есть уровень T@T). Как в эталоне: только
@@ -35,7 +35,7 @@ left join prod_v_dds_dic.mdm_employee_appl_status s
     on ap.mdm_employee_appl_status_cd = s.mdm_employee_appl_status_cd
 where ap.valid_to_dttm = '5999-01-01 00:00:00'
     and ap.mdm_employee_appl_status_cd <> 'DRT'
-    and ap.current_specialization_oper_code = 'Hq'
+    --and ap.current_specialization_oper_code = 'Hq'
     and coalesce(ap.current_specialization_desc, '') not in ('Стажеры IT', 'Стажеры Digital', 'Стажеры non-IT')
 
 distributed by (mdm_employee_rk, month);

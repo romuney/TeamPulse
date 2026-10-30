@@ -1,7 +1,8 @@
 -- =============================================================================
 -- TeamPulse Hub
 -- заявки T-роста к людям (Адель, 27.10): за месяц — одобрено, отклонено, отменено, в работе, из них T@T (к одной
--- строке человека в месяце; поставка 73 — по месяцу итога заявки); за всё время — сколько заявок подавал, признаки «ни разу», «впервые», «повторно»
+-- строке человека в месяце; поставка 73 — по месяцу итога заявки); 
+-- за всё время — сколько заявок подавал, признаки «ни разу», «впервые», «повторно»
 -- =============================================================================
 drop table if exists all_metrics_with_performance_and_office_traffic_and_grt ;
 create table all_metrics_with_performance_and_office_traffic_and_grt as
@@ -32,7 +33,7 @@ select m.*
     , coalesce(o.is_declined, 0) as grt_decline_cnt
     , coalesce(o.is_cancelled, 0) as grt_cancel_cnt
     , coalesce(o.is_inprogress, 0) as grt_inprogress_cnt
-    
+
     , coalesce(e.grt_app_cnt, 0) as grt_app_cnt
     , coalesce(o.tat, 0) as grt_tat_cnt --из них ТаТ
     , case when e.mdm_employee_rk is null then 1 else 0 end as grt_no_app_flg   -- ни разу не подавал заявку в Т-Росте

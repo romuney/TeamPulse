@@ -72,6 +72,8 @@ EXTRA = {
          "    'teampulse_hub_vacancy': 'prod_proteus.teampulse_hub_vacancy',  # вакансии по узлам\n"
          "    'teampulse_hub_ai':      'prod_proteus.teampulse_hub_ai',       # AI-инструменты по узлам\n"
          "}"),
+        # Адель, 29.10: владелец таблиц — d.stonis
+        ("OWNERS = ['d.i.dyachenko',", "OWNERS = ['d.stonis',"),
     ],
 }
 # порядок и состав: индекс параграфа TP 2.0 или новый параграф (заголовок, shebang, файл)
@@ -131,7 +133,8 @@ CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub che
            72: {'hub · 0 колонки', 'hub · 5 переходы'},
            73: {'EXEC build_all_metrics', 'rost_info', 'with_TRost', 'structure_x_rost', 'hub · 0 колонки', 'hub · 4 разрезы',
                 'hub checks'},
-           81: {'hub · 0 колонки', 'hub · 4 разрезы'}}
+           81: {'hub · 0 колонки', 'hub · 4 разрезы'},
+           86: {'structure_x_vacancy', 'rost_info', 'with_TRost', 'to click'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 
