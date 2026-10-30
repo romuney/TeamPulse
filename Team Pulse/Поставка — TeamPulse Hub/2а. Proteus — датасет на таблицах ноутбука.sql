@@ -161,11 +161,14 @@
 {% set CVK = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^cv_k$') APPLY(toString)], CAST([''], 'Array(Nullable(String))')), 1), '')" %}
 {#- 28.10: специализация строки переходов (sp_cd) — матчером; нет колонки — пусто, строки отбрасываются. -#}
 {% set SPC = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^sp_cd$') APPLY(toString)], CAST([''], 'Array(Nullable(String))')), 1), '')" %}
-{#- 31.10, п. 10: переводы по специализациям — по флагам источника transfer_to / transfer_out_specialization_flg (fsp
-    строки переходов, матчером). Таблица ноутбука до 31.10 колонки не знает (−1) — как раньше: переводы юнита. -#}
+{#- 31.10, п. 10; поставка 90 (заказчик): переводы по специализациям — по флагам переводов под фильтры (TI / TU: вход в
+    выбор и выход из него) ИЛИ по флагу смены специализации transfer_to / transfer_out_specialization_flg (fsp строки
+    переходов, матчером) — смена специализации и внутри выбора тоже перевод; строка одна — перевод один. Тогда «на начало +
+    найм + переводы в − отток − переводы из = на конец» сходится по каждой специализации и в ИТОГО. Таблица ноутбука до
+    31.10 колонки fsp не знает (−1) — только переводы юнита. -#}
 {% set FSP = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^fsp$') APPLY(toFloat64)], [toFloat64(-1)]), 1), -1)" %}
-{% set SI = "if(" ~ FSP ~ " < 0, " ~ TI ~ ", toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FSP ~ " = 1))" %}
-{% set SU = "if(" ~ FSP ~ " < 0, " ~ TU ~ ", toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND " ~ FSP ~ " = 1))" %}
+{% set SI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND ((" ~ FLG ~ " AND ifNull(in_ok, 1) = 1) OR " ~ FSP ~ " = 1))" %}
+{% set SU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1))" %}
 {#- Поставка 66: ряд таблицы series — матчером: таблица ноутбука до 66 колонки не знает — нули. -#}
 {% macro optf(c) -%}ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^{{ c }}$') APPLY(toFloat64)], [toFloat64(0)]), 1), 0){%- endmacro %}
 {% macro hk(v) -%}

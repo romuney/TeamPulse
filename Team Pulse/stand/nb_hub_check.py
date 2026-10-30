@@ -208,12 +208,12 @@ def main():
                         want_v['e'] = nb.truth_age(U, people, rk, raw.get(name, pred), act)
                         if not want_v['rs']:
                             bad['T-рост пуст'] += 1
-                        # 28.10, п. 1: найм по специализации — в сумме = ряду с начала года. 31.10, п. 10: переводы в и из
-                        # по специализациям — по флагам смены специализации, по значениям (truth_spec_move)
+                        # 28.10, п. 1: найм по специализации — в сумме = ряду с начала года. Переводы в и из по
+                        # специализациям — по флагам переводов под фильтры или смены специализации (поставка 90, truth_spec_move)
                         ytd_ = nb.ytd_months()             # поставка 90: январь..последний закрытый месяц
                         if abs(mx['tsh'] - sum(T[(rk, m)]['hire'] for m in ytd_)) > 0.5:
                             bad['mx tsh'] += 1
-                        want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act))
+                        want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act, chg))
                         if not mxv.get('tsh'):
                             bad['движение по специализациям пусто'] += 1
                         # поставка 90: окно — январь..сентябрь стенда; у узких выборов («только Подрядчики») смен специализации

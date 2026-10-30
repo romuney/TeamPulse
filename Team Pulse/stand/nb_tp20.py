@@ -815,25 +815,39 @@ def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE, chg=()):
     return T
 
 
-def truth_spec_move(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
-    """31.10, п. 7 и 10: переводы по специализациям узла rk с начала года — по флагам смены специализации: tsi — в новую
-    (строка первого дня в ней), tso — из старой (строка последнего дня в ней; последний день месяца — в следующий месяц).
-    Узел и срез — строки этого дня. Поставка 90: с января по последний закрытый месяц (cm)"""
+def truth_spec_move(U, people, rk, pred=lambda p, d: True, act=ACTIVE, chg=()):
+    """31.10, п. 7 и 10; поставка 90 (заказчик): переводы по специализациям узла rk — по флагам переводов под фильтры (как
+    truth_trf: вход в узел и выбор, выход из них, смена атрибута, по которому стоит фильтр) ИЛИ по флагу смены
+    специализации внутри выбора; одно событие — один перевод. «В» — в специализацию первого дня нового состояния, «из» —
+    из специализации последнего дня старого; кандидат или стажёр в «в» не идёт, кроме смены специализации. Так
+    «на начало + найм + переводы в − отток − переводы из = на конец» сходится по каждой специализации и в ИТОГО.
+    Месяц — день события (последний день старого состояния в конце месяца — уже следующий). С января по cm"""
     lm = closed_month()
     out = {'tsi': defaultdict(float), 'tso': defaultdict(float)}
+    F = lambda p, d: pred(p, d) and (act is None or at(p['acth'], d) in act)
+    inn = lambda p, d: F(p, d) and (rk == 'all' or rk in path(U, at(p['unit'], d)))
     for p in people:
+        last = p['end'] or D1
+        conv = {c for c, _ in p['conv']}
         ch = sp_change(p)
-        if not ch:
-            continue
-        for k, d in (('tsi', ch[0]), ('tso', ch[0] - dt.timedelta(1))):
-            md = d + dt.timedelta(1) if k == 'tso' and (d + dt.timedelta(1)).day == 1 else d
-            m = dt.date(md.year, md.month, 1)
-            if not (m.year == lm.year and m <= lm and d >= D0):
+        days = {d for k in ('unit', 'acth', 'operh', 'ith', 'relh') for d, _ in p[k][1:]} | ({ch[0]} if ch else set())
+        for d in sorted(days):
+            if not (max(p['start'], D0) < d <= last):
                 continue
-            if not (pred(p, d) and (act is None or at(p['acth'], d) in act)):
+            m = dt.date(d.year, d.month, 1)
+            if not (m.year == lm.year and m <= lm):
                 continue
-            if rk == 'all' or rk in path(U, at(p['unit'], d)):
-                out[k][spec_at(p, d)] += 1
+            a = d - dt.timedelta(1)
+            ia, ib, sa, sb = inn(p, a), inn(p, d), spec_at(p, a), spec_at(p, d)
+            if ib and not ia:
+                if d not in conv:
+                    out['tsi'][sb] += 1
+            elif ia and not ib:
+                out['tso'][sa] += 1
+            elif ia and ib and (sa != sb or any(at(p[k], a) != at(p[k], d) for k in chg)):
+                out['tso'][sa] += 1
+                if sa != sb or d not in conv:
+                    out['tsi'][sb] += 1
     return {k: dict(v) for k, v in out.items()}
 
 
