@@ -64,6 +64,8 @@ const PARTIAL=ASOF.d<DIM(ASOF.y,ASOF.m);
 const PER_PART=PARTIAL&&ASOF.m===0, PER_I=LAST-(PARTIAL&&!PER_PART?1:0), PER_C=MONTHS[PER_I].m;
 const PER_SPAN=PER_PART?'1–'+ASOF.d+' янв.':PER_C?'янв.–'+MONTH_ABBR[PER_C]:'янв.';
 const PER_TEXT=PER_PART?'с 1 по '+ASOF.d+' января':PER_C?'с января по '+MONTH_NOM[PER_C]:'за январь';
+/* поставка 99: окно для шапки экрана — «январь–сентябрь»; называется один раз, в строках — только исключения */
+const PER_NAME=PER_PART?'1–'+ASOF.d+' января':PER_C?'январь–'+MONTH_NOM[PER_C]:'январь';
 /* разрезы за один месяц (офис: сегменты, города, бронь) — закрытый месяц, «сентябрь 2026»; perVal — значение в нём */
 const PER_MON=PER_PART?'1–'+ASOF.d+' января '+ASOF.y:monthNom(MONTHS[PER_I]);
 function perVal(lp,key){return aggregate(lp,key)[PER_I]}
@@ -2983,7 +2985,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  PER_I,PER_C,PER_SPAN,PER_TEXT,PER_PART,PER_MON,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
+  PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,ROST_ST,ROST_LIVE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};

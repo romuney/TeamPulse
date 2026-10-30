@@ -187,7 +187,8 @@ function metricFact(m,S,rl,bl){
   const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):D.compareState(key,v,ref);
   const f=x=>D.fmtVal(key,x), w=kpi?'цели':'базы', pv=P.pv;
   const ago=pv!=null?'Год назад — '+f(pv)+'.':'';
-  const tr=worsening(m,ext,L), nm=m.name+', '+(STOCK.has(key)?'сейчас':D.PER_SPAN);
+  /* поставка 99: окно периода названо в шапке экрана, у имени метрики — только «сейчас» у состояний */
+  const tr=worsening(m,ext,L), nm=m.name+(STOCK.has(key)?', сейчас':'');
   if(st==='bad'&&rel(v,ref)>=OBS.dev)
     return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — хуже '+w+' '+f(ref),
       body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr,L,mon};
@@ -388,11 +389,16 @@ function miniOf(f,rl,bl){
 function cardOf(f,S,rl,bl){
   const m=D.METRIC_BY_KEY[f.key], bad=f.sev!=='good', fv=x=>D.fmtVal(f.key,x);
   const bk=f.kind==='spike'&&D.blockVisible('turnover',S)?'turnover':m.block, b=D.BLOCK_BY_KEY[bk];
+  /* поставка 99 (критики: «технический заголовок»): заголовок — что происходит человеческим языком (say), число — крупно
+     отдельной строкой с именем метрики, отклонение — цветным чипом; у месячных долей — «в среднем за месяц» */
   let head=f.lead;
-  const mn=m.name+', '+(STOCK.has(f.key)?'сейчас':D.PER_SPAN);
-  if(f.kind==='dev')head=mn+' '+fv(f.v)+(f.kpi?' при цели '+fv(f.ref):' — '+(f.v>f.ref?'выше':'ниже')+', чем по базе ('+fv(f.ref)+')');
-  else if(f.kind==='yoy')head=mn+' '+fv(f.v)+' — '+(f.v>f.pv?'выше':'ниже')+', чем год назад ('+fv(f.pv)+')';
+  const mn=m.name+(STOCK.has(f.key)?', сейчас':'');
+  if(f.kind==='dev'||f.kind==='yoy')head=cap(say(f));
   else if(f.kind==='trend')head=m.name+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд: '+fv(f.tr.a)+' → '+fv(f.tr.b);
+  const cmpV=f.kind==='dev'?f.ref:f.kind==='yoy'?f.pv:null, dv=cmpV==null?null:+(f.v-cmpV).toFixed(2);
+  const big=f.kind==='dev'||f.kind==='yoy'?{v:fv(f.v),name:mn+(/^(turnover_m|underwork|overwork|ai_penetration)$/.test(f.key)?', в среднем за месяц':''),
+    chip:dv==null?'':D.fmtDelta(f.key,dv)+(f.kind==='dev'?(f.kpi?' к цели ':' к базе ')+fv(f.ref):' к году назад '+fv(f.pv)),
+    cls:bad?'down':'up'}:null;
   const body=[];
   /* уходы — сначала людьми: сколько ушло с января и сколько год назад за те же месяцы.
      Фраза одна на все выводы (cards ставит её только в первый) */
@@ -427,7 +433,7 @@ function cardOf(f,S,rl,bl){
   const wh=bad&&/^(dev|yoy|spike)$/.test(f.kind)?whereOf(f,S):null;
   if(wh&&wh.top)body.push((wh.share>=0.8?'Почти вся эта разница':'Больше половины этой разницы')+' — в <b>«'+esc(wh.top.n.name)+'»</b>.');
   if(wh&&wh.top)pills.push((wh.share>=0.8?'почти всё':'больше половины')+' — <b>«'+esc(wh.top.n.name)+'»</b>');
-  if(f.kind==='dev'&&f.pv!=null)pills.push('год назад '+esc(fv(f.pv)));
+  const sub=f.kind==='dev'&&f.pv!=null?'год назад '+fv(f.pv):'';
   if(f.kind==='dev'&&f.pv!=null&&!leave)body.push('Год назад — '+esc(fv(f.pv))+'.');
   if(f.kind==='dev'&&f.tr)body.push(esc(cap(trendWord(m)))+'.');
   let todo='Держать курс: отдельных действий не нужно.';
@@ -441,7 +447,7 @@ function cardOf(f,S,rl,bl){
   const ref=f.kind==='dev'?(f.kpi?'цель ':'база ')+fv(f.ref):f.kind==='yoy'?'год назад '+fv(f.pv)
     :f.kind==='trend'?fv(f.tr.a)+' → '+fv(f.tr.b):'';
   const kp=esc(mn)+' <b>'+esc(fv(f.kind==='trend'?f.tr.b:f.v))+'</b>'+(ref?' · '+esc(ref):'');
-  return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,pills,kp,
+  return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,pills,kp,big,sub,
     ppl:n,where:wh,chart:miniOf(f,rl,bl),
     btn:wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:{label:'Открыть «'+b.name+'»',tab:bk}};
 }

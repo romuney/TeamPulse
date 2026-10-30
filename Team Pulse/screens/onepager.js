@@ -95,6 +95,10 @@ function insightCard(c){
   return '<div class="in-card '+c.sev+'"><div class="in-t"><span class="in-tag">'+esc(c.tag)+'</span>'+
     '<span class="in-blk">· '+esc(c.blockName)+'</span></div>'+
     '<div class="in-row"><div class="in-txt"><div class="in-h">'+esc(c.head)+'</div>'+
+      /* поставка 99: число крупно с именем метрики и цветным чипом отклонения; год назад — строкой */
+      (c.big?'<div class="in-num"><b>'+esc(c.big.v)+'</b><span class="in-mn">'+esc(c.big.name)+'</span>'+
+        (c.big.chip?'<span class="delta '+c.big.cls+'">'+esc(c.big.chip)+'</span>':'')+'</div>':'')+
+      (c.sub?'<div class="in-sub">'+esc(c.sub)+'</div>':'')+
       /* 30.10, шаг 2: факты — пилюлями, а не абзацем */
       (c.pills&&c.pills.length?'<div class="in-pl">'+c.pills.map(t=>'<span>'+t+'</span>').join('')+'</div>'
         :c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
@@ -108,7 +112,8 @@ function normOf(S,rl,all){
   const has=new Set(all.map(c=>c.key));
   /* поток незакрытого месяца «в норме» не бывает: месяц ещё идёт (26.10, ревью критиков) */
   /* поставка 90: значения — за период (D.periodTotal), незакрытого месяца в них нет */
-  return D.METRICS.filter(m=>D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!has.has(m.key)&&D.periodTotal(rl,m.key));
+  /* поставка 99 (критик-аналитик): «прирост с начала года» не повторяем — он уже в сводке над карточками */
+  return D.METRICS.filter(m=>m.key!=='net_ytd'&&D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!has.has(m.key)&&D.periodTotal(rl,m.key));
 }
 function normRow(S,rl,ok){
   const NP=7, dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
@@ -116,7 +121,7 @@ function normRow(S,rl,ok){
       text:'Метрики без заметных отклонений от ориентира и от прошлого года. Количества (численность, найм) не оцениваются — показаны значением.'})+
     '>✓ В норме</span>'+
     ok.slice(0,NP).map(m=>'<button class="in-pill" data-opfact="'+m.key+'"'+U.tipAttr({title:m.name,text:m.hint})+'>'+
-      esc(m.name)+' <b>'+D.periodTotal(rl,m.key).cur+'</b> '+esc(D.periodTotal(rl,m.key).lab)+'</button>').join('')+
+      esc(m.name)+' <b>'+D.periodTotal(rl,m.key).cur+'</b>'+(D.periodTotal(rl,m.key).stock?' сейчас':'')+'</button>').join('')+
     (ok.length>NP?'<button class="in-pill more" data-opscroll="1">+'+(ok.length-NP)+' '+U.plural(ok.length-NP,['метрика','метрики','метрик'])+'</button>':'')+
     (dev?'<button class="in-pill dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
       dev+' в разработке</button>':'')+
@@ -145,7 +150,10 @@ function render(S,openRows){
   let h='<div class="page-h"><h2>'+(D.PARTIAL?'Главное на '+esc(D.ASOF_LABEL):'Главное за '+esc(D.CMP.cur))+'</h2>'+
     '<p>'+esc(node.name||'Команда')+' · '+D.fmtInt(hc)+' '+U.plural(Math.round(hc),['человек','человека','человек'])+' · '+
     D.hcLabel(S)+' · сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
-    '</b> и прошлым годом'+obsInfo(S)+'</p></div>';
+    '</b> и прошлым годом'+obsInfo(S)+'</p>'+
+    /* поставка 99: окно чисел — один раз, строкой-контрактом, а не в каждой строке выводов */
+    '<p class="per-line">Числа — за <b>'+esc(D.PER_NAME)+' '+D.YEAR_CUR+'</b> против того же периода '+D.YEAR_PREV+
+    '; численность и открытые вакансии — на '+esc(D.ASOF_LABEL)+'</p></div>';
 
   /* 2 · сводка и карточки выводов. Видно четыре, остальные (до восьми) — по
      «Ещё N»: та же кнопка data-ai, что раскрывала «Что видно в данных». */
@@ -215,7 +223,7 @@ function render(S,openRows){
       const open=openRows.has(m.key);
       t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
         '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
-        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.lab?'<span class="m-per">'+esc(P.lab)+'</span>':'')+'</td>'+
+        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.stock?'<span class="m-per">сейчас</span>':'')+'</td>'+
         /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
         '<td class="col-num">'+U.deltaChip(m.key,dl.mom,Object.assign(cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip},{neu:/^на конец/.test(P.lab||'')}))+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:{title:'Год к году',text:(P.head||'')+' против того же периода год назад.'}})+'</td>'+

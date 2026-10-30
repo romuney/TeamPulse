@@ -1546,9 +1546,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
     inCards.length===Math.min(I.CARD.show,cs.length)&&/class="in-ok"/.test(home)&&
     /class="mtable"/.test(home)&&!/class="kpis/.test(home)&&!/class="ai insight|data-opall/.test(home)&&
     /<div class="in-lead"><span class="in-ico"><img/.test(home)&&!/AI-подсказка/.test(home.split('<table')[0])]);
-  checks.push(['карточка: категория точкой (огонёк — только у сводки), блок, заголовок с цифрой, мини-график, «Что сделать» и переход',
+  checks.push(['карточка: категория точкой (огонёк — только у сводки), блок, заголовок словами, крупное число, мини-график, «Что сделать» и переход',
     inCards.length>0&&inCards.every(c=>/^(high|mid|good)"><div class="in-t"><span class="in-tag">/.test(c)&&!/class="in-ico"/.test(c)&&/class="in-tag">(Требует действий|Посмотреть|Хорошая новость)</.test(c)&&
-      /class="in-h">[^<]*\d/.test(c)&&/<svg class="mini"/.test(c)&&!/#[0-9a-f]{3,6}/i.test(c.split('<svg class="mini"')[1].split('</svg>')[0])&&
+      /class="in-h">[^<]*[а-я]/.test(c)&&/* поставка 99: цифра — в крупном числе, не в заголовке */
+      (/class="in-num"><b>[^<]*\d/.test(c)||!/class="in-num"/.test(c))&&/<svg class="mini"/.test(c)&&!/#[0-9a-f]{3,6}/i.test(c.split('<svg class="mini"')[1].split('</svg>')[0])&&
       /class="in-do">/.test(c)&&/data-(tab|opgo)="/.test(c))]);
   checks.push(['выводы: до восьми, по тяжести, внутри — по людям сверх ориентира; заглушек нет',
     cs.length<=8&&cs.every((c,i,a)=>!i||rank[a[i-1].sev]<rank[c.sev]||(a[i-1].sev===c.sev&&a[i-1].ppl>=c.ppl))&&
@@ -1819,11 +1820,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
   S.paint=p0;
   checks.push(['«Рост HQ»: переключение покраски не меняет вкладку',tg[0]===tg[1]&&tg[1]===tg[2]]);
   const hi=A.go('hiring','profile'), th=(hi.split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
-  /* поставка 90: окно колонок — как итог под графиком: открытые — сейчас, закрытые и срок — янв.–закрытый месяц */
+  /* поставка 99: окно названо в шапке блока; подпись колонки — только у исключения («сейчас») */
   const sp90=U.esc(D.PER_SPAN);
-  checks.push(['«Найм и вакансии HQ»: без «Внутр. найм», открытые — сейчас, закрытые и срок — за период итога',
+  checks.push(['«Найм и вакансии HQ»: без «Внутр. найм», открытые — сейчас, закрытые и срок — без подписи окна, окно — в шапке',
     D.BLOCK_BY_KEY.hiring.name==='Найм и вакансии HQ'&&!/Внутр\. найм/.test(th)&&/Открытые<span class="th-per">сейчас/.test(th)&&
-    th.indexOf('Закрытые<span class="th-per">'+sp90)>=0&&th.indexOf('Срок<span class="th-per">'+sp90)>=0]);
+    th.replace(/ data-tip="[^"]*"/g,'').indexOf(sp90)<0&&/Закрытые/.test(th)&&/Срок/.test(th)&&hi.indexOf('<b>'+U.esc(D.PER_NAME)+'</b> против того же периода')>=0]);
   const lp=D.reportLeaves(D.DEFAULT_STATE);
   checks.push(['закрытые в таблице = сумма с января',Math.abs(D.ytdTableVal(lp,'vac_closed')-D.sumWin(D.aggregate(lp,'vac_closed'),'ytd'))<1e-9]);
   const gr=A.go('tgrowth','grades'), sp=A.go('tgrowth','spec');
@@ -1831,8 +1832,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /Повышение грейда по месяцам, заявок/.test(gr)&&/data-s="prev"/.test(gr.split('Повышение грейда по месяцам')[1]||'')&&
     /class="ptable stable dense rost-t succ"/.test(sp)]);
   const tgt=(A.go('tgrowth','flow').split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
-  checks.push(['«Рост HQ»: одобрено, отклонено и конверсия в таблице подразделений — за период итога',
-    tgt.split('th-per">'+U.esc(D.PER_SPAN)).length-1===3]);
+  checks.push(['«Рост HQ»: в таблице подразделений окно не повторяется — оно в шапке блока',
+    /Одобрено/.test(tgt)&&tgt.replace(/ data-tip="[^"]*"/g,'').indexOf(U.esc(D.PER_SPAN))<0&&A.go('tgrowth','flow').indexOf('<b>'+U.esc(D.PER_NAME)+'</b>')>=0]);
 })();
 
 /* поставка 83 (задача 3): «Рост HQ», дисклеймер охвата, цвета Рост / T@T, подсказка подразделения */

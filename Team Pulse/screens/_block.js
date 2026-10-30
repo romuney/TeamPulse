@@ -323,7 +323,8 @@ function renderBlock(S,expanded,mixOpen,view){
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
   const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key]));
-  const perOf=k=>b.key==='structure'?'':pt(k).lab||'';
+  /* поставка 99: окно периода названо в шапке вкладки — под колонкой подписаны только исключения («сейчас», «на конец …») */
+  const perOf=k=>b.key==='structure'||pt(k).lab===D.PER_SPAN?'':pt(k).lab||'';
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
@@ -549,7 +550,9 @@ function renderBlock(S,expanded,mixOpen,view){
      с её именем, там, куда смотрят, читая её графики. */
   h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
     subHtml:esc(selNode.name)+(sel!==root?'':' · всё подразделение')+
-      (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:''),
+      (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
+      /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
+      (b.key==='structure'?'':' · <b>'+esc(D.PER_NAME)+'</b> против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';

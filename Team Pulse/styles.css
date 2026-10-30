@@ -288,6 +288,12 @@ button,select,input,textarea{font-family:inherit}
 .m-val{text-align:right;font-size:var(--fs-head);font-weight:var(--fw-bold);white-space:nowrap}
 /* поставка 92: окно значения («янв.–сент.», «сейчас») — мелкой серой строкой под числом, не вторым значением */
 .m-val .m-per{display:block;font-size:11px;font-weight:var(--fw-body);color:var(--muted);margin-top:2px}
+/* поставка 99: карточка вывода — число крупно, имя метрики мелко, отклонение чипом; строка-контракт окна в шапке главной */
+.in-num{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin-top:6px}
+.in-num>b{font-size:24px;font-weight:var(--fw-bold);color:var(--ink);line-height:1.1}
+.in-mn{font-size:var(--fs-body);color:var(--muted)}
+.in-sub{margin-top:2px;font-size:var(--fs-body);color:var(--muted)}
+.page-h .per-line{margin-top:2px;color:var(--ink3)}
 .col-num{text-align:right}
 .tgt{font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);line-height:1.4;white-space:nowrap;text-align:right}
 .tgt b{color:var(--ink2);font-weight:var(--fw-body);display:block;font-size:var(--fs-body)}

@@ -3151,3 +3151,11 @@ CH_H; minH поставки 94 снят. Замер 1440×900: водопад 36
 снова рисуется (бары, точки, пара — np снят), без подписи (`both` с !noPrev) и без «год к году» (PART_NOTE). drawPanels: kr —
 легенда второй строкой, если не помещается. insights.js: STATE_NUM (perf_low, perf_high, ai_wau) — denOf средний за
 месяц, excess.win 'mon' → «≈ N человек в месяц» (критик-аналитик: было ×9, человеко-месяцы).
+
+**31.10, поставка 99 — редактура окна (вариант «Текст + новая карточка», три критика-редактора).** data.js: PER_NAME
+(«январь–сентябрь»). onepager.js: строка .per-line под h2 главной; normOf без net_ytd; в пилюлях нормы и m-per таблицы —
+только «сейчас» у stock. _block.js: subHtml split-r + « · <b>PER_NAME</b> против того же периода YEAR_PREV» (кроме
+structure); perOf прячет lab===PER_SPAN — подпись колонки остаётся у исключений. story.js: PTc/SP убраны из сумм, шагов и
+ледов (исключение — строка 419). insights.js: заголовок dev/yoy — cap(say(f)) без цифры; big {v, name, chip, cls} и sub
+«год назад» (вместо пилюли); STOCK — «, сейчас» к имени. styles.css: .in-num, .in-mn, .in-sub, .page-h .per-line.
+smoke: проверка карточки (цифра в .in-num), найм/«Рост HQ» — окно в шапке, не в th-per (data-tip не считаем).
