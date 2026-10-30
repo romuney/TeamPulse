@@ -1252,9 +1252,10 @@ function chart(kind,args,opt){
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
   /* opt.cls — модификатор контейнера */
-  const mh=kind==='panels'?panelsMin(args.panels):0;
+  /* поставка 94 (заказчик: «графики стали плоские»): opt.minH — нижняя граница высоты полотна главы, сверх общих 220px */
+  const mh=Math.max(kind==='panels'?panelsMin(args.panels):0,opt.minH||0);
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
-    (mh?' style="min-height:'+mh+'px;--np:'+args.panels.length+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
+    (mh?' style="min-height:'+mh+'px'+(kind==='panels'?';--np:'+args.panels.length:'')+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
 }
 /* 31.10 (поставка 82): экран приложения сразу перемеряет графики под настоящую ширину — черновое полотно 900px
    строилось и разбиралось браузером зря (треть времени клика). На время сборки экрана app.js включает «ленивый»

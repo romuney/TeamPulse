@@ -6928,9 +6928,10 @@ function chart(kind,args,opt){
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
   /* opt.cls — модификатор контейнера */
-  const mh=kind==='panels'?panelsMin(args.panels):0;
+  /* поставка 94 (заказчик: «графики стали плоские»): opt.minH — нижняя граница высоты полотна главы, сверх общих 220px */
+  const mh=Math.max(kind==='panels'?panelsMin(args.panels):0,opt.minH||0);
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
-    (mh?' style="min-height:'+mh+'px;--np:'+args.panels.length+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
+    (mh?' style="min-height:'+mh+'px'+(kind==='panels'?';--np:'+args.panels.length:'')+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
 }
 /* 31.10 (поставка 82): экран приложения сразу перемеряет графики под настоящую ширину — черновое полотно 900px
    строилось и разбиралось браузером зря (треть времени клика). На время сборки экрана app.js включает «ленивый»
@@ -10382,7 +10383,7 @@ SC.blocks.movement={
          legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]})+specMove(ctx.lp,ctx);
     }
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
-    return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
+    return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:340,minH:340,fill:true,
         title:'Изменение численности, чел',
         legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
       U.storyFacts(ctx.story&&ctx.story.insights,'Что важно');
@@ -10439,7 +10440,7 @@ function hqView(ctx){
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
       period:D.periodTotal(h.lp,r.key,r.yoy)}))},
-      {h:520,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
+      {h:720,minH:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
 }
 
@@ -10454,12 +10455,12 @@ function initChart(ctx){
   const c=xs.find(x=>x.key===ctx.S.exitIni)||xs.slice().sort((a,b)=>b.n-a.n)[0];
   return '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Текучесть по инициатору, %</span>'+
       U.segToggle('data-exitini',xs.map(x=>[x.key,INI_SHORT[x.key]||x.name]),c.key)+'</div>'+
-    SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:240,fill:false,
+    SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:280,fill:false,
       color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>'+
     /* 27.10-в, п. 11: под ней — накопительная того же инициатора (переключатель общий): сумма месячной с января, как
        «Текучесть накопительная»; в сумме по инициаторам — она и есть */
     '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Накопительная текучесть по инициатору, %</span></div>'+
-    SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:240,
+    SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:280,
       fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>';
 }
 /* сумма месячной с января по ряду года; месяцы без значения остаются пустыми */
@@ -10537,7 +10538,7 @@ SC.blocks.turnover={
     return SC.yoyPanels(lp,[
       {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
       {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
-      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}]);
+      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,minH:720});
   }
 };
 })();
@@ -10721,7 +10722,7 @@ function flowBlock(f,what,head){
   return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
       'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
     G.chart('stack',{periods:f.months,cats:[['rost','Рост',C_R],['tat','T@T',C_T]],unit:' заявок'},
-      {title:head,h:250,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
+      {title:head,h:300,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
 }
 /* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
    «Рост» и T@T — в подсказке месяца; линии базы нет */
@@ -10730,7 +10731,7 @@ function flowYoy(ctx,f,what,head){
   if(!y)return flowBlock(f,what,head);
   return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
       'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
-    SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:250,fill:false,
+    SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:300,fill:false,
       color:C_R,title:head,tipName:'повышение грейда',
       tipRows:i=>[{label:'· Рост',value:D.fmtInt(y.rost[i]||0),color:C_R},{label:'· T@T',value:D.fmtInt(y.tat[i]||0),color:C_T}]});
 }
@@ -10762,9 +10763,9 @@ SC.blocks.tgrowth={
   view(ctx){
     if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp));
     if(ctx.sub==='spec')return specs(D.rostProfile(ctx.lp));
-    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
+    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,minH:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
-        {h:300,title:'Одобренные и отклонённые заявки',
+        {h:300,minH:300,title:'Одобренные и отклонённые заявки',
          legend:[{name:'Одобрено',color:G.C_IN},{name:'Отклонено',color:G.C_OUT}]});
   }
 };

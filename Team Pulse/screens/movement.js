@@ -106,7 +106,7 @@ SC.blocks.movement={
          legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]})+specMove(ctx.lp,ctx);
     }
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
-    return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:300,fill:true,
+    return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:340,minH:340,fill:true,
         title:'Изменение численности, чел',
         legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
       U.storyFacts(ctx.story&&ctx.story.insights,'Что важно');

@@ -45,7 +45,7 @@ function hqView(ctx){
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
       period:D.periodTotal(h.lp,r.key,r.yoy)}))},
-      {h:520,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
+      {h:720,minH:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
 }
 
@@ -60,12 +60,12 @@ function initChart(ctx){
   const c=xs.find(x=>x.key===ctx.S.exitIni)||xs.slice().sort((a,b)=>b.n-a.n)[0];
   return '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Текучесть по инициатору, %</span>'+
       U.segToggle('data-exitini',xs.map(x=>[x.key,INI_SHORT[x.key]||x.name]),c.key)+'</div>'+
-    SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:240,fill:false,
+    SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:280,fill:false,
       color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>'+
     /* 27.10-в, п. 11: под ней — накопительная того же инициатора (переключатель общий): сумма месячной с января, как
        «Текучесть накопительная»; в сумме по инициаторам — она и есть */
     '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Накопительная текучесть по инициатору, %</span></div>'+
-    SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:240,
+    SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:280,
       fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>';
 }
 /* сумма месячной с января по ряду года; месяцы без значения остаются пустыми */
@@ -143,7 +143,7 @@ SC.blocks.turnover={
     return SC.yoyPanels(lp,[
       {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
       {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
-      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}]);
+      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,minH:720});
   }
 };
 })();

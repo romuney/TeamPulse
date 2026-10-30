@@ -57,7 +57,7 @@ function flowBlock(f,what,head){
   return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
       'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
     G.chart('stack',{periods:f.months,cats:[['rost','Рост',C_R],['tat','T@T',C_T]],unit:' заявок'},
-      {title:head,h:250,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
+      {title:head,h:300,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
 }
 /* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
    «Рост» и T@T — в подсказке месяца; линии базы нет */
@@ -66,7 +66,7 @@ function flowYoy(ctx,f,what,head){
   if(!y)return flowBlock(f,what,head);
   return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
       'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
-    SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:250,fill:false,
+    SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:300,fill:false,
       color:C_R,title:head,tipName:'повышение грейда',
       tipRows:i=>[{label:'· Рост',value:D.fmtInt(y.rost[i]||0),color:C_R},{label:'· T@T',value:D.fmtInt(y.tat[i]||0),color:C_T}]});
 }
@@ -98,9 +98,9 @@ SC.blocks.tgrowth={
   view(ctx){
     if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp));
     if(ctx.sub==='spec')return specs(D.rostProfile(ctx.lp));
-    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
+    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,minH:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
-        {h:300,title:'Одобренные и отклонённые заявки',
+        {h:300,minH:300,title:'Одобренные и отклонённые заявки',
          legend:[{name:'Одобрено',color:G.C_IN},{name:'Отклонено',color:G.C_OUT}]});
   }
 };
