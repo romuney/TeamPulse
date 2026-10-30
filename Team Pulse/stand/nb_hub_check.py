@@ -351,6 +351,16 @@ def main():
                 hq = [r for r in rows if r['role'] == 'hq']
                 if len(hq) != 1:
                     bad['строка hq: ' + str(len(hq))] += 1
+                # файл 6, п. 2: ряды HQ у каждого узла (fh rh nrh avh) — «Как уходит HQ» по выбранной строке таблицы
+                for r in rows:
+                    if r['role'] not in ('scope', 'c', 'g', 'x') or r.get('m_fh') is None or r['id'] not in U:
+                        continue
+                    for k, tk in (('fh', 'fire'), ('rh', 'reg'), ('nrh', 'nreg'), ('avh', 'ssch')):
+                        got = [round(float(x), 1) for x in r['m_' + k].split(',')]
+                        if got != [round(Th[(r['id'], m)][tk], 1) for m in ms]:
+                            bad['узел ' + k] += 1
+                if not any(r.get('m_fh') is not None for r in rows):
+                    bad['нет ряда fh'] += 1
                 for r in hq:
                     rk = r['id']
                     ks = [k for k in U if U[k][1] is None] if rk == 'all' else [rk]

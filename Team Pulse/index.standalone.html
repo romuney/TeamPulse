@@ -3035,7 +3035,9 @@ const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
 /* Служебные производные ряды: метрикой отчёта не являются, но считаются тем же
    способом, что и метрики (числитель / знаменатель). */
 const SERVICE_DEF=Object.assign({regret_m:{derived:HQR?{num:'regret_hq_cnt',den:'hc_avg_hq',scale:100}:{num:'regret_cnt',den:'hc_avg',scale:100}},
-  nonregret_m:{derived:HQR?{num:'nonregret_hq_cnt',den:'hc_avg_hq',scale:100}:{num:'nonregret_cnt',den:'hc_avg',scale:100}}},REAL?{
+  nonregret_m:{derived:HQR?{num:'nonregret_hq_cnt',den:'hc_avg_hq',scale:100}:{num:'nonregret_cnt',den:'hc_avg',scale:100}},
+  /* файл 6, п. 2: текучесть HQ узла — уходы и ССЧ по активной численности HQ (fh / avh), накопительно — сумма месячной */
+  turnover_hq_m:{derived:{num:'attrition_hq_cnt',den:'hc_avg_hq',scale:100}},turnover_hq_y:{ytd:'turnover_hq_m'}},REAL?{
   /* поставка 66: посещаемость руководителей и остальных — динамика сегмента на вкладке «Офис» */
   office_lead:{derived:{num:'ovis_lead',den:'wday_lead',scale:100}},
   office_staff:{derived:{num:'ovis_staff',den:'wday_staff',scale:100}}}:{});
@@ -3220,7 +3222,7 @@ const OFF_SUBS=new Set(['hiring.plan','monitor.review']);
    rev_eval / rev_up — оценённые в цикле ревью и улучшившие оценку. */
 const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition','transfer_in','transfer_out','transfer_net','net_ytd','vac_open','vac_closed','tgrowth_pass','tgrowth_deny',
   'ai_wau','pf_plan','hire_jun','rev_eval','rev_up',
-  'nonregret_cnt','regret_hq_cnt','nonregret_hq_cnt','hc_avg_hq','vac_new','vac_jun','ttf_days','ttf_n','ai_den',
+  'nonregret_cnt','regret_hq_cnt','nonregret_hq_cnt','hc_avg_hq','attrition_hq_cnt','vac_new','vac_jun','ttf_days','ttf_n','ai_den',
   /* пробник: нежелательные увольнения — слагаемое regret;
      отработанные человеко-дни и посещения офиса — слагаемые посещаемости */
   'regret_cnt','wday','ovis','perf_norm','perf_low','perf_high','perf_gray',
@@ -3658,9 +3660,9 @@ function seriesRaw(leafPath,key){
   }
   /* 27.10-в, п. 3: макет — нежелательные, желательные уходы и среднесписочная HQ: ряды команды HQ на активной
      численности при любом режиме численности, у остальных команд нули */
-  if(!REAL&&/^(regret_hq_cnt|nonregret_hq_cnt|hc_avg_hq)$/.test(key)){
+  if(!REAL&&/^(regret_hq_cnt|nonregret_hq_cnt|hc_avg_hq|attrition_hq_cnt)$/.test(key)){
     const m0=HC_MODE;HC_MODE='active';
-    const src=n.paint==='HQ'?seriesExt(leafPath,key==='hc_avg_hq'?'hc_avg':key.replace('_hq','')):null;
+    const src=n.paint==='HQ'?seriesExt(leafPath,key==='hc_avg_hq'?'hc_avg':key==='attrition_hq_cnt'?'attrition':key.replace('_hq','')):null;
     HC_MODE=m0;
     for(let i=0;i<NEXT;i++)out[i]=src?src[i]:0;
     _sc[ck]=out;return out;
@@ -3876,7 +3878,7 @@ function yoySeries(leafPaths,key){return yoyOf(aggregateExt(leafPaths,key))}
    (численность, открытые вакансии) — сейчас, без вызревания. Январь без закрытых месяцев — неполный январь.
    Дельта — в единицах и % (при базе от 10), у процентов — п.п.; почти ноль — «без изменений» */
 /* поставка 90: у ставок «за месяц» — «в среднем за месяц», у срока — «в среднем за», у остальных долей — «за период» */
-const PT_CUM=new Set(['turnover_y','regret','nonregret']), PT_STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau']),
+const PT_CUM=new Set(['turnover_y','regret','nonregret','turnover_hq_y']), PT_STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau']),
   PT_MON=new Set(['turnover_m','underwork','overwork','ai_penetration']);
 function periodTotal(lp,key,yser){
   const m=METRIC_BY_KEY[key]||{}, d=defOf(key).derived, y=yser||yoySeries(lp,key);
@@ -3977,7 +3979,13 @@ function kpiAt(key,st,mm){
 /* 27.10, Антон (вопрос 8): «HQ текучесть накопительная» вместо «Тотал HQ текучесть накопительно» */
 const HQ_LIGHT=[{key:'turnover_y',label:'HQ текучесть накопительная'},{key:'nonregret',label:'Желательная текучесть HQ накопительно'},
   {key:'regret',label:'Нежелательная текучесть HQ накопительно'}];
-function hqLeaves(st){
+/* файл 6, п. 2: с рядами HQ у каждого узла (fh rh nrh avh) светофор считается по листьям выбранной строки таблицы
+   подразделений — выбор подразделения действует поверх обязательного «HQ + Активная»; без fh — как раньше (строка hq) */
+const HQN=REAL?!!(HQR&&REAL.has('fh')):true;
+const HQ_SER={turnover_y:'turnover_hq_y'};
+function hqLeaves(st,lpSel,sel){
+  /* макет: команды HQ под выбранной строкой при любой покраске в шапке (в пробнике её ряды HQ и так от покраски не зависят) */
+  if(HQN&&lpSel)return REAL?lpSel:leavesUnder(sel||st.unit).map(l=>l.path).filter(p=>leafPasses(p,Object.assign({},st,{paint:'HQ'})));
   if(REAL){
     if(REAL.hasSeries('HQ'))return ['HQ'];
     return st.paint==='HQ'&&st.hcType==='active'?reportLeaves(st):null;
@@ -3985,18 +3993,18 @@ function hqLeaves(st){
   const s=Object.assign({},st,{paint:'HQ'});
   return leavesUnder(st.unit).map(l=>l.path).filter(p=>leafPasses(p,s));
 }
-function hqLight(st){
-  const lp=hqLeaves(st);
+function hqLight(st,lpSel,sel){
+  const lp=hqLeaves(st,lpSel,sel), node=HQN&&!!lpSel, sk=k=>node&&HQ_SER[k]||k;
   if(!lp)return null;
   const m0=HC_MODE, sh=Object.assign({},st,{paint:'HQ',hcType:'active'});
   if(!REAL)setHcMode('active');
-  const hc=lp.length?Math.round(lastVal(lp,'hc_total')):0;
+  const hc=!lp.length?0:node?Math.round(aggregate(lp,'hc_avg_hq')[LAST-(PARTIAL?1:0)]||0):Math.round(lastVal(lp,'hc_total'));
   const L=LAST-(PARTIAL?1:0), mon=MONTHS[L];
   const rows=HQ_LIGHT.map(x=>{
-    const ser=aggregate(lp,x.key), v=ser[L], kpi=kpiAt(x.key,sh,mon.m), e=aggregateExt(lp,x.key), i=L+PRE;
+    const ser=aggregate(lp,sk(x.key)), v=ser[L], kpi=kpiAt(x.key,sh,mon.m), e=aggregateExt(lp,sk(x.key)), i=L+PRE;
     const d=(a,b)=>a==null||b==null?null:+(a-b).toFixed(4);
     return Object.assign({},x,{ser:ser,v:v,mom:d(e[i],e[i-1]),yoyD:d(e[i],e[i-12]),ya:e[i-12],kpi:kpi,
-      st:kpi?stateForKpi(x.key,v,kpi):'neutral',yoy:yoySeries(lp,x.key)});
+      st:kpi?stateForKpi(x.key,v,kpi):'neutral',yoy:yoySeries(lp,sk(x.key)),sk:sk(x.key)});
   });
   if(!REAL)setHcMode(m0);
   return {lp:lp,hc:hc,rows:rows,st:sh,month:mon};
@@ -4852,7 +4860,11 @@ function avgAge(lp,sel,dimKey,catIdx){
     const e=realExit(lp,'e');let n=0,t=0;
     Object.keys(e).forEach(v=>{const a=parseFloat(String(v).replace(',','.'));if(isFinite(a)&&a>0){n+=e[v];t+=a*e[v]}});
     const base=n?t/n:null, cons=sliceParse(sel||[]).map(p=>({dk:p.dim.key,raw:p.cat.raw}));
-    if(dimKey){const d=MIX_BY_KEY[dimKey];if(d&&d.cats[catIdx])cons.push({dk:dimKey,raw:d.cats[catIdx].raw})}
+    /* файл 6, п. 1: карточка категории («Женщины») показывает свою категорию при любом срезе того же разреза —
+       срез по полу её не подменяет и не смешивает с соседней (было: «Мужчины» при срезе «Женщины» = среднее обоих) */
+    if(dimKey){const d=MIX_BY_KEY[dimKey];if(d&&d.cats[catIdx]){
+      for(let i=cons.length-1;i>=0;i--)if(cons[i].dk===dimKey)cons.splice(i,1);
+      cons.push({dk:dimKey,raw:d.cats[catIdx].raw})}}
     if(!cons.length)return base;
     const es=REAL.scopeMix('es'), en=REAL.scopeMix('en');
     if(!es||!en||base==null)return null;
@@ -5661,7 +5673,7 @@ const U_DAYS=n=>n===1?'день':n<5?'дня':'дней';
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winSum,ASOF,PARTIAL,ASOF_LABEL,ASOF_SHORT,MATURING,matures,MATURE_TIP,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,CLOSED_TIP,CLOSED_SHORT,PART_FLOW,partFlow,PART_TIP,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,MIX_LINK_TEXT,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,HQ_LIGHT,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
+  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,sliceDeltaMoM,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
@@ -8973,7 +8985,7 @@ CH.turnover={
   },
   /* 26.10, правки: светофор HQ — по активной численности HQ, что бы ни стояло в фильтрах покраски и типа */
   hq(c){
-    const h=D.hqLight(c.S);
+    const h=D.hqLight(c.S,c.lp,c.sel);
     if(!h)return {sum:'нет данных',st:'n',head:'Светофору HQ нужны данные'};
     if(!h.hc)return {sum:'нет HQ',st:'n',head:'В подразделении нет HQ-сотрудников'};
     const t=h.rows[0], nr=h.rows[1], rg=h.rows[2], bad=h.rows.filter(r=>r.st==='bad');
@@ -10135,7 +10147,8 @@ function genderBlock(ctx,sel){
   const order=cats.map((c,i)=>i).sort((a,b)=>isMale(cats[b])-isMale(cats[a]));
   const mi=order[0], fi=order[1];
   const segs=order.map(i=>({id:cats[i].id,name:genName(cats[i]),n:v[i],bg:isMale(cats[i])?'var(--pt-m)':cats[i].na?'var(--pt-na)':'var(--pt-f)',on:sel.has(cats[i].id)}));
-  const age=i=>{const a=D.avgAge(ctx.lp,S.mixSel,'gender',i);return a==null?'':'средний возраст <b>'+num1(a)+'</b>'};
+  /* файл 6, п. 1: пустая выборка — «—», а не пропавшая строка */
+  const age=i=>{const a=D.avgAge(ctx.lp,S.mixSel,'gender',i);return 'средний возраст <b>'+(a==null||!v[i]?'—':num1(a))+'</b>'};
   /* 23.10: в карточках — фигурки «мальчик / девочка» цветом категории */
   const gIco=c=>c.na?'':isMale(c)?'male':'female';
   return '<section class="pf-s">'+U.pfHead('Пол',ratio(v[mi],v[fi]),'people')+
@@ -10160,7 +10173,7 @@ function ageBlock(ctx,sel){
   /* белый текст — только на двух густых ступенях: на светлых (23.10 — палитра светлее) он не читается */
   const segs=A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:bg(c,i),dk:!c.na&&ri(i)>=3,on:sel.has(c.id)}));
   const avg=D.avgAge(ctx.lp,S.mixSel);
-  return '<section class="pf-s">'+U.pfHead('Возраст',avg==null?'':'средний возраст команды — <b>'+num1(avg)+'</b>','hourglass')+
+  return '<section class="pf-s">'+U.pfHead('Возраст','средний возраст '+(S.mixSel&&S.mixSel.length?'в срезе':'команды')+' — <b>'+(avg==null?'—':num1(avg))+'</b>','hourglass')+
     U.shareBar({segs:segs,names:true})+
     U.shareCards({cards:A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:segs[i].bg,on:sel.has(c.id),
       sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';
@@ -10466,7 +10479,7 @@ const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
 /* светофор «Как уходит HQ?» — та же таблица, что светофор One-pager: полоса сигнала у названия, значение, изменения
    к прошлому месяцу и году, спарклайн, ориентир (цель или коридор) с сигналом */
 function hqView(ctx){
-  const h=D.hqLight(ctx.S);
+  const h=D.hqLight(ctx.S,ctx.lp,ctx.sel);
   if(!h)return U.empty('Светофору HQ нужны данные','Они придут со следующим обновлением отчёта. Пока — поставьте в шапке покраску «HQ» и тип «Активная».');
   if(!h.hc)return U.empty('В подразделении нет HQ-сотрудников','Светофор считается только по активной численности HQ.');
   const esc=U.esc;
@@ -10480,7 +10493,7 @@ function hqView(ctx){
       '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
-      period:D.periodTotal(h.lp,r.key,r.yoy)}))},
+      period:D.periodTotal(h.lp,r.sk,r.yoy)}))},
       {h:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
 }

@@ -302,6 +302,15 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       ok(['nonregret','regret'].every((k,i)=>{const r=h.rows.find(x=>x.key===k), n=sum(i?'regret_cnt':'nonregret_cnt');
         return n===0||r.v>0}),'желательная и нежелательная HQ накопительно — не нули: '+
         h.rows.slice(1).map(r=>D.fmtVal(r.key,r.v)).join(' / '));
+      /* файл 6, п. 2: ряды HQ у каждого узла (fh rh nrh avh) — светофор по выбранной строке: на всём юните = строка hq,
+         у подразделения ниже — свои числа */
+      if(D.HQN){
+        const st=A.st(), hn=D.hqLight(st,D.reportLeaves(st),st.unit);
+        const kid=D.NODES.find(n=>n.parent===st.unit&&!n.direct&&!n.hide), hk=kid&&D.hqLight(st,D.leavesUnder(kid.path).map(l=>l.path),kid.path);
+        ok(!!hn&&hn.rows.every((r,i)=>Math.abs(r.v-h.rows[i].v)<0.051)&&Math.abs(hn.hc-h.hc)<=1&&(!hk||hk.rows.some((r,i)=>r.v!==hn.rows[i].v)),
+          'светофор HQ по узлам = строка hq ('+hn.rows.map(r=>D.fmtVal(r.key,r.v)).join(', ')+')'+(hk?'; «'+kid.name.slice(0,3)+'…»: '+
+          hk.rows.map(r=>D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+hk.hc+' чел':''));
+      }
     }else ok(h?A.st().paint==='HQ'&&A.st().hcType==='active':/Светофору HQ нужны данные/.test(hv),
       'светофор HQ без строки hq: '+(h?'по scope (фильтры «HQ + Активная»)':'просьба обновить датасет'));
   }

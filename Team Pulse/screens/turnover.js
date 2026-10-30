@@ -30,7 +30,7 @@ const D=window.TPDATA, U=window.TPUI, G=window.TPDRAW, SC=window.TPSCREENS;
 /* светофор «Как уходит HQ?» — та же таблица, что светофор One-pager: полоса сигнала у названия, значение, изменения
    к прошлому месяцу и году, спарклайн, ориентир (цель или коридор) с сигналом */
 function hqView(ctx){
-  const h=D.hqLight(ctx.S);
+  const h=D.hqLight(ctx.S,ctx.lp,ctx.sel);
   if(!h)return U.empty('Светофору HQ нужны данные','Они придут со следующим обновлением отчёта. Пока — поставьте в шапке покраску «HQ» и тип «Активная».');
   if(!h.hc)return U.empty('В подразделении нет HQ-сотрудников','Светофор считается только по активной численности HQ.');
   const esc=U.esc;

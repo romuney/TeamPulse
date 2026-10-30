@@ -122,7 +122,8 @@ function genderBlock(ctx,sel){
   const order=cats.map((c,i)=>i).sort((a,b)=>isMale(cats[b])-isMale(cats[a]));
   const mi=order[0], fi=order[1];
   const segs=order.map(i=>({id:cats[i].id,name:genName(cats[i]),n:v[i],bg:isMale(cats[i])?'var(--pt-m)':cats[i].na?'var(--pt-na)':'var(--pt-f)',on:sel.has(cats[i].id)}));
-  const age=i=>{const a=D.avgAge(ctx.lp,S.mixSel,'gender',i);return a==null?'':'средний возраст <b>'+num1(a)+'</b>'};
+  /* файл 6, п. 1: пустая выборка — «—», а не пропавшая строка */
+  const age=i=>{const a=D.avgAge(ctx.lp,S.mixSel,'gender',i);return 'средний возраст <b>'+(a==null||!v[i]?'—':num1(a))+'</b>'};
   /* 23.10: в карточках — фигурки «мальчик / девочка» цветом категории */
   const gIco=c=>c.na?'':isMale(c)?'male':'female';
   return '<section class="pf-s">'+U.pfHead('Пол',ratio(v[mi],v[fi]),'people')+
@@ -147,7 +148,7 @@ function ageBlock(ctx,sel){
   /* белый текст — только на двух густых ступенях: на светлых (23.10 — палитра светлее) он не читается */
   const segs=A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:bg(c,i),dk:!c.na&&ri(i)>=3,on:sel.has(c.id)}));
   const avg=D.avgAge(ctx.lp,S.mixSel);
-  return '<section class="pf-s">'+U.pfHead('Возраст',avg==null?'':'средний возраст команды — <b>'+num1(avg)+'</b>','hourglass')+
+  return '<section class="pf-s">'+U.pfHead('Возраст','средний возраст '+(S.mixSel&&S.mixSel.length?'в срезе':'команды')+' — <b>'+(avg==null?'—':num1(avg))+'</b>','hourglass')+
     U.shareBar({segs:segs,names:true})+
     U.shareCards({cards:A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:segs[i].bg,on:sel.has(c.id),
       sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';

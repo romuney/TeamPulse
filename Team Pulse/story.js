@@ -234,7 +234,7 @@ CH.turnover={
   },
   /* 26.10, правки: светофор HQ — по активной численности HQ, что бы ни стояло в фильтрах покраски и типа */
   hq(c){
-    const h=D.hqLight(c.S);
+    const h=D.hqLight(c.S,c.lp,c.sel);
     if(!h)return {sum:'нет данных',st:'n',head:'Светофору HQ нужны данные'};
     if(!h.hc)return {sum:'нет HQ',st:'n',head:'В подразделении нет HQ-сотрудников'};
     const t=h.rows[0], nr=h.rows[1], rg=h.rows[2], bad=h.rows.filter(r=>r.st==='bad');
