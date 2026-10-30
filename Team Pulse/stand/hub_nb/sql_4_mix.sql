@@ -1,11 +1,12 @@
 -- =============================================================================
 -- TeamPulse Hub · 4. Разрезы (поставка 58: SQL вместо build_hub)
 -- teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам
--- (g a t gr s c o w r sp tc rg ws mh), увольнения с начала его года (xr причина, xq regret по причине, xi
+-- (g a t gr s c o w r sp tc rg ws mh), увольнения с начала года (xr причина, xq regret по причине, xi
 -- инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),
--- найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Поставка 66 (посещения Адели):
--- oc / ocp — посещений и людей по городу офиса за последний месяц, dw / do — календарь двух последних
--- месяцев: людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору
+-- найм с начала года (hk источник, hch канал, hg грейд, hsp специализация); «с начала года» — с января по
+-- последний закрытый месяц (cm, поставка 90). Поставка 66 (посещения Адели): oc / ocp — посещений и людей
+-- по городу офиса за последний закрытый месяц, dw / do — календарь с месяца перед закрытым по текущий:
+-- людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору
 -- и месяцу всей сетки, значение «инициатор|ГГГГ-ММ» (текучесть по инициатору). 31.10: sp0 — численность
 -- по специализации на конец прошлого года (на начало периода); es / en — сумма возрастов и людей с возрастом
 -- по «разрез|значение» (средний возраст категории). Пустое значение — ''.
@@ -54,7 +55,7 @@ from (
 where coalesce(e.hc_total_cnt, 0) > 0
 distributed by (node_rk);
 
--- увольнения с начала года
+-- увольнения с начала года (январь..последний закрытый месяц)
 insert into teampulse_hub_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY['xr', 'xq', 'xi', 'xp', 'xt', 'xg', 'xs', 'xsp', 'xtc']) as mx_key,
@@ -86,7 +87,7 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
+        where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select cm from teampulse_hub_cal))::date and (select cm from teampulse_hub_cal)
     ) x
 ) e
 where coalesce(e.fire_amt, 0) > 0;
@@ -154,8 +155,8 @@ from (
 ) e
 where coalesce(e.hc_total_cnt, 0) > 0;
 
--- найм с начала года: источник, канал (найм в компанию / из учебной группы в боевую / стажёр в штат),
--- грейд, специализация
+-- найм с начала года (январь..последний закрытый месяц): источник, канал (найм в компанию / из учебной группы
+-- в боевую / стажёр в штат), грейд, специализация
 insert into teampulse_hub_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
@@ -180,7 +181,7 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
+        where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select cm from teampulse_hub_cal))::date and (select cm from teampulse_hub_cal)
     ) x
 ) e
 where greatest(coalesce(e.hire_cnt, 0), coalesce(e.transfer_candidate_amt, 0), coalesce(e.transfer_internal_amt, 0)) > 0;
@@ -238,7 +239,8 @@ from (
 ) e
 where (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) is not null;
 
--- rq — за окно (с начала месяца 12 месяцев назад): «вид|поток|итог|желаемое|текущее», g — грейд, s — специализация
+-- rq — за окно (поставка 90: с января по последний закрытый месяц): «вид|поток|итог|желаемое|текущее», g — грейд,
+-- s — специализация
 -- (поставка 81: текущее — откуда переходят, в отчёте «текущий → желаемый»)
 insert into teampulse_hub_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
@@ -263,16 +265,17 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from structure_x_rost s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.finish_month >= ((select lm from teampulse_hub_cal) - interval '12 month')::date and s.finish_month <= (select lm from teampulse_hub_cal)
+        where s.leaf_lvl > 0 and s.finish_month >= date_trunc('year', (select cm from teampulse_hub_cal))::date and s.finish_month <= (select cm from teampulse_hub_cal)
     ) x
 ) e
 where (case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end) is not null;
 
 -- rs — статус роста человека на последний месяц (люди численности, одна строка человека), как эталон: заявки с итогом
--- в окне; в работе и завершена — again («прошёл рост и участвует снова»), только в работе — first («сейчас в росте»),
--- только завершена — done («рост состоялся»), только отклонена — denied, иначе none. Тип: у again и first — заявки в
--- работе (грейд, иначе специализация), у done — завершённых (оба типа — gs), у denied — отклонённых; у none — рост
--- доступен (av: у специализации есть дата запуска T-роста в справочнике) или нет (nd). Значение «статус|тип|грейд»
+-- в окне (поставка 90: январь..последний закрытый месяц); в работе и завершена — again («прошёл рост и участвует
+-- снова»), только в работе — first («сейчас в росте»), только завершена — done («рост состоялся»), только отклонена —
+-- denied, иначе none. Тип: у again и first — заявки в работе (грейд, иначе специализация), у done — завершённых (оба
+-- типа — gs), у denied — отклонённых; у none — рост доступен (av: у специализации есть дата запуска T-роста
+-- в справочнике) или нет (nd). Значение «статус|тип|грейд»
 insert into teampulse_hub_mixr
 with r as (
     select mdm_employee_rk,
@@ -282,7 +285,7 @@ with r as (
            max((is_inprogress = 1 and grade_change_application_flg = 1)::int) as actg,
            max((is_declined = 1 and grade_change_application_flg = 1)::int) as dclg
     from rost_info
-    where finish_month >= ((select lm from teampulse_hub_cal) - interval '12 month')::date and finish_month <= (select lm from teampulse_hub_cal)
+    where finish_month >= date_trunc('year', (select cm from teampulse_hub_cal))::date and finish_month <= (select cm from teampulse_hub_cal)
     group by mdm_employee_rk
 ), av as (
     select distinct d.mdm_employee_rk
@@ -323,7 +326,8 @@ with r as (
 select node_rk, paint_c, it_c, staff_c, act_c, 'rs' as mx_key, st || '|' || tp || '|' || gr as mx_val, 1 as mx_n
 from p;
 
--- поставка 66: посещения офисов последнего месяца по городам (office_city_visits_json — параграф with_office_traffic):
+-- поставка 66: посещения офисов по городам (office_city_visits_json — параграф with_office_traffic), поставка 90 — за
+-- последний закрытый месяц:
 -- oc — посещений, ocp — людей, которые были в офисе этого города
 insert into teampulse_hub_mixr
 select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
@@ -349,7 +353,7 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal) and s.office_city_visits_json is not null
+        where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null
     ) x
 ) e
     ) j
@@ -382,15 +386,16 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal) and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'
+        where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'
     ) x
 ) e
     ) j
 ) c
 where c.vis > 0;
 
--- 27.10-в, п. 14: нарушения брони по городам последнего месяца: ov — нарушений (бронь без посещения + посещение без
--- брони), ob — база (дней с бронью + посещений без брони), как «Нарушения бронирования» за месяц
+-- 27.10-в, п. 14: нарушения брони по городам последнего закрытого месяца (поставка 90): ov — нарушений (бронь без
+-- посещения + посещение без брони), ob — база (дней с бронью + посещений без брони), как «Нарушения бронирования»
+-- за месяц
 insert into teampulse_hub_mixr
 select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
        unnest(ARRAY['ov', 'ob']) as mx_key,
@@ -416,14 +421,15 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal) and s.office_city_visits_json is not null
+        where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null
     ) x
 ) e
     ) j
 ) c
 where c.base > 0;
 
--- поставка 66: календарь посещений двух последних месяцев (office_traffic_calendar — параграф office_traffic):
+-- поставка 66: календарь посещений (office_traffic_calendar — параграф office_traffic), поставка 90 — с месяца перед
+-- последним закрытым по текущий:
 -- dw — людей с рабочим днём, do — из них в офисе; значение — дата
 insert into teampulse_hub_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
@@ -444,7 +450,7 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from office_traffic_calendar s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month between ((select lm from teampulse_hub_cal) - interval '1 month')::date and (select lm from teampulse_hub_cal)
+        where s.leaf_lvl > 0 and s.report_month between ((select cm from teampulse_hub_cal) - interval '1 month')::date and (select lm from teampulse_hub_cal)
     ) x
 ) e;
 

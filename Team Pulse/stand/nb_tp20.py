@@ -677,6 +677,21 @@ def eom(m):
     return min(dt.date(m.year, m.month, calendar.monthrange(m.year, m.month)[1]), D1)
 
 
+def closed_month():
+    """поставка 90: последний закрытый месяц (cm ноутбука, teampulse_hub_cal) — последний месяц, если дата данных (D1) —
+    его последний день или он январь, иначе месяц перед ним. «С начала года» — январь..cm (стенд: D1 = 12.10 → сентябрь)"""
+    lm = months()[-1]
+    if lm.month == 1 or D1.day == calendar.monthrange(lm.year, lm.month)[1]:
+        return lm
+    return dt.date(lm.year - (lm.month == 1), (lm.month - 2) % 12 + 1, 1)
+
+
+def ytd_months():
+    """поставка 90: месяцы «с начала года» — январь года cm .. cm"""
+    cm = closed_month()
+    return [m for m in months() if m.year == cm.year and m <= cm]
+
+
 def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, hday=False):
     """узел (rk) × месяц → меры. Численность — на последний календарный день месяца (у текущего
     неполного — на последний загруженный); ССЧ — полусумма численности узла с прошлым месяцем.
@@ -801,10 +816,10 @@ def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE, chg=()):
 
 
 def truth_spec_move(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
-    """31.10, п. 7 и 10: переводы по специализациям узла rk с начала года последнего месяца — по флагам смены
-    специализации: tsi — в новую (строка первого дня в ней), tso — из старой (строка последнего дня в ней; последний
-    день месяца — в следующий месяц). Узел и срез — строки этого дня"""
-    lm = months()[-1]
+    """31.10, п. 7 и 10: переводы по специализациям узла rk с начала года — по флагам смены специализации: tsi — в новую
+    (строка первого дня в ней), tso — из старой (строка последнего дня в ней; последний день месяца — в следующий месяц).
+    Узел и срез — строки этого дня. Поставка 90: с января по последний закрытый месяц (cm)"""
+    lm = closed_month()
     out = {'tsi': defaultdict(float), 'tso': defaultdict(float)}
     for p in people:
         ch = sp_change(p)
@@ -842,8 +857,8 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
     """поставка 66 (посещения Адели), правда по людям под фильтры (pred, типы численности act; None — все):
     T  (узел, месяц) → рабочие дни (wday), посещения (ovis), бронирования (bk — дней с бронью, bkv — бронь без
        посещения, vsv — посещение без брони), рабочие дни и посещения руководителей (hwd, hov);
-    Dd (узел, день) двух последних месяцев → dw (люди с рабочим днём), do (из них в офисе);
-    C  узел → {'oc': {город: посещений}, 'ocp': {город: людей}} за последний месяц;
+    Dd (узел, день) с месяца перед последним закрытым по текущий (поставка 90) → dw (люди с рабочим днём), do (из них в офисе);
+    C  узел → {'oc': {город: посещений}, 'ocp': {город: людей}} за последний закрытый месяц (поставка 90);
     MH узел → {'1': руководителей, '0': остальных} — численность на конец последнего месяца.
     Человек месяца — его последняя строка в месяце (last_row_flg): юнит, срез и признак руководителя — на последний
     день в месяце, как у посещений в with_office_traffic и календаря office_traffic"""
@@ -854,7 +869,8 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
     byrk = {p['rk']: p for p in people}
     root = ['all'] if ROOTS > 1 else []
     ms = months()
-    lm, two = ms[-1], set(ms[-2:])
+    lm, cm = ms[-1], closed_month()
+    two = set(ms[ms.index(cm) - 1:])
     ld = lambda p, m: min(eom(m), p['end'] or D1)
     ok = lambda p, m: pred(p, ld(p, m)) and (act is None or at(p['acth'], ld(p, m)) in act)
     nodes = lambda p, d: root + path(U, at(p['unit'], d))
@@ -874,21 +890,21 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
             if m in two:
                 Dd[(n, d)]['dw'] += wd
                 Dd[(n, d)]['do'] += ov
-        if m == lm and ov and cty:
+        if m == cm and ov and cty:
             city[rk][cty] += ov
-        # 27.10-в, п. 14: нарушения брони по городу (ov) и база (ob) — последнего месяца
-        if m == lm and cty and (bk or vsv):
+        # 27.10-в, п. 14: нарушения брони по городу (ov) и база (ob) — последнего закрытого месяца (поставка 90)
+        if m == cm and cty and (bk or vsv):
             vcity[rk][cty]['ov'] += bkv + vsv
             vcity[rk][cty]['ob'] += bk + vsv
     for rk, cs in city.items():
         p = byrk[rk]
-        for n in nodes(p, ld(p, lm)):
+        for n in nodes(p, ld(p, cm)):
             for c, v in cs.items():
                 C[n]['oc'][c] += v
                 C[n]['ocp'][c] += 1
     for rk, cs in vcity.items():
         p = byrk[rk]
-        for n in nodes(p, ld(p, lm)):
+        for n in nodes(p, ld(p, cm)):
             for c, v in cs.items():
                 C[n]['ov'][c] += v['ov']
                 C[n]['ob'][c] += v['ob']
@@ -955,13 +971,14 @@ def truth_age(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
 
 def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
     """поставка 73 (эталон «Роста»): разрезы T-роста узла rk — rm (заявки с итогом по месяцам итога), rq (успешность по
-    желаемому за окно — с начала месяца 12 месяцев назад), rs (статус роста людей численности последнего месяца). Заявки —
+    желаемому за окно — поставка 90: январь..последний закрытый месяц), rs (статус роста людей численности последнего
+    месяца по заявкам того же окна). Заявки —
     только HQ (покраска в день создания); юнит и срез заявки — человека в месяце начала (старт согласования, иначе
     создание), как structure_x_rost; тип — s, если меняется специализация, иначе g"""
     byrk = {p['rk']: p for p in people}
     ms = months()
-    lm, g0 = ms[-1], ms[0]
-    w12 = dt.date(lm.year - 1, lm.month, 1)
+    lm, g0, cm = ms[-1], ms[0], closed_month()
+    w12 = dt.date(cm.year, 1, 1)                  # поставка 90: окно rq / rs — январь..cm (было — 12 месяцев до lm)
     mon = lambda t: dt.date(t.year, t.month, 1)
     ok = lambda p, d: pred(p, d) and (act is None or at(p['acth'], d) in act)
     inn = lambda u: rk == 'all' or rk in path(U, u)
@@ -980,14 +997,14 @@ def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
         tat = '1' if r[9] is not None else '0'
         if g0 <= fm <= lm:
             out['rm'][f"{fm:%Y-%m}|{tp(r)}|{tat}|{res}"] += 1
-        if w12 <= fm <= lm:
+        if w12 <= fm <= cm:
             # поставка 81: пятое поле — текущее (откуда переходят)
             out['rq'][f"{tp(r)}|{tat}|{res}|{r[6] if tp(r) == 'g' else SPECS[r[8] - 1]}|"
                       f"{r[5] if tp(r) == 'g' else SPECS[r[7] - 1]}"] += 1
     e = eom(lm)
     win = defaultdict(list)
     for r in hq:
-        if w12 <= mon(r[10]) <= lm:
+        if w12 <= mon(r[10]) <= cm:
             win[r[0]].append(r)
     for p in people:
         if not (p['start'] <= e and (p['end'] is None or e < p['end']) and ok(p, e) and inn(at(p['unit'], e))):

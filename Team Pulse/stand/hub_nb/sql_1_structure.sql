@@ -1,6 +1,7 @@
 -- =============================================================================
 -- TeamPulse Hub · 1. Календарь и структура (поставка 58: SQL вместо build_hub)
--- teampulse_hub_cal — последний месяц (lm), дата данных (dt), начало сетки, общий корень (mo, pre);
+-- teampulse_hub_cal — последний месяц (lm), дата данных (dt), последний закрытый месяц (cm), начало сетки,
+-- общий корень (mo, pre);
 -- _uall / _uone / _upath — путь каждого юнита последнего месяца; _node — узлы нынешней структуры.
 -- =============================================================================
 
@@ -9,20 +10,28 @@
 --    партиций по current_date (подзапрос от lm GP партициями не режет: сортирует источник целиком)
 drop table if exists teampulse_hub_lm;
 create table teampulse_hub_lm as select max(s.report_month)::date as lm from all_metrics_with_performance_and_office_traffic_and_grt s distributed by (lm);
+--    поставка 90: cm — последний закрытый месяц: lm, если dt — последний день месяца lm или lm — январь (тогда
+--    неполный январь — единственные данные года), иначе месяц перед lm. Разрезы «с начала года» — январь..cm
 drop table if exists teampulse_hub_cal;
 create table teampulse_hub_cal as
-select l.lm,
-       coalesce(x.dt, least(current_date - 1, (l.lm + interval '1 month' - interval '1 day')::date)) as dt,
-       (date_trunc('year', l.lm) - interval '1 year')::date as grid_start,
-       0 as mo, ''::text as pre
-from teampulse_hub_lm l
-cross join (
-    select max(d.calendar_dt)::date as dt
-    from usr_cross_data.hr_executive_proteus d
-    where d.calendar_dt >= (date_trunc('month', current_date - 1) - interval '3 month')::date
-      and d.calendar_dt >= (select lm from teampulse_hub_lm)
-      and d.calendar_dt < ((select lm from teampulse_hub_lm) + interval '1 month')::date
-) x
+select c.lm, c.dt,
+       case when date_part('month', c.lm) = 1 or c.dt >= (c.lm + interval '1 month' - interval '1 day')::date then c.lm
+            else (c.lm - interval '1 month')::date end as cm,
+       c.grid_start, c.mo, c.pre
+from (
+    select l.lm,
+           coalesce(x.dt, least(current_date - 1, (l.lm + interval '1 month' - interval '1 day')::date)) as dt,
+           (date_trunc('year', l.lm) - interval '1 year')::date as grid_start,
+           0 as mo, ''::text as pre
+    from teampulse_hub_lm l
+    cross join (
+        select max(d.calendar_dt)::date as dt
+        from usr_cross_data.hr_executive_proteus d
+        where d.calendar_dt >= (date_trunc('month', current_date - 1) - interval '3 month')::date
+          and d.calendar_dt >= (select lm from teampulse_hub_lm)
+          and d.calendar_dt < ((select lm from teampulse_hub_lm) + interval '1 month')::date
+    ) x
+) c
 distributed by (lm);
 drop table if exists teampulse_hub_lm;
 
@@ -81,6 +90,6 @@ update teampulse_hub_node set prk = 'all' where prk = '' and (select mo from tea
 update teampulse_hub_node set pth = 'all|' || pth, lv = lv + 1 where (select mo from teampulse_hub_cal) = 1;
 insert into teampulse_hub_node (rk, nm, lv, prk, pth) select 'all', 'Все юниты', 1, '', 'all' where (select mo from teampulse_hub_cal) = 1;
 
-select c.lm as last_month, c.dt as data_dt, c.grid_start, c.mo as common_root,
+select c.lm as last_month, c.dt as data_dt, c.cm as closed_month, c.grid_start, c.mo as common_root,
        (select count(*) from teampulse_hub_node) as nodes, (select count(*) from teampulse_hub_upath) as units
 from teampulse_hub_cal c;

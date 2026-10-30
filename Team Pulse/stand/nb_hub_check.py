@@ -210,7 +210,7 @@ def main():
                             bad['T-рост пуст'] += 1
                         # 28.10, п. 1: найм по специализации — в сумме = ряду с начала года. 31.10, п. 10: переводы в и из
                         # по специализациям — по флагам смены специализации, по значениям (truth_spec_move)
-                        ytd_ = [m for m in ms if m.year == ms[-1].year]
+                        ytd_ = nb.ytd_months()             # поставка 90: январь..последний закрытый месяц
                         if abs(mx['tsh'] - sum(T[(rk, m)]['hire'] for m in ytd_)) > 0.5:
                             bad['mx tsh'] += 1
                         want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act))
@@ -245,11 +245,20 @@ def main():
                         g = mxv.get(kk, {})
                         if set(g) != set(w) or any(abs(g[v] - w[v]) > 0.05 for v in w):
                             bad['mx ' + kk] += 1
-                    ytd = [m for m in ms if m.year == ms[-1].year]
+                    # поставка 90: «с начала года» — январь..последний закрытый месяц (у стенда D1 = 12.10 → январь..сентябрь)
+                    ytd = nb.ytd_months()
+                    # закрытые вакансии по каналу (vk) и уровню кандидата (vq) — в сумме = закрытым ряда за эти месяцы
+                    vcl = [float(x) for x in r['m_vcl'].split(',')]
+                    for kk in ('vk', 'vq'):
+                        if abs(mx[kk] - sum(vcl[ms.index(m)] for m in ytd)) > 0.5:
+                            bad['mx ' + kk] += 1
                     # поставка 62: регион (rg) и пара «стрим|специализация» (ws) — тоже численность
                     want_mx = {'sp': T[(rk, ms[-1])]['hc'], 'tc': T[(rk, ms[-1])]['hc'],
                                'rg': T[(rk, ms[-1])]['hc'], 'ws': T[(rk, ms[-1])]['hc'],
                                'xsp': sum(T[(rk, m)]['fire'] for m in ytd), 'xtc': sum(T[(rk, m)]['fire'] for m in ytd)}
+                    # поставка 90: остальные разрезы увольнений — тоже за январь..cm (xq — нежелательные)
+                    want_mx.update({k: sum(T[(rk, m)]['fire'] for m in ytd) for k in ('xr', 'xi', 'xp', 'xt', 'xg', 'xs')})
+                    want_mx['xq'] = sum(T[(rk, m)]['reg'] for m in ytd)
                     if act:
                         # разбивки найма — из строк ноутбука с измерениями на конец месяца (как TP 2.0): их сумма —
                         # найм с срезом конца месяца, а не дня найма (hday). Разница — у тех, кому срез сменили в

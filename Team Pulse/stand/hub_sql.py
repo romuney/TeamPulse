@@ -255,7 +255,8 @@ def sql_structure():
     k_arr_u = 'ARRAY[' + ', '.join(f'u.k{i}' for i in LV) + ']'
     n_arr_u = 'ARRAY[' + ', '.join(f'u.n{i}' for i in LV) + ']'
     return f"""{head('1. Календарь и структура (поставка 58: SQL вместо build_hub)',
-               'teampulse_hub_cal — последний месяц (lm), дата данных (dt), начало сетки, общий корень (mo, pre);',
+               'teampulse_hub_cal — последний месяц (lm), дата данных (dt), последний закрытый месяц (cm), начало сетки,',
+               'общий корень (mo, pre);',
                '_uall / _uone / _upath — путь каждого юнита последнего месяца; _node — узлы нынешней структуры.')}
 
 -- 1. последний месяц — последний в источнике людей (и текущий незакрытый); dt — последний день этого
@@ -263,20 +264,28 @@ def sql_structure():
 --    партиций по current_date (подзапрос от lm GP партициями не режет: сортирует источник целиком)
 drop table if exists {P}_lm;
 create table {P}_lm as select max(s.report_month)::date as lm from {SRC} s {dist('lm')};
+--    поставка 90: cm — последний закрытый месяц: lm, если dt — последний день месяца lm или lm — январь (тогда
+--    неполный январь — единственные данные года), иначе месяц перед lm. Разрезы «с начала года» — январь..cm
 drop table if exists {P}_cal;
 create table {P}_cal as
-select l.lm,
-       coalesce(x.dt, least(current_date - 1, (l.lm + interval '1 month' - interval '1 day')::date)) as dt,
-       (date_trunc('year', l.lm) - interval '1 year')::date as grid_start,
-       0 as mo, ''::text as pre
-from {P}_lm l
-cross join (
-    select max(d.calendar_dt)::date as dt
-    from {DAY} d
-    where d.calendar_dt >= (date_trunc('month', current_date - 1) - interval '3 month')::date
-      and d.calendar_dt >= (select lm from {P}_lm)
-      and d.calendar_dt < ((select lm from {P}_lm) + interval '1 month')::date
-) x
+select c.lm, c.dt,
+       case when date_part('month', c.lm) = 1 or c.dt >= (c.lm + interval '1 month' - interval '1 day')::date then c.lm
+            else (c.lm - interval '1 month')::date end as cm,
+       c.grid_start, c.mo, c.pre
+from (
+    select l.lm,
+           coalesce(x.dt, least(current_date - 1, (l.lm + interval '1 month' - interval '1 day')::date)) as dt,
+           (date_trunc('year', l.lm) - interval '1 year')::date as grid_start,
+           0 as mo, ''::text as pre
+    from {P}_lm l
+    cross join (
+        select max(d.calendar_dt)::date as dt
+        from {DAY} d
+        where d.calendar_dt >= (date_trunc('month', current_date - 1) - interval '3 month')::date
+          and d.calendar_dt >= (select lm from {P}_lm)
+          and d.calendar_dt < ((select lm from {P}_lm) + interval '1 month')::date
+    ) x
+) c
 {dist('lm')};
 drop table if exists {P}_lm;
 
@@ -330,7 +339,7 @@ update {P}_node set prk = '{HUB_ALL}' where prk = '' and {MO} = 1;
 update {P}_node set pth = '{HUB_ALL}|' || pth, lv = lv + 1 where {MO} = 1;
 insert into {P}_node (rk, nm, lv, prk, pth) select '{HUB_ALL}', 'Все юниты', 1, '', '{HUB_ALL}' where {MO} = 1;
 
-select c.lm as last_month, c.dt as data_dt, c.grid_start, c.mo as common_root,
+select c.lm as last_month, c.dt as data_dt, c.cm as closed_month, c.grid_start, c.mo as common_root,
        (select count(*) from {P}_node) as nodes, (select count(*) from {P}_upath) as units
 from {P}_cal c;
 """
@@ -449,19 +458,19 @@ select (select count(*) from {P}_unit) as unit_rows, (select count(*) from {P}_s
 
 def rost_mix():
     """поставка 73: разрезы T-роста — по эталону отчёта «Рост» дашборда HQ (ноутбук «[Рост - отчет] Team Pulse»):
-    итог заявки — в месяц итога (finish_month), окно — с начала месяца 12 месяцев назад; rm (заявки с итогом по месяцам),
-    rq (успешность по желаемому за окно), rs (статус роста человека на последний месяц); у датасета 2а — только
-    выбранному подразделению"""
+    итог заявки — в месяц итога (finish_month); rm (заявки с итогом по месяцам сетки), rq (успешность по желаемому за
+    окно), rs (статус роста человека на последний месяц). Окно rq и rs — поставка 90: с января по последний закрытый месяц
+    (cm) его года (было — 12 месяцев до последнего, с неполным текущим); у датасета 2а — только выбранному подразделению"""
     rt = lambda e: f"(case when coalesce({e}specialization_change_application_flg, 0) = 1 then 's' else 'g' end)"
     tat = "(case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end)"
     res = "(case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end)"
-    lm = f'(select lm from {P}_cal)'
-    w12 = f"({lm} - interval '12 month')::date"
+    lm, cm = f'(select lm from {P}_cal)', f'(select cm from {P}_cal)'
+    y0 = f"date_trunc('year', {cm})::date"      # поставка 90: окно rq / rs — январь..cm
     rcols = ['finish_month', 'is_approved', 'is_declined', 'grade_change_application_flg',
              'specialization_change_application_flg', 'tat_flg', 'required_grade_num', 'required_specialization',
              'current_grade_num', 'current_specialization']
     ex_rm = expl(rcols, f'and s.finish_month >= (select grid_start from {P}_cal) and s.finish_month <= {lm}', SXR)
-    ex_rq = expl(rcols, f'and s.finish_month >= {w12} and s.finish_month <= {lm}', SXR)
+    ex_rq = expl(rcols, f'and s.finish_month >= {y0} and s.finish_month <= {cm}', SXR)
     ex_rs = expl(['report_month', 'grade', 'mdm_employee_rk', 'hc_total_cnt', 'last_row_flg'],
                  f'and s.report_month = {lm} and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1')
     return f"""-- поставка 73: T-рост по эталону отчёта «Рост» дашборда HQ. Тип заявки: s — смена специализации, g — повышение
@@ -475,7 +484,8 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rm' as mx_key,
 from ({ex_rm}) e
 where {res} is not null;
 
--- rq — за окно (с начала месяца 12 месяцев назад): «вид|поток|итог|желаемое|текущее», g — грейд, s — специализация
+-- rq — за окно (поставка 90: с января по последний закрытый месяц): «вид|поток|итог|желаемое|текущее», g — грейд,
+-- s — специализация
 -- (поставка 81: текущее — откуда переходят, в отчёте «текущий → желаемый»)
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'rq' as mx_key,
@@ -488,10 +498,11 @@ from ({ex_rq}) e
 where {res} is not null;
 
 -- rs — статус роста человека на последний месяц (люди численности, одна строка человека), как эталон: заявки с итогом
--- в окне; в работе и завершена — again («прошёл рост и участвует снова»), только в работе — first («сейчас в росте»),
--- только завершена — done («рост состоялся»), только отклонена — denied, иначе none. Тип: у again и first — заявки в
--- работе (грейд, иначе специализация), у done — завершённых (оба типа — gs), у denied — отклонённых; у none — рост
--- доступен (av: у специализации есть дата запуска T-роста в справочнике) или нет (nd). Значение «статус|тип|грейд»
+-- в окне (поставка 90: январь..последний закрытый месяц); в работе и завершена — again («прошёл рост и участвует
+-- снова»), только в работе — first («сейчас в росте»), только завершена — done («рост состоялся»), только отклонена —
+-- denied, иначе none. Тип: у again и first — заявки в работе (грейд, иначе специализация), у done — завершённых (оба
+-- типа — gs), у denied — отклонённых; у none — рост доступен (av: у специализации есть дата запуска T-роста
+-- в справочнике) или нет (nd). Значение «статус|тип|грейд»
 insert into {P}_mixr
 with r as (
     select mdm_employee_rk,
@@ -501,7 +512,7 @@ with r as (
            max((is_inprogress = 1 and grade_change_application_flg = 1)::int) as actg,
            max((is_declined = 1 and grade_change_application_flg = 1)::int) as dclg
     from {ROST}
-    where finish_month >= {w12} and finish_month <= {lm}
+    where finish_month >= {y0} and finish_month <= {cm}
     group by mdm_employee_rk
 ), av as (
     select distinct d.mdm_employee_rk
@@ -549,10 +560,13 @@ def sql_mix():
     attrs = ['gender', 'type_age', 'age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
              'legal_organization', 'employee_stream', 'employment_relation_type', 'specialization', 'type_company',
              'region', 'management_head_flg']
-    lm = f'(select lm from {P}_cal)'
-    ytd = f"and s.report_month between date_trunc('year', {lm})::date and {lm}"
+    lm, cm = f'(select lm from {P}_cal)', f'(select cm from {P}_cal)'
+    # поставка 90: «с начала года» — январь..последний закрытый месяц (cm), без неполного текущего: увольнения и найм
+    # (разбивки), посещения и брони по городам — за cm; календарь — cm − 1..lm (два закрытых месяца и неполный текущий:
+    # дни неполного месяца — однозначные числа, чарт берёт нужные месяцы)
+    ytd = f"and s.report_month between date_trunc('year', {cm})::date and {cm}"
     city = clean("(j.v ->> 'office_city_nm')")
-    two = f"and s.report_month between ({lm} - interval '1 month')::date and {lm}"
+    two = f"and s.report_month between ({cm} - interval '1 month')::date and {lm}"
     ROST_MIX = rost_mix()
     # 31.10-б, п. 1: возраст строки числом (в источнике — текст) и пары «разрез|значение» для es / en
     age_e = ("(case when trim(e.age::text) ~ '^[0-9]+([.,][0-9]+)?$' "
@@ -560,11 +574,12 @@ def sql_mix():
     age_vals = (',' + chr(10) + ' ' * 20).join(f"'{k}|' || " + a[k] for k in hc_keys if k not in ('e', 'mh'))
     return f"""{head('4. Разрезы (поставка 58: SQL вместо build_hub)',
                'teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам',
-               '(g a t gr s c o w r sp tc rg ws mh), увольнения с начала его года (xr причина, xq regret по причине, xi',
+               '(g a t gr s c o w r sp tc rg ws mh), увольнения с начала года (xr причина, xq regret по причине, xi',
                'инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),',
-               'найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Поставка 66 (посещения Адели):',
-               'oc / ocp — посещений и людей по городу офиса за последний месяц, dw / do — календарь двух последних',
-               'месяцев: людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору',
+               'найм с начала года (hk источник, hch канал, hg грейд, hsp специализация); «с начала года» — с января по',
+               'последний закрытый месяц (cm, поставка 90). Поставка 66 (посещения Адели): oc / ocp — посещений и людей',
+               'по городу офиса за последний закрытый месяц, dw / do — календарь с месяца перед закрытым по текущий:',
+               'людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору',
                "и месяцу всей сетки, значение «инициатор|ГГГГ-ММ» (текучесть по инициатору). 31.10: sp0 — численность",
                "по специализации на конец прошлого года (на начало периода); es / en — сумма возрастов и людей с возрастом",
                "по «разрез|значение» (средний возраст категории). Пустое значение — ''.")}
@@ -580,7 +595,7 @@ from ({expl(['hc_total_cnt'] + attrs, f'and s.report_month = {lm}')}) e
 where {num('hc_total_cnt')} > 0
 {dist('node_rk')};
 
--- увольнения с начала года
+-- увольнения с начала года (январь..последний закрытый месяц)
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY['xr', 'xq', 'xi', 'xp', 'xt', 'xg', 'xs', 'xsp', 'xtc']) as mx_key,
@@ -609,8 +624,8 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'sp0' as mx_key, {a['sp
 from ({expl(['hc_total_cnt', 'specialization'], f"and s.report_month = (date_trunc('year', {lm}) - interval '1 month')::date")}) e
 where {num('hc_total_cnt')} > 0;
 
--- найм с начала года: источник, канал (найм в компанию / из учебной группы в боевую / стажёр в штат),
--- грейд, специализация
+-- найм с начала года (январь..последний закрытый месяц): источник, канал (найм в компанию / из учебной группы
+-- в боевую / стажёр в штат), грейд, специализация
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
@@ -628,7 +643,8 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'xim' as mx_key,
 from ({expl(['report_month', 'fire_amt', 'fire_initiative'], f'and s.report_month >= (select grid_start from {P}_cal)')}) e
 where {num('fire_amt')} > 0;
 
-{ROST_MIX}-- поставка 66: посещения офисов последнего месяца по городам (office_city_visits_json — параграф with_office_traffic):
+{ROST_MIX}-- поставка 66: посещения офисов по городам (office_city_visits_json — параграф with_office_traffic), поставка 90 — за
+-- последний закрытый месяц:
 -- oc — посещений, ocp — людей, которые были в офисе этого города
 insert into {P}_mixr
 select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
@@ -640,7 +656,7 @@ from (
            coalesce((j.v ->> 'visit_count')::numeric, 0) as vis
     from (
         select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
-        from ({expl(['office_city_visits_json'], f'and s.report_month = {lm} and s.office_city_visits_json is not null')}) e
+        from ({expl(['office_city_visits_json'], f'and s.report_month = {cm} and s.office_city_visits_json is not null')}) e
     ) j
 ) c
 where c.vis > 0;
@@ -657,13 +673,14 @@ from (
            coalesce((j.v ->> 'visit_count')::numeric, 0) as vis
     from (
         select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
-        from ({expl(['office_city_visits_json', 'management_head_flg'], f"and s.report_month = {lm} and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'")}) e
+        from ({expl(['office_city_visits_json', 'management_head_flg'], f"and s.report_month = {cm} and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'")}) e
     ) j
 ) c
 where c.vis > 0;
 
--- 27.10-в, п. 14: нарушения брони по городам последнего месяца: ov — нарушений (бронь без посещения + посещение без
--- брони), ob — база (дней с бронью + посещений без брони), как «Нарушения бронирования» за месяц
+-- 27.10-в, п. 14: нарушения брони по городам последнего закрытого месяца (поставка 90): ov — нарушений (бронь без
+-- посещения + посещение без брони), ob — база (дней с бронью + посещений без брони), как «Нарушения бронирования»
+-- за месяц
 insert into {P}_mixr
 select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
        unnest(ARRAY['ov', 'ob']) as mx_key,
@@ -675,12 +692,13 @@ from (
            coalesce((j.v ->> 'booking_count')::numeric, 0) + coalesce((j.v ->> 'visit_viol_count')::numeric, 0) as base
     from (
         select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
-        from ({expl(['office_city_visits_json'], f'and s.report_month = {lm} and s.office_city_visits_json is not null')}) e
+        from ({expl(['office_city_visits_json'], f'and s.report_month = {cm} and s.office_city_visits_json is not null')}) e
     ) j
 ) c
 where c.base > 0;
 
--- поставка 66: календарь посещений двух последних месяцев (office_traffic_calendar — параграф office_traffic):
+-- поставка 66: календарь посещений (office_traffic_calendar — параграф office_traffic), поставка 90 — с месяца перед
+-- последним закрытым по текущий:
 -- dw — людей с рабочим днём, do — из них в офисе; значение — дата
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
@@ -983,6 +1001,7 @@ union all select 'ai', count(*) from {P}_ai;
 
 def sql_checks():
     root, lm = f'(select root_rk from {P}_meta)', f'(select last_month from {P}_meta)'
+    cm = f'(select cm from {P}_cal)'             # поставка 90: последний закрытый месяц
     hcl = f"""(select node_rk, sum(hc_cnt) as hc from {P}_series
                      where report_month = {lm} group by 1)"""
     checks = [
@@ -1034,10 +1053,11 @@ def sql_checks():
          f"""(select sum(bk_amt + bkv_amt + vsv_amt) from {P}_series where node_rk = {root})
        - (select sum(coalesce(booking_amt, 0) + coalesce(booking_viol_amt, 0) + coalesce(visit_viol_amt, 0)) from {SRC}
           where leaf_lvl > 0)"""),
-        ('календарь - ряды: рабочие дни и посещения двух последних месяцев (корень)', 1,
+        # поставка 90: календарь — с месяца перед последним закрытым (cm) по текущий
+        ('календарь - ряды: рабочие дни и посещения с месяца перед закрытым по текущий (корень)', 1,
          f"""(select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key in ('dw', 'do'))
        - (select sum(wday_amt + ovis_amt) from {P}_series
-          where node_rk = {root} and report_month >= ({lm} - interval '1 month')::date)"""),
+          where node_rk = {root} and report_month >= ({cm} - interval '1 month')::date)"""),
         # 26.10-б: увольнения по инициатору и месяцу (xim) в сумме — увольнения рядов за сетку
         ('увольнения по инициатору и месяцу - ряды (корень, вся сетка)', 1,
          f"""(select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'xim')
@@ -1060,9 +1080,9 @@ def sql_checks():
        - (select count(*) from {SXR} where leaf_lvl > 0 and finish_month >= (select grid_start from {P}_meta)
           and finish_month <= {lm} and (is_approved = 1 or is_declined = 1))"""),
         # справочно: посещение без города в разрез по городам не попадает
-        ('города - посещения последнего месяца (корень)', 0,
+        ('города - посещения последнего закрытого месяца (корень)', 0,
          f"""coalesce((select sum(mx_n) from {P}_mix where node_rk = {root} and mx_key = 'oc'), 0)
-       - (select sum(ovis_amt) from {P}_series where node_rk = {root} and report_month = {lm})"""),
+       - (select sum(ovis_amt) from {P}_series where node_rk = {root} and report_month = {cm})"""),
         # справочно: вакансия юнита вне дерева людей в корень не попадёт
         ('вакансии: корень - снимок (открытые на конец последнего месяца)', 0,
          f"""coalesce((select sum(vac_open_cnt) from {P}_vacancy

@@ -52,7 +52,10 @@
     рабочие дни и посещения руководителей. Колонки рядов — матчером: таблица ноутбука до 66 их не знает — нули.
     В mx — разрезы ноутбука и вакансии (vs vr vp vl — открытые последнего месяца, vk vq — закрытые с
     начала года). Поставка 66: mh — численность руководителей (1) и остальных; oc ocp — посещения и люди по городу
-    офиса за последний месяц; dw do — календарь посещений по дням двух месяцев, только у выбранного юнита.
+    офиса за месяц; dw do — календарь посещений по дням, только у выбранного юнита.
+    Поставка 90: «с начала года» — с января по последний закрытый месяц (cm в cx: последний месяц, если дата данных —
+    его последний день или он январь, иначе месяц перед ним), без неполного текущего: в ноутбуке (cm в
+    teampulse_hub_cal) — увольнения и найм по разрезам, «Рост», города офиса; здесь — vk vq и tsh tsi tso.
     26.10-б: xim — увольнения по инициатору и месяцу («инициатор|ГГГГ-ММ»), тоже только у выбранного юнита.
     28.10, п. 1: tsh tsi tso — найм (как hit), переводы в и из (как tin / tout) с начала года по специализации строки
     перехода (sp_cd), только у выбранного юнита. Колонка sp_cd — матчером: таблица ноутбука до 28.10 её не знает — разрезов
@@ -248,8 +251,13 @@ WITH
       CROSS JOIN (SELECT has({{ qa(FULL) }}, {{ me() }}) AS fl) AS fa
     )
   ),
+  {#- поставка 90: cm — последний закрытый месяц, как cm ноутбука (teampulse_hub_cal): последний месяц, если дата данных —
+      его последний день или он январь, иначе месяц перед ним; даты данных нет (старая таблица) — вчера, но не позже конца
+      месяца. «С начала года» — январь..cm #}
   cx AS (
-    SELECT c.1 AS lm, c.2 AS m0, c.3 AS n, c.4 AS r, c.5 AS d, c.6 AS dd, c.7 AS s, c.8 AS pks, c.9 AS zr, c.10 AS ok, c.11 AS fl, c.12 AS an
+    SELECT c.1 AS lm, c.2 AS m0, c.3 AS n, c.4 AS r, c.5 AS d, c.6 AS dd, c.7 AS s, c.8 AS pks, c.9 AS zr, c.10 AS ok, c.11 AS fl, c.12 AS an,
+           if(toMonth(c.1) = 1 OR ifNull(toDateOrNull(substring(c.6, 1, 10)), least(today() - 1, addDays(addMonths(c.1, 1), -1)))
+                                  >= addDays(addMonths(c.1, 1), -1), c.1, addMonths(c.1, -1)) AS cm
     FROM (SELECT (SELECT c0 FROM cx0) AS c)
   ),
   {#- head_login и head_nm (поставка 66) — матчером: таблица без колонки даёт пустой логин и имя #}
@@ -383,12 +391,12 @@ WITH
       HAVING n4 > 0
       UNION ALL
       {#- вакансии: открытые на конец последнего месяца по статусу (vs), причине (vr), специализации (vp),
-          уровню позиции (vl); закрытые с начала года по каналу (vk) и уровню кандидата (vq) #}
+          уровню позиции (vl); закрытые с начала года по каналу (vk) и уровню кандидата (vq) — поставка 90: январь..cm #}
       SELECT u5 AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
       FROM
       (
         SELECT ifNull(node_rk, '') AS u5, if(report_month = (SELECT lm FROM cx), toFloat64(ifNull(vac_open_cnt, 0)), 0) AS vo,
-               toFloat64(ifNull(vac_close_cnt, 0)) AS vc,
+               if(report_month <= (SELECT cm FROM cx), toFloat64(ifNull(vac_close_cnt, 0)), 0) AS vc,
                arrayFilter(x -> x.3 > 0, [('vs', ifNull(status, ''), if(ifNull(status, '') != '', vo, 0)), ('vr', ifNull(search_reason, ''), vo),
                  ('vp', ifNull(specialization, ''), vo), ('vl', ifNull(position_lvl, ''), vo), ('vk', ifNull(channel, ''), vc),
                  ('vq', ifNull(cand_lvl, ''), vc)]) AS kvs
@@ -398,14 +406,15 @@ WITH
       ARRAY JOIN kvs AS kv
       GROUP BY u3, k3, v3
       UNION ALL
-      {#- 28.10, п. 1: найм, переводы в и из с начала года по специализации — только у выбранного юнита #}
+      {#- 28.10, п. 1: найм, переводы в и из с начала года по специализации — только у выбранного юнита; поставка 90:
+          январь..cm #}
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
       FROM
       (
         SELECT node_rk, {{ SPC }} AS spx, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu
         FROM prod_proteus.teampulse_hub_trf
-        WHERE ifNull(node_rk, '') = (SELECT s FROM cx) AND report_month >= toStartOfYear((SELECT lm FROM cx))
-          AND report_month <= (SELECT lm FROM cx) AND {{ cond() }}
+        WHERE ifNull(node_rk, '') = (SELECT s FROM cx) AND report_month >= toStartOfYear((SELECT cm FROM cx))
+          AND report_month <= (SELECT cm FROM cx) AND {{ cond() }}
       )
       ARRAY JOIN [('tsh', spx, th), ('tsi', spx, ti), ('tso', spx, tu)] AS kv
       WHERE spx != ''
