@@ -51,7 +51,8 @@ function hqView(ctx){
       'Накопительно по '+esc(D.MONTH_NOM[h.month.m])+(D.PARTIAL?' (закрытый месяц; '+esc(D.MONTH_NOM[D.ASOF.m])+' — на графиках)':'')+
       '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+t+
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
-    G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true}))},
+    G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
+      period:D.periodTotal(h.lp,r.key,r.yoy)}))},
       {h:520,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
 }

@@ -1173,6 +1173,47 @@ function yoyOf(ext){
 }
 function yoySeries(leafPaths,key){return yoyOf(aggregateExt(leafPaths,key))}
 
+/* 31.10, итог за период на графиках «год к году» (одобрено после критиков): этот год с января по закрытый месяц против
+   того же периода прошлого. Потоки — сумма; ставки — за период целиком (сумма числителя / сумма знаменателя по месяцам,
+   а не среднее процентов), у своего ряда (yser) — среднее месяцев; накопительные — на закрытый месяц; состояния
+   (численность, открытые вакансии) — сейчас, без вызревания. Январь без закрытых месяцев — неполный январь.
+   Дельта — в единицах и % (при базе от 10), у процентов — п.п.; почти ноль — «без изменений» */
+const PT_CUM=new Set(['turnover_y','regret','nonregret']), PT_STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau']);
+function periodTotal(lp,key,yser){
+  const m=METRIC_BY_KEY[key]||{}, d=defOf(key).derived, y=yser||yoySeries(lp,key);
+  const stock=PT_STOCK.has(key), cum=PT_CUM.has(key)||!!(d&&d.win==='ytd'), flow=!!m.flow&&!cum;
+  let c=stock?CUR_LEN-1:CUR_LEN-1-(PARTIAL?1:0);
+  const part=c<0;if(part)c=0;
+  const span=part?'1–'+ASOF.d+' '+MONTH_ABBR_GEN[ASOF.m]:c===0?MONTH_ABBR[0]:'янв.–'+MONTH_ABBR[c];
+  const sum=a=>a.slice(0,c+1).reduce((t,v)=>t+(v||0),0);
+  let cur,prev,head;
+  if(flow){cur=sum(y.cur);prev=sum(y.prev);head='Всего за '+span}
+  else if(stock){cur=y.cur[c];prev=y.prev[c];head=PARTIAL?'Сейчас, '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'На конец '+MONTH_GEN[c]}
+  else if(cum){cur=y.cur[c];prev=y.prev[c];head=part?'За '+span:'На конец '+MONTH_GEN[c]}
+  else{
+    if(d&&!yser){
+      const ks=k=>[].concat(k), ser=k=>ks(k).map(x=>yoySeries(lp,x)).reduce((a,b)=>({cur:a.cur.map((v,i)=>(v||0)+(b.cur[i]||0)),
+        prev:a.prev.map((v,i)=>(v||0)+(b.prev[i]||0))}));
+      const N=ser(d.num), Dn=ser(d.den), r=(a,b)=>{const t=sum(b);return t?sum(a)/t*(d.scale||1):null};
+      cur=r(N.cur,Dn.cur);prev=r(N.prev,Dn.prev);
+    }else{const av=a=>{const v=a.slice(0,c+1).filter(x=>x!=null);return v.length?v.reduce((t,x)=>t+x,0)/v.length:null};cur=av(y.cur);prev=av(y.prev)}
+    head='В среднем за месяц, '+span;
+  }
+  if(cur==null||!isFinite(cur))return null;
+  const pct=m.fmt==='pct', dd=prev==null?null:cur-prev, eps=pct?0.05:m.fmt==='int'?0.5:0.05;
+  let delta=null,good=null;
+  if(dd!=null){
+    if(Math.abs(dd)<eps)delta='без изменений';
+    else{
+      delta=pct||m.fmt!=='int'?fmtDelta(key,+dd.toFixed(2)):(dd>0?'+':'\u2212')+fmtInt(Math.abs(Math.round(dd)))+(m.unit==='чел'?' чел.':'')+
+        (prev>=10?' ('+(dd>0?'+':'\u2212')+Math.abs(Math.round(dd/prev*100))+'%)':'');
+      good=m.better==='lower'?dd<0:m.better==='higher'?dd>0:null;
+    }
+  }
+  return {head:head,cur:fmtVal(key,cur),prev:prev==null?null:fmtVal(key,prev),delta:delta,good:good,c:c,strip:!stock&&!part,
+    v:cur,pv:prev};
+}
+
 /* ---------- Сигнал блока ----------
    Сколько выбранных метрик блока сейчас лучше и хуже своего ориентира — та же
    развилка, что везде: цель KPI, иначе база; «больше не значит лучше» и
@@ -2941,4 +2982,4 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,ROST_ST,ROST_LIVE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  ytdTableVal,exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};
+  periodTotal,ytdTableVal,exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};

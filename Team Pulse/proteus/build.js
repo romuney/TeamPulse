@@ -111,6 +111,19 @@ function fold(src){
   fold.n=(fold.n||0)+n;
   return src;
 }
+/* 31.10, поставка 89 (итог за период, вес чарта): в неймспейсах window.TP… (TPDATA, TPDRAW, TPUI, …) и SC.экран
+   в сборке остаются только имена, к которым обращаются модули чарта (.имя); остальное — помощники макета и smoke.js,
+   сжатие выбрасывает их вместе с кодом. Макет и smoke.js работают на исходниках как раньше. */
+const SRC={};FILES.forEach(f=>{SRC[f]=read(f)});
+function prune(src){
+  return src.replace(/(window\.TP[A-Z]+|SC\.[a-z]+)=\{([^{}]*)\};/g,(all,ns,body)=>{
+    const rest=FILES.map(f=>SRC[f]).join('\n').replace(all,'');
+    const keep=body.split(',').filter(e=>{const n=e.trim();
+      if(!/^[A-Za-z_$][\w$]*$/.test(n))return true;
+      const ok=new RegExp('\\.'+n+'(?![\\w$])').test(rest);if(!ok)prune.n=(prune.n||0)+1;return ok});
+    return ns+'={'+keep.join(',')+'};';
+  });
+}
 const index=read('index.html');
 const body=index.slice(index.indexOf('<body>')+6,index.lastIndexOf('</body>'))
   .replace(/<script[\s\S]*?<\/script>/g,'')
@@ -131,7 +144,7 @@ const HEAD=`// =================================================================
 // ============================================================================
 `;
 let src='var TP_CSS='+JSON.stringify(css)+';\nvar TP_HTML='+JSON.stringify(body)+';\n'+
-  'try{\n'+FILES.map(f=>'/* '+f+' */\n(function(){\n'+(/^proteus\//.test(f)?read(f):fold(read(f)))+'\n})();').join('\n')+
+  'try{\n'+FILES.map(f=>'/* '+f+' */\n(function(){\n'+(/^proteus\//.test(f)?read(f):prune(fold(read(f))))+'\n})();').join('\n')+
   '\n}catch(err){if(!(err&&err.tpStop)){\n'+
   '  var _h=document.querySelectorAll("[_echarts_instance_]");\n'+
   '  var _box=_h.length?_h[_h.length-1]:document.body, _m=document.createElement("div");\n'+
@@ -179,5 +192,5 @@ require('terser').minify(out+tail,{ecma:5,toplevel:false,mangle:false,
   const kb=n=>(n/1024).toFixed(0)+' КиБ';
   console.log('чарт собран: '+path.relative(dir,OUT)+' — '+kb(Buffer.byteLength(code))+
     ' (до сжатия '+kb(Buffer.byteLength(result))+'; '+r.notes.join('; ')+', разметка '+kb(Buffer.byteLength(body))+
-    '; бюджет '+BUDGET_KIB+' КиБ, ≈'+(Buffer.byteLength(code)/1024/50).toFixed(1)+' с отправки на запрос при 50 КБ/с), ES5 и сборка проверены');
+    '; бюджет '+BUDGET_KIB+' КиБ, ≈'+(Buffer.byteLength(code)/1024/50).toFixed(1)+' с отправки на запрос при 50 КБ/с), ES5 и сборка проверены; вне сборки имён: '+(prune.n||0)+'');
 }).catch(e=>{console.error('СЖАТИЕ НЕ ПРОШЛО: '+(e.message||e));process.exit(1)});

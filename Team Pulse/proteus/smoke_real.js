@@ -560,5 +560,16 @@ if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений з
 /* 30.10: доли и средние, которые за неполный месяц неточны, в таблицах и выводах — по закрытому месяцу */
 ok(['time_to_fill','tgrowth_conv','underwork','overwork'].every(k=>!D.PARTIAL||D.lastIdx(k)===D.LAST-1),
   'срок закрытия, конверсия T-роста, недоработчики и переработчики — по закрытому месяцу');
+/* поставка 89: итог за период на графиках — потоки суммой с января по закрытый месяц, накопительная — на закрытый месяц,
+   численность — сейчас; тот же период год назад; в шапке графика найма — строка итога */
+{
+  const lp=D.reportLeaves(D.DEFAULT_STATE), c=D.CUR_LEN-1-(D.PARTIAL?1:0), sum=a=>a.slice(0,c+1).reduce((t,v)=>t+(v||0),0);
+  const yh=D.yoySeries(lp,'hire'), ph=D.periodTotal(lp,'hire'), yt=D.yoySeries(lp,'turnover_y'), pt=D.periodTotal(lp,'turnover_y');
+  const yc=D.yoySeries(lp,'hc_total'), pc=D.periodTotal(lp,'hc_total'), hire=A.top('hiring');
+  ok(c<0||ph&&Math.abs(ph.v-sum(yh.cur))<1e-9&&Math.abs(ph.pv-sum(yh.prev))<1e-9&&/^Всего за /.test(ph.head)&&
+    pt&&pt.v===yt.cur[c]&&/^На конец /.test(pt.head)&&pc&&pc.v===yc.cur[D.CUR_LEN-1]&&!pc.strip&&
+    /class="pt-line"/.test(hire),
+    'итог за период: найм '+(ph&&ph.cur)+' ('+(ph&&ph.head)+'), год назад '+(ph&&ph.prev)+'; накопительная текучесть и численность — на дату');
+}
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);

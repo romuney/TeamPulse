@@ -693,14 +693,44 @@ function yoyPlot(p,ar){
   }
   return s+lbl+mk;
 }
+/* 31.10: итог за период (CD.periodTotal) — одна строка под шапкой графика: тип итога первым словом, этот год жирным,
+   прошлый серым, изменение — плашкой (зелёная/красная, если направление однозначно, иначе серая). Черта под осью —
+   месяцы, вошедшие в итог. Ширину кусков меряем шрифтом на canvas (оценка textW по числу букв уводила значение вправо) */
+let _mc;
+function measureW(t,size,bold){
+  if(_mc===undefined)try{_mc=document.createElement('canvas').getContext('2d')}catch(e){_mc=null}
+  if(!_mc)return textW(t,size);
+  _mc.font=(bold?'bold ':'')+size+'px '+FONT;return _mc.measureText(String(t)).width;
+}
+const PERIOD_H=20, PT_BG={g:'#e6f6ec',b:'#fdecec',n:'#eef0f3'}, PT_FG={g:'#0a8f3c',b:'#d11414',n:'#5b616d'};
+/* куски строки — группами [текст, жирный?, плашка?]; группа, что не влезает в ширину, уходит на новую строку
+   (узкий экран), разделитель « · » в начале строки снимаем. У пары (p.parts) — оба потока, у каждого — год назад */
+function periodLine(p,y,w){
+  if(!p)return {s:'',h:0};
+  const gs=p.parts?[[[p.head+': ']]].concat(p.parts.map((q,i)=>[[(i?' · ':'')+q.name+' '],[q.cur,1]].concat(q.prev!=null?[[' (год назад '+q.prev+')']]:[]))):
+    [[[p.head+': '],[p.cur,1]]].concat(p.prev!=null?[[[' · год назад '+p.prev]]]:[],p.delta?[[[p.delta,1,p.good==null?'n':p.good?'g':'b']]]:[]);
+  const W=q=>q[2]?measureW(q[0],10.5,1)+18:measureW(q[0],q[1]?12:11,q[1])+(q[1]?2:0);
+  let x=0,n=0,s='';
+  gs.forEach(g=>{
+    if(x&&x+g.reduce((t,q)=>t+W(q),0)>w){x=0;y+=15;n++;g[0]=[g[0][0].replace(/^ · /,'')].concat(g[0].slice(1))}
+    g.forEach(q=>{const tw=W(q);
+      s+=q[2]?rect(x+6,y-11.5,tw-6,15,PT_BG[q[2]],7.5)+txt(x+3+tw/2,y-0.5,q[0],{size:10.5,weight:700,fill:PT_FG[q[2]]}):
+        txt(x,y,q[0],{size:q[1]?12:11,weight:q[1]?700:0,fill:q[1]?C_INK:C_AXIS,anchor:'start'});
+      x+=tw});
+  });
+  return {s:'<g class="pt-line">'+s+'</g>',h:PERIOD_H+n*15};
+}
+function periodStrip(x0,bandW,yb,p){
+  return p&&p.strip?rect(x0+3,yb,bandW*(p.c+1)-6,2.5,C_LINE,1.25,' opacity="0.5" class="pt-strip"'):'';
+}
 function drawYoy(a,w,h){
   const o=a.opt||{};
-  const hh=headH(o.title,o.legend,w);
+  const hh=headH(o.title,o.legend,w), pt=periodLine(o.period,hh+11,w), ph=pt.h;
   h=h||o.h||280;
   const ya=yoyAnn(annOf(o));
-  const plotTop=hh+LBL_ROOM+yoyRoom(ya,o.marks), plotBot=h-AXIS_H+12;
+  const plotTop=hh+ph+LBL_ROOM+yoyRoom(ya,o.marks), plotBot=h-AXIS_H+12;
   const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(a.metricKey,o.kpi);
-  return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+
+  return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+pt.s+periodStrip(x0,plotW/12,plotBot+20,o.period)+
     yoyPlot({key:a.metricKey,cur:a.cur,prev:a.prev,bench:a.bench,color:o.color,kpi:o.kpi,
       ann:ya,marks:o.marks,gap:o.gap,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName},
       {x0:x0,plotW:plotW,top:plotTop,bot:plotBot,hitTop:hh}));
@@ -722,7 +752,7 @@ function drawYoy(a,w,h){
 function drawPair(a,w,h){
   const o=a.opt||{}, A=a.a, B=a.b;
   const nameA=o.aName||(CD.METRIC_BY_KEY[A.key]||{}).name||'', nameB=o.bName||(CD.METRIC_BY_KEY[B.key]||{}).name||'';
-  const hh=headH(o.title,o.legend,w);
+  const h0=headH(o.title,o.legend,w), pt=periodLine(o.period,h0+11,w), hh=h0+pt.h;
   h=h||o.h||300;
   const off=offOf(o), sA=!off.has('a'), sB=!off.has('b'), sC=!off.has('cur'), sP=!off.has('prev');
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/12, nowI=CD.CUR_LEN-1, X=i=>x0+bandW*(i+0.5);
@@ -732,7 +762,7 @@ function drawPair(a,w,h){
   const top=hh+LBL_ROOM, bot=h-22-LBL_ROOM+6;
   const u=(bot-top)/((mA+mB)||1), y0=top+mA*u;
   const bw=Math.max(6,Math.min(28,bandW*0.56)), gw=ghostW(bw,bandW);
-  let s=header(w,o.title,o.legend,{kind:'pair',off:o.off});
+  let s=header(w,o.title,o.legend,{kind:'pair',off:o.off})+pt.s;
   const part=CD.matures(A.key)&&sC, pp=' stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"';
   if(CD.PARTIAL)s+=hatchBand(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4);
   CD.MONTH_ABBR.forEach((lb,i)=>{
@@ -786,7 +816,7 @@ function drawPair(a,w,h){
    ставит её контейнеру в style — иначе svg вылезал бы из контейнера, и под
    ним в прокрутке панели не оставалось бы воздуха (13.10). */
 function panelsMin(ps){
-  const minPanel=16+LBL_ROOM+70+(AXIS_H-12)+STACK_GAP+(ps.some(p=>yoyRoom(yoyAnn(annOf(p))))?ANN_ROOM:0);
+  const minPanel=16+LBL_ROOM+70+(AXIS_H-12)+STACK_GAP+(ps.some(p=>yoyRoom(yoyAnn(annOf(p))))?ANN_ROOM:0)+(ps.some(p=>p.period)?PERIOD_H:0);
   /* воздух GAP нужен МЕЖДУ панелями, под последней он — лишняя дыра */
   return ps.length*minPanel-STACK_GAP+14;
 }
@@ -800,8 +830,9 @@ function drawPanels(a,w,h){
   let s='';
   ps.forEach((p,pi)=>{
     const base=pi*panelH, ya=yas[pi];
-    const top=base+HEAD+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
+    const pt=periodLine(p.period,base+HEAD+13,w), top=base+HEAD+pt.h+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+    s+=pt.s+periodStrip(x0,plotW/12,bot+20,p.period);
     s+=yoyKey(w,base-1,p.color||C_LINE,off,false,asBars(p.key));
     s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,color:p.color,ann:ya,off:off,mature:p.mature},
       {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
@@ -1216,7 +1247,7 @@ function chart(kind,args,opt){
   opt.off=_off.get(opt._key)||new Set(opt.offDef||[]);
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
-  /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px */
+  /* opt.cls — модификатор контейнера */
   const mh=kind==='panels'?panelsMin(args.panels):0;
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
     (mh?' style="min-height:'+mh+'px;--np:'+args.panels.length+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';

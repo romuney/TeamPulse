@@ -141,9 +141,11 @@ function yoyChart(key,lp,bl,S,opt){
     .concat(opt.ref?[{name:opt.ref.name,color:G.C_BENCH,dash:true}]:cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
   /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
      базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
+  /* 31.10: итог за период под шапкой — по ряду графика (свой ряд — простым правилом); opt.period:false — без него */
+  const period=opt.period===false?null:D.periodTotal(lp,key,opt.yser||sc&&sc!==1?y:null);
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
     Object.assign({legend,benchName:opt.ref?opt.ref.name:bench,kpi:kpi,h:300,fill:true,gap:cmp&&!opt.ref,
-      offDef:cmp&&!opt.ref?['bench']:null},opt,{color:col}));
+      offDef:cmp&&!opt.ref?['bench']:null},opt,{color:col,period:period}));
 }
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
@@ -157,7 +159,8 @@ function rest(ctx,k,n,word){return {top:n,restWord:word,restKey:'rest:'+k,restOp
 function yoyPanels(lp,items,opt){
   return G.chart('panels',{panels:items.map(it=>{
     const y=D.yoySeries(lp,it.key);
-    return {name:it.name,key:it.key,cur:y.cur,prev:y.prev,color:it.color||YOY_COLOR[it.key]||G.C_LINE,ann:it.ann||null};
+    return {name:it.name,key:it.key,cur:y.cur,prev:y.prev,color:it.color||YOY_COLOR[it.key]||G.C_LINE,ann:it.ann||null,
+      period:D.periodTotal(lp,it.key)};
   })},Object.assign({h:520,fill:true,
     legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]},opt||{}));
 }
@@ -169,8 +172,11 @@ function yoyPair(lp,aKey,bKey,opt){
   const cA=raw[0]?raw[0].color:G.C_IN, cB=raw[1]?raw[1].color:G.C_OUT;
   const lg=src.concat([{name:String(D.YEAR_CUR),split:[G.soft(cA),G.soft(cB)]},
     {name:String(D.YEAR_PREV),split:[cA,cB],ghost:true}]);
+  /* 31.10: итог пары — оба потока за период, у каждого — год назад */
+  const pa=D.periodTotal(lp,aKey), pb=D.periodTotal(lp,bKey), lc=x=>String(x||'').charAt(0).toLowerCase()+String(x||'').slice(1);
+  const period=pa&&pb?{head:pa.head,parts:[{name:lc(lg[0]&&lg[0].name),cur:pa.cur,prev:pa.prev},{name:lc(lg[1]&&lg[1].name),cur:pb.cur,prev:pb.prev}]}:null;
   return G.chart('pair',{a:Object.assign({key:aKey},D.yoySeries(lp,aKey)),b:Object.assign({key:bKey},D.yoySeries(lp,bKey))},
-    Object.assign({h:300,fill:true,aName:lg[0]&&lg[0].name,bName:lg[1]&&lg[1].name},opt||{},{legend:lg}));
+    Object.assign({h:300,fill:true,aName:lg[0]&&lg[0].name,bName:lg[1]&&lg[1].name,period:period},opt||{},{legend:lg}));
 }
 
 /* Значение того же месяца год назад — прямо из расширенной сетки, а не

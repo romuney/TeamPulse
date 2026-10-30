@@ -1596,7 +1596,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-facts{margin:0;padding:0 0 0 var(--s8);font-size:var(--fs-body);line-height:1.5;color:var(--ink2)}
 .st-facts li+li{margin-top:var(--s3)}
 .st-facts b{color:var(--ink)}
-.st-focus td.lead.bad{color:var(--red-tx)}.st-focus td.lead.good{color:var(--green-tx)}
 .st-act{padding:var(--s7);border-radius:var(--r4);background:var(--blue-bg);border:1px solid var(--act-line)}
 .st-act .st-cap{color:var(--act-ink)}
 .st-act p{margin:0;font-size:var(--fs-body);line-height:1.45;color:var(--ink)}
@@ -1644,7 +1643,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    хватает высоты — панель прокручивается, а не плющит графики. */
 .st-main>.svgchart.fill{min-height:220px}
 /* График с ограниченной шириной — по центру своей колонки */
-.svgchart.narrow{width:100%;max-width:760px;align-self:center;margin-left:auto;margin-right:auto}
 
 /* ============================================================================
    Итерация 32, фидбэк 12.10 — таблицы.
@@ -1984,7 +1982,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 
 
 
-#view .st-focus{table-layout:fixed}
 
 #view .hxtable td.txt{color:var(--ink)}
 /* таблица подразделений: название забирает всё, что не нужно числам, — числа
