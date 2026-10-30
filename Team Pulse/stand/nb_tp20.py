@@ -167,8 +167,8 @@ def seniority(g):
     return 'Junior' if g <= 13 else 'Middle' if g <= 15 else 'Senior' if g <= 17 else 'Lead'
 
 
-# флаги смены типа (покраска, IT, тип активности, штат): с 21.10 симуляция их меняет; специализация
-# и стрим — всегда 0
+# флаги смены типа (покраска, IT, тип активности, штат): с 21.10 симуляция их меняет; специализация — с 31.10
+# (sp_change), стрим — всегда 0
 TYPES = ['active_type', 'hq', 'it', 'specialization', 'stream', 'employment_relation_type']
 COLS = (['calendar_dt', 'mdm_employee_rk']
         + [f'lvl{i}_mapped_management_unit_rk' for i in range(1, NL + 1)]
@@ -224,6 +224,24 @@ def head_flg(H, p, d):
     return int(H[dt.date(d.year, d.month, 1)].get(at(p['unit'], d)) == p['rk'])
 
 
+def sp_change(p):
+    """31.10, п. 10: у части людей (по ключу, без генератора — остальная симуляция не сдвигается) одна смена
+    специализации в середине жизни: (первый день в новой, новая специализация) или None. Меняется только
+    employee_specialization_desc источника и флаги transfer_to / transfer_out_specialization_flg"""
+    if p['rk'] % 11 != 3:
+        return None
+    s0, last = max(p['start'], D0), p['end'] or D1
+    span = (last - s0).days
+    if span < 4:
+        return None
+    return s0 + dt.timedelta(1 + p['rk'] * 37 % (span - 2)), SPECS[(SPECS.index(p['spec']) + 1) % len(SPECS)]
+
+
+def spec_at(p, d):
+    ch = sp_change(p)
+    return ch[1] if ch and d >= ch[0] else p['spec']
+
+
 def source_rows(U, people):
     H = heads(U, people)
     for p in people:
@@ -255,6 +273,10 @@ def source_rows(U, people):
                   for i, t in enumerate(('active_type', 'hq', 'it', 'employment_relation_type'))}
             of = {t: int(nx[i] != cur[i] and (want[i] is None or cur[i] == want[i]))
                   for i, t in enumerate(('active_type', 'hq', 'it', 'employment_relation_type'))}
+            # 31.10, п. 10: смена специализации — «в» в первый день новой, «из» в последний день старой
+            spd = spec_at(p, d)
+            tf['specialization'] = int(d > p['start'] and spec_at(p, d - dt.timedelta(1)) != spd)
+            of['specialization'] = int(d < last and spec_at(p, d + dt.timedelta(1)) != spd)
             yield ([d, p['rk']] + [pu[i] if i < len(pu) else None for i in range(NL)]
                    + [U[pu[i]][0] if i < len(pu) else None for i in range(NL)]
                    + inf + outf
@@ -264,7 +286,7 @@ def source_rows(U, people):
                       int(d == p['start'] and p['start'] > D0), int('transfer_candidate_flg' in cv),
                       int('transfer_internal_flg' in cv), fired, p['regret'] if fired else 0]
                    + [tf.get(t, 0) for t in TYPES] + [of.get(t, 0) for t in TYPES]
-                   + [p['nonreg'] if fired else 0, p['company'], p['spec'], p['source']]
+                   + [p['nonreg'] if fired else 0, p['company'], spd, p['source']]
                    + [None, None, 0, 0]
                    + [int((d + dt.timedelta(1)).day == 1)]
                    + [REGIONS[p['rk'] * 7 % len(REGIONS)]]
@@ -776,6 +798,28 @@ def truth_trf(U, people, pred=lambda p, d: True, act=ACTIVE, chg=()):
                     if d not in conv:
                         T[(n, m)]['tin'] += 1
     return T
+
+
+def truth_spec_move(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
+    """31.10, п. 7 и 10: переводы по специализациям узла rk с начала года последнего месяца — по флагам смены
+    специализации: tsi — в новую (строка первого дня в ней), tso — из старой (строка последнего дня в ней; последний
+    день месяца — в следующий месяц). Узел и срез — строки этого дня"""
+    lm = months()[-1]
+    out = {'tsi': defaultdict(float), 'tso': defaultdict(float)}
+    for p in people:
+        ch = sp_change(p)
+        if not ch:
+            continue
+        for k, d in (('tsi', ch[0]), ('tso', ch[0] - dt.timedelta(1))):
+            md = d + dt.timedelta(1) if k == 'tso' and (d + dt.timedelta(1)).day == 1 else d
+            m = dt.date(md.year, md.month, 1)
+            if not (m.year == lm.year and m <= lm and d >= D0):
+                continue
+            if not (pred(p, d) and (act is None or at(p['acth'], d) in act)):
+                continue
+            if rk == 'all' or rk in path(U, at(p['unit'], d)):
+                out[k][spec_at(p, d)] += 1
+    return {k: dict(v) for k, v in out.items()}
 
 
 def truth_fire_init(U, people, rk, pred=lambda p, d: True, act=ACTIVE):

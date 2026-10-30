@@ -134,7 +134,8 @@ CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub che
            73: {'EXEC build_all_metrics', 'rost_info', 'with_TRost', 'structure_x_rost', 'hub · 0 колонки', 'hub · 4 разрезы',
                 'hub checks'},
            81: {'hub · 0 колонки', 'hub · 4 разрезы'},
-           86: {'structure_x_vacancy', 'rost_info', 'with_TRost', 'to click'}}
+           86: {'structure_x_vacancy', 'rost_info', 'with_TRost', 'to click'},
+           87: {'hub · 0 колонки', 'hub · 4 разрезы', 'hub · 5 переходы', 'hub checks'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 

@@ -766,7 +766,10 @@ function stickTotals(){
    нужна, только когда шапка прилипла; в покое она ложилась на тень сводки над карточкой — «артефакт справа» */
 let _ps=0;
 function phStuck(){_ps=0;$$('.split>.panel').forEach(p=>{const ph=p.querySelector(':scope>.panel-h');
-  if(ph)p.classList.toggle('ph-stuck',ph.getBoundingClientRect().top-p.getBoundingClientRect().top>1)})}
+  if(ph)p.classList.toggle('ph-stuck',ph.getBoundingClientRect().top-p.getBoundingClientRect().top>1)});
+  /* 31.10: подложка ряда пилюль — тоже только когда он прилип (наверху она срезала тень вывода и углов карточек) */
+  $$('.sel-row').forEach(r=>{const n=r.nextElementSibling;
+    r.classList.toggle('sr-stuck',!!n&&n.getBoundingClientRect().top<r.getBoundingClientRect().bottom+10)})}
 on(ENV?ENV.scroller:window,'scroll',()=>{if(!_ps)_ps=requestAnimationFrame(phStuck)},{passive:true});
 
 /* ---------- разделитель «таблица | графики» ----------

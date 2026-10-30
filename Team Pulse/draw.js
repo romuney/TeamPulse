@@ -503,18 +503,32 @@ const PART_NOTE=k=>'Месяц не закрыт: данные по '+CD.ASOF_LA
    полного месяца давали ложное «−9»); будущие месяцы — «ещё впереди», а не «не закрыт» */
 const tipMon=(i,nowI,pf)=>pf&&i===nowI&&CD.PARTIAL?'1–'+CD.ASOF.d+' '+CD.MONTH_GEN[i]:CD.MONTH_NOM[i].replace(/^./,x=>x.toUpperCase());
 const tipAhead=(i,nowI)=>i>nowI?tipMon(i)+' '+CD.YEAR_CUR+' ещё впереди — показан '+CD.YEAR_PREV:'Месяц ещё не закрыт';
+/* 31.10, п. 8: текущий (незакрытый) месяц — штриховкой за месяцем и подписью обычным шрифтом, как остальные; акцент —
+   на закрытом месяце (жирная подпись месяца и значения). Месяц закрыт — он и есть закрытый */
+const closedIdx=nowI=>CD.PARTIAL?nowI-1:nowI;
+let _hid=0;
+function hatchBand(x,y,w,h){
+  const id='tpH'+(++_hid);
+  return '<defs><pattern id="'+id+'" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'+
+    '<rect width="2" height="6" fill="#DFE3EA"/></pattern></defs>'+rect(x,y,w,h,'url(#'+id+')',4,' class="hatch"');
+}
+const axLbl=(lb,i,nowI,key)=>[i===nowI?nowLabel(lb,key):lb,
+  i===closedIdx(nowI)?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}];
 function yoyAxis(X,bandW,top,bot,nowI,bars,key){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
   let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
     /* «1–12 окт.» шире месяца: на узкой оси соседей не подписываем — иначе «сен1–12 окт.нояб.» (ревью критиков, 24) */
-    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1))
-      s+=txt(X(i),bot+15,i===nowI?nowLabel(lb,key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1)){
+      const a=axLbl(lb,i,nowI,key);s+=txt(X(i),bot+15,a[0],a[1]);
+    }
   });
   return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1);
 }
 /* Подсветка месяцев для связки «пункт списка ↔ график»: невидимые полосы,
    которые проявляет класс on (app.js — наведение на пункт «Что видно»). */
+/* 31.10, п. 2: самая яркая клетка тепловых таблиц «Роста» — ffc3b1 с прозрачностью cc */
+const C_HEAT_RGB='255,195,177', HEAT_MAX=0.8;
 const C_LINK='#E6EEFC';         /* подсветка месяца — бледный тон кобальта */
 function yoyBands(x0,bandW,top,bot){
   let s='';
@@ -579,7 +593,7 @@ function yoyPlot(p,ar){
   /* p.mature — вызревает и метрика, у которой это не свойство ключа (HQ текучесть в «Как уходит HQ?», 27.10-в, п. 6) */
   const part=p.mature?CD.PARTIAL:CD.matures(key), curS=part?cur.map((v,i)=>i===nowI?null:v):cur;
   const pl=!flow&&CD.PARTIAL&&CD.partFlow(key)&&!part;
-  if(pl)s+=rect(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4,C_BAND,6);
+  if(CD.PARTIAL)s+=hatchBand(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4);
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
   s+=yoyAxis(X,bandW,top,bot,nowI,flow,key);
   /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
@@ -645,7 +659,7 @@ function yoyPlot(p,ar){
     if(flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
       /* подпись — над баром этого года, даже если прозрачный бар прошлого выше:
          над ним цифра читалась как его значение */
-      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main',weight:i===nowI?VAL_NOW:VAL_W}));
+      lbl+=txt(cx,Y(c)-VAL_DY-(mkAt(i,'main')?5:0),CD.fmtVal(key,c),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
     }else if(flow&&!showMain&&showPrev&&pv!=null&&lblAt(i,nowI,step)){
       /* этот год выключен — прошлый показан обычными барами и подписан так же */
       lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));
@@ -653,7 +667,7 @@ function yoyPlot(p,ar){
       /* под точкой у оси места нет (значение около нуля): там подпись легла бы на месяц — тогда над точкой */
       const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null, below=both&&pv>c&&rm(c);
       const sh=mkAt(i,'main')?5:0;
-      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===nowI?VAL_NOW:VAL_W}));
+      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }
@@ -720,9 +734,11 @@ function drawPair(a,w,h){
   const bw=Math.max(6,Math.min(28,bandW*0.56)), gw=ghostW(bw,bandW);
   let s=header(w,o.title,o.legend,{kind:'pair',off:o.off});
   const part=CD.matures(A.key)&&sC, pp=' stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"';
+  if(CD.PARTIAL)s+=hatchBand(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4);
   CD.MONTH_ABBR.forEach((lb,i)=>{
-    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1))
-      s+=txt(X(i),h-6,i===nowI?nowLabel(lb,A.key):lb,i===nowI?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS});
+    if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1)){
+      const a=axLbl(lb,i,nowI,A.key);s+=txt(X(i),h-6,a[0],a[1]);
+    }
   });
   const yC=String(CD.YEAR_CUR), yP=String(CD.YEAR_PREV);
   const stepA=labelStep(A.cur,A.key,bandW), stepB=labelStep(B.cur,B.key,bandW), step=Math.max(stepA,stepB);
@@ -1195,7 +1211,9 @@ function chart(kind,args,opt){
   opt=Object.assign({},opt||{});
   const id='k'+(++_sid);
   opt._key=kind+'|'+(opt.title||'')+'|'+id;
-  opt.off=_off.get(opt._key)||new Set();
+  /* 31.10, п. 6: opt.offDef — серии, выключенные по умолчанию (линия базы «Вся компания»): в легенде перечёркнута,
+     клик включает; выбор помнится в сессии, как любое выключение */
+  opt.off=_off.get(opt._key)||new Set(opt.offDef||[]);
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
   /* opt.cls — модификатор контейнера: 'narrow' — график не шире 760px */
@@ -1275,9 +1293,9 @@ function toggleSeries(cid,sid){
 }
 
 /* _off сознательно НЕ чистим — см. комментарий у его объявления */
-function reset(){_specs=new Map();_sid=0}
+function reset(){_specs=new Map();_sid=0;_hid=0}
 
-window.TPDRAW={chart,lazy,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
+window.TPDRAW={C_HEAT_RGB,HEAT_MAX,chart,lazy,miniYoy,remeasure,redraw,highlight,toggleSeries,reset,seriesOf,SERIES,LOCKED,
   sparkLine,niceMax,textW,esc,stateColor,tipHtml,heat,heatInk,soft,asBars,ghostCol,
   FONT,PALETTE,C_LINE,C_BENCH,C_PREV,C_GREEN,C_RED,C_IN,C_OUT,C_LABEL,C_AXIS,C_DIV,C_TOTAL,
   C_HIRE,C_HIRE_D,C_HIRE_I,C_FIRE,C_TR_IN,C_TR_OUT,C_CNT,C_OTHER,C_FLAT,C_ROST,

@@ -204,14 +204,21 @@ def main():
                         want_v['e'] = nb.truth_age(U, people, rk, raw.get(name, pred), act)
                         if not want_v['rs']:
                             bad['T-рост пуст'] += 1
-                        # 28.10, п. 1: найм, переводы в и из по специализации — в сумме = рядам с начала года
+                        # 28.10, п. 1: найм по специализации — в сумме = ряду с начала года. 31.10, п. 10: переводы в и из
+                        # по специализациям — по флагам смены специализации, по значениям (truth_spec_move)
                         ytd_ = [m for m in ms if m.year == ms[-1].year]
-                        for kk, tk in (('tsh', 'hire'), ('tsi', 'tin'), ('tso', 'tout')):
-                            if abs(mx[kk] - sum(T[(rk, m)][tk] for m in ytd_)) > 0.5:
-                                bad['mx ' + kk] += 1
+                        if abs(mx['tsh'] - sum(T[(rk, m)]['hire'] for m in ytd_)) > 0.5:
+                            bad['mx tsh'] += 1
+                        want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act))
                         if not mxv.get('tsh'):
                             bad['движение по специализациям пусто'] += 1
-                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'tsh', 'tsi', 'tso')):
+                        if not want_v['tsi']:
+                            bad['переводы по специализациям пусты'] += 1
+                        # п. 7: численность по специализации на начало года (sp0) — в сумме = численности декабря
+                        dec = [m for m in ms if m.year == ms[-1].year - 1][-1]
+                        if abs(mx['sp0'] - T[(rk, dec)]['hc']) > 0.5:
+                            bad['mx sp0'] += 1
+                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'tsh', 'tsi', 'tso', 'sp0')):
                         bad['календарь не у выбранного'] += 1
                     for kk, w in want_v.items():
                         g = mxv.get(kk, {})
@@ -329,7 +336,7 @@ def main():
     kinds = s.query("SELECT trf_kind, sum(trf_cnt) FROM prod_proteus.teampulse_hub_trf GROUP BY trf_kind ORDER BY trf_kind",
                     'TSV').bytes().decode().strip()
     nf = s.query("SELECT count() FROM prod_proteus.teampulse_hub_trf WHERE trf_kind IN ('i', 'o') AND ifNull(fu, 0) "
-                 "+ ifNull(fa, 0) + ifNull(fp, 0) + ifNull(fi, 0) + ifNull(fs, 0) = 0", 'TSV').bytes().decode().strip()
+                 "+ ifNull(fa, 0) + ifNull(fp, 0) + ifNull(fi, 0) + ifNull(fs, 0) + ifNull(fsp, 0) = 0", 'TSV').bytes().decode().strip()
     s.close()
     print('переводы (i — в, o — из, h — найм):', kinds.replace('\t', ' ').replace('\n', ', '), '· «в / из» без флага:', nf)
     if nf != '0':

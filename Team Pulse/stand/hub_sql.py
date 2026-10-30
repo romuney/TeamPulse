@@ -95,7 +95,7 @@ DAY_COLS = (['calendar_dt', 'mdm_employee_rk'] + [f'lvl{i}_mapped_management_uni
                'active_type_nm', 'hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg', 'fire_flg',
                'last_day_of_month_flg', 'employee_specialization_desc', 'emp_specialization_dk']
             + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in LV for k in ('in', 'out')]
-            + [f'transfer_{d}_{t}_flg' for t in TYPES for d in ('to', 'out')])
+            + [f'transfer_{d}_{t}_flg' for t in TYPES + ('specialization',) for d in ('to', 'out')])   # 31.10, п. 10
 VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'close_flg', 'end_of_month_flg', 'last_dt_flg', 'status_name',
              'status_name_chng_group', 'search_reason', 'mapping_channel_name', 'finalist_level_candy',
              'lvl_position_adj', 'specialization'] + [f'resource_level_{i}_rk' for i in range(1, NV + 1)])
@@ -561,7 +561,8 @@ def sql_mix():
                'найм с начала года (hk источник, hch канал, hg грейд, hsp специализация). Поставка 66 (посещения Адели):',
                'oc / ocp — посещений и людей по городу офиса за последний месяц, dw / do — календарь двух последних',
                'месяцев: людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору',
-               "и месяцу всей сетки, значение «инициатор|ГГГГ-ММ» (текучесть по инициатору). Пустое значение — ''.")}
+               "и месяцу всей сетки, значение «инициатор|ГГГГ-ММ» (текучесть по инициатору). 31.10: sp0 — численность",
+               "по специализации на конец прошлого года (на начало периода). Пустое значение — ''.")}
 
 -- численность последнего месяца
 drop table if exists {P}_mixr;
@@ -585,6 +586,14 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
 from ({expl(['fire_amt', 'regret_fire_amt', 'fire_reason_group', 'fire_initiative', 'experience_group_nm', 'grade',
              'employee_stream', 'specialization', 'type_company'], ytd)}) e
 where {num('fire_amt')} > 0;
+
+-- 31.10, п. 7: численность по специализации на начало года — последний месяц прошлого года, до движений с начала
+-- года («Движение по специализациям»: на начало и на конец; датасет отдаёт выбранному юниту)
+insert into {P}_mixr
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'sp0' as mx_key, {a['sp']} as mx_val,
+       {num('hc_total_cnt')} as mx_n
+from ({expl(['hc_total_cnt', 'specialization'], f"and s.report_month = (date_trunc('year', {lm}) - interval '1 month')::date")}) e
+where {num('hc_total_cnt')} > 0;
 
 -- найм с начала года: источник, канал (найм в компанию / из учебной группы в боевую / стажёр в штат),
 -- грейд, специализация
@@ -678,11 +687,13 @@ def sql_trf():
     uout = wrap([f"{dflg(f'lvl{i}_mngt_unit_out_trsf_flg')} as uo{i}" for i in LV], ind, width=125)
     tfl = [(t, ai, ao) for t, ai, ao in (('active_type', 'ia', 'oa'), ('hq', 'ip', 'oq'), ('it', 'ii', 'oi'),
                                           ('employment_relation_type', 'ist', 'ost'))]
+    # 31.10, п. 10: + смена специализации (isp / osp) — по ней «Движение по специализациям» считает переводы в и из
+    tfl_sp = tfl + [('specialization', 'isp', 'osp')]
     types = (',\n' + ind).join(f"{dflg(f'transfer_to_{t}_flg')} as {ai}, {dflg(f'transfer_out_{t}_flg')} as {ao}"
-                               for t, ai, ao in tfl)
+                               for t, ai, ao in tfl_sp)
     any_ev = wrap([f"coalesce(x.{c}::text, '0') = '1'" for c in
                    ['hire_flg'] + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in LV for k in ('in', 'out')]
-                   + [f'transfer_{d}_{t}_flg' for t, _, _ in tfl for d in ('to', 'out')]], ' ' * 7, sep=' or ', width=125)
+                   + [f'transfer_{d}_{t}_flg' for t, _, _ in tfl_sp for d in ('to', 'out')]], ' ' * 7, sep=' or ', width=125)
     arr = lambda pre: 'ARRAY[' + ', '.join(f'r.{pre}{i}' for i in LV) + ']'
     # поставка 64: «напрямую в юните» — люди в самом юните, без его подразделений (в мастер-отчёте — строка юнита с
     # уровнем ниже «-»). Узел — самый глубокий юнит строки с ':d'; флаг — любой флаг юнита строки: сменился сам юнит
@@ -716,7 +727,9 @@ def sql_trf():
                'cv_k (поставка 65) — вид такого перехода: c — из учебной группы в боевую, s — стажёр в штат (динамика',
                'найма по видам в отчёте); у остальных строк пусто.',
                'sp_cd (28.10) — специализация строки: «Движение по специализациям» с начала года (найм, переводы в и',
-               'из по специализациям — датасет 2а у выбранного подразделения).',
+               'из по специализациям — датасет 2а у выбранного подразделения). fsp (31.10, п. 10) — флаг источника',
+               'transfer_to_specialization_flg («в») / transfer_out_specialization_flg («из»): переводы по специализациям',
+               'считаются по нему; строка только со сменой специализации в переводы юнита и фильтров не идёт (fu, fa…fs — 0).',
                'Узел <ключ юнита>:d (поставка 64) — «напрямую в юните»: люди в самом юните, без его подразделений (в',
                'мастер-отчёте — строка юнита с уровнем ниже «-»); строка — в нём, если её самый глубокий юнит — этот, флаг —',
                'любой флаг юнита строки.',
@@ -793,7 +806,7 @@ e as (
     select r.*, '{HUB_ALL}', 0, 0 from r where {MO} = 1
 )
 select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok,
-       x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, sp_cd, count(*) as trf_cnt
+       x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, sp_cd, fsp, count(*) as trf_cnt
 from (
     -- в: флаг «в» на строке; найм — отдельно (h)
     select e.node_rk, date_trunc('month', e.dt)::date as report_month, 'i' as trf_kind,
@@ -801,25 +814,25 @@ from (
            e.fu_in as fu, e.ia as fa, e.ip as fp, e.ii as fi, e.ist as fs, 1 - e.cv as in_ok,
            e.xi_pa as x_paint_cd, e.xi_it as x_it_cd, e.xi_st as x_staff_cd, e.xi_ac as x_act_cd,
            -- поставка 65: вид перехода в найм — c из учебной группы в боевую, s стажёр в штат
-           case when e.cv = 0 then '' when e.cc = 1 then 'c' else 's' end as cv_k, e.sp as sp_cd
+           case when e.cv = 0 then '' when e.cc = 1 then 'c' else 's' end as cv_k, e.sp as sp_cd, e.isp as fsp
     from e
-    where e.hf = 0 and (e.fu_in = 1 or e.ia = 1 or e.ip = 1 or e.ii = 1 or e.ist = 1)
+    where e.hf = 0 and (e.fu_in = 1 or e.ia = 1 or e.ip = 1 or e.ii = 1 or e.ist = 1 or e.isp = 1)
     union all
     -- из: флаг «из» на строке, без увольнения; последний день месяца — в следующий месяц
     select e.node_rk, date_trunc('month', e.dt + e.ld)::date, 'o',
            e.pa, e.it, e.st, e.ac, e.fu_out, e.oa, e.oq, e.oi, e.ost, 1,
-           e.xo_pa, e.xo_it, e.xo_st, e.xo_ac, '', e.sp
+           e.xo_pa, e.xo_it, e.xo_st, e.xo_ac, '', e.sp, e.osp
     from e
-    where e.fx = 0 and (e.fu_out = 1 or e.oa = 1 or e.oq = 1 or e.oi = 1 or e.ost = 1)
+    where e.fx = 0 and (e.fu_out = 1 or e.oa = 1 or e.oq = 1 or e.oi = 1 or e.ost = 1 or e.osp = 1)
     union all
     -- найм в компанию: узлы и срез дня найма
     select e.node_rk, date_trunc('month', e.dt)::date, 'h', e.pa, e.it, e.st, e.ac, 0, 0, 0, 0, 0, 1,
-           null::text, null::text, null::text, null::text, '', e.sp
+           null::text, null::text, null::text, null::text, '', e.sp, 0
     from e
     where e.hf = 1
 ) t
 where report_month between (select grid_start from {P}_cal) and (select lm from {P}_cal)
-group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
 ) q
 {dist('node_rk')};
 
@@ -969,9 +982,9 @@ def sql_checks():
         ('узлов, у которых нет родителя в справочнике (кроме корня)', 1,
          f"""(select count(*) from {P}_unit u
         where u.parent_rk <> '' and not exists (select 1 from {P}_unit p where p.unit_rk = u.parent_rk))"""),
-        ('переводы: строк без флага (в / из без флага юнита и типа)', 1,
+        ('переводы: строк без флага (в / из без флага юнита, типа и специализации)', 1,
          f"""(select count(*) from {P}_trf where trf_kind in ('i', 'o')
-        and fu + fa + fp + fi + fs = 0)"""),
+        and fu + fa + fp + fi + fs + fsp = 0)"""),
         ('переводы: строк без людей', 1, f"(select count(*) from {P}_trf where trf_cnt <= 0)"),
         ('корней', 1, f"(select count(*) - 1 from {P}_unit where parent_rk = '')"),
         ('узлов, где подразделения больше узла (численность)', 1,
@@ -1057,7 +1070,8 @@ where must = 1 and abs(coalesce(val, 0)) >= 0.5;
 
 FILES = {
     'sql_0_cols.sql': sql_cols,
-    'sql_vacancy.sql': sql_vacancy_snapshot,
+    # 31.10 (поставка 86): sql_vacancy.sql ведётся руками — в нём правки Адели (каналы подбора); генератор его
+    # больше не перезаписывает. sql_vacancy_snapshot() — прежняя версия, для истории
     'sql_1_structure.sql': sql_structure,
     'sql_3_series.sql': sql_series,
     'sql_4_mix.sql': sql_mix,

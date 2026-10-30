@@ -397,7 +397,7 @@ const PLAN_NOW={live:'настоящие',data:'данные есть',dev:'в �
    в источнике); переводы — один в один с мастер-отчётом во всех закрытых месяцах трёх выборок (0м) */
 /* 27.10-в, п. 10: желательная и нежелательная текучесть сходятся с мастер-источником — сверены */
 const VERIFIED=new Set(['hc_total','hc_active','hire','attrition','transfer_in','transfer_out','transfer_net','net_ytd','turnover_m',
-  'turnover_y','regret','nonregret','vac_open','vac_closed','ai_penetration']);
+  'turnover_y','regret','nonregret','vac_open','vac_closed','ai_penetration','tgrowth_pass','tgrowth_deny','tgrowth_conv']);
 const VERIFIED_TIP={title:'Данные сверены',
   text:'Данные настоящие и сверены с мастер-источником: значение в отчёте совпадает со значением в мастер-источнике.'};
 const MISMATCH=new Set([]);
@@ -461,11 +461,12 @@ const DEV_PLAN=[
       need:'развести целевые действия и оформленных'},
     {what:'Профильный найм: заказы по статусам, закрытые в срок, просрочка, время закрытия',aud:'us',stage:'2',now:'dev',next:1}]},
   {blk:'Рост HQ',rows:[
-    {what:'Одобренные и отклонённые заявки, конверсия',aud:'hq',stage:'0',now:'live'},
+    /* 31.10, п. 3: метрики «Рост HQ» сошлись с эталоном — сверены */
+    {what:'Одобренные и отклонённые заявки, конверсия',aud:'hq',stage:'0',now:'live',ok:1},
     /* 27.10-в, п. 8: вкладка по описанию «Рост» дашборда HQ */
     /* поставка 71: параграфы «Роста» Адели (rost_info, with_TRost, structure_x_rost) */
-    {what:'Как растут по грейдам: статусы роста, тепловые карты по грейду, повышения «Рост» и T@T',aud:'hq',stage:'0',now:'live'},
-    {what:'Как меняют специализацию: смены «Рост» и T@T по месяцам, успешность по желаемой специализации',aud:'hq',stage:'0',now:'live'}]},
+    {what:'Как растут по грейдам: статусы роста, тепловые карты по грейду, повышения «Рост» и T@T',aud:'hq',stage:'0',now:'live',ok:1},
+    {what:'Как меняют специализацию: смены «Рост» и T@T по месяцам, успешность по желаемой специализации',aud:'hq',stage:'0',now:'live',ok:1}]},
   {blk:'Мониторинг работы',rows:[
     {what:'Недоработчики и переработчики',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Состав по категориям по месяцам: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'live',hq:1},
@@ -2460,17 +2461,22 @@ function specMovement(lp){
   if(REAL){
     const x=realExit(lp,'xsp'), h=SPM_TRF?REAL.scopeMix('tsh'):realExit(lp,'hsp'),
       ti=SPM_TRF?REAL.scopeMix('tsi')||{}:{}, to=SPM_TRF?REAL.scopeMix('tso')||{}:{}, by={};
-    const add=(o,k)=>Object.keys(o).forEach(v=>{const z=by[nm(v)]||(by[nm(v)]={name:nm(v),hire:0,tin:0,exit:0,tout:0});z[k]+=o[v]});
-    add(h,'hire');add(ti,'tin');add(x,'exit');add(to,'tout');
+    /* 31.10, п. 7: на начало (sp0 — численность конца прошлого года) и на конец (sp — последний месяц); без sp0
+       (ноутбук до 31.10) — на начало пусто */
+    const s0=REAL.scopeMix('sp0'), s1=REAL.scopeMix('sp')||{};
+    const add=(o,k)=>Object.keys(o).forEach(v=>{const z=by[nm(v)]||(by[nm(v)]={name:nm(v),hc0:s0?0:null,hire:0,tin:0,exit:0,tout:0,hc1:0});z[k]+=o[v]});
+    add(h,'hire');add(ti,'tin');add(x,'exit');add(to,'tout');if(s0)add(s0,'hc0');add(s1,'hc1');
     rows=Object.keys(by).map(k=>by[k]);
-    rows.forEach(z=>['hire','tin','exit','tout'].forEach(k=>{z[k]=Math.round(z[k])}));
+    rows.forEach(z=>['hc0','hire','tin','exit','tout','hc1'].forEach(k=>{if(z[k]!=null)z[k]=Math.round(z[k])}));
   }else{
     const cats=(MIX_BY_KEY.spec||{cats:[]}).cats, hc=mixParts(lp,'spec'), r=rng(lpSeed(lp,'spm'));
     const sp=k=>splitBy(sumWin(aggregate(lp,k),'ytd'),jitter(r,hc.map(v=>v+1e-6),0.5));
     const hs=sp('hire'), xs=sp('attrition'), ts=sp('transfer_in'), os=sp('transfer_out');
-    rows=cats.map((c,i)=>({name:c.name,hire:hs[i]||0,tin:ts[i]||0,exit:xs[i]||0,tout:os[i]||0}));
+    /* на конец — численность специализации, на начало — она же до движений с начала года */
+    rows=cats.map((c,i)=>{const z={name:c.name,hire:hs[i]||0,tin:ts[i]||0,exit:xs[i]||0,tout:os[i]||0,hc1:Math.round(hc[i]||0)};
+      z.hc0=Math.max(0,z.hc1-z.hire-z.tin+z.exit+z.tout);return z});
   }
-  return rows.filter(z=>z.hire+z.tin+z.exit+z.tout>0).map(z=>Object.assign(z,{net:z.hire+z.tin-z.exit-z.tout}))
+  return rows.filter(z=>z.hire+z.tin+z.exit+z.tout+(z.hc0||0)+(z.hc1||0)>0).map(z=>Object.assign(z,{net:z.hire+z.tin-z.exit-z.tout}))
     .sort((a,b)=>b.hire+b.tin+b.exit+b.tout-(a.hire+a.tin+a.exit+a.tout)||a.name.localeCompare(b.name,'ru'));
 }
 
@@ -2595,6 +2601,10 @@ const ROST_ST=[
 const ROST_LIVE=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('rs'));
 const ROST_TP={g:0,s:1,gs:2};
 const rostGrade=g=>/^\d+$/.test(g)&&+g>=20?'20+':isNA(g||'')?NONE_NAME:g;
+/* 31.10: переходы по грейдам — по возрастанию грейдов (текущий, затем желаемый), «20+» после 19, «не указано» в конце */
+const grKey=g=>g===NONE_NAME?999:/20\+/.test(g)?20:(g.match(/\d+/)||[500])[0]*1;
+const byGrades=(a,b)=>{const x=a.name.split(' → '),y=b.name.split(' → ');
+  return grKey(x[0])-grKey(y[0])||grKey(x[1]||'')-grKey(y[1]||'')||a.name.localeCompare(b.name,'ru')};
 function rostReal(){
   const rs=REAL.scopeMix('rs'), rm=REAL.scopeMix('rm')||{}, rq=REAL.scopeMix('rq')||{};
   /* поставка 73 (эталон «Роста»): у «Нет заявки» — «Нет развития» (nd) и «Рост доступен» (av, у специализации есть
@@ -2639,7 +2649,8 @@ function rostReal(){
       });
       return Object.keys(o).map(k=>o[k]).sort((a,b)=>b.apps-a.apps||a.name.localeCompare(b.name,'ru'));
     };
-    return {rost:R,tat:T,months:mo,rostT:succ('0').slice(0,nR),tatT:succ('1').slice(0,nT)};
+    const top=(a,n)=>kd==='g'?a.sort(byGrades):a.slice(0,n);
+    return {rost:R,tat:T,months:mo,rostT:top(succ('0'),nR),tatT:top(succ('1'),nT)};
   };
   return {real:true,hc:st.reduce((a,s)=>a+s.n,0),st:st,grade:flow('g',5,99),spec:flow('s',5,4)};
 }
@@ -2658,15 +2669,16 @@ function rostProfile(lp){
   /* поставка 81: строка — «текущее → желаемое» (from(i) — откуда переходят к names[i]) */
   const succ=(tot,names,from)=>splitBy(tot,names.map(()=>0.4+r())).map((ok,i)=>{const no=Math.round(ok*(0.18+r()*0.6));
     return {name:(from?from(i)+' → ':'')+names[i],apps:ok+no,ok:ok,no:no}}).filter(x=>x.apps>0).sort((a,b)=>b.apps-a.apps);
-  const flow=(tot,names,nR,nT,from)=>{
+  const flow=(tot,names,nR,nT,from,g)=>{
+    const top=(a,n)=>g?a.sort(byGrades):a.slice(0,n);
     const R=Math.round(tot*(0.72+r()*0.12)), T=tot-R, mr=mon(R), mt=mon(T);
     return {rost:R,tat:T,months:MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,
-      rost:mr[i],tat:mt[i]})),rostT:succ(R,names,from).slice(0,nR),tatT:succ(T,names,from).slice(0,nT)};
+      rost:mr[i],tat:mt[i]})),rostT:top(succ(R,names,from),nR),tatT:top(succ(T,names,from),nT)};
   };
   const named=d=>[...new Set((MIX_BY_KEY[d]?MIX_BY_KEY[d].cats:[]).map(c=>c.name.split('|').pop()).filter(x=>!isNA(x)))];
   /* заявок закрыто больше, чем людей: у одного бывает несколько */
   return {hc:hc,st:st,
-    grade:flow(Math.round(col('done',[0,2])*1.08),named('grade').slice(1),5,99,i=>named('grade')[i]),
+    grade:flow(Math.round(col('done',[0,2])*1.08),named('grade').slice(1),5,99,i=>named('grade')[i],true),
     spec:flow(Math.round(col('done',[1,2])*1.08),named('spec'),5,4,i=>{const a=named('spec');return a[(i+1)%a.length]})};
 }
 

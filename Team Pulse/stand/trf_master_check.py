@@ -174,6 +174,8 @@ def main():
     # поставка 65: строки разделены ещё и видом перехода в найм (cv_k) — мастер-отчёт его не знает: суммируем
     tab = pg.run('select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok, '
                  'x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, sum(trf_cnt) from teampulse_hub_trf '
+                 # 31.10, п. 10: строки только со сменой специализации — не переводы мастер-отчёта
+                 "where not (trf_kind in ('i', 'o') and fu + fa + fp + fi + fs = 0) "
                  'group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17')
     nn = lambda x: None if x is None or x != x else x
     got = Counter({tuple(nn(x) for x in r[:-1]): int(r[-1]) for r in tab.itertuples(index=False, name=None)})

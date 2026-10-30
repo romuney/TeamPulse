@@ -56,7 +56,8 @@
     26.10-б: xim — увольнения по инициатору и месяцу («инициатор|ГГГГ-ММ»), тоже только у выбранного юнита.
     28.10, п. 1: tsh tsi tso — найм (как hit), переводы в и из (как tin / tout) с начала года по специализации строки
     перехода (sp_cd), только у выбранного юнита. Колонка sp_cd — матчером: таблица ноутбука до 28.10 её не знает — разрезов
-    нет, отчёт показывает движение по специализациям без переводов.
+    нет, отчёт показывает движение по специализациям без переводов. 31.10, п. 10: tsi tso — по флагам смены специализации
+    источника (fsp); п. 7: sp0 — численность по специализации на начало года, тоже только у выбранного юнита.
     Поставка 69 (27.10, ответы Антона):
       - rh nrh avh — нежелательные и желательные увольнения и ССЧ по активной численности HQ (покраска HQ и тип
         «Активная» вместо выбранных, IT-код и штат — как выбраны) у каждого узла ответа и у базы: эти две текучести
@@ -147,6 +148,11 @@
 {% set CVK = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^cv_k$') APPLY(toString)], CAST([''], 'Array(Nullable(String))')), 1), '')" %}
 {#- 28.10: специализация строки переходов (sp_cd) — матчером; нет колонки — пусто, строки отбрасываются. -#}
 {% set SPC = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^sp_cd$') APPLY(toString)], CAST([''], 'Array(Nullable(String))')), 1), '')" %}
+{#- 31.10, п. 10: переводы по специализациям — по флагам источника transfer_to / transfer_out_specialization_flg (fsp
+    строки переходов, матчером). Таблица ноутбука до 31.10 колонки не знает (−1) — как раньше: переводы юнита. -#}
+{% set FSP = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^fsp$') APPLY(toFloat64)], [toFloat64(-1)]), 1), -1)" %}
+{% set SI = "if(" ~ FSP ~ " < 0, " ~ TI ~ ", toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FSP ~ " = 1))" %}
+{% set SU = "if(" ~ FSP ~ " < 0, " ~ TU ~ ", toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND " ~ FSP ~ " = 1))" %}
 {#- Поставка 66: ряд таблицы series — матчером: таблица ноутбука до 66 колонки не знает — нули. -#}
 {% macro optf(c) -%}ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^{{ c }}$') APPLY(toFloat64)], [toFloat64(0)]), 1), 0){%- endmacro %}
 {% macro hk(v) -%}
@@ -355,7 +361,7 @@ WITH
       WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ cond() }}
         {#- поставка 66: календарь посещений по дням, 26.10-б: увольнения по инициатору и месяцу — только у выбранного юнита #}
         {#- поставка 71: T-рост (rm, rq, rs) — тоже только у выбранного юнита #}
-        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'xim', 'rm', 'rq', 'rs') OR ifNull(node_rk, '') = (SELECT s FROM cx))
+        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'sp0') OR ifNull(node_rk, '') = (SELECT s FROM cx))
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL
@@ -379,7 +385,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
       FROM
       (
-        SELECT node_rk, {{ SPC }} AS spx, {{ HI }} AS th, {{ TI }} AS ti, {{ TU }} AS tu
+        SELECT node_rk, {{ SPC }} AS spx, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu
         FROM prod_proteus.teampulse_hub_trf
         WHERE ifNull(node_rk, '') = (SELECT s FROM cx) AND report_month >= toStartOfYear((SELECT lm FROM cx))
           AND report_month <= (SELECT lm FROM cx) AND {{ cond() }}

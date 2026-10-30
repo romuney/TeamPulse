@@ -38,9 +38,9 @@ select 6 as n, 'узлов, у которых нет родителя в спр�
        ((select count(*) from teampulse_hub_unit u
         where u.parent_rk <> '' and not exists (select 1 from teampulse_hub_unit p where p.unit_rk = u.parent_rk)))::float8 as val
 union all
-select 7 as n, 'переводы: строк без флага (в / из без флага юнита и типа)'::text as check_nm, 1 as must,
+select 7 as n, 'переводы: строк без флага (в / из без флага юнита, типа и специализации)'::text as check_nm, 1 as must,
        ((select count(*) from teampulse_hub_trf where trf_kind in ('i', 'o')
-        and fu + fa + fp + fi + fs = 0))::float8 as val
+        and fu + fa + fp + fi + fs + fsp = 0))::float8 as val
 union all
 select 8 as n, 'переводы: строк без людей'::text as check_nm, 1 as must,
        ((select count(*) from teampulse_hub_trf where trf_cnt <= 0))::float8 as val

@@ -394,7 +394,9 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     }else ok(xs===null&&/Придёт со следующим обновлением отчёта/.test(rv),'текучесть по инициатору: датасет без xim — «в разработке»');
     const sm=D.specMovement(rl), h=Object.values(R.mixVals('hsp')||{}).length;
     ok(!h||sm.length>0&&/Движение по специализациям/.test(mv)&&mv.indexOf('Движение по специализациям')>mv.indexOf('Переводы внутри компании')&&
-      sm.every(z=>z.hire+z.exit>0),'движение по специализациям: '+sm.length+' специализаций с движением, после переводов');
+      /* 31.10, п. 7: строки — и специализации без движения, но с численностью на начало или конец */
+      sm.every(z=>z.hire+z.tin+z.exit+z.tout+(z.hc0||0)+(z.hc1||0)>0)&&sm.every(z=>z.hc1!=null),
+      'движение по специализациям: '+sm.length+' специализаций, после переводов, на начало и конец');
   }
   const nSt=Object.keys(R.mixVals('xs')||{}).length, who=A.go('turnover','who');
   const st=(who.split('bt-group').find(x=>/>Стрим</.test(x))||'');

@@ -322,7 +322,10 @@ checks.push(['минус во всех дельтах типографский, 
   const S1=Object.assign({},S0,{paint:'Line'});
   checks.push(['без KPI метрика возвращается к сравнению с базой',
     /* 27.10-в, п. 3: у желательной и нежелательной цель теперь при любой покраске — проверяем на HQ текучести */
-    !D.kpiFor('turnover_y',S1)&&/class="lnb" data-s="bench"/.test(SC.metricLine('turnover_y',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{}))&&
+    /* 31.10, п. 6: линия базы по умолчанию выключена — в легенде перечёркнута, клик включает (offDef:null — включена) */
+    !D.kpiFor('turnover_y',S1)&&/class="lnb" data-s="bench"/.test(SC.metricLine('turnover_y',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{offDef:null}))&&
+    /class="lg dead" data-sid="bench"/.test(SC.metricLine('turnover_y',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{}))&&
+    !/class="lnb" data-s="bench"/.test(SC.metricLine('turnover_y',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{}))&&
     !!D.kpiFor('regret',S1)]);
 })();
 
@@ -796,7 +799,7 @@ checks.push(['марки графиков помечены data-s',
      ею рисуются и одиночный график, и панели, и пара потоков */
   /* 14.10: у «ежиков» месяцы под нижними барами — своя строка, остальное — yoyAxis */
   checks.push(['ось X у панелей на том же отступе, что у остальных графиков',
-    (js.match(/txt\(X\(i\),bot\+15,i===nowI\?nowLabel\(lb,key\):lb,/g)||[]).length===1&&(js.match(/s\+=yoyAxis\(X,bandW,top,bot,nowI[,)]/g)||[]).length===1&&!/bot\+13/.test(js)]);
+    (js.match(/const a=axLbl\(lb,i,nowI,key\);s\+=txt\(X\(i\),bot\+15,a\[0\],a\[1\]\)/g)||[]).length===1&&(js.match(/s\+=yoyAxis\(X,bandW,top,bot,nowI[,)]/g)||[]).length===1&&!/bot\+13/.test(js)]);
 })();
 
 /* ============================================================================
@@ -1497,7 +1500,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !/class="bar (up|dn)"[^>]*data-s="prev"/.test(allHtml)&&!G.C_GHOST&&
     D.METRICS.filter(m=>m.flow).map(m=>m.key).sort().join()==='attrition,hire,tgrowth_deny,tgrowth_pass,transfer_in,transfer_net,transfer_out,vac_closed']);
   /* разрыв с базой залит светофором хотя бы на одной главе */
-  checks.push(['история: разрыв линии с базой залит цветом светофора',/class="gapf"/.test(allHtml)]);
+  /* 31.10, п. 6: база по умолчанию выключена — заливка разрыва появляется, когда базу включили */
+  checks.push(['история: разрыв линии с базой залит цветом светофора',!/class="gapf"/.test(allHtml)&&
+    (()=>{const S=Object.assign({},D.DEFAULT_STATE,{paint:'Line'});
+      return /class="gapf"/.test(SC.metricLine('turnover_y',D.reportLeaves(S),D.benchmarkLeaves(S),S,{offDef:null}))})()]);
   /* палитра A: одиночные метрики — кобальтом, цвет только у потоков */
   checks.push(['палитра «смысловая»: одиночные метрики — кобальтом, потоки — насыщенными тонами',
     G.C_VAC===G.C_LINE&&G.C_UNDER===G.C_LINE&&G.C_REVIEW===G.C_LINE&&G.C_AI===G.C_LINE&&
@@ -1736,7 +1742,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /* 23.10, сверка с данными: регион — настоящий график (правка 22.10), «тип компании» и состав мониторинга — в отчёте */
     /* 27.10: сверки 0з и 0ж — вакансии и проникновение AI */
     /* 27.10-в, п. 10: желательная и нежелательная сверены — расхождений нет */
-    [...D.VERIFIED].sort().join()==='ai_penetration,attrition,hc_active,hc_total,hire,net_ytd,nonregret,regret,transfer_in,transfer_net,transfer_out,turnover_m,turnover_y,vac_closed,vac_open'&&
+    /* 31.10, п. 3: «Рост HQ» сверен */
+    [...D.VERIFIED].sort().join()==='ai_penetration,attrition,hc_active,hc_total,hire,net_ytd,nonregret,regret,tgrowth_conv,tgrowth_deny,tgrowth_pass,transfer_in,transfer_net,transfer_out,turnover_m,turnover_y,vac_closed,vac_open'&&
     !D.MISMATCH.size&&pn.bad===0&&pn.ok>=16&&pn.data===0&&/✓ сверены/.test(op)&&!/расхождение/.test(op)&&
     /* 26.10-б: «Движение по специализациям» — новый график, с мастер-источником ещё не сверен;
        строк «данные есть» не осталось: инициатор и специализации стали живыми */

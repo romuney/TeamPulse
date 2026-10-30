@@ -200,6 +200,8 @@ with need (sch, tbl, col) as (
         ('usr_cross_data', 'hr_executive_proteus', 'transfer_out_employment_relation_type_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'transfer_to_active_type_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'transfer_out_active_type_flg'),
+        ('usr_cross_data', 'hr_executive_proteus', 'transfer_to_specialization_flg'),
+        ('usr_cross_data', 'hr_executive_proteus', 'transfer_out_specialization_flg'),
         ('usr_cross_data', 'vacancy_daily', 'issue_full_nm'),
         ('usr_cross_data', 'vacancy_daily', 'issue_day'),
         ('usr_cross_data', 'vacancy_daily', 'approved_dt'),

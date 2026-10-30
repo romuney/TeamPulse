@@ -20,13 +20,15 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 const esc=U.esc, sum=a=>a.reduce((x,y)=>x+y,0);
 /* цвета статусов — как в «Росте»: зелёный, голубой, жёлтый, серый, фиолетовый */
 const ST_COL={done:G.C_HIRE,first:G.C_TR_IN,again:G.C_ROST.again,none:G.C_ROST.none,denied:G.C_FIRE};
-const C_R=G.C_ROST.rost, C_T=G.C_ROST.tat, C_NO=G.C_ROST.no;
+const C_R=G.C_ROST.rost, C_T=G.C_ROST.tat;
 /* заливка клетки: от белого к цвету статуса по доле от максимума таблицы */
 function ramp(hex,t){
-  const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)), k=0.12+0.78*Math.max(0,Math.min(1,t));
+  const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)), k=0.08+0.34*Math.max(0,Math.min(1,t));   // 31.10: мягче — не ярче клетки отказов
   return 'rgb('+c.map(v=>Math.round(255+(v-255)*k)).join(',')+')';
 }
-const cell=(v,t,hex,txt)=>'<td'+(v?' style="background:'+ramp(hex,t)+';color:'+(t>0.62?'#fff':'inherit')+'"':'')+'>'+txt+'</td>';
+/* 31.10, п. 2: подсветка таблиц повышения и смены — мягкая, самая яркая клетка — G.C_HEAT_RGB с прозрачностью G.HEAT_MAX */
+const soft=(v,t,txt)=>'<td'+(v?' style="background:rgba('+G.C_HEAT_RGB+','+(0.12+(G.HEAT_MAX-0.12)*Math.max(0,Math.min(1,t))).toFixed(2)+')"':'')+'>'+txt+'</td>';
+const cell=(v,t,hex,txt)=>'<td'+(v?' style="background:'+ramp(hex,t)+'"':'')+'>'+txt+'</td>';
 /* тепловая таблица «текущий грейд × тип роста» в людях; ИТОГО — первой строкой, как во всём отчёте */
 function gradeHeat(s){
   const max=Math.max(1,...s.rows.map(r=>Math.max(...r.cells))), tot=s.cols.map((_,j)=>sum(s.rows.map(r=>r.cells[j]))), hex=ST_COL[s.key];
@@ -42,7 +44,7 @@ function succTable(cap,sub,rows,head){
   const pc=x=>x.apps?x.no/x.apps*100:0, top=Math.max(1,...rows.map(pc));
   const T={apps:sum(rows.map(x=>x.apps)),ok:sum(rows.map(x=>x.ok)),no:sum(rows.map(x=>x.no))};
   const tr=(x,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(x.name)+'</td><td>'+D.fmtInt(x.apps)+'</td><td>'+
-    D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':cell(x.no,pc(x)/top,C_NO,U.pct(pc(x))))+'</tr>';
+    D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
   return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+'</span></div>'+
     '<table class="ptable stable dense rost-t"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
     '<th>Отказ</th><th>% отказа</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
@@ -63,8 +65,8 @@ function grades(ctx,p){
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
       esc(cur.tip)+'</span></div>'+gradeHeat(cur)+'</div>'+
     flowBlock(p.grade,'на повышение грейда','Повышение грейда по месяцам: «Рост» и T@T, заявок')+
-    U.btStack([succTable('Повышение грейда: «Рост»','первые 5 по заявкам',p.grade.rostT,'Переход: текущий → желаемый грейд'),
-      succTable('Повышение грейда: T@T','за 12 месяцев',p.grade.tatT,'Переход: текущий → желаемый грейд')])+
+    U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов',p.grade.rostT,'Переход: текущий → желаемый грейд'),
+      succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Переход: текущий → желаемый грейд')])+
     '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
 }
 function specs(p){
