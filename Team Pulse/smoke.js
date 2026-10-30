@@ -123,8 +123,8 @@ const svgUW=G.chart('yoy',{metricKey:'underwork',cur:uwY.cur,prev:uwY.prev},{h:2
 /* у точек есть class="dot" ПЕРЕД cx, и старый регекс `<circle cx=` не ловил ничего:
    массив был пуст, и обе проверки оси проходили вакуумно. Ищем cy где бы он ни стоял. */
 const ys=[...svgUW.matchAll(/<circle[^>]*\scy="([\d.]+)"/g)].map(m=>+m[1]);
-/* поставка 90: у незакрытого месяца точки прошлого года нет — с ним не сравниваем */
-checks.push(['проверка оси видит точки: этот год по закрытым месяцам и прошлый целиком',ys.length===D.CUR_LEN+12-(D.PARTIAL?1:0)]);
+/* поставка 98: у незакрытого месяца точка прошлого года снова есть (без подписи и «год к году») */
+checks.push(['проверка оси видит точки: этот год по закрытым месяцам и прошлый целиком',ys.length===D.CUR_LEN+12]);
 const zeroLine=[...svgUW.matchAll(/<line x1="[\d.]+" y1="([\d.]+)"[^>]*stroke="#c9cdd6"/g)].map(m=>+m[1])[0];
 checks.push(['ось от нуля: все точки выше базовой линии',ys.every(y=>y<zeroLine)]);
 checks.push(['ось от нуля: диапазон 6,1–6,9% не растянут на всю высоту',
@@ -166,7 +166,7 @@ checks.push(['пара потоков — «ежики»: бары вверх и
   barsOf('up','a')===D.CUR_LEN&&barsOf('dn','b')===D.CUR_LEN&&
   /* 21.10, правка Антона: найм и отток не вызревают — последний бар без пунктира */
   /* поставка 90: незакрытый месяц — штриховкой, без контура */
-  (dv.match(/fill="url\(#tpH\d+\)" class="bar (up|dn) part"/g)||[]).length===(D.PARTIAL?2:0)&&!/stroke-dasharray="3 2"/.test(dv)&&(dv.match(/class="bar (up|dn) ghost"[^>]*data-s="prev"/g)||[]).length===24-(D.PARTIAL?2:0)&&
+  (dv.match(/fill="url\(#tpH\d+\)" class="bar (up|dn) part"/g)||[]).length===(D.PARTIAL?2:0)&&!/stroke-dasharray="3 2"/.test(dv)&&(dv.match(/class="bar (up|dn) ghost"[^>]*data-s="prev"/g)||[]).length===24&&
   !/class="tick"/.test(dv)&&
   !/class="ln/.test(dv)&&/data-sid="a"/.test(dv)&&/data-sid="cur"/.test(dv)&&/data-sid="prev"/.test(dv)]);
 

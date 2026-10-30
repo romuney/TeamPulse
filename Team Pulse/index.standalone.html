@@ -6292,12 +6292,14 @@ function yoyPlot(p,ar){
     +' stroke-width="2" stroke-dasharray="5 3"/>';
   /* 29.10, п. 6: прошлый год — весь позади этого: его точки и бары рисуются до линии и точек этого года (раньше они
      лежали в группах месяцев поверх линии этого года) */
-  /* поставка 90 (заказчик): незакрытый месяц с прошлым годом не сравниваем — у него нет ни бара и точки прошлого года,
-     ни подписи, ни строки в подсказке; линия прошлого года идёт через месяц без точки */
+  /* поставка 98 (заказчик): у незакрытого месяца бар и точка прошлого года есть, как у остальных месяцев («без них
+     странно»); не сравниваем их только словами — у него нет подписи значения прошлого года и «год к году» в подсказке */
   const noPrev=i=>CD.PARTIAL&&i===nowI&&showMain;
+  /* засечки: тонкая вертикаль от оси X к каждой точке этого года — месяц точки читается без поиска по оси */
+  if(showMain&&!flow)cur.forEach((c,i)=>{if(c!=null)s+=line(X(i),bot,X(i),Y(c),C_DIV,1)});
   for(let i=0;i<12;i++){
     const pv=prev[i], cx=X(i);
-    if(!showPrev||pv==null||noPrev(i))continue;
+    if(!showPrev||pv==null)continue;
     const bp=big(i,'prev')||!!noteAt(i,'prev');
     if(flow)s+=showMain
       ?barUp(cx-gw/2,Y(pv),gw,bot-Y(pv),ghostCol(col),' class="bar up ghost" fill-opacity="'+GHOST_OP+'"'+sAttr('prev'))
@@ -6311,7 +6313,7 @@ function yoyPlot(p,ar){
   const yC=CD.YEAR_CUR, yP=CD.YEAR_PREV, step=labelStep(cur,key,bandW);
   let lbl='', mk='';
   for(let i=0;i<12;i++){
-    const c=cur[i], pv=noPrev(i)?null:prev[i], b=bench?bench[i]:null, cx=X(i);
+    const c=cur[i], pv=prev[i], b=bench?bench[i]:null, cx=X(i);
     const rows=[];
     if(showMain&&c!=null)rows.push({label:String(yC),value:CD.fmtVal(key,c),color:col});
     /* p.tipRows(i) — части значения этого года в подсказке (26.10-б: виды найма), сериями на графике их нет */
@@ -6351,7 +6353,7 @@ function yoyPlot(p,ar){
       lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));
     }else if(!flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
       /* под точкой у оси места нет (значение около нуля): там подпись легла бы на месяц — тогда над точкой */
-      const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null, below=both&&pv>c&&rm(c);
+      const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null&&!noPrev(i), below=both&&pv>c&&rm(c);
       const sh=mkAt(i,'main')?5:0;
       lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
@@ -6456,7 +6458,7 @@ function drawPair(a,w,h){
   const stepA=labelStep(A.cur,A.key,bandW), stepB=labelStep(B.cur,B.key,bandW), step=Math.max(stepA,stepB);
   let lbl='';
   for(let i=0;i<12;i++){
-    const np=CD.PARTIAL&&sC&&i===nowI, cx=X(i), va=A.cur[i], vb=B.cur[i], pa=np?null:A.prev[i], pb=np?null:B.prev[i];
+    const cx=X(i), va=A.cur[i], vb=B.cur[i], pa=A.prev[i], pb=B.prev[i];
     const rows=[];
     if(sA){if(va!=null)rows.push({label:nameA+' · '+yC,value:CD.fmtVal(A.key,va),color:fA});
       if(pa!=null)rows.push({label:nameA+' · '+yP,value:CD.fmtVal(A.key,pa),color:C_PREV})}
@@ -6513,10 +6515,13 @@ function drawPanels(a,w,h){
   let s='';
   ps.forEach((p,pi)=>{
     const base=pi*panelH, ya=yas[pi];
-    const pt=periodLine(p.period,base+HEAD+13,w), top=base+HEAD+pt.h+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
+    /* поставка 98: легенда не помещается рядом с названием (узкая панель, есть «вся компания») — второй строкой под ним */
+    const bn=p.bench&&o.benchName, kw=[String(CD.YEAR_CUR),String(CD.YEAR_PREV)].concat(bn?[bn]:[]).reduce((a,t)=>a+textW(t,11.5)+30,0),
+      kr=textW(p.name,TTL_SZ)+kw+16>w?18:0;
+    const pt=periodLine(p.period,base+HEAD+kr+13,w), top=base+HEAD+kr+pt.h+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
     s+=pt.s;
-    s+=yoyKey(w,base-1,p.color||C_LINE,off,false,asBars(p.key),p.bench&&o.benchName);
+    s+=yoyKey(w,base-1+kr,p.color||C_LINE,off,false,asBars(p.key),bn);
     s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,bench:p.bench,benchName:o.benchName,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period},
       {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
   });
@@ -8531,8 +8536,12 @@ function denOf(lp,dv,L){
   const ks=Array.isArray(dv.den)?dv.den:[dv.den], y0=D.YEAR_START_EXT[L];
   let s=0;
   ks.forEach(k=>{const e=D.aggregateExt(lp,k);for(let i=y0;i<=L;i++)s+=e[i]||0});
-  return dv.win==='sum'?s/(L-y0+1):s;
+  return dv.win==='sum'||STATE_NUM.has(dv.num)?s/(L-y0+1):s;
 }
+/* поставка 98 (критик-аналитик): у долей-состояний (недоработчики, переработчики, пользователи AI) разница в людях — в
+   среднем за месяц, а не сумма за месяцы (было «≈ 2 316 человек» — человеко-месяцы); у долей-событий (уходы, заявки) —
+   сумма событий за период, она и есть «сколько уходов сверх» */
+const STATE_NUM=new Set(['perf_low','perf_high','ai_wau']);
 /* Отклонение в штуках: |v − ref| в долях знаменателя → {n, noun, win}; не люди — null. w — вес для «Где это
    происходит»: у числителя не в штуках (NOUN null) — |v − ref| × знаменатель, без существительного */
 function excess(key,lp,v,ref,L,w){
@@ -8540,7 +8549,8 @@ function excess(key,lp,v,ref,L,w){
   if(v==null||ref==null||NOPPL.has(key))return null;
   if(L==null)L=factL(key);
   const dv=ratioDef(m);
-  if(dv)return NOUN[dv.num]===null&&!w?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv,L),noun:NOUN[dv.num]||PPL,win:dv.win};
+  if(dv)return NOUN[dv.num]===null&&!w?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv,L),noun:NOUN[dv.num]||PPL,
+    win:STATE_NUM.has(dv.num)?'mon':dv.win};
   if(m.fmt==='pct')return {n:Math.abs(v-ref)/100*(D.aggregateExt(lp,'hc_total')[L]||0),noun:PPL,win:m.ytd?'sum':null};
   if(m.fmt==='int')return {n:Math.abs(v-ref),noun:NOUN[key]||PPL,win:null};
   return null;
@@ -8616,7 +8626,7 @@ function cardOf(f,S,rl,bl){
   }
   const x=f.kind==='dev'?excess(f.key,rl,f.v,f.ref,Lf):f.kind==='yoy'?excess(f.key,rl,f.v,f.pv,Lf)
     :f.kind==='trend'?excess(f.key,rl,f.tr.b,f.tr.a,Lf):f.kind==='spike'?{n:f.v-f.usual,noun:LEAVE}:null;
-  const n=x?Math.round(x.n):0, q=n>=1?'<b>≈ '+ppl(n,x.noun)+'</b>':'';
+  const n=x?Math.round(x.n):0, q=n>=1?'<b>≈ '+ppl(n,x.noun)+(x.win==='mon'?' в месяц':'')+'</b>':'';
   /* 30.10, шаг 2: те же факты короткими пилюлями — «меньше букв, главное видно сразу» */
   const pills=[];
   if(leave){const e=D.aggregateExt(rl,'attrition');let a=0,p=0;for(let i=y0;i<=Lf;i++){a+=e[i]||0;p+=e[i-12]||0}

@@ -318,8 +318,12 @@ function denOf(lp,dv,L){
   const ks=Array.isArray(dv.den)?dv.den:[dv.den], y0=D.YEAR_START_EXT[L];
   let s=0;
   ks.forEach(k=>{const e=D.aggregateExt(lp,k);for(let i=y0;i<=L;i++)s+=e[i]||0});
-  return dv.win==='sum'?s/(L-y0+1):s;
+  return dv.win==='sum'||STATE_NUM.has(dv.num)?s/(L-y0+1):s;
 }
+/* поставка 98 (критик-аналитик): у долей-состояний (недоработчики, переработчики, пользователи AI) разница в людях — в
+   среднем за месяц, а не сумма за месяцы (было «≈ 2 316 человек» — человеко-месяцы); у долей-событий (уходы, заявки) —
+   сумма событий за период, она и есть «сколько уходов сверх» */
+const STATE_NUM=new Set(['perf_low','perf_high','ai_wau']);
 /* Отклонение в штуках: |v − ref| в долях знаменателя → {n, noun, win}; не люди — null. w — вес для «Где это
    происходит»: у числителя не в штуках (NOUN null) — |v − ref| × знаменатель, без существительного */
 function excess(key,lp,v,ref,L,w){
@@ -327,7 +331,8 @@ function excess(key,lp,v,ref,L,w){
   if(v==null||ref==null||NOPPL.has(key))return null;
   if(L==null)L=factL(key);
   const dv=ratioDef(m);
-  if(dv)return NOUN[dv.num]===null&&!w?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv,L),noun:NOUN[dv.num]||PPL,win:dv.win};
+  if(dv)return NOUN[dv.num]===null&&!w?null:{n:Math.abs(v-ref)/(dv.scale||1)*denOf(lp,dv,L),noun:NOUN[dv.num]||PPL,
+    win:STATE_NUM.has(dv.num)?'mon':dv.win};
   if(m.fmt==='pct')return {n:Math.abs(v-ref)/100*(D.aggregateExt(lp,'hc_total')[L]||0),noun:PPL,win:m.ytd?'sum':null};
   if(m.fmt==='int')return {n:Math.abs(v-ref),noun:NOUN[key]||PPL,win:null};
   return null;
@@ -403,7 +408,7 @@ function cardOf(f,S,rl,bl){
   }
   const x=f.kind==='dev'?excess(f.key,rl,f.v,f.ref,Lf):f.kind==='yoy'?excess(f.key,rl,f.v,f.pv,Lf)
     :f.kind==='trend'?excess(f.key,rl,f.tr.b,f.tr.a,Lf):f.kind==='spike'?{n:f.v-f.usual,noun:LEAVE}:null;
-  const n=x?Math.round(x.n):0, q=n>=1?'<b>≈ '+ppl(n,x.noun)+'</b>':'';
+  const n=x?Math.round(x.n):0, q=n>=1?'<b>≈ '+ppl(n,x.noun)+(x.win==='mon'?' в месяц':'')+'</b>':'';
   /* 30.10, шаг 2: те же факты короткими пилюлями — «меньше букв, главное видно сразу» */
   const pills=[];
   if(leave){const e=D.aggregateExt(rl,'attrition');let a=0,p=0;for(let i=y0;i<=Lf;i++){a+=e[i]||0;p+=e[i-12]||0}
