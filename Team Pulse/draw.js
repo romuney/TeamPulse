@@ -687,7 +687,9 @@ function yoyPlot(p,ar){
       lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));
     }else if(!flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
       /* под точкой у оси места нет (значение около нуля): там подпись легла бы на месяц — тогда над точкой */
-      const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null&&!noPrev(i), below=both&&pv>c&&rm(c);
+      const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null&&!noPrev(i),
+        /* ревью 100: подпись незакрытого месяца рядом с подписью закрытого на той же высоте — под точкой */
+        nb=i===nowI&&i>0&&cur[i-1]!=null&&Math.abs(Y(c)-Y(cur[i-1]))<16&&rm(c), below=(both&&pv>c||nb)&&rm(c);
       const sh=mkAt(i,'main')?5:0;
       lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
@@ -1182,7 +1184,8 @@ const C_MON={under:'#E8A33D',normal:'#7FA2E6',over:'#C2513F',grey:'#D3D5DA',
 const MON_CATS=[['under','Недоработка'],['normal','Нормал'],['over','Переработка'],['grey','Не размечено']];
 function perAxis(P,X,h,mark,bandW){
   const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
-  return P.map((p,i)=>i===mark||(last-i)%step===0?txt(X(i),h-8,p.label,i===mark?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
+  /* ревью 100: p.cl — последний закрытый месяц, подпись жирная (как на осях «год к году») */
+  return P.map((p,i)=>i===mark||p.cl||(last-i)%step===0?txt(X(i),h-8,p.label,i===mark||p.cl?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
 }
 function drawStack(a,w,h){
   /* 26.10-б: найм по видам ушёл в подсказку «Найм, чел» — категории снова только мониторинга */
@@ -1192,7 +1195,7 @@ function drawStack(a,w,h){
   const cats=CATS.filter(c=>!off.has(c[0]));
   /* узкая панель: легенда не влезает рядом с заголовком — встаёт второй строкой (header / headH), график выше на строку */
   const two=wraps(w,o.title,o.legend), hh=headH(o.title,o.legend,w);
-  h=(h||o.h||260)+(two?22:0);
+  h=h||o.h||260;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/P.length, X=i=>x0+bandW*(i+0.5);
   const tot=P.map(p=>cats.reduce((v,c)=>v+(p[c[0]]||0),0));
   const max=niceMax(tot), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
@@ -1233,15 +1236,18 @@ function drawPline(a,w,h){
   let s=header(w,o.title,null,{});
   if(mark!=null&&P[mark])s+=rect(X(mark)-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4);
   s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
-  s+='<path class="ln" d="'+polyD(vals,X,Y)+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  /* ревью 100: p.pt — незакрытый месяц: к нему линия пунктиром, точка полая и бледнее, в подсказке — «может измениться» */
+  const pi=P.findIndex(p=>p.pt);
+  s+='<path class="ln" d="'+polyD(pi<0?vals:vals.map((v,i)=>i===pi?null:v),X,Y)+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  if(pi>0&&vals[pi]!=null&&vals[pi-1]!=null)s+='<path d="'+polyD([vals[pi-1],vals[pi]],i=>X(pi-1+i),Y)+'" fill="none" stroke="'+col+'" stroke-opacity=".45" stroke-width="2" stroke-dasharray="4 3"/>';
   const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
   let lbl='';
   vals.forEach((v,i)=>{
     const on=i===mark;
     s+='<g class="ptg pmk" data-pmark="'+i+'"'+tip({title:P[i].full,rows:[{label:o.name||'',value:fmt(v),color:col}],
-      note:on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
+      note:i===pi?PART_NOTE():on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
       '<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+
-      (v==null?'':'<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="'+(on?4.5:2.6)+'" fill="'+(on?col:'#fff')+'" stroke="'+col+'" stroke-width="2"/>')+'</g>';
+      (v==null?'':'<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="'+(on?4.5:2.6)+'" fill="'+(on?col:'#fff')+'" stroke="'+col+'" stroke-width="2"'+(i===pi?' stroke-opacity=".45"':'')+'/>')+'</g>';
     if(v!=null&&(on||(last-i)%step===0))lbl+=txt(X(i),Y(v)-VAL_DY,fmt(v),valOpt({delay:300+i*20}));
   });
   return svg(w,h,s+lbl+perAxis(P,X,h,mark,bandW));

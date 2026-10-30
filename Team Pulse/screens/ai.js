@@ -37,7 +37,7 @@ const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'% людей',{met
 function adoption(ctx){
   const S=ctx.S, gran=S.aiGran==='w'?'w':'m', u=D.aiUsage(ctx.lp);
   const pen=D.aggregate(ctx.lp,'ai_penetration'), wau=D.aggregate(ctx.lp,'ai_wau');
-  const P=gran==='w'?u.weeks:D.MONTHS.map((m,i)=>({label:m.label,full:D.MONTH_NOM[m.m]+' '+m.y,pen:pen[i],wau:wau[i]}));
+  const P=gran==='w'?u.weeks:D.MONTHS.map((m,i)=>({label:m.label,full:D.MONTH_NOM[m.m]+' '+m.y,pen:pen[i],wau:wau[i],cl:i===D.PER_I,pt:D.PARTIAL&&i===D.LAST}));
   const per=gran==='w'?'по неделям':'по месяцам';
   return '<div class="mon-bar">'+U.segToggle('data-aigran',[['m','Месяц'],['w','Неделя']],gran)+
       '<span class="mon-note">'+(gran==='w'?'12 последних закрытых недель':'Последние 12 месяцев')+'</span></div>'+

@@ -52,6 +52,8 @@ function placeTip(el,x,y){
   if(left+w>window.innerWidth-10)left=x-w-16;
   if(left<10)left=10;
   if(top<10)top=y+20;
+  /* ревью 100: высокая подсказка у нижнего края — прижать к краю, а не уводить за него */
+  if(top+h>window.innerHeight-10)top=Math.max(10,window.innerHeight-h-10);
   el.style.left=Math.round(left)+'px';el.style.top=Math.round(top)+'px';
 }
 function showTip(target,x,y){
@@ -246,8 +248,9 @@ function betterWord(m){
 }
 /* что это и как считается (calc — по методологии HR из Data Detective): подсказка «i» и шапки
    таблиц показывают оба, подпись под названием метрики — только hint */
-function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')+
-  (D.VERIFIED.has(m.key)?'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')+
+/* ревью 100: s — шапка таблицы: только что это (hint) и короткая отметка сверки; формула — в «i» и словаре метрик */
+function metricText(m,s){return (m.hint||'')+(m.calc&&!s?'\n'+m.calc:'')+
+  (D.VERIFIED.has(m.key)?s?'\n✓ Сверено с мастер-источником.':'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')+
   (D.MISMATCH.has(m.key)?'\nРасхождение с мастер-источником: число настоящее, но пока не совпадает с ним — ищем причину.':'')}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';

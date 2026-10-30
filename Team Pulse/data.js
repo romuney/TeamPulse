@@ -98,7 +98,8 @@ const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','и�
 /* Границы окна для водопада (20.10, заказчик): начало — численность первого месяца окна, как её
    отчитывают, — на конец месяца; подписи — только месяц и год, без числа: «окт. 2025», «окт. 2026».
    Потоки водопада — со второго месяца окна, иначе потоки первого уходили бы в «Прочее» */
-const WIN_FROM=MONTH_ABBR[MONTHS[0].m]+' '+MONTHS[0].y;               /* «окт. 2025» */
+/* ревью 100: после «на конец» — родительный («июля 2025»; было «на конец июль 2025») */
+const WIN_FROM=MONTH_ABBR_GEN[MONTHS[0].m]+' '+MONTHS[0].y;
 const WIN_TO=MONTH_ABBR[ASOF.m]+' '+ASOF.y;                            /* «окт. 2026» */
 function winSum(lp,key){return aggregate(lp,key).slice(1).reduce((a,v)=>a+(v||0),0)}
 const CMP={
@@ -226,7 +227,7 @@ const METRICS=[
   calc:'Как в методологии HR: сумма месячной текучести с января — накопительно.'},
 /* 26.10-б, правки п. 3: желательная и нежелательная — накопительно с января (сумма месячной) и в макете: карточка
    показывает YTD по последнему закрытому месяцу (CLOSED_ONLY) */
-{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть HQ',short:'Нежелат. HQ',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'regret_m',kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть HQ',short:'Нежелат. HQ',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'regret_m',kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
   calc:'Сумма месячной: нежелательные увольнения ÷ среднесписочная × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
@@ -323,7 +324,7 @@ if(REAL){
 if(HQR){
   const T=' Всегда по активной численности HQ: фильтры покраски и типа численности на неё не действуют.';
   const set=(k,h)=>{const m=METRICS.find(x=>x.key===k);m.hint=h+T;m.calc=m.calc.replace('среднесписочная','среднесписочная HQ')};
-  set('regret','Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ.');
+  set('regret','Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год, на каждый месяц — её доля, как в отчёте HQ.');
   set('nonregret','Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Коридор — 5–15% за год, на каждый месяц — его доля.');
 }
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
@@ -2103,6 +2104,7 @@ function monMonthly(lp){
     }
     months.push(x);
   }
+  months[months.length-1].cl=true;
   return {monthly:true,daily:day,weeks:null,months:months};
 }
 function monData(lp){
@@ -2123,6 +2125,7 @@ function monData(lp){
     o.talk=mo.idx.reduce((a,i)=>a+weeks[i].talk,0)/mo.idx.length;
     return o;
   });
+  if(months.length)months[months.length-1].cl=true;
   const sum=k=>L.reduce((a,x)=>a+x[k],0);
   return {weeks:weeks,months:months,ab25:sum('ab25'),ab5:sum('ab5'),we25:sum('we25'),we5:sum('we5'),
     period:MON_WEEKS[MON_NW-12].from+' — '+MON_WEEKS[MON_NW-1].to};

@@ -73,7 +73,7 @@ function specMove(lp,ctx){
   return '<div class="bt-group spm"><div class="bt-cap">Движение по специализациям<span class="bt-sub">'+U.esc(D.PER_TEXT)+', чел</span></div>'+
     '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col>').join('')+
     '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num tsort'+(c[0]===sk?' on':'')+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'" data-spmsort="'+c[0]+'"'+
-      U.tipAttr({title:c[1],text:c[0]===sk?'Строки — по этой колонке, от большего.':'Клик — отсортировать по этой колонке, от большего.'})+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
+      U.tipAttr({title:c[1],text:c[0]===sk?'Сейчас — по убыванию.':'Клик — сортировать по убыванию.'})+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
     row(tot)+top.map(row).join('')+'</tbody></table></div>'+
     '<div class="tbl-note">'+U.esc(D.PER_TEXT.replace(/^./,x=>x.toUpperCase()))+'; ИТОГО — как в карточках движения. На начало — численность на конец декабря, '+
       (D.SPM_END?'на конец — '+U.esc(D.MONTH_GEN[D.PER_C])+', после наймов, увольнений и переводов':'«сейчас» — на дату данных')+'. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.'+

@@ -2509,3 +2509,13 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 #optPaint .opt .opt-n,#optIt .opt .opt-n,#optStaff .opt .opt-n{margin-left:5px}
 /* 31.10-б, п. 4 и 8: период колонки таблицы подразделений — второй строкой под названием */
 .ptable th .th-per{display:block;margin-top:1px;font-size:9.5px;font-weight:var(--fw-body);color:var(--muted2);text-transform:none;letter-spacing:0;white-space:nowrap}
+
+/* ревью 100: узкая панель — у неактивных шагов только номер (вопрос — в подсказке), активный шаг — целиком; обрывки
+   «Ск… ухо…» больше не появляются */
+.st-steps{container-type:inline-size}
+@container (max-width:470px){.st-steps.n3 .st-step:not(.on) .st-tx{display:none}.st-steps.n3 .st-step:not(.on){flex:0 0 auto}}
+@container (max-width:640px){.st-steps.n4 .st-step:not(.on) .st-tx{display:none}.st-steps.n4 .st-step:not(.on){flex:0 0 auto}}
+@container (max-width:800px){.st-steps.n5 .st-step:not(.on) .st-tx,.st-steps.n6 .st-step:not(.on) .st-tx{display:none}
+  .st-steps.n5 .st-step:not(.on),.st-steps.n6 .st-step:not(.on){flex:0 0 auto}}
+/* ревью 100: подписи значений не перехватывают наведение — подсказка месяца не пропадает над цифрой */
+.svgchart text.fade{pointer-events:none}

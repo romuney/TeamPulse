@@ -2518,6 +2518,16 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* 31.10-б, п. 4 и 8: период колонки таблицы подразделений — второй строкой под названием */
 .ptable th .th-per{display:block;margin-top:1px;font-size:9.5px;font-weight:var(--fw-body);color:var(--muted2);text-transform:none;letter-spacing:0;white-space:nowrap}
 
+/* ревью 100: узкая панель — у неактивных шагов только номер (вопрос — в подсказке), активный шаг — целиком; обрывки
+   «Ск… ухо…» больше не появляются */
+.st-steps{container-type:inline-size}
+@container (max-width:470px){.st-steps.n3 .st-step:not(.on) .st-tx{display:none}.st-steps.n3 .st-step:not(.on){flex:0 0 auto}}
+@container (max-width:640px){.st-steps.n4 .st-step:not(.on) .st-tx{display:none}.st-steps.n4 .st-step:not(.on){flex:0 0 auto}}
+@container (max-width:800px){.st-steps.n5 .st-step:not(.on) .st-tx,.st-steps.n6 .st-step:not(.on) .st-tx{display:none}
+  .st-steps.n5 .st-step:not(.on),.st-steps.n6 .st-step:not(.on){flex:0 0 auto}}
+/* ревью 100: подписи значений не перехватывают наведение — подсказка месяца не пропадает над цифрой */
+.svgchart text.fade{pointer-events:none}
+
 </style>
 </head>
 <body>
@@ -2787,7 +2797,8 @@ const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','и�
 /* Границы окна для водопада (20.10, заказчик): начало — численность первого месяца окна, как её
    отчитывают, — на конец месяца; подписи — только месяц и год, без числа: «окт. 2025», «окт. 2026».
    Потоки водопада — со второго месяца окна, иначе потоки первого уходили бы в «Прочее» */
-const WIN_FROM=MONTH_ABBR[MONTHS[0].m]+' '+MONTHS[0].y;               /* «окт. 2025» */
+/* ревью 100: после «на конец» — родительный («июля 2025»; было «на конец июль 2025») */
+const WIN_FROM=MONTH_ABBR_GEN[MONTHS[0].m]+' '+MONTHS[0].y;
 const WIN_TO=MONTH_ABBR[ASOF.m]+' '+ASOF.y;                            /* «окт. 2026» */
 function winSum(lp,key){return aggregate(lp,key).slice(1).reduce((a,v)=>a+(v||0),0)}
 const CMP={
@@ -2915,7 +2926,7 @@ const METRICS=[
   calc:'Как в методологии HR: сумма месячной текучести с января — накопительно.'},
 /* 26.10-б, правки п. 3: желательная и нежелательная — накопительно с января (сумма месячной) и в макете: карточка
    показывает YTD по последнему закрытому месяцу (CLOSED_ONLY) */
-{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть HQ',short:'Нежелат. HQ',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'regret_m',kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть HQ',short:'Нежелат. HQ',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'regret_m',kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
   calc:'Сумма месячной: нежелательные увольнения ÷ среднесписочная × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
@@ -3012,7 +3023,7 @@ if(REAL){
 if(HQR){
   const T=' Всегда по активной численности HQ: фильтры покраски и типа численности на неё не действуют.';
   const set=(k,h)=>{const m=METRICS.find(x=>x.key===k);m.hint=h+T;m.calc=m.calc.replace('среднесписочная','среднесписочная HQ')};
-  set('regret','Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год, на каждый месяц — её доля, к августу 2,7%, как в отчёте HQ.');
+  set('regret','Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год, на каждый месяц — её доля, как в отчёте HQ.');
   set('nonregret','Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Коридор — 5–15% за год, на каждый месяц — его доля.');
 }
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
@@ -4792,6 +4803,7 @@ function monMonthly(lp){
     }
     months.push(x);
   }
+  months[months.length-1].cl=true;
   return {monthly:true,daily:day,weeks:null,months:months};
 }
 function monData(lp){
@@ -4812,6 +4824,7 @@ function monData(lp){
     o.talk=mo.idx.reduce((a,i)=>a+weeks[i].talk,0)/mo.idx.length;
     return o;
   });
+  if(months.length)months[months.length-1].cl=true;
   const sum=k=>L.reduce((a,x)=>a+x[k],0);
   return {weeks:weeks,months:months,ab25:sum('ab25'),ab5:sum('ab5'),we25:sum('we25'),we5:sum('we5'),
     period:MON_WEEKS[MON_NW-12].from+' — '+MON_WEEKS[MON_NW-1].to};
@@ -6351,7 +6364,9 @@ function yoyPlot(p,ar){
       lbl+=txt(cx,Y(pv)-VAL_DY,CD.fmtVal(key,pv),valOpt({s:'prev'}));
     }else if(!flow&&showMain&&c!=null&&(lblAt(i,nowI,step)||big(i,'main')||mkAt(i,'main'))){
       /* под точкой у оси места нет (значение около нуля): там подпись легла бы на месяц — тогда над точкой */
-      const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null&&!noPrev(i), below=both&&pv>c&&rm(c);
+      const rm=v=>Y(v)+VAL_DY+VAL_ASC<bot-2, both=i===nowI&&showPrev&&pv!=null&&!noPrev(i),
+        /* ревью 100: подпись незакрытого месяца рядом с подписью закрытого на той же высоте — под точкой */
+        nb=i===nowI&&i>0&&cur[i-1]!=null&&Math.abs(Y(c)-Y(cur[i-1]))<16&&rm(c), below=(both&&pv>c||nb)&&rm(c);
       const sh=mkAt(i,'main')?5:0;
       lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
@@ -6846,7 +6861,8 @@ const C_MON={under:'#E8A33D',normal:'#7FA2E6',over:'#C2513F',grey:'#D3D5DA',
 const MON_CATS=[['under','Недоработка'],['normal','Нормал'],['over','Переработка'],['grey','Не размечено']];
 function perAxis(P,X,h,mark,bandW){
   const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
-  return P.map((p,i)=>i===mark||(last-i)%step===0?txt(X(i),h-8,p.label,i===mark?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
+  /* ревью 100: p.cl — последний закрытый месяц, подпись жирная (как на осях «год к году») */
+  return P.map((p,i)=>i===mark||p.cl||(last-i)%step===0?txt(X(i),h-8,p.label,i===mark||p.cl?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
 }
 function drawStack(a,w,h){
   /* 26.10-б: найм по видам ушёл в подсказку «Найм, чел» — категории снова только мониторинга */
@@ -6856,7 +6872,7 @@ function drawStack(a,w,h){
   const cats=CATS.filter(c=>!off.has(c[0]));
   /* узкая панель: легенда не влезает рядом с заголовком — встаёт второй строкой (header / headH), график выше на строку */
   const two=wraps(w,o.title,o.legend), hh=headH(o.title,o.legend,w);
-  h=(h||o.h||260)+(two?22:0);
+  h=h||o.h||260;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/P.length, X=i=>x0+bandW*(i+0.5);
   const tot=P.map(p=>cats.reduce((v,c)=>v+(p[c[0]]||0),0));
   const max=niceMax(tot), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
@@ -6897,15 +6913,18 @@ function drawPline(a,w,h){
   let s=header(w,o.title,null,{});
   if(mark!=null&&P[mark])s+=rect(X(mark)-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4);
   s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
-  s+='<path class="ln" d="'+polyD(vals,X,Y)+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  /* ревью 100: p.pt — незакрытый месяц: к нему линия пунктиром, точка полая и бледнее, в подсказке — «может измениться» */
+  const pi=P.findIndex(p=>p.pt);
+  s+='<path class="ln" d="'+polyD(pi<0?vals:vals.map((v,i)=>i===pi?null:v),X,Y)+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  if(pi>0&&vals[pi]!=null&&vals[pi-1]!=null)s+='<path d="'+polyD([vals[pi-1],vals[pi]],i=>X(pi-1+i),Y)+'" fill="none" stroke="'+col+'" stroke-opacity=".45" stroke-width="2" stroke-dasharray="4 3"/>';
   const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
   let lbl='';
   vals.forEach((v,i)=>{
     const on=i===mark;
     s+='<g class="ptg pmk" data-pmark="'+i+'"'+tip({title:P[i].full,rows:[{label:o.name||'',value:fmt(v),color:col}],
-      note:on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
+      note:i===pi?PART_NOTE():on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
       '<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+
-      (v==null?'':'<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="'+(on?4.5:2.6)+'" fill="'+(on?col:'#fff')+'" stroke="'+col+'" stroke-width="2"/>')+'</g>';
+      (v==null?'':'<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="'+(on?4.5:2.6)+'" fill="'+(on?col:'#fff')+'" stroke="'+col+'" stroke-width="2"'+(i===pi?' stroke-opacity=".45"':'')+'/>')+'</g>';
     if(v!=null&&(on||(last-i)%step===0))lbl+=txt(X(i),Y(v)-VAL_DY,fmt(v),valOpt({delay:300+i*20}));
   });
   return svg(w,h,s+lbl+perAxis(P,X,h,mark,bandW));
@@ -7080,6 +7099,8 @@ function placeTip(el,x,y){
   if(left+w>window.innerWidth-10)left=x-w-16;
   if(left<10)left=10;
   if(top<10)top=y+20;
+  /* ревью 100: высокая подсказка у нижнего края — прижать к краю, а не уводить за него */
+  if(top+h>window.innerHeight-10)top=Math.max(10,window.innerHeight-h-10);
   el.style.left=Math.round(left)+'px';el.style.top=Math.round(top)+'px';
 }
 function showTip(target,x,y){
@@ -7274,8 +7295,9 @@ function betterWord(m){
 }
 /* что это и как считается (calc — по методологии HR из Data Detective): подсказка «i» и шапки
    таблиц показывают оба, подпись под названием метрики — только hint */
-function metricText(m){return (m.hint||'')+(m.calc?'\n'+m.calc:'')+
-  (D.VERIFIED.has(m.key)?'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')+
+/* ревью 100: s — шапка таблицы: только что это (hint) и короткая отметка сверки; формула — в «i» и словаре метрик */
+function metricText(m,s){return (m.hint||'')+(m.calc&&!s?'\n'+m.calc:'')+
+  (D.VERIFIED.has(m.key)?s?'\n✓ Сверено с мастер-источником.':'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')+
   (D.MISMATCH.has(m.key)?'\nРасхождение с мастер-источником: число настоящее, но пока не совпадает с ним — ищем причину.':'')}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';
@@ -9000,7 +9022,7 @@ CH.movement={
     return {sum:signed(net)+since,st:'n',
       head:net>0?'Команда выросла на '+pl(net,PPL)+since:net<0?'Команда сократилась на '+pl(-net,PPL)+since
         :'Численность'+since+' не изменилась',
-      lede:'Численность на конец '+D.WIN_FROM+' — **'+D.fmtInt(begin)+'**, '+D.WIN_TO+' — **'+D.fmtInt(end)+'**. Водопад показывает, что сдвинуло численность: '+
+      lede:'Численность на конец '+D.WIN_FROM+' — **'+D.fmtInt(begin)+'**, сейчас — **'+D.fmtInt(end)+'**. Водопад показывает, что сдвинуло численность: '+
         'найм и переводы в команду поднимают её, отток и переводы из команды — опускают.',
       insights:[
         (hire>=attr?'Найм покрывает отток':'Найм не покрывает отток')+': за 12 месяцев пришли **'+hire+'**, ушли **'+attr+'**',
@@ -9900,7 +9922,7 @@ function renderBlock(S,expanded,mixOpen,view){
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+(c.per?'<span class="th-per">'+esc(c.per)+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:U.metricText(m),note:pt(m.key).head?
+    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:U.metricText(m,1),note:pt(m.key).head?
       pt(m.key).head+' — как итог под графиком.':null})+'>'+esc(m.short)+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
@@ -10382,7 +10404,7 @@ function specMove(lp,ctx){
   return '<div class="bt-group spm"><div class="bt-cap">Движение по специализациям<span class="bt-sub">'+U.esc(D.PER_TEXT)+', чел</span></div>'+
     '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col>').join('')+
     '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num tsort'+(c[0]===sk?' on':'')+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'" data-spmsort="'+c[0]+'"'+
-      U.tipAttr({title:c[1],text:c[0]===sk?'Строки — по этой колонке, от большего.':'Клик — отсортировать по этой колонке, от большего.'})+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
+      U.tipAttr({title:c[1],text:c[0]===sk?'Сейчас — по убыванию.':'Клик — сортировать по убыванию.'})+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
     row(tot)+top.map(row).join('')+'</tbody></table></div>'+
     '<div class="tbl-note">'+U.esc(D.PER_TEXT.replace(/^./,x=>x.toUpperCase()))+'; ИТОГО — как в карточках движения. На начало — численность на конец декабря, '+
       (D.SPM_END?'на конец — '+U.esc(D.MONTH_GEN[D.PER_C])+', после наймов, увольнений и переводов':'«сейчас» — на дату данных')+'. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.'+
@@ -11105,7 +11127,7 @@ const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'% людей',{met
 function adoption(ctx){
   const S=ctx.S, gran=S.aiGran==='w'?'w':'m', u=D.aiUsage(ctx.lp);
   const pen=D.aggregate(ctx.lp,'ai_penetration'), wau=D.aggregate(ctx.lp,'ai_wau');
-  const P=gran==='w'?u.weeks:D.MONTHS.map((m,i)=>({label:m.label,full:D.MONTH_NOM[m.m]+' '+m.y,pen:pen[i],wau:wau[i]}));
+  const P=gran==='w'?u.weeks:D.MONTHS.map((m,i)=>({label:m.label,full:D.MONTH_NOM[m.m]+' '+m.y,pen:pen[i],wau:wau[i],cl:i===D.PER_I,pt:D.PARTIAL&&i===D.LAST}));
   const per=gran==='w'?'по неделям':'по месяцам';
   return '<div class="mon-bar">'+U.segToggle('data-aigran',[['m','Месяц'],['w','Неделя']],gran)+
       '<span class="mon-note">'+(gran==='w'?'12 последних закрытых недель':'Последние 12 месяцев')+'</span></div>'+
