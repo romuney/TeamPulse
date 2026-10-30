@@ -503,18 +503,20 @@ const PART_NOTE=k=>'Месяц не закрыт: данные по '+CD.ASOF_LA
    полного месяца давали ложное «−9»); будущие месяцы — «ещё впереди», а не «не закрыт» */
 const tipMon=(i,nowI,pf)=>pf&&i===nowI&&CD.PARTIAL?'1–'+CD.ASOF.d+' '+CD.MONTH_GEN[i]:CD.MONTH_NOM[i].replace(/^./,x=>x.toUpperCase());
 const tipAhead=(i,nowI)=>i>nowI?tipMon(i)+' '+CD.YEAR_CUR+' ещё впереди — показан '+CD.YEAR_PREV:'Месяц ещё не закрыт';
-/* 31.10, п. 8: текущий (незакрытый) месяц — штриховкой за месяцем и подписью обычным шрифтом, как остальные; акцент —
-   на закрытом месяце (жирная подпись месяца и значения). Месяц закрыт — он и есть закрытый */
+/* 31.10, п. 8: текущий (незакрытый) месяц — подписью обычным шрифтом, как остальные; акцент — на закрытом месяце (жирная
+   подпись месяца и значения). Месяц закрыт — он и есть закрытый. Поставка 90: штрихуется сам бар незакрытого месяца —
+   мягким цветом ряда, бледнее закрытых, без контура; не полоса за ним (фон читался как «обратите внимание») */
 const closedIdx=nowI=>CD.PARTIAL?nowI-1:nowI;
 let _hid=0;
-function hatchBand(x,y,w,h){
+function hatchFill(col){
   const id='tpH'+(++_hid);
-  return '<defs><pattern id="'+id+'" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'+
-    '<rect width="2" height="6" fill="#DFE3EA"/></pattern></defs>'+rect(x,y,w,h,'url(#'+id+')',4,' class="hatch"');
+  return ['<defs><pattern id="'+id+'" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'+
+    '<rect width="5" height="5" fill="'+soft(col)+'" fill-opacity=".3"/><rect width="2.5" height="5" fill="'+soft(col)+'"/></pattern></defs>','url(#'+id+')'];
 }
 const axLbl=(lb,i,nowI,key)=>[i===nowI?nowLabel(lb,key):lb,
   i===closedIdx(nowI)?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}];
-function yoyAxis(X,bandW,top,bot,nowI,bars,key){
+/* поставка 90: месяцы итога за период (CD.periodTotal) — ось на них толще и темнее, вместо черты под осью */
+function yoyAxis(X,bandW,top,bot,nowI,bars,key,pr){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
   let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
@@ -523,8 +525,9 @@ function yoyAxis(X,bandW,top,bot,nowI,bars,key){
       const a=axLbl(lb,i,nowI,key);s+=txt(X(i),bot+15,a[0],a[1]);
     }
   });
-  return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1);
+  return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1)+periodAxis(X,bandW,bot,pr);
 }
+function periodAxis(X,bandW,y,pr){return pr&&pr.strip?line(X(0)-bandW/2,y,X(pr.c)+bandW/2,y,C_AXIS,2.5):''}
 /* Подсветка месяцев для связки «пункт списка ↔ график»: невидимые полосы,
    которые проявляет класс on (app.js — наведение на пункт «Что видно»). */
 /* 31.10, п. 2: самая яркая клетка тепловых таблиц «Роста» — ffc3b1 с прозрачностью cc */
@@ -593,9 +596,8 @@ function yoyPlot(p,ar){
   /* p.mature — вызревает и метрика, у которой это не свойство ключа (HQ текучесть в «Как уходит HQ?», 27.10-в, п. 6) */
   const part=p.mature?CD.PARTIAL:CD.matures(key), curS=part?cur.map((v,i)=>i===nowI?null:v):cur;
   const pl=!flow&&CD.PARTIAL&&CD.partFlow(key)&&!part;
-  if(CD.PARTIAL)s+=hatchBand(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4);
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
-  s+=yoyAxis(X,bandW,top,bot,nowI,flow,key);
+  s+=yoyAxis(X,bandW,top,bot,nowI,flow,key,p.period);
   /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
   if(p.gap&&showMain&&showBench)s+=gapFill(key,cur,bench,X,Y);
@@ -645,8 +647,9 @@ function yoyPlot(p,ar){
     if(flow){
       /* прошлый год — позади (нарисован до этого года, выше); этот год — весь одним тоном, как в легенде; акцент — полосой за месяцем (выше)
          и контуром основным цветом, заливка та же */
-      if(showMain&&c!=null)s+=barUp(cx-bw/2,Y(c),bw,bot-Y(c),soft(col),' class="bar up'+(part&&i===nowI?' part':'')+'"'+sAttr('main')+
-        (part&&i===nowI?' stroke="'+col+'" stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"':bm?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
+      const hz=CD.PARTIAL&&i===nowI&&hatchFill(col);
+      if(showMain&&c!=null)s+=(hz?hz[0]:'')+barUp(cx-bw/2,Y(c),bw,bot-Y(c),hz?hz[1]:soft(col),' class="bar up'+(hz?' part':'')+'"'+sAttr('main')+
+        (bm&&!hz?' stroke="'+col+'" stroke-width="1.6"':'')+' style="animation-delay:'+num(dly*0.5)+'ms"');
     }else{
       if(showMain&&c!=null)s+='<circle class="dot"'+sAttr('main')+' cx="'+num(cx)+'" cy="'+num(Y(c))+'" r="'+(bm?4.6:3.4)+'" fill="'+(bm&&!(pl&&i===nowI)?col:'#fff')+'" stroke="'+col+'"'
         +' stroke-width="2"'+(part&&i===nowI?' stroke-dasharray="2 1.6"':'')+' style="animation-delay:'+num(dly)+'ms"/>';
@@ -720,9 +723,6 @@ function periodLine(p,y,w){
   });
   return {s:'<g class="pt-line">'+s+'</g>',h:PERIOD_H+n*15};
 }
-function periodStrip(x0,bandW,yb,p){
-  return p&&p.strip?rect(x0+3,yb,bandW*(p.c+1)-6,2.5,C_LINE,1.25,' opacity="0.5" class="pt-strip"'):'';
-}
 function drawYoy(a,w,h){
   const o=a.opt||{};
   const hh=headH(o.title,o.legend,w), pt=periodLine(o.period,hh+11,w), ph=pt.h;
@@ -730,9 +730,9 @@ function drawYoy(a,w,h){
   const ya=yoyAnn(annOf(o));
   const plotTop=hh+ph+LBL_ROOM+yoyRoom(ya,o.marks), plotBot=h-AXIS_H+12;
   const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(a.metricKey,o.kpi);
-  return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+pt.s+periodStrip(x0,plotW/12,plotBot+20,o.period)+
+  return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+pt.s+
     yoyPlot({key:a.metricKey,cur:a.cur,prev:a.prev,bench:a.bench,color:o.color,kpi:o.kpi,
-      ann:ya,marks:o.marks,gap:o.gap,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName},
+      ann:ya,marks:o.marks,gap:o.gap,period:o.period,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName},
       {x0:x0,plotW:plotW,top:plotTop,bot:plotBot,hitTop:hh}));
 }
 
@@ -763,8 +763,7 @@ function drawPair(a,w,h){
   const u=(bot-top)/((mA+mB)||1), y0=top+mA*u;
   const bw=Math.max(6,Math.min(28,bandW*0.56)), gw=ghostW(bw,bandW);
   let s=header(w,o.title,o.legend,{kind:'pair',off:o.off})+pt.s;
-  const part=CD.matures(A.key)&&sC, pp=' stroke-width="1.4" stroke-dasharray="3 2" fill-opacity="0.55"';
-  if(CD.PARTIAL)s+=hatchBand(x0+bandW*nowI+2,top-4,bandW-4,bot-top+4);
+  const part=CD.matures(A.key)&&sC;
   CD.MONTH_ABBR.forEach((lb,i)=>{
     if((bandW>=31||i%2===0||i===nowI)&&!(CD.PARTIAL&&bandW<56&&Math.abs(i-nowI)===1)){
       const a=axLbl(lb,i,nowI,A.key);s+=txt(X(i),h-6,a[0],a[1]);
@@ -789,9 +788,9 @@ function drawPair(a,w,h){
     const up=sC?va:(sP?pa:null), dn=sC?vb:(sP?pb:null), go=' fill-opacity="'+GHOST_OP+'"';
     if(sC&&sP&&sA&&pa!=null)s+=barUp(cx-gw/2,y0-pa*u,gw,pa*u,cA,' class="bar up ghost"'+go+sAttr('prev'));
     if(sC&&sP&&sB&&pb!=null)s+=barDn(cx-gw/2,y0,gw,pb*u,cB,' class="bar dn ghost"'+go+sAttr('prev'));
-    const pz=part&&i===nowI;
-    if(sA&&up!=null)s+=barUp(cx-bw/2,y0-up*u,bw,up*u,fA,' class="bar up'+(pz?' part':'')+'"'+sAttr(sC?'a':'prev')+(pz?' stroke="'+cA+'"'+pp:'')+' style="animation-delay:'+num(dly)+'ms"');
-    if(sB&&dn!=null)s+=barDn(cx-bw/2,y0,bw,dn*u,fB,' class="bar dn'+(pz?' part':'')+'"'+sAttr(sC?'b':'prev')+(pz?' stroke="'+cB+'"'+pp:'')+' style="animation-delay:'+num(dly)+'ms"');
+    const pz=CD.PARTIAL&&sC&&i===nowI, hA=pz&&hatchFill(cA), hB=pz&&hatchFill(cB);
+    if(sA&&up!=null)s+=(hA?hA[0]:'')+barUp(cx-bw/2,y0-up*u,bw,up*u,hA?hA[1]:fA,' class="bar up'+(pz?' part':'')+'"'+sAttr(sC?'a':'prev')+' style="animation-delay:'+num(dly)+'ms"');
+    if(sB&&dn!=null)s+=(hB?hB[0]:'')+barDn(cx-bw/2,y0,bw,dn*u,hB?hB[1]:fB,' class="bar dn'+(pz?' part':'')+'"'+sAttr(sC?'b':'prev')+' style="animation-delay:'+num(dly)+'ms"');
     s+='</g>';
     if(!lblAt(i,nowI,step))continue;
     /* ноль не подписываем: у переводов он в каждом втором месяце и забивает полотно */
@@ -801,7 +800,7 @@ function drawPair(a,w,h){
     if(sB&&dn)lbl+=txt(cx,y0+dn*u+VAL_DY+VAL_ASC,CD.fmtVal(B.key,dn),valOpt({delay:dly,s:sC?'b':'prev'}));
   }
   /* ноль — поверх баров: от него растут оба потока */
-  s+=line(x0,y0,x0+plotW,y0,C_ZERO,1);
+  s+=line(x0,y0,x0+plotW,y0,C_ZERO,1)+periodAxis(X,bandW,y0,o.period);
   return svg(w,h,s+lbl);
 }
 
@@ -832,9 +831,9 @@ function drawPanels(a,w,h){
     const base=pi*panelH, ya=yas[pi];
     const pt=periodLine(p.period,base+HEAD+13,w), top=base+HEAD+pt.h+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
-    s+=pt.s+periodStrip(x0,plotW/12,bot+20,p.period);
+    s+=pt.s;
     s+=yoyKey(w,base-1,p.color||C_LINE,off,false,asBars(p.key));
-    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,color:p.color,ann:ya,off:off,mature:p.mature},
+    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period},
       {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
   });
   return svg(w,h,s);

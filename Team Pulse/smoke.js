@@ -164,7 +164,8 @@ const barsOf=(cls,sid)=>(dv.match(new RegExp('class="bar '+cls+'( part)?" data-s
 checks.push(['пара потоков — «ежики»: бары вверх и вниз, прошлый год прозрачными барами позади, без линий и засечек',
   barsOf('up','a')===D.CUR_LEN&&barsOf('dn','b')===D.CUR_LEN&&
   /* 21.10, правка Антона: найм и отток не вызревают — последний бар без пунктира */
-  !/class="bar (up|dn) part"/.test(dv)&&(dv.match(/class="bar (up|dn) ghost"[^>]*data-s="prev"/g)||[]).length===24&&
+  /* поставка 90: незакрытый месяц — штриховкой, без контура */
+  (dv.match(/fill="url\(#tpH\d+\)" class="bar (up|dn) part"/g)||[]).length===(D.PARTIAL?2:0)&&!/stroke-dasharray="3 2"/.test(dv)&&(dv.match(/class="bar (up|dn) ghost"[^>]*data-s="prev"/g)||[]).length===24&&
   !/class="tick"/.test(dv)&&
   !/class="ln/.test(dv)&&/data-sid="a"/.test(dv)&&/data-sid="cur"/.test(dv)&&/data-sid="prev"/.test(dv)]);
 
@@ -242,16 +243,10 @@ checks.push(['нулевое изменение — просто ноль',
 /* у срока закрытия рост плохой, у «улучшили оценку» — хороший, у численности (better:flat) без
    оценки; 20.10: у вызревающей метрики (текучесть за незакрытый месяц) — без оценки, пунктиром */
 checks.push(['знак говорит направление, класс — оценку',
-  /* 26.10, ревью критиков: срок закрытия — поток незакрытого месяца (PART_FLOW), направление проверяем на нежелательной */
+  /* поставка 90: пилюли изменения — только по закрытым месяцам и периодам, поэтому оцениваются все, кроме «flat» */
   /delta down/.test(U.deltaChip('regret',1.4))&&/delta up/.test(U.deltaChip('regret',-1.4))&&
-  (!D.PARTIAL||/delta neu"/.test(U.deltaChip('time_to_fill',1.4)))&&
+  /delta down/.test(U.deltaChip('time_to_fill',1.4))&&/delta down/.test(U.deltaChip('turnover_m',1.4))&&
   /delta up/.test(U.deltaChip('review_up',3))&&/delta neu/.test(U.deltaChip('hc_total',3))&&
-  /* 21.10, правка Антона: вызревают только regrettable, non-regrettable и проникновение AI; поток за
-     незакрытый месяц — без оценки, но и без метки «вызревает» */
-  /* 26.10-б: желательная и нежелательная — по закрытому месяцу (CLOSED_ONLY), их изменение оценивается */
-  (!D.PARTIAL||/delta neu part/.test(U.deltaChip('ai_penetration',1.4))&&/delta down/.test(U.deltaChip('regret',1.4))&&
-    /delta neu part/.test(U.deltaChip('turnover_m',1.4)))&&
-  /* 29.10, п. 10: вызревает и общая текучесть (месячная и накопительная) */
   [...D.MATURING].sort().join()==='ai_penetration,nonregret,regret,turnover_m,turnover_y']);
 checks.push(['переход на детальный дашборд — иконка, а не символ ↗',
   /class="ico-ext"/.test(allHtml)&&!/↗/.test(allHtml)]);
@@ -275,10 +270,11 @@ checks.push(['минус во всех дельтах типографский, 
     />MoM<\/th>/.test(opHtml)&&/>YoY<\/th>/.test(opHtml)&&
     opHtml.indexOf(U.esc(G.tipHtml({title:'MoM — месяц к месяцу',text:'Изменение '+D.CMP.momFull+'.'})).slice(0,60))>0]);
   /* в строках таблицы месяц не повторяется: он уже назван в шапке */
-  /* 26.10, ревью критиков: кроме строк по закрытому месяцу — у них месяц не тот, что в шапке, и он подписан в пилюле */
+  /* 26.10, ревью критиков: кроме строк по закрытому месяцу — у них месяц не тот, что в шапке, и он подписан в пилюле;
+     поставка 90 — это все, кроме состояний (численность, открытые вакансии) */
   checks.push(['в колонках таблицы месяц не дублируется у каждой строки',
     opHtml.split('<table class="mtable"').slice(1).join('').split('<tr class="mrow').slice(1)
-      .every(r=>!/class="d-vs"/.test(r)||D.closedOnly(r.match(/data-metric="(\w+)"/)[1]))]);
+      .every(r=>!/class="d-vs"/.test(r)||!(D.periodTotal(D.reportLeaves(D.DEFAULT_STATE),r.match(/data-metric="(\w+)"/)[1])||{}).stock)]);
 
   /* Строка one-pager раскрывает график — и об этом теперь говорит каретка */
   checks.push(['у строки one-pager есть каретка раскрытия справа',
@@ -1179,6 +1175,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
 
   /* --- производные метрики: формулы --- */
   const e=k=>D.aggregate(rl0,k)[D.LAST];
+  /* поставка 90: разбивки «с начала года» — по последний закрытый месяц, их доли — значение метрики в нём */
+  const ep=k=>D.perVal(rl0,k);
   /* 15.10: замещение, найм на 100, прогноз текучести и лоу-перформеры сняты —
      их нет в каталоге графиков HQ и УС */
   checks.push(['выдуманных метрик нет: только то, что есть в каталоге HQ и УС',
@@ -1194,11 +1192,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['профиль найма: джуны = доля джунов, переводы = доля внутреннего найма',
     hp.total===ytd('hire')&&sum(hp.seniority.map(x=>x.value))===hp.total&&
     sum(hp.grade.map(x=>x.value))===hp.total&&sum(hp.channels.map(x=>x.value))===hp.total&&
-    near(hp.jun/hp.total*100,e('junior_share'))&&near(hp.tin/(hp.total+hp.tin)*100,e('internal_share'))]);
+    near(hp.jun/hp.total*100,ep('junior_share'))&&near(hp.tin/(hp.total+hp.tin)*100,ep('internal_share'))]);
   const pf=D.planFact(rl0);
   checks.push(['план-факт: факт — найм из «Движения», выполнение = метрике, типы складываются',
     pf.fact[0]===ytd('hire')&&pf.plan[0]===ytd('pf_plan')&&pf.closed[0]===ytd('vac_closed')&&
-    pf.open[0]===e('vac_open')&&near(pf.done[0],e('hire_plan'))&&
+    pf.open[0]===e('vac_open')&&near(pf.done[0],ep('hire_plan'))&&
     ['plan','fact','closed','open','overdue','replace','junior'].every(k=>pf[k][0]===pf[k][1]+pf[k][2])&&
     pf.status.every(x=>x.vals[0]===x.vals[1]+x.vals[2])&&sum(pf.status.map(x=>x.vals[0]))===pf.open[0]]);
   const rs=D.exitReasons(rl0,'ytd'), ini=D.exitInitiators(rl0,'ytd'), ex=D.exitProfile(rl0,'ytd');
@@ -1222,7 +1220,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
       g.cells.every((r,i)=>sum(r)===g.tot[i]))]);
   const bk=D.bookingQuality(rl0);
   checks.push(['бронирование: доля нарушений в таблице = метрике блока',
-    bk.ok+bk.noshow+bk.walkin===bk.total&&near(bk.viol/bk.total*100,e('booking_viol'),0.06)]);
+    bk.ok+bk.noshow+bk.walkin===bk.total&&near(bk.viol/bk.total*100,ep('booking_viol'),0.06)]);
   const wavg=rows=>sum(rows.map(r=>r.hc*r.att))/sum(rows.map(r=>r.hc));
   checks.push(['посещаемость по грейдам и по роли с локацией в среднем = посещаемости отбора',
     near(wavg(D.attByRoleLoc(rl0)),e('office_att'),0.11)&&
@@ -1477,7 +1475,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /вкладка 1 из 4/.test(to)&&/<div class="st-head"><h3>/.test(to)&&/<aside class="st-rail">/.test(to)&&
     !/class="st-next"/.test(to)]);
   /* цифры вывода — те же, что на графике */
-  const rl=D.reportLeaves(st0), n12=D.aggregate(rl,'attrition').reduce((a,b)=>a+b,0);
+  /* поставка 90: в выводе — уходы с января по закрытый месяц, как итог под графиком */
+  const rl=D.reportLeaves(st0), n12=D.sumWin(D.aggregate(rl,'attrition'),'ytd');
   checks.push(['история: число уходов в выводе сходится с суммой баров графика',
     to.indexOf('<b>'+D.fmtInt(n12)+'\u00a0')>=0]);
   /* акценты на графике: заметка «пик года» на полосе, остальное НЕ приглушено
@@ -1487,9 +1486,10 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* 16.10, заказчик: «не нужно затенять 2026 год — он весь одного цвета, инсайты выделяй
      по-другому». Бары этого года в одной панели — одной заливкой (цвет легенды); акцент —
      контур основным цветом и светлая полоса за месяцем. */
-  const mainFills=[...to.matchAll(/<path d="[^"]*" fill="([^"]+)" class="bar up( part)?" data-s="main"( stroke="[^"]+")?/g)].map(m=>[m[0],m[1],m[3]]);
+  /* поставка 90: незакрытый месяц — штриховкой (своя заливка-узор), его из сравнения цвета убираем */
+  const mainFills=[...to.matchAll(/<path d="[^"]*" fill="([^"]+)" class="bar up( part)?" data-s="main"( stroke="[^"]+")?/g)].filter(m=>!m[2]).map(m=>[m[0],m[1],m[3]]);
   checks.push(['бары этого года одного цвета; акцент — контуром и полосой, а не другой заливкой',
-    mainFills.length>=6&&new Set(mainFills.map(m=>m[1])).size===1&&mainFills.some(m=>m[2])&&
+    mainFills.length>=5&&new Set(mainFills.map(m=>m[1])).size===1&&mainFills.some(m=>m[2])&&
     mainFills.filter(m=>m[2]).length<mainFills.length]);
   /* динамика — только линии: баров «год к году» нет нигде */
   /* 14.10: счётные потоки — барами; 15.10: прошлый год — тем же цветом, шире и почти
@@ -1815,9 +1815,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
   S.paint=p0;
   checks.push(['«Рост HQ»: переключение покраски не меняет вкладку',tg[0]===tg[1]&&tg[1]===tg[2]]);
   const hi=A.go('hiring','profile'), th=(hi.split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
-  checks.push(['«Найм и вакансии HQ»: без «Внутр. найм», открытые — с месяцем, закрытые и срок — с начала года',
-    D.BLOCK_BY_KEY.hiring.name==='Найм и вакансии HQ'&&!/Внутр\. найм/.test(th)&&/Открытые<span class="th-per">(за|на) /.test(th)&&
-    /Закрытые<span class="th-per">с начала года/.test(th)&&/Срок<span class="th-per">среднее с начала года/.test(th)]);
+  /* поставка 90: окно колонок — как итог под графиком: открытые — сейчас, закрытые и срок — янв.–закрытый месяц */
+  const sp90=U.esc(D.PER_SPAN);
+  checks.push(['«Найм и вакансии HQ»: без «Внутр. найм», открытые — сейчас, закрытые и срок — за период итога',
+    D.BLOCK_BY_KEY.hiring.name==='Найм и вакансии HQ'&&!/Внутр\. найм/.test(th)&&/Открытые<span class="th-per">сейчас/.test(th)&&
+    th.indexOf('Закрытые<span class="th-per">'+sp90)>=0&&th.indexOf('Срок<span class="th-per">'+sp90)>=0]);
   const lp=D.reportLeaves(D.DEFAULT_STATE);
   checks.push(['закрытые в таблице = сумма с января',Math.abs(D.ytdTableVal(lp,'vac_closed')-D.sumWin(D.aggregate(lp,'vac_closed'),'ytd'))<1e-9]);
   const gr=A.go('tgrowth','grades'), sp=A.go('tgrowth','spec');
@@ -1825,7 +1827,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /Повышение грейда по месяцам, заявок/.test(gr)&&/data-s="prev"/.test(gr.split('Повышение грейда по месяцам')[1]||'')&&
     /class="ptable stable dense rost-t succ"/.test(sp)]);
   const tgt=(A.go('tgrowth','flow').split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
-  checks.push(['«Рост HQ»: одобрено и отклонено в таблице подразделений — с начала года',(tgt.match(/th-per">с начала года/g)||[]).length===2]);
+  checks.push(['«Рост HQ»: одобрено, отклонено и конверсия в таблице подразделений — за период итога',
+    tgt.split('th-per">'+U.esc(D.PER_SPAN)).length-1===3]);
 })();
 
 /* поставка 83 (задача 3): «Рост HQ», дисклеймер охвата, цвета Рост / T@T, подсказка подразделения */

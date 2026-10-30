@@ -2149,12 +2149,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 }
 .panel-cap{display:none}
 
-/* Вызревающий месяц (20.10): метка «по 19.10» у потока за незакрытый месяц — нейтральная,
-   пунктирная, как незавершённое; пилюля изменения у такой метрики — без оценки */
-.mat-tag{display:inline-flex;align-items:center;margin-left:6px;padding:1px 6px;border:1px dashed var(--muted2);border-radius:var(--r-pill);
-  font-size:var(--fs-micro);font-weight:var(--fw-body);color:var(--muted);white-space:nowrap;vertical-align:1px;cursor:help;text-transform:none;letter-spacing:0}
-.mat-tag.sm{padding:0 5px}
-.delta.part{background:transparent;box-shadow:inset 0 0 0 1px var(--line);border:1px dashed var(--muted2);color:var(--muted)}
+/* поставка 90: метки «по 19.10» и пилюли незакрытого месяца сняты — в таблицах и выводах только закрытые месяцы */
 
 
 /* ===== Структура численности по файлу «Структура» (21.10, п. 8 правок Антона) =====
@@ -2406,7 +2401,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .bk-p b,.in-pl b{font-weight:var(--fw-body)}
 .ptable tr.total td{font-weight:var(--fw-body)}
 .ptable tr.total td.txt,.ptable tr.total td:first-child{font-weight:var(--fw-bold)}
-.mat-tag{border:0;background:#eef0f3;color:var(--ink2)}
 .st-q,.st-s{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 
 /* ==========================================================================

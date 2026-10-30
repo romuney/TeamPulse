@@ -88,7 +88,7 @@ SC.blocks.turnover={
     :sub==='hq'?'Как уходит HQ: светофор текучести'
     :'Отток и текучесть по месяцам'},
   view(ctx){
-    const lp=ctx.lp, ytd=' с начала года';
+    const lp=ctx.lp, ytd=' '+D.PER_TEXT;
     if(ctx.sub==='hq')return hqView(ctx);
     if(ctx.sub==='reasons'){
       /* Инициатор — по каждому уходу (пары «причина|инициатор»): одна причина бывает у разных инициаторов, поэтому
@@ -121,7 +121,7 @@ SC.blocks.turnover={
           items:rs.map(r=>({name:r.name,note:reasonInit(r),value:r.value,
             mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+
         '<div class="tbl-note">'+(rs.some(r=>r.regret)?'★ — у причины больше половины уходов нежелательные. ':'')+
-        'ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+').</div>';
+        'ИТОГО — отток '+U.esc(D.PER_TEXT)+'.</div>';
     }
     if(ctx.sub==='who'){
       /* Ранний уход — первые 12 месяцев (испытательный срок и первый год): это
@@ -141,7 +141,7 @@ SC.blocks.turnover={
         grp('Грейд',ytd,ex.grade,'grade'),
         /* стримов на верхних уровнях десятки — первые 8 и «Остальные» (16.10) */
         grp('Стрим',ytd,ex.stream,'stream',true,{n:8,word:['стрим','стрима','стримов']})])+
-        '<div class="tbl-note">ИТОГО — отток с начала года ('+U.esc(D.YTD_RANGE)+'). Стаж и грейд — на дату ухода, доля в команде — '+
+        '<div class="tbl-note">ИТОГО — отток '+U.esc(D.PER_TEXT)+'. Стаж и грейд — на дату ухода, доля в команде — '+
         'по численности на последний месяц.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся

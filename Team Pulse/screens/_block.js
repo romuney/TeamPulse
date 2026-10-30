@@ -35,15 +35,9 @@ const blocks={};
    больше нет: глубже трёх уровней ведёт переход в юнит, а он меняет сам юнит
    отчёта — с путём, «← Назад» и ссылкой (итерация 29, механика HRBP HUB). */
 function currentRoot(S){return S.unit}
-/* 31.10-б, п. 4: «Найм и вакансии HQ» — открытые на конец месяца (подпись — какой месяц), закрытые и срок закрытия — с
-   начала года, без доли внутреннего найма (метрика остаётся в данных и в других местах). П. 8: «Рост HQ» — одобренные и
-   отклонённые заявки с начала года */
-const monLbl=()=>{const i=D.lastIdx('vac_open'), m=D.MONTHS[i];
-  return D.PARTIAL&&i===D.LAST?'на '+D.ASOF.d+' '+D.MONTH_GEN[m.m]:'за '+D.MONTH_NOM[m.m]+' '+m.y};
-const TBL_OVR={
-  hiring:{hide:{internal_share:1},ytd:{vac_closed:1,time_to_fill:1},
-    per:{vac_open:monLbl,vac_closed:'с начала года',time_to_fill:'среднее с начала года'}},
-  tgrowth:{ytd:{tgrowth_pass:1,tgrowth_deny:1},per:{tgrowth_pass:'с начала года',tgrowth_deny:'с начала года'}}};
+/* 31.10-б, п. 4: «Найм и вакансии HQ» — без доли внутреннего найма (метрика остаётся в данных и в других местах).
+   Поставка 90: окно колонок — у всех блоков, кроме структуры, одно (D.periodTotal), см. renderBlock */
+const TBL_OVR={hiring:{hide:{internal_share:1}}};
 /* Глубина сводной таблицы: три уровня вниз от юнита отчёта. Глубже — «Открыть
    юнит» у выбранной строки. Переключателя глубины нет намеренно: на шести
    уровнях имя сжималось бы в столбик, а длинный список переставал читаться. */
@@ -174,7 +168,7 @@ function yoyPair(lp,aKey,bKey,opt){
     {name:String(D.YEAR_PREV),split:[cA,cB],ghost:true}]);
   /* 31.10: итог пары — оба потока за период, у каждого — год назад */
   const pa=D.periodTotal(lp,aKey), pb=D.periodTotal(lp,bKey), lc=x=>String(x||'').charAt(0).toLowerCase()+String(x||'').slice(1);
-  const period=pa&&pb?{head:pa.head,parts:[{name:lc(lg[0]&&lg[0].name),cur:pa.cur,prev:pa.prev},{name:lc(lg[1]&&lg[1].name),cur:pb.cur,prev:pb.prev}]}:null;
+  const period=pa&&pb?{head:pa.head,c:pa.c,strip:pa.strip,parts:[{name:lc(lg[0]&&lg[0].name),cur:pa.cur,prev:pa.prev},{name:lc(lg[1]&&lg[1].name),cur:pb.cur,prev:pb.prev}]}:null;
   return G.chart('pair',{a:Object.assign({key:aKey},D.yoySeries(lp,aKey)),b:Object.assign({key:bKey},D.yoySeries(lp,bKey))},
     Object.assign({h:300,fill:true,aName:lg[0]&&lg[0].name,bName:lg[1]&&lg[1].name,period:period},opt||{},{legend:lg}));
 }
@@ -315,15 +309,16 @@ function renderBlock(S,expanded,mixOpen,view){
      пропускает через обычную агрегацию (`D.sliceable`). */
   const slice=b.key==='structure'?D.sliceParse(S.mixSel):[];
   const selIds=slice.map(p=>p.id);
-  /* 31.10-б, п. 4 и 8: колонки таблицы подразделений по блоку — с начала года (ytd), без колонки (hide), подпись
-     периода под названием (per) */
-  const ov=TBL_OVR[b.key]||{};
-  const val=(lp,key)=>ov.ytd&&ov.ytd[key]?D.ytdTableVal(lp,key):D.lastValSlice(lp,key,selIds);
+  /* поставка 90 (заказчик: «однозначная интерпретация цифр»): колонки таблицы подразделений — то же число, что итог за
+     период под графиком: потоки и доли — с января по закрытый месяц, накопительные — на его конец, состояния — сейчас;
+     окно подписано под названием колонки. Структура — состояния на сегодня со срезом (lastValSlice) */
+  const ov=TBL_OVR[b.key]||{}, P0={}, pt=k=>P0[k]||(P0[k]=D.periodTotal(rl,k)||{});
+  const val=(lp,key)=>b.key==='structure'||pt(key).stock?D.lastValSlice(lp,key,selIds):(D.periodTotal(lp,key)||{}).v;
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
   const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key]));
-  const perOf=k=>{const p=ov.per&&ov.per[k];return typeof p==='function'?p():p||''};
+  const perOf=k=>b.key==='structure'?'':pt(k).lab||'';
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
@@ -460,11 +455,10 @@ function renderBlock(S,expanded,mixOpen,view){
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'».\nГлубже — выберите строку и нажмите значок у её названия.'})+'>Подразделение</th>'+
     (tcols?tcols.map(c=>{const on=tsc===c;return '<th'+(c.val?' class="tsort'+(on?' on':'')+'" data-tsort="'+(on&&tsd<0?c.k+':a':on?'':c.k+':d')+'"':'')+
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
-        esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+'</th>'}).join('')
+        esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+(c.per?'<span class="th-per">'+esc(c.per)+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:U.metricText(m),note:ov.ytd&&ov.ytd[m.key]?
-      'С 1 января '+D.YEAR_CUR+' по '+D.ASOF_LABEL+'.':D.closedOnly(m.key)?D.CLOSED_TIP.text:
-      D.PARTIAL&&(D.partFlow(m.key)||D.matures(m.key))?D.PART_TIP.text:null})+'>'+esc(m.short)+
+    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:U.metricText(m),note:pt(m.key).head?
+      pt(m.key).head+' — как итог под графиком.':null})+'>'+esc(m.short)+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.

@@ -122,10 +122,7 @@ function deltaChip(key,dv,o){
   /* типографский минус подставляет сам fmtDelta — здесь его больше не чиним:
      пока чинили тут, пилюля «К базе» в сводной таблице оставалась с дефисом */
   const txt=D.fmtDelta(key,dv);
-  /* вызревающий месяц (20.10): неполный месяц против полного — без оценки и с пояснением */
-  if(D.matures(key)&&!D.closedOnly(key))return '<span class="delta neu part"'+tipAttr(D.MATURE_TIP)+'>'+txt+vs+'</span>';
-  /* поток за незакрытый месяц (21.10): без метки «вызревает», но и без оценки — месяц ещё идёт */
-  if(D.partFlow(key))return '<span class="delta neu"'+tipAttr(D.PART_TIP)+'>'+txt+vs+'</span>';
+  /* поставка 90: изменения — только по закрытым месяцам и периодам, незакрытый месяц в пилюли не попадает */
   /* заглушку не оцениваем и цветом пилюли (ревью критиков 26.10) */
   if(m.better==='flat'||D.isStub(key))return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   const good=m.better==='lower'?dv<0:dv>0;
@@ -134,13 +131,6 @@ function deltaChip(key,dv,o){
 /* Пилюля изменения за месяц с подписью месяца — ровно то, что стоит в карточках
    KPI на всех экранах. Отдельная функция, чтобы подпись и подсказка не
    разъезжались между one-pager и детальными вкладками. */
-/* Метка «вызревает» у значения потока за незакрытый месяц (20.10) */
-function matureTag(key,small){
-  /* 26.10-б: значение по закрытому месяцу — метка месяца вместо «вызревает» */
-  if(D.closedOnly(key))return '<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.CLOSED_TIP)+'>за '+D.CLOSED_SHORT+'</span>';
-  /* 27.10, Антон (вопрос 1): поток и ставка незакрытого месяца — за текущий месяц, период подписан */
-  return D.matures(key)||D.partFlow(key)?'<span class="mat-tag'+(small?' sm':'')+'"'+tipAttr(D.matures(key)?D.MATURE_TIP:D.PART_TIP)+'>по '+D.ASOF_SHORT+'</span>':'';
-}
 /* Иконка перехода на внешний дашборд. Символ ↗ брался из шрифта и в разных
    начертаниях получался то мелким, то съехавшим по базовой линии. */
 function icoExt(){
@@ -1041,7 +1031,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,matureTag,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
+window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};

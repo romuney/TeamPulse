@@ -40,10 +40,10 @@ function attendReal(ctx,x,lbl,attTbl){
   const S=ctx.S, cc=x.city&&x.city.people;
   /* 31.10-б, п. 9: выбран город — в сегментах люди этого города и их доля (из людей, бывших в офисе города); иначе —
      посещаемость сегментов. Выбор сегмента режет таблицу городов */
-  const segTbl=cc?U.btGroup({cap:'Сегмент',capSub:x.city.name+' · '+D.CMP.span+' · были в офисе',head:'',valueHead:'Человек',
+  const segTbl=cc?U.btGroup({cap:'Сегмент',capSub:x.city.name+' · '+D.PER_MON+' · были в офисе',head:'',valueHead:'Человек',
       metricKey:'hc_total',compact:true,total:false,items:x.segs.map(s=>({name:s.name,value:cc[s.key],color:G.C_OFFICE,
         on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',attrTip:'Клик — города только у «'+s.name+'».'}))})
-    :attTbl('Сегмент',D.CMP.span,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
+    :attTbl('Сегмент',D.PER_MON,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
       value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
       attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})),'Сравнение сегментов');
   return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
@@ -51,7 +51,7 @@ function attendReal(ctx,x,lbl,attTbl){
     (x.segs.length?segTbl:'')+
     /* 27.10-в, п. 15: по убыванию посещений, первые 10 и раскрываемые «Остальные»; 31.10-б, п. 9: колонка «Посещаемость»,
        строка города выбирается (кросс-фильтр с сегментом) */
-    (x.cities.length?U.btGroup(Object.assign({cap:'Город офиса',capSub:(x.seg?x.seg.name+' · ':'')+D.CMP.span+' · посещения',head:'',
+    (x.cities.length?U.btGroup(Object.assign({cap:'Город офиса',capSub:(x.seg?x.seg.name+' · ':'')+D.PER_MON+' · посещения',head:'',
       valueHead:'Посещаемость',barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>Object.assign({name:c.name,
         note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE},x.cross?{on:S.offCity===c.name,
         attr:'data-offcity="'+esc(c.name)+'"',attrTip:'Клик — сколько руководителей и сотрудников в «'+c.name+'».'}:{}))},
@@ -88,10 +88,10 @@ SC.blocks.office={
       if(x.real)return attendReal(ctx,x,lbl,attTbl);
       return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,scale:x.factor,h:260,fill:false,
           title:'Посещаемость офиса'+(lbl?': '+lbl:'')+', %'})+
-        attTbl('Сегмент',x.city?x.city.name+' · '+D.CMP.span:D.CMP.span,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,
+        attTbl('Сегмент',x.city?x.city.name+' · '+D.PER_MON:D.PER_MON,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,
           note:D.fmtInt(s.hc)+' чел',value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
           attrTip:'Клик — посещаемость только у «'+s.name+'»: пересчитаются динамика и города.'})),'Сравнение сегментов')+
-        attTbl('Локация',x.seg?x.seg.name+' · '+D.CMP.span:D.CMP.span,x.cities.filter(c=>c.hc>0).map(c=>({name:c.name,
+        attTbl('Локация',x.seg?x.seg.name+' · '+D.PER_MON:D.PER_MON,x.cities.filter(c=>c.hc>0).map(c=>({name:c.name,
           note:D.fmtInt(c.hc)+' чел · '+c.offices+' '+U.plural(c.offices,['офис','офиса','офисов']),
           value:c.att,color:G.C_OFFICE,on:S.offCity===c.name,attr:'data-offcity="'+esc(c.name)+'"',
           attrTip:'Клик — посещаемость только в «'+c.name+'»: пересчитаются динамика и сегменты.'})),'Сравнение городов')+
@@ -104,16 +104,16 @@ SC.blocks.office={
          брони, и не прийти по брони. Нарушения — две нижние строки. */
       return SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,
           {h:250,fill:false,title:'Нарушения бронирования, %',ann:ctx.ann.booking_viol})+
-        U.btGroup({cap:'Бронирования и посещения',capSub:D.CMP.span+', человеко-дни',head:'',
+        U.btGroup({cap:'Бронирования и посещения',capSub:D.PER_MON+', человеко-дни',head:'',
           valueHead:'Дней',metricKey:'hc_total',compact:true,keepZero:true,items:[
           {name:'Бронь и приход',value:bk.ok,color:G.C_OFFICE},
           {name:'Бронь без прихода',note:'нарушение: место простояло',value:bk.noshow,color:G.C_OFFICE},
           {name:'Приход без брони',note:'нарушение: место не учтено',value:bk.walkin,color:G.C_OFFICE}]})+
-        '<div class="tbl-note">Две нижние строки — нарушения. Их доля и есть «Нарушения бронирования» за '+esc(D.CMP.span)+'.</div>'+
+        '<div class="tbl-note">Две нижние строки — нарушения. Их доля и есть «Нарушения бронирования» за '+esc(D.PER_MON)+'.</div>'+
         /* 27.10-в, п. 14–15: после «Бронирований и посещений» — нарушения по городам: по убыванию, первые 10 и
            раскрываемые «Остальные» */
         (!vc?'<div class="tbl-note">Нарушения бронирования по городам появятся, когда ноутбук отчёта обновят до поставки 70.</div>'
-        :vc.length?U.btGroup(Object.assign({cap:'Нарушения бронирования по городам',capSub:D.CMP.span+', человеко-дни',head:'',
+        :vc.length?U.btGroup(Object.assign({cap:'Нарушения бронирования по городам',capSub:D.PER_MON+', человеко-дни',head:'',
           valueHead:'Нарушений',metricKey:'hc_total',compact:true,total:false,sort:true,items:vc.map(c=>({name:c.name,
             note:c.pct!=null?U.pct(c.pct)+' от дней с бронью':'',value:c.viol,color:G.C_OFFICE}))},
           SC.rest(ctx,'vcity',10,['город','города','городов']))):'');
@@ -136,7 +136,7 @@ SC.blocks.office={
       {title:'Посещаемость по дням — по '+end.to+' '+
         D.MONTH_GEN[end.m]+' '+end.y+', %'})+
       '<div class="bt-group"><div class="bt-cap">По дням недели, среднее за '+
-      D.DOW_MONTHS+' месяца</div>'+
+      (D.DOW_MONTHS===2?D.MONTH_NOM[(D.PER_C+11)%12]+' и '+D.MONTH_NOM[D.PER_C]:D.DOW_MONTHS+' месяца')+'</div>'+
       U.barTable({head:'День недели',metricKey:'office_att',valueHead:'Посещаемость',
         barHead:'Сравнение дней',share:false,total:false,compact:true,
         items:dow.map(d=>({name:d.name,value:d.value,

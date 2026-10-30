@@ -107,7 +107,8 @@ function insightCard(c){
 function normOf(S,rl,all){
   const has=new Set(all.map(c=>c.key));
   /* поток незакрытого месяца «в норме» не бывает: месяц ещё идёт (26.10, ревью критиков) */
-  return D.METRICS.filter(m=>D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!D.partFlow(m.key)&&!has.has(m.key)&&D.lastVal(rl,m.key)!=null);
+  /* поставка 90: значения — за период (D.periodTotal), незакрытого месяца в них нет */
+  return D.METRICS.filter(m=>D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!has.has(m.key)&&D.periodTotal(rl,m.key));
 }
 function normRow(S,rl,ok){
   const NP=7, dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
@@ -115,7 +116,7 @@ function normRow(S,rl,ok){
       text:'Метрики без заметных отклонений от ориентира и от прошлого года. Количества (численность, найм) не оцениваются — показаны значением.'})+
     '>✓ В норме</span>'+
     ok.slice(0,NP).map(m=>'<button class="in-pill" data-opfact="'+m.key+'"'+U.tipAttr({title:m.name,text:m.hint})+'>'+
-      esc(m.name)+' <b>'+D.fmtVal(m.key,D.lastVal(rl,m.key))+'</b>'+U.matureTag(m.key,true)+'</button>').join('')+
+      esc(m.name)+' <b>'+D.periodTotal(rl,m.key).cur+'</b> '+esc(D.periodTotal(rl,m.key).lab)+'</button>').join('')+
     (ok.length>NP?'<button class="in-pill more" data-opscroll="1">+'+(ok.length-NP)+' '+U.plural(ok.length-NP,['метрика','метрики','метрик'])+'</button>':'')+
     (dev?'<button class="in-pill dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
       dev+' в разработке</button>':'')+
@@ -190,11 +191,12 @@ function render(S,openRows){
          ширину на широком экране, а спарклайн тянется вместе с ней */
       '<colgroup><col style="width:26%"><col style="width:12%"><col style="width:10%"><col style="width:10%"><col>'+
       '<col style="width:19%"><col style="width:28px"></colgroup>'+
-      '<thead><tr><th>Метрика</th><th class="num">Значение</th>'+
-      /* 23.10, заказчик: шапки — в одну строку; «за месяц / за год» — месяцем сравнения, пояснение — в подсказке */
+      /* поставка 90: значение — за то же окно, что итог под графиком; окно подписано под числом */
+      '<thead><tr><th>Метрика</th><th class="num"'+U.tipAttr({title:'Значение',text:'Потоки и доли — '+D.PER_TEXT+
+        ', накопительные — на конец закрытого месяца, численность и открытые вакансии — сейчас.'})+'>Значение</th>'+
       /* 27.10-в, п. 1: шапки — MoM и YoY; месяцы сравнения — в подсказке */
-      '<th class="num"'+U.tipAttr({title:'MoM — месяц к месяцу',text:'Изменение '+D.CMP.momFull+'.'})+'>MoM</th>'+
-      '<th class="num"'+U.tipAttr({title:'YoY — год к году',text:'Изменение '+D.CMP.yoy+'.'})+'>YoY</th><th class="mid">12 мес</th>'+
+      '<th class="num"'+U.tipAttr({title:'MoM — месяц к месяцу',text:'Последний закрытый месяц против предыдущего; у численности и вакансий — сейчас против конца прошлого месяца.'})+'>MoM</th>'+
+      '<th class="num"'+U.tipAttr({title:'YoY — год к году',text:'Значение против того же периода год назад — как в строке итога под графиком.'})+'>YoY</th><th class="mid">12 мес</th>'+
       '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Цель KPI, а где её нет — база.'})+'>Ориентир</th>'+
       /* Общая каретка стоит над колонкой строчных кареток: строки блока
          раскрывают графики по одной, и раскрыть их разом должно быть можно
@@ -202,8 +204,9 @@ function render(S,openRows){
       '<th class="col-caret">'+U.allCaret('data-opexpall',b.key+'|'+(allOpen?'0':'1'),allOpen,
         'Графики всех метрик блока разом.')+'</th></tr></thead><tbody>';
     bMets.forEach(m=>{
-      const s=D.aggregate(rl,m.key), v=s[D.lastIdx(m.key)], dl=D.deltasOf(rl,m.key), cl=D.closedOnly(m.key);
-      const kpi=D.kpiFor(m.key,S), bv=D.lastVal(bl,m.key);
+      const s=D.aggregate(rl,m.key), P=D.periodTotal(rl,m.key)||{}, v=P.v, cl=D.PARTIAL&&!D.PER_PART&&!P.stock;
+      const e=D.aggregateExt(rl,m.key), i=D.NEXT-1-(cl?1:0), dl={mom:e[i]==null||e[i-1]==null?null:e[i]-e[i-1],yoy:v==null||P.pv==null?null:v-P.pv};
+      const kpi=D.kpiAt(m.key,S,D.MONTHS[D.PER_I].m), bv=(D.periodTotal(bl,m.key)||{}).v;
       const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
       /* база помесячно: спарклайн красит КАЖДЫЙ месяц по своему месяцу базы,
          а не весь ряд по последнему значению. У метрики с KPI базы нет ни в
@@ -211,11 +214,11 @@ function render(S,openRows){
       const bser=!kpi&&D.comparable(m.key)?D.aggregate(bl,m.key):null;
       const open=openRows.has(m.key);
       t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
-        '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+U.matureTag(m.key,true)+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
-        '<td class="m-val">'+D.fmtVal(m.key,v)+'</td>'+
+        '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
+        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.lab?'<span class="m-sub">'+esc(P.lab)+'</span>':'')+'</td>'+
         /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
         '<td class="col-num">'+U.deltaChip(m.key,dl.mom,cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip})+'</td>'+
-        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,cl?{vs:D.CMP.yoyShortC,tip:D.CMP.yoyTipC}:{tip:D.CMP.yoyTip})+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:{title:'Год к году',text:(P.head||'')+' против того же периода год назад.'}})+'</td>'+
         /* Короткая динамика — у всех метрик одним видом, спарклайном (13.10:
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
            точек, ориентир — пунктиром; у метрики без оценки точек нет. */

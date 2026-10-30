@@ -68,7 +68,7 @@ SC.blocks.hiring={
         '«В т.ч.» — часть открытых вакансий, со статусами они не складываются.</div>';
     }
     if(ctx.sub==='profile'){
-      const hp=D.hiringProfile(lp,'ytd'), sub=' с начала года';
+      const hp=D.hiringProfile(lp,'ytd'), sub=' '+D.PER_TEXT;
       /* 26.10-б, правки п. 7: «Найм, чел» — год к году, как «Отток, чел» (бар этого года, позади — прошлый, легенда по
          годам); виды найма — только в подсказке месяца. Без видов в данных — подсказка без них */
       const hk=D.hireKinds(lp);
@@ -107,7 +107,7 @@ SC.blocks.hiring={
       ['Открытые по специализации',vb.spec,SC.rest(ctx,'vspec',10,['специализация','специализации','специализаций'])]]
       .filter(x=>x[1].length).map(x=>vt(x[0],'на '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur),x[1],G.C_VAC,'Вакансий',x[2],x[3]));
     const closed=[['Закрытые по каналу',vb.channel],['Закрытые по уровню кандидата',vb.cand,null,1]].filter(x=>x[1].length)
-      .map(x=>vt(x[0],'с начала года',x[1],G.C_IN,'Вакансий',x[2],x[3]));
+      .map(x=>vt(x[0],D.PER_TEXT,x[1],G.C_IN,'Вакансий',x[2],x[3]));
     return panels+U.btStack(open.slice(0,2))+U.btStack(open.slice(2).concat(closed).slice(0,3))+
       '<div class="tbl-note">Вакансии — по подразделению: фильтры покраски, IT, штата и типа численности на них не действуют.</div>';
   }

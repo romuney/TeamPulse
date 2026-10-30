@@ -55,7 +55,7 @@ function succTable(cap,sub,rows,head){
 /* закрытые заявки потока по месяцам: «Рост» и T@T столбиком; над графиком — итог за 12 месяцев */
 function flowBlock(f,what,head){
   return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
-      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» за 12 месяцев · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
+      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
     G.chart('stack',{periods:f.months,cats:[['rost','Рост',C_R],['tat','T@T',C_T]],unit:' заявок'},
       {title:head,h:250,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
 }
@@ -65,14 +65,14 @@ function flowYoy(ctx,f,what,head){
   const y=f.yoy;
   if(!y)return flowBlock(f,what,head);
   return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
-      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» за 12 месяцев · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
+      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
     SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:250,fill:false,
       color:C_R,title:head,tipName:'повышение грейда',
       tipRows:i=>[{label:'· Рост',value:D.fmtInt(y.rost[i]||0),color:C_R},{label:'· T@T',value:D.fmtInt(y.tat[i]||0),color:C_T}]});
 }
 function grades(ctx,p){
   const cur=p.st.find(x=>x.key===ctx.S.rostSt)||p.st[0];
-  return U.btGroup({cap:'Статусы роста',capSub:p.real?'численность последнего месяца · заявки за 12 месяцев':'активная численность · за 12 месяцев',head:'',valueHead:'Человек',
+  return U.btGroup({cap:'Статусы роста',capSub:p.real?'численность последнего месяца · заявки '+D.PER_TEXT:'активная численность · за 12 месяцев',head:'',valueHead:'Человек',
       metricKey:'hc_total',compact:true,items:p.st.map(s=>({name:s.name,value:s.n,color:ST_COL[s.key],on:s===cur,
         attr:'data-rostst="'+s.key+'"',attrTip:'Клик — «'+s.name+'» по текущему грейду. '+s.tip}))})+
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+

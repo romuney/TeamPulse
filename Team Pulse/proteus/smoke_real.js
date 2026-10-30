@@ -382,10 +382,11 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
      руководителя в окне настройки и поиск по нему */
   if(D.OFF_LIVE.cal&&D.OFF_LIVE.bk&&D.OFF_LIVE.seg&&D.OFF_LIVE.city){
     const cal=D.attLast(rl), sw=cal.reduce((a,b)=>a+b.days.reduce((x,d)=>x+(d.w||0),0),0);
-    const L=R.n-1, wd2=arr(scopeRow,'wday')[L]+arr(scopeRow,'wday')[L-1];
+    /* поставка 90: офисные разрезы — за закрытый месяц, календарь — два закрытых месяца */
+    const L=R.n-1-(D.LAST-D.PER_I), wd2=arr(scopeRow,'wday')[L]+arr(scopeRow,'wday')[L-1];
     const bk=arr(scopeRow,'bk')[L], bkv=arr(scopeRow,'bkv')[L], vsv=arr(scopeRow,'vsv')[L];
     const hwd=arr(scopeRow,'hwd')[L], hov=arr(scopeRow,'hov')[L];
-    const x=D.officeCross(rl,null,null), viol=D.lastVal(rl,'booking_viol');
+    const x=D.officeCross(rl,null,null), viol=D.perVal(rl,'booking_viol');
     const oc=x.cities.reduce((a,c)=>a+c.visits,0);
     const raw=String(scopeRow.mx).split('\n').filter(l=>l.indexOf('oc\t')===0).reduce((a,l)=>a+ +l.split('\t')[2],0);
     const ofA2=A.go('office','attend'), ofB2=A.go('office','booking');
