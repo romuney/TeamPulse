@@ -6193,8 +6193,8 @@ function hatchFill(col){
    поместилась жирная подпись закрытого месяца — она видна всегда */
 const axLbl=(lb,i,nowI,key,nr)=>[i===nowI&&!nr?nowLabel(lb,key):lb,
   i===closedIdx(nowI)?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}];
-/* поставка 90: месяцы итога за период (CD.periodTotal) — ось на них толще и темнее, вместо черты под осью */
-function yoyAxis(X,bandW,top,bot,nowI,bars,key,pr){
+/* поставка 93 (заказчик): выделение оси на месяцах итога снято — «толсто и грязно»; итог — строкой над графиком */
+function yoyAxis(X,bandW,top,bot,nowI,bars,key){
   /* у баров черты «вы здесь» нет (15.10): она резала бар последнего месяца */
   let s=bars?'':line(X(nowI),top-6,X(nowI),bot,C_NOW,1);
   CD.MONTH_ABBR.forEach((lb,i)=>{
@@ -6203,9 +6203,8 @@ function yoyAxis(X,bandW,top,bot,nowI,bars,key,pr){
       const a=axLbl(lb,i,nowI,key,bandW<56);s+=txt(X(i),bot+15,a[0],a[1]);
     }
   });
-  return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1)+periodAxis(X,bandW,bot,pr);
+  return s+line(X(0)-bandW/2,bot,X(11)+bandW/2,bot,C_ZERO,1);
 }
-function periodAxis(X,bandW,y,pr){return pr&&pr.strip?line(X(0)-bandW/2,y,X(pr.c)+bandW/2,y,C_AXIS,2.5):''}
 /* Подсветка месяцев для связки «пункт списка ↔ график»: невидимые полосы,
    которые проявляет класс on (app.js — наведение на пункт «Что видно»). */
 /* 31.10, п. 2: самая яркая клетка тепловых таблиц «Роста» — ffc3b1 с прозрачностью cc */
@@ -6275,7 +6274,7 @@ function yoyPlot(p,ar){
   const part=p.mature?CD.PARTIAL:CD.matures(key), curS=part?cur.map((v,i)=>i===nowI?null:v):cur;
   const pl=!flow&&CD.PARTIAL&&CD.partFlow(key)&&!part;
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
-  s+=yoyAxis(X,bandW,top,bot,nowI,flow,key,p.period);
+  s+=yoyAxis(X,bandW,top,bot,nowI,flow,key);
   /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
   if(p.gap&&showMain&&showBench)s+=gapFill(key,cur,bench,X,Y);
@@ -6482,7 +6481,7 @@ function drawPair(a,w,h){
     if(sB&&dn)lbl+=txt(cx,y0+dn*u+VAL_DY+VAL_ASC,CD.fmtVal(B.key,dn),valOpt({delay:dly,s:sC?'b':'prev',weight:wt}));
   }
   /* ноль — поверх баров: от него растут оба потока */
-  s+=line(x0,y0,x0+plotW,y0,C_ZERO,1)+periodAxis(X,bandW,y0,o.period);
+  s+=line(x0,y0,x0+plotW,y0,C_ZERO,1);
   return svg(w,h,s+lbl);
 }
 
