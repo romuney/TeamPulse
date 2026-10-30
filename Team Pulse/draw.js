@@ -1243,6 +1243,7 @@ let _specs=new Map(), _sid=0;
    один заголовок — тоже (заголовков может не быть). */
 const _off=new Map();
 
+const CH_H=300, CH_MAIN=360;
 function build(spec,w,h){return KINDS[spec.kind](spec.args,Math.max(320,w),h||null)}
 
 function chart(kind,args,opt){
@@ -1255,8 +1256,11 @@ function chart(kind,args,opt){
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
   /* opt.cls — модификатор контейнера */
-  /* поставка 94 (заказчик: «графики стали плоские»): opt.minH — нижняя граница высоты полотна главы, сверх общих 220px */
-  const mh=Math.max(kind==='panels'?panelsMin(args.panels):0,opt.minH||0);
+  /* поставка 97 (заказчик: «пользователь воспринимает каждый график отдельно — высоты должны быть одни»): две высоты на
+     весь отчёт — CH_H у каждого графика, в том числе у каждой панели группы, и CH_MAIN у единственного главного графика
+     вкладки (opt.main, водопад); растягивания под свободное место нет. Календарь посещений — своей сеткой дней */
+  if(kind!=='calendar'){opt.fill=false;opt.h=kind==='panels'?CH_H*args.panels.length:opt.main?CH_MAIN:CH_H}
+  const mh=kind==='panels'?panelsMin(args.panels):0;
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
     (mh?' style="min-height:'+mh+'px'+(kind==='panels'?';--np:'+args.panels.length:'')+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
 }

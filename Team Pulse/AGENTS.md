@@ -3142,3 +3142,7 @@ min-height полотна (у панелей — max с panelsMin). Водопа
 p.bench, benchName, offDef ['bench'], в legend третьим пунктом {id:'bench'} (для toggleSeries/seriesOf); drawPanels —
 bench в yoyPlot и пункт в yoyKey(…, bn). Подключено: отток (turnover dynamics), вакансии (hiring vacancies). Вид
 выключенной серии — зачёркивание (варианты галочка / пилюли / ссылка показаны, заказчик оставил как есть).
+
+**31.10, поставка 97 — две высоты графиков (заказчик: «каждый график воспринимается отдельно — высоты одни»).** draw.js
+chart(): кроме calendar — opt.fill=false, opt.h = CH_H (300) × число панелей у panels, CH_MAIN (360) при opt.main, иначе
+CH_H; minH поставки 94 снят. Замер 1440×900: водопад 360, остальные 300, группы по 900.

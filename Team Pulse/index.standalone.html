@@ -6919,6 +6919,7 @@ let _specs=new Map(), _sid=0;
    один заголовок — тоже (заголовков может не быть). */
 const _off=new Map();
 
+const CH_H=300, CH_MAIN=360;
 function build(spec,w,h){return KINDS[spec.kind](spec.args,Math.max(320,w),h||null)}
 
 function chart(kind,args,opt){
@@ -6931,8 +6932,11 @@ function chart(kind,args,opt){
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
   /* opt.cls — модификатор контейнера */
-  /* поставка 94 (заказчик: «графики стали плоские»): opt.minH — нижняя граница высоты полотна главы, сверх общих 220px */
-  const mh=Math.max(kind==='panels'?panelsMin(args.panels):0,opt.minH||0);
+  /* поставка 97 (заказчик: «пользователь воспринимает каждый график отдельно — высоты должны быть одни»): две высоты на
+     весь отчёт — CH_H у каждого графика, в том числе у каждой панели группы, и CH_MAIN у единственного главного графика
+     вкладки (opt.main, водопад); растягивания под свободное место нет. Календарь посещений — своей сеткой дней */
+  if(kind!=='calendar'){opt.fill=false;opt.h=kind==='panels'?CH_H*args.panels.length:opt.main?CH_MAIN:CH_H}
+  const mh=kind==='panels'?panelsMin(args.panels):0;
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
     (mh?' style="min-height:'+mh+'px'+(kind==='panels'?';--np:'+args.panels.length:'')+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
 }
@@ -10391,7 +10395,7 @@ SC.blocks.movement={
          legend:[{name:'В команду',color:G.C_IN},{name:'Из команды',color:G.C_OUT}]})+specMove(ctx.lp,ctx);
     }
     /* обзор: водопад года и то, что из него нужно вынести (story.js — insights) */
-    return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{h:340,minH:340,fill:true,
+    return G.chart('waterfall',{steps:balancedSteps(ctx.lp)},{main:true,
         title:'Изменение численности, чел',
         legend:[{name:'Начало и конец',color:G.C_TOTAL},{name:'Пришли',color:G.soft(G.C_IN)},{name:'Ушли',color:G.soft(G.C_OUT)}]})+
       U.storyFacts(ctx.story&&ctx.story.insights,'Что важно');
@@ -10448,7 +10452,7 @@ function hqView(ctx){
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
       period:D.periodTotal(h.lp,r.key,r.yoy)}))},
-      {h:720,minH:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
+      {h:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
 }
 
@@ -10546,7 +10550,7 @@ SC.blocks.turnover={
     return SC.yoyPanels(lp,[
       {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
       {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
-      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,minH:720,bl:ctx.bl,S:ctx.S});
+      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,bl:ctx.bl,S:ctx.S});
   }
 };
 })();
@@ -10771,9 +10775,9 @@ SC.blocks.tgrowth={
   view(ctx){
     if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp));
     if(ctx.sub==='spec')return specs(D.rostProfile(ctx.lp));
-    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,minH:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
+    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
-        {h:300,minH:300,title:'Одобренные и отклонённые заявки',
+        {h:300,title:'Одобренные и отклонённые заявки',
          legend:[{name:'Одобрено',color:G.C_IN},{name:'Отклонено',color:G.C_OUT}]});
   }
 };

@@ -98,9 +98,9 @@ SC.blocks.tgrowth={
   view(ctx){
     if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp));
     if(ctx.sub==='spec')return specs(D.rostProfile(ctx.lp));
-    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,minH:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
+    return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
-        {h:300,minH:300,title:'Одобренные и отклонённые заявки',
+        {h:300,title:'Одобренные и отклонённые заявки',
          legend:[{name:'Одобрено',color:G.C_IN},{name:'Отклонено',color:G.C_OUT}]});
   }
 };

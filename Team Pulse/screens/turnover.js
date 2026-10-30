@@ -45,7 +45,7 @@ function hqView(ctx){
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
       period:D.periodTotal(h.lp,r.key,r.yoy)}))},
-      {h:720,minH:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
+      {h:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
 }
 
@@ -143,7 +143,7 @@ SC.blocks.turnover={
     return SC.yoyPanels(lp,[
       {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
       {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
-      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,minH:720,bl:ctx.bl,S:ctx.S});
+      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,bl:ctx.bl,S:ctx.S});
   }
 };
 })();
