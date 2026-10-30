@@ -43,6 +43,8 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
    и посещения руководителей (у остальных — wds ovs: всё минус руководители) */
 const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout','hcd','hst',
   'bk','bkv','vsv','hwd','hov','rh','nrh','avh',
+  /* 31.10-б, п. 6: одобренные и отклонённые заявки «Роста» без фильтра покраски — вкладка «Рост HQ» от него не зависит */
+  'gah','gdh',
   /* поставка 71 (мониторинг по дням Адели): люди в сегментах прогулов (ab25 ab5), работы в выходной (we25 we5) и доли
      звонков (t23 t35 t5); сумма средних часов дня (hrs) и звонков (tlk) по людям с часами, сколько их (hrn) */
   'ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk'];
@@ -160,13 +162,14 @@ function build(data){
   /* поставка 56: найм по дню события (hit — из переходов ноутбука: найм в компанию и, на активной, переходы
      кандидатов и стажёров) — тем же счётом, что переводы, поэтому водопад сходится без «прочего». Прежние
      таблицы его не везут (нули) — тогда найм из рядов, как раньше */
-  const HIT=have.has('hit');
+  const HIT=have.has('hit'), GAH=have.has('gah');
   const parseSer=r=>{
     const ser={};
     cols.forEach(c=>{if(c!=='aid'&&c!=='wds'&&c!=='ovs')ser[c]=parseArr(raw(r,c),n)});
     if(AID)ser.aid=ser.aiw.map((w,k)=>ser.aip[k]?+(w*100/ser.aip[k]).toFixed(3):0);
     if(SEG){ser.wds=ser.wday.map((w,k)=>w-ser.hwd[k]);ser.ovs=ser.ovis.map((v,k)=>v-ser.hov[k])}
     if(HIT)ser.hire=ser.hit;
+    if(GAH){ser.gapr=ser.gah;ser.gdec=ser.gdh}
     return ser;
   };
   const stub=new Set(STUB.filter(k=>!(LIVE_WITH[k]&&LIVE_WITH[k].every(c=>have.has(c)))));
@@ -308,7 +311,11 @@ function build(data){
   }
   /* поставка 65: светофор «Как уходит HQ?» — выбранный юнит под «HQ + Активная» (строка hq; датасет до 65 — без неё) */
   const hqRow=by('hq')[0];
-  if(hqRow&&str(hqRow.ms||hqRow.m_hc))series.HQ=parseSer(hqRow);
+  /* 31.10-б, п. 2: желательная и нежелательная HQ считаются по rh / nrh / avh, а датасет отдаёт их только узлам и базе — у
+     строки hq они нулевые, и светофор показывал 0 при любом выборе. Строка hq уже по активной численности HQ выбранного
+     юнита: её reg / nreg (non-regrettable — желательные) / avg и есть эти ряды */
+  if(hqRow&&str(hqRow.ms||hqRow.m_hc)){const h=series.HQ=parseSer(hqRow);
+    [['rh','reg'],['nrh','nreg'],['avh','avg']].forEach(p=>{if(h[p[1]])h[p[0]]=h[p[1]].slice()})}
 
   /* Окно настройки (19.10, как в HRBP HUB): дерево всего справочника, логин руководителя и
      «сколько людей попадёт в выбор» — по fd, без запроса. Пути — как у модели ('T/id/…'). */

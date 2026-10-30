@@ -158,7 +158,7 @@ const BLOCKS=[
 {key:'structure',name:'Структура численности',hint:'Сколько людей в команде, кто они и как оформлены.',drillUrl:'#/detail/structure',dash:['34661','34136']},
 {key:'movement',name:'Движение персонала',hint:'Кто пришёл и кто ушёл: найм, отток, переводы. Растёт ли команда.',drillUrl:'#/detail/movement',dash:['34661','34136']},
 {key:'turnover',name:'Отток и текучесть',hint:'Сколько уходит, кто и почему.',drillUrl:'#/detail/turnover',dash:['34661','34136']},
-{key:'hiring',name:'Найм и вакансии',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
+{key:'hiring',name:'Найм и вакансии HQ',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
 /* поставка 83 (задача 3): вкладка — «Рост HQ», ключ tgrowth не меняем (ссылки и сохранённые состояния); scope — дисклеймер охвата */
 {key:'tgrowth',name:'Рост HQ',scope:'Сейчас данные по росту доступны только для HQ.',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
 {key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью. Мониторинг — под выбранными фильтрами (по умолчанию вся активная численность), ревью — для eligible-популяции.',drillUrl:'#/detail/monitor',dash:['34661']},
@@ -445,7 +445,7 @@ const DEV_PLAN=[
     {what:'Накопительная текучесть по инициатору',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Текучесть по стажу, специализации и грейду',aud:'all',stage:'0',now:'todo',next:1,
       need:'уходы есть; нужна среднесписочная по каждой группе'}]},
-  {blk:'Найм и вакансии',rows:[
+  {blk:'Найм и вакансии HQ',rows:[
     {what:'Открытые и закрытые вакансии по месяцам',aud:'all',stage:'2',now:'live',ok:1},
     {what:'Срок закрытия вакансии',aud:'all',stage:'2',now:'live'},
     {what:'Открытые вакансии по статусам, причине, специализации и уровню',aud:'all',stage:'2',now:'live'},
@@ -2105,11 +2105,25 @@ const AGE_MID=[22.6,27.4,37.3];
 function avgAge(lp,sel,dimKey,catIdx){
   /* 29.10, п. 8: пробник — поле age источника (разрез e ноутбука: возраст → людей на последний месяц): среднее по
      людям листьев. Без среза и без разбивки внутри категории — совместного распределения с полом в данных нет */
+  /* 31.10-б, п. 1: внутри категории и в срезе — по es / en выбранного юнита (сумма возрастов и людей с возрастом по
+     «разрез|значение»): одна категория или срез одного разреза — точно; срез по нескольким разрезам или подразделение
+     ниже выбранного — средний возраст листьев плюс сдвиг каждой категории от среднего юнита (совместного
+     распределения в данных нет). Ноутбук без es / en — как раньше: в срезе и внутри категории пусто */
   if(REAL){
-    if(dimKey||sliceParse(sel||[]).length)return null;
     const e=realExit(lp,'e');let n=0,t=0;
     Object.keys(e).forEach(v=>{const a=parseFloat(String(v).replace(',','.'));if(isFinite(a)&&a>0){n+=e[v];t+=a*e[v]}});
-    return n?t/n:null;
+    const base=n?t/n:null, cons=sliceParse(sel||[]).map(p=>({dk:p.dim.key,raw:p.cat.raw}));
+    if(dimKey){const d=MIX_BY_KEY[dimKey];if(d&&d.cats[catIdx])cons.push({dk:dimKey,raw:d.cats[catIdx].raw})}
+    if(!cons.length)return base;
+    const es=REAL.scopeMix('es'), en=REAL.scopeMix('en');
+    if(!es||!en||base==null)return null;
+    const by={};cons.forEach(c=>{(by[c.dk]=by[c.dk]||[]).push(c.raw)});
+    const avgOf=(k,vals)=>{let s=0,m=0;vals.forEach(v=>{s+=es[k+'|'+v]||0;m+=en[k+'|'+v]||0});return m?s/m:null};
+    const g0=REAL_DIM.gender||'g', allV=Object.keys(en).filter(x=>x.indexOf(g0+'|')===0).map(x=>x.slice(g0.length+1));
+    const unit=avgOf(g0,allV);
+    let v=base;
+    for(const dk in by){const k=REAL_DIM[dk], a=k?avgOf(k,by[dk]):null;if(a==null)return null;v+=a-(unit==null?base:unit)}
+    return v;
   }
   if(!MIX_BY_KEY.age)return null;
   const ages=sliceParse(sel).filter(p=>p.dim.key==='age').map(p=>p.idx);
@@ -2303,6 +2317,16 @@ const YTD_FROM=MONTHS.findIndex(mm=>mm.y===CUR_M.y&&mm.m===0);
 const YTD_RANGE=MONTH_NOM[0]+' — '+monthNom(CUR_M);
 function winFrom(win){return win==='ytd'?Math.max(0,YTD_FROM):0}
 function sumWin(ser,win){let s=0;for(let i=winFrom(win);i<=LAST;i++)s+=ser[i]||0;return s}
+/* 31.10-б, п. 4 и 8: колонка таблицы подразделений «с начала года» — сумма потока; у срока закрытия — средний срок
+   закрытых с начала года (дни / закрытые; в макете — среднее месяцев с закрытыми) */
+function ytdTableVal(lp,key){
+  if(key==='time_to_fill'){
+    if(REAL&&REAL.has('vtd')&&REAL.has('vtn')){const n=sumWin(aggregate(lp,'ttf_n'),'ytd');return n?sumWin(aggregate(lp,'ttf_days'),'ytd')/n:null}
+    const a=aggregate(lp,key).slice(winFrom('ytd'),LAST+1).filter(v=>v!=null&&v>0);
+    return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  }
+  return sumWin(aggregate(lp,key),'ytd');
+}
 /* доли по весам → целые люди с точной суммой (тем же методом, что разбивки) */
 function splitBy(total,weights){
   const sw=weights.reduce((a,b)=>a+b,0)||1;
@@ -2650,7 +2674,16 @@ function rostReal(){
       return Object.keys(o).map(k=>o[k]).sort((a,b)=>b.apps-a.apps||a.name.localeCompare(b.name,'ru'));
     };
     const top=(a,n)=>kd==='g'?a.sort(byGrades):a.slice(0,n);
-    return {rost:R,tat:T,months:mo,rostT:top(succ('0'),nR),tatT:top(succ('1'),nT)};
+    /* 31.10-б, п. 5: год к году — успешно закрытые по месяцам итога, январь–декабрь этого и прошлого года (rm — с начала
+       прошлого года); Рост и T@T — частями в подсказке */
+    const yy={cur:new Array(CUR_LEN).fill(0),prev:new Array(12).fill(0),rost:new Array(12).fill(0),tat:new Array(12).fill(0)};
+    Object.keys(rm).forEach(v=>{
+      const p=v.split('|'), y=+p[0].slice(0,4), m=+p[0].slice(5,7)-1, n=+rm[v]||0;
+      if(p[3]!=='ok'||p[1].indexOf(kd)<0)return;
+      if(y===YEAR_PREV)yy.prev[m]+=n;
+      else if(y===YEAR_CUR&&m<CUR_LEN){yy.cur[m]+=n;yy[p[2]==='1'?'tat':'rost'][m]+=n}
+    });
+    return {rost:R,tat:T,months:mo,yoy:yy,rostT:top(succ('0'),nR),tatT:top(succ('1'),nT)};
   };
   return {real:true,hc:st.reduce((a,s)=>a+s.n,0),st:st,grade:flow('g',5,99),spec:flow('s',5,4)};
 }
@@ -2672,7 +2705,11 @@ function rostProfile(lp){
   const flow=(tot,names,nR,nT,from,g)=>{
     const top=(a,n)=>g?a.sort(byGrades):a.slice(0,n);
     const R=Math.round(tot*(0.72+r()*0.12)), T=tot-R, mr=mon(R), mt=mon(T);
-    return {rost:R,tat:T,months:MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,
+    /* 31.10-б, п. 5: год к году — месяцы этого года из окна, прошлый год — того же уровня */
+    const yy={cur:new Array(CUR_LEN).fill(0),prev:new Array(12).fill(0),rost:new Array(12).fill(0),tat:new Array(12).fill(0)};
+    MONTHS.forEach((m,i)=>{if(m.y===YEAR_CUR&&m.m<CUR_LEN){yy.cur[m.m]=mr[i]+mt[i];yy.rost[m.m]=mr[i];yy.tat[m.m]=mt[i]}});
+    const avg=Math.max(1,(R+T)/12);for(let m=0;m<12;m++)yy.prev[m]=Math.round(avg*(0.6+r()*0.8));
+    return {rost:R,tat:T,yoy:yy,months:MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,
       rost:mr[i],tat:mt[i]})),rostT:top(succ(R,names,from),nR),tatT:top(succ(T,names,from),nT)};
   };
   const named=d=>[...new Set((MIX_BY_KEY[d]?MIX_BY_KEY[d].cats:[]).map(c=>c.name.split('|').pop()).filter(x=>!isNA(x)))];
@@ -2791,7 +2828,7 @@ function attByRoleLoc(lp){
    выбора отличается от общей: на него умножается ряд динамики. */
 const OFF_SEGS=[{key:'lead',name:'Руководители',rows:['rm','rt']},{key:'staff',name:'Сотрудники',rows:['lm','lt']}];
 function officeCross(lp,seg,city){
-  if(OFF_LIVE.seg||OFF_LIVE.city)return officeReal(lp,seg);
+  if(OFF_LIVE.seg||OFF_LIVE.city)return officeReal(lp,seg,city);
   const base=lastVal(lp,'office_att')||0, rl=attByRoleLoc(lp), cities=officeByCity(lp);
   const segs=OFF_SEGS.map(s=>{
     const rows=rl.filter(r=>s.rows.indexOf(r.key)>=0), hc=rows.reduce((a,r)=>a+r.hc,0);
@@ -2810,16 +2847,26 @@ function officeCross(lp,seg,city){
 /* Поставка 66, настоящие: сегмент — руководители (признак руководителя) и остальные, посещаемость последнего месяца
    и динамика выбранного сегмента (yser — ряд «год к году»); города офиса — посещения и люди за последний месяц, без
    выбора: посещаемость города не считается — у посещения есть город, у сотрудника его нет */
-function officeReal(lp,seg){
+/* 31.10-б, п. 9: кросс-фильтр «руководители / сотрудники × город» — ocl / ocpl (посещения и руководители по городу); у
+   сотрудников — город минус руководители. Выбран сегмент — города только по нему; выбран город — в сегментах люди этого
+   города и их доля (посещаемости по городу нет: у посещения есть город, у рабочего дня — нет). Ноутбук без ocl — как
+   раньше: город не выбирается */
+function officeReal(lp,seg,city){
   const mh=realExit(lp,'mh'), hcAll=Object.keys(mh).reduce((a,k)=>a+mh[k],0), lead=mh['1']||0;
   const att=(v,w)=>{const W=lastVal(lp,w);return W?+(lastVal(lp,v)/W*100).toFixed(1):0};
   const segs=OFF_LIVE.seg?[{key:'lead',name:'Руководители',hc:lead,att:att('ovis_lead','wday_lead')},
     {key:'staff',name:'Сотрудники',hc:hcAll-lead,att:att('ovis_staff','wday_staff')}]:[];
   const sg=seg?segs.find(x=>x.key===seg)||null:null;
-  const oc=realExit(lp,'oc'), op=realExit(lp,'ocp'), tot=Object.keys(oc).reduce((a,k)=>a+oc[k],0);
-  const cities=Object.keys(oc).filter(k=>oc[k]>0).map(k=>({name:k||NONE_NAME,visits:Math.round(oc[k]),people:Math.round(op[k]||0),
-    share:tot?+(oc[k]/tot*100).toFixed(1):0})).sort((a,b)=>b.visits-a.visits||a.name.localeCompare(b.name,'ru'));
-  return {real:true,segs:segs,cities:cities,seg:sg,city:null,att:sg?sg.att:lastVal(lp,'office_att')||0,factor:1,
+  const oc=realExit(lp,'oc'), op=realExit(lp,'ocp'), ol=realExit(lp,'ocl'), opl=realExit(lp,'ocpl');
+  const cross=!!REAL.mixVals&&Object.keys(REAL.mixVals('ocpl')||{}).length>0&&OFF_LIVE.seg;
+  const pick=(all,ld)=>k=>!cross||!sg?all[k]||0:sg.key==='lead'?ld[k]||0:Math.max(0,(all[k]||0)-(ld[k]||0));
+  const vis=pick(oc,ol), ppl=pick(op,opl), keys=Object.keys(oc).filter(k=>vis(k)>0), tot=keys.reduce((a,k)=>a+vis(k),0);
+  const cities=keys.map(k=>({name:k||NONE_NAME,raw:k,visits:Math.round(vis(k)),people:Math.round(ppl(k)),
+    share:tot?+(vis(k)/tot*100).toFixed(1):0})).sort((a,b)=>b.visits-a.visits||a.name.localeCompare(b.name,'ru'));
+  const c=cross&&city!=null?{name:city,raw:city===NONE_NAME?'':city}:null;
+  if(c){const L=Math.round(opl[c.raw]||0), A=Math.round(op[c.raw]||0);
+    c.people={lead:L,staff:Math.max(0,A-L),all:A}}
+  return {real:true,cross:cross,segs:segs,cities:cities,seg:sg,city:c,att:sg?sg.att:lastVal(lp,'office_att')||0,factor:1,
     yser:sg?yoySeries(lp,sg.key==='lead'?'office_lead':'office_staff'):null};
 }
 
@@ -2894,4 +2941,4 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,ROST_ST,ROST_LIVE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};
+  ytdTableVal,exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};

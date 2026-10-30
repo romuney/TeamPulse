@@ -58,6 +58,8 @@
     перехода (sp_cd), только у выбранного юнита. Колонка sp_cd — матчером: таблица ноутбука до 28.10 её не знает — разрезов
     нет, отчёт показывает движение по специализациям без переводов. 31.10, п. 10: tsi tso — по флагам смены специализации
     источника (fsp); п. 7: sp0 — численность по специализации на начало года, тоже только у выбранного юнита.
+    31.10-б, п. 1: es en — сумма возрастов и людей с возрастом по «разрез|значение» (средний возраст категории), тоже только
+    у выбранного юнита.
     Поставка 69 (27.10, ответы Антона):
       - rh nrh avh — нежелательные и желательные увольнения и ССЧ по активной численности HQ (покраска HQ и тип
         «Активная» вместо выбранных, IT-код и штат — как выбраны) у каждого узла ответа и у базы: эти две текучести
@@ -121,6 +123,13 @@
 {%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set hv = 'lowerUTF8(' ~ c[2] ~ ') IN ' ~ ql(F[c[0]]) -%}{%- set _ = parts.append(("(" ~ c[2] ~ " = '∅' OR " ~ hv ~ ")") if c[0] == 'act' else hv) -%}{%- endif -%}{%- endfor -%}
 {{- parts|join(' AND ') if parts else '1' -}}
 {%- endmacro %}
+{#- 31.10-б, п. 6: «Рост HQ» — только HQ-заявки по смыслу данных, фильтр покраски его не меняет: условие без покраски
+    (IT-код, штат, тип численности — как выбраны). По нему — ряды gah gdh (одобренные и отклонённые) и разрезы rm rq rs. -#}
+{% macro cond_np() -%}
+{%- set parts = [] -%}
+{%- for c in CUTS -%}{%- if c[0] != 'paint' and F[c[0]]|length > 0 -%}{%- set hv = 'lowerUTF8(' ~ c[2] ~ ') IN ' ~ ql(F[c[0]]) -%}{%- set _ = parts.append(("(" ~ c[2] ~ " = '∅' OR " ~ hv ~ ")") if c[0] == 'act' else hv) -%}{%- endif -%}{%- endfor -%}
+{{- parts|join(' AND ') if parts else '1' -}}
+{%- endmacro %}
 {#- Поставка 65: строка hq — светофор «Как уходит HQ?» всегда по активной численности HQ: покраска HQ и тип «Активная»
     вместо выбранных в фильтрах, IT-код и штат — как выбраны. -#}
 {% macro cond_hq() -%}
@@ -159,7 +168,7 @@
 {%- if act_on -%}toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND {{ FLG }} AND ifNull(in_ok, 1) = 0 AND {{ CVK }} = '{{ v }}'){%- else -%}toFloat64(0){%- endif -%}
 {%- endmacro %}
 {#- Метрики: ключ, таблица (s — series, t — trf, v — vacancy, a — ai), выражение. Порядок — порядок в ms. -#}
-{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')]] %}
+{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')], ['gah', 'g', 'gapr_cnt'], ['gdh', 'g', 'gdec_cnt']] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
@@ -297,6 +306,12 @@ WITH
       WHERE ifNull(node_rk, '') IN {{ PKD }} AND {{ GRID }} AND {{ cond() }}
       GROUP BY u2, i2
       UNION ALL
+      {#- 31.10-б, п. 6: одобренные и отклонённые заявки «Роста» без фильтра покраски — у каждого узла ответа #}
+      SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('g') }} AS a2
+      FROM prod_proteus.teampulse_hub_series
+      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond_np() }}
+      GROUP BY u2, i2
+      UNION ALL
       {#- поставка 69: нежелательные, желательные и ССЧ по активной численности HQ — у каждого узла ответа #}
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('h') }} AS a2
       FROM prod_proteus.teampulse_hub_series
@@ -358,10 +373,12 @@ WITH
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ cond() }}
+      {#- 31.10-б, п. 6: разрезы «Роста» (rm rq rs) — без фильтра покраски, остальные — под все фильтры #}
+      WHERE ifNull(node_rk, '') IN {{ PK }}
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND {{ cond() }} OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND {{ cond_np() }})
         {#- поставка 66: календарь посещений по дням, 26.10-б: увольнения по инициатору и месяцу — только у выбранного юнита #}
         {#- поставка 71: T-рост (rm, rq, rs) — тоже только у выбранного юнита #}
-        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'sp0') OR ifNull(node_rk, '') = (SELECT s FROM cx))
+        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'sp0', 'es', 'en') OR ifNull(node_rk, '') = (SELECT s FROM cx))
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL

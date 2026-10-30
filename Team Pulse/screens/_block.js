@@ -35,6 +35,15 @@ const blocks={};
    больше нет: глубже трёх уровней ведёт переход в юнит, а он меняет сам юнит
    отчёта — с путём, «← Назад» и ссылкой (итерация 29, механика HRBP HUB). */
 function currentRoot(S){return S.unit}
+/* 31.10-б, п. 4: «Найм и вакансии HQ» — открытые на конец месяца (подпись — какой месяц), закрытые и срок закрытия — с
+   начала года, без доли внутреннего найма (метрика остаётся в данных и в других местах). П. 8: «Рост HQ» — одобренные и
+   отклонённые заявки с начала года */
+const monLbl=()=>{const i=D.lastIdx('vac_open'), m=D.MONTHS[i];
+  return D.PARTIAL&&i===D.LAST?'на '+D.ASOF.d+' '+D.MONTH_GEN[m.m]:'за '+D.MONTH_NOM[m.m]+' '+m.y};
+const TBL_OVR={
+  hiring:{hide:{internal_share:1},ytd:{vac_closed:1,time_to_fill:1},
+    per:{vac_open:monLbl,vac_closed:'с начала года',time_to_fill:'среднее с начала года'}},
+  tgrowth:{ytd:{tgrowth_pass:1,tgrowth_deny:1},per:{tgrowth_pass:'с начала года',tgrowth_deny:'с начала года'}}};
 /* Глубина сводной таблицы: три уровня вниз от юнита отчёта. Глубже — «Открыть
    юнит» у выбранной строки. Переключателя глубины нет намеренно: на шести
    уровнях имя сжималось бы в столбик, а длинный список переставал читаться. */
@@ -286,6 +295,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* под-вкладка проверяется по списку блока: после перекомпоновки вкладок ссылка
      с ?sub=speed или ?sub=conv ведёт в никуда, и экран собирался бы наполовину */
   if(!S.subTab||!mod.subTabs.some(t=>t[0]===S.subTab))S.subTab=mod.defaultSub;
+  /* 31.10-б, п. 6: «Рост HQ» — только HQ-заявки по смыслу данных: фильтр покраски его не меняет (в пробнике — ряды и разрезы
+     датасета без покраски; в макете — строки без фильтра покраски) */
+  if(b.key==='tgrowth'&&S.paint!=='all')S=Object.assign({},S,{paint:'all'});
   const root=currentRoot(S), rootNode=D.NODE_BY_PATH[root];
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
   const mainK=blockMain(b.key,S);
@@ -297,11 +309,15 @@ function renderBlock(S,expanded,mixOpen,view){
      пропускает через обычную агрегацию (`D.sliceable`). */
   const slice=b.key==='structure'?D.sliceParse(S.mixSel):[];
   const selIds=slice.map(p=>p.id);
-  const val=(lp,key)=>D.lastValSlice(lp,key,selIds);
+  /* 31.10-б, п. 4 и 8: колонки таблицы подразделений по блоку — с начала года (ytd), без колонки (hide), подпись
+     периода под названием (per) */
+  const ov=TBL_OVR[b.key]||{};
+  const val=(lp,key)=>ov.ytd&&ov.ytd[key]?D.ytdTableVal(lp,key):D.lastValSlice(lp,key,selIds);
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
-  const mets=D.visibleMetricsOfBlock(b.key,S);
+  const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key]));
+  const perOf=k=>{const p=ov.per&&ov.per[k];return typeof p==='function'?p():p||''};
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
@@ -440,9 +456,10 @@ function renderBlock(S,expanded,mixOpen,view){
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :mets.map(m=>'<th'+U.tipAttr({title:m.name,text:U.metricText(m),note:D.closedOnly(m.key)?D.CLOSED_TIP.text:
+    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:U.metricText(m),note:ov.ytd&&ov.ytd[m.key]?
+      'С 1 января '+D.YEAR_CUR+' по '+D.ASOF_LABEL+'.':D.closedOnly(m.key)?D.CLOSED_TIP.text:
       D.PARTIAL&&(D.partFlow(m.key)||D.matures(m.key))?D.PART_TIP.text:null})+'>'+esc(m.short)+
-      (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+'</th>').join(''))+
+      (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
        Каретка у ИТОГО раскрывает и сворачивает ВСЁ дерево разом: раскрывать

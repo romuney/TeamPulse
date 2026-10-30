@@ -83,7 +83,8 @@ const KEYS=[['hc_total','hc'],['hc_active','act'],['hc_avg','avg'],['hire',R.has
   ['transfer_in','tin'],['transfer_out','tout'],['regret_cnt','reg'],
   ['perf_norm','pnor'],['perf_low','plow'],['perf_high','phig'],['perf_gray','pgry']]
   /* колонки разведки 12.10 — если ответ их везёт */
-  .concat([['wday','wday'],['ovis','ovis'],['tgrowth_pass','gapr'],['tgrowth_deny','gdec']].filter(([,c])=>R.has(c)))
+  /* 31.10-б, п. 6: заявки «Роста» — из gah / gdh (без фильтра покраски), если ответ их везёт */
+  .concat([['wday','wday'],['ovis','ovis'],['tgrowth_pass',R.has('gah')?'gah':'gapr'],['tgrowth_deny',R.has('gah')?'gdh':'gdec']].filter(([,c])=>R.has(c)))
   /* поставка 71: мониторинг по дням — люди в сегментах, суммы часов и звонков */
   .concat(['ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk'].filter(c=>R.has(c)).map(c=>['mon_'+c,c]));
 let treeOk=true, checked=0;
@@ -215,7 +216,7 @@ if(Object.keys(R.mixVals('hk')).length){
    чарт не жалуется на «нет колонок» (они необязательные) */
 const NEWC=['wday','ovis','gapr','gdec'], hasNew=NEWC.every(c=>R.has(c));
 if(hasNew){
-  const wd=arr(scopeRow,'wday')[i], ov=arr(scopeRow,'ovis')[i], ga=arr(scopeRow,'gapr')[i], gd=arr(scopeRow,'gdec')[i];
+  const wd=arr(scopeRow,'wday')[i], ov=arr(scopeRow,'ovis')[i], ga=arr(scopeRow,R.has('gah')?'gah':'gapr')[i], gd=arr(scopeRow,R.has('gah')?'gdh':'gdec')[i];
   ok(near(D.lastVal(rl,'office_att'),wd?+(ov/wd*100).toFixed(2):null),'посещаемость = посещения офиса / отработанные дни × 100');
   ok(near(D.lastVal(rl,'tgrowth_pass'),ga)&&near(D.lastVal(rl,'tgrowth_deny'),gd)&&
     near(D.aggregate(rl,'tgrowth_conv')[D.LAST],ga+gd?+(ga/(ga+gd)*100).toFixed(2):null),
@@ -266,6 +267,24 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   }
   ok((wk.match(/<div class="bt-group">/g)||[]).length===1&&/class="shbar/.test(wk)&&/class="row-body two"/.test(wk),
     'оформление: полоса и карточки, формат — карточками, компании таблицей; длинные названия — в две строки');
+  /* 31.10-б, п. 1: средний возраст внутри категории и в срезе — по es / en выбранного юнита */
+  if(R.scopeMix('es')){
+    const lpA=D.reportLeaves(A.st()), Gd=D.MIX_BY_KEY.gender, es=R.scopeMix('es'), en=R.scopeMix('en');
+    const fi=Gd.cats.findIndex(c=>/^ж|жен|female/i.test(c.raw)), want=k=>en['g|'+k]?es['g|'+k]/en['g|'+k]:null;
+    const aw=D.avgAge(lpA,[],'gender',fi), sw=D.avgAge(lpA,['gender:'+Gd.cats[fi].key]);
+    const ag=D.MIX_BY_KEY.age, ac=ag&&ag.cats.find(c=>en['a|'+c.raw]>0), sa=ac?D.avgAge(lpA,['age:'+ac.key]):1;
+    ok(aw!=null&&Math.abs(aw-want(Gd.cats[fi].raw))<0.01&&sw!=null&&Math.abs(sw-aw)<0.01&&sa!=null,
+      'средний возраст: женщины '+(aw==null?'—':aw.toFixed(1))+', в срезе «Женщины» — то же, срез по возрасту — '+(sa==null?'—':sa.toFixed(1)));
+  }
+  /* 31.10-б, п. 9: кросс-фильтр «руководители / сотрудники × город» */
+  if(Object.keys(R.mixVals('ocpl')||{}).length){
+    const lpA=D.reportLeaves(A.st()), x=D.officeCross(lpA,null,null), xl=D.officeCross(lpA,'lead',null), xs=D.officeCross(lpA,'staff',null);
+    const sum=a=>a.reduce((t,c)=>t+c.visits,0), c0=x.cities[0], xc=D.officeCross(lpA,null,c0.name);
+    ok(x.cross&&sum(xl.cities)+sum(xs.cities)===sum(x.cities)&&sum(xl.cities)<sum(x.cities)&&
+      xc.city&&xc.city.people.lead+xc.city.people.staff===c0.people&&/data-offcity=/.test(A.go('office','attend')),
+      'офис: руководители '+sum(xl.cities)+' + сотрудники '+sum(xs.cities)+' = '+sum(x.cities)+' посещений; в «'+c0.name+'» — '+
+      xc.city.people.lead+' рук. и '+xc.city.people.staff+' сотр.');
+  }
   /* поставка 65: светофор «Как уходит HQ?» — по строке hq (покраска HQ и тип «Активная» вместо фильтров отчёта);
      датасет без неё — по scope, только если фильтры и так «HQ + Активная», иначе — просьба обновить датасет */
   {
@@ -277,6 +296,12 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
         (hv.match(/<tr class="mrow"/g)||[]).length===3&&/HQ текучесть накопительная/.test(hv)&&!/YTD/.test(hv.split('hq-note')[1]||'')&&
         /hq-note"><span class="live-tag ok"/.test(hv),
         'светофор HQ по строке hq: '+h.rows.map(r=>r.label.split(' ')[0]+' '+D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+h.hc+' чел');
+      /* 31.10-б, п. 2: желательная (non-regrettable, nreg) и нежелательная (reg) — из рядов строки hq: накопительно = сумма
+         уходов с января / ССЧ месяца… как ряд метрики; при уходах в строке — не ноль */
+      const L=D.LAST-(D.PARTIAL?1:0), sum=k=>D.aggregate(['HQ'],k).slice(0,L+1).reduce((a,b)=>a+b,0);
+      ok(['nonregret','regret'].every((k,i)=>{const r=h.rows.find(x=>x.key===k), n=sum(i?'regret_cnt':'nonregret_cnt');
+        return n===0||r.v>0}),'желательная и нежелательная HQ накопительно — не нули: '+
+        h.rows.slice(1).map(r=>D.fmtVal(r.key,r.v)).join(' / '));
     }else ok(h?A.st().paint==='HQ'&&A.st().hcType==='active':/Светофору HQ нужны данные/.test(hv),
       'светофор HQ без строки hq: '+(h?'по scope (фильтры «HQ + Активная»)':'просьба обновить датасет'));
   }
@@ -468,8 +493,12 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
    в сумме = картам с начала года (найм — по дню события, переводы — как карточки); без них — без колонок переводов */
 {
   const sm=D.specMovement(rl), S=k=>sm.reduce((a,z)=>a+z[k],0), Y=k=>D.sumWin(D.aggregate(rl,k),'ytd'), mv=A.go('movement','dynamics');
-  if(D.SPM_TRF)ok(Math.abs(S('hire')-Y('hire'))<=sm.length&&Math.abs(S('tin')-Y('transfer_in'))<=sm.length&&
-      Math.abs(S('tout')-Y('transfer_out'))<=sm.length&&Math.abs(S('exit')-Y('attrition'))<=sm.length&&/Переводы из<\/th>/.test(mv),
+  /* 31.10, п. 10: с флагами смены специализации (ноутбук с поставки 87: есть sp0) переводы в и из — смены специализации, с
+     переводами юнита не сравниваются; на начало + движение = на конец не требуется (флаги и численность — разные срезы) */
+  const FSP=!!R.scopeMix('sp0');
+  if(D.SPM_TRF)ok(Math.abs(S('hire')-Y('hire'))<=sm.length&&(FSP||Math.abs(S('tin')-Y('transfer_in'))<=sm.length&&
+      Math.abs(S('tout')-Y('transfer_out'))<=sm.length)&&Math.abs(S('exit')-Y('attrition'))<=sm.length&&/Переводы из<\/th>/.test(mv)&&
+      (!FSP||/На начало<\/th>/.test(mv)&&S('hc1')>0),
     'движение по специализациям: найм '+S('hire')+' = '+Y('hire')+', в '+S('tin')+' = '+Y('transfer_in')+', отток '+S('exit')+' = '+
       Y('attrition')+', из '+S('tout')+' = '+Y('transfer_out'));
   else ok(!/Переводы из<\/th>/.test(mv)&&(!sm.length||/появятся, когда ноутбук отчёта обновят/.test(mv)),'движение по специализациям: без переходов по специализации — найм и отток');

@@ -2284,6 +2284,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ptable.rost-t th{white-space:normal;line-height:1.25;vertical-align:bottom;text-transform:none;letter-spacing:0;overflow-wrap:anywhere}
 .ptable.rost-t td,.ptable.rost-t th{text-align:right}
 .ptable.rost-t td.txt,.ptable.rost-t th.txt{text-align:left;width:26%}
+/* 31.10-б, п. 7: переход «текущая → желаемая» — в одну строку с многоточием и в любом состоянии (наведение строку не
+   переносит), полный текст — в подсказке; колонки «Заявка» и дальше не перекрываются */
+.ptable.rost-t.succ td.txt,.ptable.rost-t.succ th.txt{width:44%}
+.ptable.rost-t.succ td.txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
+.ptable.rost-t.succ tr:hover td.txt{white-space:nowrap;overflow:hidden}
 
 /* 27.10-в, п. 21: карточки KPI по выбранной слева строке */
 
@@ -2512,6 +2517,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* пилюли фильтров окна настройки — компактнее (подписи короткие: «Все», «IT», «Штат») */
 #optPaint .opt,#optIt .opt,#optStaff .opt{padding:5px 10px}
 #optPaint .opt .opt-n,#optIt .opt .opt-n,#optStaff .opt .opt-n{margin-left:5px}
+/* 31.10-б, п. 4 и 8: период колонки таблицы подразделений — второй строкой под названием */
+.ptable th .th-per{display:block;margin-top:1px;font-size:9.5px;font-weight:var(--fw-body);color:var(--muted2);text-transform:none;letter-spacing:0;white-space:nowrap}
 
 </style>
 </head>
@@ -2842,7 +2849,7 @@ const BLOCKS=[
 {key:'structure',name:'Структура численности',hint:'Сколько людей в команде, кто они и как оформлены.',drillUrl:'#/detail/structure',dash:['34661','34136']},
 {key:'movement',name:'Движение персонала',hint:'Кто пришёл и кто ушёл: найм, отток, переводы. Растёт ли команда.',drillUrl:'#/detail/movement',dash:['34661','34136']},
 {key:'turnover',name:'Отток и текучесть',hint:'Сколько уходит, кто и почему.',drillUrl:'#/detail/turnover',dash:['34661','34136']},
-{key:'hiring',name:'Найм и вакансии',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
+{key:'hiring',name:'Найм и вакансии HQ',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
 /* поставка 83 (задача 3): вкладка — «Рост HQ», ключ tgrowth не меняем (ссылки и сохранённые состояния); scope — дисклеймер охвата */
 {key:'tgrowth',name:'Рост HQ',scope:'Сейчас данные по росту доступны только для HQ.',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
 {key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью. Мониторинг — под выбранными фильтрами (по умолчанию вся активная численность), ревью — для eligible-популяции.',drillUrl:'#/detail/monitor',dash:['34661']},
@@ -3129,7 +3136,7 @@ const DEV_PLAN=[
     {what:'Накопительная текучесть по инициатору',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Текучесть по стажу, специализации и грейду',aud:'all',stage:'0',now:'todo',next:1,
       need:'уходы есть; нужна среднесписочная по каждой группе'}]},
-  {blk:'Найм и вакансии',rows:[
+  {blk:'Найм и вакансии HQ',rows:[
     {what:'Открытые и закрытые вакансии по месяцам',aud:'all',stage:'2',now:'live',ok:1},
     {what:'Срок закрытия вакансии',aud:'all',stage:'2',now:'live'},
     {what:'Открытые вакансии по статусам, причине, специализации и уровню',aud:'all',stage:'2',now:'live'},
@@ -4789,11 +4796,25 @@ const AGE_MID=[22.6,27.4,37.3];
 function avgAge(lp,sel,dimKey,catIdx){
   /* 29.10, п. 8: пробник — поле age источника (разрез e ноутбука: возраст → людей на последний месяц): среднее по
      людям листьев. Без среза и без разбивки внутри категории — совместного распределения с полом в данных нет */
+  /* 31.10-б, п. 1: внутри категории и в срезе — по es / en выбранного юнита (сумма возрастов и людей с возрастом по
+     «разрез|значение»): одна категория или срез одного разреза — точно; срез по нескольким разрезам или подразделение
+     ниже выбранного — средний возраст листьев плюс сдвиг каждой категории от среднего юнита (совместного
+     распределения в данных нет). Ноутбук без es / en — как раньше: в срезе и внутри категории пусто */
   if(REAL){
-    if(dimKey||sliceParse(sel||[]).length)return null;
     const e=realExit(lp,'e');let n=0,t=0;
     Object.keys(e).forEach(v=>{const a=parseFloat(String(v).replace(',','.'));if(isFinite(a)&&a>0){n+=e[v];t+=a*e[v]}});
-    return n?t/n:null;
+    const base=n?t/n:null, cons=sliceParse(sel||[]).map(p=>({dk:p.dim.key,raw:p.cat.raw}));
+    if(dimKey){const d=MIX_BY_KEY[dimKey];if(d&&d.cats[catIdx])cons.push({dk:dimKey,raw:d.cats[catIdx].raw})}
+    if(!cons.length)return base;
+    const es=REAL.scopeMix('es'), en=REAL.scopeMix('en');
+    if(!es||!en||base==null)return null;
+    const by={};cons.forEach(c=>{(by[c.dk]=by[c.dk]||[]).push(c.raw)});
+    const avgOf=(k,vals)=>{let s=0,m=0;vals.forEach(v=>{s+=es[k+'|'+v]||0;m+=en[k+'|'+v]||0});return m?s/m:null};
+    const g0=REAL_DIM.gender||'g', allV=Object.keys(en).filter(x=>x.indexOf(g0+'|')===0).map(x=>x.slice(g0.length+1));
+    const unit=avgOf(g0,allV);
+    let v=base;
+    for(const dk in by){const k=REAL_DIM[dk], a=k?avgOf(k,by[dk]):null;if(a==null)return null;v+=a-(unit==null?base:unit)}
+    return v;
   }
   if(!MIX_BY_KEY.age)return null;
   const ages=sliceParse(sel).filter(p=>p.dim.key==='age').map(p=>p.idx);
@@ -4987,6 +5008,16 @@ const YTD_FROM=MONTHS.findIndex(mm=>mm.y===CUR_M.y&&mm.m===0);
 const YTD_RANGE=MONTH_NOM[0]+' — '+monthNom(CUR_M);
 function winFrom(win){return win==='ytd'?Math.max(0,YTD_FROM):0}
 function sumWin(ser,win){let s=0;for(let i=winFrom(win);i<=LAST;i++)s+=ser[i]||0;return s}
+/* 31.10-б, п. 4 и 8: колонка таблицы подразделений «с начала года» — сумма потока; у срока закрытия — средний срок
+   закрытых с начала года (дни / закрытые; в макете — среднее месяцев с закрытыми) */
+function ytdTableVal(lp,key){
+  if(key==='time_to_fill'){
+    if(REAL&&REAL.has('vtd')&&REAL.has('vtn')){const n=sumWin(aggregate(lp,'ttf_n'),'ytd');return n?sumWin(aggregate(lp,'ttf_days'),'ytd')/n:null}
+    const a=aggregate(lp,key).slice(winFrom('ytd'),LAST+1).filter(v=>v!=null&&v>0);
+    return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  }
+  return sumWin(aggregate(lp,key),'ytd');
+}
 /* доли по весам → целые люди с точной суммой (тем же методом, что разбивки) */
 function splitBy(total,weights){
   const sw=weights.reduce((a,b)=>a+b,0)||1;
@@ -5334,7 +5365,16 @@ function rostReal(){
       return Object.keys(o).map(k=>o[k]).sort((a,b)=>b.apps-a.apps||a.name.localeCompare(b.name,'ru'));
     };
     const top=(a,n)=>kd==='g'?a.sort(byGrades):a.slice(0,n);
-    return {rost:R,tat:T,months:mo,rostT:top(succ('0'),nR),tatT:top(succ('1'),nT)};
+    /* 31.10-б, п. 5: год к году — успешно закрытые по месяцам итога, январь–декабрь этого и прошлого года (rm — с начала
+       прошлого года); Рост и T@T — частями в подсказке */
+    const yy={cur:new Array(CUR_LEN).fill(0),prev:new Array(12).fill(0),rost:new Array(12).fill(0),tat:new Array(12).fill(0)};
+    Object.keys(rm).forEach(v=>{
+      const p=v.split('|'), y=+p[0].slice(0,4), m=+p[0].slice(5,7)-1, n=+rm[v]||0;
+      if(p[3]!=='ok'||p[1].indexOf(kd)<0)return;
+      if(y===YEAR_PREV)yy.prev[m]+=n;
+      else if(y===YEAR_CUR&&m<CUR_LEN){yy.cur[m]+=n;yy[p[2]==='1'?'tat':'rost'][m]+=n}
+    });
+    return {rost:R,tat:T,months:mo,yoy:yy,rostT:top(succ('0'),nR),tatT:top(succ('1'),nT)};
   };
   return {real:true,hc:st.reduce((a,s)=>a+s.n,0),st:st,grade:flow('g',5,99),spec:flow('s',5,4)};
 }
@@ -5356,7 +5396,11 @@ function rostProfile(lp){
   const flow=(tot,names,nR,nT,from,g)=>{
     const top=(a,n)=>g?a.sort(byGrades):a.slice(0,n);
     const R=Math.round(tot*(0.72+r()*0.12)), T=tot-R, mr=mon(R), mt=mon(T);
-    return {rost:R,tat:T,months:MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,
+    /* 31.10-б, п. 5: год к году — месяцы этого года из окна, прошлый год — того же уровня */
+    const yy={cur:new Array(CUR_LEN).fill(0),prev:new Array(12).fill(0),rost:new Array(12).fill(0),tat:new Array(12).fill(0)};
+    MONTHS.forEach((m,i)=>{if(m.y===YEAR_CUR&&m.m<CUR_LEN){yy.cur[m.m]=mr[i]+mt[i];yy.rost[m.m]=mr[i];yy.tat[m.m]=mt[i]}});
+    const avg=Math.max(1,(R+T)/12);for(let m=0;m<12;m++)yy.prev[m]=Math.round(avg*(0.6+r()*0.8));
+    return {rost:R,tat:T,yoy:yy,months:MONTHS.map((m,i)=>({label:m.label,full:i===LAST&&PARTIAL?CMP.span:MONTH_NOM_CAP(m.m)+' '+m.y,
       rost:mr[i],tat:mt[i]})),rostT:top(succ(R,names,from),nR),tatT:top(succ(T,names,from),nT)};
   };
   const named=d=>[...new Set((MIX_BY_KEY[d]?MIX_BY_KEY[d].cats:[]).map(c=>c.name.split('|').pop()).filter(x=>!isNA(x)))];
@@ -5475,7 +5519,7 @@ function attByRoleLoc(lp){
    выбора отличается от общей: на него умножается ряд динамики. */
 const OFF_SEGS=[{key:'lead',name:'Руководители',rows:['rm','rt']},{key:'staff',name:'Сотрудники',rows:['lm','lt']}];
 function officeCross(lp,seg,city){
-  if(OFF_LIVE.seg||OFF_LIVE.city)return officeReal(lp,seg);
+  if(OFF_LIVE.seg||OFF_LIVE.city)return officeReal(lp,seg,city);
   const base=lastVal(lp,'office_att')||0, rl=attByRoleLoc(lp), cities=officeByCity(lp);
   const segs=OFF_SEGS.map(s=>{
     const rows=rl.filter(r=>s.rows.indexOf(r.key)>=0), hc=rows.reduce((a,r)=>a+r.hc,0);
@@ -5494,16 +5538,26 @@ function officeCross(lp,seg,city){
 /* Поставка 66, настоящие: сегмент — руководители (признак руководителя) и остальные, посещаемость последнего месяца
    и динамика выбранного сегмента (yser — ряд «год к году»); города офиса — посещения и люди за последний месяц, без
    выбора: посещаемость города не считается — у посещения есть город, у сотрудника его нет */
-function officeReal(lp,seg){
+/* 31.10-б, п. 9: кросс-фильтр «руководители / сотрудники × город» — ocl / ocpl (посещения и руководители по городу); у
+   сотрудников — город минус руководители. Выбран сегмент — города только по нему; выбран город — в сегментах люди этого
+   города и их доля (посещаемости по городу нет: у посещения есть город, у рабочего дня — нет). Ноутбук без ocl — как
+   раньше: город не выбирается */
+function officeReal(lp,seg,city){
   const mh=realExit(lp,'mh'), hcAll=Object.keys(mh).reduce((a,k)=>a+mh[k],0), lead=mh['1']||0;
   const att=(v,w)=>{const W=lastVal(lp,w);return W?+(lastVal(lp,v)/W*100).toFixed(1):0};
   const segs=OFF_LIVE.seg?[{key:'lead',name:'Руководители',hc:lead,att:att('ovis_lead','wday_lead')},
     {key:'staff',name:'Сотрудники',hc:hcAll-lead,att:att('ovis_staff','wday_staff')}]:[];
   const sg=seg?segs.find(x=>x.key===seg)||null:null;
-  const oc=realExit(lp,'oc'), op=realExit(lp,'ocp'), tot=Object.keys(oc).reduce((a,k)=>a+oc[k],0);
-  const cities=Object.keys(oc).filter(k=>oc[k]>0).map(k=>({name:k||NONE_NAME,visits:Math.round(oc[k]),people:Math.round(op[k]||0),
-    share:tot?+(oc[k]/tot*100).toFixed(1):0})).sort((a,b)=>b.visits-a.visits||a.name.localeCompare(b.name,'ru'));
-  return {real:true,segs:segs,cities:cities,seg:sg,city:null,att:sg?sg.att:lastVal(lp,'office_att')||0,factor:1,
+  const oc=realExit(lp,'oc'), op=realExit(lp,'ocp'), ol=realExit(lp,'ocl'), opl=realExit(lp,'ocpl');
+  const cross=!!REAL.mixVals&&Object.keys(REAL.mixVals('ocpl')||{}).length>0&&OFF_LIVE.seg;
+  const pick=(all,ld)=>k=>!cross||!sg?all[k]||0:sg.key==='lead'?ld[k]||0:Math.max(0,(all[k]||0)-(ld[k]||0));
+  const vis=pick(oc,ol), ppl=pick(op,opl), keys=Object.keys(oc).filter(k=>vis(k)>0), tot=keys.reduce((a,k)=>a+vis(k),0);
+  const cities=keys.map(k=>({name:k||NONE_NAME,raw:k,visits:Math.round(vis(k)),people:Math.round(ppl(k)),
+    share:tot?+(vis(k)/tot*100).toFixed(1):0})).sort((a,b)=>b.visits-a.visits||a.name.localeCompare(b.name,'ru'));
+  const c=cross&&city!=null?{name:city,raw:city===NONE_NAME?'':city}:null;
+  if(c){const L=Math.round(opl[c.raw]||0), A=Math.round(op[c.raw]||0);
+    c.people={lead:L,staff:Math.max(0,A-L),all:A}}
+  return {real:true,cross:cross,segs:segs,cities:cities,seg:sg,city:c,att:sg?sg.att:lastVal(lp,'office_att')||0,factor:1,
     yser:sg?yoySeries(lp,sg.key==='lead'?'office_lead':'office_staff'):null};
 }
 
@@ -5578,7 +5632,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_SINCE,winS
   PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,ROST_ST,ROST_LIVE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};
+  ytdTableVal,exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};
 
 </script>
 <script>
@@ -9314,6 +9368,15 @@ const blocks={};
    больше нет: глубже трёх уровней ведёт переход в юнит, а он меняет сам юнит
    отчёта — с путём, «← Назад» и ссылкой (итерация 29, механика HRBP HUB). */
 function currentRoot(S){return S.unit}
+/* 31.10-б, п. 4: «Найм и вакансии HQ» — открытые на конец месяца (подпись — какой месяц), закрытые и срок закрытия — с
+   начала года, без доли внутреннего найма (метрика остаётся в данных и в других местах). П. 8: «Рост HQ» — одобренные и
+   отклонённые заявки с начала года */
+const monLbl=()=>{const i=D.lastIdx('vac_open'), m=D.MONTHS[i];
+  return D.PARTIAL&&i===D.LAST?'на '+D.ASOF.d+' '+D.MONTH_GEN[m.m]:'за '+D.MONTH_NOM[m.m]+' '+m.y};
+const TBL_OVR={
+  hiring:{hide:{internal_share:1},ytd:{vac_closed:1,time_to_fill:1},
+    per:{vac_open:monLbl,vac_closed:'с начала года',time_to_fill:'среднее с начала года'}},
+  tgrowth:{ytd:{tgrowth_pass:1,tgrowth_deny:1},per:{tgrowth_pass:'с начала года',tgrowth_deny:'с начала года'}}};
 /* Глубина сводной таблицы: три уровня вниз от юнита отчёта. Глубже — «Открыть
    юнит» у выбранной строки. Переключателя глубины нет намеренно: на шести
    уровнях имя сжималось бы в столбик, а длинный список переставал читаться. */
@@ -9565,6 +9628,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* под-вкладка проверяется по списку блока: после перекомпоновки вкладок ссылка
      с ?sub=speed или ?sub=conv ведёт в никуда, и экран собирался бы наполовину */
   if(!S.subTab||!mod.subTabs.some(t=>t[0]===S.subTab))S.subTab=mod.defaultSub;
+  /* 31.10-б, п. 6: «Рост HQ» — только HQ-заявки по смыслу данных: фильтр покраски его не меняет (в пробнике — ряды и разрезы
+     датасета без покраски; в макете — строки без фильтра покраски) */
+  if(b.key==='tgrowth'&&S.paint!=='all')S=Object.assign({},S,{paint:'all'});
   const root=currentRoot(S), rootNode=D.NODE_BY_PATH[root];
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S);
   const mainK=blockMain(b.key,S);
@@ -9576,11 +9642,15 @@ function renderBlock(S,expanded,mixOpen,view){
      пропускает через обычную агрегацию (`D.sliceable`). */
   const slice=b.key==='structure'?D.sliceParse(S.mixSel):[];
   const selIds=slice.map(p=>p.id);
-  const val=(lp,key)=>D.lastValSlice(lp,key,selIds);
+  /* 31.10-б, п. 4 и 8: колонки таблицы подразделений по блоку — с начала года (ytd), без колонки (hide), подпись
+     периода под названием (per) */
+  const ov=TBL_OVR[b.key]||{};
+  const val=(lp,key)=>ov.ytd&&ov.ytd[key]?D.ytdTableVal(lp,key):D.lastValSlice(lp,key,selIds);
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
-  const mets=D.visibleMetricsOfBlock(b.key,S);
+  const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key]));
+  const perOf=k=>{const p=ov.per&&ov.per[k];return typeof p==='function'?p():p||''};
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
@@ -9719,9 +9789,10 @@ function renderBlock(S,expanded,mixOpen,view){
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :mets.map(m=>'<th'+U.tipAttr({title:m.name,text:U.metricText(m),note:D.closedOnly(m.key)?D.CLOSED_TIP.text:
+    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:U.metricText(m),note:ov.ytd&&ov.ytd[m.key]?
+      'С 1 января '+D.YEAR_CUR+' по '+D.ASOF_LABEL+'.':D.closedOnly(m.key)?D.CLOSED_TIP.text:
       D.PARTIAL&&(D.partFlow(m.key)||D.matures(m.key))?D.PART_TIP.text:null})+'>'+esc(m.short)+
-      (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+'</th>').join(''))+
+      (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
        Каретка у ИТОГО раскрывает и сворачивает ВСЁ дерево разом: раскрывать
@@ -10563,10 +10634,12 @@ function succTable(cap,sub,rows,head){
   if(!rows.length)return '';
   const pc=x=>x.apps?x.no/x.apps*100:0, top=Math.max(1,...rows.map(pc));
   const T={apps:sum(rows.map(x=>x.apps)),ok:sum(rows.map(x=>x.ok)),no:sum(rows.map(x=>x.no))};
-  const tr=(x,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(x.name)+'</td><td>'+D.fmtInt(x.apps)+'</td><td>'+
+  const tr=(x,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt"'+(cls?'':U.tipAttr({title:x.name,
+      rows:[{label:'Заявка',value:D.fmtInt(x.apps)},{label:'Успешно',value:D.fmtInt(x.ok)},{label:'Отказ',value:D.fmtInt(x.no)}]}))+'>'+
+      esc(x.name)+'</td><td>'+D.fmtInt(x.apps)+'</td><td>'+
     D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
   return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+'</span></div>'+
-    '<table class="ptable stable dense rost-t"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
+    '<table class="ptable stable dense rost-t succ"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
     '<th>Отказ</th><th>% отказа</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
     rows.map(x=>tr(x)).join('')+'</tbody></table></div>';
 }
@@ -10577,6 +10650,17 @@ function flowBlock(f,what,head){
     G.chart('stack',{periods:f.months,cats:[['rost','Рост',C_R],['tat','T@T',C_T]],unit:' заявок'},
       {title:head,h:250,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
 }
+/* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
+   «Рост» и T@T — в подсказке месяца; линии базы нет */
+function flowYoy(ctx,f,what,head){
+  const y=f.yoy;
+  if(!y)return flowBlock(f,what,head);
+  return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
+      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» за 12 месяцев · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
+    SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:250,fill:false,
+      color:C_R,title:head,tipName:'повышение грейда',
+      tipRows:i=>[{label:'· Рост',value:D.fmtInt(y.rost[i]||0),color:C_R},{label:'· T@T',value:D.fmtInt(y.tat[i]||0),color:C_T}]});
+}
 function grades(ctx,p){
   const cur=p.st.find(x=>x.key===ctx.S.rostSt)||p.st[0];
   return U.btGroup({cap:'Статусы роста',capSub:p.real?'численность последнего месяца · заявки за 12 месяцев':'активная численность · за 12 месяцев',head:'',valueHead:'Человек',
@@ -10584,7 +10668,7 @@ function grades(ctx,p){
         attr:'data-rostst="'+s.key+'"',attrTip:'Клик — «'+s.name+'» по текущему грейду. '+s.tip}))})+
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
       esc(cur.tip)+'</span></div>'+gradeHeat(cur)+'</div>'+
-    flowBlock(p.grade,'на повышение грейда','Повышение грейда по месяцам: «Рост» и T@T, заявок')+
+    flowYoy(ctx,p.grade,'на повышение грейда','Повышение грейда по месяцам, заявок')+
     U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов',p.grade.rostT,'Переход: текущий → желаемый грейд'),
       succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Переход: текущий → желаемый грейд')])+
     '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
@@ -10769,17 +10853,27 @@ const offLabel=x=>[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).jo
 /* Поставка 66: «Кто и где ходит» на настоящих — динамика (по сегменту, если выбран), сегмент со счётом людей,
    города офиса: посещения, люди и доля посещений. Город не выбирается: посещаемости города нет — есть посещения */
 function attendReal(ctx,x,lbl,attTbl){
-  const S=ctx.S;
-  return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
-      title:'Посещаемость офиса'+(lbl?': '+lbl:'')+', %'})+
-    (x.segs.length?attTbl('Сегмент',D.CMP.span,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
+  const S=ctx.S, cc=x.city&&x.city.people;
+  /* 31.10-б, п. 9: выбран город — в сегментах люди этого города и их доля (из людей, бывших в офисе города); иначе —
+     посещаемость сегментов. Выбор сегмента режет таблицу городов */
+  const segTbl=cc?U.btGroup({cap:'Сегмент',capSub:x.city.name+' · '+D.CMP.span+' · были в офисе',head:'',valueHead:'Человек',
+      metricKey:'hc_total',compact:true,total:false,items:x.segs.map(s=>({name:s.name,value:cc[s.key],color:G.C_OFFICE,
+        on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',attrTip:'Клик — города только у «'+s.name+'».'}))})
+    :attTbl('Сегмент',D.CMP.span,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
       value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
-      attrTip:'Клик — динамика посещаемости только у «'+s.name+'».'})),'Сравнение сегментов'):'')+
-    /* 27.10-в, п. 15: по убыванию посещений, первые 10 и раскрываемые «Остальные» */
-    (x.cities.length?U.btGroup(Object.assign({cap:'Город офиса',capSub:D.CMP.span+' · посещения',head:'',valueHead:'Посещений',
-      barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>({name:c.name,
-        note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE}))},SC.rest(ctx,'ocity',10,['город','города','городов']))):'')+
-    '<div class="tbl-note">Город — где было посещение: человек бывает в нескольких.</div>';
+      attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})),'Сравнение сегментов');
+  return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
+      title:'Посещаемость офиса'+(x.seg?': '+x.seg.name:'')+', %'})+
+    (x.segs.length?segTbl:'')+
+    /* 27.10-в, п. 15: по убыванию посещений, первые 10 и раскрываемые «Остальные»; 31.10-б, п. 9: колонка «Посещаемость»,
+       строка города выбирается (кросс-фильтр с сегментом) */
+    (x.cities.length?U.btGroup(Object.assign({cap:'Город офиса',capSub:(x.seg?x.seg.name+' · ':'')+D.CMP.span+' · посещения',head:'',
+      valueHead:'Посещаемость',barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>Object.assign({name:c.name,
+        note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE},x.cross?{on:S.offCity===c.name,
+        attr:'data-offcity="'+esc(c.name)+'"',attrTip:'Клик — сколько руководителей и сотрудников в «'+c.name+'».'}:{}))},
+      SC.rest(ctx,'ocity',10,['город','города','городов']))):'')+
+    '<div class="tbl-note">Город — где было посещение: человек бывает в нескольких. Посещаемость города — число посещений'+
+      (x.cross?'; выбор сегмента и города складывается':'')+'.</div>';
 }
 
 SC.blocks.office={
@@ -10793,7 +10887,7 @@ SC.blocks.office={
     if(S.subTab!=='attend')return [];
     const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[], tip='Динамика и таблицы — по выбору.';
     if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"',tip:tip});
-    if(S.offCity&&!D.OFF_LIVE.city)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"',tip:tip});
+    if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"',tip:tip});
     return chips;
   },
   view(ctx){

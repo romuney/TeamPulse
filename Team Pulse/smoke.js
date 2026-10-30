@@ -1581,7 +1581,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /<div class="bk-tag">Вывод блока · /.test(tTop)&&/<div class="bk-pl"><span class="bk-p (high|mid|good)">/.test(tTop)&&
     !/class="bk-wh"|<table/.test(tTop.slice(tTop.indexOf('bk-top'),tTop.indexOf('id="bk-det"')))&&
     !/kpis compact/.test(tTop)&&/class="split[^"]*" id="bk-det"/.test(tTop)&&!/data-blkopen|class="bk-det/.test(tTop)&&
-    D.BLOCKS.every(b=>{const sv=I.blockSummary(b.key,S0,rl0,bl0).sev;
+    /* 31.10-б, п. 6: «Рост HQ» — без фильтра покраски */
+    D.BLOCKS.every(b=>{const Sb=b.key==='tgrowth'?Object.assign({},S0,{paint:'all'}):S0,
+      sv=I.blockSummary(b.key,Sb,D.reportLeaves(Sb),D.benchmarkLeaves(Sb)).sev;
       return new RegExp('bk-sum '+sv+'"><span class="in-ico"><img[^>]*alt="'+{high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'}[sv]+'"').test(A.top(b.key))})]);
   checks.push(['вывод блока: «всё спокойно» там, где фактов нет; в «Саммари» нет таблиц ни на одной вкладке',
     D.BLOCKS.every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-pl"><span class="bk-p (high|mid|good)"/.test(h))&&
@@ -1804,6 +1806,26 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* подсказка не одним куском: абзацы и списки собираются конструктором */
   checks.push(['подсказки умеют абзацы и списки',
     /t-li/.test(text)&&/class=&quot;t-x&quot;&gt;[^&]*&lt;\/span&gt;&lt;span class=&quot;t-x/.test(text)]);
+})();
+
+/* 31.10-б: «Рост HQ» не зависит от фильтра покраски; найм — колонки таблицы подразделений; переходы — многоточием */
+(function(){
+  const S=A.st(), p0=S.paint, tg=[];
+  ['HQ','Line','all'].forEach(p=>{S.paint=p;tg.push(A.go('tgrowth','flow')+A.go('tgrowth','grades'))});
+  S.paint=p0;
+  checks.push(['«Рост HQ»: переключение покраски не меняет вкладку',tg[0]===tg[1]&&tg[1]===tg[2]]);
+  const hi=A.go('hiring','profile'), th=(hi.split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
+  checks.push(['«Найм и вакансии HQ»: без «Внутр. найм», открытые — с месяцем, закрытые и срок — с начала года',
+    D.BLOCK_BY_KEY.hiring.name==='Найм и вакансии HQ'&&!/Внутр\. найм/.test(th)&&/Открытые<span class="th-per">(за|на) /.test(th)&&
+    /Закрытые<span class="th-per">с начала года/.test(th)&&/Срок<span class="th-per">среднее с начала года/.test(th)]);
+  const lp=D.reportLeaves(D.DEFAULT_STATE);
+  checks.push(['закрытые в таблице = сумма с января',Math.abs(D.ytdTableVal(lp,'vac_closed')-D.sumWin(D.aggregate(lp,'vac_closed'),'ytd'))<1e-9]);
+  const gr=A.go('tgrowth','grades'), sp=A.go('tgrowth','spec');
+  checks.push(['повышение грейда по месяцам — год к году с января; переходы — в одну строку с подсказкой',
+    /Повышение грейда по месяцам, заявок/.test(gr)&&/data-s="prev"/.test(gr.split('Повышение грейда по месяцам')[1]||'')&&
+    /class="ptable stable dense rost-t succ"/.test(sp)]);
+  const tgt=(A.go('tgrowth','flow').split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
+  checks.push(['«Рост HQ»: одобрено и отклонено в таблице подразделений — с начала года',(tgt.match(/th-per">с начала года/g)||[]).length===2]);
 })();
 
 /* поставка 83 (задача 3): «Рост HQ», дисклеймер охвата, цвета Рост / T@T, подсказка подразделения */

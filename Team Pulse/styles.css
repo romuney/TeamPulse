@@ -2276,6 +2276,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ptable.rost-t th{white-space:normal;line-height:1.25;vertical-align:bottom;text-transform:none;letter-spacing:0;overflow-wrap:anywhere}
 .ptable.rost-t td,.ptable.rost-t th{text-align:right}
 .ptable.rost-t td.txt,.ptable.rost-t th.txt{text-align:left;width:26%}
+/* 31.10-б, п. 7: переход «текущая → желаемая» — в одну строку с многоточием и в любом состоянии (наведение строку не
+   переносит), полный текст — в подсказке; колонки «Заявка» и дальше не перекрываются */
+.ptable.rost-t.succ td.txt,.ptable.rost-t.succ th.txt{width:44%}
+.ptable.rost-t.succ td.txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0}
+.ptable.rost-t.succ tr:hover td.txt{white-space:nowrap;overflow:hidden}
 
 /* 27.10-в, п. 21: карточки KPI по выбранной слева строке */
 
@@ -2504,3 +2509,5 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* пилюли фильтров окна настройки — компактнее (подписи короткие: «Все», «IT», «Штат») */
 #optPaint .opt,#optIt .opt,#optStaff .opt{padding:5px 10px}
 #optPaint .opt .opt-n,#optIt .opt .opt-n,#optStaff .opt .opt-n{margin-left:5px}
+/* 31.10-б, п. 4 и 8: период колонки таблицы подразделений — второй строкой под названием */
+.ptable th .th-per{display:block;margin-top:1px;font-size:9.5px;font-weight:var(--fw-body);color:var(--muted2);text-transform:none;letter-spacing:0;white-space:nowrap}

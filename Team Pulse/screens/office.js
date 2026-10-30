@@ -37,17 +37,27 @@ const offLabel=x=>[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).jo
 /* Поставка 66: «Кто и где ходит» на настоящих — динамика (по сегменту, если выбран), сегмент со счётом людей,
    города офиса: посещения, люди и доля посещений. Город не выбирается: посещаемости города нет — есть посещения */
 function attendReal(ctx,x,lbl,attTbl){
-  const S=ctx.S;
-  return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
-      title:'Посещаемость офиса'+(lbl?': '+lbl:'')+', %'})+
-    (x.segs.length?attTbl('Сегмент',D.CMP.span,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
+  const S=ctx.S, cc=x.city&&x.city.people;
+  /* 31.10-б, п. 9: выбран город — в сегментах люди этого города и их доля (из людей, бывших в офисе города); иначе —
+     посещаемость сегментов. Выбор сегмента режет таблицу городов */
+  const segTbl=cc?U.btGroup({cap:'Сегмент',capSub:x.city.name+' · '+D.CMP.span+' · были в офисе',head:'',valueHead:'Человек',
+      metricKey:'hc_total',compact:true,total:false,items:x.segs.map(s=>({name:s.name,value:cc[s.key],color:G.C_OFFICE,
+        on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',attrTip:'Клик — города только у «'+s.name+'».'}))})
+    :attTbl('Сегмент',D.CMP.span,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
       value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
-      attrTip:'Клик — динамика посещаемости только у «'+s.name+'».'})),'Сравнение сегментов'):'')+
-    /* 27.10-в, п. 15: по убыванию посещений, первые 10 и раскрываемые «Остальные» */
-    (x.cities.length?U.btGroup(Object.assign({cap:'Город офиса',capSub:D.CMP.span+' · посещения',head:'',valueHead:'Посещений',
-      barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>({name:c.name,
-        note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE}))},SC.rest(ctx,'ocity',10,['город','города','городов']))):'')+
-    '<div class="tbl-note">Город — где было посещение: человек бывает в нескольких.</div>';
+      attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})),'Сравнение сегментов');
+  return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
+      title:'Посещаемость офиса'+(x.seg?': '+x.seg.name:'')+', %'})+
+    (x.segs.length?segTbl:'')+
+    /* 27.10-в, п. 15: по убыванию посещений, первые 10 и раскрываемые «Остальные»; 31.10-б, п. 9: колонка «Посещаемость»,
+       строка города выбирается (кросс-фильтр с сегментом) */
+    (x.cities.length?U.btGroup(Object.assign({cap:'Город офиса',capSub:(x.seg?x.seg.name+' · ':'')+D.CMP.span+' · посещения',head:'',
+      valueHead:'Посещаемость',barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>Object.assign({name:c.name,
+        note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE},x.cross?{on:S.offCity===c.name,
+        attr:'data-offcity="'+esc(c.name)+'"',attrTip:'Клик — сколько руководителей и сотрудников в «'+c.name+'».'}:{}))},
+      SC.rest(ctx,'ocity',10,['город','города','городов']))):'')+
+    '<div class="tbl-note">Город — где было посещение: человек бывает в нескольких. Посещаемость города — число посещений'+
+      (x.cross?'; выбор сегмента и города складывается':'')+'.</div>';
 }
 
 SC.blocks.office={
@@ -61,7 +71,7 @@ SC.blocks.office={
     if(S.subTab!=='attend')return [];
     const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[], tip='Динамика и таблицы — по выбору.';
     if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"',tip:tip});
-    if(S.offCity&&!D.OFF_LIVE.city)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"',tip:tip});
+    if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"',tip:tip});
     return chips;
   },
   view(ctx){

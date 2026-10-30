@@ -63,6 +63,9 @@ def main():
              ('Подрядчики + штат (2а)', {'act_f': ['Подрядчики'], 'staff_f': ['Штат']},
               lambda p, d: A(p, 'rel', d) == 'Штатный сотрудник')]
     raw = {}
+    # 31.10-б, п. 6: те же фильтры без покраски — эталон «Роста»
+    NP = {'покраска HQ (2а)': lambda p, d: True, 'покраска Line + Support (2а)': lambda p, d: True,
+          'штат + HQ (2а)': lambda p, d: A(p, 'rel', d) == 'Штатный сотрудник'}
     ok = True
     for name, flt, pred in cases:
         # типы численности выбора: по умолчанию nb.ACTIVE («Активная»), «Вся» — все (None), иначе — названные
@@ -199,7 +202,8 @@ def main():
                         if not want_v['dw']:
                             bad['календарь пуст'] += 1
                         # поставка 71: T-рост — заявки по месяцам (rm), успешность по желаемому (rq), статусы (rs)
-                        want_v.update(nb.truth_rost(U, people, grt, rk, raw.get(name, pred), act))
+                        # 31.10-б, п. 6: «Рост HQ» — без фильтра покраски (датасет — cond_np)
+                        want_v.update(nb.truth_rost(U, people, grt, rk, NP.get(name, raw.get(name, pred)), act))
                         # поставка 73: возраст в годах (e) — средний возраст команды
                         want_v['e'] = nb.truth_age(U, people, rk, raw.get(name, pred), act)
                         if not want_v['rs']:
@@ -214,11 +218,28 @@ def main():
                             bad['движение по специализациям пусто'] += 1
                         if not want_v['tsi']:
                             bad['переводы по специализациям пусты'] += 1
+                        # 31.10-б, п. 1: es / en — по каждому разрезу в сумме те же люди с возрастом и та же сумма возрастов,
+                        # что в разрезе e (возраст → людей); у пола — ещё и по каждому значению против правды по людям
+                        ev = mxv.get('e', {})
+                        n_e = sum(ev.values()); s_e = sum(float(v.replace(',', '.')) * n for v, n in ev.items())
+                        for dk in ('g', 'a', 'gr', 'sp', 'rg'):
+                            en_ = sum(n for v, n in mxv.get('en', {}).items() if v.startswith(dk + '|'))
+                            es_ = sum(n for v, n in mxv.get('es', {}).items() if v.startswith(dk + '|'))
+                            if abs(en_ - n_e) > 0.5 or abs(es_ - s_e) > 0.5 + 0.01 * s_e:
+                                bad['mx es/en ' + dk] += 1
+                        if n_e and not mxv.get('en'):
+                            bad['средний возраст по разрезам пуст'] += 1
+                        # 31.10-б, п. 9: посещения и люди-руководители по городу (ocl ocpl) — часть всех (oc ocp)
+                        for kl, ka in (('ocl', 'oc'), ('ocpl', 'ocp')):
+                            if any(n > mxv.get(ka, {}).get(v, 0) + 0.5 for v, n in mxv.get(kl, {}).items()):
+                                bad['mx ' + kl + ' больше ' + ka] += 1
+                        if mxv.get('oc') and not mxv.get('ocl'):
+                            bad['руководители по городам пусты'] += 1
                         # п. 7: численность по специализации на начало года (sp0) — в сумме = численности декабря
                         dec = [m for m in ms if m.year == ms[-1].year - 1][-1]
                         if abs(mx['sp0'] - T[(rk, dec)]['hc']) > 0.5:
                             bad['mx sp0'] += 1
-                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'tsh', 'tsi', 'tso', 'sp0')):
+                    elif any(mxv.get(k) for k in ('dw', 'do', 'xim', 'rm', 'rq', 'rs', 'tsh', 'tsi', 'tso', 'sp0', 'es', 'en')):
                         bad['календарь не у выбранного'] += 1
                     for kk, w in want_v.items():
                         g = mxv.get(kk, {})

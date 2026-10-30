@@ -43,10 +43,12 @@ function succTable(cap,sub,rows,head){
   if(!rows.length)return '';
   const pc=x=>x.apps?x.no/x.apps*100:0, top=Math.max(1,...rows.map(pc));
   const T={apps:sum(rows.map(x=>x.apps)),ok:sum(rows.map(x=>x.ok)),no:sum(rows.map(x=>x.no))};
-  const tr=(x,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(x.name)+'</td><td>'+D.fmtInt(x.apps)+'</td><td>'+
+  const tr=(x,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt"'+(cls?'':U.tipAttr({title:x.name,
+      rows:[{label:'Заявка',value:D.fmtInt(x.apps)},{label:'Успешно',value:D.fmtInt(x.ok)},{label:'Отказ',value:D.fmtInt(x.no)}]}))+'>'+
+      esc(x.name)+'</td><td>'+D.fmtInt(x.apps)+'</td><td>'+
     D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
   return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+'</span></div>'+
-    '<table class="ptable stable dense rost-t"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
+    '<table class="ptable stable dense rost-t succ"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
     '<th>Отказ</th><th>% отказа</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
     rows.map(x=>tr(x)).join('')+'</tbody></table></div>';
 }
@@ -57,6 +59,17 @@ function flowBlock(f,what,head){
     G.chart('stack',{periods:f.months,cats:[['rost','Рост',C_R],['tat','T@T',C_T]],unit:' заявок'},
       {title:head,h:250,legend:[{id:'rost',name:'Рост',color:C_R},{id:'tat',name:'T@T',color:C_T}]});
 }
+/* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
+   «Рост» и T@T — в подсказке месяца; линии базы нет */
+function flowYoy(ctx,f,what,head){
+  const y=f.yoy;
+  if(!y)return flowBlock(f,what,head);
+  return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
+      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» за 12 месяцев · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
+    SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:250,fill:false,
+      color:C_R,title:head,tipName:'повышение грейда',
+      tipRows:i=>[{label:'· Рост',value:D.fmtInt(y.rost[i]||0),color:C_R},{label:'· T@T',value:D.fmtInt(y.tat[i]||0),color:C_T}]});
+}
 function grades(ctx,p){
   const cur=p.st.find(x=>x.key===ctx.S.rostSt)||p.st[0];
   return U.btGroup({cap:'Статусы роста',capSub:p.real?'численность последнего месяца · заявки за 12 месяцев':'активная численность · за 12 месяцев',head:'',valueHead:'Человек',
@@ -64,7 +77,7 @@ function grades(ctx,p){
         attr:'data-rostst="'+s.key+'"',attrTip:'Клик — «'+s.name+'» по текущему грейду. '+s.tip}))})+
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
       esc(cur.tip)+'</span></div>'+gradeHeat(cur)+'</div>'+
-    flowBlock(p.grade,'на повышение грейда','Повышение грейда по месяцам: «Рост» и T@T, заявок')+
+    flowYoy(ctx,p.grade,'на повышение грейда','Повышение грейда по месяцам, заявок')+
     U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов',p.grade.rostT,'Переход: текущий → желаемый грейд'),
       succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Переход: текущий → желаемый грейд')])+
     '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';

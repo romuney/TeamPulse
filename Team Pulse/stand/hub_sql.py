@@ -554,6 +554,10 @@ def sql_mix():
     city = clean("(j.v ->> 'office_city_nm')")
     two = f"and s.report_month between ({lm} - interval '1 month')::date and {lm}"
     ROST_MIX = rost_mix()
+    # 31.10-б, п. 1: возраст строки числом (в источнике — текст) и пары «разрез|значение» для es / en
+    age_e = ("(case when trim(e.age::text) ~ '^[0-9]+([.,][0-9]+)?$' "
+             "then replace(trim(e.age::text), ',', '.')::numeric end)")
+    age_vals = (',' + chr(10) + ' ' * 20).join(f"'{k}|' || " + a[k] for k in hc_keys if k not in ('e', 'mh'))
     return f"""{head('4. Разрезы (поставка 58: SQL вместо build_hub)',
                'teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам',
                '(g a t gr s c o w r sp tc rg ws mh), увольнения с начала его года (xr причина, xq regret по причине, xi',
@@ -562,7 +566,8 @@ def sql_mix():
                'oc / ocp — посещений и людей по городу офиса за последний месяц, dw / do — календарь двух последних',
                'месяцев: людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору',
                "и месяцу всей сетки, значение «инициатор|ГГГГ-ММ» (текучесть по инициатору). 31.10: sp0 — численность",
-               "по специализации на конец прошлого года (на начало периода). Пустое значение — ''.")}
+               "по специализации на конец прошлого года (на начало периода); es / en — сумма возрастов и людей с возрастом",
+               "по «разрез|значение» (средний возраст категории). Пустое значение — ''.")}
 
 -- численность последнего месяца
 drop table if exists {P}_mixr;
@@ -586,6 +591,15 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
 from ({expl(['fire_amt', 'regret_fire_amt', 'fire_reason_group', 'fire_initiative', 'experience_group_nm', 'grade',
              'employee_stream', 'specialization', 'type_company'], ytd)}) e
 where {num('fire_amt')} > 0;
+
+-- 31.10-б, п. 1: средний возраст внутри категории — сумма возрастов (es) и людей с возрастом (en) по каждому разрезу
+-- последнего месяца, значение — «ключ разреза|значение» (датасет отдаёт выбранному юниту)
+insert into {P}_mixr
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, k.mx_key, unnest(ARRAY[{age_vals}]) as mx_val,
+       case when k.mx_key = 'es' then {age_e} * {num('hc_total_cnt')} else {num('hc_total_cnt')} end as mx_n
+from ({expl(['hc_total_cnt'] + attrs, f'and s.report_month = {lm}')}) e
+cross join (select 'es'::text as mx_key union all select 'en') k
+where {num('hc_total_cnt')} > 0 and {age_e} is not null;
 
 -- 31.10, п. 7: численность по специализации на начало года — последний месяц прошлого года, до движений с начала
 -- года («Движение по специализациям»: на начало и на конец; датасет отдаёт выбранному юниту)
@@ -627,6 +641,23 @@ from (
     from (
         select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
         from ({expl(['office_city_visits_json'], f'and s.report_month = {lm} and s.office_city_visits_json is not null')}) e
+    ) j
+) c
+where c.vis > 0;
+
+-- 31.10-б, п. 9: то же у руководителей (признак руководителя) — кросс-фильтр «руководители / сотрудники × город»:
+-- ocl — посещений, ocpl — руководителей; у сотрудников — всё минус руководители
+insert into {P}_mixr
+select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
+       unnest(ARRAY['ocl', 'ocpl']) as mx_key,
+       unnest(ARRAY[c.city, c.city]) as mx_val,
+       unnest(ARRAY[c.vis, 1]) as mx_n
+from (
+    select j.node_rk, j.paint_c, j.it_c, j.staff_c, j.act_c, {city} as city,
+           coalesce((j.v ->> 'visit_count')::numeric, 0) as vis
+    from (
+        select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
+        from ({expl(['office_city_visits_json', 'management_head_flg'], f"and s.report_month = {lm} and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'")}) e
     ) j
 ) c
 where c.vis > 0;
