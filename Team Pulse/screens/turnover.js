@@ -143,7 +143,7 @@ SC.blocks.turnover={
     return SC.yoyPanels(lp,[
       {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
       {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
-      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,minH:720});
+      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,minH:720,bl:ctx.bl,S:ctx.S});
   }
 };
 })();

@@ -94,7 +94,7 @@ SC.blocks.hiring={
     const panels=SC.yoyPanels(lp,[
       {name:'Открытые вакансии, шт',key:'vac_open',color:G.C_VAC,ann:ctx.ann.vac_open},
       {name:'Закрытые вакансии, шт',key:'vac_closed',color:G.C_IN},
-      {name:'Срок закрытия вакансии, дн',key:'time_to_fill',color:G.C_LINE}]);
+      {name:'Срок закрытия вакансии, дн',key:'time_to_fill',color:G.C_LINE}],{bl:ctx.bl,S:ctx.S});
     /* поставка 50: вакансии в разрезах — из витрины вакансий (пробник); в макете их нет */
     const vb=D.vacancyBreakdown(lp);
     if(!vb)return panels;

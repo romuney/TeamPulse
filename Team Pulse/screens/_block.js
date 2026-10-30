@@ -150,13 +150,18 @@ function rest(ctx,k,n,word){return {top:n,restWord:word,restKey:'rest:'+k,restOp
 /* Несколько метрик одной главы — панели друг под другом, у каждой своя шкала
    и своя легенда «этот год / прошлый»; клик по ней скрывает линию во всех
    панелях графика. items: [{key, name, color, ann}] */
+/* поставка 96 (заказчик): у долей в панелях — линия базы, как у одиночного графика; по умолчанию выключена (offDef) —
+   opt.bl — листья базы, opt.S — выбор (имя базы) */
 function yoyPanels(lp,items,opt){
+  opt=opt||{};
+  const cmp=k=>opt.bl&&D.comparable(k)&&!D.kpiFor(k,opt.S);
   return G.chart('panels',{panels:items.map(it=>{
     const y=D.yoySeries(lp,it.key);
     return {name:it.name,key:it.key,cur:y.cur,prev:y.prev,color:it.color||YOY_COLOR[it.key]||G.C_LINE,ann:it.ann||null,
-      period:D.periodTotal(lp,it.key)};
-  })},Object.assign({h:520,fill:true,
-    legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]},opt||{}));
+      period:D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null};
+  })},Object.assign({h:520,fill:true,benchName:opt.bl?D.benchmarkLabel(opt.S):'',offDef:['bench'],
+    /* третий пункт — для переключателя серий (легенда панелей рисуется у каждой панели своя) */
+    legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}].concat(opt.bl&&items.some(it=>cmp(it.key))?[{id:'bench',name:'база'}]:[])},opt,{bl:null,S:null}));
 }
 /* Пара встречных потоков (пришли / ушли) на оси года — «ежики»: приход
    барами вверх, уход вниз, прошлый год — прозрачными барами позади (15.10). opt.legend — имена

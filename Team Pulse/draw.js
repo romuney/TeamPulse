@@ -297,7 +297,7 @@ function lgItem(x,y,it,sid,off,lock){
     :it.split?rect(mx,y+4.5,16,4,dead?C_OFF:it.split[0],1,go)+rect(mx,y+8.5,16,4,dead?C_OFF:it.split[1],1,go)
     :rect(mx,y+4.5,16,8,col,2,go);
   /* выключенная серия — не просто бледнее: бледное читается как «малое
-     значение». Перечёркиваем подпись — это однозначное «скрыто». */
+     значение». Перечёркиваем подпись — это однозначное «скрыто» (поставка 96: заказчик оставил этот вид) */
   if(dead)g+=line(tx-1,y+8.5,tx+tw+1,y+8.5,C_AXIS,1.2);
   if(!sid)return {s:g,x:x-16-14};
   /* По <text> клик ловится только по глифам — между буквами дыры.
@@ -486,9 +486,11 @@ function yoyRoom(ya,marks){return (ya&&ya.notes.length?ANN_ROOM:0)+(marks&&marks
 /* Легенда панели «год к году»: этот год цветом панели, прошлый — серым.
    Пункты — те же кнопки, что в шапке графика (lgItem): клик скрывает линию
    во всех панелях графика, наведение подсвечивает её. */
-function yoyKey(w,y,col,off,lock,flow){
-  const it=flow?[{name:String(CD.YEAR_CUR),color:soft(col)},{name:String(CD.YEAR_PREV),color:ghostCol(col),ghost:true}]
-    :[{name:String(CD.YEAR_CUR),color:col},{name:String(CD.YEAR_PREV),color:C_PREV}], ids=['main','prev'];
+function yoyKey(w,y,col,off,lock,flow,bn){
+  /* поставка 96: bn — имя базы, если у панели есть её линия */
+  const it=(flow?[{name:String(CD.YEAR_CUR),color:soft(col)},{name:String(CD.YEAR_PREV),color:ghostCol(col),ghost:true}]
+    :[{name:String(CD.YEAR_CUR),color:col},{name:String(CD.YEAR_PREV),color:C_PREV}]).concat(bn?[{name:bn,color:C_BENCH,dash:true}]:[]),
+    ids=['main','prev','bench'];
   let x=w,s='';
   for(let i=it.length-1;i>=0;i--){const r=lgItem(x,y,it[i],ids[i],off,lock);s+=r.s;x=r.x}
   return s;
@@ -838,8 +840,8 @@ function drawPanels(a,w,h){
     const pt=periodLine(p.period,base+HEAD+13,w), top=base+HEAD+pt.h+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
     s+=pt.s;
-    s+=yoyKey(w,base-1,p.color||C_LINE,off,false,asBars(p.key));
-    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period},
+    s+=yoyKey(w,base-1,p.color||C_LINE,off,false,asBars(p.key),p.bench&&o.benchName);
+    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,bench:p.bench,benchName:o.benchName,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period},
       {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
   });
   return svg(w,h,s);

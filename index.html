@@ -5973,7 +5973,7 @@ function lgItem(x,y,it,sid,off,lock){
     :it.split?rect(mx,y+4.5,16,4,dead?C_OFF:it.split[0],1,go)+rect(mx,y+8.5,16,4,dead?C_OFF:it.split[1],1,go)
     :rect(mx,y+4.5,16,8,col,2,go);
   /* выключенная серия — не просто бледнее: бледное читается как «малое
-     значение». Перечёркиваем подпись — это однозначное «скрыто». */
+     значение». Перечёркиваем подпись — это однозначное «скрыто» (поставка 96: заказчик оставил этот вид) */
   if(dead)g+=line(tx-1,y+8.5,tx+tw+1,y+8.5,C_AXIS,1.2);
   if(!sid)return {s:g,x:x-16-14};
   /* По <text> клик ловится только по глифам — между буквами дыры.
@@ -6162,9 +6162,11 @@ function yoyRoom(ya,marks){return (ya&&ya.notes.length?ANN_ROOM:0)+(marks&&marks
 /* Легенда панели «год к году»: этот год цветом панели, прошлый — серым.
    Пункты — те же кнопки, что в шапке графика (lgItem): клик скрывает линию
    во всех панелях графика, наведение подсвечивает её. */
-function yoyKey(w,y,col,off,lock,flow){
-  const it=flow?[{name:String(CD.YEAR_CUR),color:soft(col)},{name:String(CD.YEAR_PREV),color:ghostCol(col),ghost:true}]
-    :[{name:String(CD.YEAR_CUR),color:col},{name:String(CD.YEAR_PREV),color:C_PREV}], ids=['main','prev'];
+function yoyKey(w,y,col,off,lock,flow,bn){
+  /* поставка 96: bn — имя базы, если у панели есть её линия */
+  const it=(flow?[{name:String(CD.YEAR_CUR),color:soft(col)},{name:String(CD.YEAR_PREV),color:ghostCol(col),ghost:true}]
+    :[{name:String(CD.YEAR_CUR),color:col},{name:String(CD.YEAR_PREV),color:C_PREV}]).concat(bn?[{name:bn,color:C_BENCH,dash:true}]:[]),
+    ids=['main','prev','bench'];
   let x=w,s='';
   for(let i=it.length-1;i>=0;i--){const r=lgItem(x,y,it[i],ids[i],off,lock);s+=r.s;x=r.x}
   return s;
@@ -6514,8 +6516,8 @@ function drawPanels(a,w,h){
     const pt=periodLine(p.period,base+HEAD+13,w), top=base+HEAD+pt.h+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
     s+=pt.s;
-    s+=yoyKey(w,base-1,p.color||C_LINE,off,false,asBars(p.key));
-    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period},
+    s+=yoyKey(w,base-1,p.color||C_LINE,off,false,asBars(p.key),p.bench&&o.benchName);
+    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,bench:p.bench,benchName:o.benchName,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period},
       {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
   });
   return svg(w,h,s);
@@ -9565,13 +9567,18 @@ function rest(ctx,k,n,word){return {top:n,restWord:word,restKey:'rest:'+k,restOp
 /* Несколько метрик одной главы — панели друг под другом, у каждой своя шкала
    и своя легенда «этот год / прошлый»; клик по ней скрывает линию во всех
    панелях графика. items: [{key, name, color, ann}] */
+/* поставка 96 (заказчик): у долей в панелях — линия базы, как у одиночного графика; по умолчанию выключена (offDef) —
+   opt.bl — листья базы, opt.S — выбор (имя базы) */
 function yoyPanels(lp,items,opt){
+  opt=opt||{};
+  const cmp=k=>opt.bl&&D.comparable(k)&&!D.kpiFor(k,opt.S);
   return G.chart('panels',{panels:items.map(it=>{
     const y=D.yoySeries(lp,it.key);
     return {name:it.name,key:it.key,cur:y.cur,prev:y.prev,color:it.color||YOY_COLOR[it.key]||G.C_LINE,ann:it.ann||null,
-      period:D.periodTotal(lp,it.key)};
-  })},Object.assign({h:520,fill:true,
-    legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]},opt||{}));
+      period:D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null};
+  })},Object.assign({h:520,fill:true,benchName:opt.bl?D.benchmarkLabel(opt.S):'',offDef:['bench'],
+    /* третий пункт — для переключателя серий (легенда панелей рисуется у каждой панели своя) */
+    legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}].concat(opt.bl&&items.some(it=>cmp(it.key))?[{id:'bench',name:'база'}]:[])},opt,{bl:null,S:null}));
 }
 /* Пара встречных потоков (пришли / ушли) на оси года — «ежики»: приход
    барами вверх, уход вниз, прошлый год — прозрачными барами позади (15.10). opt.legend — имена
@@ -10539,7 +10546,7 @@ SC.blocks.turnover={
     return SC.yoyPanels(lp,[
       {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
       {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
-      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,minH:720});
+      {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,minH:720,bl:ctx.bl,S:ctx.S});
   }
 };
 })();
@@ -10642,7 +10649,7 @@ SC.blocks.hiring={
     const panels=SC.yoyPanels(lp,[
       {name:'Открытые вакансии, шт',key:'vac_open',color:G.C_VAC,ann:ctx.ann.vac_open},
       {name:'Закрытые вакансии, шт',key:'vac_closed',color:G.C_IN},
-      {name:'Срок закрытия вакансии, дн',key:'time_to_fill',color:G.C_LINE}]);
+      {name:'Срок закрытия вакансии, дн',key:'time_to_fill',color:G.C_LINE}],{bl:ctx.bl,S:ctx.S});
     /* поставка 50: вакансии в разрезах — из витрины вакансий (пробник); в макете их нет */
     const vb=D.vacancyBreakdown(lp);
     if(!vb)return panels;
