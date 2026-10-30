@@ -381,7 +381,7 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
      рабочие дни двух месяцев), бронирование и руководители — из рядов ответа, города офиса — из разреза oc; имя
      руководителя в окне настройки и поиск по нему */
   if(D.OFF_LIVE.cal&&D.OFF_LIVE.bk&&D.OFF_LIVE.seg&&D.OFF_LIVE.city){
-    const cal=D.attLast(rl), sw=cal.reduce((a,b)=>a+b.days.reduce((x,d)=>x+(d.w||0),0),0);
+    const cal=D.attLast(rl), sw=D.attByDow(rl).reduce((a,d)=>a+d.w,0);
     /* поставка 90: офисные разрезы — за закрытый месяц, календарь — два закрытых месяца */
     const L=R.n-1-(D.LAST-D.PER_I), wd2=arr(scopeRow,'wday')[L]+arr(scopeRow,'wday')[L-1];
     const bk=arr(scopeRow,'bk')[L], bkv=arr(scopeRow,'bkv')[L], vsv=arr(scopeRow,'vsv')[L];

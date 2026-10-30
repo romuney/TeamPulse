@@ -2295,9 +2295,10 @@ function attLast(lp,months){
 function attByDow(lp,months){
   months=months||DOW_MONTHS;
   if(OFF_DAYS){
-    /* настоящие: все посещения дня недели к его рабочим дням за два месяца; дней без рабочих — нет */
+    /* настоящие: все посещения дня недели к его рабочим дням за два месяца; дней без рабочих — нет. Поставка 90 — два
+       последних ЗАКРЫТЫХ месяца (календарь дней показывает и текущий) */
     const a=DOW_NAME.map(()=>({w:0,v:0}));
-    attLastReal(lp,months).forEach(b=>b.days.forEach(d=>{a[d.dow].w+=d.w;a[d.dow].v+=d.v}));
+    attLastReal(lp,months,PER_I).forEach(b=>b.days.forEach(d=>{a[d.dow].w+=d.w;a[d.dow].v+=d.v}));
     return a.map((x,i)=>({name:DOW_NAME[i],value:x.w?+(x.v/x.w*100).toFixed(1):0,weekend:i>=5,w:x.w})).filter(x=>x.w);
   }
   const acc=DOW_NAME.map(()=>({s:0,n:0}));
@@ -2309,9 +2310,9 @@ function attByDow(lp,months){
 
 /* Календарь на настоящих (поставка 66): посещаемость дня — из офиса к людям с рабочим днём; день без рабочих
    (выходной, праздник) — без значения. Текущий месяц — по дату данных */
-function attLastReal(lp,months){
-  const out=[];
-  for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
+function attLastReal(lp,months,end){
+  const out=[];end=end==null?LAST:end;
+  for(let i=Math.max(0,end-months+1);i<=end;i++){
     const mm=MONTHS[i], nd=new Date(mm.y,mm.m+1,0).getDate(), pre=mm.y+'-'+String(mm.m+1).padStart(2,'0')+'-';
     const to=i===LAST&&ASOF.y===mm.y&&ASOF.m===mm.m?Math.min(ASOF.d,nd):nd, days=[];
     for(let d=1;d<=to;d++){
