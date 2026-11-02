@@ -1874,8 +1874,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* п. 5, 7: повышение грейда и смена специализации — год к году частями, прошлый год серым */
   const sp=A.go('tgrowth','spec'), gr=A.go('tgrowth','grades');
   checks.push(['п. 5, 7: Рост / T@T этого года — #8fd8a9 / #8fd8a980, прошлый — серый и серый с прозрачностью; смена специализации — год к году',
-    [sp,gr].every(h=>h.indexOf('fill="'+G.C_ROST.rostP+'" class="bar up ghost" data-s="prev"')>=0&&
-      h.indexOf(G.C_ROST.tatP)>=0&&/Рост, T@T/.test(h))&&
+    /* файл 8, п. 3: прошлый год — прозрачным фоном позади (fill-opacity) */
+    [sp,gr].every(h=>h.indexOf('fill="'+G.C_ROST.rostP+'" class="bar up ghost" fill-opacity=".45" data-s="prev"')>=0&&
+      h.indexOf(G.alpha(G.C_ROST.tatP,.45))>=0&&/Рост, T@T/.test(h))&&
     /Смена специализации по месяцам, заявок/.test(sp)&&!/data-s="prev"[^>]*fill="#8fd8a9/.test(sp)]);
 })();
 
@@ -1905,6 +1906,20 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['файл 7, п. 2: детализация специализации по месяцам — сходится со строкой, открывается кликом, закрывается',
     !!ms&&ms.length===D.PER_C+1&&['hire','tin','exit','tout'].every(k=>sum(k)===z[k])&&/data-spmsel="/.test(h0)&&
     /class="bt-group spm-d"/.test(h)&&!/spm-d/.test(h0)]);
+})();
+
+/* файл 8: направляющие при наведении, желательная HQ выше = лучше, закрытые вакансии за год, шаги без сжатия */
+(function(){
+  const tv=A.go('turnover','dynamics'), hi=A.go('hiring','profile'), nr=D.METRIC_BY_KEY.nonregret;
+  const th=(hi.split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
+  checks.push(['файл 8, п. 1: у линий — направляющие при наведении (hg), постоянная — только у текущего месяца',
+    /class="hg"/.test(tv)&&/\.ptg:hover\.hg\{opacity:1\}/.test(css)]);
+  checks.push(['файл 8, п. 2: желательная текучесть HQ — выше лучше, цель «не ниже 5%»',
+    nr.better==='higher'&&nr.kpi.green===5&&nr.kpi.red===5&&/Чем выше, тем лучше/.test(nr.hint)&&D.METRIC_BY_KEY.regret.better==='lower']);
+  checks.push(['файл 8, п. 6: закрытые вакансии в таблице — за '+D.YEAR_CUR+' год, год в подписи колонки',
+    th.indexOf('Закрытые<span class="th-per">'+D.YEAR_CUR+'</span>')>=0]);
+  checks.push(['файл 8, п. 7: шаги не ужимаются — ширина не меньше 168 px, лишние — прокруткой',
+    /\.st-step\{flex:10168px;min-width:168px\}/.test(css)&&/\.st-steps\{overflow-x:auto;scrollbar-width:thin\}/.test(css)]);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

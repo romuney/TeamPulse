@@ -3189,3 +3189,11 @@ app.js S.spmSel (+ Escape); mk_hub_yaml CHANGED 101 (hub · 4 разрезы), 1
 П. 4: real.js — own AI (aiw aip aic aid) не ниже нуля; data.js aiLast (последний месяц с данными) в aiProfile; ai.js —
 U.empty без статистики. П. 3, 6: ai.js who — всё в btStack, сегменты hc>0, конструктор снят (u.cons остался). П. 5:
 styles.css — сняты .split-r .st-steps::after, .content::before, .op-nav::after (градиенты поверх контента). Бюджет 516.
+
+**02.11, поставка 102 — файл 8 (7 пунктов).** draw.js: засечки сняты; постоянная вертикаль — у nowI (yoyPlot) / pt (pline),
+hgLine в группе месяца + CSS .ptg:hover .hg; alpha(c,a) — rgba для маркеров; yoyPlot: маркер подсказки у баров — soft(col) /
+parts.col[0], прошлый — alpha(ghostCol, GHOST_OP) или alpha(pcol,.45); пара — alpha(cA/cB, GHOST_OP); p.parts — прошлый год позади
+(gw, fill-opacity .45), вариант A снят. data.js: nonregret better 'higher', kpi {5,5}, тексты; story hq — «ниже цели» у
+желательной; officeReal — при городе сегменты = посещения в городе ÷ wday сегмента; office.js — та же таблица посещаемости.
+_block.js: YNOW (vac_closed) — сумма месяцев YEAR_CUR, th-per год, примечание периода. styles.css: шаги flex:1 0 168px,
+overflow-x:auto (container query снят). tgrowth.js — легенда прошлого года alpha(.45). Пользователь одобрил рендеры и цель 5%.

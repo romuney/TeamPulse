@@ -46,7 +46,7 @@ function hqView(ctx){
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
       period:D.periodTotal(h.lp,r.key,r.yoy)}))},
       {h:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
-    '<div class="tbl-note">Ориентир — доля годового порога отчёта HQ: 15% (у IT — 12%), 5–15%, 4%.</div>';
+    '<div class="tbl-note">Ориентир — доля годовой цели отчёта HQ: текучесть 15% (у IT — 12%), желательная — не ниже 5%, нежелательная — 4%.</div>';
 }
 
 /* 26.10-б, правки п. 8: «Текучесть по инициатору» — первым в «Почему уходят»: месячная текучесть уходов выбранного

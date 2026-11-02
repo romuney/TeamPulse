@@ -64,7 +64,7 @@ function flowYoy(ctx,f,what,head,tipName){
     SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:300,fill:false,
       color:C_R,title:head,tipName:tipName||'повышение грейда',
       parts:{cur:[y.rost,y.tat],prev:[y.prevR,y.prevT],col:[C_R,C_T],pcol:[C_RP,C_TP]},
-      legend:[{name:D.YEAR_CUR+': Рост, T@T',split:[C_R,C_T]},{name:D.YEAR_PREV+': Рост, T@T',split:[C_RP,C_TP]}],
+      legend:[{name:D.YEAR_CUR+': Рост, T@T',split:[C_R,C_T]},{name:D.YEAR_PREV+': Рост, T@T',split:[G.alpha(C_RP,.45),G.alpha(C_TP,.45)]}],
       tipRows:i=>[{label:'· Рост',value:D.fmtInt(y.rost[i]||0),color:C_R},{label:'· T@T',value:D.fmtInt(y.tat[i]||0),color:C_T}]});
 }
 function grades(ctx,p){

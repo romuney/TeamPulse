@@ -318,14 +318,18 @@ function renderBlock(S,expanded,mixOpen,view){
      период под графиком: потоки и доли — с января по закрытый месяц, накопительные — на его конец, состояния — сейчас;
      окно подписано под названием колонки. Структура — состояния на сегодня со срезом (lastValSlice) */
   const ov=TBL_OVR[b.key]||{}, P0={}, pt=k=>P0[k]||(P0[k]=D.periodTotal(rl,k)||{});
-  const val=(lp,key)=>b.key==='tgrowth'&&key==='hc_total'&&D.ROST_NODE?D.rostHc(lp):
+  const val=(lp,key)=>YNOW.has(key)?ynow(lp):b.key==='tgrowth'&&key==='hc_total'&&D.ROST_NODE?D.rostHc(lp):
     b.key==='structure'||pt(key).stock?D.lastValSlice(lp,key,selIds):(D.periodTotal(lp,key)||{}).v;
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
   const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key]));
   /* поставка 99: окно периода названо в шапке вкладки — под колонкой подписаны только исключения («сейчас», «на конец …») */
-  const perOf=k=>b.key==='structure'||pt(k).lab===D.PER_SPAN?'':pt(k).lab||'';
+  /* файл 8, п. 6: закрытые вакансии в таблице подразделений — за текущий календарный год (с 1 января по дату данных,
+     вместе с незакрытым месяцем), год — в подписи колонки */
+  const YNOW=new Set(['vac_closed']);
+  const ynow=lp=>D.aggregate(lp,'vac_closed').reduce((t,v,i)=>t+(D.MONTHS[i].y===D.YEAR_CUR?v||0:0),0);
+  const perOf=k=>YNOW.has(k)?String(D.YEAR_CUR):b.key==='structure'||pt(k).lab===D.PER_SPAN?'':pt(k).lab||'';
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
@@ -464,7 +468,7 @@ function renderBlock(S,expanded,mixOpen,view){
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+(c.per?'<span class="th-per">'+esc(c.per)+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:U.metricText(m,1),note:pt(m.key).head?
+    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:U.metricText(m,1),note:YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
       pt(m.key).head+' — как итог под графиком.':null})+'>'+esc(m.short)+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+

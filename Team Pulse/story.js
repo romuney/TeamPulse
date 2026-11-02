@@ -242,8 +242,9 @@ CH.turnover={
     const nm={turnover_y:'текучесть HQ',nonregret:'желательная текучесть HQ',regret:'нежелательная текучесть HQ'};
     const tgt=r=>r.kpi?(r.kpi.red!==r.kpi.green?'коридор '+f(r.key,r.kpi.green)+'–'+f(r.key,r.kpi.red):'цель '+f(r.key,r.kpi.green)):'без цели';
     return {sum:'текучесть HQ '+f('turnover_y',t.v),st:bad.length?'bad':h.rows.every(r=>r.st==='good')?'good':'n',
-      head:bad.length?(bad.length===3?'Все три показателя HQ выше порога':U.esc(bad.map(r=>nm[r.key]).join(' и ').replace(/^./,x=>x.toUpperCase()))+
-        ' — выше порога'):'HQ уходит в пределах порогов',
+      /* файл 8, п. 2: желательная — «выше лучше»: у неё плохо — ниже цели, у остальных — выше порога */
+      head:bad.length?U.esc(bad.map(r=>nm[r.key]+(r.key==='nonregret'?' ниже цели':' выше порога')).join(', ').replace(/^./,x=>x.toUpperCase()))
+        :'HQ уходит в пределах целей',
       /* 26.10-б: накопительно с января по последний закрытый месяц — незакрытый ещё вызревает */
       lede:'Активная численность HQ — **'+pl(h.hc,PPL)+'**. Накопительно с января по '+D.MONTH_NOM[h.month.m]+': текучесть **'+
         f('turnover_y',t.v)+'** ('+tgt(t)+'), желательная **'+f('nonregret',nr.v)+'** ('+tgt(nr)+'), нежелательная **'+
@@ -421,7 +422,8 @@ CH.office={
     const lbl=[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).join(' · ');
     if(lbl)return {sum:x.seg?lbl+' — '+f('office_att',x.att):lbl,st:'n',
       /* ревью 100: у города посещаемости нет — число в заголовке только у сегмента */
-      head:x.seg?'Посещаемость: '+x.seg.name+' — '+f('office_att',x.att)+(x.city?'; город — '+x.city.name:''):'Город офиса: '+x.city.name,
+      /* файл 8, п. 5: с городом — посещаемость сегмента в офисах этого города (доля рабочих дней) */
+      head:x.seg?'Посещаемость: '+x.seg.name+(x.city?' в офисах «'+x.city.name+'»':'')+' — '+f('office_att',x.att):'Город офиса: '+x.city.name,
       lede:'Значение — за '+mNom(D.PER_I)+'; по всему отбору '+PT+' — **'+f('office_att',per(c.lp,'office_att').v)+'**. Снять выбор — Escape.'};
     const segs=x.segs.filter(s=>s.hc), cs=x.cities.filter(r=>r.hc);
     const v=judge('office_att',c), ya=yearAgo(c.lp,'office_att');

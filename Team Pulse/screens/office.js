@@ -38,12 +38,10 @@ const offLabel=x=>[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).jo
    города офиса: посещения, люди и доля посещений. Город не выбирается: посещаемости города нет — есть посещения */
 function attendReal(ctx,x,lbl,attTbl){
   const S=ctx.S, cc=x.city&&x.city.people;
-  /* 31.10-б, п. 9: выбран город — в сегментах люди этого города и их доля (из людей, бывших в офисе города); иначе —
-     посещаемость сегментов. Выбор сегмента режет таблицу городов */
-  const segTbl=cc?U.btGroup({cap:'Сегмент',capSub:x.city.name+' · '+D.PER_MON+' · были в офисе',head:'',valueHead:'Человек',
-      metricKey:'hc_total',compact:true,total:false,items:x.segs.map(s=>({name:s.name,value:cc[s.key],color:G.C_OFFICE,
-        on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',attrTip:'Клик — города только у «'+s.name+'».'}))})
-    :attTbl('Сегмент',D.PER_MON,x.segs.filter(s=>s.hc>0).map(s=>({name:s.name,note:D.fmtInt(s.hc)+' чел',
+  /* файл 8, п. 5: таблица «Сегмент» при выборе города не меняет вид — та же посещаемость по сегментам, пересчитанная для
+     города (посещения в его офисах ÷ рабочие дни сегмента), в подписи — люди сегмента, бывшие в офисе города */
+  const segTbl=attTbl('Сегмент',(cc?x.city.name+' · ':'')+D.PER_MON,x.segs.filter(s=>cc||s.hc>0).map(s=>({name:s.name,
+      note:D.fmtInt(s.hc)+' чел'+(cc?' в офисе':''),
       value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
       attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})),'Сравнение сегментов');
   return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
