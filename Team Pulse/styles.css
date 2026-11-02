@@ -2357,21 +2357,14 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
       radial-gradient(circle at 0 100%,transparent calc(var(--radius) - .5px),var(--bg) var(--radius)) right 4px bottom/var(--radius) var(--radius) no-repeat,
       linear-gradient(var(--bg),var(--bg)) left top/100% 14px no-repeat,
       linear-gradient(var(--bg),var(--bg)) left top/4px 100% no-repeat,linear-gradient(var(--bg),var(--bg)) right top/4px 100% no-repeat}
+  /* файл 7, п. 5: без градиента под шагами — он ложился на заголовок главы («Зачем смотреть…» наполовину под шагами);
+     белая подложка сверху и по бокам осталась: в покое она на пустом отступе панели, при прокрутке закрывает зазор над шагами */
   .split-r .st-steps{position:sticky;top:calc(var(--sp-top) + var(--rph,59px));z-index:5;background:#fff;
     box-shadow:0 -16px 0 #fff,-20px 0 0 #fff,20px 0 0 #fff,-20px -16px 0 #fff,20px -16px 0 #fff}
-  /* под шагами — подложка во всю ширину карточки и мягкий переход: уезжающие графики не режутся о край шагов */
-  .split-r .st-steps::after{content:"";position:absolute;left:-20px;right:-20px;top:100%;height:14px;pointer-events:none;
-    background:linear-gradient(#fff,rgba(255,255,255,0))}
-}
-@media (min-width:1121px){
-  .content::before{content:"";display:block;position:sticky;top:0;z-index:7;height:14px;margin:-18px -26px 4px;
-    background:linear-gradient(var(--bg),rgba(244,245,247,0));pointer-events:none}
 }
 /* закреплённые вкладки one-pager — непрозрачная подложка и тонкая линия, без просвечивающих заголовков */
 .op-nav{background:var(--bg);box-shadow:0 1px 0 var(--line)}
 .is-scrolling .content{pointer-events:none}
-.op-nav::after{content:"";position:absolute;left:0;right:0;top:100%;height:16px;pointer-events:none;
-  background:linear-gradient(var(--bg),rgba(244,245,247,0))}
 
 /* ==========================================================================
    30.10, шаг 2 — таблица подразделений сворачивается на самой таблице (заказчик), у маленькой команды
@@ -2521,3 +2514,5 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .st-steps.n5 .st-step:not(.on),.st-steps.n6 .st-step:not(.on){flex:0 0 auto}}
 /* ревью 100: подписи значений не перехватывают наведение — подсказка месяца не пропадает над цифрой */
 .svgchart text.fade{pointer-events:none}
+/* поставка 101: помесячная детализация специализации — отступ от таблицы, как между группами */
+.bt-group.spm-d{margin-top:var(--s9)}

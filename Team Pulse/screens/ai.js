@@ -18,6 +18,8 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 /* 28.10, п. 4: графики из «Готовности данных» — по неделям, частота, инструментов на человека, воронка сообщений и
    топ задач, проникновение по IT-коду и инструменту, стажёры, конструктор. Числа условные (D.aiUsage) */
 const esc=U.esc;
+/* файл 7, п. 3: таблица с несколькими колонками — тот же вид, что у таблиц других вкладок (ptable stable dense: шапка
+   капсом, числа вправо), в общем столбце bt-stack */
 function tbl(cap,sub,head,rows){
   return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+(sub?'<span class="bt-sub">'+esc(sub)+'</span>':'')+'</div>'+
     '<table class="ptable stable dense"><thead><tr>'+head.map((h,i)=>'<th'+(i?'':' class="txt"')+'>'+esc(h)+'</th>').join('')+
@@ -47,21 +49,20 @@ function adoption(ctx){
     '<div class="tbl-note">Проникновение — активные пользователи AI к численности того же периода под выбранными фильтрами.</div>';
 }
 /* п. 3: «Кто пользуется?» — стажёры (сколько и сколько из них с AI, инструменты, частота), ниже — инструменты × покраска
-   IT / Digital / NonIT и конструктор IT-код × покраска */
+   IT / Digital / NonIT. Файл 7, п. 6: конструктор «IT-код × покраска» снят с вкладки (данные — D.aiUsage().cons — остались,
+   вернуть — одна строка в btStack); п. 3: все таблицы — одним столбцом с общими отступами, сегменты без людей — без колонки */
 function who(u){
   const P=v=>D.fmtVal('ai_penetration',v), I=D.fmtInt, it=u.intern;
-  const segs=u.bySeg;
+  const segs=u.bySeg.filter(x=>x.hc>0);
   return U.btStack([
       bars('Стажёры','сколько стажёров и сколько из них пользуются AI',
         [{name:'Стажёров',value:it.hc},{name:'Пользуются AI',note:P(it.pen)+' стажёров',value:it.act}],'Человек',{share:false,total:false}),
       pctBars('Какими инструментами пользуются стажёры','% стажёров · хотя бы раз за неделю',it.tools.slice().sort((a,b)=>b.value-a.value)),
       bars('Как часто пользуются стажёры','дней с AI за неделю · стажёры с AI',
-        [{name:'1–2 дня',value:it.freq[0]},{name:'3–4 дня',value:it.freq[1]},{name:'5 дней и больше',value:it.freq[2]}])])+
-    tbl('Инструменты по покраске','% численности сегмента · IT / Digital / NonIT',
-      ['Инструмент'].concat(segs.map(x=>x.name+' · '+I(x.hc)+' чел')),
-      u.tools.map((t,j)=>({c:[t.name].concat(segs.map(x=>P(x.cells[j])))})))+
-    tbl('Конструктор: IT-код × покраска','численность, активные пользователи, проникновение',
-      ['IT-код · покраска','Численность','Активные','Проникновение'],u.cons.map(x=>({c:[x.seg+' · '+x.paint,I(x.hc),I(x.act),P(x.pen)]})))+
+        [{name:'1–2 дня',value:it.freq[0]},{name:'3–4 дня',value:it.freq[1]},{name:'5 дней и больше',value:it.freq[2]}]),
+      segs.length?tbl('Инструменты по покраске','% численности сегмента · '+segs.map(x=>x.name).join(' / '),
+        ['Инструмент'].concat(segs.map(x=>x.name+' · '+I(x.hc)+' чел')),
+        u.tools.map((t,j)=>({c:[t.name].concat(segs.map(x=>P(x.cells[j])))}))):''])+
     '<div class="tbl-note">Проценты по инструментам не складываются: один человек может пользоваться несколькими.</div>';
 }
 /* п. 5: «Как пользуется?» — частота, инструментов на человека, топ инструментов, воронка и классификация сообщений */
@@ -90,6 +91,10 @@ SC.blocks.ai={
   title(sub){return sub==='who'?'Кто пользуется AI':sub==='usage'?'Как пользуются AI: частота, инструменты, сообщения'
     :'Пользуются ли AI: проникновение и активные пользователи'},
   view(ctx){
+    /* файл 7, п. 4: у подразделения нет ни одного месяца статистики AI — понятная заглушка вместо пустых графиков */
+    if(D.REAL&&!D.isStub('ai_wau')&&!D.aiLast(ctx.lp,'ai_wau'))return U.empty('Нет статистики AI-инструментов',
+      'У «'+((D.NODE_BY_PATH[ctx.sel]||{}).name||'')+'» в источнике AI нет данных за последние месяцы. Выберите подразделение выше по дереву '+
+      'или проверьте выгрузку статистики AI.');
     if(ctx.sub==='usage')return usage(D.aiUsage(ctx.lp));
     if(ctx.sub==='who')return who(D.aiUsage(ctx.lp));
     return adoption(ctx);

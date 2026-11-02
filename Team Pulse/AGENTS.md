@@ -3179,3 +3179,13 @@ SENIOR_UP, pctOf, NOW_ASK, C_ROST.no. Высота: draw.js CH_H 300 → 280.
 без +22. styles.css: степпер через container query (n3/n4/n5+), text.fade без pointer-events, wide-l складывается до 1366.
 office.js — примечание у календаря при выбранной строке; app.js Escape снимает selNode; story.js тексты. Стенд: xim, e,
 спец. движение, sp0/sp1 — у каждого узла; smoke_real — по подразделениям инициатор = текучесть, специализации сходятся.
+
+**02.11, поставка 101 — файл 7 (6 пунктов).** П. 1: стенд и пробник — водопад сходится у каждой строки (smoke_real «водопад
+сходится у всех N строк»), специализации — тоже; макет: data.js balanced() — hc_total = h0 + потоки помесячно (_hcb), «Активная»
+— hc_active по масштабированным потокам, доля — новый ряд act_k (было hc_active); smoke — сходимость у узлов при фильтрах.
+П. 2 (заказчик: помесячно, без логинов): hub_sql.py — mix xsm («spec|ГГГГ-ММ», январь..cm), 2а — tsm из trf
+(«h|i|o|spec|ГГГГ-ММ», node_rk IN PK); data.js specMonths(lp,name) через selMix; movement.js — строки data-spmsel, specDetail;
+app.js S.spmSel (+ Escape); mk_hub_yaml CHANGED 101 (hub · 4 разрезы), 1a_head; стенд — tsm/xsm в сумме = tsh/tsi/tso/xsp.
+П. 4: real.js — own AI (aiw aip aic aid) не ниже нуля; data.js aiLast (последний месяц с данными) в aiProfile; ai.js —
+U.empty без статистики. П. 3, 6: ai.js who — всё в btStack, сегменты hc>0, конструктор снят (u.cons остался). П. 5:
+styles.css — сняты .split-r .st-steps::after, .content::before, .op-nav::after (градиенты поверх контента). Бюджет 516.

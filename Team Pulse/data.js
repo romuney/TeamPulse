@@ -928,16 +928,30 @@ function seriesExt(leafPath,key){
   if(REAL||HC_MODE==='all'||!ACT_MOCK[key])return seriesRaw(leafPath,key);
   const ck='a|'+leafPath+'|'+key;
   if(_sc[ck])return _sc[ck];
-  const t=seriesRaw(leafPath,'hc_total'), a=seriesRaw(leafPath,'hc_active');
-  const out=key==='hc_total'?a.slice():seriesRaw(leafPath,key).map((v,i)=>t[i]?Math.round(v*a[i]/t[i]):v);
+  const t=seriesRaw(leafPath,'hc_total'), a=seriesRaw(leafPath,'act_k');
+  /* файл 7, п. 1: активная численность макета — от первого месяца по её же потокам (hc_active), водопад сходится и на «Активной» */
+  const out=key==='hc_total'?seriesRaw(leafPath,'hc_active').slice():seriesRaw(leafPath,key).map((v,i)=>t[i]?Math.round(v*a[i]/t[i]):v);
   _sc[ck]=out;return out;
 }
+/* численность = на начало + найм + переводы в − отток − переводы из, месяц за месяцем */
+function balanced(h0,f){
+  const h=f('hire'), ti=f('transfer_in'), a=f('attrition'), to=f('transfer_out'), out=[h0];
+  for(let i=1;i<NEXT;i++)out.push(out[i-1]+h[i]+ti[i]-a[i]-to[i]);
+  return out;
+}
+let _hcb=0;
 function seriesRaw(leafPath,key){
   const ck='x|'+HC_MODE+'|'+leafPath+'|'+key;
   if(_sc[ck])return _sc[ck];
   /* пробник: у ключа есть настоящий ряд — он и есть ответ */
   if(REAL){const rs=REAL.series(leafPath,key);if(rs){_sc[ck]=rs;return rs}}
   const m=defOf(key), b=leafBase(leafPath), n=NODE_BY_PATH[leafPath]||{};
+  /* файл 7, п. 1: численность макета — по потокам (на начало + найм + переводы в − отток − переводы из), иначе водопад
+     показывал «Прочее» до −14 человек */
+  if(!REAL&&key==='hc_total'&&!_hcb){_hcb=1;const r0=rng('ser'+leafPath+key), h0=Math.max(3,Math.round(b.hc*0.965+(r0()-0.5)*1.6*b.vol));
+    const o=balanced(h0,k=>seriesRaw(leafPath,k));_hcb=0;_sc[ck]=o;return o}
+  if(!REAL&&key==='hc_active'){const t=seriesRaw(leafPath,'hc_total'), k=seriesRaw(leafPath,'act_k');
+    const o=balanced(k[0],x=>seriesRaw(leafPath,x).map((v,i)=>t[i]?Math.round(v*k[i]/t[i]):v));_sc[ck]=o;return o}
   const out=new Array(NEXT);
   /* найм в компанию — остаток найма за вычетом переходов из учебной группы и стажёров (их ряды — пробник: hcd, hst
      датасета 2а; макет — каждый принятый с долей команды) */
@@ -1014,7 +1028,8 @@ function seriesRaw(leafPath,key){
     const trend=(i-(NEXT-1)/2)/(NEXT-1);
     let v;
     if(key==='hc_total'){ v=Math.max(3,Math.round(b.hc*(1+trend*0.07)+wave(leafPath,i,1.5*vol)+(r()-0.5)*1.6*vol)); }
-    else if(key==='hc_active'){ v=Math.max(2,Math.round(seriesRaw(leafPath,'hc_total')[i]*(0.88+r()*0.09))); }
+    /* доля активной (act_k — её уровень по месяцам): ею масштабируются потоки «Активной» */
+    else if(key==='act_k'){ v=Math.max(2,Math.round(seriesRaw(leafPath,'hc_total')[i]*(0.88+r()*0.09))); }
     else if(key==='hire'){ v=cg(0.0135+b.lvl*0.0075,SEAS_HIRE[cm],0.60,leafPath+'h',i); }
     else if(key==='attrition'){ v=cg(0.0100+b.lvl*0.0090,SEAS_ATTR[cm],0.55,leafPath+'a',i); }
     else if(key==='transfer_in'){ v=cg(0.0060,1,0.70,leafPath+'ti',i); }
@@ -2554,6 +2569,28 @@ function specMovement(lp){
     .sort((a,b)=>b.hire+b.tin+b.exit+b.tout-(a.hire+a.tin+a.exit+a.tout)||a.name.localeCompare(b.name,'ru'));
 }
 
+/* поставка 101 (файл 7, п. 2): помесячная детализация строки «Движения по специализациям» — найм, переводы в, отток,
+   переводы из по месяцам с января по закрытый; в сумме — строка таблицы. Пробник: tsm («вид|специализация|месяц») и xsm
+   («специализация|месяц») у узла; датасет без них — null. Макет — строка таблицы, разложенная по месяцам */
+function specMonths(lp,name){
+  const ms=[];for(let m=0;m<=PER_C;m++)ms.push({m:m,label:MONTH_ABBR[m],key:YEAR_CUR+'-'+String(m+1).padStart(2,'0'),hire:0,tin:0,exit:0,tout:0});
+  const nm=v=>isNA(v)?NONE_NAME:v;
+  if(REAL){
+    const t=selMix(lp,'tsm'), x=selMix(lp,'xsm');
+    if(!t&&!x)return null;
+    const at={};ms.forEach(o=>{at[o.key]=o});
+    const K={h:'hire',i:'tin',o:'tout'};
+    Object.keys(t||{}).forEach(v=>{const p=v.split('|'), mo=p.pop(), k=K[p.shift()], o=at[mo];if(o&&k&&nm(p.join('|'))===name)o[k]+=t[v]});
+    Object.keys(x||{}).forEach(v=>{const p=v.split('|'), mo=p.pop(), o=at[mo];if(o&&nm(p.join('|'))===name)o.exit+=x[v]});
+    ms.forEach(o=>['hire','tin','exit','tout'].forEach(k=>{o[k]=Math.round(o[k])}));
+  }else{
+    const z=specMovement(lp).find(r=>r.name===name);if(!z)return null;
+    const r=rng(lpSeed(lp,'spmm'+name)), w=()=>jitter(r,ms.map(()=>1),0.6);
+    ['hire','tin','exit','tout'].forEach(k=>splitBy(z[k]||0,w()).forEach((v,i)=>{ms[i][k]=v}));
+  }
+  return ms;
+}
+
 /* ---------- Откуда приходят: каналы, сеньорность, грейд ----------
    Джуны — ровно служебный ряд hire_jun, поэтому строка Junior делит найм
    так же, как метрика «Доля джунов в найме». Грейд принятых выводится из
@@ -2935,8 +2972,11 @@ const AI_TOOLS=[{key:'chat',name:'Корпоративный AI-ассистен
   {key:'kb',name:'AI-поиск по базе знаний',k:0.38},
   {key:'docs',name:'Генерация документов и писем',k:0.27},
   {key:'data',name:'AI в аналитике данных',k:0.15}];
+/* файл 7, п. 4: статистика AI приходит с задержкой — последний месяц бывает пустым, и всё, что считается от него
+   («Кто пользуется», «Как пользуется»), обнулялось. Берём последний месяц с данными */
+function aiLast(lp,key){const a=aggregate(lp,key);for(let i=lastIdx(key);i>=0;i--)if(a[i]>0)return a[i];return 0}
 function aiProfile(lp){
-  const pen=lastVal(lp,'ai_penetration')||0, wau=lastVal(lp,'ai_wau'), r=rng(lpSeed(lp,'ai')), it=hcIT(lp);
+  const pen=aiLast(lp,'ai_penetration'), wau=aiLast(lp,'ai_wau'), r=rng(lpSeed(lp,'ai')), it=hcIT(lp);
   const tools=AI_TOOLS.map(t=>({key:t.key,name:t.name,
     value:+Math.min(pen,pen*t.k*(t.it?Math.min(1,it*1.2):1)*(0.9+r()*0.2)).toFixed(1)}));
   return {pen:pen,wau:wau,tools:tools};
@@ -2994,5 +3034,5 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
   PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
-  planFact,PF_STATUS,rostProfile,rostHc,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
+  planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};

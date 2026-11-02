@@ -402,7 +402,9 @@ const aiA=A.go('ai','adoption'), aiW=A.go('ai','who'), aiU=A.go('ai','usage');
 checks.push(['AI — «Пользуются ли AI?», «Кто пользуется?», «Как пользуется?», без прошлого года',subsOf('ai')==='adoption,who,usage'&&
   /data-aigran="m"/.test(aiA)&&/data-aigran="w"/.test(aiA)&&/Проникновение AI по месяцам/.test(aiA)&&/Активные пользователи AI по месяцам/.test(aiA)&&
   !new RegExp('data-sid="prev"|>'+D.YEAR_PREV+'<').test(aiA)&&
-  ['Стажёры','Какими инструментами пользуются стажёры','Как часто пользуются стажёры','Инструменты по покраске','NonIT','Конструктор'].every(t=>aiW.indexOf(t)>=0)&&
+  /* файл 7, п. 6: конструктор «IT-код × покраска» снят; п. 3: таблицы одним столбцом (bt-stack) */
+  ['Стажёры','Какими инструментами пользуются стажёры','Как часто пользуются стажёры','Инструменты по покраске'].every(t=>aiW.indexOf(t)>=0)&&
+  aiW.indexOf('Конструктор')<0&&/class="bt-stack"[\s\S]*Инструменты по покраске/.test(aiW)&&
   ['Частота использования','Инструментов на человека','Топ инструментов','Воронка сообщений','Классификация сообщений'].every(t=>aiU.indexOf(t)>=0)]);
 /* 31.10, «AI.md»: расчёты сходятся — частота и инструментов на человека = активные, классы = классифицированные,
    % стажёров = из людей, проникновение = активные / численность того же месяца, сегменты IT / Digital / NonIT все */
@@ -536,7 +538,7 @@ checks.push(['рейтинга офисов нет (15.10), в таблице г
     /class="urow sel" data-offseg="lead"/.test(hSeg)&&/Посещаемость офиса: Руководители, %/.test(hSeg)&&
     /Посещаемость офиса: Руководители · /.test(hBoth)&&/class="urow sel" data-offcity="/.test(hBoth)&&
     /Сегмент:<\/span> <b>Руководители<\/b>/.test(hBoth)&&/Локация:<\/span> <b>/.test(hBoth)&&/data-selclear="1"/.test(hBoth)&&
-    xb.att!==x0.att&&Math.abs(xb.factor*D.lastVal(rl0,'office_att')-xb.att)<0.06&&
+    xb.att!==x0.att&&Math.abs(xb.factor*D.perVal(rl0,'office_att')-xb.att)<0.06&&
     hOff===offHtml&&!/sl-shelf"/.test(hOff)]);
 }
 
@@ -1875,6 +1877,34 @@ checks.push(['третьей палитры нет: в экранах ни од�
     [sp,gr].every(h=>h.indexOf('fill="'+G.C_ROST.rostP+'" class="bar up ghost" data-s="prev"')>=0&&
       h.indexOf(G.C_ROST.tatP)>=0&&/Рост, T@T/.test(h))&&
     /Смена специализации по месяцам, заявок/.test(sp)&&!/data-s="prev"[^>]*fill="#8fd8a9/.test(sp)]);
+})();
+
+/* файл 7, п. 1: водопад сходится у каждого узла макета и при фильтрах покраски / IT / штата; таблица специализаций — тоже */
+(function(){
+  const bad=[], S0=D.DEFAULT_STATE;
+  [{},{paint:'Line'},{itSeg:'IT'},{staffType:D.STAFFTYPES&&D.STAFFTYPES[1]?D.STAFFTYPES[1].key:'all'}].forEach(f=>{
+    const st=Object.assign({},S0,f);
+    D.NODES.filter(n=>n.level<=4).forEach(n=>{
+      const lp=D.leavesUnder(n.path).map(l=>l.path).filter(p=>D.leafPasses(p,st));if(!lp.length)return;
+      const hc=D.aggregate(lp,'hc_total'), w=k=>D.winSum(lp,k);
+      const o=hc[D.LAST]-(hc[0]+w('hire')+w('transfer_in')-w('attrition')-w('transfer_out'));
+      if(Math.abs(o)>0.5)bad.push(n.name+' '+JSON.stringify(f)+': '+Math.round(o));
+      const sm=D.specMovement(lp), q=k=>sm.reduce((a,z)=>a+(z[k]||0),0);
+      if(sm.length&&sm[0].hc0!=null&&Math.abs(q('hc0')+q('hire')+q('tin')-q('exit')-q('tout')-q('hc1'))>0.5)bad.push(n.name+' спец.');
+    });
+  });
+  if(bad.length)console.log('   ',bad.slice(0,8).join(' | '));
+  checks.push(['файл 7: водопад и таблица специализаций сходятся у каждого узла и при фильтрах',!bad.length]);
+})();
+
+/* файл 7, п. 2: детализация специализации — клик по строке, под таблицей месяцы; сумма месяцев = строка таблицы */
+(function(){
+  const S=A.st(), lp=D.reportLeaves(D.DEFAULT_STATE), rs=D.specMovement(lp), z=rs[0];
+  const ms=z&&D.specMonths(lp,z.name), sum=k=>ms.reduce((a,o)=>a+o[k],0);
+  S.spmSel=z&&z.name;const h=A.go('movement','dynamics');S.spmSel=null;const h0=A.go('movement','dynamics');
+  checks.push(['файл 7, п. 2: детализация специализации по месяцам — сходится со строкой, открывается кликом, закрывается',
+    !!ms&&ms.length===D.PER_C+1&&['hire','tin','exit','tout'].every(k=>sum(k)===z[k])&&/data-spmsel="/.test(h0)&&
+    /class="bt-group spm-d"/.test(h)&&!/spm-d/.test(h0)]);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

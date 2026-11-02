@@ -164,7 +164,7 @@ function build(data){
   /* поставка 56: найм по дню события (hit — из переходов ноутбука: найм в компанию и, на активной, переходы
      кандидатов и стажёров) — тем же счётом, что переводы, поэтому водопад сходится без «прочего». Прежние
      таблицы его не везут (нули) — тогда найм из рядов, как раньше */
-  const HIT=have.has('hit'), GAH=have.has('gah');
+  const HIT=have.has('hit'), GAH=have.has('gah'), AIC=new Set(['aiw','aip','aic','aid']);
   const parseSer=r=>{
     const ser={};
     cols.forEach(c=>{if(c!=='aid'&&c!=='wds'&&c!=='ovs')ser[c]=parseArr(raw(r,c),n)});
@@ -286,6 +286,9 @@ function build(data){
       own[c]=u.ser[c].map((v,i)=>{
         let s=v;ch.forEach(k=>{s-=k.ser[c][i]});
         s=Math.round(s*10)/10;
+        /* файл 7, п. 4: AI источник считает по юниту целиком; юнита в нём бывает нет при детях — «напрямую» уходил в минус и
+           обнулял сумму (вкладка AI пустела). Не ниже нуля: сумма юнита — сумма детей */
+        if(s<0&&AIC.has(c))s=0;
         if(Math.abs(s)>1e-9)any=true;
         return s;
       });

@@ -62,6 +62,8 @@
     нет, отчёт показывает движение по специализациям без переводов. 31.10, п. 10: tsi tso — по флагам смены специализации
     источника (fsp); п. 7: sp0 — численность по специализации на начало года, тоже только у выбранного юнита; поставка 90:
     sp1 — на конец последнего закрытого месяца, тоже только у выбранного юнита.
+    Поставка 101 (файл 7, п. 2): tsm — найм, переводы в и из по «вид|специализация|месяц» и xsm (ноутбук) — увольнения по
+    «специализация|месяц», январь..cm, у каждого узла: помесячная детализация строки «Движения по специализациям».
     31.10-б, п. 1: es en — сумма возрастов и людей с возрастом по «разрез|значение» (средний возраст категории), тоже только
     у выбранного юнита.
     Поставка 69 (27.10, ответы Антона):
@@ -425,12 +427,15 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
       FROM
       (
-        SELECT node_rk, {{ SPC }} AS spx, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu
+        SELECT node_rk, {{ SPC }} AS spx, formatDateTime(report_month, '%Y-%m') AS mo, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu
         FROM prod_proteus.teampulse_hub_trf
         WHERE ifNull(node_rk, '') IN {{ PK }} AND report_month >= toStartOfYear((SELECT cm FROM cx))
           AND report_month <= (SELECT cm FROM cx) AND {{ cond() }}
       )
-      ARRAY JOIN [('tsh', spx, th), ('tsi', spx, ti), ('tso', spx, tu)] AS kv
+      ARRAY JOIN [('tsh', spx, th), ('tsi', spx, ti), ('tso', spx, tu),
+                  {#- поставка 101 (файл 7, п. 2): то же по месяцам — «вид|специализация|ГГГГ-ММ» (h найм, i в, o из):
+                      помесячная детализация строки «Движения по специализациям»; в сумме — tsh / tsi / tso #}
+                  ('tsm', concat('h|', spx, '|', mo), th), ('tsm', concat('i|', spx, '|', mo), ti), ('tsm', concat('o|', spx, '|', mo), tu)] AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0

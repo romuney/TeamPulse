@@ -336,7 +336,7 @@ function renderHead(){
 /* 31.10 (поставка 82, «подлагивает»): сигналы всех блоков пересчитывались на каждый клик — шаг главы, вкладку,
    сортировку — до четверти времени клика. Сигнал зависит от среза, не от того, что открыто: кэш по срезу */
 const NAV_UI=new Set(['tab','subTab','tsort','spmSort','aiGran','monGran','exitIni','mixSel','mixRows','mixCols','mixMode',
-  'mxFull','aiOpen','offCity','offSeg','rostSt']);
+  'mxFull','aiOpen','offCity','offSeg','rostSt','spmSel']);
 let _navKey=null, _navMemo={};
 function navSig(bk){
   const k=JSON.stringify(S,(n,v)=>NAV_UI.has(n)?undefined:v);
@@ -1023,6 +1023,9 @@ on(document,'click',e=>{
   if(tso){S.tsort=tso.dataset.tsort;render(true);return}
   const sps=t.closest('[data-spmsort]');
   if(sps){S.spmSort=sps.dataset.spmsort;render(true);return}
+  /* поставка 101 (файл 7, п. 2): строка специализации — её помесячная детализация под таблицей; повторный клик — закрыть */
+  const spd=t.closest('[data-spmsel]');
+  if(spd){S.spmSel=S.spmSel===spd.dataset.spmsel?null:spd.dataset.spmsel;render(true);return}
   /* конструктор на весь экран и обратно */
   const fs=t.closest('[data-mxfull]');
   if(fs){S.mxFull=fs.dataset.mxfull==='1';render(true);return}
@@ -1179,6 +1182,7 @@ on(document,'keydown',e=>{
     /* мониторинг: Escape снимает отметку периода и выбор строки таблицы */
     if(!ovl&&S.tab==='monitor'&&(S.monMark!=null||S.selNode)){S.monMark=null;S.selNode=null;render(true);return}
     if(!ovl&&S.tab==='office'&&(S.offSeg||S.offCity)){S.offSeg=null;S.offCity=null;render(true);return}
+    if(!ovl&&S.spmSel){S.spmSel=null;render(true);return}
     if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true);return}
     /* ревью 100: подсказка «Повторный клик или Escape — снять выбор» — Escape снимает выбранное подразделение на всех вкладках */
     if(!ovl&&S.selNode){S.selNode=null;render(true)}

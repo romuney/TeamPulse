@@ -211,6 +211,15 @@ def main():
                     if abs(mx['tsh'] - sum(T[(rk, m)]['hire'] for m in ytd_)) > 0.5:
                         bad['mx tsh'] += 1
                     want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act, chg))
+                    # поставка 101 (файл 7, п. 2): помесячная детализация специализаций — по месяцам в сумме то же, что за период
+                    for km, kk, pre in (('tsm', 'tsh', 'h|'), ('tsm', 'tsi', 'i|'), ('tsm', 'tso', 'o|'), ('xsm', 'xsp', '')):
+                        agg = defaultdict(float)
+                        for v, n in mxv.get(km, {}).items():
+                            if v.startswith(pre):
+                                agg[v[len(pre):].rsplit('|', 1)[0]] += n
+                        w_ = mxv.get(kk, {})
+                        if any(abs(agg.get(v, 0) - w_[v]) > 0.5 for v in w_) or any(abs(agg[v] - w_.get(v, 0)) > 0.5 for v in agg):
+                            bad['mx ' + km + ' ≠ ' + kk] += 1
                     # поставка 90: окно — январь..сентябрь стенда; у узких выборов («только Подрядчики») смен специализации
                     # в нём нет и по правде — пустота проверяется только у выборов с «Активной» или «Вся»
                     # 31.10-б, п. 1: es / en — по каждому разрезу в сумме те же люди с возрастом и та же сумма возрастов,

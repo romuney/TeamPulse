@@ -2110,6 +2110,31 @@ paragraphs:
     ) e
     where coalesce(e.fire_amt, 0) > 0;
 
+    -- поставка 101 (файл 7, п. 2): увольнения по специализации и месяцу с начала года — помесячная детализация «Движения по
+    -- специализациям» (отток строки специализации по месяцам; в сумме — xsp)
+    insert into teampulse_hub_mixr
+    select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'xsm' as mx_key,
+           coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), '') || '|' || to_char(e.report_month, 'YYYY-MM') as mx_val,
+           coalesce(e.fire_amt, 0) as mx_n
+    from (
+        select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
+               generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
+        from (
+            select s.report_month, s.fire_amt, s.specialization,
+                   (select pre from teampulse_hub_cal) || coalesce(u.cp,
+                       array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
+                                          s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
+                                          s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
+                   coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
+                   case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
+                   coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
+            from all_metrics_with_performance_and_office_traffic_and_grt s
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+            where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select cm from teampulse_hub_cal))::date and (select cm from teampulse_hub_cal)
+        ) x
+    ) e
+    where coalesce(e.fire_amt, 0) > 0;
+
     -- поставка 73: T-рост по эталону отчёта «Рост» дашборда HQ. Тип заявки: s — смена специализации, g — повышение
     -- грейда; поток: 1 — T@T, 0 — «Рост»; итог: ok — завершена (рост состоялся), no — отклонена. Месяц — месяц итога
     -- (последней смены статуса), юнит — человека в месяце начала заявки (structure_x_rost).

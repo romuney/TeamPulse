@@ -652,6 +652,15 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'xim' as mx_key,
 from ({expl(['report_month', 'fire_amt', 'fire_initiative'], f'and s.report_month >= (select grid_start from {P}_cal)')}) e
 where {num('fire_amt')} > 0;
 
+-- поставка 101 (файл 7, п. 2): увольнения по специализации и месяцу с начала года — помесячная детализация «Движения по
+-- специализациям» (отток строки специализации по месяцам; в сумме — xsp)
+insert into {P}_mixr
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'xsm' as mx_key,
+       {a['sp']} || '|' || to_char(e.report_month, 'YYYY-MM') as mx_val,
+       {num('fire_amt')} as mx_n
+from ({expl(['report_month', 'fire_amt', 'specialization'], ytd)}) e
+where {num('fire_amt')} > 0;
+
 {ROST_MIX}-- поставка 66: посещения офисов по городам (office_city_visits_json — параграф with_office_traffic), поставка 90 — за
 -- последний закрытый месяц:
 -- oc — посещений, ocp — людей, которые были в офисе этого города

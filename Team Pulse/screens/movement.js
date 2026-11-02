@@ -65,8 +65,12 @@ function specMove(lp,ctx){
      начало периода (до движений) и на конец (после них) */
   const cols=[['hc0','На начало']].concat([['hire','Найм']]).concat(trf?[['tin','Переводы в']]:[]).concat([['exit','Отток']])
     .concat(trf?[['tout','Переводы из']]:[]).concat([['hc1',D.SPM_END?'На конец':'Сейчас']]);
+  /* поставка 101 (файл 7, п. 2): строка специализации кликается — под таблицей её состав по месяцам (и у строк внутри
+     «Остальных») */
+  const sel=ctx&&ctx.S&&ctx.S.spmSel, pick=z=>' data-spmsel="'+esc(z.name)+'"'+U.tipAttr({title:z.name,
+    text:sel===z.name?'Клик — закрыть помесячную детализацию.':'Клик — найм, переводы и отток по месяцам.'});
   const row=z=>'<tr'+(z.total?' class="total top"':z.exp?' class="urow" data-btexp="'+K+'"'+U.tipAttr({title:'Остальные',
-        text:open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):z.sub?' class="lvl2"':'')+'><td class="txt">'+
+        text:open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):' class="urow'+(z.sub?' lvl2':'')+(sel===z.name?' sel':'')+'"'+pick(z))+'><td class="txt">'+
       (tree?'<span class="row-label">'+(z.total?'<span class="caret-spacer"></span>':lbl(z))+'<span class="row-body">':'')+esc(z.name)+
       (z.note?'<span class="unit-sub">'+esc(z.note)+'</span>':'')+(tree?'</span></span>':'')+'</td>'+
       cols.map(c=>'<td class="num'+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'">'+(z[c[0]]==null?'—':D.fmtInt(z[c[0]]))+'</td>').join('')+'</tr>';
@@ -74,10 +78,28 @@ function specMove(lp,ctx){
     '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col>').join('')+
     '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num tsort'+(c[0]===sk?' on':'')+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'" data-spmsort="'+c[0]+'"'+
       U.tipAttr({title:c[1],text:c[0]===sk?'Сейчас — по убыванию.':'Клик — сортировать по убыванию.'})+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
-    row(tot)+top.map(row).join('')+'</tbody></table></div>'+
+    row(tot)+top.map(row).join('')+'</tbody></table></div>'+specDetail(lp,rs.find(z=>z.name===sel),cols)+
     '<div class="tbl-note">'+U.esc(D.PER_TEXT.replace(/^./,x=>x.toUpperCase()))+'; ИТОГО — как в карточках движения. На начало — численность на конец декабря, '+
       (D.SPM_END?'на конец — '+U.esc(D.MONTH_GEN[D.PER_C])+', после наймов, увольнений и переводов':'«сейчас» — на дату данных')+'. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.'+
       (trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
+}
+
+/* помесячная детализация выбранной специализации: месяцы с января, итого — как строка таблицы; «итого» месяца =
+   найм + переводы в − отток − переводы из */
+function specDetail(lp,z,cols){
+  if(!z)return '';
+  const ms=D.specMonths(lp,z.name), esc=U.esc;
+  if(!ms)return '<div class="tbl-note">Помесячная детализация появится, когда ноутбук и датасет отчёта обновят до поставки 101.</div>';
+  const C=cols.filter(c=>c[0]!=='hc0'&&c[0]!=='hc1').concat([['net','Итого']]);
+  ms.forEach(o=>{o.net=o.hire+o.tin-o.exit-o.tout});
+  const S=k=>ms.reduce((t,o)=>t+o[k],0), T={label:'ИТОГО'};C.forEach(c=>{T[c[0]]=S(c[0])});
+  const off=C.some(c=>z[c[0]]!=null&&T[c[0]]!==z[c[0]]);
+  const tr=(o,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(o.label)+'</td>'+
+    C.map(c=>'<td class="num">'+(c[0]==='net'&&o.net>0?'+':'')+D.fmtInt(o[c[0]])+'</td>').join('')+'</tr>';
+  return '<div class="bt-group spm-d"><div class="bt-cap">«'+esc(z.name)+'» по месяцам<span class="bt-sub">чел · клик по строке ещё раз или Escape — закрыть</span></div>'+
+    '<div class="mx-wrap"><table class="ptable btable compact spm4"><thead><tr><th class="txt">Месяц</th>'+
+    C.map(c=>'<th class="num">'+esc(c[1])+'</th>').join('')+'</tr></thead><tbody>'+tr(T,'total top')+ms.map(o=>tr(o)).join('')+
+    '</tbody></table></div>'+(off?'<div class="tbl-note">Сумма по месяцам расходится со строкой таблицы — проверьте обновление ноутбука.</div>':'')+'</div>';
 }
 
 SC.blocks.movement={

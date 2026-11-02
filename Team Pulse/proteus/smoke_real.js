@@ -522,6 +522,25 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
       (off.length?'; не сходятся строки: '+off.map(z=>z.name+' '+bal(z)).join(', '):''));
   }
 }
+/* файл 7, п. 1: водопад сходится у каждой строки таблицы (на начало + найм + переводы в − отток − переводы из = на конец):
+   выбор подразделения не ломает сходимость; и таблица специализаций — у каждого */
+{
+  const st=A.st(), rows=D.NODES.filter(n=>!n.outside&&!n.hide&&(n.path===st.unit||n.path.indexOf(st.unit+'/')===0)), bad=[];
+  rows.forEach(n=>{
+    const lp=D.leavesUnder(n.path).map(l=>l.path);if(!lp.length)return;
+    const hc=D.aggregate(lp,'hc_total'), w=k=>D.winSum(lp,k);
+    const o=hc[D.LAST]-(hc[0]+w('hire')+w('transfer_in')-w('attrition')-w('transfer_out'));
+    if(Math.abs(o)>0.5)bad.push(n.name+': прочее '+Math.round(o));
+  });
+  ok(!bad.length,'водопад сходится у всех '+rows.length+' строк'+(bad.length?' — '+bad.slice(0,6).join('; '):''));
+}
+/* поставка 101 (файл 7, п. 2): помесячная детализация специализаций — сумма месяцев = строка таблицы (у юнита и подразделений) */
+if(R.scopeMix('tsm')){
+  const st=A.st(), nodes=[st.unit].concat(D.NODES.filter(n=>n.parent===st.unit&&!n.direct&&!n.hide).map(n=>n.path)), bad=[];let n=0;
+  nodes.forEach(p=>{const lp=D.leavesUnder(p).map(l=>l.path);D.specMovement(lp).forEach(z=>{const ms=D.specMonths(lp,z.name);n++;
+    ['hire','tin','exit','tout'].forEach(k=>{const v=ms.reduce((a,o)=>a+o[k],0);if(Math.abs(v-z[k])>0.5)bad.push(z.name+' '+k+' '+v+'≠'+z[k])})})});
+  ok(!bad.length,'детализация специализаций по месяцам = строки таблицы ('+n+' строк)'+(bad.length?' — '+bad.slice(0,5).join('; '):''));
+}
 /* ревью 100: у выбранного подразделения (строка ниже юнита) — его же уходы по инициатору и движение по специализациям:
    в сумме по инициаторам — его текучесть, таблица специализаций сходится, отток = его отток с начала года */
 {
