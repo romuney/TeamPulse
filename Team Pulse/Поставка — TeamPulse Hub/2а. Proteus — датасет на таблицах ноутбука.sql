@@ -12,7 +12,10 @@
                             переводы считаются под выбранные фильтры (с поставки 59)
       teampulse_hub_vacancy вакансии: узел × месяц × разрезы вакансии; фильтры среза на них не действуют
       teampulse_hub_ai      AI-инструменты: узел × месяц — WAU, проникновение; фильтры среза не действуют
-    Таблиц trf, vacancy, ai нет (ноутбук до поставок 49 и 50) — датасет падает: сначала ноутбук.
+      teampulse_hub_prof    профили численности последнего месяца (поставка 103): нижний юнит × срез × сочетание разрезов
+                            номерами словаря и возраст → людей; пересечения разрезов в отчёте — по ним
+      teampulse_hub_pfd     словарь профилей: разрез × значение → номер (поставка 103)
+    Таблиц trf, vacancy, ai нет (ноутбук до поставок 49 и 50), prof и pfd (до поставки 103) — датасет падает: сначала ноутбук.
 
     Поставка 53 (21.10) — скорость. Замер боя (файлы 8, 8б): запрос ждал 7–12 с, и почти всё — не чтение
     таблиц, а разбор длинного текста в Proteus и план ClickHouse. Поэтому:
@@ -176,8 +179,16 @@
     найм + переводы в − отток − переводы из = на конец» сходится по каждой специализации и в ИТОГО. Таблица ноутбука до
     31.10 колонки fsp не знает (−1) — только переводы юнита. -#}
 {% set FSP = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^fsp$') APPLY(toFloat64)], [toFloat64(-1)]), 1), -1)" %}
-{% set SI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND ((" ~ FLG ~ " AND ifNull(in_ok, 1) = 1) OR " ~ FSP ~ " = 1))" %}
-{% set SU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1))" %}
+{#- 03.11, поставка 103 (файл 9, п. 9): переводы по специализациям — только флаг юнита своего уровня (fu узла:
+    lvlN_mngt_unit_in / out_trsf_flg этого уровня; у «напрямую» — любой флаг юнита строки). Перемещение между
+    подразделениями внутри узла переводом узла не считается. Смена специализации или среза без смены юнита этого
+    уровня (fsp, флаги фильтров) — отдельно: ci / co («внутри юнита»), чтобы строка специализации сходилась:
+    на начало + найм + в − отток − из + (ci − co) = на конец. -#}
+{% set FU = "ifNull(fu, 0) = 1" %}
+{% set SI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FU ~ " AND ifNull(in_ok, 1) = 1)" %}
+{% set SU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND " ~ FU ~ ")" %}
+{% set CI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND NOT (" ~ FU ~ " AND ifNull(in_ok, 1) = 1) AND ((" ~ FLG ~ " AND ifNull(in_ok, 1) = 1) OR " ~ FSP ~ " = 1))" %}
+{% set CO = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND NOT (" ~ FU ~ ") AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1))" %}
 {#- Поставка 66: ряд таблицы series — матчером: таблица ноутбука до 66 колонки не знает — нули. -#}
 {% macro optf(c) -%}ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^{{ c }}$') APPLY(toFloat64)], [toFloat64(0)]), 1), 0){%- endmacro %}
 {% macro hk(v) -%}
@@ -387,6 +398,20 @@ WITH
       FROM (SELECT i6, s6, (SELECT n FROM cx) AS nh FROM mh)
     )
   ),
+  {#- Поставка 103: профили численности последнего месяца (teampulse_hub_prof) — точные пересечения разрезов. Строка
+      ноутбука — нижний юнит человека; здесь — узел ответа: ближайший к нему узел из ответа по пути (у подразделений
+      третьего уровня — всё поддерево, у остальных узлов — люди «напрямую»). Только внутри выбранного юнита, под всеми
+      фильтрами. Больше PF_MAX строк — профилей нет (отчёт режет срез оценкой, как раньше) #}
+  {%- set PF_MAX = 40000 %}
+  pfr AS (
+    SELECT u.mp AS u3, 'pf' AS k3, ifNull(p.pf, '') AS v3, sum(toFloat64(ifNull(p.cnt, 0))) AS n4
+    FROM prod_proteus.teampulse_hub_prof AS p
+    INNER JOIN (SELECT id, arrayLast(x -> has((SELECT arrayMap(y -> y.1, pks) FROM cx), x), ph) AS mp
+                FROM st2 WHERE has(ph, (SELECT s FROM cx))) AS u ON u.id = ifNull(p.node_rk, '')
+    WHERE {{ cond() }} AND u.mp != ''
+    GROUP BY u3, v3
+    HAVING n4 > 0
+  ),
   {#- Разрезы узлов ответа под фильтрами: «ключ \t значение \t число» через \n, отсортировано #}
   mxr AS (
     SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(concat(k3, '\t', v3, '\t', toString(round(n4, 1))))), '\n') AS mxs
@@ -427,18 +452,44 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
       FROM
       (
-        SELECT node_rk, {{ SPC }} AS spx, formatDateTime(report_month, '%Y-%m') AS mo, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu
+        SELECT node_rk, {{ SPC }} AS spx, formatDateTime(report_month, '%Y-%m') AS mo, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu,
+               {{ CI }} AS ci, {{ CO }} AS co
         FROM prod_proteus.teampulse_hub_trf
         WHERE ifNull(node_rk, '') IN {{ PK }} AND report_month >= toStartOfYear((SELECT cm FROM cx))
           AND report_month <= (SELECT cm FROM cx) AND {{ cond() }}
       )
-      ARRAY JOIN [('tsh', spx, th), ('tsi', spx, ti), ('tso', spx, tu),
+      ARRAY JOIN [('tsh', spx, th), ('tsi', spx, ti), ('tso', spx, tu), ('tci', spx, ci), ('tco', spx, co),
                   {#- поставка 101 (файл 7, п. 2): то же по месяцам — «вид|специализация|ГГГГ-ММ» (h найм, i в, o из):
                       помесячная детализация строки «Движения по специализациям»; в сумме — tsh / tsi / tso #}
-                  ('tsm', concat('h|', spx, '|', mo), th), ('tsm', concat('i|', spx, '|', mo), ti), ('tsm', concat('o|', spx, '|', mo), tu)] AS kv
+                  ('tsm', concat('h|', spx, '|', mo), th), ('tsm', concat('i|', spx, '|', mo), ti), ('tsm', concat('o|', spx, '|', mo), tu),
+                  ('tsm', concat('ci|', spx, '|', mo), ci), ('tsm', concat('co|', spx, '|', mo), co)] AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
+      UNION ALL
+      {#- поставка 103 (файл 9, п. 4): срок закрытия — медиана по вакансиям. vt — распределение сроков закрытых вакансий
+          «ГГГГ-ММ|дней» → вакансий за всю сетку, у каждого узла ответа (ttf_d — срок вакансии без холда, ноутбук 2_11;
+          матчером: таблица до поставки 103 колонки не знает — разреза нет, срок — средний, как раньше) #}
+      SELECT u9 AS u3, 'vt' AS k3, concat(formatDateTime(rm9, '%Y-%m'), '|', toString(toInt64(td9))) AS v3, sum(n9) AS n4
+      FROM
+      (
+        SELECT ifNull(node_rk, '') AS u9, toDate(assumeNotNull(report_month)) AS rm9,
+               arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^ttf_d$') APPLY(toFloat64)],
+                                        CAST([NULL], 'Array(Nullable(Float64))')), 1) AS td9,
+               toFloat64(ifNull(vac_ttf_cnt, 0)) AS n9
+        FROM prod_proteus.teampulse_hub_vacancy
+        WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }}
+      )
+      WHERE td9 IS NOT NULL
+      GROUP BY u3, v3
+      HAVING n4 > 0
+      UNION ALL
+      {#- поставка 103: профили (pf) и их словарь (pfd «разрез¦значение» → номер + 1) — у корня (строка base) #}
+      SELECT u3, k3, v3, n4 FROM pfr WHERE (SELECT count() FROM pfr) <= {{ PF_MAX }}
+      UNION ALL
+      SELECT (SELECT r FROM cx) AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
+      FROM prod_proteus.teampulse_hub_pfd
+      WHERE (SELECT count() FROM pfr) BETWEEN 1 AND {{ PF_MAX }}
     )
     GROUP BY u3
   )

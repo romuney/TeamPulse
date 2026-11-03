@@ -315,6 +315,11 @@ if(REAL){
   if(REAL.has('nreg'))ov.nonregret={ytd:'nonregret_m',anchor:null};
   if(REAL.has('vtd')&&REAL.has('vtn'))ov.time_to_fill={derived:{num:'ttf_days',den:'ttf_n',scale:1},anchor:null,
     calc:'Сумма дней от согласования до закрытия ÷ число закрытых за месяц вакансий. Вакансия — не человек: фильтры покраски, IT, штата и типа численности на неё не действуют.'};
+  /* поставка 103 (файл 9, п. 4): с распределением сроков (vt) — медиана по вакансиям: за месяц — по закрытым в месяце, за
+     период — по всем закрытым в периоде (не из месячных медиан) */
+  if(REAL.scopeMix&&REAL.scopeMix('vt'))ov.time_to_fill=Object.assign(ov.time_to_fill||{},{name:'Медианный срок закрытия вакансии',
+    hint:'Медиана: половина вакансий закрывается быстрее, половина — дольше.',
+    calc:'Медиана сроков закрытых вакансий: за месяц — закрытых в этом месяце, за период — всех закрытых в периоде. Срок — дней от согласования до закрытия без дней в холде. Каналы — из списка подбора. Вакансия — не человек: фильтры покраски, IT, штата и типа численности на неё не действуют.'});
   /* ревью 100: на настоящих — доля джунов среди закрытых вакансий; название говорит это, а не «в найме» */
   if(REAL.has('vjn')&&REAL.has('vcl'))ov.junior_share={name:'Доля джунов в закрытых вакансиях',derived:{num:'vac_jun',den:'vac_closed',scale:100,win:'ytd'},
     hint:'Доля вакансий, закрытых джунами, среди всех закрытых с начала года. Сколько их брать — выбор стратегии найма.'};
@@ -416,9 +421,10 @@ const DEV_PLAN=[
     {what:'Тип компании',aud:'hq',stage:'0',now:'live',ok:1},
     {what:'Формат работы: офис, гибрид, удалённо — по типу договора',aud:'all',stage:'0',now:'live',ok:1},
     /* 29.10, п. 8: поле age источника (ноутбук Адели 28.10) — средний возраст в портрете */
-    {what:'Средний возраст',aud:'all',stage:'0',now:'live'},
-    {what:'Пересечения разрезов: срез по клику, «разрез × разрез»',aud:'all',stage:'0',now:'dev',
-      need:'пока оценка по подразделениям; точные — отдельной выгрузкой'},
+    /* поставка 103 (файл 9, п. 11): по людям на конец периода, в срезе — точно (профили численности) */
+    {what:'Средний возраст на конец периода',aud:'all',stage:'0',now:'live'},
+    /* поставка 103: профили численности ноутбука — пересечения по людям */
+    {what:'Пересечения разрезов: срез по клику, «разрез × разрез»',aud:'all',stage:'0',now:'live'},
   ]},
   {blk:'Движение персонала',rows:[
     {what:'Найм и отток: за месяц, год к году и по подразделениям',aud:'all',stage:'0',now:'live',ok:1},
@@ -432,8 +438,8 @@ const DEV_PLAN=[
     /* 27.10-в, п. 3 и 10: сходятся с мастер-источником; всегда по активной численности HQ */
     {what:'Нежелательная и желательная текучесть',aud:'hq',stage:'0',now:'live',hq:1,ok:1},
     /* 26.10-б, правки п. 5: блок «Как уходит HQ» сверен целиком */
-    {what:'Светофор «Как уходит HQ?»: три текучести накопительно против порогов прод-отчёта HQ (12/15%, не ниже 5%, 4%)',
-      aud:'hq',stage:'0',now:'live',hq:1,ok:1},
+    /* поставка 103 (файл 9, п. 10): без целей — только факт и динамика */
+    {what:'Блок «Как уходит HQ?»: три текучести накопительно',aud:'hq',stage:'0',now:'live',hq:1,ok:1},
     {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live',ok:1},
     /* 21.10, ревизия источника (п. 10): по инициатору знаменатель — среднесписочная подразделения, она есть;
@@ -446,8 +452,9 @@ const DEV_PLAN=[
       need:'уходы есть; нужна среднесписочная по каждой группе'}]},
   {blk:'Найм и вакансии HQ',rows:[
     {what:'Открытые и закрытые вакансии по месяцам',aud:'all',stage:'2',now:'live',ok:1},
-    {what:'Срок закрытия вакансии',aud:'all',stage:'2',now:'live'},
-    {what:'Открытые вакансии по статусам, причине, специализации и уровню',aud:'all',stage:'2',now:'live'},
+    /* поставка 103 (файл 9, п. 4 и 5): срок — медиана по вакансиям; открытые вакансии сходятся — сверены */
+    {what:'Срок закрытия вакансии: медиана',aud:'all',stage:'2',now:'live'},
+    {what:'Открытые вакансии по статусам, причине, специализации и уровню',aud:'all',stage:'2',now:'live',ok:1},
     {what:'Закрытые вакансии по каналам и уровню кандидата',aud:'all',stage:'2',now:'live'},
     {what:'Доля джунов в закрытых вакансиях',aud:'all',stage:'2',now:'live'},
     {what:'Доля внутреннего найма: переводы среди всех пришедших',aud:'all',stage:'0',now:'live'},
@@ -471,7 +478,7 @@ const DEV_PLAN=[
     {what:'Состав по категориям по месяцам: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'live',hq:1},
     /* поставка 71: мониторинг по дням Адели — по месяцам; недели — с витриной по неделям */
     {what:'Звонки, прогулы, работа в выходные по месяцам',aud:'hq',stage:'0',now:'live',hq:1},
-    {what:'Часы в день и доля звонков по месяцам',aud:'hq',stage:'0',now:'live',hq:1},
+    {what:'Средняя рабочая активность и средняя доля звонков в Толк по месяцам',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Мониторинг по неделям: категории, звонки, прогулы, выходные',aud:'hq',stage:'5',now:'dev',need:'нужна витрина мониторинга по неделям (запрос 0л)'},
     {what:'Итоги ревью: распределение оценок, улучшили и ухудшили, по группам',aud:'us',stage:'5',now:'dev',next:1,
       need:'ревью учитывается только для eligible-популяции'}]},
@@ -491,7 +498,8 @@ const DEV_PLAN=[
        всё остальное — из недельной выгрузки AI-статистики по людям, которой в отчёте нет */
     {what:'Проникновение: команда против компании, по месяцам',aud:'hq',stage:'8',now:'live',hq:1,ok:1},
     {what:'Активные пользователи (WAU) и численность команды, по месяцам',aud:'hq',stage:'8',now:'live',hq:1},
-    {what:'WAU и проникновение по неделям',aud:'hq',stage:'8',now:'dev',need:AIW},
+    /* поставка 103 (файл 9, п. 2): пока только по месяцам — переключателя недель нет */
+    {what:'WAU и проникновение по неделям',aud:'hq',stage:'8',now:'dev',need:'пока по месяцам; '+AIW},
     {what:'Частота использования (0–7 дней) и инструментов на человека',aud:'hq',stage:'8',now:'dev',need:AIW},
     {what:'Топ инструментов',aud:'hq',stage:'8',now:'dev',need:'сейчас условно; '+AIW},
     {what:'Воронка сообщений и топ задач Copilot, Nestor IDE, Nessy CLI',aud:'hq',stage:'8',now:'dev',
@@ -1106,13 +1114,32 @@ function trfOwnOf(leafPaths,key){
    Производные метрики считаются как сумма числителей / сумма знаменателей —
    это точная групповая текучесть, а не среднее из процентов по листьям.
    Накопительные суммируются из уже агрегированной месячной. */
+/* поставка 103 (файл 9, п. 4): медиана срока закрытия по вакансиям — из распределения vt узла («ГГГГ-ММ|дней» → вакансий) */
+const TTF_MED=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('vt'));
+const extKey=i=>MONTHS_EXT[i]?MONTHS_EXT[i].y+'-'+String(MONTHS_EXT[i].m+1).padStart(2,'0'):'';
+function ttfByMonth(lp){
+  const m=selMix(lp,'vt')||{}, by={};
+  Object.keys(m).forEach(k=>{const j=k.indexOf('|'), n=Math.round(m[k]);if(j>0&&n>0)(by[k.slice(0,j)]=by[k.slice(0,j)]||[]).push([+k.slice(j+1),n])});
+  return by;
+}
+/* медиана набора [дней, вакансий]: середина упорядоченного ряда; чётное число — полусумма двух средних */
+function medianOf(list){
+  const a=list.slice().sort((x,y)=>x[0]-y[0]);let t=0;a.forEach(x=>{t+=x[1]});
+  if(!t)return null;
+  const at=q=>{let c=0;for(const x of a){c+=x[1];if(c>=q)return x[0]}return a[a.length-1][0]};
+  return t%2?at((t+1)/2):(at(t/2)+at(t/2+1))/2;
+}
+function ttfMedian(lp,idx){const by=ttfByMonth(lp), L=[];idx.forEach(i=>{(by[extKey(i)]||[]).forEach(x=>L.push(x))});return medianOf(L)}
 function aggregateExt(leafPaths,key){
   if(!leafPaths.length)return new Array(NEXT).fill(0);
   const ck='x'+HC_MODE+key+'#'+leafPaths.length+'#'+hashStr(leafPaths.join(','));
   if(_ac.has(ck))return _ac.get(ck);
   const m=defOf(key);
   const out=new Array(NEXT).fill(0);
-  if(m.derived){
+  if(key==='time_to_fill'&&TTF_MED){
+    const by=ttfByMonth(leafPaths);
+    for(let i=0;i<NEXT;i++)out[i]=medianOf(by[extKey(i)]||[]);
+  } else if(m.derived){
     /* сначала суммы по листьям, потом деление — Правило 2 из SOURCES.md */
     for(let i=0;i<NEXT;i++)out[i]=ratioAt(k=>aggregateExt(leafPaths,k),m.derived,i);
   } else if(m.diff){
@@ -1193,6 +1220,11 @@ function periodTotal(lp,key,yser){
   if(flow){cur=sum(y.cur);prev=sum(y.prev);head='Всего за '+span}
   else if(stock){cur=y.cur[c];prev=y.prev[c];head=PARTIAL?'Сейчас, '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'На конец '+MONTH_GEN[c]}
   else if(cum){cur=y.cur[c];prev=y.prev[c];head=part?'За '+span:'На конец '+MONTH_GEN[c]}
+  else if(key==='time_to_fill'&&TTF_MED&&!yser){
+    /* поставка 103 (файл 9, п. 4): медиана по всем вакансиям, закрытым в периоде, — не среднее и не медиана месячных */
+    const idx=off=>{const a=[];for(let j=0;j<=c;j++)a.push(YOY_FROM+off+j);return a};
+    cur=ttfMedian(lp,idx(12));prev=ttfMedian(lp,idx(0));head='Медиана за '+span;
+  }
   else{
     if(d&&!yser){
       const ks=k=>[].concat(k), ser=k=>ks(k).map(x=>yoySeries(lp,x)).reduce((a,b)=>({cur:a.cur.map((v,i)=>(v||0)+(b.cur[i]||0)),
@@ -1305,10 +1337,12 @@ function hqLight(st,lpSel,sel){
   const hc=!lp.length?0:node?Math.round(lastVal(lp,'hc_hq')):Math.round(lastVal(lp,'hc_total'));
   const L=LAST-(PARTIAL?1:0), mon=MONTHS[L];
   const rows=HQ_LIGHT.map(x=>{
-    const ser=aggregate(lp,sk(x.key)), v=ser[L], kpi=kpiAt(x.key,sh,mon.m), e=aggregateExt(lp,sk(x.key)), i=L+PRE;
+    /* поставка 103 (файл 9, п. 10): в блоке «Как уходит HQ?» целей нет — ни значений, ни оценки по ним; сигнал — только
+       сравнение с прошлым годом (у желательной — выше лучше) */
+    const ser=aggregate(lp,sk(x.key)), v=ser[L], e=aggregateExt(lp,sk(x.key)), i=L+PRE;
     const d=(a,b)=>a==null||b==null?null:+(a-b).toFixed(4);
-    return Object.assign({},x,{ser:ser,v:v,mom:d(e[i],e[i-1]),yoyD:d(e[i],e[i-12]),ya:e[i-12],kpi:kpi,
-      st:kpi?stateForKpi(x.key,v,kpi):'neutral',yoy:yoySeries(lp,sk(x.key))});
+    return Object.assign({},x,{ser:ser,v:v,mom:d(e[i],e[i-1]),yoyD:d(e[i],e[i-12]),ya:e[i-12],kpi:null,
+      st:'neutral',yoy:yoySeries(lp,sk(x.key))});
   });
   if(!REAL)setHcMode(m0);
   return {lp:lp,hc:hc,rows:rows,st:sh,month:mon};
@@ -1526,6 +1560,16 @@ const MIX_DIMS=[
 const REAL_DIM={gender:'g',age:'a',tenure:'t',grade:'gr',seniority:'s',worksite:'c',ctype:'tc',legal:'o',stream:'w',employment:'r',spec:'sp',region:'rg'};
 const REAL_WS=!!(REAL&&Object.keys(REAL.mixVals('ws')).length);
 if(REAL_WS)REAL_DIM.spec='ws';
+/* поставка 103: профили численности (ноутбук teampulse_hub_prof) — сочетания всех разрезов по людям листа. С ними срез по
+   нескольким разрезам, матрица конструктора и средний возраст в срезе считаются по людям, без допущения о независимости
+   разрезов. Без профилей (ноутбук до 103, слишком большой выбор) — как раньше: оценка по долям */
+const PROF=!!(REAL&&REAL.profOK&&REAL.profOK());
+const profRows=leafPath=>PROF?REAL.prof(leafPath):null;
+const pfVal=(r,dimKey)=>{const k=REAL_DIM[dimKey];return k==='ws'?r.v.w+'|'+r.v.sp:r.v[k]};
+const pfTot=rows=>rows.reduce((a,r)=>a+r.n,0);
+/* строка профиля проходит срез: в каждом разрезе — одна из выбранных категорий */
+function pfGroups(parts){return sliceGroups(parts).map(g=>({dk:g.dim.key,raws:new Set(g.idx.map(i=>g.dim.cats[i].raw))}))}
+const pfPass=(r,gs)=>gs.every(g=>g.raws.has(pfVal(r,g.dk)));
 const NONE_NAME='Не указано';
 /* 23.10, заказчик: «Стаж от 1 до 2 лет», «Стаж более 5 лет» — слово «стаж» повторяет название разреза: убираем */
 const tenName=v=>{const t=String(v||'').replace(/^\s*стаж\s+/i,'');return t?t.charAt(0).toUpperCase()+t.slice(1):t};
@@ -1720,6 +1764,13 @@ function nestOf(a,b){
   return null;
 }
 function mixJoint(leafPath,rowKey,colKey){
+  const pr=profRows(leafPath);
+  if(pr){
+    const R=MIX_BY_KEY[rowKey].cats, C=MIX_BY_KEY[colKey].cats, ar={}, ac={}, t=pfTot(pr), m=R.map(()=>C.map(()=>0));
+    R.forEach((c,i)=>{ar[c.raw]=i});C.forEach((c,j)=>{ac[c.raw]=j});
+    pr.forEach(r=>{const i=ar[pfVal(r,rowKey)], j=ac[pfVal(r,colKey)];if(i!=null&&j!=null)m[i][j]+=r.n});
+    return t?m.map(row=>row.map(x=>x/t)):m;
+  }
   const wr=mixWeights(leafPath,rowKey), wc=mixWeights(leafPath,colKey);
   const nest=nestOf(rowKey,colKey);
   if(nest){
@@ -1776,6 +1827,13 @@ function shareBesides(leafPath,parts){
 function partsWeight(leafPath,dimKey,parts){
   const dim=MIX_BY_KEY[dimKey];
   if(!parts.length)return mixWeights(leafPath,dimKey);
+  const pr=profRows(leafPath);
+  if(pr){
+    const t=pfTot(pr), gs=pfGroups(parts), at={}, w=dim.cats.map(()=>0);
+    dim.cats.forEach((c,i)=>{at[c.raw]=i});
+    pr.forEach(r=>{const i=at[pfVal(r,dimKey)];if(i!=null&&pfPass(r,gs))w[i]+=r.n});
+    return w.map(x=>t?x/t:0);
+  }
   /* партнёр — разрез среза, связанный с показываемым (иначе первый); у него может быть
      выбрано несколько категорий (Shift+клик, 21.10) — тогда их доли складываются */
   let k=parts.findIndex(p=>joined(dimKey,p.dim.key));
@@ -1965,6 +2023,8 @@ function sliceLabel(sel){return sliceParse(sel).map(p=>p.cat.name).join(' · ')}
    расходился бы с числом, по которому кликнули. */
 function sliceShare(leafPath,parts){
   if(!parts.length)return 1;
+  const pr=profRows(leafPath);
+  if(pr){const t=pfTot(pr), gs=pfGroups(parts);return t?pr.reduce((a,r)=>a+(pfPass(r,gs)?r.n:0),0)/t:0}
   if(parts.length===1)return mixWeights(leafPath,parts[0].dim.key)[parts[0].idx];
   /* 21.10 (файл «Структура»): Shift+клик — несколько категорий одного разреза. Внутри
      разреза категории складываются («Junior или Middle»), между разрезами — пересекаются */
@@ -2164,6 +2224,16 @@ function avgAge(lp,sel,dimKey,catIdx){
      «разрез|значение»): одна категория или срез одного разреза — точно; срез по нескольким разрезам или подразделение
      ниже выбранного — средний возраст листьев плюс сдвиг каждой категории от среднего юнита (совместного
      распределения в данных нет). Ноутбук без es / en — как раньше: в срезе и внутри категории пусто */
+  if(REAL&&PROF&&lp.every(p=>profRows(p))){
+    /* поставка 103 (файл 9, п. 11): по людям на конец периода (последний месяц данных) — среднее по их возрасту в срезе;
+       у карточки категории — её категория вместо среза того же разреза */
+    let parts=sliceParse(sel||[]);
+    if(dimKey){const d=MIX_BY_KEY[dimKey];if(d&&d.cats[catIdx]){parts=parts.filter(p=>p.dim.key!==dimKey);
+      parts.push({id:dimKey+':'+d.cats[catIdx].key,dim:d,idx:catIdx,cat:d.cats[catIdx]})}}
+    const gs=pfGroups(parts);let n=0,t=0;
+    lp.forEach(p=>profRows(p).forEach(r=>{if(r.age!=null&&r.age>0&&pfPass(r,gs)){n+=r.n;t+=r.age*r.n}}));
+    return n?t/n:null;
+  }
   if(REAL){
     const e=realExit(lp,'e');let n=0,t=0;
     Object.keys(e).forEach(v=>{const a=parseFloat(String(v).replace(',','.'));if(isFinite(a)&&a>0){n+=e[v];t+=a*e[v]}});
@@ -2417,14 +2487,20 @@ function realExit(lp,k){
    выбранной строки (общий предок листьев lp), а не суммой листьев: переводы между соседними командами для родителя
    внутренние. Старый датасет отдаёт его только у выбранного юнита — тогда как раньше. null — разреза нет */
 let _nmx=null;
+/* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
+   берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
+   сумма листьев: переводы между его подразделениями для него внутренние */
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
-  if(!s||!lp||!_nmx.has(k))return s;
+  if(!lp||!(_nmx.has(k)||NODE_KEYS.has(k)&&_nmx.has('tsh')))return s;
+  /* у выбранного юнита разреза нет, но он есть в ответе (у других узлов) — у строки он пустой, а не «нет данных» */
+  if(!s&&!_nmx.has(k)&&!Object.keys(REAL.mixVals(k)).length)return null;
   if(!lp.length)return {};
   const sg=lp.map(p=>p.split('/'));let n=sg[0].length;
   sg.forEach(a=>{let i=0;while(i<n&&a[i]===sg[0][i])i++;n=i});
-  const m=REAL.mix(sg[0].slice(0,n).join('/'));
+  const at=sg[0].slice(0,n).join('/'), m=(REAL.nodeMix&&REAL.nodeMix(at))||REAL.mix(at);
   return m?m[k]||{}:realExit(lp,k);
 }
 /* инициатива из таблицы → три корзины отчёта; формулировки уточнит запрос 0д */
@@ -2547,19 +2623,25 @@ function exitProfile(lp,win){
 const SPM_TRF=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('tsh'));
 /* поставка 90: «на конец» — численность специализаций на конец закрытого месяца (sp1); ноутбук без sp1 — сейчас (sp) */
 const SPM_END=!REAL||!!(REAL.scopeMix&&REAL.scopeMix('sp1'));
+/* поставка 103 (файл 9, п. 9): переводы в и из — только по флагу юнита своего уровня (tsi / tso); смена специализации или
+   среза без смены юнита — отдельно (tci / tco), колонкой «Внутри юнита» (+ пришли в специализацию, − ушли). Датасет до 103
+   их не отдаёт — колонки нет, переводы — как раньше */
+const SPM_CHG=!!(REAL&&REAL.scopeMix&&(REAL.scopeMix('tci')||REAL.scopeMix('tco')));
 function specMovement(lp){
   let rows;
   const nm=v=>isNA(v)?NONE_NAME:v;
   if(REAL){
     const x=realExit(lp,'xsp'), h=SPM_TRF?selMix(lp,'tsh'):realExit(lp,'hsp'),
-      ti=SPM_TRF?selMix(lp,'tsi')||{}:{}, to=SPM_TRF?selMix(lp,'tso')||{}:{}, by={};
+      ti=SPM_TRF?selMix(lp,'tsi')||{}:{}, to=SPM_TRF?selMix(lp,'tso')||{}:{}, by={},
+      ci=SPM_CHG?selMix(lp,'tci')||{}:{}, co=SPM_CHG?selMix(lp,'tco')||{}:{};
     /* 31.10, п. 7: на начало (sp0 — численность конца прошлого года) и на конец (sp — последний месяц); без sp0
        (ноутбук до 31.10) — на начало пусто */
     const s0=selMix(lp,'sp0'), s1=selMix(lp,'sp1')||realExit(lp,'sp');
-    const add=(o,k)=>Object.keys(o).forEach(v=>{const z=by[nm(v)]||(by[nm(v)]={name:nm(v),hc0:s0?0:null,hire:0,tin:0,exit:0,tout:0,hc1:0});z[k]+=o[v]});
-    add(h,'hire');add(ti,'tin');add(x,'exit');add(to,'tout');if(s0)add(s0,'hc0');add(s1,'hc1');
+    const add=(o,k,sg)=>Object.keys(o).forEach(v=>{const z=by[nm(v)]||(by[nm(v)]={name:nm(v),hc0:s0?0:null,hire:0,tin:0,exit:0,tout:0,
+      chg:SPM_CHG?0:null,hc1:0});z[k]+=(sg||1)*o[v]});
+    add(h,'hire');add(ti,'tin');add(x,'exit');add(to,'tout');add(ci,'chg');add(co,'chg',-1);if(s0)add(s0,'hc0');add(s1,'hc1');
     rows=Object.keys(by).map(k=>by[k]);
-    rows.forEach(z=>['hc0','hire','tin','exit','tout','hc1'].forEach(k=>{if(z[k]!=null)z[k]=Math.round(z[k])}));
+    rows.forEach(z=>['hc0','hire','tin','exit','tout','chg','hc1'].forEach(k=>{if(z[k]!=null)z[k]=Math.round(z[k])}));
   }else{
     const cats=(MIX_BY_KEY.spec||{cats:[]}).cats, hc=mixParts(lp,'spec'), r=rng(lpSeed(lp,'spm'));
     const sp=k=>splitBy(sumWin(aggregate(lp,k),'ytd'),jitter(r,hc.map(v=>v+1e-6),0.5));
@@ -2568,7 +2650,8 @@ function specMovement(lp){
     rows=cats.map((c,i)=>{const z={name:c.name,hire:hs[i]||0,tin:ts[i]||0,exit:xs[i]||0,tout:os[i]||0,hc1:Math.round(hc[i]||0)};
       z.hc0=Math.max(0,z.hc1-z.hire-z.tin+z.exit+z.tout);return z});
   }
-  return rows.filter(z=>z.hire+z.tin+z.exit+z.tout+(z.hc0||0)+(z.hc1||0)>0).map(z=>Object.assign(z,{net:z.hire+z.tin-z.exit-z.tout}))
+  return rows.filter(z=>z.hire+z.tin+z.exit+z.tout+Math.abs(z.chg||0)+(z.hc0||0)+(z.hc1||0)>0)
+    .map(z=>Object.assign(z,{net:z.hire+z.tin-z.exit-z.tout+(z.chg||0)}))
     .sort((a,b)=>b.hire+b.tin+b.exit+b.tout-(a.hire+a.tin+a.exit+a.tout)||a.name.localeCompare(b.name,'ru'));
 }
 
@@ -2576,16 +2659,17 @@ function specMovement(lp){
    переводы из по месяцам с января по закрытый; в сумме — строка таблицы. Пробник: tsm («вид|специализация|месяц») и xsm
    («специализация|месяц») у узла; датасет без них — null. Макет — строка таблицы, разложенная по месяцам */
 function specMonths(lp,name){
-  const ms=[];for(let m=0;m<=PER_C;m++)ms.push({m:m,label:MONTH_ABBR[m],key:YEAR_CUR+'-'+String(m+1).padStart(2,'0'),hire:0,tin:0,exit:0,tout:0});
+  const ms=[];for(let m=0;m<=PER_C;m++)ms.push({m:m,label:MONTH_ABBR[m],key:YEAR_CUR+'-'+String(m+1).padStart(2,'0'),hire:0,tin:0,exit:0,tout:0,chg:0});
   const nm=v=>isNA(v)?NONE_NAME:v;
   if(REAL){
     const t=selMix(lp,'tsm'), x=selMix(lp,'xsm');
     if(!t&&!x)return null;
     const at={};ms.forEach(o=>{at[o.key]=o});
-    const K={h:'hire',i:'tin',o:'tout'};
-    Object.keys(t||{}).forEach(v=>{const p=v.split('|'), mo=p.pop(), k=K[p.shift()], o=at[mo];if(o&&k&&nm(p.join('|'))===name)o[k]+=t[v]});
+    const K={h:'hire',i:'tin',o:'tout',ci:'chg',co:'chg'};
+    Object.keys(t||{}).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), k=K[kk], o=at[mo];
+      if(o&&k&&nm(p.join('|'))===name)o[k]+=(kk==='co'?-1:1)*t[v]});
     Object.keys(x||{}).forEach(v=>{const p=v.split('|'), mo=p.pop(), o=at[mo];if(o&&nm(p.join('|'))===name)o.exit+=x[v]});
-    ms.forEach(o=>['hire','tin','exit','tout'].forEach(k=>{o[k]=Math.round(o[k])}));
+    ms.forEach(o=>['hire','tin','exit','tout','chg'].forEach(k=>{o[k]=Math.round(o[k])}));
   }else{
     const z=specMovement(lp).find(r=>r.name===name);if(!z)return null;
     const r=rng(lpSeed(lp,'spmm'+name)), w=()=>jitter(r,ms.map(()=>1),0.6);
@@ -3000,7 +3084,9 @@ function aiUsage(lp){
   const act=Math.round(hc*pen/100), it=hcIT(lp), cl=(v,a,z)=>Math.max(a,Math.min(z,v));
   const weeks=MON_WEEKS.slice(-12).map((w,i)=>{const p=+cl(pen*(0.9+0.012*i+(r()-0.5)*0.06),0,100).toFixed(1);
     return {label:w.label,full:'Неделя '+w.full,pen:p,wau:Math.round(hc*p/100)}});
-  const freq=splitBy(act,jitter(r,[0.22,0.2,0.17,0.15,0.14,0.08,0.03],0.25)).map((n,i)=>({name:(i+1)+' '+U_DAYS(i+1),value:n}));
+  /* поставка 103 (файл 9, п. 2): частота — дней с AI за месяц (было — за неделю) */
+  const FQ=['1 день','2–3 дня','4–6 дней','7–10 дней','11–15 дней','16–20 дней','21 день и больше'];
+  const freq=splitBy(act,jitter(r,[0.22,0.2,0.17,0.15,0.14,0.08,0.03],0.25)).map((n,i)=>({name:FQ[i],value:n}));
   const per=splitBy(act,jitter(r,[0.46,0.31,0.15,0.08],0.2)).map((n,i)=>({name:i<3?String(i+1):'4 и больше',value:n}));
   const msgs=Math.round(act*it*(18+r()*10)), cls=Math.round(msgs*(0.7+r()*0.15));
   /* 31.10: сообщения по инструментам в сумме = классифицированные (остаток округления — последнему) */
@@ -3020,12 +3106,11 @@ function aiUsage(lp){
     intern:{hc:ihc,pen:ipen,act:iact,tools:ai.tools.map(t=>({name:t.name,value:+cl(t.value*(0.9+r()*0.3),0,100).toFixed(1)})),
       freq:splitBy(iact,jitter(r,[0.3,0.4,0.3],0.2))},cons:cons.filter(x=>x.hc>0)};
 }
-const U_DAYS=n=>n===1?'день':n<5?'дня':'дней';
 
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
@@ -3042,4 +3127,4 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};
+  TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};

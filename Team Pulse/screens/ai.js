@@ -36,13 +36,16 @@ const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'% людей',{met
 /* 31.10, файл «AI.md», п. 1 и 4: без сравнения с прошлым годом — одна линия за последние 12 месяцев (ось — месяцы окна
    отчёта, сколько их есть), переключатель «Месяц / Неделя». Проникновение и активные пользователи по месяцам — из
    источника (знаменатель проникновения — численность того же месяца под фильтрами); по неделям — условно (D.aiUsage) */
+/* поставка 103 (файл 9, п. 2): пока только по месяцам — переключатель «Неделя» снят; сохранённый выбор недели не действует.
+   Недельная заготовка (u.weeks) осталась: вернуть — AI_WEEKS = true */
+const AI_WEEKS=false;
 function adoption(ctx){
-  const S=ctx.S, gran=S.aiGran==='w'?'w':'m', u=D.aiUsage(ctx.lp);
+  const S=ctx.S, gran=AI_WEEKS&&S.aiGran==='w'?'w':'m', u=D.aiUsage(ctx.lp);
   const pen=D.aggregate(ctx.lp,'ai_penetration'), wau=D.aggregate(ctx.lp,'ai_wau');
   const P=gran==='w'?u.weeks:D.MONTHS.map((m,i)=>({label:m.label,full:D.MONTH_NOM[m.m]+' '+m.y,pen:pen[i],wau:wau[i],cl:i===D.PER_I,pt:D.PARTIAL&&i===D.LAST}));
   const per=gran==='w'?'по неделям':'по месяцам';
-  return '<div class="mon-bar">'+U.segToggle('data-aigran',[['m','Месяц'],['w','Неделя']],gran)+
-      '<span class="mon-note">'+(gran==='w'?'12 последних закрытых недель':'Последние 12 месяцев')+'</span></div>'+
+  return '<div class="mon-bar">'+(AI_WEEKS?U.segToggle('data-aigran',[['m','Месяц'],['w','Неделя']],gran):'')+
+      '<span class="mon-note">'+(gran==='w'?'12 последних закрытых недель':'Последние 12 месяцев, по месяцам')+'</span></div>'+
     (gran==='w'?U.devNote({stage:8,part:true,t:'По неделям — пока условно: нужна недельная AI-выгрузка. По месяцам — настоящие данные.'}):'')+
     G.chart('pline',{periods:P,key:'pen'},{title:'Проникновение AI '+per+', %',name:'Проникновение',fmt:'pct',color:G.C_AI,h:230})+
     G.chart('pline',{periods:P,key:'wau'},{title:'Активные пользователи AI '+per+', чел',name:'Активные пользователи',fmt:'int',color:G.C_AI,h:230})+
@@ -57,9 +60,9 @@ function who(u){
   return U.btStack([
       bars('Стажёры','сколько стажёров и сколько из них пользуются AI',
         [{name:'Стажёров',value:it.hc},{name:'Пользуются AI',note:P(it.pen)+' стажёров',value:it.act}],'Человек',{share:false,total:false}),
-      pctBars('Какими инструментами пользуются стажёры','% стажёров · хотя бы раз за неделю',it.tools.slice().sort((a,b)=>b.value-a.value)),
-      bars('Как часто пользуются стажёры','дней с AI за неделю · стажёры с AI',
-        [{name:'1–2 дня',value:it.freq[0]},{name:'3–4 дня',value:it.freq[1]},{name:'5 дней и больше',value:it.freq[2]}]),
+      pctBars('Какими инструментами пользуются стажёры','% стажёров · хотя бы раз за месяц',it.tools.slice().sort((a,b)=>b.value-a.value)),
+      bars('Как часто пользуются стажёры','дней с AI за месяц · стажёры с AI',
+        [{name:'1–4 дня',value:it.freq[0]},{name:'5–9 дней',value:it.freq[1]},{name:'10 дней и больше',value:it.freq[2]}]),
       segs.length?tbl('Инструменты по покраске','% численности сегмента · '+segs.map(x=>x.name).join(' / '),
         ['Инструмент'].concat(segs.map(x=>x.name+' · '+I(x.hc)+' чел')),
         u.tools.map((t,j)=>({c:[t.name].concat(segs.map(x=>P(x.cells[j])))}))):''])+
@@ -74,10 +77,10 @@ function usage(u){
   const cls={};u.dev.forEach(d=>d.tasks.forEach(t=>{cls[t.name]=(cls[t.name]||0)+t.value}));
   const clsItems=Object.keys(cls).map(k=>({name:k,value:cls[k]})).sort((a,b)=>b.value-a.value);
   return U.btStack([
-      bars('Частота использования','дней с AI за неделю · активные пользователи',u.freq),
+      bars('Частота использования','дней с AI за месяц · активные пользователи',u.freq),
       bars('Инструментов на человека','активные пользователи · в среднем '+(Math.round(avg*10)/10).toString().replace('.',',')+' (4+ считаем за 4)',u.per),
-      pctBars('Топ инструментов','% сотрудников · хотя бы раз за неделю',u.tools.slice().sort((a,b)=>b.value-a.value),'% сотрудников'),
-      bars('Воронка сообщений','инструменты разработчика · за неделю',
+      pctBars('Топ инструментов','% сотрудников · хотя бы раз за месяц',u.tools.slice().sort((a,b)=>b.value-a.value),'% сотрудников'),
+      bars('Воронка сообщений','инструменты разработчика · за месяц',
         [{name:'Все сообщения',value:u.msgs},{name:'Классифицированы',note:Math.round(u.cls/(u.msgs||1)*100)+'%',value:u.cls},
          {name:'Не классифицированы',note:Math.round((u.msgs-u.cls)/(u.msgs||1)*100)+'%',value:u.msgs-u.cls}],'Сообщений',{share:false,total:false}),
       bars('Классификация сообщений','классифицированные сообщения по задачам · всего '+I(u.cls),clsItems,'Сообщений')])+

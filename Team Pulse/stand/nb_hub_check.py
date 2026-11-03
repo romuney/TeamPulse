@@ -212,7 +212,8 @@ def main():
                         bad['mx tsh'] += 1
                     want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act, chg))
                     # поставка 101 (файл 7, п. 2): помесячная детализация специализаций — по месяцам в сумме то же, что за период
-                    for km, kk, pre in (('tsm', 'tsh', 'h|'), ('tsm', 'tsi', 'i|'), ('tsm', 'tso', 'o|'), ('xsm', 'xsp', '')):
+                    for km, kk, pre in (('tsm', 'tsh', 'h|'), ('tsm', 'tsi', 'i|'), ('tsm', 'tso', 'o|'), ('tsm', 'tci', 'ci|'),
+                                        ('tsm', 'tco', 'co|'), ('xsm', 'xsp', '')):
                         agg = defaultdict(float)
                         for v, n in mxv.get(km, {}).items():
                             if v.startswith(pre):
@@ -253,7 +254,7 @@ def main():
                             bad['T-рост пуст'] += 1
                         if not mxv.get('tsh'):
                             bad['движение по специализациям пусто'] += 1
-                        if not want_v['tsi'] and (act is None or 'Активная' in act):
+                        if not (want_v['tsi'] or want_v.get('tci')) and (act is None or 'Активная' in act):
                             bad['переводы по специализациям пусты'] += 1
                         if n_e and not mxv.get('en'):
                             bad['средний возраст по разрезам пуст'] += 1

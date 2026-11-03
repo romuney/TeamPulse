@@ -113,7 +113,9 @@ function parseMx(s){
 function mxMinus(u,kids){
   const out={};
   Object.keys(u).forEach(k=>{
-    if(k==='dw'||k==='do'||k==='xim')return;   /* календарь посещений и уходы по инициатору — только у выбранного юнита */
+    if(k==='dw'||k==='do'||k==='xim'||k==='pfd')return;   /* календарь посещений и уходы по инициатору — только у выбранного юнита */
+    /* поставка 103: профили у юнита с детьми — уже только его люди «напрямую» (датасет относит их к узлу ответа) */
+    if(k==='pf'){out.pf=Object.assign({},u.pf);return}
     Object.keys(u[k]).forEach(v=>{
       let s=u[k][v];
       kids.forEach(c=>{s-=((c[k]||{})[v]||0)});
@@ -239,7 +241,7 @@ function build(data){
   }
 
   const lastOf=a=>a[n-1]||0;
-  const nodes=[], series={}, mixes={};
+  const nodes=[], series={}, mixes={}, nodeMx={};
   /* поставка 64: переводы не складываются по листьям — у мастер-отчёта «напрямую в юните» свой узел (din / dout
      ноутбука), и переход из корня юнита в его подразделение для юнита внутренний, а для листьев — перевод. Поэтому
      лист «Напрямую» берёт din / dout, а у юнита с подразделениями переводы — своя строка (trfOwn: data.js берёт её,
@@ -271,6 +273,9 @@ function build(data){
   units.forEach(u=>{
     const p=pathOf(u.id), node=nodeBy[p];
     if(!node)return;
+    /* поставка 103: разрезы самого узла (у юнита с детьми — его строка датасета целиком): разрез «у узла» (переводы по
+       специализациям, распределение сроков) берётся у выбранной строки, а не суммой её листьев */
+    nodeMx[p]=u.mx;
     node.outside=false;
     node.sort=-lastOf(u.ser.hc);
     const ch=u.depth<3?(kidsIn[u.id]||[]):[];
@@ -384,6 +389,28 @@ function build(data){
       return (actN[b]||0)-(actN[a]||0)||a.localeCompare(b,'ru');
     });
   const hcType=!cuts.has('act')||!actNow.length?'all':sameSet(actNow,actDef)?'active':'set';
+  /* поставка 103: словарь профилей (у базы) и профили листа — разбор один раз */
+  let _pfd;
+  const pfDict=()=>{
+    if(_pfd!==undefined)return _pfd;
+    const src=(mixes.BASE||{}).pfd||(Object.keys(mixes).map(p=>mixes[p].pfd).find(Boolean));
+    if(!src){_pfd=null;return null}
+    _pfd={};
+    Object.keys(src).forEach(kv=>{const j=kv.indexOf('¦');if(j<0)return;const k=kv.slice(0,j);let v=kv.slice(j+1);
+      if(GRADE_MX[k])v=gradeOf(v);(_pfd[k]=_pfd[k]||[])[Math.round(src[kv])-1]=v});
+    return _pfd;
+  };
+  const _pf={};
+  const profOf=path=>{
+    if(path in _pf)return _pf[path];
+    const m=mixes[path], x=m&&m.pf, d=pfDict();
+    if(!x||!d)return _pf[path]=null;
+    return _pf[path]=Object.keys(x).map(code=>{
+      const c=code.lastIndexOf(':'), ids=code.slice(0,c<0?code.length:c).split('.'), a=c<0?'':code.slice(c+1), v={};
+      PFK.forEach((k,i)=>{v[k]=(d[k]||[])[+ids[i]];if(v[k]==null)v[k]=''});
+      return {v:v,age:a===''?null:+a,n:x[code]};
+    });
+  };
   return {
     n,pre,months,monthsExt,periodLabel,
     lm:str(meta.lm),today:str(meta.today),asof,
@@ -422,6 +449,10 @@ function build(data){
     trfOwnPaths(){return Object.keys(trfOwn)},
     /* разрезы листа (или 'BASE'): {ключ:{значение:число}}; null — нет данных */
     mix(path){return mixes[path]||null},
+    nodeMix(path){return nodeMx[path]||null},
+    /* поставка 103: профили численности листа — [{v:{разрез:значение}, age, n}]: точные пересечения разрезов; null — нет */
+    prof(path){return profOf(path)},
+    profOK(){return !!pfDict()&&Object.keys(mixes).some(p=>p!=='BASE'&&mixes[p].pf)},
     /* поставка 66: календарь посещений выбранного юнита — {dw:{дата:людей с рабочим днём}, do:{дата:из них в офисе}};
        null — в ответе его нет */
     dayMix(){const m=scopeU&&scopeU.mx;return m&&m.dw&&Object.keys(m.dw).length?{dw:m.dw,do:m.do||{}}:null},
@@ -441,5 +472,8 @@ function build(data){
   };
 }
 
+/* поставка 103: профили численности — «номер.номер….номер:возраст» → значения разрезов по словарю pfd (у базы:
+   «разрез¦значение» → номер + 1). Порядок разрезов — как в ноутбуке (PF_KEYS hub_sql.py) */
+const PFK=['g','a','t','gr','s','c','tc','o','w','r','sp','rg'];
 window.TPREAL={build,FIELDS,FIELDS_MS,FIELDS_OPT,OPT,LIVE_WITH,STUB,PAINT_V,IT_V,STAFF_V,ACT_V};
 })();

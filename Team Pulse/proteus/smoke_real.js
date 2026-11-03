@@ -195,7 +195,8 @@ if(R.has('vop')){
   const vo=arr(scopeRow,'vop'), vc=arr(scopeRow,'vcl'), vd=arr(scopeRow,'vtd'), vn=arr(scopeRow,'vtn'), vj=arr(scopeRow,'vjn');
   let cj=0,cc=0;for(let k=jan0();k<=i;k++){cj+=vj[k];cc+=vc[k]}
   ok(near(D.lastVal(rl,'vac_open'),vo[i])&&near(D.lastVal(rl,'vac_closed'),vc[i])&&
-    near(D.aggregate(rl,'time_to_fill')[D.LAST],vn[i]?+(vd[i]/vn[i]).toFixed(2):null)&&
+    /* поставка 103 (файл 9, п. 4): с распределением сроков (vt) — медиана месяца (проверка медианы — ниже), иначе дни / закрытые */
+    (D.TTF_MED||near(D.aggregate(rl,'time_to_fill')[D.LAST],vn[i]?+(vd[i]/vn[i]).toFixed(2):null))&&
     near(D.lastVal(rl,'junior_share'),cc?+(cj/cc*100).toFixed(2):null),
     'вакансии: открытые, закрытые, срок = дни / закрытые, доля джунов = закрытые джунами / закрытые с начала года');
   const vb=D.vacancyBreakdown(rl), sumK=k=>rl.reduce((a,p)=>{const o=(R.mix(p)||{})[k]||{};return a+Object.keys(o).reduce((x,v)=>x+o[v],0)},0);
@@ -354,7 +355,7 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const hrs=v('hrs'), hrn=v('hrn'), tlk=v('tlk');
     ok(['ab25','ab5','we25','we5','t23','t35','t5'].every(c=>lc[c]===Math.round(v(c)))&&
        near(lc.hours,hrn?+(hrs/hrn).toFixed(2):null)&&near(lc.talk,hrs?+(tlk/hrs*100).toFixed(1):null)&&
-       !/class="kpi mk/.test(mo)&&!/mon-ph/.test(mo)&&/Доля звонков в Толк/.test(mo)&&/data-pmark="0"/.test(mo),
+       !/class="kpi mk/.test(mo)&&!/mon-ph/.test(mo)&&/Средняя доля звонков в Толк/.test(mo)&&/Средняя рабочая активность/.test(mo)&&/data-pmark="0"/.test(mo),
       'мониторинг по дням: прогулы '+(lc.ab25+lc.ab5)+', выходные '+(lc.we25+lc.we5)+', звонки 20–30% '+lc.t23+
       ', '+lc.hours+' ч/день, звонки '+lc.talk+'% — как в строке юнита; линии часов и звонков, плашек KPI нет (30.10)');
   }else ok(!/class="kpi mk/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),
@@ -516,8 +517,9 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
   /* поставка 90 (заказчик): переводы по специализациям — флаги переводов под фильтры ИЛИ смены специализации, на конец — на
      конец закрытого месяца (sp1): на начало + найм + переводы в − отток − переводы из = на конец — в ИТОГО и по строкам */
   if(D.SPM_TRF&&R.scopeMix('sp1')){
-    const bal=z=>z.hc0+z.hire+z.tin-z.exit-z.tout-z.hc1, off=sm.filter(z=>Math.abs(bal(z))>0.5);
-    ok(Math.abs(S('hc0')+S('hire')+S('tin')-S('exit')-S('tout')-S('hc1'))<=0.5&&!off.length,
+    /* поставка 103 (файл 9, п. 9): переводы — только флаг юнита уровня; смена специализации или среза без перевода — chg */
+    const bal=z=>z.hc0+z.hire+z.tin-z.exit-z.tout+(z.chg||0)-z.hc1, off=sm.filter(z=>Math.abs(bal(z))>0.5);
+    ok(Math.abs(S('hc0')+S('hire')+S('tin')-S('exit')-S('tout')+(D.SPM_CHG?S('chg'):0)-S('hc1'))<=0.5&&!off.length,
       'движение по специализациям сходится: '+S('hc0')+' + '+S('hire')+' + '+S('tin')+' − '+S('exit')+' − '+S('tout')+' = '+S('hc1')+
       (off.length?'; не сходятся строки: '+off.map(z=>z.name+' '+bal(z)).join(', '):''));
   }
@@ -538,7 +540,7 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
 if(R.scopeMix('tsm')){
   const st=A.st(), nodes=[st.unit].concat(D.NODES.filter(n=>n.parent===st.unit&&!n.direct&&!n.hide).map(n=>n.path)), bad=[];let n=0;
   nodes.forEach(p=>{const lp=D.leavesUnder(p).map(l=>l.path);D.specMovement(lp).forEach(z=>{const ms=D.specMonths(lp,z.name);n++;
-    ['hire','tin','exit','tout'].forEach(k=>{const v=ms.reduce((a,o)=>a+o[k],0);if(Math.abs(v-z[k])>0.5)bad.push(z.name+' '+k+' '+v+'≠'+z[k])})})});
+    ['hire','tin','exit','tout'].concat(D.SPM_CHG?['chg']:[]).forEach(k=>{const v=ms.reduce((a,o)=>a+o[k],0);if(Math.abs(v-z[k])>0.5)bad.push(z.name+' '+k+' '+v+'≠'+z[k])})})});
   ok(!bad.length,'детализация специализаций по месяцам = строки таблицы ('+n+' строк)'+(bad.length?' — '+bad.slice(0,5).join('; '):''));
 }
 /* ревью 100: у выбранного подразделения (строка ниже юнита) — его же уходы по инициатору и движение по специализациям:
@@ -552,7 +554,7 @@ if(R.scopeMix('tsm')){
       if(!y.cur.every((v,i)=>v==null||Math.abs(xs.reduce((a,x)=>a+(x.cur[i]||0),0)-v)<0.05))bad.push(k.name+': инициатор');
       if(D.SPM_TRF&&R.scopeMix('sp1')){
         const sm=D.specMovement(lp), S=q=>sm.reduce((a,z)=>a+z[q],0);
-        if(Math.abs(S('hc0')+S('hire')+S('tin')-S('exit')-S('tout')-S('hc1'))>0.5||
+        if(Math.abs(S('hc0')+S('hire')+S('tin')-S('exit')-S('tout')+(D.SPM_CHG?S('chg'):0)-S('hc1'))>0.5||
           Math.abs(S('exit')-D.sumWin(D.aggregate(lp,'attrition'),'ytd'))>0.5)bad.push(k.name+': специализации');
       }
     });
@@ -564,7 +566,7 @@ if(R.scopeMix('tsm')){
   const e={};String(scopeRow.mx||'').split('\n').forEach(l=>{const f=l.split('\t');if(f[0]==='e')e[f[1]]=+f[2]});
   const n=Object.values(e).reduce((a,b)=>a+b,0), want=n?Object.keys(e).reduce((a,k)=>a+(+k)*e[k],0)/n:null;
   const got=D.avgAge(rl,[]), ps=A.go('structure','portrait');
-  if(n)ok(Math.abs(got-want)<0.01&&/средний возраст команды/.test(ps),'средний возраст '+got.toFixed(1)+' — из поля age ('+n+' чел), в портрете');
+  if(n)ok(Math.abs(got-want)<0.01&&/средний возраст на конец периода/.test(ps),'средний возраст '+got.toFixed(1)+' — из поля age ('+n+' чел), в портрете');
   else ok(got==null,'средний возраст: без поля age — не показан');
 }
 /* история по главам (итерация 32): по демо-цифрам выводов нет, по живым — есть */
@@ -626,6 +628,28 @@ ok(['time_to_fill','tgrowth_conv','underwork','overwork'].every(k=>!D.PARTIAL||D
     pt&&pt.v===yt.cur[c]&&/^На конец /.test(pt.head)&&pc&&pc.v===yc.cur[D.CUR_LEN-1]&&!pc.strip&&
     /class="pt-line"/.test(hire),
     'итог за период: найм '+(ph&&ph.cur)+' ('+(ph&&ph.head)+'), год назад '+(ph&&ph.prev)+'; накопительная текучесть и численность — на дату');
+}
+/* поставка 103: профили численности — у каждого листа разрезы из профилей = разрезы mix; пересечение двух разрезов —
+   целые люди, в сумме по строке = разрез; средний возраст — из профилей */
+if(D.PROF){
+  const leaves=D.NODES.filter(n=>n.leaf&&!n.outside).map(n=>n.path), bad=[];let n=0, frac=0;
+  leaves.forEach(p=>{const pr=R.prof(p), m=R.mix(p)||{};if(!pr)return;n++;
+    ['g','a','gr','s','rg','sp'].forEach(k=>{const acc={};pr.forEach(r=>{acc[r.v[k]]=(acc[r.v[k]]||0)+r.n});
+      const mk=m[k]||{};Object.keys(Object.assign({},acc,mk)).forEach(v=>{if(Math.abs((acc[v]||0)-(mk[v]||0))>0.5)bad.push(p.split('/').pop()+' '+k+' '+v)})});
+    const j=D.mixJoint(p,'gender','region'), t=pr.reduce((a,r)=>a+r.n,0);
+    j.forEach(row=>row.forEach(x=>{if(Math.abs(x*t-Math.round(x*t))>1e-6)frac++}))});
+  ok(n>0&&!bad.length&&!frac,'профили: у '+n+' листов разрезы = mix, пересечения «пол × регион» — целые люди'+(bad.length?' — '+bad.slice(0,5).join('; '):'')+
+    (frac?'; дробных клеток '+frac:''));
+}else ok(!R.profOK||!R.profOK(),'профили: в ответе нет — пересечения оценкой, как раньше');
+/* поставка 103 (файл 9, п. 4): медиана срока — по вакансиям: в месяце распределение = число закрытых со сроком (vtn);
+   итог периода — медиана всех вакансий периода, не медиана месячных */
+if(D.TTF_MED){
+  const lp=D.reportLeaves(D.DEFAULT_STATE), vt=R.scopeMix('vt'), vtn=D.aggregate(lp,'ttf_n'), bad=[];
+  D.MONTHS.forEach((mm,i)=>{const k=mm.y+'-'+String(mm.m+1).padStart(2,'0');let c=0;Object.keys(vt).forEach(x=>{if(x.indexOf(k+'|')===0)c+=vt[x]});
+    if(Math.abs(c-(vtn[i]||0))>0.5)bad.push(k+': '+c+'≠'+vtn[i])});
+  const pt=D.periodTotal(lp,'time_to_fill'), med=D.aggregate(lp,'time_to_fill');
+  ok(!bad.length&&pt&&/^Медиана за /.test(pt.head)&&med.some(v=>v!=null&&v>0),'срок закрытия — медиана: распределение = закрытым по месяцам, итог «'+
+    (pt&&pt.head)+'» '+(pt&&pt.cur)+(bad.length?' — '+bad.join('; '):''));
 }
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);

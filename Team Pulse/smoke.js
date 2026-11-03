@@ -399,8 +399,12 @@ checks.push(['офис — календарь, «кто и где ходит» (
 /* 28.10, п. 4: все графики AI из «Готовности данных» — вкладка «Как пользуются» (условные) */
 /* 31.10, «AI.md»: три раздела — пользуются ли, кто, как; без сравнения с прошлым годом; месяц / неделя */
 const aiA=A.go('ai','adoption'), aiW=A.go('ai','who'), aiU=A.go('ai','usage');
+/* поставка 103 (файл 9, п. 2): сохранённый выбор недели — по-прежнему по месяцам, без пустого экрана */
+{const st=A.st(), g0=st.aiGran;st.aiGran='w';const h=A.go('ai','adoption');st.aiGran=g0;
+  checks.push(['AI: сохранённая «неделя» не включает недельный расчёт',/Проникновение AI по месяцам/.test(h)&&!/по неделям/.test(h)])}
 checks.push(['AI — «Пользуются ли AI?», «Кто пользуется?», «Как пользуется?», без прошлого года',subsOf('ai')==='adoption,who,usage'&&
-  /data-aigran="m"/.test(aiA)&&/data-aigran="w"/.test(aiA)&&/Проникновение AI по месяцам/.test(aiA)&&/Активные пользователи AI по месяцам/.test(aiA)&&
+  /* поставка 103 (файл 9, п. 2): только по месяцам — переключателя «Неделя» нет, сохранённый выбор недели не действует */
+  !/data-aigran=/.test(aiA)&&/Последние 12 месяцев, по месяцам/.test(aiA)&&/Проникновение AI по месяцам/.test(aiA)&&/Активные пользователи AI по месяцам/.test(aiA)&&
   !new RegExp('data-sid="prev"|>'+D.YEAR_PREV+'<').test(aiA)&&
   /* файл 7, п. 6: конструктор «IT-код × покраска» снят; п. 3: таблицы одним столбцом (bt-stack) */
   ['Стажёры','Какими инструментами пользуются стажёры','Как часто пользуются стажёры','Инструменты по покраске'].every(t=>aiW.indexOf(t)>=0)&&
@@ -1652,7 +1656,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const hcR=D.fmtInt(Math.round(D.lastVal(D.reportLeaves(A.st()),'hc_total')));
   checks.push(['портрет по файлу «Структура»: пол, возраст, регион, воронки нет; куски и карточки кликаются',
     (pt.match(/<section class="pf-s">/g)||[]).length===3&&/>Регион</.test(pt)&&!/hf-st|Воронка|юридическ/i.test(pt)&&!!hcR&&
-    /М : Ж = /.test(pt)&&/средний возраст команды/.test(pt)&&(pt.match(/средний возраст <b>/g)||[]).length===2&&
+    /М : Ж = /.test(pt)&&/средний возраст на конец периода \(\d+ [а-я]+ \d{4}\) — <b>/.test(pt)&&(pt.match(/средний возраст <b>/g)||[]).length===2&&
     (pt.match(/<div class="shc[^"]*" data-mix="gender:/g)||[]).length===2&&(pt.match(/<div class="shc[^"]*" data-mix="age:/g)||[]).length===3&&
     (pt.match(/class="gsp"/g)||[]).length===3&&(pt.match(/<span[^>]* data-mix="age:[^"]*" style="flex:/g)||[]).length===3&&
     /* 23.10: «Уровень позиции» — полосы и карточки сеньорности и стажа, столбцы грейдов; «Оформление» — полоса и
@@ -1757,7 +1761,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !D.MISMATCH.size&&pn.bad===0&&pn.ok>=16&&pn.data===0&&/✓ сверены/.test(op)&&!/расхождение/.test(op)&&
     /* 26.10-б: «Движение по специализациям» — новый график, с мастер-источником ещё не сверен;
        строк «данные есть» не осталось: инициатор и специализации стали живыми */
-    D.DEV_PLAN.filter(g=>/Структура|Движение/.test(g.blk)).every(g=>g.rows.every(r=>r.now!=='live'||r.ok||/специализациям|Средний возраст/.test(r.what)))&&
+    D.DEV_PLAN.filter(g=>/Структура|Движение/.test(g.blk)).every(g=>g.rows.every(r=>r.now!=='live'||r.ok||/специализациям|Средний возраст|Пересечения разрезов/.test(r.what)))&&
     !/одной воронкой|[Вв]оронка численности|Пол и возраст|Списки ушедших|AI-рекомендации/.test(op)&&
     /считается только для HQ-численности/.test(op)]);
   /* 28.10, п. 1: движение по специализациям — найм, переводы в, отток, переводы из; в сумме = те же ряды с начала года */
@@ -1858,7 +1862,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const Gd=D.MIX_BY_KEY.gender, g0=Gd&&Gd.cats[0], a0=Gd?D.avgAge(rl,[],'gender',0):null, a1=Gd?D.avgAge(rl,[],'gender',1):null;
   checks.push(['п. 1: средний возраст карточки пола не меняется от среза по полу, «—» вместо пустоты',
     !Gd||(D.avgAge(rl,[g0.id],'gender',1)===a1&&D.avgAge(rl,[Gd.cats[1].id],'gender',0)===a0&&
-      /средний возраст (в срезе|команды) — <b>/.test(A.go('structure','portrait')))]);
+      /средний возраст (в срезе )?на конец периода \([^)]+\) — <b>/.test(A.go('structure','portrait')))]);
   /* п. 2: светофор HQ — по выбранной строке; покраска в шапке его не меняет */
   const kid=D.childrenOf(S.unit)[0];
   const h0=D.hqLight(S,rl,S.unit), hk=kid&&D.hqLight(S,D.leavesUnder(kid.path).map(l=>l.path),kid.path);
@@ -1916,6 +1920,14 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /class="hg"/.test(tv)&&/\.ptg:hover\.hg\{opacity:1\}/.test(css)]);
   checks.push(['файл 8, п. 2: желательная текучесть HQ — выше лучше, цель «не ниже 5%»',
     nr.better==='higher'&&nr.kpi.green===5&&nr.kpi.red===5&&/Чем выше, тем лучше/.test(nr.hint)&&D.METRIC_BY_KEY.regret.better==='lower']);
+  /* поставка 103 (файл 9, п. 6–7): месячная текучесть в таблице — значение закрытого месяца (точка графика), месяц и год в шапке */
+  {const th=A.go('turnover','dynamics'), PM=D.MONTHS[D.PER_I], rl=D.reportLeaves(A.st()), v=D.fmtVal('turnover_m',D.aggregate(rl,'turnover_m')[D.PER_I]);
+    checks.push(['файл 9, п. 6–7: месячная текучесть в таблице = точка '+D.MONTH_NOM[PM.m]+' '+PM.y+' на графике ('+v+')',
+      th.indexOf('<span class="th-per">'+D.MONTH_NOM[PM.m]+' '+PM.y+'</span>')>=0&&new RegExp('<tr class="total[^"]*"[\\s\\S]*?'+v.replace(',','\\,')).test(th)])}
+  /* поставка 103 (файл 9, п. 10): в «Как уходит HQ?» целей нет — ни сноски, ни оценки, ни слов «цель», «порог», «ориентир» */
+  {const hb=A.go('turnover','hq'), hl=D.hqLight(A.st(),D.reportLeaves(A.st()),A.st().unit);
+    checks.push(['файл 9, п. 10: «Как уходит HQ?» — без целей, факт и год назад',!/[Цц]ел[ьиея]|порог|[Оо]риентир|план\b/.test(hb)&&
+      !!hl&&hl.rows.every(r=>r.kpi==null&&r.st==='neutral')&&/data-sid="prev"|>'+D.YEAR_PREV+'</.test(hb)])}
   checks.push(['файл 8, п. 6: закрытые вакансии в таблице — за '+D.YEAR_CUR+' год, год в подписи колонки',
     th.indexOf('Закрытые<span class="th-per">'+D.YEAR_CUR+'</span>')>=0]);
   checks.push(['файл 8, п. 7: шаги не ужимаются — ширина не меньше 168 px, лишние — прокруткой',

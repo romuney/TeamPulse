@@ -29,8 +29,17 @@
 -- (CTE оценивается в единицы строк — на объёме боя план выбирал вложенный цикл)
 drop table if exists teampulse_hub_trfr;
 create table teampulse_hub_trfr as
--- строки дня с событием; одинаковые строки — одна (как distinct мастер-отчёта)
-select distinct x.mdm_employee_rk as e, x.calendar_dt::date as dt,
+-- строки дня с событием. 03.11, поставка 103 (файл 9, п. 8): одна строка на сотрудника × день × путь юнита — флаги
+-- дня 0 / 1 (max по повторным записям источника), а не сумма: повтор одного признака перевод не удваивает. «В» и «из»,
+-- уровни структуры — разными флагами, не сливаются; срез дня при расхождении записей — меньшее значение
+select e, dt, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11,
+       max(ui1) as ui1, max(ui2) as ui2, max(ui3) as ui3, max(ui4) as ui4, max(ui5) as ui5, max(ui6) as ui6, max(ui7) as ui7, max(ui8) as ui8, max(ui9) as ui9, max(ui10) as ui10, max(ui11) as ui11,
+       max(uo1) as uo1, max(uo2) as uo2, max(uo3) as uo3, max(uo4) as uo4, max(uo5) as uo5, max(uo6) as uo6, max(uo7) as uo7, max(uo8) as uo8, max(uo9) as uo9, max(uo10) as uo10, max(uo11) as uo11,
+       min(pa) as pa, min(it) as it, min(st) as st, min(ac) as ac,
+       max(hf) as hf, max(cv) as cv, max(cc) as cc, max(fx) as fx, max(ld) as ld, min(sp) as sp,
+       max(ia) as ia, max(oa) as oa, max(ip) as ip, max(oq) as oq, max(ii) as ii, max(oi) as oi, max(ist) as ist, max(ost) as ost, max(isp) as isp, max(osp) as osp
+from (
+select x.mdm_employee_rk as e, x.calendar_dt::date as dt,
        coalesce(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') as k1,
        coalesce(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') as k2,
        coalesce(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') as k3,
@@ -102,6 +111,8 @@ where x.calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year'
        coalesce(x.transfer_out_employment_relation_type_flg::text, '0') = '1' or
        coalesce(x.transfer_to_specialization_flg::text, '0') = '1' or
        coalesce(x.transfer_out_specialization_flg::text, '0') = '1')
+) z
+group by e, dt, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11
 distributed by (e);
 analyze teampulse_hub_trfr;
 

@@ -10,7 +10,8 @@ fields = [
     'fire_reason_group',
     'fire_initiative',
     'type_company',
-    'source_type_nm',
+    # 03.11, поставка 103 (файл 9, п. 12): источник найма — на день найма, а не последнее значение месяца
+    {'name': 'source_type_nm', 'at_hire': True},
     # 26.10, поставка 66 (Адель): признак руководителя — сегмент «Руководители / Сотрудники» посещаемости
     'management_head_flg',
     # dict без match — то же самое, но с явным alias

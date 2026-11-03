@@ -8,7 +8,9 @@
 --     последнем месяце — свой путь из уровней вакансии. Вакансия — не человек: фильтры среза на неё не действуют
 drop table if exists teampulse_hub_vacancy;
 create table teampulse_hub_vacancy as
-select node_rk, report_month, channel, search_reason, cand_lvl, position_lvl, specialization, status,
+-- 03.11, поставка 103 (файл 9, п. 4): ttf_d — срок закрытой вакансии (дней без холда, снимок 2_11): по нему датасет
+-- отдаёт распределение сроков, отчёт считает медиану месяца и периода по вакансиям, а не среднее
+select node_rk, report_month, channel, search_reason, cand_lvl, position_lvl, specialization, status, ttf_d,
        sum(open_cnt) as vac_open_cnt, sum(close_cnt) as vac_close_cnt, sum(new_cnt) as vac_new_cnt,
        sum(ttf_days) as vac_ttf_days, sum(ttf_cnt) as vac_ttf_cnt
 from (
@@ -17,7 +19,7 @@ from (
     left join teampulse_hub_upath u on u.unit_rk = x.mng_unit_rk::text
     where x.report_month between (select grid_start from teampulse_hub_cal) and (select lm from teampulse_hub_cal)
 ) e
-group by 1, 2, 3, 4, 5, 6, 7, 8
+group by 1, 2, 3, 4, 5, 6, 7, 8, 9
 distributed by (node_rk);
 
 -- 9. календарь отчёта, корень и юнит по умолчанию (у корня один ребёнок — он)

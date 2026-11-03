@@ -5,6 +5,10 @@
 -- дней через nullif (у человека, который в месяце работал только в выходные, оно 0 — параграф падал); мониторинг по
 -- дням — к одной строке человека в месяце (last_row_flg = 1), как перформанс: у перешедшего строк две, и прогулы с
 -- часами считались в обоих юнитах; день отбора — с 1 января прошлого года включительно (было «>»)
+-- 03.11, поставка 103 (файл 9, п. 1): категории мониторинга — только у людей численности на конец месяца
+-- (hc_total_cnt = 1), как численность отчёта: ушедшие в течение месяца в мониторинг не попадают (было 341 против 339).
+-- Человек численности без записи перформанса — «не размечено» (perf_gray), а не пропуск: сумма категорий = численность
+-- той же выборки, покраска HQ / Support / Line — на конец месяца, как у численности
 -- =============================================================================
 drop table if exists all_metrics_with_performance_added ;
 create table all_metrics_with_performance_added as
@@ -69,10 +73,11 @@ with performance_category (val, mapped_val) as(
 
 
 select nm.*
-    , coalesce(perf.perf_normal, 0)     as perf_normal
-    , coalesce(perf.perf_low, 0)        as perf_low
-    , coalesce(perf.perf_high, 0)       as perf_high
-    , coalesce(perf.perf_gray, 0)       as perf_gray
+    , case when coalesce(nm.hc_total_cnt, 0) = 1 then coalesce(perf.perf_normal, 0) else 0 end as perf_normal
+    , case when coalesce(nm.hc_total_cnt, 0) = 1 then coalesce(perf.perf_low, 0) else 0 end    as perf_low
+    , case when coalesce(nm.hc_total_cnt, 0) = 1 then coalesce(perf.perf_high, 0) else 0 end   as perf_high
+    , case when coalesce(nm.hc_total_cnt, 0) = 1
+           then case when perf.mdm_employee_rk is null then 1 else coalesce(perf.perf_gray, 0) end else 0 end as perf_gray
     , coalesce(pmd.duration_hour, 0)    as duration_hour -- Длительность рабочего дня в часах средняя
     , coalesce(pmd.absence, 0)          as absence -- прогул
     , coalesce(pmd.work_dayoff, 0)        as work_dayoff -- Работа в выходной

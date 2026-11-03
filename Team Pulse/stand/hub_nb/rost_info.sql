@@ -6,11 +6,13 @@
 -- отклонённой — месяц решения), грейд и специализация сейчас и желаемые, статус, тип (смена специализации — по
 -- specialization_change_flg, иначе повышение грейда), поток T@T (у заявки есть уровень T@T). Как в эталоне: только
 -- HQ-специализации, без стажёров, без черновиков, актуальная версия заявки
+-- 03.11, поставка 103 (ноутбук «TeamPulse Hub_2_11»): distinct — одна строка на заявку, без заявок без id, только
+-- своя компания (юнит 1-го уровня заявки — из структуры all_metrics; в 2_11 — литералом rk)
 -- =============================================================================
 drop table if exists rost_info ;
 create table rost_info as
 
-select
+select distinct
         ap.mdm_employee_application_id as application_id,
         ap.creator_mdm_employee_rk as mdm_employee_rk,
         ap.company_hire_dt::date as company_hire_dt,
@@ -37,5 +39,7 @@ where ap.valid_to_dttm = '5999-01-01 00:00:00'
     and ap.mdm_employee_appl_status_cd <> 'DRT'
     and ap.current_specialization_oper_code = 'Hq'   -- 31.10: фильтр HQ вернули (вкладка «Рост HQ»; у Адели 29.10 был снят)
     and coalesce(ap.current_specialization_desc, '') not in ('Стажеры IT', 'Стажеры Digital', 'Стажеры non-IT')
+    and ap.mdm_employee_application_id is not null
+    and ap.lvl1_management_unit_rk::text in (select distinct lvl1_rk::text from all_metrics)
 
 distributed by (mdm_employee_rk, month);

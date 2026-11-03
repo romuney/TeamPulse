@@ -504,6 +504,84 @@ from (
     ) x
 ) e;
 
+-- 03.11, поставка 103: профили численности последнего месяца — пересечения разрезов без оценки (конструктор, срез по
+-- нескольким разрезам, портрет, средний возраст в срезе). Человек — один раз, в нижнем юните; узел ответа (выбранный
+-- юнит, подразделения на три уровня вниз, «напрямую») датасет находит по пути юнита. Строка — сочетание разрезов
+-- g a t gr s c tc o w r sp rg номерами словаря teampulse_hub_pfd и возраст: pf = «номер.номер….номер:возраст», cnt — людей
+drop table if exists teampulse_hub_pfx;
+create table teampulse_hub_pfx as
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+       coalesce(nullif(translate(e.gender::text, E'\t\n|', '  /'), '-'), '') as k_g,
+       coalesce(nullif(translate(e.type_age::text, E'\t\n|', '  /'), '-'), '') as k_a,
+       coalesce(nullif(translate(e.experience_group_nm::text, E'\t\n|', '  /'), '-'), '') as k_t,
+       coalesce(nullif(translate(e.grade::text, E'\t\n|', '  /'), '-'), '') as k_gr,
+       coalesce(nullif(translate(e.seniority::text, E'\t\n|', '  /'), '-'), '') as k_s,
+       coalesce(nullif(translate(e.employee_contract_type::text, E'\t\n|', '  /'), '-'), '') as k_c,
+       coalesce(nullif(translate(e.type_company::text, E'\t\n|', '  /'), '-'), '') as k_tc,
+       coalesce(nullif(translate(e.legal_organization::text, E'\t\n|', '  /'), '-'), '') as k_o,
+       coalesce(nullif(translate(e.employee_stream::text, E'\t\n|', '  /'), '-'), '') as k_w,
+       coalesce(nullif(translate(e.employment_relation_type::text, E'\t\n|', '  /'), '-'), '') as k_r,
+       coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), '') as k_sp,
+       coalesce(nullif(translate(e.region::text, E'\t\n|', '  /'), '-'), '') as k_rg,
+       (case when trim(e.age::text) ~ '^[0-9]+([.,][0-9]+)?$' then replace(trim(e.age::text), ',', '.')::numeric end) as age, coalesce(e.hc_total_cnt, 0) as n
+from (
+    select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
+           generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
+    from (
+        select s.hc_total_cnt, s.gender, s.type_age, s.age, s.experience_group_nm, s.grade, s.seniority,
+               s.employee_contract_type, s.legal_organization, s.employee_stream, s.employment_relation_type,
+               s.specialization, s.type_company, s.region, s.management_head_flg,
+               (select pre from teampulse_hub_cal) || coalesce(u.cp,
+                   array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
+                                      s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
+                                      s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
+               coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
+               case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
+               coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
+        from all_metrics_with_performance_and_office_traffic_and_grt s
+        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
+    ) x
+) e
+where coalesce(e.hc_total_cnt, 0) > 0
+  and e.node_rk = (string_to_array(e.cp, '|'))[array_upper(string_to_array(e.cp, '|'), 1)]
+distributed by (node_rk);
+
+-- словарь: разрез × значение → номер (0 — самое частое по компании)
+drop table if exists teampulse_hub_pfd;
+create table teampulse_hub_pfd as
+select k, v, (row_number() over (partition by k order by n desc, v) - 1)::int as i
+from (
+    select k, v, sum(n) as n
+    from (select unnest(ARRAY['g', 'a', 't', 'gr', 's', 'c', 'tc', 'o', 'w', 'r', 'sp', 'rg']) as k,
+                 unnest(ARRAY[k_g, k_a, k_t, k_gr, k_s, k_c, k_tc, k_o, k_w, k_r, k_sp, k_rg]) as v, n
+          from teampulse_hub_pfx) t
+    group by 1, 2
+) t
+distributed randomly;
+
+drop table if exists teampulse_hub_prof;
+create table teampulse_hub_prof as
+select x.node_rk, x.paint_c as paint_cd, x.it_c as it_cd, x.staff_c as staff_cd, x.act_c as act_cd,
+       d_g.i::text || '.' || d_a.i::text || '.' || d_t.i::text || '.' || d_gr.i::text || '.' || d_s.i::text || '.' || d_c.i::text || '.' || d_tc.i::text || '.' || d_o.i::text || '.' || d_w.i::text || '.' || d_r.i::text || '.' || d_sp.i::text || '.' || d_rg.i::text || ':' || coalesce(case when x.age = round(x.age) then round(x.age)::int::text else round(x.age, 1)::text end, '') as pf,
+       sum(x.n) as cnt
+from teampulse_hub_pfx x
+join teampulse_hub_pfd d_g on d_g.k = 'g' and d_g.v = x.k_g
+join teampulse_hub_pfd d_a on d_a.k = 'a' and d_a.v = x.k_a
+join teampulse_hub_pfd d_t on d_t.k = 't' and d_t.v = x.k_t
+join teampulse_hub_pfd d_gr on d_gr.k = 'gr' and d_gr.v = x.k_gr
+join teampulse_hub_pfd d_s on d_s.k = 's' and d_s.v = x.k_s
+join teampulse_hub_pfd d_c on d_c.k = 'c' and d_c.v = x.k_c
+join teampulse_hub_pfd d_tc on d_tc.k = 'tc' and d_tc.v = x.k_tc
+join teampulse_hub_pfd d_o on d_o.k = 'o' and d_o.v = x.k_o
+join teampulse_hub_pfd d_w on d_w.k = 'w' and d_w.v = x.k_w
+join teampulse_hub_pfd d_r on d_r.k = 'r' and d_r.v = x.k_r
+join teampulse_hub_pfd d_sp on d_sp.k = 'sp' and d_sp.v = x.k_sp
+join teampulse_hub_pfd d_rg on d_rg.k = 'rg' and d_rg.v = x.k_rg
+group by 1, 2, 3, 4, 5, 6
+distributed by (node_rk);
+drop table if exists teampulse_hub_pfx;
+
 drop table if exists teampulse_hub_mix;
 create table teampulse_hub_mix as
 select node_rk, paint_c as paint_cd, it_c as it_cd, staff_c as staff_cd, act_c as act_cd,

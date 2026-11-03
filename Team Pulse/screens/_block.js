@@ -318,7 +318,10 @@ function renderBlock(S,expanded,mixOpen,view){
      период под графиком: потоки и доли — с января по закрытый месяц, накопительные — на его конец, состояния — сейчас;
      окно подписано под названием колонки. Структура — состояния на сегодня со срезом (lastValSlice) */
   const ov=TBL_OVR[b.key]||{}, P0={}, pt=k=>P0[k]||(P0[k]=D.periodTotal(rl,k)||{});
-  const val=(lp,key)=>YNOW.has(key)?ynow(lp):b.key==='tgrowth'&&key==='hc_total'&&D.ROST_NODE?D.rostHc(lp):
+  /* поставка 103 (файл 9, п. 6–7): месячная текучесть в таблице — значение одного месяца (последнего закрытого), то же, что
+     точка этого месяца на графике; было — среднее за январь..закрытый месяц (итог периода под графиком). Месяц и год — в шапке */
+  const MONTHLY=new Set(['turnover_m']), PM=D.MONTHS[D.PER_I];
+  const val=(lp,key)=>MONTHLY.has(key)?D.aggregate(lp,key)[D.PER_I]:YNOW.has(key)?ynow(lp):b.key==='tgrowth'&&key==='hc_total'&&D.ROST_NODE?D.rostHc(lp):
     b.key==='structure'||pt(key).stock?D.lastValSlice(lp,key,selIds):(D.periodTotal(lp,key)||{}).v;
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
@@ -329,7 +332,7 @@ function renderBlock(S,expanded,mixOpen,view){
      вместе с незакрытым месяцем), год — в подписи колонки */
   const YNOW=new Set(['vac_closed']);
   const ynow=lp=>D.aggregate(lp,'vac_closed').reduce((t,v,i)=>t+(D.MONTHS[i].y===D.YEAR_CUR?v||0:0),0);
-  const perOf=k=>YNOW.has(k)?String(D.YEAR_CUR):b.key==='structure'||pt(k).lab===D.PER_SPAN?'':pt(k).lab||'';
+  const perOf=k=>MONTHLY.has(k)?D.MONTH_NOM[PM.m]+' '+PM.y:YNOW.has(k)?String(D.YEAR_CUR):b.key==='structure'||pt(k).lab===D.PER_SPAN?'':pt(k).lab||'';
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
@@ -361,7 +364,8 @@ function renderBlock(S,expanded,mixOpen,view){
   const cmpTxt=(cmpMets.length
       ? 'Сравниваем с базой <b>'+esc(D.benchmarkLabel(S))+'</b>.'
       : kpiMets.length?'':'Здесь количества — с базой они не сравниваются.')+
-    (kpiMets.length?' Где есть цель KPI — с целью.':'');
+    /* поставка 103 (файл 9, п. 10): в «Как уходит HQ?» целей нет — и упоминания о них в шапке тоже */
+    (kpiMets.length&&!(b.key==='turnover'&&S.subTab==='hq')?' Где есть цель KPI — с целью.':'');
   /* «Детальный дашборд» ведёт туда, где блок есть в Proteus: при покраске HQ —
      в HQ-версию 34136, иначе в общую 34661; HQ-блоки — всегда в 34136. */
   const dash=D.blockDash(b.key,S);
@@ -379,7 +383,9 @@ function renderBlock(S,expanded,mixOpen,view){
   const sum=INS.blockSummary(b.key,S,rl,bl);
   /* 31.10, файл итерации п. 2 и 6: в «Саммари» только короткий текстовый вывод — таблица «Где это происходит» снята на
      всех вкладках (подразделения — в таблице ниже), блок в одну колонку и ниже по высоте */
-  h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
+  /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» вывод блока (он сравнивает текучесть отдела с целями) не ставим —
+     в разделе HQ целей нет; свой текст раздела — в его главе */
+  if(!(b.key==='turnover'&&S.subTab==='hq'))h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -462,13 +468,15 @@ function renderBlock(S,expanded,mixOpen,view){
   };
   const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),i===1)).join('')
     :mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
+  /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» подсказки шапок — без фраз о целях */
+  const noGoal=t=>b.key==='turnover'&&S.subTab==='hq'?(String(t).match(/[^.]+(?:\.|$)\s*/g)||[]).filter(x=>!/[Цц]ел[ьиея]/.test(x)).join('').trim():t;
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'».\nГлубже — выберите строку и нажмите значок у её названия.'})+'>Подразделение</th>'+
     (tcols?tcols.map(c=>{const on=tsc===c;return '<th'+(c.val?' class="tsort'+(on?' on':'')+'" data-tsort="'+(on&&tsd<0?c.k+':a':on?'':c.k+':d')+'"':'')+
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+(c.per?'<span class="th-per">'+esc(c.per)+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:U.metricText(m,1),note:YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
+    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:noGoal(U.metricText(m,1)),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
       pt(m.key).head+' — как итог под графиком.':null})+'>'+esc(m.short)+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+

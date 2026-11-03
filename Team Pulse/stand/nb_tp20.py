@@ -242,6 +242,18 @@ def spec_at(p, d):
     return ch[1] if ch and d >= ch[0] else p['spec']
 
 
+def source_at(p, d):
+    """источник найма на день d (поставка 103, файл 9, п. 12): у части нанятых в окне поле меняется после дня найма в том
+    же месяце (каждый 4-й — «Внутренний перевод»), у каждого 13-го в день найма пусто и заполняется на следующий день —
+    отчёт берёт значение дня найма ('-'), а не последнее за месяц"""
+    if p['start'] > D0 and d.year == p['start'].year and d.month == p['start'].month:
+        if p['rk'] % 13 == 0 and d == p['start']:
+            return None
+        if p['rk'] % 4 == 0 and d > p['start']:
+            return 'Внутренний перевод'
+    return p['source']
+
+
 def source_rows(U, people):
     H = heads(U, people)
     for p in people:
@@ -286,7 +298,7 @@ def source_rows(U, people):
                       int(d == p['start'] and p['start'] > D0), int('transfer_candidate_flg' in cv),
                       int('transfer_internal_flg' in cv), fired, p['regret'] if fired else 0]
                    + [tf.get(t, 0) for t in TYPES] + [of.get(t, 0) for t in TYPES]
-                   + [p['nonreg'] if fired else 0, p['company'], spd, p['source']]
+                   + [p['nonreg'] if fired else 0, p['company'], spd, source_at(p, d)]
                    + [None, None, 0, 0]
                    + [int((d + dt.timedelta(1)).day == 1)]
                    + [REGIONS[p['rk'] * 7 % len(REGIONS)]]
@@ -297,7 +309,7 @@ def source_rows(U, people):
 
 
 # ---- вакансии (21.10): usr_cross_data.vacancy_daily по дням, как источник TP 2.0 ----------
-VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'close_flg', 'end_of_month_flg', 'last_dt_flg',
+VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'approved_dt_last', 'close_flg', 'end_of_month_flg', 'last_dt_flg',
              'status_name', 'status_name_chng_group', 'search_reason', 'mapping_channel_name', 'act_month',
              'specialization', 'lvl_position_adj', 'finalist_level_candy']
             + [f'resource_level_{i}_rk' for i in range(1, NL + 1)])
@@ -342,7 +354,7 @@ def vac_status(v, d):
     if v['end'] == d:
         return ('Закрыта', 'Закрытые') if v['kind'] == 'close' else ('Отменена', 'Отменённые')
     if v['hold'] and v['hold'] <= d < v['hold'] + dt.timedelta(20):
-        return 'Холд', 'Согласованные'
+        return 'Hold', 'Согласованные'      # поставка 103: в источнике — 'Hold' (ноутбук 2_11 считает по нему дни холда)
     if d < v['adt'] + dt.timedelta(10):
         return 'Backlog', 'Согласованные'
     if v['end'] and v['kind'] == 'close' and d >= v['end'] - dt.timedelta(10):
@@ -358,17 +370,25 @@ def vacancy_rows(U, vacs):
         while d <= last:
             st, gr = vac_status(v, d)
             nxt = d + dt.timedelta(1)
-            yield ([v['id'], d, v['adt'], int(v['end'] == d and v['kind'] == 'close'), int(nxt.month != d.month),
+            yield ([v['id'], d, v['adt'], v['adt'], int(v['end'] == d and v['kind'] == 'close'), int(nxt.month != d.month),
                     int(d == last), st, gr, v['reason'], v['channel'], f'{d.year}-{d.month:02d}', v['spec'], v['pos'],
                     v['cand'] if v['kind'] == 'close' and d == v['end'] else None]
                    + [pu[i] if i < len(pu) else '-' for i in range(NL)])
             d = nxt
 
 
-VAC_CHANNELS = {'Активный поиск', 'Внешняяреферальная программа', 'Кадровое агентство', 'Найден руководителем', 'Наша база',
+VAC_CHANNELS = {'Активный поиск', 'Внешняя реферальная программа', 'Кадровое агентство', 'Найден руководителем', 'Наша база',
                 'Не удалось получить источник в Candy(Внешнийтип поиска)', 'Образовательные программы',
                 'Отклики с внешних площадок', 'Отклики с нашего сайта', 'Приведи друга', 'Ротация'}
 vac_ok = lambda v: v['channel'] in VAC_CHANNELS or v['channel'].startswith('Процессинг ')   # поставка 86, structure_x_vacancy
+
+
+def vac_ttf(v):
+    """поставка 103 (ноутбук 2_11): срок закрытой вакансии — дней от согласования до закрытия без дней в Hold; дни холда —
+    по строкам источника (с D0) внутри [согласование; закрытие]"""
+    hold = sum(1 for k in range((v['end'] - max(v['adt'], D0)).days + 1)
+               if vac_status(v, max(v['adt'], D0) + dt.timedelta(k))[0] == 'Hold')
+    return max((v['end'] - v['adt']).days - hold, 0)
 
 
 def truth_vac(U, vacs):
@@ -376,17 +396,19 @@ def truth_vac(U, vacs):
     (сумма дней и число закрытых); как structure_x_vacancy + build_hub, шаг 11"""
     T = defaultdict(lambda: defaultdict(float))
     root = ['all'] if ROOTS > 1 else []
-    for v in filter(vac_ok, vacs):
+    # поставка 103 (2_11): открытые и новые — по всем каналам, закрытые и срок — по каналам из списка (in_ch)
+    for v in vacs:
         nodes = root + path(U, v['unit'])
+        ok = vac_ok(v)
         for m in months():
             e = eom(m)
             st = vac_status(v, e)
             add = {}
             if st and st[1] == 'Согласованные':
                 add['vop'] = 1
-            if v['kind'] == 'close' and v['end'] and (v['end'].year, v['end'].month) == (m.year, m.month):
+            if ok and v['kind'] == 'close' and v['end'] and (v['end'].year, v['end'].month) == (m.year, m.month):
                 add['vcl'] = 1
-                add['vtd'] = (v['end'] - v['adt']).days
+                add['vtd'] = vac_ttf(v)
                 add['vtn'] = 1
                 add['vjn'] = int(v['cand'] == 'Junior')
             if v['adt'] >= D0 and (v['adt'].year, v['adt'].month) == (m.year, m.month):
@@ -587,14 +609,17 @@ def load(pg, U, people):
               creator_mdm_employee_rk bigint, company_hire_dt date, create_dt timestamp, hd1_init_dt timestamp,
               valid_from_dttm timestamp, valid_to_dttm timestamp, current_grade_num int, required_grade_num int,
               current_specialization_desc text, required_specialization_desc text, current_specialization_oper_code text,
-              mdm_employee_appl_status_cd text, specialization_change_flg int, current_tat_num int, required_tat_num int)""")
+              mdm_employee_appl_status_cd text, specialization_change_flg int, current_tat_num int, required_tat_num int,
+              lvl1_management_unit_rk text)""")
     pg.copy('usr_cross_data.mdm_employee_application_grt',
             ['mdm_employee_application_id', 'creator_mdm_employee_rk', 'company_hire_dt', 'create_dt', 'hd1_init_dt',
              'valid_from_dttm', 'valid_to_dttm', 'current_grade_num', 'required_grade_num', 'current_specialization_desc',
              'required_specialization_desc', 'current_specialization_oper_code', 'mdm_employee_appl_status_cd',
-             'specialization_change_flg', 'current_tat_num', 'required_tat_num'],
+             'specialization_change_flg', 'current_tat_num', 'required_tat_num', 'lvl1_management_unit_rk'],
+            # поставка 103 (2_11): юнит 1-го уровня заявки; каждая 23-я — чужой компании (отсекается фильтром rost_info)
             [(r[14], r[0], r[13], r[1], r[11], r[10], '5999-01-01 00:00:00', r[5], r[6], SPECS[r[7] - 1], SPECS[r[8] - 1],
-              'Hq' if r[12] == 'HQ' else r[12], r[2], int(r[7] != r[8]), None, r[9]) for r in grt])
+              'Hq' if r[12] == 'HQ' else r[12], r[2], int(r[7] != r[8]), None, r[9],
+              'x' if r[14] % 23 == 0 else '1') for r in grt])
     # поставка 71: справочник специализаций (rost_info Адели), поставка 73 — с датой запуска T-роста
     pg.run("CREATE TABLE prod_v_dds_dic.employee_specialization (employee_specialization_dk int, employee_specialization_desc text, "
            "deleted_flg int, valid_from_dttm date, valid_to_dttm date, tgrowth_effective_dt date)")
@@ -619,7 +644,7 @@ def load(pg, U, people):
                                                      'first_nm', 'last_nm', 'last_day_flg', 'last_day_of_month_flg'],
             structure_rows(U, people))
     # 21.10: вакансии по дням (источник structure_x_vacancy)
-    vtyp = lambda c: 'date' if c in ('issue_day', 'approved_dt') else 'int' if c.endswith('_flg') else 'text'
+    vtyp = lambda c: 'date' if c in ('issue_day', 'approved_dt', 'approved_dt_last') else 'int' if c.endswith('_flg') else 'text'
     pg.run(f"CREATE TABLE usr_cross_data.vacancy_daily ({', '.join(f'{c} {vtyp(c)}' for c in VAC_COLS)})")
     pg.copy('usr_cross_data.vacancy_daily', VAC_COLS, vacancy_rows(U, vacancies(U)))
     # 21.10: AI — сводка по юниту за месяц, как источник прод-ноутбука HQ (уровни со 2-го)
@@ -758,14 +783,15 @@ def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, h
             T[(n, m)]['ssch'] = (T[(n, m)]['hc'] + prev) / 2
     byrk = {p['rk']: p for p in people}
     last_unit = lambda p, m: at(p['unit'], min(eom(m), p['end'] or D1))
-    for rk_, m, cat in perf:
-        if rk_ not in byrk or not ok(byrk[rk_], m):
-            continue
-        for n in path(U, last_unit(byrk[rk_], m)):
-            T[(n, m)]['perf'] += 1
+    # поставка 103 (файл 9, п. 1): мониторинг — люди численности на конец месяца, у каждого одна категория (без записи
+    # перформанса — «не размечено»): в сумме по категориям — численность
+    for (n, m) in list(T.keys()):
+        T[(n, m)]['perf'] = T[(n, m)]['hc']
     # поставка 73: решения T-роста — заявки HQ (покраска в день создания), в месяц итога; человек в этом месяце есть в
     # таблице (строка месяца — его последняя)
     for r in grt:
+        if r[14] % 23 == 0:            # поставка 103 (2_11): заявка чужой компании — rost_info её отсекает
+            continue
         rk_, st, fin = r[0], r[2], r[10]
         m = dt.date(fin.year, fin.month, 1)
         p_ = byrk.get(rk_)
@@ -821,9 +847,13 @@ def truth_spec_move(U, people, rk, pred=lambda p, d: True, act=ACTIVE, chg=()):
     специализации внутри выбора; одно событие — один перевод. «В» — в специализацию первого дня нового состояния, «из» —
     из специализации последнего дня старого; кандидат или стажёр в «в» не идёт, кроме смены специализации. Так
     «на начало + найм + переводы в − отток − переводы из = на конец» сходится по каждой специализации и в ИТОГО.
-    Месяц — день события (последний день старого состояния в конце месяца — уже следующий). С января по cm"""
+    Месяц — день события (последний день старого состояния в конце месяца — уже следующий). С января по cm.
+    Поставка 103 (файл 9, п. 9): tsi / tso — только перевод юнита уровня узла (узел в пути нового дня и не в пути старого:
+    флаг юнита этого уровня), строка проходит фильтры; остальное из прежнего правила — tci / tco («внутри юнита»)"""
     lm = closed_month()
     out = {'tsi': defaultdict(float), 'tso': defaultdict(float)}
+    lvl = {'tsi': defaultdict(float), 'tso': defaultdict(float)}
+    inu = lambda p, d: rk != 'all' and rk in path(U, at(p['unit'], d))
     F = lambda p, d: pred(p, d) and (act is None or at(p['acth'], d) in act)
     inn = lambda p, d: F(p, d) and (rk == 'all' or rk in path(U, at(p['unit'], d)))
     for p in people:
@@ -839,6 +869,10 @@ def truth_spec_move(U, people, rk, pred=lambda p, d: True, act=ACTIVE, chg=()):
                 continue
             a = d - dt.timedelta(1)
             ia, ib, sa, sb = inn(p, a), inn(p, d), spec_at(p, a), spec_at(p, d)
+            if inu(p, d) and not inu(p, a) and F(p, d) and d not in conv:
+                lvl['tsi'][sb] += 1
+            if inu(p, a) and not inu(p, d) and F(p, a):
+                lvl['tso'][sa] += 1
             if ib and not ia:
                 if d not in conv:
                     out['tsi'][sb] += 1
@@ -848,7 +882,10 @@ def truth_spec_move(U, people, rk, pred=lambda p, d: True, act=ACTIVE, chg=()):
                 out['tso'][sa] += 1
                 if sa != sb or d not in conv:
                     out['tsi'][sb] += 1
-    return {k: dict(v) for k, v in out.items()}
+    res = {k: {v: n for v, n in lvl[k].items() if n} for k in lvl}
+    for k, c in (('tsi', 'tci'), ('tso', 'tco')):
+        res[c] = {v: n - lvl[k].get(v, 0) for v, n in out[k].items() if n - lvl[k].get(v, 0)}
+    return res
 
 
 def truth_fire_init(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
@@ -999,7 +1036,7 @@ def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
     has_row = lambda p, m: m >= D0 and p['start'] <= eom(m) and (p['end'] is None or p['end'] >= m)
     tp = lambda r: 's' if r[7] != r[8] else 'g'
     out = {'rm': defaultdict(float), 'rq': defaultdict(float), 'rs': defaultdict(float)}
-    hq = [r for r in grt if r[12] == 'HQ']
+    hq = [r for r in grt if r[12] == 'HQ' and r[14] % 23 != 0]   # поставка 103: без заявок чужой компании (2_11)
     for r in hq:
         p, am, fm = byrk[r[0]], mon(r[11] or r[1]), mon(r[10])
         res = 'ok' if r[2] == 'FNS' else 'no' if r[2] == 'DCL' else None

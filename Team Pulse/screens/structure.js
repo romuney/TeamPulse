@@ -148,7 +148,9 @@ function ageBlock(ctx,sel){
   /* белый текст — только на двух густых ступенях: на светлых (23.10 — палитра светлее) он не читается */
   const segs=A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:bg(c,i),dk:!c.na&&ri(i)>=3,on:sel.has(c.id)}));
   const avg=D.avgAge(ctx.lp,S.mixSel);
-  return '<section class="pf-s">'+U.pfHead('Возраст','средний возраст '+(S.mixSel&&S.mixSel.length?'в срезе':'команды')+' — <b>'+(avg==null?'—':num1(avg))+'</b>','hourglass')+
+  /* поставка 103 (файл 9, п. 11): по людям на конец периода — последний день данных; дата — в подписи */
+  return '<section class="pf-s">'+U.pfHead('Возраст','средний возраст '+(S.mixSel&&S.mixSel.length?'в срезе ':'')+'на конец периода ('+
+    U.esc(D.ASOF_LABEL)+') — <b>'+(avg==null?'—':num1(avg))+'</b>','hourglass')+
     U.shareBar({segs:segs,names:true})+
     U.shareCards({cards:A.cats.map((c,i)=>({id:c.id,name:c.name,n:v[i],bg:segs[i].bg,on:sel.has(c.id),
       sub:m&&mi!=null&&fi!=null?U.genderSplit(m[i][mi],m[i][fi]):''}))})+'</section>';

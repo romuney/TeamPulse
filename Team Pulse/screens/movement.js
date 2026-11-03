@@ -53,7 +53,7 @@ function specMove(lp,ctx){
   rs.sort((a,b)=>(b[sk]||0)-(a[sk]||0)||a.name.localeCompare(b.name,'ru'));
   const trf=!D.REAL||D.SPM_TRF, K='rest:spm', open=!!(ctx&&ctx.mixOpen.has(K)), top=rs.slice(0,12), rest=rs.slice(12);
   const S=(a,k)=>a.some(z=>z[k]==null)?null:a.reduce((t,z)=>t+z[k],0), agg=(a,o)=>Object.assign(o,{hc0:S(a,'hc0'),
-    hire:S(a,'hire'),tin:S(a,'tin'),exit:S(a,'exit'),tout:S(a,'tout'),hc1:S(a,'hc1'),net:S(a,'net')});
+    hire:S(a,'hire'),tin:S(a,'tin'),exit:S(a,'exit'),tout:S(a,'tout'),chg:S(a,'chg'),hc1:S(a,'hc1'),net:S(a,'net')});
   if(rest.length)top.push(agg(rest,{name:'Остальные',note:rest.length+' '+U.plural(rest.length,['специализация','специализации','специализаций']),
     exp:1}));
   const tot=agg(rs,{name:'ИТОГО',total:1});
@@ -64,7 +64,7 @@ function specMove(lp,ctx){
   /* 29.10, п. 1: найм, переводы в, отток, переводы из (без «Итого» и полосы). 31.10, п. 7: по краям — численность на
      начало периода (до движений) и на конец (после них) */
   const cols=[['hc0','На начало']].concat([['hire','Найм']]).concat(trf?[['tin','Переводы в']]:[]).concat([['exit','Отток']])
-    .concat(trf?[['tout','Переводы из']]:[]).concat([['hc1',D.SPM_END?'На конец':'Сейчас']]);
+    .concat(trf?[['tout','Переводы из']]:[]).concat(D.SPM_CHG?[['chg','Внутри юнита']]:[]).concat([['hc1',D.SPM_END?'На конец':'Сейчас']]);
   /* поставка 101 (файл 7, п. 2): строка специализации кликается — под таблицей её состав по месяцам (и у строк внутри
      «Остальных») */
   const sel=ctx&&ctx.S&&ctx.S.spmSel, pick=z=>' data-spmsel="'+esc(z.name)+'"'+U.tipAttr({title:z.name,
@@ -73,14 +73,17 @@ function specMove(lp,ctx){
         text:open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):' class="urow'+(z.sub?' lvl2':'')+(sel===z.name?' sel':'')+'"'+pick(z))+'><td class="txt">'+
       (tree?'<span class="row-label">'+(z.total?'<span class="caret-spacer"></span>':lbl(z))+'<span class="row-body">':'')+esc(z.name)+
       (z.note?'<span class="unit-sub">'+esc(z.note)+'</span>':'')+(tree?'</span></span>':'')+'</td>'+
-      cols.map(c=>'<td class="num'+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'">'+(z[c[0]]==null?'—':D.fmtInt(z[c[0]]))+'</td>').join('')+'</tr>';
+      cols.map(c=>'<td class="num'+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'">'+(z[c[0]]==null?'—':(c[0]==='chg'&&z[c[0]]>0?'+':'')+D.fmtInt(z[c[0]]))+'</td>').join('')+'</tr>';
   return '<div class="bt-group spm"><div class="bt-cap">Движение по специализациям<span class="bt-sub">'+U.esc(D.PER_TEXT)+', чел</span></div>'+
     '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col>').join('')+
     '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num tsort'+(c[0]===sk?' on':'')+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'" data-spmsort="'+c[0]+'"'+
       U.tipAttr({title:c[1],text:c[0]===sk?'Сейчас — по убыванию.':'Клик — сортировать по убыванию.'})+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
     row(tot)+top.map(row).join('')+'</tbody></table></div>'+specDetail(lp,rs.find(z=>z.name===sel),cols)+
-    '<div class="tbl-note">'+U.esc(D.PER_TEXT.replace(/^./,x=>x.toUpperCase()))+'; ИТОГО — как в карточках движения. На начало — численность на конец декабря, '+
-      (D.SPM_END?'на конец — '+U.esc(D.MONTH_GEN[D.PER_C])+', после наймов, увольнений и переводов':'«сейчас» — на дату данных')+'. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.'+
+    '<div class="tbl-note">'+U.esc(D.PER_TEXT.replace(/^./,x=>x.toUpperCase()))+'. На начало — численность на конец декабря, '+
+      (D.SPM_END?'на конец — '+U.esc(D.MONTH_GEN[D.PER_C])+', после наймов, увольнений и переводов':'«сейчас» — на дату данных')+'. '+
+      (D.SPM_CHG?'Переводы — только смена юнита на уровне выбранного подразделения: перемещение между его подразделениями переводом не считается. '+
+        'Внутри юнита — смена специализации или среза без перевода (+ пришли в специализацию, − ушли): строки сходятся.'
+        :'ИТОГО — как в карточках движения. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.')+
       (trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
 }
 
@@ -91,11 +94,11 @@ function specDetail(lp,z,cols){
   const ms=D.specMonths(lp,z.name), esc=U.esc;
   if(!ms)return '<div class="tbl-note">Помесячная детализация появится, когда ноутбук и датасет отчёта обновят до поставки 101.</div>';
   const C=cols.filter(c=>c[0]!=='hc0'&&c[0]!=='hc1').concat([['net','Итого']]);
-  ms.forEach(o=>{o.net=o.hire+o.tin-o.exit-o.tout});
+  ms.forEach(o=>{o.net=o.hire+o.tin-o.exit-o.tout+(D.SPM_CHG?o.chg:0)});
   const S=k=>ms.reduce((t,o)=>t+o[k],0), T={label:'ИТОГО'};C.forEach(c=>{T[c[0]]=S(c[0])});
   const off=C.some(c=>z[c[0]]!=null&&T[c[0]]!==z[c[0]]);
   const tr=(o,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(o.label)+'</td>'+
-    C.map(c=>'<td class="num">'+(c[0]==='net'&&o.net>0?'+':'')+D.fmtInt(o[c[0]])+'</td>').join('')+'</tr>';
+    C.map(c=>'<td class="num">'+((c[0]==='net'||c[0]==='chg')&&o[c[0]]>0?'+':'')+D.fmtInt(o[c[0]])+'</td>').join('')+'</tr>';
   return '<div class="bt-group spm-d"><div class="bt-cap">«'+esc(z.name)+'» по месяцам<span class="bt-sub">чел · клик по строке ещё раз или Escape — закрыть</span></div>'+
     '<div class="mx-wrap"><table class="ptable btable compact spm4"><thead><tr><th class="txt">Месяц</th>'+
     C.map(c=>'<th class="num">'+esc(c[1])+'</th>').join('')+'</tr></thead><tbody>'+tr(T,'total top')+ms.map(o=>tr(o)).join('')+

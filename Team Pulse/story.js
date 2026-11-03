@@ -238,17 +238,18 @@ CH.turnover={
     const h=D.hqLight(c.S,c.lp,c.sel);
     if(!h)return {sum:'нет данных',st:'n',head:'Светофору HQ нужны данные'};
     if(!h.hc)return {sum:'нет HQ',st:'n',head:'В подразделении нет HQ-сотрудников'};
-    const t=h.rows[0], nr=h.rows[1], rg=h.rows[2], bad=h.rows.filter(r=>r.st==='bad');
+    /* поставка 103 (файл 9, п. 10): без целей — факт и изменение к прошлому году; у желательной рост — к лучшему */
+    const t=h.rows[0], nr=h.rows[1], rg=h.rows[2];
     const nm={turnover_y:'текучесть HQ',nonregret:'желательная текучесть HQ',regret:'нежелательная текучесть HQ'};
-    const tgt=r=>r.kpi?(r.kpi.red!==r.kpi.green?'коридор '+f(r.key,r.kpi.green)+'–'+f(r.key,r.kpi.red):'цель '+f(r.key,r.kpi.green)):'без цели';
-    return {sum:'текучесть HQ '+f('turnover_y',t.v),st:bad.length?'bad':h.rows.every(r=>r.st==='good')?'good':'n',
-      /* файл 8, п. 2: желательная — «выше лучше»: у неё плохо — ниже цели, у остальных — выше порога */
-      head:bad.length?U.esc(bad.map(r=>nm[r.key]+(r.key==='nonregret'?' ниже цели':' выше порога')).join(', ').replace(/^./,x=>x.toUpperCase()))
-        :'HQ уходит в пределах целей',
+    const up=h.rows.filter(r=>r.yoyD!=null&&Math.abs(r.yoyD)>=0.05);
+    const yo=r=>r.yoyD==null||Math.abs(r.yoyD)<0.05?'как год назад':(r.yoyD>0?'выше':'ниже')+', чем год назад';
+    return {sum:'текучесть HQ '+f('turnover_y',t.v),st:'n',
+      head:up.length?U.esc((nm[t.key]+' '+f('turnover_y',t.v)+' — '+yo(t)).replace(/^./,x=>x.toUpperCase()))
+        :'HQ уходит так же, как год назад',
       /* 26.10-б: накопительно с января по последний закрытый месяц — незакрытый ещё вызревает */
       lede:'Активная численность HQ — **'+pl(h.hc,PPL)+'**. Накопительно с января по '+D.MONTH_NOM[h.month.m]+': текучесть **'+
-        f('turnover_y',t.v)+'** ('+tgt(t)+'), желательная **'+f('nonregret',nr.v)+'** ('+tgt(nr)+'), нежелательная **'+
-        f('regret',rg.v)+'** ('+tgt(rg)+').',
+        f('turnover_y',t.v)+'** ('+yo(t)+'), желательная **'+f('nonregret',nr.v)+'** ('+yo(nr)+'), нежелательная **'+
+        f('regret',rg.v)+'** ('+yo(rg)+').',
       facts:h.rows.map(r=>r.ya!=null?r.label.replace(/ накопительн\S+/,'')+' год назад к этому месяцу — **'+f(r.key,r.ya)+'**':null)};
   }
 };
@@ -616,9 +617,14 @@ const GL={
   'Проникновение AI':{metric:'ai_penetration'},
   'WAU':{metric:'ai_wau'}
 };
+/* поставка 103 (файл 9, п. 10): термины раздела «Как уходит HQ?» — определения метрик без фраз о целях */
+Object.assign(GL,{'Текучесть HQ':{metric:'turnover_y',noGoal:1},'Желательная HQ':{metric:'nonregret',noGoal:1},
+  'Нежелательная HQ':{metric:'regret',noGoal:1}});
 function glossary(term){
   const g=GL[term];
   if(!g)return null;
+  if(g.noGoal){const m=D.METRIC_BY_KEY[g.metric]||{}, t=(m.hint||'')+(m.calc?'\n'+m.calc:'');
+    return t?(String(t).match(/[^.]+(?:\.|$)\s*/g)||[]).filter(x=>!/[Цц]ел[ьиея]/.test(x)).join('').trim():null}
   const dm=g.dim?(D.MIX_BY_KEY[g.dim]||{}):null;
   const gm=g.metric?(D.METRIC_BY_KEY[g.metric]||{}):null;
   const base=gm?(gm.hint||'')+(gm.calc?'\n'+gm.calc:''):dm?(dm.hint||dm.tip||''):g.text;
@@ -651,9 +657,10 @@ const WHY={
     who:['Стаж, {{Грейд|грейд}} и стрим ушедших показывают, кого именно теряем.',
       'Много уходов в первый год — вопрос найма и адаптации. Уходят опытные — вопрос роста и вознаграждения.'],
     /* 26.10, правки: светофор HQ */
-    hq:['Светофор HQ: {{Текучесть|текучесть}}, {{Желательная текучесть HQ|желательная}} и {{Нежелательная текучесть HQ|нежелательная}} '+
-      'с начала года против порогов отчёта HQ — всегда по активной численности HQ.',
-      'Красная нежелательная — разберите причины с нежелательными уходами в «Почему уходят?». Желательная выше коридора — проверьте, не теряете ли нужных людей.']},
+    /* поставка 103 (файл 9, п. 10): без целей — факт и сравнение с прошлым годом */
+    hq:['Как уходит HQ: {{Текучесть HQ|текучесть}}, {{Желательная HQ|желательная}} и {{Нежелательная HQ|нежелательная}} '+
+      'с начала года против прошлого года — всегда по активной численности HQ.',
+      'Нежелательная растёт к прошлому году — разберите причины с нежелательными уходами в «Почему уходят?».']},
   hiring:{
     vacancies:['Открытые вакансии — это недостающие люди, а {{Срок закрытия вакансии|срок закрытия}} — сколько команда работает не в полном составе.',
       'Вакансии копятся месяцами — пересмотрите требования и каналы подбора.'],

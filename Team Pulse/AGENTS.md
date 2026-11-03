@@ -3197,3 +3197,18 @@ parts.col[0], прошлый — alpha(ghostCol, GHOST_OP) или alpha(pcol,.45
 желательной; officeReal — при городе сегменты = посещения в городе ÷ wday сегмента; office.js — та же таблица посещаемости.
 _block.js: YNOW (vac_closed) — сумма месяцев YEAR_CUR, th-per год, примечание периода. styles.css: шаги flex:1 0 168px,
 overflow-x:auto (container query снят). tgrowth.js — легенда прошлого года alpha(.45). Пользователь одобрил рендеры и цель 5%.
+
+**03.11, поставка 103 — файл 9 (12 пунктов) + профили численности + ноутбук 2_11.** Профили: hub_sql.py sql_prof (PF_KEYS
+g a t gr s c tc o w r sp rg) — teampulse_hub_prof (нижний юнит, pf «номер.….номер:возраст», cnt) и teampulse_hub_pfd (словарь);
+2а — CTE pfr (узел ответа = arrayLast(ph ∈ pks), PF_MAX 40000), pf у узлов, pfd у корня; real.js pfDict/profOf (mxMinus
+отдаёт «напрямую» свой pf), REAL.prof/profOK; data.js PROF, pfGroups/pfPass — sliceShare, partsWeight, mixJoint, avgAge по
+людям. П. 4: sql_vacancy.sql — 2_11 (ttf без холда, in_ch) + ttf_d; hub · 6 группирует ttf_d; 2а — vt «ГГГГ-ММ|дней» у узлов
+PK; data.js TTF_MED, medianOf, ttfMedian (aggregateExt и periodTotal). П. 1: with_performance — категории при hc_total_cnt = 1,
+без записи — gray; nb_tp20 truth perf = hc. П. 8: hub · 5 _trfr — group by e, dt, k1..k11, max флагов. П. 9: 2а SI/SU —
+только fu, CI/CO (tci/tco, tsm ci|co) — «Внутри юнита» (data.js SPM_CHG, movement.js колонка chg); truth_spec_move — уровень +
+остаток. П. 12: mk_hub_yaml EXTRA build_all_metrics — поле 'at_hire' (first_value по дню найма), EXEC source_type_nm at_hire;
+стенд source_at — смена после найма и пусто в день найма; hub checks — 4 новые строки. П. 2: ai.js AI_WEEKS=false. П. 3:
+monitor.js «Средняя …». П. 6–7: _block.js MONTHLY (turnover_m — значение PER_I, th-per «месяц год»). П. 10: hqLight kpi null,
+st neutral; turnover.js сноска снята; story hq — к прошлому году; _block.js — без вывода блока и фраз о целях на turnover/hq;
+story GL noGoal. 2_11: rost_info distinct/id/lvl1 из all_metrics (стенд — каждая 23-я заявка чужой компании), vacancy;
+FNS-фильтр и month в with_TRost не перенесены — вопрос 0р. Бюджет 516 → 522.

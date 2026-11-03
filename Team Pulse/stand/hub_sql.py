@@ -539,6 +539,60 @@ from p;
 
 """
 
+# 03.11, поставка 103: профили численности — разрезы состава, по которым отчёт режет срез, конструктор и портрет
+PF_KEYS = ['g', 'a', 't', 'gr', 's', 'c', 'tc', 'o', 'w', 'r', 'sp', 'rg']
+
+
+def sql_prof(a, attrs, age_e, lm):
+    """поставка 103: профили численности последнего месяца — точные пересечения разрезов. Человек — один раз, в своём
+    нижнем юните (узел ответа датасет находит сам), строка — сочетание всех разрезов PF_KEYS и возраст, cnt — людей.
+    Значения — номерами из словаря teampulse_hub_pfd (разрез × значение → номер, по убыванию численности компании):
+    ответ датасета короче в разы"""
+    cols = (',' + chr(10) + ' ' * 7).join(f'{a[k]} as k_{k}' for k in PF_KEYS)
+    joins = chr(10).join(f"join {P}_pfd d_{k} on d_{k}.k = '{k}' and d_{k}.v = x.k_{k}" for k in PF_KEYS)
+    code = " || '.' || ".join(f'd_{k}.i::text' for k in PF_KEYS)
+    age = ("coalesce(case when x.age = round(x.age) then round(x.age)::int::text "
+           "else round(x.age, 1)::text end, '')")
+    return f"""-- 03.11, поставка 103: профили численности последнего месяца — пересечения разрезов без оценки (конструктор, срез по
+-- нескольким разрезам, портрет, средний возраст в срезе). Человек — один раз, в нижнем юните; узел ответа (выбранный
+-- юнит, подразделения на три уровня вниз, «напрямую») датасет находит по пути юнита. Строка — сочетание разрезов
+-- {' '.join(PF_KEYS)} номерами словаря teampulse_hub_pfd и возраст: pf = «номер.номер….номер:возраст», cnt — людей
+drop table if exists {P}_pfx;
+create table {P}_pfx as
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+       {cols},
+       {age_e} as age, {num('hc_total_cnt')} as n
+from ({expl(['hc_total_cnt'] + attrs, f'and s.report_month = {lm}')}) e
+where {num('hc_total_cnt')} > 0
+  and e.node_rk = (string_to_array(e.cp, '|'))[array_upper(string_to_array(e.cp, '|'), 1)]
+{dist('node_rk')};
+
+-- словарь: разрез × значение → номер (0 — самое частое по компании)
+drop table if exists {P}_pfd;
+create table {P}_pfd as
+select k, v, (row_number() over (partition by k order by n desc, v) - 1)::int as i
+from (
+    select k, v, sum(n) as n
+    from (select unnest(ARRAY[{', '.join(f"'{k}'" for k in PF_KEYS)}]) as k,
+                 unnest(ARRAY[{', '.join(f'k_{k}' for k in PF_KEYS)}]) as v, n
+          from {P}_pfx) t
+    group by 1, 2
+) t
+distributed randomly;
+
+drop table if exists {P}_prof;
+create table {P}_prof as
+select x.node_rk, x.paint_c as paint_cd, x.it_c as it_cd, x.staff_c as staff_cd, x.act_c as act_cd,
+       {code} || ':' || {age} as pf,
+       sum(x.n) as cnt
+from {P}_pfx x
+{joins}
+group by 1, 2, 3, 4, 5, 6
+{dist('node_rk')};
+drop table if exists {P}_pfx;
+"""
+
+
 def sql_mix():
     a = {k: clean(f'e.{c}') for k, c in (
         ('g', 'gender'), ('a', 'type_age'), ('e', 'age'), ('t', 'experience_group_nm'), ('gr', 'grade'), ('s', 'seniority'),
@@ -725,6 +779,7 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY[{num('cnt_work_day')}, {num('cnt_office_visit')}]) as mx_n
 from ({expl(['calendar_dt', 'cnt_work_day', 'cnt_office_visit'], two, CAL)}) e;
 
+{sql_prof(a, attrs, age_e, lm)}
 drop table if exists {P}_mix;
 create table {P}_mix as
 select node_rk, paint_c as paint_cd, it_c as it_cd, staff_c as staff_cd, act_c as act_cd,
@@ -805,8 +860,17 @@ def sql_trf():
 -- (CTE оценивается в единицы строк — на объёме боя план выбирал вложенный цикл)
 drop table if exists {P}_trfr;
 create table {P}_trfr as
--- строки дня с событием; одинаковые строки — одна (как distinct мастер-отчёта)
-select distinct x.mdm_employee_rk as e, x.calendar_dt::date as dt,
+-- строки дня с событием. 03.11, поставка 103 (файл 9, п. 8): одна строка на сотрудника × день × путь юнита — флаги
+-- дня 0 / 1 (max по повторным записям источника), а не сумма: повтор одного признака перевод не удваивает. «В» и «из»,
+-- уровни структуры — разными флагами, не сливаются; срез дня при расхождении записей — меньшее значение
+select e, dt, {', '.join(f'k{i}' for i in LV)},
+       {', '.join(f'max(ui{i}) as ui{i}' for i in LV)},
+       {', '.join(f'max(uo{i}) as uo{i}' for i in LV)},
+       min(pa) as pa, min(it) as it, min(st) as st, min(ac) as ac,
+       max(hf) as hf, max(cv) as cv, max(cc) as cc, max(fx) as fx, max(ld) as ld, min(sp) as sp,
+       {', '.join(f'max({a}) as {a}, max({o}) as {o}' for _, a, o in tfl_sp)}
+from (
+select x.mdm_employee_rk as e, x.calendar_dt::date as dt,
        {keys},
        {uin},
        {uout},
@@ -826,6 +890,8 @@ where x.calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year'
   and x.calendar_dt >= (select grid_start from {P}_cal) - 1
   and x.calendar_dt < ((select lm from {P}_cal) + interval '1 month')::date
   and ({any_ev})
+) z
+group by e, dt, {', '.join(f'k{i}' for i in LV)}
 {dist('e')};
 analyze {P}_trfr;
 
@@ -974,7 +1040,9 @@ def sql_final():
 --     последнем месяце — свой путь из уровней вакансии. Вакансия — не человек: фильтры среза на неё не действуют
 drop table if exists {P}_vacancy;
 create table {P}_vacancy as
-select node_rk, report_month, channel, search_reason, cand_lvl, position_lvl, specialization, status,
+-- 03.11, поставка 103 (файл 9, п. 4): ttf_d — срок закрытой вакансии (дней без холда, снимок 2_11): по нему датасет
+-- отдаёт распределение сроков, отчёт считает медиану месяца и периода по вакансиям, а не среднее
+select node_rk, report_month, channel, search_reason, cand_lvl, position_lvl, specialization, status, ttf_d,
        sum(open_cnt) as vac_open_cnt, sum(close_cnt) as vac_close_cnt, sum(new_cnt) as vac_new_cnt,
        sum(ttf_days) as vac_ttf_days, sum(ttf_cnt) as vac_ttf_cnt
 from (
@@ -983,7 +1051,7 @@ from (
     left join {P}_upath u on u.unit_rk = x.mng_unit_rk::text
     where x.report_month between {gs} and {lm}
 ) e
-group by 1, 2, 3, 4, 5, 6, 7, 8
+group by 1, 2, 3, 4, 5, 6, 7, 8, 9
 {dist('node_rk')};
 
 -- 9. календарь отчёта, корень и юнит по умолчанию (у корня один ребёнок — он)
@@ -1107,6 +1175,32 @@ def sql_checks():
                    where node_rk = {root}
                      and report_month = {lm}), 0)
        - coalesce((select sum(open_cnt) from {VAC} where report_month = {lm}), 0)"""),
+        # 03.11, поставка 103: профили численности — в сумме численность последнего месяца; мониторинг (файл 9, п. 1) —
+        # категории у людей численности на конец месяца, в сумме по категориям — численность того же месяца
+        ('профили - люди: численность последнего месяца', 1,
+         f"""(select sum(cnt) from {P}_prof)
+       - (select sum(hc_total_cnt) from {SRC} where leaf_lvl > 0 and report_month = {lm})"""),
+        ('мониторинг: категории - численность (корень, вся сетка)', 1,
+         f"""(select sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) from {P}_series where node_rk = {root})
+       - (select sum(hc_cnt) from {P}_series where node_rk = {root})"""),
+        # 03.11, поставка 103 (файл 9, п. 12): источник найма — значение дня найма (последний найм месяца), не последнее
+        # за месяц; нет значения в день найма — '-' (справочно — сколько таких наймов)
+        ('найм: источник найма не со дня найма (всё время)', 1,
+         f"""(select count(*) from {SRC} a
+          join (select distinct on (mdm_employee_rk, date_trunc('month', calendar_dt))
+                       mdm_employee_rk::text as rk, date_trunc('month', calendar_dt)::date as m,
+                       coalesce(source_type_nm::text, '-') as v
+                from {DAY}
+                where (coalesce(hire_flg::text, '0') = '1' or coalesce(transfer_candidate_flg::text, '0') = '1'
+                    or coalesce(transfer_internal_flg::text, '0') = '1')
+                order by mdm_employee_rk, date_trunc('month', calendar_dt), calendar_dt desc) h
+            on h.rk = a.mdm_employee_rk::text and h.m = a.report_month
+          where coalesce(a.hire_cnt, 0) + coalesce(a.transfer_candidate_amt, 0) + coalesce(a.transfer_internal_amt, 0) > 0
+            and a.source_type_nm::text <> h.v)"""),
+        ('найм: наймов без источника в день найма (справочно, всё время)', 0,
+         f"""(select count(*) from {SRC}
+          where coalesce(hire_cnt, 0) + coalesce(transfer_candidate_amt, 0) + coalesce(transfer_internal_amt, 0) > 0
+            and last_row_flg = 1 and source_type_nm::text = '-')"""),
         ('вакансии: корень - снимок (закрытые за всё время сетки)', 0,
          f"""coalesce((select sum(vac_close_cnt) from {P}_vacancy where node_rk = {root}), 0)
        - coalesce((select sum(close_cnt) from {VAC}

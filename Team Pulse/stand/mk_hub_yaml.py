@@ -47,6 +47,23 @@ EXTRA = {
          "            # TeamPulse Hub (20.10): найм в компанию с любым типом активности — найм «всей\n"
          "            # численности» (hire_amt — только активные на конец месяца)\n"
          "            m.append('max(hire_flg) AS hire_cnt')\n"),
+        # 03.11, поставка 103 (файл 9, п. 12): разрез «на день найма» — {'name': ..., 'at_hire': True} в fields. Значение
+        # из строки дня найма (найм, учебная → боевая, стажёр → штат; в месяце несколько — последний), а не последнее за
+        # месяц: смена поля после найма не перезаписывает источник найма. Нет значения в день найма — '-' (не подставляем
+        # более позднее; число таких наймов — в «hub checks»). В месяце без найма — как раньше, на конец месяца
+        ("            expr = f'coalesce({name}::text,{_lit(UNIT_NA)})'\n        add_dim(expr, alias)\n",
+         "            expr = f'coalesce({name}::text,{_lit(UNIT_NA)})'\n"
+         "        ev = [c for c in ('hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg') if has(c)]\n"
+         "        if f.get('at_hire') and ev and DIM_SRC == 'eom':\n"
+         "            evt = ' OR '.join(f'{_flg(c)} = 1' for c in ev)\n"
+         "            snap.append(f'coalesce(first_value(CASE WHEN {evt} THEN {expr} END) OVER ('\n"
+         "                        f\"PARTITION BY date_trunc('month', calendar_dt), mdm_employee_rk \"\n"
+         "                        f'ORDER BY ({evt})::int DESC, calendar_dt::date DESC), '\n"
+         "                        f'first_value({expr}) OVER w_eom) AS {alias}')\n"
+         "            dim_keys.append(alias)\n"
+         "            print(f'[INFO] {alias}: на день найма')\n"
+         "            continue\n"
+         "        add_dim(expr, alias)\n"),
     ],
     'Структура численности': [
         ("| `emp_specialization_oper_code` | Операционная специализация | HQ / nonHQ |",
@@ -71,6 +88,9 @@ EXTRA = {
          "    'teampulse_hub_trfe':   'prod_proteus.teampulse_hub_trfe',    # события переводов — детализация (поставка 63)\n"
          "    'teampulse_hub_vacancy': 'prod_proteus.teampulse_hub_vacancy',  # вакансии по узлам\n"
          "    'teampulse_hub_ai':      'prod_proteus.teampulse_hub_ai',       # AI-инструменты по узлам\n"
+         "    # поставка 103: профили численности (точные пересечения разрезов) и их словарь\n"
+         "    'teampulse_hub_prof':    'prod_proteus.teampulse_hub_prof',\n"
+         "    'teampulse_hub_pfd':     'prod_proteus.teampulse_hub_pfd',\n"
          "}"),
         # Адель, 29.10: владелец таблиц — d.stonis
         ("OWNERS = ['d.i.dyachenko',", "OWNERS = ['d.stonis',"),
@@ -140,7 +160,11 @@ CHANGED = {59: {'hub · 0 колонки', 'hub · 5 переходы', 'hub che
            # поставка 90: «с начала года» — по последний закрытый месяц (cm в teampulse_hub_cal)
            90: {'office_traffic', 'hub · 1 структура', 'hub · 4 разрезы', 'hub checks'},
            # поставка 101 (файл 7, п. 2): xsm — увольнения по специализации и месяцу (детализация движения по специализациям)
-           101: {'hub · 4 разрезы'}}
+           101: {'hub · 4 разрезы'},
+           # поставка 103 (файл 9 и ноутбук 2_11): источник найма на день найма, мониторинг по численности конца месяца,
+           # «Рост» и вакансии 2_11, профили численности, дневные флаги переводов 0/1, медиана срока закрытия
+           103: {'build_all_metrics', 'EXEC build_all_metrics', 'with_performance', 'rost_info', 'structure_x_vacancy',
+                 'hub · 4 разрезы', 'hub · 5 переходы', 'hub · 6 вакансии и meta', 'hub checks', 'to click'}}
 TIMING = {'T_PY': '198', 'Q_PY': '112', 'T_SQL': '69', 'Q_SQL': '18', 'T_59': '; с поставкой 59 — 23 с: переводы считаются за 15 с вместо 60'}
 
 

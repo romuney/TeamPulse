@@ -104,7 +104,33 @@ select 19 as n, 'вакансии: корень - снимок (открытые
                      and report_month = (select last_month from teampulse_hub_meta)), 0)
        - coalesce((select sum(open_cnt) from structure_x_vacancy where report_month = (select last_month from teampulse_hub_meta)), 0))::float8 as val
 union all
-select 20 as n, 'вакансии: корень - снимок (закрытые за всё время сетки)'::text as check_nm, 0 as must,
+select 20 as n, 'профили - люди: численность последнего месяца'::text as check_nm, 1 as must,
+       ((select sum(cnt) from teampulse_hub_prof)
+       - (select sum(hc_total_cnt) from all_metrics_with_performance_and_office_traffic_and_grt where leaf_lvl > 0 and report_month = (select last_month from teampulse_hub_meta)))::float8 as val
+union all
+select 21 as n, 'мониторинг: категории - численность (корень, вся сетка)'::text as check_nm, 1 as must,
+       ((select sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta))
+       - (select sum(hc_cnt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta)))::float8 as val
+union all
+select 22 as n, 'найм: источник найма не со дня найма (всё время)'::text as check_nm, 1 as must,
+       ((select count(*) from all_metrics_with_performance_and_office_traffic_and_grt a
+          join (select distinct on (mdm_employee_rk, date_trunc('month', calendar_dt))
+                       mdm_employee_rk::text as rk, date_trunc('month', calendar_dt)::date as m,
+                       coalesce(source_type_nm::text, '-') as v
+                from usr_cross_data.hr_executive_proteus
+                where (coalesce(hire_flg::text, '0') = '1' or coalesce(transfer_candidate_flg::text, '0') = '1'
+                    or coalesce(transfer_internal_flg::text, '0') = '1')
+                order by mdm_employee_rk, date_trunc('month', calendar_dt), calendar_dt desc) h
+            on h.rk = a.mdm_employee_rk::text and h.m = a.report_month
+          where coalesce(a.hire_cnt, 0) + coalesce(a.transfer_candidate_amt, 0) + coalesce(a.transfer_internal_amt, 0) > 0
+            and a.source_type_nm::text <> h.v))::float8 as val
+union all
+select 23 as n, 'найм: наймов без источника в день найма (справочно, всё время)'::text as check_nm, 0 as must,
+       ((select count(*) from all_metrics_with_performance_and_office_traffic_and_grt
+          where coalesce(hire_cnt, 0) + coalesce(transfer_candidate_amt, 0) + coalesce(transfer_internal_amt, 0) > 0
+            and last_row_flg = 1 and source_type_nm::text = '-'))::float8 as val
+union all
+select 24 as n, 'вакансии: корень - снимок (закрытые за всё время сетки)'::text as check_nm, 0 as must,
        (coalesce((select sum(vac_close_cnt) from teampulse_hub_vacancy where node_rk = (select root_rk from teampulse_hub_meta)), 0)
        - coalesce((select sum(close_cnt) from structure_x_vacancy
                    where report_month >= (select grid_start from teampulse_hub_meta)), 0))::float8 as val
