@@ -3078,6 +3078,29 @@ paragraphs:
         union all
         select toa.*, 'all' from toa where (select mo from teampulse_hub_cal) = 1
     ),
+    -- 05.11, поставка 104: парная строка к TI / TO-a — сторона перехода с ДРУГИМ типом численности (Подрядчики → Активная:
+    -- к «в» в Активную — «из» Подрядчиков; к TO-a — «в» в новый тип). Тип этой строки не «Активная», поэтому при фильтре
+    -- по умолчанию её отсекает фильтр типа — числа правила выше не меняются; при фильтре из нескольких типов (Активная +
+    -- Подрядчики) переход внутри фильтра даёт «в» и «из» — водопад сходится, как в 103. Флаги срезов — той же строки
+    tc as (
+        select ev.*, 'o' as dir from ev
+        where not u_evt and cia = 1 and cactf = 1 and cpactf = 0 and chf = 0 and ccc = 0 and ctif = 0
+          and ac <> cac and ac <> 'Активная'
+        union all
+        select toa.*, 'i' from toa
+        where cac <> ac and cac <> 'Активная'
+    ),
+    tcn as (
+        select z.* from (
+            select tc.*, unnest(case when dir = 'o' then ARRAY[k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11] else ARRAY[c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11] end) as node_rk from tc
+        ) z where z.node_rk <> '-'
+        union all
+        select d.* from (
+            select tc.*, case when dir = 'o' then coalesce(nullif(k11, '-'), nullif(k10, '-'), nullif(k9, '-'), nullif(k8, '-'), nullif(k7, '-'), nullif(k6, '-'), nullif(k5, '-'), nullif(k4, '-'), nullif(k3, '-'), nullif(k2, '-'), nullif(k1, '-')) else coalesce(nullif(c11, '-'), nullif(c10, '-'), nullif(c9, '-'), nullif(c8, '-'), nullif(c7, '-'), nullif(c6, '-'), nullif(c5, '-'), nullif(c4, '-'), nullif(c3, '-'), nullif(c2, '-'), nullif(c1, '-')) end || ':d' as node_rk from tc
+        ) d where d.node_rk is not null
+        union all
+        select tc.*, 'all' from tc where (select mo from teampulse_hub_cal) = 1
+    ),
     -- 05.11, поставка 104 (решение владельца): смена покраски / IT-кода / штатности БЕЗ перевода юнита и без входа/выхода
     -- из активной — как в поставке 103: по флагу смены (ip ii ist / oq oi ost), датасет засчитывает её только при выбранном
     -- фильтре по этому срезу. Дни, которые уже несут событие правила выше (юнит-переход, TI, TO-a, TO-b), исключены —
@@ -3087,6 +3110,7 @@ paragraphs:
         where r0.hf = 0 and r0.cv = 0 and (r0.ip = 1 or r0.ii = 1 or r0.ist = 1)
           and not exists (select 1 from ev v where v.e = r0.e and v.cdt = r0.dt and v.u_evt)
           and not (r0.ia = 1 and r0.actf = 1 and r0.pactf = 0 and r0.cc = 0 and r0.tif = 0)
+          and not exists (select 1 from tc where tc.dir = 'i' and tc.e = r0.e and tc.cdt = r0.dt)
     ),
     xo as (
         select r0.* from teampulse_hub_trfr r0
@@ -3098,6 +3122,7 @@ paragraphs:
                    and not exists (select 1 from usr_cross_data.hr_executive_proteus x
                                    where x.mdm_employee_rk = r0.e and x.calendar_dt = r0.dt + 1
                                      and x.calendar_dt >= (select grid_start from teampulse_hub_cal) - 1))
+          and not exists (select 1 from tc where tc.dir = 'o' and tc.e = r0.e and tc.pdt = r0.dt)
     ),
     -- поставка 104: переход «кандидат → боевая» и «стажёр → штат» — найм по дню события (hit и виды найма hcd / hst
     -- датасета: вид i, in_ok = 0). Переводом не считается (все формулы переводов берут in_ok = 1), как в правиле выше;
@@ -3190,6 +3215,16 @@ paragraphs:
                null::text, null::text, null::text, null::text, '', xn.sp, 0
         from xn where xn.dir = 'o'
         union all
+        -- поставка 104: парная строка к TI («из» — старая строка) и к TO-a («в» — новая строка), дата — день перехода
+        select tcn.node_rk, date_trunc('month', tcn.cdt)::date, 'o',
+               tcn.pa, tcn.it, tcn.st, tcn.ac, 0, 1, tcn.oq, tcn.oi, tcn.ost, 1,
+               null::text, null::text, null::text, null::text, '', tcn.sp, 0
+        from tcn where tcn.dir = 'o'
+        union all
+        select tcn.node_rk, date_trunc('month', tcn.cdt)::date, 'i',
+               tcn.cpa, tcn.cit, tcn.cst, tcn.cac, 0, 1, tcn.cip, tcn.cii, tcn.cist, 1,
+               null::text, null::text, null::text, null::text, '', tcn.csp, 0
+        from tcn where tcn.dir = 'i'    union all
         -- поставка 104: найм переходом (hv выше) — срез и флаги смены дня, in_ok = 0
         select xn.node_rk, date_trunc('month', xn.dt)::date, 'i',
                xn.pa, xn.it, xn.st, xn.ac, 0, xn.ia, xn.ip, xn.ii, xn.ist, 0,

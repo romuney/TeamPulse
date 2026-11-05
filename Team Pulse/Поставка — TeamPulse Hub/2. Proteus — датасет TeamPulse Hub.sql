@@ -195,7 +195,7 @@
 {%- if act_on -%}toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND {{ FLG }} AND ifNull(in_ok, 1) = 0 AND {{ CVK }} = '{{ v }}'){%- else -%}toFloat64(0){%- endif -%}
 {%- endmacro %}
 {#- Метрики: ключ, таблица (s — series, t — trf, v — vacancy, a — ai), выражение. Порядок — порядок в ms. -#}
-{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['fh', 'h', 'fire_cnt'], ['hch', 'h', 'hc_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')], ['gah', 'g', 'gapr_cnt'], ['gdh', 'g', 'gdec_cnt']] %}
+{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['fh', 'h', 'fire_cnt'], ['hch', 'h', 'hc_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')], ['gah', 'g', 'gapr_cnt'], ['gdh', 'g', 'gdec_cnt'], ['hrw', 's', optf('hrs_sum_amt')], ['pdw', 's', optf('plan_day_cnt')], ['tkw', 's', optf('tlk_sum_amt')]] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
@@ -483,6 +483,26 @@ WITH
       WHERE td9 IS NOT NULL
       GROUP BY u3, v3
       HAVING n4 > 0
+      UNION ALL
+      {#- поставка 104: мониторинг по неделям (teampulse_hub_mon_week) — 16 последних недель у каждого узла ответа, под
+          фильтрами: mw «понедельник|численность, норма, недоработка, переработка, не размечено, недоработка 1–2 нед.,
+          дольше, переработка 1–2 нед., дольше, звонки 20–30, 30–50, больше 50 %, часы, плановые дни, звонки» → 1 #}
+      SELECT u8 AS u3, 'mw' AS k3, concat(toString(w8), '|', arrayStringConcat(arrayMap(x -> toString(round(x, 2)), a8), ',')) AS v3,
+             toFloat64(1) AS n4
+      FROM
+      (
+        SELECT ifNull(node_rk, '') AS u8, toDate(assumeNotNull(wk)) AS w8,
+               [sum(toFloat64(ifNull(hc_cnt, 0))), sum(toFloat64(ifNull(pnor_cnt, 0))), sum(toFloat64(ifNull(plow_cnt, 0))),
+                sum(toFloat64(ifNull(phig_cnt, 0))), sum(toFloat64(ifNull(pgry_cnt, 0))), sum(toFloat64(ifNull(lo_fresh_cnt, 0))),
+                sum(toFloat64(ifNull(lo_long_cnt, 0))), sum(toFloat64(ifNull(hi_fresh_cnt, 0))), sum(toFloat64(ifNull(hi_long_cnt, 0))),
+                sum(toFloat64(ifNull(t23_cnt, 0))), sum(toFloat64(ifNull(t35_cnt, 0))), sum(toFloat64(ifNull(t5_cnt, 0))),
+                sum(toFloat64(ifNull(hrs_sum_amt, 0))), sum(toFloat64(ifNull(plan_day_cnt, 0))), sum(toFloat64(ifNull(tlk_sum_amt, 0)))] AS a8
+        FROM prod_proteus.teampulse_hub_mon_week
+        WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ cond() }}
+          AND wk >= (SELECT addDays(max(wk), -105) FROM prod_proteus.teampulse_hub_mon_week)
+        GROUP BY u8, w8
+      )
+      WHERE a8[1] > 0
       UNION ALL
       {#- поставка 103: профили (pf) и их словарь (pfd «разрез¦значение» → номер + 1) — у корня (строка base) #}
       SELECT u3, k3, v3, n4 FROM pfr WHERE (SELECT count() FROM pfr) <= {{ PF_MAX }}
