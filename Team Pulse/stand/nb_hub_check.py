@@ -14,7 +14,7 @@ from chdb import session                                                  # noqa
 
 DIR = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub')
 F2 = dataset.SQL
-F2A = os.path.join(DIR, '2а. Proteus — датасет на таблицах ноутбука.sql')
+F2A = os.path.join(DIR, '2. Proteus — датасет TeamPulse Hub.sql')   # 05.11: бывший 2а
 # ряд ответа → мера правды; переводы файла 2 — без уровня (завышены наверху), их не сверяем
 KEYS = {'hc': 'hc', 'act': 'act', 'avg': 'ssch', 'hire': 'hire', 'fire': 'fire', 'tin': 'tin', 'tout': 'tout',
         'perf': 'perf', 'grt': 'grt2'}

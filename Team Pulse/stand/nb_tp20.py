@@ -16,7 +16,7 @@ import psycopg2
 import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-YAML = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', 'TP 2.0.yaml')
+YAML = os.path.join(HERE, '..', 'Архив поставки', 'TP 2.0.yaml')   # 05.11: исходник TP 2.0 — в архиве поставки
 D0, D1 = dt.date(2025, 1, 1), dt.date(2026, 10, 12)      # источник загружен по 12.10 — октябрь неполный
 DAYS = [D0 + dt.timedelta(d) for d in range((D1 - D0).days + 1)]
 NL = 11

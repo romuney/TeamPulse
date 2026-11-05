@@ -25,7 +25,7 @@ import nb_tp20 as nb                                                      # noqa
 from chdb import session                                                  # noqa: E402
 
 YAML = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', '1. Helicopter — ноут TeamPulse Hub.yaml')
-F2A = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', '2а. Proteus — датасет на таблицах ноутбука.sql')
+F2A = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', '2. Proteus — датасет TeamPulse Hub.sql')   # 05.11: бывший 2а
 LV = range(1, 12)
 STAFF = 'Штатный сотрудник'
 TYPES = (('active_type', 'ia', 'oa'), ('hq', 'ip', 'oq'), ('it', 'ii', 'oi'), ('employment_relation_type', 'ist', 'ost'))

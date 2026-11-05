@@ -27,8 +27,8 @@ import superset201 as k                                     # noqa: E402
 import sqlparse                                             # noqa: E402
 
 DIR = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub')
-SRC = os.path.join(DIR, '2а. Proteus — датасет на таблицах ноутбука.sql')
-OUT = os.path.join(DIR, '8б. SQL Lab — где время, датасет 2а.sql')
+SRC = os.path.join(DIR, '2. Proteus — датасет TeamPulse Hub.sql')
+OUT = os.path.join(HERE, '..', 'Архив поставки', '8б. SQL Lab — где время, датасет 2а.sql')
 TEAM = '__TP_TEAM__'
 # команда — внутри запроса: узел 7-го уровня с наибольшим числом подразделений (в бою 1 846 узлов 7-го уровня)
 TEAM_SQL = ("(SELECT argMax(ifNull(unit_rk, ''), toUInt32(ifNull(kids_cnt, 0))) FROM prod_proteus.teampulse_hub_unit "

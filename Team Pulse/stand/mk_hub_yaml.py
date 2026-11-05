@@ -12,7 +12,8 @@ sys.path.insert(0, HERE)
 from nb_tp20 import FIX                                     # noqa: E402
 
 DIR = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub')
-SRC = os.path.join(DIR, 'TP 2.0.yaml')
+ARCH = os.path.join(HERE, '..', 'Архив поставки')   # 05.11: исходник TP 2.0 и 1а — в архиве, в поставке только рабочие файлы
+SRC = os.path.join(ARCH, 'TP 2.0.yaml')
 OUT = os.path.join(DIR, '1. Helicopter — ноут TeamPulse Hub.yaml')
 NB = os.path.join(HERE, 'hub_nb')
 STEPS = (1, 2, 3, 5, 6)       # правка 4 (уровень перевода в ключе hr_structure_overall) не нужна:
@@ -129,7 +130,7 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
 # build_hub_detect, 59 — переводы по правилу мастер-отчёта, 60 — тип численности целиком, 61 — «Активная» без
 # подрядчиков, 62 — регион и специализации внутри стрима. У параграфа — пометка, в какой поставке он изменён. Замер — стенд ×25 (AGENTS.md, «Ноутбук: сборка
 # параграфами gp»)
-OUT_1A = os.path.join(DIR, '1а. Helicopter — изменённые параграфы.md')
+OUT_1A = os.path.join(ARCH, '1а. Helicopter — изменённые параграфы.md')
 P58 = ['hub · 0 колонки', 'structure_x_vacancy', 'hub · 1 структура', 'hub · 2 логины и AI', 'hub · 3 справочник и ряды',
        'hub · 4 разрезы', 'hub · 5 переходы', 'hub · 6 вакансии и meta', 'hub checks']
 TP20 = ['_PARAMS_', 'EXEC build_all_metrics']          # параграфы TP 2.0, которые меняют поставки 60–62

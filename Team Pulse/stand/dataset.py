@@ -15,7 +15,7 @@ import jinja2
 from chdb import session
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SQL = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', '2. Proteus — датасет teampulse_hub.sql')
+SQL = os.path.join(HERE, '..', 'Архив поставки', '2. Proteus — датасет teampulse_hub.sql')   # пробник до 2а — в архиве
 CFG = {
     'default': '',
     'old analyzer': 'allow_experimental_analyzer = 0',

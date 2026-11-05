@@ -18,7 +18,7 @@ from chdb import session
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIR = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub')
-DOC = os.path.join(DIR, 'Предложения — физическая таблица под датасет.md')
+DOC = os.path.join(HERE, '..', 'Архив поставки', 'Предложения — физическая таблица под датасет.md')
 FILE2 = dataset.SQL
 BOJ = 'allow_experimental_analyzer = 1, prefer_column_name_to_alias = 1'
 
