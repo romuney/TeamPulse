@@ -356,19 +356,20 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const hrs=v(wt?'hrw':'hrs'), hrn=v(wt?'pdw':'hrn'), tlk=v(wt?'tkw':'tlk');
     ok(['ab25','ab5','we25','we5','t23','t35','t5'].every(c=>lc[c]===Math.round(v(c)))&&MD.months[MD.months.length-1].pt===(D.PARTIAL||undefined)&&
        near(lc.hours,hrn?+(hrs/hrn).toFixed(2):null)&&near(lc.talk,hrs?+(tlk/hrs*100).toFixed(1):null)&&
-       !/class="kpi mk/.test(mo)&&!/mon-ph/.test(mo)&&/Средняя доля звонков в Толк/.test(mo)&&/Средняя рабочая активность/.test(mo)&&/data-pmark="0"/.test(mo),
+       !/class="kpi mk/.test(mo)&&!/mon-ph/.test(mo)&&/Средняя доля звонков в Толк/.test(mo)&&/Средняя рабочая активность/.test(mo)&&!/data-pmark|data-mongran/.test(mo),
       'мониторинг по дням: прогулы '+(lc.ab25+lc.ab5)+', выходные '+(lc.we25+lc.we5)+', звонки 20–30% '+lc.t23+
       ', '+lc.hours+' ч/день, звонки '+lc.talk+'% — как в строке юнита; линии часов и звонков, плашек KPI нет (30.10)');
     /* поставка 104: недели из витрины (mw у строки юнита) — переключатель «Месяцы / Недели», 16 недель, часы взвешенно */
     const mw=(R.scopeMix&&R.scopeMix('mw'))||null;
     if(mw){
       const W=MD.weeks, last=Object.keys(mw).sort().pop().split('|'), a=last[1].split(',').map(Number), z=W[W.length-1];
+      const mw0=A.go('monitor','weeks'), subs=SC.blocks.monitor.subTabs.map(t=>t[0]).join(',');
       ok(W.length===Math.min(16,Object.keys(mw).length)&&z.wk===last[0]&&z.hc===Math.round(a[0])&&
          z.under+z.normal+z.over+z.grey===z.hc&&near(z.hours,a[13]?+(a[12]/a[13]).toFixed(2):null)&&
-         /data-mongran="w"/.test(mo)&&W.filter(p=>p.cl).length===1,
-        'мониторинг по неделям: '+W.length+' недель, последняя '+z.label+(z.pt?' (неполная)':'')+' = строке mw, категории = численность, '+z.hours+' ч/день');
+         subs==='weeks,activity'&&new RegExp('>'+z.label+'<').test(mw0)&&!/data-pmark|data-mongran/.test(mw0)&&W.filter(p=>p.cl).length===1,
+        'мониторинг по неделям (шаг степпера, без отметки кликом): '+W.length+' недель, последняя '+z.label+(z.pt?' (неполная)':'')+' = строке mw, категории = численность, '+z.hours+' ч/день');
     }
-  }else ok(!/class="kpi mk/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),
+  }else ok(!/class="kpi mk/.test(mo)&&/Состав по категориям/.test(mo)&&!/data-mongran|data-pmark/.test(mo),
     'мониторинг: категории по месяцам из основной таблицы, недели и звонки — «в разработке»');
   /* 19.10, заказчик: окно настройки как в HRBP HUB — дерево всего справочника, логин руководителя
      и поиск по нему, у строк и кнопок фильтров — сколько людей попадёт в выбор (fd справочника) */

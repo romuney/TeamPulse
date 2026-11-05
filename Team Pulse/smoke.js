@@ -388,7 +388,7 @@ checks.push(['состав по файлу «Структура»: портре�
 /* 27.10-в, п. 5: в «Движении по специализациям» — «итого», а не «сальдо» */
 checks.push(['движение по специализациям: «Итого» вместо «Сальдо»',!/>Сальдо</.test(allHtml)]);
 checks.push(['найм: профиль → вакансии; план-факт и ревью скрыты, но не удалены; воронки нет',
-  subsOf('hiring')==='profile,vacancies'&&SC.blocks.hiring.defaultSub==='profile'&&subsOf('monitor')==='activity'&&
+  subsOf('hiring')==='profile,vacancies'&&SC.blocks.hiring.defaultSub==='profile'&&subsOf('monitor')==='weeks,activity'&&SC.blocks.monitor.defaultSub==='weeks'&&
   D.OFF_SUBS.has('hiring.plan')&&D.OFF_SUBS.has('monitor.review')&&/План-факт подбора/.test(SC.blocks.hiring.title('plan'))&&
   !D.metricVisible('hire_plan',D.DEFAULT_STATE)&&!D.metricVisible('review_up',D.DEFAULT_STATE)&&
   !/План найма|Итоги ревью|Выполняем план/.test(allHtml)]);
