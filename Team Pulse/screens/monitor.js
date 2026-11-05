@@ -23,9 +23,12 @@
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
 const C=G.C_MON;
+/* поставка 104: недели из витрины (у макета недели свои, с прогулами) */
+const REALW=md=>!!(md.weeks&&md.weeks.length&&md.weeks[0].wk);
 /* доля — тем же округлением, что метрика «Недоработчики» (ratioAt → fmtVal): иначе 8,4% и 8,5% за один месяц */
 /* последняя закрытая неделя и предыдущая; в пробнике без витрины по неделям — месяцы */
-function wk(md){const W=md.weeks||md.months;return {cur:W[W.length-1],prev:W[W.length-2]||W[W.length-1]}}
+/* поставка 104: таблица подразделений — последний закрытый месяц (cl; незакрытый теперь тоже в ряду), как подпись колонок */
+function wk(md){const W=md.months, i=Math.max(0,W.findIndex(p=>p.cl));return {cur:W[i],prev:W[i-1]||W[i]}}
 /* блок графика, данных для которого в пробнике нет: заголовок на месте, плашка «в разработке» */
 function monPh(title,what){
   return '<div class="mon-ph"><div class="bt-cap">'+U.esc(title)+'</div>'+
@@ -35,12 +38,14 @@ function monPh(title,what){
 
 /* 30.10, заказчик: плашки KPI сняты — прогулы, работа в выходные и звонки в Толк теперь графиками по периодам
    (столбик — люди, части — сколько дней или какая доля звонков); нет таких данных в периоде — графика нет */
+/* поставка 104: по неделям прогулов и работы в выходные нет (у мастер-дашборда тоже) — только звонки по доле недели */
 function extraCharts(P,mark){
-  if(!P.length||P[P.length-1].ab25==null)return '';
+  const z=P.length?P[P.length-1]:{};
+  if(z.ab25==null&&z.t23==null)return '';
   const st=(t,cats)=>G.chart('stack',{periods:P,mark:mark,cats:cats,unit:' чел'},
     {title:t,legend:cats.map(c=>({name:c[1],color:c[2]})),h:200});
-  return st('Прогулы, чел',[['ab25','2–5 дней',C.per],['ab5','больше 5 дней',C.per2]])+
-    st('Работа в выходные, чел',[['we25','2–5 дней',C.per],['we5','больше 5 дней',C.per2]])+
+  return (z.ab25!=null?st('Прогулы, чел',[['ab25','2–5 дней',C.per],['ab5','больше 5 дней',C.per2]])+
+    st('Работа в выходные, чел',[['we25','2–5 дней',C.per],['we5','больше 5 дней',C.per2]]):'')+
     st('Звонки в Толк от 20% рабочего времени, чел',[['t23','20–30%',C.talk0],['t35','30–50%',C.talk],['t5','больше 50%',C.talk2]]);
 }
 
@@ -83,7 +88,8 @@ SC.blocks.monitor={
     const md=D.monData(ctx.lp);
     if(!md)return U.empty('Нет данных мониторинга','Витрина мониторинга по неделям ещё не подключена к отчёту.');
     const S=ctx.S, gran=md.monthly||S.monGran==='m'?'m':'w';
-    const P=gran==='m'?md.months:md.weeks.slice(-12);
+    /* поставка 104: недели — окно мастер-дашборда, 16 последних (неполная текущая — с пометкой) */
+    const P=gran==='m'?md.months:md.weeks.slice(-16);
     const mark=S.monMark!=null&&S.monMark<P.length?S.monMark:null;
     const mk=mark!=null?P[mark]:null;
     /* пробник без витрины по неделям: месяцы из основной таблицы; линии часов и звонков — с мониторингом по дням
@@ -102,7 +108,8 @@ SC.blocks.monitor={
       monPh('Средняя рабочая активность, ч/день','Средняя рабочая активность в часах в день по месяцам и неделям.')+
       monPh('Средняя доля звонков в Толк, % рабочего времени','Доля разговоров в Толк от рабочего времени, среднее по месяцам и неделям.'))+'</div>';
     return '<div class="mon-bar">'+U.segToggle('data-mongran',[['m','Месяцы'],['w','Недели']],gran)+
-        '<span class="mon-note">'+(mk?'Отмечен период: <b>'+U.esc(mk.full)+'</b> · Escape — снять':'Клик по столбику отмечает период на линиях')+'</span></div>'+
+        '<span class="mon-note">'+(mk?'Отмечен период: <b>'+U.esc(mk.full)+'</b> · Escape — снять':'Клик по столбику отмечает период на линиях'+
+          (gran==='w'&&REALW(md)?'. Прогулы и работа в выходные — в режиме «Месяцы»':''))+'</span></div>'+
       '<div class="sm-grid">'+G.chart('stack',{periods:P,mark:mark},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       G.chart('pline',{periods:P,key:'hours',mark:mark},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',h:190})+

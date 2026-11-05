@@ -86,7 +86,7 @@ const KEYS=[['hc_total','hc'],['hc_active','act'],['hc_avg','avg'],['hire',R.has
   /* 31.10-б, п. 6: заявки «Роста» — из gah / gdh (без фильтра покраски), если ответ их везёт */
   .concat([['wday','wday'],['ovis','ovis'],['tgrowth_pass',R.has('gah')?'gah':'gapr'],['tgrowth_deny',R.has('gah')?'gdh':'gdec']].filter(([,c])=>R.has(c)))
   /* поставка 71: мониторинг по дням — люди в сегментах, суммы часов и звонков */
-  .concat(['ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk'].filter(c=>R.has(c)).map(c=>['mon_'+c,c]));
+  .concat(['ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk','hrw','pdw','tkw'].filter(c=>R.has(c)).map(c=>['mon_'+c,c]));
 let treeOk=true, checked=0;
 rows.filter(r=>['scope','c','g','x'].indexOf(r.role)>=0).forEach(r=>{
   const node=D.NODES.find(n=>n.id===r.id);
@@ -351,13 +351,23 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const mo=A.go('monitor','activity'), MD=D.monData(rl);
   if(R.has('hrn')&&MD&&MD.daily){
     /* поставка 71: мониторинг по дням — KPI последнего закрытого месяца = строке выбранного юнита, линии часов и звонков */
-    const lc=MD.months[MD.months.length-1], k=R.n-1-(D.PARTIAL?1:0), v=c=>arr(scopeRow,c)[k];
-    const hrs=v('hrs'), hrn=v('hrn'), tlk=v('tlk');
-    ok(['ab25','ab5','we25','we5','t23','t35','t5'].every(c=>lc[c]===Math.round(v(c)))&&
+    /* поставка 104: в ряду и незакрытый месяц (pt) — сверяется закрытый (cl); часы и звонки — взвешенно (hrw ÷ pdw) */
+    const lc=MD.months.find(p=>p.cl), k=R.n-1-(D.PARTIAL?1:0), v=c=>arr(scopeRow,c)[k], wt=R.has('pdw')&&arr(scopeRow,'pdw').some(x=>x>0);
+    const hrs=v(wt?'hrw':'hrs'), hrn=v(wt?'pdw':'hrn'), tlk=v(wt?'tkw':'tlk');
+    ok(['ab25','ab5','we25','we5','t23','t35','t5'].every(c=>lc[c]===Math.round(v(c)))&&MD.months[MD.months.length-1].pt===(D.PARTIAL||undefined)&&
        near(lc.hours,hrn?+(hrs/hrn).toFixed(2):null)&&near(lc.talk,hrs?+(tlk/hrs*100).toFixed(1):null)&&
        !/class="kpi mk/.test(mo)&&!/mon-ph/.test(mo)&&/Средняя доля звонков в Толк/.test(mo)&&/Средняя рабочая активность/.test(mo)&&/data-pmark="0"/.test(mo),
       'мониторинг по дням: прогулы '+(lc.ab25+lc.ab5)+', выходные '+(lc.we25+lc.we5)+', звонки 20–30% '+lc.t23+
       ', '+lc.hours+' ч/день, звонки '+lc.talk+'% — как в строке юнита; линии часов и звонков, плашек KPI нет (30.10)');
+    /* поставка 104: недели из витрины (mw у строки юнита) — переключатель «Месяцы / Недели», 16 недель, часы взвешенно */
+    const mw=(R.scopeMix&&R.scopeMix('mw'))||null;
+    if(mw){
+      const W=MD.weeks, last=Object.keys(mw).sort().pop().split('|'), a=last[1].split(',').map(Number), z=W[W.length-1];
+      ok(W.length===Math.min(16,Object.keys(mw).length)&&z.wk===last[0]&&z.hc===Math.round(a[0])&&
+         z.under+z.normal+z.over+z.grey===z.hc&&near(z.hours,a[13]?+(a[12]/a[13]).toFixed(2):null)&&
+         /data-mongran="w"/.test(mo)&&W.filter(p=>p.cl).length===1,
+        'мониторинг по неделям: '+W.length+' недель, последняя '+z.label+(z.pt?' (неполная)':'')+' = строке mw, категории = численность, '+z.hours+' ч/день');
+    }
   }else ok(!/class="kpi mk/.test(mo)&&/data-pmark="0"/.test(mo)&&!/data-mongran/.test(mo),
     'мониторинг: категории по месяцам из основной таблицы, недели и звонки — «в разработке»');
   /* 19.10, заказчик: окно настройки как в HRBP HUB — дерево всего справочника, логин руководителя

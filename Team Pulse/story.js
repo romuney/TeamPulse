@@ -382,7 +382,8 @@ CH.monitor={
   activity(c){
     const md=D.monData(c.lp);
     if(!md)return {sum:'нет данных',st:'n'};
-    const W=md.weeks||md.months, cur=W[W.length-1], prev=W[W.length-2]||cur;
+    /* поставка 104: последняя ЗАКРЫТАЯ неделя (месяц) — незакрытая теперь тоже в ряду, сравнивать её с полной нельзя */
+    const W=md.weeks||md.months, ci=W.findIndex(p=>p.cl), i0=ci<0?W.length-1:ci, cur=W[i0], prev=W[i0-1]||cur;
     const pc1=v=>cur.hc?(Math.round(v/cur.hc*1000)/10).toFixed(1).replace('.',','):'0';
     const du=cur.under-prev.under, dv=cur.over-prev.over, sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v);
     const worse=du>0||dv>0, both=du>0&&dv>0;

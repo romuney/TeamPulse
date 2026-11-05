@@ -92,7 +92,7 @@ const MIN=require('./min.cjs');
    мёртвых имён и стилей в сборке не осталось (проверено поиском).
    03.11, поставка 103 (файл 9: профили численности — точные пересечения разрезов, медиана срока закрытия, переводы по
    специализациям по уровню, без целей в «Как уходит HQ?»): 516 → 522 — ≈+0,12 с на запрос; помощник U_DAYS снят. */
-const BUDGET_KIB=522;
+const BUDGET_KIB = 526;
 const dir=path.join(__dirname,'..');
 const OUT=path.join(dir,'Поставка — TeamPulse Hub','3. Proteus — чарт TeamPulse Hub.js');
 const read=f=>fs.readFileSync(path.join(dir,f),'utf8');

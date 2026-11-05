@@ -314,14 +314,9 @@ eo as (
 -- их строки сами несут флаги срезов, двойного счёта нет. Юнит и активная численность — строго по правилу выше
 xi as (
     select r0.* from teampulse_hub_trfr r0
-    where r0.hf = 0 and (r0.ip = 1 or r0.ii = 1 or r0.ist = 1)
+    where r0.hf = 0 and r0.cv = 0 and (r0.ip = 1 or r0.ii = 1 or r0.ist = 1)
       and not exists (select 1 from ev v where v.e = r0.e and v.cdt = r0.dt and v.u_evt)
       and not (r0.ia = 1 and r0.actf = 1 and r0.pactf = 0 and r0.cc = 0 and r0.tif = 0)
-      -- найм и стажёр → штат серия пишет в срез конца месяца: смена среза в месяц найма
-      -- в день найма или позже уже учтена наймом
-      and not exists (select 1 from teampulse_hub_trfr h
-                      where h.e = r0.e and (h.hf = 1 or h.tif = 1) and h.dt <= r0.dt
-                        and date_trunc('month', h.dt) = date_trunc('month', r0.dt))
 ),
 xo as (
     select r0.* from teampulse_hub_trfr r0
@@ -333,14 +328,21 @@ xo as (
                and not exists (select 1 from usr_cross_data.hr_executive_proteus x
                                where x.mdm_employee_rk = r0.e and x.calendar_dt = r0.dt + 1
                                  and x.calendar_dt >= (select grid_start from teampulse_hub_cal) - 1))
-      and not exists (select 1 from teampulse_hub_trfr h
-                      where h.e = r0.e and (h.hf = 1 or h.tif = 1) and h.dt <= r0.dt
-                        and date_trunc('month', h.dt) = date_trunc('month', r0.dt + r0.ld))
+),
+-- поставка 104: переход «кандидат → боевая» и «стажёр → штат» — найм по дню события (hit и виды найма hcd / hst
+-- датасета: вид i, in_ok = 0). Переводом не считается (все формулы переводов берут in_ok = 1), как в правиле выше;
+-- до 104 эти строки давала общая ветка «в». День юнит-перехода — уже в строке U «в» (in_ok = 0, вид — cv_k)
+hv as (
+    select r0.* from teampulse_hub_trfr r0
+    where r0.hf = 0 and r0.cv = 1
+      and not exists (select 1 from ev v where v.e = r0.e and v.cdt = r0.dt and v.u_evt)
 ),
 xr as (
     select xi.*, 'i' as dir from xi
     union all
     select xo.*, 'o' from xo
+    union all
+    select hv.*, 'v' from hv
 ),
 xn as (
     select z.* from (select r.*, unnest(ARRAY[k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11]) as node_rk from xr r) z where z.node_rk <> '-'
@@ -359,7 +361,8 @@ from (
            1 - least(ui.ccc + ui.ctif, 1) as in_ok,
            -- GP-перенос 104: имена колонок объединения задаёт первая ветка — без них внешний select их не видит
            null::text as x_paint_cd, null::text as x_it_cd, null::text as x_staff_cd, null::text as x_act_cd,
-           '' as cv_k, ui.csp as sp_cd, ui.cisp as fsp
+           -- поставка 104: вид перехода в найм (c — из учебной группы, s — стажёр в штат) — для hcd / hst датасета
+           case when ui.ccc = 1 then 'c' when ui.ctif = 1 then 's' else '' end as cv_k, ui.csp as sp_cd, ui.cisp as fsp
     from ui
     union all
     -- U «из»: узлы старой строки, дата события — новая строка
@@ -416,6 +419,13 @@ from (
            xn.pa, xn.it, xn.st, xn.ac, 0, 0, xn.oq, xn.oi, xn.ost, 1,
            null::text, null::text, null::text, null::text, '', xn.sp, 0
     from xn where xn.dir = 'o'
+    union all
+    -- поставка 104: найм переходом (hv выше) — срез и флаги смены дня, in_ok = 0
+    select xn.node_rk, date_trunc('month', xn.dt)::date, 'i',
+           xn.pa, xn.it, xn.st, xn.ac, 0, xn.ia, xn.ip, xn.ii, xn.ist, 0,
+           null::text, null::text, null::text, null::text,
+           case when xn.cc = 1 then 'c' else 's' end, xn.sp, 0
+    from xn where xn.dir = 'v'
 ) t
 where report_month between (select grid_start from teampulse_hub_cal) and (select lm from teampulse_hub_cal)
   -- GP-перенос 104: юнит-переход пишется во все узлы пути; на уровнях, где юнит не менялся, у строки нет ни одного

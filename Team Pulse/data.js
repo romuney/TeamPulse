@@ -540,7 +540,9 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
      руководителей и остальных — слагаемые нарушений бронирования и посещаемости сегмента */
   'bk_days','bk_noshow','bk_walkin','wday_lead','ovis_lead','wday_staff','ovis_staff',
   /* поставка 71: мониторинг по дням — люди в сегментах, суммы средних часов дня и звонков по людям */
-  'mon_ab25','mon_ab5','mon_we25','mon_we5','mon_t23','mon_t35','mon_t5','mon_hrs','mon_hrn','mon_tlk']);
+  'mon_ab25','mon_ab5','mon_we25','mon_we5','mon_t23','mon_t35','mon_t5','mon_hrs','mon_hrn','mon_tlk',
+  /* поставка 104: взвешенные суммы — часы и звонки плановых дней, плановые дни */
+  'mon_hrw','mon_pdw','mon_tkw']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -2165,26 +2167,63 @@ const MON_SUM=['hc','grey','under','normal','over','u12','u2p','o12','o2p','t23'
    Поставка 71 (мониторинг по дням Адели, daily:true): за месяц — люди с 2–5 и больше 5 прогулами и днями работы в
    выходной, люди с долей звонков 20–30, 30–50 и больше 50% рабочего времени; часы в день — среднее по людям с часами,
    доля звонков — их часы звонков к часам работы. Без этих колонок в ответе — как раньше */
-const MON_DK=['ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk'];
+const MON_DK=['ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk','hrw','pdw','tkw'];
+/* поставка 104 (FRONT_TASK агента): часы в день и доля звонков — взвешенно, по суммам плановых дней (hrw ÷ pdw,
+   tkw ÷ hrw), как в мастер-дашборде; старая таблица без этих колонок — среднее по людям (hrs ÷ hrn), как раньше */
+function monRates(x,S,i){
+  if(S.pdw&&S.pdw.some(v=>v>0)){
+    x.hours=S.pdw[i]?+(S.hrw[i]/S.pdw[i]).toFixed(2):null;
+    x.talk=S.hrw[i]?+(S.tkw[i]/S.hrw[i]*100).toFixed(1):null;
+  }else{
+    x.hours=S.hrn[i]?+(S.hrs[i]/S.hrn[i]).toFixed(2):null;
+    x.talk=S.hrs[i]?+(S.tlk[i]/S.hrs[i]*100).toFixed(1):null;
+  }
+}
+/* поставка 104: недели (teampulse_hub_mon_week, разрез mw у строки: «понедельник|численность, норма, недоработка,
+   переработка, не размечено, недоработка 1–2 нед. и дольше, переработка 1–2 нед. и дольше, звонки 20–30/30–50/50+,
+   часы, плановые дни, звонки») — последние 16 недель; неделя после даты данных не закончилась — неполная (pt) */
+const MW=['hc','normal','under','over','grey','u12','u2p','o12','o2p','t23','t35','t5','hrw','pdw','tkw'];
+function monWeeks(lp){
+  const m=selMix(lp,'mw');
+  if(!m)return null;
+  const asof=new Date(ASOF.y,ASOF.m,ASOF.d), p2=n=>(n<10?'0':'')+n;
+  const W=Object.keys(m).map(v=>{
+    const i=v.indexOf('|'), d=v.slice(0,i).split('-').map(Number), a=v.slice(i+1).split(',').map(Number);
+    const x={wk:v.slice(0,i)};MW.forEach((k,q)=>{x[k]=k==='hrw'||k==='tkw'?a[q]||0:Math.round(a[q]||0)});
+    const d0=new Date(d[0],d[1]-1,d[2]), d1=new Date(d[0],d[1]-1,d[2]+6), dd=x=>p2(x.getDate())+'.'+p2(x.getMonth()+1);
+    x.label=dd(d0);x.pt=d1>asof;
+    x.full='Неделя '+dd(d0)+'–'+dd(d1)+(x.pt?', данные по '+dd(asof):'');
+    x.hours=x.pdw?+(x.hrw/x.pdw).toFixed(2):null;
+    x.talk=x.hrw?+(x.tkw/x.hrw*100).toFixed(1):null;
+    return x;
+  }).sort((a,b)=>a.wk<b.wk?-1:1).slice(-16);
+  if(!W.length)return null;
+  const lc=W.length-1-(W[W.length-1].pt&&W.length>1?1:0);W[lc].cl=true;
+  return W;
+}
 function monMonthly(lp){
   const A=k=>aggregate(lp,k), u=A('perf_low'), nr=A('perf_norm'), o=A('perf_high'), g=A('perf_gray');
-  if(!u.concat(o,nr).some(v=>v>0))return null;
+  /* поставка 104: «не размечено» — тоже категория: вкладка есть и тогда, когда у всех людей категорий нет (вне покраски
+     HQ мастер-дашборд показывает серые) */
+  if(!u.concat(o,nr,g).some(v=>v>0))return null;
   const day=!!(REAL.has&&REAL.has('hrn'))&&A('mon_hrn').some(v=>v>0), S={};
-  if(day)MON_DK.forEach(k=>{S[k]=A('mon_'+k)});
-  const end=PARTIAL?LAST-1:LAST, months=[];
-  for(let i=Math.max(0,end-5);i<=end;i++){
-    const x={label:MONTHS[i].label,full:MONTH_NOM_CAP(MONTHS[i].m)+' '+MONTHS[i].y,
+  if(day)MON_DK.forEach(k=>{S[k]=REAL.has(k)?A('mon_'+k):null});
+  /* поставка 104: незакрытый месяц тоже в ряду — помечен (pt: пунктир и полая точка на линиях, бледный столбик) */
+  const months=[];
+  for(let i=Math.max(0,LAST-5);i<=LAST;i++){
+    const x={label:MONTHS[i].label,full:MONTH_NOM_CAP(MONTHS[i].m)+' '+MONTHS[i].y+(PARTIAL&&i===LAST?', данные по '+ASOF.d+' '+MONTH_GEN[ASOF.m]:''),
       under:Math.round(u[i]||0),normal:Math.round(nr[i]||0),over:Math.round(o[i]||0),grey:Math.round(g[i]||0)};
     x.hc=x.under+x.normal+x.over+x.grey;
+    if(PARTIAL&&i===LAST)x.pt=true;
     if(day){
       MON_DK.slice(0,7).forEach(k=>{x[k]=Math.round(S[k][i]||0)});
-      x.hours=S.hrn[i]?+(S.hrs[i]/S.hrn[i]).toFixed(2):null;
-      x.talk=S.hrs[i]?+(S.tlk[i]/S.hrs[i]*100).toFixed(1):null;
+      monRates(x,S,i-0);
     }
     months.push(x);
   }
-  months[months.length-1].cl=true;
-  return {monthly:true,daily:day,weeks:null,months:months};
+  months[months.length-1-(PARTIAL&&months.length>1?1:0)].cl=true;
+  const weeks=monWeeks(lp);
+  return {monthly:!weeks,daily:day,weeks:weeks,months:months};
 }
 function monData(lp){
   if(!lp.length)return null;
@@ -2490,7 +2529,7 @@ let _nmx=null;
 /* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
-const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt']);
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','mw']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);

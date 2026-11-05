@@ -49,7 +49,10 @@ const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn
   'gah','gdh',
   /* поставка 71 (мониторинг по дням Адели): люди в сегментах прогулов (ab25 ab5), работы в выходной (we25 we5) и доли
      звонков (t23 t35 t5); сумма средних часов дня (hrs) и звонков (tlk) по людям с часами, сколько их (hrn) */
-  'ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk'];
+  'ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk',
+  /* поставка 104: взвешенные суммы мониторинга — часы и звонки плановых дней (hrw tkw) и плановые дни (pdw): часы в день
+     = hrw ÷ pdw, доля звонков = tkw ÷ hrw (не среднее средних по людям, как hrs ÷ hrn) */
+  'hrw','pdw','tkw'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   /* поставка 69 (Антон, вопрос 4): желательная и нежелательная — всегда по активной численности HQ узла */
@@ -62,7 +65,7 @@ const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fir
   hire_cand:'hcd',hire_int:'hst',
   bk_days:'bk',bk_noshow:'bkv',bk_walkin:'vsv',wday_lead:'hwd',ovis_lead:'hov',wday_staff:'wds',ovis_staff:'ovs',
   mon_ab25:'ab25',mon_ab5:'ab5',mon_we25:'we25',mon_we5:'we5',mon_t23:'t23',mon_t35:'t35',mon_t5:'t5',
-  mon_hrs:'hrs',mon_hrn:'hrn',mon_tlk:'tlk'};
+  mon_hrs:'hrs',mon_hrn:'hrn',mon_tlk:'tlk',mon_hrw:'hrw',mon_pdw:'pdw',mon_tkw:'tkw'};
 /* метрики, которые оживают, когда в ответе есть их колонки */
 const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec'],
   nonregret:['nreg'],vac_open:['vop'],vac_closed:['vcl'],time_to_fill:['vtd','vtn'],junior_share:['vjn','vcl'],
@@ -116,6 +119,18 @@ function mxMinus(u,kids){
     if(k==='dw'||k==='do'||k==='xim'||k==='pfd')return;   /* календарь посещений и уходы по инициатору — только у выбранного юнита */
     /* поставка 103: профили у юнита с детьми — уже только его люди «напрямую» (датасет относит их к узлу ответа) */
     if(k==='pf'){out.pf=Object.assign({},u.pf);return}
+    /* поставка 104: мониторинг по неделям (mw «понедельник|числа через запятую») — «напрямую» поэлементно: юнит минус дети */
+    if(k==='mw'){
+      const wk={};
+      [u].concat(kids).forEach((x,j)=>Object.keys(x.mw||{}).forEach(v=>{
+        const i=v.indexOf('|'), d=v.slice(0,i), a=v.slice(i+1).split(',').map(Number);
+        const t=wk[d]=wk[d]||a.map(()=>0);
+        a.forEach((n,q)=>{t[q]+=j?-n:n});
+      }));
+      Object.keys(wk).forEach(d=>{const a=wk[d].map(n=>Math.round(n*100)/100);
+        if(a[0]>0)(out.mw=out.mw||{})[d+'|'+a.join(',')]=1});
+      return;
+    }
     Object.keys(u[k]).forEach(v=>{
       let s=u[k][v];
       kids.forEach(c=>{s-=((c[k]||{})[v]||0)});

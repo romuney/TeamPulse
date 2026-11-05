@@ -1229,9 +1229,11 @@ function drawStack(a,w,h){
     const all=p.hc||tot[i];
     s+='<g class="barg pmk'+(on?' on':'')+'" data-pmark="'+i+'"'+tip({title:p.full,
       rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+(all?Math.round((p[c[0]]||0)/all*100):0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
-      note:a.cats?'Всего — '+CD.fmtInt(all)+(a.unit||'')+'.':(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. ')+'Всего — '+CD.fmtInt(all)+' чел.'})+'>'+
+      note:(p.pt?'Период ещё идёт — значения могут измениться. ':'')+
+        (a.cats?'Всего — '+CD.fmtInt(all)+(a.unit||'')+'.':(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. ')+'Всего — '+CD.fmtInt(all)+' чел.')})+'>'+
       (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+
-      '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+segs+'</g>';
+      /* поставка 104: незакрытый период (pt) — столбик бледнее, как пунктир на линиях */
+      '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+(p.pt?'<g opacity=".5">'+segs+'</g>':segs)+'</g>';
     if(t)s+=txt(cx,Y(t)-VAL_DY,CD.fmtInt(t),valOpt({delay:200+dly}));
   });
   s+=line(x0,bot,x0+plotW,bot,C_ZERO,1)+perAxis(P,X,h,mark,bandW);
