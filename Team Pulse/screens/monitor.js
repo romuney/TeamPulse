@@ -36,14 +36,30 @@ function monPh(title,what){
     '<div class="tbl-note">'+U.esc(what)+' Появится с витриной мониторинга.</div></div>';
 }
 
+/* поставка 104 (заказчик): под заголовком — «В среднем за неделю / месяц» по закрытым периодам графика, как итог за
+   период у графиков динамики; год к году здесь нет (16 недель / 6 месяцев). Часы и звонки — взвешенно, как точки */
+function perLine(P,wk){
+  const C=P.filter(p=>!p.pt);
+  if(!C.length)return null;
+  const head='В среднем за '+(wk?'неделю':'месяц')+', '+C[0].label+(C.length>1?'–'+C[C.length-1].label:'');
+  const avg=k=>C.reduce((a,p)=>a+(p[k]||0),0)/C.length, n=v=>D.fmtInt?D.fmtInt(Math.round(v)):String(Math.round(v));
+  const f1=v=>(Math.round(v*10)/10).toFixed(1).replace('.',',');
+  const sum=k=>C.reduce((a,p)=>a+(p[k]||0),0), wt=C.every(p=>p.pdw!=null);
+  return {
+    cats:()=>{const hc=avg('hc');return {head:head,parts:[['under','недоработка'],['over','переработка']].map(c=>({name:c[1],
+      cur:n(avg(c[0]))+' чел'+(hc?' ('+Math.round(avg(c[0])/hc*100)+'%)':'')}))}},
+    hours:()=>{const v=wt&&sum('pdw')?sum('hrw')/sum('pdw'):avg('hours');return v?{head:head,cur:f1(v)+' ч/день'}:null},
+    talk:()=>{const v=wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null},
+    ppl:ks=>({head:head,cur:n(ks.reduce((a,k)=>a+avg(k),0))+' чел'})};
+}
 /* 30.10, заказчик: плашки KPI сняты — прогулы, работа в выходные и звонки в Толк теперь графиками по периодам
    (столбик — люди, части — сколько дней или какая доля звонков); нет таких данных в периоде — графика нет */
 /* поставка 104: по неделям прогулов и работы в выходные нет (у мастер-дашборда тоже) — только звонки по доле недели */
-function extraCharts(P){
+function extraCharts(P,pl){
   const z=P.length?P[P.length-1]:{};
   if(z.ab25==null&&z.t23==null)return '';
   const st=(t,cats)=>G.chart('stack',{periods:P,cats:cats,unit:' чел'},
-    {title:t,legend:cats.map(c=>({name:c[1],color:c[2]})),h:200});
+    {title:t,legend:cats.map(c=>({name:c[1],color:c[2]})),sm:true,period:pl&&pl.ppl(cats.map(c=>c[0]))});
   return (z.ab25!=null?st('Прогулы, чел',[['ab25','2–5 дней',C.per],['ab5','больше 5 дней',C.per2]])+
     st('Работа в выходные, чел',[['we25','2–5 дней',C.per],['we5','больше 5 дней',C.per2]]):'')+
     st('Звонки в Толк от 20% рабочего времени, чел',[['t23','20–30%',C.talk0],['t35','30–50%',C.talk],['t5','больше 50%',C.talk2]]);
@@ -99,12 +115,14 @@ SC.blocks.monitor={
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
       monPh('Средняя рабочая активность, ч/день','Средняя рабочая активность в часах в день по месяцам и неделям.')+
       monPh('Средняя доля звонков в Толк, % рабочего времени','Доля разговоров в Толк от рабочего времени, среднее по месяцам и неделям.')+'</div>';
-    /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой */
+    /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой.
+       Поставка 104 (заказчик): низкие (sm) — лист короче; под заголовком — среднее за период */
+    const pl=perLine(P,wk);
     return '<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
-        legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
-      G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',h:190})+
-      G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',h:190})+
-      extraCharts(P)+'</div>'+
+        legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
+      G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
+      G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+
+      extraCharts(P,pl)+'</div>'+
       (wk&&REALW(md)?'<div class="tbl-note">Прогулы и работа в выходные — на шаге «По месяцам».</div>':'');
   }
 };

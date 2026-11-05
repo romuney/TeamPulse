@@ -2171,6 +2171,9 @@ const MON_DK=['ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk','hrw'
 /* поставка 104 (FRONT_TASK агента): часы в день и доля звонков — взвешенно, по суммам плановых дней (hrw ÷ pdw,
    tkw ÷ hrw), как в мастер-дашборде; старая таблица без этих колонок — среднее по людям (hrs ÷ hrn), как раньше */
 function monRates(x,S,i){
+  /* слагаемые — для среднего за период под графиком (взвешенно, как сама точка) */
+  if(S.pdw&&S.pdw.some(v=>v>0)){x.hrw=S.hrw[i]||0;x.pdw=S.pdw[i]||0;x.tkw=S.tkw[i]||0}
+  else{x.hrw=S.hrs[i]||0;x.pdw=S.hrn[i]||0;x.tkw=S.tlk[i]||0}
   if(S.pdw&&S.pdw.some(v=>v>0)){
     x.hours=S.pdw[i]?+(S.hrw[i]/S.pdw[i]).toFixed(2):null;
     x.talk=S.hrw[i]?+(S.tkw[i]/S.hrw[i]*100).toFixed(1):null;

@@ -1206,13 +1206,14 @@ function drawStack(a,w,h){
   if(a.cats)a.cats.forEach(c=>{COL[c[0]]=c[2]});
   const cats=CATS.filter(c=>!off.has(c[0]));
   /* узкая панель: легенда не влезает рядом с заголовком — встаёт второй строкой (header / headH), график выше на строку */
-  const two=wraps(w,o.title,o.legend), hh=headH(o.title,o.legend,w);
+  /* поставка 104 (заказчик): строка «В среднем за …» под заголовком, как у графиков динамики (o.period) */
+  const two=wraps(w,o.title,o.legend), h0=headH(o.title,o.legend,w), pt=periodLine(o.period,h0+11,w), hh=h0+pt.h;
   h=h||o.h||260;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/P.length, X=i=>x0+bandW*(i+0.5);
   const tot=P.map(p=>cats.reduce((v,c)=>v+(p[c[0]]||0),0));
   const max=niceMax(tot), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
   const bw=Math.max(8,Math.min(42,bandW*0.6));
-  let s=header(w,o.title,o.legend,{kind:'stack',off:o.off});
+  let s=header(w,o.title,o.legend,{kind:'stack',off:o.off})+pt.s;
   P.forEach((p,i)=>{
     const cx=X(i), on=mark===i, dly=i*28;
     const live=cats.filter(c=>(p[c[0]]||0)>0);
@@ -1245,11 +1246,11 @@ function drawPline(a,w,h){
   const o=a.opt||{}, P=a.periods, key=a.key, mark=a.mark, col=o.color||C_LINE;
   const fmt=v=>v==null?'—':o.fmt==='int'?CD.fmtInt(v):o.fmt==='pct'?(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%':(Math.round(v*10)/10).toFixed(1).replace('.',',');
   const vals=P.map(p=>p[key]);
-  const hh=headH(o.title,null);
+  const h0=headH(o.title,null), pt=periodLine(o.period,h0+11,w), hh=h0+pt.h;
   h=h||o.h||200;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/P.length, X=i=>x0+bandW*(i+0.5);
   const max=niceMax(vals), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
-  let s=header(w,o.title,null,{});
+  let s=header(w,o.title,null,{})+pt.s;
   if(mark!=null&&P[mark])s+=rect(X(mark)-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4);
   s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
   /* ревью 100: p.pt — незакрытый месяц: к нему линия пунктиром, точка полая и бледнее, в подсказке — «может измениться» */
@@ -1284,7 +1285,7 @@ let _specs=new Map(), _sid=0;
    один заголовок — тоже (заголовков может не быть). */
 const _off=new Map();
 
-const CH_H=280, CH_MAIN=360;
+const CH_H=280, CH_MAIN=360, CH_SM=190;
 function build(spec,w,h){return KINDS[spec.kind](spec.args,Math.max(320,w),h||null)}
 
 function chart(kind,args,opt){
@@ -1300,7 +1301,8 @@ function chart(kind,args,opt){
   /* поставка 97 (заказчик: «пользователь воспринимает каждый график отдельно — высоты должны быть одни»): две высоты на
      весь отчёт — CH_H у каждого графика, в том числе у каждой панели группы, и CH_MAIN у единственного главного графика
      вкладки (opt.main, водопад); растягивания под свободное место нет. Календарь посещений — своей сеткой дней */
-  if(kind!=='calendar'){opt.fill=false;opt.h=kind==='panels'?CH_H*args.panels.length:opt.main?CH_MAIN:CH_H}
+  /* поставка 104 (заказчик, мониторинг: «слишком длинное полотно»): opt.sm — низкая высота CH_SM для листа с множеством малых графиков */
+  if(kind!=='calendar'){opt.fill=false;opt.h=kind==='panels'?CH_H*args.panels.length:opt.main?CH_MAIN:opt.sm?CH_SM:CH_H}
   const mh=kind==='panels'?panelsMin(args.panels):0;
   return '<div class="svgchart'+(opt.fill?' fill':'')+(opt.cls?' '+opt.cls:'')+'" data-cid="'+id+'"'+
     (mh?' style="min-height:'+mh+'px'+(kind==='panels'?';--np:'+args.panels.length:'')+'"':'')+'>'+(_lazy?'':build(spec,NOMINAL_W,NOMINAL_H))+'</div>';
