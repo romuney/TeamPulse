@@ -78,7 +78,7 @@ EXTRA = {
     'to click': [
         ("tables_dict = {\n    'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',\n}",
          "tables_dict = {\n"
-         "    # hr_structure_overall выгружает ноутбук TP 2.0 — здесь не трогаем, чтобы не перезаписать (21.10, Адель)\n"
+         "    # hr_structure_overall выгружает ноутбук TP 2.0 — здесь не трогаем, чтобы не перезаписать (21.10)\n"
          "    # 'hr_structure_with_ssch': 'prod_proteus.hr_structure_overall',\n"
          "    # TeamPulse Hub: датасет отчёта читает только их\n"
          "    'teampulse_hub_meta':   'prod_proteus.teampulse_hub_meta',\n"
@@ -92,6 +92,8 @@ EXTRA = {
          "    # поставка 103: профили численности (точные пересечения разрезов) и их словарь\n"
          "    'teampulse_hub_prof':    'prod_proteus.teampulse_hub_prof',\n"
          "    'teampulse_hub_pfd':     'prod_proteus.teampulse_hub_pfd',\n"
+         "    # поставка 104: мониторинг по неделям (боевой отчёт: недели Пн–Вс, свежесть категорий, суммы часов)\n"
+         "    'teampulse_hub_mon_week': 'prod_proteus.teampulse_hub_mon_week',\n"
          "}"),
         # Адель, 29.10: владелец таблиц — d.stonis
         ("OWNERS = ['d.i.dyachenko',", "OWNERS = ['d.stonis',"),
@@ -119,6 +121,8 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
         ('new', 'hub · 1 структура', 'gp', 'sql_1_structure.sql'),
         ('new', 'hub · 2 логины и AI', 'python', 'hub_optional.py'),
         ('new', 'hub · 3 справочник и ряды', 'gp', 'sql_3_series.sql'),
+        # 05.11, поставка 104: мониторинг по неделям (ноутбук «поставка-104», сверка с боевым мониторингом)
+        ('new', 'hub · 3н мониторинг по неделям', 'gp', 'sql_3w_mon.sql'),
         ('new', 'hub · 4 разрезы', 'gp', 'sql_4_mix.sql'),
         ('new', 'hub · 5 переходы', 'gp', 'sql_5_trf.sql'),
         ('new', 'hub · 6 вакансии и meta', 'gp', 'sql_6_final.sql'),

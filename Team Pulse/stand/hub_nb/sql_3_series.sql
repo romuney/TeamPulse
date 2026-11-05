@@ -38,12 +38,12 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        sum(coalesce(e.perf_high, 0)) as phig, sum(coalesce(e.perf_gray, 0)) as pgry,
        sum(coalesce(e.work_day_amt, 0)) as wday, sum(coalesce(e.office_visit_amt, 0)) as ovis,
        sum(coalesce(e.grt_approve_cnt, 0)) as gapr, sum(coalesce(e.grt_decline_cnt, 0)) as gdec,
-       -- поставка 66 (Адель): бронирования — дней с бронью, бронь без посещения, посещение без брони; рабочие
+       -- поставка 66 : бронирования — дней с бронью, бронь без посещения, посещение без брони; рабочие
        -- дни и посещения руководителей (management_head_flg = 1) — сегмент «Руководители» посещаемости
        sum(coalesce(e.booking_amt, 0)) as bk, sum(coalesce(e.booking_viol_amt, 0)) as bkv, sum(coalesce(e.visit_viol_amt, 0)) as vsv,
        sum(case when e.management_head_flg::text = '1' then coalesce(e.work_day_amt, 0) else 0 end) as hwd,
        sum(case when e.management_head_flg::text = '1' then coalesce(e.office_visit_amt, 0) else 0 end) as hov,
-       -- поставка 71 (Адель, мониторинг по дням): людей с прогулами 2–5 и больше 5 дней, с работой в выходные 2–5 и
+       -- поставка 71 (мониторинг по дням): людей с прогулами 2–5 и больше 5 дней, с работой в выходные 2–5 и
        -- больше 5 дней, со звонками 20–30%, 30–50% и больше 50% рабочего времени; часы рабочего дня и звонков —
        -- сумма средних по людям с данными (hrn — сколько таких людей): среднее по команде — hrs / hrn, доля звонков —
        -- tlk / hrs
@@ -53,7 +53,11 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        sum((e.talk_segment_cd = '50%+')::int) as t5,
        sum(case when coalesce(e.duration_hour, 0) > 0 then coalesce(e.duration_hour, 0) else 0 end) as hrs,
        sum((coalesce(e.duration_hour, 0) > 0)::int) as hrn,
-       sum(case when coalesce(e.duration_hour, 0) > 0 then coalesce(e.talk_call_duration_h, 0) else 0 end) as tlk
+       sum(case when coalesce(e.duration_hour, 0) > 0 then coalesce(e.talk_call_duration_h, 0) else 0 end) as tlk,
+       -- поставка 104: суммы часов/плановых дней/звонков — взвешенные формулы боевого (см. with_performance)
+       sum(coalesce(e.duration_plan_sum, 0)) as hsum,
+       sum(coalesce(e.plan_day_cnt, 0)) as pday,
+       sum(coalesce(e.talk_plan_sum, 0)) as tsum
 from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
@@ -64,6 +68,7 @@ from (
                s.grt_approve_cnt, s.grt_decline_cnt, s.booking_amt, s.booking_viol_amt, s.visit_viol_amt,
                s.management_head_flg, s.duration_hour, s.talk_call_duration_h, s.absence_segment_cd,
                s.weekend_segment_cd, s.talk_segment_cd,
+               s.duration_plan_sum, s.plan_day_cnt, s.talk_plan_sum,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
@@ -106,7 +111,9 @@ select k.node_rk, k.report_month, k.paint_c as paint_cd, k.it_c as it_cd, k.staf
        coalesce(c.ab25, 0) as ab25_cnt, coalesce(c.ab5, 0) as ab5_cnt, coalesce(c.we25, 0) as we25_cnt,
        coalesce(c.we5, 0) as we5_cnt, coalesce(c.t23, 0) as t23_cnt, coalesce(c.t35, 0) as t35_cnt,
        coalesce(c.t5, 0) as t5_cnt, coalesce(c.hrs, 0) as hrs_amt, coalesce(c.hrn, 0) as hrn_cnt,
-       coalesce(c.tlk, 0) as tlk_amt
+       coalesce(c.tlk, 0) as tlk_amt,
+       coalesce(c.hsum, 0) as hrs_sum_amt, coalesce(c.pday, 0) as plan_day_cnt,
+       coalesce(c.tsum, 0) as tlk_sum_amt
 from k
 left join teampulse_hub_sx c
        on c.node_rk = k.node_rk and c.paint_c = k.paint_c and c.it_c = k.it_c and c.staff_c = k.staff_c and

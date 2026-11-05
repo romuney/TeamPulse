@@ -18,7 +18,7 @@ HUB_HEAD_SRC = [('usr_cross_data.hr_executive_proteus', 'calendar_dt'),
                 ('prod_v_emart.mdm_employee_structure_d', 'business_dt')]
 HUB_HEAD_COLS = {'mdm_employee_rk', 'management_head_flg', 'ad_login', 'management_head_ad_login'}
 HUB_AI_SRC = 'usr_mlpa.ai_bi_all_copilots_usage_digest_monthly'
-# поставка 66 (Адель): имя и фамилия руководителя — параграф unit_head_structure (руководитель юнита по месяцам)
+# поставка 66 : имя и фамилия руководителя — параграф unit_head_structure (руководитель юнита по месяцам)
 HUB_HEAD_NM = 'unit_head_structure'
 
 

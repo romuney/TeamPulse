@@ -197,7 +197,9 @@ COLS = (['calendar_dt', 'mdm_employee_rk']
         + ['management_head_flg']
         # 29.10, поставка 73: возраст (поле age — fields Адели, средний возраст) и ключ специализации (рост доступен — по
         # справочнику специализаций, как отчёт «Рост»)
-        + ['age', 'emp_specialization_dk'])
+        + ['age', 'emp_specialization_dk']
+        # 05.11, поставка 104 (переводы по правилам мастер-отчёта): активен ли человек в предыдущий день
+        + ['prev_active_count_flg'])
 # регион — по ключу человека, без генератора: случайный ряд симуляции не сдвигается; у части людей пусто
 REGIONS = ['г. Москва', 'г. Москва', 'г. Москва', 'Московская область', 'г. Санкт-Петербург', 'Свердловская область',
            'Новосибирская область', 'Республика Татарстан', None]
@@ -304,7 +306,8 @@ def source_rows(U, people):
                    + [REGIONS[p['rk'] * 7 % len(REGIONS)]]
                    + [WORKS[p['rk'] * 3 % len(WORKS)]]
                    + [head_flg(H, p, d)]
-                   + [age_num(p), SPECS.index(p['spec']) + 1])
+                   + [age_num(p), SPECS.index(p['spec']) + 1]
+                   + [int(d > p['start'] and at(p['acth'], d - dt.timedelta(1)) in ACTIVE)])
             d += dt.timedelta(1)
 
 
@@ -560,7 +563,9 @@ def mon_days(people):
             bal = -1 if plan and h < ab else 1 if not plan and h < we else 0
             dur = 0.0 if bal == -1 else round(7 + h % 30 / 10, 1) if plan else 4.0 if bal == 1 else 0.0
             if plan or bal == 1:
-                out.append((rk, d, dur, plan, bal, round(dur * talk, 2) if plan else 0.0))
+                # поставка 104: дневная категория перформанса (hub · 3н — категория недели = последняя непустая дневная)
+                cat = ['normal', 'normal', 'normal', 'low', 'high', 'super_low', 'super_high', None][(rk * 13 + d.toordinal() // 7) % 8]
+                out.append((rk, d, dur, plan, bal, round(dur * talk, 2) if plan else 0.0, cat))
             d += dt.timedelta(1)
     return out
 
@@ -627,9 +632,10 @@ def load(pg, U, people):
                                                        'valid_from_dttm', 'valid_to_dttm', 'tgrowth_effective_dt'],
             [(i + 1, s_, 0, '2000-01-01', '5999-01-01', '2024-01-01' if SPEC_GROW[s_] else None) for i, s_ in enumerate(SPECS)])
     pg.run("CREATE TABLE prod_v_sse_crossdata.performance_metric_d (mdm_employee_rk bigint, calendar_dt date, duration_hour numeric, "
-           "plan_working_day_flg int, working_balance int, talk_call_duration_h numeric)")
+           "plan_working_day_flg int, working_balance int, talk_call_duration_h numeric, performance_category text)")
     pg.copy('prod_v_sse_crossdata.performance_metric_d', ['mdm_employee_rk', 'calendar_dt', 'duration_hour', 'plan_working_day_flg',
-                                                         'working_balance', 'talk_call_duration_h'], mon_days(people))
+                                                         'working_balance', 'talk_call_duration_h', 'performance_category'],
+            mon_days(people))
     pg.run("""CREATE TABLE prod_v_dds_dic.mdm_employee_appl_status (mdm_employee_appl_status_cd text, mdm_employee_appl_status_desc text);
               INSERT INTO prod_v_dds_dic.mdm_employee_appl_status VALUES ('FNS','Одобрена'),('DCL','Отклонена'),('CNL','Отменена'),('INP','В работе')""")
     # 19.10: структура сотрудников с логинами — источник логина руководителя юнита (build_hub, как
@@ -972,7 +978,7 @@ def mon_month(md):
     по плановым дням, прогулы, работа в выходной, доля разговоров и сегменты"""
     from decimal import Decimal, ROUND_HALF_UP
     A = defaultdict(lambda: [0.0, 0, 0, 0, 0.0])
-    for rk, d, dur, plan, bal, talk in md:
+    for rk, d, dur, plan, bal, talk, *_ in md:
         a = A[(rk, dt.date(d.year, d.month, 1))]
         if plan:
             a[0] += dur; a[1] += 1; a[4] += talk

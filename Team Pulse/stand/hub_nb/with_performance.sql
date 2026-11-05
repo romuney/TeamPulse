@@ -1,6 +1,6 @@
 -- =============================================================================
 -- TeamPulse Hub
--- перформанс (категории за месяц) и мониторинг по дням (Адель, 27.10): средняя длительность рабочего дня, прогулы,
+-- перформанс (категории за месяц) и мониторинг по дням (27.10): средняя длительность рабочего дня, прогулы,
 -- работа в выходной, звонки и доля разговоров, сегменты. Поставка 71 — исправлено: деление на число плановых рабочих
 -- дней через nullif (у человека, который в месяце работал только в выходные, оно 0 — параграф падал); мониторинг по
 -- дням — к одной строке человека в месяце (last_row_flg = 1), как перформанс: у перешедшего строк две, и прогулы с
@@ -42,7 +42,7 @@ with performance_category (val, mapped_val) as(
     group by 1,2
 )
 , performance_metric_d as (
-    select 
+    select
         mdm_employee_rk
         , calendar_dt
         , date_trunc('month', calendar_dt) as report_month
@@ -56,7 +56,7 @@ with performance_category (val, mapped_val) as(
     and calendar_dt >= date_trunc('year', current_date - interval '1 year')
 )
 , performance_metric_d_aggr as (
-    select 
+    select
         report_month
         , mdm_employee_rk
         , sum(case when plan_working_day_flg=1 then duration_hour end)/nullif(sum(plan_working_day_flg), 0)*1.0 as duration_hour
@@ -65,6 +65,12 @@ with performance_category (val, mapped_val) as(
         , sum(case when plan_working_day_flg=1 then talk_call_duration_h end)/nullif(sum(plan_working_day_flg), 0)*1.0 as talk_call_duration_h
         , round(100.0 * sum(case when plan_working_day_flg=1 then talk_call_duration_h end)
             / nullif(sum(case when plan_working_day_flg=1 then duration_hour end), 0), 1) as share_talk
+        -- поставка 104 (сверка с боевым мониторингом 05.11): суммы, а не только средние — активность
+        -- и доля звонков у боевого взвешены по плановым дням (активность = duration_plan_sum / plan_day_cnt,
+        -- доля звонков = 100 * talk_plan_sum / duration_plan_sum), среднее средних завышало активность на 0,15–0,2 ч
+        , sum(case when plan_working_day_flg=1 then duration_hour end) as duration_plan_sum
+        , sum(plan_working_day_flg) as plan_day_cnt
+        , sum(case when plan_working_day_flg=1 then talk_call_duration_h end) as talk_plan_sum
     from performance_metric_d
     group by report_month, mdm_employee_rk
 )
@@ -83,6 +89,9 @@ select nm.*
     , coalesce(pmd.work_dayoff, 0)        as work_dayoff -- Работа в выходной
     , coalesce(pmd.talk_call_duration_h, 0) as talk_call_duration_h -- Длительность звонков в часах средняя
     , coalesce(pmd.share_talk, 0)       as share_talk -- доля времени на разговоры, %
+    , coalesce(pmd.duration_plan_sum, 0) as duration_plan_sum -- часы плановых дней месяца (поставка 104)
+    , coalesce(pmd.plan_day_cnt, 0)      as plan_day_cnt -- плановые дни месяца
+    , coalesce(pmd.talk_plan_sum, 0)     as talk_plan_sum -- часы звонков плановых дней месяца
     , case
         when coalesce(pmd.duration_hour, 0) <= 0 then 'нет данных'
         when coalesce(pmd.share_talk, 0) < 20 then 'до 20%'
@@ -109,4 +118,3 @@ left join performance_metric_d_aggr pmd
     and nm.last_row_flg = 1
 
 distributed by (mdm_employee_rk, report_month);
-

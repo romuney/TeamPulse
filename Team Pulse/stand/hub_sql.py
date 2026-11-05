@@ -73,7 +73,9 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
                'booking_amt', 'booking_viol_amt', 'visit_viol_amt', 'office_city_visits_json', 'management_head_flg',
                # поставка 71 (Адель, with_performance): мониторинг по дням — часы, звонки, сегменты прогулов, выходных, звонков
                'duration_hour', 'talk_call_duration_h', 'absence_segment_cd', 'weekend_segment_cd', 'talk_segment_cd',
-               'last_row_flg', 'mdm_employee_rk'])
+               'last_row_flg', 'mdm_employee_rk',
+               # поставка 104 (with_performance): суммы часов и плановых дней — взвешенная активность и доля звонков
+               'duration_plan_sum', 'plan_day_cnt', 'talk_plan_sum'])
 # поставка 71: заявки T-роста — rost_info (по заявке) и structure_x_rost (заявка к структуре), параграфы Адели
 ROST = 'rost_info'
 ROST_COLS = ['mdm_employee_rk', 'month', 'finish_month', 'create_dt', 'is_approved', 'is_declined', 'is_inprogress',
@@ -93,9 +95,15 @@ TYPES = ('hq', 'it', 'employment_relation_type', 'active_type')
 DAY_COLS = (['calendar_dt', 'mdm_employee_rk'] + [f'lvl{i}_mapped_management_unit_rk' for i in LV]
             + ['emp_specialization_oper_code', 'emp_specialization_it_code', 'employment_relation_type_desc',
                'active_type_nm', 'hire_flg', 'transfer_candidate_flg', 'transfer_internal_flg', 'fire_flg',
-               'last_day_of_month_flg', 'employee_specialization_desc', 'emp_specialization_dk']
+               'last_day_of_month_flg', 'employee_specialization_desc', 'emp_specialization_dk',
+               # поставка 104 (hub · 5): вход и выход из активной численности — флаги «активна сегодня / вчера»
+               'active_count_flg', 'prev_active_count_flg']
             + [f'lvl{i}_mngt_unit_{k}_trsf_flg' for i in LV for k in ('in', 'out')]
             + [f'transfer_{d}_{t}_flg' for t in TYPES + ('specialization',) for d in ('to', 'out')])   # 31.10, п. 10
+# поставка 104 (hub · 3н): дневной перформанс — недели мониторинга
+PMD = 'prod_v_sse_crossdata.performance_metric_d'
+PMD_COLS = ['calendar_dt', 'mdm_employee_rk', 'duration_hour', 'plan_working_day_flg', 'working_balance',
+            'talk_call_duration_h', 'performance_category']
 VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'close_flg', 'end_of_month_flg', 'last_dt_flg', 'status_name',
              'status_name_chng_group', 'search_reason', 'mapping_channel_name', 'finalist_level_candy',
              'lvl_position_adj', 'specialization'] + [f'resource_level_{i}_rk' for i in range(1, NV + 1)])
@@ -106,7 +114,8 @@ def sql_cols():
             + [('', ROST, c) for c in ROST_COLS] + [('', SXR, c) for c in SXR_COLS]
             + [tuple(SPEC_DIC.split('.')) + (c,) for c in SPEC_DIC_COLS]
             + [('', CAL, c) for c in CAL_COLS]
-            + [tuple(DAY.split('.')) + (c,) for c in DAY_COLS] + [tuple(VAC_SRC.split('.')) + (c,) for c in VAC_COLS])
+            + [tuple(DAY.split('.')) + (c,) for c in DAY_COLS] + [tuple(VAC_SRC.split('.')) + (c,) for c in VAC_COLS]
+            + [tuple(PMD.split('.')) + (c,) for c in PMD_COLS])
     vals = ',\n'.join(f"        ('{s}', '{t}', '{c}')" for s, t, c in need)
     tabs = ', '.join(f"'{t}'" for t in dict.fromkeys(t for _, t, _ in need))
     return f"""{head('0. Колонки источников (поставка 58)',
@@ -1236,11 +1245,11 @@ FILES = {
     # 31.10 (поставка 86): sql_vacancy.sql ведётся руками — в нём правки Адели (каналы подбора); генератор его
     # больше не перезаписывает. sql_vacancy_snapshot() — прежняя версия, для истории
     'sql_1_structure.sql': sql_structure,
-    'sql_3_series.sql': sql_series,
+    # 05.11, поставка 104: hub · 3, hub · 5 и hub checks ведутся руками (hub_nb/sql_3_series.sql, sql_5_trf.sql,
+    # sql_checks.sql) — в них логика, сверенная с мастер-отчётами на реальных данных (Trino, ноутбук «поставка-104»);
+    # генератор их больше не перезаписывает. sql_series / sql_trf / sql_checks ниже — прежние версии, для истории
     'sql_4_mix.sql': sql_mix,
-    'sql_5_trf.sql': sql_trf,
     'sql_6_final.sql': sql_final,
-    'sql_checks.sql': sql_checks,
 }
 
 

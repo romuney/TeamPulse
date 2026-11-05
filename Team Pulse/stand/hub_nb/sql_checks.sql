@@ -134,6 +134,17 @@ select 24 as n, 'вакансии: корень - снимок (закрытые
        (coalesce((select sum(vac_close_cnt) from teampulse_hub_vacancy where node_rk = (select root_rk from teampulse_hub_meta)), 0)
        - coalesce((select sum(close_cnt) from structure_x_vacancy
                    where report_month >= (select grid_start from teampulse_hub_meta)), 0))::float8 as val
+union all
+select 25 as n, 'мониторинг-недели: категории = численность (корень, вся сетка)'::text as check_nm, 1 as must,
+       ((select sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) from teampulse_hub_mon_week
+          where node_rk = (select root_rk from teampulse_hub_meta))
+       - (select sum(hc_cnt) from teampulse_hub_mon_week
+          where node_rk = (select root_rk from teampulse_hub_meta)))::float8 as val
+union all
+select 26 as n, 'мониторинг-недели: повторы ключа «узел x неделя x срез»'::text as check_nm, 1 as must,
+       ((select count(*) from (select 1 from teampulse_hub_mon_week
+                                group by node_rk, wk, paint_cd, it_cd, staff_cd, act_cd
+                                having count(*) > 1) t))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,

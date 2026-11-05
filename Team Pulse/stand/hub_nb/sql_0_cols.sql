@@ -80,6 +80,9 @@ with need (sch, tbl, col) as (
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'talk_segment_cd'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'last_row_flg'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'mdm_employee_rk'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'duration_plan_sum'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'plan_day_cnt'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'talk_plan_sum'),
         ('', 'org_structure', 'report_month'),
         ('', 'org_structure', 'mng_unit_rk'),
         ('', 'rost_info', 'mdm_employee_rk'),
@@ -170,6 +173,8 @@ with need (sch, tbl, col) as (
         ('usr_cross_data', 'hr_executive_proteus', 'last_day_of_month_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'employee_specialization_desc'),
         ('usr_cross_data', 'hr_executive_proteus', 'emp_specialization_dk'),
+        ('usr_cross_data', 'hr_executive_proteus', 'active_count_flg'),
+        ('usr_cross_data', 'hr_executive_proteus', 'prev_active_count_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl1_mngt_unit_in_trsf_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl1_mngt_unit_out_trsf_flg'),
         ('usr_cross_data', 'hr_executive_proteus', 'lvl2_mngt_unit_in_trsf_flg'),
@@ -225,12 +230,19 @@ with need (sch, tbl, col) as (
         ('usr_cross_data', 'vacancy_daily', 'resource_level_8_rk'),
         ('usr_cross_data', 'vacancy_daily', 'resource_level_9_rk'),
         ('usr_cross_data', 'vacancy_daily', 'resource_level_10_rk'),
-        ('usr_cross_data', 'vacancy_daily', 'resource_level_11_rk')
+        ('usr_cross_data', 'vacancy_daily', 'resource_level_11_rk'),
+        ('prod_v_sse_crossdata', 'performance_metric_d', 'calendar_dt'),
+        ('prod_v_sse_crossdata', 'performance_metric_d', 'mdm_employee_rk'),
+        ('prod_v_sse_crossdata', 'performance_metric_d', 'duration_hour'),
+        ('prod_v_sse_crossdata', 'performance_metric_d', 'plan_working_day_flg'),
+        ('prod_v_sse_crossdata', 'performance_metric_d', 'working_balance'),
+        ('prod_v_sse_crossdata', 'performance_metric_d', 'talk_call_duration_h'),
+        ('prod_v_sse_crossdata', 'performance_metric_d', 'performance_category')
 ),
 have as (
     select table_schema as sch, table_name as tbl, column_name as col
     from information_schema.columns
-    where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'rost_info', 'structure_x_rost', 'employee_specialization', 'office_traffic_calendar', 'hr_executive_proteus', 'vacancy_daily')
+    where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'rost_info', 'structure_x_rost', 'employee_specialization', 'office_traffic_calendar', 'hr_executive_proteus', 'vacancy_daily', 'performance_metric_d')
 )
 select case when count(*) = 0 then 'колонки на месте'
             else ('НЕТ КОЛОНОК (параграф «hub · 0 колонки»): '
