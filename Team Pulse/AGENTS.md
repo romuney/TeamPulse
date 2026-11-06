@@ -3254,6 +3254,25 @@ GOLDEN без week_md5. Чарт: monWeeks / monHasWeeks / mw в mxMinus и NODE
 глава «Рабочая активность» по месяцам (среднее за период, низкие графики, незакрытый месяц бледнее — остаются). smoke /
 smoke_real — проверки «только месяцы». Стенд: hub checks OK, водопад «как в чарте» сходится при всех срезах.
 
+**06.11, поставка 107 — посещения как в мастер-отчёте + визуальная итерация AI.** Из пакета агента (старая поставка)
+взята только логика посещений. Ноутбук — параграфы агента как есть: with_office_traffic.sql, office_traffic.sql,
+sql_3_series.sql (ручные; база мастера — active_type_nm = 'Активная' и active_office_emp_flg = 'Да', визит —
+main_office_visit_rn = 1, знаменатель rn ≤ 1; ряды fwday_amt / fovis_amt (fix_flex_cat = 'фикс'), vbk_amt; брони — строки с
+непустым booking_violation_flg). Генератор hub_sql.py: SRC_COLS + fix_work_day_amt / fix_office_visit_amt /
+visit_with_booking_amt, разрез городов oc / ocp / ocd (ocd — рабочие дни людей с офисом города, work_day_count). Датасет 2:
+ряды fwday / fovis / vbk (optf). Чарт: real.js OPT/KEY (office_fix_wday, office_fix_ovis, bk_visit_ok — и в списке рядов
+data.js, иначе чарт берёт значения генератора); booking_viol = «Брони без посещения» (bkv ÷ bk), сервисные office_fix и
+visit_nobook (vsv ÷ ovis — вторая доля, как мастер, выбор владельца); «Офис»: строка «Владельцы фиксов», посещаемость
+городов oc ÷ ocd, бронь — две линии и две составные полосы («Брони», «Посещения»). Файл 5: запрос 10 (без прод-чисел).
+AI по файлу «новая итерация AI-инструментов» (8 пунктов; гранулярность осталась недельной — решение 06.11, покраска —
+HQ / Line / Support): четыре подвкладки adoption / who / usage («Как пользуются?») / what («Что делают?»); численность —
+вторая светло-серая линия «Активных пользователей» (drawPline key2 / name2 / color2, общая шкала, легенда и тултип);
+стажёры и воронка сообщений — shareBar + shareCards (static, unit); инструменты — barTable с колонкой «Людей» (o.cnt,
+bt-cnt), топ-10 и раскрываемое «Остальное» (restAgg, restName); инструменты по покраске — последними в «Как пользуются?»,
+ячейки в две строки. Ноутбук (hub · 2, 12б): ключи aix aur / air (ранг), auo / aio / apo (уникальные люди вне топ-10).
+Стенд: office_rows в базе мастера, truth_office, AI_TOOLS 14, truth_aix с рангами (UTF-8 порядок при равенстве) и
+«Остальным»; nb_hub_check сверяет. Бюджет сборки 530 → 538 КиБ.
+
 **06.11, поставка 106 — AI только по неделям (задание агента, решение заказчика: месячный AI убрать полностью).** Ноутбук —
 параграфы агента как есть (stand/hub_nb/hub_optional.py, about.md, scheme.md): teampulse_hub_aiw (узел × неделя: ai_heads,
 ai_wau, ai_pen; count distinct, стажёры исключены) из usr_mlpa.ai_bi_all_copilots_usage_digest_weekly, проверка №29 (повторы

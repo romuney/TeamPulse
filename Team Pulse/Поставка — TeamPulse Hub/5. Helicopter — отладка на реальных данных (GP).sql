@@ -19,6 +19,7 @@
 --   7  средний возраст на конец месяца и профили = численность (п. 11, пересечения разрезов)
 --   8  источник найма на день найма против последнего значения месяца (п. 12)
 --   9  откуда «прочее» водопада (запрос 1): кто сменил численность «Активная» не наймом и не увольнением — по категориям
+--   10 посещаемость в базе мастер-отчёта: посещаемость, фиксы, брони без посещения, посещения без брони
 -- Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub): все запросы выполняются на таблицах ноутбука.
 -- ============================================================================
 
@@ -231,3 +232,33 @@ from r left join f on f.e = r.e
 group by 1, 2, 3, 4, 5, 6, 7, 8
 order by abs(sum(r.h1 - r.h0 - (r.hire - r.fire))) desc
 limit 40;
+
+-- 10. Посещаемость — как в мастер-отчёте (борд «Посещаемость и бронирование офисов»). База с 06.11:
+--    активные сотрудники с закреплённым офисом, визит — главный офис дня; фиксы — fix_flex_cat = 'фикс'.
+--    Чарт: посещаемость = ovis ÷ wday, «Брони без посещения» = bkv ÷ bk, «Посещения без брони» = vsv ÷ ovis.
+--    Задайте unit (ключ из запроса 0) и срез покраски — и сравните с мастером за тот же месяц; ожидаемые
+--    числа сверки — в чате, не в репозитории. Допуск ±1 п.п. (±3% у абсолютов): остаток — дедуп строк
+--    pc-таблицы мастера.
+with p as (select null::text as unit, null::date as m),
+u as (select coalesce((select unit from p), (select root_rk from teampulse_hub_meta)) as rk),
+s as (
+    select paint_cd,                                                                    -- ← срез
+           sum(wday_amt) as wday, sum(ovis_amt) as ovis,
+           sum(fwday_amt) as fwday, sum(fovis_amt) as fovis,
+           sum(bk_amt) as bk, sum(bkv_amt) as bkv,
+           sum(vsv_amt) as vsv, sum(vbk_amt) as vbk
+    from teampulse_hub_series
+    where node_rk = (select rk from u)
+      and report_month = coalesce((select m from p), (select cm from teampulse_hub_cal))
+      and act_cd = 'Активная'                                                            -- ← срез
+    group by 1
+)
+select paint_cd,
+       round(100.0 * ovis / nullif(wday, 0), 2) as attendance_pct,
+       round(100.0 * fovis / nullif(fwday, 0), 2) as fix_attendance_pct,
+       bkv as bookings_no_visit, bk - bkv as bookings_with_visit,
+       vsv as visits_no_booking, vbk as visits_with_booking,
+       round(100.0 * bkv / nullif(bk, 0), 2) as no_visit_share_pct,
+       round(100.0 * vsv / nullif(ovis, 0), 2) as no_booking_share_pct
+from s
+order by paint_cd;

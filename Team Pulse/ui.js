@@ -387,13 +387,16 @@ function barTable(o){
     /* в остальных никого — строку «Остальные 0» не рисуем */
     /* 23.10, Антон: «Остальные» раскрываются, как стрим (o.restKey — ключ раскрытия, o.restOpen — раскрыта ли):
        под строкой — спрятанные значения вторым уровнем, по каждому — срез */
-    const restRow={name:'Остальные',note:rest.length+' '+plural(rest.length,o.restWord||['значение','значения','значений']),
-      value:rest.reduce((a,x)=>a+x.value,0),color:rest[0].color,
+    /* 07.11 (AI-итерация, п. 3): o.restAgg(rest) → {value, n} — свой итог «Остальных» (уникальные люди: человек с двумя
+       инструментами из группы — один раз); o.restName — подпись группы */
+    const ra=o.restAgg?o.restAgg(rest):null;
+    const restRow={name:o.restName||'Остальные',note:rest.length+' '+plural(rest.length,o.restWord||['значение','значения','значений']),
+      value:ra?ra.value:rest.reduce((a,x)=>a+x.value,0),n:ra?ra.n:null,color:rest[0].color,
       /* 29.10, п. 4: в подсказке не список значений, а их число и «кликни» (раскрываются) */
       tip:o.restKey?(o.restOpen?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'):
         rest.length+' '+plural(rest.length,o.restWord||['значение','значения','значений'])};
     if(o.restKey)Object.assign(restRow,{exp:o.restKey,open:!!o.restOpen,restRow:true});
-    items=!rest.some(x=>x.value)?keep:keep.concat([restRow]).concat(o.restKey&&o.restOpen?
+    items=!rest.some(x=>x.value)&&!(ra&&ra.value)?keep:keep.concat([restRow]).concat(o.restKey&&o.restOpen?
       rest.slice().sort((a,b)=>b.value-a.value).map(x=>Object.assign({},x,{depth:2})):[]);
   }
   const tree=o.tree||items.some(x=>x.restRow);
@@ -407,15 +410,17 @@ function barTable(o){
   /* share:false — для процентных метрик: доля одного процента в сумме процентов
      ничего не значит, а колонка «Доля» делает вид, что значит. */
   const withShare=o.share!==false;
+  /* 07.11 (AI-итерация, п. 4): o.cnt — подпись колонки количества (x.n) рядом со значением: «% людей» и «Человек» */
+  const cnt=o.cnt||null;
   /* lite (14.10, структура): без шапки колонок и без ИТОГО — число и доля
      понятны сами («53 · 28%»), а итог уже стоит в карточке над таблицей;
      строки ниже, цифры без жирного. «Одно и то же десять раз» — фидбэк. */
   const lite=!!o.lite;
-  let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+'">'+
-    '<colgroup><col style="width:'+(lite?'34%':o.compact?'40%':'34%')+'"><col style="width:'+(lite?'9%':'14%')+'">'+
-    (withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
+  let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+(cnt?' bt-cnt':'')+'">'+
+    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?'46%':'40%'):'34%')+'"><col style="width:'+(lite?'9%':cnt?'17%':'14%')+'">'+
+    (cnt?'<col style="width:13%">':'')+(withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
     (lite&&!o.heads?'':'<thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
-    '<th>'+esc(o.valueHead||'Значение')+'</th>'+(withShare?'<th>Доля</th>':'')+
+    '<th>'+esc(o.valueHead||'Значение')+'</th>'+(cnt?'<th>'+esc(cnt)+'</th>':'')+(withShare?'<th>Доля</th>':'')+
     '<th class="txt bar-th">'+esc(o.barHead||'Распределение')+'</th></tr></thead>')+'<tbody>';
 
   /* ИТОГО ПЕРВОЙ СТРОКОЙ — так же, как в сводной таблице подразделений.
@@ -429,7 +434,7 @@ function barTable(o){
       : (o.tree?'<span class="caret-spacer"></span>':'');
     h+='<tr class="total top"><td class="txt">'+
       (o.tree?'<span class="row-label">'+allBtn+'<span class="row-body">ИТОГО</span></span>':'ИТОГО')+
-      '</td><td class="lead">'+D.fmtVal(key,sum)+'</td>'+
+      '</td><td class="lead">'+D.fmtVal(key,sum)+'</td>'+(cnt?'<td></td>':'')+
       (withShare?'<td>100%</td>':'')+'<td class="barcell"></td></tr>';
   }
 
@@ -466,10 +471,11 @@ function barTable(o){
       (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span>';
     h+='<tr'+hook+'>'+
       '<td class="txt">'+(tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
-      '<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+
+      '<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+(cnt?'<td>'+(x.n==null?'—':D.fmtInt(x.n))+'</td>':'')+
       (withShare?'<td>'+share.toFixed(share<10?1:0).replace('.',',')+'%</td>':'')+
       '<td class="barcell"'+tipAttr({title:x.name,
         rows:[{label:o.valueHead||'Значение',value:D.fmtVal(key,x.value),color:G.soft(x.color||G.C_LINE)}]
+          .concat(cnt&&x.n!=null?[{label:cnt,value:D.fmtInt(x.n)}]:[])
           .concat(withShare?[{label:'доля',value:share.toFixed(share<10?1:0).replace('.',',')+'%'}]:[]),
         note:x.tip||null})+
         '><span class="cellbar"><i style="width:'+barW(key,x.value,withShare?sum:0,max).toFixed(1)+'%'+
@@ -654,10 +660,11 @@ function shareBar(o){
   const tot=o.segs.reduce((a,x)=>a+x.n,0)||1, any=o.segs.some(x=>x.on);
   return '<div class="shbar'+(any?' has-on':'')+'">'+o.segs.filter(x=>x.n>0).map(x=>{
     const p=Math.round(x.n/tot*100);
-    return '<span class="'+[x.dk?'dk':'',x.on?'on':''].filter(Boolean).join(' ')+'" data-mix="'+esc(x.id)+'"'+
+    /* 07.11 (AI-итерация, п. 2): o.static — полоса без среза по клику (стажёры, воронка сообщений); o.unit — подпись числа */
+    return '<span class="'+[x.dk?'dk':'',x.on?'on':''].filter(Boolean).join(' ')+'"'+(o.static?'':' data-mix="'+esc(x.id)+'"')+
       ' style="flex:'+(x.n/tot*100).toFixed(2)+' 1 0;background:'+x.bg+'"'+
-      tipAttr({title:x.name,rows:[{label:'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
-        note:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
+      tipAttr({title:x.name,rows:[{label:o.unit||'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
+        note:o.static?null:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
       (p>=6?'<em class="shb-t">'+(o.names&&p>=14?esc(x.name)+' ':'')+'<b>'+p+'%</b></em>':'')+'</span>';
   }).join('')+'</div>';
 }
@@ -669,10 +676,10 @@ function shareCards(o){
      где этого можно избежать); ширина у всех одна */
   const n=o.cards.length, cols=n<=4?n:3;
   return '<div class="shcards c'+cols+(any?' has-on':'')+'">'+o.cards.map(x=>
-    '<div class="shc'+(x.on?' on':'')+'" data-mix="'+esc(x.id)+'"'+
-      tipAttr({title:x.name,text:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'})+'>'+
+    '<div class="shc'+(x.on?' on':'')+'"'+(o.static?'':' data-mix="'+esc(x.id)+'"'+
+      tipAttr({title:x.name,text:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'»: пересчитаются все разрезы, карточки и таблица подразделений. Shift+клик — добавить к срезу.'}))+'>'+
       '<div class="shc-h">'+(x.icon?'<span class="shc-ic" style="color:'+x.bg+'">'+ico(x.icon)+'</span>':'<i style="background:'+x.bg+'"></i>')+esc(x.name)+'</div>'+
-      '<div class="shc-n"><b>'+D.fmtInt(x.n)+'</b> чел</div>'+
+      '<div class="shc-n"><b>'+D.fmtInt(x.n)+'</b> '+(x.unit||'чел')+'</div>'+
       (x.sub?'<div class="shc-s">'+x.sub+'</div>':'')+'</div>').join('')+'</div>';
 }
 /* «М 58% · Ж 42%» с узкой полосой на два цвета — расклад пола внутри категории */

@@ -552,6 +552,8 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
   /* поставка 66 (посещения Адели): дни с бронью, бронь без прихода, приход без брони; рабочие дни и посещения
      руководителей и остальных — слагаемые нарушений бронирования и посещаемости сегмента */
   'bk_days','bk_noshow','bk_walkin','wday_lead','ovis_lead','wday_staff','ovis_staff',
+  /* поставка 107 (база мастера): рабочие дни и посещения владельцев фиксов, посещения с бронью */
+  'office_fix_wday','office_fix_ovis','bk_visit_ok',
   /* поставка 71: мониторинг по дням — люди в сегментах, суммы средних часов дня и звонков по людям */
   'mon_ab25','mon_ab5','mon_we25','mon_we5','mon_t23','mon_t35','mon_t5','mon_hrs','mon_hrn','mon_tlk',
   /* поставка 104: взвешенные суммы — часы и звонки плановых дней, плановые дни */
@@ -3144,7 +3146,11 @@ const AI_TOOLS=[{key:'chat',name:'Корпоративный AI-ассистен
   {key:'code',name:'AI-помощник разработчика',k:0.5,it:true},
   {key:'kb',name:'AI-поиск по базе знаний',k:0.38},
   {key:'docs',name:'Генерация документов и писем',k:0.27},
-  {key:'data',name:'AI в аналитике данных',k:0.15}];
+  {key:'data',name:'AI в аналитике данных',k:0.15},
+  /* 07.11 (AI-итерация, п. 3): в макете инструментов больше десяти — видны топ-10 и «Остальное» */
+  {key:'meet',name:'Ассистент встреч',k:0.12},{key:'tr',name:'Переводчик',k:0.1},{key:'rev',name:'Код-ревью',k:0.09,it:true},
+  {key:'test',name:'Генерация тестов',k:0.07,it:true},{key:'mail',name:'Ассистент почты',k:0.06},
+  {key:'sql',name:'Помощник по SQL',k:0.05,it:true},{key:'asr',name:'Распознавание речи',k:0.03}];
 /* файл 7, п. 4: статистика AI приходит с задержкой — последний месяц бывает пустым, и всё, что считается от него
    («Кто пользуется», «Как пользуется»), обнулялось. Берём последний месяц с данными */
 function aiLast(lp,key){const a=aggregate(lp,key);for(let i=lastIdx(key);i>=0;i--)if(a[i]>0)return a[i];return 0}
@@ -3210,17 +3216,23 @@ function aiUsageReal(lp){
   if(!cw||!Object.keys(g('aik')).length)return null;
   const pc=(n,d)=>d?+(n*100/d).toFixed(1):0, R=Math.round, hc=cw.hc, act=cw.wau;
   const aut=g('aut'), apt=g('apt'), aph=g('aph'), ait=g('ait'), auk=g('auk'), one=o=>R(o['']||0);
-  const tools=Object.keys(aut).map(t=>({key:t,name:t,value:pc(aut[t],hc)})).sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name,'ru'));
+  /* 07.11 (AI-итерация, п. 3–4): порядок — ранг ноутбука (aur / air: людей ↓), топ-10 и «Остальное» — по нему; у инструмента —
+     и % людей, и число людей; «Остальное» — люди с инструментами вне топ-10, каждый один раз (auo / aio / apo) */
+  const aur=g('aur'), air=g('air'), byR=rk=>(a,b)=>(rk[a.key]||999)-(rk[b.key]||999)||b.n-a.n;
+  const tools=Object.keys(aut).map(t=>({key:t,name:t,value:pc(aut[t],hc),n:R(aut[t])})).sort(byR(aur));
   const days=o=>AI_DAYS.map((nm,i)=>({name:nm,value:R(o[String(i+1)]||0)}));
   const per=['1','2','3','4'].map(k=>({name:k==='4'?'4 и больше':k,value:R(g('aun')[k]||0)}));
   const msgs=one(g('aum')), cls=one(g('auc'));
   const tasks=Object.keys(auk).map(t=>({name:isNA(t)?NONE_NAME:t,value:R(auk[t])})).sort((a,b)=>b.value-a.value);
   const po=PAINTS.slice(1).map(x=>x.name), ps=Object.keys(aph).sort((a,b)=>((po.indexOf(a)+1)||99)-((po.indexOf(b)+1)||99)||a.localeCompare(b));
-  const bySeg=ps.map(p=>({name:isNA(p)?NONE_NAME:p,hc:R(aph[p]),cells:tools.map(t=>pc(apt[p+'|'+t.key]||0,aph[p]))}));
+  const apo=g('apo');
+  const bySeg=ps.map(p=>({name:isNA(p)?NONE_NAME:p,raw:p,hc:R(aph[p]),cells:tools.map(t=>pc(apt[p+'|'+t.key]||0,aph[p])),
+    cnt:tools.map(t=>R(apt[p+'|'+t.key]||0)),rest:R(apo[p]||0)}));
   const ihc=one(g('aih')), iact=one(g('aiu'));
   return {real:true,week:cw.full.replace(/^Неделя /,''),pen:cw.pen,act:act,hc:hc,freq:days(g('auf')),per:per,msgs:msgs,cls:cls,
-    dev:[{name:'Инструменты разработчика',msgs:cls,tasks:tasks}],tools:tools,bySeg:bySeg,
-    intern:{hc:ihc,act:iact,pen:pc(iact,ihc),tools:Object.keys(ait).map(t=>({name:t,value:pc(ait[t],ihc)})),freq:days(g('aif'))},cons:[]};
+    dev:[{name:'Инструменты разработчика',msgs:cls,tasks:tasks}],tools:tools,bySeg:bySeg,rest:one(g('auo')),
+    intern:{hc:ihc,act:iact,pen:pc(iact,ihc),tools:Object.keys(ait).map(t=>({key:t,name:t,value:pc(ait[t],ihc),n:R(ait[t])})).sort(byR(air)),
+      rest:one(g('aio')),freq:days(g('aif'))}};
 }
 function aiUsage(lp){
   if(AI_CUTS){const x=aiUsageReal(lp);if(x)return x}
@@ -3241,11 +3253,16 @@ function aiUsage(lp){
     x.name==='IT'?1.15:0.85)*(0.9+r()*0.2),0,100).toFixed(1))}));
   /* 31.10: процент стажёров с AI — из людей (5 из 11 = 45,5%), а не отдельным числом */
   const ihc=Math.max(1,Math.round(hc*(0.03+r()*0.03))), iact=Math.round(ihc*cl(pen*(1.05+r()*0.2),0,100)/100), ipen=+(iact/ihc*100).toFixed(1);
-  const cons=segs.map(x=>PAINTS.slice(1).map((pt,k)=>{const n=Math.round(x.hc*[0.62,0.25,0.13][k]),pp=+cl(pen*(0.85+r()*0.3),0,100).toFixed(1);
-    return {seg:x.name,paint:pt.name,hc:n,act:Math.round(n*pp/100),pen:pp}})).reduce((a,b)=>a.concat(b),[]);
-  return {pen:pen,act:act,freq:freq,per:per,msgs:msgs,cls:cls,dev:dev,tools:ai.tools,bySeg:bySeg,
-    intern:{hc:ihc,pen:ipen,act:iact,tools:ai.tools.map(t=>({name:t.name,value:+cl(t.value*(0.9+r()*0.3),0,100).toFixed(1)})),
-      freq:splitBy(iact,jitter(r,[0.2,0.22,0.2,0.16,0.12,0.06,0.04],0.2)).map((n,i)=>({name:AI_DAYS[i],value:n}))},cons:cons.filter(x=>x.hc>0)};
+  /* 07.11: число людей у инструмента и «Остальное» без двойного счёта (в макете — оценка: самый частый из остальных × 1,5) */
+  const tools=ai.tools.map(t=>Object.assign({},t,{n:Math.round(hc*t.value/100)})).sort((a,b)=>b.n-a.n);
+  const itools=ai.tools.map(t=>{const v=+cl(t.value*(0.9+r()*0.3),0,100).toFixed(1);return {key:t.key,name:t.name,value:v,n:Math.round(ihc*v/100)}})
+    .sort((a,b)=>b.n-a.n);
+  const restOf=(a,cap)=>a.length>10?Math.min(cap,Math.round(Math.max.apply(null,a.slice(10).map(x=>x.n))*1.5)):0;
+  bySeg.forEach(x=>{x.cells=tools.map(t=>x.cells[ai.tools.indexOf(ai.tools.find(z=>z.key===t.key))]);
+    x.cnt=x.cells.map(v=>v==null?null:Math.round(x.hc*v/100));x.rest=restOf(tools,x.hc)});
+  return {pen:pen,act:act,freq:freq,per:per,msgs:msgs,cls:cls,dev:dev,tools:tools,bySeg:bySeg,rest:restOf(tools,hc),
+    intern:{hc:ihc,pen:ipen,act:iact,tools:itools,rest:restOf(itools,ihc),
+      freq:splitBy(iact,jitter(r,[0.2,0.22,0.2,0.16,0.12,0.06,0.04],0.2)).map((n,i)=>({name:AI_DAYS[i],value:n}))}};
 }
 
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,

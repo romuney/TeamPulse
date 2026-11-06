@@ -420,6 +420,13 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       'офис на настоящих: календарь — рабочие дни '+Math.round(sw)+' = ряды двух месяцев, брони без посещения '+
       D.fmtVal('booking_viol',viol)+', руководители '+x.segs[0].att+'%, городов '+x.cities.length+
       (ocd.length?', посещаемость городов = посещения ÷ рабочие дни':''));
+    /* поставка 107 (как мастер): посещения с бронью (vbk) и фиксы (fovis ÷ fwday) — из рядов ответа, а не генератора */
+    if(R.has('vbk')&&R.has('fwday')){
+      const q=D.bookingQuality(rl), vbk=arr(scopeRow,'vbk')[L], fw=arr(scopeRow,'fwday')[L], fo=arr(scopeRow,'fovis')[L];
+      ok(Math.round(q.visitBk)===Math.round(vbk)&&Math.round(q.walkin)===Math.round(vsv)&&
+         (!x.fix||Math.abs(x.fix.att-(fw?fo/fw*100:0))<0.06),
+        'посещения с бронью '+Math.round(q.visitBk)+' и без брони '+Math.round(q.walkin)+' — из рядов ответа; фиксы '+(x.fix?x.fix.att+'%':'—'));
+    }
     const hn=R.pick.all().map(p=>R.pick.info(p)).find(i=>i&&/ /.test(i.hname)), last=hn?hn.hname.split(' ').pop():'';
     const sq=hn?A.setup(last.slice(0,4).toLowerCase()):'';
     /* поставка 83: в строке дерева — логин руководителя, ФИ и численность — в подсказке; поиск по фамилии работает */

@@ -437,7 +437,9 @@ def ai_weeks():
         w += dt.timedelta(7)
 
 
-AI_TOOLS = ['Корпоративный ассистент', 'Copilot', 'Nestor IDE', 'Nessy CLI', 'AI-поиск по базе знаний']
+AI_TOOLS = ['Корпоративный ассистент', 'Copilot', 'Nestor IDE', 'Nessy CLI', 'AI-поиск по базе знаний', 'Генерация документов',
+            'AI в аналитике', 'Переводчик', 'Ассистент встреч', 'Код-ревью', 'Генерация тестов', 'Ассистент почты',
+            'Помощник по SQL', 'Распознавание речи']
 AI_TASKS = ['Написание кода', 'Поиск ошибок', 'Тесты', 'Ревью кода', 'Документация']
 
 
@@ -447,7 +449,7 @@ def ai_extra(p, w, u):
     if not u:
         return [], 0, [], [], 0, 0
     nt = 1 + h % 4
-    tools = [AI_TOOLS[(h // 7 + k * 2) % len(AI_TOOLS)] for k in range(nt)]
+    tools = [AI_TOOLS[min(len(AI_TOOLS) - 1, int(((h // 7 + k * 5) % 100) ** 2 / 700))] for k in range(nt)]
     tools = sorted(set(tools), key=AI_TOOLS.index)
     days = 1 + (h // 11) % 5
     dev = [t for t in tools if t in ('Copilot', 'Nestor IDE', 'Nessy CLI')]
@@ -524,6 +526,25 @@ def truth_aix(U, people):
                 T[('auc', '')] += cls
                 for k, m in zip(tasks, tm):
                     T[('auk', k)] += m
+        # 07.11: ранги инструментов (как row_number в ноутбуке: людей ↓, имя ↑) и люди с инструментами вне топ-10
+        for it_, kr, ko in ((0, 'aur', 'auo'), (1, 'air', 'aio')):
+            cnt = defaultdict(set)
+            for e, v in ppl.items():
+                if v[0] == it_:
+                    for t in v[3]:
+                        cnt[t].add(e)
+            order = sorted(cnt, key=lambda t: (-len(cnt[t]), t.encode('utf-8')))
+            for i, t in enumerate(order):
+                T[(kr, t)] = i + 1
+            rest = set(order[10:])
+            po = defaultdict(set)
+            for e, v in ppl.items():
+                if v[0] == it_ and rest & set(v[3]):
+                    T[(ko, '')] += 1
+                    if not it_:
+                        po[v[2]].add(e)
+            for pt, es in po.items():
+                T[('apo', pt)] = len(es)
         out[n] = {k: v for k, v in T.items() if v > 0}
     return out
 

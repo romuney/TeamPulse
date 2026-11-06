@@ -1248,11 +1248,19 @@ function drawPline(a,w,h){
   const o=a.opt||{}, P=a.periods, key=a.key, mark=a.mark, col=o.color||C_LINE;
   const fmt=v=>v==null?'—':o.fmt==='int'?CD.fmtInt(v):o.fmt==='pct'?(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%':(Math.round(v*10)/10).toFixed(1).replace('.',',');
   const vals=P.map(p=>p[key]);
-  const h0=headH(o.title,null), pt=periodLine(o.period,h0+11,w), hh=h0+pt.h;
+  /* 07.11 (AI-итерация, п. 1): второй ряд a.key2 — светло-серой линией на той же шкале (численность под активными
+     пользователями), в легенде и подсказке; клик по легенде прячет ряд */
+  const off=offOf(o), k2=a.key2, v2=k2?P.map(p=>p[k2]):null, col2=o.color2||C_PREV, on1=!off.has('s1'), on2=!!k2&&!off.has('s2');
+  const lg=k2?[{name:o.name||'',color:col,id:'s1'},{name:o.name2||'',color:col2,id:'s2'}]:null;
+  const h0=headH(o.title,lg,w), pt=periodLine(o.period,h0+11,w), hh=h0+pt.h;
   h=h||o.h||200;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/P.length, X=i=>x0+bandW*(i+0.5);
-  const max=niceMax(vals), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
-  let s=header(w,o.title,null,{})+pt.s;
+  const max=niceMax((on1?vals:[]).concat(on2?v2:[]).concat([0])), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
+  let s=header(w,o.title,lg,{kind:'pline',off:o.off})+pt.s;
+  if(on2){
+    s+='<path class="ln" d="'+polyD(v2,X,Y)+'" fill="none" stroke="'+col2+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"'+sAttr('s2')+'/>';
+    v2.forEach((v,i)=>{if(v!=null)s+='<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="2.2" fill="#fff" stroke="'+col2+'" stroke-width="1.6"'+sAttr('s2')+'/>'});
+  }
   if(mark!=null&&P[mark])s+=rect(X(mark)-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4);
   s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
   /* ревью 100: p.pt — незакрытый месяц: к нему линия пунктиром, точка полая и бледнее, в подсказке — «может измениться» */
@@ -1260,18 +1268,21 @@ function drawPline(a,w,h){
   /* файл 8, п. 1: текущий (незакрытый, pt) месяц в ряду — его вертикаль постоянная; нет его — только при наведении */
   const cur0=pi;
   if(pi>=0)s+=line(X(pi),top,X(pi),bot,C_DIV,1);
+  if(on1){
   s+='<path class="ln" d="'+polyD(pi<0?vals:vals.map((v,i)=>i===pi?null:v),X,Y)+'" fill="none" stroke="'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
   if(pi>0&&vals[pi]!=null&&vals[pi-1]!=null)s+='<path d="'+polyD([vals[pi-1],vals[pi]],i=>X(pi-1+i),Y)+'" fill="none" stroke="'+col+'" stroke-opacity=".45" stroke-width="2" stroke-dasharray="4 3"/>';
+  }
   const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
   let lbl='';
   vals.forEach((v,i)=>{
     const on=i===mark, pm=mark!==undefined;
     /* 05.11, заказчик: «клик — отметить период» только у графиков, которые отметку просят (a.mark задан) */
-    s+='<g class="ptg'+(pm?' pmk':'')+'"'+(pm?' data-pmark="'+i+'"':'')+tip({title:P[i].full,rows:[{label:o.name||'',value:fmt(v),color:col}],
+    const rows=(on1?[{label:o.name||'',value:fmt(v),color:col}]:[]).concat(on2?[{label:o.name2||'',value:fmt(v2[i]),color:col2}]:[]);
+    s+='<g class="ptg'+(pm?' pmk':'')+'"'+(pm?' data-pmark="'+i+'"':'')+tip({title:P[i].full,rows:rows,
       note:i===pi?PART_NOTE():!pm?'':on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
       '<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+
-      (i===cur0?'':hgLine(X(i),top,bot))+(v==null?'':'<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="'+(on?4.5:2.6)+'" fill="'+(on?col:'#fff')+'" stroke="'+col+'" stroke-width="2"'+(i===pi?' stroke-opacity=".45"':'')+'/>')+'</g>';
-    if(v!=null&&(on||(last-i)%step===0))lbl+=txt(X(i),Y(v)-VAL_DY,fmt(v),valOpt({delay:300+i*20}));
+      (i===cur0?'':hgLine(X(i),top,bot))+(v==null||!on1?'':'<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="'+(on?4.5:2.6)+'" fill="'+(on?col:'#fff')+'" stroke="'+col+'" stroke-width="2"'+(i===pi?' stroke-opacity=".45"':'')+'/>')+'</g>';
+    if(on1&&v!=null&&(on||(last-i)%step===0))lbl+=txt(X(i),Y(v)-VAL_DY,fmt(v),valOpt({delay:300+i*20}));
   });
   return svg(w,h,s+lbl+perAxis(P,X,h,mark,bandW));
 }

@@ -232,7 +232,7 @@ const DEV_LIVE={
 /* поставка 71 (параграфы «Роста» Адели): статусы роста и заявки по грейдам и специализациям пришли — без отметки */
 if(D.ROST_LIVE){DEV_LIVE.tgrowth.subs.push('grades','spec');delete DEV_LIVE.tgrowth['*']}
 /* поставка 106: «Кто» и «Как пользуется» — из недельной витрины (разрезы aix в ответе) — без отметки */
-if(D.AI_CUTS){DEV_LIVE.ai.subs.push('who','usage');delete DEV_LIVE.ai['*']}
+if(D.AI_CUTS){DEV_LIVE.ai.subs.push('who','usage','what');delete DEV_LIVE.ai['*']}
 /* поставка 66 (посещения Адели): вкладки «Офиса», чьи данные пришли в ответе, — без отметки */
 if(D.OFF_LIVE){
   const o=DEV_LIVE.office, L=D.OFF_LIVE, rest=[];

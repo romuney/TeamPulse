@@ -163,7 +163,9 @@ distributed by (node_rk)""")
 #     Ключи: aik — неделя; стажёры: aih (всего), aiu (с AI), ait (инструмент → стажёров), aif (дней в неделю → стажёров
 #     с AI); без стажёров: aph (покраска → людей), apt («покраска|инструмент» → людей), aut (инструмент → людей),
 #     auf (дней в неделю → людей с AI), aun (инструментов: 1, 2, 3, 4+ → людей с AI), aum (сообщений инструментам
-#     разработчика), auc (из них классифицировано), auk (задача → сообщений). Массивы tools / tasks / task_messages —
+#     разработчика), auc (из них классифицировано), auk (задача → сообщений); 07.11: aur / air — ранг инструмента
+#     (без стажёров / у стажёров: топ-10 чарта), auo / aio — людей с инструментами вне топ-10 (группа «Остальное», каждый
+#     один раз), apo — то же по покраске. Массивы tools / tasks / task_messages —
 #     как массивы GP (text[]; строка вида {a,b} тоже читается). Смысл колонок сообщений сверить на проде
 _xcols = {'paint', 'tools', 'tools_count', 'usage_days_in_week', 'tasks', 'task_messages', 'total_tasks_messages',
           'total_copilot_nestor_messages'}
@@ -195,6 +197,12 @@ with cw as (
     select b.node_rk, {_clean('(b.tasks::text[])[i]')} as task, coalesce((b.tmsg::text[])[i], '0')::float8 as n
     from b, generate_series(1, coalesce(array_length(b.tasks::text[], 1), 0)) i
     where b.it = 0
+), rk as (   -- 07.11 (AI-итерация, п. 3): ранг инструмента в узле — топ-10 чарта и группа «Остальное» по нему
+    select node_rk, it, tool, row_number() over (partition by node_rk, it order by count(distinct pid) desc, tool) as r
+    from bt group by 1, 2, 3
+), bo as (   -- люди с инструментами вне топ-10 — один раз, сколько бы таких инструментов у них ни было
+    select bt.node_rk, bt.it, bt.paint, bt.pid from bt join rk on rk.node_rk = bt.node_rk and rk.it = bt.it and rk.tool = bt.tool
+    where rk.r > 10
 )
 select node_rk, 'aik'::text as k, (select w from cw)::text as v, 1::float8 as n from b group by 1
 union all select node_rk, 'aih', '', count(distinct pid) from b where it = 1 group by 1
@@ -209,6 +217,10 @@ union all select node_rk, 'aun', least(ntools, 4)::text, count(distinct pid) fro
 union all select node_rk, 'aum', '', sum(msgs) from b where it = 0 group by 1
 union all select node_rk, 'auc', '', sum(cls) from b where it = 0 group by 1
 union all select node_rk, 'auk', task, sum(n) from bk group by 1, 3
+union all select node_rk, case when it = 1 then 'air' else 'aur' end, tool, r::float8 from rk
+union all select node_rk, 'auo', '', count(distinct pid) from bo where it = 0 group by 1
+union all select node_rk, 'apo', paint, count(distinct pid) from bo where it = 0 group by 1, 3
+union all select node_rk, 'aio', '', count(distinct pid) from bo where it = 1 group by 1
 distributed by (node_rk)""")
     print(f"[OK] {HUB_P}_aix: {_hub_q(f'select count(*) as n, count(distinct node_rk) as u, max(case when k = $$aik$$ then v end) as w from {HUB_P}_aix')[['n', 'u', 'w']].iloc[0].to_dict()}")
 else:

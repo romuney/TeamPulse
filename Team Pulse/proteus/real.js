@@ -122,7 +122,7 @@ function mxMinus(u,kids){
   Object.keys(u).forEach(k=>{
     /* календарь посещений и уходы по инициатору — только у выбранного юнита; AI по неделям (aw, поставка 106) — счёт людей без
        повторов, вычитанием детей не получить: у «напрямую» недель нет */
-    if(k==='dw'||k==='do'||k==='xim'||k==='pfd'||k==='aw'||/^a(i[khuitf]|p[ht]|u[tfnmck])$/.test(k))return;
+    if(k==='dw'||k==='do'||k==='xim'||k==='pfd'||k==='aw'||/^a(i[khuitfro]|p[hto]|u[tfnmckro])$/.test(k))return;
     /* поставка 103: профили у юнита с детьми — уже только его люди «напрямую» (датасет относит их к узлу ответа) */
     if(k==='pf'){out.pf=Object.assign({},u.pf);return}
     Object.keys(u[k]).forEach(v=>{

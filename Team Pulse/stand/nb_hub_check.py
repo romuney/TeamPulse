@@ -43,7 +43,7 @@ def main():
     TAW = {k: v for k, v in TAW.items() if (_wm - k[1]).days <= 105 and v[1] > 0}
     # «Кто» и «Как пользуется» — разрезы последней полной недели (aix), правда по людям
     TAX = nb.truth_aix(U, people)
-    AIX = {'aik', 'aih', 'aiu', 'ait', 'aif', 'aph', 'apt', 'aut', 'auf', 'aun', 'aum', 'auc', 'auk'}
+    AIX = {'aik', 'aih', 'aiu', 'ait', 'aif', 'aph', 'apt', 'aut', 'auf', 'aun', 'aum', 'auc', 'auk', 'aur', 'air', 'auo', 'apo', 'aio'}
     ms = nb.months()                            # 2025-01 … 2026-10 — сетка ответа (20.10: с текущим незакрытым)
     # 21.10: срез человека меняется во времени — фильтр по дню (nb.attr)
     A = nb.attr
