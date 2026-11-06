@@ -405,7 +405,7 @@ const aiA=A.go('ai','adoption'), aiW=A.go('ai','who'), aiU=A.go('ai','usage');
 {const W=D.aiWeeks(A.st()&&D.reportLeaves(A.st())), cw=D.aiCur(W), op=A.go('onepager');
   checks.push(['поставка 106: AI по неделям — 16 недель, неполная последняя, проникновение = WAU ÷ численность, таблица по неделе',
     !!W&&W.length===16&&W[15].pt&&W[14].cl&&cw===W[14]&&W.every(w=>w.hc>0&&Math.abs(w.pen-w.wau*100/w.hc)<0.051)&&
-    /Активные пользователи<span class="th-per">за неделю/.test(aiA)&&aiA.indexOf(String(cw.pen).replace('.',',')+'%')>=0&&
+    new RegExp('Активные пользователи<span class="th-per">неделя '+cw.full.replace(/^Неделя /,'')).test(aiA)&&aiA.indexOf(String(cw.pen).replace('.',',')+'%')>=0&&
     !/data-aigran=/.test(aiA)&&!/по месяцам/.test(aiA)&&D.blockVisible('ai',A.st())&&D.metricsOfBlock('ai').length===0&&
     op.indexOf('id="op-ai"')<0&&op.indexOf('Проникновение AI')<0])}
 checks.push(['AI — «Пользуются ли AI?», «Кто пользуется?», «Как пользуется?», без прошлого года',subsOf('ai')==='adoption,who,usage'&&
