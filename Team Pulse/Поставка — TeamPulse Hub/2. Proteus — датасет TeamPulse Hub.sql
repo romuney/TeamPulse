@@ -484,26 +484,6 @@ WITH
       GROUP BY u3, v3
       HAVING n4 > 0
       UNION ALL
-      {#- поставка 104: мониторинг по неделям (teampulse_hub_mon_week) — 16 последних недель у каждого узла ответа, под
-          фильтрами: mw «понедельник|численность, норма, недоработка, переработка, не размечено, недоработка 1–2 нед.,
-          дольше, переработка 1–2 нед., дольше, звонки 20–30, 30–50, больше 50 %, часы, плановые дни, звонки» → 1 #}
-      SELECT u8 AS u3, 'mw' AS k3, concat(toString(w8), '|', arrayStringConcat(arrayMap(x -> toString(round(x, 2)), a8), ',')) AS v3,
-             toFloat64(1) AS n4
-      FROM
-      (
-        SELECT ifNull(node_rk, '') AS u8, toDate(assumeNotNull(wk)) AS w8,
-               [sum(toFloat64(ifNull(hc_cnt, 0))), sum(toFloat64(ifNull(pnor_cnt, 0))), sum(toFloat64(ifNull(plow_cnt, 0))),
-                sum(toFloat64(ifNull(phig_cnt, 0))), sum(toFloat64(ifNull(pgry_cnt, 0))), sum(toFloat64(ifNull(lo_fresh_cnt, 0))),
-                sum(toFloat64(ifNull(lo_long_cnt, 0))), sum(toFloat64(ifNull(hi_fresh_cnt, 0))), sum(toFloat64(ifNull(hi_long_cnt, 0))),
-                sum(toFloat64(ifNull(t23_cnt, 0))), sum(toFloat64(ifNull(t35_cnt, 0))), sum(toFloat64(ifNull(t5_cnt, 0))),
-                sum(toFloat64(ifNull(hrs_sum_amt, 0))), sum(toFloat64(ifNull(plan_day_cnt, 0))), sum(toFloat64(ifNull(tlk_sum_amt, 0)))] AS a8
-        FROM prod_proteus.teampulse_hub_mon_week
-        WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ cond() }}
-          AND wk >= (SELECT addDays(max(wk), -105) FROM prod_proteus.teampulse_hub_mon_week)
-        GROUP BY u8, w8
-      )
-      WHERE a8[1] > 0
-      UNION ALL
       {#- поставка 103: профили (pf) и их словарь (pfd «разрез¦значение» → номер + 1) — у корня (строка base) #}
       SELECT u3, k3, v3, n4 FROM pfr WHERE (SELECT count() FROM pfr) <= {{ PF_MAX }}
       UNION ALL

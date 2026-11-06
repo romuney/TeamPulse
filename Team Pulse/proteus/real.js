@@ -119,18 +119,6 @@ function mxMinus(u,kids){
     if(k==='dw'||k==='do'||k==='xim'||k==='pfd')return;   /* календарь посещений и уходы по инициатору — только у выбранного юнита */
     /* поставка 103: профили у юнита с детьми — уже только его люди «напрямую» (датасет относит их к узлу ответа) */
     if(k==='pf'){out.pf=Object.assign({},u.pf);return}
-    /* поставка 104: мониторинг по неделям (mw «понедельник|числа через запятую») — «напрямую» поэлементно: юнит минус дети */
-    if(k==='mw'){
-      const wk={};
-      [u].concat(kids).forEach((x,j)=>Object.keys(x.mw||{}).forEach(v=>{
-        const i=v.indexOf('|'), d=v.slice(0,i), a=v.slice(i+1).split(',').map(Number);
-        const t=wk[d]=wk[d]||a.map(()=>0);
-        a.forEach((n,q)=>{t[q]+=j?-n:n});
-      }));
-      Object.keys(wk).forEach(d=>{const a=wk[d].map(n=>Math.round(n*100)/100);
-        if(a[0]>0)(out.mw=out.mw||{})[d+'|'+a.join(',')]=1});
-      return;
-    }
     Object.keys(u[k]).forEach(v=>{
       let s=u[k][v];
       kids.forEach(c=>{s-=((c[k]||{})[v]||0)});

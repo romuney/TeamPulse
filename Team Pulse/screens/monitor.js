@@ -23,8 +23,6 @@
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
 const C=G.C_MON;
-/* поставка 104: недели из витрины (у макета недели свои, с прогулами) */
-const REALW=md=>!!(md.weeks&&md.weeks.length&&md.weeks[0].wk);
 /* доля — тем же округлением, что метрика «Недоработчики» (ratioAt → fmtVal): иначе 8,4% и 8,5% за один месяц */
 /* последняя закрытая неделя и предыдущая; в пробнике без витрины по неделям — месяцы */
 /* поставка 104: таблица подразделений — последний закрытый месяц (cl; незакрытый теперь тоже в ряду), как подпись колонок */
@@ -67,11 +65,9 @@ function extraCharts(P,pl){
 
 SC.blocks.monitor={
   /* 27.10-в, п. 4: ревью скрыто до следующего релиза (D.OFF_SUBS) */
-  /* поставка 104 (05.11, заказчик): месяцы и недели — шагами степпера, как разделы на всех вкладках (не отдельными кнопками);
-     «По неделям» — первым, как у мастер-дашборда; нет недельных данных — шага нет */
-  subTabs:[['weeks','По неделям'],['activity','По месяцам'],['review','Ревью']]
-    .filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])&&(t[0]!=='weeks'||D.monHasWeeks())),
-  defaultSub:D.monHasWeeks()?'weeks':'activity',
+  /* 06.11: шаг «По неделям» (поставка 104) снят вместе с недельной витриной — источник недель ещё не готов */
+  subTabs:[['activity','Рабочая активность'],['review','Ревью']].filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])),
+  defaultSub:'activity',
   /* 30.10: KPI-полоса блока снята по просьбе заказчика (плашки KPI — ни на одной вкладке) */
   /* колонки таблицы подразделений: последний закрытый период, сортировка по клику на шапку */
   cols:[
@@ -107,7 +103,7 @@ SC.blocks.monitor={
     const md=D.monData(ctx.lp);
     if(!md)return U.empty('Нет данных мониторинга','Витрина мониторинга по неделям ещё не подключена к отчёту.');
     /* 05.11, заказчик: отметка периода кликом по столбику снята — графики без выделения */
-    const wk=ctx.sub==='weeks'&&md.weeks, P=wk?md.weeks.slice(-16):md.months;
+    const wk=false, P=md.months;
     /* пробник без витрины по неделям и без мониторинга по дням: часы и звонки — заглушки */
     if(md.monthly&&!md.daily)return '<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
@@ -122,8 +118,7 @@ SC.blocks.monitor={
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
       G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
       G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+
-      extraCharts(P,pl)+'</div>'+
-      (wk&&REALW(md)?'<div class="tbl-note">Прогулы и работа в выходные — на шаге «По месяцам».</div>':'');
+      extraCharts(P,pl)+'</div>';
   }
 };
 })();

@@ -4878,30 +4878,8 @@ function monRates(x,S,i){
     x.talk=S.hrs[i]?+(S.tlk[i]/S.hrs[i]*100).toFixed(1):null;
   }
 }
-/* поставка 104: недели (teampulse_hub_mon_week, разрез mw у строки: «понедельник|численность, норма, недоработка,
-   переработка, не размечено, недоработка 1–2 нед. и дольше, переработка 1–2 нед. и дольше, звонки 20–30/30–50/50+,
-   часы, плановые дни, звонки») — последние 16 недель; неделя после даты данных не закончилась — неполная (pt) */
-const MW=['hc','normal','under','over','grey','u12','u2p','o12','o2p','t23','t35','t5','hrw','pdw','tkw'];
-function monWeeks(lp){
-  const m=selMix(lp,'mw');
-  if(!m)return null;
-  const asof=new Date(ASOF.y,ASOF.m,ASOF.d), p2=n=>(n<10?'0':'')+n;
-  const W=Object.keys(m).map(v=>{
-    const i=v.indexOf('|'), d=v.slice(0,i).split('-').map(Number), a=v.slice(i+1).split(',').map(Number);
-    const x={wk:v.slice(0,i)};MW.forEach((k,q)=>{x[k]=k==='hrw'||k==='tkw'?a[q]||0:Math.round(a[q]||0)});
-    const d0=new Date(d[0],d[1]-1,d[2]), d1=new Date(d[0],d[1]-1,d[2]+6), dd=x=>p2(x.getDate())+'.'+p2(x.getMonth()+1);
-    x.label=dd(d0);x.pt=d1>asof;
-    x.full='Неделя '+dd(d0)+'–'+dd(d1)+(x.pt?', данные по '+dd(asof):'');
-    x.hours=x.pdw?+(x.hrw/x.pdw).toFixed(2):null;
-    x.talk=x.hrw?+(x.tkw/x.hrw*100).toFixed(1):null;
-    return x;
-  }).sort((a,b)=>a.wk<b.wk?-1:1).slice(-16);
-  if(!W.length)return null;
-  const lc=W.length-1-(W[W.length-1].pt&&W.length>1?1:0);W[lc].cl=true;
-  return W;
-}
-/* поставка 104: есть ли недели — у макета всегда, на реальных данных — если датасет отдал mw (шаг «По неделям») */
-function monHasWeeks(){return !REAL||!!(REAL.scopeMix&&REAL.scopeMix('mw'))}
+/* 06.11: мониторинг по неделям (поставка 104, витрина teampulse_hub_mon_week, разрез mw) снят по решению владельца — источник
+   недель ещё не готов; на реальных данных — только месяцы */
 function monMonthly(lp){
   const A=k=>aggregate(lp,k), u=A('perf_low'), nr=A('perf_norm'), o=A('perf_high'), g=A('perf_gray');
   /* поставка 104: «не размечено» — тоже категория: вкладка есть и тогда, когда у всех людей категорий нет (вне покраски
@@ -4923,8 +4901,7 @@ function monMonthly(lp){
     months.push(x);
   }
   months[months.length-1-(PARTIAL&&months.length>1?1:0)].cl=true;
-  const weeks=monWeeks(lp);
-  return {monthly:!weeks,daily:day,weeks:weeks,months:months};
+  return {monthly:true,daily:day,weeks:null,months:months};
 }
 function monData(lp){
   if(!lp.length)return null;
@@ -5230,7 +5207,7 @@ let _nmx=null;
 /* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
-const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','mw']);
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
@@ -5850,7 +5827,7 @@ function aiUsage(lp){
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monHasWeeks,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
@@ -9112,7 +9089,7 @@ const Q={
   turnover:{dynamics:'Сколько уходит?',reasons:'Почему уходят?',who:'Кто уходит?',hq:'Как уходит HQ?'},
   hiring:{vacancies:'Успеваем закрывать вакансии?',plan:'Выполняем план?',profile:'Кого и откуда берём?'},
   tgrowth:{flow:'Растут ли люди внутри?',grades:'Как растут по грейдам?',spec:'Как меняют специализацию?'},
-  monitor:{weeks:'Как по неделям?',activity:'Как по месяцам?',review:'Как прошло ревью?'},
+  monitor:{activity:'Рабочая активность',review:'Как прошло ревью?'},
   office:{calendar:'Когда ходят?',attend:'Кто и где ходит?',booking:'Соблюдают бронь?'},
   ai:{adoption:'Пользуются ли AI?',who:'Кто пользуется?',usage:'Как пользуется?'}
 };
@@ -9368,8 +9345,6 @@ function monStory(c,wk){
 
 CH.monitor={
   /* «Рабочая активность» (21.10, файл Антона): последняя закрытая неделя против прошлой */
-  /* поставка 104: шаги «По неделям» и «По месяцам» — один рассказ на своём ряду */
-  weeks(c){return monStory(c,true)},
   activity(c){return monStory(c,false)},
   review(c){
     const rv=D.reviewProfile(c.lp), by=k=>(rv.dyn.find(x=>x.key===k)||{value:0}).value;
@@ -9651,8 +9626,6 @@ const WHY={
     spec:['Смена специализации — рост вбок: сколько заявок закрыто успешно и куда люди хотят перейти.',
       'Высокий % отказа по специализации — проверьте требования к переходу и поддержку при смене роли.']},
   monitor:{
-    weeks:['{{Недоработчики|Недоработка}} и {{Переработчики|переработка}} по неделям — ранний сигнал проблем с нагрузкой. Считается под выбранными фильтрами: по умолчанию — вся активная численность.',
-      'Рост недоработки в одной команде важнее общего уровня — сравните её с прошлой неделей.'],
     activity:['{{Недоработчики|Недоработка}} и {{Переработчики|переработка}} по месяцам, прогулы и работа в выходные. Считается под выбранными фильтрами: по умолчанию — вся активная численность.',
       'Рост недоработки в одной команде важнее общего уровня — сравните её с прошлым месяцем.'],
     review:['Итоги последнего {{Ревью|ревью}}: у кого оценка выросла, у кого упала.',
@@ -11127,8 +11100,6 @@ SC.blocks.tgrowth={
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
 const C=G.C_MON;
-/* поставка 104: недели из витрины (у макета недели свои, с прогулами) */
-const REALW=md=>!!(md.weeks&&md.weeks.length&&md.weeks[0].wk);
 /* доля — тем же округлением, что метрика «Недоработчики» (ratioAt → fmtVal): иначе 8,4% и 8,5% за один месяц */
 /* последняя закрытая неделя и предыдущая; в пробнике без витрины по неделям — месяцы */
 /* поставка 104: таблица подразделений — последний закрытый месяц (cl; незакрытый теперь тоже в ряду), как подпись колонок */
@@ -11171,11 +11142,9 @@ function extraCharts(P,pl){
 
 SC.blocks.monitor={
   /* 27.10-в, п. 4: ревью скрыто до следующего релиза (D.OFF_SUBS) */
-  /* поставка 104 (05.11, заказчик): месяцы и недели — шагами степпера, как разделы на всех вкладках (не отдельными кнопками);
-     «По неделям» — первым, как у мастер-дашборда; нет недельных данных — шага нет */
-  subTabs:[['weeks','По неделям'],['activity','По месяцам'],['review','Ревью']]
-    .filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])&&(t[0]!=='weeks'||D.monHasWeeks())),
-  defaultSub:D.monHasWeeks()?'weeks':'activity',
+  /* 06.11: шаг «По неделям» (поставка 104) снят вместе с недельной витриной — источник недель ещё не готов */
+  subTabs:[['activity','Рабочая активность'],['review','Ревью']].filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])),
+  defaultSub:'activity',
   /* 30.10: KPI-полоса блока снята по просьбе заказчика (плашки KPI — ни на одной вкладке) */
   /* колонки таблицы подразделений: последний закрытый период, сортировка по клику на шапку */
   cols:[
@@ -11211,7 +11180,7 @@ SC.blocks.monitor={
     const md=D.monData(ctx.lp);
     if(!md)return U.empty('Нет данных мониторинга','Витрина мониторинга по неделям ещё не подключена к отчёту.');
     /* 05.11, заказчик: отметка периода кликом по столбику снята — графики без выделения */
-    const wk=ctx.sub==='weeks'&&md.weeks, P=wk?md.weeks.slice(-16):md.months;
+    const wk=false, P=md.months;
     /* пробник без витрины по неделям и без мониторинга по дням: часы и звонки — заглушки */
     if(md.monthly&&!md.daily)return '<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
@@ -11226,8 +11195,7 @@ SC.blocks.monitor={
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
       G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
       G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+
-      extraCharts(P,pl)+'</div>'+
-      (wk&&REALW(md)?'<div class="tbl-note">Прогулы и работа в выходные — на шаге «По месяцам».</div>':'');
+      extraCharts(P,pl)+'</div>';
   }
 };
 })();

@@ -19,7 +19,6 @@
 --                            Строки, которые видны только под другими фильтрами (смена покраски / IT / штата без
 --                            перевода юнита, другая сторона смены типа, найм переходом с in_ok = 0), в отпечаток не
 --                            входят: снимок на ноутбуке агента и на ноутбуке 104 совпадает (проверено на стенде)
---   week_md5                 отпечаток строк teampulse_hub_mon_week узла с понедельником в этом месяце
 -- Логинов и ключей сотрудников в выводе нет: таблицы ноутбука уже агрегированы.
 -- ============================================================================
 with p (unit_rk, tag) as (
@@ -57,23 +56,9 @@ t as (
     where t.report_month in (select report_month from m)
       and (t.trf_kind = 'h' or (t.act_cd = 'Активная' and (t.fu = 1 or t.fa = 1) and (t.trf_kind = 'o' or t.in_ok = 1)))
     group by 1, 2
-),
-w as (
-    select p.tag, date_trunc('month', w.wk)::date as report_month,
-           md5(string_agg(w.wk || '|' || w.paint_cd || '|' || w.it_cd || '|' || w.staff_cd || '|' || w.act_cd || '|'
-                          || w.hc_cnt || '|' || w.pnor_cnt || '|' || w.plow_cnt || '|' || w.phig_cnt || '|' || w.pgry_cnt
-                          || '|' || w.lo_fresh_cnt || '|' || w.lo_long_cnt || '|' || w.hi_fresh_cnt || '|' || w.hi_long_cnt
-                          || '|' || w.t23_cnt || '|' || w.t35_cnt || '|' || w.t5_cnt || '|' || round(w.hrs_sum_amt::numeric, 2)
-                          || '|' || w.plan_day_cnt || '|' || round(w.tlk_sum_amt::numeric, 2), ','
-                          order by w.wk, w.paint_cd, w.it_cd, w.staff_cd, w.act_cd)) as week_md5
-    from p
-    join teampulse_hub_mon_week w on w.node_rk = p.unit_rk
-    where date_trunc('month', w.wk)::date in (select report_month from m)
-    group by 1, 2
 )
 select s.tag, s.report_month, s.hc, s.hire, s.fire, coalesce(t.tin, 0) as tin, coalesce(t.tout, 0) as tout,
-       s.mon_cnt, s.hrs, s.pday, s.tlk, t.trf_md5, w.week_md5
+       s.mon_cnt, s.hrs, s.pday, s.tlk, t.trf_md5
 from s
 left join t on t.tag = s.tag and t.report_month = s.report_month
-left join w on w.tag = s.tag and w.report_month = s.report_month
 order by s.tag, s.report_month;

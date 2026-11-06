@@ -2182,30 +2182,8 @@ function monRates(x,S,i){
     x.talk=S.hrs[i]?+(S.tlk[i]/S.hrs[i]*100).toFixed(1):null;
   }
 }
-/* поставка 104: недели (teampulse_hub_mon_week, разрез mw у строки: «понедельник|численность, норма, недоработка,
-   переработка, не размечено, недоработка 1–2 нед. и дольше, переработка 1–2 нед. и дольше, звонки 20–30/30–50/50+,
-   часы, плановые дни, звонки») — последние 16 недель; неделя после даты данных не закончилась — неполная (pt) */
-const MW=['hc','normal','under','over','grey','u12','u2p','o12','o2p','t23','t35','t5','hrw','pdw','tkw'];
-function monWeeks(lp){
-  const m=selMix(lp,'mw');
-  if(!m)return null;
-  const asof=new Date(ASOF.y,ASOF.m,ASOF.d), p2=n=>(n<10?'0':'')+n;
-  const W=Object.keys(m).map(v=>{
-    const i=v.indexOf('|'), d=v.slice(0,i).split('-').map(Number), a=v.slice(i+1).split(',').map(Number);
-    const x={wk:v.slice(0,i)};MW.forEach((k,q)=>{x[k]=k==='hrw'||k==='tkw'?a[q]||0:Math.round(a[q]||0)});
-    const d0=new Date(d[0],d[1]-1,d[2]), d1=new Date(d[0],d[1]-1,d[2]+6), dd=x=>p2(x.getDate())+'.'+p2(x.getMonth()+1);
-    x.label=dd(d0);x.pt=d1>asof;
-    x.full='Неделя '+dd(d0)+'–'+dd(d1)+(x.pt?', данные по '+dd(asof):'');
-    x.hours=x.pdw?+(x.hrw/x.pdw).toFixed(2):null;
-    x.talk=x.hrw?+(x.tkw/x.hrw*100).toFixed(1):null;
-    return x;
-  }).sort((a,b)=>a.wk<b.wk?-1:1).slice(-16);
-  if(!W.length)return null;
-  const lc=W.length-1-(W[W.length-1].pt&&W.length>1?1:0);W[lc].cl=true;
-  return W;
-}
-/* поставка 104: есть ли недели — у макета всегда, на реальных данных — если датасет отдал mw (шаг «По неделям») */
-function monHasWeeks(){return !REAL||!!(REAL.scopeMix&&REAL.scopeMix('mw'))}
+/* 06.11: мониторинг по неделям (поставка 104, витрина teampulse_hub_mon_week, разрез mw) снят по решению владельца — источник
+   недель ещё не готов; на реальных данных — только месяцы */
 function monMonthly(lp){
   const A=k=>aggregate(lp,k), u=A('perf_low'), nr=A('perf_norm'), o=A('perf_high'), g=A('perf_gray');
   /* поставка 104: «не размечено» — тоже категория: вкладка есть и тогда, когда у всех людей категорий нет (вне покраски
@@ -2227,8 +2205,7 @@ function monMonthly(lp){
     months.push(x);
   }
   months[months.length-1-(PARTIAL&&months.length>1?1:0)].cl=true;
-  const weeks=monWeeks(lp);
-  return {monthly:!weeks,daily:day,weeks:weeks,months:months};
+  return {monthly:true,daily:day,weeks:null,months:months};
 }
 function monData(lp){
   if(!lp.length)return null;
@@ -2534,7 +2511,7 @@ let _nmx=null;
 /* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
-const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','mw']);
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
@@ -3154,7 +3131,7 @@ function aiUsage(lp){
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monHasWeeks,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
