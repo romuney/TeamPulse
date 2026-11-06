@@ -18,6 +18,7 @@
 --   6  переводы по специализациям: по флагу уровня и «внутри юнита» (п. 9)
 --   7  средний возраст на конец месяца и профили = численность (п. 11, пересечения разрезов)
 --   8  источник найма на день найма против последнего значения месяца (п. 12)
+--   9  откуда «прочее» водопада (запрос 1): кто сменил численность «Активная» не наймом и не увольнением — по категориям
 -- Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub): все запросы выполняются на таблицах ноутбука.
 -- ============================================================================
 
@@ -182,3 +183,48 @@ select ev.m, count(*) as hires,
 from ev join h on h.mdm_employee_rk = ev.mdm_employee_rk and h.m = ev.m and h.rn_last = 1
 group by 1
 order by 1;
+
+-- 9. Откуда «прочее» водопада (запрос 1): люди, у которых численность «Активная» на конец месяца изменилась
+--    не наймом и не увольнением. Только счётчики по категориям: тип на конец прошлого месяца → тип на конец месяца
+--    («нет» — человека нет в численности), флаги источника внутри месяца. Сколько из них отчёт засчитал переводом —
+--    сравнить с tin / tout запроса 1 того же месяца
+with p as (select date '2025-10-01' as m),                                     -- ← месяц (первое число)
+a as (
+    select mdm_employee_rk as e, report_month as m,
+           max(case when act_type_nm = 'Активная' then hc_total_cnt else 0 end) as act_hc,
+           max(case when hc_total_cnt = 1 then act_type_nm end) as typ,
+           max(case when act_type_nm = 'Активная' then hire_cnt else 0 end) as hire,
+           max(case when act_type_nm = 'Активная' then fire_amt else 0 end) as fire
+    from all_metrics_with_performance_and_office_traffic_and_grt
+    where report_month in (((select m from p) - interval '1 month')::date, (select m from p))
+    group by 1, 2
+),
+x as (
+    select coalesce(c.e, b.e) as e, coalesce(b.act_hc, 0) as h0, coalesce(c.act_hc, 0) as h1,
+           coalesce(c.hire, 0) as hire, coalesce(c.fire, 0) as fire,
+           coalesce(b.typ, 'нет') as t0, coalesce(c.typ, 'нет') as t1
+    from (select * from a where m = ((select m from p) - interval '1 month')::date) b
+    full join (select * from a where m = (select m from p)) c on c.e = b.e
+),
+r as (select * from x where h1 - h0 <> hire - fire),
+f as (
+    select mdm_employee_rk as e,
+           max((coalesce(transfer_to_active_type_flg::text, '0') = '1')::int) as ia,
+           max((coalesce(transfer_out_active_type_flg::text, '0') = '1')::int) as oa,
+           max((coalesce(fire_flg::text, '0') = '1')::int) as fx,
+           max((coalesce(hire_flg::text, '0') = '1')::int) as hf,
+           max((coalesce(transfer_candidate_flg::text, '0') = '1' or coalesce(transfer_internal_flg::text, '0') = '1')::int) as cv
+    from usr_cross_data.hr_executive_proteus
+    where calendar_dt >= (select m from p) and calendar_dt < ((select m from p) + interval '1 month')::date
+      and mdm_employee_rk in (select e from r)
+    group by 1
+)
+select case when r.h1 > r.h0 then 'пришёл в Активную' else 'ушёл из Активной' end as direction,
+       r.t0 as type_prev_month_end, r.t1 as type_month_end,
+       coalesce(f.ia, 0) as flag_to_active, coalesce(f.oa, 0) as flag_out_active,
+       coalesce(f.fx, 0) as fire_flag, coalesce(f.hf, 0) as hire_flag, coalesce(f.cv, 0) as cand_or_intern,
+       count(*) as people, sum(r.h1 - r.h0 - (r.hire - r.fire)) as prochee_part
+from r left join f on f.e = r.e
+group by 1, 2, 3, 4, 5, 6, 7, 8
+order by abs(sum(r.h1 - r.h0 - (r.hire - r.fire))) desc
+limit 40;
