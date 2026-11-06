@@ -259,9 +259,10 @@ CH.turnover={
    динамики по месяцам; глава «Замещение и темпы» снята. */
 CH.movement={
   balance(c){
-    const hc=ser(c.lp,'hc_total'), begin=hc[0], end=hc[D.LAST], net=end-begin;
+    /* поставка 105: те же числа, что водопад (замкнутая витрина flow_*, если датасет её отдаёт) */
+    const F=D.FLOW, hc=ser(c.lp,F?'flow_fin':'hc_total'), begin=hc[0], end=hc[D.LAST], net=end-begin;
     const ws=k=>D.winSum(c.lp,k);
-    const hire=ws('hire'), tin=ws('transfer_in'), attr=ws('attrition'), tout=ws('transfer_out');
+    const hire=ws(F?'flow_hire':'hire'), tin=ws(F?'flow_in':'transfer_in'), attr=ws(F?'flow_fire':'attrition'), tout=ws(F?'flow_out':'transfer_out');
     const other=net-(hire+tin-attr-tout);
     const mx=argmax(hc);
     /* с первого месяца окна (водопад начинается с его численности), а не «за год»; 26.10, ревью критиков: и «Где

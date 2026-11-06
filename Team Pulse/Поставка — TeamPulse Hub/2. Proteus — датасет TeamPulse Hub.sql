@@ -194,8 +194,10 @@
 {% macro hk(v) -%}
 {%- if act_on -%}toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND {{ FLG }} AND ifNull(in_ok, 1) = 0 AND {{ CVK }} = '{{ v }}'){%- else -%}toFloat64(0){%- endif -%}
 {%- endmacro %}
-{#- Метрики: ключ, таблица (s — series, t — trf, v — vacancy, a — ai), выражение. Порядок — порядок в ms. -#}
-{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['fh', 'h', 'fire_cnt'], ['hch', 'h', 'hc_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')], ['gah', 'g', 'gapr_cnt'], ['gdh', 'g', 'gdec_cnt'], ['hrw', 's', optf('hrs_sum_amt')], ['pdw', 's', optf('plan_day_cnt')], ['tkw', 's', optf('tlk_sum_amt')]] %}
+{#- Метрики: ключ, таблица (s — series, t — trf, d — trf «напрямую», v — vacancy, a — ai, g/h — series-срезы,
+    w — flow: замкнутый водопад поставки 105: узел × месяц × срез, строки юнитов teampulse_hub_flow sp = '-';
+    fin = beg + hire - fire + tin - tout по построению), выражение. Порядок — порядок в ms. -#}
+{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['fh', 'h', 'fire_cnt'], ['hch', 'h', 'hc_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')], ['gah', 'g', 'gapr_cnt'], ['gdh', 'g', 'gdec_cnt'], ['hrw', 's', optf('hrs_sum_amt')], ['pdw', 's', optf('plan_day_cnt')], ['tkw', 's', optf('tlk_sum_amt')], ['fbeg', 'w', 'beg_cnt'], ['fhire', 'w', 'hire_cnt'], ['ffire', 'w', 'fire_cnt'], ['ftin', 'w', 'tin_cnt'], ['ftout', 'w', 'tout_cnt'], ['ffin', 'w', 'fin_cnt']] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
@@ -360,6 +362,16 @@ WITH
       WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }}
       GROUP BY u2, i2
       UNION ALL
+      {#- поставка 105: замкнутый водопад юнита — строки юнитов teampulse_hub_flow (sp = '-'):
+          fbeg / fhire / ffire / ftin / ftout / ffin; конец = начало + найм − отток + в − из по построению,
+          при любых фильтрах срезов. Нули на все месяцы добавляет ветка cx ниже.
+          06.11: комментарий закрыт без минуса перед решёткой — иначе Jinja съедал перенос и UNION ALL склеивался
+          с SELECT (ALLSELECT) #}
+      SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('w') }} AS a2
+      FROM prod_proteus.teampulse_hub_flow
+      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond() }} AND ifNull(sp_cd, '-') = '-'
+      GROUP BY u2, i2
+      UNION ALL
       SELECT tupleElement(arrayJoin(pks), 1) AS u2, toInt32(arrayJoin(range(n))) AS i2, arrayWithConstant({{ M|length }}, toFloat64(0)) AS a2
       FROM cx
     )
@@ -464,6 +476,28 @@ WITH
                   ('tsm', concat('h|', spx, '|', mo), th), ('tsm', concat('i|', spx, '|', mo), ti), ('tsm', concat('o|', spx, '|', mo), tu),
                   ('tsm', concat('ci|', spx, '|', mo), ci), ('tsm', concat('co|', spx, '|', mo), co)] AS kv
       WHERE spx != ''
+      GROUP BY u3, k3, v3
+      HAVING n4 > 0
+      UNION ALL
+      {#- поставка 105: движение по специализациям — замкнутый водопад строки специализации, помесячно:
+          «вид|специализация|ГГГГ-ММ», виды b начало, h найм, f отток, i переводы в, o переводы из, e конец;
+          e = b + h − f + i − o по построению (принадлежность — последняя строка человека в месяце; перевод —
+          любое изменение строки: смена специализации, юнита, типа численности). «Внутри юнита» отдельно нет:
+          перемещение внутри узла — «o» для старой строки и «i» для новой. Заменяет tsm/ci/co в отчёте;
+          tsi/tso/tsh (переводы по флагам, сверенные с мастер-эталонами) остаются для вкладки «Переводы». #}
+      SELECT ifNull(node_rk, '') AS u3, 'fsm' AS k3, kv.1 AS v3, sum(kv.2) AS n4
+      FROM
+      (
+        SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y-%m') AS mo,
+               toFloat64(ifNull(beg_cnt, 0)) AS vb, toFloat64(ifNull(hire_cnt, 0)) AS vh,
+               toFloat64(ifNull(fire_cnt, 0)) AS vf, toFloat64(ifNull(tin_cnt, 0)) AS vi,
+               toFloat64(ifNull(tout_cnt, 0)) AS vo, toFloat64(ifNull(fin_cnt, 0)) AS ve
+        FROM prod_proteus.teampulse_hub_flow
+        WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond() }} AND ifNull(sp_cd, '-') <> '-'
+      )
+      ARRAY JOIN [(concat('b|', spx, '|', mo), vb), (concat('h|', spx, '|', mo), vh),
+                  (concat('f|', spx, '|', mo), vf), (concat('i|', spx, '|', mo), vi),
+                  (concat('o|', spx, '|', mo), vo), (concat('e|', spx, '|', mo), ve)] AS kv
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL

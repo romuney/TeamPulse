@@ -92,6 +92,8 @@ EXTRA = {
          "    # поставка 103: профили численности (точные пересечения разрезов) и их словарь\n"
          "    'teampulse_hub_prof':    'prod_proteus.teampulse_hub_prof',\n"
          "    'teampulse_hub_pfd':     'prod_proteus.teampulse_hub_pfd',\n"
+         "    # поставка 105: замкнутый водопад движения (юниты и специализации: начало/найм/отток/в/из/конец)\n"
+         "    'teampulse_hub_flow': 'prod_proteus.teampulse_hub_flow',\n"
          "}"),
         # Адель, 29.10: владелец таблиц — d.stonis
         ("OWNERS = ['d.i.dyachenko',", "OWNERS = ['d.stonis',"),
@@ -124,6 +126,8 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
         ('new', 'hub · 4 разрезы', 'gp', 'sql_4_mix.sql'),
         ('new', 'hub · 5 переходы', 'gp', 'sql_5_trf.sql'),
         ('new', 'hub · 6 вакансии и meta', 'gp', 'sql_6_final.sql'),
+        # 06.11, поставка 105 (ноутбук агента, проверен на GP): замкнутый водопад teampulse_hub_flow
+        ('new', 'hub · 4в водопад (движение, замкнутое)', 'gp', 'sql_4v_flow.sql'),
         ('new', 'hub checks', 'gp', 'sql_checks.sql'),
         30]
 

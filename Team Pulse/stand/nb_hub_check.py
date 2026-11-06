@@ -152,6 +152,17 @@ def main():
                             bad[k] += 1
                     if not any(float(x) for x in r['m_hcd'].split(',') + r['m_hst'].split(',')) and act and rk == 'all':
                         bad['найм по видам пуст'] += 1
+                if label == 'файл 2а' and r.get('m_ffin') is not None:
+                    # поставка 105: замкнутый водопад (teampulse_hub_flow) — конец = численность узла, и в каждом месяце
+                    # конец = начало + найм − отток + в − из, при любых фильтрах
+                    fv = {k: [float(x) for x in r['m_' + k].split(',')] for k in ('fbeg', 'fhire', 'ffire', 'ftin', 'ftout', 'ffin')}
+                    if [round(x, 1) for x in fv['ffin']] != [round(x, 1) for x in a['hc']]:
+                        bad['водопад flow: конец ≠ численность'] += 1
+                    if any(abs(fv['ffin'][i] - fv['fbeg'][i] - fv['fhire'][i] + fv['ffire'][i] - fv['ftin'][i] + fv['ftout'][i]) > 0.01
+                           for i in range(len(ms))):
+                        bad['водопад flow: баланс ≠ 0'] += 1
+                    if any(abs(fv['fbeg'][i] - fv['ffin'][i - 1]) > 0.01 for i in range(1, len(ms))):
+                        bad['водопад flow: начало ≠ конец прошлого месяца'] += 1
                 if label == 'файл 2а' and r.get('m_din') is not None:
                     # поставка 64: переводы «напрямую в юните» — свой узел юнит:d (люди в самом юните)
                     for k, tk in (('din', 'tin'), ('dout', 'tout')):

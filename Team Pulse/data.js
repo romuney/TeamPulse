@@ -542,7 +542,9 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
   /* поставка 71: мониторинг по дням — люди в сегментах, суммы средних часов дня и звонков по людям */
   'mon_ab25','mon_ab5','mon_we25','mon_we5','mon_t23','mon_t35','mon_t5','mon_hrs','mon_hrn','mon_tlk',
   /* поставка 104: взвешенные суммы — часы и звонки плановых дней, плановые дни */
-  'mon_hrw','mon_pdw','mon_tkw']);
+  'mon_hrw','mon_pdw','mon_tkw',
+  /* поставка 105: замкнутый водопад — начало, найм, отток, переводы в и из, конец (teampulse_hub_flow) */
+  'flow_beg','flow_hire','flow_fire','flow_in','flow_out','flow_fin']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -2511,7 +2513,7 @@ let _nmx=null;
 /* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
-const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt']);
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
@@ -2641,17 +2643,38 @@ function exitProfile(lp,win){
    разрезы выбранного юнита tsh / tsi / tso (переходы ноутбука по специализации строки: найм по дню события, как
    карточка «Найм», переводы — как карточки переводов) и xsp (отток); в сумме по специализациям — карточки с начала
    года. Без tsh (ноутбук до 28.10) — как раньше: найм hsp, отток xsp, переводов нет (trf:false) */
-const SPM_TRF=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('tsh'));
+/* поставка 105: замкнутый водопад специализаций (fsm «вид|специализация|ГГГГ-ММ»: b начало, h найм, f отток, i в, o из,
+   e конец) — строка сходится тождественно, перевод — любое изменение строки (подразделение, специализация, тип
+   численности); «внутри юнита» отдельно нет. Датасет без fsm — как раньше (tsh / tsi / tso, tci / tco) */
+const SPM_FSM=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('fsm'));
+/* поставка 105: водопад подразделения из той же витрины (flow_*): «прочего» нет по построению */
+const FLOW=!!(REAL&&REAL.has&&REAL.has('ffin'));
+const SPM_TRF=SPM_FSM||!!(REAL&&REAL.scopeMix&&REAL.scopeMix('tsh'));
 /* поставка 90: «на конец» — численность специализаций на конец закрытого месяца (sp1); ноутбук без sp1 — сейчас (sp) */
-const SPM_END=!REAL||!!(REAL.scopeMix&&REAL.scopeMix('sp1'));
+const SPM_END=!REAL||SPM_FSM||!!(REAL.scopeMix&&REAL.scopeMix('sp1'));
 /* поставка 103 (файл 9, п. 9): переводы в и из — только по флагу юнита своего уровня (tsi / tso); смена специализации или
    среза без смены юнита — отдельно (tci / tco), колонкой «Внутри юнита» (+ пришли в специализацию, − ушли). Датасет до 103
    их не отдаёт — колонки нет, переводы — как раньше */
-const SPM_CHG=!!(REAL&&REAL.scopeMix&&(REAL.scopeMix('tci')||REAL.scopeMix('tco')));
+const SPM_CHG=!SPM_FSM&&!!(REAL&&REAL.scopeMix&&(REAL.scopeMix('tci')||REAL.scopeMix('tco')));
+/* fsm выбранной строки за месяцы m0..m1 (ключи ГГГГ-ММ): по специализации — начало первого месяца, суммы событий,
+   конец последнего; by[месяц] — помесячно */
+function fsmRows(lp,keys){
+  const t=selMix(lp,'fsm')||{}, nm=v=>isNA(v)?NONE_NAME:v, K={b:'hc0',h:'hire',f:'exit',i:'tin',o:'tout',e:'hc1'}, by={};
+  const first=keys[0], last=keys[keys.length-1], at=new Set(keys);
+  Object.keys(t).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), k=K[kk], name=nm(p.join('|'));
+    if(!k||!at.has(mo))return;
+    if(k==='hc0'&&mo!==first||k==='hc1'&&mo!==last)return;
+    const z=by[name]||(by[name]={name:name,hc0:0,hire:0,tin:0,exit:0,tout:0,chg:null,hc1:0});z[k]+=t[v]});
+  return Object.keys(by).map(k=>by[k]);
+}
+function ytdKeys(){const out=[];for(let m=0;m<=PER_C;m++)out.push(YEAR_CUR+'-'+String(m+1).padStart(2,'0'));return out}
 function specMovement(lp){
   let rows;
   const nm=v=>isNA(v)?NONE_NAME:v;
-  if(REAL){
+  if(REAL&&SPM_FSM){
+    rows=fsmRows(lp,ytdKeys());
+    rows.forEach(z=>['hc0','hire','tin','exit','tout','hc1'].forEach(k=>{z[k]=Math.round(z[k])}));
+  }else if(REAL){
     const x=realExit(lp,'xsp'), h=SPM_TRF?selMix(lp,'tsh'):realExit(lp,'hsp'),
       ti=SPM_TRF?selMix(lp,'tsi')||{}:{}, to=SPM_TRF?selMix(lp,'tso')||{}:{}, by={},
       ci=SPM_CHG?selMix(lp,'tci')||{}:{}, co=SPM_CHG?selMix(lp,'tco')||{}:{};
@@ -2682,7 +2705,14 @@ function specMovement(lp){
 function specMonths(lp,name){
   const ms=[];for(let m=0;m<=PER_C;m++)ms.push({m:m,label:MONTH_ABBR[m],key:YEAR_CUR+'-'+String(m+1).padStart(2,'0'),hire:0,tin:0,exit:0,tout:0,chg:0});
   const nm=v=>isNA(v)?NONE_NAME:v;
-  if(REAL){
+  if(REAL&&SPM_FSM){
+    /* поставка 105: месяц строки — замкнутый водопад специализации этого месяца */
+    const f=selMix(lp,'fsm')||{}, at={};ms.forEach(o=>{at[o.key]=o});
+    const K={h:'hire',i:'tin',f:'exit',o:'tout'};
+    Object.keys(f).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), k=K[kk], o=at[mo];
+      if(o&&k&&nm(p.join('|'))===name)o[k]+=f[v]});
+    ms.forEach(o=>['hire','tin','exit','tout'].forEach(k=>{o[k]=Math.round(o[k])}));
+  }else if(REAL){
     const t=selMix(lp,'tsm'), x=selMix(lp,'xsm');
     if(!t&&!x)return null;
     const at={};ms.forEach(o=>{at[o.key]=o});
@@ -3131,7 +3161,7 @@ function aiUsage(lp){
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,

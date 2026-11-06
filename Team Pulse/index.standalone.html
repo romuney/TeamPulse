@@ -3238,7 +3238,9 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
   /* поставка 71: мониторинг по дням — люди в сегментах, суммы средних часов дня и звонков по людям */
   'mon_ab25','mon_ab5','mon_we25','mon_we5','mon_t23','mon_t35','mon_t5','mon_hrs','mon_hrn','mon_tlk',
   /* поставка 104: взвешенные суммы — часы и звонки плановых дней, плановые дни */
-  'mon_hrw','mon_pdw','mon_tkw']);
+  'mon_hrw','mon_pdw','mon_tkw',
+  /* поставка 105: замкнутый водопад — начало, найм, отток, переводы в и из, конец (teampulse_hub_flow) */
+  'flow_beg','flow_hire','flow_fire','flow_in','flow_out','flow_fin']);
 
 /* ---------- Сравнимость с базой ----------
    Сравниваем только относительные метрики: проценты и сроки.
@@ -5207,7 +5209,7 @@ let _nmx=null;
 /* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
-const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt']);
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
@@ -5337,17 +5339,38 @@ function exitProfile(lp,win){
    разрезы выбранного юнита tsh / tsi / tso (переходы ноутбука по специализации строки: найм по дню события, как
    карточка «Найм», переводы — как карточки переводов) и xsp (отток); в сумме по специализациям — карточки с начала
    года. Без tsh (ноутбук до 28.10) — как раньше: найм hsp, отток xsp, переводов нет (trf:false) */
-const SPM_TRF=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('tsh'));
+/* поставка 105: замкнутый водопад специализаций (fsm «вид|специализация|ГГГГ-ММ»: b начало, h найм, f отток, i в, o из,
+   e конец) — строка сходится тождественно, перевод — любое изменение строки (подразделение, специализация, тип
+   численности); «внутри юнита» отдельно нет. Датасет без fsm — как раньше (tsh / tsi / tso, tci / tco) */
+const SPM_FSM=!!(REAL&&REAL.scopeMix&&REAL.scopeMix('fsm'));
+/* поставка 105: водопад подразделения из той же витрины (flow_*): «прочего» нет по построению */
+const FLOW=!!(REAL&&REAL.has&&REAL.has('ffin'));
+const SPM_TRF=SPM_FSM||!!(REAL&&REAL.scopeMix&&REAL.scopeMix('tsh'));
 /* поставка 90: «на конец» — численность специализаций на конец закрытого месяца (sp1); ноутбук без sp1 — сейчас (sp) */
-const SPM_END=!REAL||!!(REAL.scopeMix&&REAL.scopeMix('sp1'));
+const SPM_END=!REAL||SPM_FSM||!!(REAL.scopeMix&&REAL.scopeMix('sp1'));
 /* поставка 103 (файл 9, п. 9): переводы в и из — только по флагу юнита своего уровня (tsi / tso); смена специализации или
    среза без смены юнита — отдельно (tci / tco), колонкой «Внутри юнита» (+ пришли в специализацию, − ушли). Датасет до 103
    их не отдаёт — колонки нет, переводы — как раньше */
-const SPM_CHG=!!(REAL&&REAL.scopeMix&&(REAL.scopeMix('tci')||REAL.scopeMix('tco')));
+const SPM_CHG=!SPM_FSM&&!!(REAL&&REAL.scopeMix&&(REAL.scopeMix('tci')||REAL.scopeMix('tco')));
+/* fsm выбранной строки за месяцы m0..m1 (ключи ГГГГ-ММ): по специализации — начало первого месяца, суммы событий,
+   конец последнего; by[месяц] — помесячно */
+function fsmRows(lp,keys){
+  const t=selMix(lp,'fsm')||{}, nm=v=>isNA(v)?NONE_NAME:v, K={b:'hc0',h:'hire',f:'exit',i:'tin',o:'tout',e:'hc1'}, by={};
+  const first=keys[0], last=keys[keys.length-1], at=new Set(keys);
+  Object.keys(t).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), k=K[kk], name=nm(p.join('|'));
+    if(!k||!at.has(mo))return;
+    if(k==='hc0'&&mo!==first||k==='hc1'&&mo!==last)return;
+    const z=by[name]||(by[name]={name:name,hc0:0,hire:0,tin:0,exit:0,tout:0,chg:null,hc1:0});z[k]+=t[v]});
+  return Object.keys(by).map(k=>by[k]);
+}
+function ytdKeys(){const out=[];for(let m=0;m<=PER_C;m++)out.push(YEAR_CUR+'-'+String(m+1).padStart(2,'0'));return out}
 function specMovement(lp){
   let rows;
   const nm=v=>isNA(v)?NONE_NAME:v;
-  if(REAL){
+  if(REAL&&SPM_FSM){
+    rows=fsmRows(lp,ytdKeys());
+    rows.forEach(z=>['hc0','hire','tin','exit','tout','hc1'].forEach(k=>{z[k]=Math.round(z[k])}));
+  }else if(REAL){
     const x=realExit(lp,'xsp'), h=SPM_TRF?selMix(lp,'tsh'):realExit(lp,'hsp'),
       ti=SPM_TRF?selMix(lp,'tsi')||{}:{}, to=SPM_TRF?selMix(lp,'tso')||{}:{}, by={},
       ci=SPM_CHG?selMix(lp,'tci')||{}:{}, co=SPM_CHG?selMix(lp,'tco')||{}:{};
@@ -5378,7 +5401,14 @@ function specMovement(lp){
 function specMonths(lp,name){
   const ms=[];for(let m=0;m<=PER_C;m++)ms.push({m:m,label:MONTH_ABBR[m],key:YEAR_CUR+'-'+String(m+1).padStart(2,'0'),hire:0,tin:0,exit:0,tout:0,chg:0});
   const nm=v=>isNA(v)?NONE_NAME:v;
-  if(REAL){
+  if(REAL&&SPM_FSM){
+    /* поставка 105: месяц строки — замкнутый водопад специализации этого месяца */
+    const f=selMix(lp,'fsm')||{}, at={};ms.forEach(o=>{at[o.key]=o});
+    const K={h:'hire',i:'tin',f:'exit',o:'tout'};
+    Object.keys(f).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), k=K[kk], o=at[mo];
+      if(o&&k&&nm(p.join('|'))===name)o[k]+=f[v]});
+    ms.forEach(o=>['hire','tin','exit','tout'].forEach(k=>{o[k]=Math.round(o[k])}));
+  }else if(REAL){
     const t=selMix(lp,'tsm'), x=selMix(lp,'xsm');
     if(!t&&!x)return null;
     const at={};ms.forEach(o=>{at[o.key]=o});
@@ -5827,7 +5857,7 @@ function aiUsage(lp){
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
@@ -9205,9 +9235,10 @@ CH.turnover={
    динамики по месяцам; глава «Замещение и темпы» снята. */
 CH.movement={
   balance(c){
-    const hc=ser(c.lp,'hc_total'), begin=hc[0], end=hc[D.LAST], net=end-begin;
+    /* поставка 105: те же числа, что водопад (замкнутая витрина flow_*, если датасет её отдаёт) */
+    const F=D.FLOW, hc=ser(c.lp,F?'flow_fin':'hc_total'), begin=hc[0], end=hc[D.LAST], net=end-begin;
     const ws=k=>D.winSum(c.lp,k);
-    const hire=ws('hire'), tin=ws('transfer_in'), attr=ws('attrition'), tout=ws('transfer_out');
+    const hire=ws(F?'flow_hire':'hire'), tin=ws(F?'flow_in':'transfer_in'), attr=ws(F?'flow_fire':'attrition'), tout=ws(F?'flow_out':'transfer_out');
     const other=net-(hire+tin-attr-tout);
     const mx=argmax(hc);
     /* с первого месяца окна (водопад начинается с его численности), а не «за год»; 26.10, ревью критиков: и «Где
@@ -10580,16 +10611,22 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 /* 20.10: начало — численность на 1-е число первого месяца окна (а не на конец этого месяца:
    его найм и отток уже в потоках, и месяц уходил в «Прочее»), конец — на дату данных; даты —
    под подписями «Начало» и «Конец» */
+/* поставка 105: водопад — из замкнутой витрины движения (flow_*): начало, найм, отток, переводы в и из, конец одной
+   логикой, «прочего» нет по построению. Переводы здесь — любое изменение принадлежности (другое подразделение, тип
+   численности, возвращение), поэтому они не равны карточкам «Переводы» (те — по флагам источника, сверены с мастером) */
 function balancedSteps(lp){
-  const hc=D.aggregate(lp,'hc_total'), begin=hc[0], end=hc[D.LAST];
-  const hire=D.winSum(lp,'hire'), tin=D.winSum(lp,'transfer_in');
-  const attr=-D.winSum(lp,'attrition'), tout=-D.winSum(lp,'transfer_out');
+  const F=D.FLOW;
+  const hc=D.aggregate(lp,F?'flow_fin':'hc_total'), begin=hc[0], end=hc[D.LAST];
+  const hire=D.winSum(lp,F?'flow_hire':'hire'), tin=D.winSum(lp,F?'flow_in':'transfer_in');
+  const attr=-D.winSum(lp,F?'flow_fire':'attrition'), tout=-D.winSum(lp,F?'flow_out':'transfer_out');
+  const fn=F?'Все переходы: из другого подразделения или в другое, смена типа численности, возвращение. Карточки «Переводы» '+
+    'считают только переводы по флагам источника, поэтому числа могут отличаться.':null;
   /* 21.10, поставка 56: найм, отток и переводы покрывают всё движение (методология переводов) — «Прочее»
      бывает только при сбое данных: изменение численности без события в источнике. Ноль — столбца нет;
      не ноль — столбец с объяснением, молча спрятать невязку было бы обманом */
   const other=end-(begin+hire+tin+attr+tout);
   return [{name:'Начало',sub:'на конец '+D.WIN_FROM,value:begin,total:true},{name:'Найм',value:hire},
-    {name:'Переводы в',value:tin},{name:'Отток',value:attr},{name:'Переводы из',value:tout}].concat(
+    {name:'Переводы в',value:tin,note:fn},{name:'Отток',value:attr},{name:'Переводы из',value:tout,note:fn}].concat(
     Math.abs(other)<0.5?[]:[{name:'Прочее',value:other,note:D.REAL?'Изменение численности без найма, увольнения или '+
       'перевода в источнике — сбой данных. Найм, отток и переводы покрывают всё движение людей.':
       'В демо численность и потоки генерируются независимо.'}],
@@ -10638,7 +10675,8 @@ function specMove(lp,ctx){
     row(tot)+top.map(row).join('')+'</tbody></table></div>'+specDetail(lp,rs.find(z=>z.name===sel),cols)+
     '<div class="tbl-note">'+U.esc(D.PER_TEXT.replace(/^./,x=>x.toUpperCase()))+'. На начало — численность на конец декабря, '+
       (D.SPM_END?'на конец — '+U.esc(D.MONTH_GEN[D.PER_C])+', после наймов, увольнений и переводов':'«сейчас» — на дату данных')+'. '+
-      (D.SPM_CHG?'Переводы — только смена юнита на уровне выбранного подразделения: перемещение между его подразделениями переводом не считается. '+
+      (D.SPM_FSM?'Каждая строка сходится: на начало + найм + переводы в − отток − переводы из = на конец. Перевод — любое '+
+        'изменение: другое подразделение, другая специализация или тип численности.':D.SPM_CHG?'Переводы — только смена юнита на уровне выбранного подразделения: перемещение между его подразделениями переводом не считается. '+
         'Внутри юнита — смена специализации или среза без перевода (+ пришли в специализацию, − ушли): строки сходятся.'
         :'ИТОГО — как в карточках движения. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.')+
       (trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';

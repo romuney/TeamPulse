@@ -52,7 +52,10 @@ const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn
   'ab25','ab5','we25','we5','t23','t35','t5','hrs','hrn','tlk',
   /* поставка 104: взвешенные суммы мониторинга — часы и звонки плановых дней (hrw tkw) и плановые дни (pdw): часы в день
      = hrw ÷ pdw, доля звонков = tkw ÷ hrw (не среднее средних по людям, как hrs ÷ hrn) */
-  'hrw','pdw','tkw'];
+  'hrw','pdw','tkw',
+  /* поставка 105: замкнутый водопад (teampulse_hub_flow, строки юнитов) — начало, найм, отток, переводы в и из, конец;
+     конец = начало + найм − отток + в − из в каждом месяце, начало = конец прошлого */
+  'fbeg','fhire','ffire','ftin','ftout','ffin'];
 const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fire',
   transfer_in:'tin',transfer_out:'tout',regret_cnt:'reg',
   /* поставка 69 (Антон, вопрос 4): желательная и нежелательная — всегда по активной численности HQ узла */
@@ -65,7 +68,8 @@ const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fir
   hire_cand:'hcd',hire_int:'hst',
   bk_days:'bk',bk_noshow:'bkv',bk_walkin:'vsv',wday_lead:'hwd',ovis_lead:'hov',wday_staff:'wds',ovis_staff:'ovs',
   mon_ab25:'ab25',mon_ab5:'ab5',mon_we25:'we25',mon_we5:'we5',mon_t23:'t23',mon_t35:'t35',mon_t5:'t5',
-  mon_hrs:'hrs',mon_hrn:'hrn',mon_tlk:'tlk',mon_hrw:'hrw',mon_pdw:'pdw',mon_tkw:'tkw'};
+  mon_hrs:'hrs',mon_hrn:'hrn',mon_tlk:'tlk',mon_hrw:'hrw',mon_pdw:'pdw',mon_tkw:'tkw',
+  flow_beg:'fbeg',flow_hire:'fhire',flow_fire:'ffire',flow_in:'ftin',flow_out:'ftout',flow_fin:'ffin'};
 /* метрики, которые оживают, когда в ответе есть их колонки */
 const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec'],
   nonregret:['nreg'],vac_open:['vop'],vac_closed:['vcl'],time_to_fill:['vtd','vtn'],junior_share:['vjn','vcl'],

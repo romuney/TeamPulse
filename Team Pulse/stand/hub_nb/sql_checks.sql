@@ -134,6 +134,23 @@ select 24 as n, 'вакансии: корень - снимок (закрытые
        (coalesce((select sum(vac_close_cnt) from teampulse_hub_vacancy where node_rk = (select root_rk from teampulse_hub_meta)), 0)
        - coalesce((select sum(close_cnt) from structure_x_vacancy
                    where report_month >= (select grid_start from teampulse_hub_meta)), 0))::float8 as val
+union all
+select 27 as n, 'водопад: незамкнутые строки (конец - начало - найм + отток - в + из)'::text as check_nm, 1 as must,
+       ((select count(*) from (select 1 from teampulse_hub_flow
+                                group by node_rk, report_month, sp_cd, paint_cd, it_cd, staff_cd, act_cd
+                                having abs(sum(fin_cnt) - sum(beg_cnt) - sum(hire_cnt) + sum(fire_cnt)
+                                           - sum(tin_cnt) + sum(tout_cnt)) > 0.5) t))::float8 as val
+union all
+select 28 as n, 'водопад: конец = численность series (узел x месяц x срез, строки юнитов; нулевой паддинг ССЧ не в счёт)'::text as check_nm, 1 as must,
+       ((select count(*) from (
+            select f.node_rk, f.report_month, f.paint_cd, f.it_cd, f.staff_cd, f.act_cd
+            from (select node_rk, report_month, paint_cd, it_cd, staff_cd, act_cd, sum(fin_cnt) as fin
+                  from teampulse_hub_flow where sp_cd = '-' group by 1, 2, 3, 4, 5, 6) f
+            full join (select node_rk, report_month, paint_cd, it_cd, staff_cd, act_cd, sum(hc_cnt) as hc
+                       from teampulse_hub_series group by 1, 2, 3, 4, 5, 6) s
+              on s.node_rk = f.node_rk and s.report_month = f.report_month and s.paint_cd = f.paint_cd
+             and s.it_cd = f.it_cd and s.staff_cd = f.staff_cd and s.act_cd = f.act_cd
+            where abs(coalesce(f.fin, 0) - coalesce(s.hc, 0)) > 0.5) t))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,

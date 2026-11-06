@@ -511,7 +511,22 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
   /* 31.10, п. 10: с флагами смены специализации (ноутбук с поставки 87: есть sp0) переводы в и из — смены специализации, с
      переводами юнита не сравниваются; на начало + движение = на конец не требуется (флаги и численность — разные срезы) */
   const FSP=!!R.scopeMix('sp0');
-  if(D.SPM_TRF)ok(Math.abs(S('hire')-Y('hire'))<=sm.length&&(FSP||Math.abs(S('tin')-Y('transfer_in'))<=sm.length&&
+  /* поставка 105: водопад «Изменение численности» — из замкнутой витрины: без «Прочего», конец = начало + потоки */
+  if(D.FLOW){
+    const f=k=>D.aggregate(rl,k), W=k=>D.winSum(rl,k), b=f('flow_fin')[0], e=f('flow_fin')[D.LAST];
+    ok(!/>Прочее</.test(A.go('movement','balance'))&&Math.abs(e-(b+W('flow_hire')-W('flow_fire')+W('flow_in')-W('flow_out')))<0.5&&
+       Math.abs(e-f('hc_total')[D.LAST])<0.5,
+      'водопад численности (замкнутая витрина): '+b+' + '+W('flow_hire')+' − '+W('flow_fire')+' + '+W('flow_in')+' − '+W('flow_out')+' = '+e+
+      ' = численность, «Прочего» нет');
+  }
+  /* поставка 105: замкнутый водопад специализаций (fsm) — каждая строка сходится, «Внутри юнита» нет, месяцы = строке */
+  if(D.SPM_FSM){
+    const bad=sm.filter(z=>Math.abs(z.hc0+z.hire+z.tin-z.exit-z.tout-z.hc1)>0.5), z0=sm[0]||{}, mm=z0.name?D.specMonths(rl,z0.name):[];
+    const mOk=!z0.name||['hire','tin','exit','tout'].every(k=>mm.reduce((a,o)=>a+o[k],0)===z0[k]);
+    ok(sm.length>0&&!bad.length&&mOk&&!/Внутри юнита/.test(mv)&&/На начало<\/th>/.test(mv),
+      'движение по специализациям (замкнутый водопад): '+sm.length+' строк, все сходятся (на начало + найм + в − отток − из = на конец), '+
+      'месяцы = строке, «Внутри юнита» нет');
+  }else if(D.SPM_TRF)ok(Math.abs(S('hire')-Y('hire'))<=sm.length&&(FSP||Math.abs(S('tin')-Y('transfer_in'))<=sm.length&&
       Math.abs(S('tout')-Y('transfer_out'))<=sm.length)&&Math.abs(S('exit')-Y('attrition'))<=sm.length&&/Переводы из<\/th>/.test(mv)&&
       (!FSP||/На начало<\/th>/.test(mv)&&S('hc1')>0),
     'движение по специализациям: найм '+S('hire')+' = '+Y('hire')+', в '+S('tin')+' = '+Y('transfer_in')+', отток '+S('exit')+' = '+
