@@ -454,12 +454,13 @@ WITH
       HAVING n4 > 0
       UNION ALL
       {#- вакансии: открытые на конец последнего месяца по статусу (vs), причине (vr), специализации (vp),
-          уровню позиции (vl); закрытые с начала года по каналу (vk) и уровню кандидата (vq) — поставка 90: январь..cm #}
+          уровню позиции (vl); закрытые с начала года по каналу (vk) и уровню кандидата (vq). Поставка 106 (владелец): закрытые —
+          с 1 января по дату данных, вместе с незакрытым месяцем (было январь..cm): итог сходится с мастер-отчётом #}
       SELECT u5 AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
       FROM
       (
         SELECT ifNull(node_rk, '') AS u5, if(report_month = (SELECT lm FROM cx), toFloat64(ifNull(vac_open_cnt, 0)), 0) AS vo,
-               if(report_month <= (SELECT cm FROM cx), toFloat64(ifNull(vac_close_cnt, 0)), 0) AS vc,
+               toFloat64(ifNull(vac_close_cnt, 0)) AS vc,
                arrayFilter(x -> x.3 > 0, [('vs', ifNull(status, ''), if(ifNull(status, '') != '', vo, 0)), ('vr', ifNull(search_reason, ''), vo),
                  ('vp', ifNull(specialization, ''), vo), ('vl', ifNull(position_lvl, ''), vo), ('vk', ifNull(channel, ''), vc),
                  ('vq', ifNull(cand_lvl, ''), vc)]) AS kvs

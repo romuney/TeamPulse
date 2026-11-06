@@ -107,7 +107,8 @@ SC.blocks.hiring={
       ['Открытые по специализации',vb.spec,SC.rest(ctx,'vspec',10,['специализация','специализации','специализаций'])]]
       .filter(x=>x[1].length).map(x=>vt(x[0],'на '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur),x[1],G.C_VAC,'Вакансий',x[2],x[3]));
     const closed=[['Закрытые по каналу',vb.channel],['Закрытые по уровню кандидата',vb.cand,null,1]].filter(x=>x[1].length)
-      .map(x=>vt(x[0],D.PER_TEXT,x[1],G.C_IN,'Вакансий',x[2],x[3]));
+      /* поставка 106 (владелец): закрытые — с 1 января по дату данных, вместе с текущим месяцем: итог = мастер-отчёт */
+      .map(x=>vt(x[0],'с 1 января по '+D.ASOF_LABEL,x[1],G.C_IN,'Вакансий',x[2],x[3]));
     return panels+U.btStack(open.slice(0,2))+U.btStack(open.slice(2).concat(closed).slice(0,3))+
       '<div class="tbl-note">Вакансии — по подразделению: фильтры покраски, IT, штата и типа численности на них не действуют.</div>';
   }
