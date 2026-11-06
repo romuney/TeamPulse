@@ -2630,6 +2630,74 @@ paragraphs:
         ) x
     ) e;
 
+    -- поставка 108 (владелец, 06.11): KPI мониторинга за весь период — 16 последних полных недель (понедельник–воскресенье).
+    -- Конец периода — последнее воскресенье не позже последнего дня дневного источника (и не позже даты данных), начало — на
+    -- 16 недель раньше: границы — по данным. По каждому человеку за период целиком (не сумма месячных долей):
+    --   прогулы — дней с working_balance = -1, работа в выходные — дней с working_balance = 1: 2–5 и больше 5 дней;
+    --   звонки — 100 × часы звонков ÷ рабочие часы по плановым дням периода (округление до 0,1, как сегмент месяца):
+    --   20–30, 30–50, больше 50%; без рабочих часов — нет данных (в звонки не идёт).
+    -- База — численность месяца конца периода (hc_total_cnt = 1, последняя строка человека в месяце: юнит и срезы — его),
+    -- как категории мониторинга. mp — люди: hc (база), ab25 ab5 we25 we5 t23 t35 t5; mpd — период «начало|конец», n — люди
+    drop table if exists teampulse_hub_mpp;
+    create table teampulse_hub_mpp as
+    select (date_trunc('week', b.mx + 1)::date - 1) - 16 * 7 + 1 as ws, date_trunc('week', b.mx + 1)::date - 1 as we
+    from (
+        select max(d.calendar_dt)::date as mx
+        from prod_v_sse_crossdata.performance_metric_d d
+        where d.calendar_dt >= date_trunc('year', current_date - interval '1 year')
+          and d.calendar_dt <= (select dt from teampulse_hub_cal)
+    ) b
+    where b.mx is not null
+    distributed by (ws);
+
+    drop table if exists teampulse_hub_mpd;
+    create table teampulse_hub_mpd as
+    select d.mdm_employee_rk as rk,
+           sum(case when d.working_balance = -1 then 1 else 0 end) as ab,
+           sum(case when d.working_balance = 1 then 1 else 0 end) as wo,
+           sum(case when d.plan_working_day_flg = 1 then d.duration_hour end) as dur,
+           sum(case when d.plan_working_day_flg = 1 then d.talk_call_duration_h end) as tlk
+    from prod_v_sse_crossdata.performance_metric_d d
+    join teampulse_hub_mpp p on d.calendar_dt between p.ws and p.we
+    where d.calendar_dt >= date_trunc('year', current_date - interval '1 year')
+    group by 1
+    distributed by (rk);
+
+    insert into teampulse_hub_mixr
+    select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+           unnest(ARRAY['mp', 'mp', 'mp', 'mp', 'mp', 'mp', 'mp', 'mp', 'mpd']) as mx_key,
+           unnest(ARRAY['hc', 'ab25', 'ab5', 'we25', 'we5', 't23', 't35', 't5',
+                        to_char(p.ws, 'YYYY-MM-DD') || '|' || to_char(p.we, 'YYYY-MM-DD')]) as mx_val,
+           unnest(ARRAY[1,
+                        (coalesce(m.ab, 0) between 2 and 5)::int, (coalesce(m.ab, 0) > 5)::int,
+                        (coalesce(m.wo, 0) between 2 and 5)::int, (coalesce(m.wo, 0) > 5)::int,
+                        (m.sh >= 20 and m.sh <= 30)::int, (m.sh > 30 and m.sh <= 50)::int, (m.sh > 50)::int,
+                        1]) as mx_n
+    from (
+        select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
+               generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
+        from (
+            select s.mdm_employee_rk, s.hc_total_cnt, s.last_row_flg,
+                   (select pre from teampulse_hub_cal) || coalesce(u.cp,
+                       array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
+                                          s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
+                                          s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
+                   coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
+                   case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
+                   coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
+            from all_metrics_with_performance_and_office_traffic_and_grt s
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+            where s.leaf_lvl > 0 and s.report_month = (select date_trunc('month', we)::date from teampulse_hub_mpp) and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1
+        ) x
+    ) e
+    cross join teampulse_hub_mpp p
+    left join (
+        select rk, ab, wo, case when coalesce(dur, 0) > 0 then round(100.0 * coalesce(tlk, 0) / dur, 1) end as sh
+        from teampulse_hub_mpd
+    ) m on m.rk = e.mdm_employee_rk;
+    drop table if exists teampulse_hub_mpd;
+    drop table if exists teampulse_hub_mpp;
+
     -- 03.11, поставка 103: профили численности последнего месяца — пересечения разрезов без оценки (конструктор, срез по
     -- нескольким разрезам, портрет, средний возраст в срезе). Человек — один раз, в нижнем юните; узел ответа (выбранный
     -- юнит, подразделения на три уровня вниз, «напрямую») датасет находит по пути юнита. Строка — сочетание разрезов

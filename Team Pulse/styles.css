@@ -1060,6 +1060,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* мониторинг (22.10): блок графика без данных в пробнике — заголовок и плашка на месте графика */
 .mon-ph{padding:var(--s6) var(--s7);border:1px dashed var(--line);border-radius:var(--r3);min-height:120px}
 .mon-ph .tbl-note{margin-top:var(--s4)}
+/* поставка 108: KPI мониторинга за весь период — над «Составом по категориям» */
+.mon-kpi{margin-bottom:var(--s7)}
+.mon-kpi .shcards{margin-top:var(--s4)}
+.mon-kpi .tbl-note{margin-top:var(--s4)}
 /* полка срезов над таблицами снята в поставке 82 — выбранное пилюлями в шапке карточки графиков (.sel-bar) */
 
 /* детализация переводов (поставка 63) */

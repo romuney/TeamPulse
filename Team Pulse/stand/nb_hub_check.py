@@ -33,7 +33,8 @@ def main():
     db = os.path.join(d, 'db')
     U, people = nb.simulate()
     perf, office, grt = nb.side(people)
-    MM = nb.mon_month(nb.mon_days(people))      # поставка 71: мониторинг по дням — месяц человека
+    MD = nb.mon_days(people)
+    MM = nb.mon_month(MD)                       # поставка 71: мониторинг по дням — месяц человека
     names = {k: tuple(U[x][0] for x in nb.path(U, k)) for k in U}
     # 21.10, поставка 50: вакансии и AI — не люди, фильтры среза на них не действуют: правда одна
     TV = nb.truth_vac(U, nb.vacancies(U))
@@ -93,6 +94,7 @@ def main():
                 # поставка 66: посещения Адели — ряды бронирований и руководителей, города, календарь, сегмент
                 To, Dd, Co, MH = nb.truth_office(U, people, office, raw.get(name, pred), act)
                 Tm = nb.truth_mon(U, people, MM, raw.get(name, pred), act)
+                Tp = nb.truth_monp(U, people, MD, raw.get(name, pred), act)   # поставка 108: KPI за 16 недель
             if label == 'файл 2а':               # 21.10: переводы 2а — под фильтры (переходы ноутбука)
                 # поставка 63: смена атрибута, по которому стоит фильтр, — перевод и внутри выбора
                 chg = [h for k, h in (('paint_f', 'operh'), ('it_f', 'ith'), ('staff_f', 'relh')) if k in flt]
@@ -236,6 +238,9 @@ def main():
                     # ревью 100: уходы по инициатору (xim), движение по специализациям (tsh tsi tso sp0 sp1), возраст по разрезам (es en)
                     # — у каждого узла: выбор строки таблицы пересчитывает и их; только у выбранного юнита — календарь (dw do) и es en
                     want_v['xim'] = nb.truth_fire_init(U, people, rk, raw.get(name, pred), act)
+                    # поставка 108: KPI мониторинга за 16 полных недель — люди (mp) и период (mpd)
+                    want_v.update({k: dict(v) for k, v in Tp.get(rk, {'mp': {}, 'mpd': {}}).items()})
+                    want_v.setdefault('mp', {}); want_v.setdefault('mpd', {})
                     # поставка 71: T-рост — заявки по месяцам (rm), успешность по желаемому (rq), статусы (rs)
                     # поставка 73: возраст в годах (e) — средний возраст команды
                     want_v['e'] = nb.truth_age(U, people, rk, raw.get(name, pred), act)

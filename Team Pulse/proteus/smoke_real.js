@@ -366,6 +366,19 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
        !/class="kpi mk/.test(mo)&&!/mon-ph/.test(mo)&&/Средняя доля звонков в Толк/.test(mo)&&/Средняя рабочая активность/.test(mo)&&!/data-pmark|data-mongran/.test(mo),
       'мониторинг по дням: прогулы '+(lc.ab25+lc.ab5)+', выходные '+(lc.we25+lc.we5)+', звонки 20–30% '+lc.t23+
       ', '+lc.hours+' ч/день, звонки '+lc.talk+'% — как в строке юнита; линии часов и звонков, плашек KPI нет (30.10)');
+    /* поставка 108: три графика (прогулы, выходные, звонки ≥20%) сняты — KPI за 16 недель из разрезов mp / mpd ответа
+       перед «Составом по категориям»; у выбранного юнита — сумма листьев = строке узла */
+    const KP=D.monKpi(rl), mpx={};
+    String(scopeRow.mx||'').split('\n').forEach(l=>{const f=l.split('\t');if(f[0]==='mp')mpx[f[1]]=+f[2]});
+    if(Object.keys(R.mixVals('mp')).length){
+      const s_=a=>a.reduce((x,y)=>x+y,0);
+      ok(KP&&KP.hc===Math.round(mpx.hc||0)&&s_(KP.ab)===Math.round((mpx.ab25||0)+(mpx.ab5||0))&&
+         s_(KP.talk)===Math.round((mpx.t23||0)+(mpx.t35||0)+(mpx.t5||0))&&KP.weeks===16&&
+         mo.indexOf('class="mon-kpi"')>=0&&mo.indexOf('class="mon-kpi"')<mo.indexOf('Состав по категориям')&&
+         !/Прогулы, чел|Работа в выходные, чел|Звонки в Толк от 20% рабочего времени, чел/.test(mo),
+        'KPI мониторинга за '+(KP&&KP.weeks)+' недель ('+(KP&&KP.fromTxt)+' – '+(KP&&KP.toTxt)+'): база '+(KP&&KP.hc)+', прогулы '+(KP&&s_(KP.ab))+
+        ', выходные '+(KP&&s_(KP.we))+', звонки ≥20% '+(KP&&s_(KP.talk))+' — перед «Составом», графиков нет');
+    }else ok(/class="mon-kpi"/.test(mo)&&/Нет данных мониторинга по дням/.test(mo),'KPI мониторинга: в ответе нет mp — «нет данных», не ноль');
     /* 06.11: мониторинг по неделям снят — на реальных данных только месяцы, шагов «недели» нет */
     ok(MD.monthly&&!MD.weeks&&SC.blocks.monitor.subTabs.map(t=>t[0]).join(',')==='activity','мониторинг: только месяцы, недельного шага нет');
   }else ok(!/class="kpi mk/.test(mo)&&/Состав по категориям/.test(mo)&&!/data-mongran|data-pmark/.test(mo),

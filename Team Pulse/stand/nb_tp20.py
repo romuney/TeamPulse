@@ -1146,6 +1146,52 @@ def truth_mon(U, people, mm, pred=lambda p, d: True, act=ACTIVE):
     return T
 
 
+MPW = 16          # поставка 108: KPI мониторинга — за столько последних полных недель (как MPW в hub_sql.py)
+
+
+def mon_period(md):
+    """поставка 108: период KPI мониторинга — MPW полных недель (пн–вс), конец — последнее воскресенье не позже последнего
+    дня дневного источника (и не позже даты данных D1)"""
+    mx = max(d for _, d, *_ in md if d <= D1)
+    we = mx - dt.timedelta((mx.weekday() + 1) % 7)
+    return we - dt.timedelta(MPW * 7 - 1), we
+
+
+def truth_monp(U, people, md, pred=lambda p, d: True, act=ACTIVE):
+    """поставка 108: KPI мониторинга за период (mon_period) по людям — узел → {'mp': {hc ab25 ab5 we25 we5 t23 t35 t5},
+    'mpd': {'начало|конец': людей}}. Человек — в численности месяца конца периода (на его последний день, как hc_total_cnt
+    с eom_flg; юнит, срезы и тип — на этот день). Прогулы и работа в выходные — дни за весь период (2–5, больше 5);
+    звонки — 100 × часы звонков ÷ рабочие часы по плановым дням периода, до 0,1 (20–30, 30–50, больше 50; без часов —
+    не в звонках)"""
+    from decimal import Decimal, ROUND_HALF_UP
+    ws, we = mon_period(md)
+    A = defaultdict(lambda: [0, 0, Decimal(0), Decimal(0)])
+    for rk, d, dur, plan, bal, talk, *_ in md:
+        if ws <= d <= we:
+            a = A[rk]
+            a[0] += bal == -1; a[1] += bal == 1
+            if plan:
+                a[2] += Decimal(str(dur)); a[3] += Decimal(str(talk))
+    e = eom(dt.date(we.year, we.month, 1))
+    root = ['all'] if ROOTS > 1 else []
+    T = defaultdict(lambda: {'mp': defaultdict(float), 'mpd': defaultdict(float)})
+    key = f'{ws}|{we}'
+    for p in people:
+        if not (p['start'] <= e and (p['end'] is None or e < p['end'])):
+            continue
+        if not (pred(p, e) and (act is None or at(p['acth'], e) in act)):
+            continue
+        ab, wo, ds, ts = A[p['rk']] if p['rk'] in A else (0, 0, Decimal(0), Decimal(0))
+        sh = float((100 * ts / ds).quantize(Decimal('0.1'), ROUND_HALF_UP)) if ds > 0 else None
+        x = {'hc': 1, 'ab25': 2 <= ab <= 5, 'ab5': ab > 5, 'we25': 2 <= wo <= 5, 'we5': wo > 5,
+             't23': sh is not None and 20 <= sh <= 30, 't35': sh is not None and 30 < sh <= 50, 't5': sh is not None and sh > 50}
+        for n in root + path(U, at(p['unit'], e)):
+            for k, v in x.items():
+                T[n]['mp'][k] += int(v)
+            T[n]['mpd'][key] += 1
+    return {n: {k: {v: c for v, c in d.items() if c} for k, d in t.items()} for n, t in T.items()}
+
+
 def truth_age(U, people, rk, pred=lambda p, d: True, act=ACTIVE):
     """поставка 73: разрез e узла rk — возраст в годах → людей численности последнего месяца"""
     e, out = eom(months()[-1]), defaultdict(float)

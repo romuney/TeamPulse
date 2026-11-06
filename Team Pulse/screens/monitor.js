@@ -47,20 +47,29 @@ function perLine(P,wk){
     cats:()=>{const hc=avg('hc');return {head:head,parts:[['under','недоработка'],['over','переработка']].map(c=>({name:c[1],
       cur:n(avg(c[0]))+' чел'+(hc?' ('+Math.round(avg(c[0])/hc*100)+'%)':'')}))}},
     hours:()=>{const v=wt&&sum('pdw')?sum('hrw')/sum('pdw'):avg('hours');return v?{head:head,cur:f1(v)+' ч/день'}:null},
-    talk:()=>{const v=wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null},
-    ppl:ks=>({head:head,cur:n(ks.reduce((a,k)=>a+avg(k),0))+' чел'})};
+    talk:()=>{const v=wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null}};
 }
-/* 30.10, заказчик: плашки KPI сняты — прогулы, работа в выходные и звонки в Толк теперь графиками по периодам
-   (столбик — люди, части — сколько дней или какая доля звонков); нет таких данных в периоде — графика нет */
-/* поставка 104: по неделям прогулов и работы в выходные нет (у мастер-дашборда тоже) — только звонки по доле недели */
-function extraCharts(P,pl){
-  const z=P.length?P[P.length-1]:{};
-  if(z.ab25==null&&z.t23==null)return '';
-  const st=(t,cats)=>G.chart('stack',{periods:P,cats:cats,unit:' чел'},
-    {title:t,legend:cats.map(c=>({name:c[1],color:c[2]})),sm:true,period:pl&&pl.ppl(cats.map(c=>c[0]))});
-  return (z.ab25!=null?st('Прогулы, чел',[['ab25','2–5 дней',C.per],['ab5','больше 5 дней',C.per2]])+
-    st('Работа в выходные, чел',[['we25','2–5 дней',C.per],['we5','больше 5 дней',C.per2]]):'')+
-    st('Звонки в Толк от 20% рабочего времени, чел',[['t23','20–30%',C.talk0],['t35','30–50%',C.talk],['t5','больше 50%',C.talk2]]);
+/* поставка 108 (владелец, 06.11): графики «Прогулы», «Работа в выходные» и «Звонки в Толк от 20%» сняты — вместо них три
+   KPI за весь период (D.monKpi: последние 16 полных недель по данным, люди без повторов, база — численность на конец
+   периода) перед «Составом по категориям». Карточки — общие shareCards (как «Стажёры» AI и «Портрет»); нет данных —
+   строка «нет данных», не ноль */
+function kpiBlock(lp){
+  const k=D.monKpi(lp);
+  const pc=(n,b)=>b?(Math.round(n/b*1000)/10).toString().replace('.',',')+'%':'—';
+  const per=k&&k.fromTxt?k.fromTxt+' – '+k.toTxt:'';
+  const cap='<div class="bt-cap">За '+(k&&k.weeks||D.MPW)+' недель'+(per?'<span class="bt-sub">'+U.esc(per)+'</span>':'')+'</div>';
+  if(!k)return '<div class="mon-kpi">'+cap+'<div class="tbl-note">Нет данных мониторинга по дням за последние '+D.MPW+
+    ' недель — KPI не считаются.</div></div>';
+  const sum=a=>a.reduce((x,y)=>x+y,0);
+  const two=(a,l)=>pc(sum(a),k.hc)+' численности'+a.map((v,i)=>'<br>'+l[i]+' — '+D.fmtInt(v)).join('');
+  const cards=[
+    {id:'ab',name:'Прогулы',n:sum(k.ab),bg:C.per2,sub:two(k.ab,['2–5 дн.','больше 5'])},
+    {id:'we',name:'Работа в выходные',n:sum(k.we),bg:C.per,sub:two(k.we,['2–5 дн.','больше 5'])},
+    {id:'tk',name:'Звонки в Толк от 20%',n:sum(k.talk),bg:C.talk,sub:two(k.talk,['20–30%','30–50%','больше 50%'])}];
+  return '<div class="mon-kpi">'+cap+U.shareCards({static:true,cards:cards})+
+    '<div class="tbl-note">Каждый человек — один раз за весь период: прогулы и работа в выходные — 2 дня и больше за '+
+    'период; звонки — часы разговоров в Толк ÷ рабочие часы плановых дней за период. Доля — от '+D.fmtInt(k.hc)+
+    ' чел. в численности на конец периода.</div></div>';
 }
 
 SC.blocks.monitor={
@@ -105,7 +114,7 @@ SC.blocks.monitor={
     /* 05.11, заказчик: отметка периода кликом по столбику снята — графики без выделения */
     const wk=false, P=md.months;
     /* пробник без витрины по неделям и без мониторинга по дням: часы и звонки — заглушки */
-    if(md.monthly&&!md.daily)return '<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    if(md.monthly&&!md.daily)return kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
@@ -114,11 +123,10 @@ SC.blocks.monitor={
     /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой.
        Поставка 104 (заказчик): низкие (sm) — лист короче; под заголовком — среднее за период */
     const pl=perLine(P,wk);
-    return '<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    return kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
       G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
-      G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+
-      extraCharts(P,pl)+'</div>';
+      G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+'</div>';
   }
 };
 })();

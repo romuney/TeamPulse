@@ -1068,6 +1068,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* мониторинг (22.10): блок графика без данных в пробнике — заголовок и плашка на месте графика */
 .mon-ph{padding:var(--s6) var(--s7);border:1px dashed var(--line);border-radius:var(--r3);min-height:120px}
 .mon-ph .tbl-note{margin-top:var(--s4)}
+/* поставка 108: KPI мониторинга за весь период — над «Составом по категориям» */
+.mon-kpi{margin-bottom:var(--s7)}
+.mon-kpi .shcards{margin-top:var(--s4)}
+.mon-kpi .tbl-note{margin-top:var(--s4)}
 /* полка срезов над таблицами снята в поставке 82 — выбранное пилюлями в шапке карточки графиков (.sel-bar) */
 
 /* детализация переводов (поставка 63) */
@@ -4928,6 +4932,39 @@ function monMonthly(lp){
   months[months.length-1-(PARTIAL&&months.length>1?1:0)].cl=true;
   return {monthly:true,daily:day,weeks:null,months:months};
 }
+/* поставка 108 (владелец, 06.11): KPI мониторинга за весь период — MPW последних полных недель (пн–вс), границы — по данным
+   (ноутбук: последнее воскресенье дневного источника). По каждому человеку за период целиком, не сумма месячных долей:
+   прогулы и работа в выходные — 2 дня и больше (2–5, больше 5), звонки в Толк — часы звонков ÷ рабочие часы плановых дней
+   периода от 20% (20–30, 30–50, больше 50). База — численность на конец периода (как «В мониторинге»), люди без повторов.
+   Разрезы ноутбука mp (hc ab25 ab5 we25 we5 t23 t35 t5) и mpd («начало|конец»); у листьев выбора — сумма (человек в одном
+   листе). null — данных нет: карточки показывают «нет данных», а не ноль */
+const MPW=16;
+function isoDay(s){const a=String(s).split('-').map(Number);return new Date(a[0],a[1]-1,a[2])}
+function monKpi(lp){
+  if(!lp.length)return null;
+  if(REAL){
+    const mp=realExit(lp,'mp'), pd=Object.keys(realExit(lp,'mpd'));
+    if(!mp.hc)return null;
+    const pr=pd.length?pd[0].split('|').map(isoDay):null;
+    const n=k=>Math.round(mp[k]||0);
+    const dd=d=>d.getDate()+' '+MONTH_ABBR_GEN[d.getMonth()];
+    return {hc:n('hc'),ab:[n('ab25'),n('ab5')],we:[n('we25'),n('we5')],talk:[n('t23'),n('t35'),n('t5')],
+      fromTxt:pr?dd(pr[0]):'',toTxt:pr?dd(pr[1])+' '+pr[1].getFullYear():'',weeks:pr?Math.round((pr[1]-pr[0])/864e5+1)/7:null};
+  }
+  const W=MON_WEEKS.slice(-MPW);
+  let hc=0;const ab=[0,0],we=[0,0],talk=[0,0,0];
+  lp.forEach(p=>{
+    const r=rng('mpk|'+p), m0=HC_MODE;setHcMode('active');
+    const h=Math.max(0,Math.round(lastVal([p],'hc_total')||0));setHcMode(m0);
+    hc+=h;
+    const part=f=>Math.round(h*f*(0.6+0.8*r()));
+    ab[0]+=part(.05);ab[1]+=part(.015);we[0]+=part(.07);we[1]+=part(.02);
+    talk[0]+=part(.12);talk[1]+=part(.06);talk[2]+=part(.015);
+  });
+  if(!hc)return null;
+  const d0=W[0], d1=W[W.length-1];
+  return {hc:hc,ab:ab,we:we,talk:talk,fromTxt:d0.from,toTxt:d1.to+' '+d1.y,weeks:W.length,mock:true};
+}
 function monData(lp){
   if(!lp.length)return null;
   if(REAL)return monMonthly(lp);
@@ -5970,7 +6007,7 @@ function aiUsage(lp){
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
@@ -9807,7 +9844,7 @@ const WHY={
     spec:['Смена специализации — рост вбок: сколько заявок закрыто успешно и куда люди хотят перейти.',
       'Высокий % отказа по специализации — проверьте требования к переходу и поддержку при смене роли.']},
   monitor:{
-    activity:['{{Недоработчики|Недоработка}} и {{Переработчики|переработка}} по месяцам, прогулы и работа в выходные. Считается под выбранными фильтрами: по умолчанию — вся активная численность.',
+    activity:['Прогулы, работа в выходные и звонки в Толк от 20% — за последние 16 недель, каждый человек один раз; ниже — {{Недоработчики|недоработка}} и {{Переработчики|переработка}} по месяцам. Считается под выбранными фильтрами: по умолчанию — вся активная численность.',
       'Рост недоработки в одной команде важнее общего уровня — сравните её с прошлым месяцем.'],
     review:['Итоги последнего {{Ревью|ревью}}: у кого оценка выросла, у кого упала.',
       'Ухудшивших больше, чем улучшивших, — проверьте нагрузку и цели в этих группах.']},
@@ -11326,20 +11363,29 @@ function perLine(P,wk){
     cats:()=>{const hc=avg('hc');return {head:head,parts:[['under','недоработка'],['over','переработка']].map(c=>({name:c[1],
       cur:n(avg(c[0]))+' чел'+(hc?' ('+Math.round(avg(c[0])/hc*100)+'%)':'')}))}},
     hours:()=>{const v=wt&&sum('pdw')?sum('hrw')/sum('pdw'):avg('hours');return v?{head:head,cur:f1(v)+' ч/день'}:null},
-    talk:()=>{const v=wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null},
-    ppl:ks=>({head:head,cur:n(ks.reduce((a,k)=>a+avg(k),0))+' чел'})};
+    talk:()=>{const v=wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null}};
 }
-/* 30.10, заказчик: плашки KPI сняты — прогулы, работа в выходные и звонки в Толк теперь графиками по периодам
-   (столбик — люди, части — сколько дней или какая доля звонков); нет таких данных в периоде — графика нет */
-/* поставка 104: по неделям прогулов и работы в выходные нет (у мастер-дашборда тоже) — только звонки по доле недели */
-function extraCharts(P,pl){
-  const z=P.length?P[P.length-1]:{};
-  if(z.ab25==null&&z.t23==null)return '';
-  const st=(t,cats)=>G.chart('stack',{periods:P,cats:cats,unit:' чел'},
-    {title:t,legend:cats.map(c=>({name:c[1],color:c[2]})),sm:true,period:pl&&pl.ppl(cats.map(c=>c[0]))});
-  return (z.ab25!=null?st('Прогулы, чел',[['ab25','2–5 дней',C.per],['ab5','больше 5 дней',C.per2]])+
-    st('Работа в выходные, чел',[['we25','2–5 дней',C.per],['we5','больше 5 дней',C.per2]]):'')+
-    st('Звонки в Толк от 20% рабочего времени, чел',[['t23','20–30%',C.talk0],['t35','30–50%',C.talk],['t5','больше 50%',C.talk2]]);
+/* поставка 108 (владелец, 06.11): графики «Прогулы», «Работа в выходные» и «Звонки в Толк от 20%» сняты — вместо них три
+   KPI за весь период (D.monKpi: последние 16 полных недель по данным, люди без повторов, база — численность на конец
+   периода) перед «Составом по категориям». Карточки — общие shareCards (как «Стажёры» AI и «Портрет»); нет данных —
+   строка «нет данных», не ноль */
+function kpiBlock(lp){
+  const k=D.monKpi(lp);
+  const pc=(n,b)=>b?(Math.round(n/b*1000)/10).toString().replace('.',',')+'%':'—';
+  const per=k&&k.fromTxt?k.fromTxt+' – '+k.toTxt:'';
+  const cap='<div class="bt-cap">За '+(k&&k.weeks||D.MPW)+' недель'+(per?'<span class="bt-sub">'+U.esc(per)+'</span>':'')+'</div>';
+  if(!k)return '<div class="mon-kpi">'+cap+'<div class="tbl-note">Нет данных мониторинга по дням за последние '+D.MPW+
+    ' недель — KPI не считаются.</div></div>';
+  const sum=a=>a.reduce((x,y)=>x+y,0);
+  const two=(a,l)=>pc(sum(a),k.hc)+' численности'+a.map((v,i)=>'<br>'+l[i]+' — '+D.fmtInt(v)).join('');
+  const cards=[
+    {id:'ab',name:'Прогулы',n:sum(k.ab),bg:C.per2,sub:two(k.ab,['2–5 дн.','больше 5'])},
+    {id:'we',name:'Работа в выходные',n:sum(k.we),bg:C.per,sub:two(k.we,['2–5 дн.','больше 5'])},
+    {id:'tk',name:'Звонки в Толк от 20%',n:sum(k.talk),bg:C.talk,sub:two(k.talk,['20–30%','30–50%','больше 50%'])}];
+  return '<div class="mon-kpi">'+cap+U.shareCards({static:true,cards:cards})+
+    '<div class="tbl-note">Каждый человек — один раз за весь период: прогулы и работа в выходные — 2 дня и больше за '+
+    'период; звонки — часы разговоров в Толк ÷ рабочие часы плановых дней за период. Доля — от '+D.fmtInt(k.hc)+
+    ' чел. в численности на конец периода.</div></div>';
 }
 
 SC.blocks.monitor={
@@ -11384,7 +11430,7 @@ SC.blocks.monitor={
     /* 05.11, заказчик: отметка периода кликом по столбику снята — графики без выделения */
     const wk=false, P=md.months;
     /* пробник без витрины по неделям и без мониторинга по дням: часы и звонки — заглушки */
-    if(md.monthly&&!md.daily)return '<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    if(md.monthly&&!md.daily)return kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
@@ -11393,11 +11439,10 @@ SC.blocks.monitor={
     /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой.
        Поставка 104 (заказчик): низкие (sm) — лист короче; под заголовком — среднее за период */
     const pl=perLine(P,wk);
-    return '<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    return kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
       G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
-      G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+
-      extraCharts(P,pl)+'</div>';
+      G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+'</div>';
   }
 };
 })();

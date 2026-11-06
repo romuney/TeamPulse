@@ -31,6 +31,7 @@ CAL = 'office_traffic_calendar'      # поставка 66: календарь �
 HUB_ALL = 'all'
 STAFF = 'Штатный сотрудник'
 VAC_OK_GROUP = 'Согласованные'
+MPW = 16                         # поставка 108: KPI мониторинга — за столько последних полных недель
 LV = list(range(1, 12))          # уровни источника людей (build_all_metrics, n_levels=11)
 NV = 11                          # уровни вакансий (resource_level_N_rk)
 
@@ -792,6 +793,59 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY[to_char(e.calendar_dt, 'YYYY-MM-DD'), to_char(e.calendar_dt, 'YYYY-MM-DD')]) as mx_val,
        unnest(ARRAY[{num('cnt_work_day')}, {num('cnt_office_visit')}]) as mx_n
 from ({expl(['calendar_dt', 'cnt_work_day', 'cnt_office_visit'], two, CAL)}) e;
+
+-- поставка 108 (владелец, 06.11): KPI мониторинга за весь период — {MPW} последних полных недель (понедельник–воскресенье).
+-- Конец периода — последнее воскресенье не позже последнего дня дневного источника (и не позже даты данных), начало — на
+-- {MPW} недель раньше: границы — по данным. По каждому человеку за период целиком (не сумма месячных долей):
+--   прогулы — дней с working_balance = -1, работа в выходные — дней с working_balance = 1: 2–5 и больше 5 дней;
+--   звонки — 100 × часы звонков ÷ рабочие часы по плановым дням периода (округление до 0,1, как сегмент месяца):
+--   20–30, 30–50, больше 50%; без рабочих часов — нет данных (в звонки не идёт).
+-- База — численность месяца конца периода (hc_total_cnt = 1, последняя строка человека в месяце: юнит и срезы — его),
+-- как категории мониторинга. mp — люди: hc (база), ab25 ab5 we25 we5 t23 t35 t5; mpd — период «начало|конец», n — люди
+drop table if exists {P}_mpp;
+create table {P}_mpp as
+select (date_trunc('week', b.mx + 1)::date - 1) - {MPW} * 7 + 1 as ws, date_trunc('week', b.mx + 1)::date - 1 as we
+from (
+    select max(d.calendar_dt)::date as mx
+    from prod_v_sse_crossdata.performance_metric_d d
+    where d.calendar_dt >= date_trunc('year', current_date - interval '1 year')
+      and d.calendar_dt <= (select dt from {P}_cal)
+) b
+where b.mx is not null
+{dist('ws')};
+
+drop table if exists {P}_mpd;
+create table {P}_mpd as
+select d.mdm_employee_rk as rk,
+       sum(case when d.working_balance = -1 then 1 else 0 end) as ab,
+       sum(case when d.working_balance = 1 then 1 else 0 end) as wo,
+       sum(case when d.plan_working_day_flg = 1 then d.duration_hour end) as dur,
+       sum(case when d.plan_working_day_flg = 1 then d.talk_call_duration_h end) as tlk
+from prod_v_sse_crossdata.performance_metric_d d
+join {P}_mpp p on d.calendar_dt between p.ws and p.we
+where d.calendar_dt >= date_trunc('year', current_date - interval '1 year')
+group by 1
+{dist('rk')};
+
+insert into {P}_mixr
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+       unnest(ARRAY['mp', 'mp', 'mp', 'mp', 'mp', 'mp', 'mp', 'mp', 'mpd']) as mx_key,
+       unnest(ARRAY['hc', 'ab25', 'ab5', 'we25', 'we5', 't23', 't35', 't5',
+                    to_char(p.ws, 'YYYY-MM-DD') || '|' || to_char(p.we, 'YYYY-MM-DD')]) as mx_val,
+       unnest(ARRAY[1,
+                    (coalesce(m.ab, 0) between 2 and 5)::int, (coalesce(m.ab, 0) > 5)::int,
+                    (coalesce(m.wo, 0) between 2 and 5)::int, (coalesce(m.wo, 0) > 5)::int,
+                    (m.sh >= 20 and m.sh <= 30)::int, (m.sh > 30 and m.sh <= 50)::int, (m.sh > 50)::int,
+                    1]) as mx_n
+from ({expl(['mdm_employee_rk', 'hc_total_cnt', 'last_row_flg'],
+            f"and s.report_month = (select date_trunc('month', we)::date from {P}_mpp) and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1")}) e
+cross join {P}_mpp p
+left join (
+    select rk, ab, wo, case when coalesce(dur, 0) > 0 then round(100.0 * coalesce(tlk, 0) / dur, 1) end as sh
+    from {P}_mpd
+) m on m.rk = e.mdm_employee_rk;
+drop table if exists {P}_mpd;
+drop table if exists {P}_mpp;
 
 {sql_prof(a, attrs, age_e, lm)}
 drop table if exists {P}_mix;

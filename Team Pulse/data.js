@@ -2226,6 +2226,39 @@ function monMonthly(lp){
   months[months.length-1-(PARTIAL&&months.length>1?1:0)].cl=true;
   return {monthly:true,daily:day,weeks:null,months:months};
 }
+/* поставка 108 (владелец, 06.11): KPI мониторинга за весь период — MPW последних полных недель (пн–вс), границы — по данным
+   (ноутбук: последнее воскресенье дневного источника). По каждому человеку за период целиком, не сумма месячных долей:
+   прогулы и работа в выходные — 2 дня и больше (2–5, больше 5), звонки в Толк — часы звонков ÷ рабочие часы плановых дней
+   периода от 20% (20–30, 30–50, больше 50). База — численность на конец периода (как «В мониторинге»), люди без повторов.
+   Разрезы ноутбука mp (hc ab25 ab5 we25 we5 t23 t35 t5) и mpd («начало|конец»); у листьев выбора — сумма (человек в одном
+   листе). null — данных нет: карточки показывают «нет данных», а не ноль */
+const MPW=16;
+function isoDay(s){const a=String(s).split('-').map(Number);return new Date(a[0],a[1]-1,a[2])}
+function monKpi(lp){
+  if(!lp.length)return null;
+  if(REAL){
+    const mp=realExit(lp,'mp'), pd=Object.keys(realExit(lp,'mpd'));
+    if(!mp.hc)return null;
+    const pr=pd.length?pd[0].split('|').map(isoDay):null;
+    const n=k=>Math.round(mp[k]||0);
+    const dd=d=>d.getDate()+' '+MONTH_ABBR_GEN[d.getMonth()];
+    return {hc:n('hc'),ab:[n('ab25'),n('ab5')],we:[n('we25'),n('we5')],talk:[n('t23'),n('t35'),n('t5')],
+      fromTxt:pr?dd(pr[0]):'',toTxt:pr?dd(pr[1])+' '+pr[1].getFullYear():'',weeks:pr?Math.round((pr[1]-pr[0])/864e5+1)/7:null};
+  }
+  const W=MON_WEEKS.slice(-MPW);
+  let hc=0;const ab=[0,0],we=[0,0],talk=[0,0,0];
+  lp.forEach(p=>{
+    const r=rng('mpk|'+p), m0=HC_MODE;setHcMode('active');
+    const h=Math.max(0,Math.round(lastVal([p],'hc_total')||0));setHcMode(m0);
+    hc+=h;
+    const part=f=>Math.round(h*f*(0.6+0.8*r()));
+    ab[0]+=part(.05);ab[1]+=part(.015);we[0]+=part(.07);we[1]+=part(.02);
+    talk[0]+=part(.12);talk[1]+=part(.06);talk[2]+=part(.015);
+  });
+  if(!hc)return null;
+  const d0=W[0], d1=W[W.length-1];
+  return {hc:hc,ab:ab,we:we,talk:talk,fromTxt:d0.from,toTxt:d1.to+' '+d1.y,weeks:W.length,mock:true};
+}
 function monData(lp){
   if(!lp.length)return null;
   if(REAL)return monMonthly(lp);
@@ -3268,7 +3301,7 @@ function aiUsage(lp){
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
