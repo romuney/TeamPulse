@@ -282,7 +282,8 @@ def main():
                         days = sorted(d for (n_, d) in Dd if n_ == rk)
                         want_v['dw'] = {str(d): Dd[(rk, d)]['dw'] for d in days if Dd[(rk, d)]['dw']}
                         want_v['do'] = {str(d): Dd[(rk, d)]['do'] for d in days if Dd[(rk, d)]['do']}
-                        if not want_v['dw']:
+                        # поставка 107: офис — в базе мастер-отчёта (только тип «Активная»): без неё календарь пуст по правилу
+                        if not want_v['dw'] and (act is None or 'Активная' in act):
                             bad['календарь пуст'] += 1
                         if not want_v['rs']:
                             bad['T-рост пуст'] += 1
