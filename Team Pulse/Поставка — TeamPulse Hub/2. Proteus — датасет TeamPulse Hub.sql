@@ -165,15 +165,18 @@
 {% set FK = {'act': 'fa', 'paint': 'fp', 'it': 'fi', 'staff': 'fs'} %}
 {% set fl = ['ifNull(fu, 0) = 1'] %}{% for c in CUTS %}{% if F[c[0]]|length > 0 %}{% set _ = fl.append('ifNull(' ~ FK[c[0]] ~ ', 0) = 1') %}{% endif %}{% endfor %}
 {% set FLG = '(' ~ fl|join(' OR ') ~ ')' %}
-{#- Поставка 105 (06.11, владелец): переводы замкнутого водопада (teampulse_hub_flow) — по тем же фильтрам: перевод в узел
-    извне или из него (chg_unit) — всегда; смена среза без смены узла (chg_paint / chg_it / chg_staff / chg_act) — только
-    при фильтре по этому срезу: без фильтра обе стороны смены в одной сумме и гасят друг друга; у строк специализаций —
-    и смена специализации (chg_sp). Признаков в таблице нет (ноутбук до правки 06.11) — перевод засчитан всегда. -#}
+{#- Поставка 105 (06.11, владелец): перевод замкнутого водопада (teampulse_hub_flow) — вход в периметр отчёта или выход из
+    него: периметр — узел + выбранные фильтры. Засчитан, если человек пришёл в узел извне или ушёл из него (chg_unit),
+    или другая сторона перехода (oth_*: у «в» — откуда, у «из» — куда) вне выбранных фильтров: Support → HQ при фильтре
+    HQ — перевод, при HQ + Support или без фильтра покраски — нет. У строк специализаций смена специализации (chg_sp) —
+    всегда перевод. Колонок нет (ноутбук до правки 06.11) — перевод засчитан всегда. -#}
 {% macro fchg(c, d) -%}arrayElement(arrayConcat(CAST([], 'Array(Float64)'), [COLUMNS('^{{ c }}$') APPLY(toFloat64)], [toFloat64({{ d }})]), 1){%- endmacro %}
-{% set FC = {'act': 'chg_act', 'paint': 'chg_paint', 'it': 'chg_it', 'staff': 'chg_staff'} %}
-{% set fw = [fchg('chg_unit', 1) ~ ' = 1'] %}{% for c in CUTS %}{% if F[c[0]]|length > 0 %}{% set _ = fw.append(fchg(FC[c[0]], 0) ~ ' = 1') %}{% endif %}{% endfor %}
-{% set FLW = '(' ~ fw|join(' OR ') ~ ')' %}
-{% set FLWS = '(' ~ fw|join(' OR ') ~ ' OR ' ~ fchg('chg_sp', 0) ~ ' = 1)' %}
+{% macro foth(c) -%}lowerUTF8(arrayElement(arrayConcat(CAST([], 'Array(String)'), [COLUMNS('^{{ c }}$') APPLY(toString)], ['']), 1)){%- endmacro %}
+{% set FO = {'act': 'oth_act_cd', 'paint': 'oth_paint_cd', 'it': 'oth_it_cd', 'staff': 'oth_staff_cd'} %}
+{% set fo = [] %}{% for c in CUTS %}{% if F[c[0]]|length > 0 %}{% set _ = fo.append(foth(FO[c[0]]) ~ ' IN ' ~ ql(F[c[0]])) %}{% endif %}{% endfor %}
+{% set OTHIN = '(' ~ (fo|join(' AND ') if fo else '1') ~ ')' %}
+{% set FLW = '(' ~ fchg('chg_unit', 1) ~ ' = 1 OR NOT ' ~ OTHIN ~ ')' %}
+{% set FLWS = '(' ~ fchg('chg_unit', 1) ~ ' = 1 OR ' ~ fchg('chg_sp', 0) ~ ' = 1 OR NOT ' ~ OTHIN ~ ')' %}
 {% set FTI = "toFloat64(ifNull(tin_cnt, 0)) * toFloat64(" ~ FLW ~ ")" %}
 {% set FTU = "toFloat64(ifNull(tout_cnt, 0)) * toFloat64(" ~ FLW ~ ")" %}
 {% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 1)" %}

@@ -131,12 +131,16 @@ analyze teampulse_hub_fle;
 
 -- 4. ключ со специализацией и сама витрина: двойная запись событий в строки
 --    (юнит-строки sp = '-' — ключ без специализации; строки специализаций — с ней)
--- 06.11 (владелец, поставка 105): перевод пишется в узел, только если человек пришёл в узел извне или ушёл из него
--- (chg_unit = 1: узла нет в другом пути, или человека не было / не стало в численности). Переход между подразделениями
--- внутри узла самому узлу не пишется: человек и в начале, и в конце той же строки узла — строка сходится без него.
--- Смена среза без смены узла пишется с признаком среза (chg_paint / chg_it / chg_staff / chg_act; у строк
--- специализаций — и chg_sp): датасет засчитывает её только при фильтре по этому срезу — без фильтра обе стороны смены
--- в одной сумме и гасят друг друга. Баланс каждой строки и проверки №27–28 — как были (признаки — часть зерна)
+-- 06.11 (владелец, поставка 105): перевод — вход в периметр отчёта или выход из него не наймом и не увольнением;
+-- периметр — узел + выбранные фильтры (тип численности, покраска, IT, штат). Поэтому:
+--   * в узел перевод пишется, только если человек пришёл в узел извне или ушёл из него (chg_unit = 1: узла нет в другом
+--     пути, или человека не было / не стало в численности); переход между подразделениями внутри узла самому узлу не
+--     пишется — человек и в начале, и в конце той же строки узла;
+--   * смена среза внутри узла пишется со срезом ДРУГОЙ стороны перехода (oth_paint_cd / oth_it_cd / oth_staff_cd /
+--     oth_act_cd; у «в» — откуда пришёл, у «из» — куда ушёл): датасет засчитывает перевод, только если другая сторона вне
+--     выбранных фильтров (Support → HQ при фильтре HQ — перевод; при фильтре HQ + Support или без фильтра покраски — нет);
+--   * у строк специализаций смена специализации (chg_sp) — всегда перевод: специализация — часть периметра строки.
+-- Баланс каждой строки и проверки №27–28 — как были (новые колонки — часть зерна)
 drop table if exists teampulse_hub_flow;
 create table teampulse_hub_flow as
 with ev as (
@@ -159,60 +163,61 @@ tu as (
           where in_prev and fxx = 0 and ((not in_cur) or key_s)) z
 )
 select node_rk, report_month, sp_cd, paint_cd, it_cd, staff_cd, act_cd,
-       chg_unit, chg_paint, chg_it, chg_staff, chg_act, chg_sp,
+       chg_unit, chg_sp, oth_paint_cd, oth_it_cd, oth_staff_cd, oth_act_cd,
        sum(beg) as beg_cnt, sum(hire) as hire_cnt, sum(fire) as fire_cnt,
        sum(tin) as tin_cnt, sum(tout) as tout_cnt, sum(fin) as fin_cnt
 from (
     -- ===== юнит-строки (специализация '-' = юнит целиком) =====
     select unnest(ap_arr) as node_rk, m as report_month,
            '-'::text as sp_cd, pa_p as paint_cd, itc_p as it_cd, st_p as staff_cd, ac_p as act_cd,
-           0 as chg_unit, 0 as chg_paint, 0 as chg_it, 0 as chg_staff, 0 as chg_act, 0 as chg_sp,
+           0 as chg_unit, 0 as chg_sp, ''::text as oth_paint_cd, ''::text as oth_it_cd, ''::text as oth_staff_cd,
+           ''::text as oth_act_cd,
            1 as beg, 0 as hire, 0 as fire, 0 as tin, 0 as tout, 0 as fin
     from ev where in_prev
     union all
-    select unnest(ac_arr), m, '-', pa, itc, st, ac_c, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+    select unnest(ac_arr), m, '-', pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 0, 0, 0, 1
     from ev where in_cur
     union all
-    select unnest(ac_arr), m, '-', pa, itc, st, ac_c, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0
+    select unnest(ac_arr), m, '-', pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 1, 0, 0, 0, 0
     from ev where hire_ev
     union all
-    select unnest(ap_arr), m, '-', pa_p, itc_p, st_p, ac_p, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+    select unnest(ap_arr), m, '-', pa_p, itc_p, st_p, ac_p, 0, 0, '', '', '', '', 0, 0, 1, 0, 0, 0
     from ev where fire_prev
     union all
-    select unnest(ac_arr), m, '-', pa, itc, st, ac_c, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+    select unnest(ac_arr), m, '-', pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 1, 0, 0, 0
     from ev where fire_cur
     union all
     -- юнит-строка: переход по ключу юнита (key_u); в общем узле без смены среза — не пишется
-    select node_rk, m, '-', pa, itc, st, ac_c, cu, dp * (1 - cu), di * (1 - cu), ds * (1 - cu), da * (1 - cu), 0,
+    select node_rk, m, '-', pa, itc, st, ac_c, cu, 0, case when cu = 1 then '' else pa_p end, case when cu = 1 then '' else itc_p end, case when cu = 1 then '' else st_p end, case when cu = 1 then '' else ac_p end,
            0, 0, 0, 1, 0, 0
     from ti where ((not in_prev) or key_u) and (cu = 1 or dp + di + ds + da > 0)
     union all
-    select node_rk, m, '-', pa_p, itc_p, st_p, ac_p, cu, dp * (1 - cu), di * (1 - cu), ds * (1 - cu), da * (1 - cu), 0,
+    select node_rk, m, '-', pa_p, itc_p, st_p, ac_p, cu, 0, case when cu = 1 then '' else pa end, case when cu = 1 then '' else itc end, case when cu = 1 then '' else st end, case when cu = 1 then '' else ac_c end,
            0, 0, 0, 0, 1, 0
     from tu where ((not in_cur) or key_u) and (cu = 1 or dp + di + ds + da > 0)
     union all
     -- ===== строки специализаций (только люди С специализацией: sp '-' склеился бы с юнит-строками
     --      и удваивал их; человек без специализации виден только в строке юнита) =====
-    select unnest(ap_arr), m, sp_p, pa_p, itc_p, st_p, ac_p, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0
+    select unnest(ap_arr), m, sp_p, pa_p, itc_p, st_p, ac_p, 0, 0, '', '', '', '', 1, 0, 0, 0, 0, 0
     from ev where in_prev and sp_p <> '-'
     union all
-    select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+    select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 0, 0, 0, 1
     from ev where in_cur and sp_c <> '-'
     union all
-    select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0
+    select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 1, 0, 0, 0, 0
     from ev where hire_ev and sp_c <> '-'
     union all
-    select unnest(ap_arr), m, sp_p, pa_p, itc_p, st_p, ac_p, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+    select unnest(ap_arr), m, sp_p, pa_p, itc_p, st_p, ac_p, 0, 0, '', '', '', '', 0, 0, 1, 0, 0, 0
     from ev where fire_prev and sp_p <> '-'
     union all
-    select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0
+    select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 1, 0, 0, 0
     from ev where fire_cur and sp_c <> '-'
     union all
-    select node_rk, m, sp_c, pa, itc, st, ac_c, cu, dp * (1 - cu), di * (1 - cu), ds * (1 - cu), da * (1 - cu), dsp * (1 - cu),
+    select node_rk, m, sp_c, pa, itc, st, ac_c, cu, dsp * (1 - cu), case when cu = 1 then '' else pa_p end, case when cu = 1 then '' else itc_p end, case when cu = 1 then '' else st_p end, case when cu = 1 then '' else ac_p end,
            0, 0, 0, 1, 0, 0
     from ti where sp_c <> '-' and (cu = 1 or dp + di + ds + da + dsp > 0)
     union all
-    select node_rk, m, sp_p, pa_p, itc_p, st_p, ac_p, cu, dp * (1 - cu), di * (1 - cu), ds * (1 - cu), da * (1 - cu), dsp * (1 - cu),
+    select node_rk, m, sp_p, pa_p, itc_p, st_p, ac_p, cu, dsp * (1 - cu), case when cu = 1 then '' else pa end, case when cu = 1 then '' else itc end, case when cu = 1 then '' else st end, case when cu = 1 then '' else ac_c end,
            0, 0, 0, 0, 1, 0
     from tu where sp_p <> '-' and (cu = 1 or dp + di + ds + da + dsp > 0)
 ) t

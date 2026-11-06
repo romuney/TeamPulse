@@ -31,15 +31,14 @@ limit 50;
 
 -- 1. Водопад по месяцам — как в отчёте с поставки 105: замкнутая витрина teampulse_hub_flow (строки юнитов sp_cd = '-').
 --    prochee = конец − начало − найм + отток − в + из — всегда 0 (проверка №27), fin_minus_hc = конец − численность
---    series — 0 (проверка №28). Переводы при фильтре по умолчанию: пришёл в узел извне или ушёл из него (chg_unit) или
---    сменил тип численности (chg_act), смена покраски / IT / штата — только при фильтре по ним (chg_paint / chg_it /
---    chg_staff), без фильтра обе стороны в одной сумме гасят друг друга
+--    series — 0 (проверка №28). Перевод — вход в периметр или выход из него (периметр — узел + срез ниже): пришёл в узел
+--    извне или ушёл из него (chg_unit) или другая сторона перехода вне среза (oth_act_cd — тип, откуда пришёл / куда ушёл)
 with p as (select null::text as unit),
 u as (select coalesce((select unit from p), (select root_rk from teampulse_hub_meta)) as rk),
 f as (
     select report_month as m, sum(beg_cnt) as beg, sum(hire_cnt) as hire, sum(fire_cnt) as fire,
-           sum(case when chg_unit = 1 or chg_act = 1 then tin_cnt else 0 end) as tin,
-           sum(case when chg_unit = 1 or chg_act = 1 then tout_cnt else 0 end) as tout,
+           sum(case when chg_unit = 1 or oth_act_cd <> 'Активная' then tin_cnt else 0 end) as tin,     -- ← срез
+           sum(case when chg_unit = 1 or oth_act_cd <> 'Активная' then tout_cnt else 0 end) as tout,   -- ← срез
            sum(fin_cnt) as fin
     from teampulse_hub_flow
     where node_rk = (select rk from u) and sp_cd = '-'
