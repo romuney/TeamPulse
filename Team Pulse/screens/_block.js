@@ -335,7 +335,7 @@ function renderBlock(S,expanded,mixOpen,view){
      вместе с незакрытым месяцем), год — в подписи колонки */
   const YNOW=new Set(['vac_closed']);
   const ynow=lp=>D.aggregate(lp,'vac_closed').reduce((t,v,i)=>t+(D.MONTHS[i].y===D.YEAR_CUR?v||0:0),0);
-  const perOf=k=>MONTHLY.has(k)?D.MONTH_NOM[PM.m]+' '+PM.y:YNOW.has(k)?String(D.YEAR_CUR):b.key==='structure'||pt(k).lab===D.PER_SPAN?'':pt(k).lab||'';
+  const perOf=k=>MONTHLY.has(k)?D.MONTH_NOM[PM.m]+' '+PM.y:YNOW.has(k)?String(D.YEAR_CUR):b.key==='structure'||pt(k).lab===D.PER_SPAN||pt(k).lab===D.CNT_SPAN?'':pt(k).lab||'';
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
@@ -570,7 +570,7 @@ function renderBlock(S,expanded,mixOpen,view){
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
       /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
       /* поставка 106: у AI — недели, без сравнения с прошлым годом */
-      (b.key==='structure'?'':b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.PER_NAME)+'</b> против того же периода '+D.YEAR_PREV),
+      (b.key==='structure'?'':b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';

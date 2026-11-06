@@ -231,7 +231,7 @@ def main():
                     want_v['e'] = nb.truth_age(U, people, rk, raw.get(name, pred), act)
                     # 28.10, п. 1: найм по специализации — в сумме = ряду с начала года. Переводы в и из по
                     # специализациям — по флагам переводов под фильтры или смены специализации (поставка 90, truth_spec_move)
-                    ytd_ = nb.ytd_months()             # поставка 90: январь..последний закрытый месяц
+                    ytd_ = nb.ytd_months()             # поставка 106: январь..дата данных (с незакрытым месяцем)
                     if abs(mx['tsh'] - sum(T[(rk, m)]['hire'] for m in ytd_)) > 0.5:
                         bad['mx tsh'] += 1
                     want_v.update(nb.truth_spec_move(U, people, rk, raw.get(name, pred), act, chg))
@@ -266,7 +266,7 @@ def main():
                         bad['mx sp0'] += 1
                     # поставка 90: численность по специализации на конец последнего закрытого месяца (sp1) — в сумме =
                     # численности этого месяца
-                    if abs(mx['sp1'] - T[(rk, nb.closed_month())]['hc']) > 0.5 or (r['role'] == 'scope' and not mxv.get('sp1')):
+                    if abs(mx['sp1'] - T[(rk, ms[-1])]['hc']) > 0.5 or (r['role'] == 'scope' and not mxv.get('sp1')):
                         bad['mx sp1'] += 1
                     if r['role'] == 'scope':
                         days = sorted(d for (n_, d) in Dd if n_ == rk)

@@ -152,7 +152,9 @@ function render(S,openRows){
     D.hcLabel(S)+' · сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
     '</b> и прошлым годом'+obsInfo(S)+'</p>'+
     /* поставка 99: окно чисел — один раз, строкой-контрактом, а не в каждой строке выводов */
-    '<p class="per-line">Числа — за <b>'+esc(D.PER_NAME)+' '+D.YEAR_CUR+'</b> против того же периода '+D.YEAR_PREV+
+    /* поставка 106: количества — по дату данных, доли — по закрытый месяц */
+    '<p class="per-line">Числа — за <b>'+esc(D.CNT_NAME)+' '+D.YEAR_CUR+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+
+    ' против того же периода '+D.YEAR_PREV+
     '; численность и открытые вакансии — на '+esc(D.ASOF_LABEL)+'</p></div>';
 
   /* 2 · сводка и карточки выводов. Видно четыре, остальные (до восьми) — по
@@ -200,7 +202,7 @@ function render(S,openRows){
       '<colgroup><col style="width:26%"><col style="width:12%"><col style="width:10%"><col style="width:10%"><col>'+
       '<col style="width:19%"><col style="width:28px"></colgroup>'+
       /* поставка 90: значение — за то же окно, что итог под графиком; окно подписано под числом */
-      '<thead><tr><th>Метрика</th><th class="num"'+U.tipAttr({title:'Значение',text:'Потоки и доли — '+D.PER_TEXT+
+      '<thead><tr><th>Метрика</th><th class="num"'+U.tipAttr({title:'Значение',text:'Потоки — '+D.CNT_TEXT+', доли — '+D.PER_TEXT+
         ', накопительные — на конец закрытого месяца, численность и открытые вакансии — сейчас.'})+'>Значение</th>'+
       /* 27.10-в, п. 1: шапки — MoM и YoY; месяцы сравнения — в подсказке */
       '<th class="num"'+U.tipAttr({title:'MoM — месяц к месяцу',text:'Последний закрытый месяц против предыдущего; у численности и вакансий — сейчас против конца прошлого месяца.'})+'>MoM</th>'+

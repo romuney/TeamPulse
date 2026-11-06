@@ -648,11 +648,13 @@ ok(['time_to_fill','tgrowth_conv','underwork','overwork'].every(k=>!D.PARTIAL||D
 /* поставка 89: итог за период на графиках — потоки суммой с января по закрытый месяц, накопительная — на закрытый месяц,
    численность — сейчас; тот же период год назад; в шапке графика найма — строка итога */
 {
-  const lp=D.reportLeaves(D.DEFAULT_STATE), c=D.CUR_LEN-1-(D.PARTIAL?1:0), sum=a=>a.slice(0,c+1).reduce((t,v)=>t+(v||0),0);
+  /* поставка 106: потоки — по дату данных (c — текущий месяц), год назад — те же дни (текущий месяц пропорционально);
+     накопительная текучесть — на закрытый месяц (c0) */
+  const lp=D.reportLeaves(D.DEFAULT_STATE), c0=D.CUR_LEN-1-(D.PARTIAL?1:0), c=D.CUR_LEN-1, sum=a=>a.slice(0,c+1).reduce((t,v)=>t+(v||0),0);
   const yh=D.yoySeries(lp,'hire'), ph=D.periodTotal(lp,'hire'), yt=D.yoySeries(lp,'turnover_y'), pt=D.periodTotal(lp,'turnover_y');
   const yc=D.yoySeries(lp,'hc_total'), pc=D.periodTotal(lp,'hc_total'), hire=A.top('hiring');
-  ok(c<0||ph&&Math.abs(ph.v-sum(yh.cur))<1e-9&&Math.abs(ph.pv-sum(yh.prev))<1e-9&&/^Всего за /.test(ph.head)&&
-    pt&&pt.v===yt.cur[c]&&/^На конец /.test(pt.head)&&pc&&pc.v===yc.cur[D.CUR_LEN-1]&&!pc.strip&&
+  ok(c0<0||ph&&Math.abs(ph.v-sum(yh.cur))<1e-9&&Math.abs(ph.pv-(sum(yh.prev)-(1-D.CNT_FRAC)*(yh.prev[c]||0)))<1e-9&&/^Всего за /.test(ph.head)&&
+    pt&&pt.v===yt.cur[c0]&&/^На конец /.test(pt.head)&&pc&&pc.v===yc.cur[D.CUR_LEN-1]&&!pc.strip&&
     /class="pt-line"/.test(hire),
     'итог за период: найм '+(ph&&ph.cur)+' ('+(ph&&ph.head)+'), год назад '+(ph&&ph.prev)+'; накопительная текучесть и численность — на дату');
 }

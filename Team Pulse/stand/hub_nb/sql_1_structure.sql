@@ -11,7 +11,7 @@
 drop table if exists teampulse_hub_lm;
 create table teampulse_hub_lm as select max(s.report_month)::date as lm from all_metrics_with_performance_and_office_traffic_and_grt s distributed by (lm);
 --    поставка 90: cm — последний закрытый месяц: lm, если dt — последний день месяца lm или lm — январь (тогда
---    неполный январь — единственные данные года), иначе месяц перед lm. Разрезы «с начала года» — январь..cm
+--    неполный январь — единственные данные года), иначе месяц перед lm. Доли и месячные разрезы — по cm; разрезы «с начала года» — январь..lm (поставка 106)
 drop table if exists teampulse_hub_cal;
 create table teampulse_hub_cal as
 select c.lm, c.dt,

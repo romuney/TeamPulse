@@ -176,7 +176,8 @@ function yoyStory(key,S,rl,bl){
    (D.periodTotal): с января по последний закрытый месяц против тех же месяцев прошлого года; состояния — сейчас.
    L — закрытый месяц (тренд, «где это происходит», люди сверх ориентира), mon — его имя для «С января по …» */
 const STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau']);
-function factL(key){return D.NEXT-1-(STOCK.has(key)||D.PER_PART||!D.PARTIAL?0:1)}
+/* поставка 106: количества (FLOW) — по дату данных, с незакрытым месяцем; доли — по закрытый */
+function factL(key){return D.NEXT-1-(STOCK.has(key)||FLOW.has(key)||D.PER_PART||!D.PARTIAL?0:1)}
 function monOf(L){return D.MONTH_NOM[D.MONTHS_EXT[L].m]}
 const perOf=(lp,k)=>D.periodTotal(lp,k)||{};
 function metricFact(m,S,rl,bl){
@@ -235,7 +236,7 @@ function overview(S,rl,bl,all){
     const dp=Math.round(Math.abs(to-from)/from*100);
     out.push({key:'hc_total',sev:'mid',pri:5,w:0,
       lead:'Численность '+(to>from?'+':'−')+dp+'% с начала года: '+D.fmtInt(from)+' → '+D.fmtInt(to),
-      body:cap(D.PER_TEXT)+': найм '+D.fmtInt(sm('hire'))+', отток '+D.fmtInt(sm('attrition'))+', переводы в команду '+
+      body:cap(D.CNT_TEXT)+': найм '+D.fmtInt(sm('hire'))+', отток '+D.fmtInt(sm('attrition'))+', переводы в команду '+
         D.fmtInt(sm('transfer_in'))+' и из неё '+D.fmtInt(sm('transfer_out'))+'.',kind:'hc',v:to,pv:from,L});
   }
   const rank={high:0,mid:1,good:2};
@@ -405,20 +406,19 @@ function cardOf(f,S,rl,bl){
   let leave='';
   const Lf=f.L!=null?f.L:D.NEXT-1, y0=D.YEAR_START_EXT[Lf];
   if(SAME[f.key]&&f.kind!=='trend'&&Lf>y0){
-    /* по последнему закрытому месяцу (factL): незакрытый ещё не досчитан */
-    const e=D.aggregateExt(rl,'attrition');let a=0,p=0;
-    for(let i=y0;i<=Lf;i++){a+=e[i]||0;p+=e[i-12]||0}
+    /* поставка 106: уходы людьми — по дату данных, год назад — те же дни (как итог под графиком, periodTotal) */
+    const P=D.periodTotal(rl,'attrition')||{}, a=P.v||0, p=P.pv||0;
     const d=Math.round(a)-Math.round(p);
-    leave='С января'+(f.mon?' по '+f.mon:'')+' ушли <b>'+ppl(a)+'</b> — '+(d?'на '+D.fmtInt(Math.abs(d))+' '+(d>0?'больше':'меньше')+', чем за те же месяцы год назад'
-      :'столько же, сколько год назад за те же месяцы')+'.';
+    leave=cap(D.CNT_TEXT)+' ушли <b>'+ppl(a)+'</b> — '+(d?'на '+D.fmtInt(Math.abs(d))+' '+(d>0?'больше':'меньше')+', чем за те же дни год назад'
+      :'столько же, сколько год назад за те же дни')+'.';
   }
   const x=f.kind==='dev'?excess(f.key,rl,f.v,f.ref,Lf):f.kind==='yoy'?excess(f.key,rl,f.v,f.pv,Lf)
     :f.kind==='trend'?excess(f.key,rl,f.tr.b,f.tr.a,Lf):f.kind==='spike'?{n:f.v-f.usual,noun:LEAVE}:null;
   const n=x?Math.round(x.n):0, q=n>=1?'<b>≈ '+ppl(n,x.noun)+(x.win==='mon'?' в месяц':'')+'</b>':'';
   /* 30.10, шаг 2: те же факты короткими пилюлями — «меньше букв, главное видно сразу» */
   const pills=[];
-  if(leave){const e=D.aggregateExt(rl,'attrition');let a=0,p=0;for(let i=y0;i<=Lf;i++){a+=e[i]||0;p+=e[i-12]||0}
-    pills.push('ушли '+esc(D.PER_SPAN)+' <b>'+D.fmtInt(Math.round(a))+'</b> · год назад '+D.fmtInt(Math.round(p)))}
+  if(leave){const P=D.periodTotal(rl,'attrition')||{};
+    pills.push('ушли '+esc(D.CNT_SPAN)+' <b>'+D.fmtInt(Math.round(P.v||0))+'</b> · год назад '+D.fmtInt(Math.round(P.pv||0)))}
   /* поставка 90: у ухода год к году разница людьми — в пилюле «ушли …»; «≈ N разницы» из ставки ей противоречил бы */
   if(q&&!(leave&&f.kind==='yoy'))pills.push(f.kind==='yoy'?q+' разницы с прошлым годом':f.kind==='trend'?q+' за '+OBS.trend+' мес.':f.kind==='spike'?q+' сверх обычного'
     :m.better==='higher'?(bad?'не хватает '+q:q+' сверх '+(f.kpi?'цели':'базы')):q+(bad?' сверх ':' ниже ')+(f.kpi?'цели':'базы'));

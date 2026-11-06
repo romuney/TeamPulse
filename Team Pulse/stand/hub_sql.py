@@ -274,7 +274,7 @@ def sql_structure():
 drop table if exists {P}_lm;
 create table {P}_lm as select max(s.report_month)::date as lm from {SRC} s {dist('lm')};
 --    поставка 90: cm — последний закрытый месяц: lm, если dt — последний день месяца lm или lm — январь (тогда
---    неполный январь — единственные данные года), иначе месяц перед lm. Разрезы «с начала года» — январь..cm
+--    неполный январь — единственные данные года), иначе месяц перед lm. Доли и месячные разрезы — по cm; разрезы «с начала года» — январь..lm (поставка 106)
 drop table if exists {P}_cal;
 create table {P}_cal as
 select c.lm, c.dt,
@@ -468,13 +468,15 @@ select (select count(*) from {P}_unit) as unit_rows, (select count(*) from {P}_s
 def rost_mix():
     """поставка 73: разрезы T-роста — по эталону отчёта «Рост» дашборда HQ (ноутбук «[Рост - отчет] Team Pulse»):
     итог заявки — в месяц итога (finish_month); rm (заявки с итогом по месяцам сетки), rq (успешность по желаемому за
-    окно), rs (статус роста человека на последний месяц). Окно rq и rs — поставка 90: с января по последний закрытый месяц
-    (cm) его года (было — 12 месяцев до последнего, с неполным текущим); у датасета 2а — только выбранному подразделению"""
+    окно), rs (статус роста человека на последний месяц). Окно rq и rs — поставка 106 (владелец): с января по дату данных,
+    вместе с незакрытым месяцем (поставка 90: январь..cm; раньше — 12 месяцев до последнего); у датасета 2а — только
+    выбранному подразделению"""
     rt = lambda e: f"(case when coalesce({e}specialization_change_application_flg, 0) = 1 then 's' else 'g' end)"
     tat = "(case when coalesce(e.tat_flg, 0) > 0 then '1' else '0' end)"
     res = "(case when coalesce(e.is_approved, 0) = 1 then 'ok' when coalesce(e.is_declined, 0) = 1 then 'no' end)"
-    lm, cm = f'(select lm from {P}_cal)', f'(select cm from {P}_cal)'
-    y0 = f"date_trunc('year', {cm})::date"      # поставка 90: окно rq / rs — январь..cm
+    lm = f'(select lm from {P}_cal)'
+    cm = lm                                     # поставка 106: окно rq / rs — январь..дата данных (было январь..cm)
+    y0 = f"date_trunc('year', {cm})::date"
     rcols = ['finish_month', 'is_approved', 'is_declined', 'grade_change_application_flg',
              'specialization_change_application_flg', 'tat_flg', 'required_grade_num', 'required_specialization',
              'current_grade_num', 'current_specialization']
@@ -624,10 +626,10 @@ def sql_mix():
              'legal_organization', 'employee_stream', 'employment_relation_type', 'specialization', 'type_company',
              'region', 'management_head_flg']
     lm, cm = f'(select lm from {P}_cal)', f'(select cm from {P}_cal)'
-    # поставка 90: «с начала года» — январь..последний закрытый месяц (cm), без неполного текущего: увольнения и найм
-    # (разбивки), посещения и брони по городам — за cm; календарь — cm − 1..lm (два закрытых месяца и неполный текущий:
-    # дни неполного месяца — однозначные числа, чарт берёт нужные месяцы)
-    ytd = f"and s.report_month between date_trunc('year', {cm})::date and {cm}"
+    # поставка 106 (владелец): разбивки «с начала года» (увольнения и найм, sp1) — январь..дата данных, вместе с незакрытым
+    # месяцем (поставка 90: январь..cm); посещения и брони по городам — за cm (доли месяца); календарь — cm − 1..lm (два
+    # закрытых месяца и неполный текущий: дни неполного месяца — однозначные числа, чарт берёт нужные месяцы)
+    ytd = f"and s.report_month between date_trunc('year', {lm})::date and {lm}"
     city = clean("(j.v ->> 'office_city_nm')")
     two = f"and s.report_month between ({cm} - interval '1 month')::date and {lm}"
     ROST_MIX = rost_mix()
@@ -640,12 +642,12 @@ def sql_mix():
                '(g a t gr s c o w r sp tc rg ws mh), увольнения с начала года (xr причина, xq regret по причине, xi',
                'инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),',
                'найм с начала года (hk источник, hch канал, hg грейд, hsp специализация); «с начала года» — с января по',
-               'последний закрытый месяц (cm, поставка 90). Поставка 66 (посещения Адели): oc / ocp — посещений и людей',
+               'дату данных, с незакрытым месяцем (lm, поставка 106; было — по закрытый cm). Поставка 66: oc / ocp — посещений и людей',
                'по городу офиса за последний закрытый месяц, dw / do — календарь с месяца перед закрытым по текущий:',
                'людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору',
                "и месяцу всей сетки, значение «инициатор|ГГГГ-ММ» (текучесть по инициатору). 31.10: sp0 — численность",
-               "по специализации на конец прошлого года (на начало периода), sp1 (поставка 90) — на конец последнего",
-               "закрытого месяца; es / en — сумма возрастов и людей с возрастом",
+               "по специализации на конец прошлого года (на начало периода), sp1 — на конец периода (поставка 106: на",
+               "последний месяц данных); es / en — сумма возрастов и людей с возрастом",
                "по «разрез|значение» (средний возраст категории). Пустое значение — ''.")}
 
 -- численность последнего месяца
@@ -688,12 +690,12 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'sp0' as mx_key, {a['sp
 from ({expl(['hc_total_cnt', 'specialization'], f"and s.report_month = (date_trunc('year', {lm}) - interval '1 month')::date")}) e
 where {num('hc_total_cnt')} > 0;
 
--- поставка 90: численность по специализации на конец последнего закрытого месяца (cm) — «на конец» периода «с начала
+-- поставка 106: численность по специализации на последний месяц данных (lm; было cm) — «на конец» периода «с начала
 -- года» в «Движении по специализациям» (sp — на сейчас; датасет отдаёт выбранному юниту)
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'sp1' as mx_key, {a['sp']} as mx_val,
        {num('hc_total_cnt')} as mx_n
-from ({expl(['hc_total_cnt', 'specialization'], f'and s.report_month = {cm}')}) e
+from ({expl(['hc_total_cnt', 'specialization'], f'and s.report_month = {lm}')}) e
 where {num('hc_total_cnt')} > 0;
 
 -- найм с начала года (январь..последний закрытый месяц): источник, канал (найм в компанию / из учебной группы

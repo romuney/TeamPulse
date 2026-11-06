@@ -174,7 +174,7 @@ const CH={};
 /* ===== Отток и текучесть ===== */
 CH.turnover={
   dynamics(c){
-    const a=ser(c.lp,'attrition').map((v,i)=>i>=D.YTD_FROM&&i<=D.PER_I?v:null), y=pn(c.lp,'attrition');
+    const a=ser(c.lp,'attrition').map((v,i)=>i>=D.YTD_FROM&&i<=D.CNT_I?v:null), y=pn(c.lp,'attrition');
     if(!y)return {sum:'уходов не было',st:'good',head:'Никто не ушёл'};
     /* 15.10: «прогноз годовой текучести» снят (нет в каталоге HQ/УС) — темп
        ухода судим по накопительной текучести, как «Текучесть YoY KPI» */
@@ -206,12 +206,14 @@ CH.turnover={
     const Le=D.NEXT-1-(D.LAST-rg.i), y0=D.YEAR_START_EXT[Le];
     const cum=k=>{const e=D.aggregateExt(c.lp,k);let t=0;for(let i=y0;i<=Le;i++)t+=e[i]||0;return Math.round(t)};
     const reg=cum('regret_cnt'), out=cum('attrition'), rp=pc(reg,out);
+    /* поставка 106: людьми — по дату данных, как «Ушли …» и разбивки; доля (rp) — по закрытый месяц, как карточка */
+    const cumN=k=>{const e=D.aggregateExt(c.lp,k);let t=0;for(let i=D.YEAR_START_EXT[D.NEXT-1];i<=D.NEXT-1;i++)t+=e[i]||0;return Math.round(t)};
     return {sum:rp+'% — нежелательные',st:rg.st,
       head:rp>=50?rp+'% уходов — нежелательные: главная причина — «'+top.name+'»'
         :org*2>tot?'Большинство уходов — по инициативе работодателя: '+org+' из '+tot
         :'Главная причина ухода — «'+top.name+'»: '+top.value+' из '+tot,
       lede:'Ушли **'+pl(tot,PPL)+'**: '+by('emp')+' — по своей инициативе, '+org+' — по инициативе работодателя. '+
-        'Нежелательных уходов (ушли сами, со стажем от года и сильной оценкой) — **'+reg+' из '+out+'**.',
+        'Нежелательных уходов (ушли сами, со стажем от года и сильной оценкой) — **'+cumN('regret_cnt')+' из '+cumN('attrition')+'**.',
       facts:rs.slice().sort((a,b)=>b.value-a.value).slice(0,3).map(r=>'«'+r.name+'» — **'+r.value+'**'+(r.regret?' ★':'')),
       act:top.regret&&top.value>=2?{text:'Разберите «'+top.name+'»: **'+top.value+' из '+tot+'** уходов.'}:null};
   },

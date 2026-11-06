@@ -707,9 +707,10 @@ def closed_month():
 
 
 def ytd_months():
-    """поставка 90: месяцы «с начала года» — январь года cm .. cm"""
-    cm = closed_month()
-    return [m for m in months() if m.year == cm.year and m <= cm]
+    """поставка 106 (владелец): месяцы разбивок и количеств «с начала года» — январь года последнего месяца данных ..
+    он сам, вместе с незакрытым (было — январь..cm, поставка 90)"""
+    lm = months()[-1]
+    return [m for m in months() if m.year == lm.year]
 
 
 def truth(U, people, perf, grt, pred=lambda p, d: True, agg=False, act=ACTIVE, hday=False):
@@ -842,10 +843,11 @@ def truth_spec_move(U, people, rk, pred=lambda p, d: True, act=ACTIVE, chg=()):
     специализации внутри выбора; одно событие — один перевод. «В» — в специализацию первого дня нового состояния, «из» —
     из специализации последнего дня старого; кандидат или стажёр в «в» не идёт, кроме смены специализации. Так
     «на начало + найм + переводы в − отток − переводы из = на конец» сходится по каждой специализации и в ИТОГО.
-    Месяц — день события (последний день старого состояния в конце месяца — уже следующий). С января по cm.
+    Месяц — день события (последний день старого состояния в конце месяца — уже следующий). С января по дату данных
+    (поставка 106; было — по cm).
     Поставка 103 (файл 9, п. 9): tsi / tso — только перевод юнита уровня узла (узел в пути нового дня и не в пути старого:
     флаг юнита этого уровня), строка проходит фильтры; остальное из прежнего правила — tci / tco («внутри юнита»)"""
-    lm = closed_month()
+    lm = months()[-1]
     out = {'tsi': defaultdict(float), 'tso': defaultdict(float)}
     lvl = {'tsi': defaultdict(float), 'tso': defaultdict(float)}
     inu = lambda p, d: rk != 'all' and rk in path(U, at(p['unit'], d))
@@ -1024,7 +1026,8 @@ def truth_rost(U, people, grt, rk, pred=lambda p, d: True, act=ACTIVE):
     byrk = {p['rk']: p for p in people}
     ms = months()
     lm, g0, cm = ms[-1], ms[0], closed_month()
-    w12 = dt.date(cm.year, 1, 1)                  # поставка 90: окно rq / rs — январь..cm (было — 12 месяцев до lm)
+    cm = lm                                       # поставка 106: окно rq / rs — январь..дата данных (было январь..cm)
+    w12 = dt.date(cm.year, 1, 1)
     mon = lambda t: dt.date(t.year, t.month, 1)
     ok = lambda p, d: pred(p, d) and (act is None or at(p['acth'], d) in act)
     inn = lambda u: rk == 'all' or rk in path(U, u)

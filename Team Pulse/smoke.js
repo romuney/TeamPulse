@@ -1191,6 +1191,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const e=k=>D.aggregate(rl0,k)[D.LAST];
   /* поставка 90: разбивки «с начала года» — по последний закрытый месяц, их доли — значение метрики в нём */
   const ep=k=>D.perVal(rl0,k);
+  /* поставка 106: разбивки — по дату данных: их доли сравниваем с долей «с начала года» на последний месяц (CNT_I) */
+  const ec=k=>D.aggregate(rl0,k)[D.CNT_I];
   /* 15.10: замещение, найм на 100, прогноз текучести и лоу-перформеры сняты —
      их нет в каталоге графиков HQ и УС */
   checks.push(['выдуманных метрик нет: только то, что есть в каталоге HQ и УС',
@@ -1206,11 +1208,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['профиль найма: джуны = доля джунов, переводы = доля внутреннего найма',
     hp.total===ytd('hire')&&sum(hp.seniority.map(x=>x.value))===hp.total&&
     sum(hp.grade.map(x=>x.value))===hp.total&&sum(hp.channels.map(x=>x.value))===hp.total&&
-    near(hp.jun/hp.total*100,ep('junior_share'))&&near(hp.tin/(hp.total+hp.tin)*100,ep('internal_share'))]);
+    near(hp.jun/hp.total*100,ec('junior_share'))&&near(hp.tin/(hp.total+hp.tin)*100,ec('internal_share'))]);
   const pf=D.planFact(rl0);
   checks.push(['план-факт: факт — найм из «Движения», выполнение = метрике, типы складываются',
     pf.fact[0]===ytd('hire')&&pf.plan[0]===ytd('pf_plan')&&pf.closed[0]===ytd('vac_closed')&&
-    pf.open[0]===e('vac_open')&&near(pf.done[0],ep('hire_plan'))&&
+    pf.open[0]===e('vac_open')&&near(pf.done[0],ec('hire_plan'))&&
     ['plan','fact','closed','open','overdue','replace','junior'].every(k=>pf[k][0]===pf[k][1]+pf[k][2])&&
     pf.status.every(x=>x.vals[0]===x.vals[1]+x.vals[2])&&sum(pf.status.map(x=>x.vals[0]))===pf.open[0]]);
   const rs=D.exitReasons(rl0,'ytd'), ini=D.exitInitiators(rl0,'ytd'), ex=D.exitProfile(rl0,'ytd');
@@ -1836,10 +1838,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
   checks.push(['«Рост HQ»: переключение покраски не меняет вкладку',tg[0]===tg[1]&&tg[1]===tg[2]]);
   const hi=A.go('hiring','profile'), th=(hi.split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
   /* поставка 99: окно названо в шапке блока; подпись колонки — только у исключения («сейчас») */
-  const sp90=U.esc(D.PER_SPAN);
+  /* поставка 106: окно количеств — по дату данных (CNT_*), в шапке — оно и окно долей */
+  const sp90=U.esc(D.CNT_SPAN);
   checks.push(['«Найм и вакансии HQ»: без «Внутр. найм», открытые — сейчас, закрытые и срок — без подписи окна, окно — в шапке',
     D.BLOCK_BY_KEY.hiring.name==='Найм и вакансии HQ'&&!/Внутр\. найм/.test(th)&&/Открытые<span class="th-per">сейчас/.test(th)&&
-    th.replace(/ data-tip="[^"]*"/g,'').indexOf(sp90)<0&&/Закрытые/.test(th)&&/Срок/.test(th)&&hi.indexOf('<b>'+U.esc(D.PER_NAME)+'</b> против того же периода')>=0]);
+    th.replace(/ data-tip="[^"]*"/g,'').indexOf(sp90)<0&&/Закрытые/.test(th)&&/Срок/.test(th)&&th.replace(/ data-tip="[^"]*"/g,'').indexOf(U.esc(D.PER_SPAN))<0&&
+    hi.indexOf('<b>'+U.esc(D.CNT_NAME)+'</b> (доли — '+U.esc(D.PER_NAME)+') против того же периода')>=0]);
   const lp=D.reportLeaves(D.DEFAULT_STATE);
   checks.push(['закрытые в таблице = сумма с января',Math.abs(D.ytdTableVal(lp,'vac_closed')-D.sumWin(D.aggregate(lp,'vac_closed'),'ytd'))<1e-9]);
   const gr=A.go('tgrowth','grades'), sp=A.go('tgrowth','spec');
@@ -1848,7 +1852,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /class="ptable stable dense rost-t succ"/.test(sp)]);
   const tgt=(A.go('tgrowth','flow').split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
   checks.push(['«Рост HQ»: в таблице подразделений окно не повторяется — оно в шапке блока',
-    /Одобрено/.test(tgt)&&tgt.replace(/ data-tip="[^"]*"/g,'').indexOf(U.esc(D.PER_SPAN))<0&&A.go('tgrowth','flow').indexOf('<b>'+U.esc(D.PER_NAME)+'</b>')>=0]);
+    /Одобрено/.test(tgt)&&tgt.replace(/ data-tip="[^"]*"/g,'').indexOf(U.esc(D.PER_SPAN))<0&&tgt.replace(/ data-tip="[^"]*"/g,'').indexOf(U.esc(D.CNT_SPAN))<0&&
+    A.go('tgrowth','flow').indexOf('<b>'+U.esc(D.CNT_NAME)+'</b>')>=0]);
 })();
 
 /* поставка 83 (задача 3): «Рост HQ», дисклеймер охвата, цвета Рост / T@T, подсказка подразделения */
@@ -1916,7 +1921,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const ms=z&&D.specMonths(lp,z.name), sum=k=>ms.reduce((a,o)=>a+o[k],0);
   S.spmSel=z&&z.name;const h=A.go('movement','dynamics');S.spmSel=null;const h0=A.go('movement','dynamics');
   checks.push(['файл 7, п. 2: детализация специализации по месяцам — сходится со строкой, открывается кликом, закрывается',
-    !!ms&&ms.length===D.PER_C+1&&['hire','tin','exit','tout'].every(k=>sum(k)===z[k])&&/data-spmsel="/.test(h0)&&
+    !!ms&&ms.length===D.CNT_C+1&&['hire','tin','exit','tout'].every(k=>sum(k)===z[k])&&/data-spmsel="/.test(h0)&&
     /class="bt-group spm-d"/.test(h)&&!/spm-d/.test(h0)]);
 })();
 
