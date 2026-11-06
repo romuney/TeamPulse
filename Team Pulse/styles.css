@@ -1063,6 +1063,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* поставка 108: KPI мониторинга за весь период — над «Составом по категориям» */
 .mon-kpi{margin-bottom:var(--s7)}
 .mon-kpi .shcards{margin-top:var(--s4)}
+/* заголовок в две строки у узкой карточки не сдвигает числа: место под две строки у всех трёх */
+.mon-kpi .shc-h{min-height:2.6em;align-items:flex-start}
 .mon-kpi .tbl-note{margin-top:var(--s4)}
 /* полка срезов над таблицами снята в поставке 82 — выбранное пилюлями в шапке карточки графиков (.sel-bar) */
 
