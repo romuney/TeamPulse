@@ -50,7 +50,9 @@ function blockMain(bk,S){
   const m=D.METRIC_BY_KEY[S.mainMetric];
   if(m&&m.block===bk&&D.metricVisible(m.key,S))return S.mainMetric;
   const mets=D.visibleMetricsOfBlock(bk,S);
-  return (mets.find(x=>D.comparable(x.key))||mets[0]).key;
+  /* поставка 106: у AI метрик нет (только недельные колонки mod.cols) — главной метрики тоже */
+  const x=mets.find(m=>D.comparable(m.key))||mets[0];
+  return x?x.key:null;
 }
 /* Строки, у которых есть что раскрывать в пределах трёх уровней: первый
    и второй уровень с детьми. Ими и только ими управляет каретка в ИТОГО —
@@ -216,8 +218,9 @@ const DEV_LIVE={
   /* поставка 50 (21.10, из прод-ноутбуков HQ и УС): вакансии, найм по источникам и AI — живые */
   hiring:{live:['vac_open','vac_closed','time_to_fill'],subs:['vacancies','profile'],
     '*':{stage:2,part:true,t:'Принятые, вакансии и найм по источникам — настоящие. План найма и статусы воронки пока условные.'}},
-  ai:{live:['ai_penetration','ai_wau'],subs:['adoption'],
-    '*':{stage:8,t:'Проникновение и активные пользователи по месяцам — настоящие (вкладка «Пользуются ли AI?»). Кто и как пользуется — пока условно: нужна недельная AI-выгрузка по людям.'}},
+  /* поставка 106: живое — недельный ряд (разрез aw в ответе); метрик у AI больше нет, live пустой */
+  ai:{live:[],subs:['adoption'],
+    '*':{stage:8,t:'Проникновение, активные пользователи и численность по неделям — настоящие (вкладка «Пользуются ли AI?»). Кто и как пользуется — пока условно: нужна AI-выгрузка по людям и инструментам.'}},
   tgrowth:{live:['tgrowth_conv'],subs:['flow'],
     '*':{stage:6,t:'Решения по заявкам и конверсия — настоящие (вкладка «Растут ли люди внутри?»). '+
       'Как растут по грейдам и меняют специализацию — пока условно: нужны данные сервиса «Рост».'}},
@@ -385,7 +388,8 @@ function renderBlock(S,expanded,mixOpen,view){
      всех вкладках (подразделения — в таблице ниже), блок в одну колонку и ниже по высоте */
   /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» вывод блока (он сравнивает текучесть отдела с целями) не ставим —
      в разделе HQ целей нет; свой текст раздела — в его главе */
-  if(!(b.key==='turnover'&&S.subTab==='hq'))h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
+  /* поставка 106: у AI месячных метрик нет — вывод блока (ориентиры, «N мес. подряд») не ставим; вывод недель — в главе */
+  if(!(b.key==='turnover'&&S.subTab==='hq')&&b.key!=='ai')h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -463,8 +467,8 @@ function renderBlock(S,expanded,mixOpen,view){
     if(!md)return '<td>—</td>';
     const v=c.val&&c.val(md), hc=tcols[0].val(md);
     if(c.spark)return '<td'+(unit&&isSm(hc)?smAttr(hc,'sp'):' class="sp"')+'>'+c.spark(md)+'</td>';
-    if(v==null)return '<td'+U.tipAttr({title:c.name,text:'Появится с витриной мониторинга по неделям.'})+'>—</td>';
-    return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+D.fmtInt(v)+'</td>';
+    if(v==null)return '<td'+U.tipAttr({title:c.name,text:c.na||'Появится с витриной мониторинга по неделям.'})+'>—</td>';
+    return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
   };
   const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),i===1)).join('')
     :mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
@@ -565,7 +569,8 @@ function renderBlock(S,expanded,mixOpen,view){
     subHtml:esc(selNode.name)+(sel!==root?'':' · всё подразделение')+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
       /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
-      (b.key==='structure'?'':' · <b>'+esc(D.PER_NAME)+'</b> против того же периода '+D.YEAR_PREV),
+      /* поставка 106: у AI — недели, без сравнения с прошлым годом */
+      (b.key==='structure'?'':b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.PER_NAME)+'</b> против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';

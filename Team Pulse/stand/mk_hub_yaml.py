@@ -88,7 +88,7 @@ EXTRA = {
          "    'teampulse_hub_trf':    'prod_proteus.teampulse_hub_trf',     # переходы — переводы под фильтры\n"
          "    'teampulse_hub_trfe':   'prod_proteus.teampulse_hub_trfe',    # события переводов — детализация (поставка 63)\n"
          "    'teampulse_hub_vacancy': 'prod_proteus.teampulse_hub_vacancy',  # вакансии по узлам\n"
-         "    'teampulse_hub_ai':      'prod_proteus.teampulse_hub_ai',       # AI-инструменты по узлам\n"
+         "    'teampulse_hub_aiw':     'prod_proteus.teampulse_hub_aiw',      # AI-инструменты по неделям (поставка 106)\n"
          "    # поставка 103: профили численности (точные пересечения разрезов) и их словарь\n"
          "    'teampulse_hub_prof':    'prod_proteus.teampulse_hub_prof',\n"
          "    'teampulse_hub_pfd':     'prod_proteus.teampulse_hub_pfd',\n"

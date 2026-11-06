@@ -422,51 +422,43 @@ def truth_vac(U, vacs):
     return T
 
 
-# ---- AI (21.10): сводка по юниту за месяц, как usr_mlpa.ai_bi_all_copilots_usage_digest_monthly ----
-def ai_user(p, m):
-    return (p['rk'] * 31 + m.month * 7 + m.year) % 100 < 45
+# ---- AI по неделям (06.11, поставка 106; месячный дайджест больше не читается): как
+#      usr_mlpa.ai_bi_all_copilots_usage_digest_weekly — человек × неделя (Пн) × пара «юнит → дочерний на пути к листу»
+#      (лист — сам с собой); стажёры помечены is_intern_flg ----
+def ai_week_user(p, w):
+    return (p['rk'] * 31 + w.toordinal() // 7 * 3) % 100 < 55
 
 
-def ai_units(U, people):
-    """юнит (со 2-го уровня) × месяц → WAU (активные пользователи AI среди активной численности поддерева
-    на конец месяца), проникновение по юниту и по компании, %"""
+def ai_weeks():
+    w = dt.date(D0.year - 1, 9, 1)      # с запасом: ноутбук берёт недели от начала сетки минус 4 месяца
+    w += dt.timedelta((7 - w.weekday()) % 7)
+    while w <= D1:
+        yield w
+        w += dt.timedelta(7)
+
+
+def ai_week_rows(U, people):
     alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])
-    out, co = {}, {}
-    for m in months():
-        e = eom(m)
-        hc, w = defaultdict(int), defaultdict(int)
+    for w in ai_weeks():
         for p in people:
-            if alive(p, e) and at(p['acth'], e) == 'Активная':
-                u = ai_user(p, m)
-                for n in path(U, at(p['unit'], e)):
-                    hc[n] += 1
-                    w[n] += u
-                co[m] = co.get(m, (0, 0))
-                co[m] = (co[m][0] + 1, co[m][1] + u)
-        cpct = 100.0 * co[m][1] / co[m][0] if co.get(m) and co[m][0] else 0.0
-        for n in hc:
-            if len(path(U, n)) >= 2:
-                out[(n, m)] = {'aiw': float(w[n]), 'aip': 100.0 * w[n] / hc[n] if hc[n] else 0.0, 'aic': cpct}
-    return out
+            if not alive(p, w):
+                continue
+            pth = path(U, at(p['unit'], w))
+            it = int(at(p['acth'], w) == 'Стажеры')
+            u = int(ai_week_user(p, w))
+            for i, n in enumerate(pth):
+                yield (w, p['rk'], n, pth[i + 1] if i + 1 < len(pth) else n, it, u)
 
 
-def truth_ai(U, people):
-    """как build_hub, шаг 12: у узла — своя строка источника; корню отчёта — сумма WAU верхнего уровня
-    источника и проникновение по компании"""
-    src = ai_units(U, people)
-    T = defaultdict(lambda: defaultdict(float))
-    for (n, m), v in src.items():
-        T[(n, m)].update(v)
-    roots = [k for k in U if U[k][1] is None]
-    top = 'all' if len(roots) > 1 else roots[0]
-    for m in months():
-        rows = [(n, v) for (n, mm), v in src.items() if mm == m]
-        if not rows or (top, m) in src:
-            continue
-        lv = min(len(path(U, n)) for n, _ in rows)
-        T[(top, m)]['aiw'] = sum(v['aiw'] for n, v in rows if len(path(U, n)) == lv)
-        T[(top, m)]['aip'] = T[(top, m)]['aic'] = max(v['aic'] for _, v in rows)
-    return T
+def truth_aiw(U, people):
+    """(узел, неделя) → (WAU, численность): без стажёров, узел — всё поддерево, count distinct"""
+    hc, wau = defaultdict(set), defaultdict(set)
+    for w, e, n, _, it, u in ai_week_rows(U, people):
+        if not it:
+            hc[(n, w)].add(e)
+            if u:
+                wau[(n, w)].add(e)
+    return {k: (len(wau[k]), len(v)) for k, v in hc.items()}
 
 
 # ---- PostgreSQL и подмена dal_client -------------------------------------------
@@ -653,15 +645,12 @@ def load(pg, U, people):
     vtyp = lambda c: 'date' if c in ('issue_day', 'approved_dt', 'approved_dt_last') else 'int' if c.endswith('_flg') else 'text'
     pg.run(f"CREATE TABLE usr_cross_data.vacancy_daily ({', '.join(f'{c} {vtyp(c)}' for c in VAC_COLS)})")
     pg.copy('usr_cross_data.vacancy_daily', VAC_COLS, vacancy_rows(U, vacancies(U)))
-    # 21.10: AI — сводка по юниту за месяц, как источник прод-ноутбука HQ (уровни со 2-го)
-    pg.run("""CREATE TABLE usr_mlpa.ai_bi_all_copilots_usage_digest_monthly (month date, mngt_unit_rk text, mngt_unit_nm text,
-              new_management_unit_nm text, lvl int, avg_wau float8, avg_penetration_unit_pct float8,
-              avg_penetration_company_pct float8)""")
-    pg.copy('usr_mlpa.ai_bi_all_copilots_usage_digest_monthly',
-            ['month', 'mngt_unit_rk', 'mngt_unit_nm', 'new_management_unit_nm', 'lvl', 'avg_wau',
-             'avg_penetration_unit_pct', 'avg_penetration_company_pct'],
-            [(m, n, U[n][0], None, len(path(U, n)), v['aiw'], v['aip'], v['aic'])
-             for (n, m), v in ai_units(U, people).items()])
+    # 06.11, поставка 106: AI по неделям — строка на человека × неделю × пару пути
+    pg.run("""CREATE TABLE usr_mlpa.ai_bi_all_copilots_usage_digest_weekly (week date, person_id bigint, mngt_unit_rk text,
+              next_lvl_mngt_unit_rk text, is_intern_flg int, ai_usage_flg int)""")
+    pg.copy('usr_mlpa.ai_bi_all_copilots_usage_digest_weekly',
+            ['week', 'person_id', 'mngt_unit_rk', 'next_lvl_mngt_unit_rk', 'is_intern_flg', 'ai_usage_flg'],
+            ai_week_rows(U, people))
     return perf, office, grt
 
 

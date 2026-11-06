@@ -4,7 +4,7 @@
 hr_executive_proteus (по дням)
   └─ build_all_metrics ──────────────── all_metrics: человек × месяц × юнит
        ├─ with_performance / with_office_traffic / with_TRost  → …_and_grt (одна строка человека — last_row_flg)
-       │    └─ hub · 0 … hub · 6 (gp) → teampulse_hub_meta / _unit / _series / _mix / _trf / _vacancy / _ai ─┐
+       │    └─ hub · 0 … hub · 6 (gp) → teampulse_hub_meta / _unit / _series / _mix / _trf / _vacancy / _aiw ┐
        │                                hub checks (gp)                                                      │
        ├─ office_traffic → office_traffic_calendar (посещения по дням) → hub · 4                             │
        └─ org_structure ← unit_head_structure (руководитель юнита) → hub · 2 (имя руководителя)              │

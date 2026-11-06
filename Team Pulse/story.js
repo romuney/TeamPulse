@@ -457,17 +457,18 @@ CH.office={
 
 /* ===== AI-инструменты ===== */
 CH.ai={
-  /* 31.10, «AI.md», п. 1: без сравнения с прошлым годом — база и последние 12 месяцев */
+  /* поставка 106: только недели — последняя полная неделя против четырёх неделями раньше; без сравнения с базой (у AI
+     нет месячного ряда, фильтры среза на него не действуют) */
   adoption(c){
-    const p=judge('ai_penetration',c), s=ser(c.lp,'ai_penetration'), wau=D.lastVal(c.lp,'ai_wau');
-    const fo=focusRate(c,'ai_penetration','Проникновение по подразделениям');
-    return {sum:f('ai_penetration',p.v),st:p.st,
-      head:vsBase(p,c,'AI пользуются больше','AI пользуются меньше','Проникновение AI — на уровне базы',true)+
-        (p.base!=null?': '+f('ai_penetration',p.v)+' против '+f('ai_penetration',p.base)+' в среднем за месяц':''),
-      /* поставка 90: среднее за период — как итог под графиком; закрытый месяц и сейчас — с подписью */
-      lede:p.v!=null?'В среднем за месяц — **'+f('ai_penetration',p.v)+'**; за '+mNom(D.PER_I)+' — **'+
-        f('ai_penetration',s[D.PER_I])+'**; активных пользователей сейчас — **'+D.fmtInt(wau)+'**.':'',
-      focus:fo.focus,act:fo.act};
+    const W=D.aiWeeks(c.lp), cw=D.aiCur(W);
+    if(!cw)return {sum:'нет данных',st:'n',head:'Статистики AI-инструментов нет',lede:''};
+    const i=W.indexOf(cw), w0=W[Math.max(0,i-4)], d=w0!==cw?Math.round((cw.pen-w0.pen)*10)/10:null;
+    const P=v=>String(v).replace('.',',')+'%';
+    return {sum:P(cw.pen),st:'n',
+      head:'AI пользуются '+P(cw.pen)+' сотрудников'+(d==null?'':Math.abs(d)<1?' — за месяц почти без изменений':
+        d>0?' — за четыре недели на '+P(d).replace('%',' п.п.')+' больше':' — за четыре недели на '+P(-d).replace('%',' п.п.')+' меньше'),
+      lede:'За неделю '+cw.full.replace(/^Неделя /,'')+' — **'+D.fmtInt(cw.wau)+'** активных пользователей из **'+D.fmtInt(cw.hc)+
+        '** без стажёров.'+(w0!==cw?' Четырьмя неделями раньше — **'+P(w0.pen)+'**.':'')};
   },
   who(c){
     const u=D.aiUsage(c.lp), it=u.intern;

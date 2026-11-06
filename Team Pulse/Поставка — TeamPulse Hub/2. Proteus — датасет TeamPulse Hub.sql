@@ -11,11 +11,12 @@
       teampulse_hub_trf     переводы как в мастер-отчёте: узел × месяц × в / из / найм × срез дня × флаги —
                             переводы считаются под выбранные фильтры (с поставки 59)
       teampulse_hub_vacancy вакансии: узел × месяц × разрезы вакансии; фильтры среза на них не действуют
-      teampulse_hub_ai      AI-инструменты: узел × месяц — WAU, проникновение; фильтры среза не действуют
+      teampulse_hub_aiw     AI-инструменты по неделям (поставка 106): узел × неделя — численность без стажёров, WAU,
+                            проникновение; фильтры среза не действуют. Месячная teampulse_hub_ai больше не читается
       teampulse_hub_prof    профили численности последнего месяца (поставка 103): нижний юнит × срез × сочетание разрезов
                             номерами словаря и возраст → людей; пересечения разрезов в отчёте — по ним
       teampulse_hub_pfd     словарь профилей: разрез × значение → номер (поставка 103)
-    Таблиц trf, vacancy, ai нет (ноутбук до поставок 49 и 50), prof и pfd (до поставки 103) — датасет падает: сначала ноутбук.
+    Таблиц trf, vacancy (до поставок 49 и 50), aiw (до поставки 106), prof и pfd (до поставки 103) — датасет падает: сначала ноутбук.
 
     Поставка 53 (21.10) — скорость. Замер боя (файлы 8, 8б): запрос ждал 7–12 с, и почти всё — не чтение
     таблиц, а разбор длинного текста в Proteus и план ClickHouse. Поэтому:
@@ -46,7 +47,7 @@
     Метрики: hc act avg hire fire reg nreg tin tout — численность, активная, ССЧ, найм, увольнения,
     regrettable, non-regrettable, переводы в выбор и из выбора; pnor plow phig pgry — мониторинг;
     wday ovis — человеко-дни и посещения офиса; gapr gdec — T-рост; vop vcl vap vtd vtn vjn — вакансии
-    (открыто на конец месяца, закрыто, новые, дни и число закрытых, закрыто джунами); aiw aip aic — AI.
+    (открыто на конец месяца, закрыто, новые, дни и число закрытых, закрыто джунами). AI — только по неделям, разрез aw (поставка 106).
     hit — найм по дню события; din dout — переводы в и из «напрямую в юните» (люди в самом юните, без его
     подразделений; поставка 64): у мастер-отчёта это свой узел, «юнит минус подразделения» для переводов не верен.
     hcd hst — найм по видам (поставка 65): из учебной группы в боевую и стажёр в штат — части hit; найм в компанию =
@@ -211,7 +212,7 @@
 {#- Метрики: ключ, таблица (s — series, t — trf, d — trf «напрямую», v — vacancy, a — ai, g/h — series-срезы,
     w — flow: замкнутый водопад поставки 105: узел × месяц × срез, строки юнитов teampulse_hub_flow sp = '-';
     fin = beg + hire - fire + tin - tout по построению), выражение. Порядок — порядок в ms. -#}
-{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['aiw', 'a', 'ai_wau'], ['aip', 'a', 'ai_pen'], ['aic', 'a', 'ai_pen_co'], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['fh', 'h', 'fire_cnt'], ['hch', 'h', 'hc_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')], ['gah', 'g', 'gapr_cnt'], ['gdh', 'g', 'gdec_cnt'], ['hrw', 's', optf('hrs_sum_amt')], ['pdw', 's', optf('plan_day_cnt')], ['tkw', 's', optf('tlk_sum_amt')], ['fbeg', 'w', 'beg_cnt'], ['fhire', 'w', 'hire_cnt'], ['ffire', 'w', 'fire_cnt'], ['ftin', 'w', FTI], ['ftout', 'w', FTU], ['ffin', 'w', 'fin_cnt']] %}
+{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['fh', 'h', 'fire_cnt'], ['hch', 'h', 'hc_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')], ['gah', 'g', 'gapr_cnt'], ['gdh', 'g', 'gdec_cnt'], ['hrw', 's', optf('hrs_sum_amt')], ['pdw', 's', optf('plan_day_cnt')], ['tkw', 's', optf('tlk_sum_amt')], ['fbeg', 'w', 'beg_cnt'], ['fhire', 'w', 'hire_cnt'], ['ffire', 'w', 'fire_cnt'], ['ftin', 'w', FTI], ['ftout', 'w', FTU], ['ffin', 'w', 'fin_cnt']] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
@@ -371,11 +372,6 @@ WITH
       WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }}
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('a') }} AS a2
-      FROM prod_proteus.teampulse_hub_ai
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }}
-      GROUP BY u2, i2
-      UNION ALL
       {#- поставка 105: замкнутый водопад юнита — строки юнитов teampulse_hub_flow (sp = '-'):
           fbeg / fhire / ffire / ftin / ftout / ffin; конец = начало + найм − отток + в − из по построению,
           при любых фильтрах срезов. Нули на все месяцы добавляет ветка cx ниже.
@@ -514,6 +510,23 @@ WITH
                   (concat('o|', spx, '|', mo), vo), (concat('e|', spx, '|', mo), ve)] AS kv
       GROUP BY u3, k3, v3
       HAVING n4 > 0
+      UNION ALL
+      {#- поставка 106: AI по неделям — у каждого узла ответа последние 16 недель источника (105 дней от последней недели;
+          последняя неделя может быть неполной): «ГГГГ-ММ-ДД|WAU,численность,%». Численность — без стажёров, человек
+          в узле один раз за неделю (ноутбук). Фильтры среза на AI не действуют — условия cond здесь нет #}
+      SELECT u8 AS u3, 'aw' AS k3, concat(toString(w8), '|', arrayStringConcat(arrayMap(x -> toString(round(x, 2)), a8), ',')) AS v3,
+             toFloat64(1) AS n4
+      FROM
+      (
+        SELECT ifNull(node_rk, '') AS u8, toDate(assumeNotNull(week)) AS w8,
+               [sum(toFloat64(ifNull(ai_wau, 0))), sum(toFloat64(ifNull(ai_heads, 0))),
+                sum(toFloat64(ifNull(ai_wau, 0))) * 100.0 / nullIf(sum(toFloat64(ifNull(ai_heads, 0))), 0)] AS a8
+        FROM prod_proteus.teampulse_hub_aiw
+        WHERE ifNull(node_rk, '') IN {{ PK }}
+          AND week >= (SELECT addDays(max(week), -105) FROM prod_proteus.teampulse_hub_aiw)
+        GROUP BY u8, w8
+      )
+      WHERE a8[2] > 0
       UNION ALL
       {#- поставка 103 (файл 9, п. 4): срок закрытия — медиана по вакансиям. vt — распределение сроков закрытых вакансий
           «ГГГГ-ММ|дней» → вакансий за всю сетку, у каждого узла ответа (ttf_d — срок вакансии без холда, ноутбук 2_11;

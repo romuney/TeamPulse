@@ -1197,7 +1197,9 @@ const MON_CATS=[['under','Недоработка'],['normal','Нормал'],['o
 function perAxis(P,X,h,mark,bandW){
   const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
   /* ревью 100: p.cl — последний закрытый месяц, подпись жирная (как на осях «год к году») */
-  return P.map((p,i)=>i===mark||p.cl||(last-i)%step===0?txt(X(i),h-8,p.label,i===mark||p.cl?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
+  /* поставка 106: подпись рядом с жирной (cl) при прореживании не ставим — у недель cl и текущая стоят вплотную */
+  const nearCl=i=>step>1&&P.some((q,j)=>q.cl&&j!==i&&Math.abs(j-i)<step);
+  return P.map((p,i)=>i===mark||p.cl||(last-i)%step===0&&!nearCl(i)?txt(X(i),h-8,p.label,i===mark||p.cl?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
 }
 function drawStack(a,w,h){
   /* 26.10-б: найм по видам ушёл в подсказку «Найм, чел» — категории снова только мониторинга */

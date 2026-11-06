@@ -49,4 +49,4 @@ union all select 'series', count(*) from teampulse_hub_series
 union all select 'mix', count(*) from teampulse_hub_mix
 union all select 'trf', count(*) from teampulse_hub_trf
 union all select 'vacancy', count(*) from teampulse_hub_vacancy
-union all select 'ai', count(*) from teampulse_hub_ai;
+union all select 'aiw', count(*) from teampulse_hub_aiw;

@@ -6,7 +6,7 @@
 #   teampulse_hub_head  юнит → логин руководителя на дату данных и его имя (для teampulse_hub_unit, параграф
 #                       «hub · 3»; имя — с поставки 66, из unit_head_structure Адели)
 #   teampulse_hub_login сотрудник → логин на ту же дату (детализация переводов, параграф «hub · 5», поставка 63)
-#   teampulse_hub_ai    узел × месяц: WAU AI-инструментов и проникновение (по юниту и компании)
+#   teampulse_hub_aiw   узел × неделя: WAU, численность и проникновение AI-инструментов (без стажёров)
 # =============================================================================
 from dal_client import query as dal
 
@@ -17,7 +17,7 @@ HUB_SRC = 'all_metrics_with_performance_and_office_traffic_and_grt'
 HUB_HEAD_SRC = [('usr_cross_data.hr_executive_proteus', 'calendar_dt'),
                 ('prod_v_emart.mdm_employee_structure_d', 'business_dt')]
 HUB_HEAD_COLS = {'mdm_employee_rk', 'management_head_flg', 'ad_login', 'management_head_ad_login'}
-HUB_AI_SRC = 'usr_mlpa.ai_bi_all_copilots_usage_digest_monthly'
+HUB_AI_SRC = 'usr_mlpa.ai_bi_all_copilots_usage_digest_weekly'
 # поставка 66 : имя и фамилия руководителя — параграф unit_head_structure (руководитель юнита по месяцам)
 HUB_HEAD_NM = 'unit_head_structure'
 
@@ -122,37 +122,35 @@ create table {HUB_P}_login as select 0::bigint as erk, ''::text as login where f
 distributed by (erk)""")
     print(f'[WARN] логинов руководителей нет ни в одном источнике {[t for t, _ in HUB_HEAD_SRC]} — логины пустые')
 
-# 12. AI-инструменты — как в прод-ноутбуке HQ: WAU и проникновение посчитаны в источнике по юниту (строка
-#     юнита — всё его поддерево), здесь берутся у своего узла. Корню отчёта, если в источнике его нет, —
-#     сумма WAU верхнего уровня источника и проникновение по компании. Фильтры среза на AI не действуют
+# 12. AI-инструменты — ТОЛЬКО НЕДЕЛИ (решение заказчика 06.11, поставка 106): месячный AI и месячный
+#     дайджест больше не используются, месяц из недель не сворачивается. Витрина teampulse_hub_aiw —
+#     узел × неделя (Пн): зерно источника — человек × неделя × пара «юнит → его дочерний на пути к
+#     листу» (лист сам с собой), поэтому GROUP BY mngt_unit_rk = поддерево юнита; люди — только
+#     count distinct (строк на человека-неделю ~7–8); стажёры исключены из числителя и знаменателя
+#     (иначе завышение на 2–4%); численность — своя у источника, не series. Срезы на AI не действуют.
+#     Формулы сверены с источником 06.11 (company_weekly_penetration_pct = той же формуле по компании)
 _acols = _hub_cols(HUB_AI_SRC)
-if {'month', 'mngt_unit_rk', 'avg_wau', 'avg_penetration_unit_pct'} <= _acols:
-    _aco = 'a.avg_penetration_company_pct' if 'avg_penetration_company_pct' in _acols else 'null::float8'
-    _alv = 'a.lvl' if 'lvl' in _acols else '0'
+if {'week', 'mngt_unit_rk', 'ai_usage_flg', 'is_intern_flg'} <= _acols:
     _hub_q(f"""
-drop table if exists {HUB_P}_ai;
-create table {HUB_P}_ai as
-with a as (
-    select date_trunc('month', a.month::date)::date as report_month, a.mngt_unit_rk::text as node_rk,
-           max(a.avg_wau)::float8 as ai_wau, max(a.avg_penetration_unit_pct)::float8 as ai_pen,
-           max({_aco})::float8 as ai_pen_co, min({_alv}) as lv
-    from {HUB_AI_SRC} a
-    where a.month::date between '{_gs}'::date and ('{_lm}'::date + interval '1 month' - interval '1 day')
-    group by 1, 2
-)
-select report_month, node_rk, ai_wau, ai_pen, ai_pen_co from a
-union all
-select a.report_month, r.unit_rk, sum(a.ai_wau), max(a.ai_pen_co), max(a.ai_pen_co)
-from a
-cross join (select rk as unit_rk from {HUB_P}_node where prk = '') r
-where a.lv = (select min(lv) from a a2 where a2.report_month = a.report_month)
-  and not exists (select 1 from a a3 where a3.node_rk = r.unit_rk)
+drop table if exists {HUB_P}_aiw;
+create table {HUB_P}_aiw as
+select a.week::date as week, a.mngt_unit_rk::text as node_rk,
+       count(distinct case when coalesce(a.is_intern_flg::text, '0') <> '1' then a.person_id::text end)::float8 as ai_heads,
+       count(distinct case when coalesce(a.ai_usage_flg::text, '0') = '1'
+                             and coalesce(a.is_intern_flg::text, '0') <> '1' then a.person_id::text end)::float8 as ai_wau,
+       (100.0 * count(distinct case when coalesce(a.ai_usage_flg::text, '0') = '1'
+                                      and coalesce(a.is_intern_flg::text, '0') <> '1' then a.person_id::text end)
+              / nullif(count(distinct case when coalesce(a.is_intern_flg::text, '0') <> '1'
+                                             then a.person_id::text end), 0))::float8 as ai_pen
+from {HUB_AI_SRC} a
+where coalesce(a.mngt_unit_rk::text, '') <> ''
+  and a.week::date >= (('{_gs}'::date) - interval '4 month')
 group by 1, 2
 distributed by (node_rk)""")
-    print(f"[OK] {HUB_P}_ai: {_hub_q(f'select count(*) as n from {HUB_P}_ai')['n'].iloc[0]} строк")
+    print(f"[OK] {HUB_P}_aiw: {_hub_q(f'select count(*) as n, count(distinct node_rk) as u, max(week) as w from {HUB_P}_aiw')[['n', 'u', 'w']].iloc[0].to_dict()}")
 else:
     _hub_q(f"""
-drop table if exists {HUB_P}_ai;
-create table {HUB_P}_ai (report_month date, node_rk text, ai_wau float8, ai_pen float8, ai_pen_co float8)
+drop table if exists {HUB_P}_aiw;
+create table {HUB_P}_aiw (week date, node_rk text, ai_heads float8, ai_wau float8, ai_pen float8)
 distributed by (node_rk)""")
-    print(f'[WARN] {HUB_AI_SRC}: нет таблицы или колонок — {HUB_P}_ai пустая, AI в отчёте «в разработке»')
+    print(f'[WARN] {HUB_AI_SRC}: нет таблицы или колонок — {HUB_P}_aiw пустая, AI в отчёте «нет данных» (проверить синхронизацию таблицы в GP)')

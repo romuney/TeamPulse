@@ -38,10 +38,10 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
 /* Поставка 50 (21.10, из прод-ноутбуков HQ и УС): обычные увольнения (nreg), вакансии (vop — открыто
    на конец месяца, vcl — закрыто, vap — новые, vtd/vtn — дни и число закрытых для срока, vjn — закрыто
    джунами) и AI (aiw — WAU, aip / aic — проникновение по юниту и компании). Тоже необязательные; вакансии
-   и AI — без фильтров среза (не люди) */
+   и AI — без фильтров среза (не люди). Поставка 106: месячный AI (aiw aip aic) снят — AI только по неделям, разрез aw */
 /* Поставка 66 (посещения Адели): bk bkv vsv — дни с бронью, бронь без прихода, приход без брони; hwd hov — рабочие дни
    и посещения руководителей (у остальных — wds ovs: всё минус руководители) */
-const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','aiw','aip','aic','hit','din','dout','hcd','hst',
+const OPT=['wday','ovis','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','hit','din','dout','hcd','hst',
   'bk','bkv','vsv','hwd','hov','rh','nrh','avh',
   /* файл 6, п. 2: уходы по активной численности HQ у каждого узла — HQ-текучесть «Как уходит HQ» по выбранной строке */
   'fh','hch',
@@ -63,7 +63,6 @@ const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fir
   perf_norm:'pnor',perf_low:'plow',perf_high:'phig',perf_gray:'pgry',
   wday:'wday',ovis:'ovis',tgrowth_pass:'gapr',tgrowth_deny:'gdec',
   nonregret_cnt:'nreg',vac_open:'vop',vac_closed:'vcl',vac_new:'vap',ttf_days:'vtd',ttf_n:'vtn',vac_jun:'vjn',
-  ai_wau:'aiw',ai_penetration:'aip',ai_pen_co:'aic',ai_den:'aid',
   /* поставка 65: найм по видам — из учебной группы в боевую, стажёр в штат (части hit) */
   hire_cand:'hcd',hire_int:'hst',
   bk_days:'bk',bk_noshow:'bkv',bk_walkin:'vsv',wday_lead:'hwd',ovis_lead:'hov',wday_staff:'wds',ovis_staff:'ovs',
@@ -73,16 +72,16 @@ const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fir
 /* метрики, которые оживают, когда в ответе есть их колонки */
 const LIVE_WITH={office_att:['wday','ovis'],tgrowth_pass:['gapr'],tgrowth_deny:['gdec'],tgrowth_conv:['gapr','gdec'],
   nonregret:['nreg'],vac_open:['vop'],vac_closed:['vcl'],time_to_fill:['vtd','vtn'],junior_share:['vjn','vcl'],
-  ai_wau:['aiw'],ai_penetration:['aip'],booking_viol:['bk','bkv','vsv']};
+  booking_viol:['bk','bkv','vsv']};
 /* колонки, которые оживляют метрику, только если в них есть данные: пустая витрина (нет источника
    вакансий или AI, нет флага обычного увольнения) даёт нули — метрика остаётся «в разработке» */
-const LIVE_NZ=['nreg','vop','vcl','aiw','aip','hit','bk','hwd'];
+const LIVE_NZ=['nreg','vop','vcl','hit','bk','hwd'];
 /* Метрики без источника в hr_structure_overall: в пробнике — заглушки на генераторе
    макета (по численности юнита), с пометкой «демо». План подключения —
    «Поставка — TeamPulse Hub/План метрик.md». */
 const STUB=['nonregret','vac_open','vac_closed','time_to_fill','hire_plan','junior_share',
   'tgrowth_pass','tgrowth_deny','tgrowth_conv','review_up',
-  'office_att','booking_viol','ai_penetration','ai_wau'];
+  'office_att','booking_viol'];
 /* План подключения живёт в data.js (D.DEV_PLAN; 15.10 — по каталогу графиков HQ и УС):
    им размечены и макет, и пробник — «в разработке» у метрик, вкладок и блоков. */
 /* значения фильтров в датасете ↔ ключи фильтров макета */
@@ -120,7 +119,9 @@ function parseMx(s){
 function mxMinus(u,kids){
   const out={};
   Object.keys(u).forEach(k=>{
-    if(k==='dw'||k==='do'||k==='xim'||k==='pfd')return;   /* календарь посещений и уходы по инициатору — только у выбранного юнита */
+    /* календарь посещений и уходы по инициатору — только у выбранного юнита; AI по неделям (aw, поставка 106) — счёт людей без
+       повторов, вычитанием детей не получить: у «напрямую» недель нет */
+    if(k==='dw'||k==='do'||k==='xim'||k==='pfd'||k==='aw')return;
     /* поставка 103: профили у юнита с детьми — уже только его люди «напрямую» (датасет относит их к узлу ответа) */
     if(k==='pf'){out.pf=Object.assign({},u.pf);return}
     Object.keys(u[k]).forEach(v=>{
@@ -162,22 +163,16 @@ function build(data){
   const nz=c=>rows.some(r=>/[1-9]/.test(str(raw(r,c))));
   const have=new Set(rows.length?OPT.filter(c=>hasCol(c)&&(LIVE_NZ.indexOf(c)<0||nz(c))):[]);
   const cols=COLS.concat(OPT.filter(c=>have.has(c)));
-  /* AI (поставка 50): проникновение — доля, по листьям не складывается. Знаменатель источника
-     восстанавливается из неё (aid = WAU × 100 / проникновение) и складывается, как численность:
-     проникновение узла = Σ WAU / Σ aid — ровно доля источника */
-  const AID=have.has('aip')&&have.has('aiw');
-  if(AID)cols.push('aid');
   /* сегмент «Сотрудники» посещаемости — всё минус руководители: ряды складываются, как численность */
   const SEG=have.has('hwd')&&have.has('hov')&&have.has('wday')&&have.has('ovis');
   if(SEG)cols.push('wds','ovs');
   /* поставка 56: найм по дню события (hit — из переходов ноутбука: найм в компанию и, на активной, переходы
      кандидатов и стажёров) — тем же счётом, что переводы, поэтому водопад сходится без «прочего». Прежние
      таблицы его не везут (нули) — тогда найм из рядов, как раньше */
-  const HIT=have.has('hit'), GAH=have.has('gah'), AIC=new Set(['aiw','aip','aic','aid']);
+  const HIT=have.has('hit'), GAH=have.has('gah');
   const parseSer=r=>{
     const ser={};
-    cols.forEach(c=>{if(c!=='aid'&&c!=='wds'&&c!=='ovs')ser[c]=parseArr(raw(r,c),n)});
-    if(AID)ser.aid=ser.aiw.map((w,k)=>ser.aip[k]?+(w*100/ser.aip[k]).toFixed(3):0);
+    cols.forEach(c=>{if(c!=='wds'&&c!=='ovs')ser[c]=parseArr(raw(r,c),n)});
     if(SEG){ser.wds=ser.wday.map((w,k)=>w-ser.hwd[k]);ser.ovs=ser.ovis.map((v,k)=>v-ser.hov[k])}
     if(HIT)ser.hire=ser.hit;
     if(GAH){ser.gapr=ser.gah;ser.gdec=ser.gdh}
@@ -298,9 +293,6 @@ function build(data){
       own[c]=u.ser[c].map((v,i)=>{
         let s=v;ch.forEach(k=>{s-=k.ser[c][i]});
         s=Math.round(s*10)/10;
-        /* файл 7, п. 4: AI источник считает по юниту целиком; юнита в нём бывает нет при детях — «напрямую» уходил в минус и
-           обнулял сумму (вкладка AI пустела). Не ниже нуля: сумма юнита — сумма детей */
-        if(s<0&&AIC.has(c))s=0;
         if(Math.abs(s)>1e-9)any=true;
         return s;
       });

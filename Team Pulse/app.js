@@ -335,7 +335,7 @@ function renderHead(){
    которого «Требует действий»; остальные — серые. Тот же источник, что у вывода блока, — точка и вывод не спорят */
 /* 31.10 (поставка 82, «подлагивает»): сигналы всех блоков пересчитывались на каждый клик — шаг главы, вкладку,
    сортировку — до четверти времени клика. Сигнал зависит от среза, не от того, что открыто: кэш по срезу */
-const NAV_UI=new Set(['tab','subTab','tsort','spmSort','aiGran','monGran','exitIni','mixSel','mixRows','mixCols','mixMode',
+const NAV_UI=new Set(['tab','subTab','tsort','spmSort','exitIni','mixSel','mixRows','mixCols','mixMode',
   'mxFull','aiOpen','offCity','offSeg','rostSt','spmSel']);
 let _navKey=null, _navMemo={};
 function navSig(bk){
@@ -1012,13 +1012,6 @@ on(document,'click',e=>{
   /* 27.10-в, п. 8: статус роста — его тепловая таблица на вкладке «Как растут по грейдам?» */
   const rs=t.closest('[data-rostst]');
   if(rs){S.rostSt=rs.dataset.rostst;render(true);return}
-  const gr=t.closest('[data-mongran]');
-  if(gr){S.monGran=gr.dataset.mongran;S.monMark=null;render(true);return}
-  /* 31.10, AI: месяц / неделя у «Пользуются ли AI?» */
-  const ag=t.closest('[data-aigran]');
-  if(ag){S.aiGran=ag.dataset.aigran;render(true);return}
-  const pm=t.closest('[data-pmark]');
-  if(pm){e.stopPropagation();const i=+pm.dataset.pmark;S.monMark=S.monMark===i?null:i;render(true);return}
   const tso=t.closest('[data-tsort]');
   if(tso){S.tsort=tso.dataset.tsort;render(true);return}
   const sps=t.closest('[data-spmsort]');
@@ -1179,8 +1172,8 @@ on(document,'keydown',e=>{
     const ovl=!$('#setupOvl').classList.contains('hidden')||!$('#helpOvl').classList.contains('hidden');
     closeSetup();$('#helpOvl').classList.add('hidden');navOpen(false);pulse(false);
     if(!ovl&&S.mxFull){S.mxFull=false;render(true);return}
-    /* мониторинг: Escape снимает отметку периода и выбор строки таблицы */
-    if(!ovl&&S.tab==='monitor'&&(S.monMark!=null||S.selNode)){S.monMark=null;S.selNode=null;render(true);return}
+    /* мониторинг: Escape снимает выбор строки таблицы */
+    if(!ovl&&S.tab==='monitor'&&S.selNode){S.selNode=null;render(true);return}
     if(!ovl&&S.tab==='office'&&(S.offSeg||S.offCity)){S.offSeg=null;S.offCity=null;render(true);return}
     if(!ovl&&S.spmSel){S.spmSel=null;render(true);return}
     if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true);return}

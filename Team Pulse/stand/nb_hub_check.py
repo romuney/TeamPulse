@@ -36,7 +36,11 @@ def main():
     MM = nb.mon_month(nb.mon_days(people))      # поставка 71: мониторинг по дням — месяц человека
     names = {k: tuple(U[x][0] for x in nb.path(U, k)) for k in U}
     # 21.10, поставка 50: вакансии и AI — не люди, фильтры среза на них не действуют: правда одна
-    TV, TA = nb.truth_vac(U, nb.vacancies(U)), nb.truth_ai(U, people)
+    TV = nb.truth_vac(U, nb.vacancies(U))
+    # 06.11, поставка 106: AI только по неделям — mx aw «неделя|WAU,численность,%» за последние 16 недель источника
+    TAW = nb.truth_aiw(U, people)
+    _wm = max(w for _, w in TAW)
+    TAW = {k: v for k, v in TAW.items() if (_wm - k[1]).days <= 105 and v[1] > 0}
     ms = nb.months()                            # 2025-01 … 2026-10 — сетка ответа (20.10: с текущим незакрытым)
     # 21.10: срез человека меняется во времени — фильтр по дню (nb.attr)
     A = nb.attr
@@ -171,8 +175,7 @@ def main():
                             bad[k] += 1
                 if label == 'файл 2а':
                     # поставка 50: обычные увольнения (под фильтрами), вакансии и AI (без фильтров)
-                    for k, src in [('nreg', T)] + [(k, TV) for k in ('vop', 'vcl', 'vap', 'vtd', 'vtn', 'vjn')] + \
-                            [(k, TA) for k in ('aiw', 'aip', 'aic')]:
+                    for k, src in [('nreg', T)] + [(k, TV) for k in ('vop', 'vcl', 'vap', 'vtd', 'vtn', 'vjn')]:
                         got = [round(float(x), 1) for x in r['m_' + k].split(',')]
                         if got != [round(src[(rk, m)][k], 1) for m in ms]:
                             bad[k] += 1
@@ -184,6 +187,16 @@ def main():
                             kk, vv, n = line.split('\t')
                             mx[kk] += float(n)
                             mxv[kk][vv] = float(n)
+                    # поставка 106: AI по неделям — правда «узел × неделя» (стажёры исключены, фильтры среза не действуют)
+                    gaw = {}
+                    for vv in mxv.get('aw', {}):
+                        w, a3 = vv.split('|')
+                        x = [float(t) for t in a3.split(',')]
+                        gaw[dt.date.fromisoformat(w)] = (round(x[0]), round(x[1]), x[2])
+                    taw = {w: (a, h) for (n, w), (a, h) in TAW.items() if n == rk}
+                    if {w: v[:2] for w, v in gaw.items()} != taw or \
+                            any(abs(v[2] - 100.0 * v[0] / v[1]) > 0.006 for v in gaw.values()):
+                        bad['aw'] += 1
                     # поставка 66: посещения Адели. Ряды: рабочие дни и посещения (wday ovis), бронирования (bk bkv vsv),
                     # руководители (hwd hov) — под фильтрами
                     for k in ('wday', 'ovis', 'bk', 'bkv', 'vsv', 'hwd', 'hov'):

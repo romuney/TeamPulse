@@ -151,6 +151,10 @@ select 28 as n, 'водопад: конец = численность series (у�
               on s.node_rk = f.node_rk and s.report_month = f.report_month and s.paint_cd = f.paint_cd
              and s.it_cd = f.it_cd and s.staff_cd = f.staff_cd and s.act_cd = f.act_cd
             where abs(coalesce(f.fin, 0) - coalesce(s.hc, 0)) > 0.5) t))::float8 as val
+union all
+select 29 as n, 'AI-недели: повторы ключа «узел x неделя»'::text as check_nm, 1 as must,
+       ((select count(*) from (select 1 from teampulse_hub_aiw
+                                group by node_rk, week having count(*) > 1) t))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,

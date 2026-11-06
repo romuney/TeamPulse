@@ -182,9 +182,9 @@ const ic=D.lastIdx('regret')+R.pre, janC=D.MONTHS_EXT.findIndex((m,k)=>k<=ic&&m.
 const HQR=R.has('rh')&&R.has('nrh')&&R.has('avh'), avR=HQR?arr(scopeRow,'avh'):avg, rgR=HQR?arr(scopeRow,'rh'):reg;
 let ry=0;for(let k=janC;k<=ic;k++)ry+=avR[k]?+(rgR[k]/avR[k]*100).toFixed(2):0;
 ok(near(D.lastVal(rl,'regret'),+ry.toFixed(2)),'regret = накопительная доля нежелательных увольнений к ССЧ'+(HQR?' HQ':'')+(ic<i?' (закрытый месяц)':''));
-ok(D.isStub('vac_open')===!R.has('vop')&&D.isStub('ai_penetration')===!R.has('aip')&&D.isStub('nonregret')===!R.has('nreg')&&
+ok(D.isStub('vac_open')===!R.has('vop')&&D.isStub('nonregret')===!R.has('nreg')&&
   !D.isStub('turnover_m')&&!D.isStub('hc_total'),
-  'заглушки помечены: вакансии, AI и желательный отток — '+(R.has('vop')?'живые (поставка 50)':'демо')+', численность и текучесть — живые');
+  'заглушки помечены: вакансии и желательный отток — '+(R.has('vop')?'живые (поставка 50)':'демо')+', численность и текучесть — живые');
 /* 21.10, поставка 50: метрики из прод-ноутбуков HQ и УС — по формулам из настоящих рядов */
 if(R.has('nreg')){
   const nr=arr(scopeRow,HQR?'nrh':'nreg');
@@ -203,10 +203,17 @@ if(R.has('vop')){
   ok(!!vb&&Math.abs(vb.status.reduce((a,r)=>a+r.value,0)-sumK('vs'))<=vb.status.length,
     'вакансии в разрезах: статусы открытых — из колонки mx');
 }
-if(R.has('aip')){
-  /* ниже компании доля собрана из листьев (WAU ÷ знаменатель), витрина округляет её до десятых */
-  ok(Math.abs(D.lastVal(rl,'ai_penetration')-arr(scopeRow,'aip')[i])<0.051&&near(D.lastVal(rl,'ai_wau'),arr(scopeRow,'aiw')[i]),
-    'AI: проникновение и WAU — из витрины, как в отчёте HQ');
+/* поставка 106: AI только по неделям — разрез aw строки юнита «понедельник|WAU,численность,%», 16 последних недель; чарт
+   берёт его как есть, проникновение = WAU ÷ численность; месячных AI-метрик нет (ни на карточках, ни на One-pager) */
+{
+  const aw=String(scopeRow.mx||'').split('\n').filter(l=>l.indexOf('aw\t')===0).map(l=>l.split('\t')[1]).sort();
+  const W=D.aiWeeks(rl);
+  if(aw.length){
+    ok(!!W&&W.length===Math.min(16,aw.length)&&W.every((w,k)=>{const a=aw[aw.length-W.length+k].split('|'), v=a[1].split(',').map(Number);
+        return a[0]===w.wk&&w.wau===Math.round(v[0])&&w.hc===Math.round(v[1])&&Math.abs(w.pen-v[2])<0.051}),
+      'AI по неделям: '+aw.length+' недель в ответе, в чарте — последние '+(W?W.length:0)+'; WAU, численность и проникновение = витрине');
+  }else ok(!W,'AI по неделям: недель в ответе нет — вкладка «нет статистики»');
+  ok(D.metricsOfBlock('ai').length===0&&D.blockVisible('ai',D.DEFAULT_STATE),'AI: месячных метрик нет, вкладка в навигации есть');
 }
 if(Object.keys(R.mixVals('hk')).length){
   const hp=D.hiringProfile(rl,'ytd');
@@ -619,7 +626,8 @@ if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений з
    одна карточка, у каждого блока есть вывод (или «всё спокойно») и «где это происходит» */
 {
   const I=window.TPINSIGHTS, S0=D.DEFAULT_STATE, cs=I.cards(S0,D.reportLeaves(S0),D.benchmarkLeaves(S0)), home=A.home0();
-  const tops=D.visibleBlocks(S0).map(b=>A.top(b.key));
+  /* поставка 106: у AI вывода блока нет — только недельная глава */
+  const tops=D.visibleBlocks(S0).filter(b=>b.key!=='ai').map(b=>A.top(b.key));
   ok(/<div class="in-lead">/.test(home)&&cs.every(c=>!D.isStub(c.key)&&c.head&&/class="mini"/.test(c.chart))&&
     cs.filter(c=>/С января ушли/.test(c.body)).length<=1&&
     /* 30.10, шаг 2: без подразделений ниже «где» не показывается — карточка вывода во всю ширину */

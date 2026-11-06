@@ -2856,7 +2856,7 @@ const BLOCKS=[
 {key:'office',name:'Посещаемость офисов',hint:'Кто, когда и где ходит в офис; соблюдают ли бронь.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
    У Hub были AI-подсказки, но не было метрик внедрения AI. */
-{key:'ai',name:'AI-инструменты',hint:'Сколько людей пользуются AI и какими инструментами. Проникновение считается только для HQ-численности.',drillUrl:'#/detail/ai',dash:['34136']}
+{key:'ai',name:'AI-инструменты',hint:'Сколько людей пользуются AI по неделям и какими инструментами. Численность — без стажёров; фильтры покраски, IT, штата и типа численности на AI не действуют.',drillUrl:'#/detail/ai',dash:['34136']}
 ];
 const BLOCK_BY_KEY=Object.fromEntries(BLOCKS.map(b=>[b.key,b]));
 const PROTEUS_DASH={'34661':'Team Pulse: Управленческая структура','34136':'Team Pulse: Управленческая структура HQ'};
@@ -2985,6 +2985,9 @@ const METRICS=[
 {key:'ai_wau',block:'ai',aud:'hq',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
   hint:'Сколько сотрудников пользуются AI-инструментами хотя бы раз в неделю, в среднем за месяц.'}
 ];
+/* поставка 106 (решение заказчика 06.11): AI — только по неделям (D.aiWeeks); месячные метрики проникновения и WAU сняты
+   с карточек, One-pager и таблиц — остаются описанием (формат, подписи) для недельной вкладки */
+METRICS.forEach(m=>{if(m.block==='ai')m.off=true});
 /* Пробник: regret считается из настоящих рядов, а не из генератора — как
    текучесть накопительная: сумма месячных долей нежелательных увольнений к ССЧ
    с января (служебный ряд regret_m). Остальным метрикам без источника — флаг
@@ -3022,8 +3025,6 @@ if(REAL){
   if(REAL.has('vjn')&&REAL.has('vcl'))ov.junior_share={name:'Доля джунов в закрытых вакансиях',derived:{num:'vac_jun',den:'vac_closed',scale:100,win:'ytd'},
     hint:'Доля вакансий, закрытых джунами, среди всех закрытых с начала года. Сколько их брать — выбор стратегии найма.'};
   if(REAL.has('vop'))ov.vac_open={calc:'Вакансии в работе (согласованные) на конец месяца, у незакрытого — на последний загруженный день. Вакансия — не человек: фильтры среза на неё не действуют.'};
-  if(REAL.has('aip')&&REAL.has('aiw'))ov.ai_penetration={derived:{num:'ai_wau',den:'ai_den',scale:100},anchor:null,
-    calc:'Как в отчёте HQ: доля активных пользователей AI-инструментов в подразделении, посчитанная в источнике. Источник — по подразделению, без фильтров среза.'};
   METRICS.forEach(m=>{if(ov[m.key])Object.assign(m,ov[m.key]);if(REAL.stub.has(m.key))m.stub=true});
 }
 /* поставка 69 (Антон, вопрос 4 — «Б»), 27.10-в, п. 3: желательная и нежелательная всегда по активной численности HQ узла,
@@ -3291,8 +3292,9 @@ function metricVisible(key,S){
 }
 function visibleMetricsOfBlock(bk,S){return metricsOfBlock(bk).filter(m=>metricVisible(m.key,S))}
 /* блок без единой показанной метрики уходит и из OnePager, и из навигации */
-function visibleBlocks(S){return BLOCKS.filter(b=>visibleMetricsOfBlock(b.key,S).length>0)}
-function blockVisible(bk,S){return visibleMetricsOfBlock(bk,S).length>0}
+/* поставка 106: у AI месячных метрик нет — вкладка живёт на недельном ряду, в навигации она всегда */
+function blockVisible(bk,S){return bk==='ai'||visibleMetricsOfBlock(bk,S).length>0}
+function visibleBlocks(S){return BLOCKS.filter(b=>blockVisible(b.key,S))}
 function visibleCount(S){return SHOWN.filter(m=>metricVisible(m.key,S)).length}
 function hiddenForPreset(pk){
   const p=METRIC_PRESETS.find(x=>x.key===pk);
@@ -5211,7 +5213,7 @@ let _nmx=null;
 /* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
-const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm']);
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
@@ -5815,8 +5817,46 @@ const AI_TOOLS=[{key:'chat',name:'Корпоративный AI-ассистен
 /* файл 7, п. 4: статистика AI приходит с задержкой — последний месяц бывает пустым, и всё, что считается от него
    («Кто пользуется», «Как пользуется»), обнулялось. Берём последний месяц с данными */
 function aiLast(lp,key){const a=aggregate(lp,key);for(let i=lastIdx(key);i>=0;i--)if(a[i]>0)return a[i];return 0}
+/* поставка 106 (решение заказчика 06.11): AI — только по неделям, 16 последних (Пн–Вс). Пробник — разрез aw у строки ответа
+   «понедельник|WAU,численность,%» (витрина teampulse_hub_aiw: численность без стажёров, человек в узле один раз за неделю;
+   фильтры среза на AI не действуют); неделя, которая после даты данных не закончилась, — неполная (pt), последняя полная —
+   cl. Макет — условные недели от месячного генератора. null — у строки недель нет */
+const AI_NW=16;
+function aiWeeks(lp){
+  if(!lp||!lp.length)return null;
+  const asof=new Date(ASOF.y,ASOF.m,ASOF.d), p2=n=>(n<10?'0':'')+n, dd=x=>p2(x.getDate())+'.'+p2(x.getMonth()+1);
+  let W=[];
+  if(REAL){
+    const m=selMix(lp,'aw');
+    if(!m)return null;
+    W=Object.keys(m).map(v=>{
+      const i=v.indexOf('|'), d=v.slice(0,i).split('-').map(Number), a=v.slice(i+1).split(',').map(Number);
+      return {wk:v.slice(0,i),d0:new Date(d[0],d[1]-1,d[2]),wau:Math.round(a[0]||0),hc:Math.round(a[1]||0)};
+    });
+  }else{
+    const r=rng(lpSeed(lp,'aiw')), hc=Math.round(lastVal(lp,'hc_active')), pen=aiLast(lp,'ai_penetration'), dow=(asof.getDay()+6)%7;
+    for(let k=AI_NW-1;k>=0;k--){
+      const d0=new Date(asof.getFullYear(),asof.getMonth(),asof.getDate()-dow-7*k);
+      const p=Math.max(0,Math.min(100,pen*(0.9+0.007*(AI_NW-1-k)+(r()-0.5)*0.05))), h=Math.max(0,hc+Math.round((r()-0.5)*hc*0.02));
+      W.push({wk:d0.getFullYear()+'-'+p2(d0.getMonth()+1)+'-'+p2(d0.getDate()),d0:d0,hc:h,wau:Math.round(h*p/100)});
+    }
+  }
+  W=W.filter(x=>x.hc>0).sort((a,b)=>a.wk<b.wk?-1:1).slice(-AI_NW);
+  if(!W.length)return null;
+  W.forEach(x=>{
+    const d1=new Date(x.d0.getFullYear(),x.d0.getMonth(),x.d0.getDate()+6);
+    x.pen=+(x.wau*100/x.hc).toFixed(1);x.pt=d1>asof;x.label=dd(x.d0);
+    x.full='Неделя '+dd(x.d0)+'–'+dd(d1)+(x.pt?', данные по '+dd(asof):'');
+  });
+  const lc=W.length-1-(W[W.length-1].pt&&W.length>1?1:0);W[lc].cl=true;
+  return W;
+}
+/* последняя полная неделя ряда (у неё и таблица подразделений, и вывод) */
+function aiCur(W){return W?W.find(x=>x.cl)||W[W.length-1]:null}
 function aiProfile(lp){
-  const pen=aiLast(lp,'ai_penetration'), wau=aiLast(lp,'ai_wau'), r=rng(lpSeed(lp,'ai')), it=hcIT(lp);
+  /* поставка 106: «Кто» и «Как пользуется» (пока условные) — от проникновения последней полной недели */
+  const cw=aiCur(aiWeeks(lp));
+  const pen=cw?cw.pen:aiLast(lp,'ai_penetration'), wau=cw?cw.wau:aiLast(lp,'ai_wau'), r=rng(lpSeed(lp,'ai')), it=hcIT(lp);
   const tools=AI_TOOLS.map(t=>({key:t.key,name:t.name,
     value:+Math.min(pen,pen*t.k*(t.it?Math.min(1,it*1.2):1)*(0.9+r()*0.2)).toFixed(1)}));
   return {pen:pen,wau:wau,tools:tools};
@@ -5831,8 +5871,6 @@ const AI_DEV=['Copilot','Nestor IDE','Nessy CLI'];
 function aiUsage(lp){
   const ai=aiProfile(lp), r=rng(lpSeed(lp,'aiu')), hc=Math.max(1,Math.round(lastVal(lp,'hc_total'))), pen=ai.pen||0;
   const act=Math.round(hc*pen/100), it=hcIT(lp), cl=(v,a,z)=>Math.max(a,Math.min(z,v));
-  const weeks=MON_WEEKS.slice(-12).map((w,i)=>{const p=+cl(pen*(0.9+0.012*i+(r()-0.5)*0.06),0,100).toFixed(1);
-    return {label:w.label,full:'Неделя '+w.full,pen:p,wau:Math.round(hc*p/100)}});
   /* поставка 103 (файл 9, п. 2): частота — дней с AI за месяц (было — за неделю) */
   const FQ=['1 день','2–3 дня','4–6 дней','7–10 дней','11–15 дней','16–20 дней','21 день и больше'];
   const freq=splitBy(act,jitter(r,[0.22,0.2,0.17,0.15,0.14,0.08,0.03],0.25)).map((n,i)=>({name:FQ[i],value:n}));
@@ -5851,7 +5889,7 @@ function aiUsage(lp){
   const ihc=Math.max(1,Math.round(hc*(0.03+r()*0.03))), iact=Math.round(ihc*cl(pen*(1.05+r()*0.2),0,100)/100), ipen=+(iact/ihc*100).toFixed(1);
   const cons=segs.map(x=>PAINTS.slice(1).map((pt,k)=>{const n=Math.round(x.hc*[0.62,0.25,0.13][k]),pp=+cl(pen*(0.85+r()*0.3),0,100).toFixed(1);
     return {seg:x.name,paint:pt.name,hc:n,act:Math.round(n*pp/100),pen:pp}})).reduce((a,b)=>a.concat(b),[]);
-  return {pen:pen,act:act,weeks:weeks,freq:freq,per:per,msgs:msgs,cls:cls,dev:dev,tools:ai.tools,bySeg:bySeg,
+  return {pen:pen,act:act,freq:freq,per:per,msgs:msgs,cls:cls,dev:dev,tools:ai.tools,bySeg:bySeg,
     intern:{hc:ihc,pen:ipen,act:iact,tools:ai.tools.map(t=>({name:t.name,value:+cl(t.value*(0.9+r()*0.3),0,100).toFixed(1)})),
       freq:splitBy(iact,jitter(r,[0.3,0.4,0.3],0.2))},cons:cons.filter(x=>x.hc>0)};
 }
@@ -5875,7 +5913,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
   PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
-  planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
+  planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,aiWeeks,aiCur,AI_NW,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};
 
 </script>
@@ -7079,7 +7117,9 @@ const MON_CATS=[['under','Недоработка'],['normal','Нормал'],['o
 function perAxis(P,X,h,mark,bandW){
   const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
   /* ревью 100: p.cl — последний закрытый месяц, подпись жирная (как на осях «год к году») */
-  return P.map((p,i)=>i===mark||p.cl||(last-i)%step===0?txt(X(i),h-8,p.label,i===mark||p.cl?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
+  /* поставка 106: подпись рядом с жирной (cl) при прореживании не ставим — у недель cl и текущая стоят вплотную */
+  const nearCl=i=>step>1&&P.some((q,j)=>q.cl&&j!==i&&Math.abs(j-i)<step);
+  return P.map((p,i)=>i===mark||p.cl||(last-i)%step===0&&!nearCl(i)?txt(X(i),h-8,p.label,i===mark||p.cl?{size:10.5,weight:700,fill:C_LABEL}:{size:10.5,fill:C_AXIS}):'').join('');
 }
 function drawStack(a,w,h){
   /* 26.10-б: найм по видам ушёл в подсказку «Найм, чел» — категории снова только мониторинга */
@@ -9435,17 +9475,18 @@ CH.office={
 
 /* ===== AI-инструменты ===== */
 CH.ai={
-  /* 31.10, «AI.md», п. 1: без сравнения с прошлым годом — база и последние 12 месяцев */
+  /* поставка 106: только недели — последняя полная неделя против четырёх неделями раньше; без сравнения с базой (у AI
+     нет месячного ряда, фильтры среза на него не действуют) */
   adoption(c){
-    const p=judge('ai_penetration',c), s=ser(c.lp,'ai_penetration'), wau=D.lastVal(c.lp,'ai_wau');
-    const fo=focusRate(c,'ai_penetration','Проникновение по подразделениям');
-    return {sum:f('ai_penetration',p.v),st:p.st,
-      head:vsBase(p,c,'AI пользуются больше','AI пользуются меньше','Проникновение AI — на уровне базы',true)+
-        (p.base!=null?': '+f('ai_penetration',p.v)+' против '+f('ai_penetration',p.base)+' в среднем за месяц':''),
-      /* поставка 90: среднее за период — как итог под графиком; закрытый месяц и сейчас — с подписью */
-      lede:p.v!=null?'В среднем за месяц — **'+f('ai_penetration',p.v)+'**; за '+mNom(D.PER_I)+' — **'+
-        f('ai_penetration',s[D.PER_I])+'**; активных пользователей сейчас — **'+D.fmtInt(wau)+'**.':'',
-      focus:fo.focus,act:fo.act};
+    const W=D.aiWeeks(c.lp), cw=D.aiCur(W);
+    if(!cw)return {sum:'нет данных',st:'n',head:'Статистики AI-инструментов нет',lede:''};
+    const i=W.indexOf(cw), w0=W[Math.max(0,i-4)], d=w0!==cw?Math.round((cw.pen-w0.pen)*10)/10:null;
+    const P=v=>String(v).replace('.',',')+'%';
+    return {sum:P(cw.pen),st:'n',
+      head:'AI пользуются '+P(cw.pen)+' сотрудников'+(d==null?'':Math.abs(d)<1?' — за месяц почти без изменений':
+        d>0?' — за четыре недели на '+P(d).replace('%',' п.п.')+' больше':' — за четыре недели на '+P(-d).replace('%',' п.п.')+' меньше'),
+      lede:'За неделю '+cw.full.replace(/^Неделя /,'')+' — **'+D.fmtInt(cw.wau)+'** активных пользователей из **'+D.fmtInt(cw.hc)+
+        '** без стажёров.'+(w0!==cw?' Четырьмя неделями раньше — **'+P(w0.pen)+'**.':'')};
   },
   who(c){
     const u=D.aiUsage(c.lp), it=u.intern;
@@ -9755,7 +9796,9 @@ function blockMain(bk,S){
   const m=D.METRIC_BY_KEY[S.mainMetric];
   if(m&&m.block===bk&&D.metricVisible(m.key,S))return S.mainMetric;
   const mets=D.visibleMetricsOfBlock(bk,S);
-  return (mets.find(x=>D.comparable(x.key))||mets[0]).key;
+  /* поставка 106: у AI метрик нет (только недельные колонки mod.cols) — главной метрики тоже */
+  const x=mets.find(m=>D.comparable(m.key))||mets[0];
+  return x?x.key:null;
 }
 /* Строки, у которых есть что раскрывать в пределах трёх уровней: первый
    и второй уровень с детьми. Ими и только ими управляет каретка в ИТОГО —
@@ -9921,8 +9964,9 @@ const DEV_LIVE={
   /* поставка 50 (21.10, из прод-ноутбуков HQ и УС): вакансии, найм по источникам и AI — живые */
   hiring:{live:['vac_open','vac_closed','time_to_fill'],subs:['vacancies','profile'],
     '*':{stage:2,part:true,t:'Принятые, вакансии и найм по источникам — настоящие. План найма и статусы воронки пока условные.'}},
-  ai:{live:['ai_penetration','ai_wau'],subs:['adoption'],
-    '*':{stage:8,t:'Проникновение и активные пользователи по месяцам — настоящие (вкладка «Пользуются ли AI?»). Кто и как пользуется — пока условно: нужна недельная AI-выгрузка по людям.'}},
+  /* поставка 106: живое — недельный ряд (разрез aw в ответе); метрик у AI больше нет, live пустой */
+  ai:{live:[],subs:['adoption'],
+    '*':{stage:8,t:'Проникновение, активные пользователи и численность по неделям — настоящие (вкладка «Пользуются ли AI?»). Кто и как пользуется — пока условно: нужна AI-выгрузка по людям и инструментам.'}},
   tgrowth:{live:['tgrowth_conv'],subs:['flow'],
     '*':{stage:6,t:'Решения по заявкам и конверсия — настоящие (вкладка «Растут ли люди внутри?»). '+
       'Как растут по грейдам и меняют специализацию — пока условно: нужны данные сервиса «Рост».'}},
@@ -10090,7 +10134,8 @@ function renderBlock(S,expanded,mixOpen,view){
      всех вкладках (подразделения — в таблице ниже), блок в одну колонку и ниже по высоте */
   /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» вывод блока (он сравнивает текучесть отдела с целями) не ставим —
      в разделе HQ целей нет; свой текст раздела — в его главе */
-  if(!(b.key==='turnover'&&S.subTab==='hq'))h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
+  /* поставка 106: у AI месячных метрик нет — вывод блока (ориентиры, «N мес. подряд») не ставим; вывод недель — в главе */
+  if(!(b.key==='turnover'&&S.subTab==='hq')&&b.key!=='ai')h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -10168,8 +10213,8 @@ function renderBlock(S,expanded,mixOpen,view){
     if(!md)return '<td>—</td>';
     const v=c.val&&c.val(md), hc=tcols[0].val(md);
     if(c.spark)return '<td'+(unit&&isSm(hc)?smAttr(hc,'sp'):' class="sp"')+'>'+c.spark(md)+'</td>';
-    if(v==null)return '<td'+U.tipAttr({title:c.name,text:'Появится с витриной мониторинга по неделям.'})+'>—</td>';
-    return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+D.fmtInt(v)+'</td>';
+    if(v==null)return '<td'+U.tipAttr({title:c.name,text:c.na||'Появится с витриной мониторинга по неделям.'})+'>—</td>';
+    return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
   };
   const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),i===1)).join('')
     :mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
@@ -10270,7 +10315,8 @@ function renderBlock(S,expanded,mixOpen,view){
     subHtml:esc(selNode.name)+(sel!==root?'':' · всё подразделение')+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
       /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
-      (b.key==='structure'?'':' · <b>'+esc(D.PER_NAME)+'</b> против того же периода '+D.YEAR_PREV),
+      /* поставка 106: у AI — недели, без сравнения с прошлым годом */
+      (b.key==='structure'?'':b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.PER_NAME)+'</b> против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';
@@ -11409,7 +11455,7 @@ SC.blocks.office={
    механика, на которой стоит весь отчёт: база сравнения выводится из фильтров.
 
    31.10 (файл «AI.md»): три раздела без сравнения с прошлым годом —
-   «Пользуются ли AI?»  — проникновение и активные пользователи одной линией за 12 месяцев, месяц / неделя;
+   «Пользуются ли AI?»  — проникновение, активные пользователи и численность по неделям (поставка 106: только недели);
    «Кто пользуется?»    — стажёры, инструменты по покраске IT / Digital / NonIT, конструктор;
    «Как пользуется?»    — частота, инструментов на человека, топ инструментов, воронка и классификация сообщений.
    ========================================================================== */
@@ -11417,7 +11463,7 @@ SC.blocks.office={
 'use strict';
 const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
 
-/* 28.10, п. 4: графики из «Готовности данных» — по неделям, частота, инструментов на человека, воронка сообщений и
+/* 28.10, п. 4: графики из «Готовности данных» — частота, инструментов на человека, воронка сообщений и
    топ задач, проникновение по IT-коду и инструменту, стажёры, конструктор. Числа условные (D.aiUsage) */
 const esc=U.esc;
 /* файл 7, п. 3: таблица с несколькими колонками — тот же вид, что у таблиц других вкладок (ptable stable dense: шапка
@@ -11435,23 +11481,21 @@ function bars(cap,sub,items,valueHead,o){
 /* проценты — без колонки «Доля» и без ИТОГО: проценты не складываются */
 const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'% людей',{metricKey:'ai_penetration',share:false,total:false});
 
-/* 31.10, файл «AI.md», п. 1 и 4: без сравнения с прошлым годом — одна линия за последние 12 месяцев (ось — месяцы окна
-   отчёта, сколько их есть), переключатель «Месяц / Неделя». Проникновение и активные пользователи по месяцам — из
-   источника (знаменатель проникновения — численность того же месяца под фильтрами); по неделям — условно (D.aiUsage) */
-/* поставка 103 (файл 9, п. 2): пока только по месяцам — переключатель «Неделя» снят; сохранённый выбор недели не действует.
-   Недельная заготовка (u.weeks) осталась: вернуть — AI_WEEKS = true */
-const AI_WEEKS=false;
+/* поставка 106 (решение заказчика 06.11): только недели — 16 последних (Пн–Вс), без месяцев и без переключателя. Проникновение,
+   активные пользователи и численность — из недельной витрины (D.aiWeeks: численность без стажёров, человек в подразделении
+   один раз за неделю). Неполная текущая неделя — бледнее, пунктиром, с пометкой в подсказке */
+const P1=v=>v==null?'—':String(v).replace('.',',')+'%';
 function adoption(ctx){
-  const S=ctx.S, gran=AI_WEEKS&&S.aiGran==='w'?'w':'m', u=D.aiUsage(ctx.lp);
-  const pen=D.aggregate(ctx.lp,'ai_penetration'), wau=D.aggregate(ctx.lp,'ai_wau');
-  const P=gran==='w'?u.weeks:D.MONTHS.map((m,i)=>({label:m.label,full:D.MONTH_NOM[m.m]+' '+m.y,pen:pen[i],wau:wau[i],cl:i===D.PER_I,pt:D.PARTIAL&&i===D.LAST}));
-  const per=gran==='w'?'по неделям':'по месяцам';
-  return '<div class="mon-bar">'+(AI_WEEKS?U.segToggle('data-aigran',[['m','Месяц'],['w','Неделя']],gran):'')+
-      '<span class="mon-note">'+(gran==='w'?'12 последних закрытых недель':'Последние 12 месяцев, по месяцам')+'</span></div>'+
-    (gran==='w'?U.devNote({stage:8,part:true,t:'По неделям — пока условно: нужна недельная AI-выгрузка. По месяцам — настоящие данные.'}):'')+
-    G.chart('pline',{periods:P,key:'pen'},{title:'Проникновение AI '+per+', %',name:'Проникновение',fmt:'pct',color:G.C_AI,h:230})+
-    G.chart('pline',{periods:P,key:'wau'},{title:'Активные пользователи AI '+per+', чел',name:'Активные пользователи',fmt:'int',color:G.C_AI,h:230})+
-    '<div class="tbl-note">Проникновение — активные пользователи AI к численности того же периода под выбранными фильтрами.</div>';
+  const W=D.aiWeeks(ctx.lp), cw=D.aiCur(W), pt=W.some(w=>w.pt);
+  const P=W.map(w=>({label:w.label,full:w.full,pen:w.pen,wau:w.wau,hc:w.hc,cl:w.cl,pt:w.pt}));
+  return '<div class="mon-bar"><span class="mon-note">Последние '+W.length+' '+U.plural(W.length,['неделя','недели','недель'])+
+      ', по неделям (Пн–Вс)'+(pt?' · текущая неделя ещё идёт — бледнее':'')+'</span></div>'+
+    G.chart('pline',{periods:P,key:'pen'},{title:'Проникновение AI по неделям, %',name:'Проникновение',fmt:'pct',color:G.C_AI,h:210})+
+    G.chart('pline',{periods:P,key:'wau'},{title:'Активные пользователи AI по неделям, чел',name:'Активные пользователи',fmt:'int',color:G.C_AI,h:210})+
+    G.chart('pline',{periods:P,key:'hc'},{title:'Численность по неделям, чел',name:'Численность без стажёров',fmt:'int',h:190})+
+    '<div class="tbl-note">Проникновение — активные пользователи AI за неделю к численности той же недели без стажёров; человек '+
+    'в подразделении считается один раз. Фильтры покраски, IT, штата и типа численности на AI не действуют — численность '+
+    'может немного отличаться от шапки.'+(cw?' Последняя полная неделя — '+esc(cw.full.replace(/^Неделя /,''))+': '+P1(cw.pen)+'.':'')+'</div>';
 }
 /* п. 3: «Кто пользуется?» — стажёры (сколько и сколько из них с AI, инструменты, частота), ниже — инструменты × покраска
    IT / Digital / NonIT. Файл 7, п. 6: конструктор «IT-код × покраска» снят с вкладки (данные — D.aiUsage().cons — остались,
@@ -11490,15 +11534,25 @@ function usage(u){
 }
 
 SC.blocks.ai={
+  /* поставка 106: таблица подразделений — последняя полная неделя (численность без стажёров, активные, проникновение) */
+  cols:[
+    {k:'hc',name:'Численность, чел.',per:'за неделю',tip:'Численность последней полной недели без стажёров — знаменатель проникновения. Фильтры среза на AI не действуют.',
+      val:md=>md.hc,na:'Нет недель AI у подразделения.'},
+    {k:'wau',name:'Активные пользователи',per:'за неделю',tip:'Сколько человек пользовались AI-инструментами в последнюю полную неделю.',
+      val:md=>md.wau,share:true,na:'Нет недель AI у подразделения.'},
+    {k:'pen',name:'Проникновение',per:'за неделю',tip:'Активные пользователи к численности той же недели без стажёров.',
+      val:md=>md.pen,fmt:P1,na:'Нет недель AI у подразделения.'}
+  ],
+  data(lp){return D.aiCur(D.aiWeeks(lp))},
   /* 31.10, «AI.md», п. 2: три раздела — пользуются ли, кто, как */
   subTabs:[['adoption','Пользуются ли AI?'],['who','Кто пользуется?'],['usage','Как пользуется?']],
   defaultSub:'adoption',
   title(sub){return sub==='who'?'Кто пользуется AI':sub==='usage'?'Как пользуются AI: частота, инструменты, сообщения'
     :'Пользуются ли AI: проникновение и активные пользователи'},
   view(ctx){
-    /* файл 7, п. 4: у подразделения нет ни одного месяца статистики AI — понятная заглушка вместо пустых графиков */
-    if(D.REAL&&!D.isStub('ai_wau')&&!D.aiLast(ctx.lp,'ai_wau'))return U.empty('Нет статистики AI-инструментов',
-      'У «'+((D.NODE_BY_PATH[ctx.sel]||{}).name||'')+'» в источнике AI нет данных за последние месяцы. Выберите подразделение выше по дереву '+
+    /* файл 7, п. 4; поставка 106: у подразделения нет ни одной недели статистики AI — понятная заглушка вместо пустых графиков */
+    if(!D.aiWeeks(ctx.lp))return U.empty('Нет статистики AI-инструментов',
+      'У «'+((D.NODE_BY_PATH[ctx.sel]||{}).name||'')+'» в недельной витрине AI нет данных. Выберите подразделение выше по дереву '+
       'или проверьте выгрузку статистики AI.');
     if(ctx.sub==='usage')return usage(D.aiUsage(ctx.lp));
     if(ctx.sub==='who')return who(D.aiUsage(ctx.lp));
@@ -11691,10 +11745,10 @@ function render(S,openRows){
   h+=U.trafficLegend();
 
   /* мини-навигация по блокам: липкая, с точкой худшего сигнала */
-  h+=U.blockNav(D.visibleBlocks(S).map(b=>Object.assign({key:b.key,name:b.name},D.blockSignal(b.key,S))));
+  h+=U.blockNav(D.visibleBlocks(S).filter(b=>D.visibleMetricsOfBlock(b.key,S).length).map(b=>Object.assign({key:b.key,name:b.name},D.blockSignal(b.key,S))));
 
-  /* блоки: пропускаем те, где отключены все метрики */
-  D.visibleBlocks(S).forEach(b=>{
+  /* блоки: пропускаем те, где отключены все метрики (поставка 106: и AI — у него только недельная вкладка) */
+  D.visibleBlocks(S).filter(b=>D.visibleMetricsOfBlock(b.key,S).length).forEach(b=>{
     h+='<div class="block-h" id="op-'+b.key+'"><span class="block-name">'+esc(b.name)+blockDevTag(b.key)+'</span>'+
       '<span class="block-hint">'+esc(b.hint)+'</span>'+
       '<button class="btn ghost" data-tab="'+b.key+'">Подробнее →</button></div>';
@@ -12103,7 +12157,7 @@ function renderHead(){
    которого «Требует действий»; остальные — серые. Тот же источник, что у вывода блока, — точка и вывод не спорят */
 /* 31.10 (поставка 82, «подлагивает»): сигналы всех блоков пересчитывались на каждый клик — шаг главы, вкладку,
    сортировку — до четверти времени клика. Сигнал зависит от среза, не от того, что открыто: кэш по срезу */
-const NAV_UI=new Set(['tab','subTab','tsort','spmSort','aiGran','monGran','exitIni','mixSel','mixRows','mixCols','mixMode',
+const NAV_UI=new Set(['tab','subTab','tsort','spmSort','exitIni','mixSel','mixRows','mixCols','mixMode',
   'mxFull','aiOpen','offCity','offSeg','rostSt','spmSel']);
 let _navKey=null, _navMemo={};
 function navSig(bk){
@@ -12780,13 +12834,6 @@ on(document,'click',e=>{
   /* 27.10-в, п. 8: статус роста — его тепловая таблица на вкладке «Как растут по грейдам?» */
   const rs=t.closest('[data-rostst]');
   if(rs){S.rostSt=rs.dataset.rostst;render(true);return}
-  const gr=t.closest('[data-mongran]');
-  if(gr){S.monGran=gr.dataset.mongran;S.monMark=null;render(true);return}
-  /* 31.10, AI: месяц / неделя у «Пользуются ли AI?» */
-  const ag=t.closest('[data-aigran]');
-  if(ag){S.aiGran=ag.dataset.aigran;render(true);return}
-  const pm=t.closest('[data-pmark]');
-  if(pm){e.stopPropagation();const i=+pm.dataset.pmark;S.monMark=S.monMark===i?null:i;render(true);return}
   const tso=t.closest('[data-tsort]');
   if(tso){S.tsort=tso.dataset.tsort;render(true);return}
   const sps=t.closest('[data-spmsort]');
@@ -12947,8 +12994,8 @@ on(document,'keydown',e=>{
     const ovl=!$('#setupOvl').classList.contains('hidden')||!$('#helpOvl').classList.contains('hidden');
     closeSetup();$('#helpOvl').classList.add('hidden');navOpen(false);pulse(false);
     if(!ovl&&S.mxFull){S.mxFull=false;render(true);return}
-    /* мониторинг: Escape снимает отметку периода и выбор строки таблицы */
-    if(!ovl&&S.tab==='monitor'&&(S.monMark!=null||S.selNode)){S.monMark=null;S.selNode=null;render(true);return}
+    /* мониторинг: Escape снимает выбор строки таблицы */
+    if(!ovl&&S.tab==='monitor'&&S.selNode){S.selNode=null;render(true);return}
     if(!ovl&&S.tab==='office'&&(S.offSeg||S.offCity)){S.offSeg=null;S.offCity=null;render(true);return}
     if(!ovl&&S.spmSel){S.spmSel=null;render(true);return}
     if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true);return}

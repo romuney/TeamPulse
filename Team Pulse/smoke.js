@@ -331,7 +331,7 @@ checks.push(['минус во всех дельтах типографский, 
    «как считается» (calc, методология HR) она упоминается — это не строка отчёта:
    ищем её только как текст элемента, не внутри data-tip. */
 checks.push(['среднесписочной численности нет среди метрик отчёта',
-  !D.METRIC_BY_KEY['hc_avg']&&!/>Среднесписочная/.test(allHtml)&&D.METRICS.length===28&&D.SHOWN.length===25]);
+  !D.METRIC_BY_KEY['hc_avg']&&!/>Среднесписочная/.test(allHtml)&&D.METRICS.length===28&&D.SHOWN.length===23]);
 /* 19.10: определения — по методологии HR из Data Detective: у численности, найма, оттока,
    переводов и текучести есть «как считается» (calc), он виден в «i» и в словаре «Пульс» */
 checks.push(['метрики численности, движения и текучести описаны по методологии HR (calc в «i» и словаре)',
@@ -399,12 +399,19 @@ checks.push(['офис — календарь, «кто и где ходит» (
 /* 28.10, п. 4: все графики AI из «Готовности данных» — вкладка «Как пользуются» (условные) */
 /* 31.10, «AI.md»: три раздела — пользуются ли, кто, как; без сравнения с прошлым годом; месяц / неделя */
 const aiA=A.go('ai','adoption'), aiW=A.go('ai','who'), aiU=A.go('ai','usage');
-/* поставка 103 (файл 9, п. 2): сохранённый выбор недели — по-прежнему по месяцам, без пустого экрана */
-{const st=A.st(), g0=st.aiGran;st.aiGran='w';const h=A.go('ai','adoption');st.aiGran=g0;
-  checks.push(['AI: сохранённая «неделя» не включает недельный расчёт',/Проникновение AI по месяцам/.test(h)&&!/по неделям/.test(h)])}
+/* поставка 106 (решение заказчика 06.11): AI только по неделям — 16 недель Пн–Вс, последняя полная (cl) и текущая неполная
+   (pt, бледнее); проникновение = WAU ÷ численность; таблица подразделений — последняя полная неделя; в навигации вкладка есть,
+   на One-pager AI-строк нет (месячные метрики сняты) */
+{const W=D.aiWeeks(A.st()&&D.reportLeaves(A.st())), cw=D.aiCur(W), op=A.go('onepager');
+  checks.push(['поставка 106: AI по неделям — 16 недель, неполная последняя, проникновение = WAU ÷ численность, таблица по неделе',
+    !!W&&W.length===16&&W[15].pt&&W[14].cl&&cw===W[14]&&W.every(w=>w.hc>0&&Math.abs(w.pen-w.wau*100/w.hc)<0.051)&&
+    /Активные пользователи<span class="th-per">за неделю/.test(aiA)&&aiA.indexOf(String(cw.pen).replace('.',',')+'%')>=0&&
+    !/data-aigran=/.test(aiA)&&!/по месяцам/.test(aiA)&&D.blockVisible('ai',A.st())&&D.metricsOfBlock('ai').length===0&&
+    op.indexOf('id="op-ai"')<0&&op.indexOf('Проникновение AI')<0])}
 checks.push(['AI — «Пользуются ли AI?», «Кто пользуется?», «Как пользуется?», без прошлого года',subsOf('ai')==='adoption,who,usage'&&
   /* поставка 103 (файл 9, п. 2): только по месяцам — переключателя «Неделя» нет, сохранённый выбор недели не действует */
-  !/data-aigran=/.test(aiA)&&/Последние 12 месяцев, по месяцам/.test(aiA)&&/Проникновение AI по месяцам/.test(aiA)&&/Активные пользователи AI по месяцам/.test(aiA)&&
+  /* поставка 106: только недели — без переключателя и без месяцев */
+  /по неделям \(Пн–Вс\)/.test(aiA)&&/Проникновение AI по неделям/.test(aiA)&&/Активные пользователи AI по неделям/.test(aiA)&&/Численность по неделям/.test(aiA)&&
   !new RegExp('data-sid="prev"|>'+D.YEAR_PREV+'<').test(aiA)&&
   /* файл 7, п. 6: конструктор «IT-код × покраска» снят; п. 3: таблицы одним столбцом (bt-stack) */
   ['Стажёры','Какими инструментами пользуются стажёры','Как часто пользуются стажёры','Инструменты по покраске'].every(t=>aiW.indexOf(t)>=0)&&
@@ -1177,7 +1184,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const ytd=k=>D.sumWin(D.aggregate(rl0,k),'ytd');
 
   checks.push(['восемь блоков: AI-инструменты — восьмой, двадцать восемь метрик (21.10: + Non-regrettable), сравнимых шестнадцать',
-    D.BLOCKS.length===8&&D.BLOCKS[7].key==='ai'&&D.metricsOfBlock('ai').length===2&&
+    D.BLOCKS.length===8&&D.BLOCKS[7].key==='ai'&&D.metricsOfBlock('ai').length===0&&
     D.METRICS.length===28&&D.METRICS.filter(m=>D.comparable(m.key)).length===15]);
 
   /* --- производные метрики: формулы --- */
@@ -1594,11 +1601,12 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !/class="bk-wh"|<table/.test(tTop.slice(tTop.indexOf('bk-top'),tTop.indexOf('id="bk-det"')))&&
     !/kpis compact/.test(tTop)&&/class="split[^"]*" id="bk-det"/.test(tTop)&&!/data-blkopen|class="bk-det/.test(tTop)&&
     /* 31.10-б, п. 6: «Рост HQ» — без фильтра покраски */
-    D.BLOCKS.every(b=>{const Sb=b.key==='tgrowth'?Object.assign({},S0,{paint:'all'}):S0,
+    /* поставка 106: у AI вывода блока нет (месячных метрик нет, вывод недель — в главе) */
+    D.BLOCKS.filter(b=>b.key!=='ai').every(b=>{const Sb=b.key==='tgrowth'?Object.assign({},S0,{paint:'all'}):S0,
       sv=I.blockSummary(b.key,Sb,D.reportLeaves(Sb),D.benchmarkLeaves(Sb)).sev;
       return new RegExp('bk-sum '+sv+'"><span class="in-ico"><img[^>]*alt="'+{high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'}[sv]+'"').test(A.top(b.key))})]);
   checks.push(['вывод блока: «всё спокойно» там, где фактов нет; в «Саммари» нет таблиц ни на одной вкладке',
-    D.BLOCKS.every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-pl"><span class="bk-p (high|mid|good)"/.test(h))&&
+    D.BLOCKS.filter(b=>b.key!=='ai').every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-pl"><span class="bk-p (high|mid|good)"/.test(h))&&
       !/class="bk-wh"|<table/.test(h.slice(h.indexOf('bk-top'),h.indexOf('id="bk-det"')))})]);
   /* раскрытая строка: номера пунктов «Что видно» = номерные отметки на полотне */
   const keys=['turnover_y','attrition','turnover_m','hc_total','regret'];

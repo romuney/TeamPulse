@@ -180,10 +180,10 @@ function render(S,openRows){
   h+=U.trafficLegend();
 
   /* мини-навигация по блокам: липкая, с точкой худшего сигнала */
-  h+=U.blockNav(D.visibleBlocks(S).map(b=>Object.assign({key:b.key,name:b.name},D.blockSignal(b.key,S))));
+  h+=U.blockNav(D.visibleBlocks(S).filter(b=>D.visibleMetricsOfBlock(b.key,S).length).map(b=>Object.assign({key:b.key,name:b.name},D.blockSignal(b.key,S))));
 
-  /* блоки: пропускаем те, где отключены все метрики */
-  D.visibleBlocks(S).forEach(b=>{
+  /* блоки: пропускаем те, где отключены все метрики (поставка 106: и AI — у него только недельная вкладка) */
+  D.visibleBlocks(S).filter(b=>D.visibleMetricsOfBlock(b.key,S).length).forEach(b=>{
     h+='<div class="block-h" id="op-'+b.key+'"><span class="block-name">'+esc(b.name)+blockDevTag(b.key)+'</span>'+
       '<span class="block-hint">'+esc(b.hint)+'</span>'+
       '<button class="btn ghost" data-tab="'+b.key+'">Подробнее →</button></div>';
