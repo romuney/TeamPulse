@@ -120,7 +120,7 @@
 {#- логин входит в ключ кэша: Proteus ищет вызов current_username() внутри {{ }} на одной строке -#}
 {% macro me() -%}{{ qs((current_username() or '')|string|trim|lower) }}{%- endmacro %}
 {#- Тип численности строки: act_cd матчером; колонки нет — «∅» (строка проходит любой фильтр типа). -#}
-{% set AC = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^act_cd$') APPLY(toString)], CAST(['∅'], 'Array(Nullable(String))')), 1), '∅')" %}
+{% set AC = "ifNull(toString(act_cd), '∅')" %}
 {% set CUTS = [['paint', 'paint_f', "ifNull(paint_cd, '-')"], ['it', 'it_f', "ifNull(it_cd, '-')"], ['staff', 'staff_f', "ifNull(staff_cd, '-')"], ['act', 'act_f', AC]] %}
 {% set F = {} %}
 {% for c in CUTS %}{% set vals = [] %}{% for v in (filter_values(c[1]) or []) %}{% if v|string != '' and vals|length < 20 %}{% set _ = vals.append(v|string) %}{% endif %}{% endfor %}{% set _ = F.update({c[0]: vals}) %}{% endfor %}
@@ -132,8 +132,8 @@
 {% set act_on = F['act']|length > 0 %}
 {#- Найм: при выборе типов — по методологии HR (hire_cnt), на всей — найм в компанию с любым типом (hco_cnt;
     нет колонки — hire_cnt). Обычные (non-regrettable) увольнения — матчером: нет колонки — ноль. -#}
-{% set NREG = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^nreg_cnt$') APPLY(toFloat64)], [toFloat64(0)]), 1), 0)" %}
-{% set HCO = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^hco_cnt$') APPLY(toFloat64)], [toFloat64(hire_cnt)]), 1), 0)" %}
+{% set NREG = "ifNull(toFloat64(nreg_cnt), 0)" %}
+{% set HCO = "ifNull(toFloat64(hco_cnt), toFloat64(ifNull(hire_cnt, 0)))" %}
 {#- Строка проходит фильтры: значение в выбранном списке без учёта регистра; не выбран — 1. -#}
 {% macro cond() -%}
 {%- set parts = [] -%}
@@ -170,15 +170,17 @@
     in_ok = 0 — кандидат или стажёр: из «в» исключается всегда (как в transfers.yaml); при выборе типов — найм.
     Найм (hit) — по дню события: найм в компанию (вид h) и, при выборе типов, такие переходы. -#}
 {% set FK = {'act': 'fa', 'paint': 'fp', 'it': 'fi', 'staff': 'fs'} %}
-{% set fl = ['ifNull(fu, 0) = 1'] %}{% for c in CUTS %}{% if F[c[0]]|length > 0 %}{% set _ = fl.append('ifNull(' ~ FK[c[0]] ~ ', 0) = 1') %}{% endif %}{% endfor %}
+{#- Поставка 109 (скорость разбора): флаги и вид перехода без ifNull — они стоят только внутри сумм, а NULL в сумме
+    не считается, как и 0 (под NOT эти выражения не стоят; FU и in_ok — с ifNull: там NULL значил бы другое) -#}
+{% set fl = ['fu = 1'] %}{% for c in CUTS %}{% if F[c[0]]|length > 0 %}{% set _ = fl.append(FK[c[0]] ~ ' = 1') %}{% endif %}{% endfor %}
 {% set FLG = '(' ~ fl|join(' OR ') ~ ')' %}
 {#- Поставка 105 (06.11, владелец): перевод замкнутого водопада (teampulse_hub_flow) — вход в периметр отчёта или выход из
     него: периметр — узел + выбранные фильтры. Засчитан, если человек пришёл в узел извне или ушёл из него (chg_unit),
     или другая сторона перехода (oth_*: у «в» — откуда, у «из» — куда) вне выбранных фильтров: Support → HQ при фильтре
     HQ — перевод, при HQ + Support или без фильтра покраски — нет. У строк специализаций смена специализации (chg_sp) —
     всегда перевод. Колонок нет (ноутбук до правки 06.11) — перевод засчитан всегда. -#}
-{% macro fchg(c, d) -%}arrayElement(arrayConcat(CAST([], 'Array(Float64)'), [COLUMNS('^{{ c }}$') APPLY(toFloat64)], [toFloat64({{ d }})]), 1){%- endmacro %}
-{% macro foth(c) -%}lowerUTF8(arrayElement(arrayConcat(CAST([], 'Array(String)'), [COLUMNS('^{{ c }}$') APPLY(toString)], ['']), 1)){%- endmacro %}
+{% macro fchg(c, d) -%}ifNull(toFloat64({{ c }}), toFloat64({{ d }})){%- endmacro %}
+{% macro foth(c) -%}lowerUTF8(ifNull(toString({{ c }}), '')){%- endmacro %}
 {% set FO = {'act': 'oth_act_cd', 'paint': 'oth_paint_cd', 'it': 'oth_it_cd', 'staff': 'oth_staff_cd'} %}
 {% set fo = [] %}{% for c in CUTS %}{% if F[c[0]]|length > 0 %}{% set _ = fo.append(foth(FO[c[0]]) ~ ' IN ' ~ ql(F[c[0]])) %}{% endif %}{% endfor %}
 {% set OTHIN = '(' ~ (fo|join(' AND ') if fo else '1') ~ ')' %}
@@ -186,34 +188,34 @@
 {% set FLWS = '(' ~ fchg('chg_unit', 1) ~ ' = 1 OR ' ~ fchg('chg_sp', 0) ~ ' = 1 OR NOT ' ~ OTHIN ~ ')' %}
 {% set FTI = "toFloat64(ifNull(tin_cnt, 0)) * toFloat64(" ~ FLW ~ ")" %}
 {% set FTU = "toFloat64(ifNull(tout_cnt, 0)) * toFloat64(" ~ FLW ~ ")" %}
-{% set TI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 1)" %}
-{% set HI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'h'" ~ (" OR (ifNull(trf_kind, '') = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 0)" if act_on else "") ~ ")" %}
-{% set TU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND " ~ FLG ~ ")" %}
+{% set TI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 1)" %}
+{% set HI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'" ~ (" OR (trf_kind = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 0)" if act_on else "") ~ ")" %}
+{% set TU = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND " ~ FLG ~ ")" %}
 {#- Поставка 65: вид перехода в найм (cv_k: c — из учебной группы в боевую, s — стажёр в штат) — матчером. Найм по
     видам — те же переходы, что во второй части HI (только при выбранных типах численности). -#}
-{% set CVK = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^cv_k$') APPLY(toString)], CAST([''], 'Array(Nullable(String))')), 1), '')" %}
+{% set CVK = "ifNull(toString(cv_k), '')" %}
 {#- 28.10: специализация строки переходов (sp_cd) — матчером; нет колонки — пусто, строки отбрасываются. -#}
-{% set SPC = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^sp_cd$') APPLY(toString)], CAST([''], 'Array(Nullable(String))')), 1), '')" %}
+{% set SPC = "ifNull(toString(sp_cd), '')" %}
 {#- 31.10, п. 10; поставка 90 (заказчик): переводы по специализациям — по флагам переводов под фильтры (TI / TU: вход в
     выбор и выход из него) ИЛИ по флагу смены специализации transfer_to / transfer_out_specialization_flg (fsp строки
     переходов, матчером) — смена специализации и внутри выбора тоже перевод; строка одна — перевод один. Тогда «на начало +
     найм + переводы в − отток − переводы из = на конец» сходится по каждой специализации и в ИТОГО. Таблица ноутбука до
     31.10 колонки fsp не знает (−1) — только переводы юнита. -#}
-{% set FSP = "ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^fsp$') APPLY(toFloat64)], [toFloat64(-1)]), 1), -1)" %}
+{% set FSP = "ifNull(toFloat64(fsp), -1)" %}
 {#- 03.11, поставка 103 (файл 9, п. 9): переводы по специализациям — только флаг юнита своего уровня (fu узла:
     lvlN_mngt_unit_in / out_trsf_flg этого уровня; у «напрямую» — любой флаг юнита строки). Перемещение между
     подразделениями внутри узла переводом узла не считается. Смена специализации или среза без смены юнита этого
     уровня (fsp, флаги фильтров) — отдельно: ci / co («внутри юнита»), чтобы строка специализации сходилась:
     на начало + найм + в − отток − из + (ci − co) = на конец. -#}
 {% set FU = "ifNull(fu, 0) = 1" %}
-{% set SI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND " ~ FU ~ " AND ifNull(in_ok, 1) = 1)" %}
-{% set SU = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND " ~ FU ~ ")" %}
-{% set CI = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND NOT (" ~ FU ~ " AND ifNull(in_ok, 1) = 1) AND ((" ~ FLG ~ " AND ifNull(in_ok, 1) = 1) OR " ~ FSP ~ " = 1))" %}
-{% set CO = "toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'o' AND NOT (" ~ FU ~ ") AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1))" %}
+{% set SI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND " ~ FU ~ " AND ifNull(in_ok, 1) = 1)" %}
+{% set SU = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND " ~ FU ~ ")" %}
+{% set CI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (" ~ FU ~ " AND ifNull(in_ok, 1) = 1) AND ((" ~ FLG ~ " AND ifNull(in_ok, 1) = 1) OR " ~ FSP ~ " = 1))" %}
+{% set CO = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (" ~ FU ~ ") AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1))" %}
 {#- Поставка 66: ряд таблицы series — матчером: таблица ноутбука до 66 колонки не знает — нули. -#}
-{% macro optf(c) -%}ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^{{ c }}$') APPLY(toFloat64)], [toFloat64(0)]), 1), 0){%- endmacro %}
+{% macro optf(c) -%}ifNull(toFloat64({{ c }}), 0){%- endmacro %}
 {% macro hk(v) -%}
-{%- if act_on -%}toFloat64(ifNull(trf_cnt, 0)) * toFloat64(ifNull(trf_kind, '') = 'i' AND {{ FLG }} AND ifNull(in_ok, 1) = 0 AND {{ CVK }} = '{{ v }}'){%- else -%}toFloat64(0){%- endif -%}
+{%- if act_on -%}toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND {{ FLG }} AND ifNull(in_ok, 1) = 0 AND {{ CVK }} = '{{ v }}'){%- else -%}toFloat64(0){%- endif -%}
 {%- endmacro %}
 {#- Метрики: ключ, таблица (s — series, t — trf, d — trf «напрямую», v — vacancy, a — ai, g/h — series-срезы,
     w — flow: замкнутый водопад поставки 105: узел × месяц × срез, строки юнитов teampulse_hub_flow sp = '-';
@@ -223,18 +225,21 @@
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
     значения фильтров, и «]» в значении sqlparse принял бы за конец имени [..]. -#}
-{% macro vec(src) -%}
+{#- keep — только эти ключи таблицы (остальные — нули): поставка 109, строка hq светофора берёт hc act avg hire fire reg nreg.
+    Поставка 109 (скорость разбора в Proteus: reindent sqlparse платит за каждую скобку): сумма — sum(toFloat64(x)) без
+    ifNull у каждой метрики, NULL суммы (все строки группы NULL) — в 0 одним arrayMap на отрезок; итог тот же -#}
+{% macro vec(src, keep=None) -%}
 {%- set parts = [] -%}{%- set run = {'z': 0, 's': []} -%}
 {%- for m in M -%}
-{%- if m[1] == src -%}
+{%- if m[1] == src and (keep is none or m[0] in keep) -%}
 {%- if run.z -%}{%- set _ = parts.append('arrayWithConstant(' ~ run.z ~ ', toFloat64(0))') -%}{%- set _ = run.update({'z': 0}) -%}{%- endif -%}
-{%- set _ = run.s.append('sum(toFloat64(ifNull(' ~ m[2] ~ ', 0)))') -%}
+{%- set _ = run.s.append('sum(toFloat64(' ~ m[2] ~ '))') -%}
 {%- else -%}
-{%- if run.s -%}{%- set _ = parts.append('array(' ~ run.s|join(', ') ~ ')') -%}{%- set _ = run.update({'s': []}) -%}{%- endif -%}
+{%- if run.s -%}{%- set _ = parts.append('arrayMap(x -> ifNull(x, 0), array(' ~ run.s|join(', ') ~ '))') -%}{%- set _ = run.update({'s': []}) -%}{%- endif -%}
 {%- set _ = run.update({'z': run.z + 1}) -%}
 {%- endif -%}
 {%- endfor -%}
-{%- if run.s -%}{%- set _ = parts.append('array(' ~ run.s|join(', ') ~ ')') -%}{%- endif -%}
+{%- if run.s -%}{%- set _ = parts.append('arrayMap(x -> ifNull(x, 0), array(' ~ run.s|join(', ') ~ '))') -%}{%- endif -%}
 {%- if run.z -%}{%- set _ = parts.append('arrayWithConstant(' ~ run.z ~ ', toFloat64(0))') -%}{%- endif -%}
 arrayConcat({{ parts|join(', ') }})
 {%- endmacro %}
@@ -288,12 +293,12 @@ WITH
       (
         SELECT toDate(assumeNotNull(last_month)) AS lm, toDate(assumeNotNull(grid_start)) AS m0,
                toUInt32(ifNull(n_months, 0)) AS n, ifNull(root_rk, '') AS r, ifNull(def_rk, '') AS d,
-               ifNull(arrayElement(arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^data_dt$') APPLY(toString)], CAST([''], 'Array(Nullable(String))')), 1), '') AS dd
+               ifNull(toString(data_dt), '') AS dd
         FROM prod_proteus.teampulse_hub_meta
         LIMIT 1
       ) AS mt
       CROSS JOIN (SELECT groupArray((ifNull(unit_rk, ''), ifNull(parent_rk, ''), ifNull(path_rk, ''),
-                                     lowerUTF8(trimBoth(arrayStringConcat(arrayMap(x -> ifNull(x, ''), arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^head_login$')]))))))) AS al
+                                     lowerUTF8(trimBoth(ifNull(toString(head_login), ''))))) AS al
                   FROM prod_proteus.teampulse_hub_unit) AS ua
       CROSS JOIN (SELECT has({{ qa(FULL) }}, {{ me() }}) AS fl) AS fa
     )
@@ -311,8 +316,8 @@ WITH
   st2 AS (
     SELECT ifNull(unit_rk, '') AS id, ifNull(parent_rk, '') AS pid, toInt32(ifNull(unit_lvl, 0)) AS lv,
            ifNull(unit_nm, '') AS nm0, toUInt32(ifNull(kids_cnt, 0)) AS kd, splitByChar('|', ifNull(path_rk, '')) AS ph,
-           arrayStringConcat(arrayMap(x -> ifNull(x, ''), arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^head_login$')]))) AS hd,
-           replaceAll(replaceAll(arrayStringConcat(arrayMap(x -> ifNull(x, ''), arrayConcat(CAST([], 'Array(Nullable(String))'), [COLUMNS('^head_nm$')]))), char(9), ' '), char(10), ' ') AS hn
+           ifNull(toString(head_login), '') AS hd,
+           replaceAll(replaceAll(ifNull(toString(head_nm), ''), char(9), ' '), char(10), ' ') AS hn
     FROM prod_proteus.teampulse_hub_unit
   ),
   {#- Численность последнего месяца по значениям фильтров (ряды узла — уже вся ветка); fv — порядок значений,
@@ -339,6 +344,27 @@ WITH
     FROM fdb
     GROUP BY u7
   ),
+  {#- Поставка 109 (скорость разбора в Proteus): JSON строки meta — здесь, а не в последнем SELECT. reindent sqlparse для
+      каждой скобки заново проходит текст от начала запроса: скобки в конце текста — самые дорогие #}
+  mj AS (
+    SELECT concat('{"lm":"', toString((SELECT lm FROM cx)), '","m0":"', toString((SELECT m0 FROM cx)),
+             '","n":', toString((SELECT n FROM cx)), ',"today":"', toString(today()),
+             '","root":"', (SELECT r FROM cx), '","scope":"', (SELECT s FROM cx),
+             '","def":"', (SELECT d FROM cx), '","ok":', toString(toUInt8((SELECT ok FROM cx))),
+             ',"full":', toString(toUInt8((SELECT fl FROM cx))), ',"zone":', toJSONString((SELECT zr FROM cx)),
+             ',"dt":"', (SELECT dd FROM cx), '","schema":"hub-2","cuts":["paint","it","staff"', if(has(tupleElement({{ FV }}, 4), '∅'), '', ',"act"'), ']',
+             ',"mk":"{% for m in M %}{{ m[0] }}{% if not loop.last %},{% endif %}{% endfor %}"',
+             ',"req":', toJSONString({{ qa(unit_req) }}),
+             ',"paint":', toJSONString({{ qa(F['paint']) }}),
+             ',"it":', toJSONString({{ qa(F['it']) }}),
+             ',"staff":', toJSONString({{ qa(F['staff']) }}),
+             ',"act":', toJSONString({{ qa(F['act']) }}),
+             ',"act_def":', toJSONString({{ qa(ACT_DEF) }}),
+             ',"vals":', {{ VALS }},
+             ',"fdv":{"paint":', toJSONString(tupleElement({{ FV }}, 1)), ',"it":', toJSONString(tupleElement({{ FV }}, 2)),
+             ',"staff":', toJSONString(tupleElement({{ FV }}, 3)),
+             ',"act":', toJSONString(if(has(tupleElement({{ FV }}, 4), '∅'), CAST([], 'Array(String)'), tupleElement({{ FV }}, 4))), '}}') AS mj0
+  ),
   {#- Метрики узлов ответа под фильтрами: узел × месяц × массив метрик (по строке от каждой таблицы); нулевые
       строки — все месяцы каждого узла: ряд узла без людей и месяцы без строк — нули #}
   mm AS (
@@ -347,35 +373,35 @@ WITH
     (
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('s') }} AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond() }}
+      WHERE node_rk IN {{ PK }} AND {{ GRID }} AND {{ cond() }}
       GROUP BY u2, i2
       UNION ALL
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('t') }} AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond() }}
+      WHERE node_rk IN {{ PK }} AND {{ GRID }} AND {{ cond() }}
       GROUP BY u2, i2
       UNION ALL
       {#- поставка 64: din / dout — переводы «напрямую в юните» (узел юнит:d ноутбука) в строку юнита #}
       SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, {{ IDX }} AS i2, {{ vec('d') }} AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE ifNull(node_rk, '') IN {{ PKD }} AND {{ GRID }} AND {{ cond() }}
+      WHERE node_rk IN {{ PKD }} AND {{ GRID }} AND {{ cond() }}
       GROUP BY u2, i2
       UNION ALL
       {#- 31.10-б, п. 6; файл 6, п. 4: одобренные и отклонённые заявки «Роста» по численности HQ — у каждого узла ответа #}
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('g') }} AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond_rh() }}
+      WHERE node_rk IN {{ PK }} AND {{ GRID }} AND {{ cond_rh() }}
       GROUP BY u2, i2
       UNION ALL
       {#- поставка 69: нежелательные, желательные и ССЧ по активной численности HQ — у каждого узла ответа #}
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('h') }} AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond_hq() }}
+      WHERE node_rk IN {{ PK }} AND {{ GRID }} AND {{ cond_hq() }}
       GROUP BY u2, i2
       UNION ALL
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('v') }} AS a2
       FROM prod_proteus.teampulse_hub_vacancy
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }}
+      WHERE node_rk IN {{ PK }} AND {{ GRID }}
       GROUP BY u2, i2
       UNION ALL
       {#- поставка 105: замкнутый водопад юнита — строки юнитов teampulse_hub_flow (sp = '-'):
@@ -385,7 +411,7 @@ WITH
           с SELECT (ALLSELECT) #}
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('w') }} AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond() }} AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN {{ PK }} AND {{ GRID }} AND {{ cond() }} AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(pks), 1) AS u2, toInt32(arrayJoin(range(n))) AS i2, arrayWithConstant({{ M|length }}, toFloat64(0)) AS a2
@@ -409,9 +435,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT {{ IDX }} AS i6, {{ vec('s') }} AS a6
+      SELECT {{ IDX }} AS i6, {{ vec('s', ['hc', 'act', 'avg', 'hire', 'fire', 'reg', 'nreg']) }} AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE ifNull(node_rk, '') = (SELECT s FROM cx) AND {{ GRID }} AND {{ cond_hq() }}
+      WHERE node_rk = (SELECT s FROM cx) AND {{ GRID }} AND {{ cond_hq() }}
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(n))) AS i6, arrayWithConstant({{ M|length }}, toFloat64(0)) AS a6
@@ -448,14 +474,17 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       {#- 31.10-б, п. 6; файл 6, п. 4: разрезы «Роста» (rm rq rs) — по численности HQ (cond_rh), остальные — под все фильтры #}
-      WHERE ifNull(node_rk, '') IN {{ PK }}
+      WHERE node_rk IN {{ PK }}
         AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND {{ cond() }} OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND {{ cond_rh() }})
         {#- поставка 66: календарь посещений по дням, 26.10-б: увольнения по инициатору и месяцу — только у выбранного юнита #}
         {#- поставка 71: T-рост (rm, rq, rs) был только у выбранного юнита; файл 6, п. 3 и 6 — у каждого узла: выбор строки
             таблицы подразделений фильтрует все блоки вкладки «Рост HQ». Поставка 100 (ревью): так же уходы по инициатору (xim),
             движение по специализациям (tsh tsi tso sp0 sp1); только у юнита — календарь (dw do) и возраст по разрезам (es en:
             ~2,5 КБ на узел; у подразделения средний возраст точный по e, срезы — оценкой от юнита) #}
-        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR ifNull(node_rk, '') = (SELECT s FROM cx))
+        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = (SELECT s FROM cx))
+        {#- поставка 109 (скорость): помесячные уходы по специализации xsm заменены замкнутым водопадом fsm (поставка 105) —
+            в ответ не идут #}
+        AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL
@@ -471,26 +500,25 @@ WITH
                  ('vp', ifNull(specialization, ''), vo), ('vl', ifNull(position_lvl, ''), vo), ('vk', ifNull(channel, ''), vc),
                  ('vq', ifNull(cand_lvl, ''), vc)]) AS kvs
         FROM prod_proteus.teampulse_hub_vacancy
-        WHERE ifNull(node_rk, '') IN {{ PK }} AND report_month >= toStartOfYear((SELECT lm FROM cx))
+        WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear((SELECT lm FROM cx))
       )
       ARRAY JOIN kvs AS kv
       GROUP BY u3, k3, v3
       UNION ALL
       {#- 28.10, п. 1: найм, переводы в и из с начала года по специализации; поставка 106 (владелец): с 1 января по дату
           данных, вместе с незакрытым месяцем (было январь..cm); поставка 100 (ревью) — у каждого узла ответа #}
-      SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
+      SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, {{ SPC }} AS spx, formatDateTime(report_month, '%Y-%m') AS mo, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu,
+        SELECT node_rk, {{ SPC }} AS spx, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu,
                {{ CI }} AS ci, {{ CO }} AS co
         FROM prod_proteus.teampulse_hub_trf
-        WHERE ifNull(node_rk, '') IN {{ PK }} AND report_month >= toStartOfYear((SELECT lm FROM cx)) AND {{ cond() }}
+        WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear((SELECT lm FROM cx)) AND {{ cond() }}
       )
-      ARRAY JOIN [('tsh', spx, th), ('tsi', spx, ti), ('tso', spx, tu), ('tci', spx, ci), ('tco', spx, co),
-                  {#- поставка 101 (файл 7, п. 2): то же по месяцам — «вид|специализация|ГГГГ-ММ» (h найм, i в, o из):
-                      помесячная детализация строки «Движения по специализациям»; в сумме — tsh / tsi / tso #}
-                  ('tsm', concat('h|', spx, '|', mo), th), ('tsm', concat('i|', spx, '|', mo), ti), ('tsm', concat('o|', spx, '|', mo), tu),
-                  ('tsm', concat('ci|', spx, '|', mo), ci), ('tsm', concat('co|', spx, '|', mo), co)] AS kv
+      {#- поставка 101: здесь же шла помесячная детализация tsm («вид|специализация|ГГГГ-ММ»); поставка 109 (скорость) — снята:
+          её заменил замкнутый водопад fsm (поставка 105), чарт tsm не читает #}
+      {#- поставка 109 (скорость разбора): ключ и число — arrayZip двух массивов, а не пять кортежей со скобками #}
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -500,20 +528,24 @@ WITH
           e = b + h − f + i − o по построению (принадлежность — последняя строка человека в месяце; перевод —
           любое изменение строки: смена специализации, юнита, типа численности). «Внутри юнита» отдельно нет:
           перемещение внутри узла — «o» для старой строки и «i» для новой. Заменяет tsm/ci/co в отчёте;
-          tsi/tso/tsh (переводы по флагам, сверенные с мастер-эталонами) остаются для вкладки «Переводы». #}
-      SELECT ifNull(node_rk, '') AS u3, 'fsm' AS k3, kv.1 AS v3, sum(kv.2) AS n4
+          tsi/tso/tsh (переводы по флагам, сверенные с мастер-эталонами) остаются для вкладки «Переводы».
+          Поставка 109 (скорость): чарт берёт fsm только с января года последнего месяца по последний месяц — начало (b)
+          января, конец (e) последнего месяца, события h f i o помесячно; остальная сетка не отдаётся (было ~56% ответа) #}
+      SELECT ifNull(node_rk, '') AS u3, 'fsm' AS k3, concat(kv.1, spx, '|', mo) AS v3, sum(kv.2) AS n4
       FROM
       (
+        {#- поставка 109 (скорость разбора): числа без ifNull — NULL в сумме не считается, как и 0 #}
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y-%m') AS mo,
-               toFloat64(ifNull(beg_cnt, 0)) AS vb, toFloat64(ifNull(hire_cnt, 0)) AS vh,
-               toFloat64(ifNull(fire_cnt, 0)) AS vf, toFloat64(ifNull(tin_cnt, 0)) * toFloat64({{ FLWS }}) AS vi,
-               toFloat64(ifNull(tout_cnt, 0)) * toFloat64({{ FLWS }}) AS vo, toFloat64(ifNull(fin_cnt, 0)) AS ve
+               toFloat64(beg_cnt) * (report_month = toStartOfYear((SELECT lm FROM cx))) AS vb,
+               toFloat64(hire_cnt) AS vh,
+               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64({{ FLWS }}) AS vi,
+               toFloat64(tout_cnt) * toFloat64({{ FLWS }}) AS vo,
+               toFloat64(fin_cnt) * (report_month = (SELECT lm FROM cx)) AS ve
         FROM prod_proteus.teampulse_hub_flow
-        WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }} AND {{ cond() }} AND ifNull(sp_cd, '-') <> '-'
+        WHERE node_rk IN {{ PK }} AND {{ GRID }} AND report_month >= toStartOfYear((SELECT lm FROM cx))
+          AND {{ cond() }} AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN [(concat('b|', spx, '|', mo), vb), (concat('h|', spx, '|', mo), vh),
-                  (concat('f|', spx, '|', mo), vf), (concat('i|', spx, '|', mo), vi),
-                  (concat('o|', spx, '|', mo), vo), (concat('e|', spx, '|', mo), ve)] AS kv
+      ARRAY JOIN arrayZip(['b|', 'h|', 'f|', 'i|', 'o|', 'e|'], [vb, vh, vf, vi, vo, ve]) AS kv
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL
@@ -528,7 +560,7 @@ WITH
                [sum(toFloat64(ifNull(ai_wau, 0))), sum(toFloat64(ifNull(ai_heads, 0))),
                 sum(toFloat64(ifNull(ai_wau, 0))) * 100.0 / nullIf(sum(toFloat64(ifNull(ai_heads, 0))), 0)] AS a8
         FROM prod_proteus.teampulse_hub_aiw
-        WHERE ifNull(node_rk, '') IN {{ PK }}
+        WHERE node_rk IN {{ PK }}
           AND week >= (SELECT addDays(max(week), -105) FROM prod_proteus.teampulse_hub_aiw)
         GROUP BY u8, w8
       )
@@ -539,7 +571,7 @@ WITH
           aun, сообщения aum auc auk, неделя aik) — у каждого узла ответа, без cond: срезы на AI не действуют #}
       SELECT ifNull(node_rk, '') AS u3, ifNull(k, '') AS k3, ifNull(v, '') AS v3, toFloat64(ifNull(n, 0)) AS n4
       FROM prod_proteus.teampulse_hub_aix
-      WHERE ifNull(node_rk, '') IN {{ PK }} AND ifNull(n, 0) > 0
+      WHERE node_rk IN {{ PK }} AND ifNull(n, 0) > 0
       UNION ALL
       {#- поставка 103 (файл 9, п. 4): срок закрытия — медиана по вакансиям. vt — распределение сроков закрытых вакансий
           «ГГГГ-ММ|дней» → вакансий за всю сетку, у каждого узла ответа (ttf_d — срок вакансии без холда, ноутбук 2_11;
@@ -548,11 +580,10 @@ WITH
       FROM
       (
         SELECT ifNull(node_rk, '') AS u9, toDate(assumeNotNull(report_month)) AS rm9,
-               arrayElement(arrayConcat(CAST([], 'Array(Nullable(Float64))'), [COLUMNS('^ttf_d$') APPLY(toFloat64)],
-                                        CAST([NULL], 'Array(Nullable(Float64))')), 1) AS td9,
+               CAST(ttf_d, 'Nullable(Float64)') AS td9,
                toFloat64(ifNull(vac_ttf_cnt, 0)) AS n9
         FROM prod_proteus.teampulse_hub_vacancy
-        WHERE ifNull(node_rk, '') IN {{ PK }} AND {{ GRID }}
+        WHERE node_rk IN {{ PK }} AND {{ GRID }}
       )
       WHERE td9 IS NOT NULL
       GROUP BY u3, v3
@@ -571,23 +602,7 @@ SELECT *
 FROM
 (
   SELECT toUInt8(0) AS o, 'meta' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids,
-         concat('{"lm":"', toString((SELECT lm FROM cx)), '","m0":"', toString((SELECT m0 FROM cx)),
-                '","n":', toString((SELECT n FROM cx)), ',"today":"', toString(today()),
-                '","root":"', (SELECT r FROM cx), '","scope":"', (SELECT s FROM cx),
-                '","def":"', (SELECT d FROM cx), '","ok":', toString(toUInt8((SELECT ok FROM cx))),
-                ',"full":', toString(toUInt8((SELECT fl FROM cx))), ',"zone":', toJSONString((SELECT zr FROM cx)),
-                ',"dt":"', (SELECT dd FROM cx), '","schema":"hub-2","cuts":["paint","it","staff"', if(has(tupleElement({{ FV }}, 4), '∅'), '', ',"act"'), ']',
-                ',"mk":"{% for m in M %}{{ m[0] }}{% if not loop.last %},{% endif %}{% endfor %}"',
-                ',"req":', toJSONString({{ qa(unit_req) }}),
-                ',"paint":', toJSONString({{ qa(F['paint']) }}),
-                ',"it":', toJSONString({{ qa(F['it']) }}),
-                ',"staff":', toJSONString({{ qa(F['staff']) }}),
-                ',"act":', toJSONString({{ qa(F['act']) }}),
-                ',"act_def":', toJSONString({{ qa(ACT_DEF) }}),
-                ',"vals":', {{ VALS }},
-                ',"fdv":{"paint":', toJSONString(tupleElement({{ FV }}, 1)), ',"it":', toJSONString(tupleElement({{ FV }}, 2)),
-                ',"staff":', toJSONString(tupleElement({{ FV }}, 3)),
-                ',"act":', toJSONString(if(has(tupleElement({{ FV }}, 4), '∅'), CAST([], 'Array(String)'), tupleElement({{ FV }}, 4))), '}}') AS j,
+         (SELECT mj0 FROM mj) AS j,
          '' AS ms, '' AS mx
 
   UNION ALL

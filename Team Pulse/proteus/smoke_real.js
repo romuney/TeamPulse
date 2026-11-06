@@ -587,7 +587,7 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
   ok(!bad.length,'водопад сходится у всех '+rows.length+' строк'+(bad.length?' — '+bad.slice(0,6).join('; '):''));
 }
 /* поставка 101 (файл 7, п. 2): помесячная детализация специализаций — сумма месяцев = строка таблицы (у юнита и подразделений) */
-if(R.scopeMix('tsm')){
+if(R.scopeMix('tsm')||R.scopeMix('fsm')){
   const st=A.st(), nodes=[st.unit].concat(D.NODES.filter(n=>n.parent===st.unit&&!n.direct&&!n.hide).map(n=>n.path)), bad=[];let n=0;
   nodes.forEach(p=>{const lp=D.leavesUnder(p).map(l=>l.path);D.specMovement(lp).forEach(z=>{const ms=D.specMonths(lp,z.name);n++;
     ['hire','tin','exit','tout'].concat(D.SPM_CHG?['chg']:[]).forEach(k=>{const v=ms.reduce((a,o)=>a+o[k],0);if(Math.abs(v-z[k])>0.5)bad.push(z.name+' '+k+' '+v+'≠'+z[k])})})});

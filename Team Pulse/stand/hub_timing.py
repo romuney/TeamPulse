@@ -33,7 +33,7 @@ TEAM = '__TP_TEAM__'
 # команда — внутри запроса: узел 7-го уровня с наибольшим числом подразделений (в бою 1 846 узлов 7-го уровня)
 TEAM_SQL = ("(SELECT argMax(ifNull(unit_rk, ''), toUInt32(ifNull(kids_cnt, 0))) FROM prod_proteus.teampulse_hub_unit "
             "WHERE unit_lvl = 7)")
-FACTS = ['series', 'mix', 'trf', 'vacancy', 'ai']
+FACTS = ['series', 'mix', 'trf', 'vacancy', 'flow', 'aiw', 'aix', 'prof']   # поставка 109: таблицы датасета сейчас
 PROD = 'allow_experimental_analyzer = 1, prefer_column_name_to_alias = 1'
 SETTINGS = ['allow_experimental_analyzer', 'max_threads', 'max_execution_time', 'max_memory_usage', 'max_memory_usage_for_user',
             'max_bytes_before_external_group_by', 'max_concurrent_queries_for_user', 'max_result_bytes', 'use_uncompressed_cache',

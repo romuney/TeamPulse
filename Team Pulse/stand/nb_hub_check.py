@@ -253,6 +253,8 @@ def main():
                     # поставка 101 (файл 7, п. 2): помесячная детализация специализаций — по месяцам в сумме то же, что за период
                     for km, kk, pre in (('tsm', 'tsh', 'h|'), ('tsm', 'tsi', 'i|'), ('tsm', 'tso', 'o|'), ('tsm', 'tci', 'ci|'),
                                         ('tsm', 'tco', 'co|'), ('xsm', 'xsp', '')):
+                        if km not in mxv:          # поставка 109: tsm / xsm в ответ не идут (их заменил fsm)
+                            continue
                         agg = defaultdict(float)
                         for v, n in mxv.get(km, {}).items():
                             if v.startswith(pre):
