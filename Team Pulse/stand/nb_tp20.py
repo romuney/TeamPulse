@@ -437,7 +437,35 @@ def ai_weeks():
         w += dt.timedelta(7)
 
 
-def ai_week_rows(U, people):
+AI_TOOLS = ['Корпоративный ассистент', 'Copilot', 'Nestor IDE', 'Nessy CLI', 'AI-поиск по базе знаний']
+AI_TASKS = ['Написание кода', 'Поиск ошибок', 'Тесты', 'Ревью кода', 'Документация']
+
+
+def ai_extra(p, w, u):
+    """поставка 106: поля человека-недели как у источника — инструменты, дни, задачи и сообщения (детерминированно)"""
+    h = (p['rk'] * 7919 + w.toordinal() * 31) % 100003
+    if not u:
+        return [], 0, [], [], 0, 0
+    nt = 1 + h % 4
+    tools = [AI_TOOLS[(h // 7 + k * 2) % len(AI_TOOLS)] for k in range(nt)]
+    tools = sorted(set(tools), key=AI_TOOLS.index)
+    days = 1 + (h // 11) % 5
+    dev = [t for t in tools if t in ('Copilot', 'Nestor IDE', 'Nessy CLI')]
+    msgs = (h // 13) % 40 + 5 if dev else 0
+    tasks, tm = [], []
+    if msgs:
+        k = 1 + (h // 17) % 3
+        tasks = [AI_TASKS[(h // 19 + j) % len(AI_TASKS)] for j in range(k)]
+        part = msgs * 3 // 4
+        tm = [part // k + (part % k if j == 0 else 0) for j in range(k)]
+    return tools, days, tasks, tm, sum(tm), msgs
+
+
+def pg_arr(a):
+    return '{' + ','.join('"' + str(x).replace('"', '') + '"' for x in a) + '}'
+
+
+def ai_week_rows(U, people, full=False):
     alive = lambda p, d: p['start'] <= d and (p['end'] is None or d < p['end'])
     for w in ai_weeks():
         for p in people:
@@ -446,8 +474,58 @@ def ai_week_rows(U, people):
             pth = path(U, at(p['unit'], w))
             it = int(at(p['acth'], w) == 'Стажеры')
             u = int(ai_week_user(p, w))
+            ex = (attr(p, 'oper', w),) + ai_extra(p, w, u) if full else ()
             for i, n in enumerate(pth):
-                yield (w, p['rk'], n, pth[i + 1] if i + 1 < len(pth) else n, it, u)
+                yield (w, p['rk'], n, pth[i + 1] if i + 1 < len(pth) else n, it, u) + ex
+
+
+def ai_week_src(U, people):
+    """строки таблицы источника: массивы — литералом text[] PG"""
+    for r in ai_week_rows(U, people, True):
+        paint, tools, days, tasks, tm, cls, msgs = r[6:]
+        yield r[:6] + (paint, pg_arr(tools), len(tools), days, pg_arr(tasks), pg_arr(tm), cls, msgs)
+
+
+def ai_closed_week():
+    """последняя полная неделя: понедельник + 6 <= дата данных (D1), иначе неделя перед последней"""
+    lw = list(ai_weeks())[-1]
+    return lw if lw + dt.timedelta(6) <= D1 else lw - dt.timedelta(7)
+
+
+def truth_aix(U, people):
+    """поставка 106: «Кто» и «Как пользуется» за последнюю полную неделю — узел → {(ключ, значение): n}"""
+    cw = ai_closed_week()
+    P = defaultdict(dict)
+    for r in ai_week_rows(U, people, True):
+        if r[0] != cw:
+            continue
+        P[r[2]][r[1]] = (r[4], r[5]) + r[6:]
+    out = {}
+    for n, ppl in P.items():
+        T = defaultdict(float)
+        T[('aik', str(cw))] = 1
+        for e, (it, u, paint, tools, days, tasks, tm, cls, msgs) in ppl.items():
+            if it:
+                T[('aih', '')] += 1
+                if u:
+                    T[('aiu', '')] += 1
+                    T[('aif', str(days))] += 1
+                for t in tools:
+                    T[('ait', t)] += 1
+            else:
+                T[('aph', paint)] += 1
+                for t in tools:
+                    T[('apt', paint + '|' + t)] += 1
+                    T[('aut', t)] += 1
+                if u:
+                    T[('auf', str(days))] += 1
+                    T[('aun', str(min(len(tools), 4)))] += 1
+                T[('aum', '')] += msgs
+                T[('auc', '')] += cls
+                for k, m in zip(tasks, tm):
+                    T[('auk', k)] += m
+        out[n] = {k: v for k, v in T.items() if v > 0}
+    return out
 
 
 def truth_aiw(U, people):
@@ -647,10 +725,14 @@ def load(pg, U, people):
     pg.copy('usr_cross_data.vacancy_daily', VAC_COLS, vacancy_rows(U, vacancies(U)))
     # 06.11, поставка 106: AI по неделям — строка на человека × неделю × пару пути
     pg.run("""CREATE TABLE usr_mlpa.ai_bi_all_copilots_usage_digest_weekly (week date, person_id bigint, mngt_unit_rk text,
-              next_lvl_mngt_unit_rk text, is_intern_flg int, ai_usage_flg int)""")
+              next_lvl_mngt_unit_rk text, is_intern_flg int, ai_usage_flg int, paint text, tools text[], tools_count int,
+              usage_days_in_week int, tasks text[], task_messages int[], total_tasks_messages int,
+              total_copilot_nestor_messages int)""")
     pg.copy('usr_mlpa.ai_bi_all_copilots_usage_digest_weekly',
-            ['week', 'person_id', 'mngt_unit_rk', 'next_lvl_mngt_unit_rk', 'is_intern_flg', 'ai_usage_flg'],
-            ai_week_rows(U, people))
+            ['week', 'person_id', 'mngt_unit_rk', 'next_lvl_mngt_unit_rk', 'is_intern_flg', 'ai_usage_flg', 'paint', 'tools',
+             'tools_count', 'usage_days_in_week', 'tasks', 'task_messages', 'total_tasks_messages',
+             'total_copilot_nestor_messages'],
+            ai_week_src(U, people))
     return perf, office, grt
 
 

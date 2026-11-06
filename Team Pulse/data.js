@@ -2526,7 +2526,8 @@ let _nmx=null;
 /* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
-const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw']);
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw',
+  'aik','aih','aiu','ait','aif','aph','apt','aut','auf','aun','aum','auc','auk']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
@@ -3182,12 +3183,35 @@ function aiProfile(lp){
    стажёры; конструктор — IT-код × покраска */
 const AI_TASKS=['Написание кода','Поиск ошибок','Тесты','Ревью кода','Документация','Анализ данных'];
 const AI_DEV=['Copilot','Nestor IDE','Nessy CLI'];
+/* поставка 106 (владелец): «Кто пользуется?» и «Как пользуется?» — из недельной витрины, за последнюю полную неделю
+   (разрезы aix ноутбука у строки ответа: стажёры aih aiu ait aif, покраска × инструмент aph apt, инструменты aut, дни в
+   неделю auf, инструментов на человека aun, сообщения aum auc auk, неделя aik). Численность и активные — те же, что у
+   недели на «Пользуются ли AI?» (aw); проценты — от численности недели без стажёров (у стажёров — от стажёров) */
+const AI_DAYS=['1 день','2 дня','3 дня','4 дня','5 дней','6 дней','7 дней'];
+const AI_CUTS=!!(REAL&&REAL.mixVals&&Object.keys(REAL.mixVals('aik')||{}).length);
+function aiUsageReal(lp){
+  const W=aiWeeks(lp), cw=aiCur(W), g=k=>selMix(lp,k)||{};
+  if(!cw||!Object.keys(g('aik')).length)return null;
+  const pc=(n,d)=>d?+(n*100/d).toFixed(1):0, R=Math.round, hc=cw.hc, act=cw.wau;
+  const aut=g('aut'), apt=g('apt'), aph=g('aph'), ait=g('ait'), auk=g('auk'), one=o=>R(o['']||0);
+  const tools=Object.keys(aut).map(t=>({key:t,name:t,value:pc(aut[t],hc)})).sort((a,b)=>b.value-a.value||a.name.localeCompare(b.name,'ru'));
+  const days=o=>AI_DAYS.map((nm,i)=>({name:nm,value:R(o[String(i+1)]||0)}));
+  const per=['1','2','3','4'].map(k=>({name:k==='4'?'4 и больше':k,value:R(g('aun')[k]||0)}));
+  const msgs=one(g('aum')), cls=one(g('auc'));
+  const tasks=Object.keys(auk).map(t=>({name:isNA(t)?NONE_NAME:t,value:R(auk[t])})).sort((a,b)=>b.value-a.value);
+  const po=PAINTS.slice(1).map(x=>x.name), ps=Object.keys(aph).sort((a,b)=>((po.indexOf(a)+1)||99)-((po.indexOf(b)+1)||99)||a.localeCompare(b));
+  const bySeg=ps.map(p=>({name:isNA(p)?NONE_NAME:p,hc:R(aph[p]),cells:tools.map(t=>pc(apt[p+'|'+t.key]||0,aph[p]))}));
+  const ihc=one(g('aih')), iact=one(g('aiu'));
+  return {real:true,week:cw.full.replace(/^Неделя /,''),pen:cw.pen,act:act,hc:hc,freq:days(g('auf')),per:per,msgs:msgs,cls:cls,
+    dev:[{name:'Инструменты разработчика',msgs:cls,tasks:tasks}],tools:tools,bySeg:bySeg,
+    intern:{hc:ihc,act:iact,pen:pc(iact,ihc),tools:Object.keys(ait).map(t=>({name:t,value:pc(ait[t],ihc)})),freq:days(g('aif'))},cons:[]};
+}
 function aiUsage(lp){
+  if(AI_CUTS){const x=aiUsageReal(lp);if(x)return x}
   const ai=aiProfile(lp), r=rng(lpSeed(lp,'aiu')), hc=Math.max(1,Math.round(lastVal(lp,'hc_total'))), pen=ai.pen||0;
   const act=Math.round(hc*pen/100), it=hcIT(lp), cl=(v,a,z)=>Math.max(a,Math.min(z,v));
-  /* поставка 103 (файл 9, п. 2): частота — дней с AI за месяц (было — за неделю) */
-  const FQ=['1 день','2–3 дня','4–6 дней','7–10 дней','11–15 дней','16–20 дней','21 день и больше'];
-  const freq=splitBy(act,jitter(r,[0.22,0.2,0.17,0.15,0.14,0.08,0.03],0.25)).map((n,i)=>({name:FQ[i],value:n}));
+  /* поставка 106: частота — дней с AI за неделю (как у недельной витрины) */
+  const freq=splitBy(act,jitter(r,[0.18,0.2,0.2,0.18,0.14,0.06,0.04],0.25)).map((n,i)=>({name:AI_DAYS[i],value:n}));
   const per=splitBy(act,jitter(r,[0.46,0.31,0.15,0.08],0.2)).map((n,i)=>({name:i<3?String(i+1):'4 и больше',value:n}));
   const msgs=Math.round(act*it*(18+r()*10)), cls=Math.round(msgs*(0.7+r()*0.15));
   /* 31.10: сообщения по инструментам в сумме = классифицированные (остаток округления — последнему) */
@@ -3205,7 +3229,7 @@ function aiUsage(lp){
     return {seg:x.name,paint:pt.name,hc:n,act:Math.round(n*pp/100),pen:pp}})).reduce((a,b)=>a.concat(b),[]);
   return {pen:pen,act:act,freq:freq,per:per,msgs:msgs,cls:cls,dev:dev,tools:ai.tools,bySeg:bySeg,
     intern:{hc:ihc,pen:ipen,act:iact,tools:ai.tools.map(t=>({name:t.name,value:+cl(t.value*(0.9+r()*0.3),0,100).toFixed(1)})),
-      freq:splitBy(iact,jitter(r,[0.3,0.4,0.3],0.2))},cons:cons.filter(x=>x.hc>0)};
+      freq:splitBy(iact,jitter(r,[0.2,0.22,0.2,0.16,0.12,0.06,0.04],0.2)).map((n,i)=>({name:AI_DAYS[i],value:n}))},cons:cons.filter(x=>x.hc>0)};
 }
 
 window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
@@ -3227,5 +3251,5 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
   PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
-  planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,aiWeeks,aiCur,AI_NW,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
+  planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};

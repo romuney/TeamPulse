@@ -41,6 +41,9 @@ def main():
     TAW = nb.truth_aiw(U, people)
     _wm = max(w for _, w in TAW)
     TAW = {k: v for k, v in TAW.items() if (_wm - k[1]).days <= 105 and v[1] > 0}
+    # «Кто» и «Как пользуется» — разрезы последней полной недели (aix), правда по людям
+    TAX = nb.truth_aix(U, people)
+    AIX = {'aik', 'aih', 'aiu', 'ait', 'aif', 'aph', 'apt', 'aut', 'auf', 'aun', 'aum', 'auc', 'auk'}
     ms = nb.months()                            # 2025-01 … 2026-10 — сетка ответа (20.10: с текущим незакрытым)
     # 21.10: срез человека меняется во времени — фильтр по дню (nb.attr)
     A = nb.attr
@@ -194,6 +197,10 @@ def main():
                         x = [float(t) for t in a3.split(',')]
                         gaw[dt.date.fromisoformat(w)] = (round(x[0]), round(x[1]), x[2])
                     taw = {w: (a, h) for (n, w), (a, h) in TAW.items() if n == rk}
+                    gx = {(kk, vv): n for kk in AIX for vv, n in mxv.get(kk, {}).items()}
+                    tx = TAX.get(rk, {})
+                    if set(gx) != set(tx) or any(abs(gx[k] - tx[k]) > 0.05 for k in tx):
+                        bad['aix'] += 1
                     if {w: v[:2] for w, v in gaw.items()} != taw or \
                             any(abs(v[2] - 100.0 * v[0] / v[1]) > 0.006 for v in gaw.values()):
                         bad['aw'] += 1

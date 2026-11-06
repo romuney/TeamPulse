@@ -36,8 +36,9 @@ def _hub_cols(table):
     return {c.lower() for c in df['column_name']}
 
 
-_cal = _hub_q(f'select lm, grid_start from {HUB_P}_cal').iloc[0]
+_cal = _hub_q(f'select lm, grid_start, dt from {HUB_P}_cal').iloc[0]
 _lm, _gs = str(_cal['lm'])[:10], str(_cal['grid_start'])[:10]
+_dt = str(_cal['dt'])[:10]                       # поставка 106: дата данных — последняя полная неделя AI
 
 # поставка 66: имя руководителя по логину — из unit_head_structure, последний месяц, где этот логин руководит
 # юнитом (не позже последнего месяца отчёта). Нет таблицы — имена пустые, логины остаются
@@ -154,3 +155,65 @@ drop table if exists {HUB_P}_aiw;
 create table {HUB_P}_aiw (week date, node_rk text, ai_heads float8, ai_wau float8, ai_pen float8)
 distributed by (node_rk)""")
     print(f'[WARN] {HUB_AI_SRC}: нет таблицы или колонок — {HUB_P}_aiw пустая, AI в отчёте «нет данных» (проверить синхронизацию таблицы в GP)')
+
+# 12б (поставка 106, владелец): «Кто пользуется?» и «Как пользуется?» — из той же недельной витрины, за ПОСЛЕДНЮЮ ПОЛНУЮ
+#     неделю (понедельник + 6 дней <= дата данных; иначе неделя перед ней — так же неделю выбирает чарт). Витрина
+#     teampulse_hub_aix — узел × ключ × значение → n. Человек в узле — одна строка (его поля в строках пар пути одинаковы,
+#     берём max); люди — count distinct, сообщения — сумма по людям (предагрегаты источника по строкам не суммируются).
+#     Ключи: aik — неделя; стажёры: aih (всего), aiu (с AI), ait (инструмент → стажёров), aif (дней в неделю → стажёров
+#     с AI); без стажёров: aph (покраска → людей), apt («покраска|инструмент» → людей), aut (инструмент → людей),
+#     auf (дней в неделю → людей с AI), aun (инструментов: 1, 2, 3, 4+ → людей с AI), aum (сообщений инструментам
+#     разработчика), auc (из них классифицировано), auk (задача → сообщений). Массивы tools / tasks / task_messages —
+#     как массивы GP (text[]; строка вида {a,b} тоже читается). Смысл колонок сообщений сверить на проде
+_xcols = {'paint', 'tools', 'tools_count', 'usage_days_in_week', 'tasks', 'task_messages', 'total_tasks_messages',
+          'total_copilot_nestor_messages'}
+if {'week', 'mngt_unit_rk', 'ai_usage_flg', 'is_intern_flg'} | _xcols <= _acols:
+    _clean = lambda e: f"coalesce(nullif(translate(trim({e}), E'\\t\\n|', '  /'), ''), '-')"
+    _hub_q(f"""
+drop table if exists {HUB_P}_aix;
+create table {HUB_P}_aix as
+with cw as (
+    select case when max(week)::date + 6 <= '{_dt}'::date then max(week)::date else max(week)::date - 7 end as w
+    from {HUB_AI_SRC}
+), b as (
+    select a.mngt_unit_rk::text as node_rk, a.person_id::text as pid,
+           max(case when coalesce(a.is_intern_flg::text, '0') = '1' then 1 else 0 end) as it,
+           max(case when coalesce(a.ai_usage_flg::text, '0') = '1' then 1 else 0 end) as u,
+           max({_clean('a.paint::text')}) as paint,
+           max(coalesce(a.usage_days_in_week, 0))::int as days,
+           max(coalesce(a.tools_count, 0))::int as ntools,
+           max(coalesce(a.total_copilot_nestor_messages, 0))::float8 as msgs,
+           max(coalesce(a.total_tasks_messages, 0))::float8 as cls,
+           max(a.tools::text) as tools, max(a.tasks::text) as tasks, max(a.task_messages::text) as tmsg
+    from {HUB_AI_SRC} a, cw
+    where a.week::date = cw.w and coalesce(a.mngt_unit_rk::text, '') <> ''
+    group by 1, 2
+), bt as (
+    select b.node_rk, b.pid, b.it, b.paint, {_clean('(b.tools::text[])[i]')} as tool
+    from b, generate_series(1, coalesce(array_length(b.tools::text[], 1), 0)) i
+), bk as (
+    select b.node_rk, {_clean('(b.tasks::text[])[i]')} as task, coalesce((b.tmsg::text[])[i], '0')::float8 as n
+    from b, generate_series(1, coalesce(array_length(b.tasks::text[], 1), 0)) i
+    where b.it = 0
+)
+select node_rk, 'aik'::text as k, (select w from cw)::text as v, 1::float8 as n from b group by 1
+union all select node_rk, 'aih', '', count(distinct pid) from b where it = 1 group by 1
+union all select node_rk, 'aiu', '', count(distinct pid) from b where it = 1 and u = 1 group by 1
+union all select node_rk, 'ait', tool, count(distinct pid) from bt where it = 1 group by 1, 3
+union all select node_rk, 'aif', days::text, count(distinct pid) from b where it = 1 and u = 1 and days > 0 group by 1, 3
+union all select node_rk, 'aph', paint, count(distinct pid) from b where it = 0 group by 1, 3
+union all select node_rk, 'apt', paint || '|' || tool, count(distinct pid) from bt where it = 0 group by 1, 3
+union all select node_rk, 'aut', tool, count(distinct pid) from bt where it = 0 group by 1, 3
+union all select node_rk, 'auf', days::text, count(distinct pid) from b where it = 0 and u = 1 and days > 0 group by 1, 3
+union all select node_rk, 'aun', least(ntools, 4)::text, count(distinct pid) from b where it = 0 and u = 1 and ntools > 0 group by 1, 3
+union all select node_rk, 'aum', '', sum(msgs) from b where it = 0 group by 1
+union all select node_rk, 'auc', '', sum(cls) from b where it = 0 group by 1
+union all select node_rk, 'auk', task, sum(n) from bk group by 1, 3
+distributed by (node_rk)""")
+    print(f"[OK] {HUB_P}_aix: {_hub_q(f'select count(*) as n, count(distinct node_rk) as u, max(case when k = $$aik$$ then v end) as w from {HUB_P}_aix')[['n', 'u', 'w']].iloc[0].to_dict()}")
+else:
+    _hub_q(f"""
+drop table if exists {HUB_P}_aix;
+create table {HUB_P}_aix (node_rk text, k text, v text, n float8)
+distributed by (node_rk)""")
+    print(f'[WARN] {HUB_AI_SRC}: нет колонок разрезов ({", ".join(sorted(_xcols - _acols))}) — {HUB_P}_aix пустая, «Кто» и «Как пользуется» условные')

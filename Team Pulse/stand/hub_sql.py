@@ -1092,7 +1092,8 @@ union all select 'series', count(*) from {P}_series
 union all select 'mix', count(*) from {P}_mix
 union all select 'trf', count(*) from {P}_trf
 union all select 'vacancy', count(*) from {P}_vacancy
-union all select 'aiw', count(*) from {P}_aiw;
+union all select 'aiw', count(*) from {P}_aiw
+union all select 'aix', count(*) from {P}_aix;
 """
 
 

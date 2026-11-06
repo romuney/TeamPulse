@@ -155,6 +155,10 @@ union all
 select 29 as n, 'AI-недели: повторы ключа «узел x неделя»'::text as check_nm, 1 as must,
        ((select count(*) from (select 1 from teampulse_hub_aiw
                                 group by node_rk, week having count(*) > 1) t))::float8 as val
+union all
+select 30 as n, 'AI-разрезы недели: повторы ключа «узел x ключ x значение»'::text as check_nm, 1 as must,
+       ((select count(*) from (select 1 from teampulse_hub_aix
+                                group by node_rk, k, v having count(*) > 1) t))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,

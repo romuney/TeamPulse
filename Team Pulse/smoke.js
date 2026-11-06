@@ -424,7 +424,7 @@ checks.push(['AI — «Пользуются ли AI?», «Кто пользуе�
   const pen=D.aggregate(lp,'ai_penetration'), wau=D.aggregate(lp,'ai_wau'), den=D.aggregate(lp,D.METRIC_BY_KEY.ai_penetration.derived.den);
   checks.push(['AI: суммы сходятся, % стажёров из людей, проникновение = активные / численность месяца',
     sm(u.freq)===u.act&&sm(u.per)===u.act&&u.dev.reduce((a,d)=>a+sm(d.tasks),0)===u.cls&&u.dev.reduce((a,d)=>a+d.msgs,0)===u.cls&&
-    Math.abs(u.intern.pen-u.intern.act/u.intern.hc*100)<0.06&&u.intern.freq.reduce((a,b)=>a+b,0)===u.intern.act&&
+    Math.abs(u.intern.pen-u.intern.act/u.intern.hc*100)<0.06&&sm(u.intern.freq)===u.intern.act&&u.intern.freq.length===7&&u.freq.length===7&&
     u.bySeg.map(x=>x.name).join()==='IT,Digital,NonIT'&&pen.every((p,i)=>p==null||!den[i]||Math.abs(p-wau[i]/den[i]*100)<0.06)]);
 }
 /* неизвестная под-вкладка из старой ссылки не должна ломать экран */

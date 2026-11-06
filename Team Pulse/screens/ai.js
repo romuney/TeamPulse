@@ -52,16 +52,17 @@ function adoption(ctx){
 /* п. 3: «Кто пользуется?» — стажёры (сколько и сколько из них с AI, инструменты, частота), ниже — инструменты × покраска
    IT / Digital / NonIT. Файл 7, п. 6: конструктор «IT-код × покраска» снят с вкладки (данные — D.aiUsage().cons — остались,
    вернуть — одна строка в btStack); п. 3: все таблицы — одним столбцом с общими отступами, сегменты без людей — без колонки */
+/* поставка 106: окно — неделя (на настоящих данных — последняя полная неделя витрины, u.week) */
+const wk=u=>u.week?' · неделя '+u.week:' · за неделю';
 function who(u){
   const P=v=>D.fmtVal('ai_penetration',v), I=D.fmtInt, it=u.intern;
   const segs=u.bySeg.filter(x=>x.hc>0);
   return U.btStack([
-      bars('Стажёры','сколько стажёров и сколько из них пользуются AI',
+      bars('Стажёры','сколько стажёров и сколько из них пользуются AI'+wk(u),
         [{name:'Стажёров',value:it.hc},{name:'Пользуются AI',note:P(it.pen)+' стажёров',value:it.act}],'Человек',{share:false,total:false}),
-      pctBars('Какими инструментами пользуются стажёры','% стажёров · хотя бы раз за месяц',it.tools.slice().sort((a,b)=>b.value-a.value)),
-      bars('Как часто пользуются стажёры','дней с AI за месяц · стажёры с AI',
-        [{name:'1–4 дня',value:it.freq[0]},{name:'5–9 дней',value:it.freq[1]},{name:'10 дней и больше',value:it.freq[2]}]),
-      segs.length?tbl('Инструменты по покраске','% численности сегмента · '+segs.map(x=>x.name).join(' / '),
+      pctBars('Какими инструментами пользуются стажёры','% стажёров'+wk(u),it.tools.slice().sort((a,b)=>b.value-a.value)),
+      bars('Как часто пользуются стажёры','дней с AI в неделю · стажёры с AI',it.freq),
+      segs.length?tbl('Инструменты по покраске','% численности сегмента без стажёров'+wk(u),
         ['Инструмент'].concat(segs.map(x=>x.name+' · '+I(x.hc)+' чел')),
         u.tools.map((t,j)=>({c:[t.name].concat(segs.map(x=>P(x.cells[j])))}))):''])+
     '<div class="tbl-note">Проценты по инструментам не складываются: один человек может пользоваться несколькими.</div>';
@@ -75,10 +76,10 @@ function usage(u){
   const cls={};u.dev.forEach(d=>d.tasks.forEach(t=>{cls[t.name]=(cls[t.name]||0)+t.value}));
   const clsItems=Object.keys(cls).map(k=>({name:k,value:cls[k]})).sort((a,b)=>b.value-a.value);
   return U.btStack([
-      bars('Частота использования','дней с AI за месяц · активные пользователи',u.freq),
+      bars('Частота использования','дней с AI в неделю · активные пользователи'+wk(u),u.freq),
       bars('Инструментов на человека','активные пользователи · в среднем '+(Math.round(avg*10)/10).toString().replace('.',',')+' (4+ считаем за 4)',u.per),
-      pctBars('Топ инструментов','% сотрудников · хотя бы раз за месяц',u.tools.slice().sort((a,b)=>b.value-a.value),'% сотрудников'),
-      bars('Воронка сообщений','инструменты разработчика · за месяц',
+      pctBars('Топ инструментов','% сотрудников без стажёров'+wk(u),u.tools.slice().sort((a,b)=>b.value-a.value),'% сотрудников'),
+      bars('Воронка сообщений','инструменты разработчика'+wk(u),
         [{name:'Все сообщения',value:u.msgs},{name:'Классифицированы',note:Math.round(u.cls/(u.msgs||1)*100)+'%',value:u.cls},
          {name:'Не классифицированы',note:Math.round((u.msgs-u.cls)/(u.msgs||1)*100)+'%',value:u.msgs-u.cls}],'Сообщений',{share:false,total:false}),
       bars('Классификация сообщений','классифицированные сообщения по задачам · всего '+I(u.cls),clsItems,'Сообщений')])+
