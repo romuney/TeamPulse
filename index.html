@@ -2262,6 +2262,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 #view .btable.lite td.txt .row-body.two{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;line-height:1.15;overflow:hidden;overflow-wrap:anywhere}
 /* 26.10-б: заголовок графика с переключателем справа (текучесть по инициатору) — кегль и жирность заголовков графиков */
 .ch-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--s5);flex-wrap:wrap;margin-bottom:var(--s3)}
+/* 06.11: строка только с переключателем — справа, вплотную к шапке графика под ней */
+.ch-bar.ch-bar-r{justify-content:flex-end;margin-bottom:var(--s2)}
 .ch-ttl{font-size:12px;font-weight:var(--fw-bold);color:var(--ink)}
 /* 26.10-б: движение по специализациям — двусторонняя полоса: ушли влево от оси, пришли вправо, одна шкала; цвета —
    мягкие найма и ухода (SOFT в draw.js), сальдо — их яркие */
@@ -10798,14 +10800,18 @@ function initChart(ctx){
   if(!xs)return U.devNote({stage:'0',t:'Придёт со следующим обновлением отчёта.'});
   if(!xs.length)return '';
   const c=xs.find(x=>x.key===ctx.S.exitIni)||xs.slice().sort((a,b)=>b.n-a.n)[0];
-  return '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Текучесть по инициатору, %</span>'+
+  /* 06.11, заказчик: заголовок — внутри графика, в одной строке с легендой, как у всех графиков (отдельной HTML-строкой
+     он оставлял под собой пустую строку легенды — большой отступ до «В среднем за месяц»); переключатель — справа над ним */
+  return '<div class="ch-blk"><div class="ch-bar ch-bar-r">'+
       U.segToggle('data-exitini',xs.map(x=>[x.key,INI_SHORT[x.key]||x.name]),c.key)+'</div>'+
     SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:280,fill:false,
+      title:'Текучесть по инициатору, %',
       color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>'+
     /* 27.10-в, п. 11: под ней — накопительная того же инициатора (переключатель общий): сумма месячной с января, как
        «Текучесть накопительная»; в сумме по инициаторам — она и есть */
-    '<div class="ch-blk"><div class="ch-bar"><span class="ch-ttl">Накопительная текучесть по инициатору, %</span></div>'+
+    '<div class="ch-blk">'+
     SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:280,
+      title:'Накопительная текучесть по инициатору, %',
       fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>';
 }
 /* сумма месячной с января по ряду года; месяцы без значения остаются пустыми */

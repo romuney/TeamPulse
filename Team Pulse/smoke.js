@@ -151,7 +151,7 @@ const rsn=SC.blocks.turnover.view({S:D.DEFAULT_STATE,sub:'reasons',lp:rl,bl:rl})
 /* 26.10-б, правки п. 8: сверху — график «Текучесть по инициатору» с переключателем, под ним таблицы */
 checks.push(['причины увольнений — таблица; сверху — текучесть по инициатору с переключателем',
   /<table/.test(rsn)&&rsn.indexOf('Текучесть по инициатору')>=0&&rsn.indexOf('Текучесть по инициатору')<rsn.indexOf('<table')&&
-  /class="ch-bar"[\s\S]*?data-exitini="emp"/.test(rsn)&&D.exitInitTurnover(rl).length===3]);
+  /class="ch-bar[^"]*"[\s\S]*?data-exitini="emp"/.test(rsn)&&D.exitInitTurnover(rl).length===3]);
 
 /* 6. пара потоков (найм / отток) — год к году линиями (13.10, второй заход):
    две яркие линии этого года, бледные — прошлого; баров и серой «тени» нет.

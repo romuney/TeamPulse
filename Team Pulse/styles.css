@@ -2254,6 +2254,8 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 #view .btable.lite td.txt .row-body.two{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;line-height:1.15;overflow:hidden;overflow-wrap:anywhere}
 /* 26.10-б: заголовок графика с переключателем справа (текучесть по инициатору) — кегль и жирность заголовков графиков */
 .ch-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--s5);flex-wrap:wrap;margin-bottom:var(--s3)}
+/* 06.11: строка только с переключателем — справа, вплотную к шапке графика под ней */
+.ch-bar.ch-bar-r{justify-content:flex-end;margin-bottom:var(--s2)}
 .ch-ttl{font-size:12px;font-weight:var(--fw-bold);color:var(--ink)}
 /* 26.10-б: движение по специализациям — двусторонняя полоса: ушли влево от оси, пришли вправо, одна шкала; цвета —
    мягкие найма и ухода (SOFT в draw.js), сальдо — их яркие */
