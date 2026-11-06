@@ -10,7 +10,7 @@
 -- условие act_cd / paint_cd в строках, помеченных «← срез».
 --
 -- Что с чем сверять (мастер-источник — ваш дашборд HQ / HR-отчётность на ту же дату и те же фильтры):
---   1  численность, найм, отток, переводы по месяцам и «прочее» водопада (должно быть 0)
+--   1  водопад по месяцам из teampulse_hub_flow: начало, найм, отток, переводы, конец; «прочее» = 0, конец = численность
 --   2  мониторинг: численность по покраске = люди с категорией (п. 1 файла 9)
 --   3  месячная текучесть по месяцам: отток ÷ среднесписочная (п. 6)
 --   4  срок закрытия вакансий: медиана по месяцам и за период (п. 4)
@@ -29,31 +29,35 @@ where unit_nm ilike '%' || 'впишите часть имени' || '%'
 order by unit_lvl, unit_nm
 limit 50;
 
--- 1. Водопад по месяцам: численность на конец месяца, найм, отток, переводы в и из, «прочее»
---    (изменение численности, не объяснённое событиями; должно быть 0 — иначе событие без флага в источнике)
+-- 1. Водопад по месяцам — как в отчёте с поставки 105: замкнутая витрина teampulse_hub_flow (строки юнитов sp_cd = '-').
+--    prochee = конец − начало − найм + отток − в + из — всегда 0 (проверка №27), fin_minus_hc = конец − численность
+--    series — 0 (проверка №28). Переводы при фильтре по умолчанию: пришёл в узел извне или ушёл из него (chg_unit) или
+--    сменил тип численности (chg_act), смена покраски / IT / штата — только при фильтре по ним (chg_paint / chg_it /
+--    chg_staff), без фильтра обе стороны в одной сумме гасят друг друга
 with p as (select null::text as unit),
 u as (select coalesce((select unit from p), (select root_rk from teampulse_hub_meta)) as rk),
+f as (
+    select report_month as m, sum(beg_cnt) as beg, sum(hire_cnt) as hire, sum(fire_cnt) as fire,
+           sum(case when chg_unit = 1 or chg_act = 1 then tin_cnt else 0 end) as tin,
+           sum(case when chg_unit = 1 or chg_act = 1 then tout_cnt else 0 end) as tout,
+           sum(fin_cnt) as fin
+    from teampulse_hub_flow
+    where node_rk = (select rk from u) and sp_cd = '-'
+      and act_cd = 'Активная'                                                   -- ← срез
+    group by 1
+),
 s as (
-    select report_month as m, sum(hc_cnt) as hc, sum(hire_cnt) as hire, sum(fire_cnt) as fire
+    select report_month as m, sum(hc_cnt) as hc
     from teampulse_hub_series
     where node_rk = (select rk from u)
       and act_cd = 'Активная'                                                   -- ← срез
     group by 1
-),
-t as (
-    select report_month as m,
-           sum(case when trf_kind = 'i' and (fu = 1 or fa = 1) and in_ok = 1 then trf_cnt else 0 end) as tin,
-           sum(case when trf_kind = 'o' and (fu = 1 or fa = 1) then trf_cnt else 0 end) as tout
-    from teampulse_hub_trf
-    where node_rk = (select rk from u)
-      and act_cd = 'Активная'                                                   -- ← срез
-    group by 1
 )
-select s.m, s.hc, s.hc - lag(s.hc) over (order by s.m) as d_hc, s.hire, s.fire,
-       coalesce(t.tin, 0) as tin, coalesce(t.tout, 0) as tout,
-       s.hc - lag(s.hc) over (order by s.m) - (s.hire - s.fire + coalesce(t.tin, 0) - coalesce(t.tout, 0)) as prochee
-from s left join t on t.m = s.m
-order by s.m;
+select f.m, f.beg, f.hire, f.fire, f.tin, f.tout, f.fin, s.hc,
+       f.fin - f.beg - f.hire + f.fire - f.tin + f.tout as prochee,
+       f.fin - coalesce(s.hc, 0) as fin_minus_hc
+from f left join s on s.m = f.m
+order by f.m;
 
 -- 2. Мониторинг за месяц по покраске: численность на конец месяца против людей с категорией
 --    (правило поставки 103: категория — только у численности на конец месяца, без записи — «не размечено»;

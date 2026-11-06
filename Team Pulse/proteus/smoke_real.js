@@ -573,7 +573,8 @@ if(R.scopeMix('tsm')){
       if(D.SPM_TRF&&R.scopeMix('sp1')){
         const sm=D.specMovement(lp), S=q=>sm.reduce((a,z)=>a+z[q],0);
         if(Math.abs(S('hc0')+S('hire')+S('tin')-S('exit')-S('tout')+(D.SPM_CHG?S('chg'):0)-S('hc1'))>0.5||
-          Math.abs(S('exit')-D.sumWin(D.aggregate(lp,'attrition'),'ytd'))>0.5)bad.push(k.name+': специализации');
+          /* поставка 105: в замкнутом водопаде (fsm) отток приписан строке прошлого месяца — с оттоком серии не сравнивается */
+          !D.SPM_FSM&&Math.abs(S('exit')-D.sumWin(D.aggregate(lp,'attrition'),'ytd'))>0.5)bad.push(k.name+': специализации');
       }
     });
     ok(!bad.length,'по подразделениям ('+kids.length+'): инициатор = текучесть, специализации сходятся'+(bad.length?' — '+bad.join('; '):''));
