@@ -580,7 +580,7 @@ def side(people):
         while d <= last:
             if d.weekday() < 5:
                 ov = int(random.random() < .4)
-                office.append((d, p['rk'], 1, ov) + office_row(p['rk'], d, ov))
+                office.extend(office_rows(p, d, ov))
             d += dt.timedelta(1)
     return perf, office, grt_ext(people, grt)
 
@@ -647,6 +647,30 @@ OFFICE_EXT = ['booking_flg', 'booking_violation_flg', 'visit_violation_flg', 'of
               'day_short_nm', 'day_sort']
 
 
+# поставка 107 (база мастера «Посещаемость и бронирование офисов», 06.11): у строки источника — номер офиса дня
+# main_office_visit_rn (0 — без визита, 1 — главный офис, 2 — второй офис того же дня), закреплённый офис
+# (active_office_emp_flg 'Да'/'Нет'), фикс / флекс (fix_flex_cat), тип численности дня (active_type_nm); бронь вне учёта
+# нарушений — booking_violation_flg NULL. Строка: (день, rk, рабочий день, визит) + OFFICE_EXT + OFFICE_X
+OFFICE_X = ['main_office_visit_rn', 'active_office_emp_flg', 'fix_flex_cat', 'active_type_nm']
+
+
+def office_rows(p, d, ov):
+    rk = p['rk']
+    h = (rk * 7919 + d.toordinal() * 104729) % 1000
+    emp, fix, act = ('Да' if rk % 7 else 'Нет'), ('фикс' if rk % 5 == 0 else 'флекс'), at(p['acth'], d)
+    bk, bkv, vsv, city, reg, dn, ds = office_row(rk, d, ov)
+    if not ov and bk and h % 29 == 0:
+        bkv = None                                   # бронь вне учёта нарушений
+    home = OFFICE_CITY[rk % len(OFFICE_CITY)]
+    if city is None and emp == 'Да':
+        city = home                                  # день без визита — город закреплённого офиса (рабочие дни города)
+    out = [(d, rk, 1, ov, bk, bkv, vsv, city, reg, dn, ds, 1 if ov else 0, emp, fix, act)]
+    if ov and h % 23 == 0:                           # второй офис того же дня: в посещаемость не идёт (rn = 2)
+        c2 = OFFICE_CITY[(rk + 3) % len(OFFICE_CITY)]
+        out.append((d, rk, 1, 1, 0, 0, 0, c2, int(c2 != home), dn, ds, 2, emp, fix, act))
+    return out
+
+
 def office_row(rk, d, ov):
     """дополнение строки посещаемости (OFFICE_EXT): бронь, бронь без посещения, посещение без брони, город офиса
     (у посещения или брони), посещение в другом городе, день недели и его номер"""
@@ -676,9 +700,10 @@ def load(pg, U, people):
     pg.copy('prod_v_sse_crossdata.performance_metric_m', ['mdm_employee_rk', 'calendar_dt', 'performance_category'], perf)
     pg.run("CREATE TABLE usr_cross_data.office_traffic_attendance (calendar_dt date, mdm_employee_rk bigint, work_day_flg int, "
            "office_visit_flg int, booking_flg int, booking_violation_flg int, visit_violation_flg int, office_city_nm text, "
-           "region_visit_flg int, day_short_nm text, day_sort int)")
+           "region_visit_flg int, day_short_nm text, day_sort int, main_office_visit_rn int, active_office_emp_flg text, "
+           "fix_flex_cat text, active_type_nm text)")
     pg.copy('usr_cross_data.office_traffic_attendance', ['calendar_dt', 'mdm_employee_rk', 'work_day_flg', 'office_visit_flg']
-            + OFFICE_EXT, office)
+            + OFFICE_EXT + OFFICE_X, office)
     # поставка 73: заявки T-роста — usr_cross_data.mdm_employee_application_grt, как эталон отчёта «Рост»
     pg.run("""CREATE TABLE usr_cross_data.mdm_employee_application_grt (mdm_employee_application_id bigint,
               creator_mdm_employee_rk bigint, company_hire_dt date, create_dt timestamp, hd1_init_dt timestamp,
@@ -1004,34 +1029,45 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
     ld = lambda p, m: min(eom(m), p['end'] or D1)
     ok = lambda p, m: pred(p, ld(p, m)) and (act is None or at(p['acth'], ld(p, m)) in act)
     nodes = lambda p, d: root + path(U, at(p['unit'], d))
-    city = defaultdict(lambda: defaultdict(float))
+    city = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     vcity = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     for r in office:
         d, rk, wd, ov, bk, bkv, vsv, cty = r[:8]
+        rn, emp, fix, dact = r[11:15]
         p, m = byrk[rk], dt.date(d.year, d.month, 1)
-        if not ok(p, m):
+        # поставка 107, база мастера: активная численность дня; посещаемость — закреплённый офис, визит — главный офис дня
+        # (rn = 1), рабочий день — строки rn <= 1; фиксы — то же у fix_flex_cat = 'фикс'; брони — с определённым нарушением
+        if dact != 'Активная' or not ok(p, m):
             continue
+        E = emp == 'Да'
+        wdx, ovx = int(E and rn <= 1) * wd, int(E and rn == 1) * ov
+        fwx, fox = int(fix == 'фикс' and rn <= 1) * wd, int(fix == 'фикс' and rn == 1) * ov
+        bkx, bvx = (bk if bkv is not None else 0), (bkv or 0)
+        vsx = (vsv or 0) if E and rn == 1 else 0
+        vbx = ov if E and rn == 1 and vsv == 0 else 0
         last = ld(p, m)
         hf = head_flg(H, p, last)
         for n in nodes(p, last):
             t = T[(n, m)]
-            t['wday'] += wd; t['ovis'] += ov; t['bk'] += bk; t['bkv'] += bkv; t['vsv'] += vsv
-            t['hwd'] += wd * hf; t['hov'] += ov * hf
-            if m in two:
-                Dd[(n, d)]['dw'] += wd
-                Dd[(n, d)]['do'] += ov
-        if m == cm and ov and cty:
-            city[rk][cty] += ov
-        # 27.10-в, п. 14: нарушения брони по городу (ov) и база (ob) — последнего закрытого месяца (поставка 90)
-        if m == cm and cty and (bk or vsv):
-            vcity[rk][cty]['ov'] += bkv + vsv
-            vcity[rk][cty]['ob'] += bk + vsv
+            t['wday'] += wdx; t['ovis'] += ovx; t['bk'] += bkx; t['bkv'] += bvx; t['vsv'] += vsx
+            t['fwday'] += fwx; t['fovis'] += fox; t['vbk'] += vbx
+            t['hwd'] += wdx * hf; t['hov'] += ovx * hf
+            if m in two and E:
+                Dd[(n, d)]['dw'] += int(rn <= 1)
+                Dd[(n, d)]['do'] += int(rn == 1) * ov
+        if m == cm and cty:
+            city[rk][cty]['vis'] += ovx
+            city[rk][cty]['wd'] += wdx
+            # 27.10-в, п. 14: нарушения брони по городу (ov) и база (ob) — последнего закрытого месяца (поставка 90)
+            vcity[rk][cty]['ov'] += bvx + vsx
+            vcity[rk][cty]['ob'] += bkx + vsx
     for rk, cs in city.items():
         p = byrk[rk]
         for n in nodes(p, ld(p, cm)):
             for c, v in cs.items():
-                C[n]['oc'][c] += v
-                C[n]['ocp'][c] += 1
+                C[n]['oc'][c] += v['vis']
+                C[n]['ocp'][c] += int(v['vis'] > 0)
+                C[n]['ocd'][c] += v['wd']
     for rk, cs in vcity.items():
         p = byrk[rk]
         for n in nodes(p, ld(p, cm)):

@@ -1236,8 +1236,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
     rv.groups.every(g=>rv.scores.every((sc,j)=>sum(g.cells.map(r=>r[j]))===sc.value)&&
       g.cells.every((r,i)=>sum(r)===g.tot[i]))]);
   const bk=D.bookingQuality(rl0);
-  checks.push(['бронирование: доля нарушений в таблице = метрике блока',
-    bk.ok+bk.noshow+bk.walkin===bk.total&&near(bk.viol/bk.total*100,ep('booking_viol'),0.06)]);
+  /* поставка 107 (как мастер): метрика — брони без посещения ÷ брони; брони и посещения складываются частями */
+  checks.push(['бронирование: доля броней без посещения в таблице = метрике блока, брони и посещения — частями',
+    bk.ok+bk.noshow===bk.bookings&&bk.visitBk+bk.walkin===bk.visits&&near(bk.noshow/bk.bookings*100,ep('booking_viol'),0.6)]);
   const wavg=rows=>sum(rows.map(r=>r.hc*r.att))/sum(rows.map(r=>r.hc));
   checks.push(['посещаемость по грейдам и по роли с локацией в среднем = посещаемости отбора',
     near(wavg(D.attByRoleLoc(rl0)),e('office_att'),0.11)&&

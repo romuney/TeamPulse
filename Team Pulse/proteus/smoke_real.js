@@ -410,11 +410,16 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const oc=x.cities.reduce((a,c)=>a+c.visits,0);
     const raw=String(scopeRow.mx).split('\n').filter(l=>l.indexOf('oc\t')===0).reduce((a,l)=>a+ +l.split('\t')[2],0);
     const ofA2=A.go('office','attend'), ofB2=A.go('office','booking');
-    ok(cal.length===2&&Math.round(sw)===Math.round(wd2)&&near(viol,bk+vsv?+((bkv+vsv)/(bk+vsv)*100).toFixed(2):null)&&
+    /* поставка 107 (как мастер): брони без посещения = bkv ÷ bk; посещаемость города = oc ÷ ocd (если ocd в ответе) */
+    const ocd=String(scopeRow.mx).split('\n').filter(l=>l.indexOf('ocd\t')===0).map(l=>l.split('\t'));
+    const cityOk=!ocd.length||x.cityAtt&&x.cities.every(c=>{const d=ocd.find(f=>(f[1]||'Не указано')===c.name||f[1]===c.raw);
+      return d&&Math.abs(c.att-c.visits/+d[2]*100)<0.06});
+    ok(cal.length===2&&Math.round(sw)===Math.round(wd2)&&near(viol,bk?+(bkv/bk*100).toFixed(2):null)&&
        x.segs[0].att===(hwd?+(hov/hwd*100).toFixed(1):0)&&Math.round(oc)===Math.round(raw)&&/Город офиса/.test(ofA2)&&
-       /Бронь без прихода/.test(ofB2),
-      'офис на настоящих: календарь — рабочие дни '+Math.round(sw)+' = ряды двух месяцев, нарушения брони '+
-      D.fmtVal('booking_viol',viol)+', руководители '+x.segs[0].att+'%, городов '+x.cities.length);
+       /Без посещения/.test(ofB2)&&/Посещения без брони, %/.test(ofB2)&&cityOk,
+      'офис на настоящих: календарь — рабочие дни '+Math.round(sw)+' = ряды двух месяцев, брони без посещения '+
+      D.fmtVal('booking_viol',viol)+', руководители '+x.segs[0].att+'%, городов '+x.cities.length+
+      (ocd.length?', посещаемость городов = посещения ÷ рабочие дни':''));
     const hn=R.pick.all().map(p=>R.pick.info(p)).find(i=>i&&/ /.test(i.hname)), last=hn?hn.hname.split(' ').pop():'';
     const sq=hn?A.setup(last.slice(0,4).toLowerCase()):'';
     /* поставка 83: в строке дерева — логин руководителя, ФИ и численность — в подсказке; поиск по фамилии работает */

@@ -15,6 +15,9 @@
 --   - два месяца — последний месяц all_metrics и прошлый (первое условие — отсечение партиций по дате);
 --   - поставка 90: три месяца — последний и два перед ним: при неполном последнем месяце отчёту нужны два закрытых
 --     (с месяца перед последним закрытым) и дни неполного; «hub · 4» берёт нужные.
+--   06.11: база мастера (борд «Посещаемость и бронирование офисов», выгрузки мастера) — активная численность
+--     с закреплённым офисом (active_office_emp_flg = 'Да'), визит — главный офис дня (rn = 1), день — строка
+--     rn <= 1: сумма календаря за месяц = wday/ovis серии (проверка №13), день — как месяц мастера.
 -- ======================================================================
 drop table if exists office_traffic_calendar ;
 create table office_traffic_calendar as
@@ -26,12 +29,18 @@ select calendar_dt::date as calendar_dt
         --, office_city_nm
         , coalesce(region_visit_flg, 0) as region_visit_flg
         , coalesce(office_visit_flg, 0) as office_visit_flg
+        -- 06.11, как в мастере: rn офиса дня (0 — без визита, 1 — главный офис) для дедупа мульти-офисных дней
+        , coalesce(main_office_visit_rn, 0) as main_office_visit_rn
         , day_short_nm
         , day_sort
     from usr_cross_data.office_traffic_attendance
     where calendar_dt >= date_trunc('month', current_date - interval '3 month')
     and calendar_dt >= (select max(report_month)::date - interval '2 month' from all_metrics)
     and work_day_flg = 1
+    -- 06.11: база мастера — активная численность с закреплённым офисом (active_office_emp_flg = 'Да'),
+    -- сумма календаря за месяц = wday/ovis серии (проверка №13), посещаемость дня = как в мастере
+    and active_type_nm = 'Активная'
+    and active_office_emp_flg = 'Да'
 )
 
 select c.report_month,
@@ -64,8 +73,8 @@ select c.report_month,
     , am.emp_specialization_it_code
     , am.employment_relation_type
     , am.act_type_nm
-    , count(*) as cnt_work_day
-    , sum(c.office_visit_flg) as cnt_office_visit
+    , sum(case when c.main_office_visit_rn <= 1 then 1 else 0 end) as cnt_work_day
+    , sum(case when c.main_office_visit_rn = 1 then c.office_visit_flg else 0 end) as cnt_office_visit
     , sum(c.region_visit_flg) as cnt_region_visit
     , max(c.day_sort) as day_sort
     , max(c.day_short_nm) as day_short_nm

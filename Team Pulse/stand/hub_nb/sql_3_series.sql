@@ -3,6 +3,8 @@
 -- teampulse_hub_unit — узлы: родитель, уровень, имя, число подразделений, путь, логин руководителя;
 -- teampulse_hub_series — узел × месяц × срез: численность, ССЧ, найм, увольнения, переводы и др.;
 -- с поставки 66 — бронирования (bk, bkv, vsv) и посещаемость руководителей (hwd, hov), имя руководителя.
+-- 06.11 — посещаемость в базе мастера (активные с закреплённым офисом, визит — главный офис дня):
+-- wday/ovis, фиксы fwday/fovis, посещения с бронью vbk (формулы — комментарий в teampulse_hub_sx).
 -- =============================================================================
 
 -- 5. справочник узлов: + число подразделений, логин и имя руководителя (teampulse_hub_head — параграф «hub · 2»;
@@ -37,10 +39,17 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        sum(coalesce(e.perf_normal, 0)) as pnor, sum(coalesce(e.perf_low, 0)) as plow,
        sum(coalesce(e.perf_high, 0)) as phig, sum(coalesce(e.perf_gray, 0)) as pgry,
        sum(coalesce(e.work_day_amt, 0)) as wday, sum(coalesce(e.office_visit_amt, 0)) as ovis,
+       -- 06.11, как в мастере: wday/ovis — активные с закреплённым офисом, визит — главный офис дня
+       -- (посещаемость = ovis / wday; проверена с выгрузками мастера 06.11, HQ 12/12 месяцев ±0.4 п.п.);
+       -- fwday/fovis — то же у владельцев фиксов (fix_flex_cat = 'фикс'); vbk — посещения с бронью
+       sum(coalesce(e.fix_work_day_amt, 0)) as fwday, sum(coalesce(e.fix_office_visit_amt, 0)) as fovis,
        sum(coalesce(e.grt_approve_cnt, 0)) as gapr, sum(coalesce(e.grt_decline_cnt, 0)) as gdec,
        -- поставка 66 : бронирования — дней с бронью, бронь без посещения, посещение без брони; рабочие
-       -- дни и посещения руководителей (management_head_flg = 1) — сегмент «Руководители» посещаемости
+       -- дни и посещения руководителей (management_head_flg = 1) — сегмент «Руководители» посещаемости;
+       -- 06.11: брони — строки с определённым нарушением (база мастера), посещения без брони — на базе
+       -- посещаемости (rn = 1, закреплённый офис): доля посещений без брони = vsv / ovis
        sum(coalesce(e.booking_amt, 0)) as bk, sum(coalesce(e.booking_viol_amt, 0)) as bkv, sum(coalesce(e.visit_viol_amt, 0)) as vsv,
+       sum(coalesce(e.visit_with_booking_amt, 0)) as vbk,
        sum(case when e.management_head_flg::text = '1' then coalesce(e.work_day_amt, 0) else 0 end) as hwd,
        sum(case when e.management_head_flg::text = '1' then coalesce(e.office_visit_amt, 0) else 0 end) as hov,
        -- поставка 71 (мониторинг по дням): людей с прогулами 2–5 и больше 5 дней, с работой в выходные 2–5 и
@@ -65,6 +74,7 @@ from (
         select s.report_month, s.hc_total_cnt, s.hc_active_cnt, s.hire_amt, s.transfer_candidate_amt,
                s.transfer_internal_amt, s.hire_cnt, s.fire_amt, s.regret_fire_amt, s.non_regret_fire_amt,
                s.perf_normal, s.perf_low, s.perf_high, s.perf_gray, s.work_day_amt, s.office_visit_amt,
+               s.fix_work_day_amt, s.fix_office_visit_amt, s.visit_with_booking_amt,
                s.grt_approve_cnt, s.grt_decline_cnt, s.booking_amt, s.booking_viol_amt, s.visit_viol_amt,
                s.management_head_flg, s.duration_hour, s.talk_call_duration_h, s.absence_segment_cd,
                s.weekend_segment_cd, s.talk_segment_cd,
@@ -105,6 +115,8 @@ select k.node_rk, k.report_month, k.paint_c as paint_cd, k.it_c as it_cd, k.staf
        coalesce(c.pnor, 0) as pnor_cnt, coalesce(c.plow, 0) as plow_cnt,
        coalesce(c.phig, 0) as phig_cnt, coalesce(c.pgry, 0) as pgry_cnt,
        coalesce(c.wday, 0) as wday_amt, coalesce(c.ovis, 0) as ovis_amt,
+       coalesce(c.fwday, 0) as fwday_amt, coalesce(c.fovis, 0) as fovis_amt,
+       coalesce(c.vbk, 0) as vbk_amt,
        coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt,
        coalesce(c.bk, 0) as bk_amt, coalesce(c.bkv, 0) as bkv_amt, coalesce(c.vsv, 0) as vsv_amt,
        coalesce(c.hwd, 0) as hwd_amt, coalesce(c.hov, 0) as hov_amt,

@@ -12,40 +12,58 @@ with base as (
         , mdm_employee_rk
         , calendar_dt
         , work_day_flg
-        , coalesce(office_visit_flg, 0)      as office_visit_flg
-        , coalesce(booking_flg, 0)           as booking_flg
-        , coalesce(booking_violation_flg, 0) as booking_violation_flg --бронь без посещения
-        , coalesce(visit_violation_flg, 0)   as visit_violation_flg   --посещение без брони
+        -- 06.11, как в мастере: rn офиса дня (0 — без визита, 1 — главный офис), закреплён ли офис, фикс
+        , coalesce(main_office_visit_rn, 0) as main_office_visit_rn
+        , case when active_office_emp_flg = 'Да' then 1 else 0 end as office_emp_flg
+        , case when fix_flex_cat = 'фикс' then 1 else 0 end as fix_flg
+        , coalesce(office_visit_flg, 0)    as office_visit_flg
+        , coalesce(booking_flg, 0)         as booking_flg
+        , booking_violation_flg  -- бронь без посещения; null — бронь вне учёта нарушений (не coalesce: различаем)
+        , visit_violation_flg    -- посещение без брони; null — вне учёта
         , office_city_nm
     from usr_cross_data.office_traffic_attendance
     where work_day_flg = 1
+      and active_type_nm = 'Активная'   -- 06.11: мастер — активная численность
 )
--- общие метрики за месяц
+-- общие метрики за месяц; 06.11 — в базовой логике мастера (борд «Посещаемость и бронирование офисов»,
+-- выгрузки мастера 06.11; сверено: посещаемость HQ 12/12 месяцев ±0.4 п.п.):
+--   посещаемость и посещения — на активных с закреплённым офисом (office_emp_flg = 1), визит —
+--   главный офис дня (rn = 1), знаменатель — строки rn <= 1; fix_* — то же у владельцев фиксов;
+--   брони — только строки с определённым нарушением (booking_violation_flg is not null)
 , office_traffic as (
     select month
         , mdm_employee_rk
-        , count(work_day_flg)        as work_day_amt
-        , sum(office_visit_flg)      as office_visit_amt
-        , sum(booking_flg)           as booking_amt
+        , sum(case when office_emp_flg = 1 and main_office_visit_rn <= 1 then 1 else 0 end) as work_day_amt
+        , sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 then office_visit_flg else 0 end) as office_visit_amt
+        , sum(case when fix_flg = 1 and main_office_visit_rn <= 1 then 1 else 0 end) as fix_work_day_amt
+        , sum(case when fix_flg = 1 and main_office_visit_rn = 1 then office_visit_flg else 0 end) as fix_office_visit_amt
+        , sum(case when booking_violation_flg is not null then booking_flg else 0 end) as booking_amt
         , sum(booking_violation_flg) as booking_viol_amt
-        , sum(visit_violation_flg)   as visit_viol_amt
+        , sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 then visit_violation_flg else 0 end) as visit_viol_amt
+        , sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 and visit_violation_flg = 0
+                   then office_visit_flg else 0 end) as visit_with_booking_amt
     from base
     group by month, mdm_employee_rk
 )
--- посещения в разрезе городов; 27.10-в: и брони с нарушениями (дни с бронью, бронь без посещения, посещение без
--- брони) — для «Нарушений брони по городам»; город с одной бронью без прихода тоже попадает
+-- посещения в разрезе городов (06.11 — база мастера: активные с закреплённым офисом, визит — главный офис
+-- дня; брони — с определённым нарушением); 27.10-в: и брони с нарушениями (дни с бронью, бронь без
+-- посещения, посещение без брони) — для «Нарушений брони по городам»; город с одной бронью без прихода тоже попадает
 , city_visits as (
     select month
         , mdm_employee_rk
         , office_city_nm
-        , sum(office_visit_flg)      as visit_count
-        , sum(booking_flg)           as booking_count
+        , sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 then office_visit_flg else 0 end) as visit_count
+        , sum(case when office_emp_flg = 1 and main_office_visit_rn <= 1 then 1 else 0 end) as work_day_count
+        , sum(case when booking_violation_flg is not null then booking_flg else 0 end) as booking_count
         , sum(booking_violation_flg) as booking_viol_count
-        , sum(visit_violation_flg)   as visit_viol_count
+        , sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 then visit_violation_flg else 0 end) as visit_viol_count
     from base
     where office_city_nm is not null
     group by month, mdm_employee_rk, office_city_nm
-    having sum(office_visit_flg) + sum(booking_flg) + sum(visit_violation_flg) > 0
+    having sum(case when office_emp_flg = 1 and main_office_visit_rn <= 1 then 1 else 0 end)
+         + sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 then office_visit_flg else 0 end)
+         + sum(case when booking_violation_flg is not null then booking_flg else 0 end)
+         + sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 then visit_violation_flg else 0 end) > 0
 )
 -- сворачиваем в json
 , city_json as (
@@ -55,6 +73,7 @@ with base as (
               json_build_object(
                   'office_city_nm',     office_city_nm,
                   'visit_count',        visit_count,
+                  'work_day_count',     work_day_count,
                   'booking_count',      booking_count,
                   'booking_viol_count', booking_viol_count,
                   'visit_viol_count',   visit_viol_count
@@ -68,9 +87,12 @@ with base as (
 select m.*
     , o.work_day_amt
     , o.office_visit_amt
+    , o.fix_work_day_amt
+    , o.fix_office_visit_amt
     , o.booking_amt
     , o.booking_viol_amt
     , o.visit_viol_amt
+    , o.visit_with_booking_amt
     , c.office_city_visits_json
 from all_metrics_with_performance_added m
 left join office_traffic o

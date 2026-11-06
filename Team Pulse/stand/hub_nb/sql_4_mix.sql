@@ -378,15 +378,17 @@ from p;
 
 -- поставка 66: посещения офисов по городам (office_city_visits_json — параграф with_office_traffic), поставка 90 — за
 -- последний закрытый месяц:
--- oc — посещений, ocp — людей, которые были в офисе этого города
+-- oc — посещений, ocp — людей, которые были в офисе этого города; 06.11: ocd — рабочие дни города
+-- (посещаемость города = oc / ocd, как в мастере)
 insert into teampulse_hub_mixr
 select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
-       unnest(ARRAY['oc', 'ocp']) as mx_key,
-       unnest(ARRAY[c.city, c.city]) as mx_val,
-       unnest(ARRAY[c.vis, 1]) as mx_n
+       unnest(ARRAY['oc', 'ocp', 'ocd']) as mx_key,
+       unnest(ARRAY[c.city, c.city, c.city]) as mx_val,
+       unnest(ARRAY[c.vis, case when c.vis > 0 then 1 else 0 end, c.wd]) as mx_n
 from (
     select j.node_rk, j.paint_c, j.it_c, j.staff_c, j.act_c, coalesce(nullif(translate((j.v ->> 'office_city_nm')::text, E'\t\n|', '  /'), '-'), '') as city,
-           coalesce((j.v ->> 'visit_count')::numeric, 0) as vis
+           coalesce((j.v ->> 'visit_count')::numeric, 0) as vis,
+           coalesce((j.v ->> 'work_day_count')::numeric, 0) as wd
     from (
         select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
         from (
@@ -408,7 +410,7 @@ from (
 ) e
     ) j
 ) c
-where c.vis > 0;
+where c.vis > 0 or c.wd > 0;   -- 06.11: ocd нужны и дни не-посетителей (ocp у них 0)
 
 -- 31.10-б, п. 9: то же у руководителей (признак руководителя) — кросс-фильтр «руководители / сотрудники × город»:
 -- ocl — посещений, ocpl — руководителей; у сотрудников — всё минус руководители

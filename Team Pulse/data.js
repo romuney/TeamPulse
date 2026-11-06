@@ -284,8 +284,10 @@ const METRICS=[
     'Ревью учитывается только для eligible-популяции.'},
 {key:'office_att',block:'office',aud:'hq',name:'Посещаемость офиса',short:'Офис',fmt:'pct',better:'higher',unit:'%',anchor:58,hint:'Какую долю рабочих дней сотрудники провели в офисе.'},
 /* Качество бронирования из дашборда HQ 34136 */
-{key:'booking_viol',block:'office',aud:'hq',name:'Нарушения бронирования',short:'Нарушения',fmt:'pct',better:'lower',unit:'%',anchor:17,
-  hint:'Доля офисных дней с нарушением: место забронировали и не пришли или пришли без брони.'},
+/* поставка 107 (владелец, как мастер «Посещаемость и бронирование офисов»): брони без посещения — доля броней, по которым не
+   пришли; вторая доля — посещения без брони (сервисный ряд visit_nobook) — на той же вкладке */
+{key:'booking_viol',block:'office',aud:'hq',name:'Брони без посещения',short:'Без посещения',fmt:'pct',better:'lower',unit:'%',anchor:17,
+  hint:'Доля броней рабочего места, по которым человек не пришёл в офис.'},
 /* AI-метрики из дашборда HQ 34136. Проникновение — доля, поэтому едет парой
    «активные пользователи / активная численность» и сравнивается с базой:
    ровно то сравнение «по команде против компании», что было в Proteus. */
@@ -315,11 +317,10 @@ if(REAL){
   ov.underwork={derived:{num:'perf_low',den:PERF,scale:100},anchor:null};
   ov.overwork={derived:{num:'perf_high',den:PERF,scale:100},anchor:null};
   if(REAL.has('wday')&&REAL.has('ovis'))ov.office_att={derived:{num:'ovis',den:'wday',scale:100},anchor:null};
-  /* поставка 66 (посещения Адели): нарушения — бронь без прихода и приход без брони среди всех офисных дней (с бронью
-     или приходом) */
-  if(REAL.has('bk')&&REAL.has('bkv')&&REAL.has('vsv'))ov.booking_viol={derived:{num:['bk_noshow','bk_walkin'],
-    den:['bk_days','bk_walkin'],scale:100},anchor:null,
-    calc:'(Бронь без прихода + приход без брони) ÷ (дни с бронью + приход без брони) за месяц, человеко-дни.'};
+  /* поставка 107 (как мастер): брони без посещения ÷ брони — только брони с определённым нарушением; было (поставка 66) —
+     (бронь без прихода + приход без брони) ÷ (дни с бронью + приход без брони) */
+  if(REAL.has('bk')&&REAL.has('bkv'))ov.booking_viol={derived:{num:'bk_noshow',den:'bk_days',scale:100},anchor:null,
+    calc:'Брони без посещения ÷ все брони за месяц, человеко-дни. Брони — с определённым нарушением, как в мастер-отчёте.'};
   if(REAL.has('gapr')&&REAL.has('gdec'))ov.tgrowth_conv={derived:{num:'tgrowth_pass',den:['tgrowth_pass','tgrowth_deny'],scale:100},
     anchor:null};
   /* поставка 50: обычная текучесть, вакансии и AI — из необязательных колонок (real.js, LIVE_WITH) */
@@ -354,7 +355,10 @@ const SERVICE_DEF=Object.assign({regret_m:{derived:HQR?{num:'regret_hq_cnt',den:
   turnover_hq_m:{derived:{num:'attrition_hq_cnt',den:'hc_avg_hq',scale:100}},turnover_hq_y:{ytd:'turnover_hq_m'}},REAL?{
   /* поставка 66: посещаемость руководителей и остальных — динамика сегмента на вкладке «Офис» */
   office_lead:{derived:{num:'ovis_lead',den:'wday_lead',scale:100}},
-  office_staff:{derived:{num:'ovis_staff',den:'wday_staff',scale:100}}}:{});
+  office_staff:{derived:{num:'ovis_staff',den:'wday_staff',scale:100}},
+  /* поставка 107 (база мастера): посещаемость владельцев фиксов, доля посещений без брони */
+  office_fix:{derived:{num:'office_fix_ovis',den:'office_fix_wday',scale:100}},
+  visit_nobook:{derived:{num:'bk_walkin',den:'ovis',scale:100}}}:{});
 function defOf(key){return METRIC_BY_KEY[key]||SERVICE_DEF[key]||{}}
 /* метрика без источника: в пробнике — заглушка на генераторе, «демо» в интерфейсе */
 function isStub(key){return !!(METRIC_BY_KEY[key]&&METRIC_BY_KEY[key].stub)}
@@ -2331,7 +2335,9 @@ const OFF_DAYS=REAL&&REAL.dayMix?REAL.dayMix():null;
 const OFF_LIVE={cal:!!OFF_DAYS,seg:!!(REAL&&REAL.has('hwd')&&REAL.has('hov')),
   city:!!(REAL&&Object.keys(REAL.mixVals('oc')).length),bk:!!(REAL&&REAL.has('bk')&&REAL.has('bkv')&&REAL.has('vsv')),
   /* 27.10-в, п. 14: нарушения брони по городам — ov (бронь без прихода + приход без брони), ob (с бронью + приход без) */
-  vcity:!!(REAL&&Object.keys(REAL.mixVals('ov')).length)};
+  vcity:!!(REAL&&Object.keys(REAL.mixVals('ov')).length),
+  /* поставка 107: рабочие дни города (ocd) — посещаемость города = посещения ÷ рабочие дни, как в мастере; фиксы; посещения с бронью */
+  ocd:!!(REAL&&Object.keys(REAL.mixVals('ocd')).length),fix:!!(REAL&&REAL.has('fwday')&&REAL.has('fovis')),vbk:!!(REAL&&REAL.has('vbk'))};
 const DOW_MONTHS=OFF_DAYS?2:3;     /* дни недели усредняем за 3 месяца (на настоящих — за два месяца календаря) */
 
 function lpSeed(lp,salt){return 'off'+salt+'#'+lp.length+'#'+hashStr(lp.join(','))}
@@ -3012,13 +3018,16 @@ function bookingQuality(lp){
   if(OFF_LIVE.bk){
     /* поставка 66: настоящие — дни с бронью (из них без прихода) и приход без брони; поставка 90 — за закрытый месяц */
     const bk=perVal(lp,'bk_days'), ns=perVal(lp,'bk_noshow'), wi=perVal(lp,'bk_walkin');
-    return {total:bk+wi,ok:bk-ns,noshow:ns,walkin:wi,viol:ns+wi,visits:bk-ns+wi,month:PER_MON};
+    /* поставка 107 (как мастер): брони — с посещением / без; посещения (главный офис дня) — с бронью / без брони */
+    const vis=perVal(lp,'ovis'), vb=OFF_LIVE.vbk?perVal(lp,'bk_visit_ok'):Math.max(0,vis-wi);
+    return {total:bk+wi,ok:bk-ns,noshow:ns,walkin:wi,viol:ns+wi,visits:vis,bookings:bk,visitBk:vb,month:PER_MON};
   }
   const hc=perVal(lp,'hc_total'), att=perVal(lp,'office_att')/100, v=perVal(lp,'booking_viol')/100;
   const V=Math.round(hc*workdays(PER_I)*att), r=rng(lpSeed(lp,'bk'));
   const q=0.52+r()*0.18;                     /* доля «бронь без прихода» среди нарушений */
-  const T=Math.round(V/(1-v*q)), viol=Math.round(T*v), noshow=Math.round(viol*q);
-  return {total:T,ok:T-viol,noshow:noshow,walkin:viol-noshow,viol:viol,visits:T-noshow,month:PER_MON};
+  /* поставка 107: метрика — доля броней без посещения (v); посещения без брони — своя доля от посещений */
+  const B=Math.round(V*(0.55+r()*0.2)/(1-v)), noshow=Math.round(B*v), walkin=Math.round(V*q*0.6);
+  return {total:B+walkin,ok:B-noshow,noshow:noshow,walkin:walkin,viol:noshow+walkin,visits:V,bookings:B,visitBk:Math.max(0,V-walkin),month:PER_MON};
 }
 /* 27.10-в, п. 14: нарушения брони по городам за последний месяц — число и доля от дней с бронью и приходов без неё
    (как «Нарушения бронирования»); макет — нарушения отбора по городам офиса пропорционально людям */
@@ -3104,9 +3113,14 @@ function officeReal(lp,seg,city){
   const oc=realExit(lp,'oc'), op=realExit(lp,'ocp'), ol=realExit(lp,'ocl'), opl=realExit(lp,'ocpl');
   const cross=!!REAL.mixVals&&Object.keys(REAL.mixVals('ocpl')||{}).length>0&&OFF_LIVE.seg;
   const pick=(all,ld)=>k=>!cross||!sg?all[k]||0:sg.key==='lead'?ld[k]||0:Math.max(0,(all[k]||0)-(ld[k]||0));
-  const vis=pick(oc,ol), ppl=pick(op,opl), keys=Object.keys(oc).filter(k=>vis(k)>0), tot=keys.reduce((a,k)=>a+vis(k),0);
+  /* поставка 107 (как мастер): посещаемость города = посещения ÷ рабочие дни города (ocd — рабочие дни людей с закреплённым
+     офисом этого города); по сегменту рабочих дней города нет — тогда у города только посещения */
+  const od=OFF_LIVE.ocd&&!(cross&&sg)?realExit(lp,'ocd'):null;
+  const vis=pick(oc,ol), ppl=pick(op,opl), tot0=Object.keys(oc).reduce((a,k)=>a+vis(k),0);
+  const keys=Object.keys(Object.assign({},oc,od||{})).filter(k=>vis(k)>0||od&&od[k]>0), tot=tot0;
   const cities=keys.map(k=>({name:k||NONE_NAME,raw:k,visits:Math.round(vis(k)),people:Math.round(ppl(k)),
-    share:tot?+(vis(k)/tot*100).toFixed(1):0})).sort((a,b)=>b.visits-a.visits||a.name.localeCompare(b.name,'ru'));
+    wdays:od?Math.round(od[k]||0):null,att:od&&od[k]?+(vis(k)/od[k]*100).toFixed(1):od?0:null,
+    share:tot?+(vis(k)/tot*100).toFixed(1):0})).sort((a,b)=>od?(b.att-a.att||b.visits-a.visits):(b.visits-a.visits)||a.name.localeCompare(b.name,'ru'));
   const c=cross&&city!=null?{name:city,raw:city===NONE_NAME?'':city}:null;
   if(c){const L=Math.round(opl[c.raw]||0), A=Math.round(op[c.raw]||0);
     c.people={lead:L,staff:Math.max(0,A-L),all:A};
@@ -3114,7 +3128,9 @@ function officeReal(lp,seg,city){
        за тот же месяц (доля рабочих дней в офисе этого города; по всем городам в сумме — посещаемость сегмента) */
     const V={lead:ol[c.raw]||0,staff:Math.max(0,(oc[c.raw]||0)-(ol[c.raw]||0))}, W={lead:perVal(lp,'wday_lead'),staff:perVal(lp,'wday_staff')};
     segs.forEach(s=>{s.att=W[s.key]?+(V[s.key]/W[s.key]*100).toFixed(1):0;s.hc=c.people[s.key]})}
-  return {real:true,cross:cross,segs:segs,cities:cities,seg:sg,city:c,att:sg?sg.att:perVal(lp,'office_att')||0,factor:1,
+  /* поставка 107: владельцы фиксов — посещаемость тех, у кого фиксированное место (как в мастере) */
+  const fix=OFF_LIVE.fix&&perVal(lp,'office_fix_wday')?{att:+perVal(lp,'office_fix').toFixed(1),wd:Math.round(perVal(lp,'office_fix_wday'))}:null;
+  return {real:true,cross:cross,segs:segs,cities:cities,cityAtt:!!od,fix:fix,seg:sg,city:c,att:sg?sg.att:perVal(lp,'office_att')||0,factor:1,
     yser:sg?yoySeries(lp,sg.key==='lead'?'office_lead':'office_staff'):null};
 }
 

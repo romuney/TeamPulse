@@ -206,7 +206,8 @@ def main():
                         bad['aw'] += 1
                     # поставка 66: посещения Адели. Ряды: рабочие дни и посещения (wday ovis), бронирования (bk bkv vsv),
                     # руководители (hwd hov) — под фильтрами
-                    for k in ('wday', 'ovis', 'bk', 'bkv', 'vsv', 'hwd', 'hov'):
+                    # поставка 107 (база мастера): + фиксы (fwday fovis) и посещения с бронью (vbk)
+                    for k in ('wday', 'ovis', 'bk', 'bkv', 'vsv', 'hwd', 'hov', 'fwday', 'fovis', 'vbk'):
                         if r.get('m_' + k) is None:
                             bad['нет ряда ' + k] += 1
                             continue
@@ -225,6 +226,8 @@ def main():
                     # сегмент mh (численность руководителей и остальных), города последнего месяца (oc ocp) — по значениям
                     want_v = {'mh': {v: n for v, n in MH[rk].items() if n}, 'oc': {v: n for v, n in Co[rk]['oc'].items() if n},
                               'ocp': {v: n for v, n in Co[rk]['ocp'].items() if n},
+                              # поставка 107: рабочие дни города (посещаемость города = oc / ocd)
+                              'ocd': {v: n for v, n in Co[rk]['ocd'].items() if n},
                               # 27.10-в, п. 14: нарушения брони по городам (ov) и база (ob)
                               'ov': {v: n for v, n in Co[rk]['ov'].items() if n}, 'ob': {v: n for v, n in Co[rk]['ob'].items() if n}}
                     # 31.10-б, п. 6: «Рост HQ» — без фильтра покраски; файл 6, п. 4 — только по численности HQ (cond_rh);

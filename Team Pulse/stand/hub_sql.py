@@ -65,7 +65,8 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
             + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'active_type_gr_nm', 'act_type_nm',
                'hc_total_cnt', 'hc_active_cnt', 'hire_amt', 'hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt',
                'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt', 'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
-               'work_day_amt', 'office_visit_amt', 'grt_approve_cnt', 'grt_decline_cnt',
+               'work_day_amt', 'office_visit_amt', 'fix_work_day_amt', 'fix_office_visit_amt', 'visit_with_booking_amt',
+               'grt_approve_cnt', 'grt_decline_cnt',
                'gender', 'type_age', 'age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
                'legal_organization', 'employee_stream', 'fire_reason_group', 'fire_initiative', 'specialization',
                'type_company', 'source_type_nm', 'region',
@@ -728,21 +729,23 @@ where {num('fire_amt')} > 0;
 
 {ROST_MIX}-- поставка 66: посещения офисов по городам (office_city_visits_json — параграф with_office_traffic), поставка 90 — за
 -- последний закрытый месяц:
--- oc — посещений, ocp — людей, которые были в офисе этого города
+-- oc — посещений, ocp — людей, которые были в офисе этого города; 06.11: ocd — рабочие дни города
+-- (посещаемость города = oc / ocd, как в мастере)
 insert into {P}_mixr
 select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
-       unnest(ARRAY['oc', 'ocp']) as mx_key,
-       unnest(ARRAY[c.city, c.city]) as mx_val,
-       unnest(ARRAY[c.vis, 1]) as mx_n
+       unnest(ARRAY['oc', 'ocp', 'ocd']) as mx_key,
+       unnest(ARRAY[c.city, c.city, c.city]) as mx_val,
+       unnest(ARRAY[c.vis, case when c.vis > 0 then 1 else 0 end, c.wd]) as mx_n
 from (
     select j.node_rk, j.paint_c, j.it_c, j.staff_c, j.act_c, {city} as city,
-           coalesce((j.v ->> 'visit_count')::numeric, 0) as vis
+           coalesce((j.v ->> 'visit_count')::numeric, 0) as vis,
+           coalesce((j.v ->> 'work_day_count')::numeric, 0) as wd
     from (
         select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
         from ({expl(['office_city_visits_json'], f'and s.report_month = {cm} and s.office_city_visits_json is not null')}) e
     ) j
 ) c
-where c.vis > 0;
+where c.vis > 0 or c.wd > 0;   -- 06.11: ocd нужны и дни не-посетителей (ocp у них 0)
 
 -- 31.10-б, п. 9: то же у руководителей (признак руководителя) — кросс-фильтр «руководители / сотрудники × город»:
 -- ocl — посещений, ocpl — руководителей; у сотрудников — всё минус руководители

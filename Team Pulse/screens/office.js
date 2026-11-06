@@ -40,22 +40,32 @@ function attendReal(ctx,x,lbl,attTbl){
   const S=ctx.S, cc=x.city&&x.city.people;
   /* файл 8, п. 5: таблица «Сегмент» при выборе города не меняет вид — та же посещаемость по сегментам, пересчитанная для
      города (посещения в его офисах ÷ рабочие дни сегмента), в подписи — люди сегмента, бывшие в офисе города */
+  /* поставка 107 (как мастер): владельцы фиксов — своя посещаемость отдельной строкой (часть численности, не сегмент) */
   const segTbl=attTbl('Сегмент',(cc?x.city.name+' · ':'')+D.PER_MON,x.segs.filter(s=>cc||s.hc>0).map(s=>({name:s.name,
       note:D.fmtInt(s.hc)+' чел'+(cc?' в офисе':''),
       value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
-      attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})),'Сравнение сегментов');
+      attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})).concat(x.fix&&!cc&&!x.seg?[{name:'Владельцы фиксов',
+      note:'фиксированное место · '+D.fmtInt(x.fix.wd)+' раб. дней',value:x.fix.att,color:G.C_OFFICE}]:[]),'Сравнение сегментов');
   return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
       title:'Посещаемость офиса'+(x.seg?': '+x.seg.name:'')+', %'})+
     (x.segs.length?segTbl:'')+
     /* 27.10-в, п. 15: по убыванию посещений, первые 10 и раскрываемые «Остальные»; 31.10-б, п. 9: колонка «Посещаемость»,
        строка города выбирается (кросс-фильтр с сегментом) */
-    (x.cities.length?U.btGroup(Object.assign({cap:'Город офиса',capSub:(x.seg?x.seg.name+' · ':'')+D.PER_MON+' · посещения',head:'',
-      valueHead:'Посещаемость',barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>Object.assign({name:c.name,
+    /* поставка 107 (как мастер): с рабочими днями города (ocd) — посещаемость города = посещения ÷ рабочие дни, иначе (сегмент
+       выбран или ноутбук до 107) — посещения */
+    (x.cities.length?U.btGroup(Object.assign(x.cityAtt?{cap:'Город офиса',capSub:D.PER_MON+' · посещаемость',head:'',
+      valueHead:'Посещаемость',barHead:'Сравнение городов',metricKey:'office_att',share:false,compact:true,total:false,sort:true,
+      items:x.cities.map(c=>Object.assign({name:c.name,note:D.fmtInt(c.visits)+' посещ. · '+D.fmtInt(c.people)+' чел',
+        value:c.att,color:G.C_OFFICE},x.cross?{on:S.offCity===c.name,attr:'data-offcity="'+esc(c.name)+'"',
+        attrTip:'Клик — сколько руководителей и сотрудников в «'+c.name+'».'}:{}))}
+      :{cap:'Город офиса',capSub:(x.seg?x.seg.name+' · ':'')+D.PER_MON+' · посещения',head:'',
+      valueHead:'Посещений',barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>Object.assign({name:c.name,
         note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE},x.cross?{on:S.offCity===c.name,
         attr:'data-offcity="'+esc(c.name)+'"',attrTip:'Клик — сколько руководителей и сотрудников в «'+c.name+'».'}:{}))},
       SC.rest(ctx,'ocity',10,['город','города','городов']))):'')+
-    '<div class="tbl-note">Город — где было посещение: человек бывает в нескольких. Посещаемость города — число посещений'+
-      (x.cross?'; выбор сегмента и города складывается':'')+'.</div>';
+    '<div class="tbl-note">'+(x.cityAtt?'Посещаемость города — посещения ÷ рабочие дни людей с закреплённым офисом этого города; '+
+      'посещение — главный офис дня, как в мастер-отчёте':'Город — где было посещение: человек бывает в нескольких. По сегменту — '+
+      'число посещений')+(x.cross?'; выбор сегмента и города складывается':'')+'.</div>';
 }
 
 SC.blocks.office={
@@ -100,20 +110,29 @@ SC.blocks.office={
       const bk=D.bookingQuality(ctx.lp), vc=D.violByCity(ctx.lp);
       /* Человеко-дни, а не люди: один сотрудник за месяц может и прийти без
          брони, и не прийти по брони. Нарушения — две нижние строки. */
+      /* поставка 107 (владелец, как мастер): две доли — брони без посещения (метрика) и посещения без брони; ниже — брони и
+         посещения частями (ИТОГО — все брони / все посещения) */
+      const nb=D.yoySeries(ctx.lp,'visit_nobook');
       return SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,
-          {h:250,fill:false,title:'Нарушения бронирования, %',ann:ctx.ann.booking_viol})+
-        U.btGroup({cap:'Бронирования и посещения',capSub:D.PER_MON+', человеко-дни',head:'',
+          {h:230,fill:false,title:'Брони без посещения, %',ann:ctx.ann.booking_viol})+
+        (D.REAL?SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,{yser:nb,noBench:true,kpi:null,h:230,fill:false,
+          title:'Посещения без брони, %',name:'Посещения без брони'}):'')+
+        U.btStack([U.btGroup({cap:'Брони',capSub:D.PER_MON+', человеко-дни',head:'',
           valueHead:'Дней',metricKey:'hc_total',compact:true,keepZero:true,items:[
-          {name:'Бронь и приход',value:bk.ok,color:G.C_OFFICE},
-          {name:'Бронь без прихода',note:'нарушение: место простояло',value:bk.noshow,color:G.C_OFFICE},
-          {name:'Приход без брони',note:'нарушение: место не учтено',value:bk.walkin,color:G.C_OFFICE}]})+
-        '<div class="tbl-note">Две нижние строки — нарушения. Их доля и есть «Нарушения бронирования» за '+esc(D.PER_MON)+'.</div>'+
+          {name:'С посещением',value:bk.ok,color:G.C_OFFICE},
+          {name:'Без посещения',note:'место простояло',value:bk.noshow,color:G.C_OFFICE}]}),
+        U.btGroup({cap:'Посещения',capSub:D.PER_MON+', человеко-дни',head:'',
+          valueHead:'Дней',metricKey:'hc_total',compact:true,keepZero:true,items:[
+          {name:'С бронью',value:bk.visitBk,color:G.C_OFFICE},
+          {name:'Без брони',note:'место не учтено',value:bk.walkin,color:G.C_OFFICE}]})])+
+        '<div class="tbl-note">Как в мастер-отчёте: доля броней без посещения — от всех броней, доля посещений без брони — от всех '+
+          'посещений (главный офис дня) за '+esc(D.PER_MON)+'.</div>'+
         /* 27.10-в, п. 14–15: после «Бронирований и посещений» — нарушения по городам: по убыванию, первые 10 и
            раскрываемые «Остальные» */
         (!vc?'<div class="tbl-note">Нарушения бронирования по городам появятся, когда ноутбук отчёта обновят до поставки 70.</div>'
         :vc.length?U.btGroup(Object.assign({cap:'Нарушения бронирования по городам',capSub:D.PER_MON+', человеко-дни',head:'',
           valueHead:'Нарушений',metricKey:'hc_total',compact:true,total:false,sort:true,items:vc.map(c=>({name:c.name,
-            note:c.pct!=null?U.pct(c.pct)+' от дней с бронью':'',value:c.viol,color:G.C_OFFICE}))},
+            note:c.pct!=null?U.pct(c.pct)+' от броней и посещений без брони':'',value:c.viol,color:G.C_OFFICE}))},
           SC.rest(ctx,'vcity',10,['город','города','городов']))):'');
     }
 
