@@ -61,15 +61,9 @@ function kpiBlock(lp){
   if(!k)return '<div class="mon-kpi">'+cap+'<div class="tbl-note">Нет данных мониторинга по дням за последние '+D.MPW+
     ' недель — KPI не считаются.</div></div>';
   const sum=a=>a.reduce((x,y)=>x+y,0);
-  const two=(a,l)=>pc(sum(a),k.hc)+' численности'+a.map((v,i)=>'<br>'+l[i]+' — '+D.fmtInt(v)).join('');
-  const cards=[
-    {id:'ab',name:'Прогулы',n:sum(k.ab),bg:C.per2,sub:two(k.ab,['2–5 дн.','больше 5'])},
-    {id:'we',name:'Работа в выходные',n:sum(k.we),bg:C.per,sub:two(k.we,['2–5 дн.','больше 5'])},
-    {id:'tk',name:'Звонки в Толк от 20%',n:sum(k.talk),bg:C.talk,sub:two(k.talk,['20–30%','30–50%','больше 50%'])}];
-  return '<div class="mon-kpi">'+cap+U.shareCards({static:true,cards:cards})+
-    '<div class="tbl-note">Каждый человек — один раз за весь период: прогулы и работа в выходные — 2 дня и больше за '+
-    'период; звонки — часы разговоров в Толк ÷ рабочие часы плановых дней за период. Доля — от '+D.fmtInt(k.hc)+
-    ' чел. в численности на конец периода.</div></div>';
+  const card=(id,name,a,bg)=>({id:id,name:name,n:sum(a),bg:bg,sub:pc(sum(a),k.hc)+' численности'});
+  const cards=[card('ab','Прогулы',k.ab,C.per2),card('we','Работа в выходные',k.we,C.per),card('tk','Звонки в Толк от 20%',k.talk,C.talk)];
+  return '<div class="mon-kpi">'+cap+U.shareCards({static:true,cards:cards})+'</div>';
 }
 
 SC.blocks.monitor={
