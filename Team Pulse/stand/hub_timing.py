@@ -39,7 +39,7 @@ SETTINGS = ['allow_experimental_analyzer', 'max_threads', 'max_execution_time', 
             'max_bytes_before_external_group_by', 'max_concurrent_queries_for_user', 'max_result_bytes', 'use_uncompressed_cache',
             'use_query_cache', 'load_balancing', 'readonly', 'prefer_column_name_to_alias', 'join_use_nulls', 'group_by_use_nulls',
             'max_query_size', 'max_parser_depth', 'max_ast_elements', 'max_expanded_ast_elements']
-TABLES = ['meta', 'unit', 'series', 'mix', 'trf', 'vacancy', 'ai']
+TABLES = ['meta', 'unit', 'series', 'mix', 'trf', 'vacancy', 'flow', 'aiw', 'aix', 'prof', 'pfd']   # 113-ж: таблицы датасета сейчас
 
 
 def cols(src):
@@ -60,6 +60,10 @@ def dataset(filters, wrap=True, src=SRC):
     assert not r.error, r.error
     k.lexer_patch()
     sql = sqlparse.format(r.text.strip('\t\r\n; '), strip_comments=True)
+    # 113-ж: в SQL Lab логин свой, а в тексте — рендер kit ('a.user'); без полного доступа датасет отдаёт только meta —
+    # меряем ответ «вся компания», как у логина из FULL
+    sql, nf = re.subn(r"has\((?:CAST\(\[\], 'Array\(String\)'\)|\[[^\]]*\]), 'a\.user'\) AS fl", 'toUInt8(1) AS fl', sql)
+    assert nf == 1, nf
     return k.wrap(sql, cs, 50000, True, None) if wrap else sql
 
 
@@ -81,12 +85,41 @@ def info():
             f"ORDER BY part, metric")
 
 
+def empty_in(sql, parts):
+    """поставка 113-ж: чтение таблицы внутри одного CTE заменено пустой выборкой (план прежний, чтения и счёта этой части
+    нет) — разница времени с полным запросом ≈ цена части. parts — пары (CTE, таблица без префикса teampulse_hub_)"""
+    out, pos, n = [], 0, 0
+    for m in re.finditer(r'FROM prod_proteus\.teampulse_hub_(\w+)\b', sql):
+        ctes = re.findall(r'\n\s*,?\s*(\w+) AS \(', sql[:m.start()])
+        if parts is None or (ctes[-1] if ctes else '', m.group(1)) in parts:
+            out.append(sql[pos:m.start()] + empty_from(m.group(1), sql[m.end():]))
+            pos, n = m.end(), n + 1
+    assert n, parts
+    return ''.join(out) + sql[pos:]
+
+
+def empty_from(t, rest):
+    """пустая выборка вместо таблицы; псевдоним — её имя, если своего нет (иначе «FROM (…), pmc» ClickHouse не примет)"""
+    alias = '' if re.match(r'\s+AS\s', rest) else f' AS teampulse_hub_{t}'
+    return f'FROM (SELECT * FROM prod_proteus.teampulse_hub_{t} WHERE 0){alias}'
+
+
+# поставка 113-ж: части датасета, цену которых меряем по отдельности (компания без части против компании целиком)
+ABL = [('медианы подразделений того же размера (peer)', [('pnv', 'series')]),
+       ('переводы по специализациям в разрезах (fsm)', [('mxr', 'flow')]),
+       ('AI: недели и разрезы (aw, aix)', [('mxr', 'aiw'), ('mxr', 'aix')]),
+       ('разрезы состава (mix)', [('mxr', 'mix')]),
+       ('прочие разрезы: вакансии, переводы, профили', [('mxr', 'vacancy'), ('mxr', 'trf'), ('mxr', 'pfd'), ('pfr', 'prof')]),
+       ('ряды по месяцам (mm)', [('mm', 'series'), ('mm', 'trf'), ('mm', 'vacancy'), ('mm', 'flow')]),
+       ('числа окна выбора юнита (fdb)', [('fdb', 'series')]),
+       ('ряд HQ (mh)', [('mh', 'series')])]
+
+
 def blocks(old=None):
     team = lambda f, src=SRC: dataset(f, src=src).replace(f"'{TEAM}'", TEAM_SQL)
     company = dataset({})
-    plan = company
-    for t in FACTS:
-        plan = plan.replace(f'FROM prod_proteus.teampulse_hub_{t}', f'FROM (SELECT * FROM prod_proteus.teampulse_hub_{t} WHERE 0)')
+    plan = re.sub(r'FROM prod_proteus\.teampulse_hub_(\w+)\b(?=(.{0,8}))',
+                  lambda m: empty_from(m.group(1), m.group(2)) if m.group(1) in FACTS else m.group(0), company, flags=re.S)
     hq = {'unit_f': [TEAM], 'paint_f': ['HQ']}
     b = [('1', 'версия, настройки, таблицы', info()),
          ('2', 'компания (первое открытие)', collapse(company, '2 компания'))]
@@ -97,7 +130,11 @@ def blocks(old=None):
         b.append(('5', 'команда + HQ — прежний 2а', collapse(team(hq, old), '5 команда + HQ, прежний', old)))
     b += [('6', 'команда', collapse(team({'unit_f': [TEAM]}), '6 команда')),
           ('7', 'компания, таблицы фактов пустые — только разбор и план', collapse(plan, '7 только план'))]
-    assert all(TEAM not in s for _, _, s in b) and all(TEAM_SQL in s for n, _, s in b if n in '456')
+    # поставка 113-ж: компания без одной части — 8, 9, …
+    for i, (title, parts) in enumerate(ABL):
+        n = str(8 + i)
+        b.append((n, f'компания без части: {title}', collapse(empty_in(company, parts), f'{n} без: {title}')))
+    assert all(TEAM not in s for _, _, s in b) and all(TEAM_SQL in s for n, _, s in b if n in ('4', '5', '6'))
     return b
 
 
@@ -113,10 +150,11 @@ HEAD = """-- ===================================================================
 -- Что меряем: время ответа SQL Lab = разбор текста в SQL Lab + план ClickHouse + чтение.
 --   {ab}
 --   2 − 7  ≈ чтение таблиц (план у них одинаковый)     7 − 1  ≈ разбор текста и план
+--   2 − N (N = 8…) ≈ цена одной части датасета: в блоке N чтение её таблиц заменено пустой выборкой, остальное как в 2
 -- Стенд масштаба боя (stand/hub_scale.py: 11 932 узла, series 1,3 млн строк, ClickHouse 24.8), замер поставки 53:
 {bench}
 -- Команда в блоках 4–6 подбирается внутри запроса (узел 7-го уровня с наибольшим числом подразделений):
--- какая — в колонке scope. Только читает; собран stand/hub_timing.py из файла 2а.
+-- какая — в колонке scope. Только читает; собран stand/hub_timing.py из файла 2.
 -- ============================================================================
 """
 
