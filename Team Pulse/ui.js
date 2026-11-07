@@ -257,7 +257,7 @@ function infoDot(key){
   return '<span class="info"'+tipAttr({title:m.name,text:metricText(m),note:betterWord(m)})+' aria-label="О метрике">i</span>';
 }
 
-const NOCMP_HINT='Это количество, а не доля: оно зависит от размера подразделения, поэтому с базой не сравнивается.';
+const NOCMP_HINT='Это количество, а не доля: оно зависит от размера подразделения, поэтому с другими подразделениями не сравнивается.';
 function noCmpMark(){return '<span class="nocmp"'+tipAttr({title:'Без сравнения',text:NOCMP_HINT})+'>—</span>'} /* 30.10, шаг 1: прочерк вместо «не сравнивается» в каждой строке; почему — в подсказке */
 /* Руководитель юнита под именем строки (14.10): «Имя Фамилия · логин».
    Нет данных (пробник без источника, строка «Напрямую в «X»») — ничего. */
@@ -291,23 +291,28 @@ function targetCell(key,val,baseVal,kpi,pe){
       '<span class="sig-chip '+st+'">'+(st==='good'?'в цели':st==='warn'?'зона риска':st==='bad'?badTxt:'без оценки')+'</span></div>';
   }
   if(!D.comparable(key))return '<div class="tgt">'+noCmpMark()+'</div>';
-  /* поставка 113: ориентир — медиана подразделений того же размера под теми же фильтрами (вместо базы) */
+  /* поставка 113: ориентир — медиана подразделений того же размера под теми же фильтрами; поставка 117 (владелец: «сравнение
+     с медианой непонятно»): называется «база», расшифровка — в подсказке */
   if(pe){
     const st=D.peerState(key,val,pe);
-    return '<div class="tgt"'+tipAttr({title:'Медиана подразделений вашего размера',
-      text:'Подразделения на '+pe.bandName+' человек под теми же фильтрами: у половины — меньше **'+D.fmtVal(key,pe.p50)+'**, у половины — больше. '+
-        'Четверть — ниже '+D.fmtVal(key,pe.p25)+', четверть — выше '+D.fmtVal(key,pe.p75)+'.',
-      note:'Подразделений в сравнении: '+pe.n+'. «Лучше / хуже большинства» — лучше или хуже, чем у трёх из четырёх.'})+
-      '><b>медиана '+D.fmtVal(key,pe.p50)+'</b><span class="sig-chip '+st+'">'+
-      (st==='good'?'лучше большинства':st==='bad'?'хуже большинства':st==='warn'?'на уровне':'без оценки')+'</span></div>';
+    return '<div class="tgt"'+baseTip(key,pe)+'><b>база '+D.fmtVal(key,pe.p50)+'</b><span class="sig-chip '+st+'">'+
+      (st==='good'?'лучше базы':st==='bad'?'хуже базы':st==='warn'?'на уровне':'без оценки')+'</span></div>';
   }
   /* поставка 113: база совпадает с отчётом (вся компания) — сравнивать не с чем */
   if(baseVal==null||!kpi&&D.isSelfBase())return '<div class="tgt">—</div>';
+  /* поставка 117: базы по размеру у метрики нет — сравнение со всей компанией под теми же фильтрами, так и подписано */
   const st=D.compareState(key,val,baseVal), diff=val-baseVal, m=D.METRIC_BY_KEY[key];
   const lbl=m.better==='flat'
-    ? (Math.abs(diff)<0.05?'как база':(diff>0?'выше базы':'ниже базы'))
-    : (st==='good'?'лучше базы':st==='bad'?'хуже базы':st==='warn'?'на уровне':'без оценки');
-  return '<div class="tgt"><b>'+D.fmtVal(key,baseVal)+'</b><span class="sig-chip '+st+'">'+lbl+'</span></div>';
+    ? (Math.abs(diff)<0.05?'как в компании':(diff>0?'выше компании':'ниже компании'))
+    : (st==='good'?'лучше компании':st==='bad'?'хуже компании':st==='warn'?'на уровне':'без оценки');
+  return '<div class="tgt"'+tipAttr({title:'Вся компания',text:'У этой метрики базы по подразделениям похожей численности нет — '+
+    'сравниваем с той же метрикой по всей компании с выбранными фильтрами.'})+'><b>компания '+D.fmtVal(key,baseVal)+'</b>'+
+    '<span class="sig-chip '+st+'">'+lbl+'</span></div>';
+}
+/* поставка 117: подсказка «База» — одна на весь отчёт (ячейки, чипы выводов, шапка); с числами группы, если они есть */
+function baseTip(key,pe){
+  return tipAttr({title:'База',text:D.baseDef(pe&&pe.band)+(pe&&key?'\nМедиана — **'+D.fmtVal(key,pe.p50)+'**; четверть подразделений ниже '+
+    D.fmtVal(key,pe.p25)+', четверть выше '+D.fmtVal(key,pe.p75)+'.':''),note:pe?'Подразделений в сравнении: '+pe.n+'.':null});
 }
 
 /* ---------- Значок AI-плашки ----------
@@ -428,16 +433,19 @@ function barTable(o){
      строки ниже, цифры без жирного. «Одно и то же десять раз» — фидбэк. */
   const lite=!!o.lite;
   /* поставка 116: в плотной таблице название шире (46%) — «По инициативе работодателя» не обрезается; с колонкой людей:
-     длинный заголовок («С AI, чел») — 16%, название 40%; короткий («Чел») — 13% (пятизначное число на бою), название 45%;
+     длинный заголовок («С AI, чел») — 16%, название 40%; короткий («Чел») — 13% (пятизначное число на бою), название 44%;
      доля — 15% («Доля, %» в строку); «Распределение» — в строку */
   const cw=cnt&&cnt.length>4?16:13;
   let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+(cnt?' bt-cnt':'')+'">'+
-    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?(cw>13?'40%':'45%'):'46%'):'34%')+'"><col style="width:'+(lite?'9%':cnt?'15%':'14%')+'">'+
-    (cnt?'<col style="width:'+cw+'%">':'')+(withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
+    /* поставка 117 (владелец: «в AI бары относятся к проценту, а визуально — к численности»): колонка людей — ПЕРЕД
+       значением, значение (процент полосы) — вплотную к полосе, как «Чел · Доля · Распределение» в остальных таблицах */
+    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?(cw>13?'40%':'44%'):'46%'):'34%')+'">'+
+    (cnt?'<col style="width:'+cw+'%">':'')+'<col style="width:'+(lite?'9%':cnt?'15%':'14%')+'">'+
+    (withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
     /* поставка 116-б: общая каретка двухуровневой разбивки — в шапке колонки названий, над каретками строк (в подписи она
        выталкивала итог на вторую строку) */
     (lite&&!o.heads?'':'<thead><tr><th class="txt">'+(o.expAll?expAllHead(o.expAll):esc(o.head||''))+'</th>'+
-    '<th>'+esc(o.valueHead||'Значение')+'</th>'+(cnt?'<th>'+esc(cnt)+'</th>':'')+(withShare?'<th>Доля</th>':'')+
+    (cnt?'<th>'+esc(cnt)+'</th>':'')+'<th>'+esc(o.valueHead||'Значение')+'</th>'+(withShare?'<th>Доля</th>':'')+
     '<th class="txt bar-th">'+esc(o.barHead||'Распределение')+'</th></tr></thead>')+'<tbody>';
 
   /* ИТОГО ПЕРВОЙ СТРОКОЙ — так же, как в сводной таблице подразделений.
@@ -453,7 +461,7 @@ function barTable(o){
       : (o.tree?'<span class="caret-spacer"></span>':'');
     h+='<tr class="total top"><td class="txt">'+
       (o.tree?'<span class="row-label">'+allBtn+'<span class="row-body">ИТОГО</span></span>':'ИТОГО')+
-      '</td><td class="lead">'+D.fmtVal(key,sum)+'</td>'+(cnt?'<td></td>':'')+
+      '</td>'+(cnt?'<td></td>':'')+'<td class="lead">'+D.fmtVal(key,sum)+'</td>'+
       (withShare?'<td>100%</td>':'')+'<td class="barcell"></td></tr>';
   }
 
@@ -490,7 +498,7 @@ function barTable(o){
       (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span>';
     h+='<tr'+hook+'>'+
       '<td class="txt">'+(tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
-      '<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+(cnt?'<td>'+(x.n==null?'—':D.fmtInt(x.n))+'</td>':'')+
+      (cnt?'<td>'+(x.n==null?'—':D.fmtInt(x.n))+'</td>':'')+'<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+
       (withShare?'<td>'+share.toFixed(share<10?1:0).replace('.',',')+'%</td>':'')+
       '<td class="barcell"'+tipAttr({title:x.name,
         rows:[{label:o.valueHead||'Значение',value:D.fmtVal(key,x.value),color:G.soft(x.color||G.C_LINE)}]
@@ -989,9 +997,10 @@ function trafficLegend(){
     /* поставка 110 («один вердикт»): порог один на весь отчёт — 10%, как у выводов; меньше 30 человек — без оценки */
     '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне (±'+Math.round(D.VERDICT_GAP*100)+'%) или без оценки</span>'+
     /* 30.10, шаг 2: пояснение — в подсказке, под выводами меньше букв */
-    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI; где её нет — к медиане подразделений вашего размера (30–99, 100–299, 300–999, 1000+ человек) '+
-      'с теми же фильтрами: хуже или лучше, чем у трёх из четырёх; где и её нет — к базе: та же метрика по всей компании. Хуже или лучше базы — '+
-      'на '+Math.round(D.VERDICT_GAP*100)+'% и больше: тот же порог, что у выводов. В команде меньше '+D.SMALL_N+' человек доли не оцениваются. '+
+    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI; где её нет — к базе: медиане '+
+      'подразделений похожей численности (30–99, 100–299, 300–999, 1000+ человек) с теми же фильтрами; «хуже» или «лучше» — чем у трёх '+
+      'из четырёх. Где базы у метрики нет — ко всей компании с теми же фильтрами: хуже или лучше на '+Math.round(D.VERDICT_GAP*100)+
+      '% и больше, тот же порог, что у выводов. В команде меньше '+D.SMALL_N+' человек доли не оцениваются. '+
       'Колонки MoM и YoY — к прошлому периоду.'})+
     '>как читать</span></div>';
 }
@@ -1079,7 +1088,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
+window.TPUI={baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};

@@ -89,8 +89,10 @@ function plainHead(j,c,more,less){
   const r=(j.v-py)/Math.abs(py);
   return Math.abs(r)<0.1?m.name+' — '+v+', как год назад ('+f(j.k,py)+')':(r>0?more:less)+', чем год назад: '+v+' против '+f(j.k,py);
 }
-/* «в базе «всё HQ»» — база всегда названа, как в чипе шапки */
-const inBase=c=>'в базе «'+c.bench+'»';
+/* поставка 117: с чем сравнили — «в базе» (подразделения похожей численности, термин с расшифровкой) или «во всей
+   компании» с фильтрами шапки; слово «база» — только для подразделений похожей численности */
+const inRef=(j,c)=>j&&j.peer?'в {{База|базе}}':'во '+D.coName(c.S,'prep');
+const lvlRef=(j,c)=>j&&j.peer?'{{База|базы}}':D.coName(c.S,'gen');
 /* всплеск: месяц заметно выше обычного — иначе «пик» на графике шум */
 function spikeAt(a,minAbs){
   const i=argmax(a);
@@ -133,10 +135,12 @@ function focusRate(c,k,cap){
   if(rs.length<2)return {};
   const i=D.PER_I, kpi=D.kpiAt(k,c.S,D.MONTHS[i].m), base=kpi?kpi.green:per(c.bl,k).v;
   const m=D.METRIC_BY_KEY[k];
+  /* поставка 117: подразделение оценивается как в таблице — цель, иначе база своей группы численности (peerOf по его
+     листьям), иначе вся компания */
   const rows=rs.map(r=>{
-    const v=per(r.lp,k).v;
-    const s=v==null||base==null?'neutral':kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,base);
-    return {path:r.n.path,name:r.n.name,v:v,st:s==='good'?'good':s==='bad'?'bad':'n'};
+    const v=per(r.lp,k).v, pe=kpi?null:D.peerOf(k,r.lp);
+    const s=v==null?'neutral':kpi?D.stateForKpi(k,v,kpi):pe?D.peerState(k,v,pe):base==null?'neutral':D.compareState(k,v,base);
+    return {path:r.n.path,name:r.n.name,v:v,pe:pe,st:s==='good'?'good':s==='bad'?'bad':'n'};
   }).filter(r=>r.v!=null);
   if(rows.length<2)return {};
   /* хуже — выше: сортируем так, чтобы первой стояла строка, которую разбирать */
@@ -145,8 +149,10 @@ function focusRate(c,k,cap){
   const mx=Math.max.apply(null,rows.map(r=>r.v))||1, sm=rows.reduce((a,r)=>a+Math.max(0,r.v),0);
   const focus={cap:cap,rows:rows.slice(0,4).map(r=>({name:r.name,val:f(k,r.v),w:U.barW(k,r.v,m.fmt==='pct'?0:sm,mx)/100,st:r.st,path:r.path}))};
   const bad=rows.filter(r=>r.st==='bad');
-  const act=bad.length===1?{text:(kpi?'Не дотягивает до цели только «':'Хуже базы только «')+bad[0].name+'»: **'+f(k,bad[0].v)+'** при '+
-    (kpi?'цели ':'базе ')+f(k,base)+'.',node:bad[0].path,name:bad[0].name}:null;
+  const b0=bad[0];
+  const act=bad.length===1?{text:(kpi?'Не дотягивает до цели только «':b0.pe?'Хуже {{База|базы}} только «':'Хуже, чем во всей компании, только «')+
+    b0.name+'»: **'+f(k,b0.v)+'** при '+(kpi?'цели '+f(k,base):b0.pe?'{{База|базе}} '+f(k,b0.pe.p50):f(k,base)+' во всей компании')+'.',
+    node:b0.path,name:b0.name}:null;
   return {focus:focus,act:act};
 }
 
@@ -168,12 +174,10 @@ function vsBase(j,c,more,less,same,noYoy){
   /* 30.10, критики: «Конверсия на уровне базы» при пустом значении — за месяц нет событий, так и пишем */
   if(j.v==null)return 'Нет данных — не с чем сравнить';
   if(j.thin||j.small||j.self&&!j.kpi)return plainHead(j,c,more,less);
-  /* поставка 113: ориентир — медиана подразделений того же размера */
-  if(j.peer&&!j.kpi)return (j.st==='bad'||j.st==='good'?((j.v>j.base)?more:less)+', чем у большинства подразделений вашего размера'
-    :same.replace(/ — на уровне базы$/,'')+' — на уровне подразделений вашего размера')+(noYoy?'':yoyTail(j,c,more,less));
+  /* поставка 113: ориентир — медиана подразделений того же размера; поставка 117: она и есть «база» */
   return (j.st==='bad'||j.st==='good'
-    ? ((j.v>j.base)?more:less)+', чем '+inBase(c)
-    : same+' «'+c.bench+'»')+(noYoy?'':yoyTail(j,c,more,less));
+    ? ((j.v>j.base)?more:less)+', чем '+inRef(j,c)
+    : same.replace(/ — на уровне базы$/,'')+' — на уровне '+lvlRef(j,c))+(noYoy?'':yoyTail(j,c,more,less));
 }
 /* 30.10, критики («две точки сравнения»): глава сравнивает с базой, вывод блока — с прошлым годом. Если год к году
    картина обратная, заголовок говорит обе вещи сразу: «Повышают чаще, чем в базе, но реже, чем год назад» */
@@ -187,7 +191,9 @@ function yoyTail(j,c,more,less){
 }
 
 /* значение за период и база; пустое — «нет данных», а не «— при базе 37,5%» */
-const valAt=(k,j)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.base!=null&&!j.small&&!j.thin&&!j.self?(j.peer&&!j.kpi?' при медиане '+f(k,j.base)+' у подразделений вашего размера':' при базе '+f(k,j.base)):'');
+/* поставка 117: «при базе X» — база с расшифровкой; без базы — «при X во всей компании»; у цели — «при цели X» */
+const valAt=(k,j,c)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.base!=null&&!j.small&&!j.thin&&!j.self?(j.kpi?' при цели '+f(k,j.base)
+  :j.peer?' при {{База|базе}} '+f(k,j.base):' при '+f(k,j.base)+(c?' во '+D.coName(c.S,'prep'):' во всей компании')):'');
 const CH={};
 
 /* ===== Отток и текучесть ===== */
@@ -204,8 +210,8 @@ CH.turnover={
     const yp=Math.round(per(c.lp,'attrition').pv||0), dd=y-yp;
     let head=fc.small?'Ушли '+pl(y,PPL)+(per(c.lp,'attrition').pv!=null?' — '+(dd?'на '+pl(Math.abs(dd),PPL)+' '+(dd>0?'больше':'меньше')+', чем год назад':'столько же, сколько год назад'):'')
       :fc.self?plainHead(Object.assign({},fc,{k:'turnover_y'}),c,'Уходят чаще','Уходят реже')
-      :(fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
-      :'Темп ухода — на уровне базы «'+c.bench+'»')+yoyTail(fc,c,'Уходят чаще','Уходят реже');
+      :(fc.st==='bad'?'Уходят чаще, чем '+inRef(fc,c):fc.st==='good'?'Уходят реже, чем '+inRef(fc,c)
+      :'Темп ухода — на уровне '+lvlRef(fc,c))+yoyTail(fc,c,'Уходят чаще','Уходят реже');
     /* ревью 100: «реже, но был всплеск» — противопоставление; к «чаще» всплеск добавляется через «;» */
     if(pk>=0)head+=(/, но /.test(head)||fc.st==='bad'?'; ':', но ')+mPrep(pk)+' был всплеск';
     const fo=focusCount(c,'attrition',{cap:'Где уходят',what:'общего оттока',win:'ytd'});
@@ -213,7 +219,7 @@ CH.turnover={
       lede:'Ушли **'+pl(y,PPL)+'**'+ago(c.lp,'attrition')+'. Текучесть накопительная — **'+
         f('turnover_y',fc.v)+'**'+(ya!=null?' (год назад '+f('turnover_y',ya)+')':'')+'.',
       facts:[pk>=0?'Пик — **'+mNom(pk)+'**: '+pl(a[pk],EXITS):null,
-        'Текучесть месячная в среднем — '+valAt('turnover_m',tm),
+        'Текучесть месячная в среднем — '+valAt('turnover_m',tm,c),
         ya!=null&&fc.v!=null?'Текучесть накопительная к прошлому году: **'+D.fmtDelta('turnover_y',+(fc.v-ya).toFixed(2))+'**':null],
       focus:fo.focus,act:fo.act,ann:{attrition:annFor(pk,'пик года')}};
   },
@@ -257,7 +263,9 @@ CH.turnover={
     /* поставка 110 (A2): в команде меньше 30 человек — без долей и оценки, в людях */
     const sm=D.isSmall();
     return {sum:sm?early+' из '+tot+' — в первый год':ep+'% — в первый год',st:!sm&&(ep>=40||sk)?'bad':'n',
-      head:sm?'Ушли '+pl(tot,PPL)+': '+(early?early+' — со стажем до года':'все со стажем больше года'):sk?'Чаще своей доли уходят из '+sk.w+' «'+sk.x.name+'»: '+pc(sk.x.value,tot)+'% уходов при '+Math.round(sk.t*100)+'% команды'
+      /* поставка 117 (владелец: «"чаще своей доли" — непонятная формулировка»): «уходят чаще, чем в среднем» и обе доли словами */
+      head:sm?'Ушли '+pl(tot,PPL)+': '+(early?early+' — со стажем до года':'все со стажем больше года'):sk?'Из '+sk.w+' «'+sk.x.name+'» уходят чаще, чем в среднем: это '+
+        Math.round(sk.t*100)+'% команды, но '+pc(sk.x.value,tot)+'% уходов'
         :ep>=30?ep+'% ушедших не проработали и года':'Уходят в основном опытные: '+(100-ep)+'% — со стажем больше года',
       lede:'Ушли **'+pl(tot,PPL)+'**, из них **'+early+'** — со стажем до года. '+(gt.tie?'По грейдам поровну — '+gt.q+' (по '+g.value+')':'Больше всего уходов — в грейде «'+g.name+'» ('+g.value+')')+
         (stt.tie?'; по стримам поровну — '+stt.q+' (по '+s.value+').':(gt.tie?'; по стримам больше всего — ':' и в стриме ')+'«'+s.name+'» ('+s.value+').'),
@@ -355,7 +363,7 @@ CH.hiring={
     return {sum:f('time_to_fill',t.v)+' на вакансию',st:t.st,
       head:vsBase(t,c,'Вакансии закрываются дольше','Вакансии закрываются быстрее','Скорость закрытия — на уровне базы'),
       lede:'Сейчас открыто **'+op+'**'+ago(c.lp,'vac_open')+'. Закрыто **'+cl+'**'+ago(c.lp,'vac_closed')+
-        ', медианный срок закрытия — '+valAt('time_to_fill',t)+'.',
+        ', медианный срок закрытия — '+valAt('time_to_fill',t,c)+'.',
       facts:[note>=0?'Больше всего открытых было '+mPrep(note)+': **'+vo[note]+'**':null],
       focus:fo.focus,act:fo.act,ann:{vac_open:annFor(note,'пик')}};
   },
@@ -395,7 +403,7 @@ CH.tgrowth={
     return {sum:'конверсия '+f('tgrowth_conv',cv.v),st:cv.st,
       head:vsBase(cv,c,'Повышают чаще','Повышают реже','Конверсия T-роста — на уровне базы'),
       lede:'Одобрено **'+ps+'** '+U.plural(ps,['заявка','заявки','заявок'])+ago(c.lp,'tgrowth_pass')+', отклонено **'+dn+'**'+
-        ago(c.lp,'tgrowth_deny')+'. Конверсия — '+valAt('tgrowth_conv',cv)+'.',
+        ago(c.lp,'tgrowth_deny')+'. Конверсия — '+valAt('tgrowth_conv',cv,c)+'.',
       focus:fo.focus,act:fo.act,ann:{tgrowth_conv:{hi:[cv.i]}}};
   },
   /* 27.10-в, п. 8: «Как растут по грейдам?» и «Как меняют специализацию?» — по описанию вкладки «Рост» дашборда HQ */
@@ -654,7 +662,8 @@ CH.structure.portrait=function(c){
   const early=D.mixCats('tenure').map(c=>D.bound(c.name,'mon')<12), e=a=>sum(a.filter((_,i)=>early[i]));
   const ten=P('tenure'), tenB=B('tenure'), n0=pc(e(ten),sum(ten)), b0=pc(e(tenB),sum(tenB));
   const devs=profDevs(c,inSel), big=devs[0]&&Math.abs(devs[0].d)>=5?devs[0]:null;
-  const cmp=x=>'«'+x.cat.name+'» — **'+pp(x.t)+'** против '+pp(x.b)+' в базе';
+  /* поставка 117: состав сравнивается со всей компанией (с фильтрами шапки), это не «база» */
+  const cmp=x=>'«'+x.cat.name+'» — **'+pp(x.t)+'** против '+pp(x.b)+' во '+D.coName(c.S,'prep');
   const role=stQ&&stQ.dim.key==='spec'?'«'+stQ.cat.name+'»':roleOf(top.cat);
   const who=SEN[sn.cat.key]&&ROLE[top.cat.key]?SEN[sn.cat.key]+'-'+role+' '+ageOf(ag.cat)+', '+tenOf(tn.cat)
     :senOf(sn.cat)+', '+role+', '+ageOf(ag.cat)+', '+tenOf(tn.cat);
@@ -664,8 +673,8 @@ CH.structure.portrait=function(c){
   return {sum:pl(tot,PPL)+' · '+senOf(sn.cat),st:'n',
     head:parts.length?'В срезе «'+D.sliceLabel(sel)+'» типичный человек — '+who:'Типичный человек в команде — '+who,
     lede:'**'+pl(tot,PPL)+'**'+(parts.length?' в срезе':'')+(lede.length?': '+lede.join(', '):'')+'. '+
-      (big?'Сильнее всего от базы «'+c.bench+'» отличается '+big.dim.short.toLowerCase()+': '+cmp(big)+'.'
-          :'По составу команда похожа на базу «'+c.bench+'»: нигде расхождение не доходит до 5 п.п.')};
+      (big?'Сильнее всего от '+D.coName(c.S,'gen')+' отличается '+big.dim.short.toLowerCase()+': '+cmp(big)+'.'
+          :'По составу команда похожа на '+D.coName(c.S,'acc')+': нигде расхождение не доходит до 5 п.п.')};
 };
 
 /* «Оформление» (21.10, файл «Структура»): штат и самый частый формат работы */
@@ -678,7 +687,7 @@ CH.structure.work=function(c){
   const fm=D.MIX_BY_KEY.worksite&&!inSel('worksite')?(()=>{const p=P('worksite'), i=argmax(p);return D.mixCats('worksite')[i]})():null;
   return {sum:'штат '+st.t+'%',st:'n',
     head:'В штате '+st.t+'% команды'+(fm?', чаще всего — '+fm.name.toLowerCase():''),
-    lede:'**'+pl(st.n,PPL)+'**'+(parts.length?' в срезе':'')+'. Штат — **'+st.t+'%**'+(Math.abs(st.t-st.b)>=5?' при '+st.b+'% в базе «'+c.bench+'»':', как в базе «'+c.bench+'»')+'.'};
+    lede:'**'+pl(st.n,PPL)+'**'+(parts.length?' в срезе':'')+'. Штат — **'+st.t+'%**'+(Math.abs(st.t-st.b)>=5?' при '+st.b+'% во '+D.coName(c.S,'prep'):', как во '+D.coName(c.S,'prep'))+'.'};
 };
 
 /* ---------- Зачем смотреть и что с этим делать (итерация 32, фидбэк 12.10) ----------
@@ -696,7 +705,7 @@ const GL={
   'Текучесть':{metric:'turnover_m',add:'\nУчитывает размер команды, поэтому её можно сравнивать с другими командами и с базой.'},
   'Среднесписочная численность':{text:'Полусумма активной численности на конец прошлого и этого месяца — упрощённый способ из методологии HR. Знаменатель текучести.'},
   'Активная численность':{metric:'hc_active'},
-  'База':{text:'Та же метрика по всей компании с теми же фильтрами, что в шапке.\nПереход в подразделение базу не меняет.'},
+  'База':{text:D.BASE_DEF},
   'Нежелательный уход':{text:'Уход, о котором компания сожалеет. По методологии HR: сотрудник ушёл сам, не из-за релокации, со стажем от 12 месяцев; MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3. В причинах отмечен ★.\nИз таких уходов считается нежелательная текучесть.'},
   'Нежелательная текучесть HQ':{metric:'regret'},
   'Желательная текучесть HQ':{metric:'nonregret'},

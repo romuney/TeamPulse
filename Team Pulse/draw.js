@@ -1298,6 +1298,16 @@ let _specs=new Map(), _sid=0;
    Ключ — kind|title|cid: один cid ненадёжен (счётчик обнуляется каждый рендер),
    один заголовок — тоже (заголовков может не быть). */
 const _off=new Map();
+/* поставка 117 (владелец: «отключаешь прошлый год на одном графике — должен отключиться на всех, чтобы не тыкать каждый»):
+   прошлый год (серия prev у yoy, pair, panels) — один переключатель на весь отчёт, помнится в сессии, как и _off */
+let _prevOff=false;
+/* можно ли менять prev у графика: без него остаётся видимая серия своей группы (у пары — годы cur / prev) */
+function prevApply(kind,ids,off,on){
+  if(ids.indexOf('prev')<0)return;
+  if(!on){off.delete('prev');return}
+  const grp=kind==='pair'?['cur']:ids.filter(x=>x!=='prev');
+  if(grp.some(x=>!off.has(x)))off.add('prev');
+}
 
 const CH_H=280, CH_MAIN=360, CH_SM=190;
 function build(spec,w,h){return KINDS[spec.kind](spec.args,Math.max(320,w),h||null)}
@@ -1309,6 +1319,7 @@ function chart(kind,args,opt){
   /* 31.10, п. 6: opt.offDef — серии, выключенные по умолчанию (линия базы «Вся компания»): в легенде перечёркнута,
      клик включает; выбор помнится в сессии, как любое выключение */
   opt.off=_off.get(opt._key)||new Set(opt.offDef||[]);
+  prevApply(kind,seriesOf(kind,opt.legend),opt.off,_prevOff);
   const spec={kind,args:Object.assign({},args,{opt}),opt};
   _specs.set(id,spec);
   /* opt.cls — модификатор контейнера */
@@ -1389,6 +1400,18 @@ function toggleSeries(cid,sid){
   else off.add(sid);
   _off.set(sp.opt._key,off);
   redraw(cid,null);
+  /* поставка 117: прошлый год — сразу на всех графиках экрана и дальше в сессии */
+  if(sid==='prev'){
+    _prevOff=off.has('prev');
+    _specs.forEach((o,c)=>{
+      if(c===cid||LOCKED[o.kind])return;
+      const ids2=seriesOf(o.kind,o.opt.legend);
+      if(ids2.indexOf('prev')<0)return;
+      const was=o.opt.off.has('prev');
+      prevApply(o.kind,ids2,o.opt.off,_prevOff);
+      if(o.opt.off.has('prev')!==was){_off.set(o.opt._key,o.opt.off);redraw(c,null)}
+    });
+  }
   return true;
 }
 

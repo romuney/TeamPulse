@@ -163,7 +163,8 @@ function yoyPanels(lp,items,opt){
       period:D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null};
   })},Object.assign({h:520,fill:true,benchName:opt.bl?D.benchmarkLabel(opt.S):'',offDef:['bench'],
     /* третий пункт — для переключателя серий (легенда панелей рисуется у каждой панели своя) */
-    legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}].concat(opt.bl&&items.some(it=>cmp(it.key))?[{id:'bench',name:'база'}]:[])},opt,{bl:null,S:null}));
+    /* поставка 117: линия — та же метрика по всей компании (помесячно), не «база» (база — подразделения похожей численности) */
+    legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}].concat(opt.bl&&items.some(it=>cmp(it.key))?[{id:'bench',name:D.benchmarkLabel(opt.S)}]:[])},opt,{bl:null,S:null}));
 }
 /* Пара встречных потоков (пришли / ушли) на оси года — «ежики»: приход
    барами вверх, уход вниз, прошлый год — прозрачными барами позади (15.10). opt.legend — имена
@@ -277,7 +278,7 @@ function conclusion(sum,b,S){
     tag='Без оценки';
     head='В команде меньше '+D.SMALL_N+' человек — доли и сроки с ориентиром не сравниваем';
     facts='<div class="bk-pl"><span class="bk-p"'+U.tipAttr({title:'Почему без оценки',
-        text:'Один человек сдвигает долю на несколько процентных пунктов — сравнение с базой здесь шум. Числа в людях — на графиках и в таблицах ниже.'})+
+        text:'Один человек сдвигает долю на несколько процентных пунктов — сравнение с другими подразделениями здесь шум. Числа в людях — на графиках и в таблицах ниже.'})+
       '>один человек — несколько п.п.</span><span class="bk-p">числа в людях — ниже</span></div>';
     todo='Смотрите, кто именно ушёл, пришёл или перешёл: на таком размере важен каждый человек.';
   }else if(!sum.list.length){
@@ -376,9 +377,12 @@ function renderBlock(S,expanded,mixOpen,view){
      и обещать по ней базу в подзаголовке было бы неправдой. */
   const kpiMets=mets.filter(m=>D.kpiFor(m.key,S));
   const cmpMets=mets.filter(m=>D.comparable(m.key)&&!D.kpiFor(m.key,S));
+  /* поставка 117: «база» — подразделения похожей численности (подсказка); у метрик без неё — вся компания */
+  const pm=cmpMets.filter(m=>D.peerOf(m.key)), pe0=pm.length?D.peerOf(pm[0].key):null;
   const cmpTxt=(cmpMets.length
-      ? 'Сравниваем с базой <b>'+esc(D.benchmarkLabel(S))+'</b>.'
-      : kpiMets.length?'':'Здесь количества — с базой они не сравниваются.')+
+      ? 'Сравниваем '+(pm.length?'с <span class="term" tabindex="0"'+U.baseTip(null,pe0)+'>базой</span> — подразделениями похожей численности'+
+          (pm.length<cmpMets.length?', где её нет — со всей компанией':'')+'.':'со всей компанией с выбранными фильтрами.')
+      : kpiMets.length?'':'Здесь количества — с другими подразделениями они не сравниваются.')+
     /* поставка 103 (файл 9, п. 10): в «Как уходит HQ?» целей нет — и упоминания о них в шапке тоже */
     (kpiMets.length&&!(b.key==='turnover'&&S.subTab==='hq')?' Где есть цель KPI — с целью.':'');
   /* «Детальный дашборд» ведёт туда, где блок есть в Proteus: при покраске HQ —

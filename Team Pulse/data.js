@@ -869,6 +869,25 @@ function benchmarkLabel(st){
   if(st.staffType!=='all')parts.push(st.staffType==='staff'?'штат':'не штат');
   return (parts.length?('всё '+parts.join(' ')):'вся компания')+(st.hcType==='all'||st.hcType==='set'?', '+hcLabel(st):'');
 }
+/* поставка 117 (владелец 07.11: «сравнение с медианой непонятно; у нас есть база и сравниваем с базой, а при наведении —
+   расшифровка: похожие по численности подразделения с учётом выбранных фильтров»). Слово «база» в отчёте — только медиана
+   подразделений той же группы численности под теми же фильтрами (peerOf). Где такой базы у метрики нет и она сравнивается
+   со всей компанией под фильтрами (benchmarkLeaves), — так и пишем: «вся компания» (coName), а не «база» */
+const BASE_DEF='Медиана подразделений похожей численности (группы: 30–99, 100–299, 300–999, 1000+ человек) с выбранными '+
+  'фильтрами: у половины таких подразделений значение ниже, у половины — выше. «Лучше» или «хуже базы» — лучше или хуже, чем '+
+  'у трёх из четырёх таких подразделений.';
+function baseDef(band){return BASE_DEF+(band&&PEER_BAND_NAME[band]?'\nВаша группа — '+PEER_BAND_NAME[band]+' человек.':'')}
+/* «вся компания» с фильтрами шапки в нужном падеже: nom, gen, dat, acc, ins, prep («во всей компании» — prep с «во») */
+function coName(st,cas){
+  const parts=[];
+  if(st.paint!=='all')parts.push(st.paint);
+  if(st.itSeg!=='all')parts.push(st.itSeg);
+  if(st.staffType!=='all')parts.push(st.staffType==='staff'?'штат':'не штат');
+  const c=cas||'nom';
+  const w=parts.length?{nom:'всё',gen:'всего',dat:'всему',acc:'всё',ins:'всем',prep:'всём'}[c]+' '+parts.join(' ')
+    :{nom:'вся компания',gen:'всей компании',dat:'всей компании',acc:'всю компанию',ins:'всей компанией',prep:'всей компании'}[c];
+  return w+(st.hcType==='all'||st.hcType==='set'?', '+hcLabel(st):'');
+}
 function filterChips(st){
   const out=[];
   if(st.paint!=='all')out.push({k:'paint',label:st.paint});
@@ -3453,7 +3472,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
   COUNT_METRICS,vacancyBreakdown,kpiAt,teamShare,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
-  leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
+  leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,BASE_DEF,baseDef,coName,
   metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,kpiFor,comparable,
   setVerdictScope,isSmall,isSmallHq,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,

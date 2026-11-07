@@ -32,10 +32,14 @@ function ramp(hex,t){
 const soft=(v,t,txt)=>'<td'+(v?' style="background:rgba('+G.C_HEAT_RGB+','+(0.12+(G.HEAT_MAX-0.12)*Math.max(0,Math.min(1,t))).toFixed(2)+')"':'')+'>'+txt+'</td>';
 const cell=(v,t,hex,txt)=>'<td'+(v?' style="background:'+ramp(hex,t)+'"':'')+'>'+txt+'</td>';
 /* тепловая таблица «текущий грейд × тип роста» в людях; ИТОГО — первой строкой, как во всём отчёте */
+/* поставка 117 (владелец: «заголовки в таблицах не должны переноситься на 2 строки»): в шапке — короткие имена типов
+   роста, полное — в подсказке; колонка грейдов — «Грейд» (подпись таблицы уже говорит «по текущему грейду») */
+const COL_SHORT={'Повышение грейда':'Повышение','Смена специализации':'Смена спец.','Грейд и специализация':'Грейд и спец.'};
+const thTip=(full,txt)=>'<th'+(COL_SHORT[full]?U.tipAttr({title:full,text:txt||''}):'')+'>'+esc(COL_SHORT[full]||full)+'</th>';
 function gradeHeat(s){
   const max=Math.max(1,...s.rows.map(r=>Math.max(...r.cells))), tot=s.cols.map((_,j)=>sum(s.rows.map(r=>r.cells[j]))), hex=ST_COL[s.key];
-  return '<div class="mx-wrap"><table class="ptable stable dense rost-t"><thead><tr><th class="txt">Текущий грейд</th>'+
-    s.cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'<th class="st-tot">Всего</th></tr></thead><tbody>'+
+  return '<div class="mx-wrap"><table class="ptable stable dense rost-t"><thead><tr><th class="txt">Грейд</th>'+
+    s.cols.map(c=>thTip(c,'Людей с заявками этого типа по текущему грейду.')).join('')+'<th class="st-tot">Всего</th></tr></thead><tbody>'+
     '<tr class="total top"><td class="txt">Итого</td>'+tot.map(v=>'<td>'+D.fmtInt(v)+'</td>').join('')+'<td>'+D.fmtInt(sum(tot))+'</td></tr>'+
     s.rows.map(r=>'<tr><td class="txt">'+esc(r.name)+'</td>'+r.cells.map(v=>cell(v,v/max,hex,v?D.fmtInt(v):'—')).join('')+
       '<td class="lead">'+D.fmtInt(sum(r.cells))+'</td></tr>').join('')+'</tbody></table></div>';
@@ -51,7 +55,8 @@ function succTable(cap,sub,rows,head){
     D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
   return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+'</span></div>'+
     '<table class="ptable stable dense rost-t succ"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
-    '<th>Отклонено</th><th>% отклонённых</th></tr></thead><tbody>'+tr(Object.assign({name:'Итого'},T),'total top')+
+    '<th>Отклонено</th><th'+U.tipAttr({title:'% отклонённых',text:'Доля отклонённых среди заявок.'})+'>%</th></tr></thead><tbody>'+
+    tr(Object.assign({name:'Итого'},T),'total top')+
     rows.map(x=>tr(x)).join('')+'</tbody></table></div>';
 }
 /* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
@@ -75,15 +80,15 @@ function grades(ctx,p){
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
       esc(cur.tip)+'</span></div>'+gradeHeat(cur)+'</div>'+
     flowYoy(ctx,p.grade,'на повышение грейда','Повышение грейда по месяцам, заявок')+
-    U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов',p.grade.rostT,'Переход: текущий → желаемый грейд'),
-      succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Переход: текущий → желаемый грейд')])+
+    U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов',p.grade.rostT,'Текущий → желаемый'),
+      succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Текущий → желаемый')])+
     '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
 }
 function specs(ctx,p){
   return flowYoy(ctx,p.spec,'на смену специализации','Смена специализации по месяцам, заявок','смена специализации')+
-    U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам',p.spec.rostT,'Переход: текущая → желаемая специализация'),
-      succTable('Смена специализации: T@T','первые 4 по заявкам',p.spec.tatT,'Переход: текущая → желаемая специализация')])+
-    '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; % отклонённых — доля отклонённых среди заявок.</div>';
+    U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам',p.spec.rostT,'Текущая → желаемая'),
+      succTable('Смена специализации: T@T','первые 4 по заявкам',p.spec.tatT,'Текущая → желаемая')])+
+    '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; % — доля отклонённых среди заявок.</div>';
 }
 
 SC.blocks.tgrowth={

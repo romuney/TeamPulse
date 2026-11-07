@@ -314,8 +314,14 @@ function renderHead(){
   const chips=D.filterChips(S);
   let html=chips.map(c=>'<span class="chip">'+esc(c.label)+'<button class="x" data-unchip="'+c.k+'"'+
     U.tipAttr({title:'Снять фильтр',text:c.label})+'>×</button></span>').join('');
-  html+='<span class="chip bench"'+U.tipAttr({title:'База сравнения',text:'С этим сравниваются все метрики отчёта: та же метрика по всей компании с вашими фильтрами.'})+
-    '>База: <b>'+esc(D.benchmarkLabel(S))+'</b></span>';
+  /* поставка 117 (владелец: «у нас есть база — при наведении расшифровка: похожие по численности подразделения с учётом
+     фильтров»): чип называет базу этого отчёта — группу численности; без базы — с чем сравниваем вместо неё */
+  const pe0=D.peerOf('turnover_y');
+  html+=pe0?'<span class="chip bench"'+U.baseTip(null,pe0)+'>База: <b>подразделения '+esc(pe0.bandName)+' чел</b></span>'
+    :'<span class="chip bench"'+U.tipAttr({title:'С чем сравниваем',text:'Базы — подразделений похожей численности с этими '+
+      'фильтрами — у отчёта нет'+(D.isSmall()?': в команде меньше '+D.SMALL_N+' человек, доли не сравниваются':'')+
+      '. Метрики сравниваются с целью KPI, со всей компанией с выбранными фильтрами и с прошлым годом.'})+
+      '>Сравнение: <b>'+esc(D.coName(S,'nom'))+'</b></span>';
   /* тип численности по умолчанию — чипом без крестика: отчёт на «Активной», и это видно */
   if(S.hcType==='active'&&(!ENV||D.REAL.cuts.has('act')))html+='<span class="chip bench"'+
     U.tipAttr({title:'Тип численности: '+D.HC_DEF.join(', '),text:'Весь отчёт — по типу численности «'+D.HC_DEF.join('», «')+

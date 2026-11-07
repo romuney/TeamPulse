@@ -2571,3 +2571,17 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 #view .ptable>tbody>tr.total .caret-btn{height:20px;min-height:20px}
 .split-l .ptable.dense tr.total.top td{box-shadow:inset 0 -1px 0 var(--line)}
 .ptable tr.total.top td{border-bottom-width:1px}
+
+/* ==========================================================================
+   Поставка 117 (владелец 07.11: «заголовки нельзя, чтобы переносились на 2 строки в таблицах»). Текст заголовка колонки —
+   всегда одной строкой; второй строкой остаётся только серая подпись периода (.th-sub — «на конец сент.», «2026»), она
+   отдельный элемент, а не перенос. Где колонки узкие — заголовки короче (полное имя в подсказке) и ширины под них:
+   «Рост» — грейд 18%, переход 32%; «Движение по специализациям» — шапка шире ячеек, таблица прокручивается в .mx-wrap.
+   ========================================================================== */
+#view table thead th{white-space:nowrap}
+#view table thead th .th-sub{white-space:nowrap}
+.ptable.rost-t th{white-space:nowrap;overflow-wrap:normal}
+.ptable.rost-t td.txt,.ptable.rost-t th.txt{width:18%}
+.ptable.rost-t.succ td.txt,.ptable.rost-t.succ th.txt{width:32%}
+.ptable.spm4 th.num.spm-hc,.ptable.spm4 th.bar-th{white-space:nowrap}
+.ptable.btable.bt-cnt thead th{white-space:nowrap}
