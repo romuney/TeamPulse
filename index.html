@@ -5364,7 +5364,7 @@ let _nmx=null;
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
 const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw',
-  'aik','aih','aiu','ait','aif','aph','apt','aut','auf','aun','aum','auc','auk','ash','asu']);
+  'aik','aih','aiu','ait','aif','aph','apt','aut','auf','aun','aum','auc','auk','ash','asu','aip']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
@@ -6079,6 +6079,50 @@ function aiUsageReal(lp){
     intern:{hc:ihc,act:iact,pen:pc(iact,ihc),tools:Object.keys(ait).map(t=>({key:t,name:t,value:pc(ait[t],ihc),n:R(ait[t])})).sort(byR(air)),
       rest:one(g('aio')),freq:days(g('aif'))}};
 }
+/* поставка 113-б (владелец 07.11: «разрезы — как кросс-фильтры, как в структуре численности; клик по стажёрам фильтрует
+   остальное»): сочетания разрезов людей выбранного юнита (aip ноутбука: стажёр|с AI|покраска|сеньорность|грейд|стаж|
+   специализация → людей). Выбор — массив «разрез|значение»: внутри разреза — «или», между разрезами — «и»; таблица разреза
+   считается по выбору ДРУГИХ разрезов (свой выбор подсвечен), итог — по всем. Нет сочетаний (ноутбук до 113-б, юнит ниже
+   выбранного) — null: таблицы без кросс-фильтра (ash / asu) */
+const AI_X_DIMS=[['it','Сотрудники и стажёры',null],['p','По покраске',null],['s','По сеньорности','seniority'],['g','По грейду','grade'],
+  ['t','По стажу','tenure'],['sp','По специализации',null]];
+const AI_X_IDX={it:0,u:1,p:2,s:3,g:4,t:5,sp:6};
+function aiCombos(lp){
+  if(REAL){
+    const m=selMix(lp,'aip');
+    if(!m||!Object.keys(m).length)return null;
+    return Object.keys(m).map(k=>{const a=k.split('|');return {v:a,n:Math.round(m[k])}}).filter(x=>x.v.length>=7&&x.n>0);
+  }
+  /* макет: люди по долям разрезов численности, доля с AI — вокруг общей */
+  const u=aiUsage(lp), r=rng(lpSeed(lp,'aip')), hc=Math.min(600,Math.max(0,Math.round(lastVal(lp,'hc_total'))));
+  if(!hc)return null;
+  const pick=(k)=>{const c=MIX_BY_KEY[k]?mixCats(k):[], w=MIX_BY_KEY[k]?mixParts(lp,k):[];const t=w.reduce((a,x)=>a+x,0);
+    let x=r()*t;for(let i=0;i<c.length;i++){x-=w[i];if(x<=0)return c[i].name}return c.length?c[c.length-1].name:'-'};
+  const P=PAINTS.slice(1).map(x=>x.name), out={};
+  for(let i=0;i<hc;i++){
+    const it=r()<0.04?'1':'0', us=r()*100<(u.pen||0)?'1':'0';
+    const k=[it,us,P[Math.floor(r()*P.length)],pick('seniority'),pick('grade'),pick('tenure'),pick('spec')].join('|');
+    out[k]=(out[k]||0)+1;
+  }
+  return Object.keys(out).map(k=>({v:k.split('|'),n:out[k]}));
+}
+function aiCross(lp,sel){
+  const C=aiCombos(lp);
+  if(!C)return null;
+  const by={};(sel||[]).forEach(x=>{const i=x.indexOf('|'), d=x.slice(0,i);(by[d]=by[d]||new Set()).add(x.slice(i+1))});
+  const pass=(c,skip)=>Object.keys(by).every(d=>d===skip||by[d].has(c.v[AI_X_IDX[d]]));
+  const po=PAINTS.slice(1).map(x=>x.name);
+  const dims=AI_X_DIMS.map(([d,cap,dk])=>{
+    const h={}, a={};
+    C.forEach(c=>{if(!pass(c,d))return;const v=c.v[AI_X_IDX[d]];h[v]=(h[v]||0)+c.n;if(c.v[1]==='1')a[v]=(a[v]||0)+c.n});
+    const ord=d==='it'?Object.keys(h).sort():d==='p'?Object.keys(h).sort((x,y)=>((po.indexOf(x)+1)||99)-((po.indexOf(y)+1)||99)||x.localeCompare(y))
+      :dk?realOrder(dk,h):Object.keys(h).sort((x,y)=>h[y]-h[x]||x.localeCompare(y));
+    return {key:d,cap:cap,rows:ord.map(v=>({key:v,name:d==='it'?(v==='1'?'Стажёры':'Сотрудники'):isNA(v)||v===''?NONE_NAME:dk==='tenure'?tenName(v):v,
+      hc:h[v],act:a[v]||0,pen:h[v]?+((a[v]||0)*100/h[v]).toFixed(1):0,on:!!(by[d]&&by[d].has(v))}))};
+  });
+  let th=0,ta=0;C.forEach(c=>{if(pass(c,null)){th+=c.n;if(c.v[1]==='1')ta+=c.n}});
+  return {dims:dims,hc:th,act:ta,pen:th?+(ta*100/th).toFixed(1):0,sel:(sel||[]).length};
+}
 function aiUsage(lp){
   if(AI_CUTS){const x=aiUsageReal(lp);if(x)return x}
   const ai=aiProfile(lp), r=rng(lpSeed(lp,'aiu')), hc=Math.max(1,Math.round(lastVal(lp,'hc_total'))), pen=ai.pen||0;
@@ -6138,7 +6182,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};
+  TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};
 
 </script>
 <script>
@@ -10160,7 +10204,7 @@ const WHY={
   ai:{
     adoption:['{{Проникновение AI|Проникновение}} — какая доля людей пользуется AI каждую неделю, {{WAU}} — сколько это человек.',
       'Отстающие подразделения — кандидаты на обучение и пилоты.'],
-    who:['Кто пользуется AI: доля с AI по группам — покраска, сеньорность, грейд, стаж, специализация; стажёры — отдельной строкой.',
+    who:['Кто пользуется AI: стажёры — отдельной полосой сверху; ниже доля с AI по группам всех людей. Клик по строке — остальные таблицы только по этой группе.',
       'Группа заметно отстаёт — спросите, что мешает: доступ, задачи, обучение. Стажёры отстают — добавьте AI в онбординг.'],
     usage:['Как часто и чем пользуются AI: дни в неделю, инструментов на человека, топ инструментов и инструменты по покраске.',
       'Пользуются редко — покажите команде задачи, где AI экономит время.'],
@@ -10647,6 +10691,8 @@ function renderBlock(S,expanded,mixOpen,view){
       'Shift+клик — добавить ещё одну категорию того же разреза. Выборы по разным разрезам складываются. Escape — снять всё.'
       :'Повторный клик или Escape — снять выбор.'})+'>'+(b.key==='structure'?'Клик по подразделению, куску полосы или строке таблицы — таблица и графики покажут только выбранное'
       :mod.shelfChips&&S.subTab==='attend'?'Клик по подразделению, сегменту или городу — таблицы и динамика покажут только выбранное'
+      /* поставка 113-б: AI «Кто пользуется» — строки разрезов кросс-фильтрами */
+      :b.key==='ai'&&S.subTab==='who'?'Клик по строке таблицы — остальные таблицы покажут только эту группу'
       :'Клик по подразделению в таблице — графики покажут только его, на всех вкладках')+'</span>')+'</div>';
   h+='<div class="split'+(wideL?' wide-l':'')+' m-'+mode+(share!=null?' custom':'')+'" id="bk-det"'+
     (share!=null?' style="--split-l:'+(share*100).toFixed(2)+'fr;--split-r:'+((1-share)*100).toFixed(2)+'fr"':'')+'>';
@@ -12007,28 +12053,40 @@ function tools(ctx,k,cap,sub,items,base,rest,head){
    пользуется?» — доля с AI по сегментам без стажёров (покраска, сеньорность, грейд, стаж, специализация — ash / asu
    ноутбука), стажёры — одной строкой рядом с сотрудниками. Группа меньше 3 человек — серым: доля по 1–2 людям не сигнал */
 const SEG_SMALL=3;
-function segTable(cap,sub,rows){
+function segTable(cap,sub,rows,dim){
   /* keepZero: группа, где никто не пользуется AI (0%), — тоже ответ, а не пустая строка */
   return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'% с AI',cnt:'С AI',metricKey:'ai_penetration',
     share:false,total:false,compact:true,keepZero:true,
     items:rows.map(x=>({name:x.name,value:x.pen,n:x.act,color:x.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
       note:'из '+D.fmtInt(x.hc)+(x.hc<SEG_SMALL?' · мало людей':''),
-      tip:x.hc<SEG_SMALL?'В группе меньше '+SEG_SMALL+' человек — долю не сравниваем.':null}))});
+      tip:x.hc<SEG_SMALL?'В группе меньше '+SEG_SMALL+' человек — долю не сравниваем.':null,
+      /* поставка 113-б: кросс-фильтр — строка выбирается, выбор складывается */
+      on:!!x.on,attr:dim?'data-aisel="'+esc(dim+'|'+x.key)+'"':null,attrTip:'Клик — остальные таблицы только по «'+x.name+'».'}))});
 }
+/* поставка 113-б (владелец 07.11): стажёры — отдельной метрикой сверху (полоса «используют / нет»); ниже разрезы по ВСЕМ
+   людям (сотрудники и стажёры, покраска, сеньорность, грейд, стаж, специализация) — кросс-фильтрами, как в «Структуре»:
+   клик по строке выбирает группу, остальные таблицы пересчитываются по выбору (S.aiSel, D.aiCross) */
 function who(ctx,u){
-  const segs=u.segs||[], it=u.intern||{hc:0,act:0};
-  const emp=segs.length?segs[0].rows.reduce((a,x)=>({hc:a.hc+x.hc,act:a.act+x.act}),{hc:0,act:0}):{hc:Math.round(u.act&&u.pen?u.act*100/u.pen:0),act:u.act};
-  if(!emp.hc&&!it.hc)return U.empty('Нет данных за неделю','В выбранном подразделении никого нет в AI-витрине последней полной недели.');
-  const pc=(a,h)=>h?Math.round(a/h*1000)/10:0;
-  const top=[{name:'Сотрудники',hc:emp.hc,act:emp.act,pen:pc(emp.act,emp.hc)}].concat(it.hc?[{name:'Стажёры',hc:it.hc,act:it.act,pen:pc(it.act,it.hc)}]:[]);
-  const tabs=[segTable('Сотрудники и стажёры','% с AI · сколько с AI · из скольких'+wk(u),top)].concat(segs.map(sg=>{
-    const sp=sg.key==='sp', rows=sp?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows;
-    return segTable(sg.cap,'без стажёров'+(sp&&sg.rows.length>10?' · первые 10 из '+sg.rows.length+' по числу людей':'')+wk(u),rows);
-  }));
-  return U.btStack(tabs)+
-    '<div class="tbl-note">Доля — люди с AI за неделю к людям группы без стажёров (у стажёров — к стажёрам). Сеньорность, грейд, стаж и '+
-      'специализация — на последний месяц отчёта; человек, которого нет в отчёте, — в «Не указано». Группы меньше '+SEG_SMALL+
-      ' человек — серым.</div>';
+  const S=ctx.S, it=u.intern||{hc:0,act:0}, x=D.aiCross(ctx.lp,S.aiSel||[]);
+  const head=it.hc?split('Стажёры','используют AI или нет'+wk(u),[{name:'Используют AI',n:it.act,bg:G.C_AI},
+      {name:'Не используют AI',n:Math.max(0,it.hc-it.act),bg:AI_NO}],'Человек','чел')
+    :'<section class="pf-s">'+U.pfHead('Стажёры',esc('используют AI или нет'+wk(u)))+'<div class="tbl-note">В выбранном подразделении стажёров нет.</div></section>';
+  if(!x){
+    /* сочетаний нет (ноутбук до 113-б или подразделение ниже выбранного) — разрезы без кросс-фильтра */
+    const segs=u.segs||[];
+    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров'+wk(u),sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'');
+  }
+  const tabs=x.dims.map(dm=>{
+    const sp=dm.key==='sp', rows=sp?dm.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10).concat(dm.rows.filter((r,i)=>r.on&&dm.rows.slice().sort((a,b)=>b.hc-a.hc).indexOf(r)>=10)):dm.rows;
+    return segTable(dm.cap,(x.sel?'по выбору':'все люди')+(sp&&dm.rows.length>10?' · первые 10 из '+dm.rows.length:'')+wk(u),rows,dm.key);
+  });
+  return head+
+    (x.sel?'<div class="tbl-note">Выбрано: <b>'+D.fmtInt(x.hc)+'</b> '+U.plural(x.hc,['человек','человека','человек'])+', с AI — <b>'+D.fmtInt(x.act)+
+      '</b> ('+P1(x.pen)+').</div>':'')+
+    U.btStack(tabs)+
+    '<div class="tbl-note">Клик по строке — остальные таблицы только по этой группе; клик ещё раз — снять. Несколько строк одной таблицы — '+
+      '«или», разных таблиц — «и». Сеньорность, грейд, стаж и специализация — на последний месяц отчёта; человека нет в отчёте — '+
+      '«Не указано». Группы меньше '+SEG_SMALL+' человек — серым.</div>';
 }
 /* 07.11 (п. 7): «Инструменты по покраске» — последним блоком «Как пользуются?»: топ-10 инструментов строками, % и число людей
    сегмента, «Остальное» раскрывается (в нём люди сегмента с инструментами вне топ-10 — каждый один раз) */
@@ -12095,6 +12153,13 @@ SC.blocks.ai={
   /* 07.11 (AI-итерация, п. 5 и 8): четыре раздела — «Как пользуются?» (было «Как пользуется?»), сообщения — в «Что делают?» */
   subTabs:[['adoption','Пользуются ли AI?'],['who','Кто пользуется?'],['usage','Как пользуются?'],['what','Что делают?']],
   defaultSub:'adoption',
+  /* поставка 113-б: выбор кросс-фильтра «Кто пользуется» — пилюлями в шапке карточки (как срезы «Структуры» и «Офиса») */
+  shelfChips(S){
+    if(S.subTab!=='who'||!(S.aiSel||[]).length)return [];
+    const nm={it:'Тип',p:'Покраска',s:'Сеньорность',g:'Грейд',t:'Стаж',sp:'Специализация'};
+    return S.aiSel.map(v=>{const i=v.indexOf('|'), d=v.slice(0,i), c=v.slice(i+1);
+      return {dim:nm[d]||d,cat:d==='it'?(c==='1'?'Стажёры':'Сотрудники'):c==='-'?'Не указано':c,attr:'data-aisel="'+esc(v)+'"',tip:'Клик — снять.'}});
+  },
   title(sub){return sub==='who'?'Кто пользуется AI':sub==='usage'?'Как пользуются AI: частота и инструменты'
     :sub==='what'?'Что делают в AI: сообщения и задачи'
     :'Пользуются ли AI: проникновение и активные пользователи'},
@@ -12733,7 +12798,7 @@ function renderHead(){
 /* 31.10 (поставка 82, «подлагивает»): сигналы всех блоков пересчитывались на каждый клик — шаг главы, вкладку,
    сортировку — до четверти времени клика. Сигнал зависит от среза, не от того, что открыто: кэш по срезу */
 const NAV_UI=new Set(['tab','subTab','tsort','spmSort','exitIni','mixSel','mixRows','mixCols','mixMode',
-  'mxFull','aiOpen','offCity','offSeg','rostSt','spmSel']);
+  'mxFull','aiOpen','offCity','offSeg','rostSt','spmSel','aiSel']);
 let _navKey=null, _navMemo={};
 function navSig(bk){
   const k=JSON.stringify(S,(n,v)=>NAV_UI.has(n)?undefined:v);
@@ -13390,7 +13455,11 @@ on(document,'click',e=>{
   /* Срез состава — СТРОГО до .urow: строка разбивки и есть .urow, и общий
      обработчик выбора подразделения перехватил бы её первым. */
   if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
-  if(t.closest('[data-selclear]')){S.mixSel=[];S.selNode=null;S.offSeg=null;S.offCity=null;render(true);return}
+  if(t.closest('[data-selclear]')){S.mixSel=[];S.selNode=null;S.offSeg=null;S.offCity=null;S.aiSel=[];render(true);return}
+  /* поставка 113-б: AI «Кто пользуется» — кросс-фильтр по строкам разрезов; повторный клик снимает */
+  if(t.closest('[data-aiclear]')){S.aiSel=[];render(true);return}
+  const ais=t.closest('[data-aisel]');
+  if(ais){const v=ais.dataset.aisel, a=(S.aiSel||[]).slice(), i=a.indexOf(v);if(i>=0)a.splice(i,1);else a.push(v);S.aiSel=a;render(true);return}
   /* посещаемость (22.10): сегмент и город — свой фильтр вкладки, складываются; повторный клик снимает */
   if(t.closest('[data-offclear]')){S.offSeg=null;S.offCity=null;render(true);return}
   const osg=t.closest('[data-offseg]');
@@ -13574,6 +13643,7 @@ on(document,'keydown',e=>{
     if(!ovl&&S.tab==='monitor'&&S.selNode){S.selNode=null;render(true);return}
     if(!ovl&&S.tab==='office'&&(S.offSeg||S.offCity)){S.offSeg=null;S.offCity=null;render(true);return}
     if(!ovl&&S.spmSel){S.spmSel=null;render(true);return}
+    if(!ovl&&S.tab==='ai'&&S.aiSel&&S.aiSel.length){S.aiSel=[];render(true);return}
     if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true);return}
     /* ревью 100: подсказка «Повторный клик или Escape — снять выбор» — Escape снимает выбранное подразделение на всех вкладках */
     if(!ovl&&S.selNode){S.selNode=null;render(true)}

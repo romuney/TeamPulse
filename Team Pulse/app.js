@@ -336,7 +336,7 @@ function renderHead(){
 /* 31.10 (поставка 82, «подлагивает»): сигналы всех блоков пересчитывались на каждый клик — шаг главы, вкладку,
    сортировку — до четверти времени клика. Сигнал зависит от среза, не от того, что открыто: кэш по срезу */
 const NAV_UI=new Set(['tab','subTab','tsort','spmSort','exitIni','mixSel','mixRows','mixCols','mixMode',
-  'mxFull','aiOpen','offCity','offSeg','rostSt','spmSel']);
+  'mxFull','aiOpen','offCity','offSeg','rostSt','spmSel','aiSel']);
 let _navKey=null, _navMemo={};
 function navSig(bk){
   const k=JSON.stringify(S,(n,v)=>NAV_UI.has(n)?undefined:v);
@@ -993,7 +993,11 @@ on(document,'click',e=>{
   /* Срез состава — СТРОГО до .urow: строка разбивки и есть .urow, и общий
      обработчик выбора подразделения перехватил бы её первым. */
   if(t.closest('[data-mixclear]')){S.mixSel=[];render(true);return}
-  if(t.closest('[data-selclear]')){S.mixSel=[];S.selNode=null;S.offSeg=null;S.offCity=null;render(true);return}
+  if(t.closest('[data-selclear]')){S.mixSel=[];S.selNode=null;S.offSeg=null;S.offCity=null;S.aiSel=[];render(true);return}
+  /* поставка 113-б: AI «Кто пользуется» — кросс-фильтр по строкам разрезов; повторный клик снимает */
+  if(t.closest('[data-aiclear]')){S.aiSel=[];render(true);return}
+  const ais=t.closest('[data-aisel]');
+  if(ais){const v=ais.dataset.aisel, a=(S.aiSel||[]).slice(), i=a.indexOf(v);if(i>=0)a.splice(i,1);else a.push(v);S.aiSel=a;render(true);return}
   /* посещаемость (22.10): сегмент и город — свой фильтр вкладки, складываются; повторный клик снимает */
   if(t.closest('[data-offclear]')){S.offSeg=null;S.offCity=null;render(true);return}
   const osg=t.closest('[data-offseg]');
@@ -1177,6 +1181,7 @@ on(document,'keydown',e=>{
     if(!ovl&&S.tab==='monitor'&&S.selNode){S.selNode=null;render(true);return}
     if(!ovl&&S.tab==='office'&&(S.offSeg||S.offCity)){S.offSeg=null;S.offCity=null;render(true);return}
     if(!ovl&&S.spmSel){S.spmSel=null;render(true);return}
+    if(!ovl&&S.tab==='ai'&&S.aiSel&&S.aiSel.length){S.aiSel=[];render(true);return}
     if(!ovl&&S.mixSel&&S.mixSel.length){S.mixSel=[];render(true);return}
     /* ревью 100: подсказка «Повторный клик или Escape — снять выбор» — Escape снимает выбранное подразделение на всех вкладках */
     if(!ovl&&S.selNode){S.selNode=null;render(true)}

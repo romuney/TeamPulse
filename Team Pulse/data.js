@@ -2647,7 +2647,7 @@ let _nmx=null;
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
 const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw',
-  'aik','aih','aiu','ait','aif','aph','apt','aut','auf','aun','aum','auc','auk','ash','asu']);
+  'aik','aih','aiu','ait','aif','aph','apt','aut','auf','aun','aum','auc','auk','ash','asu','aip']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
@@ -3362,6 +3362,50 @@ function aiUsageReal(lp){
     intern:{hc:ihc,act:iact,pen:pc(iact,ihc),tools:Object.keys(ait).map(t=>({key:t,name:t,value:pc(ait[t],ihc),n:R(ait[t])})).sort(byR(air)),
       rest:one(g('aio')),freq:days(g('aif'))}};
 }
+/* поставка 113-б (владелец 07.11: «разрезы — как кросс-фильтры, как в структуре численности; клик по стажёрам фильтрует
+   остальное»): сочетания разрезов людей выбранного юнита (aip ноутбука: стажёр|с AI|покраска|сеньорность|грейд|стаж|
+   специализация → людей). Выбор — массив «разрез|значение»: внутри разреза — «или», между разрезами — «и»; таблица разреза
+   считается по выбору ДРУГИХ разрезов (свой выбор подсвечен), итог — по всем. Нет сочетаний (ноутбук до 113-б, юнит ниже
+   выбранного) — null: таблицы без кросс-фильтра (ash / asu) */
+const AI_X_DIMS=[['it','Сотрудники и стажёры',null],['p','По покраске',null],['s','По сеньорности','seniority'],['g','По грейду','grade'],
+  ['t','По стажу','tenure'],['sp','По специализации',null]];
+const AI_X_IDX={it:0,u:1,p:2,s:3,g:4,t:5,sp:6};
+function aiCombos(lp){
+  if(REAL){
+    const m=selMix(lp,'aip');
+    if(!m||!Object.keys(m).length)return null;
+    return Object.keys(m).map(k=>{const a=k.split('|');return {v:a,n:Math.round(m[k])}}).filter(x=>x.v.length>=7&&x.n>0);
+  }
+  /* макет: люди по долям разрезов численности, доля с AI — вокруг общей */
+  const u=aiUsage(lp), r=rng(lpSeed(lp,'aip')), hc=Math.min(600,Math.max(0,Math.round(lastVal(lp,'hc_total'))));
+  if(!hc)return null;
+  const pick=(k)=>{const c=MIX_BY_KEY[k]?mixCats(k):[], w=MIX_BY_KEY[k]?mixParts(lp,k):[];const t=w.reduce((a,x)=>a+x,0);
+    let x=r()*t;for(let i=0;i<c.length;i++){x-=w[i];if(x<=0)return c[i].name}return c.length?c[c.length-1].name:'-'};
+  const P=PAINTS.slice(1).map(x=>x.name), out={};
+  for(let i=0;i<hc;i++){
+    const it=r()<0.04?'1':'0', us=r()*100<(u.pen||0)?'1':'0';
+    const k=[it,us,P[Math.floor(r()*P.length)],pick('seniority'),pick('grade'),pick('tenure'),pick('spec')].join('|');
+    out[k]=(out[k]||0)+1;
+  }
+  return Object.keys(out).map(k=>({v:k.split('|'),n:out[k]}));
+}
+function aiCross(lp,sel){
+  const C=aiCombos(lp);
+  if(!C)return null;
+  const by={};(sel||[]).forEach(x=>{const i=x.indexOf('|'), d=x.slice(0,i);(by[d]=by[d]||new Set()).add(x.slice(i+1))});
+  const pass=(c,skip)=>Object.keys(by).every(d=>d===skip||by[d].has(c.v[AI_X_IDX[d]]));
+  const po=PAINTS.slice(1).map(x=>x.name);
+  const dims=AI_X_DIMS.map(([d,cap,dk])=>{
+    const h={}, a={};
+    C.forEach(c=>{if(!pass(c,d))return;const v=c.v[AI_X_IDX[d]];h[v]=(h[v]||0)+c.n;if(c.v[1]==='1')a[v]=(a[v]||0)+c.n});
+    const ord=d==='it'?Object.keys(h).sort():d==='p'?Object.keys(h).sort((x,y)=>((po.indexOf(x)+1)||99)-((po.indexOf(y)+1)||99)||x.localeCompare(y))
+      :dk?realOrder(dk,h):Object.keys(h).sort((x,y)=>h[y]-h[x]||x.localeCompare(y));
+    return {key:d,cap:cap,rows:ord.map(v=>({key:v,name:d==='it'?(v==='1'?'Стажёры':'Сотрудники'):isNA(v)||v===''?NONE_NAME:dk==='tenure'?tenName(v):v,
+      hc:h[v],act:a[v]||0,pen:h[v]?+((a[v]||0)*100/h[v]).toFixed(1):0,on:!!(by[d]&&by[d].has(v))}))};
+  });
+  let th=0,ta=0;C.forEach(c=>{if(pass(c,null)){th+=c.n;if(c.v[1]==='1')ta+=c.n}});
+  return {dims:dims,hc:th,act:ta,pen:th?+(ta*100/th).toFixed(1):0,sel:(sel||[]).length};
+}
 function aiUsage(lp){
   if(AI_CUTS){const x=aiUsageReal(lp);if(x)return x}
   const ai=aiProfile(lp), r=rng(lpSeed(lp,'aiu')), hc=Math.max(1,Math.round(lastVal(lp,'hc_total'))), pen=ai.pen||0;
@@ -3421,4 +3465,4 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,AI_TOOLS,OFF_LIVE};
+  TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};

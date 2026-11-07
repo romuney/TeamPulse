@@ -70,28 +70,40 @@ function tools(ctx,k,cap,sub,items,base,rest,head){
    пользуется?» — доля с AI по сегментам без стажёров (покраска, сеньорность, грейд, стаж, специализация — ash / asu
    ноутбука), стажёры — одной строкой рядом с сотрудниками. Группа меньше 3 человек — серым: доля по 1–2 людям не сигнал */
 const SEG_SMALL=3;
-function segTable(cap,sub,rows){
+function segTable(cap,sub,rows,dim){
   /* keepZero: группа, где никто не пользуется AI (0%), — тоже ответ, а не пустая строка */
   return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'% с AI',cnt:'С AI',metricKey:'ai_penetration',
     share:false,total:false,compact:true,keepZero:true,
     items:rows.map(x=>({name:x.name,value:x.pen,n:x.act,color:x.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
       note:'из '+D.fmtInt(x.hc)+(x.hc<SEG_SMALL?' · мало людей':''),
-      tip:x.hc<SEG_SMALL?'В группе меньше '+SEG_SMALL+' человек — долю не сравниваем.':null}))});
+      tip:x.hc<SEG_SMALL?'В группе меньше '+SEG_SMALL+' человек — долю не сравниваем.':null,
+      /* поставка 113-б: кросс-фильтр — строка выбирается, выбор складывается */
+      on:!!x.on,attr:dim?'data-aisel="'+esc(dim+'|'+x.key)+'"':null,attrTip:'Клик — остальные таблицы только по «'+x.name+'».'}))});
 }
+/* поставка 113-б (владелец 07.11): стажёры — отдельной метрикой сверху (полоса «используют / нет»); ниже разрезы по ВСЕМ
+   людям (сотрудники и стажёры, покраска, сеньорность, грейд, стаж, специализация) — кросс-фильтрами, как в «Структуре»:
+   клик по строке выбирает группу, остальные таблицы пересчитываются по выбору (S.aiSel, D.aiCross) */
 function who(ctx,u){
-  const segs=u.segs||[], it=u.intern||{hc:0,act:0};
-  const emp=segs.length?segs[0].rows.reduce((a,x)=>({hc:a.hc+x.hc,act:a.act+x.act}),{hc:0,act:0}):{hc:Math.round(u.act&&u.pen?u.act*100/u.pen:0),act:u.act};
-  if(!emp.hc&&!it.hc)return U.empty('Нет данных за неделю','В выбранном подразделении никого нет в AI-витрине последней полной недели.');
-  const pc=(a,h)=>h?Math.round(a/h*1000)/10:0;
-  const top=[{name:'Сотрудники',hc:emp.hc,act:emp.act,pen:pc(emp.act,emp.hc)}].concat(it.hc?[{name:'Стажёры',hc:it.hc,act:it.act,pen:pc(it.act,it.hc)}]:[]);
-  const tabs=[segTable('Сотрудники и стажёры','% с AI · сколько с AI · из скольких'+wk(u),top)].concat(segs.map(sg=>{
-    const sp=sg.key==='sp', rows=sp?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows;
-    return segTable(sg.cap,'без стажёров'+(sp&&sg.rows.length>10?' · первые 10 из '+sg.rows.length+' по числу людей':'')+wk(u),rows);
-  }));
-  return U.btStack(tabs)+
-    '<div class="tbl-note">Доля — люди с AI за неделю к людям группы без стажёров (у стажёров — к стажёрам). Сеньорность, грейд, стаж и '+
-      'специализация — на последний месяц отчёта; человек, которого нет в отчёте, — в «Не указано». Группы меньше '+SEG_SMALL+
-      ' человек — серым.</div>';
+  const S=ctx.S, it=u.intern||{hc:0,act:0}, x=D.aiCross(ctx.lp,S.aiSel||[]);
+  const head=it.hc?split('Стажёры','используют AI или нет'+wk(u),[{name:'Используют AI',n:it.act,bg:G.C_AI},
+      {name:'Не используют AI',n:Math.max(0,it.hc-it.act),bg:AI_NO}],'Человек','чел')
+    :'<section class="pf-s">'+U.pfHead('Стажёры',esc('используют AI или нет'+wk(u)))+'<div class="tbl-note">В выбранном подразделении стажёров нет.</div></section>';
+  if(!x){
+    /* сочетаний нет (ноутбук до 113-б или подразделение ниже выбранного) — разрезы без кросс-фильтра */
+    const segs=u.segs||[];
+    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров'+wk(u),sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'');
+  }
+  const tabs=x.dims.map(dm=>{
+    const sp=dm.key==='sp', rows=sp?dm.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10).concat(dm.rows.filter((r,i)=>r.on&&dm.rows.slice().sort((a,b)=>b.hc-a.hc).indexOf(r)>=10)):dm.rows;
+    return segTable(dm.cap,(x.sel?'по выбору':'все люди')+(sp&&dm.rows.length>10?' · первые 10 из '+dm.rows.length:'')+wk(u),rows,dm.key);
+  });
+  return head+
+    (x.sel?'<div class="tbl-note">Выбрано: <b>'+D.fmtInt(x.hc)+'</b> '+U.plural(x.hc,['человек','человека','человек'])+', с AI — <b>'+D.fmtInt(x.act)+
+      '</b> ('+P1(x.pen)+').</div>':'')+
+    U.btStack(tabs)+
+    '<div class="tbl-note">Клик по строке — остальные таблицы только по этой группе; клик ещё раз — снять. Несколько строк одной таблицы — '+
+      '«или», разных таблиц — «и». Сеньорность, грейд, стаж и специализация — на последний месяц отчёта; человека нет в отчёте — '+
+      '«Не указано». Группы меньше '+SEG_SMALL+' человек — серым.</div>';
 }
 /* 07.11 (п. 7): «Инструменты по покраске» — последним блоком «Как пользуются?»: топ-10 инструментов строками, % и число людей
    сегмента, «Остальное» раскрывается (в нём люди сегмента с инструментами вне топ-10 — каждый один раз) */
@@ -158,6 +170,13 @@ SC.blocks.ai={
   /* 07.11 (AI-итерация, п. 5 и 8): четыре раздела — «Как пользуются?» (было «Как пользуется?»), сообщения — в «Что делают?» */
   subTabs:[['adoption','Пользуются ли AI?'],['who','Кто пользуется?'],['usage','Как пользуются?'],['what','Что делают?']],
   defaultSub:'adoption',
+  /* поставка 113-б: выбор кросс-фильтра «Кто пользуется» — пилюлями в шапке карточки (как срезы «Структуры» и «Офиса») */
+  shelfChips(S){
+    if(S.subTab!=='who'||!(S.aiSel||[]).length)return [];
+    const nm={it:'Тип',p:'Покраска',s:'Сеньорность',g:'Грейд',t:'Стаж',sp:'Специализация'};
+    return S.aiSel.map(v=>{const i=v.indexOf('|'), d=v.slice(0,i), c=v.slice(i+1);
+      return {dim:nm[d]||d,cat:d==='it'?(c==='1'?'Стажёры':'Сотрудники'):c==='-'?'Не указано':c,attr:'data-aisel="'+esc(v)+'"',tip:'Клик — снять.'}});
+  },
   title(sub){return sub==='who'?'Кто пользуется AI':sub==='usage'?'Как пользуются AI: частота и инструменты'
     :sub==='what'?'Что делают в AI: сообщения и задачи'
     :'Пользуются ли AI: проникновение и активные пользователи'},

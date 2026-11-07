@@ -167,7 +167,8 @@ distributed by (node_rk)""")
 #     (без стажёров / у стажёров: топ-10 чарта), auo / aio — людей с инструментами вне топ-10 (группа «Остальное», каждый
 #     один раз), apo — то же по покраске. Поставка 112: ash / asu — «разрез|значение» → людей / с AI без стажёров
 #     (p покраска, s сеньорность, g грейд, t стаж, sp специализация; атрибуты — из таблицы отчёта по mdm_employee_rk на
-#     последний месяц, человек не найден — «-»). Массивы tools / tasks / task_messages —
+#     последний месяц, человек не найден — «-»). Поставка 113-б: aip — «стажёр|с AI|покраска|сеньорность|грейд|стаж|специализация»
+#     → людей (вместе со стажёрами): по нему чарт пересчитывает разрезы при клике (кросс-фильтр). Массивы tools / tasks / task_messages —
 #     как массивы GP (text[]; строка вида {a,b} тоже читается). Смысл колонок сообщений сверить на проде
 _xcols = {'paint', 'tools', 'tools_count', 'usage_days_in_week', 'tasks', 'task_messages', 'total_tasks_messages',
           'total_copilot_nestor_messages'}
@@ -205,6 +206,11 @@ with cw as (
            unnest(array[b.paint, coalesce(pa.sen, '-'), coalesce(pa.grd, '-'), coalesce(pa.ten, '-'), coalesce(pa.spc, '-')]) as v
     from b left join pa on pa.pid = b.pid
     where b.it = 0
+), bp as (   -- поставка 113-б: «Кто пользуется» с кросс-фильтром — сочетание разрезов человека (стажёр, пользуется ли AI, покраска,
+            -- сеньорность, грейд, стаж, специализация) → людей; чарт берёт его только у выбранного юнита (датасет)
+    select b.node_rk, b.pid, b.it::text || '|' || b.u::text || '|' || b.paint || '|' || coalesce(pa.sen, '-') || '|' ||
+           coalesce(pa.grd, '-') || '|' || coalesce(pa.ten, '-') || '|' || coalesce(pa.spc, '-') as cv
+    from b left join pa on pa.pid = b.pid
 ), bt as (
     select b.node_rk, b.pid, b.it, b.paint, {_clean('(b.tools::text[])[i]')} as tool
     from b, generate_series(1, coalesce(array_length(b.tools::text[], 1), 0)) i
@@ -238,6 +244,7 @@ union all select node_rk, 'apo', paint, count(distinct pid) from bo where it = 0
 union all select node_rk, 'aio', '', count(distinct pid) from bo where it = 1 group by 1
 union all select node_rk, 'ash', d || '|' || v, count(distinct pid) from bs group by 1, 3
 union all select node_rk, 'asu', d || '|' || v, count(distinct pid) from bs where u = 1 group by 1, 3
+union all select node_rk, 'aip', cv, count(distinct pid) from bp group by 1, 3
 distributed by (node_rk)""")
     print(f"[OK] {HUB_P}_aix: {_hub_q(f'select count(*) as n, count(distinct node_rk) as u, max(case when k = $$aik$$ then v end) as w from {HUB_P}_aix')[['n', 'u', 'w']].iloc[0].to_dict()}")
 else:

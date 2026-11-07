@@ -415,6 +415,14 @@ const aiA=A.go('ai','adoption'), aiW=A.go('ai','who'), aiU=A.go('ai','usage');
     new RegExp('Активные пользователи<span class="th-per">неделя '+cw.full.replace(/^Неделя /,'')).test(aiA)&&aiA.indexOf(String(cw.pen).replace('.',',')+'%')>=0&&
     !/data-aigran=/.test(aiA)&&!/по месяцам/.test(aiA)&&D.blockVisible('ai',A.st())&&D.metricsOfBlock('ai').length===0&&
     op.indexOf('id="op-ai"')<0&&op.indexOf('Проникновение AI')<0])}
+/* поставка 113-б: AI «Кто пользуется» — кросс-фильтр: выбор «Стажёры» пересчитывает остальные разрезы по стажёрам, свой разрез
+   не режет; итог по выбору = стажёрам */
+{const lpX=D.reportLeaves(A.st()), x0=D.aiCross(lpX,[]), x1=D.aiCross(lpX,['it|1']);
+  const sum=(x,k)=>x.dims.find(d=>d.key===k).rows.reduce((a,r)=>a+r.hc,0);
+  const itRow=x0&&x0.dims[0].rows.find(r=>r.key==='1');
+  checks.push(['поставка 113-б: AI «Кто пользуется» — кросс-фильтр по стажёрам: разрезы по выбору, свой разрез целиком',
+    !!x0&&!!x1&&!!itRow&&x1.hc===itRow.hc&&sum(x1,'p')===itRow.hc&&sum(x1,'it')===sum(x0,'it')&&x1.dims[0].rows.find(r=>r.key==='1').on&&
+    sum(x0,'p')===x0.hc&&/data-aisel="it\|1"/.test(A.go('ai','who'))]);}
 /* 07.11 (AI-итерация): четыре раздела; численность — второй линией в «Активных пользователях» (без отдельного графика);
    стажёры и воронка — полосой долей (как «Пол»); инструменты — топ-10 и «Остальное», колонка «Человек»; «Инструменты по покраске»
    — последним в «Как пользуются?»; сообщения — в «Что делают?» без дублей */
