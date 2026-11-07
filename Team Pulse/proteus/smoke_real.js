@@ -47,6 +47,10 @@ global.localStorage={getItem(){return'1'},setItem(){}};
 
 require(path.join(__dirname,'real.js'));
 window.TP_REAL=window.TPREAL.build(rows);
+/* поставка 113-ж: в ответе у строк разрезов ключ только у первой строки своего ключа — для проверок ниже (они читают
+   строки mx сами) ключ восстанавливается; модель чарта выше построена из ответа как есть */
+rows.forEach(r=>{if(!r.mx)return;let pk='';
+  r.mx=String(r.mx).split('\n').map(l=>{if(!l)return l;const t=l.indexOf('\t');if(t>0){pk=l.slice(0,t);return l}return t===0?pk+l:l}).join('\n')});
 ['data.js','draw.js','ui.js','mascot.js','insights.js','story.js',
  'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js',
  'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js',

@@ -500,9 +500,12 @@ WITH
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
-  {#- Разрезы узлов ответа под фильтрами: «ключ \t значение \t число» через \n, отсортировано #}
+  {#- Разрезы узлов ответа под фильтрами: «ключ \t значение \t число» через \n, отсортировано. Поставка 113-ж (ответ легче):
+      ключ — только у первой строки своего ключа, у следующих пусто (чарт берёт ключ прошлой строки) #}
   mxr AS (
-    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(concat(k3, '\t', v3, '\t', toString(round(n4, 1))))), '\n') AS mxs
+    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
+           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
+                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -565,11 +568,16 @@ WITH
           tsi/tso/tsh (переводы по флагам, сверенные с мастер-эталонами) остаются для вкладки «Переводы».
           Поставка 109 (скорость): чарт берёт fsm только с января года последнего месяца по последний месяц — начало (b)
           января, конец (e) последнего месяца, события h f i o помесячно; остальная сетка не отдаётся (было ~56% ответа) #}
-      SELECT ifNull(node_rk, '') AS u3, 'fsm' AS k3, concat(kv.1, spx, '|', mo) AS v3, sum(kv.2) AS n4
+      {#- поставка 113-ж (ответ легче): строка на специализацию «*специализация|ГГГГ|события» — событие «вид ММ:число» через
+          запятую, вид цифрой (1 b, 2 h, 3 f, 4 i, 5 o, 6 e); чарт разворачивает в прежние «вид|специализация|ГГГГ-ММ» #}
+      SELECT u3, 'fsm' AS k3, concat('*', spx, '|', yr, '|', arrayStringConcat(arraySort(groupArray(ev)), ',')) AS v3, toFloat64(1) AS n4
+      FROM
+      (
+      SELECT ifNull(node_rk, '') AS u3, spx, yr, concat(toString(kv.1), mo, ':', toString(round(sum(kv.2), 1))) AS ev
       FROM
       (
         {#- поставка 109 (скорость разбора): числа без ifNull — NULL в сумме не считается, как и 0 #}
-        SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y-%m') AS mo,
+        SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
                toFloat64(beg_cnt) * (report_month = toStartOfYear((SELECT lm FROM cx))) AS vb,
                toFloat64(hire_cnt) AS vh,
                toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64({{ FLWS }}) AS vi,
@@ -579,9 +587,11 @@ WITH
         WHERE node_rk IN {{ PK }} AND {{ GRID }} AND report_month >= toStartOfYear((SELECT lm FROM cx))
           AND {{ cond() }} AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip(['b|', 'h|', 'f|', 'i|', 'o|', 'e|'], [vb, vh, vf, vi, vo, ve]) AS kv
-      GROUP BY u3, k3, v3
-      HAVING n4 > 0
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      GROUP BY u3, spx, yr, mo, kv.1
+      HAVING sum(kv.2) > 0
+      )
+      GROUP BY u3, spx, yr
       UNION ALL
       {#- поставка 106: AI по неделям — у каждого узла ответа последние 16 недель источника (105 дней от последней недели;
           последняя неделя может быть неполной): «ГГГГ-ММ-ДД|WAU,численность,%». Численность — без стажёров, человек

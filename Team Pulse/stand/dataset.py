@@ -100,12 +100,35 @@ def arrays(row):
     return {k: [float(x) for x in row['m_' + k].split(',')] for k in KEYS}
 
 
+PACK = {'fsm': 'bhfioe'}
+
+
+def mx_lines(s):
+    """строки разрезов (ключ, значение, число), как чарт (real.js parseMx): поставка 113-ж — пустой ключ = ключ прошлой
+    строки; упакованная строка «*имя|ГГГГ|вид ММ:число,…» ключа из PACK — в прежние «буква|имя|ГГГГ-ММ»"""
+    pk = ''
+    for line in (s or '').split('\n'):
+        if line.count('\t') != 2:
+            continue
+        k, v, n = line.split('\t')
+        k = k or pk
+        pk = k
+        if k in PACK and v.startswith('*'):
+            e = v.rindex('|')
+            r = v[1:e]
+            y = r.rindex('|')
+            for t in v[e + 1:].split(','):
+                c = t.find(':')
+                if c >= 3:
+                    yield k, f'{PACK[k][int(t[0]) - 1]}|{r[:y]}|{r[y + 1:]}-{t[1:3]}', float(t[c + 1:])
+        else:
+            yield k, v, float(n)
+
+
 def mx_of(row):
     out = {}
-    for line in row['mx'].split('\n'):
-        if line:
-            k, v, n = line.split('\t')
-            out.setdefault(k, {})[v] = float(n)
+    for k, v, n in mx_lines(row['mx']):
+        out.setdefault(k, {})[v] = n
     return out
 
 

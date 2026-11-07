@@ -111,13 +111,27 @@ function invert(o){const r={};Object.keys(o).forEach(k=>{r[o[k]]=k});return r}
    27.10-в, п. 19: грейды 20 и выше — одной категорией «20+» (состав, уходы и найм по грейду) */
 const GRADE_MX={gr:1,xg:1,hg:1};
 function gradeOf(v){const g=/^\s*(?:грейд\s*)?(\d+)\s*$/i.exec(v);return g&&+g[1]>=20?'20+':v}
+/* поставка 113-ж (ответ легче): пустой ключ строки — ключ прошлой строки; упакованная строка ключа из PACK
+   «*имя|ГГГГ|вид ММ:число,…» (вид — цифра, номер буквы в PACK) разворачивается в прежние «буква|имя|ГГГГ-ММ» */
+const PACK={fsm:'bhfioe'};
 function parseMx(s){
-  const out={};
+  const out={};let pk='';
   str(s).split('\n').forEach(line=>{
     if(!line)return;
     const f=line.split('\t');
     if(f.length<3)return;
-    const o=out[f[0]]=out[f[0]]||{}, v=GRADE_MX[f[0]]?gradeOf(f[1]):f[1];
+    const k=f[0]||pk;pk=k;
+    const o=out[k]=out[k]||{};
+    if(PACK[k]&&f[1].charAt(0)==='*'){
+      const w=f[1], e=w.lastIndexOf('|'), r=w.slice(1,e), y=r.lastIndexOf('|'), nm=r.slice(0,y), yr=r.slice(y+1);
+      w.slice(e+1).split(',').forEach(t=>{
+        const c=t.indexOf(':');if(c<3)return;
+        const kk=PACK[k].charAt(+t.charAt(0)-1)+'|'+nm+'|'+yr+'-'+t.slice(1,3);
+        o[kk]=(o[kk]||0)+num(t.slice(c+1));
+      });
+      return;
+    }
+    const v=GRADE_MX[k]?gradeOf(f[1]):f[1];
     o[v]=(o[v]||0)+num(f[2]);
   });
   return out;

@@ -187,11 +187,9 @@ def main():
                     # новые разрезы: в сумме — численность последнего месяца (sp, tc), увольнения (xsp, xtc)
                     # и найм (hk, hch, hg, hsp — на активной) с начала года
                     mx, mxv = defaultdict(float), defaultdict(dict)
-                    for line in (r.get('mx') or '').split('\n'):
-                        if line.count('\t') == 2:
-                            kk, vv, n = line.split('\t')
-                            mx[kk] += float(n)
-                            mxv[kk][vv] = float(n)
+                    for kk, vv, n in dataset.mx_lines(r.get('mx')):     # 113-ж: пустой ключ, упакованный fsm
+                        mx[kk] += n
+                        mxv[kk][vv] = n
                     # поставка 106: AI по неделям — правда «узел × неделя» (стажёры исключены, фильтры среза не действуют)
                     gaw = {}
                     for vv in mxv.get('aw', {}):

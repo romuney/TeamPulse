@@ -25,9 +25,11 @@
       var role = String(r.role), z = byRole[role] || (byRole[role] = { n: 0, b: 0 });
       z.n++;
       Object.keys(r).forEach(function (c) { var l = len(r[c]); z.b += l; byCol[c] = (byCol[c] || 0) + l; });
+      var pk = '';
       String(r.mx || '').split('\n').forEach(function (line) {
         if (!line) return;
-        var k = line.slice(0, line.indexOf('\t'));
+        var k = line.slice(0, line.indexOf('\t')) || pk;   // поставка 113-ж: пустой ключ — ключ прошлой строки
+        pk = k;
         byKey[k] = (byKey[k] || 0) + line.length + 1; keyN[k] = (keyN[k] || 0) + 1;
       });
     });
