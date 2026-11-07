@@ -138,27 +138,27 @@
 {% macro cond() -%}
 {%- set parts = [] -%}
 {%- for c in CUTS -%}{%- if F[c[0]]|length > 0 -%}{%- set hv = 'lowerUTF8(' ~ c[2] ~ ') IN ' ~ ql(F[c[0]]) -%}{%- set _ = parts.append(("(" ~ c[2] ~ " = '∅' OR " ~ hv ~ ")") if c[0] == 'act' else hv) -%}{%- endif -%}{%- endfor -%}
-{{- parts|join(' AND ') if parts else '1' -}}
+{{- ('[' ~ parts|join(' AND ') ~ '][1]') if parts else '1' -}}
 {%- endmacro %}
 {#- 31.10-б, п. 6: «Рост HQ» — только HQ-заявки по смыслу данных, фильтр покраски его не меняет: условие без покраски
     (IT-код, штат, тип численности — как выбраны). По нему — ряды gah gdh (одобренные и отклонённые) и разрезы rm rq rs. -#}
 {% macro cond_np() -%}
 {%- set parts = [] -%}
 {%- for c in CUTS -%}{%- if c[0] != 'paint' and F[c[0]]|length > 0 -%}{%- set hv = 'lowerUTF8(' ~ c[2] ~ ') IN ' ~ ql(F[c[0]]) -%}{%- set _ = parts.append(("(" ~ c[2] ~ " = '∅' OR " ~ hv ~ ")") if c[0] == 'act' else hv) -%}{%- endif -%}{%- endfor -%}
-{{- parts|join(' AND ') if parts else '1' -}}
+{{- ('[' ~ parts|join(' AND ') ~ '][1]') if parts else '1' -}}
 {%- endmacro %}
 {#- Файл 6, п. 4: «Рост HQ» — только по численности HQ: покраска HQ вместо выбранной (фильтр покраски вкладку не меняет),
     IT-код, штат и тип численности — как выбраны. По нему — ряды gah gdh и разрезы rm rq rs (были — cond_np, без покраски:
     итог совпадал с «Все»). -#}
 {% macro cond_rh() -%}
-{{- "lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND " ~ cond_np() -}}
+{{- "[lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND " ~ cond_np() -}}
 {%- endmacro %}
 {#- Поставка 65: строка hq — светофор «Как уходит HQ?» всегда по активной численности HQ: покраска HQ и тип «Активная»
     вместо выбранных в фильтрах, IT-код и штат — как выбраны. -#}
 {% macro cond_hq() -%}
 {%- set parts = ["lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')", "(" ~ AC ~ " = '∅' OR lowerUTF8(" ~ AC ~ ") IN " ~ ql(ACT_DEF) ~ ")"] -%}
 {%- for c in CUTS -%}{%- if c[0] in ('it', 'staff') and F[c[0]]|length > 0 -%}{%- set _ = parts.append('lowerUTF8(' ~ c[2] ~ ') IN ' ~ ql(F[c[0]])) -%}{%- endif -%}{%- endfor -%}
-{{- parts|join(' AND ') -}}
+{{- '[' ~ parts|join(' AND ') ~ '][1]' -}}
 {%- endmacro %}
 {#- Переводы (поставка 59) — как в мастер-отчёте (старый TeamPulse: transfer_in / transfer_out), сверено на выборках
     боя. Строка переходов ноутбука — событие дня с флагом источника; срез строки — состояние этого дня (фильтры —
@@ -229,19 +229,14 @@
     Поставка 109 (скорость разбора в Proteus: reindent sqlparse платит за каждую скобку): сумма — sum(toFloat64(x)) без
     ifNull у каждой метрики, NULL суммы (все строки группы NULL) — в 0 одним arrayMap на отрезок; итог тот же -#}
 {% macro vec(src, keep=None) -%}
-{%- set parts = [] -%}{%- set run = {'z': 0, 's': []} -%}
+{#- поставка 113-к (скорость разбора в Proteus): вектор месяца — один литерал […], нули чужих метрик — 0. sqlparse читает
+    литерал без «]» внутри одним именем (гайд SP-07, SP-16): скобки сумм ему не видны (у компании «(» 1 064 → 749) -#}
+{%- set xs = [] -%}
 {%- for m in M -%}
-{%- if m[1] == src and (keep is none or m[0] in keep) -%}
-{%- if run.z -%}{%- set _ = parts.append('arrayWithConstant(' ~ run.z ~ ', toFloat64(0))') -%}{%- set _ = run.update({'z': 0}) -%}{%- endif -%}
-{%- set _ = run.s.append('sum(toFloat64(' ~ m[2] ~ '))') -%}
-{%- else -%}
-{%- if run.s -%}{%- set _ = parts.append('arrayMap(x -> ifNull(x, 0), array(' ~ run.s|join(', ') ~ '))') -%}{%- set _ = run.update({'s': []}) -%}{%- endif -%}
-{%- set _ = run.update({'z': run.z + 1}) -%}
-{%- endif -%}
+{%- if m[1] == src and (keep is none or m[0] in keep) -%}{%- set _ = xs.append('sum(toFloat64(' ~ m[2] ~ '))') -%}
+{%- else -%}{%- set _ = xs.append('0') -%}{%- endif -%}
 {%- endfor -%}
-{%- if run.s -%}{%- set _ = parts.append('arrayMap(x -> ifNull(x, 0), array(' ~ run.s|join(', ') ~ '))') -%}{%- endif -%}
-{%- if run.z -%}{%- set _ = parts.append('arrayWithConstant(' ~ run.z ~ ', toFloat64(0))') -%}{%- endif -%}
-arrayConcat({{ parts|join(', ') }})
+arrayMap(x -> ifNull(x, 0), [{{ xs|join(', ') }}])
 {%- endmacro %}
 {#- Узлы ответа (множество для IN) и месяц строки от начала сетки — через проекцию общего скаляра. -#}
 {% set PK = '(SELECT tupleElement(arrayJoin(cxpk), 1))' %}
@@ -551,15 +546,14 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, {{ SPC }} AS spx, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu,
-               {{ CI }} AS ci, {{ CO }} AS co
+        SELECT node_rk, {{ SPC }} AS spx, [{{ HI }}, {{ SI }}, {{ SU }}, {{ CI }}, {{ CO }}] AS tv
         FROM prod_proteus.teampulse_hub_trf
         WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }}
       )
       {#- поставка 101: здесь же шла помесячная детализация tsm («вид|специализация|ГГГГ-ММ»); поставка 109 (скорость) — снята:
           её заменил замкнутый водопад fsm (поставка 105), чарт tsm не читает #}
       {#- поставка 109 (скорость разбора): ключ и число — arrayZip двух массивов, а не пять кортежей со скобками #}
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -582,16 +576,14 @@ WITH
       (
         {#- поставка 109 (скорость разбора): числа без ifNull — NULL в сумме не считается, как и 0 #}
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64({{ FLWS }}) AS vi,
-               toFloat64(tout_cnt) * toFloat64({{ FLWS }}) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64({{ FLWS }}), toFloat64(tout_cnt) * toFloat64({{ FLWS }}),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN {{ PK }} AND {{ GRID }} AND report_month >= toStartOfYear(cxlm)
           AND {{ cond() }} AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )

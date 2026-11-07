@@ -120,7 +120,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -196,39 +196,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -248,9 +248,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -269,7 +269,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -282,7 +282,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -305,12 +305,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -322,16 +321,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -489,7 +486,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -565,39 +562,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fp = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fp = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fp = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fp = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_paint_cd), '')) IN ('hq') AND lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_paint_cd), '')) IN ('hq') AND lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_paint_cd), '')) IN ('hq') AND lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_paint_cd), '')) IN ('hq') AND lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -617,9 +614,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -638,7 +635,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -651,7 +648,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -674,12 +671,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fp = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fp = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fp = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -691,16 +687,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_paint_cd), '')) IN ('hq') AND lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_paint_cd), '')) IN ('hq') AND lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_paint_cd), '')) IN ('hq') AND lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_paint_cd), '')) IN ('hq') AND lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -858,7 +852,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -934,39 +928,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -986,9 +980,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -1007,7 +1001,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -1020,7 +1014,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -1043,12 +1037,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -1060,16 +1053,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -1227,7 +1218,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -1303,39 +1294,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_trf WHERE 0) AS teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_trf WHERE 0) AS teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_vacancy WHERE 0) AS teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_flow WHERE 0) AS teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -1355,9 +1346,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -1376,7 +1367,7 @@ WITH
     FROM (SELECT * FROM prod_proteus.teampulse_hub_prof WHERE 0) AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -1389,7 +1380,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM (SELECT * FROM prod_proteus.teampulse_hub_mix WHERE 0) AS teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -1412,12 +1403,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM (SELECT * FROM prod_proteus.teampulse_hub_trf WHERE 0) AS teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -1429,16 +1419,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM (SELECT * FROM prod_proteus.teampulse_hub_flow WHERE 0) AS teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -1596,7 +1584,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -1672,39 +1660,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -1724,9 +1712,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -1745,7 +1733,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -1758,7 +1746,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -1781,12 +1769,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -1798,16 +1785,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -1965,7 +1950,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -2041,39 +2026,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -2093,9 +2078,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -2114,7 +2099,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -2127,7 +2112,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -2150,12 +2135,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -2167,16 +2151,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM (SELECT * FROM prod_proteus.teampulse_hub_flow WHERE 0) AS teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -2334,7 +2316,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -2410,39 +2392,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -2462,9 +2444,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -2483,7 +2465,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -2496,7 +2478,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -2519,12 +2501,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -2536,16 +2517,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -2703,7 +2682,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -2779,39 +2758,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -2831,9 +2810,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -2852,7 +2831,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -2865,7 +2844,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM (SELECT * FROM prod_proteus.teampulse_hub_mix WHERE 0) AS teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -2888,12 +2867,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -2905,16 +2883,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -3072,7 +3048,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -3148,39 +3124,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -3200,9 +3176,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -3221,7 +3197,7 @@ WITH
     FROM (SELECT * FROM prod_proteus.teampulse_hub_prof WHERE 0) AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -3234,7 +3210,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -3257,12 +3233,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM (SELECT * FROM prod_proteus.teampulse_hub_trf WHERE 0) AS teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -3274,16 +3249,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -3441,7 +3414,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -3517,39 +3490,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_trf WHERE 0) AS teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_trf WHERE 0) AS teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_vacancy WHERE 0) AS teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM (SELECT * FROM prod_proteus.teampulse_hub_flow WHERE 0) AS teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -3569,9 +3542,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -3590,7 +3563,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -3603,7 +3576,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -3626,12 +3599,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -3643,16 +3615,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -3810,7 +3780,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -3886,39 +3856,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -3938,9 +3908,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -3959,7 +3929,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -3972,7 +3942,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -3995,12 +3965,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -4012,16 +3981,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
@@ -4179,7 +4146,7 @@ WITH
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -4255,39 +4222,39 @@ WITH
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(11, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))))), arrayWithConstant(5, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))))), arrayWithConstant(6, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, sum(toFloat64(pnor_cnt)), sum(toFloat64(plow_cnt)), sum(toFloat64(phig_cnt)), sum(toFloat64(pgry_cnt)), sum(toFloat64(wday_amt)), sum(toFloat64(ovis_amt)), sum(toFloat64(ifNull(toFloat64(fwday_amt), 0))), sum(toFloat64(ifNull(toFloat64(fovis_amt), 0))), sum(toFloat64(ifNull(toFloat64(vbk_amt), 0))), sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(bk_amt), 0))), sum(toFloat64(ifNull(toFloat64(bkv_amt), 0))), sum(toFloat64(ifNull(toFloat64(vsv_amt), 0))), sum(toFloat64(ifNull(toFloat64(hwd_amt), 0))), sum(toFloat64(ifNull(toFloat64(hov_amt), 0))), 0, 0, 0, 0, 0, sum(toFloat64(ifNull(toFloat64(ab25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(ab5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we25_cnt), 0))), sum(toFloat64(ifNull(toFloat64(we5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t23_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t35_cnt), 0))), sum(toFloat64(ifNull(toFloat64(t5_cnt), 0))), sum(toFloat64(ifNull(toFloat64(hrs_amt), 0))), sum(toFloat64(ifNull(toFloat64(hrn_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_amt), 0))), 0, 0, sum(toFloat64(ifNull(toFloat64(hrs_sum_amt), 0))), sum(toFloat64(ifNull(toFloat64(plan_day_cnt), 0))), sum(toFloat64(ifNull(toFloat64(tlk_sum_amt), 0))), 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(7, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(17, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))))), arrayWithConstant(2, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))))), arrayWithConstant(31, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)))), 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 'c'))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') = 's'))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(27, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))))), arrayWithConstant(33, toFloat64(0))) AS a2
+      SELECT substring(ifNull(node_rk, ''), 1, length(ifNull(node_rk, '')) - 2) AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1))), sum(toFloat64(toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (fu = 1 OR fa = 1)))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_trf
-      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d')) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(51, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)))), arrayWithConstant(9, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(gapr_cnt)), sum(toFloat64(gdec_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(36, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)))), arrayWithConstant(21, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), sum(toFloat64(avg_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(hc_cnt)), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(20, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))))), arrayWithConstant(36, toFloat64(0))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(vac_open_cnt)), sum(toFloat64(vac_close_cnt)), sum(toFloat64(vac_new_cnt)), sum(toFloat64(vac_ttf_days)), sum(toFloat64(vac_ttf_cnt)), sum(toFloat64(if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a2
       FROM prod_proteus.teampulse_hub_vacancy
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm
       GROUP BY u2, i2
       UNION ALL
-      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayConcat(arrayWithConstant(56, toFloat64(0)), arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))))) AS a2
+      SELECT ifNull(node_rk, '') AS u2, toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i2, arrayMap(x -> ifNull(x, 0), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sum(toFloat64(beg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(toFloat64(ifNull(tin_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(toFloat64(ifNull(tout_cnt, 0)) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))))), sum(toFloat64(fin_cnt))]) AS a2
       FROM prod_proteus.teampulse_hub_flow
-      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') = '-'
+      WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
       SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant(62, toFloat64(0)) AS a2
@@ -4307,9 +4274,9 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayConcat(arrayMap(x -> ifNull(x, 0), array(sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))))), arrayWithConstant(55, toFloat64(0))) AS a6
+      SELECT toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month)))) AS i6, arrayMap(x -> ifNull(x, 0), [sum(toFloat64(hc_cnt)), sum(toFloat64(act_cnt)), sum(toFloat64(avg_cnt)), sum(toFloat64(hire_cnt)), sum(toFloat64(fire_cnt)), sum(toFloat64(reg_cnt)), sum(toFloat64(ifNull(toFloat64(nreg_cnt), 0))), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) AS a6
       FROM (SELECT * FROM prod_proteus.teampulse_hub_series WHERE 0) AS teampulse_hub_series
-      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+      WHERE node_rk = cxs AND report_month BETWEEN cxm0 AND cxlm AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       GROUP BY i6
       UNION ALL
       SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant(62, toFloat64(0)) AS a6
@@ -4328,7 +4295,7 @@ WITH
     FROM prod_proteus.teampulse_hub_prof AS p
     INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
                 FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
-    WHERE (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND u.mp != ''
+    WHERE [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
@@ -4341,7 +4308,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1))
-        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND lowerUTF8(ifNull(paint_cd, '-')) IN ('hq') AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')))
+        AND (ifNull(mx_key, '') NOT IN ('rm', 'rq', 'rs') AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] OR ifNull(mx_key, '') IN ('rm', 'rq', 'rs') AND [lowerUTF8(ifNull(paint_cd, '-')) IN ('hq')][1] AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1])
         AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         AND ifNull(mx_key, '') != 'xsm'
       GROUP BY u3, k3, v3
@@ -4364,12 +4331,11 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)) AS th, toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AS ti, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1) AS tu,
-               toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS ci, toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1)) AS co
+        SELECT node_rk, ifNull(toString(sp_cd), '') AS spx, [toFloat64(trf_cnt) * toFloat64(trf_kind = 'h' OR (trf_kind = 'i' AND (fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 0)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND ifNull(fu, 0) = 1), toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (ifNull(fu, 0) = 1 AND ifNull(in_ok, 1) = 1) AND (((fu = 1 OR fa = 1) AND ifNull(in_ok, 1) = 1) OR ifNull(toFloat64(fsp), -1) = 1)), toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND NOT (ifNull(fu, 0) = 1) AND ((fu = 1 OR fa = 1) OR ifNull(toFloat64(fsp), -1) = 1))] AS tv
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))
+        WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month >= toStartOfYear(cxlm) AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1]
       )
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], [th, ti, tu, ci, co]) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
@@ -4381,16 +4347,14 @@ WITH
       FROM
       (
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
-               toFloat64(hire_cnt) AS vh,
-               toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vi,
-               toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))) AS vo,
-               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+                toFloat64(tin_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))), toFloat64(tout_cnt) * toFloat64((ifNull(toFloat64(chg_unit), toFloat64(1)) = 1 OR ifNull(toFloat64(chg_sp), toFloat64(0)) = 1 OR NOT (lowerUTF8(ifNull(toString(oth_act_cd), '')) IN ('активная')))),
+                toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN (SELECT tupleElement(arrayJoin(cxpk), 1)) AND report_month BETWEEN cxm0 AND cxlm AND report_month >= toStartOfYear(cxlm)
-          AND (ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная')) AND ifNull(sp_cd, '-') <> '-'
+          AND [(ifNull(toString(act_cd), '∅') = '∅' OR lowerUTF8(ifNull(toString(act_cd), '∅')) IN ('активная'))][1] AND ifNull(sp_cd, '-') <> '-'
       )
-      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
+      ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1
       HAVING sum(kv.2) > 0
       )
