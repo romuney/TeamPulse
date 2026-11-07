@@ -2613,6 +2613,20 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* поставка 121: одна открытая вакансия — строкой вместо пяти таблиц «1 · 100%» */
 .vac-one{margin:var(--s6) 0 var(--s4);padding:var(--s4) var(--s6);border-radius:var(--r2);background:#f7f8fa;font-size:var(--fs-body);color:var(--ink2)}
 
+/* ==========================================================================
+   Поставка 123 (владелец: «что тут за свалка текста»). Под карточками главной — одна строка: счётчики «в норме», «без
+   оценки», «для справки» (метрики — в подсказке, клик — к таблицам) и легенда цветов справа.
+   ========================================================================== */
+.in-sumrow{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s4) var(--s8);margin:var(--s8) 0 var(--s6)}
+.in-sum{display:flex;flex-wrap:wrap;gap:var(--s3)}
+.in-chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px;font:inherit;font-size:var(--fs-body);
+  color:var(--ink3);cursor:pointer;white-space:nowrap}
+.in-chip b{color:var(--ink2);font-weight:var(--fw-bold)}
+.in-chip.ok,.in-chip.ok b{color:var(--green-tx)}
+.in-chip.dev{border-color:var(--dev-line);background:var(--dev-bg);color:var(--dev-ink)}
+.in-chip:hover{border-color:var(--act);color:var(--act)}
+.in-sumrow .legend{margin:0 0 0 auto}
+
 </style>
 </head>
 <body>
@@ -12825,27 +12839,27 @@ function rated(m,S,rl,bl){
   const P=D.periodTotal(rl,m.key)||{};
   return vs==='neutral'&&P.v!=null&&P.pv!=null&&D.deltaState(m.key,P.v,P.pv,rl)!=='bad';
 }
+/* поставка 123 (владелец: «что тут за свалка текста» — три строки пилюль «В норме», «Без оценки», «Для справки» под
+   карточками): одна строка счётчиков; сами метрики со значениями — в подсказке счётчика, клик ведёт к таблицам блоков,
+   где у каждой метрики строка с цветом, изменениями и ориентиром. Легенда цветов — в той же строке справа */
 function normRow(S,rl,ok0,bl){
-  const NP=7, dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
+  const dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
   const na=ok0.filter(m=>unrated(m,rl)), ok=ok0.filter(m=>rated(m,S,rl,bl)), info=ok0.filter(m=>!unrated(m,rl)&&!rated(m,S,rl,bl));
-  const pill=(m,ago)=>{const P=D.periodTotal(rl,m.key);
-    return '<button class="in-pill" data-opfact="'+m.key+'"'+U.tipAttr({title:m.name,text:m.flow?m.hint.replace(/ за месяц/g,' за период'):m.hint})+'>'+
-      esc(m.name)+' <b>'+P.cur+'</b>'+(P.stock?' сейчас':'')+(ago&&P.prev!=null?'<span class="in-ago"> (год назад '+esc(P.prev)+')</span>':'')+'</button>'};
-  const more=(n,cls)=>n>NP?'<button class="in-pill more" data-opscroll="1">+'+(n-NP)+(cls?' '+U.plural(n-NP,['метрика','метрики','метрик']):'')+'</button>':'';
-  return (ok.length||dev?'<div class="in-ok"><span class="in-okt"'+U.tipAttr({title:'В норме',
-      text:'Оценённые метрики без заметных отклонений: на уровне цели, базы или всей компании либо, где ориентира нет, как год назад '+
-        '(изменение меньше '+Math.round(D.VERDICT_GAP*100)+'%). Количества здесь не стоят — они в строке «Для справки».'})+
-    '>✓ В норме</span>'+
-    ok.slice(0,NP).map(m=>pill(m)).join('')+more(ok.length,1)+
-    (dev?'<button class="in-pill dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
-      dev+' в разработке</button>':'')+'</div>':'')+
-    (na.length?'<div class="in-ok in-na"><span class="in-okt"'+U.tipAttr({title:'Без оценки — мало людей',
-      text:(D.isSmall()?'В команде':'В HQ')+' меньше '+D.SMALL_N+' человек: один человек сдвигает долю на несколько процентных пунктов, поэтому доли и сроки с ориентиром не сравниваем. Значения — для справки.'})+
-      '>Без оценки — мало людей</span>'+na.slice(0,NP).map(m=>pill(m)).join('')+more(na.length)+'</div>':'')+
-    (info.length?'<div class="in-ok in-info"><span class="in-okt"'+U.tipAttr({title:'Для справки',
-      text:'Количества (численность, найм, уходы, вакансии) и метрики без направления цветом не оцениваются: здесь значение и то же окно год назад. '+
-        'Доли и выводы по ним — в карточках выше и в таблицах ниже.'})+
-      '>Для справки</span>'+info.slice(0,NP).map(m=>pill(m,1)).join('')+more(info.length)+'</div>':'');
+  const row=(m,ago)=>{const P=D.periodTotal(rl,m.key);
+    return {label:m.name,value:P.cur+(P.stock?' сейчас':'')+(ago&&P.prev!=null?' · год назад '+P.prev:'')}};
+  const chip=(cls,n,word,title,text,rows)=>n?'<button class="in-chip '+cls+'" data-opscroll="1"'+
+      U.tipAttr({title:title,text:text,rows:rows,note:'Клик — к таблицам блоков ниже.'})+'>'+(cls==='ok'?'✓ ':'')+'<b>'+n+'</b> '+word+'</button>':'';
+  return '<div class="in-sum">'+
+    chip('ok',ok.length,U.plural(ok.length,['метрика в норме','метрики в норме','метрик в норме']),'В норме',
+      'Оценённые метрики без заметных отклонений: на уровне цели, базы или всей компании, а где ориентира нет — как год назад '+
+      '(изменение меньше '+Math.round(D.VERDICT_GAP*100)+'%).',ok.map(m=>row(m)))+
+    chip('na',na.length,'без оценки — мало людей','Без оценки — мало людей',
+      (D.isSmall()?'В команде':'В HQ')+' меньше '+D.SMALL_N+' человек: один человек сдвигает долю на несколько процентных пунктов, '+
+      'поэтому доли и сроки с ориентиром не сравниваем.',na.map(m=>row(m)))+
+    chip('ref',info.length,'для справки','Для справки',
+      'Количества и метрики без направления цветом не оцениваются: значение и то же окно год назад.',info.map(m=>row(m,1)))+
+    (dev?'<button class="in-chip dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
+      dev+' в разработке</button>':'')+'</div>';
 }
 
 /* Метка у имени блока: весь блок без источника — «в разработке · этап N»,
@@ -12892,7 +12906,8 @@ function render(S,openRows){
     if(rest>0)h+='<button class="in-more-c" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+rest+' '+
       U.plural(rest,['хорошая новость','хорошие новости','хороших новостей'])+' ▾')+'</button>';
   }
-  h+=normRow(S,rl,ok,bl);
+  /* поставка 123: счётчики и легенда цветов — одной строкой */
+  h+='<div class="in-sumrow">'+normRow(S,rl,ok,bl)+U.trafficLegend()+'</div>';
 
   /* 3 · все метрики — таблицами по блокам, всегда раскрыты (20.10, заказчик: KPI-карточек на
      главной нет — те же метрики уже в выводах и в таблицах; сворачивать таблицы не нужно) */
@@ -12904,7 +12919,6 @@ function render(S,openRows){
   /* 30.10, шаг 1: служебная сводка «Готовность данных» — в самом низу главной, а не между выводами и таблицами
      (критики: «шум в зоне главного внимания») */
   const devS=U.devSummary({live,total:D.SHOWN.length,ver:D.SHOWN.filter(m=>D.VERIFIED.has(m.key)).length,plan:D.DEV_PLAN});
-  h+=U.trafficLegend();
 
   /* мини-навигация по блокам: липкая, с точкой худшего сигнала */
   /* поставка 120 (критики 119: «Отток и текучесть 1 — хуже ориентира: 1 метрика» при двух красных карточках, «Всё на уровне

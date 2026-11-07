@@ -2604,3 +2604,17 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .mx-est tbody tr:not(.total) td:not(.txt):not(:last-child){font-style:italic;color:var(--ink3)}
 /* поставка 121: одна открытая вакансия — строкой вместо пяти таблиц «1 · 100%» */
 .vac-one{margin:var(--s6) 0 var(--s4);padding:var(--s4) var(--s6);border-radius:var(--r2);background:#f7f8fa;font-size:var(--fs-body);color:var(--ink2)}
+
+/* ==========================================================================
+   Поставка 123 (владелец: «что тут за свалка текста»). Под карточками главной — одна строка: счётчики «в норме», «без
+   оценки», «для справки» (метрики — в подсказке, клик — к таблицам) и легенда цветов справа.
+   ========================================================================== */
+.in-sumrow{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s4) var(--s8);margin:var(--s8) 0 var(--s6)}
+.in-sum{display:flex;flex-wrap:wrap;gap:var(--s3)}
+.in-chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px;font:inherit;font-size:var(--fs-body);
+  color:var(--ink3);cursor:pointer;white-space:nowrap}
+.in-chip b{color:var(--ink2);font-weight:var(--fw-bold)}
+.in-chip.ok,.in-chip.ok b{color:var(--green-tx)}
+.in-chip.dev{border-color:var(--dev-line);background:var(--dev-bg);color:var(--dev-ink)}
+.in-chip:hover{border-color:var(--act);color:var(--act)}
+.in-sumrow .legend{margin:0 0 0 auto}

@@ -1584,7 +1584,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const inCards=home.split('<div class="in-card ').slice(1);
   checks.push(['главная: «Главное за …», сводка с огоньком «смотрите», до четырёх карточек, «В норме», таблицы метрик сразу',
     /<h2>Главное (за|на) /.test(home)&&/<div class="in-lead">/.test(home)&&/человек/.test(home.split('in-lt')[1]||'')&&
-    inCards.length===Math.min(I.CARD.show,cs.length)&&/class="in-ok"/.test(home)&&
+    /* поставка 123: «В норме», «Без оценки», «Для справки» — одной строкой счётчиков (in-sum) */
+    inCards.length===Math.min(I.CARD.show,cs.length)&&/class="in-sum"/.test(home)&&
     /class="mtable"/.test(home)&&!/class="kpis/.test(home)&&!/class="ai insight|data-opall/.test(home)&&
     /<div class="in-lead"><span class="in-ico"><img/.test(home)&&!/AI-подсказка/.test(home.split('<table')[0])]);
   checks.push(['карточка: категория точкой (огонёк — только у сводки), блок, заголовок словами, крупное число, мини-график, «Что сделать» и переход',
