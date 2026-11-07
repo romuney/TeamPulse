@@ -232,6 +232,18 @@ def main():
             if title in WHOLE:
                 code = open(os.path.join(NB, WHOLE[title]), encoding='utf-8').read()
         code = '\n'.join(line.rstrip() for line in code.split('\n')).strip('\n')
+        # 07.11 (поставка 113-б упала на бою: «→» в SQL-комментарии Python-параграфа): запрос через dal_client уходит в
+        # Greenplum в WIN1251, текст со знаком вне неё не принимается целиком. Проверяем строки внутри тройных кавычек
+        # Python-параграфов (gp-параграфы сервис передаёт иначе — «─» в их комментариях на бою проходит)
+        inside = False
+        for n, line in enumerate(code.split('\n') if shebang == 'python' else [], 1):
+            if inside:
+                try:
+                    line.encode('cp1251')
+                except UnicodeEncodeError as e:
+                    raise SystemExit(f'«{title}», строка {n}: знак {line[e.start]!r} не в WIN1251 — Greenplum не примет запрос')
+            if shebang == 'python' and line.count('"""') % 2:
+                inside = not inside
         out.append({'sid': str(uuid.uuid5(uuid.NAMESPACE_URL, 'teampulse-hub/' + title)), 'title': title,
                     'shebang': shebang, 'code': Lit(code), 'isEnabled': True})
     doc = {'title': 'TeamPulse Hub', 'formElements': src.get('formElements', []), 'paragraphs': out,
