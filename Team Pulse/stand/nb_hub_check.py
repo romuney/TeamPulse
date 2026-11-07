@@ -203,6 +203,17 @@ def main():
                     tx = TAX.get(rk, {})
                     if set(gx) != set(tx) or any(abs(gx[k] - tx[k]) > 0.05 for k in tx):
                         bad['aix'] += 1
+                    # поставка 112: сегменты «Кто пользуется» (ash / asu): в каждом разрезе люди без стажёров = aph (каждый человек
+                    # один раз), с AI — не больше людей группы и одинаково во всех разрезах
+                    if mxv.get('ash'):
+                        sh, su = mxv.get('ash', {}), mxv.get('asu', {})
+                        aph_t = sum(mxv.get('aph', {}).values())
+                        dims = {k.split('|')[0] for k in sh}
+                        tot = {d: sum(n for k, n in sh.items() if k.split('|')[0] == d) for d in dims}
+                        tou = {d: sum(n for k, n in su.items() if k.split('|')[0] == d) for d in dims}
+                        if any(abs(t - aph_t) > 0.05 for t in tot.values()) or len({round(t) for t in tou.values()}) > 1 or \
+                                any(su.get(k, 0) > n + 0.05 for k, n in sh.items()) or dims != {'p', 's', 'g', 't', 'sp'}:
+                            bad['ash/asu'] += 1
                     if {w: v[:2] for w, v in gaw.items()} != taw or \
                             any(abs(v[2] - 100.0 * v[0] / v[1]) > 0.006 for v in gaw.values()):
                         bad['aw'] += 1

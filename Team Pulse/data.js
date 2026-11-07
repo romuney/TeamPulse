@@ -2618,7 +2618,7 @@ let _nmx=null;
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
 const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw',
-  'aik','aih','aiu','ait','aif','aph','apt','aut','auf','aun','aum','auc','auk']);
+  'aik','aih','aiu','ait','aif','aph','apt','aut','auf','aun','aum','auc','auk','ash','asu']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
   const s=REAL.scopeMix(k);
@@ -3294,6 +3294,9 @@ const AI_DEV=['Copilot','Nestor IDE','Nessy CLI'];
    недели на «Пользуются ли AI?» (aw); проценты — от численности недели без стажёров (у стажёров — от стажёров) */
 const AI_DAYS=['1 день','2 дня','3 дня','4 дня','5 дней','6 дней','7 дней'];
 const AI_CUTS=!!(REAL&&REAL.mixVals&&Object.keys(REAL.mixVals('aik')||{}).length);
+/* поставка 112: разрезы «Кто пользуется» (ключ ноутбука → подпись, разрез численности для порядка значений) */
+const AI_SEG_DIMS=[['p','По покраске',null],['s','По сеньорности','seniority'],['g','По грейду','grade'],['t','По стажу','tenure'],
+  ['sp','По специализации',null]];
 function aiUsageReal(lp){
   const W=aiWeeks(lp), cw=aiCur(W), g=k=>selMix(lp,k)||{};
   if(!cw||!Object.keys(g('aik')).length)return null;
@@ -3312,7 +3315,20 @@ function aiUsageReal(lp){
   const bySeg=ps.map(p=>({name:isNA(p)?NONE_NAME:p,raw:p,hc:R(aph[p]),cells:tools.map(t=>pc(apt[p+'|'+t.key]||0,aph[p])),
     cnt:tools.map(t=>R(apt[p+'|'+t.key]||0)),rest:R(apo[p]||0)}));
   const ihc=one(g('aih')), iact=one(g('aiu'));
-  return {real:true,week:cw.full.replace(/^Неделя /,''),pen:cw.pen,act:act,hc:hc,freq:days(g('auf')),per:per,msgs:msgs,cls:cls,
+  /* поставка 112: «Кто пользуется» по сегментам — ash / asu («разрез|значение» → людей / с AI без стажёров); ноутбук до 112
+     их не отдаёт — segs null, вкладка показывает только покраску (aph) */
+  const ash=g('ash'), asu=g('asu');
+  const segs=Object.keys(ash).length?AI_SEG_DIMS.map(([d,cap,dk])=>{
+    const vals={}, us={};
+    Object.keys(ash).forEach(kv=>{const i=kv.indexOf('|');if(kv.slice(0,i)===d)vals[kv.slice(i+1)]=ash[kv]});
+    Object.keys(asu).forEach(kv=>{const i=kv.indexOf('|');if(kv.slice(0,i)===d)us[kv.slice(i+1)]=asu[kv]});
+    const po=PAINTS.slice(1).map(x=>x.name);
+    const ord=d==='p'?Object.keys(vals).sort((a,b)=>((po.indexOf(a)+1)||99)-((po.indexOf(b)+1)||99)||a.localeCompare(b))
+      :dk?realOrder(dk,vals):Object.keys(vals).sort((a,b)=>vals[b]-vals[a]||a.localeCompare(b));
+    return {key:d,cap:cap,rows:ord.map(v=>({name:isNA(v)||v===''?NONE_NAME:dk==='tenure'?tenName(v):v,hc:R(vals[v]),act:R(us[v]||0),
+      pen:pc(us[v]||0,vals[v])}))};
+  }).filter(x=>x.rows.length):null;
+  return {real:true,segs:segs,week:cw.full.replace(/^Неделя /,''),pen:cw.pen,act:act,hc:hc,freq:days(g('auf')),per:per,msgs:msgs,cls:cls,
     dev:[{name:'Инструменты разработчика',msgs:cls,tasks:tasks}],tools:tools,bySeg:bySeg,rest:one(g('auo')),
     intern:{hc:ihc,act:iact,pen:pc(iact,ihc),tools:Object.keys(ait).map(t=>({key:t,name:t,value:pc(ait[t],ihc),n:R(ait[t])})).sort(byR(air)),
       rest:one(g('aio')),freq:days(g('aif'))}};
@@ -3343,7 +3359,14 @@ function aiUsage(lp){
   const restOf=(a,cap)=>a.length>10?Math.min(cap,Math.round(Math.max.apply(null,a.slice(10).map(x=>x.n))*1.5)):0;
   bySeg.forEach(x=>{x.cells=tools.map(t=>x.cells[ai.tools.indexOf(ai.tools.find(z=>z.key===t.key))]);
     x.cnt=x.cells.map(v=>v==null?null:Math.round(x.hc*v/100));x.rest=restOf(tools,x.hc)});
-  return {pen:pen,act:act,freq:freq,per:per,msgs:msgs,cls:cls,dev:dev,tools:tools,bySeg:bySeg,rest:restOf(tools,hc),
+  /* поставка 112: макет «Кто пользуется» по сегментам — люди из разрезов численности, доля с AI вокруг общей */
+  const pRows=PAINTS.slice(1).map((x,i)=>({name:x.name,hc:Math.round(hc*[0.45,0.35,0.2][i]||0)}));
+  const mk=(k)=>MIX_BY_KEY[k]?mixParts(lp,k).map((v,i)=>({name:mixCats(k)[i].name,hc:Math.round(v)})):[];
+  const aiSegs=[['p','По покраске',pRows],['s','По сеньорности',mk('seniority')],['g','По грейду',mk('grade')],['t','По стажу',mk('tenure')],
+    ['sp','По специализации',mk('spec').sort((a,b)=>b.hc-a.hc)]].map(([key,cap,rows])=>({key:key,cap:cap,
+    rows:rows.filter(x=>x.hc>0).map(x=>{const a=Math.min(x.hc,Math.round(x.hc*cl(pen*(0.75+r()*0.5),0,100)/100));
+      return {name:x.name,hc:x.hc,act:a,pen:+(a/x.hc*100).toFixed(1)}})})).filter(x=>x.rows.length);
+  return {pen:pen,act:act,freq:freq,per:per,msgs:msgs,cls:cls,dev:dev,tools:tools,bySeg:bySeg,rest:restOf(tools,hc),segs:aiSegs,
     intern:{hc:ihc,pen:ipen,act:iact,tools:itools,rest:restOf(itools,ihc),
       freq:splitBy(iact,jitter(r,[0.2,0.22,0.2,0.16,0.12,0.06,0.04],0.2)).map((n,i)=>({name:AI_DAYS[i],value:n}))}};
 }

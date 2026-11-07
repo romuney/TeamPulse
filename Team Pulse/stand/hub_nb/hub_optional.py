@@ -165,7 +165,9 @@ distributed by (node_rk)""")
 #     auf (дней в неделю → людей с AI), aun (инструментов: 1, 2, 3, 4+ → людей с AI), aum (сообщений инструментам
 #     разработчика), auc (из них классифицировано), auk (задача → сообщений); 07.11: aur / air — ранг инструмента
 #     (без стажёров / у стажёров: топ-10 чарта), auo / aio — людей с инструментами вне топ-10 (группа «Остальное», каждый
-#     один раз), apo — то же по покраске. Массивы tools / tasks / task_messages —
+#     один раз), apo — то же по покраске. Поставка 112: ash / asu — «разрез|значение» → людей / с AI без стажёров
+#     (p покраска, s сеньорность, g грейд, t стаж, sp специализация; атрибуты — из таблицы отчёта по mdm_employee_rk на
+#     последний месяц, человек не найден — «-»). Массивы tools / tasks / task_messages —
 #     как массивы GP (text[]; строка вида {a,b} тоже читается). Смысл колонок сообщений сверить на проде
 _xcols = {'paint', 'tools', 'tools_count', 'usage_days_in_week', 'tasks', 'task_messages', 'total_tasks_messages',
           'total_copilot_nestor_messages'}
@@ -190,6 +192,19 @@ with cw as (
     from {HUB_AI_SRC} a, cw
     where a.week::date = cw.w and coalesce(a.mngt_unit_rk::text, '') <> ''
     group by 1, 2
+), pa as (   -- поставка 112: атрибуты человека на последний месяц отчёта (как разрезы численности hub · 4) — по mdm_employee_rk
+    select s.mdm_employee_rk::text as pid,
+           max({_clean('s.seniority::text')}) as sen, max({_clean('s.grade::text')}) as grd,
+           max({_clean('s.experience_group_nm::text')}) as ten, max({_clean('s.specialization::text')}) as spc
+    from {HUB_SRC} s
+    where s.report_month = (select max(report_month) from {HUB_SRC}) and s.mdm_employee_rk is not null
+    group by 1
+), bs as (   -- поставка 112: «Кто пользуется» — каждый человек без стажёров один раз в каждом разрезе; нет в отчёте — «-»
+    select b.node_rk, b.pid, b.u,
+           unnest(array['p', 's', 'g', 't', 'sp']) as d,
+           unnest(array[b.paint, coalesce(pa.sen, '-'), coalesce(pa.grd, '-'), coalesce(pa.ten, '-'), coalesce(pa.spc, '-')]) as v
+    from b left join pa on pa.pid = b.pid
+    where b.it = 0
 ), bt as (
     select b.node_rk, b.pid, b.it, b.paint, {_clean('(b.tools::text[])[i]')} as tool
     from b, generate_series(1, coalesce(array_length(b.tools::text[], 1), 0)) i
@@ -221,6 +236,8 @@ union all select node_rk, case when it = 1 then 'air' else 'aur' end, tool, r::f
 union all select node_rk, 'auo', '', count(distinct pid) from bo where it = 0 group by 1
 union all select node_rk, 'apo', paint, count(distinct pid) from bo where it = 0 group by 1, 3
 union all select node_rk, 'aio', '', count(distinct pid) from bo where it = 1 group by 1
+union all select node_rk, 'ash', d || '|' || v, count(distinct pid) from bs group by 1, 3
+union all select node_rk, 'asu', d || '|' || v, count(distinct pid) from bs where u = 1 group by 1, 3
 distributed by (node_rk)""")
     print(f"[OK] {HUB_P}_aix: {_hub_q(f'select count(*) as n, count(distinct node_rk) as u, max(case when k = $$aik$$ then v end) as w from {HUB_P}_aix')[['n', 'u', 'w']].iloc[0].to_dict()}")
 else:
