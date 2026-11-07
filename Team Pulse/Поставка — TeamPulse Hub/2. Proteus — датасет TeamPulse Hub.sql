@@ -499,12 +499,15 @@ WITH
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
-  {#- Разрезы узлов ответа под фильтрами: «ключ \t значение \t число» через \n, отсортировано. Поставка 113-ж (ответ легче):
-      ключ — только у первой строки своего ключа, у следующих пусто (чарт берёт ключ прошлой строки) #}
+  {#- Разрезы узлов ответа под фильтрами: «ключ \t значение \t число» через \n, отсортировано. Поставка 113-з (ответ легче):
+      ключ — только у первой строки своего ключа, у следующих пусто (чарт берёт ключ прошлой строки). 07.11, бой: первая версия
+      брала ls[i - 1] в лямбде arrayMap — лямбда копирует захваченный массив на каждом шаге, у узла с десятками тысяч строк это
+      квадрат по памяти (Code 241, 10 ГиБ). Теперь без лямбды: блок ключа «ключ» + строки «\t значение \t число», блоки — через \n #}
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -636,6 +639,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND {{ PF_MAX }}
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
