@@ -1328,6 +1328,7 @@ function setVerdictScope(st){
   SMALL_REP=hc!=null&&hc<SMALL_N;
   /* поставка 113: группа размера — по численности на закрытый месяц (как у датасета) */
   PEER_BAND=bandOf(rl);
+  try{AI_BAND=REAL?aiBandOf(rl):0}catch(e){AI_BAND=0}
   /* A3: доли HQ (текучесть HQ, желательная, нежелательная) — порог по численности HQ, их знаменателю */
   try{const h=hqLight(st,null,null);SMALL_HQ=!!h&&h.hc<SMALL_N}catch(e){SMALL_HQ=false}
   /* база — вся компания под теми же фильтрами (benchmarkLeaves): совпадает с отчётом, когда выбран корень 'T' */
@@ -1342,14 +1343,19 @@ function setVerdictScope(st){
    2 — 100–299, 3 — 300–999, 4 — 1000+; в группе меньше PEER_MIN подразделений — как раньше, база. Оценка — по четвертям:
    хуже, чем у трёх из четырёх (за p75 у «ниже — лучше»), лучше, чем у трёх из четырёх, иначе — на уровне; от медианы меньше
    10% — тоже на уровне */
-const PEER_MIN=5, PEER_KEYS=new Set(['turnover_y','turnover_m','underwork','overwork','office_att']),
+/* поставка 118 (владелец 07.11: «база — по всему отчёту»): ещё срок закрытия вакансии, конверсия T-роста, брони без
+   посещения и проникновение AI. У AI группа — по численности последней полной недели без стажёров (как на вкладке AI,
+   фильтры на AI не действуют) */
+const PEER_MIN=5, PEER_KEYS=new Set(['turnover_y','turnover_m','underwork','overwork','office_att',
+  'time_to_fill','tgrowth_conv','booking_viol','ai_penetration']),
   PEER_BAND_NAME={1:'30–99',2:'100–299',3:'300–999',4:'1000+'};
-let PEER_BAND=0;
-function bandOf(lp){const h=lp&&lp.length?aggregate(lp,'hc_total')[LAST-(PARTIAL?1:0)]:null;
-  return h==null?0:h>=1000?4:h>=300?3:h>=100?2:h>=30?1:0}
+let PEER_BAND=0, AI_BAND=0;
+const bandN=h=>h==null?0:h>=1000?4:h>=300?3:h>=100?2:h>=30?1:0;
+function bandOf(lp){return bandN(lp&&lp.length?aggregate(lp,'hc_total')[LAST-(PARTIAL?1:0)]:null)}
+function aiBandOf(lp){const cw=lp&&lp.length?aiCur(aiWeeks(lp)):null;return bandN(cw?cw.hc:null)}
 /* lp — чьи листья оцениваются (подразделение в таблице — своя группа размера); без lp — отчёт целиком */
 function peerOf(key,lp){
-  const b=lp?bandOf(lp):PEER_BAND;
+  const b=key==='ai_penetration'?(lp?aiBandOf(lp):AI_BAND):lp?bandOf(lp):PEER_BAND;
   if(!REAL||!REAL.peer||!b||!PEER_KEYS.has(key))return null;
   const p=(REAL.peer[key]||{})[b];
   return p&&p.n>=PEER_MIN?Object.assign({band:b,bandName:PEER_BAND_NAME[b]},p):null;

@@ -517,13 +517,17 @@ CH.ai={
     const i=W.indexOf(cw), w0=W[0], nw=i, d=w0!==cw?Math.round((cw.pen-w0.pen)*10)/10:null, dn=w0!==cw?cw.wau-w0.wau:null;
     const P=v=>String(v).replace('.',',')+'%', sm=cw.hc<D.SMALL_N, flat=d==null||Math.abs(d)<1||Math.abs(dn)<2;
     const per=' за '+nw+' '+U.plural(nw,['неделю','недели','недель']);
-    return {sum:sm?D.fmtInt(cw.wau)+' из '+D.fmtInt(cw.hc):P(cw.pen),st:'n',
-      head:(sm?'AI пользуются '+D.fmtInt(cw.wau)+' из '+pl(cw.hc,PPL):'AI пользуются '+P(cw.pen)+' сотрудников')+
-        (d==null?'':flat?' —'+per+' почти без изменений':
+    /* поставка 118: база — подразделения похожей численности (без стажёров, та же неделя); меньше 30 человек — без неё */
+    const pe=sm?null:D.peerOf('ai_penetration',c.lp), ps=pe?D.peerState('ai_penetration',cw.pen,pe):'neutral';
+    const vb=ps==='good'?' — больше, чем в {{База|базе}}':ps==='bad'?' — меньше, чем в {{База|базе}}':'';
+    return {sum:sm?D.fmtInt(cw.wau)+' из '+D.fmtInt(cw.hc):P(cw.pen),st:ps==='good'?'good':ps==='bad'?'bad':'n',
+      head:(sm?'AI пользуются '+D.fmtInt(cw.wau)+' из '+pl(cw.hc,PPL):'AI пользуются '+P(cw.pen)+' сотрудников')+vb+
+        (d==null?'':flat?(vb?';':' —')+per+' почти без изменений':
         sm?' —'+per+' на '+pl(Math.abs(dn),PPL)+' '+(dn>0?'больше':'меньше'):
-        ' —'+per+' на '+P(Math.abs(d)).replace('%',' п.п.')+' '+(d>0?'больше':'меньше')),
+        (vb?';':' —')+per+' на '+P(Math.abs(d)).replace('%',' п.п.')+' '+(d>0?'больше':'меньше')),
       lede:'За неделю '+cw.full.replace(/^Неделя /,'')+' — **'+D.fmtInt(cw.wau)+'** активных пользователей из **'+D.fmtInt(cw.hc)+
-        '** без стажёров.'+(w0!==cw?' В начале окна, '+w0.full.replace(/^Неделя /,'')+', — **'+D.fmtInt(w0.wau)+'**'+(sm?'':' (**'+P(w0.pen)+'**)')+'.':'')};
+        '** без стажёров'+(pe?' (**'+P(cw.pen)+'**, {{База|база}} — '+f('ai_penetration',pe.p50)+')':'')+'.'+
+        (w0!==cw?' В начале окна, '+w0.full.replace(/^Неделя /,'')+', — **'+D.fmtInt(w0.wau)+'**'+(sm?'':' (**'+P(w0.pen)+'**)')+'.':'')};
   },
   /* поставка 112: «Кто пользуется» — какая группа отстаёт или опережает: доля с AI группы против общей, группа от
      10 человек и разница от 10 п.п.; меньше 30 человек в отчёте — в людях, без сравнения групп */

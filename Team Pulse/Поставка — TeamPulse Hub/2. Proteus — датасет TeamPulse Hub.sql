@@ -323,27 +323,59 @@ WITH
   pmc AS (
     SELECT if(dd = '' OR toDate(dd) >= toLastDayOfMonth(lm), lm, addMonths(lm, -1)) AS mc FROM cx
   ),
+  {#- поставка 118 (владелец 07.11: «база — похожие по численности подразделения — по всему отчёту»): ещё четыре метрики.
+      tgrowth_conv — Σ одобренных ÷ Σ рассмотренных заявок «Роста» (узел — от 5 заявок, как порог чарта), booking_viol —
+      Σ броней без посещения ÷ Σ броней: ряды узла под теми же фильтрами (pnv). time_to_fill — медиана сроков вакансий,
+      закрытых январь–закрытый месяц (узел — от 3 вакансий): вакансии не люди, фильтров у них нет (pvt), группа — по
+      численности узла под фильтрами, как у остальных. ai_penetration — WAU ÷ численность без стажёров последней полной
+      недели (неделя закончилась не позже даты данных), без фильтров, группа — по этой численности (pai), как на вкладке AI.
+      Медиана срока — как у чарта (medianOf): при чётном числе вакансий — полусумма двух средних (две точки 0,5 и 0,500001) #}
   pnv AS (
     SELECT pu, sum(h) AS hc9, sumIf(f / a * 100, a > 0) AS v_ty, sum(f) / sum(a) * 100 AS v_tm,
-           sum(lo) / sum(al) * 100 AS v_uw, sum(hi) / sum(al) * 100 AS v_ow, sum(ov) / sum(wd) * 100 AS v_oa
+           sum(lo) / sum(al) * 100 AS v_uw, sum(hi) / sum(al) * 100 AS v_ow, sum(ov) / sum(wd) * 100 AS v_oa,
+           [if(sum(ga) + sum(gd) >= 5, sum(ga) / (sum(ga) + sum(gd)) * 100, nan)][1] AS v_tc, [sum(bv) / sum(bk) * 100][1] AS v_bv
     FROM (
       SELECT ifNull(node_rk, '') AS pu, sumIf(toFloat64(hc_cnt), report_month = mc) AS h, sum(toFloat64(avg_cnt)) AS a,
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
-             sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
+             sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd,
+             [sum(toFloat64(gapr_cnt))][1] AS ga, [sum(toFloat64(gdec_cnt))][1] AS gd, [sum({{ optf('bk_amt') }})][1] AS bk,
+             [sum({{ optf('bkv_amt') }})][1] AS bv
       FROM prod_proteus.teampulse_hub_series, pmc
       WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND {{ cond() }}
       GROUP BY pu, report_month
     )
     GROUP BY pu
   ),
+  pvt AS (
+    SELECT [ifNull(node_rk, '')][1] AS tu, [sum(toFloat64(vac_ttf_cnt))][1] AS t_n,
+           [quantilesExactWeighted(0.5, 0.500001)(toFloat64(ttf_d), toUInt64(round(toFloat64(vac_ttf_cnt))))][1] AS mq,
+           (mq[1] + mq[2]) / 2 AS v_tf
+    FROM prod_proteus.teampulse_hub_vacancy, pmc
+    WHERE [report_month BETWEEN toStartOfYear(mc) AND mc AND ttf_d IS NOT NULL AND ifNull(vac_ttf_cnt, 0) > 0][1]
+    GROUP BY tu
+  ),
+  pai AS (
+    SELECT [ifNull(node_rk, '')][1] AS pu, [sum(toFloat64(ifNull(ai_heads, 0)))][1] AS ah,
+           [sum(toFloat64(ifNull(ai_wau, 0))) * 100 / nullIf(ah, 0)][1] AS v_ai
+    FROM prod_proteus.teampulse_hub_aiw
+    WHERE week = (SELECT max(week) FROM prod_proteus.teampulse_hub_aiw
+                  WHERE [addDays(toDate(assumeNotNull(week)), 6) <= ifNull(toDateOrNull(substring(cxdd, 1, 10)), today() - 1)][1])
+    GROUP BY pu
+  ),
   peer AS (
     SELECT arrayStringConcat(arraySort(groupArray(concat(k, '\t', toString(b), '\t', toString(n), '\t',
              arrayStringConcat(arrayMap(q -> toString(round(q, 2)), qs), '\t')))), '\n') AS pj
     FROM (
-      SELECT kv.1 AS k, multiIf(hc9 >= 1000, 4, hc9 >= 300, 3, hc9 >= 100, 2, 1) AS b, count() AS n,
+      SELECT kv.1 AS k, multiIf(hb >= 1000, 4, hb >= 300, 3, hb >= 100, 2, 1) AS b, count() AS n,
              quantilesExact(0.25, 0.5, 0.75)(kv.2) AS qs
-      FROM (SELECT hc9, arrayJoin([('turnover_y', v_ty), ('turnover_m', v_tm), ('underwork', v_uw), ('overwork', v_ow),
-                                   ('office_att', v_oa)]) AS kv FROM pnv WHERE hc9 >= 30)
+      FROM (
+        SELECT hc9 AS hb, arrayJoin([('turnover_y', v_ty), ('turnover_m', v_tm), ('underwork', v_uw), ('overwork', v_ow),
+                                     ('office_att', v_oa), ('tgrowth_conv', v_tc), ('booking_viol', v_bv),
+                                     ('time_to_fill', if(t_n >= 3, v_tf, nan))]) AS kv
+        FROM pnv LEFT JOIN pvt ON tu = pu WHERE hc9 >= 30
+        UNION ALL
+        SELECT ah AS hb, ('ai_penetration', v_ai) AS kv FROM pai WHERE [ah >= 30][1]
+      )
       WHERE isFinite(kv.2)
       GROUP BY k, b
     )
