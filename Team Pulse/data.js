@@ -162,7 +162,7 @@ const BLOCKS=[
 {key:'hiring',name:'Найм и вакансии HQ',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
 /* поставка 83 (задача 3): вкладка — «Рост HQ», ключ tgrowth не меняем (ссылки и сохранённые состояния); scope — дисклеймер охвата */
 {key:'tgrowth',name:'Рост HQ',scope:'Сейчас данные по росту доступны только для HQ.',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
-{key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью. Мониторинг — под выбранными фильтрами (по умолчанию вся активная численность), ревью — для eligible-популяции.',drillUrl:'#/detail/monitor',dash:['34661']},
+{key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью. Мониторинг — под выбранными фильтрами (по умолчанию вся активная численность), ревью — у тех, кто по правилам должен его проходить.',drillUrl:'#/detail/monitor',dash:['34661']},
 {key:'office',name:'Посещаемость офисов',hint:'Кто, когда и где ходит в офис; соблюдают ли бронь.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
    У Hub были AI-подсказки, но не было метрик внедрения AI. */
@@ -229,7 +229,7 @@ const METRICS=[
    придуманные для макета. */
 {key:'turnover_m',block:'turnover',aud:'all',name:'Текучесть месячная',short:'Тек. мес.',fmt:'pct',better:'lower',unit:'%',anchor:null,
   derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Какая доля команды уволилась за месяц: отток к среднесписочной численности.',
-  calc:'Отток ÷ среднесписочная × 100%. Среднесписочная — полусумма активной численности на конец прошлого и этого месяца: упрощённый способ из методологии HR, как в HR Executive Report.'},
+  calc:'Отток ÷ среднесписочная × 100%. Среднесписочная — полусумма активной численности на конец прошлого и этого месяца: упрощённый способ из методологии HR, как в отчётах HR для руководства.'},
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с янв.',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR: сумма месячной текучести с января — накопительно.'},
@@ -271,17 +271,17 @@ const METRICS=[
 /* 29.10, п. 2: «Время до повышения (T@T)» снята совсем — не считается и не показывается (T@T в «Росте» — поток заявок) */
 /* 15.10: «Лоу-перформеры» сняты: такого понятия в компании нет (владелец борда,
    «Team Pulse 2.0 — сверка с каталогом.md»). Оценки ревью — в «Статусе ревью». */
-{key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.'+HQ_ONLY,hqOnly:true},
+{key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.',hqOnly:true},
 /* 15.10, разведка 3: в таблице есть категории мониторинга (perf_*: нормал, недоработка,
    переработка, Gray) — «Переработка» из каталога HQ (раздел 9) встаёт рядом с недоработкой */
-{key:'overwork',block:'monitor',aud:'hq',name:'Переработчики',short:'Переработчики',fmt:'pct',better:'lower',unit:'%',anchor:14,hint:'Доля сотрудников, которые отработали за месяц больше нормы рабочего времени.'+HQ_ONLY,hqOnly:true},
+{key:'overwork',block:'monitor',aud:'hq',name:'Переработчики',short:'Переработчики',fmt:'pct',better:'lower',unit:'%',anchor:14,hint:'Доля сотрудников, которые отработали за месяц больше нормы рабочего времени.',hqOnly:true},
 /* Ревью из дашборда 34661. Цикл — раз в полгода (июнь и декабрь), поэтому
    ряд ступенчатый: между циклами значение стоит, а изменение «к маю» в июне —
    это и есть сдвиг к прошлому циклу. Считается парой «улучшили / оценены». */
 {key:'review_up',off:1,block:'monitor',aud:'us',name:'Улучшили оценку в ревью',short:'Улучшили',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'rev_up',den:'rev_eval',scale:100},
   hint:'Доля сотрудников, чья оценка в последнем ревью выше прошлой. Ревью — раз в полгода, между ними значение не меняется. '+
-    'Ревью учитывается только для eligible-популяции.'},
+    'Ревью учитывается только у тех, кто по правилам ревью должен его проходить.'},
 {key:'office_att',block:'office',aud:'hq',name:'Посещаемость офиса',short:'Офис',fmt:'pct',better:'higher',unit:'%',anchor:58,hint:'Какую долю рабочих дней сотрудники провели в офисе.'},
 /* Качество бронирования из дашборда HQ 34136 */
 /* поставка 107 (владелец, как мастер «Посещаемость и бронирование офисов»): брони без посещения — доля броней, по которым не
@@ -293,7 +293,7 @@ const METRICS=[
    ровно то сравнение «по команде против компании», что было в Proteus. */
 {key:'ai_penetration',block:'ai',aud:'hq',name:'Проникновение AI',short:'Проникновение',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'ai_wau',den:'hc_active',scale:100},
-  hint:'Доля сотрудников, которые пользуются AI-инструментами хотя бы раз в неделю.'+HQ_ONLY,hqOnly:true},
+  hint:'Доля сотрудников, которые пользуются AI-инструментами хотя бы раз в неделю. Без стажёров; фильтры покраски, IT, штата и типа численности на AI не действуют.',hqOnly:true},
 {key:'ai_wau',block:'ai',aud:'hq',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
   hint:'Сколько сотрудников пользуются AI-инструментами хотя бы раз в неделю, в среднем за месяц.'}
 ];
@@ -416,10 +416,10 @@ const PLAN_NOW={live:'настоящие',data:'данные есть',dev:'в �
 const VERIFIED=new Set(['hc_total','hc_active','hire','attrition','transfer_in','transfer_out','transfer_net','net_ytd','turnover_m',
   'turnover_y','regret','nonregret','vac_open','vac_closed','ai_penetration','tgrowth_pass','tgrowth_deny','tgrowth_conv']);
 const VERIFIED_TIP={title:'Данные сверены',
-  text:'Данные настоящие и сверены с мастер-источником: значение в отчёте совпадает со значением в мастер-источнике.'};
+  text:'Данные настоящие и сверены с мастер-отчётом: значение в отчёте совпадает со значением в мастер-отчёте.'};
 const MISMATCH=new Set([]);
-const MISMATCH_TIP={title:'Расхождение с мастер-источником',
-  text:'Данные настоящие, но значение в отчёте пока не совпадает с мастер-источником — ищем причину. До исправления это не сверенное число.'};
+const MISMATCH_TIP={title:'Расхождение с мастер-отчётом',
+  text:'Данные настоящие, но значение в отчёте пока не совпадает с мастер-отчётом — ищем причину. До исправления это не сверенное число.'};
 const AIW='нужна недельная AI-выгрузка по людям';
 const DEV_PLAN=[
   {blk:'Структура численности',rows:[
@@ -494,7 +494,7 @@ const DEV_PLAN=[
     {what:'Средняя рабочая активность и средняя доля звонков в Толк по месяцам',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Мониторинг по неделям: категории, звонки, прогулы, выходные',aud:'hq',stage:'5',now:'dev',need:'нужна витрина мониторинга по неделям (запрос 0л)'},
     {what:'Итоги ревью: распределение оценок, улучшили и ухудшили, по группам',aud:'us',stage:'5',now:'dev',next:1,
-      need:'ревью учитывается только для eligible-популяции'}]},
+      need:'ревью учитывается только у тех, кто по правилам должен его проходить'}]},
   {blk:'Посещаемость офисов',rows:[
     {what:'Посещаемость офиса по месяцам',aud:'hq',stage:'0',now:'live'},
     /* поставка 66: посещения Адели — бронирования, руководители, города офиса, календарь по дням */
@@ -1261,8 +1261,11 @@ function periodTotal(lp,key,yser){
   if(dd!=null){
     if(Math.abs(dd)<eps)delta='без изменений';
     else{
-      delta=pct||m.fmt!=='int'?fmtDelta(key,+dd.toFixed(2)):(dd>0?'+':'\u2212')+fmtInt(Math.abs(Math.round(dd)))+(m.unit==='чел'?' чел.':'')+
-        (prev>=10?' ('+(dd>0?'+':'\u2212')+Math.abs(Math.round(dd/prev*100))+'%)':'');
+      /* поставка 110 (D4, критики: «27 против 18 — +52%»): у количеств разница и % — от показанных (округлённых) чисел;
+         прошлый год у незакрытого месяца дробный (доля месяца), и % от него расходился с числами на экране */
+      const ri=Math.round(cur)-Math.round(prev), rp=Math.round(prev);
+      delta=pct||m.fmt!=='int'?fmtDelta(key,+dd.toFixed(2)):!ri?'без изменений':(ri>0?'+':'\u2212')+fmtInt(Math.abs(ri))+(m.unit==='чел'?' чел.':'')+
+        (rp>=10?' ('+(ri>0?'+':'\u2212')+Math.abs(Math.round(ri/rp*100))+'%)':'');
       good=m.better==='lower'?dd<0:m.better==='higher'?dd>0:null;
     }
   }
@@ -1280,16 +1283,60 @@ function blockSignal(bk,st){
   const rl=reportLeaves(st), bl=benchmarkLeaves(st);
   let good=0,bad=0;
   if(!rl.length)return {good,bad,state:'neutral'};
+  /* поставка 110 (критики 07.11, «один вердикт»): та же оценка, что у строки таблицы и выводов, — за период, с одним
+     порогом и правилами малых чисел (verdictState); было — последний месяц и мёртвая зона 5%, и плашка спорила с выводом */
   visibleMetricsOfBlock(bk,st).forEach(m=>{
     if(m.better==='flat')return;
-    const v=lastVal(rl,m.key), kpi=kpiFor(m.key,st);
-    const s=kpi?stateForKpi(m.key,v,kpi):compareState(m.key,v,lastVal(bl,m.key));
+    const s=verdictState(m.key,st,rl,bl);
     if(s==='good')good++;else if(s==='bad')bad++;
   });
   return {good,bad,state:bad?'bad':good?'good':'neutral'};
 }
 
-/* отклонение от базы — в светофор с мёртвой зоной 5% */
+/* ---------- Один вердикт (поставка 110, критики 07.11) ----------
+   Цвет строки, плашка блока, заголовок главы, вывод блока и «В норме» оценивают метрику одинаково:
+     · порог — 10% от ориентира (VERDICT_GAP), тот же, что у выводов (insights INS_GAP); было 5% у цвета и 10% у
+       выводов — красная плашка соседствовала с «Всё спокойно»;
+     · отчёт меньше SMALL_N человек — доли и сроки не оцениваются вовсе (setVerdictScope при каждой отрисовке): один
+       человек сдвигает долю на 3–14 п.п.; тексты таких команд говорят в людях;
+     · мало событий (thin) — срок закрытия по 1–2 вакансиям, конверсия «Роста» по 1–4 заявкам — без оценки;
+     · база совпадает с самим отчётом (selfBase: юнит = вся компания под теми же фильтрами) — сравнения «с базой» нет,
+       ориентир — цель или прошлый год. */
+const VERDICT_GAP=0.10, SMALL_N=30;
+let SMALL_REP=false, SELF_BASE=false, SMALL_HQ=false;
+function setVerdictScope(st){
+  const rl=reportLeaves(st), hc=rl.length?lastVal(rl,'hc_total'):null;
+  SMALL_REP=hc!=null&&hc<SMALL_N;
+  /* A3: доли HQ (текучесть HQ, желательная, нежелательная) — порог по численности HQ, их знаменателю */
+  try{const h=hqLight(st,null,null);SMALL_HQ=!!h&&h.hc<SMALL_N}catch(e){SMALL_HQ=false}
+  /* база — вся компания под теми же фильтрами (benchmarkLeaves): совпадает с отчётом, когда выбран корень 'T' */
+  /* в пробнике корень — не 'T': база — строка BASE ответа; совпадает с отчётом, когда численность и найм те же */
+  const bl=benchmarkLeaves(st), same=k=>{const a=lastVal(rl,k), b=lastVal(bl,k);return a!=null&&a===b};
+  SELF_BASE=st.unit==='T'||!!REAL&&rl.length>0&&bl.length>0&&same('hc_total')&&same('hc_active')&&
+    (periodTotal(rl,'hire')||{}).v===(periodTotal(bl,'hire')||{}).v;
+  return {small:SMALL_REP,self:SELF_BASE};
+}
+function isSmall(key){return SMALL_REP||!!key&&SMALL_HQ&&!!(METRIC_BY_KEY[key]||{}).hqOnly}
+function isSmallHq(key){return !SMALL_REP&&isSmall(key)}
+function isSelfBase(){return SELF_BASE}
+/* событий за период: закрытых вакансий, рассмотренных заявок «Роста» */
+function eventsOf(key,lp){
+  const n=k=>{const p=periodTotal(lp,k);return p&&p.v!=null?Math.round(p.v):0};
+  if(key==='time_to_fill')return {n:n('vac_closed'),min:3,noun:['вакансия','вакансии','вакансий']};
+  if(key==='tgrowth_conv')return {n:n('tgrowth_pass')+n('tgrowth_deny'),min:5,noun:['заявка','заявки','заявок']};
+  return null;
+}
+function thin(key,lp){const e=eventsOf(key,lp);return !!e&&e.n<e.min}
+/* оценка метрики за период: цель KPI на закрытый месяц, иначе база за тот же период */
+function verdictState(key,st,lp,bl){
+  if(thin(key,lp))return 'neutral';
+  const v=(periodTotal(lp,key)||{}).v, kpi=kpiAt(key,st,MONTHS[PER_I].m);
+  if(kpi)return stateForKpi(key,v,kpi);
+  if(SELF_BASE)return 'neutral';
+  return compareState(key,v,(periodTotal(bl,key)||{}).v);
+}
+
+/* отклонение от базы — в светофор с мёртвой зоной VERDICT_GAP (поставка 110: 10%, как у выводов; было 5%) */
 function compareState(key,val,base){
   const m=METRIC_BY_KEY[key];
   if(val==null||base==null||!base)return'neutral';
@@ -1297,14 +1344,17 @@ function compareState(key,val,base){
   if(isStub(key))return'neutral';
   if(!comparable(key))return'neutral';
   if(m.better==='flat')return'neutral';
+  /* поставка 110: отчёт меньше SMALL_N человек — доли и сроки без оценки */
+  if(isSmall(key))return'neutral';
   const rel=(val-base)/Math.abs(base);
-  if(Math.abs(rel)<0.05)return'warn';
+  if(Math.abs(rel)<VERDICT_GAP)return'warn';
   const good=m.better==='lower'?rel<0:rel>0;
   return good?'good':'bad';
 }
 function stateForKpi(key,val,kpi){
   const m=METRIC_BY_KEY[key];if(!kpi||val==null)return'neutral';
   if(isStub(key))return'neutral';
+  if(isSmall(key))return'neutral';
   if(m.better==='lower')return val<=kpi.green?'good':(val>=kpi.red?'bad':'warn');
   return val>=kpi.green?'good':(val<=kpi.red?'bad':'warn');
 }
@@ -1476,7 +1526,7 @@ const GRADE_BY_SEN=[
 
 const MIX_DIMS=[
 {key:'grade',name:'Грейд',short:'Грейд',ord:true,group:'qual',
- hint:'Уровень должности в сетке грейдов: 1 — младший, 5 — старший. Не путать с сеньорностью.',
+ hint:'Уровень должности в сетке грейдов: чем больше число, тем старше должность. Не путать с сеньорностью.',
  cats:[{key:'g1',name:'Грейд 1'},{key:'g2',name:'Грейд 2'},{key:'g3',name:'Грейд 3'},
        {key:'g4',name:'Грейд 4'},{key:'g5',name:'Грейд 5'}]},
 {key:'seniority',name:'Сеньорность',short:'Сеньорность',ord:true,group:'qual',
@@ -3309,6 +3359,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
   metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,kpiFor,comparable,
+  setVerdictScope,isSmall,isSmallHq,isSelfBase,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,

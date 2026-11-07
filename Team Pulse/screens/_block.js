@@ -270,7 +270,17 @@ function demoNoteFor(bk,sub){return D.REAL&&devOf(bk,sub)?'1':''}
 const BK_TAG={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'};
 function conclusion(sum,b,S){
   let head=sum.head, facts, todo=sum.todo;
-  if(!sum.list.length){
+  let tag=BK_TAG[sum.sev];
+  /* поставка 110 (критики 07.11): в команде меньше 30 человек доли не оцениваются — не «Всё спокойно», а «без оценки»: красная
+     плашка рядом со «спокойно» и заголовком «уходят чаще» спорили между собой */
+  if(!sum.list.length&&D.isSmall()){
+    tag='Без оценки';
+    head='В команде меньше '+D.SMALL_N+' человек — доли и сроки с ориентиром не сравниваем';
+    facts='<div class="bk-pl"><span class="bk-p"'+U.tipAttr({title:'Почему без оценки',
+        text:'Один человек сдвигает долю на несколько процентных пунктов — сравнение с базой здесь шум. Числа в людях — на графиках и в таблицах ниже.'})+
+      '>один человек — несколько п.п.</span><span class="bk-p">числа в людях — ниже</span></div>';
+    todo='Смотрите, кто именно ушёл, пришёл или перешёл: на таком размере важен каждый человек.';
+  }else if(!sum.list.length){
     const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)), cmp=vis.filter(m=>D.comparable(m.key)||D.kpiFor(m.key,S));
     head='Заметных отклонений нет';
     facts='<div class="bk-pl">'+(cmp.length?'<span class="bk-p"'+U.tipAttr({title:'Что проверили',
@@ -291,7 +301,7 @@ function conclusion(sum,b,S){
   }
   /* огонёк по настроению вывода (20.10, заказчик): тревога, насторожен, улыбка, спокоен */
   const op=window.TPSCREENS.onepager||{}, ico=op.moodIco?op.moodIco(op.MOOD_ICO[sum.sev],52,BK_TAG[sum.sev]):'';
-  return '<div class="bk-sum '+sum.sev+'">'+ico+'<div class="bk-sx"><div class="bk-tag">Вывод блока · '+BK_TAG[sum.sev]+'</div>'+
+  return '<div class="bk-sum '+sum.sev+'">'+ico+'<div class="bk-sx"><div class="bk-tag">Вывод блока · '+tag+'</div>'+
     '<div class="bk-h">'+esc(head)+'</div>'+facts+
     '<div class="bk-do">'+todo+'</div></div></div>';
 }

@@ -51,7 +51,7 @@ function succTable(cap,sub,rows,head){
     D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
   return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+'</span></div>'+
     '<table class="ptable stable dense rost-t succ"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
-    '<th>Отказ</th><th>% отказа</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
+    '<th>Отклонено</th><th>% отклонённых</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
     rows.map(x=>tr(x)).join('')+'</tbody></table></div>';
 }
 /* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
@@ -83,7 +83,7 @@ function specs(ctx,p){
   return flowYoy(ctx,p.spec,'на смену специализации','Смена специализации по месяцам, заявок','смена специализации')+
     U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам',p.spec.rostT,'Переход: текущая → желаемая специализация'),
       succTable('Смена специализации: T@T','первые 4 по заявкам',p.spec.tatT,'Переход: текущая → желаемая специализация')])+
-    '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; % отказа — доля отказов среди заявок.</div>';
+    '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; % отклонённых — доля отклонённых среди заявок.</div>';
 }
 
 SC.blocks.tgrowth={

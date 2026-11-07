@@ -657,7 +657,8 @@ if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений з
   const I=window.TPINSIGHTS, S0=D.DEFAULT_STATE, cs=I.cards(S0,D.reportLeaves(S0),D.benchmarkLeaves(S0)), home=A.home0();
   /* поставка 106: у AI вывода блока нет — только недельная глава */
   const tops=D.visibleBlocks(S0).filter(b=>b.key!=='ai').map(b=>A.top(b.key));
-  ok(/<div class="in-lead">/.test(home)&&cs.every(c=>!D.isStub(c.key)&&c.head&&/class="mini"/.test(c.chart))&&
+  ok(/<div class="in-lead">/.test(home)&&/* поставка 110: выводы «HQ против ориентира» и «подразделение хуже остальных» — без мини-графика */
+    cs.every(c=>!D.isStub(c.key)&&c.head&&(/^(hqb|unit)$/.test(c.fact.kind)?!c.chart:/class="mini"/.test(c.chart)))&&
     cs.filter(c=>/С января ушли/.test(c.body)).length<=1&&
     /* 30.10, шаг 2: без подразделений ниже «где» не показывается — карточка вывода во всю ширину */
     /* 31.10: «Саммари» — только текст, без таблиц (файл итерации, п. 2 и 6) */

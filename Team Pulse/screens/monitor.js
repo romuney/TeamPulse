@@ -45,7 +45,8 @@ function perLine(P,wk){
   const sum=k=>C.reduce((a,p)=>a+(p[k]||0),0), wt=C.every(p=>p.pdw!=null);
   return {
     cats:()=>{const hc=avg('hc');return {head:head,parts:[['under','недоработка'],['over','переработка']].map(c=>({name:c[1],
-      cur:n(avg(c[0]))+' чел'+(hc?' ('+Math.round(avg(c[0])/hc*100)+'%)':'')}))}},
+      /* поставка 110 (D6, критики: «0 чел (3%)»): среднее меньше 10 человек — с десятой, чтобы число и доля не спорили */
+      cur:(avg(c[0])<10?f1(avg(c[0])):n(avg(c[0])))+' чел'+(hc?' ('+Math.round(avg(c[0])/hc*100)+'%)':'')}))}},
     hours:()=>{const v=wt&&sum('pdw')?sum('hrw')/sum('pdw'):avg('hours');return v?{head:head,cur:f1(v)+' ч/день'}:null},
     talk:()=>{const v=wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null}};
 }
@@ -57,7 +58,13 @@ function kpiBlock(lp){
   const k=D.monKpi(lp);
   const pc=(n,b)=>b?(Math.round(n/b*1000)/10).toString().replace('.',',')+'%':'—';
   const per=k&&k.fromTxt?k.fromTxt+' – '+k.toTxt:'';
-  const cap='<div class="bt-cap">За '+(k&&k.weeks||D.MPW)+' недель'+(per?'<span class="bt-sub">'+U.esc(per)+'</span>':'')+'</div>';
+  /* поставка 110 (E5, критики 07.11): что считается в каждой карточке — подсказкой у заголовка, карточки без подписей */
+  const info='<span class="info"'+U.tipAttr({title:'Что в карточках',text:'Каждый человек — один раз за весь период.',
+    list:['**Прогулы** — у кого за период 2 и больше дней с отметкой «прогул» в мониторинге',
+      '**Работа в выходные** — 2 и больше выходных дней с рабочей активностью',
+      '**Звонки в Толк от 20%** — часы звонков составили 20% рабочих часов периода и больше'],
+    note:'Процент — от численности на конец периода.'})+'>i</span>';
+  const cap='<div class="bt-cap">За '+(k&&k.weeks||D.MPW)+' недель '+info+(per?'<span class="bt-sub">'+U.esc(per)+'</span>':'')+'</div>';
   if(!k)return '<div class="mon-kpi">'+cap+'<div class="tbl-note">Нет данных мониторинга по дням за последние '+D.MPW+
     ' недель — KPI не считаются.</div></div>';
   const sum=a=>a.reduce((x,y)=>x+y,0);

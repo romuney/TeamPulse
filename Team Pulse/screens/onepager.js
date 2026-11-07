@@ -103,7 +103,7 @@ function insightCard(c){
       (c.pills&&c.pills.length?'<div class="in-pl">'+c.pills.map(t=>'<span>'+t+'</span>').join('')+'</div>'
         :c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
     (c.chart?'<button class="in-mini" data-opfact="'+esc(c.key)+'"'+U.tipAttr({title:D.METRIC_BY_KEY[c.key].name,
-      text:'Этот год против ориентира.',note:'Нажмите — откроется подробный график.'})+'>'+c.chart+'</button>':'')+'</div>'+
+      text:c.chartTip||'',note:'Нажмите — откроется подробный график.'})+'>'+c.chart+'</button>':'')+'</div>'+
     '<div class="in-a"><span class="in-do">'+c.todo+'</span><button class="in-go"'+go+'>'+esc(c.btn.label)+'</button></div></div>';
 }
 /* «В норме»: живые метрики без выводов — значением в пилюле; клик открывает
@@ -113,19 +113,31 @@ function normOf(S,rl,all){
   /* поток незакрытого месяца «в норме» не бывает: месяц ещё идёт (26.10, ревью критиков) */
   /* поставка 90: значения — за период (D.periodTotal), незакрытого месяца в них нет */
   /* поставка 99 (критик-аналитик): «прирост с начала года» не повторяем — он уже в сводке над карточками */
-  return D.METRICS.filter(m=>m.key!=='net_ytd'&&D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!has.has(m.key)&&D.periodTotal(rl,m.key));
+  /* поставка 110 (критики 07.11, «один вердикт»): в «В норме» не попадает метрика, которую строка таблицы красит «хуже»;
+     у отчёта меньше 30 человек доли и сроки идут отдельной строкой «без оценки» (normRow), а не «в норме» */
+  const bl=D.benchmarkLeaves(S);
+  return D.METRICS.filter(m=>m.key!=='net_ytd'&&D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!has.has(m.key)&&D.periodTotal(rl,m.key)&&
+    D.verdictState(m.key,S,rl,bl)!=='bad');
 }
-function normRow(S,rl,ok){
+/* без оценки из-за малых чисел: доли и сроки у отчёта меньше 30 человек */
+const unrated=(m,rl)=>D.isSmall(m.key)&&(D.comparable(m.key)||m.kpi)&&m.fmt!=='int';
+function normRow(S,rl,ok0){
   const NP=7, dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
+  const na=ok0.filter(m=>unrated(m,rl)), ok=ok0.filter(m=>!unrated(m,rl));
+  const pill=m=>'<button class="in-pill" data-opfact="'+m.key+'"'+U.tipAttr({title:m.name,text:m.flow?m.hint.replace(/ за месяц/g,' за период'):m.hint})+'>'+
+      esc(m.name)+' <b>'+D.periodTotal(rl,m.key).cur+'</b>'+(D.periodTotal(rl,m.key).stock?' сейчас':'')+'</button>';
   return '<div class="in-ok"><span class="in-okt"'+U.tipAttr({title:'В норме',
       text:'Метрики без заметных отклонений от ориентира и от прошлого года. Количества (численность, найм) не оцениваются — показаны значением.'})+
     '>✓ В норме</span>'+
-    ok.slice(0,NP).map(m=>'<button class="in-pill" data-opfact="'+m.key+'"'+U.tipAttr({title:m.name,text:m.hint})+'>'+
-      esc(m.name)+' <b>'+D.periodTotal(rl,m.key).cur+'</b>'+(D.periodTotal(rl,m.key).stock?' сейчас':'')+'</button>').join('')+
+    ok.slice(0,NP).map(pill).join('')+
     (ok.length>NP?'<button class="in-pill more" data-opscroll="1">+'+(ok.length-NP)+' '+U.plural(ok.length-NP,['метрика','метрики','метрик'])+'</button>':'')+
     (dev?'<button class="in-pill dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
       dev+' в разработке</button>':'')+
-    (ok.length?'':'<span class="in-none">всё, что оценивается, — в выводах выше</span>')+'</div>';
+    (ok.length?'':'<span class="in-none">всё, что оценивается, — в выводах выше</span>')+'</div>'+
+    (na.length?'<div class="in-ok in-na"><span class="in-okt"'+U.tipAttr({title:'Без оценки — мало людей',
+      text:(D.isSmall()?'В команде':'В HQ')+' меньше '+D.SMALL_N+' человек: один человек сдвигает долю на несколько процентных пунктов, поэтому доли и сроки с ориентиром не сравниваем. Значения — для справки.'})+
+      '>Без оценки — мало людей</span>'+na.slice(0,NP).map(pill).join('')+
+      (na.length>NP?'<button class="in-pill more" data-opscroll="1">+'+(na.length-NP)+'</button>':'')+'</div>':'');
 }
 
 /* Метка у имени блока: весь блок без источника — «в разработке · этап N»,
@@ -161,7 +173,7 @@ function render(S,openRows){
      «Ещё N»: та же кнопка data-ai, что раскрывала «Что видно в данных». */
   const all=I.cards(S,rl,bl,true), list=all.slice(0,I.OBS.max), ok=normOf(S,rl,all), open=S.aiOpen==='op';
   I.lastSev=list.length?list[0].sev:'none';
-  h+='<div class="in-lead">'+moodIco('point',46,'Пульс рассказывает')+'<div class="in-lt">'+I.lead(S,rl,list,ok.length)+'</div></div>';
+  h+='<div class="in-lead">'+moodIco('point',46,'Пульс рассказывает')+'<div class="in-lt">'+I.lead(S,rl,list,ok.filter(m=>!unrated(m,rl)).length)+'</div></div>';
   if(list.length){
     h+='<div class="in-grid">'+(open?list:list.slice(0,I.CARD.show)).map(insightCard).join('')+'</div>';
     if(list.length>I.CARD.show)h+='<button class="in-more-c" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+(list.length-I.CARD.show)+' '+
@@ -216,19 +228,28 @@ function render(S,openRows){
     bMets.forEach(m=>{
       const s=D.aggregate(rl,m.key), P=D.periodTotal(rl,m.key)||{}, v=P.v, cl=D.PARTIAL&&!D.PER_PART&&!P.stock;
       const e=D.aggregateExt(rl,m.key), i=D.NEXT-1-(cl?1:0), dl={mom:e[i]==null||e[i-1]==null?null:e[i]-e[i-1],yoy:v==null||P.pv==null?null:v-P.pv};
+      /* поставка 110 (критики 07.11): месяц к месяцу по 1–3 заявкам или вакансиям — шум («−66,7 п.п. к августу»): у метрики
+         с малым числом событий в месяце пилюли нет; у команды меньше 30 человек пилюли долей — без цвета */
+      const evm=k=>D.aggregateExt(rl,k)[i]||0;
+      if(m.key==='tgrowth_conv'&&evm('tgrowth_pass')+evm('tgrowth_deny')<10||m.key==='time_to_fill'&&evm('vac_closed')<3)dl.mom=null;
+      /* поставка 110 (A2): у команды меньше 30 человек и количества (уходы, найм) — без цвета: «+2 ухода» красным пугает зря */
+      const neuN=unrated(m,rl)||D.isSmall();
       const kpi=D.kpiAt(m.key,S,D.MONTHS[D.PER_I].m), bv=(D.periodTotal(bl,m.key)||{}).v;
-      const st=kpi?D.stateForKpi(m.key,v,kpi):D.compareState(m.key,v,bv);
+      /* поставка 110 (B): цвет строки — тот же вердикт, что у выводов (мало событий, сравнение с собой — без оценки) */
+      const st=D.verdictState(m.key,S,rl,bl);
+      /* поставка 110 (E7): подсказка строки — то же окно, что у значения: у сумм за период «за месяц» → «за период» */
+      const hint=/^Всего за/.test(P.head||'')?m.hint.replace(/ за месяц/g,' за период'):m.hint;
       /* база помесячно: спарклайн красит КАЖДЫЙ месяц по своему месяцу базы,
          а не весь ряд по последнему значению. У метрики с KPI базы нет ни в
          спарклайне, ни на раскрытом графике: ориентир там один — цель. */
       const bser=!kpi&&D.comparable(m.key)?D.aggregate(bl,m.key):null;
       const open=openRows.has(m.key);
       t+='<tr class="mrow'+(open?' open':'')+'" data-metric="'+m.key+'">'+
-        '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(m.hint)+'</span></td>'+
+        '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(hint)+'</span></td>'+
         '<td class="m-val">'+D.fmtVal(m.key,v)+(P.stock?'<span class="m-per">сейчас</span>':'')+'</td>'+
         /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
-        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,Object.assign(cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip},{neu:/^на конец/.test(P.lab||'')}))+'</td>'+
-        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{tip:{title:'Год к году',text:(P.head||'')+' против того же периода год назад.'}})+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,Object.assign(cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip},{neu:neuN||/^на конец/.test(P.lab||'')}))+'</td>'+
+        '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{neu:neuN,tip:{title:'Год к году',text:(P.head||'')+' против того же периода год назад.'}})+'</td>'+
         /* Короткая динамика — у всех метрик одним видом, спарклайном (13.10:
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
            точек, ориентир — пунктиром; у метрики без оценки точек нет. */

@@ -655,6 +655,7 @@ const INNER_SCROLL=['.split-l .tbl-wrap','.split-r .panel-b','.st-rail'];
 let lastView='';
 function render(keepScroll,quiet){
   D.setHcMode(S.hcType);                 /* макет: ряды по типу численности (в пробнике — датасет) */
+  D.setVerdictScope(S);                  /* поставка 110: один вердикт — малый отчёт и база = сам юнит */
   const sc=ENV?ENV.scroller:null;
   const y=keepScroll?(sc?sc.scrollTop:(window.pageYOffset||0)):0;
   const view=S.tab+'|'+(S.subTab||'');

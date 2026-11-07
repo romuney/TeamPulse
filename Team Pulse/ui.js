@@ -250,8 +250,8 @@ function betterWord(m){
    таблиц показывают оба, подпись под названием метрики — только hint */
 /* ревью 100: s — шапка таблицы: только что это (hint) и короткая отметка сверки; формула — в «i» и словаре метрик */
 function metricText(m,s){return (m.hint||'')+(m.calc&&!s?'\n'+m.calc:'')+
-  (D.VERIFIED.has(m.key)?s?'\n✓ Сверено с мастер-источником.':'\nДанные сверены с мастер-источником: число в отчёте совпадает с ним.':'')+
-  (D.MISMATCH.has(m.key)?'\nРасхождение с мастер-источником: число настоящее, но пока не совпадает с ним — ищем причину.':'')}
+  (D.VERIFIED.has(m.key)?s?'\n✓ Сверено с мастер-отчётом.':'\nДанные сверены с мастер-отчётом: число в отчёте совпадает с ним.':'')+
+  (D.MISMATCH.has(m.key)?'\nРасхождение с мастер-отчётом: число настоящее, но пока не совпадает с ним — ищем причину.':'')}
 function infoDot(key){
   const m=D.METRIC_BY_KEY[key];if(!m)return'';
   return '<span class="info"'+tipAttr({title:m.name,text:metricText(m),note:betterWord(m)})+' aria-label="О метрике">i</span>';
@@ -955,9 +955,12 @@ function trafficLegend(){
   /* 26.10, ревью критиков: цвет пилюль изменений — к прошлому периоду, а не к ориентиру */
   return '<div class="legend"><span class="sw"><span class="dot" style="background:#bff2cd"></span>лучше</span>'+
     '<span class="sw"><span class="dot" style="background:#ffcccc"></span>хуже</span>'+
-    '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне (±5%) или без оценки</span>'+
+    /* поставка 110 («один вердикт»): порог один на весь отчёт — 10%, как у выводов; меньше 30 человек — без оценки */
+    '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне (±'+Math.round(D.VERDICT_GAP*100)+'%) или без оценки</span>'+
     /* 30.10, шаг 2: пояснение — в подсказке, под выводами меньше букв */
-    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI, а где её нет — к базе: та же метрика по всей компании с теми же фильтрами. Колонки MoM и YoY — к прошлому периоду.'})+
+    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI, а где её нет — к базе: та же метрика по всей компании с теми же фильтрами. Хуже или лучше — '+
+      'на '+Math.round(D.VERDICT_GAP*100)+'% и больше: тот же порог, что у выводов. В команде меньше '+D.SMALL_N+' человек доли не оцениваются. '+
+      'Колонки MoM и YoY — к прошлому периоду.'})+
     '>как читать</span></div>';
 }
 
@@ -1009,9 +1012,9 @@ function planTable(groups){
   const n=D.planCount();
   return '<label>План Team Pulse 2.0</label><div class="fhint">Всё, что есть в дашбордах HQ и УС, — по блокам отчёта.</div>'+
     '<ul class="plan-lg">'+
-      '<li><span class="live-tag ok">✓ сверены</span> настоящие и сверены с мастер-источником: число в отчёте совпадает с ним — '+n.ok+'</li>'+
+      '<li><span class="live-tag ok">✓ сверены</span> настоящие и сверены с мастер-отчётом: число в отчёте совпадает с ним — '+n.ok+'</li>'+
       /* 27.10-в, п. 10: расхождений не осталось — пункт легенды только когда они есть */
-      (n.bad?'<li><span class="live-tag bad">расхождение</span> настоящие, но с мастер-источником пока не сходятся — '+n.bad+'</li>':'')+
+      (n.bad?'<li><span class="live-tag bad">расхождение</span> настоящие, но с мастер-отчётом пока не сходятся — '+n.bad+'</li>':'')+
       '<li><span class="live-tag">настоящие</span> уже на настоящих данных — '+(n.live-n.ok-n.bad)+'</li>'+
       '<li><span class="plan-tag data">данные есть</span> данные пришли, графика ещё нет — '+n.data+'</li>'+
       '<li>'+devTag(null,false)+' в отчёте есть, цифры пока условные — '+n.dev+'</li>'+

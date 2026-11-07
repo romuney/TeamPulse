@@ -42,6 +42,9 @@ function hqView(ctx){
   return '<div class="tbl-note hq-note"><span class="live-tag ok"'+U.tipAttr(D.VERIFIED_TIP)+'>✓ сверены</span> '+
       'Накопительно по '+esc(D.MONTH_NOM[h.month.m])+(D.PARTIAL?' (закрытый месяц; '+esc(D.MONTH_NOM[D.ASOF.m])+' — на графиках)':'')+
       '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+
+    /* поставка 110 (A3): HQ меньше 30 человек — линии без оценки, один уход заметно сдвигает долю */
+    (h.hc<D.SMALL_N?'<div class="tbl-note">В HQ '+D.fmtInt(h.hc)+' '+U.plural(h.hc,['человек','человека','человек'])+
+      ': один уход сдвигает текучесть примерно на '+String(Math.round(1000/h.hc)/10).replace('.',',')+' п.п. Доли не оцениваем.</div>':'')+
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
       period:D.periodTotal(h.lp,r.key,r.yoy)}))},

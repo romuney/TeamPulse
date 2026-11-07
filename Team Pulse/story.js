@@ -64,15 +64,28 @@ const ago=(lp,k)=>{const p=per(lp,k);return p.pv!=null?' (год назад '+f(
 function yearAgo(lp,k){const p=per(lp,k);return p.pv!=null?p.pv:null}
 /* оценка метрики так же, как в карточке: цель KPI, иначе база, иначе без оценки; значение и база — за период,
    цель — на закрытый месяц (i) */
+/* поставка 110 (критики 07.11, «один вердикт»): та же оценка, что у строки таблицы и плашки (D.verdictState) — малый отчёт,
+   мало событий (thin) и база = сам юнит (self) отмечены, и заголовок главы говорит о них, а не «на уровне базы» */
 function judge(k,c){
   const i=D.PER_I, v=per(c.lp,k).v, kpi=D.kpiAt(k,c.S,D.MONTHS[i].m);
-  const base=kpi?kpi.green:(D.comparable(k)?per(c.bl,k).v:null);
+  const self=!kpi&&D.isSelfBase(), base=kpi?kpi.green:(D.comparable(k)&&!self?per(c.bl,k).v:null);
+  const thin=D.thin(k,c.lp), ev=D.eventsOf(k,c.lp);
   let st='n';
-  if(v!=null&&base!=null){
+  if(v!=null&&base!=null&&!thin){
     const s=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,base);
     st=s==='good'?'good':s==='bad'?'bad':'n';
   }
-  return {v:v,base:base,kpi:kpi,st:st,i:i,k:k};
+  return {v:v,base:base,kpi:kpi,st:st,i:i,k:k,thin:thin,ev:ev,self:self,small:D.isSmall(k),smallHq:D.isSmallHq(k)};
+}
+/* заголовок без сравнения: мало людей, мало событий или база = сам юнит (тогда — с прошлым годом) */
+function plainHead(j,c,more,less){
+  const m=D.METRIC_BY_KEY[j.k], v=f(j.k,j.v);
+  if(j.thin)return m.name+' — '+v+': '+(j.ev.n?'всего '+pl(j.ev.n,j.ev.noun):'нет событий')+', по стольким не оцениваем';
+  if(j.small)return m.name+' — '+v+'; '+(j.smallHq?'в HQ':'в команде')+' меньше '+D.SMALL_N+' человек, с ориентиром не сравниваем';
+  const py=yearAgo(c.lp,j.k);
+  if(py==null||!py)return m.name+' — '+v;
+  const r=(j.v-py)/Math.abs(py);
+  return Math.abs(r)<0.1?m.name+' — '+v+', как год назад ('+f(j.k,py)+')':(r>0?more:less)+', чем год назад: '+v+' против '+f(j.k,py);
 }
 /* «в базе «всё HQ»» — база всегда названа, как в чипе шапки */
 const inBase=c=>'в базе «'+c.bench+'»';
@@ -152,6 +165,7 @@ const Q={
 function vsBase(j,c,more,less,same,noYoy){
   /* 30.10, критики: «Конверсия на уровне базы» при пустом значении — за месяц нет событий, так и пишем */
   if(j.v==null)return 'Нет данных — не с чем сравнить';
+  if(j.thin||j.small||j.self&&!j.kpi)return plainHead(j,c,more,less);
   return (j.st==='bad'||j.st==='good'
     ? ((j.v>j.base)?more:less)+', чем '+inBase(c)
     : same+' «'+c.bench+'»')+(noYoy?'':yoyTail(j,c,more,less));
@@ -168,7 +182,7 @@ function yoyTail(j,c,more,less){
 }
 
 /* значение за период и база; пустое — «нет данных», а не «— при базе 37,5%» */
-const valAt=(k,j)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.base!=null?' при базе '+f(k,j.base):'');
+const valAt=(k,j)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.base!=null&&!j.small&&!j.thin&&!j.self?' при базе '+f(k,j.base):'');
 const CH={};
 
 /* ===== Отток и текучесть ===== */
@@ -180,7 +194,12 @@ CH.turnover={
        ухода судим по накопительной текучести, как «Текучесть YoY KPI» */
     const fc=judge('turnover_y',c), tm=judge('turnover_m',c), ya=yearAgo(c.lp,'turnover_y');
     const pk=spikeAt(a,3);
-    let head=(fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
+    /* поставка 110 (критики: у команды из 7 «Уходят чаще, чем в базе» над «Всё спокойно»): меньше 30 человек — уходы в людях,
+       без сравнения с базой; база = сам юнит — с прошлым годом */
+    const yp=Math.round(per(c.lp,'attrition').pv||0), dd=y-yp;
+    let head=fc.small?'Ушли '+pl(y,PPL)+(per(c.lp,'attrition').pv!=null?' — '+(dd?'на '+pl(Math.abs(dd),PPL)+' '+(dd>0?'больше':'меньше')+', чем год назад':'столько же, сколько год назад'):'')
+      :fc.self?plainHead(Object.assign({},fc,{k:'turnover_y'}),c,'Уходят чаще','Уходят реже')
+      :(fc.st==='bad'?'Уходят чаще, чем '+inBase(c):fc.st==='good'?'Уходят реже, чем '+inBase(c)
       :'Темп ухода — на уровне базы «'+c.bench+'»')+yoyTail(fc,c,'Уходят чаще','Уходят реже');
     /* ревью 100: «реже, но был всплеск» — противопоставление; к «чаще» всплеск добавляется через «;» */
     if(pk>=0)head+=(/, но /.test(head)||fc.st==='bad'?'; ':', но ')+mPrep(pk)+' был всплеск';
@@ -221,19 +240,24 @@ CH.turnover={
     const ex=D.exitProfile(c.lp,'ytd'), tot=ex.total;
     if(!tot)return {sum:'уходов не было',st:'n',head:'Никто не ушёл'};
     const early=sum(ex.tenure.filter(t=>t.early).map(t=>t.value)), ep=pc(early,tot);
-    const g=ex.grade[argmax(ex.grade.map(x=>x.value))], s=ex.stream.slice().sort((a,b)=>b.value-a.value)[0];
+    const gv=ex.grade.map(x=>x.value), sv=ex.stream.map(x=>x.value), gi=argmax(gv), si=argmax(sv), g=ex.grade[gi], s=ex.stream[si],
+      /* поставка 110 (E10): ничья — «поровну», а не лидер */
+      gt=tieOf(gv,gi,j=>ex.grade[j].name), stt=tieOf(sv,si,j=>ex.stream[j].name);
     /* 26.10, ревью критиков: заголовок — по наибольшему перекосу «доля в уходах против доли в команде» (×1,2 и на 3
        человека больше ожидаемого); перекоса нет — как раньше, по стажу */
     let sk=null;
     [['tenure','группы стажа'],['grade','грейда'],['stream','стрима']].forEach(([d,w])=>{const ts=D.teamShare(c.lp,d);
-      ex[d].forEach(x=>{const t=ts[x.name], e=t*tot;if(t!=null&&x.value>=1.2*e&&x.value-e>=3&&(!sk||x.value-e>sk.d))sk={d:x.value-e,x,t,w}})});
-    return {sum:ep+'% — в первый год',st:ep>=40||sk?'bad':'n',
-      head:sk?'Чаще своей доли уходят из '+sk.w+' «'+sk.x.name+'»: '+pc(sk.x.value,tot)+'% уходов при '+Math.round(sk.t*100)+'% команды'
+      /* поставка 110 (C6): из прошедших порог — самый сильный перекос по кратности, а не по числу людей сверх */
+      ex[d].forEach(x=>{const t=ts[x.name], e=t*tot;if(t!=null&&e>0&&x.value>=1.2*e&&x.value-e>=3&&(!sk||x.value/e>sk.r))sk={d:x.value-e,r:x.value/e,x,t,w}})});
+    /* поставка 110 (A2): в команде меньше 30 человек — без долей и оценки, в людях */
+    const sm=D.isSmall();
+    return {sum:sm?early+' из '+tot+' — в первый год':ep+'% — в первый год',st:!sm&&(ep>=40||sk)?'bad':'n',
+      head:sm?'Ушли '+pl(tot,PPL)+': '+(early?early+' — со стажем до года':'все со стажем больше года'):sk?'Чаще своей доли уходят из '+sk.w+' «'+sk.x.name+'»: '+pc(sk.x.value,tot)+'% уходов при '+Math.round(sk.t*100)+'% команды'
         :ep>=30?ep+'% ушедших не проработали и года':'Уходят в основном опытные: '+(100-ep)+'% — со стажем больше года',
-      lede:'Ушли **'+pl(tot,PPL)+'**, из них **'+early+'** — со стажем до года. Больше всего уходов — в грейде «'+
-        g.name+'» ('+g.value+') и в стриме «'+s.name+'» ('+s.value+').',
+      lede:'Ушли **'+pl(tot,PPL)+'**, из них **'+early+'** — со стажем до года. '+(gt.tie?'По грейдам поровну — '+gt.q+' (по '+g.value+')':'Больше всего уходов — в грейде «'+g.name+'» ('+g.value+')')+
+        (stt.tie?'; по стримам поровну — '+stt.q+' (по '+s.value+').':(gt.tie?'; по стримам больше всего — ':' и в стриме ')+'«'+s.name+'» ('+s.value+').'),
       facts:ex.tenure.map(t=>t.name+' — **'+t.value+'**'),
-      act:ep>=40?{text:'Ранний уход — вопрос найма и адаптации: проверьте онбординг тех, кто пришёл за последний год.'}:null};
+      act:!sm&&ep>=40?{text:'Ранний уход — вопрос найма и адаптации: проверьте онбординг тех, кто пришёл за последний год.'}:null};
   },
   /* 26.10, правки: светофор HQ — по активной численности HQ, что бы ни стояло в фильтрах покраски и типа */
   hq(c){
@@ -241,6 +265,13 @@ CH.turnover={
     if(!h)return {sum:'нет данных',st:'n',head:'Светофору HQ нужны данные'};
     if(!h.hc)return {sum:'нет HQ',st:'n',head:'В подразделении нет HQ-сотрудников'};
     /* поставка 103 (файл 9, п. 10): без целей — факт и изменение к прошлому году; у желательной рост — к лучшему */
+    /* поставка 110 (A3, критики 07.11: «текучесть HQ 66,7%» при одном человеке в HQ): порог малых чисел — по численности
+       HQ, знаменателю этих долей, а не по численности выбранной команды */
+    if(h.hc<D.SMALL_N){const pp=Math.round(1000/h.hc)/10;
+      return {sum:'HQ: '+pl(h.hc,PPL),st:'n',head:'В HQ '+pl(h.hc,PPL)+' — текучесть HQ в процентах не оцениваем',
+        lede:'Активная численность HQ — **'+pl(h.hc,PPL)+'**: один уход сдвигает текучесть HQ примерно на **'+
+          String(pp).replace('.',',')+' п.п.** Поэтому доли здесь не сравниваем ни с прошлым годом, ни с ориентиром — '+
+          'уходы в людях видны на графиках «Отток» и в таблице подразделений.'};}
     const t=h.rows[0], nr=h.rows[1], rg=h.rows[2];
     const nm={turnover_y:'текучесть HQ',nonregret:'желательная текучесть HQ',regret:'нежелательная текучесть HQ'};
     const up=h.rows.filter(r=>r.yoyD!=null&&Math.abs(r.yoyD)>=0.05);
@@ -319,7 +350,7 @@ CH.hiring={
     return {sum:f('time_to_fill',t.v)+' на вакансию',st:t.st,
       head:vsBase(t,c,'Вакансии закрываются дольше','Вакансии закрываются быстрее','Скорость закрытия — на уровне базы'),
       lede:'Сейчас открыто **'+op+'**'+ago(c.lp,'vac_open')+'. Закрыто **'+cl+'**'+ago(c.lp,'vac_closed')+
-        ', средний срок закрытия — '+valAt('time_to_fill',t)+'.',
+        ', медианный срок закрытия — '+valAt('time_to_fill',t)+'.',
       facts:[note>=0?'Больше всего открытых было '+mPrep(note)+': **'+vo[note]+'**':null],
       focus:fo.focus,act:fo.act,ann:{vac_open:annFor(note,'пик')}};
   },
@@ -377,7 +408,7 @@ CH.tgrowth={
     return {sum:ns?ns+' '+U.plural(ns,['смена','смены','смен'])+' специализации':'смен специализации нет',st:'n',
       head:ns?'Специализацию сменили по '+ns+' '+U.plural(ns,['заявке','заявкам','заявкам']):'Специализацию не меняли',
       lede:'В «Росте» — **'+s.rost+'**, в T@T — **'+s.tat+'**.'+(t?' Чаще всего просятся в «'+t.name+'»: '+t.apps+' '+
-        U.plural(t.apps,['заявка','заявки','заявок'])+', отказ — '+pc(t.no,t.apps)+'%.':'')};
+        U.plural(t.apps,['заявка','заявки','заявок'])+', отклонено — '+pc(t.no,t.apps)+'%.':'')};
   }
 };
 
@@ -435,13 +466,14 @@ CH.office={
       /* файл 8, п. 5: с городом — посещаемость сегмента в офисах этого города (доля рабочих дней) */
       head:x.seg?'Посещаемость: '+x.seg.name+(x.city?' в офисах «'+x.city.name+'»':'')+' — '+f('office_att',x.att):'Город офиса: '+x.city.name,
       lede:'Значение — за '+mNom(D.PER_I)+'; по всему отбору '+PT+' — **'+f('office_att',per(c.lp,'office_att').v)+'**. Снять выбор — Escape.'};
-    const segs=x.segs.filter(s=>s.hc), cs=x.cities.filter(r=>r.hc);
+    /* поставка 110 (A6): группа меньше 3 человек в рассказ не идёт — «Руководители ходят реже» про одного человека (часто читателя) */
+    const segs=x.segs.filter(s=>s.hc>=3), cs=x.cities.filter(r=>r.hc>=3);
     const v=judge('office_att',c), ya=yearAgo(c.lp,'office_att');
     const fo=focusRate(c,'office_att','Посещаемость по подразделениям');
     const sg=segs.length>1?segs.slice().sort((a,b)=>b.att-a.att):null, cb=cs.length>1?cs.slice().sort((a,b)=>b.att-a.att):null;
     return {sum:f('office_att',v.v),st:v.st,
       head:vsBase(v,c,'В офис ходят чаще','В офис ходят реже','Посещаемость — на уровне базы')+
-        (v.base!=null?': '+f('office_att',v.v)+' против '+f('office_att',v.base):''),
+        (v.base!=null&&!v.small&&!v.thin&&!v.self?': '+f('office_att',v.v)+' против '+f('office_att',v.base):''),
       lede:[ya!=null?'Год назад — **'+f('office_att',ya)+'**':'',
         sg?'за '+mNom(D.PER_I)+' «'+sg[0].name+'» — **'+f('office_att',sg[0].att)+'**, «'+sg[sg.length-1].name+'» — **'+f('office_att',sg[sg.length-1].att)+'**':'',
         cb?'чаще всего ходят в «'+cb[0].name+'» (**'+f('office_att',cb[0].att)+'**)':''].filter(Boolean).join('; ')+'.',
@@ -466,16 +498,27 @@ CH.ai={
   adoption(c){
     const W=D.aiWeeks(c.lp), cw=D.aiCur(W);
     if(!cw)return {sum:'нет данных',st:'n',head:'Статистики AI-инструментов нет',lede:''};
-    const i=W.indexOf(cw), w0=W[Math.max(0,i-4)], d=w0!==cw?Math.round((cw.pen-w0.pen)*10)/10:null;
-    const P=v=>String(v).replace('.',',')+'%';
-    return {sum:P(cw.pen),st:'n',
-      head:'AI пользуются '+P(cw.pen)+' сотрудников'+(d==null?'':Math.abs(d)<1?' — за месяц почти без изменений':
-        d>0?' — за четыре недели на '+P(d).replace('%',' п.п.')+' больше':' — за четыре недели на '+P(-d).replace('%',' п.п.')+' меньше'),
+    /* поставка 110 (A7, C9, критики 07.11): сравнение — с началом окна графика, а не с удобной точкой четыре недели назад
+       («+1 п.п. за 4 недели» при −2,8 п.п. за 16); сдвиг меньше 2 человек — «почти без изменений»; в команде меньше 30
+       человек — в людях, без процентов */
+    const i=W.indexOf(cw), w0=W[0], nw=i, d=w0!==cw?Math.round((cw.pen-w0.pen)*10)/10:null, dn=w0!==cw?cw.wau-w0.wau:null;
+    const P=v=>String(v).replace('.',',')+'%', sm=cw.hc<D.SMALL_N, flat=d==null||Math.abs(d)<1||Math.abs(dn)<2;
+    const per=' за '+nw+' '+U.plural(nw,['неделю','недели','недель']);
+    return {sum:sm?D.fmtInt(cw.wau)+' из '+D.fmtInt(cw.hc):P(cw.pen),st:'n',
+      head:(sm?'AI пользуются '+D.fmtInt(cw.wau)+' из '+pl(cw.hc,PPL):'AI пользуются '+P(cw.pen)+' сотрудников')+
+        (d==null?'':flat?' —'+per+' почти без изменений':
+        sm?' —'+per+' на '+pl(Math.abs(dn),PPL)+' '+(dn>0?'больше':'меньше'):
+        ' —'+per+' на '+P(Math.abs(d)).replace('%',' п.п.')+' '+(d>0?'больше':'меньше')),
       lede:'За неделю '+cw.full.replace(/^Неделя /,'')+' — **'+D.fmtInt(cw.wau)+'** активных пользователей из **'+D.fmtInt(cw.hc)+
-        '** без стажёров.'+(w0!==cw?' Четырьмя неделями раньше — **'+P(w0.pen)+'**.':'')};
+        '** без стажёров.'+(w0!==cw?' В начале окна, '+w0.full.replace(/^Неделя /,'')+', — **'+D.fmtInt(w0.wau)+'**'+(sm?'':' (**'+P(w0.pen)+'**)')+'.':'')};
   },
   who(c){
     const u=D.aiUsage(c.lp), it=u.intern;
+    /* поставка 110 (A6): нет стажёров — пустое состояние, а не «0,0% стажёров»; меньше 30 — в людях, без сравнения */
+    if(!it||!it.hc)return {sum:'стажёров нет',st:'n',head:'Стажёров нет',lede:'В выбранном подразделении стажёров нет — показывать по ним нечего.'};
+    if(it.hc<D.SMALL_N)return {sum:'стажёры: '+D.fmtInt(it.act)+' из '+D.fmtInt(it.hc),st:'n',
+      head:'AI пользуются '+D.fmtInt(it.act)+' из '+D.fmtInt(it.hc)+' '+U.plural(it.hc,['стажёра','стажёров','стажёров']),
+      lede:'Стажёров меньше '+D.SMALL_N+' — долю с командой не сравниваем. Ниже — какими инструментами они пользуются и как часто.'};
     return {sum:'стажёры — '+f('ai_penetration',it.pen),st:'n',
       head:'AI пользуются '+f('ai_penetration',it.pen)+' стажёров — '+(it.pen>=u.pen?'не меньше':'меньше')+', чем в команде ('+f('ai_penetration',u.pen)+')',
       lede:'Стажёров **'+D.fmtInt(it.hc)+'**, из них с AI — **'+D.fmtInt(it.act)+'**. Ниже — какими инструментами пользуются стажёры и как часто.'};
@@ -504,17 +547,23 @@ function mixTop(lp,dk){
   const dim=D.MIX_BY_KEY[dk], cats=D.mixCats(dk), parts=D.mixParts(lp,dk), tot=sum(parts);
   if(!tot)return null;
   const i=argmax(parts);
-  return {dim:dim,name:cats[i].name,share:pc(parts[i],tot),n:parts[i],tot:tot};
+  return Object.assign({dim:dim,name:cats[i].name,share:pc(parts[i],tot),n:parts[i],tot:tot},tieOf(parts,i,j=>cats[j].name));
 }
+/* поставка 110 (E10): ничья — не лидер. q — «A» и «B», top(x, ч) — «больше всего — «A» (43%)» или «поровну «A» и «B» (по 43%)» */
+function tieOf(v,i,name){
+  const ix=v.map((x,j)=>x===v[i]?j:-1).filter(j=>j>=0), qs=ix.map(j=>'«'+name(j)+'»');
+  return {tie:ix.length>1,q:qs.length>1?qs.slice(0,-1).join(', ')+' и '+qs[qs.length-1]:qs[0]};
+}
+const topSay=(x,lead)=>x.tie?'поровну '+x.q+' (**по '+x.share+'%**)':lead+' «'+x.name+'» (**'+x.share+'%**)';
 CH.structure={};
 D.MIX_GROUPS.forEach(g=>{
   CH.structure[g.key]=function(c){
     const tops=g.dims.map(dk=>mixTop(c.lp,dk)).filter(Boolean);
     if(!tops.length)return {sum:'нет людей',st:'n'};
     const t=tops[0];
-    return {sum:'«'+t.name+'» — '+t.share+'%',st:'n',
-      head:'«'+t.name+'» — самая большая группа: '+t.share+'% людей',
-      lede:'Всего в команде **'+pl(t.tot,PPL)+'**. '+tops.slice(1).map(x=>x.dim.name+': больше всего — «'+x.name+'» (**'+x.share+'%**)').join('; ')+
+    return {sum:t.tie?'поровну '+t.q:'«'+t.name+'» — '+t.share+'%',st:'n',
+      head:t.tie?'Поровну '+t.q+': по '+t.share+'% людей':'«'+t.name+'» — самая большая группа: '+t.share+'% людей',
+      lede:'Всего в команде **'+pl(t.tot,PPL)+'**. '+tops.slice(1).map(x=>x.dim.name+': '+topSay(x,'больше всего —')).join('; ')+
         (tops.length>1?'.':'')};
   };
 });
@@ -524,13 +573,13 @@ CH.structure.level=function(c){
   const sel=c.S.mixSel||[], parts=D.sliceParse(sel);
   const tops=['seniority','grade','tenure'].filter(k=>D.MIX_BY_KEY[k]&&!parts.some(p=>p.dim.key===k)).map(k=>{
     const v=D.mixParts(c.lp,k,sel), i=argmax(v);
-    return {dim:D.MIX_BY_KEY[k],name:D.mixCats(k)[i].name,share:pc(v[i],sum(v)),tot:sum(v)};
+    return Object.assign({dim:D.MIX_BY_KEY[k],name:D.mixCats(k)[i].name,share:pc(v[i],sum(v)),tot:sum(v)},tieOf(v,i,j=>D.mixCats(k)[j].name));
   }).filter(t=>t.tot);
   if(!tops.length)return {sum:'нет людей',st:'n'};
   const t=tops[0];
-  return {sum:'«'+t.name+'» — '+t.share+'%',st:'n',
-    head:'Больше всего — «'+t.name+'»: '+t.share+'% команды',
-    lede:tops.slice(1).map(x=>x.dim.name+': чаще всего — «'+x.name+'» (**'+x.share+'%**)').join('; ')+(tops.length>1?'.':'')};
+  return {sum:t.tie?'поровну '+t.q:'«'+t.name+'» — '+t.share+'%',st:'n',
+    head:t.tie?'Поровну '+t.q+': по '+t.share+'% команды':'Больше всего — «'+t.name+'»: '+t.share+'% команды',
+    lede:tops.slice(1).map(x=>x.dim.name+': '+topSay(x,'чаще всего —')).join('; ')+(tops.length>1?'.':'')};
 };
 
 /* «Портрет команды» (14.10): вся структура одним рассказом — типичный человек
@@ -673,7 +722,7 @@ const WHY={
       'Месяц, где отток выше найма, — сверьте с причинами ухода в «Отток и текучесть».']},
   turnover:{
     dynamics:['{{Текучесть}} — темп ухода с поправкой на размер команды. Её и сравнивают с {{База|базой}}.',
-      'Всплеск в одном месяце — найдите подразделение в таблице слева. Текучесть выше, чем год назад, — повод поговорить с руководителями.'],
+      'Всплеск в одном месяце — разберите уходы этого месяца: кто ушёл и почему. Текучесть выше, чем год назад, — повод поговорить с руководителями.'],
     reasons:['Причины показывают, на что можно повлиять: у каждой — сколько уходов {{Нежелательный уход|нежелательные}}.',
       'Начните с причины, где больше всего нежелательных уходов: оплата, рост или руководитель.'],
     who:['Стаж, {{Грейд|грейд}} и стрим ушедших показывают, кого именно теряем.',
@@ -694,9 +743,9 @@ const WHY={
     flow:['{{T-рост}} — карьерный рост внутри компании. {{Конверсия T-роста|Конверсия}} показывает, насколько этот путь работает.',
       'Низкая конверсия — люди пробуют расти и упираются, а это предвестник ухода.'],
     grades:['Кто за год прошёл рост, кто сейчас в процессе, у кого заявок нет — по текущему грейду; повышения — по потокам «Рост» и T@T.',
-      'Высокий % отказа на грейде — разберите заявки с руководителями. Много людей без заявок за год — обсудите планы роста.'],
+      'Высокая доля отклонённых заявок на грейде — разберите заявки с руководителями. Много людей без заявок за год — обсудите планы роста.'],
     spec:['Смена специализации — рост вбок: сколько заявок закрыто успешно и куда люди хотят перейти.',
-      'Высокий % отказа по специализации — проверьте требования к переходу и поддержку при смене роли.']},
+      'Высокая доля отклонённых заявок по специализации — проверьте требования к переходу и поддержку при смене роли.']},
   monitor:{
     activity:['Прогулы, работа в выходные и звонки в Толк от 20% — за последние 16 недель, каждый человек один раз; ниже — {{Недоработчики|недоработка}} и {{Переработчики|переработка}} по месяцам. Считается под выбранными фильтрами: по умолчанию — вся активная численность.',
       'Рост недоработки в одной команде важнее общего уровня — сравните её с прошлым месяцем.'],
@@ -707,7 +756,7 @@ const WHY={
       'Пустые дни — кандидаты на общий «офисный день» команды.'],
     attend:['{{Посещаемость офиса|Посещаемость}} по месяцам, ниже — руководители и сотрудники, ниже — города, где бывают '+
       'в офисе.',
-      'Руководители ходят реже сотрудников — сверьте с правилами гибрида и бронированием.'],
+      'Если руководители ходят реже сотрудников — сверьте с правилами гибрида и бронированием.'],
     booking:['{{Брони без посещения|Без посещения}} — место забронировали и не пришли; посещения без брони — пришли, не забронировав.',
       'Броней без посещения много — места простаивают; посещений без брони много — план офиса расходится с жизнью.']},
   ai:{

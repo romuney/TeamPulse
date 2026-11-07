@@ -314,7 +314,8 @@ function lgItem(x,y,it,sid,off,lock){
   return {x:x-16-14,s:'<g class="lg'+(lock?' lock':'')+(dead?' dead':'')+'" data-sid="'+sid+'"'
     +' tabindex="0" role="button" aria-pressed="'+(dead?'false':'true')+'"'
     +' aria-label="'+esc(it.name)+(lock?'':(dead?': включить':': скрыть'))+'"'
-    +tip({title:it.name,text:lock?'Эту серию не скрыть: график держится на ней.':dead?'Клик — вернуть.':'Клик — скрыть, наведение — подсветить.'})+'>'
+    /* поставка 110 (E8): у несняемой серии служебной подсказки нет */
+    +(lock?'':tip({title:it.name,text:dead?'Клик — вернуть.':'Клик — скрыть, наведение — подсветить.'}))+'>'
     +g+'<rect class="hit" x="'+num(mx-4)+'" y="'+num(y)+'" width="'+num(tw+16+6+8)+'" height="18"/></g>'};
 }
 /* 27.10-в, п. 18: узкий график — легенда не помещается рядом с заголовком и встаёт второй строкой под ним */
@@ -1193,7 +1194,7 @@ function drawCalendar(a,w,h){
 const C_MON={under:'#E8A33D',normal:'#7FA2E6',over:'#C2513F',grey:'#D3D5DA',
   /* второй тон разбивки в KPI-карточках: «дольше 2 недель», «больше 50%», «больше 5 дней» */
   under2:'#A86B12',over2:'#7F2A1D',talk0:'#C3D3F5',talk:'#245FD4',talk2:'#1545A3',per:'#9AA0AC',per2:'#5B616D'};
-const MON_CATS=[['under','Недоработка'],['normal','Нормал'],['over','Переработка'],['grey','Не размечено']];
+const MON_CATS=[['under','Недоработка'],['normal','Норма'],['over','Переработка'],['grey','Не размечено']];
 function perAxis(P,X,h,mark,bandW){
   const step=bandW<30?3:bandW<44?2:1, last=P.length-1;
   /* ревью 100: p.cl — последний закрытый месяц, подпись жирная (как на осях «год к году») */
