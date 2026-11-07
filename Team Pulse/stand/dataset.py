@@ -10,7 +10,7 @@
 # --check гоняет ответ при обоих анализаторах и при join_use_nulls / prefer_column_name_to_alias,
 # в том числе в профиле боя (новый анализатор + prefer_column_name_to_alias = 1)
 # (ответы обязаны совпасть) и сверяет его с тем, что считается прямо по таблице.
-import argparse, hashlib, json, os, sys
+import argparse, hashlib, json, os, re, sys
 import jinja2
 from chdb import session
 
@@ -48,9 +48,25 @@ def query(s, sql, settings=''):
     return out, rows
 
 
+_ARM_AS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=>?@_'
+_ARM_CY = 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ'
+_ARM = dict(zip(_ARM_AS, _ARM_CY))
+
+
+def unarm(s):
+    """поставка 111: обратное к датасету — «^x» → x, 66 ASCII-знаков → кириллица (как чарт, real.js unarm)"""
+    return re.sub(r'\^([\s\S])|[A-Za-z!#$%&*+;<=>?@_]', lambda m: m.group(1) if m.group(1) is not None else _ARM[m.group(0)], s)
+
+
 def expand(rows):
-    """ms («;» между метриками в порядке meta.mk) → колонки m_<метрика>"""
+    """ms («;» между метриками в порядке meta.mk) → колонки m_<метрика>; поставка 111: nm, j, mx расшифрованы"""
     meta = next((r for r in rows if r.get('role') == 'meta'), None)
+    if meta and json.loads(meta.get('j') or '{}').get('enc') == 'a1':
+        for r in rows:
+            if r.get('role') != 'meta':
+                for k in ('nm', 'j', 'mx'):
+                    if isinstance(r.get(k), str) and r[k]:
+                        r[k] = unarm(r[k])
     if not meta or 'ms' not in meta:
         return rows
     mk = json.loads(meta['j']).get('mk', '').split(',')

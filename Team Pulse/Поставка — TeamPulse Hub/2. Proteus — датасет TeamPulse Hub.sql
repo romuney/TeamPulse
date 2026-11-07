@@ -352,7 +352,7 @@ WITH
              '","root":"', (SELECT r FROM cx), '","scope":"', (SELECT s FROM cx),
              '","def":"', (SELECT d FROM cx), '","ok":', toString(toUInt8((SELECT ok FROM cx))),
              ',"full":', toString(toUInt8((SELECT fl FROM cx))), ',"zone":', toJSONString((SELECT zr FROM cx)),
-             ',"dt":"', (SELECT dd FROM cx), '","schema":"hub-2","cuts":["paint","it","staff"', if(has(tupleElement({{ FV }}, 4), '∅'), '', ',"act"'), ']',
+             ',"dt":"', (SELECT dd FROM cx), '","schema":"hub-2","enc":"a1","cuts":["paint","it","staff"', if(has(tupleElement({{ FV }}, 4), '∅'), '', ',"act"'), ']',
              ',"mk":"{% for m in M %}{{ m[0] }}{% if not loop.last %},{% endif %}{% endfor %}"',
              ',"req":', toJSONString({{ qa(unit_req) }}),
              ',"paint":', toJSONString({{ qa(F['paint']) }}),
@@ -598,19 +598,24 @@ WITH
     )
     GROUP BY u3
   )
-SELECT *
+{#- поставка 111: ответ легче — Proteus пишет каждую русскую букву в JSON как \u04xx (6 знаков). Текстовые колонки
+    nm, j, mx (кроме j строки meta) — кириллица одним ASCII-знаком: латиница и знаки !#$%&*+;<=>?@_^ — с префиксом ^,
+    затем 66 букв (а–я, ё, А–Я, Ё) → a–z, A–Z, !#$%&*+;<=>?@_ (translateUTF8). Чарт расшифровывает по meta.enc = 'a1'.
+    Числа и порядок строк не меняются. #}
+SELECT o, role, id, pid, lvl, translateUTF8(replaceRegexpAll(nm_, '([A-Za-z!#$%&*+;<=>?@_^])', '^\\1'), 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=>?@_') AS nm, kids,
+       if(role = 'meta', j_, translateUTF8(replaceRegexpAll(j_, '([A-Za-z!#$%&*+;<=>?@_^])', '^\\1'), 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=>?@_')) AS j, ms, translateUTF8(replaceRegexpAll(mx_, '([A-Za-z!#$%&*+;<=>?@_^])', '^\\1'), 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=>?@_') AS mx, nm_
 FROM
 (
-  SELECT toUInt8(0) AS o, 'meta' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids,
-         (SELECT mj0 FROM mj) AS j,
-         '' AS ms, '' AS mx
+  SELECT toUInt8(0) AS o, 'meta' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
+         (SELECT mj0 FROM mj) AS j_,
+         '' AS ms, '' AS mx_
 
   UNION ALL
 
   SELECT p.po AS o, multiIf(p.po = 1, 'scope', p.po = 2, 'base', p.po = 5, 'c', p.po = 6, 'g', 'x') AS role,
-         s.id AS id, s.pid AS pid, s.lv AS lvl, s.nm0 AS nm, s.kd AS kids, '' AS j,
+         s.id AS id, s.pid AS pid, s.lv AS lvl, s.nm0 AS nm_, s.kd AS kids, '' AS j_,
          arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(x, 1)), r1), ','), a.tr), ';') AS ms,
-         ifNull(x.mxs, '') AS mx
+         ifNull(x.mxs, '') AS mx_
   FROM (SELECT tupleElement(pe, 1) AS pn, tupleElement(pe, 2) AS po FROM (SELECT arrayJoin(pks) AS pe FROM cx)) AS p
   INNER JOIN st2 AS s ON s.id = p.pn
   INNER JOIN arr AS a ON a.rk = p.pn
@@ -620,28 +625,28 @@ FROM
   UNION ALL
 
   {#- поставка 65: светофор HQ — выбранный юнит под «HQ + Активная» #}
-  SELECT toUInt8(4) AS o, 'hq' AS role, (SELECT s FROM cx) AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids, '' AS j,
+  SELECT toUInt8(4) AS o, 'hq' AS role, (SELECT s FROM cx) AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids, '' AS j_,
          arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(x, 1)), r1), ','), h.th), ';') AS ms,
-         '' AS mx
+         '' AS mx_
   FROM arh AS h
   WHERE (SELECT ok FROM cx)
 
   UNION ALL
 
   {#- поставка 69: справочник — зона логина и предки корней зоны (у предков — только имя: путь над отчётом) #}
-  SELECT toUInt8(3) AS o, 'dict' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids,
+  SELECT toUInt8(3) AS o, 'dict' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
          arrayStringConcat(arraySort(groupArray(concat(t.id, '\t', t.pid, '\t', toString(t.lv), '\t',
                                              toString(t.kd), '\t', t.nm0, '\t', if(t.iz, t.hd, ''), '\t', if(t.iz, ifNull(f.fds, ''), ''),
-                                             '\t', if(t.iz, t.hn, ''), '\t', if(t.iz, '', 'a')))), '\n') AS j,
-         '' AS ms, '' AS mx
+                                             '\t', if(t.iz, t.hn, ''), '\t', if(t.iz, '', 'a')))), '\n') AS j_,
+         '' AS ms, '' AS mx_
   FROM (SELECT *, hasAny(ph, (SELECT zr FROM cx)) AS iz FROM st2) AS t
   LEFT JOIN fdr AS f ON f.fr = t.id
   WHERE (SELECT ok FROM cx) AND (t.iz OR has((SELECT an FROM cx), t.id))
 
   UNION ALL
 
-  SELECT toUInt8(9) AS o, 'end' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm, toUInt32(0) AS kids,
-         '' AS j, '' AS ms, '' AS mx
+  SELECT toUInt8(9) AS o, 'end' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
+         '' AS j_, '' AS ms, '' AS mx_
 )
 )
-ORDER BY o, lvl, nm, id
+ORDER BY o, lvl, nm_, id

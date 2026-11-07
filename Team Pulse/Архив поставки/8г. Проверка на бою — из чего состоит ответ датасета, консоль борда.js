@@ -1,5 +1,5 @@
 // TeamPulse Hub · файл 8г — из чего состоит ответ датасета (консоль страницы борда, контекст «top»).
-// Поставка 109: на бою ответ компании — 23,6 МБ JSON (на стенде 0,5 МБ). Скрипт считает только размеры: сколько КБ
+// Поставка 109: на бою ответ компании — 23,6 МБ JSON (на стенде 0,5 МБ). Поставка 111: считает и русские буквы в виде \u04xx. Скрипт считает только размеры: сколько КБ
 // занимает каждая роль строк (meta, dict, scope, base, c, g, hq) и каждая колонка, и сколько КБ — каждый ключ разреза
 // в колонке mx. Содержимое (имена, логины, числа) не печатает, никуда не отправляет, ничего не меняет.
 //  1) Открыть борд, F12 → Console, контекст top → вставить файл целиком → Enter.
@@ -19,7 +19,7 @@
     (j && j.result || []).forEach(function (r) { if (Array.isArray(r.data) && r.data.length && 'role' in r.data[0]) out = out.concat(r.data); });
     return out;
   }
-  function analyse(rows, bytes, label) {
+  function analyse(rows, bytes, label, esc, enc) {
     var byRole = {}, byCol = {}, byKey = {}, keyN = {};
     rows.forEach(function (r) {
       var role = String(r.role), z = byRole[role] || (byRole[role] = { n: 0, b: 0 });
@@ -32,6 +32,8 @@
       });
     });
     var L = [label + ': ' + rows.length + ' строк, JSON ' + kb(bytes) + ' КБ'];
+    if (esc != null) L.push('  русских букв в виде \\u04xx: ' + esc + ' (' + kb(esc * 6) + ' КБ, ' + Math.round(esc * 600 / bytes) + '% ответа)' +
+      (enc ? ' · ответ уже в коде поставки 111' : ' · ответ без кода поставки 111'));
     L.push('  роли (строк · КБ): ' + Object.keys(byRole).sort(function (a, b) { return byRole[b].b - byRole[a].b; })
       .map(function (k) { return k + ' ' + byRole[k].n + ' · ' + kb(byRole[k].b); }).join(' | '));
     L.push('  колонки (КБ): ' + Object.keys(byCol).sort(function (a, b) { return byCol[b] - byCol[a]; })
@@ -48,7 +50,9 @@
   function take(text, url) {
     try {
       var j = JSON.parse(text), rows = rowsOf(j);
-      if (rows.length) S.got.push({ bytes: text.length, rows: rows, url: String(url).replace(/\?.*$/, '') });
+      // поставка 111: сколько ответа занимают русские буквы, записанные как \u04xx (6 знаков вместо одного)
+      var esc = (text.match(/\\u04[0-9a-fA-F]{2}/g) || []).length;
+      if (rows.length) S.got.push({ bytes: text.length, esc: esc, enc: /"enc":"a1"/.test(text) || /\\"enc\\":\\"a1\\"/.test(text), rows: rows, url: String(url).replace(/\?.*$/, '') });
     } catch (e) { /* не JSON — пропускаем */ }
   }
   var f0 = window.fetch;
@@ -70,8 +74,8 @@
     if (!S.got.length) { console.log('Ответов с данными чарта ещё не было — обновите дашборд или примените фильтр.'); return; }
     var g = S.got.slice().sort(function (a, b) { return b.bytes - a.bytes; });
     var parts = ['TeamPulse Hub · 8г · из чего ответ · ' + new Date().toLocaleString() + ' · ответов поймано: ' + g.length,
-      analyse(g[0].rows, g[0].bytes, 'самый большой')];
-    if (g.length > 1) parts.push(analyse(g[g.length - 1].rows, g[g.length - 1].bytes, 'самый маленький'));
+      analyse(g[0].rows, g[0].bytes, 'самый большой', g[0].esc, g[0].enc)];
+    if (g.length > 1) parts.push(analyse(g[g.length - 1].rows, g[g.length - 1].bytes, 'самый маленький', g[g.length - 1].esc, g[g.length - 1].enc));
     var text = parts.join('\n');
     console.log(text);
     try { copy(text); console.log('Скопировано в буфер обмена — вставьте в чат.'); } catch (e) { console.log('Скопируйте текст выше.'); }

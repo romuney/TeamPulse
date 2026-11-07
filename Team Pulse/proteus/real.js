@@ -93,6 +93,12 @@ const STAFF_V={staff:'Штат',nonstaff:'Не штат'};
 const ACT_V={active:'Активная',all:'Вся'};
 
 function str(v){return v==null?'':String(v)}
+/* поставка 111: обратное к датасету — «^x» → x как есть, 66 ASCII-знаков → а–я, ё, А–Я, Ё (порядок тот же, что у translateUTF8) */
+/* знак «>» подставлен заменой: проверка сборки ищет в тексте сочетание «=» и «>» (стрелочные функции) */
+const ARM_AS='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=~?@_'.replace('~',String.fromCharCode(62)),
+  ARM_CY='абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', ARM={};
+for(let i=0;i<ARM_AS.length;i++)ARM[ARM_AS[i]]=ARM_CY[i];
+function unarm(s){return s.replace(/\^([\s\S])|[A-Za-z!#$%&*+;<>=?@_]/g,function(m,a){return a!==undefined?a:ARM[m]})}
 function num(v){const n=+v;return isFinite(n)?n:0}
 function parseArr(s,n){
   const a=str(s).split(','), out=new Array(n);
@@ -151,6 +157,10 @@ function build(data){
   const rows=Array.isArray(data)?data:[];
   let meta={};
   try{meta=JSON.parse(str((rows.find(r=>str(r.role)==='meta')||{}).j)||'{}')}catch(e){meta={}}
+  /* поставка 111: датасет пишет кириллицу текстовых колонок одним ASCII-знаком (Proteus отдаёт русскую букву в JSON как
+     \u04xx — 6 знаков): ответ вдвое легче. Расшифровка — до любого чтения строк; meta.j не кодирован */
+  if(meta.enc==='a1')rows.forEach(function(r){if(str(r.role)==='meta')return;
+    if(r.nm)r.nm=unarm(str(r.nm));if(r.j)r.j=unarm(str(r.j));if(r.mx)r.mx=unarm(str(r.mx))});
   /* ряд метрики c строки r: прежний ответ — колонка m_c, новый — c-й отрезок ms */
   const mk=str(meta.mk)?str(meta.mk).split(','):null, mkAt={};
   if(mk)mk.forEach((c,i)=>{mkAt[c]=i});
