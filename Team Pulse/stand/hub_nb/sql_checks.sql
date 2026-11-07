@@ -159,6 +159,11 @@ union all
 select 30 as n, 'AI-разрезы недели: повторы ключа «узел x ключ x значение»'::text as check_nm, 1 as must,
        ((select count(*) from (select 1 from teampulse_hub_aix
                                 group by node_rk, k, v having count(*) > 1) t))::float8 as val
+union all
+-- 07.11: путь узла не от корня — кольцо в дереве или дерево глубже 20 уровней (люди такого узла не в корне)
+select 31 as n, 'узлов, путь которых не от корня'::text as check_nm, 1 as must,
+       ((select count(*) from teampulse_hub_unit
+          where split_part(path_rk, '|', 1) <> (select root_rk from teampulse_hub_meta)))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,
