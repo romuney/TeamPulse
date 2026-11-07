@@ -12588,6 +12588,12 @@ function unitId(p){
   const last=p.split('/').pop();
   return last==='·'?null:last;
 }
+/* юнит по умолчанию: в пробнике — тот, что датасет отдаёт без фильтра юнита (meta.def; нет пути — корень окна выбора) */
+function defUnit(){
+  if(!D.REAL)return D.DEFAULT_STATE.unit;
+  const p=D.REAL.pick&&D.REAL.pick.path?D.REAL.pick.path(D.REAL.defId||D.REAL.rootId):null;
+  return p||(D.REAL.pick&&D.REAL.pick.root)||'T';
+}
 function curReq(){return {unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType,hcSet:(S.hcSet||[]).slice()}}
 /* подпись типа численности: набор по умолчанию, все или свой набор (строчными, по алфавиту) */
 function hcSig(st){return st.hcType==='set'?'set:'+(st.hcSet||[]).map(x=>String(x).toLowerCase()).sort().join(','):st.hcType}
@@ -13350,8 +13356,11 @@ on(document,'click',e=>{
   if(t.closest('#btnSetup')){openSetup();return}
   if(t.closest('#btnApply')){applySetup();return}
   if(t.closest('#btnCancel')){closeSetup();return}
+  /* 07.11 (замер 111 на бою: «кнопка не срабатывает»): сбрасывала только покраску и типы, а юнит оставляла — если менялся
+     только юнит, нажатие ничего не меняло. Теперь и юнит — по умолчанию (тот, что открывается без фильтра юнита) */
   if(t.closest('#btnReset')&&DRAFT){DRAFT.paint='all';DRAFT.itSeg='all';DRAFT.staffType='all';DRAFT.hcType='active';DRAFT.hcSet=[];
-    paintOpts();return}
+    DRAFT.unit=defUnit();UT={q:'',open:{}};$('#utQ').value='';
+    paintOpts();utCenter();return}
   if(t.closest('#btnLink')){
     navigator.clipboard&&navigator.clipboard.writeText(shareLink());
     $('#btnLink').textContent='Ссылка скопирована';

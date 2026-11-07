@@ -366,6 +366,8 @@ function build(data){
     kids(p){const id=idOfPath(p);return (kidsBy[id]||[]).filter(k=>!byId[k].anc).map(k=>pathOf(k)).filter(Boolean)},
     info(p){const u=byId[idOfPath(p)];return u?{name:u.name||'—',lvl:u.lvl,head:u.head||'',hname:u.hname||'',kids:(kidsBy[u.id]||[]).length}:null},
     all(){return Object.keys(byId).filter(id=>!byId[id].anc).map(id=>pathOf(id)).filter(Boolean)},
+    /* путь узла по ключу (07.11: «Сбросить фильтры» возвращает юнит по умолчанию) */
+    path(id){return pathOf(str(id))},
     /* люди узла в последнем месяце при значениях фильтров sel {paint,it,staff,act: значение, набор значений
        (тип численности — поставка 61) или null}; null — нет fd */
     count(p,sel){
