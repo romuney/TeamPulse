@@ -1519,6 +1519,33 @@ def to_chdb(pg, out):
     s.close()
 
 
+def tree_noise(pg):
+    """07.11 (бой, ноябрь: 53 узла с двумя родителями в mapped-цепочках одного дня) — та же порча структуры на стенде,
+    во все дни: перестановка (юнит 11131: 1113 над 111), пропуск уровня (11122: без 111), повтор уровня (11211: 112
+    дважды). Флаги уровней «в / из» пересчитываются, как в источнике (значение уровня сменилось к прошлому / следующему
+    дню; сверено: на нетронутом источнике совпадают во всех строках)."""
+    T = 'usr_cross_data.hr_executive_proteus'
+    k = lambda i: f'lvl{i}_mapped_management_unit_rk'
+    n = lambda i: f'lvl{i}_mapped_management_unit_nm'
+    aff = pg.run(f"SELECT DISTINCT mdm_employee_rk AS e FROM {T} WHERE {k(5)} IN ('11131', '11122', '11211')").e.tolist()
+    pg.run(f"UPDATE {T} SET {k(3)} = {k(4)}, {k(4)} = {k(3)}, {n(3)} = {n(4)}, {n(4)} = {n(3)} WHERE {k(5)} = '11131'")
+    pg.run(f"UPDATE {T} SET {k(3)} = {k(4)}, {n(3)} = {n(4)}, {k(4)} = {k(5)}, {n(4)} = {n(5)}, {k(5)} = NULL, {n(5)} = NULL "
+           f"WHERE {k(5)} = '11122'")
+    pg.run(f"UPDATE {T} SET {k(6)} = {k(5)}, {n(6)} = {n(5)}, {k(5)} = {k(4)}, {n(5)} = {n(4)}, {k(4)} = {k(3)}, {n(4)} = {n(3)} "
+           f"WHERE {k(5)} = '11211'")
+    L = range(1, NL + 1)
+    fl = ', '.join([f'CASE WHEN lag(calendar_dt) OVER w = calendar_dt - 1 AND lag({k(i)}) OVER w IS DISTINCT FROM {k(i)} '
+                    f'THEN 1 ELSE 0 END AS i{i}' for i in L]
+                   + [f'CASE WHEN lead(calendar_dt) OVER w = calendar_dt + 1 AND lead({k(i)}) OVER w IS DISTINCT FROM {k(i)} '
+                      f'THEN 1 ELSE 0 END AS o{i}' for i in L])
+    st = ', '.join([f'lvl{i}_mngt_unit_in_trsf_flg = x.i{i}' for i in L] + [f'lvl{i}_mngt_unit_out_trsf_flg = x.o{i}' for i in L])
+    pg.run(f"UPDATE {T} h SET {st} FROM (SELECT mdm_employee_rk, calendar_dt, {fl} FROM {T} "
+           f"WHERE mdm_employee_rk IN ({', '.join(str(e) for e in aff)}) "
+           f"WINDOW w AS (PARTITION BY mdm_employee_rk ORDER BY calendar_dt)) x "
+           f"WHERE h.mdm_employee_rk = x.mdm_employee_rk AND h.calendar_dt = x.calendar_dt")
+    print(f'  порча структуры: перестановка, пропуск и повтор уровня — людей {len(aff)}')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--pg', default='/tmp/pgt:55432')
@@ -1527,6 +1554,8 @@ def main():
     ap.add_argument('--steps', action='store_true', help='как есть и правки по шагам: сводная таблица')
     ap.add_argument('--hub', help='папка: ноутбук «1. Helicopter — ноут TeamPulse Hub.yaml» целиком, выгрузка — в chdb '
                                   '(<папка>/db): hr_structure_overall и teampulse_hub_*')
+    ap.add_argument('--yaml', help='другой YAML ноутбука для --hub (по умолчанию — из папки поставки)')
+    ap.add_argument('--tree-noise', action='store_true', help='с --hub: порча mapped-цепочек, как на бою 07.11 (tree_noise)')
     ap.add_argument('--ch', help='папка: итоговая таблица каждого прогона — в chdb (<папка>/asis, <папка>/fix) '
                                  'как prod_proteus.hr_structure_overall, для 0д и датасета')
     a = ap.parse_args()
@@ -1541,7 +1570,29 @@ def main():
     for k in list(Ta):
         T[k]['ssch'], T[k]['hire'] = Ta[k]['ssch'], Ta[k]['hire']
     if a.hub:
-        run_yaml(pg, os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', '1. Helicopter — ноут TeamPulse Hub.yaml'), a.hub)
+        if a.tree_noise:
+            tree_noise(pg)
+        pg.run('drop table if exists teampulse_hub_chk')
+        try:
+            run_yaml(pg, a.yaml or os.path.join(HERE, '..', 'Поставка — TeamPulse Hub', '1. Helicopter — ноут TeamPulse Hub.yaml'),
+                     a.hub)
+        finally:
+            # проверки целиком (одна строка SQL — одна транзакция: при FAIL стенд откатывает и таблицу проверок) — ещё раз
+            # без последнего запроса, который падает, чтобы показать все значения
+            if not len(pg.run("select 1 from information_schema.tables where table_name = 'teampulse_hub_chk'")):
+                ys = yaml.safe_load(open(a.yaml or os.path.join(HERE, '..', 'Поставка — TeamPulse Hub',
+                                                                '1. Helicopter — ноут TeamPulse Hub.yaml'), encoding='utf-8'))
+                hc = [p['code'] for p in ys['paragraphs'] if p['title'] == 'hub checks']
+                if hc and len(pg.run("select 1 from information_schema.tables where table_name = 'teampulse_hub_meta'")):
+                    try:
+                        pg.run(hc[0].replace('::int::text', '::text'))
+                    except Exception as e:
+                        print('  hub checks (повтор):', str(e).splitlines()[0])
+            if len(pg.run("select 1 from information_schema.tables where table_name = 'teampulse_hub_chk'")):
+                ck = pg.run("select n, val, case when must = 0 then 'INFO' when abs(coalesce(val, 0)) < 0.5 then 'OK' "
+                            "else 'FAIL' end as r from teampulse_hub_chk order by n")
+                print('  hub checks: ' + ', '.join(f'{r.n}={r.r}' + ('' if r.r == 'OK' else f'({r.val:g})')
+                                                   for r in ck.itertuples()))
         # hr_structure_overall в бою выгружает ноутбук TP 2.0, наш её не трогает (21.10) — стенд выгружает сам:
         # её читает файл 2
         # поставка 66: group_and_sum_metrics / calc_ssch убраны из ноутбука отчёта (Адель) — таблицы может не быть
