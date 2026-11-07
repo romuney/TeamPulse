@@ -244,11 +244,11 @@
 arrayConcat({{ parts|join(', ') }})
 {%- endmacro %}
 {#- Узлы ответа (множество для IN) и месяц строки от начала сетки — через проекцию общего скаляра. -#}
-{% set PK = '(SELECT tupleElement(arrayJoin(pks), 1) FROM cx)' %}
+{% set PK = '(SELECT tupleElement(arrayJoin(cxpk), 1))' %}
 {#- Поставка 64: «напрямую в юните» — узлы ответа с ':d' (переводы людей в самом юните, без подразделений) -#}
-{% set PKD = "(SELECT concat(tupleElement(arrayJoin(pks), 1), ':d') FROM cx)" %}
-{% set IDX = "toInt32(dateDiff('month', (SELECT m0 FROM cx), toDate(assumeNotNull(report_month))))" %}
-{% set GRID = 'report_month BETWEEN (SELECT m0 FROM cx) AND (SELECT lm FROM cx)' %}
+{% set PKD = "(SELECT concat(tupleElement(arrayJoin(cxpk), 1), ':d'))" %}
+{% set IDX = "toInt32(dateDiff('month', cxm0, toDate(assumeNotNull(report_month))))" %}
+{% set GRID = 'report_month BETWEEN cxm0 AND cxlm' %}
 {% set FV = '(SELECT fv FROM fdv)' %}
 {#- Значения фильтров с численностью компании за последний месяц (окно настройки) — одним проходом:
     JSON-объект «разрез → [{v, e}]», значения по убыванию численности. -#}
@@ -258,7 +258,7 @@ arrayConcat({{ parts|join(', ') }})
     SELECT gv.1 AS g, gv.2 AS v, sum(ifNull(hc_cnt, 0)) AS e
     FROM prod_proteus.teampulse_hub_series
     ARRAY JOIN [(1, ifNull(paint_cd, '-')), (2, ifNull(it_cd, '-')), (3, ifNull(staff_cd, '-')), (4, {{ AC }})] AS gv
-    WHERE node_rk = (SELECT r FROM cx) AND report_month = (SELECT lm FROM cx)
+    WHERE node_rk = cxr AND report_month = cxlm
     GROUP BY g, v ORDER BY e DESC, v))
 {%- endset %}
 {#- Запрос начинается с SELECT, цепочка CTE — внутри: так его без правок принимает и SQL Lab. -#}
@@ -303,6 +303,12 @@ WITH
       CROSS JOIN (SELECT has({{ qa(FULL) }}, {{ me() }}) AS fl) AS fa
     )
   ),
+  {#- поставка 113-и (скорость: 8б на бою — почти всё время в разборе и плане запроса): контекст — скаляр ctx и его поля
+      короткими псевдонимами (cxlm … cxan). Ссылка «cxlm» — для нового анализатора отдельная копия cx0 с её
+      лямбдами: 79 копий разбирались 2,3 с (стенд, ClickHouse 24.8), с псевдонимами — 0,6 с; ответ тот же. Имена с cx —
+      не колонки таблиц (prefer_column_name_to_alias) #}
+  (SELECT c0 FROM cx0) AS ctx, ctx.1 AS cxlm, ctx.2 AS cxm0, ctx.3 AS cxn, ctx.4 AS cxr, ctx.5 AS cxd, ctx.6 AS cxdd,
+  ctx.7 AS cxs, ctx.8 AS cxpk, ctx.9 AS cxzr, ctx.10 AS cxok, ctx.11 AS cxfl, ctx.12 AS cxan,
   {#- поставка 90: cm — последний закрытый месяц, как cm ноутбука (teampulse_hub_cal): последний месяц, если дата данных —
       его последний день или он январь, иначе месяц перед ним; даты данных нет (старая таблица) — вчера, но не позже конца
       месяца. «С начала года» — январь..cm #}
@@ -310,7 +316,7 @@ WITH
     SELECT c.1 AS lm, c.2 AS m0, c.3 AS n, c.4 AS r, c.5 AS d, c.6 AS dd, c.7 AS s, c.8 AS pks, c.9 AS zr, c.10 AS ok, c.11 AS fl, c.12 AS an,
            if(toMonth(c.1) = 1 OR ifNull(toDateOrNull(substring(c.6, 1, 10)), least(today() - 1, addDays(addMonths(c.1, 1), -1)))
                                   >= addDays(addMonths(c.1, 1), -1), c.1, addMonths(c.1, -1)) AS cm
-    FROM (SELECT (SELECT c0 FROM cx0) AS c)
+    FROM (SELECT ctx AS c)
   ),
   {#- head_login и head_nm (поставка 66) — матчером: таблица без колонки даёт пустой логин и имя #}
   {#- поставка 113 (владелец 07.11: «медиана должна работать как база — фильтруем, и она пересчитывается»): распределение
@@ -360,7 +366,7 @@ WITH
     SELECT ifNull(node_rk, '') AS u7, ifNull(paint_cd, '-') AS v7a, ifNull(it_cd, '-') AS v7b,
            ifNull(staff_cd, '-') AS v7c, {{ AC }} AS v7d, sum(toFloat64(ifNull(hc_cnt, 0))) AS n7
     FROM prod_proteus.teampulse_hub_series
-    WHERE report_month = (SELECT lm FROM cx)
+    WHERE report_month = cxlm
     GROUP BY u7, v7a, v7b, v7c, v7d
     HAVING n7 > 0
   ),
@@ -381,12 +387,12 @@ WITH
   {#- Поставка 109 (скорость разбора в Proteus): JSON строки meta — здесь, а не в последнем SELECT. reindent sqlparse для
       каждой скобки заново проходит текст от начала запроса: скобки в конце текста — самые дорогие #}
   mj AS (
-    SELECT concat('{"lm":"', toString((SELECT lm FROM cx)), '","m0":"', toString((SELECT m0 FROM cx)),
-             '","n":', toString((SELECT n FROM cx)), ',"today":"', toString(today()),
-             '","root":"', (SELECT r FROM cx), '","scope":"', (SELECT s FROM cx),
-             '","def":"', (SELECT d FROM cx), '","ok":', toString(toUInt8((SELECT ok FROM cx))),
-             ',"full":', toString(toUInt8((SELECT fl FROM cx))), ',"zone":', toJSONString((SELECT zr FROM cx)),
-             ',"dt":"', (SELECT dd FROM cx), '","schema":"hub-2","enc":"a1","cuts":["paint","it","staff"', if(has(tupleElement({{ FV }}, 4), '∅'), '', ',"act"'), ']',
+    SELECT concat('{"lm":"', toString(cxlm), '","m0":"', toString(cxm0),
+             '","n":', toString(cxn), ',"today":"', toString(today()),
+             '","root":"', cxr, '","scope":"', cxs,
+             '","def":"', cxd, '","ok":', toString(toUInt8(cxok)),
+             ',"full":', toString(toUInt8(cxfl)), ',"zone":', toJSONString(cxzr),
+             ',"dt":"', cxdd, '","schema":"hub-2","enc":"a1","cuts":["paint","it","staff"', if(has(tupleElement({{ FV }}, 4), '∅'), '', ',"act"'), ']',
              ',"mk":"{% for m in M %}{{ m[0] }}{% if not loop.last %},{% endif %}{% endfor %}"',
              ',"req":', toJSONString({{ qa(unit_req) }}),
              ',"paint":', toJSONString({{ qa(F['paint']) }}),
@@ -448,8 +454,7 @@ WITH
       WHERE node_rk IN {{ PK }} AND {{ GRID }} AND {{ cond() }} AND ifNull(sp_cd, '-') = '-'
       GROUP BY u2, i2
       UNION ALL
-      SELECT tupleElement(arrayJoin(pks), 1) AS u2, toInt32(arrayJoin(range(n))) AS i2, arrayWithConstant({{ M|length }}, toFloat64(0)) AS a2
-      FROM cx
+      SELECT tupleElement(arrayJoin(cxpk), 1) AS u2, toInt32(arrayJoin(range(cxn))) AS i2, arrayWithConstant({{ M|length }}, toFloat64(0)) AS a2
     )
     GROUP BY u2, i2
   ),
@@ -460,7 +465,7 @@ WITH
            arraySum(x -> x[{{ MI.hc }}] + x[{{ MI.hire }}] + x[{{ MI.fire }}] + x[{{ MI.tin }}] + x[{{ MI.tout }}], gr) AS lv5
     FROM (
       SELECT u2 AS rk, arraySlice(arrayMap(x -> x.2, arraySort(groupArray((i2, s2)))), 1, any(nn)) AS gr
-      FROM (SELECT u2, i2, s2, (SELECT n FROM cx) AS nn FROM mm)
+      FROM (SELECT u2, i2, s2, cxn AS nn FROM mm)
       GROUP BY u2
     )
   ),
@@ -471,11 +476,10 @@ WITH
     (
       SELECT {{ IDX }} AS i6, {{ vec('s', ['hc', 'act', 'avg', 'hire', 'fire', 'reg', 'nreg']) }} AS a6
       FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk = (SELECT s FROM cx) AND {{ GRID }} AND {{ cond_hq() }}
+      WHERE node_rk = cxs AND {{ GRID }} AND {{ cond_hq() }}
       GROUP BY i6
       UNION ALL
-      SELECT toInt32(arrayJoin(range(n))) AS i6, arrayWithConstant({{ M|length }}, toFloat64(0)) AS a6
-      FROM cx
+      SELECT toInt32(arrayJoin(range(cxn))) AS i6, arrayWithConstant({{ M|length }}, toFloat64(0)) AS a6
     )
     GROUP BY i6
   ),
@@ -483,7 +487,7 @@ WITH
     SELECT arrayMap(k -> arrayMap(g -> g[k], gh), range(1, {{ M|length + 1 }})) AS th
     FROM (
       SELECT arraySlice(arrayMap(x -> x.2, arraySort(groupArray((i6, s6)))), 1, any(nh)) AS gh
-      FROM (SELECT i6, s6, (SELECT n FROM cx) AS nh FROM mh)
+      FROM (SELECT i6, s6, cxn AS nh FROM mh)
     )
   ),
   {#- Поставка 103: профили численности последнего месяца (teampulse_hub_prof) — точные пересечения разрезов. Строка
@@ -494,8 +498,8 @@ WITH
   pfr AS (
     SELECT u.mp AS u3, 'pf' AS k3, ifNull(p.pf, '') AS v3, sum(toFloat64(ifNull(p.cnt, 0))) AS n4
     FROM prod_proteus.teampulse_hub_prof AS p
-    INNER JOIN (SELECT id, arrayLast(x -> has((SELECT arrayMap(y -> y.1, pks) FROM cx), x), ph) AS mp
-                FROM st2 WHERE has(ph, (SELECT s FROM cx))) AS u ON u.id = ifNull(p.node_rk, '')
+    INNER JOIN (SELECT id, arrayLast(x -> has(arrayMap(y -> y.1, cxpk), x), ph) AS mp
+                FROM st2 WHERE has(ph, cxs)) AS u ON u.id = ifNull(p.node_rk, '')
     WHERE {{ cond() }} AND u.mp != ''
     GROUP BY u3, v3
     HAVING n4 > 0
@@ -518,7 +522,7 @@ WITH
             таблицы подразделений фильтрует все блоки вкладки «Рост HQ». Поставка 100 (ревью): так же уходы по инициатору (xim),
             движение по специализациям (tsh tsi tso sp0 sp1); только у юнита — календарь (dw do) и возраст по разрезам (es en:
             ~2,5 КБ на узел; у подразделения средний возраст точный по e, срезы — оценкой от юнита) #}
-        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = (SELECT s FROM cx))
+        AND (ifNull(mx_key, '') NOT IN ('dw', 'do', 'es', 'en') OR node_rk = cxs)
         {#- поставка 109 (скорость): помесячные уходы по специализации xsm заменены замкнутым водопадом fsm (поставка 105) —
             в ответ не идут #}
         AND ifNull(mx_key, '') != 'xsm'
@@ -531,13 +535,13 @@ WITH
       SELECT u5 AS u3, kv.1 AS k3, kv.2 AS v3, sum(kv.3) AS n4
       FROM
       (
-        SELECT ifNull(node_rk, '') AS u5, if(report_month = (SELECT lm FROM cx), toFloat64(ifNull(vac_open_cnt, 0)), 0) AS vo,
+        SELECT ifNull(node_rk, '') AS u5, if(report_month = cxlm, toFloat64(ifNull(vac_open_cnt, 0)), 0) AS vo,
                toFloat64(ifNull(vac_close_cnt, 0)) AS vc,
                arrayFilter(x -> x.3 > 0, [('vs', ifNull(status, ''), if(ifNull(status, '') != '', vo, 0)), ('vr', ifNull(search_reason, ''), vo),
                  ('vp', ifNull(specialization, ''), vo), ('vl', ifNull(position_lvl, ''), vo), ('vk', ifNull(channel, ''), vc),
                  ('vq', ifNull(cand_lvl, ''), vc)]) AS kvs
         FROM prod_proteus.teampulse_hub_vacancy
-        WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear((SELECT lm FROM cx))
+        WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm)
       )
       ARRAY JOIN kvs AS kv
       GROUP BY u3, k3, v3
@@ -550,7 +554,7 @@ WITH
         SELECT node_rk, {{ SPC }} AS spx, {{ HI }} AS th, {{ SI }} AS ti, {{ SU }} AS tu,
                {{ CI }} AS ci, {{ CO }} AS co
         FROM prod_proteus.teampulse_hub_trf
-        WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear((SELECT lm FROM cx)) AND {{ cond() }}
+        WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }}
       )
       {#- поставка 101: здесь же шла помесячная детализация tsm («вид|специализация|ГГГГ-ММ»); поставка 109 (скорость) — снята:
           её заменил замкнутый водопад fsm (поставка 105), чарт tsm не читает #}
@@ -578,13 +582,13 @@ WITH
       (
         {#- поставка 109 (скорость разбора): числа без ifNull — NULL в сумме не считается, как и 0 #}
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               toFloat64(beg_cnt) * (report_month = toStartOfYear((SELECT lm FROM cx))) AS vb,
+               toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)) AS vb,
                toFloat64(hire_cnt) AS vh,
                toFloat64(fire_cnt) AS vf, toFloat64(tin_cnt) * toFloat64({{ FLWS }}) AS vi,
                toFloat64(tout_cnt) * toFloat64({{ FLWS }}) AS vo,
-               toFloat64(fin_cnt) * (report_month = (SELECT lm FROM cx)) AS ve
+               toFloat64(fin_cnt) * (report_month = cxlm) AS ve
         FROM prod_proteus.teampulse_hub_flow
-        WHERE node_rk IN {{ PK }} AND {{ GRID }} AND report_month >= toStartOfYear((SELECT lm FROM cx))
+        WHERE node_rk IN {{ PK }} AND {{ GRID }} AND report_month >= toStartOfYear(cxlm)
           AND {{ cond() }} AND ifNull(sp_cd, '-') <> '-'
       )
       ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], [vb, vh, vf, vi, vo, ve]) AS kv
@@ -616,7 +620,7 @@ WITH
           сочетания разрезов aip (кросс-фильтр «Кто пользуется») — только у выбранного юнита: у всех узлов ответ вырос бы #}
       SELECT ifNull(node_rk, '') AS u3, ifNull(k, '') AS k3, ifNull(v, '') AS v3, toFloat64(ifNull(n, 0)) AS n4
       FROM prod_proteus.teampulse_hub_aix
-      WHERE node_rk IN {{ PK }} AND ifNull(n, 0) > 0 AND (ifNull(k, '') != 'aip' OR node_rk = (SELECT s FROM cx))
+      WHERE node_rk IN {{ PK }} AND ifNull(n, 0) > 0 AND (ifNull(k, '') != 'aip' OR node_rk = cxs)
       UNION ALL
       {#- поставка 103 (файл 9, п. 4): срок закрытия — медиана по вакансиям. vt — распределение сроков закрытых вакансий
           «ГГГГ-ММ|дней» → вакансий за всю сетку, у каждого узла ответа (ttf_d — срок вакансии без холда, ноутбук 2_11;
@@ -637,7 +641,7 @@ WITH
       {#- поставка 103: профили (pf) и их словарь (pfd «разрез¦значение» → номер + 1) — у корня (строка base) #}
       SELECT u3, k3, v3, n4 FROM pfr WHERE (SELECT count() FROM pfr) <= {{ PF_MAX }}
       UNION ALL
-      SELECT (SELECT r FROM cx) AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
+      SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND {{ PF_MAX }}
     )
@@ -661,7 +665,7 @@ FROM
          s.id AS id, s.pid AS pid, s.lv AS lvl, s.nm0 AS nm_, s.kd AS kids, '' AS j_,
          arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(x, 1)), r1), ','), a.tr), ';') AS ms,
          ifNull(x.mxs, '') AS mx_
-  FROM (SELECT tupleElement(pe, 1) AS pn, tupleElement(pe, 2) AS po FROM (SELECT arrayJoin(pks) AS pe FROM cx)) AS p
+  FROM (SELECT tupleElement(pe, 1) AS pn, tupleElement(pe, 2) AS po FROM (SELECT arrayJoin(cxpk) AS pe)) AS p
   INNER JOIN st2 AS s ON s.id = p.pn
   INNER JOIN arr AS a ON a.rk = p.pn
   LEFT JOIN mxr AS x ON x.mu = p.pn
@@ -670,11 +674,11 @@ FROM
   UNION ALL
 
   {#- поставка 65: светофор HQ — выбранный юнит под «HQ + Активная» #}
-  SELECT toUInt8(4) AS o, 'hq' AS role, (SELECT s FROM cx) AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids, '' AS j_,
+  SELECT toUInt8(4) AS o, 'hq' AS role, cxs AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids, '' AS j_,
          arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(x, 1)), r1), ','), h.th), ';') AS ms,
          '' AS mx_
   FROM arh AS h
-  WHERE (SELECT ok FROM cx)
+  WHERE cxok
 
   UNION ALL
 
@@ -684,16 +688,16 @@ FROM
                                              toString(t.kd), '\t', t.nm0, '\t', if(t.iz, t.hd, ''), '\t', if(t.iz, ifNull(f.fds, ''), ''),
                                              '\t', if(t.iz, t.hn, ''), '\t', if(t.iz, '', 'a')))), '\n') AS j_,
          '' AS ms, '' AS mx_
-  FROM (SELECT *, hasAny(ph, (SELECT zr FROM cx)) AS iz FROM st2) AS t
+  FROM (SELECT *, hasAny(ph, cxzr) AS iz FROM st2) AS t
   LEFT JOIN fdr AS f ON f.fr = t.id
-  WHERE (SELECT ok FROM cx) AND (t.iz OR has((SELECT an FROM cx), t.id))
+  WHERE cxok AND (t.iz OR has(cxan, t.id))
 
   UNION ALL
 
   {#- поставка 113: распределение метрик по подразделениям того же размера под фильтрами (CTE peer) #}
   SELECT toUInt8(8) AS o, 'peer' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
          (SELECT pj FROM peer) AS j_, '' AS ms, '' AS mx_
-  WHERE (SELECT ok FROM cx)
+  WHERE cxok
 
   UNION ALL
 
