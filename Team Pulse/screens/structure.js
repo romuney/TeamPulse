@@ -61,7 +61,7 @@ function dimTable(dim,lp,sel,mixSel,o){
        колонки его повторять незачем: «Грейд» и сразу под ним «ГРЕЙД» это одно
        и то же, написанное дважды. Подписаны колонки, у которых имя добавляет
        смысл: что за число и в чём оно. */
-    head:'',valueHead:'Чел.',barHead:'',heads:true,metricKey:'hc_total',compact:true,sort:!!(o.sort||dim.sort),
+    head:'',valueHead:'Чел',barHead:'',heads:true,metricKey:'hc_total',compact:true,sort:!!(o.sort||dim.sort),
     /* длинный список (компании на верхних уровнях — десятки, 16.10): первые o.top и «Остальные» */
     top:o.top||0,restWord:o.word,restKey:o.restKey,restOpen:o.restOpen,
     items:dim.cats.map((c,i)=>({name:c.name,value:parts[i],color:D.dimColor(dim.key),
@@ -97,7 +97,7 @@ function treeTable(dim,lp,sel,mixSel,open){
   const allOpen=tree.length>0&&tree.filter(n=>n.value>0).every(n=>open.has(n.cat.id));
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:sliceSub(others,tree.reduce((a,n)=>a+n.value,0)),lite:true,
-    head:'',valueHead:'Чел.',barHead:'',heads:true,metricKey:'hc_total',compact:true,tree:true,items:items,
+    head:'',valueHead:'Чел',barHead:'',heads:true,metricKey:'hc_total',compact:true,tree:true,items:items,
     expTip:'Специализации внутри стрима.',expAll:{key:dim.key,open:allOpen}});
 }
 

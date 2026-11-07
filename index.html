@@ -2546,6 +2546,42 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ptable.btable.bt-cnt{table-layout:fixed;width:100%}
 .ptable.btable.bt-cnt thead th{white-space:normal;line-height:1.2;vertical-align:bottom}
 
+/* ==========================================================================
+   Поставка 116 (владелец 07.11): «ИТОГО занимает кучу места — больше заголовка таблицы»; «заголовки разбивок не выглядят
+   как заголовки, а просто текст». Заголовок разбивки — как заголовок графика (13/700, тёмный), уточнение — серым рядом,
+   итог — справа в той же строке («Всего 61 чел»). Строка «Итого» там, где она осталась (таблица подразделений, матрицы,
+   месяцы движения), — той же высоты, что строки данных, обычным начертанием на светлом фоне: она не спорит с заголовком.
+   ========================================================================== */
+.bt-cap{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;font-size:13px;font-weight:var(--fw-bold);color:var(--ink);
+  margin:0 0 8px;line-height:1.3}
+.bt-cap .bt-t{font-weight:var(--fw-bold);color:var(--ink)}
+.bt-cap .bt-sub{font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);margin-left:0}
+.bt-cap .bt-tot{margin-left:auto;font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);white-space:nowrap}
+.bt-cap .bt-tot b{color:var(--ink);font-weight:var(--fw-bold)}
+.bt-cap .bt-all+.bt-tot{margin-left:14px}
+.bt-cap .bt-all{font-weight:var(--fw-body)}
+/* подпись btGroup: слева — текст (название + уточнение, переносится внутри), справа — «раскрыть всё» и итог, не переносятся */
+.bt-cap.bt-c{flex-wrap:nowrap}
+.bt-cap.bt-c .bt-h{flex:1 1 auto;min-width:0}
+/* название не переносится; уточнение — после <wbr>: в строке отступ даёт поле названия, перенесённое — без отступа */
+.bt-cap.bt-c .bt-t{white-space:nowrap;margin-right:8px}
+.bt-cap.bt-c .bt-h .bt-sub{margin-left:0}
+.bt-cap.bt-c .bt-sub .nw{white-space:nowrap}
+.bt-cap.bt-c .bt-h .info{margin:0 8px 0 -3px;vertical-align:1px}
+.bt-cap.bt-c .bt-all,.bt-cap.bt-c .bt-tot{flex:none}
+.bt-cap.bt-c .bt-all{margin-left:12px}
+/* между разбивками — один интервал стопки (28px): жирный заголовок сам отделяет разбивку, добавка сверху не нужна */
+.bt-stack>.bt-group+.bt-group{padding-top:4px}
+/* класс строки «top» (закреплённый итог) совпадает с классом шапки страницы у хоста (.top{height:44px}) —
+   строка росла до 44px; высоту строки задаём сами */
+#view .ptable>tbody>tr.top{height:auto}
+#view .ptable>tbody>tr.total>td{height:var(--row-h);font-weight:var(--fw-body);background:#f8f9fb}
+#view .ptable>tbody>tr.total>td.txt,#view .ptable>tbody>tr.total>td:first-child{font-weight:var(--fw-body);color:var(--ink2)}
+#view .ptable>tbody>tr.total .row-body{font-weight:var(--fw-body);color:var(--ink2);text-transform:none}
+#view .ptable>tbody>tr.total .caret-btn{height:20px;min-height:20px}
+.split-l .ptable.dense tr.total.top td{box-shadow:inset 0 -1px 0 var(--line)}
+.ptable tr.total.top td{border-bottom-width:1px}
+
 </style>
 </head>
 <body>
@@ -7767,7 +7803,7 @@ function unitHide(){
 function unitRail(n){
   return '<button class="split-rail" data-splitmode="both" aria-label="Показать таблицу подразделений"'+
     tipAttr({title:'Подразделения',text:n?'Таблица подразделений: клик по строке — графики этого подразделения.'
-      :'Подразделений уровнем ниже нет — в таблице только ИТОГО.'})+
+      :'Подразделений уровнем ниже нет — в таблице только итог.'})+
     '><span class="sr-ch" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="sr-t">Подразделения'+(n?' · '+n:'')+'</span></button>';
 }
 /* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
@@ -8021,9 +8057,13 @@ function barTable(o){
      понятны сами («53 · 28%»), а итог уже стоит в карточке над таблицей;
      строки ниже, цифры без жирного. «Одно и то же десять раз» — фидбэк. */
   const lite=!!o.lite;
+  /* поставка 116: в плотной таблице название шире (46%) — «По инициативе работодателя» не обрезается; с колонкой людей:
+     длинный заголовок («С AI, чел») — 16%, название 40%; короткий («Чел») — 13% (пятизначное число на бою), название 45%;
+     доля — 15% («Доля, %» в строку); «Распределение» — в строку */
+  const cw=cnt&&cnt.length>4?16:13;
   let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+(cnt?' bt-cnt':'')+'">'+
-    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?'46%':'40%'):'34%')+'"><col style="width:'+(lite?'9%':cnt?'17%':'14%')+'">'+
-    (cnt?'<col style="width:13%">':'')+(withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
+    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?(cw>13?'40%':'45%'):'46%'):'34%')+'"><col style="width:'+(lite?'9%':cnt?'15%':'14%')+'">'+
+    (cnt?'<col style="width:'+cw+'%">':'')+(withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
     (lite&&!o.heads?'':'<thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
     '<th>'+esc(o.valueHead||'Значение')+'</th>'+(cnt?'<th>'+esc(cnt)+'</th>':'')+(withShare?'<th>Доля</th>':'')+
     '<th class="txt bar-th">'+esc(o.barHead||'Распределение')+'</th></tr></thead>')+'<tbody>';
@@ -8032,7 +8072,9 @@ function barTable(o){
      Пока итог стоял снизу в одной таблице и сверху в другой, пользователю
      приходилось искать его заново на каждом экране. Все таблицы отчёта
      считываются одинаково: сначала итог, потом из чего он сложился. */
-  if(o.total!==false&&!lite){
+  /* поставка 116 (владелец 07.11: «ИТОГО занимает кучу места — больше заголовка таблицы»): строки ИТОГО в разбивках нет —
+     итог стоит в подписи таблицы справа («Всего 61 чел», btGroup), общая каретка — там же. Строку можно вернуть o.totalRow */
+  if(o.totalRow===true&&!lite){
     const allBtn=o.expAll
       ? allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
           'Все вторые уровни разом.')
@@ -8097,14 +8139,23 @@ function barTable(o){
    тот же, что у метрик: у разрезов бывает что пояснить (грейд ≠ сеньорность),
    и объяснение должно жить там же, где название. */
 function btGroup(o){
-  return '<div class="bt-group"><div class="bt-cap">'+esc(o.cap)+
+  /* поставка 116: итог разбивки — в подписи справа («Всего 61 чел»), а не строкой ИТОГО: сумма верхнего уровня (дети уже
+     в родителе), единица — у метрик в людях «чел»; у процентов (total:false) итога нет */
+  const key=o.metricKey||'hc_total', m=D.METRIC_BY_KEY[key];
+  const top=(o.items||[]).filter(x=>x.depth!==2), sum=top.reduce((a,x)=>a+(+x.value||0),0);
+  const tot=o.total!==false&&!o.lite&&top.length?'<span class="bt-tot">Всего <b>'+D.fmtVal(key,sum)+'</b>'+
+    (m&&m.unit==='чел'?' чел':'')+'</span>':'';
+  /* название, подсказка и уточнение — одним текстом (.bt-h): длинное уточнение переносится под название, а «раскрыть всё»
+     и итог остаются справа в первой строке */
+  return '<div class="bt-group"><div class="bt-cap bt-c"><span class="bt-h"><span class="bt-t">'+esc(o.cap)+'</span>'+
     (o.tip?'<span class="info"'+tipAttr(o.tip)+' aria-label="О разрезе">i</span>':'')+
     /* Уточнение среза стоит В ПОДПИСИ таблицы, а не только в общей плашке:
-       иначе «ИТОГО 59» под заголовком «Грейд» читается как ошибка данных. */
-    (o.capSub?'<span class="bt-sub">'+esc(o.capSub)+'</span>':'')+
-    /* без строки ИТОГО общая каретка двухуровневой разбивки — в подписи */
-    (o.lite&&o.expAll?'<span class="bt-all">'+allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
-      'Все вторые уровни разом.')+(o.expAll.open?'свернуть всё':'раскрыть всё')+'</span>':'')+
+       иначе итог под заголовком «Грейд» читается как ошибка данных. */
+    /* части уточнения не рвутся внутри («с 1 января по 12 октября», «неделя 05.10–11.10») — перенос только между ними */
+    (o.capSub?'<wbr><span class="bt-sub">'+String(o.capSub).split(' · ').map(x=>'<span class="nw">'+esc(x)+'</span>').join(' · ')+'</span>':'')+'</span>'+
+    /* общая каретка двухуровневой разбивки — в подписи; итог — последним, у правого края, как у соседних таблиц */
+    (o.expAll?'<span class="bt-all">'+allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
+      'Все вторые уровни разом.')+(o.expAll.open?'свернуть всё':'раскрыть всё')+'</span>':'')+tot+
     '</div>'+barTable(o)+'</div>';
 }
 function btStack(list,cls){return '<div class="bt-stack'+(cls?' '+cls:'')+'">'+list.join('')+'</div>'}
@@ -9940,21 +9991,27 @@ CH.ai={
       lede:'За неделю '+cw.full.replace(/^Неделя /,'')+' — **'+D.fmtInt(cw.wau)+'** активных пользователей из **'+D.fmtInt(cw.hc)+
         '** без стажёров.'+(w0!==cw?' В начале окна, '+w0.full.replace(/^Неделя /,'')+', — **'+D.fmtInt(w0.wau)+'**'+(sm?'':' (**'+P(w0.pen)+'**)')+'.':'')};
   },
-  /* поставка 112: «Кто пользуется» — какая группа отстаёт или опережает: доля с AI сегмента против общей (без стажёров), группа от
+  /* поставка 112: «Кто пользуется» — какая группа отстаёт или опережает: доля с AI группы против общей, группа от
      10 человек и разница от 10 п.п.; меньше 30 человек в отчёте — в людях, без сравнения групп */
+  /* поставка 116: числа — те же, что в таблицах шага: вся численность (сотрудники и стажёры) и разбивки из сочетаний
+     (D.aiCross без выбора). Без сочетаний (ноутбук до 113-б) — разрезы ноутбука без стажёров, так и сказано */
   who(c){
-    const u=D.aiUsage(c.lp), it=u.intern||{hc:0,act:0}, segs=u.segs||[];
-    const emp=segs.length?segs[0].rows.reduce((a,x)=>({hc:a.hc+x.hc,act:a.act+x.act}),{hc:0,act:0}):null;
+    const u=D.aiUsage(c.lp), it=u.intern||{hc:0,act:0}, x0=D.aiCross(c.lp,[]);
+    const segs=x0?x0.dims.filter(d=>d.key!=='it'):(u.segs||[]);
+    const emp=x0?{hc:x0.hc,act:x0.act}:segs.length?segs[0].rows.reduce((a,x)=>({hc:a.hc+x.hc,act:a.act+x.act}),{hc:0,act:0}):null;
     if(!emp||!emp.hc)return {sum:'нет данных',st:'n',head:'Данных по группам нет',lede:''};
-    const P=v=>String(Math.round(v*10)/10).replace('.',',')+'%', pen=emp.act*100/emp.hc;
+    /* проценты — тем же форматом, что в таблицах шага («53,0%») */
+    const P=v=>f('ai_penetration',v), pen=emp.act*100/emp.hc;
     const itl=it.hc?' Стажёров **'+D.fmtInt(it.hc)+'**, с AI — **'+D.fmtInt(it.act)+'**.':'';
     if(emp.hc<D.SMALL_N)return {sum:D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc),st:'n',
       head:'AI пользуются '+D.fmtInt(emp.act)+' из '+pl(emp.hc,PPL),
-      lede:'Без стажёров. В команде меньше '+D.SMALL_N+' человек — группы между собой не сравниваем: ниже видно, кто именно.'+itl};
+      lede:(x0?'Вся численность, со стажёрами.':'Без стажёров.')+' В команде меньше '+D.SMALL_N+
+        ' человек — группы между собой не сравниваем: ниже видно, кто именно.'+itl};
     const cand=[];
     /* имя группы с разрезом: «грейд 15», «стаж до 1 года», остальные — как есть */
     const lbl=(k,n)=>k==='g'?'грейд «'+n+'»':k==='t'?'стаж «'+n+'»':'«'+n+'»';
-    segs.forEach(sg=>sg.rows.forEach(x=>{if(x.hc>=10&&!/^Не указано$/.test(x.name)&&Math.abs(x.pen-pen)>=10)cand.push(Object.assign({lb:lbl(sg.key,x.name)},x))}));
+    /* специализаций в таблице — первые 10 по людям: группу, которой не видно, не называем */
+    segs.forEach(sg=>(sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows).forEach(x=>{if(x.hc>=10&&!/^Не указано$/.test(x.name)&&Math.abs(x.pen-pen)>=10)cand.push(Object.assign({lb:lbl(sg.key,x.name)},x))}));
     const lag=cand.filter(x=>x.pen<pen).sort((a,b)=>(a.pen-pen)*Math.sqrt(a.hc)-(b.pen-pen)*Math.sqrt(b.hc))[0],
       lead=cand.filter(x=>x.pen>pen).sort((a,b)=>(b.pen-pen)*Math.sqrt(b.hc)-(a.pen-pen)*Math.sqrt(a.hc))[0];
     const say=x=>x.lb+' — **'+P(x.pen)+'** ('+D.fmtInt(x.act)+' из '+D.fmtInt(x.hc)+')';
@@ -9962,7 +10019,7 @@ CH.ai={
       head:lag?'Реже всего AI пользуются '+lag.lb+': '+P(lag.pen)+' при '+P(pen)+' в целом'
         :lead?'Чаще всего AI пользуются '+lead.lb+': '+P(lead.pen)+' при '+P(pen)+' в целом'
         :'Во всех заметных группах AI пользуются примерно одинаково — около '+P(pen),
-      lede:'В целом без стажёров — **'+P(pen)+'** ('+D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc)+').'+
+      lede:(x0?'Вся численность — **':'В целом без стажёров — **')+P(pen)+'** ('+D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc)+').'+
         (lead?' Чаще всего — '+say(lead)+'.':'')+(lag?' Реже всего — '+say(lag)+'.':'')+itl};
   },
   usage(c){
@@ -10204,7 +10261,7 @@ const WHY={
   ai:{
     adoption:['{{Проникновение AI|Проникновение}} — какая доля людей пользуется AI каждую неделю, {{WAU}} — сколько это человек.',
       'Отстающие подразделения — кандидаты на обучение и пилоты.'],
-    who:['Кто пользуется AI: стажёры — отдельной полосой сверху; ниже доля с AI по группам всех людей. Клик по строке — остальные таблицы только по этой группе.',
+    who:['Кто пользуется AI: сверху — доля с AI у всей численности и отдельно у стажёров; ниже — по группам. Клик по строке — остальные таблицы только по этой группе.',
       'Группа заметно отстаёт — спросите, что мешает: доступ, задачи, обучение. Стажёры отстают — добавьте AI в онбординг.'],
     usage:['Как часто и чем пользуются AI: дни в неделю, инструментов на человека, топ инструментов и инструменты по покраске.',
       'Пользуются редко — покажите команде задачи, где AI экономит время.'],
@@ -10748,7 +10805,7 @@ function renderBlock(S,expanded,mixOpen,view){
           text:'Все три уровня подразделений разом.'})+'>'+
         (allOpen?'▾':'▸')+'</button>'
       : '<span class="caret-spacer"></span>')+
-    '<span class="row-body">ИТОГО</span></span></td>'+totalCells+
+    '<span class="row-body">Итого</span></span></td>'+totalCells+
     '</tr>';
   rows.forEach(r=>{
     const lp=rowLeaves(r.n.path,S);
@@ -10783,7 +10840,7 @@ function renderBlock(S,expanded,mixOpen,view){
   const ncol=1+(tcols?tcols.length:mets.length);
   if(!rows.length)tbl+='<tr class="tree-empty"><td class="txt" colspan="'+ncol+'">'+
     (tq?'В трёх уровнях вниз нет «'+esc(tq)+'». Другое подразделение компании выберите в «Настрой свой дашборд».'
-      :'У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры в строке ИТОГО.')+'</td></tr>';
+      :'У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры в строке «Итого».')+'</td></tr>';
   if(anySm)tbl+='<tr class="tree-note"><td class="txt" colspan="'+ncol+'">Серым — доли подразделений меньше '+SMALL+
     ' человек: они неустойчивые.</td></tr>';
   tbl+='</tbody></table>';
@@ -10894,7 +10951,7 @@ function dimTable(dim,lp,sel,mixSel,o){
        колонки его повторять незачем: «Грейд» и сразу под ним «ГРЕЙД» это одно
        и то же, написанное дважды. Подписаны колонки, у которых имя добавляет
        смысл: что за число и в чём оно. */
-    head:'',valueHead:'Чел.',barHead:'',heads:true,metricKey:'hc_total',compact:true,sort:!!(o.sort||dim.sort),
+    head:'',valueHead:'Чел',barHead:'',heads:true,metricKey:'hc_total',compact:true,sort:!!(o.sort||dim.sort),
     /* длинный список (компании на верхних уровнях — десятки, 16.10): первые o.top и «Остальные» */
     top:o.top||0,restWord:o.word,restKey:o.restKey,restOpen:o.restOpen,
     items:dim.cats.map((c,i)=>({name:c.name,value:parts[i],color:D.dimColor(dim.key),
@@ -10930,7 +10987,7 @@ function treeTable(dim,lp,sel,mixSel,open){
   const allOpen=tree.length>0&&tree.filter(n=>n.value>0).every(n=>open.has(n.cat.id));
   return U.btGroup({cap:dim.name,tip:dim.hint?{title:dim.name,text:dim.hint}:null,
     capSub:sliceSub(others,tree.reduce((a,n)=>a+n.value,0)),lite:true,
-    head:'',valueHead:'Чел.',barHead:'',heads:true,metricKey:'hc_total',compact:true,tree:true,items:items,
+    head:'',valueHead:'Чел',barHead:'',heads:true,metricKey:'hc_total',compact:true,tree:true,items:items,
     expTip:'Специализации внутри стрима.',expAll:{key:dim.key,open:allOpen}});
 }
 
@@ -11203,7 +11260,7 @@ function specMove(lp,ctx){
     hire:S(a,'hire'),tin:S(a,'tin'),exit:S(a,'exit'),tout:S(a,'tout'),chg:S(a,'chg'),hc1:S(a,'hc1'),net:S(a,'net')});
   if(rest.length)top.push(agg(rest,{name:'Остальные',note:rest.length+' '+U.plural(rest.length,['специализация','специализации','специализаций']),
     exp:1}));
-  const tot=agg(rs,{name:'ИТОГО',total:1});
+  const tot=agg(rs,{name:'Итого',total:1});
   if(open)rest.forEach(z=>top.push(Object.assign({sub:1},z)));
   const tree=rest.length>0, esc=U.esc;
   const lbl=z=>!tree?'':z.exp?'<button class="caret-btn"'+(open?' data-open="1"':'')+' data-btexp="'+K+'" aria-label="'+
@@ -11231,7 +11288,7 @@ function specMove(lp,ctx){
       (D.SPM_FSM?'Каждая строка сходится: на начало + найм + переводы в − отток − переводы из = на конец. Перевод — любое '+
         'изменение: другое подразделение, другая специализация или тип численности.':D.SPM_CHG?'Переводы — только смена юнита на уровне выбранного подразделения: перемещение между его подразделениями переводом не считается. '+
         'Внутри юнита — смена специализации или среза без перевода (+ пришли в специализацию, − ушли): строки сходятся.'
-        :'ИТОГО — как в карточках движения. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.')+
+        :'Итого — как в карточках движения. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.')+
       (trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
 }
 
@@ -11243,7 +11300,7 @@ function specDetail(lp,z,cols){
   if(!ms)return '<div class="tbl-note">Помесячная детализация появится, когда ноутбук и датасет отчёта обновят до поставки 101.</div>';
   const C=cols.filter(c=>c[0]!=='hc0'&&c[0]!=='hc1').concat([['net','Итого']]);
   ms.forEach(o=>{o.net=o.hire+o.tin-o.exit-o.tout+(D.SPM_CHG?o.chg:0)});
-  const S=k=>ms.reduce((t,o)=>t+o[k],0), T={label:'ИТОГО'};C.forEach(c=>{T[c[0]]=S(c[0])});
+  const S=k=>ms.reduce((t,o)=>t+o[k],0), T={label:'Итого'};C.forEach(c=>{T[c[0]]=S(c[0])});
   const off=C.some(c=>z[c[0]]!=null&&T[c[0]]!==z[c[0]]);
   const tr=(o,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(o.label)+'</td>'+
     C.map(c=>'<td class="num">'+((c[0]==='net'||c[0]==='chg')&&o[c[0]]>0?'+':'')+D.fmtInt(o[c[0]])+'</td>').join('')+'</tr>';
@@ -11404,34 +11461,32 @@ SC.blocks.turnover={
       });
       const expable=ini.filter(x=>topOf(x.key).length);
       return initChart(ctx)+U.btStack([
-        U.btGroup({cap:'Инициатор увольнения',capSub:ytd+' · раскройте — три главные причины',head:'',valueHead:'Человек',
+        U.btGroup({cap:'Инициатор увольнения',capSub:ytd,head:'',valueHead:'Чел',
           metricKey:'attrition',compact:true,tree:true,items:items,
           expAll:{key:'exitinit',open:expable.length>0&&expable.every(x=>open.has('exitinit:'+x.key))}}),
-        U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Человек',metricKey:'attrition',sort:true,compact:true,
+        U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Чел',metricKey:'attrition',sort:true,compact:true,
           items:rs.map(r=>({name:r.name,note:reasonInit(r),value:r.value,
             mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+
         '<div class="tbl-note">'+(rs.some(r=>r.regret)?'★ — у причины больше половины уходов нежелательные. ':'')+
-        'ИТОГО — отток '+U.esc(D.CNT_TEXT)+'.</div>';
+        'Всего — отток '+U.esc(D.CNT_TEXT)+'.</div>';
     }
     if(ctx.sub==='who'){
       /* Ранний уход — первые 12 месяцев (испытательный срок и первый год): это
-         качество найма и адаптации, а не текучесть вообще. Его доля названа
-         в подписи, чтобы не складывать две строки в уме. */
+         качество найма и адаптации, а не текучесть вообще. Его доля — в выводе шага и в степпере. */
       const ex=D.exitProfile(lp,'ytd');
-      const early=ex.tenure.filter(t=>t.early).reduce((a,t)=>a+t.value,0);
       /* 26.10, ревью критиков: под строкой — доля группы в команде; уходят чаще своей доли (×1,2 и на 3 человека
          больше ожидаемого) — сказано прямо */
-      const grp=(cap,sub,items,dim,sort,top)=>{const ts=D.teamShare(lp,dim);return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Человек',
+      const grp=(cap,sub,items,dim,sort,top)=>{const ts=D.teamShare(lp,dim);return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Чел',
         metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>{const t=ts[x.name], e=t*ex.total;
           return {name:x.name,note:t!=null?'в команде '+U.pct(t*100)+(x.value>=1.2*e&&x.value-e>=3?' · уходят чаще своей доли':''):'',value:x.value,color:G.C_OUT}}),
         top:top?top.n:0,restWord:top?top.word:null},top?SC.rest(ctx,'x'+dim,top.n,top.word):{}))};
       return U.btStack([
-        grp('Стаж на момент ухода',ytd+(ex.total?' · ранний уход, до года: '+D.fmtInt(early)+' чел, '+
-          U.pct(early/ex.total*100):''),ex.tenure,'tenure'),
+        /* поставка 116: «ранний уход, до года» — уже в выводе шага и в степпере; подпись — период, итог — справа */
+        grp('Стаж на момент ухода',ytd,ex.tenure,'tenure'),
         grp('Грейд',ytd,ex.grade,'grade'),
         /* стримов на верхних уровнях десятки — первые 8 и «Остальные» (16.10) */
         grp('Стрим',ytd,ex.stream,'stream',true,{n:8,word:['стрим','стрима','стримов']})])+
-        '<div class="tbl-note">ИТОГО — отток '+U.esc(D.CNT_TEXT)+'. Стаж и грейд — на дату ухода, доля в команде — '+
+        '<div class="tbl-note">Всего — отток '+U.esc(D.CNT_TEXT)+'. Стаж и грейд — на дату ухода, доля в команде — '+
         'по численности на последний месяц.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся
@@ -11524,7 +11579,7 @@ SC.blocks.hiring={
       const hk=D.hireKinds(lp);
       const dyn=SC.metricLine('hire',lp,ctx.bl,ctx.S,{title:'Найм, чел',h:270,fill:false,color:G.C_IN,ann:ctx.ann.hire,
         tipRows:hk?i=>D.HIRE_KINDS.map(c=>({label:'· '+c[1],value:D.fmtInt(hk[i][c[0]]),color:c[2]})):null});
-      const tbl=(cap,capSub,items,o)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:'Человек',
+      const tbl=(cap,capSub,items,o)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:'Чел',
         metricKey:'hire',compact:true,items:items},o||{}));
       /* Каналы — по убыванию, переводы — последней строкой и своим цветом
          «внутреннего найма»: это не канал подбора, а другой путь в команду. */
@@ -11605,7 +11660,7 @@ function gradeHeat(s){
   const max=Math.max(1,...s.rows.map(r=>Math.max(...r.cells))), tot=s.cols.map((_,j)=>sum(s.rows.map(r=>r.cells[j]))), hex=ST_COL[s.key];
   return '<div class="mx-wrap"><table class="ptable stable dense rost-t"><thead><tr><th class="txt">Текущий грейд</th>'+
     s.cols.map(c=>'<th>'+esc(c)+'</th>').join('')+'<th class="st-tot">Всего</th></tr></thead><tbody>'+
-    '<tr class="total top"><td class="txt">ИТОГО</td>'+tot.map(v=>'<td>'+D.fmtInt(v)+'</td>').join('')+'<td>'+D.fmtInt(sum(tot))+'</td></tr>'+
+    '<tr class="total top"><td class="txt">Итого</td>'+tot.map(v=>'<td>'+D.fmtInt(v)+'</td>').join('')+'<td>'+D.fmtInt(sum(tot))+'</td></tr>'+
     s.rows.map(r=>'<tr><td class="txt">'+esc(r.name)+'</td>'+r.cells.map(v=>cell(v,v/max,hex,v?D.fmtInt(v):'—')).join('')+
       '<td class="lead">'+D.fmtInt(sum(r.cells))+'</td></tr>').join('')+'</tbody></table></div>';
 }
@@ -11620,7 +11675,7 @@ function succTable(cap,sub,rows,head){
     D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
   return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+'</span></div>'+
     '<table class="ptable stable dense rost-t succ"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
-    '<th>Отклонено</th><th>% отклонённых</th></tr></thead><tbody>'+tr(Object.assign({name:'ИТОГО'},T),'total top')+
+    '<th>Отклонено</th><th>% отклонённых</th></tr></thead><tbody>'+tr(Object.assign({name:'Итого'},T),'total top')+
     rows.map(x=>tr(x)).join('')+'</tbody></table></div>';
 }
 /* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
@@ -11638,7 +11693,7 @@ function flowYoy(ctx,f,what,head,tipName){
 }
 function grades(ctx,p){
   const cur=p.st.find(x=>x.key===ctx.S.rostSt)||p.st[0];
-  return U.btGroup({cap:'Статусы роста',capSub:p.real?'численность последнего месяца · заявки '+D.CNT_TEXT:'активная численность · за 12 месяцев',head:'',valueHead:'Человек',
+  return U.btGroup({cap:'Статусы роста',capSub:p.real?'численность последнего месяца · заявки '+D.CNT_TEXT:'активная численность · за 12 месяцев',head:'',valueHead:'Чел',
       metricKey:'hc_total',compact:true,items:p.st.map(s=>({name:s.name,value:s.n,color:ST_COL[s.key],on:s===cur,
         attr:'data-rostst="'+s.key+'"',attrTip:'Клик — «'+s.name+'» по текущему грейду. '+s.tip}))})+
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
@@ -11762,7 +11817,7 @@ SC.blocks.monitor={
        (в т.ч. ушедшие в его середине) */
     /* поставка 103 (файл 9, п. 1): в мониторинге — численность на конец периода (как в шапке): у каждого одна категория,
        без записи мониторинга — «не размечено»; ушедшие в течение периода не считаются */
-    {k:'hc',name:'В мониторинге, чел.',tip:'Численность на конец последнего закрытого периода — та же, что в шапке: у каждого одна категория мониторинга (норма, недоработка, переработка, не размечено). Ушедшие в течение периода не считаются; без записи мониторинга — «не размечено».',val:md=>wk(md).cur.hc},
+    {k:'hc',name:'В мониторинге, чел',tip:'Численность на конец последнего закрытого периода — та же, что в шапке: у каждого одна категория мониторинга (норма, недоработка, переработка, не размечено). Ушедшие в течение периода не считаются; без записи мониторинга — «не размечено».',val:md=>wk(md).cur.hc},
     /* поставка 90: таблица — люди за последний закрытый месяц, окно подписано под названием */
     {k:'under',name:'Недоработчики',per:'за '+D.PER_MON,tip:'Активность ниже нормы в последнем закрытом периоде, человек.',val:md=>wk(md).cur.under,share:true},
     {k:'over',name:'Переработчики',per:'за '+D.PER_MON,tip:'Активность выше нормы в последнем закрытом периоде, человек.',val:md=>wk(md).cur.over,share:true},
@@ -11778,11 +11833,11 @@ SC.blocks.monitor={
          распределение оценок; края каждой группы с ним сходятся. */
       return U.btStack([
         U.btGroup({cap:'По сравнению с прошлым ревью',capSub:'кого оценили',head:'',
-          valueHead:'Человек',metricKey:'hc_total',compact:true,
+          valueHead:'Чел',metricKey:'hc_total',compact:true,
           items:rv.dyn.map(x=>({name:x.name,note:x.note,value:x.value,color:G.C_REVIEW}))}),
         '<div class="bt-group"><div class="bt-cap">Оценки по группам<span class="bt-sub">доля людей в строке</span></div>'+
         U.heatTable({cols:rv.scores.map(x=>({name:x.name,tip:x.full})),
-          total:{name:'ИТОГО',cells:rv.scores.map(x=>x.value)},
+          total:{name:'Итого',cells:rv.scores.map(x=>x.value)},
           groups:rv.groups.map(g=>({name:g.name,rows:g.rows.map((n,i)=>({name:n,cells:g.cells[i]}))}))})+
         '</div>'])+'<div class="tbl-note">Доли в строке складываются в 100%. Сколько это человек — в подсказке.</div>';
     }
@@ -12003,11 +12058,11 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
    топ задач, проникновение по IT-коду и инструменту, стажёры, конструктор. Числа условные (D.aiUsage) */
 const esc=U.esc;
 function bars(cap,sub,items,valueHead,o){
-  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:valueHead||'Человек',metricKey:'hc_total',compact:true,
+  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:valueHead||'Чел',metricKey:'hc_total',compact:true,
     items:items.map(x=>({name:x.name,note:x.note,value:x.value,color:G.C_AI}))},o||{}));
 }
 /* проценты — без колонки «Доля» и без ИТОГО: проценты не складываются */
-const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'% людей',{metricKey:'ai_penetration',share:false,total:false});
+const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'Доля, %',{metricKey:'ai_penetration',share:false,total:false});
 
 /* поставка 106 (решение заказчика 06.11): только недели — 16 последних (Пн–Вс), без месяцев и без переключателя. Проникновение,
    активные пользователи и численность — из недельной витрины (D.aiWeeks: численность без стажёров, человек в подразделении
@@ -12043,7 +12098,7 @@ function split(cap,sub,parts,unit,word){
 /* 07.11 (п. 3–4): инструменты — % людей и число людей, порядок — по числу людей (ранг ноутбука), первые 10 и раскрываемое
    «Остальное»: в его итоге каждый человек один раз (rest — уникальные люди с инструментами вне топ-10) */
 function tools(ctx,k,cap,sub,items,base,rest,head){
-  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'% людей',cnt:'Людей',metricKey:'ai_penetration',
+  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Доля, %',cnt:'Чел',metricKey:'ai_penetration',
     share:false,total:false,compact:true,restName:'Остальное',
     restAgg:()=>({value:base?Math.round(rest/base*1000)/10:0,n:rest}),
     items:items.map(x=>({name:x.name,value:x.value,n:x.n,color:G.C_AI}))},
@@ -12055,37 +12110,48 @@ function tools(ctx,k,cap,sub,items,base,rest,head){
 const SEG_SMALL=3;
 function segTable(cap,sub,rows,dim){
   /* keepZero: группа, где никто не пользуется AI (0%), — тоже ответ, а не пустая строка */
-  return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'% с AI',cnt:'С AI',metricKey:'ai_penetration',
+  return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'С AI, %',cnt:'С AI, чел',metricKey:'ai_penetration',
     share:false,total:false,compact:true,keepZero:true,
     items:rows.map(x=>({name:x.name,value:x.pen,n:x.act,color:x.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
-      note:'из '+D.fmtInt(x.hc)+(x.hc<SEG_SMALL?' · мало людей':''),
+      note:'из '+D.fmtInt(x.hc)+' чел'+(x.hc<SEG_SMALL?' · мало людей':''),
       tip:x.hc<SEG_SMALL?'В группе меньше '+SEG_SMALL+' человек — долю не сравниваем.':null,
       /* поставка 113-б: кросс-фильтр — строка выбирается, выбор складывается */
       on:!!x.on,attr:dim?'data-aisel="'+esc(dim+'|'+x.key)+'"':null,attrTip:'Клик — остальные таблицы только по «'+x.name+'».'}))});
 }
-/* поставка 113-б (владелец 07.11): стажёры — отдельной метрикой сверху (полоса «используют / нет»); ниже разрезы по ВСЕМ
-   людям (сотрудники и стажёры, покраска, сеньорность, грейд, стаж, специализация) — кросс-фильтрами, как в «Структуре»:
-   клик по строке выбирает группу, остальные таблицы пересчитываются по выбору (S.aiSel, D.aiCross) */
+/* поставка 116 (владелец 07.11: «зачем такой фокус на стажёрах? Первая полоса — сколько пользуются от всей численности,
+   отдельно — сколько стажёров; дальше все разбивки»; «убери „все люди“»): сверху одна таблица «Пользуются AI» — вся
+   численность (сотрудники и стажёры) и строкой стажёры: видно, выше они общего процента или ниже. Строка стажёров — кросс-
+   фильтр, как раньше (клик — разбивки только по стажёрам). Ниже — разбивки без подписи «все люди»: уточнение «по выбранной
+   группе» — только при выборе; неделя — один раз в подписи верхней таблицы. Таблицы «Сотрудники и стажёры» больше нет */
 function who(ctx,u){
-  const S=ctx.S, it=u.intern||{hc:0,act:0}, x=D.aiCross(ctx.lp,S.aiSel||[]);
-  const head=it.hc?split('Стажёры','используют AI или нет'+wk(u),[{name:'Используют AI',n:it.act,bg:G.C_AI},
-      {name:'Не используют AI',n:Math.max(0,it.hc-it.act),bg:AI_NO}],'Человек','чел')
-    :'<section class="pf-s">'+U.pfHead('Стажёры',esc('используют AI или нет'+wk(u)))+'<div class="tbl-note">В выбранном подразделении стажёров нет.</div></section>';
+  const S=ctx.S, it=u.intern||{hc:0,act:0}, sel=S.aiSel||[], x=D.aiCross(ctx.lp,sel), x0=sel.length?D.aiCross(ctx.lp,[]):x;
+  const pc=(a,h)=>h?Math.round(a*1000/h)/10:0;
+  /* вся численность: из сочетаний (без выбора), без них — сотрудники по первому разрезу + стажёры */
+  const sg=(u.segs||[])[0], emp=sg?sg.rows.reduce((t,r)=>({hc:t.hc+r.hc,act:t.act+r.act}),{hc:0,act:0}):{hc:0,act:0};
+  const all=x0?{hc:x0.hc,act:x0.act}:{hc:emp.hc+it.hc,act:emp.act+it.act};
+  const itOn=sel.indexOf('it|1')>=0;
+  const rows=[{name:'Вся численность',value:pc(all.act,all.hc),n:all.act,color:G.C_AI,note:'из '+D.fmtInt(all.hc)+' чел'}]
+    .concat(it.hc?[{name:'Стажёры',value:pc(it.act,it.hc),n:it.act,color:it.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
+      note:'из '+D.fmtInt(it.hc)+' чел'+(it.hc<SEG_SMALL?' · мало людей':''),
+      tip:it.hc<SEG_SMALL?'Стажёров меньше '+SEG_SMALL+' — долю не сравниваем.':null,
+      on:itOn,attr:x?'data-aisel="it|1"':null,attrTip:'Клик — разбивки ниже только по стажёрам.'}]:[]);
+  const head=U.btGroup({cap:'Пользуются AI',capSub:(it.hc?'':'стажёров нет · ')+wk(u).replace(/^ · /,''),head:'',
+    valueHead:'С AI, %',cnt:'С AI, чел',metricKey:'ai_penetration',share:false,total:false,compact:true,keepZero:true,items:rows});
   if(!x){
-    /* сочетаний нет (ноутбук до 113-б или подразделение ниже выбранного) — разрезы без кросс-фильтра */
+    /* сочетаний нет (ноутбук до 113-б или подразделение ниже выбранного) — разрезы без кросс-фильтра (без стажёров) */
     const segs=u.segs||[];
-    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров'+wk(u),sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'');
+    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров',sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'');
   }
-  const tabs=x.dims.map(dm=>{
-    const sp=dm.key==='sp', rows=sp?dm.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10).concat(dm.rows.filter((r,i)=>r.on&&dm.rows.slice().sort((a,b)=>b.hc-a.hc).indexOf(r)>=10)):dm.rows;
-    return segTable(dm.cap,(x.sel?'по выбору':'все люди')+(sp&&dm.rows.length>10?' · первые 10 из '+dm.rows.length:'')+wk(u),rows,dm.key);
+  const tabs=x.dims.filter(dm=>dm.key!=='it').map(dm=>{
+    const sp=dm.key==='sp', srt=dm.rows.slice().sort((a,b)=>b.hc-a.hc);
+    const rs=sp?srt.slice(0,10).concat(dm.rows.filter(r=>r.on&&srt.indexOf(r)>=10)):dm.rows;
+    return segTable(dm.cap,(x.sel?(itOn?'только стажёры':'по выбранной группе'):'')+(sp&&dm.rows.length>10?(x.sel?' · ':'')+'первые 10 из '+dm.rows.length:''),rs,dm.key);
   });
-  return head+
-    (x.sel?'<div class="tbl-note">Выбрано: <b>'+D.fmtInt(x.hc)+'</b> '+U.plural(x.hc,['человек','человека','человек'])+', с AI — <b>'+D.fmtInt(x.act)+
-      '</b> ('+P1(x.pen)+').</div>':'')+
-    U.btStack(tabs)+
-    '<div class="tbl-note">Клик по строке — остальные таблицы только по этой группе; клик ещё раз — снять. Несколько строк одной таблицы — '+
-      '«или», разных таблиц — «и». Сеньорность, грейд, стаж и специализация — на последний месяц отчёта; человека нет в отчёте — '+
+  return U.btStack([head].concat(x.sel?['<div class="tbl-note">Выбрано: <b>'+D.fmtInt(x.hc)+'</b> чел, с AI — <b>'+D.fmtInt(x.act)+
+      '</b> чел ('+P1(x.pen)+').</div>']:[]).concat(tabs))+
+    '<div class="tbl-note">«Вся численность» — сотрудники и стажёры за неделю; «Проникновение AI» на первом шаге — без стажёров. '+
+      'Клик по строке — остальные таблицы только по этой группе; клик ещё раз — снять. Несколько строк одной таблицы — «или», '+
+      'разных таблиц — «и». Сеньорность, грейд, стаж и специализация — на последний месяц отчёта; человека нет в отчёте — '+
       '«Не указано». Группы меньше '+SEG_SMALL+' человек — серым.</div>';
 }
 /* 07.11 (п. 7): «Инструменты по покраске» — последним блоком «Как пользуются?»: топ-10 инструментов строками, % и число людей
@@ -12118,8 +12184,9 @@ function usage(ctx,u){
   const avg=act?u.per.reduce((a,x,i)=>a+x.value*(i+1),0)/act:0;
   const base=Math.round(u.act&&u.pen?u.act*100/u.pen:0);
   return U.btStack([
-      bars('Частота использования','дней с AI в неделю · активные пользователи'+wk(u),u.freq),
-      bars('Инструментов на человека','активные пользователи · в среднем '+(Math.round(avg*10)/10).toString().replace('.',',')+' (4+ считаем за 4)',u.per),
+      /* поставка 116: «активные пользователи» — в итоге справа («Всего 217 чел») и в выводе шага; подпись в одну строку */
+      bars('Частота использования','дней с AI в неделю'+wk(u),u.freq),
+      bars('Инструментов на человека','в среднем '+(Math.round(avg*10)/10).toString().replace('.',',')+' (4+ считаем за 4)',u.per),
       tools(ctx,'aitool','Топ инструментов','% и число сотрудников без стажёров'+wk(u),u.tools,base,u.rest||0,'% сотрудников'),
       byPaint(ctx,u)])+
     '<div class="tbl-note">Проценты по инструментам не складываются: один человек может пользоваться несколькими; в «Остальном» '+
@@ -12141,7 +12208,7 @@ function wkPer(){const w=D.aiCur(D.aiWeeks(D.reportLeaves(D.DEFAULT_STATE)));ret
 SC.blocks.ai={
   /* поставка 106: таблица подразделений — последняя полная неделя (численность без стажёров, активные, проникновение) */
   cols:[
-    {k:'hc',name:'Численность, чел.',get per(){return wkPer()},tip:'Численность последней полной недели без стажёров — знаменатель проникновения. Фильтры среза на AI не действуют.',
+    {k:'hc',name:'Численность, чел',get per(){return wkPer()},tip:'Численность последней полной недели без стажёров — знаменатель проникновения. Фильтры среза на AI не действуют.',
       val:md=>md.hc,na:'Нет недель AI у подразделения.'},
     {k:'wau',name:'Активные пользователи',get per(){return wkPer()},tip:'Сколько человек пользовались AI-инструментами в последнюю полную неделю.',
       val:md=>md.wau,share:true,na:'Нет недель AI у подразделения.'},

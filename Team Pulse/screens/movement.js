@@ -62,7 +62,7 @@ function specMove(lp,ctx){
     hire:S(a,'hire'),tin:S(a,'tin'),exit:S(a,'exit'),tout:S(a,'tout'),chg:S(a,'chg'),hc1:S(a,'hc1'),net:S(a,'net')});
   if(rest.length)top.push(agg(rest,{name:'Остальные',note:rest.length+' '+U.plural(rest.length,['специализация','специализации','специализаций']),
     exp:1}));
-  const tot=agg(rs,{name:'ИТОГО',total:1});
+  const tot=agg(rs,{name:'Итого',total:1});
   if(open)rest.forEach(z=>top.push(Object.assign({sub:1},z)));
   const tree=rest.length>0, esc=U.esc;
   const lbl=z=>!tree?'':z.exp?'<button class="caret-btn"'+(open?' data-open="1"':'')+' data-btexp="'+K+'" aria-label="'+
@@ -90,7 +90,7 @@ function specMove(lp,ctx){
       (D.SPM_FSM?'Каждая строка сходится: на начало + найм + переводы в − отток − переводы из = на конец. Перевод — любое '+
         'изменение: другое подразделение, другая специализация или тип численности.':D.SPM_CHG?'Переводы — только смена юнита на уровне выбранного подразделения: перемещение между его подразделениями переводом не считается. '+
         'Внутри юнита — смена специализации или среза без перевода (+ пришли в специализацию, − ушли): строки сходятся.'
-        :'ИТОГО — как в карточках движения. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.')+
+        :'Итого — как в карточках движения. Переводы — перевод в выбор или из него по флагам фильтров и смена специализации внутри выбора: строки сходятся.')+
       (trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
 }
 
@@ -102,7 +102,7 @@ function specDetail(lp,z,cols){
   if(!ms)return '<div class="tbl-note">Помесячная детализация появится, когда ноутбук и датасет отчёта обновят до поставки 101.</div>';
   const C=cols.filter(c=>c[0]!=='hc0'&&c[0]!=='hc1').concat([['net','Итого']]);
   ms.forEach(o=>{o.net=o.hire+o.tin-o.exit-o.tout+(D.SPM_CHG?o.chg:0)});
-  const S=k=>ms.reduce((t,o)=>t+o[k],0), T={label:'ИТОГО'};C.forEach(c=>{T[c[0]]=S(c[0])});
+  const S=k=>ms.reduce((t,o)=>t+o[k],0), T={label:'Итого'};C.forEach(c=>{T[c[0]]=S(c[0])});
   const off=C.some(c=>z[c[0]]!=null&&T[c[0]]!==z[c[0]]);
   const tr=(o,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(o.label)+'</td>'+
     C.map(c=>'<td class="num">'+((c[0]==='net'||c[0]==='chg')&&o[c[0]]>0?'+':'')+D.fmtInt(o[c[0]])+'</td>').join('')+'</tr>';

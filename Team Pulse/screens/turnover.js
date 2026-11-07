@@ -113,34 +113,32 @@ SC.blocks.turnover={
       });
       const expable=ini.filter(x=>topOf(x.key).length);
       return initChart(ctx)+U.btStack([
-        U.btGroup({cap:'Инициатор увольнения',capSub:ytd+' · раскройте — три главные причины',head:'',valueHead:'Человек',
+        U.btGroup({cap:'Инициатор увольнения',capSub:ytd,head:'',valueHead:'Чел',
           metricKey:'attrition',compact:true,tree:true,items:items,
           expAll:{key:'exitinit',open:expable.length>0&&expable.every(x=>open.has('exitinit:'+x.key))}}),
-        U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Человек',metricKey:'attrition',sort:true,compact:true,
+        U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Чел',metricKey:'attrition',sort:true,compact:true,
           items:rs.map(r=>({name:r.name,note:reasonInit(r),value:r.value,
             mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+
         '<div class="tbl-note">'+(rs.some(r=>r.regret)?'★ — у причины больше половины уходов нежелательные. ':'')+
-        'ИТОГО — отток '+U.esc(D.CNT_TEXT)+'.</div>';
+        'Всего — отток '+U.esc(D.CNT_TEXT)+'.</div>';
     }
     if(ctx.sub==='who'){
       /* Ранний уход — первые 12 месяцев (испытательный срок и первый год): это
-         качество найма и адаптации, а не текучесть вообще. Его доля названа
-         в подписи, чтобы не складывать две строки в уме. */
+         качество найма и адаптации, а не текучесть вообще. Его доля — в выводе шага и в степпере. */
       const ex=D.exitProfile(lp,'ytd');
-      const early=ex.tenure.filter(t=>t.early).reduce((a,t)=>a+t.value,0);
       /* 26.10, ревью критиков: под строкой — доля группы в команде; уходят чаще своей доли (×1,2 и на 3 человека
          больше ожидаемого) — сказано прямо */
-      const grp=(cap,sub,items,dim,sort,top)=>{const ts=D.teamShare(lp,dim);return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Человек',
+      const grp=(cap,sub,items,dim,sort,top)=>{const ts=D.teamShare(lp,dim);return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Чел',
         metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>{const t=ts[x.name], e=t*ex.total;
           return {name:x.name,note:t!=null?'в команде '+U.pct(t*100)+(x.value>=1.2*e&&x.value-e>=3?' · уходят чаще своей доли':''):'',value:x.value,color:G.C_OUT}}),
         top:top?top.n:0,restWord:top?top.word:null},top?SC.rest(ctx,'x'+dim,top.n,top.word):{}))};
       return U.btStack([
-        grp('Стаж на момент ухода',ytd+(ex.total?' · ранний уход, до года: '+D.fmtInt(early)+' чел, '+
-          U.pct(early/ex.total*100):''),ex.tenure,'tenure'),
+        /* поставка 116: «ранний уход, до года» — уже в выводе шага и в степпере; подпись — период, итог — справа */
+        grp('Стаж на момент ухода',ytd,ex.tenure,'tenure'),
         grp('Грейд',ytd,ex.grade,'grade'),
         /* стримов на верхних уровнях десятки — первые 8 и «Остальные» (16.10) */
         grp('Стрим',ytd,ex.stream,'stream',true,{n:8,word:['стрим','стрима','стримов']})])+
-        '<div class="tbl-note">ИТОГО — отток '+U.esc(D.CNT_TEXT)+'. Стаж и грейд — на дату ухода, доля в команде — '+
+        '<div class="tbl-note">Всего — отток '+U.esc(D.CNT_TEXT)+'. Стаж и грейд — на дату ухода, доля в команде — '+
         'по численности на последний месяц.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся

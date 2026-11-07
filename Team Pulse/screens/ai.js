@@ -20,11 +20,11 @@ const D=window.TPDATA, G=window.TPDRAW, U=window.TPUI, SC=window.TPSCREENS;
    топ задач, проникновение по IT-коду и инструменту, стажёры, конструктор. Числа условные (D.aiUsage) */
 const esc=U.esc;
 function bars(cap,sub,items,valueHead,o){
-  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:valueHead||'Человек',metricKey:'hc_total',compact:true,
+  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:valueHead||'Чел',metricKey:'hc_total',compact:true,
     items:items.map(x=>({name:x.name,note:x.note,value:x.value,color:G.C_AI}))},o||{}));
 }
 /* проценты — без колонки «Доля» и без ИТОГО: проценты не складываются */
-const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'% людей',{metricKey:'ai_penetration',share:false,total:false});
+const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'Доля, %',{metricKey:'ai_penetration',share:false,total:false});
 
 /* поставка 106 (решение заказчика 06.11): только недели — 16 последних (Пн–Вс), без месяцев и без переключателя. Проникновение,
    активные пользователи и численность — из недельной витрины (D.aiWeeks: численность без стажёров, человек в подразделении
@@ -60,7 +60,7 @@ function split(cap,sub,parts,unit,word){
 /* 07.11 (п. 3–4): инструменты — % людей и число людей, порядок — по числу людей (ранг ноутбука), первые 10 и раскрываемое
    «Остальное»: в его итоге каждый человек один раз (rest — уникальные люди с инструментами вне топ-10) */
 function tools(ctx,k,cap,sub,items,base,rest,head){
-  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'% людей',cnt:'Людей',metricKey:'ai_penetration',
+  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Доля, %',cnt:'Чел',metricKey:'ai_penetration',
     share:false,total:false,compact:true,restName:'Остальное',
     restAgg:()=>({value:base?Math.round(rest/base*1000)/10:0,n:rest}),
     items:items.map(x=>({name:x.name,value:x.value,n:x.n,color:G.C_AI}))},
@@ -72,37 +72,48 @@ function tools(ctx,k,cap,sub,items,base,rest,head){
 const SEG_SMALL=3;
 function segTable(cap,sub,rows,dim){
   /* keepZero: группа, где никто не пользуется AI (0%), — тоже ответ, а не пустая строка */
-  return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'% с AI',cnt:'С AI',metricKey:'ai_penetration',
+  return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'С AI, %',cnt:'С AI, чел',metricKey:'ai_penetration',
     share:false,total:false,compact:true,keepZero:true,
     items:rows.map(x=>({name:x.name,value:x.pen,n:x.act,color:x.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
-      note:'из '+D.fmtInt(x.hc)+(x.hc<SEG_SMALL?' · мало людей':''),
+      note:'из '+D.fmtInt(x.hc)+' чел'+(x.hc<SEG_SMALL?' · мало людей':''),
       tip:x.hc<SEG_SMALL?'В группе меньше '+SEG_SMALL+' человек — долю не сравниваем.':null,
       /* поставка 113-б: кросс-фильтр — строка выбирается, выбор складывается */
       on:!!x.on,attr:dim?'data-aisel="'+esc(dim+'|'+x.key)+'"':null,attrTip:'Клик — остальные таблицы только по «'+x.name+'».'}))});
 }
-/* поставка 113-б (владелец 07.11): стажёры — отдельной метрикой сверху (полоса «используют / нет»); ниже разрезы по ВСЕМ
-   людям (сотрудники и стажёры, покраска, сеньорность, грейд, стаж, специализация) — кросс-фильтрами, как в «Структуре»:
-   клик по строке выбирает группу, остальные таблицы пересчитываются по выбору (S.aiSel, D.aiCross) */
+/* поставка 116 (владелец 07.11: «зачем такой фокус на стажёрах? Первая полоса — сколько пользуются от всей численности,
+   отдельно — сколько стажёров; дальше все разбивки»; «убери „все люди“»): сверху одна таблица «Пользуются AI» — вся
+   численность (сотрудники и стажёры) и строкой стажёры: видно, выше они общего процента или ниже. Строка стажёров — кросс-
+   фильтр, как раньше (клик — разбивки только по стажёрам). Ниже — разбивки без подписи «все люди»: уточнение «по выбранной
+   группе» — только при выборе; неделя — один раз в подписи верхней таблицы. Таблицы «Сотрудники и стажёры» больше нет */
 function who(ctx,u){
-  const S=ctx.S, it=u.intern||{hc:0,act:0}, x=D.aiCross(ctx.lp,S.aiSel||[]);
-  const head=it.hc?split('Стажёры','используют AI или нет'+wk(u),[{name:'Используют AI',n:it.act,bg:G.C_AI},
-      {name:'Не используют AI',n:Math.max(0,it.hc-it.act),bg:AI_NO}],'Человек','чел')
-    :'<section class="pf-s">'+U.pfHead('Стажёры',esc('используют AI или нет'+wk(u)))+'<div class="tbl-note">В выбранном подразделении стажёров нет.</div></section>';
+  const S=ctx.S, it=u.intern||{hc:0,act:0}, sel=S.aiSel||[], x=D.aiCross(ctx.lp,sel), x0=sel.length?D.aiCross(ctx.lp,[]):x;
+  const pc=(a,h)=>h?Math.round(a*1000/h)/10:0;
+  /* вся численность: из сочетаний (без выбора), без них — сотрудники по первому разрезу + стажёры */
+  const sg=(u.segs||[])[0], emp=sg?sg.rows.reduce((t,r)=>({hc:t.hc+r.hc,act:t.act+r.act}),{hc:0,act:0}):{hc:0,act:0};
+  const all=x0?{hc:x0.hc,act:x0.act}:{hc:emp.hc+it.hc,act:emp.act+it.act};
+  const itOn=sel.indexOf('it|1')>=0;
+  const rows=[{name:'Вся численность',value:pc(all.act,all.hc),n:all.act,color:G.C_AI,note:'из '+D.fmtInt(all.hc)+' чел'}]
+    .concat(it.hc?[{name:'Стажёры',value:pc(it.act,it.hc),n:it.act,color:it.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
+      note:'из '+D.fmtInt(it.hc)+' чел'+(it.hc<SEG_SMALL?' · мало людей':''),
+      tip:it.hc<SEG_SMALL?'Стажёров меньше '+SEG_SMALL+' — долю не сравниваем.':null,
+      on:itOn,attr:x?'data-aisel="it|1"':null,attrTip:'Клик — разбивки ниже только по стажёрам.'}]:[]);
+  const head=U.btGroup({cap:'Пользуются AI',capSub:(it.hc?'':'стажёров нет · ')+wk(u).replace(/^ · /,''),head:'',
+    valueHead:'С AI, %',cnt:'С AI, чел',metricKey:'ai_penetration',share:false,total:false,compact:true,keepZero:true,items:rows});
   if(!x){
-    /* сочетаний нет (ноутбук до 113-б или подразделение ниже выбранного) — разрезы без кросс-фильтра */
+    /* сочетаний нет (ноутбук до 113-б или подразделение ниже выбранного) — разрезы без кросс-фильтра (без стажёров) */
     const segs=u.segs||[];
-    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров'+wk(u),sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'');
+    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров',sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'');
   }
-  const tabs=x.dims.map(dm=>{
-    const sp=dm.key==='sp', rows=sp?dm.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10).concat(dm.rows.filter((r,i)=>r.on&&dm.rows.slice().sort((a,b)=>b.hc-a.hc).indexOf(r)>=10)):dm.rows;
-    return segTable(dm.cap,(x.sel?'по выбору':'все люди')+(sp&&dm.rows.length>10?' · первые 10 из '+dm.rows.length:'')+wk(u),rows,dm.key);
+  const tabs=x.dims.filter(dm=>dm.key!=='it').map(dm=>{
+    const sp=dm.key==='sp', srt=dm.rows.slice().sort((a,b)=>b.hc-a.hc);
+    const rs=sp?srt.slice(0,10).concat(dm.rows.filter(r=>r.on&&srt.indexOf(r)>=10)):dm.rows;
+    return segTable(dm.cap,(x.sel?(itOn?'только стажёры':'по выбранной группе'):'')+(sp&&dm.rows.length>10?(x.sel?' · ':'')+'первые 10 из '+dm.rows.length:''),rs,dm.key);
   });
-  return head+
-    (x.sel?'<div class="tbl-note">Выбрано: <b>'+D.fmtInt(x.hc)+'</b> '+U.plural(x.hc,['человек','человека','человек'])+', с AI — <b>'+D.fmtInt(x.act)+
-      '</b> ('+P1(x.pen)+').</div>':'')+
-    U.btStack(tabs)+
-    '<div class="tbl-note">Клик по строке — остальные таблицы только по этой группе; клик ещё раз — снять. Несколько строк одной таблицы — '+
-      '«или», разных таблиц — «и». Сеньорность, грейд, стаж и специализация — на последний месяц отчёта; человека нет в отчёте — '+
+  return U.btStack([head].concat(x.sel?['<div class="tbl-note">Выбрано: <b>'+D.fmtInt(x.hc)+'</b> чел, с AI — <b>'+D.fmtInt(x.act)+
+      '</b> чел ('+P1(x.pen)+').</div>']:[]).concat(tabs))+
+    '<div class="tbl-note">«Вся численность» — сотрудники и стажёры за неделю; «Проникновение AI» на первом шаге — без стажёров. '+
+      'Клик по строке — остальные таблицы только по этой группе; клик ещё раз — снять. Несколько строк одной таблицы — «или», '+
+      'разных таблиц — «и». Сеньорность, грейд, стаж и специализация — на последний месяц отчёта; человека нет в отчёте — '+
       '«Не указано». Группы меньше '+SEG_SMALL+' человек — серым.</div>';
 }
 /* 07.11 (п. 7): «Инструменты по покраске» — последним блоком «Как пользуются?»: топ-10 инструментов строками, % и число людей
@@ -135,8 +146,9 @@ function usage(ctx,u){
   const avg=act?u.per.reduce((a,x,i)=>a+x.value*(i+1),0)/act:0;
   const base=Math.round(u.act&&u.pen?u.act*100/u.pen:0);
   return U.btStack([
-      bars('Частота использования','дней с AI в неделю · активные пользователи'+wk(u),u.freq),
-      bars('Инструментов на человека','активные пользователи · в среднем '+(Math.round(avg*10)/10).toString().replace('.',',')+' (4+ считаем за 4)',u.per),
+      /* поставка 116: «активные пользователи» — в итоге справа («Всего 217 чел») и в выводе шага; подпись в одну строку */
+      bars('Частота использования','дней с AI в неделю'+wk(u),u.freq),
+      bars('Инструментов на человека','в среднем '+(Math.round(avg*10)/10).toString().replace('.',',')+' (4+ считаем за 4)',u.per),
       tools(ctx,'aitool','Топ инструментов','% и число сотрудников без стажёров'+wk(u),u.tools,base,u.rest||0,'% сотрудников'),
       byPaint(ctx,u)])+
     '<div class="tbl-note">Проценты по инструментам не складываются: один человек может пользоваться несколькими; в «Остальном» '+
@@ -158,7 +170,7 @@ function wkPer(){const w=D.aiCur(D.aiWeeks(D.reportLeaves(D.DEFAULT_STATE)));ret
 SC.blocks.ai={
   /* поставка 106: таблица подразделений — последняя полная неделя (численность без стажёров, активные, проникновение) */
   cols:[
-    {k:'hc',name:'Численность, чел.',get per(){return wkPer()},tip:'Численность последней полной недели без стажёров — знаменатель проникновения. Фильтры среза на AI не действуют.',
+    {k:'hc',name:'Численность, чел',get per(){return wkPer()},tip:'Численность последней полной недели без стажёров — знаменатель проникновения. Фильтры среза на AI не действуют.',
       val:md=>md.hc,na:'Нет недель AI у подразделения.'},
     {k:'wau',name:'Активные пользователи',get per(){return wkPer()},tip:'Сколько человек пользовались AI-инструментами в последнюю полную неделю.',
       val:md=>md.wau,share:true,na:'Нет недель AI у подразделения.'},

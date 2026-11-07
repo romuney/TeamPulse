@@ -173,7 +173,7 @@ function unitHide(){
 function unitRail(n){
   return '<button class="split-rail" data-splitmode="both" aria-label="Показать таблицу подразделений"'+
     tipAttr({title:'Подразделения',text:n?'Таблица подразделений: клик по строке — графики этого подразделения.'
-      :'Подразделений уровнем ниже нет — в таблице только ИТОГО.'})+
+      :'Подразделений уровнем ниже нет — в таблице только итог.'})+
     '><span class="sr-ch" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="sr-t">Подразделения'+(n?' · '+n:'')+'</span></button>';
 }
 /* Разделитель — настоящий separator: тянется мышью и пальцем, ← → двигают
@@ -427,9 +427,13 @@ function barTable(o){
      понятны сами («53 · 28%»), а итог уже стоит в карточке над таблицей;
      строки ниже, цифры без жирного. «Одно и то же десять раз» — фидбэк. */
   const lite=!!o.lite;
+  /* поставка 116: в плотной таблице название шире (46%) — «По инициативе работодателя» не обрезается; с колонкой людей:
+     длинный заголовок («С AI, чел») — 16%, название 40%; короткий («Чел») — 13% (пятизначное число на бою), название 45%;
+     доля — 15% («Доля, %» в строку); «Распределение» — в строку */
+  const cw=cnt&&cnt.length>4?16:13;
   let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+(cnt?' bt-cnt':'')+'">'+
-    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?'46%':'40%'):'34%')+'"><col style="width:'+(lite?'9%':cnt?'17%':'14%')+'">'+
-    (cnt?'<col style="width:13%">':'')+(withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
+    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?(cw>13?'40%':'45%'):'46%'):'34%')+'"><col style="width:'+(lite?'9%':cnt?'15%':'14%')+'">'+
+    (cnt?'<col style="width:'+cw+'%">':'')+(withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
     (lite&&!o.heads?'':'<thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
     '<th>'+esc(o.valueHead||'Значение')+'</th>'+(cnt?'<th>'+esc(cnt)+'</th>':'')+(withShare?'<th>Доля</th>':'')+
     '<th class="txt bar-th">'+esc(o.barHead||'Распределение')+'</th></tr></thead>')+'<tbody>';
@@ -438,7 +442,9 @@ function barTable(o){
      Пока итог стоял снизу в одной таблице и сверху в другой, пользователю
      приходилось искать его заново на каждом экране. Все таблицы отчёта
      считываются одинаково: сначала итог, потом из чего он сложился. */
-  if(o.total!==false&&!lite){
+  /* поставка 116 (владелец 07.11: «ИТОГО занимает кучу места — больше заголовка таблицы»): строки ИТОГО в разбивках нет —
+     итог стоит в подписи таблицы справа («Всего 61 чел», btGroup), общая каретка — там же. Строку можно вернуть o.totalRow */
+  if(o.totalRow===true&&!lite){
     const allBtn=o.expAll
       ? allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
           'Все вторые уровни разом.')
@@ -503,14 +509,23 @@ function barTable(o){
    тот же, что у метрик: у разрезов бывает что пояснить (грейд ≠ сеньорность),
    и объяснение должно жить там же, где название. */
 function btGroup(o){
-  return '<div class="bt-group"><div class="bt-cap">'+esc(o.cap)+
+  /* поставка 116: итог разбивки — в подписи справа («Всего 61 чел»), а не строкой ИТОГО: сумма верхнего уровня (дети уже
+     в родителе), единица — у метрик в людях «чел»; у процентов (total:false) итога нет */
+  const key=o.metricKey||'hc_total', m=D.METRIC_BY_KEY[key];
+  const top=(o.items||[]).filter(x=>x.depth!==2), sum=top.reduce((a,x)=>a+(+x.value||0),0);
+  const tot=o.total!==false&&!o.lite&&top.length?'<span class="bt-tot">Всего <b>'+D.fmtVal(key,sum)+'</b>'+
+    (m&&m.unit==='чел'?' чел':'')+'</span>':'';
+  /* название, подсказка и уточнение — одним текстом (.bt-h): длинное уточнение переносится под название, а «раскрыть всё»
+     и итог остаются справа в первой строке */
+  return '<div class="bt-group"><div class="bt-cap bt-c"><span class="bt-h"><span class="bt-t">'+esc(o.cap)+'</span>'+
     (o.tip?'<span class="info"'+tipAttr(o.tip)+' aria-label="О разрезе">i</span>':'')+
     /* Уточнение среза стоит В ПОДПИСИ таблицы, а не только в общей плашке:
-       иначе «ИТОГО 59» под заголовком «Грейд» читается как ошибка данных. */
-    (o.capSub?'<span class="bt-sub">'+esc(o.capSub)+'</span>':'')+
-    /* без строки ИТОГО общая каретка двухуровневой разбивки — в подписи */
-    (o.lite&&o.expAll?'<span class="bt-all">'+allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
-      'Все вторые уровни разом.')+(o.expAll.open?'свернуть всё':'раскрыть всё')+'</span>':'')+
+       иначе итог под заголовком «Грейд» читается как ошибка данных. */
+    /* части уточнения не рвутся внутри («с 1 января по 12 октября», «неделя 05.10–11.10») — перенос только между ними */
+    (o.capSub?'<wbr><span class="bt-sub">'+String(o.capSub).split(' · ').map(x=>'<span class="nw">'+esc(x)+'</span>').join(' · ')+'</span>':'')+'</span>'+
+    /* общая каретка двухуровневой разбивки — в подписи; итог — последним, у правого края, как у соседних таблиц */
+    (o.expAll?'<span class="bt-all">'+allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
+      'Все вторые уровни разом.')+(o.expAll.open?'свернуть всё':'раскрыть всё')+'</span>':'')+tot+
     '</div>'+barTable(o)+'</div>';
 }
 function btStack(list,cls){return '<div class="bt-stack'+(cls?' '+cls:'')+'">'+list.join('')+'</div>'}

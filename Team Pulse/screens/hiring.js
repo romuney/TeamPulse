@@ -74,7 +74,7 @@ SC.blocks.hiring={
       const hk=D.hireKinds(lp);
       const dyn=SC.metricLine('hire',lp,ctx.bl,ctx.S,{title:'Найм, чел',h:270,fill:false,color:G.C_IN,ann:ctx.ann.hire,
         tipRows:hk?i=>D.HIRE_KINDS.map(c=>({label:'· '+c[1],value:D.fmtInt(hk[i][c[0]]),color:c[2]})):null});
-      const tbl=(cap,capSub,items,o)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:'Человек',
+      const tbl=(cap,capSub,items,o)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:'Чел',
         metricKey:'hire',compact:true,items:items},o||{}));
       /* Каналы — по убыванию, переводы — последней строкой и своим цветом
          «внутреннего найма»: это не канал подбора, а другой путь в команду. */

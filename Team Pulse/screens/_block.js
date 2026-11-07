@@ -513,7 +513,7 @@ function renderBlock(S,expanded,mixOpen,view){
           text:'Все три уровня подразделений разом.'})+'>'+
         (allOpen?'▾':'▸')+'</button>'
       : '<span class="caret-spacer"></span>')+
-    '<span class="row-body">ИТОГО</span></span></td>'+totalCells+
+    '<span class="row-body">Итого</span></span></td>'+totalCells+
     '</tr>';
   rows.forEach(r=>{
     const lp=rowLeaves(r.n.path,S);
@@ -548,7 +548,7 @@ function renderBlock(S,expanded,mixOpen,view){
   const ncol=1+(tcols?tcols.length:mets.length);
   if(!rows.length)tbl+='<tr class="tree-empty"><td class="txt" colspan="'+ncol+'">'+
     (tq?'В трёх уровнях вниз нет «'+esc(tq)+'». Другое подразделение компании выберите в «Настрой свой дашборд».'
-      :'У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры в строке ИТОГО.')+'</td></tr>';
+      :'У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры в строке «Итого».')+'</td></tr>';
   if(anySm)tbl+='<tr class="tree-note"><td class="txt" colspan="'+ncol+'">Серым — доли подразделений меньше '+SMALL+
     ' человек: они неустойчивые.</td></tr>';
   tbl+='</tbody></table>';

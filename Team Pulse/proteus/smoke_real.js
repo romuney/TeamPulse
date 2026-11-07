@@ -458,13 +458,13 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     if(R.scopeMix&&R.scopeMix('xim')){
       const y=D.yoySeries(rl,'turnover_m'), sumAt=i=>xs.reduce((a,x)=>a+(x.cur[i]||0),0);
       ok(xs.length>0&&y.cur.every((v,i)=>v==null||Math.abs(sumAt(i)-v)<0.05)&&
-        rv.indexOf('Текучесть по инициатору')<rv.indexOf('bt-cap">Инициатор увольнения')&&
+        rv.indexOf('Текучесть по инициатору')<rv.indexOf('bt-t">Инициатор увольнения')&&
         /data-exitini=/.test(rv),'текучесть по инициатору: '+xs.map(x=>x.name).join(', ')+' — в сумме текучесть месячная, график над таблицами');
       /* 27.10-в, п. 11: накопительная по инициатору — под месячной; в сумме по инициаторам — текучесть накопительная */
       const yy=D.yoySeries(rl,'turnover_y'), cumAt=i=>xs.reduce((a,x)=>a+(SC.cumY(x.cur)[i]||0),0);
       ok(yy.cur.every((v,i)=>v==null||Math.abs(cumAt(i)-v)<0.1)&&
         rv.indexOf('Накопительная текучесть по инициатору')>rv.indexOf('Текучесть по инициатору')&&
-        rv.indexOf('Накопительная текучесть по инициатору')<rv.indexOf('bt-cap">Инициатор увольнения'),
+        rv.indexOf('Накопительная текучесть по инициатору')<rv.indexOf('bt-t">Инициатор увольнения'),
         'накопительная по инициатору — под месячной, в сумме = текучесть накопительная');
     }else ok(xs===null&&/Придёт со следующим обновлением отчёта/.test(rv),'текучесть по инициатору: датасет без xim — «в разработке»');
     const sm=D.specMovement(rl), h=Object.values(R.mixVals('hsp')||{}).length;
