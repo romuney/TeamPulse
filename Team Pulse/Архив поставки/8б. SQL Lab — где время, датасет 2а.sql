@@ -274,9 +274,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -370,6 +371,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -640,9 +643,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -736,6 +740,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -1006,9 +1012,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -1102,6 +1109,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -1372,9 +1381,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -1468,6 +1478,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -1738,9 +1750,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -1834,6 +1847,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -2104,9 +2119,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -2200,6 +2216,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -2470,9 +2488,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -2566,6 +2585,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -2836,9 +2857,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -2932,6 +2954,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -3202,9 +3226,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -3298,6 +3323,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM (SELECT * FROM prod_proteus.teampulse_hub_pfd WHERE 0) AS teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -3568,9 +3595,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -3664,6 +3692,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -3934,9 +3964,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -4030,6 +4061,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
@@ -4300,9 +4333,10 @@ WITH
     HAVING n4 > 0
   ),
   mxr AS (
-    SELECT u3 AS mu, arraySort(groupArray((k3, v3, n4))) AS ls,
-           arrayStringConcat(arrayMap(i -> concat(if(i > 1 AND ls[i].1 = ls[i - 1].1, '', ls[i].1), '\t', ls[i].2, '\t',
-                                                  toString(round(ls[i].3, 1))), arrayEnumerate(ls)), '\n') AS mxs
+    SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
+    FROM
+    (
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -4396,6 +4430,8 @@ WITH
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND 40000
+    )
+    GROUP BY u3, k3
     )
     GROUP BY u3
   )
