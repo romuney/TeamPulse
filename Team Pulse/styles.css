@@ -2600,3 +2600,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .op-nav-n.w{color:var(--warn-tx);background:var(--warn-bg)}
 /* поставка 120: под пилюлей «месяц к месяцу» — значение самого месяца (у значения строки — среднее или сумма за период) */
 .mtable .col-num .m-per{display:block;font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap}
+/* поставка 121: конструктор на живых данных — клетки-оценки курсивом и серее, итоги строк и колонок — как были */
+.mx-est tbody tr:not(.total) td:not(.txt):not(:last-child){font-style:italic;color:var(--ink3)}
+/* поставка 121: одна открытая вакансия — строкой вместо пяти таблиц «1 · 100%» */
+.vac-one{margin:var(--s6) 0 var(--s4);padding:var(--s4) var(--s6);border-radius:var(--r2);background:#f7f8fa;font-size:var(--fs-body);color:var(--ink2)}

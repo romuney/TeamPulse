@@ -54,7 +54,8 @@ function succTable(cap,sub,rows,head,tot){
   const tr=(x,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt"'+(cls?'':U.tipAttr({title:x.name,
       rows:[{label:'Заявка',value:D.fmtInt(x.apps)},{label:'Успешно',value:D.fmtInt(x.ok)},{label:'Отказ',value:D.fmtInt(x.no)}]}))+'>'+
       esc(x.name)+'</td><td>'+D.fmtInt(x.apps)+'</td><td>'+
-    D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
+    D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls||x.apps<3?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
+  /* поставка 121 (критик на 22 человека: «100%» красным по одной заявке): меньше 3 заявок в строке — без подсветки */
   return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+' · всего заявок <b>'+D.fmtInt(T.apps)+'</b>, успешно '+
       D.fmtInt(T.ok)+', отклонено '+D.fmtInt(T.no)+'</span></div>'+
     '<table class="ptable stable dense rost-t succ"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+

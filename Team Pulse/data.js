@@ -110,6 +110,9 @@ const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','и�
 const WIN_FROM=MONTH_ABBR_GEN[MONTHS[0].m]+' '+MONTHS[0].y;
 const WIN_TO=MONTH_ABBR[ASOF.m]+' '+ASOF.y;                            /* «окт. 2026» */
 function winSum(lp,key){return aggregate(lp,key).slice(1).reduce((a,v)=>a+(v||0),0)}
+/* поставка 121 (критики 119: водопад подписан «за 12 месяцев», а начинается «на конец нояб.» — это ≈10,5 месяца): начало
+   потоков водопада — 1-е число второго месяца окна, «с 1 декабря 2025» */
+const WIN_START='1 '+MONTH_GEN[MONTHS[1].m]+' '+MONTHS[1].y;
 const CMP={
   cur:monthNom(CUR_M),
   /* период незакрытого месяца — «1–12 октября 2026» (26.10, ревью критиков: «за октябрь» читалось как полный месяц) */
@@ -796,6 +799,14 @@ function childrenOf(p){return NODES.filter(n=>n.parent===p).sort((a,b)=>a.sort-b
 /* Строки таблицы подразделений: дети без скрытого листа «Напрямую в «X»» —
    он участвует в суммах всегда, а строкой виден, только если свои люди есть. */
 function rowsOf(p){return childrenOf(p).filter(n=>!n.hide)}
+/* поставка 121 (критик компании: под «ТБанком» один узел «Компания» с теми же людьми — все указатели «почти всё —
+   «Компания»» вели в себя, блоки были на клик ниже): сквозной уровень — единственное подразделение с теми же листьями —
+   пропускаем: таблица подразделений, «где это происходит» и шапка начинаются с первого уровня, где их хотя бы два */
+function passRoot(p){
+  let r=p, k=rowsOf(r);
+  while(k.length===1&&rowsOf(k[0].path).length&&leavesUnder(k[0].path).length===leavesUnder(r).length){r=k[0].path;k=rowsOf(r)}
+  return r;
+}
 /* У строки «Напрямую в «X»» переводы — это переходы между детьми юнита (у юнита
    их нет, у детей есть): для суммы верно, как число строки — бессмыслица.
    Поставка 64: ответ с din / dout — у листа «Напрямую» свои переводы, как в мастер-отчёте:
@@ -3494,7 +3505,7 @@ function aiUsage(lp){
       freq:splitBy(iact,jitter(r,[0.2,0.22,0.2,0.16,0.12,0.06,0.04],0.2)).map((n,i)=>({name:AI_DAYS[i],value:n}))}};
 }
 
-window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
+window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
@@ -3502,7 +3513,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
   COUNT_METRICS,vacancyBreakdown,kpiAt,teamShare,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,
-  childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
+  childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,passRoot,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,BASE_DEF,baseDef,coName,
   metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,deltaState,kpiFor,comparable,
   setVerdictScope,isSmall,isSmallHq,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,

@@ -318,7 +318,9 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
          у подразделения ниже — свои числа */
       if(D.HQN){
         const st=A.st(), hn=D.hqLight(st,D.reportLeaves(st),st.unit);
-        const kid=D.NODES.find(n=>n.parent===st.unit&&!n.direct&&!n.hide), hk=kid&&D.hqLight(st,D.leavesUnder(kid.path).map(l=>l.path),kid.path);
+        /* поставка 121: сквозной уровень (единственное подразделение с теми же людьми) пропускаем — D.passRoot */
+        const pr=D.passRoot?D.passRoot(st.unit):st.unit;
+        const kid=D.NODES.find(n=>n.parent===pr&&!n.direct&&!n.hide), hk=kid&&D.hqLight(st,D.leavesUnder(kid.path).map(l=>l.path),kid.path);
         ok(!!hn&&hn.rows.every((r,i)=>Math.abs(r.v-h.rows[i].v)<0.051)&&hn.hc===h.hc&&(!hk||hk.rows.some((r,i)=>r.v!==hn.rows[i].v)),
           'светофор HQ по узлам = строка hq ('+hn.rows.map(r=>D.fmtVal(r.key,r.v)).join(', ')+')'+(hk?'; «'+kid.name.slice(0,3)+'…»: '+
           hk.rows.map(r=>D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+hk.hc+' чел':''));
@@ -662,7 +664,10 @@ if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений з
   /* поставка 106: у AI вывода блока нет — только недельная глава */
   const tops=D.visibleBlocks(S0).filter(b=>b.key!=='ai').map(b=>A.top(b.key));
   ok(/<div class="in-lead">/.test(home)&&/* поставка 110: выводы «HQ против ориентира» и «подразделение хуже остальных» — без мини-графика */
-    cs.every(c=>!D.isStub(c.key)&&c.head&&(/^(hqb|unit)$/.test(c.fact.kind)?!c.chart:/class="mini"/.test(c.chart)))&&
+    /* поставка 121: у вывода HQ — мини-график против ориентира (если есть ряд), у выводов о подразделении и событий в людях
+       (кроме уходов команды) — без графика */
+    cs.every(c=>!D.isStub(c.key)&&c.head&&(c.fact.kind==='hqb'?!c.chart||/class="mini"/.test(c.chart)
+      :/^(unit|uppl)$/.test(c.fact.kind)||c.fact.kind==='ppl'&&c.key!=='attrition'?!c.chart:/class="mini"/.test(c.chart)))&&
     cs.filter(c=>/С января ушли/.test(c.body)).length<=1&&
     /* 30.10, шаг 2: без подразделений ниже «где» не показывается — карточка вывода во всю ширину */
     /* 31.10: «Саммари» — только текст, без таблиц (файл итерации, п. 2 и 6) */

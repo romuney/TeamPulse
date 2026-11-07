@@ -34,10 +34,13 @@ const blocks={};
 /* Корень сводной таблицы — юнит отчёта. Временного корня (drillRoot и кнопки ↓)
    больше нет: глубже трёх уровней ведёт переход в юнит, а он меняет сам юнит
    отчёта — с путём, «← Назад» и ссылкой (итерация 29, механика HRBP HUB). */
-function currentRoot(S){return S.unit}
+/* поставка 121: сквозной уровень (единственное подразделение с теми же людьми) таблица пропускает — D.passRoot */
+function currentRoot(S){return D.passRoot(S.unit)}
 /* 31.10-б, п. 4: «Найм и вакансии HQ» — без доли внутреннего найма (метрика остаётся в данных и в других местах).
    Поставка 90: окно колонок — у всех блоков, кроме структуры, одно (D.periodTotal), см. renderBlock */
-const TBL_OVR={hiring:{hide:{internal_share:1}}};
+/* поставка 121 (критик на 49 человек: команды меньше 30 человек в «Оттоке» — серые проценты, а что команда из 7 потеряла 4,
+   видно только в «Движении»): у оттока в таблице подразделений — ещё колонка уходов в людях (add) */
+const TBL_OVR={hiring:{hide:{internal_share:1}},turnover:{add:['attrition']}};
 /* Глубина сводной таблицы: три уровня вниз от юнита отчёта. Глубже — «Открыть
    юнит» у выбранной строки. Переключателя глубины нет намеренно: на шести
    уровнях имя сжималось бы в столбик, а длинный список переставал читаться. */
@@ -269,18 +272,30 @@ function demoNoteFor(bk,sub){return D.REAL&&devOf(bk,sub)?'1':''}
    sum — TPINSIGHTS.blockSummary: заголовок, до трёх фактов по номерам и «Что
    сделать». Фактов нет — «всё спокойно» и что именно проверено. */
 const BK_TAG={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'};
+/* поставка 121: совет руководителю команды меньше 30 человек, когда выводов у блока нет */
+const SMALL_TODO={structure:'Проверьте, на ком держится экспертиза: роль, где один-два человека, — точка отказа.',
+  movement:'Сверьте, кого уже заменили и кого ещё ищете: в малой команде заметен каждый уход.',
+  turnover:'Разберите с HRBP каждый уход: причина и кто из оставшихся под риском.',
+  hiring:'Проверьте, сколько дней открыта каждая вакансия и кого она заменяет.',
+  tgrowth:'Обсудите планы роста с теми, у кого заявок не было, — особенно с опытными.',
+  monitor:'Недоработка или переработка у одного человека несколько месяцев подряд — повод поговорить один на один.',
+  office:'Договоритесь с командой об общих офисных днях.',
+  ai:'Спросите тех, кто не пользуется AI, что мешает: доступ, задачи, обучение.'};
 function conclusion(sum,b,S){
   let head=sum.head, facts, todo=sum.todo;
   let tag=BK_TAG[sum.sev];
   /* поставка 110 (критики 07.11): в команде меньше 30 человек доли не оцениваются — не «Всё спокойно», а «без оценки»: красная
      плашка рядом со «спокойно» и заголовком «уходят чаще» спорили между собой */
   if(!sum.list.length&&D.isSmall()){
-    tag='Без оценки';
-    head='В команде меньше '+D.SMALL_N+' человек — доли и сроки с ориентиром не сравниваем';
-    facts='<div class="bk-pl"><span class="bk-p"'+U.tipAttr({title:'Почему без оценки',
+    /* поставка 121 (критики-руководители 119: одна и та же заглушка «Без оценки… смотрите, кто именно ушёл» на 7–8 вкладках):
+       главный факт блока в людях (TPINSIGHTS.smallFact) и совет руководителю команды; оговорка о долях — пилюлей */
+    const sf=INS.smallFact?INS.smallFact(b.key,S,D.reportLeaves(S)):null;
+    tag='В людях';
+    head=sf?sf.head:'В команде меньше '+D.SMALL_N+' человек — доли и сроки с ориентиром не сравниваем';
+    facts='<div class="bk-pl">'+(sf?sf.pills.map(t=>'<span class="bk-p">'+t+'</span>').join(''):'')+'<span class="bk-p"'+U.tipAttr({title:'Почему без оценки',
         text:'Один человек сдвигает долю на несколько процентных пунктов — сравнение с другими подразделениями здесь шум. Числа в людях — на графиках и в таблицах ниже.'})+
-      '>один человек — несколько п.п.</span><span class="bk-p">числа в людях — ниже</span></div>';
-    todo='Смотрите, кто именно ушёл, пришёл или перешёл: на таком размере важен каждый человек.';
+      '>доли не оцениваем: мало людей</span></div>';
+    todo=SMALL_TODO[b.key]||'Числа в людях — на графиках и в таблицах ниже.';
   }else if(!sum.list.length){
     const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)), cmp=vis.filter(m=>D.comparable(m.key)||D.kpiFor(m.key,S));
     head='Заметных отклонений нет';
@@ -343,6 +358,7 @@ function renderBlock(S,expanded,mixOpen,view){
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
   const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key]));
+  const tmets=mets.concat((ov.add||[]).map(k=>D.METRIC_BY_KEY[k]).filter(m=>m&&D.metricVisible(m.key,S)&&mets.indexOf(m)<0));
   /* поставка 99: окно периода названо в шапке вкладки — под колонкой подписаны только исключения («сейчас», «на конец …») */
   /* файл 8, п. 6: закрытые вакансии в таблице подразделений — за текущий календарный год (с 1 января по дату данных,
      вместе с незакрытым месяцем), год — в подписи колонки */
@@ -432,7 +448,7 @@ function renderBlock(S,expanded,mixOpen,view){
      найм после итерации 28), сводной таблице нужно больше места, чем графику:
      левая колонка становится шире — иначе главная метрика и «К базе» уезжали
      за край панели под горизонтальную прокрутку. */
-  const wideL=tcols?true:mets.length>=7;
+  const wideL=tcols?true:tmets.length>=7;
   /* Таблица подразделений — по выбору (итерация 32): m-both — таблица слева,
      графики справа (по умолчанию: таблица — основа фильтрации), m-charts —
      графики во всю ширину; share — доля
@@ -489,7 +505,7 @@ function renderBlock(S,expanded,mixOpen,view){
     return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
   };
   const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),i===1)).join('')
-    :mets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
+    :tmets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» подсказки шапок — без фраз о целях */
   const noGoal=t=>b.key==='turnover'&&S.subTab==='hq'?(String(t).match(/[^.]+(?:\.|$)\s*/g)||[]).filter(x=>!/[Цц]ел[ьиея]/.test(x)).join('').trim():t;
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
@@ -498,7 +514,7 @@ function renderBlock(S,expanded,mixOpen,view){
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+(c.per?'<span class="th-per">'+esc(c.per)+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :mets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:noGoal(U.metricText(m,1)),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
+    :tmets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:noGoal(U.metricText(m,1)),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
       pt(m.key).head+' — как итог под графиком.':null})+'>'+esc(m.short)+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
@@ -544,12 +560,12 @@ function renderBlock(S,expanded,mixOpen,view){
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
       (tcols?tcols.map((c,i)=>tcell(c,tdata(lp),i===1,1)).join('')
-      :mets.map(m=>{const hc=val(lp,'hc_total'), ld=m.key===mainK?'lead':'';
+      :tmets.map(m=>{const hc=val(lp,'hc_total'), ld=m.key===mainK?'lead':'';
         return '<td'+(m.fmt==='pct'&&isSm(hc)&&!D.directNA(r.n,m.key)?smAttr(hc,ld):ld?' class="lead"':'')+'>'+
         (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>'}).join(''))+'</tr>';
   });
   /* пустые состояния — строкой в таблице, а не вместо неё: ИТОГО остаётся */
-  const ncol=1+(tcols?tcols.length:mets.length);
+  const ncol=1+(tcols?tcols.length:tmets.length);
   if(!rows.length)tbl+='<tr class="tree-empty"><td class="txt" colspan="'+ncol+'">'+
     (tq?'В трёх уровнях вниз нет «'+esc(tq)+'». Другое подразделение компании выберите в «Настрой свой дашборд».'
       :'У «'+esc(rootNode.name)+'» нет подразделений уровнем ниже — все цифры в строке «Итого».')+'</td></tr>';

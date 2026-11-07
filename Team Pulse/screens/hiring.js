@@ -103,6 +103,17 @@ SC.blocks.hiring={
        по старшинству (порядковые) */
     const vt=(cap,capSub,items,color,head,rs,ord)=>U.btGroup(Object.assign({cap:cap,capSub:capSub,head:'',valueHead:head,metricKey:'vac_open',
       compact:true,sort:!ord,items:items.map(x=>({name:x.name,value:x.value,color:color}))},rs||{}));
+    /* поставка 121 (критики на 7 и 22 человека: пять таблиц «1 · 100%» ради одной вакансии): одна открытая вакансия — одной
+       строкой, разбивки — только по закрытым */
+    const nOpen=vb.status.reduce((t,x)=>t+(x.value||0),0);
+    if(nOpen===1){
+      const one=[vb.reason,vb.pos,vb.spec,vb.status].map(a=>(a.find(x=>x.value)||{}).name).filter(Boolean).map(t=>t.charAt(0).toLowerCase()+t.slice(1));
+      const closed1=[['Закрытые по каналу',vb.channel],['Закрытые по уровню кандидата',vb.cand,null,1]].filter(x=>x[1].length)
+        .map(x=>vt(x[0],'с 1 января по '+D.ASOF_LABEL,x[1],G.C_IN,'Вакансий',x[2],x[3]));
+      return panels+'<div class="vac-one">Открыта <b>1 вакансия</b>: '+esc(one.join(' · '))+' — на '+esc(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur)+'.</div>'+
+        (closed1.length?U.btStack(closed1):'')+
+        '<div class="tbl-note">Вакансии — по подразделению: фильтры покраски, IT, штата и типа численности на них не действуют.</div>';
+    }
     const open=[['Открытые по статусу',vb.status],['Открытые по причине',vb.reason],['Открытые по уровню позиции',vb.pos,null,1],
       ['Открытые по специализации',vb.spec,SC.rest(ctx,'vspec',10,['специализация','специализации','специализаций'])]]
       .filter(x=>x[1].length).map(x=>vt(x[0],'на '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur),x[1],G.C_VAC,'Вакансий',x[2],x[3]));
