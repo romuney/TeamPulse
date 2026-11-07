@@ -184,7 +184,8 @@ function vsBase(j,c,more,less,same,noYoy){
 const ADV=t=>t.split(' ').pop();
 function yoyTail(j,c,more,less){
   const py=j.k?yearAgo(c.lp,j.k):null;
-  if(py==null||j.v==null||!py||Math.abs(j.v-py)/Math.abs(py)<0.05)return '';
+  /* поставка 120 («один вердикт», критики 119): порог хвоста «но … чем год назад» — тот же 10%, что у выводов (было 5%) */
+  if(py==null||j.v==null||!py||Math.abs(j.v-py)/Math.abs(py)<D.VERDICT_GAP)return '';
   const up=j.v>py, vsB=j.st==='bad'||j.st==='good'?j.v>j.base:null;
   const t=up?more:less;
   return vsB===up?'':', но '+(vsB==null?t.charAt(0).toLowerCase()+t.slice(1):ADV(t))+', чем год назад';
@@ -432,7 +433,8 @@ function monStory(c,wk){
     if(!md)return {sum:'нет данных',st:'n'};
     const W=wk&&md.weeks?md.weeks:md.months, ci=W.findIndex(p=>p.cl), i0=ci<0?W.length-1:ci, cur=W[i0], prev=W[i0-1]||cur;
     const pc1=v=>cur.hc?(Math.round(v/cur.hc*1000)/10).toFixed(1).replace('.',','):'0';
-    const du=cur.under-prev.under, dv=cur.over-prev.over, sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v);
+    /* поставка 120 (критик компании: «недоработка +7, переработка −11» — непонятно, чего): изменение — в людях */
+    const du=cur.under-prev.under, dv=cur.over-prev.over, sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v)+' чел.';
     const worse=du>0||dv>0, both=du>0&&dv>0;
     /* поставка 90: главное — доли в среднем за месяц с января по закрытый месяц (как итог под графиком), месяц к месяцу — с подписью */
     /* шаг «По неделям» — главное о последней закрытой неделе; «По месяцам» — доли в среднем за месяц с января */

@@ -358,7 +358,10 @@ function navSig(bk){
 function navSig0(bk){
   const I=window.TPINSIGHTS;
   if(!I||!I.blockSummary)return D.blockSignal(bk,S).state==='bad'?'bad':'neutral';
-  try{return I.blockSummary(bk,S,D.reportLeaves(S),D.benchmarkLeaves(S)).sev==='high'?'bad':'neutral'}catch(e){return 'neutral'}
+  /* поставка 120 (критики 119): точка — по тяжести вывода блока, как мини-навигация главной: требует действий — красная,
+     посмотреть — жёлтая, только хорошие новости — зелёная */
+  try{const sv=I.blockSummary(bk,S,D.reportLeaves(S),D.benchmarkLeaves(S)).sev;
+    return sv==='high'?'bad':sv==='mid'?'warn':sv==='good'?'good':'neutral'}catch(e){return 'neutral'}
 }
 function renderNav(){
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */

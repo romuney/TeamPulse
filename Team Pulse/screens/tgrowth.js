@@ -45,18 +45,20 @@ function gradeHeat(s){
       '<td class="lead">'+D.fmtInt(sum(r.cells))+'</td></tr>').join('')+'</tbody></table></div>';
 }
 /* успешность заявок потока: заявка, успешно, отказ, % отказа — чем выше отказ, тем краснее */
-function succTable(cap,sub,rows,head){
+/* поставка 120 (критик компании: «Итого» таблицы «первые 5» — сумма только показанных строк; «%» читают как успех): строки
+   «Итого» нет, итог по всем заявкам — в подписи (tot — по всем строкам, D.rostProfile rostS / tatS), колонка — «Отказ, %» */
+function succTable(cap,sub,rows,head,tot){
   if(!rows.length)return '';
   const pc=x=>x.apps?x.no/x.apps*100:0, top=Math.max(1,...rows.map(pc));
-  const T={apps:sum(rows.map(x=>x.apps)),ok:sum(rows.map(x=>x.ok)),no:sum(rows.map(x=>x.no))};
+  const T=tot||{apps:sum(rows.map(x=>x.apps)),ok:sum(rows.map(x=>x.ok)),no:sum(rows.map(x=>x.no))};
   const tr=(x,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt"'+(cls?'':U.tipAttr({title:x.name,
       rows:[{label:'Заявка',value:D.fmtInt(x.apps)},{label:'Успешно',value:D.fmtInt(x.ok)},{label:'Отказ',value:D.fmtInt(x.no)}]}))+'>'+
       esc(x.name)+'</td><td>'+D.fmtInt(x.apps)+'</td><td>'+
     D.fmtInt(x.ok)+'</td><td>'+D.fmtInt(x.no)+'</td>'+(cls?'<td>'+U.pct(pc(x))+'</td>':soft(x.no,pc(x)/top,U.pct(pc(x))))+'</tr>';
-  return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+'</span></div>'+
+  return '<div class="bt-group"><div class="bt-cap">'+esc(cap)+'<span class="bt-sub">'+esc(sub)+' · всего заявок <b>'+D.fmtInt(T.apps)+'</b>, успешно '+
+      D.fmtInt(T.ok)+', отклонено '+D.fmtInt(T.no)+'</span></div>'+
     '<table class="ptable stable dense rost-t succ"><thead><tr><th class="txt">'+esc(head)+'</th><th>Заявка</th><th>Успешно</th>'+
-    '<th>Отклонено</th><th'+U.tipAttr({title:'% отклонённых',text:'Доля отклонённых среди заявок.'})+'>%</th></tr></thead><tbody>'+
-    tr(Object.assign({name:'Итого'},T),'total top')+
+    '<th>Отклонено</th><th'+U.tipAttr({title:'Отказ, %',text:'Доля отклонённых среди заявок этой строки.'})+'>Отказ, %</th></tr></thead><tbody>'+
     rows.map(x=>tr(x)).join('')+'</tbody></table></div>';
 }
 /* 31.10-б, п. 5: повышение грейда по месяцам — год к году с января, как «Найм, чел»: бар этого года, позади прошлый;
@@ -80,15 +82,15 @@ function grades(ctx,p){
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
       esc(cur.tip)+'</span></div>'+gradeHeat(cur)+'</div>'+
     flowYoy(ctx,p.grade,'на повышение грейда','Повышение грейда по месяцам, заявок')+
-    U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов',p.grade.rostT,'Текущий → желаемый'),
-      succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Текущий → желаемый')])+
+    U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов',p.grade.rostT,'Текущий → желаемый',p.grade.rostS),
+      succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Текущий → желаемый',p.grade.tatS)])+
     '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
 }
 function specs(ctx,p){
   return flowYoy(ctx,p.spec,'на смену специализации','Смена специализации по месяцам, заявок','смена специализации')+
-    U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам',p.spec.rostT,'Текущая → желаемая'),
-      succTable('Смена специализации: T@T','первые 4 по заявкам',p.spec.tatT,'Текущая → желаемая')])+
-    '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; % — доля отклонённых среди заявок.</div>';
+    U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам',p.spec.rostT,'Текущая → желаемая',p.spec.rostS),
+      succTable('Смена специализации: T@T','первые 4 по заявкам',p.spec.tatT,'Текущая → желаемая',p.spec.tatS)])+
+    '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; «Отказ, %» — доля отклонённых среди заявок строки.</div>';
 }
 
 SC.blocks.tgrowth={

@@ -2585,3 +2585,18 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ptable.rost-t.succ td.txt,.ptable.rost-t.succ th.txt{width:32%}
 .ptable.spm4 th.num.spm-hc,.ptable.spm4 th.bar-th{white-space:nowrap}
 .ptable.btable.bt-cnt thead th{white-space:nowrap}
+
+/* ==========================================================================
+   Поставка 120 (критики-руководители 119). «✓ В норме» — только оценённые метрики; «Без оценки — мало людей» и
+   «Для справки» (количества и метрики без направления, со значением год назад) — серыми: зелёная метка у худших чисел
+   отчёта читалась как «тоже хорошо».
+   ========================================================================== */
+.in-ok.in-na .in-okt,.in-ok.in-info .in-okt{color:var(--muted)}
+.in-ok.in-na,.in-ok.in-info{margin-top:var(--s2)}
+.in-pill .in-ago{color:var(--muted2);font-weight:var(--fw-body)}
+/* поставка 120: точка навигации — по тяжести выводов блока: «Посмотреть» — жёлтая, как метка карточки */
+.op-nav-i .sig.warn{background:var(--warn)}
+.nav-i .ico.sig-warn{background:var(--warn);border-radius:50%}
+.op-nav-n.w{color:var(--warn-tx);background:var(--warn-bg)}
+/* поставка 120: под пилюлей «месяц к месяцу» — значение самого месяца (у значения строки — среднее или сумма за период) */
+.mtable .col-num .m-per{display:block;font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap}

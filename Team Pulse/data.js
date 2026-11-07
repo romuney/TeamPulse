@@ -1248,7 +1248,9 @@ function yoySeries(leafPaths,key){return yoyOf(aggregateExt(leafPaths,key))}
    (численность, открытые вакансии) — сейчас, без вызревания. Январь без закрытых месяцев — неполный январь.
    Дельта — в единицах и % (при базе от 10), у процентов — п.п.; почти ноль — «без изменений» */
 /* поставка 90: у ставок «за месяц» — «в среднем за месяц», у срока — «в среднем за», у остальных долей — «за период» */
-const PT_CUM=new Set(['turnover_y','regret','nonregret']), PT_STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau']),
+/* поставка 120 (критики 119: «22 человека — на 2 больше, чем на начало года» в сводке и «Прирост с начала года 4» в
+   таблице — на конец сентября): прирост — сейчас, как численность */
+const PT_CUM=new Set(['turnover_y','regret','nonregret']), PT_STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau','net_ytd']),
   PT_MON=new Set(['turnover_m','underwork','overwork','ai_penetration']);
 function periodTotal(lp,key,yser){
   const m=METRIC_BY_KEY[key]||{}, d=defOf(key).derived, y=yser||yoySeries(lp,key);
@@ -1285,7 +1287,8 @@ function periodTotal(lp,key,yser){
       const ri=Math.round(cur)-Math.round(prev), rp=Math.round(prev);
       delta=pct||m.fmt!=='int'?fmtDelta(key,+dd.toFixed(2)):!ri?'без изменений':(ri>0?'+':'\u2212')+fmtInt(Math.abs(ri))+(m.unit==='чел'?' чел.':'')+
         (rp>=10?' ('+(ri>0?'+':'\u2212')+Math.abs(Math.round(ri/rp*100))+'%)':'');
-      good=m.better==='lower'?dd<0:m.better==='higher'?dd>0:null;
+      /* поставка 120: цвет плашки — тем же правилом, что у вердикта (deltaState): от 10%, малые группы — серым */
+      const ds=deltaState(key,cur,prev,lp);good=ds==='good'?true:ds==='bad'?false:null;
     }
   }
   /* lab — окно коротко для подписи под числом: «янв.–сент.», «на конец сентября», «сейчас» */
@@ -1364,7 +1367,9 @@ function peerState(key,v,p){
   const m=METRIC_BY_KEY[key]||{};
   if(v==null||!p||isSmall(key))return'neutral';
   if(Math.abs(v-p.p50)<VERDICT_GAP*Math.abs(p.p50||1))return'warn';
-  const hi=v>p.p75, lo=v<p.p25;
+  /* поставка 120 (критик на 49 человек: «хуже базы» решало округление — 22,30 против границы четверти 22,29): четверти в
+     датасете округлены до сотых — значение на границе (±0,011) считаем «на уровне» */
+  const hi=v>p.p75+0.011, lo=v<p.p25-0.011;
   if(!hi&&!lo)return'warn';
   return (m.better==='lower')===lo?'good':'bad';
 }
@@ -1411,6 +1416,21 @@ function stateForKpi(key,val,kpi){
   if(isSmall(key))return'neutral';
   if(m.better==='lower')return val<=kpi.green?'good':(val>=kpi.red?'bad':'warn');
   return val>=kpi.green?'good':(val<=kpi.red?'bad':'warn');
+}
+/* поставка 120 (критики-руководители 119: «−0,2 п.п.» зелёным, «+1 к августу» красным, «+44,5 п.п.» у HQ из одного
+   человека под словами «не оцениваем»): цвет изменения — по тому же правилу, что вердикт. Цвет есть, если изменение —
+   от 10% прошлого значения (VERDICT_GAP); у количеств ещё и от 2 человек (штук), у группы меньше SMALL_N человек — от 3,
+   как карточка оттока малой команды. Доли и сроки группы меньше SMALL_N человек (отчёт, подразделение lp или HQ у
+   HQ-метрик) и по малому числу событий (thin) — без цвета. 'good' | 'bad' | 'neutral' */
+function deltaState(key,cur,prev,lp){
+  const m=METRIC_BY_KEY[key];
+  if(!m||cur==null||prev==null||!isFinite(cur)||!isFinite(prev)||m.better==='flat'||isStub(key))return 'neutral';
+  const cnt=m.fmt==='int', hc=lp&&lp.length?lastVal(lp,'hc_total'):null, small=hc!=null?hc<SMALL_N:SMALL_REP;
+  if(!cnt&&(small||isSmall(key)||!!lp&&thin(key,lp)))return 'neutral';
+  const d=cur-prev;
+  if(cnt&&Math.abs(Math.round(cur)-Math.round(prev))<(small?3:2))return 'neutral';
+  if(prev?Math.abs(d)/Math.abs(prev)<VERDICT_GAP:!d)return 'neutral';
+  return (m.better==='lower'?d<0:d>0)?'good':'bad';
 }
 /* есть ли у метрики жёсткий KPI в текущей настройке (regret — только по HQ) */
 /* 21.10, поставка 50: годовые цели прод-отчёта HQ (regrettable 4%, non-regrettable 5–15%, общая —
@@ -3067,12 +3087,16 @@ function rostReal(lp){
       if(y===YEAR_PREV){yy.prev[m]+=n;yy[p[2]==='1'?'prevT':'prevR'][m]+=n}
       else if(y===YEAR_CUR&&m<CUR_LEN){yy.cur[m]+=n;yy[p[2]==='1'?'tat':'rost'][m]+=n}
     });
-    return {rost:R,tat:T,yoy:yy,rostT:top(succ('0'),nR),tatT:top(succ('1'),nT)};
+    /* поставка 120 (критик компании: «Итого» таблицы «первые 5» — сумма только показанных строк): итог — по всем строкам */
+    const sR=succ('0'), sT=succ('1');
+    return {rost:R,tat:T,yoy:yy,rostT:top(sR,nR),tatT:top(sT,nT),rostS:succSum(sR),tatS:succSum(sT)};
   };
   return {real:true,hc:st.reduce((a,s)=>a+s.n,0),st:st,grade:flow('g',5,99),spec:flow('s',5,4)};
 }
 /* файл 6, п. 4: численность HQ подразделения на «Рост HQ» — люди статусов роста (rs: численность HQ последнего месяца) */
 function rostHc(lp){const rs=realExit(lp,'rs');return Object.keys(rs).reduce((a,k)=>a+rs[k],0)}
+/* итог таблицы успешности «Роста» по всем строкам, а не по показанным первым N */
+const succSum=a=>a.reduce((t,x)=>({apps:t.apps+(x.apps||0),ok:t.ok+(x.ok||0),no:t.no+(x.no||0)}),{apps:0,ok:0,no:0});
 function rostProfile(lp){
   if(ROST_LIVE)return rostReal(lp);
   const r=rng(lpSeed(lp,'rost')), cats=MIX_BY_KEY.grade.cats, gp=mixParts(lp,'grade').map(v=>Math.round(v));
@@ -3099,7 +3123,8 @@ function rostProfile(lp){
       yy.prevT[m]=Math.round(yy.prev[m]*T/Math.max(1,R+T));yy.prevR[m]=yy.prev[m]-yy.prevT[m]}
     /* ревью 100: итог над графиком — те же месяцы, что «Всего за янв.–…» под ним */
     const pr=a=>a.slice(0,CNT_C+1).reduce((x,v)=>x+v,0), R1=pr(yy.rost), T1=pr(yy.tat);
-    return {rost:R1,tat:T1,yoy:yy,rostT:top(succ(R1,names,from),nR),tatT:top(succ(T1,names,from),nT)};
+    const sR=succ(R1,names,from), sT=succ(T1,names,from);
+    return {rost:R1,tat:T1,yoy:yy,rostT:top(sR,nR),tatT:top(sT,nT),rostS:succSum(sR),tatS:succSum(sT)};
   };
   const named=d=>[...new Set((MIX_BY_KEY[d]?MIX_BY_KEY[d].cats:[]).map(c=>c.name.split('|').pop()).filter(x=>!isNA(x)))];
   /* заявок закрыто больше, чем людей: у одного бывает несколько */
@@ -3479,7 +3504,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   COUNT_METRICS,vacancyBreakdown,kpiAt,teamShare,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,BASE_DEF,baseDef,coName,
-  metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,kpiFor,comparable,
+  metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,deltaState,kpiFor,comparable,
   setVerdictScope,isSmall,isSmallHq,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,

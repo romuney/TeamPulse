@@ -515,7 +515,12 @@ const PART_NOTE=k=>'Месяц не закрыт: данные по '+CD.ASOF_LA
 /* 26.10, ревью критиков: у неполного месяца потока — период вместо имени месяца и без «год к году» (12 дней против
    полного месяца давали ложное «−9»); будущие месяцы — «ещё впереди», а не «не закрыт» */
 const tipMon=(i,nowI,pf)=>pf&&i===nowI&&CD.PARTIAL?'1–'+CD.ASOF.d+' '+CD.MONTH_GEN[i]:CD.MONTH_NOM[i].replace(/^./,x=>x.toUpperCase());
-const tipAhead=(i,nowI)=>i>nowI?tipMon(i)+' '+CD.YEAR_CUR+' ещё впереди — показан '+CD.YEAR_PREV:'Месяц ещё не закрыт';
+/* поставка 120 (критики 119: «Февраль · Медианный срок закрытия — Месяц ещё не закрыт» — февраль давно закрыт, просто
+   вакансий в нём не закрывали): пустой закрытый месяц — «событий не было», а «не закрыт» — только у текущего */
+const EMPTY_NOTE={time_to_fill:'В этом месяце вакансий не закрывали',tgrowth_conv:'В этом месяце заявок не рассматривали',
+  booking_viol:'В этом месяце броней не было'};
+const tipAhead=(i,nowI,key)=>i>nowI?tipMon(i)+' '+CD.YEAR_CUR+' ещё впереди — показан '+CD.YEAR_PREV
+  :i<nowI?EMPTY_NOTE[key]||'За этот месяц данных нет':'Месяц ещё не закрыт';
 /* 31.10, п. 8: текущий (незакрытый) месяц — подписью обычным шрифтом, как остальные; акцент — на закрытом месяце (жирная
    подпись месяца и значения). Месяц закрыт — он и есть закрытый. Поставка 90: штрихуется сам бар незакрытого месяца —
    мягким цветом ряда, бледнее закрытых, без контура; не полоса за ним (фон читался как «обратите внимание») */
@@ -664,9 +669,9 @@ function yoyPlot(p,ar){
     if(showMain&&c!=null&&p.tipRows)p.tipRows(i).forEach(r=>rows.push(r));
     if(showPrev&&pv!=null)rows.push({label:String(yP),value:CD.fmtVal(key,pv),
       color:!flow?C_PREV:p.parts?alpha(p.parts.pcol[0],showMain?.45:1):showMain?alpha(ghostCol(col),GHOST_OP):soft(col)});
-    if(showBench&&b!=null)rows.push({label:p.benchName||'база',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
+    if(showBench&&b!=null)rows.push({label:p.benchName||'вся компания',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
     const pf=part||CD.partFlow(key), note=pf&&i===nowI?PART_NOTE(key):c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
-      :c==null?tipAhead(i,nowI):null;
+      :c==null?tipAhead(i,nowI,key):null;
     const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:tipMon(i,nowI,pf)+((p.tipName||nm.name)?' · '+(p.tipName||nm.name):''),rows,note})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(ar.hitTop)+'" width="'+num(bandW)+'" height="'+num(bot-ar.hitTop)+'"/>'+
@@ -704,7 +709,7 @@ function yoyPlot(p,ar){
         /* ревью 100: подпись незакрытого месяца рядом с подписью закрытого на той же высоте — под точкой */
         nb=i===nowI&&i>0&&cur[i-1]!=null&&Math.abs(Y(c)-Y(cur[i-1]))<16&&rm(c), below=(both&&pv>c||nb)&&rm(c);
       const sh=mkAt(i,'main')?5:0;
-      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · '+CD.ASOF.d+' дн':''),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
+      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · по '+CD.ASOF.d+'-е':''),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }
@@ -815,7 +820,7 @@ function drawPair(a,w,h){
       if(pb!=null)rows.push({label:nameB+' · '+yP,value:CD.fmtVal(B.key,pb),color:sC?alpha(cB,GHOST_OP):fB})}
     const pf=part||CD.partFlow(A.key), dly=DRAW_MS*(i/Math.max(1,nowI))*0.5;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:tipMon(i,nowI,pf),rows,
-      note:pf&&i===nowI?PART_NOTE(A.key):va==null&&vb==null?tipAhead(i,nowI):null})+'>';
+      note:pf&&i===nowI?PART_NOTE(A.key):va==null&&vb==null?tipAhead(i,nowI,A.key):null})+'>';
     s+='<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>';
     /* вверх — приход, вниз — уход. Прошлый год — позади, шире и почти прозрачно
        тем же цветом; выключили этот год — прошлый обычными барами */
@@ -942,13 +947,21 @@ function stateColor(st){return st==='good'?C_GREEN:st==='bad'?C_RED:C_FLAT}
 /* Строка подсказки спарклайна с тем, с чем метрика сравнивается: цель KPI, если
    она есть, иначе база. Одна функция на оба спарклайна — иначе колонка «12 мес»
    и hero-карточка объясняли бы один и тот же месяц по-разному. */
-function cmpRow(key,i,base,kpi){
-  if(kpi)return [{label:'цель KPI',value:CD.fmtVal(key,kpi.green),color:C_BENCH,dash:true}];
-  return base?[{label:'база',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[];
+/* поставка 120 (критики 119: «база 17,9%» в подсказке при «компания 17,9%» в колонке; у всей компании «база» = она сама;
+   «цель KPI 3,0%» и в январе): ряд сравнения подписан своим именем (name — «вся компания»); годовая цель — в месяце i своя
+   доля, как коридор на большом графике */
+function kpiAtI(kpi,i){
+  if(!kpi)return null;
+  const mm=(CD.MONTHS[i]||{}).m;
+  return kpi.annual&&mm!=null?+(kpi.annual.green*(mm+1)/12).toFixed(2):kpi.green;
 }
-/* Оценка месяца: есть KPI — только против него, базы здесь уже нет. */
+function cmpRow(key,i,base,kpi,name){
+  if(kpi)return [{label:'цель KPI',value:CD.fmtVal(key,kpiAtI(kpi,i)),color:C_BENCH,dash:true}];
+  return base?[{label:name||'вся компания',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[];
+}
+/* Оценка месяца: есть KPI — только против него (в месяце i — его доля годовой), базы здесь уже нет. */
 function cmpState(key,v,i,base,kpi,flat,state){
-  if(kpi)return CD.stateForKpi(key,v,kpi);
+  if(kpi)return CD.stateForKpi(key,v,kpi.annual?{green:kpiAtI(kpi,i),red:+(kpi.annual.red*(((CD.MONTHS[i]||{}).m||0)+1)/12).toFixed(2)}:kpi);
   return (flat||!base||!key)?state:CD.compareState(key,v,base[i]);
 }
 
@@ -997,7 +1010,7 @@ function sparkLine(series,state,w,h,o){
   const n=series.length, key=o.key, base=o.base, kpi=o.kpi;
   /* o.ink — у метрики нет оценки: без цветных точек */
   const ev=!o.ink&&!!key;
-  const refs=kpi?series.map(()=>kpi.green):(base&&ev?base:null);
+  const refs=kpi?series.map((_,i)=>kpiAtI(kpi,i)):(base&&ev?base:null);
   const vals=series.concat(refs||[]).filter(v=>v!=null);
   const mn=vals.length?Math.min.apply(null,vals):0, mx=vals.length?Math.max.apply(null,vals):0, rg=mx-mn;
   let lo=mn-rg*0.12, max=mx+rg*0.12;
@@ -1034,7 +1047,7 @@ function sparkLine(series,state,w,h,o){
     const gapw=w/n, cx=X(i), cy=Y(v), col=ev?stateColor(stAt(v,i)):C_SPARK_INK;
     const t={title:mLabel(i),
       rows:[{label:(CD.METRIC_BY_KEY[key]||{}).name||'',value:CD.fmtVal(key,v),color:col}]
-        .concat(cmpRow(key,i,base,kpi))};
+        .concat(cmpRow(key,i,base,kpi,o.baseName))};
     s+='<g class="spg"'+tip(t)+'>';
     s+='<rect class="hit" x="'+num(i*gapw)+'" y="0" width="'+num(gapw)+'" height="'+num(h)+'"/>';
     s+='<line class="spgd" x1="'+num(cx)+'" y1="0" x2="'+num(cx)+'" y2="'+num(h)+'" stroke="'+col+'"'+NSS+'/>';
