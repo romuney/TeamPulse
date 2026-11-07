@@ -64,6 +64,11 @@ distributed by (unit_rk);
 --    ключом, а люди складывались по своему пути — сумма детей расходилась с родителем на тысячи. Теперь у узла один
 --    родитель — тот, под которым больше людей (при равенстве — меньший ключ), путь узла строится по этому дереву, и по
 --    нему же — путь юнита (teampulse_hub_upath): люди и дерево согласованы. При согласованных путях — как раньше.
+--    07.11, уточнение (бой: все 53 таких узла — «один узел на разных уровнях»: у части юнитов в цепочке пропущен
+--    промежуточный уровень, A > C вместо A > B > C). Из кандидатов в родители сначала отбрасывается тот, кто сам
+--    стоит выше другого кандидата в чьём-то пути (A — предок B): родитель — ближайший (B), иначе люди C выпали бы
+--    из B. Только если кандидаты не вложены друг в друга — по людям. Пропуск внутри пути ('-' на уровне) — родитель
+--    ближайший непустой уровень выше, а не корень.
 drop table if exists teampulse_hub_uppl;
 create table teampulse_hub_uppl as
 select s.mng_unit_rk::text as unit_rk, count(distinct s.mdm_employee_rk)::float8 as ppl
@@ -75,24 +80,57 @@ drop table if exists teampulse_hub_nedge;
 create table teampulse_hub_nedge as
 select x.rk, x.nm, x.prk, sum(coalesce(p.ppl, 0)) + count(*) * 1e-6 as w
 from (
-    select r.unit_rk, unnest(r.ra) as rk, unnest(r.na) as nm, unnest(r.pa) as prk
+    select r.unit_rk, r.ra[i] as rk, r.na[i] as nm,
+           coalesce((array_remove(r.ra[1:i - 1], '-'))[array_length(array_remove(r.ra[1:i - 1], '-'), 1)], '') as prk
     from (
-        select u.unit_rk,
+        select u.unit_rk, u.leaf_lvl,
                (ARRAY[u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10, u.k11])[1:u.leaf_lvl] as ra,
-               (ARRAY[u.n1, u.n2, u.n3, u.n4, u.n5, u.n6, u.n7, u.n8, u.n9, u.n10, u.n11])[1:u.leaf_lvl] as na,
-               (ARRAY[''::text, u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10])[1:u.leaf_lvl] as pa
+               (ARRAY[u.n1, u.n2, u.n3, u.n4, u.n5, u.n6, u.n7, u.n8, u.n9, u.n10, u.n11])[1:u.leaf_lvl] as na
         from teampulse_hub_uone u
     ) r
+    cross join generate_series(1, 11) i
+    where i <= r.leaf_lvl
 ) x
 left join teampulse_hub_uppl p on p.unit_rk = x.unit_rk
 where x.rk <> '-'
 group by 1, 2, 3
 distributed by (rk);
+--    кандидаты узлов с несколькими родителями и пары «предок — потомок» среди них по путям юнитов
+drop table if exists teampulse_hub_ncand;
+create table teampulse_hub_ncand as
+select e.rk, e.prk from teampulse_hub_nedge e
+where e.rk in (select rk from teampulse_hub_nedge group by rk having count(distinct prk) > 1)
+group by 1, 2
+distributed by (rk);
+drop table if exists teampulse_hub_nanc;
+create table teampulse_hub_nanc as
+select distinct a.anc, a.des
+from (
+    select r.ra[i] as anc, r.ra[j] as des
+    from (
+        select (ARRAY[u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10, u.k11])[1:u.leaf_lvl] as ra, u.leaf_lvl
+        from teampulse_hub_uone u
+    ) r
+    cross join generate_series(1, 11) i
+    cross join generate_series(1, 11) j
+    where i < j and j <= r.leaf_lvl
+) a
+where a.anc <> '-' and a.anc <> a.des and a.anc in (select prk from teampulse_hub_ncand) and a.des in (select prk from teampulse_hub_ncand)
+distributed by (anc);
+--    nfar — кандидаты, которые сами выше другого кандидата того же узла: они идут последними
+drop table if exists teampulse_hub_nfar;
+create table teampulse_hub_nfar as
+select distinct c.rk, c.prk
+from teampulse_hub_ncand c
+join teampulse_hub_nanc a on a.anc = c.prk
+join teampulse_hub_ncand c2 on c2.rk = c.rk and c2.prk = a.des and c2.prk <> c.prk
+distributed by (rk);
 drop table if exists teampulse_hub_npar;
 create table teampulse_hub_npar as
-select distinct on (rk) rk, case when prk = '-' then '' else prk end as prk
-from teampulse_hub_nedge
-order by rk, w desc, prk
+select distinct on (e.rk) e.rk, case when e.prk = '-' then '' else e.prk end as prk
+from teampulse_hub_nedge e
+left join teampulse_hub_nfar f on f.rk = e.rk and f.prk = e.prk
+order by e.rk, case when f.rk is null then 0 else 1 end, e.w desc, e.prk
 distributed by (rk);
 drop table if exists teampulse_hub_node;
 create table teampulse_hub_node as
@@ -123,6 +161,9 @@ distributed by (unit_rk);
 drop table if exists teampulse_hub_uppl;
 drop table if exists teampulse_hub_nedge;
 drop table if exists teampulse_hub_npar;
+drop table if exists teampulse_hub_ncand;
+drop table if exists teampulse_hub_nanc;
+drop table if exists teampulse_hub_nfar;
 
 -- несколько корней — общий корень над ними: «вся компания» — сумма всех строк
 update teampulse_hub_cal set mo = 1, pre = 'all|' where (select count(*) from teampulse_hub_node where prk = '') > 1;
