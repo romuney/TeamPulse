@@ -2541,27 +2541,25 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* ==========================================================================
    Поставка 116 (владелец 07.11): «ИТОГО занимает кучу места — больше заголовка таблицы»; «заголовки разбивок не выглядят
    как заголовки, а просто текст». Заголовок разбивки — как заголовок графика (13/700, тёмный), уточнение — серым рядом,
-   итог — справа в той же строке («Всего 61 чел»). Строка «Итого» там, где она осталась (таблица подразделений, матрицы,
-   месяцы движения), — той же высоты, что строки данных, обычным начертанием на светлом фоне: она не спорит с заголовком.
+   итог — последней частью уточнения («с 1 января по 12 октября · всего 61 чел»). Строка «Итого» там, где она осталась
+   (таблица подразделений, матрицы, месяцы движения), — той же высоты, что строки данных, обычным начертанием на светлом фоне.
+   116-б («при переносе много пустого места»): в подписи ничего не прижато вправо — она один текст и переносится как текст,
+   только между частями; «раскрыть всё» — в шапке колонки названий, над каретками строк.
    ========================================================================== */
 .bt-cap{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;font-size:13px;font-weight:var(--fw-bold);color:var(--ink);
   margin:0 0 8px;line-height:1.3}
 .bt-cap .bt-t{font-weight:var(--fw-bold);color:var(--ink)}
 .bt-cap .bt-sub{font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);margin-left:0}
-.bt-cap .bt-tot{margin-left:auto;font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);white-space:nowrap}
-.bt-cap .bt-tot b{color:var(--ink);font-weight:var(--fw-bold)}
-.bt-cap .bt-all+.bt-tot{margin-left:14px}
-.bt-cap .bt-all{font-weight:var(--fw-body)}
-/* подпись btGroup: слева — текст (название + уточнение, переносится внутри), справа — «раскрыть всё» и итог, не переносятся */
-.bt-cap.bt-c{flex-wrap:nowrap}
+.bt-cap .bt-sub .bt-tot b{color:var(--ink);font-weight:var(--fw-bold)}
+/* подпись btGroup — один текст (.bt-h): название не переносится; уточнение — после <wbr>, его части — целиком */
 .bt-cap.bt-c .bt-h{flex:1 1 auto;min-width:0}
-/* название не переносится; уточнение — после <wbr>: в строке отступ даёт поле названия, перенесённое — без отступа */
 .bt-cap.bt-c .bt-t{white-space:nowrap;margin-right:8px}
-.bt-cap.bt-c .bt-h .bt-sub{margin-left:0}
 .bt-cap.bt-c .bt-sub .nw{white-space:nowrap}
 .bt-cap.bt-c .bt-h .info{margin:0 8px 0 -3px;vertical-align:1px}
-.bt-cap.bt-c .bt-all,.bt-cap.bt-c .bt-tot{flex:none}
-.bt-cap.bt-c .bt-all{margin-left:12px}
+/* «раскрыть всё» в шапке колонки названий: обычный регистр, кликается вся надпись */
+.ptable thead th .bt-allh{display:inline-flex;align-items:center;gap:6px;cursor:pointer;text-transform:none;letter-spacing:0;
+  font-size:var(--fs-note);font-weight:var(--fw-body);color:var(--muted);white-space:nowrap}
+.ptable thead th .bt-allh:hover .bt-allt{color:var(--ink)}
 /* между разбивками — один интервал стопки (28px): жирный заголовок сам отделяет разбивку, добавка сверху не нужна */
 .bt-stack>.bt-group+.bt-group{padding-top:4px}
 /* класс строки «top» (закреплённый итог) совпадает с классом шапки страницы у хоста (.top{height:44px}) —

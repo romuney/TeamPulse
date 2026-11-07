@@ -434,7 +434,9 @@ function barTable(o){
   let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+(cnt?' bt-cnt':'')+'">'+
     '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?(cw>13?'40%':'45%'):'46%'):'34%')+'"><col style="width:'+(lite?'9%':cnt?'15%':'14%')+'">'+
     (cnt?'<col style="width:'+cw+'%">':'')+(withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
-    (lite&&!o.heads?'':'<thead><tr><th class="txt">'+esc(o.head||'')+'</th>'+
+    /* поставка 116-б: общая каретка двухуровневой разбивки — в шапке колонки названий, над каретками строк (в подписи она
+       выталкивала итог на вторую строку) */
+    (lite&&!o.heads?'':'<thead><tr><th class="txt">'+(o.expAll?expAllHead(o.expAll):esc(o.head||''))+'</th>'+
     '<th>'+esc(o.valueHead||'Значение')+'</th>'+(cnt?'<th>'+esc(cnt)+'</th>':'')+(withShare?'<th>Доля</th>':'')+
     '<th class="txt bar-th">'+esc(o.barHead||'Распределение')+'</th></tr></thead>')+'<tbody>';
 
@@ -508,24 +510,27 @@ function barTable(o){
    в экране, соседние экраны рисовали заголовок разбивки по-своему. Значок «i»
    тот же, что у метрик: у разрезов бывает что пояснить (грейд ≠ сеньорность),
    и объяснение должно жить там же, где название. */
+/* общая каретка двухуровневой разбивки для шапки колонки названий: кликается и каретка, и надпись */
+function expAllHead(x){
+  const v=x.key+'|'+(x.open?'0':'1');
+  return '<span class="bt-allh" data-btexpall="'+esc(v)+'">'+allCaret('data-btexpall',v,x.open,'Все вторые уровни разом.')+
+    '<span class="bt-allt">'+(x.open?'свернуть всё':'раскрыть всё')+'</span></span>';
+}
 function btGroup(o){
-  /* поставка 116: итог разбивки — в подписи справа («Всего 61 чел»), а не строкой ИТОГО: сумма верхнего уровня (дети уже
+  /* поставка 116: итог разбивки — в подписи («всего 61 чел»), а не строкой ИТОГО: сумма верхнего уровня (дети уже
      в родителе), единица — у метрик в людях «чел»; у процентов (total:false) итога нет */
   const key=o.metricKey||'hc_total', m=D.METRIC_BY_KEY[key];
   const top=(o.items||[]).filter(x=>x.depth!==2), sum=top.reduce((a,x)=>a+(+x.value||0),0);
-  const tot=o.total!==false&&!o.lite&&top.length?'<span class="bt-tot">Всего <b>'+D.fmtVal(key,sum)+'</b>'+
-    (m&&m.unit==='чел'?' чел':'')+'</span>':'';
-  /* название, подсказка и уточнение — одним текстом (.bt-h): длинное уточнение переносится под название, а «раскрыть всё»
-     и итог остаются справа в первой строке */
+  const tot=o.total!==false&&!o.lite&&top.length?'всего <b>'+D.fmtVal(key,sum)+'</b>'+(m&&m.unit==='чел'?' чел':''):'';
+  /* поставка 116-б (владелец: «при переносе много пустого места»): подпись — один текст: название, подсказка, уточнение
+     и итог последней частью уточнения («с 1 января по 12 октября · всего 61 чел»). Ничего не прижато вправо — переносу
+     нечем оставлять пустую строку; части не рвутся внутри, перенос только между ними (после <wbr> и « · »). Уточнение
+     среза стоит В ПОДПИСИ таблицы, а не только в общей плашке: иначе итог под заголовком «Грейд» читается как ошибка */
+  const parts=(o.capSub?String(o.capSub).split(' · ').map(x=>'<span class="nw">'+esc(x)+'</span>'):[])
+    .concat(tot?['<span class="nw bt-tot">'+tot+'</span>']:[]);
   return '<div class="bt-group"><div class="bt-cap bt-c"><span class="bt-h"><span class="bt-t">'+esc(o.cap)+'</span>'+
     (o.tip?'<span class="info"'+tipAttr(o.tip)+' aria-label="О разрезе">i</span>':'')+
-    /* Уточнение среза стоит В ПОДПИСИ таблицы, а не только в общей плашке:
-       иначе итог под заголовком «Грейд» читается как ошибка данных. */
-    /* части уточнения не рвутся внутри («с 1 января по 12 октября», «неделя 05.10–11.10») — перенос только между ними */
-    (o.capSub?'<wbr><span class="bt-sub">'+String(o.capSub).split(' · ').map(x=>'<span class="nw">'+esc(x)+'</span>').join(' · ')+'</span>':'')+'</span>'+
-    /* общая каретка двухуровневой разбивки — в подписи; итог — последним, у правого края, как у соседних таблиц */
-    (o.expAll?'<span class="bt-all">'+allCaret('data-btexpall',o.expAll.key+'|'+(o.expAll.open?'0':'1'),o.expAll.open,
-      'Все вторые уровни разом.')+(o.expAll.open?'свернуть всё':'раскрыть всё')+'</span>':'')+tot+
+    (parts.length?'<wbr><span class="bt-sub">'+parts.join(' · ')+'</span>':'')+'</span>'+
     '</div>'+barTable(o)+'</div>';
 }
 function btStack(list,cls){return '<div class="bt-stack'+(cls?' '+cls:'')+'">'+list.join('')+'</div>'}
