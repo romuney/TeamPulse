@@ -142,9 +142,14 @@ function yoyChart(key,lp,bl,S,opt){
      базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
   /* 31.10: итог за период под шапкой — по ряду графика (свой ряд — простым правилом); opt.period:false — без него */
   const period=opt.period===false?null:D.periodTotal(lp,key,opt.yser||sc&&sc!==1?y:null);
+  /* поставка 122 (критик на 49 человек: «где вывод «хуже базы», на графике самой базы нет»): у метрики, которую оценивает
+     база (медиана подразделений похожей численности), — её отметка: медиана и средняя половина группы. У накопительной
+     (текучесть с января) — у закрытого месяца, у средних и долей за период — полосой январь–закрытый месяц */
+  const pe=!kpi&&!opt.noBench&&!opt.yser&&!(sc&&sc!==1)&&!D.isSmall(key)?D.peerOf(key,lp):null;
+  const peer=pe?{p25:pe.p25,p50:pe.p50,p75:pe.p75,cum:key==='turnover_y',upto:D.PER_C}:null;
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
     Object.assign({legend,benchName:opt.ref?opt.ref.name:bench,kpi:kpi,h:300,fill:true,gap:cmp&&!opt.ref,
-      offDef:cmp&&!opt.ref?['bench']:null},opt,{color:col,period:period}));
+      offDef:cmp&&!opt.ref?['bench']:null,peer:peer},opt,{color:col,period:period}));
 }
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
@@ -162,8 +167,11 @@ function yoyPanels(lp,items,opt){
   const cmp=k=>opt.bl&&D.comparable(k)&&!D.kpiFor(k,opt.S);
   return G.chart('panels',{panels:items.map(it=>{
     const y=D.yoySeries(lp,it.key);
+    /* поставка 122: отметка базы — как у одиночного графика (yoyChart) */
+    const pe=opt.S&&!D.kpiFor(it.key,opt.S)&&!D.isSmall(it.key)?D.peerOf(it.key,lp):null;
     return {name:it.name,key:it.key,cur:y.cur,prev:y.prev,color:it.color||YOY_COLOR[it.key]||G.C_LINE,ann:it.ann||null,
-      period:D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null};
+      period:D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null,
+      peer:pe?{p25:pe.p25,p50:pe.p50,p75:pe.p75,cum:it.key==='turnover_y',upto:D.PER_C}:null};
   })},Object.assign({h:520,fill:true,benchName:opt.bl?D.benchmarkLabel(opt.S):'',offDef:['bench'],
     /* третий пункт — для переключателя серий (легенда панелей рисуется у каждой панели своя) */
     /* поставка 117: линия — та же метрика по всей компании (помесячно), не «база» (база — подразделения похожей численности) */

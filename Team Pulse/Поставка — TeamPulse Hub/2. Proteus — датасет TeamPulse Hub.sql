@@ -362,6 +362,14 @@ WITH
                   WHERE [addDays(toDate(assumeNotNull(week)), 6) <= ifNull(toDateOrNull(substring(cxdd, 1, 10)), today() - 1)][1])
     GROUP BY pu
   ),
+  {#- поставка 122 (критик на 49 человек: подразделение входило в свою же базу вместе с предками и потомками — граница
+      четверти была его же значением, «хуже базы» решало округление): из распределения исключены выбранный юнит, его
+      предки (узлы из его пути) и потомки (узлы, в пути которых он есть). У всей компании так исключается всё — базы нет,
+      как и должно быть: с собой не сравниваем #}
+  plin AS (
+    SELECT [ifNull(unit_rk, '')][1] AS xu FROM prod_proteus.teampulse_hub_unit
+    WHERE [has(splitByChar('|', ifNull(path_rk, '')), cxs) OR has(splitByChar('|', ifNull((SELECT any(path_rk) FROM prod_proteus.teampulse_hub_unit WHERE unit_rk = cxs), '')), ifNull(unit_rk, ''))][1]
+  ),
   peer AS (
     SELECT arrayStringConcat(arraySort(groupArray(concat(k, '\t', toString(b), '\t', toString(n), '\t',
              arrayStringConcat(arrayMap(q -> toString(round(q, 2)), qs), '\t')))), '\n') AS pj
@@ -372,9 +380,9 @@ WITH
         SELECT hc9 AS hb, arrayJoin([('turnover_y', v_ty), ('turnover_m', v_tm), ('underwork', v_uw), ('overwork', v_ow),
                                      ('office_att', v_oa), ('tgrowth_conv', v_tc), ('booking_viol', v_bv),
                                      ('time_to_fill', if(t_n >= 3, v_tf, nan))]) AS kv
-        FROM pnv LEFT JOIN pvt ON tu = pu WHERE hc9 >= 30
+        FROM pnv LEFT JOIN pvt ON tu = pu WHERE hc9 >= 30 AND pu NOT IN (SELECT xu FROM plin)
         UNION ALL
-        SELECT ah AS hb, ('ai_penetration', v_ai) AS kv FROM pai WHERE [ah >= 30][1]
+        SELECT ah AS hb, ('ai_penetration', v_ai) AS kv FROM pai WHERE [ah >= 30][1] AND pu NOT IN (SELECT xu FROM plin)
       )
       WHERE isFinite(kv.2)
       GROUP BY k, b

@@ -591,6 +591,17 @@ function mkMark(cx,cy,m,dly){
            ann (уже на оси года), marks:[{i, s, n}], gap, off, benchName, link}
      ar = {x0, plotW, top, bot, hitTop, delay}
    ========================================================================== */
+/* поставка 122: отметка базы на графике «год к году» — средняя половина группы (p25–p75) светлой полосой и медиана
+   пунктиром с подписью. cum — накопительная метрика: отметка у закрытого месяца upto; иначе — полосой январь–upto */
+function peerMark(key,pe,X,Y,bandW){
+  const i=pe.upto, x1=pe.cum?X(i)-bandW*0.32:X(0)-bandW*0.4, x2=pe.cum?X(i)+bandW*0.32:X(i)+bandW*0.4;
+  const y75=Y(pe.p75), y25=Y(pe.p25), y50=Y(pe.p50);
+  return '<g class="peer-mk" pointer-events="none">'+rect(x1,Math.min(y75,y25),x2-x1,Math.max(2,Math.abs(y25-y75)),'rgba(122,128,140,.14)',3)+
+    '<line x1="'+num(x1)+'" y1="'+num(y50)+'" x2="'+num(x2)+'" y2="'+num(y50)+'" stroke="'+C_BENCH+'" stroke-width="1.6" stroke-dasharray="4 3"/>'+
+    /* у полосы за период подпись — над её левым краем (справа она наезжала на значение текущего месяца) */
+    (pe.cum?txt(x2+4,y50+4,'база '+CD.fmtVal(key,pe.p50),{size:10.5,fill:C_AXIS,anchor:'start'})
+      :txt(x1+2,Math.min(y75,y25)-4,'база '+CD.fmtVal(key,pe.p50),{size:10.5,fill:C_AXIS,anchor:'start'}))+'</g>';
+}
 function yoyPlot(p,ar){
   const key=p.key, cur=p.cur, prev=p.prev, bench=p.bench||null, off=p.off||NOSET;
   const nm=CD.METRIC_BY_KEY[key]||{}, col=p.color||C_LINE, flow=asBars(key);
@@ -599,6 +610,7 @@ function yoyPlot(p,ar){
   const nowI=CD.CUR_LEN-1, ya=p.ann||null, marks=p.marks||[];
   const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
   if(p.kpi){const a=p.kpi.annual||p.kpi;all.push(a.green);all.push(a.red)}
+  if(p.peer)all.push(p.peer.p75,p.peer.p25);
   const max=niceMax(all);
   const Y=v=>bot-(v/max)*(bot-top), X=i=>x0+bandW*(i+0.5);
   const big=(i,s)=>!!(ya&&ya.hi&&ya.hi.some(z=>z.i===i&&z.s===s));
@@ -619,6 +631,7 @@ function yoyPlot(p,ar){
   s+=yoyAxis(X,bandW,top,bot,nowI,flow,key);
   /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
+  if(p.peer)s+=peerMark(key,p.peer,X,Y,bandW);
   if(p.gap&&showMain&&showBench)s+=gapFill(key,cur,bench,X,Y);
   /* Счётный поток (найм, уход, переводы, решения) — барами (14.10, заказчик:
      «всё, что связано с наймом и оттоком, — обязательно барчарты»): этот год —
@@ -771,7 +784,7 @@ function drawYoy(a,w,h){
   const x0=PAD_X, plotW=w-PAD_X*2-kpiRoom(a.metricKey,o.kpi);
   return svg(w,h,header(w,o.title,o.legend,{kind:'yoy',off:o.off})+pt.s+
     yoyPlot({key:a.metricKey,cur:a.cur,prev:a.prev,bench:a.bench,color:o.color,kpi:o.kpi,
-      ann:ya,marks:o.marks,gap:o.gap,period:o.period,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName,parts:o.parts},
+      ann:ya,marks:o.marks,gap:o.gap,period:o.period,off:offOf(o),benchName:o.benchName,link:o.link,tipRows:o.tipRows,tipName:o.tipName,parts:o.parts,peer:o.peer},
       {x0:x0,plotW:plotW,top:plotTop,bot:plotBot,hitTop:hh}));
 }
 
@@ -876,7 +889,7 @@ function drawPanels(a,w,h){
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
     s+=pt.s;
     s+=yoyKey(w,base-1+kr,p.color||C_LINE,off,false,asBars(p.key),bn);
-    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,bench:p.bench,benchName:o.benchName,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period},
+    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,bench:p.bench,benchName:o.benchName,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period,peer:p.peer},
       {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
   });
   return svg(w,h,s);
