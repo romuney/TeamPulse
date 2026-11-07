@@ -313,6 +313,40 @@ WITH
     FROM (SELECT (SELECT c0 FROM cx0) AS c)
   ),
   {#- head_login и head_nm (поставка 66) — матчером: таблица без колонки даёт пустой логин и имя #}
+  {#- поставка 113 (владелец 07.11: «медиана должна работать как база — фильтруем, и она пересчитывается»): распределение
+      метрик по ВСЕМ подразделениям компании под теми же фильтрами, что и база, по группам размера (численность на закрытый
+      месяц: 1 — 30–99, 2 — 100–299, 3 — 300–999, 4 — 1000+; меньше 30 — не в счёт). Метрики — те же формулы, что у чарта, за
+      январь–закрытый месяц (закрытый: последний, если дата данных — его последний день, иначе предыдущий):
+      turnover_y — сумма месячных «уходы ÷ ССЧ», turnover_m — Σ уходов ÷ Σ ССЧ, underwork / overwork — Σ категории ÷ Σ четырёх,
+      office_att — Σ посещений ÷ Σ рабочих дней. Строка peer: «метрика, группа, подразделений, p25, p50, p75» #}
+  pmc AS (
+    SELECT if(dd = '' OR toDate(dd) >= toLastDayOfMonth(lm), lm, addMonths(lm, -1)) AS mc FROM cx
+  ),
+  pnv AS (
+    SELECT pu, sum(h) AS hc9, sumIf(f / a * 100, a > 0) AS v_ty, sum(f) / sum(a) * 100 AS v_tm,
+           sum(lo) / sum(al) * 100 AS v_uw, sum(hi) / sum(al) * 100 AS v_ow, sum(ov) / sum(wd) * 100 AS v_oa
+    FROM (
+      SELECT ifNull(node_rk, '') AS pu, sumIf(toFloat64(hc_cnt), report_month = mc) AS h, sum(toFloat64(avg_cnt)) AS a,
+             sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
+             sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd
+      FROM prod_proteus.teampulse_hub_series, pmc
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND {{ cond() }}
+      GROUP BY pu, report_month
+    )
+    GROUP BY pu
+  ),
+  peer AS (
+    SELECT arrayStringConcat(arraySort(groupArray(concat(k, '\t', toString(b), '\t', toString(n), '\t',
+             arrayStringConcat(arrayMap(q -> toString(round(q, 2)), qs), '\t')))), '\n') AS pj
+    FROM (
+      SELECT kv.1 AS k, multiIf(hc9 >= 1000, 4, hc9 >= 300, 3, hc9 >= 100, 2, 1) AS b, count() AS n,
+             quantilesExact(0.25, 0.5, 0.75)(kv.2) AS qs
+      FROM (SELECT hc9, arrayJoin([('turnover_y', v_ty), ('turnover_m', v_tm), ('underwork', v_uw), ('overwork', v_ow),
+                                   ('office_att', v_oa)]) AS kv FROM pnv WHERE hc9 >= 30)
+      WHERE isFinite(kv.2)
+      GROUP BY k, b
+    )
+  ),
   st2 AS (
     SELECT ifNull(unit_rk, '') AS id, ifNull(parent_rk, '') AS pid, toInt32(ifNull(unit_lvl, 0)) AS lv,
            ifNull(unit_nm, '') AS nm0, toUInt32(ifNull(kids_cnt, 0)) AS kd, splitByChar('|', ifNull(path_rk, '')) AS ph,
@@ -642,6 +676,13 @@ FROM
   FROM (SELECT *, hasAny(ph, (SELECT zr FROM cx)) AS iz FROM st2) AS t
   LEFT JOIN fdr AS f ON f.fr = t.id
   WHERE (SELECT ok FROM cx) AND (t.iz OR has((SELECT an FROM cx), t.id))
+
+  UNION ALL
+
+  {#- поставка 113: распределение метрик по подразделениям того же размера под фильтрами (CTE peer) #}
+  SELECT toUInt8(8) AS o, 'peer' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
+         (SELECT pj FROM peer) AS j_, '' AS ms, '' AS mx_
+  WHERE (SELECT ok FROM cx)
 
   UNION ALL
 

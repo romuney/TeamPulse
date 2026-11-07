@@ -277,7 +277,7 @@ function unitTip(name,hc,head){
    Порядок проверок не косметика: **есть утверждённый KPI — сравниваем с ним,
    и только с ним**. Средняя по базе рядом с целью KPI заставляла выбирать,
    по какому из двух чисел судить, хотя ответ один: цель важнее средней. */
-function targetCell(key,val,baseVal,kpi){
+function targetCell(key,val,baseVal,kpi,pe){
   /* Значения нет (доля без знаменателя) — оценки нет: «ниже порога» про
      команду, у которой в окне не было ни одного найма, было бы неправдой. */
   if(val==null)return '<div class="tgt">'+(kpi?'<span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'
@@ -291,7 +291,18 @@ function targetCell(key,val,baseVal,kpi){
       '<span class="sig-chip '+st+'">'+(st==='good'?'в цели':st==='warn'?'зона риска':st==='bad'?badTxt:'без оценки')+'</span></div>';
   }
   if(!D.comparable(key))return '<div class="tgt">'+noCmpMark()+'</div>';
-  if(baseVal==null)return '<div class="tgt">—</div>';
+  /* поставка 113: ориентир — медиана подразделений того же размера под теми же фильтрами (вместо базы) */
+  if(pe){
+    const st=D.peerState(key,val,pe);
+    return '<div class="tgt"'+tipAttr({title:'Медиана подразделений вашего размера',
+      text:'Подразделения на '+pe.bandName+' человек под теми же фильтрами: у половины — меньше **'+D.fmtVal(key,pe.p50)+'**, у половины — больше. '+
+        'Четверть — ниже '+D.fmtVal(key,pe.p25)+', четверть — выше '+D.fmtVal(key,pe.p75)+'.',
+      note:'Подразделений в сравнении: '+pe.n+'. «Лучше / хуже большинства» — лучше или хуже, чем у трёх из четырёх.'})+
+      '><b>медиана '+D.fmtVal(key,pe.p50)+'</b><span class="sig-chip '+st+'">'+
+      (st==='good'?'лучше большинства':st==='bad'?'хуже большинства':st==='warn'?'на уровне':'без оценки')+'</span></div>';
+  }
+  /* поставка 113: база совпадает с отчётом (вся компания) — сравнивать не с чем */
+  if(baseVal==null||!kpi&&D.isSelfBase())return '<div class="tgt">—</div>';
   const st=D.compareState(key,val,baseVal), diff=val-baseVal, m=D.METRIC_BY_KEY[key];
   const lbl=m.better==='flat'
     ? (Math.abs(diff)<0.05?'как база':(diff>0?'выше базы':'ниже базы'))
@@ -958,7 +969,8 @@ function trafficLegend(){
     /* поставка 110 («один вердикт»): порог один на весь отчёт — 10%, как у выводов; меньше 30 человек — без оценки */
     '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне (±'+Math.round(D.VERDICT_GAP*100)+'%) или без оценки</span>'+
     /* 30.10, шаг 2: пояснение — в подсказке, под выводами меньше букв */
-    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI, а где её нет — к базе: та же метрика по всей компании с теми же фильтрами. Хуже или лучше — '+
+    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI; где её нет — к медиане подразделений вашего размера (30–99, 100–299, 300–999, 1000+ человек) '+
+      'с теми же фильтрами: хуже или лучше, чем у трёх из четырёх; где и её нет — к базе: та же метрика по всей компании. Хуже или лучше базы — '+
       'на '+Math.round(D.VERDICT_GAP*100)+'% и больше: тот же порог, что у выводов. В команде меньше '+D.SMALL_N+' человек доли не оцениваются. '+
       'Колонки MoM и YoY — к прошлому периоду.'})+
     '>как читать</span></div>';

@@ -187,29 +187,35 @@ function metricFact(m,S,rl,bl){
   if(D.thin(key,rl))return null;
   /* цель — закрытого месяца (у накопительных — её доля к этому месяцу), база и год назад — за тот же период;
      поставка 110: база = сам отчёт (вся компания) — с собой не сравниваем, ориентир — цель или прошлый год */
-  const kpi=D.kpiAt(key,S,D.MONTHS_EXT[L].m), ref=kpi?kpi.green:(D.comparable(key)&&!D.isSelfBase()?perOf(bl,key).v:null);
-  const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):D.compareState(key,v,ref);
-  const f=x=>D.fmtVal(key,x), w=kpi?'цели':'базы', pv=P.pv;
+  const kpi=D.kpiAt(key,S,D.MONTHS_EXT[L].m);
+  /* поставка 113: без цели, но с распределением подразделений того же размера (под теми же фильтрами) — ориентир медиана,
+     оценка по четвертям (D.peerState); иначе — база, как раньше */
+  const pe=kpi?null:D.peerOf(key,rl);
+  const ref=kpi?kpi.green:pe?pe.p50:(D.comparable(key)&&!D.isSelfBase()?perOf(bl,key).v:null);
+  const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):pe?D.peerState(key,v,pe):D.compareState(key,v,ref);
+  const f=x=>D.fmtVal(key,x), w=kpi?'цели':pe?'медианы':'базы', pv=P.pv;
+  const peerSay=good=>(good?(m.better==='lower'?'ниже':'выше'):(m.better==='lower'?'выше':'ниже'))+
+    ', чем у трёх из четырёх подразделений вашего размера (медиана '+f(pe.p50)+')';
   const ago=pv!=null?'Год назад — '+f(pv)+'.':'';
   /* поставка 99: окно периода названо в шапке экрана, у имени метрики — только «сейчас» у состояний */
   const tr=worsening(m,ext,L), nm=m.name+(STOCK.has(key)?', сейчас':'');
   /* поставка 110 («один вердикт»): у цели KPI «хуже» — то же, что красный цвет строки (stateForKpi); у базы — порог
      10% (compareState); метрика в цели не получает «хуже, чем год назад» — строка таблицы зелёная */
-  if(st==='bad'&&(kpi||rel(v,ref)>=OBS.dev))
-    return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — хуже '+w+' '+f(ref),
-      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr,L,mon};
+  if(st==='bad'&&(kpi||pe||rel(v,ref)>=OBS.dev))
+    return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — '+(pe?peerSay(false):'хуже '+w+' '+f(ref)),
+      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr,L,mon,peer:pe};
   /* год к году: 10% от прошлого значения или 3 п.п. у долей */
   if(pv!=null&&m.better!=='flat'&&m.fmt!=='int'&&Math.abs(v-pv)>=(m.fmt==='pct'?0.5:1e-9)&&!(kpi&&st==='good'&&(m.better==='lower'?v>pv:v<pv))&&
      (rel(v,pv)>=OBS.dev||(m.fmt==='pct'&&Math.abs(v-pv)>=OBS.yoyPp))){
     const worse=m.better==='lower'?v>pv:v<pv;
     return {key,sev:worse?'mid':'good',pri:2,w:rel(v,pv),
       lead:nm+' '+f(v)+' — '+(worse?'хуже':'лучше')+', чем год назад ('+f(pv)+')',
-      body:ref!=null?cap(w==='цели'?'цель':'база')+' — '+f(ref)+'.':'',kind:'yoy',v,ref,kpi,pv,L,mon};
+      body:ref!=null?(pe?'Медиана подразделений вашего размера':cap(w==='цели'?'цель':'база'))+' — '+f(ref)+'.':'',kind:'yoy',v,ref,kpi,pv,L,mon};
   }
   if(tr)return {key,sev:'mid',pri:3,w:rel(tr.b,tr.a),lead:m.name+': '+trendWord(m),
     body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.MONTHS_EXT[L].m]+' '+f(tr.b)+'.',kind:'trend',v,ref,kpi,pv,tr,L,mon};
-  if(st==='good'&&rel(v,ref)>=OBS.dev)
-    return {key,sev:'good',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — лучше '+w+' '+f(ref),body:ago,kind:'dev',v,ref,kpi,pv,L,mon};
+  if(st==='good'&&(pe||rel(v,ref)>=OBS.dev))
+    return {key,sev:'good',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — '+(pe?peerSay(true):'лучше '+w+' '+f(ref)),body:ago,kind:'dev',v,ref,kpi,pv,L,mon,peer:pe};
   return null;
 }
 const MONTH_IN=['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'];
@@ -384,8 +390,8 @@ function say(f){
   if(f.kind==='trend')return lc(m.name)+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд';
   if(f.key==='hire_plan'&&f.kind==='dev')return bad?'найм отстаёт от плана':'план найма выполняется с запасом';
   const st=(SAY[f.key]||[lc(m.name)+' хуже',lc(m.name)+' лучше'])[bad?0:1];
-  if(f.key==='nonregret'&&f.kpi)return st+' цели'+(bad?' — с теми, с кем готовы расстаться, расстаёмся реже':' — это к лучшему');
-  return st+(f.kind==='yoy'?', чем год назад':f.key==='regret'&&f.kpi?' цели':f.kpi?', чем по цели':', чем по базе');
+  if(f.key==='nonregret'&&f.kpi&&f.kind==='dev')return st+' цели'+(bad?' — с теми, с кем готовы расстаться, расстаёмся реже':' — это к лучшему');
+  return st+(f.kind==='yoy'?', чем год назад':f.key==='regret'&&f.kpi?' цели':f.kpi?', чем по цели':f.peer?', чем у большинства подразделений вашего размера':', чем по базе');
 }
 /* дробь метрики: своя или месячной, если накопительная — сумма месячных ('sum') */
 function ratioDef(m){
@@ -453,7 +459,8 @@ function whereOf(f,S){
 /* ряд для мини-графика: этот год с января против ориентира; до апреля — 12 месяцев окна */
 function miniOf(f,rl,bl){
   const k=f.kind==='spike'?'attrition':f.key, fv=x=>D.fmtVal(k,x), L=D.NEXT-1;
-  const kpi=f.kind==='dev'&&f.kpi, base=f.kind==='dev'&&!kpi;
+  /* поставка 113: у вывода по медиане ряда медианы по месяцам нет — мини-график против прошлого года */
+  const kpi=f.kind==='dev'&&f.kpi, base=f.kind==='dev'&&!kpi&&!f.peer;
   let cur,ref;
   if(D.CUR_LEN>=4){
     const y=D.yoySeries(rl,k);cur=y.cur.slice(0,D.CUR_LEN);
@@ -480,7 +487,7 @@ function cardOf(f,S,rl,bl){
   else if(f.kind==='trend')head=m.name+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд: '+fv(f.tr.a)+' → '+fv(f.tr.b);
   const cmpV=f.kind==='dev'?f.ref:f.kind==='yoy'?f.pv:null, dv=cmpV==null?null:+(f.v-cmpV).toFixed(2);
   const big=f.kind==='dev'||f.kind==='yoy'?{v:fv(f.v),name:mn+(/^(turnover_m|underwork|overwork|ai_penetration)$/.test(f.key)?', в среднем за месяц':''),
-    chip:dv==null?'':D.fmtDelta(f.key,dv)+(f.kind==='dev'?(f.kpi?' к цели ':' к базе ')+fv(f.ref):' к году назад '+fv(f.pv)),
+    chip:dv==null?'':D.fmtDelta(f.key,dv)+(f.kind==='dev'?(f.kpi?' к цели ':f.peer?' к медиане ':' к базе ')+fv(f.ref):' к году назад '+fv(f.pv)),
     cls:bad?'down':'up'}
     /* поставка 110: у новых выводов (HQ против ориентира, хвост вакансий) — то же крупное число с чипом, что у остальных */
     :f.kind==='hqb'?{v:fv(f.v),name:'Текучесть HQ, накопительно',chip:D.fmtDelta('turnover_y',+(f.v-f.ref).toFixed(2))+' к ориентиру '+fv(f.ref),cls:'down'}
@@ -506,9 +513,9 @@ function cardOf(f,S,rl,bl){
     pills.push('ушли '+esc(D.CNT_SPAN)+' <b>'+D.fmtInt(Math.round(P.v||0))+'</b> · год назад '+D.fmtInt(Math.round(P.pv||0)))}
   /* поставка 90: у ухода год к году разница людьми — в пилюле «ушли …»; «≈ N разницы» из ставки ей противоречил бы */
   if(q&&!(leave&&f.kind==='yoy'))pills.push(f.kind==='yoy'?q+' разницы с прошлым годом':f.kind==='trend'?q+' за '+OBS.trend+' мес.':f.kind==='spike'?q+' сверх обычного'
-    :m.better==='higher'?(bad?'не хватает '+q:'на '+q+' больше '+(f.kpi?'цели':'базы')):q+(bad?' сверх ':' ниже ')+(f.kpi?'цели':'базы'));
+    :m.better==='higher'?(bad?'не хватает '+q:'на '+q+' больше '+(f.kpi?'цели':f.peer?'медианы':'базы')):q+(bad?' сверх ':' ниже ')+(f.kpi?'цели':f.peer?'медианы':'базы'));
   if(q){
-    const w=f.kpi?'цели':'базы', when=' '+D.PER_TEXT;
+    const w=f.kpi?'цели':f.peer?'медианы':'базы', when=' '+D.PER_TEXT;
     if(f.kind==='yoy')body.push('<!--ppl-->Это '+q+' разницы с прошлым годом.');
     else if(f.kind==='trend')body.push('За '+OBS.trend+' месяца — '+q+'.');
     else if(f.kind==='spike')body.push('Это '+q+' сверх обычного.');
@@ -535,7 +542,7 @@ function cardOf(f,S,rl,bl){
   return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,pills,kp,big,sub,
     ppl:n,where:wh,chart:/^(hqb|unit)$/.test(f.kind)?'':miniOf(f,rl,bl),
     /* поставка 110 (E8): подсказка мини-графика — с чем он сравнивает, а не служебная фраза */
-    chartTip:'По месяцам '+(D.CUR_LEN>=4?'с начала года':'за 12 месяцев')+' против '+(f.kind==='dev'?(f.kpi?'цели':'базы'):'прошлого года')+'.',
+    chartTip:'По месяцам '+(D.CUR_LEN>=4?'с начала года':'за 12 месяцев')+' против '+(f.kind==='dev'&&!f.peer?(f.kpi?'цели':'базы'):'прошлого года')+'.',
     btn:wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:f.node?{label:'Показать подразделение',go:bk+'|'+f.node}
       :{label:'Открыть «'+b.name+'»',tab:bk}};
 }

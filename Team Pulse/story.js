@@ -68,14 +68,16 @@ function yearAgo(lp,k){const p=per(lp,k);return p.pv!=null?p.pv:null}
    мало событий (thin) и база = сам юнит (self) отмечены, и заголовок главы говорит о них, а не «на уровне базы» */
 function judge(k,c){
   const i=D.PER_I, v=per(c.lp,k).v, kpi=D.kpiAt(k,c.S,D.MONTHS[i].m);
-  const self=!kpi&&D.isSelfBase(), base=kpi?kpi.green:(D.comparable(k)&&!self?per(c.bl,k).v:null);
+  /* поставка 113: без цели, но с распределением подразделений того же размера — ориентир медиана (и у всей компании) */
+  const pe=kpi?null:D.peerOf(k,c.lp);
+  const self=!kpi&&!pe&&D.isSelfBase(), base=kpi?kpi.green:pe?pe.p50:(D.comparable(k)&&!self?per(c.bl,k).v:null);
   const thin=D.thin(k,c.lp), ev=D.eventsOf(k,c.lp);
   let st='n';
   if(v!=null&&base!=null&&!thin){
-    const s=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,base);
+    const s=kpi?D.stateForKpi(k,v,kpi):pe?D.peerState(k,v,pe):D.compareState(k,v,base);
     st=s==='good'?'good':s==='bad'?'bad':'n';
   }
-  return {v:v,base:base,kpi:kpi,st:st,i:i,k:k,thin:thin,ev:ev,self:self,small:D.isSmall(k),smallHq:D.isSmallHq(k)};
+  return {v:v,base:base,kpi:kpi,peer:pe,st:st,i:i,k:k,thin:thin,ev:ev,self:self,small:D.isSmall(k),smallHq:D.isSmallHq(k)};
 }
 /* заголовок без сравнения: мало людей, мало событий или база = сам юнит (тогда — с прошлым годом) */
 function plainHead(j,c,more,less){
@@ -166,6 +168,9 @@ function vsBase(j,c,more,less,same,noYoy){
   /* 30.10, критики: «Конверсия на уровне базы» при пустом значении — за месяц нет событий, так и пишем */
   if(j.v==null)return 'Нет данных — не с чем сравнить';
   if(j.thin||j.small||j.self&&!j.kpi)return plainHead(j,c,more,less);
+  /* поставка 113: ориентир — медиана подразделений того же размера */
+  if(j.peer&&!j.kpi)return (j.st==='bad'||j.st==='good'?((j.v>j.base)?more:less)+', чем у большинства подразделений вашего размера'
+    :same.replace(/ — на уровне базы$/,'')+' — на уровне подразделений вашего размера')+(noYoy?'':yoyTail(j,c,more,less));
   return (j.st==='bad'||j.st==='good'
     ? ((j.v>j.base)?more:less)+', чем '+inBase(c)
     : same+' «'+c.bench+'»')+(noYoy?'':yoyTail(j,c,more,less));
@@ -182,7 +187,7 @@ function yoyTail(j,c,more,less){
 }
 
 /* значение за период и база; пустое — «нет данных», а не «— при базе 37,5%» */
-const valAt=(k,j)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.base!=null&&!j.small&&!j.thin&&!j.self?' при базе '+f(k,j.base):'');
+const valAt=(k,j)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.base!=null&&!j.small&&!j.thin&&!j.self?(j.peer&&!j.kpi?' при медиане '+f(k,j.base)+' у подразделений вашего размера':' при базе '+f(k,j.base)):'');
 const CH={};
 
 /* ===== Отток и текучесть ===== */

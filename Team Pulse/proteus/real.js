@@ -431,6 +431,11 @@ function build(data){
        отличает ответ на свой запрос от устаревшего */
     req:(Array.isArray(meta.req)?meta.req:[]).map(str),
     truncated:!rows.some(r=>str(r.role)==='end'),
+    /* поставка 113: распределение метрик по подразделениям того же размера под теми же фильтрами (строка peer датасета):
+       метрика → группа размера (1 — 30–99, 2 — 100–299, 3 — 300–999, 4 — 1000+) → {n, p25, p50, p75}; нет строки — null */
+    peer:(function(){const r=rows.find(function(x){return str(x.role)==='peer'});if(!r||!str(r.j))return null;
+      const o={};str(r.j).split('\n').forEach(function(l){const a=l.split('\t');if(a.length<6)return;
+        (o[a[0]]=o[a[0]]||{})[a[1]]={n:num(a[2]),p25:num(a[3]),p50:num(a[4]),p75:num(a[5])}});return o})(),
     missing,noMeta:!by('meta').length,
     /* поставка 69: логин без зоны доступа — датасет отдаёт только meta с ok 0 */
     noAccess:meta.ok===0,

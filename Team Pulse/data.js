@@ -271,10 +271,10 @@ const METRICS=[
 /* 29.10, п. 2: «Время до повышения (T@T)» снята совсем — не считается и не показывается (T@T в «Росте» — поток заявок) */
 /* 15.10: «Лоу-перформеры» сняты: такого понятия в компании нет (владелец борда,
    «Team Pulse 2.0 — сверка с каталогом.md»). Оценки ревью — в «Статусе ревью». */
-{key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.',hqOnly:true},
+{key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.'},
 /* 15.10, разведка 3: в таблице есть категории мониторинга (perf_*: нормал, недоработка,
    переработка, Gray) — «Переработка» из каталога HQ (раздел 9) встаёт рядом с недоработкой */
-{key:'overwork',block:'monitor',aud:'hq',name:'Переработчики',short:'Переработчики',fmt:'pct',better:'lower',unit:'%',anchor:14,hint:'Доля сотрудников, которые отработали за месяц больше нормы рабочего времени.',hqOnly:true},
+{key:'overwork',block:'monitor',aud:'hq',name:'Переработчики',short:'Переработчики',fmt:'pct',better:'lower',unit:'%',anchor:14,hint:'Доля сотрудников, которые отработали за месяц больше нормы рабочего времени.'},
 /* Ревью из дашборда 34661. Цикл — раз в полгода (июнь и декабрь), поэтому
    ряд ступенчатый: между циклами значение стоит, а изменение «к маю» в июне —
    это и есть сдвиг к прошлому циклу. Считается парой «улучшили / оценены». */
@@ -293,7 +293,7 @@ const METRICS=[
    ровно то сравнение «по команде против компании», что было в Proteus. */
 {key:'ai_penetration',block:'ai',aud:'hq',name:'Проникновение AI',short:'Проникновение',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'ai_wau',den:'hc_active',scale:100},
-  hint:'Доля сотрудников, которые пользуются AI-инструментами хотя бы раз в неделю. Без стажёров; фильтры покраски, IT, штата и типа численности на AI не действуют.',hqOnly:true},
+  hint:'Доля сотрудников, которые пользуются AI-инструментами хотя бы раз в неделю. Без стажёров; фильтры покраски, IT, штата и типа численности на AI не действуют.'},
 {key:'ai_wau',block:'ai',aud:'hq',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
   hint:'Сколько сотрудников пользуются AI-инструментами хотя бы раз в неделю, в среднем за месяц.'}
 ];
@@ -1307,6 +1307,8 @@ let SMALL_REP=false, SELF_BASE=false, SMALL_HQ=false;
 function setVerdictScope(st){
   const rl=reportLeaves(st), hc=rl.length?lastVal(rl,'hc_total'):null;
   SMALL_REP=hc!=null&&hc<SMALL_N;
+  /* поставка 113: группа размера — по численности на закрытый месяц (как у датасета) */
+  PEER_BAND=bandOf(rl);
   /* A3: доли HQ (текучесть HQ, желательная, нежелательная) — порог по численности HQ, их знаменателю */
   try{const h=hqLight(st,null,null);SMALL_HQ=!!h&&h.hc<SMALL_N}catch(e){SMALL_HQ=false}
   /* база — вся компания под теми же фильтрами (benchmarkLeaves): совпадает с отчётом, когда выбран корень 'T' */
@@ -1315,6 +1317,31 @@ function setVerdictScope(st){
   SELF_BASE=st.unit==='T'||!!REAL&&rl.length>0&&bl.length>0&&same('hc_total')&&same('hc_active')&&
     (periodTotal(rl,'hire')||{}).v===(periodTotal(bl,'hire')||{}).v;
   return {small:SMALL_REP,self:SELF_BASE};
+}
+/* поставка 113 (владелец 07.11: «медиана работает как база»): метрики без цели сравниваются с подразделениями того же
+   размера под теми же фильтрами — строка peer датасета (REAL.peer). Группа по численности на закрытый месяц: 1 — 30–99,
+   2 — 100–299, 3 — 300–999, 4 — 1000+; в группе меньше PEER_MIN подразделений — как раньше, база. Оценка — по четвертям:
+   хуже, чем у трёх из четырёх (за p75 у «ниже — лучше»), лучше, чем у трёх из четырёх, иначе — на уровне; от медианы меньше
+   10% — тоже на уровне */
+const PEER_MIN=5, PEER_KEYS=new Set(['turnover_y','turnover_m','underwork','overwork','office_att']),
+  PEER_BAND_NAME={1:'30–99',2:'100–299',3:'300–999',4:'1000+'};
+let PEER_BAND=0;
+function bandOf(lp){const h=lp&&lp.length?aggregate(lp,'hc_total')[LAST-(PARTIAL?1:0)]:null;
+  return h==null?0:h>=1000?4:h>=300?3:h>=100?2:h>=30?1:0}
+/* lp — чьи листья оцениваются (подразделение в таблице — своя группа размера); без lp — отчёт целиком */
+function peerOf(key,lp){
+  const b=lp?bandOf(lp):PEER_BAND;
+  if(!REAL||!REAL.peer||!b||!PEER_KEYS.has(key))return null;
+  const p=(REAL.peer[key]||{})[b];
+  return p&&p.n>=PEER_MIN?Object.assign({band:b,bandName:PEER_BAND_NAME[b]},p):null;
+}
+function peerState(key,v,p){
+  const m=METRIC_BY_KEY[key]||{};
+  if(v==null||!p||isSmall(key))return'neutral';
+  if(Math.abs(v-p.p50)<VERDICT_GAP*Math.abs(p.p50||1))return'warn';
+  const hi=v>p.p75, lo=v<p.p25;
+  if(!hi&&!lo)return'warn';
+  return (m.better==='lower')===lo?'good':'bad';
 }
 function isSmall(key){return SMALL_REP||!!key&&SMALL_HQ&&!!(METRIC_BY_KEY[key]||{}).hqOnly}
 function isSmallHq(key){return !SMALL_REP&&isSmall(key)}
@@ -1332,6 +1359,8 @@ function verdictState(key,st,lp,bl){
   if(thin(key,lp))return 'neutral';
   const v=(periodTotal(lp,key)||{}).v, kpi=kpiAt(key,st,MONTHS[PER_I].m);
   if(kpi)return stateForKpi(key,v,kpi);
+  /* поставка 113: есть распределение подразделений того же размера — оценка по нему (и у всей компании: с собой не сравниваем) */
+  const pe=peerOf(key,lp);if(pe)return peerState(key,v,pe);
   if(SELF_BASE)return 'neutral';
   return compareState(key,v,(periodTotal(bl,key)||{}).v);
 }
@@ -3382,7 +3411,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
   metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,kpiFor,comparable,
-  setVerdictScope,isSmall,isSmallHq,isSelfBase,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
+  setVerdictScope,isSmall,isSmallHq,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,

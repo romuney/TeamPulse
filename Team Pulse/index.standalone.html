@@ -2988,10 +2988,10 @@ const METRICS=[
 /* 29.10, п. 2: «Время до повышения (T@T)» снята совсем — не считается и не показывается (T@T в «Росте» — поток заявок) */
 /* 15.10: «Лоу-перформеры» сняты: такого понятия в компании нет (владелец борда,
    «Team Pulse 2.0 — сверка с каталогом.md»). Оценки ревью — в «Статусе ревью». */
-{key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.',hqOnly:true},
+{key:'underwork',block:'monitor',aud:'hq',name:'Недоработчики',short:'Недоработчики',fmt:'pct',better:'lower',unit:'%',anchor:6.8,hint:'Доля сотрудников, которые отработали за месяц меньше нормы рабочего времени.'},
 /* 15.10, разведка 3: в таблице есть категории мониторинга (perf_*: нормал, недоработка,
    переработка, Gray) — «Переработка» из каталога HQ (раздел 9) встаёт рядом с недоработкой */
-{key:'overwork',block:'monitor',aud:'hq',name:'Переработчики',short:'Переработчики',fmt:'pct',better:'lower',unit:'%',anchor:14,hint:'Доля сотрудников, которые отработали за месяц больше нормы рабочего времени.',hqOnly:true},
+{key:'overwork',block:'monitor',aud:'hq',name:'Переработчики',short:'Переработчики',fmt:'pct',better:'lower',unit:'%',anchor:14,hint:'Доля сотрудников, которые отработали за месяц больше нормы рабочего времени.'},
 /* Ревью из дашборда 34661. Цикл — раз в полгода (июнь и декабрь), поэтому
    ряд ступенчатый: между циклами значение стоит, а изменение «к маю» в июне —
    это и есть сдвиг к прошлому циклу. Считается парой «улучшили / оценены». */
@@ -3010,7 +3010,7 @@ const METRICS=[
    ровно то сравнение «по команде против компании», что было в Proteus. */
 {key:'ai_penetration',block:'ai',aud:'hq',name:'Проникновение AI',short:'Проникновение',fmt:'pct',better:'higher',unit:'%',anchor:null,
   derived:{num:'ai_wau',den:'hc_active',scale:100},
-  hint:'Доля сотрудников, которые пользуются AI-инструментами хотя бы раз в неделю. Без стажёров; фильтры покраски, IT, штата и типа численности на AI не действуют.',hqOnly:true},
+  hint:'Доля сотрудников, которые пользуются AI-инструментами хотя бы раз в неделю. Без стажёров; фильтры покраски, IT, штата и типа численности на AI не действуют.'},
 {key:'ai_wau',block:'ai',aud:'hq',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
   hint:'Сколько сотрудников пользуются AI-инструментами хотя бы раз в неделю, в среднем за месяц.'}
 ];
@@ -4024,6 +4024,8 @@ let SMALL_REP=false, SELF_BASE=false, SMALL_HQ=false;
 function setVerdictScope(st){
   const rl=reportLeaves(st), hc=rl.length?lastVal(rl,'hc_total'):null;
   SMALL_REP=hc!=null&&hc<SMALL_N;
+  /* поставка 113: группа размера — по численности на закрытый месяц (как у датасета) */
+  PEER_BAND=bandOf(rl);
   /* A3: доли HQ (текучесть HQ, желательная, нежелательная) — порог по численности HQ, их знаменателю */
   try{const h=hqLight(st,null,null);SMALL_HQ=!!h&&h.hc<SMALL_N}catch(e){SMALL_HQ=false}
   /* база — вся компания под теми же фильтрами (benchmarkLeaves): совпадает с отчётом, когда выбран корень 'T' */
@@ -4032,6 +4034,31 @@ function setVerdictScope(st){
   SELF_BASE=st.unit==='T'||!!REAL&&rl.length>0&&bl.length>0&&same('hc_total')&&same('hc_active')&&
     (periodTotal(rl,'hire')||{}).v===(periodTotal(bl,'hire')||{}).v;
   return {small:SMALL_REP,self:SELF_BASE};
+}
+/* поставка 113 (владелец 07.11: «медиана работает как база»): метрики без цели сравниваются с подразделениями того же
+   размера под теми же фильтрами — строка peer датасета (REAL.peer). Группа по численности на закрытый месяц: 1 — 30–99,
+   2 — 100–299, 3 — 300–999, 4 — 1000+; в группе меньше PEER_MIN подразделений — как раньше, база. Оценка — по четвертям:
+   хуже, чем у трёх из четырёх (за p75 у «ниже — лучше»), лучше, чем у трёх из четырёх, иначе — на уровне; от медианы меньше
+   10% — тоже на уровне */
+const PEER_MIN=5, PEER_KEYS=new Set(['turnover_y','turnover_m','underwork','overwork','office_att']),
+  PEER_BAND_NAME={1:'30–99',2:'100–299',3:'300–999',4:'1000+'};
+let PEER_BAND=0;
+function bandOf(lp){const h=lp&&lp.length?aggregate(lp,'hc_total')[LAST-(PARTIAL?1:0)]:null;
+  return h==null?0:h>=1000?4:h>=300?3:h>=100?2:h>=30?1:0}
+/* lp — чьи листья оцениваются (подразделение в таблице — своя группа размера); без lp — отчёт целиком */
+function peerOf(key,lp){
+  const b=lp?bandOf(lp):PEER_BAND;
+  if(!REAL||!REAL.peer||!b||!PEER_KEYS.has(key))return null;
+  const p=(REAL.peer[key]||{})[b];
+  return p&&p.n>=PEER_MIN?Object.assign({band:b,bandName:PEER_BAND_NAME[b]},p):null;
+}
+function peerState(key,v,p){
+  const m=METRIC_BY_KEY[key]||{};
+  if(v==null||!p||isSmall(key))return'neutral';
+  if(Math.abs(v-p.p50)<VERDICT_GAP*Math.abs(p.p50||1))return'warn';
+  const hi=v>p.p75, lo=v<p.p25;
+  if(!hi&&!lo)return'warn';
+  return (m.better==='lower')===lo?'good':'bad';
 }
 function isSmall(key){return SMALL_REP||!!key&&SMALL_HQ&&!!(METRIC_BY_KEY[key]||{}).hqOnly}
 function isSmallHq(key){return !SMALL_REP&&isSmall(key)}
@@ -4049,6 +4076,8 @@ function verdictState(key,st,lp,bl){
   if(thin(key,lp))return 'neutral';
   const v=(periodTotal(lp,key)||{}).v, kpi=kpiAt(key,st,MONTHS[PER_I].m);
   if(kpi)return stateForKpi(key,v,kpi);
+  /* поставка 113: есть распределение подразделений того же размера — оценка по нему (и у всей компании: с собой не сравниваем) */
+  const pe=peerOf(key,lp);if(pe)return peerState(key,v,pe);
   if(SELF_BASE)return 'neutral';
   return compareState(key,v,(periodTotal(bl,key)||{}).v);
 }
@@ -6099,7 +6128,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,YEAR_START_EXT,WIN_FROM,WIN_TO,winSum,ASOF,PA
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,
   metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,kpiFor,comparable,
-  setVerdictScope,isSmall,isSmallHq,isSelfBase,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
+  setVerdictScope,isSmall,isSmallHq,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,
@@ -7798,7 +7827,7 @@ function unitTip(name,hc,head){
    Порядок проверок не косметика: **есть утверждённый KPI — сравниваем с ним,
    и только с ним**. Средняя по базе рядом с целью KPI заставляла выбирать,
    по какому из двух чисел судить, хотя ответ один: цель важнее средней. */
-function targetCell(key,val,baseVal,kpi){
+function targetCell(key,val,baseVal,kpi,pe){
   /* Значения нет (доля без знаменателя) — оценки нет: «ниже порога» про
      команду, у которой в окне не было ни одного найма, было бы неправдой. */
   if(val==null)return '<div class="tgt">'+(kpi?'<span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'
@@ -7812,7 +7841,18 @@ function targetCell(key,val,baseVal,kpi){
       '<span class="sig-chip '+st+'">'+(st==='good'?'в цели':st==='warn'?'зона риска':st==='bad'?badTxt:'без оценки')+'</span></div>';
   }
   if(!D.comparable(key))return '<div class="tgt">'+noCmpMark()+'</div>';
-  if(baseVal==null)return '<div class="tgt">—</div>';
+  /* поставка 113: ориентир — медиана подразделений того же размера под теми же фильтрами (вместо базы) */
+  if(pe){
+    const st=D.peerState(key,val,pe);
+    return '<div class="tgt"'+tipAttr({title:'Медиана подразделений вашего размера',
+      text:'Подразделения на '+pe.bandName+' человек под теми же фильтрами: у половины — меньше **'+D.fmtVal(key,pe.p50)+'**, у половины — больше. '+
+        'Четверть — ниже '+D.fmtVal(key,pe.p25)+', четверть — выше '+D.fmtVal(key,pe.p75)+'.',
+      note:'Подразделений в сравнении: '+pe.n+'. «Лучше / хуже большинства» — лучше или хуже, чем у трёх из четырёх.'})+
+      '><b>медиана '+D.fmtVal(key,pe.p50)+'</b><span class="sig-chip '+st+'">'+
+      (st==='good'?'лучше большинства':st==='bad'?'хуже большинства':st==='warn'?'на уровне':'без оценки')+'</span></div>';
+  }
+  /* поставка 113: база совпадает с отчётом (вся компания) — сравнивать не с чем */
+  if(baseVal==null||!kpi&&D.isSelfBase())return '<div class="tgt">—</div>';
   const st=D.compareState(key,val,baseVal), diff=val-baseVal, m=D.METRIC_BY_KEY[key];
   const lbl=m.better==='flat'
     ? (Math.abs(diff)<0.05?'как база':(diff>0?'выше базы':'ниже базы'))
@@ -8479,7 +8519,8 @@ function trafficLegend(){
     /* поставка 110 («один вердикт»): порог один на весь отчёт — 10%, как у выводов; меньше 30 человек — без оценки */
     '<span class="sw"><span class="dot" style="background:#f3f4f6"></span>на уровне (±'+Math.round(D.VERDICT_GAP*100)+'%) или без оценки</span>'+
     /* 30.10, шаг 2: пояснение — в подсказке, под выводами меньше букв */
-    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI, а где её нет — к базе: та же метрика по всей компании с теми же фильтрами. Хуже или лучше — '+
+    '<span class="sw lg-note"'+tipAttr({title:'Как читать цвета',text:'Колонка «Ориентир» — к цели KPI; где её нет — к медиане подразделений вашего размера (30–99, 100–299, 300–999, 1000+ человек) '+
+      'с теми же фильтрами: хуже или лучше, чем у трёх из четырёх; где и её нет — к базе: та же метрика по всей компании. Хуже или лучше базы — '+
       'на '+Math.round(D.VERDICT_GAP*100)+'% и больше: тот же порог, что у выводов. В команде меньше '+D.SMALL_N+' человек доли не оцениваются. '+
       'Колонки MoM и YoY — к прошлому периоду.'})+
     '>как читать</span></div>';
@@ -8909,29 +8950,35 @@ function metricFact(m,S,rl,bl){
   if(D.thin(key,rl))return null;
   /* цель — закрытого месяца (у накопительных — её доля к этому месяцу), база и год назад — за тот же период;
      поставка 110: база = сам отчёт (вся компания) — с собой не сравниваем, ориентир — цель или прошлый год */
-  const kpi=D.kpiAt(key,S,D.MONTHS_EXT[L].m), ref=kpi?kpi.green:(D.comparable(key)&&!D.isSelfBase()?perOf(bl,key).v:null);
-  const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):D.compareState(key,v,ref);
-  const f=x=>D.fmtVal(key,x), w=kpi?'цели':'базы', pv=P.pv;
+  const kpi=D.kpiAt(key,S,D.MONTHS_EXT[L].m);
+  /* поставка 113: без цели, но с распределением подразделений того же размера (под теми же фильтрами) — ориентир медиана,
+     оценка по четвертям (D.peerState); иначе — база, как раньше */
+  const pe=kpi?null:D.peerOf(key,rl);
+  const ref=kpi?kpi.green:pe?pe.p50:(D.comparable(key)&&!D.isSelfBase()?perOf(bl,key).v:null);
+  const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):pe?D.peerState(key,v,pe):D.compareState(key,v,ref);
+  const f=x=>D.fmtVal(key,x), w=kpi?'цели':pe?'медианы':'базы', pv=P.pv;
+  const peerSay=good=>(good?(m.better==='lower'?'ниже':'выше'):(m.better==='lower'?'выше':'ниже'))+
+    ', чем у трёх из четырёх подразделений вашего размера (медиана '+f(pe.p50)+')';
   const ago=pv!=null?'Год назад — '+f(pv)+'.':'';
   /* поставка 99: окно периода названо в шапке экрана, у имени метрики — только «сейчас» у состояний */
   const tr=worsening(m,ext,L), nm=m.name+(STOCK.has(key)?', сейчас':'');
   /* поставка 110 («один вердикт»): у цели KPI «хуже» — то же, что красный цвет строки (stateForKpi); у базы — порог
      10% (compareState); метрика в цели не получает «хуже, чем год назад» — строка таблицы зелёная */
-  if(st==='bad'&&(kpi||rel(v,ref)>=OBS.dev))
-    return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — хуже '+w+' '+f(ref),
-      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr,L,mon};
+  if(st==='bad'&&(kpi||pe||rel(v,ref)>=OBS.dev))
+    return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — '+(pe?peerSay(false):'хуже '+w+' '+f(ref)),
+      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr,L,mon,peer:pe};
   /* год к году: 10% от прошлого значения или 3 п.п. у долей */
   if(pv!=null&&m.better!=='flat'&&m.fmt!=='int'&&Math.abs(v-pv)>=(m.fmt==='pct'?0.5:1e-9)&&!(kpi&&st==='good'&&(m.better==='lower'?v>pv:v<pv))&&
      (rel(v,pv)>=OBS.dev||(m.fmt==='pct'&&Math.abs(v-pv)>=OBS.yoyPp))){
     const worse=m.better==='lower'?v>pv:v<pv;
     return {key,sev:worse?'mid':'good',pri:2,w:rel(v,pv),
       lead:nm+' '+f(v)+' — '+(worse?'хуже':'лучше')+', чем год назад ('+f(pv)+')',
-      body:ref!=null?cap(w==='цели'?'цель':'база')+' — '+f(ref)+'.':'',kind:'yoy',v,ref,kpi,pv,L,mon};
+      body:ref!=null?(pe?'Медиана подразделений вашего размера':cap(w==='цели'?'цель':'база'))+' — '+f(ref)+'.':'',kind:'yoy',v,ref,kpi,pv,L,mon};
   }
   if(tr)return {key,sev:'mid',pri:3,w:rel(tr.b,tr.a),lead:m.name+': '+trendWord(m),
     body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.MONTHS_EXT[L].m]+' '+f(tr.b)+'.',kind:'trend',v,ref,kpi,pv,tr,L,mon};
-  if(st==='good'&&rel(v,ref)>=OBS.dev)
-    return {key,sev:'good',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — лучше '+w+' '+f(ref),body:ago,kind:'dev',v,ref,kpi,pv,L,mon};
+  if(st==='good'&&(pe||rel(v,ref)>=OBS.dev))
+    return {key,sev:'good',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — '+(pe?peerSay(true):'лучше '+w+' '+f(ref)),body:ago,kind:'dev',v,ref,kpi,pv,L,mon,peer:pe};
   return null;
 }
 const MONTH_IN=['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'];
@@ -9106,8 +9153,8 @@ function say(f){
   if(f.kind==='trend')return lc(m.name)+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд';
   if(f.key==='hire_plan'&&f.kind==='dev')return bad?'найм отстаёт от плана':'план найма выполняется с запасом';
   const st=(SAY[f.key]||[lc(m.name)+' хуже',lc(m.name)+' лучше'])[bad?0:1];
-  if(f.key==='nonregret'&&f.kpi)return st+' цели'+(bad?' — с теми, с кем готовы расстаться, расстаёмся реже':' — это к лучшему');
-  return st+(f.kind==='yoy'?', чем год назад':f.key==='regret'&&f.kpi?' цели':f.kpi?', чем по цели':', чем по базе');
+  if(f.key==='nonregret'&&f.kpi&&f.kind==='dev')return st+' цели'+(bad?' — с теми, с кем готовы расстаться, расстаёмся реже':' — это к лучшему');
+  return st+(f.kind==='yoy'?', чем год назад':f.key==='regret'&&f.kpi?' цели':f.kpi?', чем по цели':f.peer?', чем у большинства подразделений вашего размера':', чем по базе');
 }
 /* дробь метрики: своя или месячной, если накопительная — сумма месячных ('sum') */
 function ratioDef(m){
@@ -9175,7 +9222,8 @@ function whereOf(f,S){
 /* ряд для мини-графика: этот год с января против ориентира; до апреля — 12 месяцев окна */
 function miniOf(f,rl,bl){
   const k=f.kind==='spike'?'attrition':f.key, fv=x=>D.fmtVal(k,x), L=D.NEXT-1;
-  const kpi=f.kind==='dev'&&f.kpi, base=f.kind==='dev'&&!kpi;
+  /* поставка 113: у вывода по медиане ряда медианы по месяцам нет — мини-график против прошлого года */
+  const kpi=f.kind==='dev'&&f.kpi, base=f.kind==='dev'&&!kpi&&!f.peer;
   let cur,ref;
   if(D.CUR_LEN>=4){
     const y=D.yoySeries(rl,k);cur=y.cur.slice(0,D.CUR_LEN);
@@ -9202,7 +9250,7 @@ function cardOf(f,S,rl,bl){
   else if(f.kind==='trend')head=m.name+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд: '+fv(f.tr.a)+' → '+fv(f.tr.b);
   const cmpV=f.kind==='dev'?f.ref:f.kind==='yoy'?f.pv:null, dv=cmpV==null?null:+(f.v-cmpV).toFixed(2);
   const big=f.kind==='dev'||f.kind==='yoy'?{v:fv(f.v),name:mn+(/^(turnover_m|underwork|overwork|ai_penetration)$/.test(f.key)?', в среднем за месяц':''),
-    chip:dv==null?'':D.fmtDelta(f.key,dv)+(f.kind==='dev'?(f.kpi?' к цели ':' к базе ')+fv(f.ref):' к году назад '+fv(f.pv)),
+    chip:dv==null?'':D.fmtDelta(f.key,dv)+(f.kind==='dev'?(f.kpi?' к цели ':f.peer?' к медиане ':' к базе ')+fv(f.ref):' к году назад '+fv(f.pv)),
     cls:bad?'down':'up'}
     /* поставка 110: у новых выводов (HQ против ориентира, хвост вакансий) — то же крупное число с чипом, что у остальных */
     :f.kind==='hqb'?{v:fv(f.v),name:'Текучесть HQ, накопительно',chip:D.fmtDelta('turnover_y',+(f.v-f.ref).toFixed(2))+' к ориентиру '+fv(f.ref),cls:'down'}
@@ -9228,9 +9276,9 @@ function cardOf(f,S,rl,bl){
     pills.push('ушли '+esc(D.CNT_SPAN)+' <b>'+D.fmtInt(Math.round(P.v||0))+'</b> · год назад '+D.fmtInt(Math.round(P.pv||0)))}
   /* поставка 90: у ухода год к году разница людьми — в пилюле «ушли …»; «≈ N разницы» из ставки ей противоречил бы */
   if(q&&!(leave&&f.kind==='yoy'))pills.push(f.kind==='yoy'?q+' разницы с прошлым годом':f.kind==='trend'?q+' за '+OBS.trend+' мес.':f.kind==='spike'?q+' сверх обычного'
-    :m.better==='higher'?(bad?'не хватает '+q:'на '+q+' больше '+(f.kpi?'цели':'базы')):q+(bad?' сверх ':' ниже ')+(f.kpi?'цели':'базы'));
+    :m.better==='higher'?(bad?'не хватает '+q:'на '+q+' больше '+(f.kpi?'цели':f.peer?'медианы':'базы')):q+(bad?' сверх ':' ниже ')+(f.kpi?'цели':f.peer?'медианы':'базы'));
   if(q){
-    const w=f.kpi?'цели':'базы', when=' '+D.PER_TEXT;
+    const w=f.kpi?'цели':f.peer?'медианы':'базы', when=' '+D.PER_TEXT;
     if(f.kind==='yoy')body.push('<!--ppl-->Это '+q+' разницы с прошлым годом.');
     else if(f.kind==='trend')body.push('За '+OBS.trend+' месяца — '+q+'.');
     else if(f.kind==='spike')body.push('Это '+q+' сверх обычного.');
@@ -9257,7 +9305,7 @@ function cardOf(f,S,rl,bl){
   return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,pills,kp,big,sub,
     ppl:n,where:wh,chart:/^(hqb|unit)$/.test(f.kind)?'':miniOf(f,rl,bl),
     /* поставка 110 (E8): подсказка мини-графика — с чем он сравнивает, а не служебная фраза */
-    chartTip:'По месяцам '+(D.CUR_LEN>=4?'с начала года':'за 12 месяцев')+' против '+(f.kind==='dev'?(f.kpi?'цели':'базы'):'прошлого года')+'.',
+    chartTip:'По месяцам '+(D.CUR_LEN>=4?'с начала года':'за 12 месяцев')+' против '+(f.kind==='dev'&&!f.peer?(f.kpi?'цели':'базы'):'прошлого года')+'.',
     btn:wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:f.node?{label:'Показать подразделение',go:bk+'|'+f.node}
       :{label:'Открыть «'+b.name+'»',tab:bk}};
 }
@@ -9399,14 +9447,16 @@ function yearAgo(lp,k){const p=per(lp,k);return p.pv!=null?p.pv:null}
    мало событий (thin) и база = сам юнит (self) отмечены, и заголовок главы говорит о них, а не «на уровне базы» */
 function judge(k,c){
   const i=D.PER_I, v=per(c.lp,k).v, kpi=D.kpiAt(k,c.S,D.MONTHS[i].m);
-  const self=!kpi&&D.isSelfBase(), base=kpi?kpi.green:(D.comparable(k)&&!self?per(c.bl,k).v:null);
+  /* поставка 113: без цели, но с распределением подразделений того же размера — ориентир медиана (и у всей компании) */
+  const pe=kpi?null:D.peerOf(k,c.lp);
+  const self=!kpi&&!pe&&D.isSelfBase(), base=kpi?kpi.green:pe?pe.p50:(D.comparable(k)&&!self?per(c.bl,k).v:null);
   const thin=D.thin(k,c.lp), ev=D.eventsOf(k,c.lp);
   let st='n';
   if(v!=null&&base!=null&&!thin){
-    const s=kpi?D.stateForKpi(k,v,kpi):D.compareState(k,v,base);
+    const s=kpi?D.stateForKpi(k,v,kpi):pe?D.peerState(k,v,pe):D.compareState(k,v,base);
     st=s==='good'?'good':s==='bad'?'bad':'n';
   }
-  return {v:v,base:base,kpi:kpi,st:st,i:i,k:k,thin:thin,ev:ev,self:self,small:D.isSmall(k),smallHq:D.isSmallHq(k)};
+  return {v:v,base:base,kpi:kpi,peer:pe,st:st,i:i,k:k,thin:thin,ev:ev,self:self,small:D.isSmall(k),smallHq:D.isSmallHq(k)};
 }
 /* заголовок без сравнения: мало людей, мало событий или база = сам юнит (тогда — с прошлым годом) */
 function plainHead(j,c,more,less){
@@ -9497,6 +9547,9 @@ function vsBase(j,c,more,less,same,noYoy){
   /* 30.10, критики: «Конверсия на уровне базы» при пустом значении — за месяц нет событий, так и пишем */
   if(j.v==null)return 'Нет данных — не с чем сравнить';
   if(j.thin||j.small||j.self&&!j.kpi)return plainHead(j,c,more,less);
+  /* поставка 113: ориентир — медиана подразделений того же размера */
+  if(j.peer&&!j.kpi)return (j.st==='bad'||j.st==='good'?((j.v>j.base)?more:less)+', чем у большинства подразделений вашего размера'
+    :same.replace(/ — на уровне базы$/,'')+' — на уровне подразделений вашего размера')+(noYoy?'':yoyTail(j,c,more,less));
   return (j.st==='bad'||j.st==='good'
     ? ((j.v>j.base)?more:less)+', чем '+inBase(c)
     : same+' «'+c.bench+'»')+(noYoy?'':yoyTail(j,c,more,less));
@@ -9513,7 +9566,7 @@ function yoyTail(j,c,more,less){
 }
 
 /* значение за период и база; пустое — «нет данных», а не «— при базе 37,5%» */
-const valAt=(k,j)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.base!=null&&!j.small&&!j.thin&&!j.self?' при базе '+f(k,j.base):'');
+const valAt=(k,j)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.base!=null&&!j.small&&!j.thin&&!j.self?(j.peer&&!j.kpi?' при медиане '+f(k,j.base)+' у подразделений вашего размера':' при базе '+f(k,j.base)):'');
 const CH={};
 
 /* ===== Отток и текучесть ===== */
@@ -12130,7 +12183,8 @@ function obsInfo(S){
   const O=window.TPINSIGHTS.OBS, C=window.TPINSIGHTS.CARD;
   return '<span class="info"'+U.tipAttr({title:'Как отобраны выводы',
     text:'Считается правилами по тем же числам, без ИИ. В выводы попадает:',
-    list:['метрика хуже или лучше ориентира на '+Math.round(O.dev*100)+'% и больше',
+    list:['метрика хуже или лучше ориентира на '+Math.round(O.dev*100)+'% и больше; где ориентир — медиана подразделений вашего '+
+        'размера, — хуже или лучше, чем у трёх из четырёх',
       'заметно изменилась за год',
       'ухудшается '+O.trend+' месяца подряд',
       'всплеск уходов и сдвиг численности'],
@@ -12223,7 +12277,8 @@ function render(S,openRows){
   const node=D.NODE_BY_PATH[S.unit]||{}, hc=D.lastVal(rl,'hc_total')||0;
   let h='<div class="page-h"><h2>'+(D.PARTIAL?'Главное на '+esc(D.ASOF_LABEL):'Главное за '+esc(D.CMP.cur))+'</h2>'+
     '<p>'+esc(node.name||'Команда')+' · '+D.fmtInt(hc)+' '+U.plural(Math.round(hc),['человек','человека','человек'])+' · '+
-    D.hcLabel(S)+' · сравнение с базой <b>'+esc(D.benchmarkLabel(S))+
+    /* поставка 113: есть распределение подразделений того же размера — оно ориентир метрик без цели, база — для остальных */
+    D.hcLabel(S)+' · сравнение '+(D.peerOf('turnover_y')?'с подразделениями вашего размера, ':'')+'с базой <b>'+esc(D.benchmarkLabel(S))+
     '</b> и прошлым годом'+obsInfo(S)+'</p>'+
     /* поставка 99: окно чисел — один раз, строкой-контрактом, а не в каждой строке выводов */
     /* поставка 106: количества — по дату данных, доли — по закрытый месяц */
@@ -12281,7 +12336,7 @@ function render(S,openRows){
       /* 27.10-в, п. 1: шапки — MoM и YoY; месяцы сравнения — в подсказке */
       '<th class="num"'+U.tipAttr({title:'MoM — месяц к месяцу',text:'Последний закрытый месяц против предыдущего; у численности и вакансий — сейчас против конца прошлого месяца.'})+'>MoM</th>'+
       '<th class="num"'+U.tipAttr({title:'YoY — год к году',text:'Значение против того же периода год назад — как в строке итога под графиком.'})+'>YoY</th><th class="mid">12 мес</th>'+
-      '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Цель KPI, а где её нет — база.'})+'>Ориентир</th>'+
+      '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Цель KPI; где её нет — медиана подразделений вашего размера под теми же фильтрами; где и её нет — база.'})+'>Ориентир</th>'+
       /* Общая каретка стоит над колонкой строчных кареток: строки блока
          раскрывают графики по одной, и раскрыть их разом должно быть можно
          одной кнопкой — правило то же, что у ИТОГО в сводной таблице. */
@@ -12316,7 +12371,7 @@ function render(S,openRows){
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
            точек, ориентир — пунктиром; у метрики без оценки точек нет. */
         '<td class="col-spark">'+G.sparkLine(s,st,180,28,{key:m.key,base:bser,kpi:kpi,ink:noEval(m,kpi),dots:false})+'</td>'+
-        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi)+'</td>'+
+        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi,kpi?null:D.peerOf(m.key,rl))+'</td>'+
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */
       if(open){
