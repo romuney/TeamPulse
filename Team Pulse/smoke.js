@@ -1298,7 +1298,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
      таблицы нет, но правило раскладки остаётся на случай новых метрик */
   checks.push(['широкая сводная таблица — от 7 метрик или своих колонок (мониторинг), до 1366px встаёт над графиком',
     D.BLOCKS.every(b=>D.metricsOfBlock(b.key).length<7)&&!/class="split wide-l/.test(mv)&&
-    /\.split\.wide-l\{grid-template-columns:minmax\(min-content,\.9fr\)/.test(css)&&
+    css.includes('.split.wide-l{grid-template-columns:minmax(min(calc((100%-16px)*.45),100%-356px),min-content)')&&
     /@media\(max-width:1366px\)\{\.split\.wide-l\{grid-template-columns:1fr;height:auto\}/.test(css)]);
   checks.push(['имя подразделения липкое: широкая таблица прокручивается внутри панели',
     /\.split-l\.ptable\.densetd\.txt\{position:sticky;left:0/.test(css)]);
@@ -1456,7 +1456,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /aria-valuenow="62"/.test(cust)]);
   A.split('both',null);
   checks.push(['раскладка колонок: разделитель — третья колонка, минимум 340px, узкий экран не трогаем',
-    /\.split\{display:grid;grid-template-columns:minmax\(min-content,\.7fr\)16pxminmax\(400px,1\.3fr\);column-gap:0;row-gap:16px/.test(css)&&
+    css.includes('.split{display:grid;grid-template-columns:minmax(min(calc((100%-16px)*.35),100%-356px),min-content)16pxminmax(340px,1fr);column-gap:0;row-gap:16px')&&
     /\.split\.custom\{grid-template-columns:minmax\(340px,var\(--split-l\)\)16pxminmax\(340px,var\(--split-r\)\)\}/.test(css)&&
     /\.split-gut\{display:none\}/.test(css)&&
     /@media\(min-width:1121px\)\{\.split>\.split-gut\{display:flex\}/.test(css)&&
@@ -1971,8 +1971,16 @@ checks.push(['третьей палитры нет: в экранах ни од�
       !!hl&&hl.rows.every(r=>r.kpi==null&&r.st==='neutral')&&/data-sid="prev"|>'+D.YEAR_PREV+'</.test(hb)])}
   checks.push(['файл 8, п. 6: закрытые вакансии в таблице — за '+D.YEAR_CUR+' год, год в подписи колонки',
     th.indexOf('Закрытые<span class="th-per">'+D.YEAR_CUR+'</span>')>=0]);
-  checks.push(['файл 8, п. 7: шаги не ужимаются — ширина не меньше 168 px, лишние — прокруткой',
-    /\.st-step\{flex:10168px;min-width:168px\}/.test(css)&&/\.st-steps\{overflow-x:auto;scrollbar-width:thin\}/.test(css)]);
+  /* поставка 124 (заказчик 08.11, ноутбук): не помещаются по 168 px — вторая строка ровной сеткой, не прокрутка ряда */
+  checks.push(['файл 8, п. 7 и поставка 124: шаги не ужимаются и не прокручиваются — не помещаются в ряд, переносятся сеткой',
+    css.includes('.st-steps{display:grid;grid-template-columns:repeat(var(--stc,2),minmax(0,1fr));overflow:visible}')&&
+    css.includes('@containerstp(max-width:695px){.st-steps.n4{--stc:2}}')&&css.includes('@containerstp(max-width:867px){.st-steps.n5{--stc:3}}')&&
+    css.includes('@containerstp(max-width:523px){.st-steps.n3,.st-steps.n5,.st-steps.n6{--stc:2}}')&&!/\.st-steps\{overflow-x:auto;scrollbar-width:thin\}/.test(css)]);
+  /* поставка 124: «таблица | графики» не шире окна — графики уступают до 340 px, дальше таблица прокручивается в карточке */
+  checks.push(['поставка 124: раскладка «таблица | графики» не вылезает за край (графики от 340 px, таблица ужимается)',
+    css.includes('.split{display:grid;grid-template-columns:minmax(min(calc((100%-16px)*.35),100%-356px),min-content)16pxminmax(340px,1fr);')&&
+    css.includes('.split.wide-l{grid-template-columns:minmax(min(calc((100%-16px)*.45),100%-356px),min-content)16pxminmax(340px,1fr)}')&&
+    !css.includes('minmax(min-content,.7fr)')&&!css.includes('minmax(380px,1.3fr)')]);
 })();
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

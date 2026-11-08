@@ -500,7 +500,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* Состояние «отклонений нет» — одна строка вместо пустой подсказки */
 
 /* ===== Итерация 12: таблица слева, визуализация справа ===== */
-.split{display:grid;grid-template-columns:minmax(min-content,.7fr) 16px minmax(400px,1.3fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(var(--vh,100vh) - 330px),620px);min-height:440px}
+/* поставка 124 (заказчик 08.11, ноутбук: «горизонтальный скролл»): было — таблица не уже своего содержимого (min-content), графики не уже 400 px (до 1240 px — 380), и при сумме шире окна отчёт уезжал вбок (отток: таблица 580–600 px). Теперь доля таблицы та же (35%, не меньше её содержимого), но графики уступают до 340 px (как при перетаскивании разделителя), а дальше таблица ужимается сама и прокручивается внутри карточки — с закреплённой колонкой имён */
+.split{display:grid;grid-template-columns:minmax(min(calc((100% - 16px)*.35),100% - 356px),min-content) 16px minmax(340px,1fr);column-gap:0;row-gap:16px;align-items:stretch;height:clamp(440px,calc(var(--vh,100vh) - 330px),620px);min-height:440px}
 .split>.panel{min-height:0;height:100%;display:flex;flex-direction:column}
 .split .panel-h{flex:0 0 auto;min-height:54px}
 .split .panel-b{flex:1;min-height:0}
@@ -535,7 +536,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    1121–1240px рабочая зона вылезала за экран — появлялся горизонтальный скролл
    всей страницы, а правая панель обрезалась. Теперь узкие минимумы включаются
    там, где широкие уже не влезают. */
-@media(max-width:1240px){.split{grid-template-columns:minmax(min-content,.7fr) 16px minmax(380px,1.3fr)}}
+/* поставка 124: отдельный минимум графиков до 1240 px (380) не нужен — общий минимум 340 px выше */
 /* Порог 1110, а не 900: две колонки перестают помещаться раньше, чем экран
    становится планшетным. Минимумы 440+400+16 = 856px требуют контента шире
    ~870px, а это ширина окна около 1120. На 901–1120px рабочая зона вылезала
@@ -1258,7 +1259,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
    Ниже 1240px двум колонкам места уже нет и широкой таблице: она встаёт над
    графиком раньше остальных — тем же приёмом, каким все блоки складываются
    ниже 1120px, и с теми же высотами. */
-.split.wide-l{grid-template-columns:minmax(min-content,.9fr) 16px minmax(400px,1.1fr)}
+.split.wide-l{grid-template-columns:minmax(min(calc((100% - 16px)*.45),100% - 356px),min-content) 16px minmax(340px,1fr)}
 /* ревью 100: у широкой таблицы (мониторинг) рядом с графиками на 1280 не хватало 34 px — страница уезжала вбок;
    складываем раньше: до 1366 px таблица над графиками */
 @media(max-width:1366px){
@@ -2530,11 +2531,18 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* 31.10-б, п. 4 и 8: период колонки таблицы подразделений — второй строкой под названием */
 .ptable th .th-per{display:block;margin-top:1px;font-size:9.5px;font-weight:var(--fw-body);color:var(--muted2);text-transform:none;letter-spacing:0;white-space:nowrap}
 
-/* файл 8, п. 7: вкладки-шаги не ужимаются — у всех одна ширина (не меньше 168 px), лишнее место делят поровну; не
-   помещаются — горизонтальная прокрутка ряда шагов (было: сжатие до обрывков, затем — неактивные свёрнуты до номера) */
-.st-steps{overflow-x:auto;scrollbar-width:thin}
-.st-step{flex:1 0 168px;min-width:168px}
-.st-steps.n5 .st-step.on{flex-grow:1}
+/* файл 8, п. 7: вкладки-шаги не ужимаются — у всех одна ширина, лишнее место делят поровну (было: сжатие до обрывков,
+   затем — неактивные свёрнуты до номера). Поставка 124 (заказчик 08.11, ноутбук: «не влезает кнопка и появляется
+   горизонтальный скролл»): не помещаются в ряд по 168 px — не прокрутка, а вторая строка ровной сеткой: 4 шага → 2×2,
+   5 → 3+2, 3 → 2+1. Ширина — по панели графиков (контейнер stp), не по окну: панель на ноутбуке 360–520 px */
+.st-steps{display:grid;grid-template-columns:repeat(var(--stc,2),minmax(0,1fr));overflow:visible}
+.st-steps.n3{--stc:3}.st-steps.n4{--stc:4}.st-steps.n5{--stc:5}.st-steps.n6{--stc:6}
+.st-step{min-width:0}
+@container stp (max-width:1039px){.st-steps.n6{--stc:3}}
+@container stp (max-width:867px){.st-steps.n5{--stc:3}}
+@container stp (max-width:695px){.st-steps.n4{--stc:2}}
+@container stp (max-width:523px){.st-steps.n3,.st-steps.n5,.st-steps.n6{--stc:2}}
+@container stp (max-width:329px){.st-steps{--stc:1}}
 /* ревью 100: подписи значений не перехватывают наведение — подсказка месяца не пропадает над цифрой */
 .svgchart text.fade{pointer-events:none}
 /* поставка 101: помесячная детализация специализации — отступ от таблицы, как между группами */
