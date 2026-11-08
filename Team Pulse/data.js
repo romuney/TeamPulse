@@ -3079,7 +3079,7 @@ const ROST_ST=[
    cols:['Повышение грейда','Смена специализации','Грейд и специализация'],cw:[0.72,0.2,0.08]},
   {key:'first',name:'Сейчас в росте (первый раз)',tip:'Есть активная заявка, раньше заявок не было.',w:0.05,cols:ROST_T2,cw:[0.78,0.22]},
   {key:'again',name:'Сейчас в росте (повторно)',tip:'Есть и успешно завершённая, и активная заявка.',w:0.02,cols:ROST_T2,cw:[0.8,0.2]},
-  {key:'none',name:'Нет заявки',tip:'Заявок за 12 месяцев не было: «Нет развития» — рост недоступен, «Рост доступен» — могут подать.',
+  {key:'none',name:'Нет заявки',tip:'Заявок '+PER_TEXT+' не было: «Нет развития» — рост недоступен, «Рост доступен» — могут подать.',
    w:0.77,cols:['Нет развития','Рост доступен'],cw:[0.4,0.6]},
   {key:'denied',name:'Заявка отклонена',tip:'Была отклонённая заявка, успешных и активных нет.',w:0.04,cols:ROST_T2,cw:[0.75,0.25]}];
 /* поставка 71 (параграфы Адели rost_info, with_TRost, structure_x_rost): T-рост выбранного подразделения из разрезов
@@ -3103,7 +3103,7 @@ function rostReal(lp){
      запуск T-роста). Ответ до 73 без признака — одна колонка */
   const avl=Object.keys(rs).some(v=>/^none\|(av|nd)\|/.test(v));
   const st=ROST_ST.map(s=>({key:s.key,name:s.name,n:0,rows:{},
-    tip:s.key==='none'&&!avl?'Заявок за 12 месяцев не было.':s.tip,cols:s.key==='none'&&!avl?['Нет заявки']:s.cols.slice()}));
+    tip:s.key==='none'&&!avl?'Заявок '+PER_TEXT+' не было.':s.tip,cols:s.key==='none'&&!avl?['Нет заявки']:s.cols.slice()}));
   const by={};st.forEach(s=>{by[s.key]=s});
   Object.keys(rs).forEach(v=>{
     const p=v.split('|'), s=by[p[0]], n=+rs[v]||0, j=p[0]==='none'?(p[1]==='av'?1:0):ROST_TP[p[1]];
@@ -3119,7 +3119,7 @@ function rostReal(lp){
   /* успешно закрытые по месяцам и за 12 месяцев (с текущим), успешность по желаемому: kd — g (грейд) или s */
   const flow=(kd,nR,nT)=>{
     let R=0,T=0;
-    /* итог за окно — как эталон: успешно закрытые с начала месяца 12 месяцев назад (разрез rq) */
+    /* итог за окно — разрез rq: успешно закрытые с января по последний закрытый месяц (поставка 90; до неё — 12 месяцев) */
     Object.keys(rq).forEach(v=>{const p=v.split('|');if(p[0]===kd&&p[2]==='ok'){if(p[1]==='1')T+=+rq[v]||0;else R+=+rq[v]||0}});
     const succ=t=>{
       const o={};
@@ -3180,8 +3180,9 @@ function rostProfile(lp){
     MONTHS.forEach((m,i)=>{if(m.y===YEAR_CUR&&m.m<CUR_LEN){yy.cur[m.m]=mr[i]+mt[i];yy.rost[m.m]=mr[i];yy.tat[m.m]=mt[i]}});
     const avg=Math.max(1,(R+T)/12);for(let m=0;m<12;m++){yy.prev[m]=Math.round(avg*(0.6+r()*0.8));
       yy.prevT[m]=Math.round(yy.prev[m]*T/Math.max(1,R+T));yy.prevR[m]=yy.prev[m]-yy.prevT[m]}
-    /* ревью 100: итог над графиком — те же месяцы, что «Всего за янв.–…» под ним */
-    const pr=a=>a.slice(0,CNT_C+1).reduce((x,v)=>x+v,0), R1=pr(yy.rost), T1=pr(yy.tat);
+    /* ревью 100: итог над графиком — те же месяцы, что «Всего за янв.–…» под ним; поставка 128: как у настоящих (rq — январь..
+       закрытый месяц), итог — по закрытый месяц, а счёт по дату данных — отдельной фразой над графиком (tgrowth.js) */
+    const pr=a=>a.slice(0,PER_C+1).reduce((x,v)=>x+v,0), R1=pr(yy.rost), T1=pr(yy.tat);
     const sR=succ(R1,names,from), sT=succ(T1,names,from);
     return {rost:R1,tat:T1,yoy:yy,rostT:top(sR,nR),tatT:top(sT,nT),rostS:succSum(sR),tatS:succSum(sT)};
   };

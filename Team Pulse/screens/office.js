@@ -46,8 +46,12 @@ function attendReal(ctx,x,lbl,attTbl){
       value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
       attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})).concat(x.fix&&!cc&&!x.seg?[{name:'Владельцы фиксов',
       note:'фиксированное место · '+D.fmtInt(x.fix.wd)+' раб. дней',value:x.fix.att,color:G.C_OFFICE}]:[]),'Сравнение сегментов');
+  /* поставка 128 (аудит: выбран город — таблицы по нему, а динамика та же, без подписи): помесячной посещаемости по городам в
+     данных нет (у рабочего дня нет города) — динамика по всем городам, так и подписано */
   return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
-      title:'Посещаемость офиса'+(x.seg?': '+x.seg.name:'')+', %'})+
+      title:'Посещаемость офиса'+(x.seg?': '+x.seg.name:'')+(x.city?' — все города':'')+', %'})+
+    (x.city?'<div class="tbl-note">Город «'+esc(x.city.name)+'» на динамику не влияет: помесячной посещаемости по городам в данных '+
+      'нет. По городу пересчитаны таблицы ниже.</div>':'')+
     (x.segs.length?segTbl:'')+
     /* 27.10-в, п. 15: по убыванию посещений, первые 10 и раскрываемые «Остальные»; 31.10-б, п. 9: колонка «Посещаемость»,
        строка города выбирается (кросс-фильтр с сегментом) */
@@ -78,8 +82,11 @@ SC.blocks.office={
   shelfChips(S){
     if(S.subTab!=='attend')return [];
     const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[], tip='Динамика и таблицы — по выбору.';
+    /* поставка 128: на настоящих данных город динамику не меняет (по городам помесячно данных нет) — так и в подсказке */
+    const real=!!S.offCity&&D.officeCross(D.reportLeaves(S),null,null).real;
     if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"',tip:tip});
-    if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"',tip:tip});
+    if(S.offCity)chips.push({dim:'Локация',cat:S.offCity,attr:'data-offcity="'+esc(S.offCity)+'"',
+      tip:real?'Таблицы — по выбору; динамика — по всем городам: помесячной посещаемости по городам в данных нет.':tip});
     return chips;
   },
   view(ctx){

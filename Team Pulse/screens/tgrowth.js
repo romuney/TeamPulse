@@ -67,8 +67,12 @@ function succTable(cap,sub,rows,head,tot){
    п. 7: так же — смена специализации (key — ряд метрики графика для подписей и итога) */
 function flowYoy(ctx,f,what,head,tipName){
   const y=f.yoy;
+  /* поставка 128 (аудит: «N заявок с 1 января» над графиком, а N — из разреза за январь–закрытый месяц): итог — за окно выводов
+     (PER_TEXT), как статусы и таблицы успешности ниже; график идёт по дату данных — если там больше, это сказано тут же */
+  const cs=a=>{let x=0;for(let i=0;i<=D.CNT_C;i++)x+=a[i]||0;return x}, cR=cs(y.rost), cT=cs(y.tat);
   return '<div class="rost-kpi"><b>'+D.fmtInt(f.rost)+'</b> '+U.plural(f.rost,['успешно закрытая заявка','успешно закрытые заявки',
-      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.CNT_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T</div>'+
+      'успешно закрытых заявок'])+' '+esc(what)+' в «Росте» '+esc(D.PER_TEXT)+' · ещё <b>'+D.fmtInt(f.tat)+'</b> — в T@T'+
+      (cR!==f.rost||cT!==f.tat?' · по '+esc(D.ASOF_LABEL)+' — '+D.fmtInt(cR)+' и '+D.fmtInt(cT)+', как на графике':'')+'</div>'+
     SC.metricLine('tgrowth_pass',ctx.lp,ctx.bl,ctx.S,{yser:{cur:y.cur,prev:y.prev},noBench:true,kpi:null,h:300,fill:false,
       color:C_R,title:head,tipName:tipName||'повышение грейда',
       parts:{cur:[y.rost,y.tat],prev:[y.prevR,y.prevT],col:[C_R,C_T],pcol:[C_RP,C_TP]},
@@ -77,20 +81,21 @@ function flowYoy(ctx,f,what,head,tipName){
 }
 function grades(ctx,p){
   const cur=p.st.find(x=>x.key===ctx.S.rostSt)||p.st[0];
-  return U.btGroup({cap:'Статусы роста',capSub:p.real?'численность последнего месяца · заявки '+D.CNT_TEXT:'активная численность · за 12 месяцев',head:'',valueHead:'Чел',
+  /* поставка 128: статусы — по заявкам с итогом с января по закрытый месяц (rs ноутбука), не «с 1 января» по дату и не 12 месяцев */
+  return U.btGroup({cap:'Статусы роста',capSub:(p.real?'численность последнего месяца':'активная численность')+' · заявки '+D.PER_TEXT,head:'',valueHead:'Чел',
       metricKey:'hc_total',compact:true,items:p.st.map(s=>({name:s.name,value:s.n,color:ST_COL[s.key],on:s===cur,
         attr:'data-rostst="'+s.key+'"',attrTip:'Клик — «'+s.name+'» по текущему грейду. '+s.tip}))})+
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
       esc(cur.tip)+'</span></div>'+gradeHeat(cur)+'</div>'+
     flowYoy(ctx,p.grade,'на повышение грейда','Повышение грейда по месяцам, заявок')+
-    U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов',p.grade.rostT,'Текущий → желаемый',p.grade.rostS),
-      succTable('Повышение грейда: T@T','по возрастанию грейдов',p.grade.tatT,'Текущий → желаемый',p.grade.tatS)])+
+    U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов · '+D.PER_TEXT,p.grade.rostT,'Текущий → желаемый',p.grade.rostS),
+      succTable('Повышение грейда: T@T','по возрастанию грейдов · '+D.PER_TEXT,p.grade.tatT,'Текущий → желаемый',p.grade.tatS)])+
     '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
 }
 function specs(ctx,p){
   return flowYoy(ctx,p.spec,'на смену специализации','Смена специализации по месяцам, заявок','смена специализации')+
-    U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам',p.spec.rostT,'Текущая → желаемая',p.spec.rostS),
-      succTable('Смена специализации: T@T','первые 4 по заявкам',p.spec.tatT,'Текущая → желаемая',p.spec.tatS)])+
+    U.btStack([succTable('Смена специализации: «Рост»','первые 5 по заявкам · '+D.PER_TEXT,p.spec.rostT,'Текущая → желаемая',p.spec.rostS),
+      succTable('Смена специализации: T@T','первые 4 по заявкам · '+D.PER_TEXT,p.spec.tatT,'Текущая → желаемая',p.spec.tatS)])+
     '<div class="tbl-note">Успешно — заявка закрыта со сменой специализации; «Отказ, %» — доля отклонённых среди заявок строки.</div>';
 }
 

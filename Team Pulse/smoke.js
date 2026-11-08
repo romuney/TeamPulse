@@ -1631,8 +1631,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /* 31.10-б, п. 6: «Рост HQ» — без фильтра покраски */
     /* поставка 106: у AI вывода блока нет (месячных метрик нет, вывод недель — в главе) */
     D.BLOCKS.filter(b=>b.key!=='ai').every(b=>{const Sb=b.key==='tgrowth'?Object.assign({},S0,{paint:'all'}):S0,
-      sv=I.blockSummary(b.key,Sb,D.reportLeaves(Sb),D.benchmarkLeaves(Sb)).sev;
-      return new RegExp('bk-sum '+sv+'"><span class="in-ico"><img[^>]*alt="'+{high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'}[sv]+'"').test(A.top(b.key))})]);
+      sv=I.blockSummary(b.key,Sb,D.reportLeaves(Sb),D.benchmarkLeaves(Sb)).sev, h=A.top(b.key),
+      tg=(h.match(/<div class="bk-tag">Вывод блока · ([^<]+)<\/div>/)||[])[1];
+      /* поставка 128: подпись огонька — та же, что у вывода: у «Для справки», «В людях», «Без оценки» (тяжесть none) — тоже */
+      return !!tg&&new RegExp('bk-sum '+sv+'"><span class="in-ico"><img[^>]*alt="'+tg+'"').test(h)&&
+        (tg==={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'}[sv]||sv==='none'&&/^(Для справки|В людях|Без оценки)$/.test(tg))})]);
   checks.push(['вывод блока: «всё спокойно» там, где фактов нет; в «Саммари» нет таблиц ни на одной вкладке',
     D.BLOCKS.filter(b=>b.key!=='ai').every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-pl"><span class="bk-p (high|mid|good)"/.test(h))&&
       !/class="bk-wh"|<table/.test(h.slice(h.indexOf('bk-top'),h.indexOf('id="bk-det"')))})]);

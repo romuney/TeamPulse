@@ -288,6 +288,10 @@ function demoNoteFor(bk,sub){return D.REAL&&devOf(bk,sub)?'1':''}
    sum — TPINSIGHTS.blockSummary: заголовок, до трёх фактов по номерам и «Что
    сделать». Фактов нет — «всё спокойно» и что именно проверено. */
 const BK_TAG={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'};
+/* поставка 128: количества без ориентира в выводе блока — чем подлежащее и сказуемое, пилюля — подпись числа */
+const CNT_SAY={attrition:'уволились',vac_closed:'вакансий закрыли',tgrowth_pass:'заявок на рост одобрили',tgrowth_deny:'заявок на рост отклонили'};
+const CNT_PILL={attrition:'уволились',vac_closed:'закрыли вакансий',tgrowth_pass:'одобрили заявок',tgrowth_deny:'отклонили заявок'};
+const cap1=s=>s.charAt(0).toUpperCase()+s.slice(1);
 /* поставка 121: совет руководителю команды меньше 30 человек, когда выводов у блока нет */
 const SMALL_TODO={structure:'Проверьте, на ком держится экспертиза: роль, где один-два человека, — точка отказа.',
   movement:'Сверьте, кого уже заменили и кого ещё ищете: в малой команде заметен каждый уход.',
@@ -328,6 +332,22 @@ function conclusion(sum,b,S){
     const rl0=D.reportLeaves(S), bl0=D.benchmarkLeaves(S);
     const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)),
       cmp=vis.filter(m=>(D.comparable(m.key)||D.kpiFor(m.key,S))&&D.verdictState(m.key,S,rl0,bl0)!=='neutral');
+    /* поставка 128 (аудит: «Движение» — «Всё спокойно · к прошлому году без заметных сдвигов», а на главной у «Оттока» красный
+       чип года, 27 против 18): у количеств (уволились, закрыто вакансий, заявки на рост) ориентира нет — на главной они «для
+       справки», но чип года красится правилом D.yoyMove. Тот же сдвиг называем и здесь — «для справки», цветом чипа */
+    const cm=vis.filter(m=>m.fmt==='int'&&m.better!=='flat'&&D.yoyMove(m.key,rl0)).map(m=>{const P=D.periodTotal(rl0,m.key)||{};
+      return {m,mv:D.yoyMove(m.key,rl0),v:D.fmtVal(m.key,P.v),pv:D.fmtVal(m.key,P.pv)}});
+    if(cm.length){
+      const c0=cm.find(x=>x.mv==='worse')||cm[0], more=x=>(x.mv==='worse')===(x.m.better==='lower');
+      tag='Для справки';
+      head=(cmp.length?'Отклонений от ориентира нет'+(c0.mv==='worse'?', но ':'; '):'')+(cmp.length?CNT_SAY[c0.m.key]:cap1(CNT_SAY[c0.m.key]))+' '+
+        (more(c0)?'больше':'меньше')+', чем год назад: '+c0.v+' против '+c0.pv;
+      facts='<div class="bk-pl">'+cm.map(x=>'<span class="bk-p '+(x.mv==='worse'?'mid':'good')+'">'+esc(CNT_PILL[x.m.key])+' <b>'+x.v+
+        '</b> · год назад '+x.pv+'</span>').join('')+(cmp.length?'<span class="bk-p">проверили <b>'+cmp.length+' '+
+        U.plural(cmp.length,['метрику','метрики','метрик'])+'</b> с ориентиром — отклонений нет</span>':'')+'</div>';
+      todo='Количества сравниваем только с прошлым годом: ориентира у них нет.'+(b.key==='movement'&&D.blockVisible('turnover',S)?
+        ' Уходы в долях от численности, с базой, — во вкладке «Отток и текучесть».':'');
+    }else{
     head='Заметных отклонений нет';
     facts='<div class="bk-pl">'+(cmp.length?'<span class="bk-p"'+U.tipAttr({title:'Что проверили',
         text:'Ни одна метрика не отличается от ориентира на '+INS.INS_GAP+'% и больше и не сдвинулась заметно за год.'})+
@@ -337,6 +357,7 @@ function conclusion(sum,b,S){
           'тем же периодом прошлого года: заметных сдвигов нет.'})+'>к прошлому году — без заметных сдвигов</span>')+
       '<span class="bk-p">ничего не ухудшается '+INS.INS_TREND+' мес. подряд</span></div>';
     todo='Отдельных действий не нужно.';
+    }
   }
   /* 30.10, шаг 2 («полаконичнее, поменьше букв»): вывод — заголовок, пилюли (метрики вывода с ориентиром и
      главные факты первой проблемы: люди, где) и одно действие; три абзаца фактов сняты */
@@ -347,8 +368,9 @@ function conclusion(sum,b,S){
     const more=(lead.pills||[]).filter(t=>!/^(год назад|почти всё|больше половины)/.test(t)).map(t=>'<span class="bk-p">'+t+'</span>');
     facts='<div class="bk-pl">'+kp.concat(more).join('')+'</div>';
   }
-  /* огонёк по настроению вывода (20.10, заказчик): тревога, насторожен, улыбка, спокоен */
-  const op=window.TPSCREENS.onepager||{}, ico=op.moodIco?op.moodIco(op.MOOD_ICO[sum.sev],52,BK_TAG[sum.sev]):'';
+  /* огонёк по настроению вывода (20.10, заказчик): тревога, насторожен, улыбка, спокоен; подпись — та же, что у вывода (128: не
+     «Всё спокойно» у «Для справки» и «В людях») */
+  const op=window.TPSCREENS.onepager||{}, ico=op.moodIco?op.moodIco(op.MOOD_ICO[sum.sev],52,tag):'';
   return '<div class="bk-sum '+sum.sev+'">'+ico+'<div class="bk-sx"><div class="bk-tag">Вывод блока · '+tag+'</div>'+
     '<div class="bk-h">'+esc(head)+'</div>'+facts+
     '<div class="bk-do">'+todo+'</div></div></div>';
@@ -396,7 +418,11 @@ function renderBlock(S,expanded,mixOpen,view){
      вместе с незакрытым месяцем), год — в подписи колонки */
   const YNOW=new Set(['vac_closed']);
   const ynow=lp=>D.aggregate(lp,'vac_closed').reduce((t,v,i)=>t+(D.MONTHS[i].y===D.YEAR_CUR?v||0:0),0);
+  /* окна потоков и долей (с незакрытым месяцем и без) названы в шапке вкладки («… (доли — …)»), под колонкой — только исключения */
   const perOf=k=>MONTHLY.has(k)?D.MONTH_NOM[PM.m]+' '+PM.y:YNOW.has(k)?String(D.YEAR_CUR):b.key==='structure'||pt(k).lab===D.PER_SPAN||pt(k).lab===D.CNT_SPAN?'':pt(k).lab||'';
+  /* поставка 128 (аудит L3: подсказка колонки «…за месяц», а в колонке — итог с января): у колонок за период «за месяц» в
+     описании метрики — окно колонки */
+  const perTxt=(k,t)=>!MONTHLY.has(k)&&/^(янв\.|1–)/.test(pt(k).lab||'')?String(t).replace(/ за месяц(?![а-яё])(\.?)/g,(m,d)=>' за '+pt(k).lab+(/\.$/.test(pt(k).lab)?'':d)):t;
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+
@@ -427,7 +453,14 @@ function renderBlock(S,expanded,mixOpen,view){
   const cmpMets=mets.filter(m=>D.comparable(m.key)&&!D.kpiFor(m.key,S));
   /* поставка 117: «база» — подразделения похожей численности (подсказка); у метрик без неё — вся компания */
   const pm=cmpMets.filter(m=>D.peerOf(m.key)), pe0=pm.length?D.peerOf(pm[0].key):null;
-  const cmpTxt=(cmpMets.length
+  /* поставка 128 (аудит: шапка AI — «здесь количества, с другими подразделениями не сравниваются», а глава сравнивает
+     проникновение с базой): у AI месячных метрик нет — шапка говорит о том же сравнении, что глава и график недель */
+  const aiCmp=()=>{const cw=D.aiCur(D.aiWeeks(rl)), pa=cw&&cw.hc>=D.SMALL_N?D.peerOf('ai_penetration',rl):null;
+    return !cw?'':pa?'Проникновение последней полной недели сравниваем с <span class="term" tabindex="0"'+U.baseTip('ai_penetration',pa)+
+      '>базой</span> — подразделениями похожей численности за ту же неделю.':cw.hc<D.SMALL_N?'Без стажёров в подразделении меньше '+
+      D.SMALL_N+' человек — проникновение в людях, без сравнения с базой.':(D.isSelfBase()?'Для всей компании базы нет':
+      'Базы для подразделений такого размера нет')+' — проникновение сравниваем с началом окна графика.'};
+  const cmpTxt=b.key==='ai'?aiCmp():(cmpMets.length
       ? 'Сравниваем '+(pm.length?'с <span class="term" tabindex="0"'+U.baseTip(null,pe0)+'>базой</span> — подразделениями похожей численности'+
           (pm.length<cmpMets.length?', где её нет — со всей компанией':'')+'.':'со всей компанией с выбранными фильтрами.')
       : kpiMets.length?'':'Здесь количества — с другими подразделениями они не сравниваются.')+
@@ -546,7 +579,7 @@ function renderBlock(S,expanded,mixOpen,view){
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+(c.per?'<span class="th-per">'+esc(c.per)+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :tmets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:noGoal(U.metricText(m,1)),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
+    :tmets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:perTxt(m.key,noGoal(U.metricText(m,1))),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
       pt(m.key).head+' — как итог под графиком.':null})+'>'+esc(m.short)+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+

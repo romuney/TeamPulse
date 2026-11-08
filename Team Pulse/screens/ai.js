@@ -34,11 +34,14 @@ const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'Доля, %',{metr
 const P1=v=>v==null?'—':String(v).replace('.',',')+'%';
 function adoption(ctx){
   const W=D.aiWeeks(ctx.lp), cw=D.aiCur(W), pt=W.some(w=>w.pt);
+  /* поставка 128: база — та же, с которой сравнивает глава (неделя cw, без стажёров; меньше 30 человек — без базы) */
+  const pe=cw&&cw.hc>=D.SMALL_N?D.peerOf('ai_penetration',ctx.lp):null;
   const P=W.map(w=>({label:w.label,full:w.full,pen:w.pen,wau:w.wau,hc:w.hc,cl:w.cl,pt:w.pt}));
   return '<div class="mon-bar"><span class="mon-note">Последние '+W.length+' '+U.plural(W.length,['неделя','недели','недель'])+
       ', по неделям (Пн–Вс)'+(pt?' · текущая неделя ещё идёт — бледнее':'')+'</span></div>'+
-    G.chart('pline',{periods:P,key:'pen'},{title:'Проникновение AI по неделям, %',name:'Проникновение',fmt:'pct',color:G.C_AI,h:220})+
-    G.chart('pline',{periods:P,key:'wau',key2:'hc'},{title:'Активные пользователи AI по неделям, чел',name:'Активные пользователи',
+    G.chart('pline',{periods:P,key:'pen',focus:cw?W.indexOf(cw):null,peer:pe?Object.assign({upto:W.indexOf(cw)},pe):null},{title:'Проникновение AI по неделям, %',
+      name:'Проникновение',fmt:'pct',color:G.C_AI,h:220})+
+    G.chart('pline',{periods:P,key:'wau',key2:'hc',focus:cw?W.indexOf(cw):null},{title:'Активные пользователи AI по неделям, чел',name:'Активные пользователи',
       name2:'Численность без стажёров',fmt:'int',color:G.C_AI,h:240})+
     '<div class="tbl-note">Проникновение — активные пользователи AI за неделю к численности той же недели без стажёров; человек '+
     'в подразделении считается один раз. Фильтры покраски, IT, штата и типа численности на AI не действуют: здесь — все '+
@@ -102,7 +105,12 @@ function who(ctx,u){
   if(!x){
     /* сочетаний нет (ноутбук до 113-б или подразделение ниже выбранного) — разрезы без кросс-фильтра (без стажёров) */
     const segs=u.segs||[];
-    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров',sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'');
+    /* поставка 128 (аудит: у всей компании под таблицами не было пояснения, что в них): то же пояснение, без клика — строки здесь
+       не выбираются */
+    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров',sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'')+
+      (segs.length?'<div class="tbl-note">«Вся численность» — сотрудники и стажёры за неделю; разбивки ниже — без стажёров, как '+
+        '«Проникновение AI» на первом шаге. Сеньорность, грейд, стаж и специализация — на последний месяц отчёта; человека нет в '+
+        'отчёте — «Не указано». Группы меньше '+SEG_SMALL+' человек — серым.</div>':'');
   }
   const tabs=x.dims.filter(dm=>dm.key!=='it').map(dm=>{
     const sp=dm.key==='sp', srt=dm.rows.slice().sort((a,b)=>b.hc-a.hc);

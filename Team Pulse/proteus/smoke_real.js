@@ -763,5 +763,18 @@ if(D.TTF_MED){
   ok(!errs.length,'один вердикт и одно число на метрику: таблица главной, глава, карточки — '+Object.keys(RW).length+' метрик'+
     (errs.length?': '+errs.slice(0,4).join('; '):''));
 }
+/* поставка 128 (аудит M14: «Движение · Всё спокойно · к прошлому году без заметных сдвигов» при красном чипе года у «Оттока» на
+   главной): у количеств с направлением сдвиг к году (D.yoyMove) назван и в выводе блока, если блок без других выводов */
+{
+  const S=A.st(), rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S), I=window.TPINSIGHTS, errs=[];
+  ['movement','hiring','tgrowth'].filter(bk=>D.blockVisible(bk,S)).forEach(bk=>{
+    if(I.blockSummary(bk,S,rl,bl).list.length||D.isSmall())return;
+    const mv=D.visibleMetricsOfBlock(bk,S).filter(m=>!D.isStub(m.key)&&m.fmt==='int'&&m.better!=='flat'&&D.yoyMove(m.key,rl));
+    const h=A.go(bk,null)||'', top=(h.match(/<div class="bk-sum[\s\S]*?<div class="bk-do">/)||[''])[0];
+    if(mv.length&&(/без заметных сдвигов|Всё спокойно/.test(top)||!/Для справки/.test(top)))errs.push(bk+': '+mv.map(m=>m.key).join(',')+' сдвинулись, а вывод спокоен');
+    if(!mv.length&&/Для справки/.test(top))errs.push(bk+': «для справки» без сдвига');
+  });
+  ok(!errs.length,'вывод блока без других выводов называет сдвиг количеств к году, как чип YoY на главной'+(errs.length?': '+errs.join('; '):''));
+}
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);
