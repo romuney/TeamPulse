@@ -141,7 +141,7 @@ function yoyChart(key,lp,bl,S,opt){
   /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
      базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
   /* 31.10: итог за период под шапкой — по ряду графика (свой ряд — простым правилом); opt.period:false — без него */
-  const period=opt.period===false?null:D.periodTotal(lp,key,opt.yser||sc&&sc!==1?y:null);
+  const period=opt.period===false?null:D.periodTotal(lp,key,opt.yser||sc&&sc!==1?y:null,opt.periodKey);
   /* поставка 122 (критик на 49 человек: «где вывод «хуже базы», на графике самой базы нет»): у метрики, которую оценивает
      база (медиана подразделений похожей численности), — её отметка: медиана и средняя половина группы. У накопительной
      (текучесть с января) — у закрытого месяца, у средних и долей за период — полосой январь–закрытый месяц */
@@ -315,7 +315,10 @@ function conclusion(sum,b,S){
     facts='<div class="bk-pl">'+(sf?sf.pills.map(t=>'<span class="bk-p">'+t+'</span>').join(''):'')+'<span class="bk-p"'+U.tipAttr({title:'Почему без оценки',
         text:'Один человек сдвигает долю на несколько процентных пунктов — сравнение с другими подразделениями здесь шум. Числа в людях — на графиках и в таблицах ниже.'})+
       '>доли не оцениваем: мало людей</span></div>';
-    todo=SMALL_TODO[b.key]||'Числа в людях — на графиках и в таблицах ниже.';
+    /* поставка 128 (аудит L5): совет — только если он о том, что есть в данных (уходы, открытые вакансии, люди без заявок) */
+    const rl1=D.reportLeaves(S), nn=k=>Math.round((D.periodTotal(rl1,k)||{}).v||0);
+    const fits={movement:()=>nn('attrition')>0,turnover:()=>nn('attrition')>0,hiring:()=>nn('vac_open')>0}[b.key];
+    todo=(!fits||fits()?SMALL_TODO[b.key]:null)||'Числа в людях — на графиках и в таблицах ниже.';
   }else if(!sum.list.length&&b.key==='monitor'&&!D.monJudged('underwork',D.reportLeaves(S))){
     /* поставка 128 (аудит: у подразделения без разметки мониторинга вывод «Всё спокойно · проверили 2 метрики», а глава ниже —
        «недо- и переработку не оцениваем»): без оценки, как в главе и в строке главной */
@@ -567,10 +570,14 @@ function renderBlock(S,expanded,mixOpen,view){
     const v=c.val&&c.val(md), hc=tcols[0].val(md);
     if(c.spark)return '<td'+(unit&&isSm(hc)?smAttr(hc,'sp'):' class="sp"')+'>'+c.spark(md)+'</td>';
     if(v==null)return '<td'+U.tipAttr({title:c.name,text:c.na||'Появится с витриной мониторинга по неделям.'})+'>—</td>';
+    /* поставка 128 (аудит L4/L10: доли AI у команды из 7 человек — «50%» без пометки, а доли в таблицах других вкладок — серым):
+       колонка-доля (c.pct) у группы меньше 30 человек — серым, как везде; и в строке «Итого», если мал весь отчёт */
+    if(c.pct&&isSm(hc))return '<td'+smAttr(hc,lead?'lead':'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
     return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
   };
+  const hcT=val(rl,'hc_total');
   const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),i===1)).join('')
-    :tmets.map(m=>'<td'+(m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
+    :tmets.map(m=>'<td'+(m.fmt==='pct'&&isSm(hcT)?smAttr(hcT,m.key===mainK?'lead':''):m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» подсказки шапок — без фраз о целях */
   const noGoal=t=>b.key==='turnover'&&S.subTab==='hq'?(String(t).match(/[^.]+(?:\.|$)\s*/g)||[]).filter(x=>!/[Цц]ел[ьиея]/.test(x)).join('').trim():t;
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+

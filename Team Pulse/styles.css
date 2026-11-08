@@ -1579,7 +1579,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .st-step.on .st-q{font-weight:var(--fw-bold)}
 .st-s{display:flex;align-items:center;gap:5px;font-size:var(--fs-note);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st-dot{flex:0 0 7px;width:7px;height:7px;border-radius:50%;background:var(--muted2)}
-.st-dot.good{background:var(--green)}.st-dot.bad{background:var(--red)}
+.st-dot.good{background:var(--green)}.st-dot.bad{background:var(--red)}.st-dot.warn{background:var(--warn)}
 /* data-text у шага — резерв ширины жирной подписи: он не нужен, подпись режется многоточием */
 .st-step::after{content:none}
 /* заголовок-вывод */

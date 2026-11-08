@@ -85,7 +85,10 @@ SC.blocks.hiring={
          панели — рядом), «Грейд принятых» — уже про то, кого взяли */
       return dyn+U.btStack([tbl('Откуда пришли','найм'+sub,ch)]
         /* поставка 50: путь в команду — найм в компанию, из учебной группы, стажёр в штат (как в HQ) */
-        .concat(hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})),{sort:true})]:[])
+        /* поставка 128 (аудит L8: подсказки «Найм, чел» — 93 и 7, таблица — 94 и 6): «Как пришли» — из тех же помесячных рядов видов
+           найма, что подсказки графика (в сумме — итог под ним); срез пути (hch) — только когда рядов нет */
+        .concat(hk?[tbl('Как пришли',sub,D.HIRE_KINDS.map(c=>{let v=0;for(let m=0;m<=D.CNT_C;m++)v+=hk[m][c[0]]||0;return {name:c[1],value:v,color:G.C_IN}}),{sort:true})]
+          :hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})),{sort:true})]:[])
         .concat([tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]))+
         '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+').</div>';
     }

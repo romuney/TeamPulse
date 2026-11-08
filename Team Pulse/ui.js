@@ -317,11 +317,14 @@ function targetCell(key,val,baseVal,kpi,pe,lp,bl,vs){
   if(baseVal==null||!kpi&&D.isSelfBase())return '<div class="tgt">—</div>';
   /* поставка 117: базы по размеру у метрики нет — сравнение со всей компанией под теми же фильтрами, так и подписано */
   const st=vs||(D.monJudged(key,lp)&&D.monJudged(key,bl)?D.compareState(key,val,baseVal):'neutral'), diff=val-baseVal, m=D.METRIC_BY_KEY[key];
+  /* поставка 128 (L9): у «Роста» (данные только HQ) ориентир — «всё HQ», как на его вкладке */
+  const cg=D.coWord(key,'gen'), hq=cg!=='всей компании';
   const lbl=m.better==='flat'
-    ? (Math.abs(diff)<0.05?'как в компании':(diff>0?'выше компании':'ниже компании'))
-    : (st==='good'?'лучше компании':st==='bad'?'хуже компании':st==='warn'?'на уровне':'без оценки');
-  return '<div class="tgt"'+tipAttr({title:'Вся компания',text:'У этой метрики базы по подразделениям похожей численности нет — '+
-    'сравниваем с той же метрикой по всей компании с выбранными фильтрами.'})+'><b>компания '+D.fmtVal(key,baseVal)+'</b>'+
+    ? (Math.abs(diff)<0.05?(hq?'как во всём HQ':'как в компании'):(diff>0?'выше ':'ниже ')+(hq?cg:'компании'))
+    : (st==='good'?'лучше '+(hq?cg:'компании'):st==='bad'?'хуже '+(hq?cg:'компании'):st==='warn'?'на уровне':'без оценки');
+  return '<div class="tgt"'+tipAttr({title:hq?'Всё HQ':'Вся компания',text:'У этой метрики базы по подразделениям похожей численности нет — '+
+    'сравниваем с той же метрикой '+(hq?'по всему HQ: данные «Роста» — только HQ':'по всей компании с выбранными фильтрами')+'.'})+'><b>'+
+    D.coWord(key,'short')+' '+D.fmtVal(key,baseVal)+'</b>'+
     '<span class="sig-chip '+st+'">'+lbl+'</span></div>';
 }
 /* поставка 117: подсказка «База» — одна на весь отчёт (ячейки, чипы выводов, шапка); с числами группы, если они есть */
@@ -449,6 +452,8 @@ function barTable(o){
 
   /* share:false — для процентных метрик: доля одного процента в сумме процентов
      ничего не значит, а колонка «Доля» делает вид, что значит. */
+  /* поставка 128 (аудит L2: «Без брони 22%» в таблице и «22,1%» на графике над ней): o.shareDec — доля с одной десятой, когда та же
+     доля — метрика на графике рядом */
   const withShare=o.share!==false;
   /* 07.11 (AI-итерация, п. 4): o.cnt — подпись колонки количества (x.n) рядом со значением: «% людей» и «Человек» */
   const cnt=o.cnt||null;
@@ -523,11 +528,11 @@ function barTable(o){
     h+='<tr'+hook+'>'+
       '<td class="txt">'+(tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
       (cnt?'<td>'+(x.n==null?'—':D.fmtInt(x.n))+'</td>':'')+'<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+
-      (withShare?'<td>'+share.toFixed(share<10?1:0).replace('.',',')+'%</td>':'')+
+      (withShare?'<td>'+share.toFixed(o.shareDec||share<10?1:0).replace('.',',')+'%</td>':'')+
       '<td class="barcell"'+tipAttr({title:x.name,
         rows:[{label:o.valueHead||'Значение',value:D.fmtVal(key,x.value),color:G.soft(x.color||G.C_LINE)}]
           .concat(cnt&&x.n!=null?[{label:cnt,value:D.fmtInt(x.n)}]:[])
-          .concat(withShare?[{label:'доля',value:share.toFixed(share<10?1:0).replace('.',',')+'%'}]:[]),
+          .concat(withShare?[{label:'доля',value:share.toFixed(o.shareDec||share<10?1:0).replace('.',',')+'%'}]:[]),
         note:x.tip||null})+
         '><span class="cellbar"><i style="width:'+barW(key,x.value,withShare?sum:0,max).toFixed(1)+'%'+
         /* полоса в ячейке — мягкий тон цвета строки: это фон под числом */
@@ -826,7 +831,8 @@ function richText(t){
 }
 /* Степпер: шаг = под-вкладка. data-subtab — тот же обработчик, что у вкладок;
    data-text — резерв ширины жирной подписи (правило 10d). Под вопросом —
-   короткий ответ и точка сигнала: зелёная, красная или серая (светофор). */
+   короткий ответ и точка сигнала: зелёная, красная или серая (светофор); поставка 128 — и жёлтая («посмотреть»): шаг без своего
+   вердикта берёт тяжесть выводов блока о своих метриках (story.js, CH_CARDS). */
 function chapters(list,active){
   if(!list||list.length<2)return'';
   return '<div class="st-steps n'+Math.min(6,list.length)+'" role="tablist">'+list.map((c,i)=>{

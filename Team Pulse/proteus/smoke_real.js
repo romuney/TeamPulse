@@ -776,5 +776,24 @@ if(D.TTF_MED){
   });
   ok(!errs.length,'вывод блока без других выводов называет сдвиг количеств к году, как чип YoY на главной'+(errs.length?': '+errs.join('; '):''));
 }
+/* поставка 128 (аудит L6): точка шага — не спокойнее выводов блока о метриках шага (карточки главной), и у мониторинга — по
+   вердикту долей к ориентиру, а не по сдвигу к прошлому месяцу */
+{
+  const S=A.st(), rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S), I=window.TPINSIGHTS, STY=window.TPSTORY, errs=[];
+  const cs=I.cards(S,rl,bl,true), rank={bad:3,warn:2,good:1,n:0};
+  Object.keys(STY.CH_CARDS).filter(bk=>D.blockVisible(bk,S)).forEach(bk=>{const mod=window.TPSCREENS.blocks[bk];if(!mod)return;
+    const B=STY.book(bk,mod.subTabs,null,{S:S,lp:rl,bl:bl,sel:S.unit});
+    B.chapters.forEach(ch=>{const f=STY.CH_CARDS[bk][ch.key];if(!f)return;
+      const my=cs.filter(x=>x.block===bk&&f(x)), need=my.some(x=>x.sev==='high')?'bad':my.some(x=>x.sev==='mid')?'warn':my.length?'good':'n';
+      if(need!=='n'&&rank[ch.st||'n']===0)errs.push(bk+'.'+ch.key+': точка серая при выводе '+need);
+      if(my.some(x=>x.fact.kind==='trend')&&!/подряд/.test(ch.head||''))errs.push(bk+'.'+ch.key+': тренд не назван')});
+  });
+  if(D.blockVisible('monitor',S)&&!D.isSmall()&&D.monJudged('underwork',rl)){
+    const a=window.TPSTORY.CH.monitor.activity({S:S,lp:rl,bl:bl}), ju=STY.judge('underwork',{S:S,lp:rl,bl:bl}).st, jo=STY.judge('overwork',{S:S,lp:rl,bl:bl}).st;
+    const exp=ju==='bad'||jo==='bad'?'bad':ju==='good'||jo==='good'?'good':'n';
+    if(a.st!==exp)errs.push('monitor.activity: точка '+a.st+' при вердикте '+exp);
+  }
+  ok(!errs.length,'точки шагов — по тем же выводам, что карточки главной и вывод блока'+(errs.length?': '+errs.slice(0,4).join('; '):''));
+}
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);

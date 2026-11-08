@@ -165,7 +165,8 @@ const BLOCKS=[
 {key:'hiring',name:'Найм и вакансии HQ',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
 /* поставка 83 (задача 3): вкладка — «Рост HQ», ключ tgrowth не меняем (ссылки и сохранённые состояния); scope — дисклеймер охвата */
 {key:'tgrowth',name:'Рост HQ',scope:'Сейчас данные по росту доступны только для HQ.',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
-{key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и итоги ревью. Мониторинг — под выбранными фильтрами (по умолчанию вся активная численность), ревью — у тех, кто по правилам должен его проходить.',drillUrl:'#/detail/monitor',dash:['34661']},
+/* поставка 128 (аудит): шаг «Ревью» скрыт (OFF_SUBS) — описание блока без него; вернётся шаг — вернуть «и итоги ревью» */
+{key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и переработчики по данным мониторинга — под выбранными фильтрами (по умолчанию вся активная численность).',drillUrl:'#/detail/monitor',dash:['34661']},
 {key:'office',name:'Посещаемость офисов',hint:'Кто, когда и где ходит в офис; соблюдают ли бронь.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
    У Hub были AI-подсказки, но не было метрик внедрения AI. */
@@ -298,7 +299,7 @@ const METRICS=[
   derived:{num:'ai_wau',den:'hc_active',scale:100},
   hint:'Доля сотрудников, которые пользуются AI-инструментами хотя бы раз в неделю. Без стажёров; фильтры покраски, IT, штата и типа численности на AI не действуют.'},
 {key:'ai_wau',block:'ai',aud:'hq',name:'Активные пользователи AI (WAU)',short:'WAU',fmt:'int',better:'flat',unit:'чел',anchor:null,
-  hint:'Сколько сотрудников пользуются AI-инструментами хотя бы раз в неделю, в среднем за месяц.'}
+  hint:'Сколько сотрудников пользовались AI-инструментами за неделю — хотя бы раз.'}
 ];
 /* поставка 106 (решение заказчика 06.11): AI — только по неделям (D.aiWeeks); месячные метрики проникновения и WAU сняты
    с карточек, One-pager и таблиц — остаются описанием (формат, подписи) для недельной вкладки */
@@ -888,6 +889,12 @@ const BASE_DEF='Медиана подразделений похожей чис�
   'фильтрами: у половины таких подразделений значение ниже, у половины — выше. «Лучше» или «хуже базы» — лучше или хуже, чем '+
   'у трёх из четырёх таких подразделений.';
 function baseDef(band){return BASE_DEF+(band&&PEER_BAND_NAME[band]?'\nВаша группа — '+PEER_BAND_NAME[band]+' человек.':'')}
+/* поставка 128 (аудит L9: «компания 77,6%» на главной и «во всём HQ» на вкладке «Рост» — одно и то же число): у «Роста» данные —
+   только HQ, и ориентир «вся компания» там — всё HQ; так он назван и на главной, и в выводах. cas: nom, gen, prep, dat, short */
+const CO_HQ=new Set(['tgrowth_pass','tgrowth_deny','tgrowth_conv']);
+function coWord(key,cas){const hq=CO_HQ.has(key);
+  return ({nom:hq?'всё HQ':'вся компания',gen:hq?'всего HQ':'всей компании',prep:hq?'во всём HQ':'во всей компании',dat:hq?'ко всему HQ':'к компании',
+    short:hq?'всё HQ':'компания'})[cas||'nom']}
 /* «вся компания» с фильтрами шапки в нужном падеже: nom, gen, dat, acc, ins, prep («во всей компании» — prep с «во») */
 function coName(st,cas){
   const parts=[];
@@ -1263,8 +1270,10 @@ function yoySeries(leafPaths,key){return yoyOf(aggregateExt(leafPaths,key))}
    таблице — на конец сентября): прирост — сейчас, как численность */
 const PT_CUM=new Set(['turnover_y','regret','nonregret']), PT_STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau','net_ytd']),
   PT_MON=new Set(['turnover_m','underwork','overwork','ai_penetration']);
-function periodTotal(lp,key,yser){
-  const m=METRIC_BY_KEY[key]||{}, d=defOf(key).derived, y=yser||yoySeries(lp,key);
+/* dkey (поставка 128, аудит L3: «Посещения без брони» — среднее месячных долей, а рядом «Брони без посещения» — доля за период из
+   сумм): свой ряд графика (yser) с итогом из сумм числителя и знаменателя служебного ряда dkey, в формате метрики key */
+function periodTotal(lp,key,yser,dkey){
+  const m=METRIC_BY_KEY[key]||{}, d=defOf(dkey||key).derived, y=yser||yoySeries(lp,key);
   const stock=PT_STOCK.has(key), cum=PT_CUM.has(key)||!!(m.ytd||m.ytdDelta||d&&d.win==='ytd'), flow=!!m.flow&&!cum;
   /* поставка 106: потоки-количества — по дату данных (CNT_*), прошлый год — те же дни (текущий месяц пропорционально) */
   const c=stock?CUR_LEN-1:flow?CNT_C:PER_C, part=flow?CNT_ON||PER_PART:PER_PART, span=flow?CNT_SPAN:PER_SPAN;
@@ -1279,7 +1288,7 @@ function periodTotal(lp,key,yser){
     cur=ttfMedian(lp,idx(12));prev=ttfMedian(lp,idx(0));head='Медиана за '+span;
   }
   else{
-    if(d&&!yser){
+    if(d&&(!yser||dkey)){
       const ks=k=>[].concat(k), ser=k=>ks(k).map(x=>yoySeries(lp,x)).reduce((a,b)=>({cur:a.cur.map((v,i)=>(v||0)+(b.cur[i]||0)),
         prev:a.prev.map((v,i)=>(v||0)+(b.prev[i]||0))}));
       const N=ser(d.num), Dn=ser(d.den), r=(a,b)=>{const t=sum(b);return t?sum(a)/t*(d.scale||1):null};
@@ -1307,8 +1316,13 @@ function periodTotal(lp,key,yser){
     }
   }
   /* lab — окно коротко для подписи под числом: «янв.–сент.», «на конец сентября», «сейчас» */
+  /* поставка 128 (аудит L7: «в среднем за месяц 2,4%», а среднее точек графика — 2,5%): у долей из числителя и знаменателя итог
+     окна — из сумм за его месяцы (месяц с бо́льшей численностью весит больше), это и сказано в подсказке строки итога */
+  const wtip=!flow&&!stock&&!cum&&d&&(!yser||dkey)&&!(key==='time_to_fill'&&TTF_MED)?'Итог считается из сумм за все месяцы окна, а не как простое '+
+    'среднее точек: месяц, где людей или событий больше, весит больше. Поэтому от среднего точек на графике он может отличаться на '+
+    'десятые доли.':null;
   return {head:head,cur:fmtVal(key,cur),prev:prev==null?null:fmtVal(key,prev),delta:delta,good:good,c:c,strip:!stock&&!part,
-    v:cur,pv:prev,stock:stock,lab:stock?'сейчас':cum&&!part?'на конец '+MONTH_ABBR_GEN[c]:span};
+    v:cur,pv:prev,stock:stock,lab:stock?'сейчас':cum&&!part?'на конец '+MONTH_ABBR_GEN[c]:span,tip:wtip};
 }
 
 /* ---------- Сигнал блока ----------
@@ -3558,7 +3572,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,yoyMove,perSum,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
-  MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
+  MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,coWord,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
   COUNT_METRICS,vacancyBreakdown,kpiAt,teamShare,EXIT_REASONS,PAINTS,ITSEGS,STAFFTYPES,HC_TYPES,HC_DEF,hcSel,hcNorm,hcLabel,hcTypesShort,setHcMode,hcMode:()=>HC_MODE,NODES,NODE_BY_PATH,ROOT,LEVEL_NAME,

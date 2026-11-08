@@ -784,7 +784,8 @@ function periodLine(p,y,w){
         txt(x,y,q[0],{size:q[1]?12:11,weight:q[1]?700:0,fill:q[1]?C_INK:C_AXIS,anchor:'start'});
       x+=tw});
   });
-  return {s:'<g class="pt-line">'+s+'</g>',h:PERIOD_H+n*15};
+  /* поставка 128: у итога из сумм за месяцы (а не среднего точек) — подсказка, почему он не равен среднему точек */
+  return {s:'<g class="pt-line"'+(p.tip?tip({title:p.head,text:p.tip}):'')+'>'+s+'</g>',h:PERIOD_H+n*15};
 }
 function drawYoy(a,w,h){
   const o=a.opt||{};
@@ -1271,7 +1272,8 @@ function drawStack(a,w,h){
     /* 05.11, заказчик: отметка периода кликом — только если график её просит (a.mark задан); мониторинг больше не просит */
     const pm='mark' in a&&a.mark!==undefined;
     s+='<g class="barg'+(pm?' pmk':'')+(on?' on':'')+'"'+(pm?' data-pmark="'+i+'"':'')+tip({title:p.full,
-      rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+(all?Math.round((p[c[0]]||0)/all*100):0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
+      /* поставка 128 (аудит L2: в подсказке месяца «7%», в итоге под графиком и в заголовке — «6,8%»): доля — с одной десятой */
+      rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+(all?((p[c[0]]||0)/all*100).toFixed(1).replace('.',','):'0,0')+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
       note:(p.pt?'Период ещё идёт — значения могут измениться. ':'')+
         (a.cats?'Всего — '+CD.fmtInt(all)+(a.unit||'')+'.':(pm?(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. '):'')+'Всего — '+CD.fmtInt(all)+' чел.')})+'>'+
       (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+

@@ -184,7 +184,7 @@ SC.blocks.ai={
     {k:'wau',name:'Активные пользователи',get per(){return wkPer()},tip:'Сколько человек пользовались AI-инструментами в последнюю полную неделю.',
       val:md=>md.wau,share:true,na:'Нет недель AI у подразделения.'},
     {k:'pen',name:'Проникновение',get per(){return wkPer()},tip:'Активные пользователи к численности той же недели без стажёров.',
-      val:md=>md.pen,fmt:P1,na:'Нет недель AI у подразделения.'}
+      val:md=>md.pen,fmt:P1,pct:true,na:'Нет недель AI у подразделения.'}
   ],
   data(lp){return D.aiCur(D.aiWeeks(lp))},
   /* 31.10, «AI.md», п. 2: три раздела — пользуются ли, кто, как */

@@ -122,14 +122,14 @@ SC.blocks.office={
       const nb=D.yoySeries(ctx.lp,'visit_nobook');
       return SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,
           {h:230,fill:false,title:'Брони без посещения, %',ann:ctx.ann.booking_viol})+
-        (D.REAL?SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,{yser:nb,noBench:true,kpi:null,h:230,fill:false,
+        (D.REAL?SC.metricLine('booking_viol',ctx.lp,ctx.bl,ctx.S,{yser:nb,periodKey:'visit_nobook',noBench:true,kpi:null,h:230,fill:false,
           title:'Посещения без брони, %',name:'Посещения без брони',tipName:'Посещения без брони'}):'')+
         U.btStack([U.btGroup({cap:'Брони',capSub:D.PER_MON+', человеко-дни',head:'',
-          valueHead:'Дней',metricKey:'hc_total',totUnit:' чел.-дн.',compact:true,keepZero:true,items:[
+          valueHead:'Дней',metricKey:'hc_total',totUnit:' чел.-дн.',compact:true,keepZero:true,shareDec:true,items:[
           {name:'С посещением',value:bk.ok,color:G.C_OFFICE},
           {name:'Без посещения',note:'место простояло',value:bk.noshow,color:G.C_OFFICE}]}),
         U.btGroup({cap:'Посещения',capSub:D.PER_MON+', человеко-дни',head:'',
-          valueHead:'Дней',metricKey:'hc_total',totUnit:' чел.-дн.',compact:true,keepZero:true,items:[
+          valueHead:'Дней',metricKey:'hc_total',totUnit:' чел.-дн.',compact:true,keepZero:true,shareDec:true,items:[
           {name:'С бронью',value:bk.visitBk,color:G.C_OFFICE},
           {name:'Без брони',note:'место не учтено',value:bk.walkin,color:G.C_OFFICE}]})])+
         '<div class="tbl-note">Как в мастер-отчёте: доля броней без посещения — от всех броней, доля посещений без брони — от всех '+

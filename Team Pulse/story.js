@@ -270,8 +270,16 @@ CH.turnover={
     /* поставка 121 (критик на 49 человек: «Главная причина — «Лучшее предложение»: 4 из 11», а у «Нет роста» тоже 4): при
        ничьей — «причины разные», без главной */
     const tied=rs.filter(r=>r.value===top.value&&r.value>0), tie=tied.length>1;
+    /* поставка 128 (аудит L6: точка шага красная — нежелательная текучесть хуже ориентира, — а заголовок только о причине):
+       вердикт нежелательной текучести — в начале заголовка, тем же словом, что строка главной */
+    /* выводы о нежелательных уходах без вердикта к ориентиру — в людях у малой HQ или «… чем год назад» — их текстом */
+    const rc=(c.cards||[]).find(x=>/^(regret|nonregret)$/.test(x.key)&&/^(yoy|ppl)$/.test(x.fact.kind));
+    const rgW=rg.st==='bad'||rg.st==='good'?D.METRIC_BY_KEY.regret.name+' '+f('regret',rg.v)+' — '+(rg.st==='bad'?'хуже':'лучше')+' '+
+      (rg.kpi?'цели '+f('regret',rg.base):rg.peer?'{{База|базы}} '+f('regret',rg.base):'всей компании ('+f('regret',rg.base)+')')+'; '
+      :rc?(rc.fact.kind==='ppl'?rc.fact.lead:rc.head)+'; ':'';
     return {sum:D.isSmall()?regN+' из '+outN+' — нежелательные':rp+'% — нежелательные',st:rg.st,
-      head:rp>=50&&!tie?rp+'% уходов — нежелательные: главная причина — «'+top.name+'»'
+      head:rgW?rgW+(tie?'причины разные':'главная причина — «'+top.name+'»: '+top.value+' из '+tot)
+        :rp>=50&&!tie?rp+'% уходов — нежелательные: главная причина — «'+top.name+'»'
         :org*2>tot?'Большинство уходов — по инициативе работодателя: '+org+' из '+tot
         :tie?'Причины разные: '+tied.slice(0,3).map(r=>'«'+r.name+'»').join(', ')+' — поровну, по '+top.value+' из '+tot
         :'Главная причина ухода — «'+top.name+'»: '+top.value+' из '+tot,
@@ -296,7 +304,7 @@ CH.turnover={
     /* поставка 110 (A2): в команде меньше 30 человек — без долей и оценки, в людях */
     const sm=D.isSmall();
     const lt=ex.tenure[ex.tenure.length-1], sn=lt&&!lt.early?lt.value:0, snr=sm&&sn&&(sn>=2||sn*3>=tot);
-    return {sum:snr?sn+' из '+tot+' — со стажем '+lt.name.charAt(0).toLowerCase()+lt.name.slice(1):sm?early+' из '+tot+' — в первый год':ep+'% — в первый год',st:!sm&&(ep>=40||sk)?'bad':'n',
+    return {sum:snr?sn+' из '+tot+' — со стажем '+lt.name.charAt(0).toLowerCase()+lt.name.slice(1):sm?early+' из '+tot+' — в первый год':ep+'% — в первый год',st:!sm&&(ep>=40||sk)?'warn':'n',
       /* поставка 117 (владелец: «"чаще своей доли" — непонятная формулировка»): «уходят чаще, чем в среднем» и обе доли словами */
       /* поставка 121 (критики-руководители 119: «Ушли 4 человека: 1 — со стажем до года», а 3 из 4 — со стажем больше 5 лет):
          у малой команды заголовок — по самой большой группе стажа; опытные (последняя группа) — первыми, если их двое и больше
@@ -407,7 +415,9 @@ CH.hiring={
     const pk=argmax(vo), note=pk>=0&&pk!==D.LAST&&vo[pk]>op?pk:-1;
     const fo=focusCount(c,'vac_open',{cap:'Где открыты вакансии',what:'всех открытых вакансий',win:'last'});
     return {sum:f('time_to_fill',t.v)+' на вакансию',st:t.st,
-      head:vsBase(t,c,'Вакансии закрываются дольше','Вакансии закрываются быстрее','Скорость закрытия — на уровне базы'),
+      /* поставка 128: вывод «открытых вакансий в N раз больше, чем год назад» (вывод блока) — и в заголовке шага */
+      head:(h0=>{const vc=(c.cards||[]).find(x=>x.fact.kind==='vac');return vc?h0+(/, но /.test(h0)?'; ':', но ')+vc.fact.say:h0})(
+        vsBase(t,c,'Вакансии закрываются дольше','Вакансии закрываются быстрее','Скорость закрытия — на уровне базы')),
       lede:'Сейчас открыто **'+op+'**'+ago(c.lp,'vac_open')+'. Закрыто **'+cl+'**'+ago(c.lp,'vac_closed')+
         ', медианный срок закрытия — '+valAt('time_to_fill',t,c)+'.',
       facts:[note>=0?'Больше всего открытых было '+mPrep(note)+': **'+vo[note]+'**':null],
@@ -446,8 +456,12 @@ CH.tgrowth={
   flow(c){
     const cv=judge('tgrowth_conv',c), ps=pn(c.lp,'tgrowth_pass'), dn=pn(c.lp,'tgrowth_deny');
     const fo=focusRate(c,'tgrowth_conv','Конверсия по подразделениям');
+    /* поставка 128: у команды меньше 30 человек вывод шага — в людях, как карточка «Отклонены заявки на рост» */
+    const smD=D.isSmall()&&dn>0;
     return {sum:'конверсия '+f('tgrowth_conv',cv.v),st:cv.st,
-      head:vsBase(cv,c,'Повышают чаще','Повышают реже','Конверсия T-роста — на уровне базы'),
+      head:smD?U.plural(dn,['Отклонена','Отклонены','Отклонено'])+' '+dn+' '+U.plural(dn,['заявка','заявки','заявок'])+' на рост, одобрено — '+ps+
+          (cv.thin?'; конверсию по стольким не оцениваем':'')
+        :vsBase(cv,c,'Повышают чаще','Повышают реже','Конверсия T-роста — на уровне базы'),
       /* поставка 128 (аудит: «Одобрено 9, отклонено 2. Конверсия — 87,5%» — счёт по 12 октября, конверсия по сентябрь, 9 из 11 —
          это 81,8%): решения — за то же окно, что конверсия; до даты данных — отдельной фразой, с причиной */
       lede:D.PER_TEXT.replace(/^./,x=>x.toUpperCase())+' одобрено **'+D.perSum(c.lp,'tgrowth_pass')+'** '+U.plural(D.perSum(c.lp,'tgrowth_pass'),['заявка','заявки','заявок'])+
@@ -496,11 +510,27 @@ function monStory(c,wk){
       head:'В мониторинге размечено '+Math.round(cov*100)+'% людей — недо- и переработку не оцениваем',
       lede:'У остальных нет записей мониторинга («не размечено»), поэтому 0% здесь значит «нет данных», а не «никто не недорабатывает». '+
         'В среднем за месяц: недоработчиков — **'+f('underwork',pu.v)+'**, переработчиков — **'+f('overwork',po.v)+'**.'};
-    return {sum:pp?'недор. '+f('underwork',pu.v)+' · перераб. '+f('overwork',po.v):'недор. '+cur.under+' · перераб. '+cur.over,st:both?'bad':worse?'n':'good',
+    /* поставка 128 (аудит L6: точка шага красная при нейтральном заголовке, у «0 и 0» — зелёная): точка — по вердикту долей к
+       ориентиру (judge, как строка главной и карточки), а не по сдвигу к прошлому месяцу; заголовок говорит этот вердикт */
+    const ju=judge('underwork',c), jo=judge('overwork',c), vd=pp&&!D.isSmall();
+    const bU=vd&&ju.st==='bad', bO=vd&&jo.st==='bad', gU=vd&&ju.st==='good', gO=vd&&jo.st==='good';
+    const vHead=bU&&bO?'Недо- и переработчиков больше, чем '+inRef(ju,c)+': '+f('underwork',pu.v)+' и '+f('overwork',po.v)+' в среднем за месяц'
+      :bU?'Недоработчиков больше, чем '+inRef(ju,c)+': '+f('underwork',pu.v)+' в среднем за месяц; переработчиков — '+f('overwork',po.v)
+      :bO?'Переработчиков больше, чем '+inRef(jo,c)+': '+f('overwork',po.v)+' в среднем за месяц; недоработчиков — '+f('underwork',pu.v)
+      :gU&&gO?'Недо- и переработчиков меньше, чем '+inRef(ju,c)+': '+f('underwork',pu.v)+' и '+f('overwork',po.v)+' в среднем за месяц'
+      :gU?'Недоработчиков меньше, чем '+inRef(ju,c)+': '+f('underwork',pu.v)+' в среднем за месяц; переработчиков — '+f('overwork',po.v)
+      :gO?'Переработчиков меньше, чем '+inRef(jo,c)+': '+f('overwork',po.v)+' в среднем за месяц; недоработчиков — '+f('underwork',pu.v):null;
+    /* без вердикта к ориентиру — сдвиг к году тем же правилом, что чип YoY и карточки (D.yoyMove) */
+    const yU=vd&&!vHead?D.yoyMove('underwork',c.lp):null, yO=vd&&!vHead?D.yoyMove('overwork',c.lp):null;
+    const yP=[yU?'недоработчиков '+(yU==='worse'?'больше':'меньше'):null,yO?'переработчиков '+(yO==='worse'?'больше':'меньше'):null].filter(Boolean);
+    const yT=yP.length?(yU==='worse'||yO==='worse'?', но ':'; ')+yP.join(', ')+', чем год назад':'';
+    return {sum:pp?'недор. '+f('underwork',pu.v)+' · перераб. '+f('overwork',po.v):'недор. '+cur.under+' · перераб. '+cur.over,
+      st:bU||bO?'bad':gU||gO?'good':'n',
       /* поставка 121 (критики 119: «недоработку и переработку смотрим в людях», а заголовок — в процентах и «0,2 чел»): у команды
          меньше 30 человек — последний закрытый месяц в людях */
       head:pp&&D.isSmall()?cur.full+': недорабатывали '+pl(cur.under,PPL)+', перерабатывали '+cur.over+' (месяцем раньше — '+prev.under+' и '+prev.over+')'
-        :pp?'В среднем за месяц: недоработчиков — '+f('underwork',pu.v)+', переработчиков — '+f('overwork',po.v)
+        :vHead?vHead
+        :pp?'В среднем за месяц: недоработчиков — '+f('underwork',pu.v)+', переработчиков — '+f('overwork',po.v)+yT
         :(wk&&md.weeks?cur.full+': н':'Н')+'едоработка — '+cur.under+' чел ('+pc1(cur.under)+'%), переработка — '+cur.over+' чел ('+pc1(cur.over)+'%)',
       lede:(pp&&pu.pv!=null&&po.pv!=null?'Год назад — **'+f('underwork',pu.pv)+'** и **'+f('overwork',po.pv)+'**. ':'')+
         (!(wk&&md.weeks)?cur.full+' к прошлому месяцу: недоработка **'+sg(du)+'**, переработка **'+sg(dv)+'**.'
@@ -637,7 +667,8 @@ CH.ai={
   },
   /* 07.11 (AI-итерация, п. 5): «Что делают?» — сообщения инструментам разработчика */
   what(c){
-    const u=D.aiUsage(c.lp), p=u.msgs?Math.round(u.cls/u.msgs*100):null;
+    /* поставка 128 (аудит L2: «73%» в заголовке, «73,4%» на полосе ниже): доля — тем же форматом, что полоса (одна десятая) */
+    const u=D.aiUsage(c.lp), p=u.msgs?(Math.round(u.cls/u.msgs*1000)/10).toFixed(1).replace('.',','):null;
     const top=u.dev.reduce((a,d)=>a.concat(d.tasks),[]).sort((a,b)=>b.value-a.value)[0];
     if(!u.msgs)return {sum:'нет сообщений',st:'n',head:'Сообщений инструментам разработчика за неделю нет',lede:''};
     return {sum:p+'% классифицированы',st:'n',
@@ -895,26 +926,62 @@ const WHY={
    следующую. Ошибка в одной главе не роняет экран: глава остаётся без вывода. */
 /* поставка 121 (критик на 7 человек: советы написаны для большого подразделения — «поговорить с руководителями», «отстающие
    подразделения»): у команды меньше 30 человек без подразделений ниже — советы самому руководителю */
+/* поставка 128 (аудит L5: «Уходов больше, чем год назад…» у команды, где уходов меньше; «Заявку отклонили…» без отказов): совет
+   руководителю малой команды — только когда его условие правда (функция c → текст или null; null — общий совет шага) */
+const nP=(c,k)=>Math.round((per(c.lp,k)||{}).v||0), nPv=(c,k)=>{const p=(per(c.lp,k)||{}).pv;return p==null?null:Math.round(p)};
 const TODO_LEAF={
-  turnover:{dynamics:'Уходов больше, чем год назад, — поговорите один на один с теми, кто остался: что держит в команде и что может увести.',
-    reasons:'Посмотрите, на какие причины вы могли повлиять — оплата, рост, нагрузка, — и с кем из оставшихся об этом стоит поговорить.',
-    who:'Ушли опытные — договоритесь, кто подхватит их экспертизу, и закрепите наставника за каждым новичком.'},
-  hiring:{profile:'Много новичков — закрепите за каждым наставника на первые три месяца.'},
-  tgrowth:{flow:'Заявку отклонили — обсудите с сотрудником план роста: отказ без плана — частый предвестник ухода.',
-    grades:'Обсудите планы роста с теми, у кого заявок не было, — особенно с опытными.'},
+  turnover:{dynamics:c=>{const a=nP(c,'attrition'), pa=nPv(c,'attrition');return !a?null:pa!=null&&a>pa?
+      'Уходов больше, чем год назад, — поговорите один на один с теми, кто остался: что держит в команде и что может увести.'
+      :'Поговорите один на один с теми, кто остался: что держит в команде и что может увести.'},
+    reasons:c=>nP(c,'attrition')?'Посмотрите, на какие причины вы могли повлиять — оплата, рост, нагрузка, — и с кем из оставшихся об этом стоит поговорить.':null,
+    who:c=>{const ex=D.exitProfile(c.lp,'ytd'), lt=ex.tenure[ex.tenure.length-1];return lt&&!lt.early&&lt.value>0?
+      'Ушли опытные — договоритесь, кто подхватит их экспертизу, и закрепите наставника за каждым новичком.':null}},
+  hiring:{profile:c=>{const h=nP(c,'hire'), hc=D.lastVal(c.lp,'hc_total')||0;return h>=3||hc&&h/hc>=0.2?
+    'Много новичков — закрепите за каждым наставника на первые три месяца.':null}},
+  tgrowth:{flow:c=>nP(c,'tgrowth_deny')?'Заявку отклонили — обсудите с сотрудником план роста: отказ без плана — частый предвестник ухода.':null,
+    grades:c=>{const p=D.rostProfile(c.lp), n=(p.st.find(x=>x.key==='none')||{n:0}).n;return n?
+      'Обсудите планы роста с теми, у кого заявок не было, — особенно с опытными.':null}},
   monitor:{activity:'Недоработка или переработка у одного человека несколько месяцев подряд — повод поговорить один на один.'},
-  ai:{adoption:'Кто не пользуется AI — спросите, что мешает: доступ, задачи, обучение.'}};
+  ai:{adoption:c=>{const cw=D.aiCur(D.aiWeeks(c.lp));return cw&&cw.wau<cw.hc?'Кто не пользуется AI — спросите, что мешает: доступ, задачи, обучение.':null}}};
 function book(bk,subTabs,cur,c,demo){
   const defs=CH[bk]||{}, q=Q[bk]||{}, leaf=D.isSmall()&&!!c&&!!c.S&&!D.rowsOf(c.S.unit).length;
+  /* поставка 128 (аудит L6): выводы главной (карточки) — один раз на книгу: по ним точки шагов без своего вердикта, и главы
+     называют то, о чём эти выводы (c.cards) */
+  const I=window.TPINSIGHTS, map=CH_CARDS[bk];
+  let cs=null;
+  if(map&&c&&c.S&&c.lp&&I&&I.cards&&!demo){try{cs=I.cards(c.S,c.lp,c.bl||D.benchmarkLeaves(c.S),true).filter(x=>x.block===bk)}catch(e){cs=null}}
+  const cx=cs?Object.assign({},c,{cards:cs}):c;
   const chapters=subTabs.map(([key,name])=>{
     let s={};
-    if(!(demo&&demo(key))&&defs[key]){try{s=defs[key](c)||{}}catch(e){s={}}}
-    const w0=(WHY[bk]||{})[key], w=typeof w0==='function'?w0(c):w0, lt=leaf&&(TODO_LEAF[bk]||{})[key];
+    if(!(demo&&demo(key))&&defs[key]){try{s=defs[key](cx)||{}}catch(e){s={}}}
+    const w0=(WHY[bk]||{})[key], w=typeof w0==='function'?w0(c):w0, l0=leaf&&(TODO_LEAF[bk]||{})[key];
+    let lt=null;if(l0){try{lt=typeof l0==='function'?l0(cx):l0}catch(e){lt=null}}
     return Object.assign({key:key,name:name,q:q[key]||name,qs:(QS[bk]||{})[key]||q[key]||name,st:'n',why:w?w[0]:null,todo:lt||(w?w[1]:null)},s);
   });
+  /* поставка 128 (аудит L6: «на уровне базы, но хуже, чем год назад» — точка шага серая, а вывод блока «Посмотреть»; у малой
+     команды «ушли 4 из 7» — «Требует действий», а точка серая): без своего вердикта (цель, база) точка шага берёт тяжесть
+     выводов этого блока о метриках шага — тех, что глава называет: high — красная, mid — жёлтая, только хорошие — зелёная */
+  if(cs)chapters.forEach(ch=>{const f=map[ch.key];if(!f)return;
+    const my=cs.filter(f);
+    /* ухудшение несколько месяцев подряд (вывод «тренд») глава называет сама — в конце заголовка */
+    my.filter(x=>x.fact.kind==='trend'&&x.fact.tr&&ch.head&&!/подряд/.test(ch.head)).forEach(x=>{const m=D.METRIC_BY_KEY[x.key], fv=v=>D.fmtVal(x.key,v);
+      ch.head+='; '+m.name.charAt(0).toLowerCase()+m.name.slice(1)+': '+I.OBS.trend+' '+U.plural(I.OBS.trend,['месяц','месяца','месяцев'])+
+        ' подряд хуже — '+fv(x.fact.tr.a)+' → '+fv(x.fact.tr.b)});
+    if(ch.st&&ch.st!=='n')return;
+    if(my.some(x=>x.sev==='high'))ch.st='bad';else if(my.some(x=>x.sev==='mid'))ch.st='warn';else if(my.length)ch.st='good'});
   const i=Math.max(0,chapters.findIndex(x=>x.key===cur));
   return {chapters:chapters,cur:chapters[i],idx:i,next:chapters[i+1]||null};
 }
+/* выводы, о которых говорит глава шага: метрика и вид вывода (yoy — к прошлому году, в том числе «на уровне, но …»; ppl —
+   в людях у малых групп; vac — открытые вакансии к году). Вне списка — выводы «где» и тренды: глава о них не говорит */
+const kk=(re,kinds)=>x=>re.test(x.key)&&kinds.test(x.fact.kind);
+const CH_CARDS={
+  turnover:{dynamics:x=>kk(/^(turnover_y|attrition)$/,/^(yoy|ppl)$/)(x)||kk(/^turnover_[my]$/,/^trend$/)(x),
+    reasons:kk(/^(regret|nonregret)$/,/^(yoy|ppl|trend)$/)},
+  hiring:{vacancies:x=>kk(/^time_to_fill$/,/^(yoy|trend)$/)(x)||x.fact.kind==='vac'},
+  tgrowth:{flow:kk(/^tgrowth_(conv|deny)$/,/^(yoy|ppl|trend)$/)},
+  monitor:{activity:kk(/^(underwork|overwork)$/,/^(yoy|trend)$/)},
+  office:{attend:kk(/^office_att$/,/^(yoy|trend)$/),booking:kk(/^booking_viol$/,/^(yoy|trend)$/)}};
 
-window.TPSTORY={book,Q,CH,judge,GL,WHY,glossary};
+window.TPSTORY={book,Q,CH,judge,GL,WHY,glossary,CH_CARDS};
 })();

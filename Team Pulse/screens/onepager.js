@@ -154,7 +154,7 @@ function normRow(S,rl,ok0,bl){
     if(kpi)return 'цель '+f(kpi.green);
     if(pe)return 'база '+f(pe.p50);
     const b=D.comparable(m.key)&&!D.isSelfBase()?(D.periodTotal(bl,m.key)||{}).v:null;
-    return b!=null?'компания '+f(b):P(m).prev!=null?'год назад '+P(m).prev:'—'};
+    return b!=null?D.coWord(m.key,'short')+' '+f(b):P(m).prev!=null?'год назад '+P(m).prev:'—'};
   const chip=(cls,n,word,title,text,table)=>n?'<button class="in-chip '+cls+'" data-opscroll="1"'+
       U.tipAttr({title:title,text:text,table:table,note:'Клик — к таблицам блоков ниже.'})+'>'+(cls==='ok'?'✓ ':'')+'<b>'+n+'</b> '+word+'</button>':'';
   return '<div class="in-sum">'+
