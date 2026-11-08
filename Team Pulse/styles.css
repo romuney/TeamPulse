@@ -2524,17 +2524,47 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ptable th .th-per{display:block;margin-top:1px;font-size:9.5px;font-weight:var(--fw-body);color:var(--muted2);text-transform:none;letter-spacing:0;white-space:nowrap}
 
 /* файл 8, п. 7: вкладки-шаги не ужимаются — у всех одна ширина, лишнее место делят поровну (было: сжатие до обрывков,
-   затем — неактивные свёрнуты до номера). Поставка 124 (заказчик 08.11, ноутбук: «не влезает кнопка и появляется
-   горизонтальный скролл»): не помещаются в ряд по 168 px — не прокрутка, а вторая строка ровной сеткой: 4 шага → 2×2,
-   5 → 3+2, 3 → 2+1. Ширина — по панели графиков (контейнер stp), не по окну: панель на ноутбуке 360–520 px */
-.st-steps{display:grid;grid-template-columns:repeat(var(--stc,2),minmax(0,1fr));overflow:visible}
-.st-steps.n3{--stc:3}.st-steps.n4{--stc:4}.st-steps.n5{--stc:5}.st-steps.n6{--stc:6}
-.st-step{min-width:0}
-@container stp (max-width:1039px){.st-steps.n6{--stc:3}}
-@container stp (max-width:867px){.st-steps.n5{--stc:3}}
-@container stp (max-width:695px){.st-steps.n4{--stc:2}}
-@container stp (max-width:523px){.st-steps.n3,.st-steps.n5,.st-steps.n6{--stc:2}}
-@container stp (max-width:329px){.st-steps{--stc:1}}
+   затем — неактивные свёрнуты до номера). Поставка 124 (ноутбук: «не влезает кнопка и появляется горизонтальный скролл»)
+   переносила лишние шаги во вторую строку; поставка 127 (владелец 08.11: «нельзя переносить — может, мини-версии заголовков
+   на мелком экране?»): ряд всегда один. Пока каждому шагу хватает 168 px — шаг целиком (вопрос и ответ); не хватает —
+   мини-шаг: номер и короткое название (story.js QS) одной строкой, без ответа; полный вопрос и ответ — в подсказке шага.
+   Ширина — по панели графиков (контейнер stp), не по окну; прокрутка ряда — только запасной выход, если не влезут и мини */
+.st-steps{display:flex;overflow-x:auto;scrollbar-width:none}
+.st-step{flex:1 0 168px;min-width:168px}
+.st-steps.n5 .st-step.on{flex-grow:1}
+.st-qs{display:none;font-size:12.5px;white-space:nowrap}
+.st-step.on .st-qs{font-weight:var(--fw-bold)}
+@container stp (max-width:351px){
+  .st-steps.n2 .st-step{flex:1 1 0;min-width:fit-content;padding:6px 8px 6px 6px;gap:5px;align-items:center}
+  .st-steps.n2 .st-q,.st-steps.n2 .st-s{display:none}
+  .st-steps.n2 .st-qs{display:block}
+  .st-steps.n2 .st-n{flex:0 0 18px;width:18px;height:18px;margin-top:0;font-size:10px}
+}
+@container stp (max-width:523px){
+  .st-steps.n3 .st-step{flex:1 1 0;min-width:fit-content;padding:6px 8px 6px 6px;gap:5px;align-items:center}
+  .st-steps.n3 .st-q,.st-steps.n3 .st-s{display:none}
+  .st-steps.n3 .st-qs{display:block}
+  .st-steps.n3 .st-n{flex:0 0 18px;width:18px;height:18px;margin-top:0;font-size:10px}
+}
+@container stp (max-width:695px){
+  .st-steps.n4 .st-step{flex:1 1 0;min-width:fit-content;padding:6px 8px 6px 6px;gap:5px;align-items:center}
+  .st-steps.n4 .st-q,.st-steps.n4 .st-s{display:none}
+  .st-steps.n4 .st-qs{display:block}
+  .st-steps.n4 .st-n{flex:0 0 18px;width:18px;height:18px;margin-top:0;font-size:10px}
+}
+@container stp (max-width:867px){
+  .st-steps.n5 .st-step{flex:1 1 0;min-width:fit-content;padding:6px 8px 6px 6px;gap:5px;align-items:center}
+  .st-steps.n5 .st-q,.st-steps.n5 .st-s{display:none}
+  .st-steps.n5 .st-qs{display:block}
+  .st-steps.n5 .st-n{flex:0 0 18px;width:18px;height:18px;margin-top:0;font-size:10px}
+}
+@container stp (max-width:1039px){
+  .st-steps.n6 .st-step{flex:1 1 0;min-width:fit-content;padding:6px 8px 6px 6px;gap:5px;align-items:center}
+  .st-steps.n6 .st-q,.st-steps.n6 .st-s{display:none}
+  .st-steps.n6 .st-qs{display:block}
+  .st-steps.n6 .st-n{flex:0 0 18px;width:18px;height:18px;margin-top:0;font-size:10px}
+}
+
 /* ревью 100: подписи значений не перехватывают наведение — подсказка месяца не пропадает над цифрой */
 .svgchart text.fade{pointer-events:none}
 /* поставка 101: помесячная детализация специализации — отступ от таблицы, как между группами */

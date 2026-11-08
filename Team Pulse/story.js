@@ -170,6 +170,19 @@ const Q={
   ai:{adoption:'Пользуются ли AI?',who:'Кто пользуется?',usage:'Как пользуются?',what:'Что делают?'}
 };
 
+/* поставка 127 (владелец 08.11: «нельзя переносить — может, мини-версии заголовков на мелком экране?»): короткие названия
+   шагов для узкой панели графиков — одна строка, без ответа; полный вопрос и ответ — в подсказке шага */
+const QS={
+  structure:{portrait:'Портрет',level:'Уровень',work:'Оформление',stream:'Стримы',custom:'Конструктор'},
+  movement:{balance:'Баланс',dynamics:'Что двигало'},
+  turnover:{dynamics:'Сколько',reasons:'Почему',who:'Кто',hq:'HQ'},
+  hiring:{vacancies:'Вакансии',plan:'План',profile:'Кого берём'},
+  tgrowth:{flow:'Растут ли',grades:'Грейды',spec:'Специализация'},
+  monitor:{activity:'Активность',review:'Ревью'},
+  office:{calendar:'Когда',attend:'Кто и где',booking:'Бронь'},
+  ai:{adoption:'Пользуются',who:'Кто',usage:'Как',what:'Что делают'}
+};
+
 /* сравнение с базой одной фразой: «чаще / реже / на уровне» */
 function vsBase(j,c,more,less,same,noYoy){
   /* 30.10, критики: «Конверсия на уровне базы» при пустом значении — за месяц нет событий, так и пишем */
@@ -867,7 +880,7 @@ function book(bk,subTabs,cur,c,demo){
     let s={};
     if(!(demo&&demo(key))&&defs[key]){try{s=defs[key](c)||{}}catch(e){s={}}}
     const w0=(WHY[bk]||{})[key], w=typeof w0==='function'?w0():w0, lt=leaf&&(TODO_LEAF[bk]||{})[key];
-    return Object.assign({key:key,name:name,q:q[key]||name,st:'n',why:w?w[0]:null,todo:lt||(w?w[1]:null)},s);
+    return Object.assign({key:key,name:name,q:q[key]||name,qs:(QS[bk]||{})[key]||q[key]||name,st:'n',why:w?w[0]:null,todo:lt||(w?w[1]:null)},s);
   });
   const i=Math.max(0,chapters.findIndex(x=>x.key===cur));
   return {chapters:chapters,cur:chapters[i],idx:i,next:chapters[i+1]||null};

@@ -1971,11 +1971,13 @@ checks.push(['третьей палитры нет: в экранах ни од�
       !!hl&&hl.rows.every(r=>r.kpi==null&&r.st==='neutral')&&/data-sid="prev"|>'+D.YEAR_PREV+'</.test(hb)])}
   checks.push(['файл 8, п. 6: закрытые вакансии в таблице — за '+D.YEAR_CUR+' год, год в подписи колонки',
     th.indexOf('Закрытые<span class="th-per">'+D.YEAR_CUR+'</span>')>=0]);
-  /* поставка 124 (заказчик 08.11, ноутбук): не помещаются по 168 px — вторая строка ровной сеткой, не прокрутка ряда */
-  checks.push(['файл 8, п. 7 и поставка 124: шаги не ужимаются и не прокручиваются — не помещаются в ряд, переносятся сеткой',
-    css.includes('.st-steps{display:grid;grid-template-columns:repeat(var(--stc,2),minmax(0,1fr));overflow:visible}')&&
-    css.includes('@containerstp(max-width:695px){.st-steps.n4{--stc:2}}')&&css.includes('@containerstp(max-width:867px){.st-steps.n5{--stc:3}}')&&
-    css.includes('@containerstp(max-width:523px){.st-steps.n3,.st-steps.n5,.st-steps.n6{--stc:2}}')&&!/\.st-steps\{overflow-x:auto;scrollbar-width:thin\}/.test(css)]);
+  /* поставка 127 (владелец 08.11: «нельзя переносить — мини-версии заголовков на мелком экране»): ряд шагов один; не помещаются
+     по 168 px — мини-шаги (номер и короткое название, без ответа), полный вопрос — в подсказке */
+  checks.push(['файл 8, п. 7 и поставка 127: шаги в один ряд, не ужимаются; на узкой панели — мини-шаги с коротким названием',
+    css.includes('.st-steps{display:flex;overflow-x:auto;scrollbar-width:none}')&&css.includes('.st-step{flex:10168px;min-width:168px}')&&
+    css.includes('@containerstp(max-width:695px){.st-steps.n4.st-step{flex:110;min-width:fit-content;')&&
+    css.includes('.st-steps.n4.st-q,.st-steps.n4.st-s{display:none}')&&!css.includes('--stc')&&
+    /class="st-qs">[^<]+</.test(A.go('turnover','dynamics'))]);
   /* поставка 124: «таблица | графики» не шире окна — графики уступают до 340 px, дальше таблица прокручивается в карточке */
   checks.push(['поставка 124: раскладка «таблица | графики» не вылезает за край (графики от 340 px, таблица ужимается)',
     css.includes('.split{display:grid;grid-template-columns:minmax(min(calc((100%-16px)*.35),100%-356px),min-content)16pxminmax(340px,1fr);')&&

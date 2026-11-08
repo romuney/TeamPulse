@@ -829,7 +829,7 @@ function chapters(list,active){
     return '<button class="st-step'+(on?' on':'')+(c.dev?' dev-'+c.dev:'')+'" data-subtab="'+esc(c.key)+'" data-text="'+esc(c.q)+'" role="tab" aria-selected="'+on+'"'+
       tipAttr({title:(i+1)+'. '+c.q,text:c.dev==='full'?'В разработке: цифры условные.'+(dp?'\nИсточник: '+dp.src+'.':'')
         :c.sum?String(c.sum):c.name,note:c.dev==='part'?'Часть цифр на вкладке условная.':c.name})+'>'+
-      '<span class="st-n">'+(i+1)+'</span><span class="st-tx"><span class="st-q">'+esc(c.q)+'</span>'+
+      '<span class="st-n">'+(i+1)+'</span><span class="st-tx"><span class="st-q">'+esc(c.q)+'</span><span class="st-qs">'+esc(c.qs||c.q)+'</span>'+
       (dev||(c.sum?'<span class="st-s"><i class="st-dot '+esc(c.st||'n')+'"></i>'+esc(c.sum)+'</span>':''))+'</span></button>';
   }).join('')+'</div>';
 }
