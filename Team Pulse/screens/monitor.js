@@ -44,9 +44,11 @@ function perLine(P,wk){
   const f1=v=>(Math.round(v*10)/10).toFixed(1).replace('.',',');
   const sum=k=>C.reduce((a,p)=>a+(p[k]||0),0), wt=C.every(p=>p.pdw!=null);
   return {
-    cats:()=>{const hc=avg('hc');return {head:head,parts:[['under','недоработка'],['over','переработка']].map(c=>({name:c[1],
-      /* поставка 110 (D6, критики: «0 чел (3%)»): среднее меньше 10 человек — с десятой, чтобы число и доля не спорили */
-      cur:(avg(c[0])<10?f1(avg(c[0])):n(avg(c[0])))+' чел'+(hc?' ('+Math.round(avg(c[0])/hc*100)+'%)':'')}))}},
+    cats:()=>{const hc=avg('hc');return {head:head,parts:[['under','недоработка','underwork'],['over','переработка','overwork']].map(c=>({name:c[1],
+      /* поставка 110 (D6, критики: «0 чел (3%)»): среднее меньше 10 человек — с десятой, чтобы число и доля не спорили;
+         поставка 125: доля — с десятой, как метрика в заголовке и на главной (Σ категории ÷ Σ размеченных и «не размечено»
+         за те же месяцы — одно и то же число с одной точностью, а не целые проценты рядом с десятыми) */
+      cur:(avg(c[0])<10?f1(avg(c[0])):n(avg(c[0])))+' чел'+(hc?' ('+D.fmtVal(c[2],avg(c[0])/hc*100)+')':'')}))}},
     hours:()=>{const v=wt&&sum('pdw')?sum('hrw')/sum('pdw'):avg('hours');return v?{head:head,cur:f1(v)+' ч/день'}:null},
     talk:()=>{const v=wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null}};
 }

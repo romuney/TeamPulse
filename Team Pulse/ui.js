@@ -283,7 +283,7 @@ function unitTip(name,hc,head){
    Порядок проверок не косметика: **есть утверждённый KPI — сравниваем с ним,
    и только с ним**. Средняя по базе рядом с целью KPI заставляла выбирать,
    по какому из двух чисел судить, хотя ответ один: цель важнее средней. */
-function targetCell(key,val,baseVal,kpi,pe){
+function targetCell(key,val,baseVal,kpi,pe,lp,bl){
   /* Значения нет (доля без знаменателя) — оценки нет: «ниже порога» про
      команду, у которой в окне не было ни одного найма, было бы неправдой. */
   if(val==null)return '<div class="tgt">'+(kpi?'<span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'
@@ -299,15 +299,16 @@ function targetCell(key,val,baseVal,kpi,pe){
   if(!D.comparable(key))return '<div class="tgt">'+noCmpMark()+'</div>';
   /* поставка 113: ориентир — медиана подразделений того же размера под теми же фильтрами; поставка 117 (владелец: «сравнение
      с медианой непонятно»): называется «база», расшифровка — в подсказке */
+  /* поставка 125: недо- и переработка без разметки у половины людей — «без оценки» (значение есть, ориентир не применим) */
   if(pe){
-    const st=D.peerState(key,val,pe);
+    const st=D.peerState(key,val,pe,lp);
     return '<div class="tgt"'+baseTip(key,pe)+'><b>база '+D.fmtVal(key,pe.p50)+'</b><span class="sig-chip '+st+'">'+
       (st==='good'?'лучше базы':st==='bad'?'хуже базы':st==='warn'?'на уровне':'без оценки')+'</span></div>';
   }
   /* поставка 113: база совпадает с отчётом (вся компания) — сравнивать не с чем */
   if(baseVal==null||!kpi&&D.isSelfBase())return '<div class="tgt">—</div>';
   /* поставка 117: базы по размеру у метрики нет — сравнение со всей компанией под теми же фильтрами, так и подписано */
-  const st=D.compareState(key,val,baseVal), diff=val-baseVal, m=D.METRIC_BY_KEY[key];
+  const st=D.monJudged(key,lp)&&D.monJudged(key,bl)?D.compareState(key,val,baseVal):'neutral', diff=val-baseVal, m=D.METRIC_BY_KEY[key];
   const lbl=m.better==='flat'
     ? (Math.abs(diff)<0.05?'как в компании':(diff>0?'выше компании':'ниже компании'))
     : (st==='good'?'лучше компании':st==='bad'?'хуже компании':st==='warn'?'на уровне':'без оценки');
@@ -317,8 +318,14 @@ function targetCell(key,val,baseVal,kpi,pe){
 }
 /* поставка 117: подсказка «База» — одна на весь отчёт (ячейки, чипы выводов, шапка); с числами группы, если они есть */
 function baseTip(key,pe){
+  /* поставка 125: у недо- и переработки в базе только подразделения с разметкой мониторинга (датасет: «не размечено» — не
+     больше половины людей); у долей людей «лучше / хуже» — от 2 человек за границей четверти */
+  const mon=key==='underwork'||key==='overwork', ppl=mon||key==='ai_penetration';
   return tipAttr({title:'База',text:D.baseDef(pe&&pe.band)+(pe&&key?'\nМедиана — **'+D.fmtVal(key,pe.p50)+'**; четверть подразделений ниже '+
-    D.fmtVal(key,pe.p25)+', четверть выше '+D.fmtVal(key,pe.p75)+'.':''),note:pe?'Подразделений в сравнении: '+pe.n+'.':null});
+    D.fmtVal(key,pe.p25)+', четверть выше '+D.fmtVal(key,pe.p75)+'.':'')+
+    (mon?'\nВ сравнении только подразделения, где в мониторинге размечено не меньше половины людей.':'')+
+    (ppl?'\n«Лучше» или «хуже» базы — когда разница с четвертью не меньше 2 человек в месяц.':''),
+    note:pe?'Подразделений в сравнении: '+pe.n+'.':null});
 }
 
 /* ---------- Значок AI-плашки ----------

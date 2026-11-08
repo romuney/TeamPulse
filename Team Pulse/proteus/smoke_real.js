@@ -389,6 +389,20 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     ok(MD.monthly&&!MD.weeks&&SC.blocks.monitor.subTabs.map(t=>t[0]).join(',')==='activity','мониторинг: только месяцы, недельного шага нет');
   }else ok(!/class="kpi mk/.test(mo)&&/Состав по категориям/.test(mo)&&!/data-mongran|data-pmark/.test(mo),
     'мониторинг: категории по месяцам из основной таблицы, недели и звонки — «в разработке»');
+  /* поставка 125 (владелец 08.11: «вверху недоработчики есть, главная зовёт сюда, а на графике их нет»): график состава — с января
+     года закрытого месяца, итог под ним — те же доли, что в заголовке и на главной; доли людей против базы — «хуже / лучше»
+     только от 2 человек за границей четверти */
+  if(MD){
+    const j0=D.MONTHS[D.PER_I-D.MONTHS[D.PER_I].m], P0=MD.months[0];
+    /* у команды меньше 30 человек заголовок — в людях за закрытый месяц (поставка 121), доли — в итоге под графиком */
+    const fu=D.fmtVal('underwork',(D.periodTotal(rl,'underwork')||{}).v), fo=D.fmtVal('overwork',(D.periodTotal(rl,'overwork')||{}).v);
+    ok(P0&&P0.label===j0.label&&mo.indexOf('('+fu+')')>=0&&mo.indexOf('('+fo+')')>=0&&(D.isSmall()||(D.monJudged('underwork',rl)?mo.indexOf('недоработчиков — '+fu)>=0:/В мониторинге размечено \d+% людей/.test(mo))),
+      'мониторинг: график состава с «'+(P0&&P0.label)+'», как доли с января; итог под ним '+fu+' и '+fo+' — как в заголовке');
+    const C=MD.months.filter(p=>!p.pt), hm=C.reduce((a,p)=>a+p.hc,0)/(C.length||1), z={p25:0,p50:0,p75:0,n:7,band:1};
+    if(!D.isSmall('underwork')&&D.monJudged('underwork',rl)&&hm>0)
+      ok(D.peerState('underwork',100/hm,z,rl)==='warn'&&D.peerState('underwork',250/hm,z,rl)==='bad'&&D.peerState('underwork',100/hm,z)==='bad',
+        'база: недоработчики «хуже базы 0%» — от 2 человек в месяц (1 человек из '+hm.toFixed(1)+' — «на уровне», 2,5 — «хуже»)');
+  }
   /* 19.10, заказчик: окно настройки как в HRBP HUB — дерево всего справочника, логин руководителя
      и поиск по нему, у строк и кнопок фильтров — сколько людей попадёт в выбор (fd справочника) */
   {

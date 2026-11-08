@@ -74,7 +74,8 @@ function judge(k,c){
   const thin=D.thin(k,c.lp), ev=D.eventsOf(k,c.lp);
   let st='n';
   if(v!=null&&base!=null&&!thin){
-    const s=kpi?D.stateForKpi(k,v,kpi):pe?D.peerState(k,v,pe):D.compareState(k,v,base);
+    /* поставка 125: недо- и переработка — только при разметке мониторинга у половины людей и больше (и у компании-ориентира) */
+    const s=!D.monJudged(k,c.lp)?'neutral':kpi?D.stateForKpi(k,v,kpi):pe?D.peerState(k,v,pe,c.lp):D.monJudged(k,c.bl)?D.compareState(k,v,base):'neutral';
     st=s==='good'?'good':s==='bad'?'bad':'n';
   }
   return {v:v,base:base,kpi:kpi,peer:pe,st:st,i:i,k:k,thin:thin,ev:ev,self:self,small:D.isSmall(k),smallHq:D.isSmallHq(k)};
@@ -139,7 +140,7 @@ function focusRate(c,k,cap){
      листьям), иначе вся компания */
   const rows=rs.map(r=>{
     const v=per(r.lp,k).v, pe=kpi?null:D.peerOf(k,r.lp);
-    const s=v==null?'neutral':kpi?D.stateForKpi(k,v,kpi):pe?D.peerState(k,v,pe):base==null?'neutral':D.compareState(k,v,base);
+    const s=v==null||!D.monJudged(k,r.lp)?'neutral':kpi?D.stateForKpi(k,v,kpi):pe?D.peerState(k,v,pe,r.lp):base==null||!D.monJudged(k,c.bl)?'neutral':D.compareState(k,v,base);
     return {path:r.n.path,name:r.n.name,v:v,pe:pe,st:s==='good'?'good':s==='bad'?'bad':'n'};
   }).filter(r=>r.v!=null);
   if(rows.length<2)return {};
@@ -461,6 +462,13 @@ function monStory(c,wk){
     /* поставка 90: главное — доли в среднем за месяц с января по закрытый месяц (как итог под графиком), месяц к месяцу — с подписью */
     /* шаг «По неделям» — главное о последней закрытой неделе; «По месяцам» — доли в среднем за месяц с января */
     const pu=per(c.lp,'underwork'), po=per(c.lp,'overwork'), pp=!(wk&&md.weeks)&&pu.v!=null&&po.v!=null;
+    /* поставка 125: размечено меньше половины людей — у остальных «не размечено», и 0% там значит «нет данных»: так и пишем,
+       доли — для справки, без оценки (D.monJudged) */
+    const cov=D.monCover(c.lp);
+    if(pp&&!D.monJudged('underwork',c.lp))return {sum:'размечено '+Math.round(cov*100)+'%',st:'n',
+      head:'В мониторинге размечено '+Math.round(cov*100)+'% людей — недо- и переработку не оцениваем',
+      lede:'У остальных нет записей мониторинга («не размечено»), поэтому 0% здесь значит «нет данных», а не «никто не недорабатывает». '+
+        'В среднем за месяц: недоработчиков — **'+f('underwork',pu.v)+'**, переработчиков — **'+f('overwork',po.v)+'**.'};
     return {sum:pp?'недор. '+f('underwork',pu.v)+' · перераб. '+f('overwork',po.v):'недор. '+cur.under+' · перераб. '+cur.over,st:both?'bad':worse?'n':'good',
       /* поставка 121 (критики 119: «недоработку и переработку смотрим в людях», а заголовок — в процентах и «0,2 чел»): у команды
          меньше 30 человек — последний закрытый месяц в людях */
@@ -545,7 +553,7 @@ CH.ai={
     const P=v=>String(v).replace('.',',')+'%', sm=cw.hc<D.SMALL_N, flat=d==null||Math.abs(d)<1||Math.abs(dn)<2;
     const per=' за '+nw+' '+U.plural(nw,['неделю','недели','недель']);
     /* поставка 118: база — подразделения похожей численности (без стажёров, та же неделя); меньше 30 человек — без неё */
-    const pe=sm?null:D.peerOf('ai_penetration',c.lp), ps=pe?D.peerState('ai_penetration',cw.pen,pe):'neutral';
+    const pe=sm?null:D.peerOf('ai_penetration',c.lp), ps=pe?D.peerState('ai_penetration',cw.pen,pe,c.lp):'neutral';
     const vb=ps==='good'?' — больше, чем в {{База|базе}}':ps==='bad'?' — меньше, чем в {{База|базе}}':'';
     return {sum:sm?D.fmtInt(cw.wau)+' из '+D.fmtInt(cw.hc):P(cw.pen),st:ps==='good'?'good':ps==='bad'?'bad':'n',
       head:(sm?'AI пользуются '+D.fmtInt(cw.wau)+' из '+pl(cw.hc,PPL):'AI пользуются '+P(cw.pen)+' сотрудников')+vb+

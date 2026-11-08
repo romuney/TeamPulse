@@ -133,7 +133,8 @@ const unrated=(m,rl)=>D.isSmall(m.key)&&(D.comparable(m.key)||m.kpi)&&m.fmt!=='i
    или «лучше»; без ориентира (вся компания) — с прошлым годом и изменением меньше порога. Количества и метрики без
    направления (доля джунов, внутренний найм) не оцениваются — строкой «Для справки» со значением год назад */
 function rated(m,S,rl,bl){
-  if(m.fmt==='int'||m.better==='flat'||unrated(m,rl)||D.thin(m.key,rl))return false;
+  /* поставка 125: недо- и переработка без разметки мониторинга у половины людей — не «в норме», а «для справки» */
+  if(m.fmt==='int'||m.better==='flat'||unrated(m,rl)||D.thin(m.key,rl)||!D.monJudged(m.key,rl))return false;
   const vs=D.verdictState(m.key,S,rl,bl);
   if(vs==='good'||vs==='warn')return true;
   const P=D.periodTotal(rl,m.key)||{};
@@ -299,7 +300,7 @@ function render(S,openRows){
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
            точек, ориентир — пунктиром; у метрики без оценки точек нет. */
         '<td class="col-spark">'+G.sparkLine(s,st,180,28,{key:m.key,base:bser,baseName:D.coName(S),kpi:kpi,ink:noEval(m,kpi),dots:false})+'</td>'+
-        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi,kpi?null:D.peerOf(m.key,rl))+'</td>'+
+        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi,kpi?null:D.peerOf(m.key,rl),rl,bl)+'</td>'+
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */
       if(open){

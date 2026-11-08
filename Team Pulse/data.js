@@ -1374,14 +1374,41 @@ function peerOf(key,lp){
   const p=(REAL.peer[key]||{})[b];
   return p&&p.n>=PEER_MIN?Object.assign({band:b,bandName:PEER_BAND_NAME[b]},p):null;
 }
-function peerState(key,v,p){
+/* поставка 125 (владелец 08.11, мониторинг: «недоработчиков больше, чем в базе, главная зовёт сюда, а на графике их нет»):
+   (1) доли людей — недоработчики, переработчики, пользователи AI — «лучше / хуже базы» только тогда, когда за границей
+   четверти не меньше PEER_PPL человек в среднем за месяц (как у изменений, deltaState: от 2 человек); меньше — «на уровне»:
+   полчеловека в месяц — не вывод. lp — чьи доли оцениваются; без lp правило не действует.
+   (2) Недо- и переработка оцениваются, только если в мониторинге размечено не меньше половины людей (MON_COV, за месяцы
+   окна): у остальных почти все «не размечено», и 0% там значит «нет данных», а не «нет недоработчиков». Тем же правилом
+   датасет отбирает подразделения в базу: раньше в неё шли и подразделения без мониторинга — с нулями, база выходила 0% */
+const PEER_PPL=2, MON_COV=0.5, MON_KEYS=new Set(['underwork','overwork']), PERF_ALL=['perf_norm','perf_low','perf_high','perf_gray'];
+/* сумма за месяцы окна выводов (январь–закрытый месяц, PER_*); не путать с winSum — окном водопада */
+function perSum(lp,k){const a=aggregate(lp,k);let s=0;for(let i=PER_I-PER_C;i<=PER_I;i++)s+=a[i]||0;return s}
+function monCover(lp){
+  if(!REAL||!lp||!lp.length)return null;
+  const all=PERF_ALL.reduce((t,k)=>t+perSum(lp,k),0);
+  return all?1-perSum(lp,'perf_gray')/all:null;
+}
+function monJudged(key,lp){
+  if(!MON_KEYS.has(key)||!lp)return true;
+  const c=monCover(lp);return c==null||c>=MON_COV;
+}
+function peerPpl(key,lp){
+  if(!REAL||!lp||!lp.length)return null;
+  if(MON_KEYS.has(key))return PERF_ALL.reduce((t,k)=>t+perSum(lp,k),0)/(PER_C+1);
+  if(key==='ai_penetration'){const cw=aiCur(aiWeeks(lp));return cw?cw.hc:null}
+  return null;
+}
+function peerState(key,v,p,lp){
   const m=METRIC_BY_KEY[key]||{};
-  if(v==null||!p||isSmall(key))return'neutral';
+  if(v==null||!p||isSmall(key)||!monJudged(key,lp))return'neutral';
   if(Math.abs(v-p.p50)<VERDICT_GAP*Math.abs(p.p50||1))return'warn';
   /* поставка 120 (критик на 49 человек: «хуже базы» решало округление — 22,30 против границы четверти 22,29): четверти в
      датасете округлены до сотых — значение на границе (±0,011) считаем «на уровне» */
   const hi=v>p.p75+0.011, lo=v<p.p25-0.011;
   if(!hi&&!lo)return'warn';
+  const n=peerPpl(key,lp);
+  if(n!=null&&Math.abs(v-(hi?p.p75:p.p25))/100*n<PEER_PPL)return'warn';
   return (m.better==='lower')===lo?'good':'bad';
 }
 function isSmall(key){return SMALL_REP||!!key&&SMALL_HQ&&!!(METRIC_BY_KEY[key]||{}).hqOnly}
@@ -1397,12 +1424,14 @@ function eventsOf(key,lp){
 function thin(key,lp){const e=eventsOf(key,lp);return !!e&&e.n<e.min}
 /* оценка метрики за период: цель KPI на закрытый месяц, иначе база за тот же период */
 function verdictState(key,st,lp,bl){
-  if(thin(key,lp))return 'neutral';
+  if(thin(key,lp)||!monJudged(key,lp))return 'neutral';
   const v=(periodTotal(lp,key)||{}).v, kpi=kpiAt(key,st,MONTHS[PER_I].m);
   if(kpi)return stateForKpi(key,v,kpi);
   /* поставка 113: есть распределение подразделений того же размера — оценка по нему (и у всей компании: с собой не сравниваем) */
-  const pe=peerOf(key,lp);if(pe)return peerState(key,v,pe);
+  const pe=peerOf(key,lp);if(pe)return peerState(key,v,pe,lp);
   if(SELF_BASE)return 'neutral';
+  /* поставка 125: компания, где размечено меньше половины людей, — не ориентир для недо- и переработки */
+  if(!monJudged(key,bl))return 'neutral';
   return compareState(key,v,(periodTotal(bl,key)||{}).v);
 }
 
@@ -2346,8 +2375,11 @@ function monMonthly(lp){
   const day=!!(REAL.has&&REAL.has('hrn'))&&A('mon_hrn').some(v=>v>0), S={};
   if(day)MON_DK.forEach(k=>{S[k]=REAL.has(k)?A('mon_'+k):null});
   /* поставка 104: незакрытый месяц тоже в ряду — помечен (pt: пунктир и полая точка на линиях, бледный столбик) */
+  /* поставка 125 (владелец 08.11: «вверху недоработчики есть, главная зовёт сюда, а на графике их нет»): было — последние
+     6 месяцев (июнь–ноябрь), а доля в заголовке, выводах и на главной — с января (PER_*): недоработчики весны в график не
+     попадали. Теперь окно графика — то же, что у цифр: с января года закрытого месяца по последний месяц данных */
   const months=[];
-  for(let i=Math.max(0,LAST-5);i<=LAST;i++){
+  for(let i=Math.max(0,PER_I-PER_C);i<=LAST;i++){
     const x={label:MONTHS[i].label,full:MONTH_NOM_CAP(MONTHS[i].m)+' '+MONTHS[i].y+(PARTIAL&&i===LAST?', данные по '+ASOF.d+' '+MONTH_GEN[ASOF.m]:''),
       under:Math.round(u[i]||0),normal:Math.round(nr[i]||0),over:Math.round(o[i]||0),grey:Math.round(g[i]||0)};
     x.hc=x.under+x.normal+x.over+x.grey;
@@ -3508,7 +3540,7 @@ function aiUsage(lp){
 window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,

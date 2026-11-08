@@ -195,6 +195,9 @@ function metricFact(m,S,rl,bl){
   /* поставка 120 (критик на 49 человек: «Нежелательных уходов больше, чем год назад 14,3%» по HQ из 17 человек, хотя вкладка
      HQ эти доли не оценивает): доли HQ при HQ меньше 30 человек — без выводов, как доли малой команды */
   if(D.isSmallHq(key))return null;
+  /* поставка 125: недо- и переработка у подразделения, где размечено меньше половины людей, — без выводов: 0% там значит
+     «нет данных мониторинга» (D.monJudged) */
+  if(!D.monJudged(key,rl))return null;
   /* цель — закрытого месяца (у накопительных — её доля к этому месяцу), база и год назад — за тот же период;
      поставка 110: база = сам отчёт (вся компания) — с собой не сравниваем, ориентир — цель или прошлый год */
   const kpi=D.kpiAt(key,S,D.MONTHS_EXT[L].m);
@@ -202,7 +205,7 @@ function metricFact(m,S,rl,bl){
      оценка по четвертям (D.peerState); иначе — база, как раньше */
   const pe=kpi?null:D.peerOf(key,rl);
   const ref=kpi?kpi.green:pe?pe.p50:(D.comparable(key)&&!D.isSelfBase()?perOf(bl,key).v:null);
-  const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):pe?D.peerState(key,v,pe):D.compareState(key,v,ref);
+  const st=ref==null?'neutral':kpi?D.stateForKpi(key,v,kpi):pe?D.peerState(key,v,pe,rl):D.monJudged(key,bl)?D.compareState(key,v,ref):'neutral';
   /* поставка 117: ориентир — «цель», «база» (подразделения похожей численности, подсказка у чипа) или «вся компания» */
   const f=x=>D.fmtVal(key,x), w=kpi?'цели':pe?'базы':'всей компании', pv=P.pv;
   const peerSay=good=>(good?'лучше':'хуже')+' базы '+f(pe.p50);
@@ -666,7 +669,8 @@ function cardOf(f,S,rl,bl){
     if(q.nr!=null&&q.rg!=null){pills.push('из них желательные '+fv(q.nr)+', нежелательные '+fv(q.rg)+', прочие '+fv(Math.max(0,f.v-q.nr-q.rg)));
       body.push('Без желательных уходов — '+esc(fv(Math.max(0,f.v-q.nr)))+' при ориентире '+esc(fv(f.ref))+'.')}}
   const sub=f.kind==='dev'&&f.pv!=null?'год назад '+fv(f.pv):f.kind==='hqb'&&f.hq&&f.hq.ya!=null?'год назад '+fv(f.hq.ya):'';
-  if(f.kind==='dev'&&f.pv!=null&&!leave)body.push('Год назад — '+esc(fv(f.pv))+'.');
+  /* поставка 125 (фото владельца 08.11: «год назад X» и тут же «Год назад — X»): год назад уже стоит строкой под числом
+     (sub) — фразу «Год назад — …» в текст карточки без пилюль больше не добавляем */
   if(f.kind==='dev'&&f.tr)body.push(esc(cap(trendWord(m)))+'.');
   let todo='Держать курс: отдельных действий не нужно.';
   if(bad){

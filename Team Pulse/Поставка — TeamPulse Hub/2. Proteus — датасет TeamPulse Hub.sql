@@ -330,14 +330,19 @@ WITH
       численности узла под фильтрами, как у остальных. ai_penetration — WAU ÷ численность без стажёров последней полной
       недели (неделя закончилась не позже даты данных), без фильтров, группа — по этой численности (pai), как на вкладке AI.
       Медиана срока — как у чарта (medianOf): при чётном числе вакансий — полусумма двух средних (две точки 0,5 и 0,500001) #}
+  {#- поставка 125 (владелец 08.11: «недоработчиков больше, чем в базе», а база — 0%): в базу недо- и переработки шли и подразделения без
+      мониторинга — у них все люди «не размечено», доли 0%, и база по группе выходила 0%. Теперь подразделение входит в базу
+      этих двух метрик, только если «не размечено» — не больше половины людей за те же месяцы (gy × 2 ≤ al), как в чарте
+      (D.monJudged); формулы долей прежние #}
   pnv AS (
     SELECT pu, sum(h) AS hc9, sumIf(f / a * 100, a > 0) AS v_ty, sum(f) / sum(a) * 100 AS v_tm,
-           sum(lo) / sum(al) * 100 AS v_uw, sum(hi) / sum(al) * 100 AS v_ow, sum(ov) / sum(wd) * 100 AS v_oa,
+           [if(sum(gy) * 2 <= sum(al), sum(lo) / sum(al) * 100, nan)][1] AS v_uw,
+           [if(sum(gy) * 2 <= sum(al), sum(hi) / sum(al) * 100, nan)][1] AS v_ow, sum(ov) / sum(wd) * 100 AS v_oa,
            [if(sum(ga) + sum(gd) >= 5, sum(ga) / (sum(ga) + sum(gd)) * 100, nan)][1] AS v_tc, [sum(bv) / sum(bk) * 100][1] AS v_bv
     FROM (
       SELECT ifNull(node_rk, '') AS pu, sumIf(toFloat64(hc_cnt), report_month = mc) AS h, sum(toFloat64(avg_cnt)) AS a,
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
-             sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(ovis_amt) AS ov, sum(wday_amt) AS wd,
+             sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(pgry_cnt) AS gy, sum(ovis_amt) AS ov, sum(wday_amt) AS wd,
              [sum(toFloat64(gapr_cnt))][1] AS ga, [sum(toFloat64(gdec_cnt))][1] AS gd, [sum({{ optf('bk_amt') }})][1] AS bk,
              [sum({{ optf('bkv_amt') }})][1] AS bv
       FROM prod_proteus.teampulse_hub_series, pmc
