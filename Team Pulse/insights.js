@@ -53,7 +53,7 @@ function refOf(key,S,bl){
   const kpi=D.kpiFor(key,S);
   /* годовая цель HQ (поставка 50) — в месяце i оси года её доля: годовая × (i + 1) / 12, как коридор на графике */
   if(kpi)return {kpi:kpi,w:'цели',at:kpi.annual?i=>+(kpi.annual.green*(i+1)/12).toFixed(2):()=>kpi.green};
-  if(!D.comparable(key))return null;
+  if(!D.comparable(key)||D.isSelfBase())return null;
   /* поставка 117: у метрики есть база (подразделения похожей численности) — оценка по ней, а помесячной базы нет;
      сравнение месяцев со всей компанией рядом с оценкой «к базе» спорило бы с ней — его нет */
   if(D.peerOf(key))return null;
@@ -100,18 +100,30 @@ function yoyStory(key,S,rl,bl){
   if(!m||D.isStub(key))return {items:[],marks:[],stub:!!m};
   /* поставка 90: «сейчас» — последний закрытый месяц (у состояний — сегодня), незакрытый — только на графике */
   const y=D.yoySeries(rl,key), cur=y.cur, prev=y.prev, b=STOCK.has(key)?D.CUR_LEN-1:D.PER_C, v=cur[b];
-  if(v==null)return {items:[],marks:[]};
   const f=x=>esc(D.fmtVal(key,x)), ref=refOf(key,S,bl), flat=m.better==='flat', out=[];
-  /* 1. Сейчас и ориентир */
-  const st=stateAt(key,v,ref,b);
-  out.push({i:b,s:'main',html:'<b>'+esc(cap(D.MONTH_NOM[b]))+' — '+f(v)+'</b>'+
-    (ref&&!flat&&ref.at(b)!=null?', '+esc(cmpWords(key,st,ref,b))+'.':'.')});
-  /* 2. Год назад — тот же месяц */
-  const pv=prev[b];
-  if(pv!=null){
-    const d=+(v-pv).toFixed(4);
-    const w=!d?'столько же':flat?(d>0?'больше на ':'меньше на ')+absD(key,d)
-      :((m.better==='lower')===(d>0)?'хуже':'лучше')+' на '+absD(key,d);
+  /* поставка 128 (аудит, владелец 08.11: «выводы обязательно должны совпадать»): пункты 1–2 были про один закрытый месяц
+     («Сентябрь — 14,4%, хуже, чем во всей компании»), а строка рядом — итог за период с вердиктом «на уровне»; у неоценённых
+     метрик пункт говорил «на уровне», у всей компании — сравнивал её с собой. Теперь пункт 1 — тот же итог и тот же вердикт,
+     что у строки (D.periodTotal, D.verdictState), пункт 2 — год назад за те же месяцы, словом по тому же правилу, что цвет
+     чипа «год к году» (D.deltaState) */
+  const P=D.periodTotal(rl,key)||{}, V=D.verdictState(key,S,rl,bl), pt=P.stock||/^На конец /.test(P.head||'');
+  if(P.v==null&&v==null)return {items:[],marks:[]};
+  const kpi=D.kpiAt(key,S,D.MONTHS[D.PER_I].m), pe=kpi?null:D.peerOf(key,rl);
+  const refV=kpi?kpi.green:pe?pe.p50:D.comparable(key)&&!D.isSelfBase()?(D.periodTotal(bl,key)||{}).v:null;
+  const rw=kpi?'цели':pe?'базы':'всей компании';
+  const why=D.isSmall(key)?'без оценки: в команде меньше '+D.SMALL_N+' человек — смотрим людей'
+    :D.thin(key,rl)?'без оценки: мало событий':!D.monJudged(key,rl)?'без оценки: в мониторинге размечено меньше половины людей':'';
+  const say=flat||P.v==null?'':V==='good'?'лучше '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':'')
+    :V==='bad'?'хуже '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':''):V==='warn'?'на уровне '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':''):why;
+  /* 1. Итог за период и ориентир — как в строке */
+  if(P.v!=null)out.push(Object.assign(pt?{i:b,s:'main',pin:1}:{mi:range(b+1),pin:1},
+    {html:'<b>'+esc(cap(P.head||''))+' — '+f(P.v)+'</b>'+(say?': '+esc(say)+'.':'.')}));
+  /* 2. Год назад — за тот же период */
+  const pv=P.pv;
+  if(P.v!=null&&pv!=null){
+    const d=+(P.v-pv).toFixed(2), ds=D.deltaState(key,P.v,pv,rl);
+    const w=!d||P.delta==='без изменений'?'столько же':flat?(d>0?'больше на ':'меньше на ')+absD(key,d)
+      :ds==='bad'?'хуже на '+absD(key,d):ds==='good'?'лучше на '+absD(key,d):(d>0?'больше':'меньше')+' на '+absD(key,d);
     /* Точки двух лет почти совпадают (меньше 8% высоты полотна) — две отметки
        легли бы друг на друга, а разведённые в стороны «не совпадают с
        точками» (14.10). Тогда у пункта нет своего номера: на графике одна
@@ -119,8 +131,9 @@ function yoyStory(key,S,rl,bl){
     const top=Math.max.apply(null,cur.concat(prev,ref?range(12).map(k=>ref.at(k)):[],ref&&ref.kpi?[(ref.kpi.annual||ref.kpi).red]:[])
       .filter(x=>x!=null&&isFinite(x)).concat([0]));
     const near=top>0&&Math.abs(v-pv)/top<0.08;
-    out.push(near?{mi:[b],html:'<b>Год назад — '+f(pv)+'</b>: сейчас '+esc(dot(w))}
-      :{i:b,s:'prev',html:'<b>Год назад — '+f(pv)+'</b>: сейчас '+esc(dot(w))});
+    out.push(!pt?{mi:range(b+1),pin:2,html:'<b>Год назад за те же месяцы — '+f(pv)+'</b>: сейчас '+esc(dot(w))}
+      :near?{mi:[b],pin:2,html:'<b>Год назад — '+f(pv)+'</b>: сейчас '+esc(dot(w))}
+      :{i:b,s:'prev',pin:2,html:'<b>Год назад — '+f(pv)+'</b>: сейчас '+esc(dot(w))});
   }
   /* 3. Экстремум года: у накопительной суммы — месяц, добавивший больше всех;
      у доли с начала года — ничего (январь у неё шумный); иначе худший месяц
@@ -130,7 +143,7 @@ function yoyStory(key,S,rl,bl){
     for(let j=0;j<=b;j++){const a0=j?cur[j-1]:0,a1=cur[j];if(a1!=null&&a0!=null&&a1-a0>inc){inc=a1-a0;best=j}}
     if(best>=0)out.push({i:best,s:'main',html:'<b>Больше всего прибавил '+esc(D.MONTH_NOM[best])+'</b>: '+
       esc(D.fmtDelta(key,+inc.toFixed(2)))+' за месяц.'});
-  }else if(!accum(m)&&b>0){
+  }else if(!accum(m)&&b>0&&v!=null&&!D.eventsOf(key,rl)){
     let wi=-1;
     for(let k=0;k<=b;k++){
       if(cur[k]==null)continue;
@@ -148,19 +161,16 @@ function yoyStory(key,S,rl,bl){
   }
   /* 5. Вывод без точки. 15.10: «к декабрю при таком темпе» снят вместе с
      прогнозом годовой текучести — в каталоге HQ и УС прогноза нет */
-  if(FLOW.has(key)&&b>0){
-    let ys=0,yp=0;
-    for(let k=0;k<=b;k++){ys+=cur[k]||0;yp+=prev[k]||0}
-    const d=ys-yp;
-    out.push({mi:range(b+1),html:'<b>'+esc(cap(D.PER_SPAN))+' — '+esc(D.fmtInt(ys))+'</b>, год назад за те же месяцы — '+
-      esc(D.fmtInt(yp))+(d?' ('+esc(D.fmtDelta(key,d))+')':'')+'.'});
-  }else if(!flat&&ref&&b>=2){
+  /* поставка 128: сумма потока за закрытые месяцы («Янв.–сент. — 57») снята — итог периода уже в пунктах 1–2, а второе окно
+     рядом с «по 12 октября» путало */
+  if(!FLOW.has(key)&&!flat&&ref&&b>=2&&(V==='bad'||V==='good')){
+    /* поставка 128: помесячный счёт — только в поддержку вердикта периода («хуже» — сколько месяцев хуже; «лучше» — что ни
+       одного хуже); при «на уровне» и «без оценки» он спорил бы со строкой («на уровне», но «хуже 6 месяцев из 9») */
     const bad=range(b+1).filter(k=>stateAt(key,cur[k],ref,k)==='bad');
     const rw=ref.co?', чем во всей компании':' '+ref.w;
-    out.push(bad.length
-      ?{mi:bad,html:'Хуже'+rw+' — '+bad.length+' '+
-        U.plural(bad.length,['месяц','месяца','месяцев'])+' из '+(b+1)+' в этом году.'}
-      :{mi:range(b+1),html:'Все '+(b+1)+' '+U.plural(b+1,['месяц','месяца','месяцев'])+' этого года — не хуже'+rw+'.'});
+    if(V==='bad'&&bad.length)out.push({mi:bad,html:'Хуже'+rw+' — '+bad.length+' '+
+        U.plural(bad.length,['месяц','месяца','месяцев'])+' из '+(b+1)+' в этом году.'});
+    else if(V==='good'&&!bad.length)out.push({mi:range(b+1),html:'Все '+(b+1)+' '+U.plural(b+1,['месяц','месяца','месяцев'])+' этого года — не хуже'+rw+'.'});
   }
   /* Номера — слева направо по графику: читается «пункт → точка». Вторая
      отметка в ту же точку не ставится — пункт остаётся без номера, но
@@ -171,7 +181,7 @@ function yoyStory(key,S,rl,bl){
     if(marks.some(z=>z.i===it.i&&z.s===it.s)){it.mi=[it.i];delete it.i;return}
     it.n=marks.length+1;it.mi=[it.i];marks.push({i:it.i,s:it.s,n:it.n});
   });
-  out.sort((a,c)=>(a.n||99)-(c.n||99));
+  out.sort((a,c)=>(a.pin||9)-(c.pin||9)||(a.n||99)-(c.n||99));
   return {items:out,marks:marks};
 }
 
@@ -216,24 +226,29 @@ function metricFact(m,S,rl,bl){
      10% (compareState); метрика в цели не получает «хуже, чем год назад» — строка таблицы зелёная */
   if(st==='bad'&&(kpi||pe||rel(v,ref)>=OBS.dev))
     return {key,sev:kpi?'high':'mid',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — '+(pe?peerSay(false):kpi?'хуже '+w+' '+f(ref)
-      :'хуже, чем во всей компании ('+f(ref)+')'),
-      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',v,ref,kpi,pv,tr,L,mon,peer:pe};
+      :'хуже, чем во всей компании ('+f(ref)+')')+(D.yoyMove(key,rl)==='better'?', но лучше, чем год назад ('+f(pv)+')':''),
+      body:ago+(tr?' '+cap(trendWord(m))+'.':''),kind:'dev',yo:D.yoyMove(key,rl)==='better'?'better':null,v,ref,kpi,pv,tr,L,mon,peer:pe};
   /* год к году: 10% от прошлого значения. Поставка 120 (критики 119, «один вердикт»: «лучше базы» в строке и «Посмотреть ·
      больше, чем год назад» в карточке; «T-рост одобряют чаще» в выводе блока и «как год назад» в главе): второй порог —
      3 п.п. у долей — снят, и у метрики, которую уже оценил ориентир (цель, база, компания: «лучше» или «на уровне»),
      изменение к прошлому году — справка в строке, а не отдельный вывод */
-  if(pv!=null&&m.better!=='flat'&&m.fmt!=='int'&&Math.abs(v-pv)>=(m.fmt==='pct'?0.5:1e-9)&&(ref==null||st==='neutral')&&
-     rel(v,pv)>=OBS.dev){
-    const worse=m.better==='lower'?v>pv:v<pv;
+  /* поставка 128 (аудит): «на уровне ориентира» больше не прячет заметный сдвиг к году — глава уже говорила «на уровне базы, но
+     хуже, чем год назад», чип года в строке красный, а главная писала «в норме». Сдвиг — по D.yoyMove (тому же правилу, что
+     цвет чипа); при «на уровне» — вывод «на уровне …, но хуже/лучше, чем год назад» (lvl) */
+  const mv=m.better!=='flat'&&m.fmt!=='int'?D.yoyMove(key,rl):null;
+  if(pv!=null&&mv&&(ref==null||st==='neutral'||st==='warn')){
+    const worse=mv==='worse', lvl=st==='warn';
     return {key,sev:worse?'mid':'good',pri:2,w:rel(v,pv),
-      lead:nm+' '+f(v)+' — '+(worse?'хуже':'лучше')+', чем год назад ('+f(pv)+')',
-      body:ref!=null?(kpi?'Цель':pe?'База':'Вся компания')+' — '+f(ref)+'.':'',kind:'yoy',v,ref,kpi,pv,L,mon,peer:pe};
+      lead:nm+' '+f(v)+' — '+(lvl?'на уровне '+(pe?'базы '+f(ref):kpi?'цели '+f(ref):'всей компании ('+f(ref)+')')+', но ':'')+
+        (worse?'хуже':'лучше')+', чем год назад ('+f(pv)+')',
+      body:ref!=null?(kpi?'Цель':pe?'База':'Вся компания')+' — '+f(ref)+'.':'',kind:'yoy',lvl,v,ref,kpi,pv,L,mon,peer:pe};
   }
   if(tr)return {key,sev:'mid',pri:3,w:rel(tr.b,tr.a),lead:m.name+': '+trendWord(m),
     body:cap(extMonth(tr.from).name)+' '+f(tr.a)+' → '+D.MONTH_NOM[D.MONTHS_EXT[L].m]+' '+f(tr.b)+'.',kind:'trend',v,ref,kpi,pv,tr,L,mon};
   if(st==='good'&&(pe||rel(v,ref)>=OBS.dev))
     return {key,sev:'good',pri:1,w:rel(v,ref),lead:nm+' '+f(v)+' — '+(pe?peerSay(true):kpi?'лучше '+w+' '+f(ref)
-      :'лучше, чем во всей компании ('+f(ref)+')'),body:ago,kind:'dev',v,ref,kpi,pv,L,mon,peer:pe};
+      :'лучше, чем во всей компании ('+f(ref)+')')+(D.yoyMove(key,rl)==='worse'?', но хуже, чем год назад ('+f(pv)+')':''),
+      body:ago,kind:'dev',yo:D.yoyMove(key,rl)==='worse'?'worse':null,v,ref,kpi,pv,L,mon,peer:pe};
   return null;
 }
 const MONTH_IN=['январе','феврале','марте','апреле','мае','июне','июле','августе','сентябре','октябре','ноябре','декабре'];
@@ -511,7 +526,8 @@ function say(f){
   const st=(SAY[f.key]||[lc(m.name)+' хуже',lc(m.name)+' лучше'])[bad?0:1];
   if(f.key==='nonregret'&&f.kpi&&f.kind==='dev')return st+' цели'+(bad?' — с теми, с кем готовы расстаться, расстаёмся реже':' — это к лучшему');
   /* поставка 117: «чем в базе» (подразделения похожей численности) или «чем во всей компании» — не «чем по базе» */
-  return st+(f.kind==='yoy'?', чем год назад':f.key==='regret'&&f.kpi?' цели':f.kpi?', чем по цели':f.peer?', чем в базе':', чем во всей компании');
+  const yo=f.kind==='dev'&&f.yo?', но '+(SAY[f.key]||[lc(m.name)+' хуже',lc(m.name)+' лучше'])[f.yo==='worse'?0:1].split(' ').pop()+', чем год назад':'';
+  return st+(f.kind==='yoy'?', чем год назад':f.key==='regret'&&f.kpi?' цели':f.kpi?', чем по цели':f.peer?', чем в базе':', чем во всей компании')+yo;
 }
 /* дробь метрики: своя или месячной, если накопительная — сумма месячных ('sum') */
 function ratioDef(m){

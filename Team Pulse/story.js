@@ -87,8 +87,8 @@ function plainHead(j,c,more,less){
   if(j.small)return m.name+' — '+v+'; '+(j.smallHq?'в HQ':'в команде')+' меньше '+D.SMALL_N+' человек, с ориентиром не сравниваем';
   const py=yearAgo(c.lp,j.k);
   if(py==null||!py)return m.name+' — '+v;
-  const r=(j.v-py)/Math.abs(py);
-  return Math.abs(r)<0.1?m.name+' — '+v+', как год назад ('+f(j.k,py)+')':(r>0?more:less)+', чем год назад: '+v+' против '+f(j.k,py);
+  /* поставка 128: «чаще / реже, чем год назад» — тем же правилом, что чип года и карточки (D.yoyMove) */
+  return !D.yoyMove(j.k,c.lp)?m.name+' — '+v+' (год назад '+f(j.k,py)+')':(j.v>py?more:less)+', чем год назад: '+v+' против '+f(j.k,py);
 }
 /* поставка 117: с чем сравнили — «в базе» (подразделения похожей численности, термин с расшифровкой) или «во всей
    компании» с фильтрами шапки; слово «база» — только для подразделений похожей численности */
@@ -198,8 +198,9 @@ function vsBase(j,c,more,less,same,noYoy){
 const ADV=t=>t.split(' ').pop();
 function yoyTail(j,c,more,less){
   const py=j.k?yearAgo(c.lp,j.k):null;
-  /* поставка 120 («один вердикт», критики 119): порог хвоста «но … чем год назад» — тот же 10%, что у выводов (было 5%) */
-  if(py==null||j.v==null||!py||Math.abs(j.v-py)/Math.abs(py)<D.VERDICT_GAP)return '';
+  /* поставка 120 («один вердикт», критики 119): порог хвоста «но … чем год назад» — тот же 10%, что у выводов (было 5%);
+     поставка 128: тем же правилом, что чип года и карточки (D.yoyMove: 10%, малые числа, мало событий) */
+  if(py==null||j.v==null||!py||!D.yoyMove(j.k,c.lp))return '';
   const up=j.v>py, vsB=j.st==='bad'||j.st==='good'?j.v>j.base:null;
   const t=up?more:less;
   return vsB===up?'':', но '+(vsB==null?t.charAt(0).toLowerCase()+t.slice(1):ADV(t))+', чем год назад';

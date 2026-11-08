@@ -752,9 +752,14 @@ if(D.TTF_MED){
     if(j&&j.st!==Vn)errs.push(k+': глава '+j.st+' при вердикте '+V);
     cards.filter(c=>c.key===k).forEach(c=>{const kd=c.fact.kind;
       if(kd==='dev'&&(c.sev==='good'?'good':'bad')!==V)errs.push(k+': карточка '+c.sev+' при вердикте '+V);
-      if(kd==='yoy'&&V!=='neutral')errs.push(k+': карточка «к году» при вердикте '+V);
+      if(kd==='yoy'&&!(V==='neutral'||V==='warn'&&c.fact.lvl))errs.push(k+': карточка «к году» при вердикте '+V);
       if((kd==='dev'||kd==='yoy')&&c.big&&P.v!=null&&nb(c.big.v)!==nb(D.fmtVal(k,P.v)))errs.push(k+': карточка '+c.big.v+' ≠ '+D.fmtVal(k,P.v))});
   });
+  /* поставка 128: заметный сдвиг к году (D.yoyMove — тот же цвет чипа) у долей и сроков без оценки «хуже / лучше» — всегда вывод */
+  Object.keys(RW).forEach(k=>{const m=D.METRIC_BY_KEY[k], V=D.verdictState(k,S,rl,bl);
+    const fam=/^(turnover_m|turnover_y|attrition)$/.test(k)?['turnover_m','turnover_y','attrition']:[k];
+    if(m&&m.fmt!=='int'&&m.better!=='flat'&&(V==='warn'||V==='neutral')&&D.yoyMove(k,rl)&&!cards.some(c=>fam.indexOf(c.key)>=0))
+      errs.push(k+': сдвиг к году ('+D.yoyMove(k,rl)+') без вывода')});
   ok(!errs.length,'один вердикт и одно число на метрику: таблица главной, глава, карточки — '+Object.keys(RW).length+' метрик'+
     (errs.length?': '+errs.slice(0,4).join('; '):''));
 }

@@ -132,6 +132,8 @@ function deltaChip(key,dv,o){
   if(m.better==='flat'||D.isStub(key))return '<span class="delta neu"'+at+'>'+txt+vs+'</span>';
   /* поставка 120 (критики 119: «−0,2 п.п.» зелёным, «+1 к августу» красным): с прошлым значением (o.from) — цвет по
      правилу вердикта (D.deltaState: от 10%, у количеств — от 2 человек, малые группы — серым) */
+  /* поставка 128: явная оценка сдвига (o.st: 'good' | 'bad' | 'neutral') — у чипа «год к году» главной из D.yoyMove, как у карточек */
+  if(o&&o.st)return '<span class="delta '+(o.st==='good'?'up':o.st==='bad'?'down':'neu')+'"'+at+'>'+txt+vs+'</span>';
   if(o&&o.from!=null){
     const ds=D.deltaState(key,o.from+dv,o.from,o.lp);
     return '<span class="delta '+(ds==='good'?'up':ds==='bad'?'down':'neu')+'"'+at+'>'+txt+vs+'</span>';

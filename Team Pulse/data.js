@@ -1300,6 +1300,10 @@ function periodTotal(lp,key,yser){
         (rp>=10?' ('+(ri>0?'+':'\u2212')+Math.abs(Math.round(ri/rp*100))+'%)':'');
       /* поставка 120: цвет плашки — тем же правилом, что у вердикта (deltaState): от 10%, малые группы — серым */
       const ds=deltaState(key,cur,prev,lp);good=ds==='good'?true:ds==='bad'?false:null;
+      /* поставка 128 (аудит: глава «Уходят реже, чем год назад», а главная эту хорошую новость прятала): темп ухода «лучше года»
+         — только если и людей ушло меньше (от 2 человек), иначе темп упал лишь от роста численности; одно правило для итога
+         под графиком, чипа года, главы и карточек */
+      if(good===true&&LEAVE_RATE.has(key)&&lp&&!leaveFewer(lp))good=null;
     }
   }
   /* lab — окно коротко для подписи под числом: «янв.–сент.», «на конец сентября», «сейчас» */
@@ -1471,6 +1475,18 @@ function deltaState(key,cur,prev,lp){
   if(cnt&&Math.abs(Math.round(cur)-Math.round(prev))<(small?3:2))return 'neutral';
   if(prev?Math.abs(d)/Math.abs(prev)<VERDICT_GAP:!d)return 'neutral';
   return (m.better==='lower'?d<0:d>0)?'good':'bad';
+}
+/* поставка 128 (аудит: глава «на уровне базы, но хуже, чем год назад», красный чип года — и «в норме», «не сдвинулась за год»
+   в выводе блока): заметное изменение к тому же периоду прошлого года — одно правило для всех мест, то же, что красит чип
+   «год к году» (deltaState: от 10%, у количеств — от 2 человек, малые и редкие — без оценки). 'worse' | 'better' | null */
+const LEAVE_RATE=new Set(['turnover_m','turnover_y']);
+function leaveFewer(lp){const A=periodTotal(lp,'attrition');return !!A&&A.v!=null&&A.pv!=null&&A.pv-A.v>=2}
+function yoyMove(key,lp){
+  const P=periodTotal(lp,key);
+  if(!P||P.v==null||P.pv==null)return null;
+  const s=deltaState(key,P.v,P.pv,lp);
+  if(s==='good'&&LEAVE_RATE.has(key)&&!leaveFewer(lp))return null;
+  return s==='bad'?'worse':s==='good'?'better':null;
 }
 /* есть ли у метрики жёсткий KPI в текущей настройке (regret — только по HQ) */
 /* 21.10, поставка 50: годовые цели прод-отчёта HQ (regrettable 4%, non-regrettable 5–15%, общая —
@@ -3540,7 +3556,7 @@ function aiUsage(lp){
 window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,yoyMove,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,
