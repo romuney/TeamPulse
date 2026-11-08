@@ -411,8 +411,9 @@ function overview(S,rl,bl,all){
       const Le=D.MONTHS_EXT.findIndex(mm=>mm.y===D.MONTHS[Lh].y&&mm.m===D.MONTHS[Lh].m);
       out.push({key:'turnover_y',sev:'high',pri:1,w:rel(r.v,kpi.green),kind:'hqb',v:r.v,ref:kpi.green,L:Le>=0?Le:L,
         hq:{hc:h.hc,ya:r.ya,nr:rv('nonregret'),rg:rv('regret'),cur:r.yoy?r.yoy.cur:null,ann:kpi.annual?kpi.annual.green:null},
-        lead:'Текучесть HQ выше ориентира'+yr,
-        say:'текучесть HQ выше ориентира',todo:'разобрать уходы HQ — кто уходит и почему, вкладка «Как уходит HQ?»'});
+        /* поставка 128 (владелец 08.11): это цель компании по HQ — называем «цель», как на шаге «Как уходит HQ?» */
+        lead:'Текучесть HQ выше цели'+yr,
+        say:'текучесть HQ выше цели',todo:'разобрать уходы HQ — кто уходит и почему, вкладка «Как уходит HQ?»'});
     }
   }
   /* поставка 110 (C3, критики: «нет ответа, какое подразделение в беде»): подразделение первого уровня, которое хуже всего
@@ -608,7 +609,7 @@ function whereOf(f,S){
 function hqMini(f){
   const q=f.hq;if(!q||!q.cur||!q.ann||D.CUR_LEN<2)return '';
   const cur=q.cur.slice(0,D.CUR_LEN), ref=cur.map((_,i)=>+(q.ann*(i+1)/12).toFixed(2));
-  return G.miniYoy(cur,ref,'ориентир '+D.fmtVal('turnover_y',q.ann)+' в год');
+  return G.miniYoy(cur,ref,'цель '+D.fmtVal('turnover_y',q.ann)+' в год');
 }
 /* ряд для мини-графика: этот год с января против ориентира; до апреля — 12 месяцев окна */
 function miniOf(f,rl,bl){
@@ -689,9 +690,9 @@ function cardOf(f,S,rl,bl){
   const two=wh&&wh.top2?'<b>«'+esc(wh.top2[0].n.name)+'»</b> и <b>«'+esc(wh.top2[1].n.name)+'»</b>':'';
   if(two){body.push('Почти вся эта разница — в '+two+'.');pills.push('почти всё — '+two)}
   if(f.kind==='hqb'&&f.hq){const q=f.hq, over=Math.round((f.v-f.ref)/100*q.hc);
-    if(over>=1)pills.push('<b>≈ '+ppl(over)+'</b> сверх ориентира · в HQ '+ppl(q.hc));
+    if(over>=1)pills.push('<b>≈ '+ppl(over)+'</b> сверх цели · в HQ '+ppl(q.hc));
     /* два ориентира в карточке путали (критик блока): годовой и его доля к закрытому месяцу — одной строкой */
-    if(q.ann)pills.push('ориентир '+fv(q.ann)+' в год, к '+D.MONTH_DAT[D.MONTHS_EXT[f.L].m]+' — '+fv(f.ref));
+    if(q.ann)pills.push('цель '+fv(q.ann)+' в год, к '+D.MONTH_DAT[D.MONTHS_EXT[f.L].m]+' — '+fv(f.ref));
     if(q.nr!=null&&q.rg!=null){pills.push('из них желательные '+fv(q.nr)+', нежелательные '+fv(q.rg)+', прочие '+fv(Math.max(0,f.v-q.nr-q.rg)));
       body.push('Без желательных уходов — '+esc(fv(Math.max(0,f.v-q.nr)))+' при ориентире '+esc(fv(f.ref))+'.')}}
   const sub=f.kind==='dev'&&f.pv!=null?'год назад '+fv(f.pv):f.kind==='hqb'&&f.hq&&f.hq.ya!=null?'год назад '+fv(f.hq.ya):'';
@@ -710,7 +711,7 @@ function cardOf(f,S,rl,bl){
     :f.kind==='trend'?fv(f.tr.a)+' → '+fv(f.tr.b):'';
   /* поставка 120 (критики 119: плашка «Текучесть накопительная 31,9%» в выводе блока — это текучесть HQ, рядом 20,7% под тем же
      именем): у вывода по HQ — своё имя и ориентир */
-  const kp=f.kp?f.kp:f.kind==='hqb'?'Текучесть HQ с января <b>'+esc(fv(f.v))+'</b> · ориентир '+esc(fv(f.ref))
+  const kp=f.kp?f.kp:f.kind==='hqb'?'Текучесть HQ с января <b>'+esc(fv(f.v))+'</b> · цель '+esc(fv(f.ref))
     :esc(mn)+' <b>'+esc(fv(f.kind==='trend'?f.tr.b:f.v))+'</b>'+(ref?' · '+esc(ref):'');
   return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,pills,kp,big,sub,
     ppl:n,where:wh,chart:f.kind==='hqb'?hqMini(f):/^(unit|uppl)$/.test(f.kind)||f.kind==='ppl'&&f.key!=='attrition'?'':miniOf(f,rl,bl),

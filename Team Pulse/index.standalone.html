@@ -3303,8 +3303,10 @@ const DEV_PLAN=[
     /* 27.10-в, п. 3 и 10: сходятся с мастер-источником; всегда по активной численности HQ */
     {what:'Нежелательная и желательная текучесть',aud:'hq',stage:'0',now:'live',hq:1,ok:1},
     /* 26.10-б, правки п. 5: блок «Как уходит HQ» сверен целиком */
-    /* поставка 103 (файл 9, п. 10): без целей — только факт и динамика */
-    {what:'Блок «Как уходит HQ?»: три текучести накопительно',aud:'hq',stage:'0',now:'live',hq:1,ok:1},
+    /* поставка 103 (файл 9, п. 10) сняла цели; поставка 128 (владелец 08.11: «по HQ, желательной и нежелательной текучести есть
+       цели компании — они обязательно должны быть») вернула */
+    {what:'Блок «Как уходит HQ?»: три текучести накопительно против целей отчёта HQ (15%, у IT — 12%; желательная — не ниже 5%; нежелательная — не выше 4%)',
+      aud:'hq',stage:'0',now:'live',hq:1,ok:1},
     {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live',ok:1},
     /* 21.10, ревизия источника (п. 10): по инициатору знаменатель — среднесписочная подразделения, она есть;
@@ -4406,12 +4408,13 @@ function hqLight(st,lpSel,sel){
     /* поставка 103 (файл 9, п. 10) сняла цели с блока «Как уходит HQ?»; поставка 128 (владелец 08.11: вывод блока, карточка на
        главной и шаг «Почему уходят?» судят HQ по целям, а на самом шаге HQ их не видно — «цели на шаге HQ»): цель закрытого
        месяца (годовая × номер месяца ÷ 12) и оценка по ней — тем же stateForKpi, что строка главной; в HQ меньше 30 человек —
-       ни цели, ни оценки (доли не оцениваем) */
+       цель есть, оценки нет (доли не оцениваем) */
     const ser=aggregate(lp,sk(x.key)), v=ser[L], e=aggregateExt(lp,sk(x.key)), i=L+PRE;
     const d=(a,b)=>a==null||b==null?null:+(a-b).toFixed(4);
-    const kpi=hc>=SMALL_N?kpiAt(x.key,sh,mon.m):null;
+    /* владелец 08.11: цели компании по HQ показываем всегда; при HQ меньше 30 человек — без оценки по ним (один уход сдвигает долю) */
+    const kpi=kpiAt(x.key,sh,mon.m);
     return Object.assign({},x,{ser:ser,v:v,mom:d(e[i],e[i-1]),yoyD:d(e[i],e[i-12]),ya:e[i-12],kpi:kpi,
-      st:kpi&&v!=null?(sm=>sm==='good'||sm==='bad'?sm:'neutral')(hqKpiState(x.key,v,kpi)):'neutral',yoy:yoySeries(lp,sk(x.key))});
+      st:kpi&&v!=null&&hc>=SMALL_N?(sm=>sm==='good'||sm==='bad'?sm:'neutral')(hqKpiState(x.key,v,kpi)):'neutral',yoy:yoySeries(lp,sk(x.key))});
   });
   if(!REAL)setHcMode(m0);
   return {lp:lp,hc:hc,rows:rows,st:sh,month:mon};
@@ -9620,8 +9623,9 @@ function overview(S,rl,bl,all){
       const Le=D.MONTHS_EXT.findIndex(mm=>mm.y===D.MONTHS[Lh].y&&mm.m===D.MONTHS[Lh].m);
       out.push({key:'turnover_y',sev:'high',pri:1,w:rel(r.v,kpi.green),kind:'hqb',v:r.v,ref:kpi.green,L:Le>=0?Le:L,
         hq:{hc:h.hc,ya:r.ya,nr:rv('nonregret'),rg:rv('regret'),cur:r.yoy?r.yoy.cur:null,ann:kpi.annual?kpi.annual.green:null},
-        lead:'Текучесть HQ выше ориентира'+yr,
-        say:'текучесть HQ выше ориентира',todo:'разобрать уходы HQ — кто уходит и почему, вкладка «Как уходит HQ?»'});
+        /* поставка 128 (владелец 08.11): это цель компании по HQ — называем «цель», как на шаге «Как уходит HQ?» */
+        lead:'Текучесть HQ выше цели'+yr,
+        say:'текучесть HQ выше цели',todo:'разобрать уходы HQ — кто уходит и почему, вкладка «Как уходит HQ?»'});
     }
   }
   /* поставка 110 (C3, критики: «нет ответа, какое подразделение в беде»): подразделение первого уровня, которое хуже всего
@@ -9817,7 +9821,7 @@ function whereOf(f,S){
 function hqMini(f){
   const q=f.hq;if(!q||!q.cur||!q.ann||D.CUR_LEN<2)return '';
   const cur=q.cur.slice(0,D.CUR_LEN), ref=cur.map((_,i)=>+(q.ann*(i+1)/12).toFixed(2));
-  return G.miniYoy(cur,ref,'ориентир '+D.fmtVal('turnover_y',q.ann)+' в год');
+  return G.miniYoy(cur,ref,'цель '+D.fmtVal('turnover_y',q.ann)+' в год');
 }
 /* ряд для мини-графика: этот год с января против ориентира; до апреля — 12 месяцев окна */
 function miniOf(f,rl,bl){
@@ -9898,9 +9902,9 @@ function cardOf(f,S,rl,bl){
   const two=wh&&wh.top2?'<b>«'+esc(wh.top2[0].n.name)+'»</b> и <b>«'+esc(wh.top2[1].n.name)+'»</b>':'';
   if(two){body.push('Почти вся эта разница — в '+two+'.');pills.push('почти всё — '+two)}
   if(f.kind==='hqb'&&f.hq){const q=f.hq, over=Math.round((f.v-f.ref)/100*q.hc);
-    if(over>=1)pills.push('<b>≈ '+ppl(over)+'</b> сверх ориентира · в HQ '+ppl(q.hc));
+    if(over>=1)pills.push('<b>≈ '+ppl(over)+'</b> сверх цели · в HQ '+ppl(q.hc));
     /* два ориентира в карточке путали (критик блока): годовой и его доля к закрытому месяцу — одной строкой */
-    if(q.ann)pills.push('ориентир '+fv(q.ann)+' в год, к '+D.MONTH_DAT[D.MONTHS_EXT[f.L].m]+' — '+fv(f.ref));
+    if(q.ann)pills.push('цель '+fv(q.ann)+' в год, к '+D.MONTH_DAT[D.MONTHS_EXT[f.L].m]+' — '+fv(f.ref));
     if(q.nr!=null&&q.rg!=null){pills.push('из них желательные '+fv(q.nr)+', нежелательные '+fv(q.rg)+', прочие '+fv(Math.max(0,f.v-q.nr-q.rg)));
       body.push('Без желательных уходов — '+esc(fv(Math.max(0,f.v-q.nr)))+' при ориентире '+esc(fv(f.ref))+'.')}}
   const sub=f.kind==='dev'&&f.pv!=null?'год назад '+fv(f.pv):f.kind==='hqb'&&f.hq&&f.hq.ya!=null?'год назад '+fv(f.hq.ya):'';
@@ -9919,7 +9923,7 @@ function cardOf(f,S,rl,bl){
     :f.kind==='trend'?fv(f.tr.a)+' → '+fv(f.tr.b):'';
   /* поставка 120 (критики 119: плашка «Текучесть накопительная 31,9%» в выводе блока — это текучесть HQ, рядом 20,7% под тем же
      именем): у вывода по HQ — своё имя и ориентир */
-  const kp=f.kp?f.kp:f.kind==='hqb'?'Текучесть HQ с января <b>'+esc(fv(f.v))+'</b> · ориентир '+esc(fv(f.ref))
+  const kp=f.kp?f.kp:f.kind==='hqb'?'Текучесть HQ с января <b>'+esc(fv(f.v))+'</b> · цель '+esc(fv(f.ref))
     :esc(mn)+' <b>'+esc(fv(f.kind==='trend'?f.tr.b:f.v))+'</b>'+(ref?' · '+esc(ref):'');
   return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,pills,kp,big,sub,
     ppl:n,where:wh,chart:f.kind==='hqb'?hqMini(f):/^(unit|uppl)$/.test(f.kind)||f.kind==='ppl'&&f.key!=='attrition'?'':miniOf(f,rl,bl),
@@ -10343,8 +10347,8 @@ CH.turnover={
     if(h.hc<D.SMALL_N){const pp=Math.round(1000/h.hc)/10;
       return {sum:'HQ: '+pl(h.hc,PPL),st:'n',head:'В HQ '+pl(h.hc,PPL)+' — текучесть HQ в процентах не оцениваем',
         lede:'Активная численность HQ — **'+pl(h.hc,PPL)+'**: один уход сдвигает текучесть HQ примерно на **'+
-          String(pp).replace('.',',')+' п.п.** Поэтому доли здесь не сравниваем ни с прошлым годом, ни с ориентиром — '+
-          'уходы в людях видны на графиках «Отток» и в таблице подразделений.'};}
+          String(pp).replace('.',',')+' п.п.** Поэтому доли здесь не сравниваем ни с прошлым годом, ни с целями — '+
+          'уходы в людях видны на графиках «Отток» и в таблице подразделений. Цели HQ — пунктиром на графиках, для справки.'};}
     const t=h.rows[0], nr=h.rows[1], rg=h.rows[2];
     const nm={turnover_y:'текучесть HQ',nonregret:'желательная текучесть HQ',regret:'нежелательная текучесть HQ'};
     /* поставка 128 (аудит: «выше, чем год назад» при +1,5 п.п. рядом с серым чипом): «выше / ниже» — от 10% разницы, тем же
@@ -10353,7 +10357,7 @@ CH.turnover={
     const up=h.rows.filter(sig);
     const yo=r=>r.ya==null?'года назад нет':!sig(r)?'почти как год назад':(r.v>r.ya?'выше':'ниже')+', чем год назад';
     /* поставка 128 (владелец 08.11: «цели на шаге HQ»): оценка по цели закрытого месяца (D.hqLight, stateForKpi) — первой, тем же
-       словом, что вывод блока и карточка «Текучесть HQ выше ориентира»; год к году — следом */
+       словом, что вывод блока и карточка «Текучесть HQ выше цели»; год к году — следом */
     const cg=r=>r.kpi?'цель '+f(r.key,r.kpi.green)+(r.st==='bad'?' — хуже':r.st==='good'?' — лучше':''):'';
     const bad=h.rows.filter(r=>r.st==='bad'), good=h.rows.filter(r=>r.st==='good');
     const capF=x=>x.replace(/^./,y=>y.toUpperCase());
@@ -10858,8 +10862,9 @@ const GL={
   'WAU':{metric:'ai_wau'}
 };
 /* поставка 103 (файл 9, п. 10): термины раздела «Как уходит HQ?» — определения метрик без фраз о целях */
-Object.assign(GL,{'Текучесть HQ':{metric:'turnover_y',noGoal:1},'Желательная HQ':{metric:'nonregret',noGoal:1},
-  'Нежелательная HQ':{metric:'regret',noGoal:1}});
+/* поставка 128 (владелец 08.11: цели HQ обязательны): определения — вместе с целями, как у остальных метрик */
+Object.assign(GL,{'Текучесть HQ':{metric:'turnover_y'},'Желательная HQ':{metric:'nonregret'},
+  'Нежелательная HQ':{metric:'regret'}});
 function glossary(term){
   const g=GL[term];
   if(!g)return null;
@@ -10902,7 +10907,8 @@ const WHY={
     /* поставка 103 (файл 9, п. 10): без целей — факт и сравнение с прошлым годом */
     hq:['Как уходит HQ: {{Текучесть HQ|текучесть}}, {{Желательная HQ|желательная}} и {{Нежелательная HQ|нежелательная}} '+
       'с начала года против целей HQ и прошлого года — всегда по активной численности HQ.',
-      'Нежелательная растёт к прошлому году — разберите причины с нежелательными уходами в «Почему уходят?».']},
+      'Нежелательная выше цели или растёт к прошлому году — разберите причины с нежелательными уходами в «Почему уходят?». '+
+      'Желательная ниже цели — проверьте, с кем по итогам оценки пора расстаться.']},
   hiring:{
     vacancies:['Открытые вакансии — это недостающие люди, а {{Срок закрытия вакансии|срок закрытия}} — сколько команда работает не в полном составе.',
       'Вакансии копятся месяцами — пересмотрите требования и каналы подбора.'],
@@ -11502,7 +11508,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» вывод блока (он сравнивает текучесть отдела с целями) не ставим —
      в разделе HQ целей нет; свой текст раздела — в его главе */
   /* поставка 106: у AI месячных метрик нет — вывод блока (ориентиры, «N мес. подряд») не ставим; вывод недель — в главе */
-  if(!(b.key==='turnover'&&S.subTab==='hq')&&b.key!=='ai')h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
+  /* поставка 128 (владелец 08.11: цели HQ обязательны): вывод блока снова и на «Как уходит HQ?» — его снимала поставка 103 вместе
+     с целями */
+  if(b.key!=='ai')h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и

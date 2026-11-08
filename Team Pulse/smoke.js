@@ -1973,9 +1973,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
      пунктиром на графиках и в строке итога; меньше 30 — ни цели, ни оценки */
   {const hb=A.go('turnover','hq'), hl=D.hqLight(A.st(),D.reportLeaves(A.st()),A.st().unit);
     const big=!!hl&&hl.hc>=D.SMALL_N;
-    checks.push(['поставка 128: «Как уходит HQ?» — цели на графиках и в строке итога, оценка по цели; без них — у HQ меньше 30 человек',
-      !!hl&&(big?hl.rows.every(r=>r.kpi&&r.kpi.annual&&(r.st==='good'||r.st==='bad'||r.st==='neutral'))&&/цель /.test(hb)&&/Цели — годовые/.test(hb)
-        :hl.rows.every(r=>r.kpi==null&&r.st==='neutral'))&&/data-sid="prev"|>'+D.YEAR_PREV+'</.test(hb)])}
+    checks.push(['поставка 128: «Как уходит HQ?» — цели всегда на графиках и в строке итога, оценка по цели — у HQ от 30 человек',
+      /* владелец 08.11: цели HQ есть всегда; у HQ меньше 30 человек — без оценки по ним */
+      !!hl&&hl.rows.every(r=>r.kpi&&r.kpi.annual)&&/цель /.test(hb)&&/Цели — годовые/.test(hb)&&
+        (big?hl.rows.every(r=>r.st==='good'||r.st==='bad'||r.st==='neutral'):hl.rows.every(r=>r.st==='neutral'))&&
+        /data-sid="prev"|>'+D.YEAR_PREV+'</.test(hb)])}
   checks.push(['файл 8, п. 6: закрытые вакансии в таблице — за '+D.YEAR_CUR+' год, год в подписи колонки',
     th.indexOf('Закрытые<span class="th-per">'+D.YEAR_CUR+'</span>')>=0]);
   /* поставка 127 (владелец 08.11: «нельзя переносить — мини-версии заголовков на мелком экране»): ряд шагов один; не помещаются
