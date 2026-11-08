@@ -3556,7 +3556,7 @@ function aiUsage(lp){
 window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
-  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,yoyMove,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
+  PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,yoyMove,perSum,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
   MONTHS,N,LAST,PERIOD_LABEL,CMP,BLOCKS,BLOCK_BY_KEY,METRICS,METRIC_BY_KEY,metricsOfBlock,
   OFFICES,DOW_NAME,DOW_SHORT,MONTH_GEN,CAL_MONTH,CAL_MONTHS,CAL_TODAY,DOW_MONTHS,
   attDays,attLast,attByDow,officeRank,OFF_SEGS,officeCross,

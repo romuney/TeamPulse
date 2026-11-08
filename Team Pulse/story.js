@@ -373,7 +373,10 @@ CH.movement={
           :'Переводы уравновешены: по **'+tin+'** в обе стороны',
         other?'Прочие изменения — **'+signed(other)+'**: то, что не объясняют найм, отток и переводы (смена типа численности, реорганизации)':null,
         mx!==D.LAST&&mx!==0?'Максимум численности — **'+D.fmtInt(hc[mx])+'** '+mPrep(mx):null,
-        top?(tie?'Больше всего нанимают «'+top.name+'» и «'+fr[1].name+'»: по **'+top.val+'**':'Больше всего нанимает «'+top.name+'»: **'+top.val+'**')+' из '+hire+since:null],
+        /* поставка 128 (аудит: «41 из 106» — 41 весь найм подразделения, 106 только приём в компанию из витрины движения): делитель —
+           сумма тех же строк, весь найм со стажёрами в штат */
+        top?(tie?'Больше всего нанимают «'+top.name+'» и «'+fr[1].name+'»: по **'+top.val+'**':'Больше всего нанимает «'+top.name+'»: **'+top.val+'**')+
+          ' из **'+fr.reduce((s,r)=>s+(r.val||0),0)+'**'+since+' — весь найм, со стажёрами в штат':null],
       focus:fo.focus,act:fo.act};
   },
   dynamics(c){
@@ -386,7 +389,9 @@ CH.movement={
     const pk=(k,w)=>{const y=D.yoySeries(c.lp,k).cur.slice(0,D.PER_C+1), mv=Math.max.apply(null,y.map(v=>v||0)), at=[];
       y.forEach((v,i)=>{if(mv&&v===mv)at.push(PREP[i])});return at.length?w+' в '+at.join(' и ')+': **'+mv+'**':null};
     return {sum:'+'+h+' / '+minus(-a),st:'n',
-      head:h>a?'Найм перекрывает отток: пришли '+h+', ушли '+a+since:h<a?'Отток больше найма: пришли '+h+', ушли '+a+since
+      /* поставка 128 (аудит: глава «пришли 11, ушли 9», а вывод блока над ней — «пришли 15, ушли 13», с переводами): в главе —
+         найм и уходы теми же словами, что пилюли вывода («найм 11 · уволились 9»); «пришли / ушли» — только с переводами */
+      head:h>a?'Найм перекрывает отток: наняли '+h+', уволились '+a+since:h<a?'Отток больше найма: наняли '+h+', уволились '+a+since
         :'Найм и отток'+since+' сравнялись: по '+h,
       lede:'Приняли **'+pl(h,PPL)+'**'+ago(c.lp,'hire')+', ушли **'+pl(a,PPL)+'**'+ago(c.lp,'attrition')+'; переводами пришли '+ti+', ушли '+to+
         '. Сверху — итог, ниже — потоки, которые его двигали: видно, какой месяц что сдвинул.',
@@ -443,8 +448,12 @@ CH.tgrowth={
     const fo=focusRate(c,'tgrowth_conv','Конверсия по подразделениям');
     return {sum:'конверсия '+f('tgrowth_conv',cv.v),st:cv.st,
       head:vsBase(cv,c,'Повышают чаще','Повышают реже','Конверсия T-роста — на уровне базы'),
-      lede:'Одобрено **'+ps+'** '+U.plural(ps,['заявка','заявки','заявок'])+ago(c.lp,'tgrowth_pass')+', отклонено **'+dn+'**'+
-        ago(c.lp,'tgrowth_deny')+'. Конверсия — '+valAt('tgrowth_conv',cv,c)+'.',
+      /* поставка 128 (аудит: «Одобрено 9, отклонено 2. Конверсия — 87,5%» — счёт по 12 октября, конверсия по сентябрь, 9 из 11 —
+         это 81,8%): решения — за то же окно, что конверсия; до даты данных — отдельной фразой, с причиной */
+      lede:D.PER_TEXT.replace(/^./,x=>x.toUpperCase())+' одобрено **'+D.perSum(c.lp,'tgrowth_pass')+'** '+U.plural(D.perSum(c.lp,'tgrowth_pass'),['заявка','заявки','заявок'])+
+        ', отклонено **'+D.perSum(c.lp,'tgrowth_deny')+'** — конверсия '+valAt('tgrowth_conv',cv,c)+'.'+
+        (ps!==D.perSum(c.lp,'tgrowth_pass')||dn!==D.perSum(c.lp,'tgrowth_deny')?' По '+D.ASOF_LABEL+' — одобрено '+ps+', отклонено '+dn+
+          ' (так на графике заявок): незакрытый месяц в конверсию не входит.':''),
       focus:fo.focus,act:fo.act,ann:{tgrowth_conv:{hi:[cv.i]}}};
   },
   /* 27.10-в, п. 8: «Как растут по грейдам?» и «Как меняют специализацию?» — по описанию вкладки «Рост» дашборда HQ */
@@ -705,14 +714,16 @@ CH.structure.portrait=function(c){
      перекрёстной фильтрации) — поэтому в рассказе он не «самый частый», а
      просто тот, что выбран, и доли по нему не называются: в срезе они 100%. */
   const parts=D.sliceParse(sel), inSel=k=>parts.find(p=>p.dim.key===k||(k==='stream'&&p.dim.key==='spec'));
+  /* поставка 128 (аудит: портрет «7 человек · Junior», а шаг «Уровень» — «поровну Junior и Senior»): ничья — не лидер (tieOf) */
   const mode=k=>{const q=inSel(k);if(q)return {cat:q.cat,fixed:true};
-    const p=P(k), i=argmax(p);return {cat:D.mixCats(k)[i],n:p[i],share:pc(p[i],sum(p))}};
+    const p=P(k), i=argmax(p);return Object.assign({cat:D.mixCats(k)[i],n:p[i],share:pc(p[i],sum(p))},tieOf(p,i,j=>D.mixCats(k)[j].name))};
   const tk=['gender','age','tenure','seniority','grade'].find(k=>!inSel(k));
   const tot=tk?sum(P(tk)):0;
   if(!tot)return {sum:'нет людей',st:'n'};
   const sn=mode('seniority'), ag=mode('age'), tn=mode('tenure');
   const tree=D.mixTree(c.lp,'stream',sel).slice().sort((a,b)=>b.value-a.value);
   const stQ=inSel('stream'), top=stQ&&stQ.dim.key==='stream'?tree.find(n=>n.cat.id===stQ.cat.id)||tree[0]:tree[0];
+  const stTie=!stQ&&tree.length>1&&tree[1].value===tree[0].value?tieOf(tree.map(n=>n.value),0,j=>tree[j].cat.name):null;
   /* «меньше года» — все группы стажа до года: в настоящих данных их три (менее 3 мес,
      3–6 мес, 6–12 мес, 19.10), а не одна первая */
   const early=D.mixCats('tenure').map(c=>D.bound(c.name,'mon')<12), e=a=>sum(a.filter((_,i)=>early[i]));
@@ -720,18 +731,23 @@ CH.structure.portrait=function(c){
   const devs=profDevs(c,inSel), big=devs[0]&&Math.abs(devs[0].d)>=5?devs[0]:null;
   /* поставка 117: состав сравнивается со всей компанией (с фильтрами шапки), это не «база» */
   const cmp=x=>'«'+x.cat.name+'» — **'+pp(x.t)+'** против '+pp(x.b)+' во '+D.coName(c.S,'prep');
-  const role=stQ&&stQ.dim.key==='spec'?'«'+stQ.cat.name+'»':roleOf(top.cat);
-  const who=SEN[sn.cat.key]&&ROLE[top.cat.key]?SEN[sn.cat.key]+'-'+role+' '+ageOf(ag.cat)+', '+tenOf(tn.cat)
-    :senOf(sn.cat)+', '+role+', '+ageOf(ag.cat)+', '+tenOf(tn.cat);
-  const lede=[stQ?null:'**'+pc(top.value,tot)+'%** — «'+top.cat.name+'»',
-    sn.fixed?null:'**'+sn.share+'%** — '+senOf(sn.cat),
+  const role=stQ&&stQ.dim.key==='spec'?'«'+stQ.cat.name+'»':stTie?'стрим — поровну '+stTie.q:roleOf(top.cat);
+  const senW=sn.tie?'поровну '+sn.q:senOf(sn.cat), ageW=ag.tie?'возраст — поровну '+ag.q:ageOf(ag.cat), tenW=tn.tie?'стаж — поровну '+tn.q:tenOf(tn.cat);
+  const who=!sn.tie&&!stTie&&SEN[sn.cat.key]&&ROLE[top.cat.key]?SEN[sn.cat.key]+'-'+role+' '+ageW+', '+tenW
+    :senW+', '+role+', '+ageW+', '+tenW;
+  const lede=[stQ?null:stTie?'стримы поровну: '+stTie.q:'**'+pc(top.value,tot)+'%** — «'+top.cat.name+'»',
+    sn.fixed?null:sn.tie?'поровну '+sn.q+' (**по '+sn.share+'%**)':'**'+sn.share+'%** — '+senOf(sn.cat),
     tn.fixed?null:'**'+n0+'%** — меньше года в компании'].filter(Boolean);
-  return {sum:pl(tot,PPL)+' · '+senOf(sn.cat),st:'n',
+  /* поставка 128 (аудит): сравнение состава со всей компанией — не у самой компании («похожа на всю компанию») и не у команды
+     меньше 30 человек (вывод блока: «доли не оцениваем»); уровень, стаж и стримы — на своих шагах, так и сказано */
+  const cmpOk=!D.isSelfBase()&&!D.isSmall();
+  return {sum:pl(tot,PPL)+' · '+(sn.tie?'поровну '+sn.q:senOf(sn.cat)),st:'n',
     /* поставка 121 (критики 119: «типичный человек» склеен из самых частых признаков — такого человека может и не быть) */
     head:parts.length?'В срезе «'+D.sliceLabel(sel)+'» чаще всего: '+who:'Чаще всего в команде: '+who,
     lede:'**'+pl(tot,PPL)+'**'+(parts.length?' в срезе':'')+(lede.length?': '+lede.join(', '):'')+'. '+
-      (big?'Сильнее всего от '+D.coName(c.S,'gen')+' отличается '+big.dim.short.toLowerCase()+': '+cmp(big)+'.'
-          :'По составу команда похожа на '+D.coName(c.S,'acc')+': нигде расхождение не доходит до 5 п.п.')};
+      (!cmpOk?'':big?'Сильнее всего от '+D.coName(c.S,'gen')+' отличается '+big.dim.short.toLowerCase()+': '+cmp(big)+'. '
+          :'По составу команда похожа на '+D.coName(c.S,'acc')+': нигде расхождение не доходит до 5 п.п. ')+
+      'Уровень и стаж — на шаге «Уровень позиции», стримы — на шаге «Стримы».'};
 };
 
 /* «Оформление» (21.10, файл «Структура»): штат и самый частый формат работы */
@@ -744,7 +760,9 @@ CH.structure.work=function(c){
   const fm=D.MIX_BY_KEY.worksite&&!inSel('worksite')?(()=>{const p=P('worksite'), i=argmax(p);return D.mixCats('worksite')[i]})():null;
   return {sum:'штат '+st.t+'%',st:'n',
     head:'В штате '+st.t+'% команды'+(fm?', чаще всего — '+fm.name.toLowerCase():''),
-    lede:'**'+pl(st.n,PPL)+'**'+(parts.length?' в срезе':'')+'. Штат — **'+st.t+'%**'+(Math.abs(st.t-st.b)>=5?' при '+st.b+'% во '+D.coName(c.S,'prep'):', как во '+D.coName(c.S,'prep'))+'.'};
+    /* поставка 128: со всей компанией — не у неё самой и не у малой команды */
+    lede:'**'+pl(st.n,PPL)+'**'+(parts.length?' в срезе':'')+'. Штат — **'+st.t+'%**'+(D.isSelfBase()||D.isSmall()?''
+      :Math.abs(st.t-st.b)>=5?' при '+st.b+'% во '+D.coName(c.S,'prep'):', как во '+D.coName(c.S,'prep'))+'.'};
 };
 
 /* ---------- Зачем смотреть и что с этим делать (итерация 32, фидбэк 12.10) ----------
