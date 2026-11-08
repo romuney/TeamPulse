@@ -467,8 +467,8 @@ function renderBlock(S,expanded,mixOpen,view){
       ? 'Сравниваем '+(pm.length?'с <span class="term" tabindex="0"'+U.baseTip(null,pe0)+'>базой</span> — подразделениями похожей численности'+
           (pm.length<cmpMets.length?', где её нет — со всей компанией':'')+'.':'со всей компанией с выбранными фильтрами.')
       : kpiMets.length?'':'Здесь количества — с другими подразделениями они не сравниваются.')+
-    /* поставка 103 (файл 9, п. 10): в «Как уходит HQ?» целей нет — и упоминания о них в шапке тоже */
-    (kpiMets.length&&!(b.key==='turnover'&&S.subTab==='hq')?' Где есть цель KPI — с целью.':'');
+    /* поставка 103 убирала из шапки «Как уходит HQ?» упоминание целей; поставка 128 (владелец 08.11) вернула цели на этот шаг */
+    (kpiMets.length?' Где есть цель KPI — с целью.':'');
   /* «Детальный дашборд» ведёт туда, где блок есть в Proteus: при покраске HQ —
      в HQ-версию 34136, иначе в общую 34661; HQ-блоки — всегда в 34136. */
   const dash=D.blockDash(b.key,S);
@@ -578,8 +578,8 @@ function renderBlock(S,expanded,mixOpen,view){
   const hcT=val(rl,'hc_total');
   const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),i===1)).join('')
     :tmets.map(m=>'<td'+(m.fmt==='pct'&&isSm(hcT)?smAttr(hcT,m.key===mainK?'lead':''):m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
-  /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» подсказки шапок — без фраз о целях */
-  const noGoal=t=>b.key==='turnover'&&S.subTab==='hq'?(String(t).match(/[^.]+(?:\.|$)\s*/g)||[]).filter(x=>!/[Цц]ел[ьиея]/.test(x)).join('').trim():t;
+  /* поставка 103 убирала фразы о целях из подсказок шапок на «Как уходит HQ?»; поставка 128 (владелец 08.11) их вернула */
+  const noGoal=t=>t;
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'».\nГлубже — выберите строку и нажмите значок у её названия.'})+'>Подразделение</th>'+
     (tcols?tcols.map(c=>{const on=tsc===c;return '<th'+(c.val?' class="tsort'+(on?' on':'')+'" data-tsort="'+(on&&tsd<0?c.k+':a':on?'':c.k+':d')+'"':'')+

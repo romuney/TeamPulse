@@ -400,7 +400,9 @@ function overview(S,rl,bl,all){
   if(S.paint!=='HQ'&&D.metricVisible('turnover_y',S)&&D.hqLight){
     const h=D.hqLight(S,null,null), r=h&&h.hc>=CARD.small&&h.rows.find(x=>x.key==='turnover_y');
     const Lh=D.LAST-(D.PARTIAL?1:0), kpi=r&&D.kpiAt('turnover_y',Object.assign({},S,{paint:'HQ'}),D.MONTHS[Lh].m);
-    if(r&&r.v!=null&&kpi&&kpi.green&&r.v>=kpi.green*(1+OBS.dev)){
+    /* поставка 128 (владелец: «цели на шаге HQ»): карточка — тем же правилом, что оценка на шаге HQ и строка главной при покраске
+       HQ (stateForKpi: выше цели — хуже), без отдельного порога 10% */
+    if(r&&r.v!=null&&kpi&&kpi.green&&r.st==='bad'){
       const fv=x=>D.fmtVal('turnover_y',x), yr=kpi.annual?' ('+fv(kpi.annual.green)+' в год)':'';
       /* поставка 121 (критики 119: карточка беднее остальных — ни людей, ни года назад, ни графика, а 10 п.п. из её 24,6% — желательные
          уходы, которые хвалит соседняя карточка): численность HQ, год назад, желательная и нежелательная части, ряд по месяцам */

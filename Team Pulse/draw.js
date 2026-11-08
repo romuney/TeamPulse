@@ -887,7 +887,9 @@ function panelsMin(ps){
 function drawPanels(a,w,h){
   const ps=a.panels, o=a.opt||{}, off=offOf(o);
   const GAP=STACK_GAP;     /* воздух между осью X и заголовком следующей панели */
-  const x0=PAD_X, plotW=w-PAD_X*2, HEAD=16, AX=AXIS_H-12;
+  /* поставка 128: у панели с целью (шаг «Как уходит HQ?») справа — поле подписи цели, как у одиночного графика KPI */
+  const kr0=Math.max(0,...ps.map(p=>kpiRoom(p.key,p.kpi)));
+  const x0=PAD_X, plotW=w-PAD_X*2-kr0, HEAD=16, AX=AXIS_H-12;
   const yas=ps.map(p=>yoyAnn(annOf(p)));
   h=Math.max(h||o.h||340,panelsMin(ps));
   const panelH=(h-14+GAP)/ps.length;
@@ -901,7 +903,7 @@ function drawPanels(a,w,h){
     s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
     s+=pt.s;
     s+=yoyKey(w,base-1+kr,p.color||C_LINE,off,false,asBars(p.key),bn);
-    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,bench:p.bench,benchName:o.benchName,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period,peer:p.peer},
+    s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,bench:p.bench,benchName:o.benchName,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period,peer:p.peer,kpi:p.kpi},
       {x0:x0,plotW:plotW,top:top,bot:bot,hitTop:top-12,delay:pi*140});
   });
   return svg(w,h,s);

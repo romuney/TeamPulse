@@ -1968,10 +1968,14 @@ checks.push(['третьей палитры нет: в экранах ни од�
   {const th=A.go('turnover','dynamics'), PM=D.MONTHS[D.PER_I], rl=D.reportLeaves(A.st()), v=D.fmtVal('turnover_m',D.aggregate(rl,'turnover_m')[D.PER_I]);
     checks.push(['файл 9, п. 6–7: месячная текучесть в таблице = точка '+D.MONTH_NOM[PM.m]+' '+PM.y+' на графике ('+v+')',
       th.indexOf('<span class="th-per">'+D.MONTH_NOM[PM.m]+' '+PM.y+'</span>')>=0&&new RegExp('<tr class="total[^"]*"[\\s\\S]*?'+v.replace(',','\\,')).test(th)])}
-  /* поставка 103 (файл 9, п. 10): в «Как уходит HQ?» целей нет — ни сноски, ни оценки, ни слов «цель», «порог», «ориентир» */
+  /* поставка 103 (файл 9, п. 10) сняла цели с «Как уходит HQ?»; поставка 128 (владелец 08.11: «цели на шаге HQ») вернула: у HQ от
+     30 человек — цель закрытого месяца у каждой строки, оценка по ней (та же, что карточка «Текучесть HQ выше ориентира»), цель —
+     пунктиром на графиках и в строке итога; меньше 30 — ни цели, ни оценки */
   {const hb=A.go('turnover','hq'), hl=D.hqLight(A.st(),D.reportLeaves(A.st()),A.st().unit);
-    checks.push(['файл 9, п. 10: «Как уходит HQ?» — без целей, факт и год назад',!/[Цц]ел[ьиея]|порог|[Оо]риентир|план\b/.test(hb)&&
-      !!hl&&hl.rows.every(r=>r.kpi==null&&r.st==='neutral')&&/data-sid="prev"|>'+D.YEAR_PREV+'</.test(hb)])}
+    const big=!!hl&&hl.hc>=D.SMALL_N;
+    checks.push(['поставка 128: «Как уходит HQ?» — цели на графиках и в строке итога, оценка по цели; без них — у HQ меньше 30 человек',
+      !!hl&&(big?hl.rows.every(r=>r.kpi&&r.kpi.annual&&(r.st==='good'||r.st==='bad'||r.st==='neutral'))&&/цель /.test(hb)&&/Цели — годовые/.test(hb)
+        :hl.rows.every(r=>r.kpi==null&&r.st==='neutral'))&&/data-sid="prev"|>'+D.YEAR_PREV+'</.test(hb)])}
   checks.push(['файл 8, п. 6: закрытые вакансии в таблице — за '+D.YEAR_CUR+' год, год в подписи колонки',
     th.indexOf('Закрытые<span class="th-per">'+D.YEAR_CUR+'</span>')>=0]);
   /* поставка 127 (владелец 08.11: «нельзя переносить — мини-версии заголовков на мелком экране»): ряд шагов один; не помещаются

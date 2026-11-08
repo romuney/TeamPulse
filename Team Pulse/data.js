@@ -1544,6 +1544,9 @@ function hqLeaves(st,lpSel,sel){
   const s=Object.assign({},st,{paint:'HQ'});
   return leavesUnder(st.unit).map(l=>l.path).filter(p=>leafPasses(p,s));
 }
+/* оценка доли HQ по цели — как stateForKpi, но без «мало людей» отчёта: численность здесь — HQ, её проверяет hqLight */
+function hqKpiState(key,v,kpi){const m=METRIC_BY_KEY[key];
+  return m.better==='lower'?(v<=kpi.green?'good':v>=kpi.red?'bad':'warn'):(v>=kpi.green?'good':v<=kpi.red?'bad':'warn')}
 function hqLight(st,lpSel,sel){
   const lp=hqLeaves(st,lpSel,sel), node=HQN&&!!lpSel, sk=k=>node&&HQ_SER[k]||k;
   if(!lp)return null;
@@ -1552,12 +1555,15 @@ function hqLight(st,lpSel,sel){
   const hc=!lp.length?0:node?Math.round(lastVal(lp,'hc_hq')):Math.round(lastVal(lp,'hc_total'));
   const L=LAST-(PARTIAL?1:0), mon=MONTHS[L];
   const rows=HQ_LIGHT.map(x=>{
-    /* поставка 103 (файл 9, п. 10): в блоке «Как уходит HQ?» целей нет — ни значений, ни оценки по ним; сигнал — только
-       сравнение с прошлым годом (у желательной — выше лучше) */
+    /* поставка 103 (файл 9, п. 10) сняла цели с блока «Как уходит HQ?»; поставка 128 (владелец 08.11: вывод блока, карточка на
+       главной и шаг «Почему уходят?» судят HQ по целям, а на самом шаге HQ их не видно — «цели на шаге HQ»): цель закрытого
+       месяца (годовая × номер месяца ÷ 12) и оценка по ней — тем же stateForKpi, что строка главной; в HQ меньше 30 человек —
+       ни цели, ни оценки (доли не оцениваем) */
     const ser=aggregate(lp,sk(x.key)), v=ser[L], e=aggregateExt(lp,sk(x.key)), i=L+PRE;
     const d=(a,b)=>a==null||b==null?null:+(a-b).toFixed(4);
-    return Object.assign({},x,{ser:ser,v:v,mom:d(e[i],e[i-1]),yoyD:d(e[i],e[i-12]),ya:e[i-12],kpi:null,
-      st:'neutral',yoy:yoySeries(lp,sk(x.key))});
+    const kpi=hc>=SMALL_N?kpiAt(x.key,sh,mon.m):null;
+    return Object.assign({},x,{ser:ser,v:v,mom:d(e[i],e[i-1]),yoyD:d(e[i],e[i-12]),ya:e[i-12],kpi:kpi,
+      st:kpi&&v!=null?(sm=>sm==='good'||sm==='bad'?sm:'neutral')(hqKpiState(x.key,v,kpi)):'neutral',yoy:yoySeries(lp,sk(x.key))});
   });
   if(!REAL)setHcMode(m0);
   return {lp:lp,hc:hc,rows:rows,st:sh,month:mon};
