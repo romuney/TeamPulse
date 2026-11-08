@@ -8159,14 +8159,17 @@ function unitTip(name,hc,head){
    Порядок проверок не косметика: **есть утверждённый KPI — сравниваем с ним,
    и только с ним**. Средняя по базе рядом с целью KPI заставляла выбирать,
    по какому из двух чисел судить, хотя ответ один: цель важнее средней. */
-function targetCell(key,val,baseVal,kpi,pe,lp,bl){
+/* поставка 128 (владелец 08.11: «не должно быть расхождений — выводы обязательно должны совпадать»): vs — вердикт строки
+   (D.verdictState: цель, база, компания, мало событий, мониторинг без разметки). Ячейка берёт его, а не считает свой: раньше
+   при 1–2 закрытых вакансиях строка была «без оценки», а ячейка — «лучше базы» (мало событий она не учитывала) */
+function targetCell(key,val,baseVal,kpi,pe,lp,bl,vs){
   /* Значения нет (доля без знаменателя) — оценки нет: «ниже порога» про
      команду, у которой в окне не было ни одного найма, было бы неправдой. */
   if(val==null)return '<div class="tgt">'+(kpi?'<span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'
     :D.comparable(key)&&baseVal!=null?'<b>'+D.fmtVal(key,baseVal)+'</b>':'')+
     '<span class="sig-chip neutral">нет данных</span></div>';
   if(kpi){
-    const st=D.stateForKpi(key,val,kpi), m=D.METRIC_BY_KEY[key];
+    const st=vs||D.stateForKpi(key,val,kpi), m=D.METRIC_BY_KEY[key];
     const badTxt=m.better==='lower'?'выше порога':'ниже порога';
     return '<div class="tgt"><span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'+
       /* 26.10, ревью критиков: без оценки (заглушка) — «без оценки», а не «ниже порога» при 157,6% от цели */
@@ -8177,14 +8180,14 @@ function targetCell(key,val,baseVal,kpi,pe,lp,bl){
      с медианой непонятно»): называется «база», расшифровка — в подсказке */
   /* поставка 125: недо- и переработка без разметки у половины людей — «без оценки» (значение есть, ориентир не применим) */
   if(pe){
-    const st=D.peerState(key,val,pe,lp);
+    const st=vs||D.peerState(key,val,pe,lp);
     return '<div class="tgt"'+baseTip(key,pe)+'><b>база '+D.fmtVal(key,pe.p50)+'</b><span class="sig-chip '+st+'">'+
       (st==='good'?'лучше базы':st==='bad'?'хуже базы':st==='warn'?'на уровне':'без оценки')+'</span></div>';
   }
   /* поставка 113: база совпадает с отчётом (вся компания) — сравнивать не с чем */
   if(baseVal==null||!kpi&&D.isSelfBase())return '<div class="tgt">—</div>';
   /* поставка 117: базы по размеру у метрики нет — сравнение со всей компанией под теми же фильтрами, так и подписано */
-  const st=D.monJudged(key,lp)&&D.monJudged(key,bl)?D.compareState(key,val,baseVal):'neutral', diff=val-baseVal, m=D.METRIC_BY_KEY[key];
+  const st=vs||(D.monJudged(key,lp)&&D.monJudged(key,bl)?D.compareState(key,val,baseVal):'neutral'), diff=val-baseVal, m=D.METRIC_BY_KEY[key];
   const lbl=m.better==='flat'
     ? (Math.abs(diff)<0.05?'как в компании':(diff>0?'выше компании':'ниже компании'))
     : (st==='good'?'лучше компании':st==='bad'?'хуже компании':st==='warn'?'на уровне':'без оценки');
@@ -13124,7 +13127,7 @@ function render(S,openRows){
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
            точек, ориентир — пунктиром; у метрики без оценки точек нет. */
         '<td class="col-spark">'+G.sparkLine(s,st,180,28,{key:m.key,base:bser,baseName:D.coName(S),kpi:kpi,ink:noEval(m,kpi),dots:false})+'</td>'+
-        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi,kpi?null:D.peerOf(m.key,rl),rl,bl)+'</td>'+
+        '<td class="col-tgt">'+U.targetCell(m.key,v,bv,kpi,kpi?null:D.peerOf(m.key,rl),rl,bl,st)+'</td>'+
         '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
       /* график раскрытой строки рисуется сразу в разметке — отдельного монтирования не нужно */
       if(open){

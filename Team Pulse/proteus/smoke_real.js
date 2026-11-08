@@ -733,5 +733,30 @@ if(D.TTF_MED){
   ok(!bad.length&&pt&&/^Медиана за /.test(pt.head)&&med.some(v=>v!=null&&v>0),'срок закрытия — медиана: распределение = закрытым по месяцам, итог «'+
     (pt&&pt.head)+'» '+(pt&&pt.cur)+(bad.length?' — '+bad.join('; '):''));
 }
+/* поставка 128 (владелец 08.11: «не должно быть расхождений логики подсказок и графиков — выводы обязательно должны совпадать»):
+   один вердикт на метрику во всех местах — ячейка «Ориентир» в таблице главной, глава вкладки (judge), карточки выводов;
+   значение в таблице и в карточке — итог за период (periodTotal), как под графиком */
+{
+  const S=A.st(), rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S), I=window.TPINSIGHTS, STY=window.TPSTORY, home=A.home0(), errs=[];
+  const nb=x=>String(x==null?'':x).replace(/[   ]/g,' ');
+  const strip=h=>nb(String(h||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/g,' ')).replace(/\s+/g,' ').trim();
+  const RW={};home.replace(/<tr class="mrow[^"]*" data-metric="([^"]+)">([\s\S]*?)<\/tr>/g,(m,k,b)=>{RW[k]=b;return m});
+  const chip=t=>/лучше|в цели/.test(t)?'good':/хуже|ниже порога|выше порога/.test(t)?'bad':/на уровне|зона риска/.test(t)?'warn':'neutral';
+  const cards=I.cards(S,rl,bl,true);
+  Object.keys(RW).forEach(k=>{
+    const V=D.verdictState(k,S,rl,bl), P=D.periodTotal(rl,k)||{}, b=RW[k];
+    const tgt=strip((b.match(/<td class="col-tgt">([\s\S]*?)<\/td>/)||[])[1]), val=strip((b.match(/<td class="m-val">([\s\S]*?)<\/td>/)||[])[1]);
+    if(chip(tgt)!==V)errs.push(k+': ориентир «'+tgt+'» при вердикте '+V);
+    if(P.v!=null&&val.indexOf(nb(D.fmtVal(k,P.v)))!==0)errs.push(k+': значение '+val+' ≠ '+D.fmtVal(k,P.v));
+    const j=STY.judge(k,{S:S,lp:rl,bl:bl}), Vn=V==='good'?'good':V==='bad'?'bad':'n';
+    if(j&&j.st!==Vn)errs.push(k+': глава '+j.st+' при вердикте '+V);
+    cards.filter(c=>c.key===k).forEach(c=>{const kd=c.fact.kind;
+      if(kd==='dev'&&(c.sev==='good'?'good':'bad')!==V)errs.push(k+': карточка '+c.sev+' при вердикте '+V);
+      if(kd==='yoy'&&V!=='neutral')errs.push(k+': карточка «к году» при вердикте '+V);
+      if((kd==='dev'||kd==='yoy')&&c.big&&P.v!=null&&nb(c.big.v)!==nb(D.fmtVal(k,P.v)))errs.push(k+': карточка '+c.big.v+' ≠ '+D.fmtVal(k,P.v))});
+  });
+  ok(!errs.length,'один вердикт и одно число на метрику: таблица главной, глава, карточки — '+Object.keys(RW).length+' метрик'+
+    (errs.length?': '+errs.slice(0,4).join('; '):''));
+}
 console.log(bad?'ПРОВАЛ: '+bad+' проверок':'пробник: все проверки прошли');
 process.exit(bad?1:0);
