@@ -2612,9 +2612,9 @@ const CAL_MONTHS=2;
    их по месяцу целиком. Подневный слой и месячный на этом расходятся: это макет,
    и в UI сказано (до показа — подключить подневный источник, см. план). */
 const CAL_TODAY=15;
-function attLast(lp,months){
+function attLast(lp,months,end){
   months=months||CAL_MONTHS;
-  if(OFF_DAYS)return attLastReal(lp,months);
+  if(OFF_DAYS)return attLastReal(lp,months,end);
   const out=[];
   for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
     const blk=attDays(lp,i);

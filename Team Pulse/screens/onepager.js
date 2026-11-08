@@ -108,7 +108,7 @@ function insightCard(c){
       /* 30.10, шаг 2: факты — пилюлями, а не абзацем */
       (c.pills&&c.pills.length?'<div class="in-pl">'+c.pills.map(t=>'<span>'+t+'</span>').join('')+'</div>'
         :c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
-    (c.chart?'<button class="in-mini" data-opfact="'+esc(c.key)+'"'+U.tipAttr({title:D.METRIC_BY_KEY[c.key].name,
+    (c.chart?'<button class="in-mini" '+(c.fact&&c.fact.kind==='hqb'&&c.btn.go?'data-opgo="'+esc(c.btn.go)+'"':'data-opfact="'+esc(c.key)+'"')+U.tipAttr({title:D.METRIC_BY_KEY[c.key].name,
       text:c.chartTip||'',note:'Нажмите — откроется подробный график.'})+'>'+c.chart+'</button>':'')+'</div>'+
     '<div class="in-a"><span class="in-do">'+c.todo+'</span><button class="in-go"'+go+'>'+esc(c.btn.label)+'</button></div></div>';
 }
@@ -147,7 +147,7 @@ function normRow(S,rl,ok0,bl){
   const dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
   const na=ok0.filter(m=>unrated(m,rl)), ok=ok0.filter(m=>rated(m,S,rl,bl)), info=ok0.filter(m=>!unrated(m,rl)&&!rated(m,S,rl,bl));
   /* «сейчас» у остатков — в имени строки, столбец значений остаётся чисто числовым */
-  const P=m=>D.periodTotal(rl,m.key)||{}, now=m=>P(m).cur, nm=m=>m.name+(P(m).stock?', сейчас':'');
+  const P=m=>D.periodTotal(rl,m.key)||{}, now=m=>P(m).cur, nm=m=>m.name+(P(m).stock?', сейчас':'')+(D.monJudged(m.key,rl)?'':' — нет разметки');
   /* поставка 123-б: метрики в подсказке — таблицей; у «в норме» второй столбец — с чем сравнили (цель, база, компания или
      год назад), у остальных — год назад */
   const refOf=m=>{const kpi=D.kpiAt(m.key,S,D.MONTHS[D.PER_I].m), pe=kpi?null:D.peerOf(m.key,rl), f=x=>D.fmtVal(m.key,x);

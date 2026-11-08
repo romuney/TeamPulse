@@ -147,9 +147,14 @@ function yoyChart(key,lp,bl,S,opt){
      (текучесть с января) — у закрытого месяца, у средних и долей за период — полосой январь–закрытый месяц */
   const pe=!kpi&&!opt.noBench&&!opt.yser&&!(sc&&sc!==1)&&!D.isSmall(key)?D.peerOf(key,lp):null;
   const peer=pe?{p25:pe.p25,p50:pe.p50,p75:pe.p75,cum:key==='turnover_y',upto:D.PER_C}:null;
+  /* поставка 128 (аудит: «Уходят чаще, чем во всей компании» в выводе, а линия компании на графике выключена — решение 96): линия
+     остаётся выключенной, но когда вся компания — ориентир вывода (нет цели и базы по размеру, отчёт — не сама компания), её
+     значение за тот же период стоит в строке итога под заголовком: сравнение видно без клика */
+  const coRef=cmp&&!opt.ref&&!peer&&!D.isSelfBase()&&!D.isSmall(key)&&period&&!opt.yser&&!(sc&&sc!==1);
+  const per2=coRef?Object.assign({},period,{ref:D.coName(S,'nom')+' '+D.fmtVal(key,(D.periodTotal(bl,key)||{}).v)}):period;
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
     Object.assign({legend,benchName:opt.ref?opt.ref.name:bench,kpi:kpi,h:300,fill:true,gap:cmp&&!opt.ref,
-      offDef:cmp&&!opt.ref?['bench']:null,peer:peer},opt,{color:col,period:period}));
+      offDef:cmp&&!opt.ref?['bench']:null,peer:peer},opt,{color:col,period:per2}));
 }
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
@@ -165,12 +170,15 @@ function rest(ctx,k,n,word){return {top:n,restWord:word,restKey:'rest:'+k,restOp
 function yoyPanels(lp,items,opt){
   opt=opt||{};
   const cmp=k=>opt.bl&&D.comparable(k)&&!D.kpiFor(k,opt.S);
+  /* поставка 128: где вся компания — ориентир вывода (нет цели и базы по размеру), её значение — в строке итога панели */
+  const coRef=k=>!!opt.S&&!D.isSelfBase()&&cmp(k)&&!D.isSmall(k)&&!D.peerOf(k,lp);
   return G.chart('panels',{panels:items.map(it=>{
     const y=D.yoySeries(lp,it.key);
     /* поставка 122: отметка базы — как у одиночного графика (yoyChart) */
     const pe=opt.S&&!D.kpiFor(it.key,opt.S)&&!D.isSmall(it.key)?D.peerOf(it.key,lp):null;
     return {name:it.name,key:it.key,cur:y.cur,prev:y.prev,color:it.color||YOY_COLOR[it.key]||G.C_LINE,ann:it.ann||null,
-      period:D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null,
+      period:coRef(it.key)&&D.periodTotal(lp,it.key)?Object.assign({},D.periodTotal(lp,it.key),{ref:D.coName(opt.S,'nom')+' '+
+        D.fmtVal(it.key,(D.periodTotal(opt.bl,it.key)||{}).v)}):D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null,
       peer:pe?{p25:pe.p25,p50:pe.p50,p75:pe.p75,cum:it.key==='turnover_y',upto:D.PER_C}:null};
   })},Object.assign({h:520,fill:true,benchName:opt.bl?D.benchmarkLabel(opt.S):'',offDef:['bench'],
     /* третий пункт — для переключателя серий (легенда панелей рисуется у каждой панели своя) */

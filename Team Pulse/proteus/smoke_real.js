@@ -396,7 +396,7 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const j0=D.MONTHS[D.PER_I-D.MONTHS[D.PER_I].m], P0=MD.months[0];
     /* у команды меньше 30 человек заголовок — в людях за закрытый месяц (поставка 121), доли — в итоге под графиком */
     const fu=D.fmtVal('underwork',(D.periodTotal(rl,'underwork')||{}).v), fo=D.fmtVal('overwork',(D.periodTotal(rl,'overwork')||{}).v);
-    ok(P0&&P0.label===j0.label&&mo.indexOf('('+fu+')')>=0&&mo.indexOf('('+fo+')')>=0&&(D.isSmall()||(D.monJudged('underwork',rl)?mo.indexOf('недоработчиков — '+fu)>=0:/В мониторинге размечено \d+% людей/.test(mo))),
+    ok(P0&&P0.label===j0.label&&mo.indexOf(fu+' · ')>=0&&mo.indexOf(fo+' · ')>=0&&(D.isSmall()||(D.monJudged('underwork',rl)?mo.indexOf('недоработчиков — '+fu)>=0:/В мониторинге размечено \d+% людей/.test(mo))),
       'мониторинг: график состава с «'+(P0&&P0.label)+'», как доли с января; итог под ним '+fu+' и '+fo+' — как в заголовке');
     const C=MD.months.filter(p=>!p.pt), hm=C.reduce((a,p)=>a+p.hc,0)/(C.length||1), z={p25:0,p50:0,p75:0,n:7,band:1};
     if(!D.isSmall('underwork')&&D.monJudged('underwork',rl)&&hm>0)

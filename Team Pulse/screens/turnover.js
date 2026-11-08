@@ -47,7 +47,9 @@ function hqView(ctx){
       ': один уход сдвигает текучесть примерно на '+String(Math.round(1000/h.hc)/10).replace('.',',')+' п.п. Доли не оцениваем.</div>':'')+
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
-      period:D.periodTotal(h.lp,r.key,r.yoy)}))},
+      /* поставка 128 (аудит: «доли не оцениваем», а чип текучести HQ красный — цвет брался по численности всего подразделения):
+         в HQ меньше 30 человек — чип изменения без цвета, как и написано выше */
+      period:h.hc<D.SMALL_N?Object.assign({},D.periodTotal(h.lp,r.key,r.yoy)||{},{good:null}):D.periodTotal(h.lp,r.key,r.yoy)}))},
       {h:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]});
   /* поставка 103 (файл 9, п. 10): сноска об ориентирах (целях) снята — в блоке только факт и сравнение с прошлым годом */
 }

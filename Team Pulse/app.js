@@ -959,8 +959,9 @@ on(document,'click',e=>{
   if(t.closest('[data-opscroll]')){toDetails('#op-all');return}
   const og=t.closest('[data-opgo]');
   if(og){
-    const [bk,p]=og.dataset.opgo.split('|');
-    S.tab=bk;S.subTab=null;S.mainMetric=null;S.selNode=p;openRows.clear();render();toDetails();return;
+    /* поставка 128: третья часть — шаг блока («turnover||hq» — сразу «Как уходит HQ?») */
+    const [bk,p,sub]=og.dataset.opgo.split('|');
+    S.tab=bk;S.subTab=sub||null;S.mainMetric=null;S.selNode=p||null;openRows.clear();render();toDetails();return;
   }
   if(t.closest('[data-blkjump]')){toDetails();return}
   const ws=t.closest('[data-wsel]');

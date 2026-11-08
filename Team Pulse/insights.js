@@ -271,7 +271,10 @@ function pplLeave(lp,node){
   /* «требует действий» — ушло больше 40% состава на 1 января или и на 3 больше прошлого года, и четверть состава */
   return {key:'attrition',kind:node?'uppl':'ppl',sev:h0>0&&(a/h0>=0.4||pa!=null&&a-pa>=SMALL_PPL&&a/h0>=0.25)?'high':'mid',pri:0,w:h0?a/h0:a,v:a,pv:pa,L,
     node:node?node.path:null,lead:(node?'В '+nm+' ушли ':'Ушли ')+ppl(a)+vs,say:(node?'в '+nm+' ':'')+'ушли '+ppl(a)+(h0?' из '+h0:''),pills,
-    big:{v:D.fmtInt(a),name:'ушли с 1 января'+(h0?' — из '+h0+' на 1 января':''),chip:pa!=null&&a!==pa?(a>pa?'+':'−')+Math.abs(a-pa)+' к году назад':'',cls:'down'},
+    /* поставка 128 (аудит: «+2 к году назад» красным в карточке, а в таблице и под графиком тот же «+2» серый): цвет чипа — тем же
+       правилом, что чип таблицы (D.deltaState: у малой команды — от 3 человек), не всегда красный */
+    big:{v:D.fmtInt(a),name:'ушли с 1 января'+(h0?' — из '+h0+' на 1 января':''),chip:pa!=null&&a!==pa?(a>pa?'+':'−')+Math.abs(a-pa)+' к году назад':'',
+      cls:pa==null?'neu':({bad:'down',good:'up'})[D.deltaState('attrition',a,pa,lp)]||'neu'},
     kp:(node?esc(node.name)+': ушли ':'Ушли ')+'<b>'+a+'</b>'+(pa!=null?' · год назад '+pa:''),
     todo:node?'поговорить с руководителем '+nm+': кто ушёл, почему и кто из оставшихся под риском'
       :'разобрать с HRBP каждый уход — причина и кто ещё под риском; закрепить наставника за каждым новичком'};
@@ -302,7 +305,8 @@ function pplRegret(rl,S){
     lead:'Нежелательных уходов в HQ — '+c.a+', год назад '+c.p,
     say:'нежелательных уходов в HQ больше, чем год назад: '+c.a+' против '+c.p,
     pills:(hc?['в HQ '+ppl(hc)+': доли не оцениваем — смотрим людей']:[]).concat(wh?[(c.a>1?'почти все':'это')+' — <b>«'+esc(wh.n.name)+'»</b>']:[]),
-    big:{v:D.fmtInt(c.a),name:'нежелательных уходов в HQ с января по '+monOf(L),chip:'+'+(c.a-c.p)+' к году назад',cls:'down'},
+    /* поставка 128: в HQ меньше 30 человек — цвет чипа, как у малых групп: от 3 человек разницы */
+    big:{v:D.fmtInt(c.a),name:'нежелательных уходов в HQ с января по '+monOf(L),chip:'+'+(c.a-c.p)+' к году назад',cls:c.a-c.p>=3?'down':'neu'},
     kp:'Нежелательные уходы HQ <b>'+c.a+'</b> · год назад '+c.p,
     todo:'разобрать каждый нежелательный уход с HRBP: что не удержало и кто из сильных сотрудников ещё под риском'};
 }
@@ -401,7 +405,9 @@ function overview(S,rl,bl,all){
       /* поставка 121 (критики 119: карточка беднее остальных — ни людей, ни года назад, ни графика, а 10 п.п. из её 24,6% — желательные
          уходы, которые хвалит соседняя карточка): численность HQ, год назад, желательная и нежелательная части, ряд по месяцам */
       const rv=k=>(h.rows.find(x=>x.key===k)||{}).v;
-      out.push({key:'turnover_y',sev:'high',pri:1,w:rel(r.v,kpi.green),kind:'hqb',v:r.v,ref:kpi.green,L,
+      /* поставка 128 (аудит: «ориентир 15% в год, к октябрю — 11,3%», а 11,3% — доля сентября): L — закрытый месяц, как у ориентира */
+      const Le=D.MONTHS_EXT.findIndex(mm=>mm.y===D.MONTHS[Lh].y&&mm.m===D.MONTHS[Lh].m);
+      out.push({key:'turnover_y',sev:'high',pri:1,w:rel(r.v,kpi.green),kind:'hqb',v:r.v,ref:kpi.green,L:Le>=0?Le:L,
         hq:{hc:h.hc,ya:r.ya,nr:rv('nonregret'),rg:rv('regret'),cur:r.yoy?r.yoy.cur:null,ann:kpi.annual?kpi.annual.green:null},
         lead:'Текучесть HQ выше ориентира'+yr,
         say:'текучесть HQ выше ориентира',todo:'разобрать уходы HQ — кто уходит и почему, вкладка «Как уходит HQ?»'});
@@ -609,8 +615,10 @@ function miniOf(f,rl,bl){
   const kpi=f.kind==='dev'&&f.kpi, base=f.kind==='dev'&&!kpi&&!f.peer;
   let cur,ref;
   if(D.CUR_LEN>=4){
-    const y=D.yoySeries(rl,k);cur=y.cur.slice(0,D.CUR_LEN);
-    ref=base?D.yoySeries(bl,k).cur.slice(0,D.CUR_LEN):y.prev.slice(0,D.CUR_LEN);
+    /* поставка 128 (аудит: мини-график выделял незакрытый октябрь, а число карточки — за январь–сентябрь): ряд до закрытого
+       месяца, у состояний (численность) — по сегодня */
+    const y=D.yoySeries(rl,k), n=STOCK.has(k)?D.CUR_LEN:Math.min(D.CUR_LEN,D.PER_C+1);cur=y.cur.slice(0,n);
+    ref=base?D.yoySeries(bl,k).cur.slice(0,n):y.prev.slice(0,n);
   }else{
     const e=D.aggregateExt(rl,k), at=i=>i<0?null:e[i];
     cur=range(12).map(i=>at(L-11+i));
@@ -705,8 +713,11 @@ function cardOf(f,S,rl,bl){
   return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,pills,kp,big,sub,
     ppl:n,where:wh,chart:f.kind==='hqb'?hqMini(f):/^(unit|uppl)$/.test(f.kind)||f.kind==='ppl'&&f.key!=='attrition'?'':miniOf(f,rl,bl),
     /* поставка 110 (E8): подсказка мини-графика — с чем он сравнивает, а не служебная фраза */
-    chartTip:'По месяцам '+(D.CUR_LEN>=4?'с начала года':'за 12 месяцев')+' против '+(f.kind==='dev'&&!f.peer?(f.kpi?'цели':'всей компании'):'прошлого года')+'.',
-    btn:wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:f.node?{label:'Показать подразделение',go:bk+'|'+f.node}
+    chartTip:f.kind==='hqb'?'Текучесть HQ по месяцам с начала года против ориентира HQ — его доли к каждому месяцу.'
+      :'По месяцам '+(D.CUR_LEN>=4?'с начала года':'за 12 месяцев')+' против '+(f.kind==='dev'&&!f.peer?(f.kpi?'цели':'всей компании'):'прошлого года')+'.',
+    /* поставка 128: карточка HQ ведёт на шаг «Как уходит HQ?» (раньше — на первый шаг блока и на строку всего отчёта) */
+    btn:f.kind==='hqb'?{label:'Открыть «Как уходит HQ?»',go:bk+'||hq'}
+      :wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:f.node?{label:'Показать подразделение',go:bk+'|'+f.node}
       :{label:'Открыть «'+b.name+'»',tab:bk}};
 }
 /* Отчёт меньше 30 человек: доли не оцениваются — остаются всплеск и численность */
@@ -744,7 +755,9 @@ function cards(S,rl,bl,all){
 function lead(S,rl,list,norm){
   const hc=D.lastVal(rl,'hc_total')||0, net=D.lastVal(rl,'net_ytd')||0, d0=hc-net;
   /* поставка 110 (критики): у команды меньше 30 человек «растёт / сокращается» — от 2 человек, а не от 5% (один человек) */
-  const stable=!d0||(d0<CARD.small?Math.abs(Math.round(net))<2:Math.abs(net)/d0<0.05);
+  /* поставка 128 (аудит: сводка «Компания растёт… на 30 больше» при +9,8%, а карточка численности и вывод «Структуры» — «заметных
+     отклонений нет»): порог «растёт / сокращается» — тот же, что у карточки численности: 10%, у малой команды — 3 человека */
+  const stable=!d0||(d0<CARD.small?Math.abs(Math.round(net))<3:Math.abs(net)/d0<OBS.dev);
   /* поставка 110: на уровне всей компании — «Компания», а не «Команда» */
   /* поставка 120 (критики 119: «Команда стабильна» при 27 уходах и 30 переводах из команды, у команды из 7 — 4 ухода и
      2 перевода): «стабильна» — только когда мало и самих уходов. Уволились и перевелись из команды с 1 января от 15%

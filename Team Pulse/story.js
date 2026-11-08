@@ -324,8 +324,11 @@ CH.turnover={
           'уходы в людях видны на графиках «Отток» и в таблице подразделений.'};}
     const t=h.rows[0], nr=h.rows[1], rg=h.rows[2];
     const nm={turnover_y:'текучесть HQ',nonregret:'желательная текучесть HQ',regret:'нежелательная текучесть HQ'};
-    const up=h.rows.filter(r=>r.yoyD!=null&&Math.abs(r.yoyD)>=0.05);
-    const yo=r=>r.yoyD==null||Math.abs(r.yoyD)<0.05?'как год назад':(r.yoyD>0?'выше':'ниже')+', чем год назад';
+    /* поставка 128 (аудит: «выше, чем год назад» при +1,5 п.п. рядом с серым чипом): «выше / ниже» — от 10% разницы, тем же
+       порогом, что цвет чипа под графиком (deltaState); меньше — «почти как год назад» */
+    const sig=r=>r.ya!=null&&r.v!=null&&(r.ya?Math.abs(r.v-r.ya)/Math.abs(r.ya)>=D.VERDICT_GAP:r.v!==0);
+    const up=h.rows.filter(sig);
+    const yo=r=>r.ya==null?'года назад нет':!sig(r)?'почти как год назад':(r.v>r.ya?'выше':'ниже')+', чем год назад';
     return {sum:'текучесть HQ '+f('turnover_y',t.v),st:'n',
       head:up.length?U.esc((nm[t.key]+' '+f('turnover_y',t.v)+' — '+yo(t)).replace(/^./,x=>x.toUpperCase()))
         :'HQ уходит так же, как год назад',

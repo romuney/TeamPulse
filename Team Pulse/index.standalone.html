@@ -5460,9 +5460,9 @@ const CAL_MONTHS=2;
    их по месяцу целиком. Подневный слой и месячный на этом расходятся: это макет,
    и в UI сказано (до показа — подключить подневный источник, см. план). */
 const CAL_TODAY=15;
-function attLast(lp,months){
+function attLast(lp,months,end){
   months=months||CAL_MONTHS;
-  if(OFF_DAYS)return attLastReal(lp,months);
+  if(OFF_DAYS)return attLastReal(lp,months,end);
   const out=[];
   for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
     const blk=attDays(lp,i);
@@ -7200,7 +7200,9 @@ const PERIOD_H=20, PT_BG={g:'#e6f6ec',b:'#fdecec',n:'#eef0f3'}, PT_FG={g:'#0a8f3
 function periodLine(p,y,w){
   if(!p)return {s:'',h:0};
   const gs=p.parts?[[[p.head+': ']]].concat(p.parts.map((q,i)=>[[(i?' · ':'')+q.name+' '],[q.cur,1]].concat(q.prev!=null?[[' (год назад '+q.prev+')']]:[]))):
-    [[[p.head+': '],[p.cur,1]]].concat(p.prev!=null?[[[' · год назад '+p.prev]]]:[],p.delta?[[[p.delta,1,p.good==null?'n':p.good?'g':'b']]]:[]);
+    [[[p.head+': '],[p.cur,1]]].concat(p.prev!=null?[[[' · год назад '+p.prev]]]:[],p.delta?[[[p.delta,1,p.good==null?'n':p.good?'g':'b']]]:[],
+      /* поставка 128: ориентир «вся компания» — значением в строке итога (линия по умолчанию выключена) */
+      p.ref?[[[' · '+p.ref]]]:[]);
   const W=q=>q[2]?measureW(q[0],10.5,1)+18:measureW(q[0],q[1]?12:11,q[1])+(q[1]?2:0);
   let x=0,n=0,s='';
   gs.forEach(g=>{
@@ -8186,6 +8188,9 @@ function targetCell(key,val,baseVal,kpi,pe,lp,bl,vs){
   if(val==null)return '<div class="tgt">'+(kpi?'<span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'
     :D.comparable(key)&&baseVal!=null?'<b>'+D.fmtVal(key,baseVal)+'</b>':'')+
     '<span class="sig-chip neutral">нет данных</span></div>';
+  /* поставка 128 (аудит: у подразделения без разметки мониторинга «0,0%» без пояснения): ориентир не применим — так и сказано */
+  if(lp&&!D.monJudged(key,lp))return '<div class="tgt"'+tipAttr({title:'Без оценки',text:'В мониторинге размечено меньше половины '+
+    'людей: у остальных нет записей, поэтому доля здесь — «нет данных», а не оценка.'})+'><span class="sig-chip neutral">нет разметки</span></div>';
   if(kpi){
     const st=vs||D.stateForKpi(key,val,kpi), m=D.METRIC_BY_KEY[key];
     const badTxt=m.better==='lower'?'выше порога':'ниже порога';
@@ -9430,7 +9435,10 @@ function pplLeave(lp,node){
   /* «требует действий» — ушло больше 40% состава на 1 января или и на 3 больше прошлого года, и четверть состава */
   return {key:'attrition',kind:node?'uppl':'ppl',sev:h0>0&&(a/h0>=0.4||pa!=null&&a-pa>=SMALL_PPL&&a/h0>=0.25)?'high':'mid',pri:0,w:h0?a/h0:a,v:a,pv:pa,L,
     node:node?node.path:null,lead:(node?'В '+nm+' ушли ':'Ушли ')+ppl(a)+vs,say:(node?'в '+nm+' ':'')+'ушли '+ppl(a)+(h0?' из '+h0:''),pills,
-    big:{v:D.fmtInt(a),name:'ушли с 1 января'+(h0?' — из '+h0+' на 1 января':''),chip:pa!=null&&a!==pa?(a>pa?'+':'−')+Math.abs(a-pa)+' к году назад':'',cls:'down'},
+    /* поставка 128 (аудит: «+2 к году назад» красным в карточке, а в таблице и под графиком тот же «+2» серый): цвет чипа — тем же
+       правилом, что чип таблицы (D.deltaState: у малой команды — от 3 человек), не всегда красный */
+    big:{v:D.fmtInt(a),name:'ушли с 1 января'+(h0?' — из '+h0+' на 1 января':''),chip:pa!=null&&a!==pa?(a>pa?'+':'−')+Math.abs(a-pa)+' к году назад':'',
+      cls:pa==null?'neu':({bad:'down',good:'up'})[D.deltaState('attrition',a,pa,lp)]||'neu'},
     kp:(node?esc(node.name)+': ушли ':'Ушли ')+'<b>'+a+'</b>'+(pa!=null?' · год назад '+pa:''),
     todo:node?'поговорить с руководителем '+nm+': кто ушёл, почему и кто из оставшихся под риском'
       :'разобрать с HRBP каждый уход — причина и кто ещё под риском; закрепить наставника за каждым новичком'};
@@ -9461,7 +9469,8 @@ function pplRegret(rl,S){
     lead:'Нежелательных уходов в HQ — '+c.a+', год назад '+c.p,
     say:'нежелательных уходов в HQ больше, чем год назад: '+c.a+' против '+c.p,
     pills:(hc?['в HQ '+ppl(hc)+': доли не оцениваем — смотрим людей']:[]).concat(wh?[(c.a>1?'почти все':'это')+' — <b>«'+esc(wh.n.name)+'»</b>']:[]),
-    big:{v:D.fmtInt(c.a),name:'нежелательных уходов в HQ с января по '+monOf(L),chip:'+'+(c.a-c.p)+' к году назад',cls:'down'},
+    /* поставка 128: в HQ меньше 30 человек — цвет чипа, как у малых групп: от 3 человек разницы */
+    big:{v:D.fmtInt(c.a),name:'нежелательных уходов в HQ с января по '+monOf(L),chip:'+'+(c.a-c.p)+' к году назад',cls:c.a-c.p>=3?'down':'neu'},
     kp:'Нежелательные уходы HQ <b>'+c.a+'</b> · год назад '+c.p,
     todo:'разобрать каждый нежелательный уход с HRBP: что не удержало и кто из сильных сотрудников ещё под риском'};
 }
@@ -9560,7 +9569,9 @@ function overview(S,rl,bl,all){
       /* поставка 121 (критики 119: карточка беднее остальных — ни людей, ни года назад, ни графика, а 10 п.п. из её 24,6% — желательные
          уходы, которые хвалит соседняя карточка): численность HQ, год назад, желательная и нежелательная части, ряд по месяцам */
       const rv=k=>(h.rows.find(x=>x.key===k)||{}).v;
-      out.push({key:'turnover_y',sev:'high',pri:1,w:rel(r.v,kpi.green),kind:'hqb',v:r.v,ref:kpi.green,L,
+      /* поставка 128 (аудит: «ориентир 15% в год, к октябрю — 11,3%», а 11,3% — доля сентября): L — закрытый месяц, как у ориентира */
+      const Le=D.MONTHS_EXT.findIndex(mm=>mm.y===D.MONTHS[Lh].y&&mm.m===D.MONTHS[Lh].m);
+      out.push({key:'turnover_y',sev:'high',pri:1,w:rel(r.v,kpi.green),kind:'hqb',v:r.v,ref:kpi.green,L:Le>=0?Le:L,
         hq:{hc:h.hc,ya:r.ya,nr:rv('nonregret'),rg:rv('regret'),cur:r.yoy?r.yoy.cur:null,ann:kpi.annual?kpi.annual.green:null},
         lead:'Текучесть HQ выше ориентира'+yr,
         say:'текучесть HQ выше ориентира',todo:'разобрать уходы HQ — кто уходит и почему, вкладка «Как уходит HQ?»'});
@@ -9768,8 +9779,10 @@ function miniOf(f,rl,bl){
   const kpi=f.kind==='dev'&&f.kpi, base=f.kind==='dev'&&!kpi&&!f.peer;
   let cur,ref;
   if(D.CUR_LEN>=4){
-    const y=D.yoySeries(rl,k);cur=y.cur.slice(0,D.CUR_LEN);
-    ref=base?D.yoySeries(bl,k).cur.slice(0,D.CUR_LEN):y.prev.slice(0,D.CUR_LEN);
+    /* поставка 128 (аудит: мини-график выделял незакрытый октябрь, а число карточки — за январь–сентябрь): ряд до закрытого
+       месяца, у состояний (численность) — по сегодня */
+    const y=D.yoySeries(rl,k), n=STOCK.has(k)?D.CUR_LEN:Math.min(D.CUR_LEN,D.PER_C+1);cur=y.cur.slice(0,n);
+    ref=base?D.yoySeries(bl,k).cur.slice(0,n):y.prev.slice(0,n);
   }else{
     const e=D.aggregateExt(rl,k), at=i=>i<0?null:e[i];
     cur=range(12).map(i=>at(L-11+i));
@@ -9864,8 +9877,11 @@ function cardOf(f,S,rl,bl){
   return {key:f.key,fact:f,block:bk,blockName:b.name,sev:f.sev,tag:SEV_TAG[f.sev],head,body,leave,todo,pills,kp,big,sub,
     ppl:n,where:wh,chart:f.kind==='hqb'?hqMini(f):/^(unit|uppl)$/.test(f.kind)||f.kind==='ppl'&&f.key!=='attrition'?'':miniOf(f,rl,bl),
     /* поставка 110 (E8): подсказка мини-графика — с чем он сравнивает, а не служебная фраза */
-    chartTip:'По месяцам '+(D.CUR_LEN>=4?'с начала года':'за 12 месяцев')+' против '+(f.kind==='dev'&&!f.peer?(f.kpi?'цели':'всей компании'):'прошлого года')+'.',
-    btn:wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:f.node?{label:'Показать подразделение',go:bk+'|'+f.node}
+    chartTip:f.kind==='hqb'?'Текучесть HQ по месяцам с начала года против ориентира HQ — его доли к каждому месяцу.'
+      :'По месяцам '+(D.CUR_LEN>=4?'с начала года':'за 12 месяцев')+' против '+(f.kind==='dev'&&!f.peer?(f.kpi?'цели':'всей компании'):'прошлого года')+'.',
+    /* поставка 128: карточка HQ ведёт на шаг «Как уходит HQ?» (раньше — на первый шаг блока и на строку всего отчёта) */
+    btn:f.kind==='hqb'?{label:'Открыть «Как уходит HQ?»',go:bk+'||hq'}
+      :wh&&wh.top?{label:'Показать подразделение',go:bk+'|'+wh.top.n.path}:f.node?{label:'Показать подразделение',go:bk+'|'+f.node}
       :{label:'Открыть «'+b.name+'»',tab:bk}};
 }
 /* Отчёт меньше 30 человек: доли не оцениваются — остаются всплеск и численность */
@@ -9903,7 +9919,9 @@ function cards(S,rl,bl,all){
 function lead(S,rl,list,norm){
   const hc=D.lastVal(rl,'hc_total')||0, net=D.lastVal(rl,'net_ytd')||0, d0=hc-net;
   /* поставка 110 (критики): у команды меньше 30 человек «растёт / сокращается» — от 2 человек, а не от 5% (один человек) */
-  const stable=!d0||(d0<CARD.small?Math.abs(Math.round(net))<2:Math.abs(net)/d0<0.05);
+  /* поставка 128 (аудит: сводка «Компания растёт… на 30 больше» при +9,8%, а карточка численности и вывод «Структуры» — «заметных
+     отклонений нет»): порог «растёт / сокращается» — тот же, что у карточки численности: 10%, у малой команды — 3 человека */
+  const stable=!d0||(d0<CARD.small?Math.abs(Math.round(net))<3:Math.abs(net)/d0<OBS.dev);
   /* поставка 110: на уровне всей компании — «Компания», а не «Команда» */
   /* поставка 120 (критики 119: «Команда стабильна» при 27 уходах и 30 переводах из команды, у команды из 7 — 4 ухода и
      2 перевода): «стабильна» — только когда мало и самих уходов. Уволились и перевелись из команды с 1 января от 15%
@@ -10274,8 +10292,11 @@ CH.turnover={
           'уходы в людях видны на графиках «Отток» и в таблице подразделений.'};}
     const t=h.rows[0], nr=h.rows[1], rg=h.rows[2];
     const nm={turnover_y:'текучесть HQ',nonregret:'желательная текучесть HQ',regret:'нежелательная текучесть HQ'};
-    const up=h.rows.filter(r=>r.yoyD!=null&&Math.abs(r.yoyD)>=0.05);
-    const yo=r=>r.yoyD==null||Math.abs(r.yoyD)<0.05?'как год назад':(r.yoyD>0?'выше':'ниже')+', чем год назад';
+    /* поставка 128 (аудит: «выше, чем год назад» при +1,5 п.п. рядом с серым чипом): «выше / ниже» — от 10% разницы, тем же
+       порогом, что цвет чипа под графиком (deltaState); меньше — «почти как год назад» */
+    const sig=r=>r.ya!=null&&r.v!=null&&(r.ya?Math.abs(r.v-r.ya)/Math.abs(r.ya)>=D.VERDICT_GAP:r.v!==0);
+    const up=h.rows.filter(sig);
+    const yo=r=>r.ya==null?'года назад нет':!sig(r)?'почти как год назад':(r.v>r.ya?'выше':'ниже')+', чем год назад';
     return {sum:'текучесть HQ '+f('turnover_y',t.v),st:'n',
       head:up.length?U.esc((nm[t.key]+' '+f('turnover_y',t.v)+' — '+yo(t)).replace(/^./,x=>x.toUpperCase()))
         :'HQ уходит так же, как год назад',
@@ -10991,9 +11012,14 @@ function yoyChart(key,lp,bl,S,opt){
      (текучесть с января) — у закрытого месяца, у средних и долей за период — полосой январь–закрытый месяц */
   const pe=!kpi&&!opt.noBench&&!opt.yser&&!(sc&&sc!==1)&&!D.isSmall(key)?D.peerOf(key,lp):null;
   const peer=pe?{p25:pe.p25,p50:pe.p50,p75:pe.p75,cum:key==='turnover_y',upto:D.PER_C}:null;
+  /* поставка 128 (аудит: «Уходят чаще, чем во всей компании» в выводе, а линия компании на графике выключена — решение 96): линия
+     остаётся выключенной, но когда вся компания — ориентир вывода (нет цели и базы по размеру, отчёт — не сама компания), её
+     значение за тот же период стоит в строке итога под заголовком: сравнение видно без клика */
+  const coRef=cmp&&!opt.ref&&!peer&&!D.isSelfBase()&&!D.isSmall(key)&&period&&!opt.yser&&!(sc&&sc!==1);
+  const per2=coRef?Object.assign({},period,{ref:D.coName(S,'nom')+' '+D.fmtVal(key,(D.periodTotal(bl,key)||{}).v)}):period;
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
     Object.assign({legend,benchName:opt.ref?opt.ref.name:bench,kpi:kpi,h:300,fill:true,gap:cmp&&!opt.ref,
-      offDef:cmp&&!opt.ref?['bench']:null,peer:peer},opt,{color:col,period:period}));
+      offDef:cmp&&!opt.ref?['bench']:null,peer:peer},opt,{color:col,period:per2}));
 }
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
@@ -11009,12 +11035,15 @@ function rest(ctx,k,n,word){return {top:n,restWord:word,restKey:'rest:'+k,restOp
 function yoyPanels(lp,items,opt){
   opt=opt||{};
   const cmp=k=>opt.bl&&D.comparable(k)&&!D.kpiFor(k,opt.S);
+  /* поставка 128: где вся компания — ориентир вывода (нет цели и базы по размеру), её значение — в строке итога панели */
+  const coRef=k=>!!opt.S&&!D.isSelfBase()&&cmp(k)&&!D.isSmall(k)&&!D.peerOf(k,lp);
   return G.chart('panels',{panels:items.map(it=>{
     const y=D.yoySeries(lp,it.key);
     /* поставка 122: отметка базы — как у одиночного графика (yoyChart) */
     const pe=opt.S&&!D.kpiFor(it.key,opt.S)&&!D.isSmall(it.key)?D.peerOf(it.key,lp):null;
     return {name:it.name,key:it.key,cur:y.cur,prev:y.prev,color:it.color||YOY_COLOR[it.key]||G.C_LINE,ann:it.ann||null,
-      period:D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null,
+      period:coRef(it.key)&&D.periodTotal(lp,it.key)?Object.assign({},D.periodTotal(lp,it.key),{ref:D.coName(opt.S,'nom')+' '+
+        D.fmtVal(it.key,(D.periodTotal(opt.bl,it.key)||{}).v)}):D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null,
       peer:pe?{p25:pe.p25,p50:pe.p50,p75:pe.p75,cum:it.key==='turnover_y',upto:D.PER_C}:null};
   })},Object.assign({h:520,fill:true,benchName:opt.bl?D.benchmarkLabel(opt.S):'',offDef:['bench'],
     /* третий пункт — для переключателя серий (легенда панелей рисуется у каждой панели своя) */
@@ -12001,7 +12030,9 @@ function hqView(ctx){
       ': один уход сдвигает текучесть примерно на '+String(Math.round(1000/h.hc)/10).replace('.',',')+' п.п. Доли не оцениваем.</div>':'')+
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
-      period:D.periodTotal(h.lp,r.key,r.yoy)}))},
+      /* поставка 128 (аудит: «доли не оцениваем», а чип текучести HQ красный — цвет брался по численности всего подразделения):
+         в HQ меньше 30 человек — чип изменения без цвета, как и написано выше */
+      period:h.hc<D.SMALL_N?Object.assign({},D.periodTotal(h.lp,r.key,r.yoy)||{},{good:null}):D.periodTotal(h.lp,r.key,r.yoy)}))},
       {h:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]});
   /* поставка 103 (файл 9, п. 10): сноска об ориентирах (целях) снята — в блоке только факт и сравнение с прошлым годом */
 }
@@ -12345,12 +12376,18 @@ SC.blocks.tgrowth={
     :sub==='spec'?'Как меняют специализацию: заявки «Рост» и T@T'
     :'Конверсия T-роста и решения по заявкам'},
   view(ctx){
-    if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp));
-    if(ctx.sub==='spec')return specs(ctx,D.rostProfile(ctx.lp));
+    /* поставка 128 (аудит: на «Конверсии» одобрено 53 и отклонено 16, а на «По грейдам» и «Смене специализации» за тот же период —
+       54 и 18): это разные даты заявки в источнике — решения (ряды отчёта, как эталон «Роста»: месяц итога) и подача (разрез rm
+       «Роста»). До выравнивания ноутбука — подписано на каждом шаге, по какому месяцу считаются заявки */
+    const basis=(own,other)=>'<div class="tbl-note">Заявки здесь — '+own+'. На шаге «'+other[0]+'» — '+other[1]+
+      ', поэтому их число за тот же период может отличаться.</div>';
+    if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp))+basis('по месяцу подачи',['Конверсия и решения','по месяцу решения']);
+    if(ctx.sub==='spec')return specs(ctx,D.rostProfile(ctx.lp))+basis('по месяцу подачи',['Конверсия и решения','по месяцу решения']);
     return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
         {h:300,title:'Одобренные и отклонённые заявки',
-         legend:[{name:'Одобрено',color:G.C_IN},{name:'Отклонено',color:G.C_OUT}]});
+         legend:[{name:'Одобрено',color:G.C_IN},{name:'Отклонено',color:G.C_OUT}]})+
+      basis('по месяцу решения (одобрение или отказ)',['По грейдам','по месяцу подачи']);
   }
 };
 })();
@@ -12395,7 +12432,7 @@ function monPh(title,what){
 
 /* поставка 104 (заказчик): под заголовком — «В среднем за неделю / месяц» по закрытым периодам графика, как итог за
    период у графиков динамики; год к году здесь нет (16 недель / 6 месяцев). Часы и звонки — взвешенно, как точки */
-function perLine(P,wk){
+function perLine(P,wk,lp){
   const C=P.filter(p=>!p.pt);
   if(!C.length)return null;
   const head='В среднем за '+(wk?'неделю':'месяц')+', '+C[0].label+(C.length>1?'–'+C[C.length-1].label:'');
@@ -12407,7 +12444,10 @@ function perLine(P,wk){
       /* поставка 110 (D6, критики: «0 чел (3%)»): среднее меньше 10 человек — с десятой, чтобы число и доля не спорили;
          поставка 125: доля — с десятой, как метрика в заголовке и на главной (Σ категории ÷ Σ размеченных и «не размечено»
          за те же месяцы — одно и то же число с одной точностью, а не целые проценты рядом с десятыми) */
-      cur:(avg(c[0])<10?f1(avg(c[0])):n(avg(c[0])))+' чел'+(hc?' ('+D.fmtVal(c[2],avg(c[0])/hc*100)+')':'')}))}},
+      /* поставка 128 (аудит: в заголовке «год назад — X и Y», а на графике прошлого года нет): доля — первым числом, год назад —
+         тем же итогом за те же месяцы (D.periodTotal), что в заголовке */
+      cur:(hc?D.fmtVal(c[2],avg(c[0])/hc*100)+' · ':'')+(avg(c[0])<10?f1(avg(c[0])):n(avg(c[0])))+' чел',
+      prev:lp&&!wk?(x=>x==null?null:D.fmtVal(c[2],x))((D.periodTotal(lp,c[2])||{}).pv):null}))}},
     hours:()=>{const v=wt&&sum('pdw')?sum('hrw')/sum('pdw'):avg('hours');return v?{head:head,cur:f1(v)+' ч/день'}:null},
     talk:()=>{const v=wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null}};
 }
@@ -12447,7 +12487,9 @@ SC.blocks.monitor={
        (в т.ч. ушедшие в его середине) */
     /* поставка 103 (файл 9, п. 1): в мониторинге — численность на конец периода (как в шапке): у каждого одна категория,
        без записи мониторинга — «не размечено»; ушедшие в течение периода не считаются */
-    {k:'hc',name:'В мониторинге, чел',tip:'Численность на конец последнего закрытого периода — та же, что в шапке: у каждого одна категория мониторинга (норма, недоработка, переработка, не размечено). Ушедшие в течение периода не считаются; без записи мониторинга — «не размечено».',val:md=>wk(md).cur.hc},
+    /* поставка 128 (аудит: в колонке — численность закрытого месяца, под именем строки — сегодняшняя, а подсказка говорила «та же,
+       что в шапке»): окно подписано, как у соседних колонок */
+    {k:'hc',name:'В мониторинге, чел',per:'за '+D.PER_MON,tip:'Сколько людей в мониторинге в последнем закрытом месяце: у каждого одна категория (норма, недоработка, переработка, не размечено). Численность в шапке и под именем подразделения — на дату данных, поэтому может отличаться на ушедших и пришедших после закрытия месяца.',val:md=>wk(md).cur.hc},
     /* поставка 90: таблица — люди за последний закрытый месяц, окно подписано под названием */
     {k:'under',name:'Недоработчики',per:'за '+D.PER_MON,tip:'Активность ниже нормы в последнем закрытом периоде, человек.',val:md=>wk(md).cur.under,share:true},
     {k:'over',name:'Переработчики',per:'за '+D.PER_MON,tip:'Активность выше нормы в последнем закрытом периоде, человек.',val:md=>wk(md).cur.over,share:true},
@@ -12484,7 +12526,7 @@ SC.blocks.monitor={
       monPh('Средняя доля звонков в Толк, % рабочего времени','Доля разговоров в Толк от рабочего времени, среднее по месяцам и неделям.')+'</div>';
     /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой.
        Поставка 104 (заказчик): низкие (sm) — лист короче; под заголовком — среднее за период */
-    const pl=perLine(P,wk);
+    const pl=perLine(P,wk,ctx.lp);
     return kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
       G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
@@ -12635,7 +12677,10 @@ SC.blocks.office={
 
     /* календарь + дни недели: сетка отвечает «в какие дни», таблица — «в какие
        дни недели», и вместе они читаются как один ответ */
-    const blocks=D.attLast(ctx.lp), dow=D.attByDow(ctx.lp);
+    /* поставка 128 (аудит: «Чаще всего ходят в среду» — по августу и сентябрю, а календарь под ним — сентябрь и 1–12 октября, где
+       впереди понедельник): календарь — те же закрытые месяцы, что заголовок и таблица дней недели (D.PER_I); незакрытый месяц
+       в итог не входит и здесь не показан */
+    const blocks=D.attLast(ctx.lp,D.REAL?D.DOW_MONTHS:null,D.REAL?D.PER_I:null), dow=D.attByDow(ctx.lp);
     /* конец периода называем явно: иначе непонятно, почему текущий месяц
        оборван и на каком именно дне */
     const end=blocks[blocks.length-1];
@@ -12651,8 +12696,8 @@ SC.blocks.office={
       '»: по дням данные есть только у подразделения из фильтра. Чтобы увидеть «'+esc((D.NODE_BY_PATH[ctx.sel]||{}).name||'')+
       '», выберите его в «Настрой свой дашборд».</div>':'';
     return own+G.chart('calendar',{blocks:blocks},
-      {title:'Посещаемость по дням — по '+end.to+' '+
-        D.MONTH_GEN[end.m]+' '+end.y+', %'})+
+      {title:D.REAL?'Посещаемость по дням — '+blocks.map(b=>D.MONTH_NOM[b.m]).join(' и ')+' '+end.y+', %'
+        :'Посещаемость по дням — по '+end.to+' '+D.MONTH_GEN[end.m]+' '+end.y+', %'})+
       '<div class="bt-group"><div class="bt-cap">По дням недели, среднее за '+
       (D.DOW_MONTHS===2?D.MONTH_NOM[(D.PER_C+11)%12]+' и '+D.MONTH_NOM[D.PER_C]:D.DOW_MONTHS+' месяца')+'</div>'+
       U.barTable({head:'День недели',metricKey:'office_att',valueHead:'Посещаемость',
@@ -12986,7 +13031,7 @@ function insightCard(c){
       /* 30.10, шаг 2: факты — пилюлями, а не абзацем */
       (c.pills&&c.pills.length?'<div class="in-pl">'+c.pills.map(t=>'<span>'+t+'</span>').join('')+'</div>'
         :c.body?'<div class="in-b">'+c.body+'</div>':'')+'</div>'+
-    (c.chart?'<button class="in-mini" data-opfact="'+esc(c.key)+'"'+U.tipAttr({title:D.METRIC_BY_KEY[c.key].name,
+    (c.chart?'<button class="in-mini" '+(c.fact&&c.fact.kind==='hqb'&&c.btn.go?'data-opgo="'+esc(c.btn.go)+'"':'data-opfact="'+esc(c.key)+'"')+U.tipAttr({title:D.METRIC_BY_KEY[c.key].name,
       text:c.chartTip||'',note:'Нажмите — откроется подробный график.'})+'>'+c.chart+'</button>':'')+'</div>'+
     '<div class="in-a"><span class="in-do">'+c.todo+'</span><button class="in-go"'+go+'>'+esc(c.btn.label)+'</button></div></div>';
 }
@@ -13025,7 +13070,7 @@ function normRow(S,rl,ok0,bl){
   const dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
   const na=ok0.filter(m=>unrated(m,rl)), ok=ok0.filter(m=>rated(m,S,rl,bl)), info=ok0.filter(m=>!unrated(m,rl)&&!rated(m,S,rl,bl));
   /* «сейчас» у остатков — в имени строки, столбец значений остаётся чисто числовым */
-  const P=m=>D.periodTotal(rl,m.key)||{}, now=m=>P(m).cur, nm=m=>m.name+(P(m).stock?', сейчас':'');
+  const P=m=>D.periodTotal(rl,m.key)||{}, now=m=>P(m).cur, nm=m=>m.name+(P(m).stock?', сейчас':'')+(D.monJudged(m.key,rl)?'':' — нет разметки');
   /* поставка 123-б: метрики в подсказке — таблицей; у «в норме» второй столбец — с чем сравнили (цель, база, компания или
      год назад), у остальных — год назад */
   const refOf=m=>{const kpi=D.kpiAt(m.key,S,D.MONTHS[D.PER_I].m), pe=kpi?null:D.peerOf(m.key,rl), f=x=>D.fmtVal(m.key,x);
@@ -14163,8 +14208,9 @@ on(document,'click',e=>{
   if(t.closest('[data-opscroll]')){toDetails('#op-all');return}
   const og=t.closest('[data-opgo]');
   if(og){
-    const [bk,p]=og.dataset.opgo.split('|');
-    S.tab=bk;S.subTab=null;S.mainMetric=null;S.selNode=p;openRows.clear();render();toDetails();return;
+    /* поставка 128: третья часть — шаг блока («turnover||hq» — сразу «Как уходит HQ?») */
+    const [bk,p,sub]=og.dataset.opgo.split('|');
+    S.tab=bk;S.subTab=sub||null;S.mainMetric=null;S.selNode=p||null;openRows.clear();render();toDetails();return;
   }
   if(t.closest('[data-blkjump]')){toDetails();return}
   const ws=t.closest('[data-wsel]');

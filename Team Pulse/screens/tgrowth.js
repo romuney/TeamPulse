@@ -101,12 +101,18 @@ SC.blocks.tgrowth={
     :sub==='spec'?'Как меняют специализацию: заявки «Рост» и T@T'
     :'Конверсия T-роста и решения по заявкам'},
   view(ctx){
-    if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp));
-    if(ctx.sub==='spec')return specs(ctx,D.rostProfile(ctx.lp));
+    /* поставка 128 (аудит: на «Конверсии» одобрено 53 и отклонено 16, а на «По грейдам» и «Смене специализации» за тот же период —
+       54 и 18): это разные даты заявки в источнике — решения (ряды отчёта, как эталон «Роста»: месяц итога) и подача (разрез rm
+       «Роста»). До выравнивания ноутбука — подписано на каждом шаге, по какому месяцу считаются заявки */
+    const basis=(own,other)=>'<div class="tbl-note">Заявки здесь — '+own+'. На шаге «'+other[0]+'» — '+other[1]+
+      ', поэтому их число за тот же период может отличаться.</div>';
+    if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp))+basis('по месяцу подачи',['Конверсия и решения','по месяцу решения']);
+    if(ctx.sub==='spec')return specs(ctx,D.rostProfile(ctx.lp))+basis('по месяцу подачи',['Конверсия и решения','по месяцу решения']);
     return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
         {h:300,title:'Одобренные и отклонённые заявки',
-         legend:[{name:'Одобрено',color:G.C_IN},{name:'Отклонено',color:G.C_OUT}]});
+         legend:[{name:'Одобрено',color:G.C_IN},{name:'Отклонено',color:G.C_OUT}]})+
+      basis('по месяцу решения (одобрение или отказ)',['По грейдам','по месяцу подачи']);
   }
 };
 })();

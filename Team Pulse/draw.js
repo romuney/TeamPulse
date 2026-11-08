@@ -772,7 +772,9 @@ const PERIOD_H=20, PT_BG={g:'#e6f6ec',b:'#fdecec',n:'#eef0f3'}, PT_FG={g:'#0a8f3
 function periodLine(p,y,w){
   if(!p)return {s:'',h:0};
   const gs=p.parts?[[[p.head+': ']]].concat(p.parts.map((q,i)=>[[(i?' · ':'')+q.name+' '],[q.cur,1]].concat(q.prev!=null?[[' (год назад '+q.prev+')']]:[]))):
-    [[[p.head+': '],[p.cur,1]]].concat(p.prev!=null?[[[' · год назад '+p.prev]]]:[],p.delta?[[[p.delta,1,p.good==null?'n':p.good?'g':'b']]]:[]);
+    [[[p.head+': '],[p.cur,1]]].concat(p.prev!=null?[[[' · год назад '+p.prev]]]:[],p.delta?[[[p.delta,1,p.good==null?'n':p.good?'g':'b']]]:[],
+      /* поставка 128: ориентир «вся компания» — значением в строке итога (линия по умолчанию выключена) */
+      p.ref?[[[' · '+p.ref]]]:[]);
   const W=q=>q[2]?measureW(q[0],10.5,1)+18:measureW(q[0],q[1]?12:11,q[1])+(q[1]?2:0);
   let x=0,n=0,s='';
   gs.forEach(g=>{

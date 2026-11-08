@@ -138,7 +138,10 @@ SC.blocks.office={
 
     /* календарь + дни недели: сетка отвечает «в какие дни», таблица — «в какие
        дни недели», и вместе они читаются как один ответ */
-    const blocks=D.attLast(ctx.lp), dow=D.attByDow(ctx.lp);
+    /* поставка 128 (аудит: «Чаще всего ходят в среду» — по августу и сентябрю, а календарь под ним — сентябрь и 1–12 октября, где
+       впереди понедельник): календарь — те же закрытые месяцы, что заголовок и таблица дней недели (D.PER_I); незакрытый месяц
+       в итог не входит и здесь не показан */
+    const blocks=D.attLast(ctx.lp,D.REAL?D.DOW_MONTHS:null,D.REAL?D.PER_I:null), dow=D.attByDow(ctx.lp);
     /* конец периода называем явно: иначе непонятно, почему текущий месяц
        оборван и на каком именно дне */
     const end=blocks[blocks.length-1];
@@ -154,8 +157,8 @@ SC.blocks.office={
       '»: по дням данные есть только у подразделения из фильтра. Чтобы увидеть «'+esc((D.NODE_BY_PATH[ctx.sel]||{}).name||'')+
       '», выберите его в «Настрой свой дашборд».</div>':'';
     return own+G.chart('calendar',{blocks:blocks},
-      {title:'Посещаемость по дням — по '+end.to+' '+
-        D.MONTH_GEN[end.m]+' '+end.y+', %'})+
+      {title:D.REAL?'Посещаемость по дням — '+blocks.map(b=>D.MONTH_NOM[b.m]).join(' и ')+' '+end.y+', %'
+        :'Посещаемость по дням — по '+end.to+' '+D.MONTH_GEN[end.m]+' '+end.y+', %'})+
       '<div class="bt-group"><div class="bt-cap">По дням недели, среднее за '+
       (D.DOW_MONTHS===2?D.MONTH_NOM[(D.PER_C+11)%12]+' и '+D.MONTH_NOM[D.PER_C]:D.DOW_MONTHS+' месяца')+'</div>'+
       U.barTable({head:'День недели',metricKey:'office_att',valueHead:'Посещаемость',

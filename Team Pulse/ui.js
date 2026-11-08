@@ -294,6 +294,9 @@ function targetCell(key,val,baseVal,kpi,pe,lp,bl,vs){
   if(val==null)return '<div class="tgt">'+(kpi?'<span class="kpi-tag">KPI</span> <b>цель '+D.fmtVal(key,kpi.green)+'</b>'
     :D.comparable(key)&&baseVal!=null?'<b>'+D.fmtVal(key,baseVal)+'</b>':'')+
     '<span class="sig-chip neutral">нет данных</span></div>';
+  /* поставка 128 (аудит: у подразделения без разметки мониторинга «0,0%» без пояснения): ориентир не применим — так и сказано */
+  if(lp&&!D.monJudged(key,lp))return '<div class="tgt"'+tipAttr({title:'Без оценки',text:'В мониторинге размечено меньше половины '+
+    'людей: у остальных нет записей, поэтому доля здесь — «нет данных», а не оценка.'})+'><span class="sig-chip neutral">нет разметки</span></div>';
   if(kpi){
     const st=vs||D.stateForKpi(key,val,kpi), m=D.METRIC_BY_KEY[key];
     const badTxt=m.better==='lower'?'выше порога':'ниже порога';
