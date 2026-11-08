@@ -160,6 +160,7 @@ function tipHtml(o){
   if(o.title)s+='<span class="t-h">'+esc(o.title)+'</span>';
   if(o.text)s+=tipText(o.text);
   if(o.list)s+=tipList(o.list.filter(Boolean));
+  if(o.table)s+=tipTable(o.table);
   (o.rows||[]).forEach((r,i)=>{
     if(!r)return;
     const mk=r.color
@@ -179,6 +180,14 @@ function tipHtml(o){
   const ns=o.note==null?[]:(Array.isArray(o.note)?o.note:[o.note]);
   ns.forEach(n=>{if(n)s+='<span class="t-n">'+tipB(n)+'</span>'});
   return s;
+}
+/* поставка 123-б (владелец: «очень стрёмно выглядит» — длинные имена в три строки и «18 · год назад 16» одной жирной строкой):
+   таблица в подсказке — {head:['', '2026', '2025'], rows:[[имя, значение, второе]]}; имя слева, значение жирным, второе серым,
+   числа вправо табличными цифрами (.t-tb, подсказка с таблицей шире) */
+function tipTable(t){
+  const td=(c,i)=>'<td class="'+(i===0?'n':i===1?'v c':'v p')+'">'+esc(c==null?'—':c)+'</td>';
+  return '<table class="t-tb">'+(t.head?'<thead><tr>'+t.head.map(h=>'<th>'+esc(h||'')+'</th>').join('')+'</tr></thead>':'')+
+    '<tbody>'+t.rows.map(r=>'<tr>'+r.map(td).join('')+'</tr>').join('')+'</tbody></table>';
 }
 /* data-tip читает делегированный обработчик в ui.js */
 function tip(o){return ' data-tip="'+esc(tipHtml(o))+'"'}

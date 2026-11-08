@@ -2618,3 +2618,15 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .in-chip.dev{border-color:var(--dev-line);background:var(--dev-bg);color:var(--dev-ink)}
 .in-chip:hover{border-color:var(--act);color:var(--act)}
 .in-sumrow .legend{margin:0 0 0 auto}
+/* поставка 123-б: таблица в подсказке (счётчики «в норме», «без оценки», «для справки») — имя слева, значение жирным,
+   второй столбец серым, числа вправо; подсказка с таблицей шире обычной */
+.tip:has(.t-tb){max-width:440px}
+.tip .t-tb{border-collapse:collapse;width:100%;margin-top:6px;font-size:12px;line-height:1.35}
+.tip .t-tb th{font-weight:var(--fw-body);color:var(--muted);font-size:11px;text-align:right;padding:0 0 4px 16px;white-space:nowrap}
+.tip .t-tb th:first-child{text-align:left;padding-left:0}
+.tip .t-tb td{padding:4px 0 4px 16px;border-top:1px solid var(--line2);vertical-align:baseline}
+.tip .t-tb td.n{padding-left:0;color:var(--ink2);text-align:left}
+.tip .t-tb td.v{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tip .t-tb td.c{font-weight:var(--fw-bold);color:var(--ink)}
+.tip .t-tb td.p{color:var(--muted)}
+.tip .t-tb+.t-n{margin-top:6px;padding-top:6px;border-top:1px solid var(--line2)}

@@ -145,19 +145,26 @@ function rated(m,S,rl,bl){
 function normRow(S,rl,ok0,bl){
   const dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
   const na=ok0.filter(m=>unrated(m,rl)), ok=ok0.filter(m=>rated(m,S,rl,bl)), info=ok0.filter(m=>!unrated(m,rl)&&!rated(m,S,rl,bl));
-  const row=(m,ago)=>{const P=D.periodTotal(rl,m.key);
-    return {label:m.name,value:P.cur+(P.stock?' сейчас':'')+(ago&&P.prev!=null?' · год назад '+P.prev:'')}};
-  const chip=(cls,n,word,title,text,rows)=>n?'<button class="in-chip '+cls+'" data-opscroll="1"'+
-      U.tipAttr({title:title,text:text,rows:rows,note:'Клик — к таблицам блоков ниже.'})+'>'+(cls==='ok'?'✓ ':'')+'<b>'+n+'</b> '+word+'</button>':'';
+  /* «сейчас» у остатков — в имени строки, столбец значений остаётся чисто числовым */
+  const P=m=>D.periodTotal(rl,m.key)||{}, now=m=>P(m).cur, nm=m=>m.name+(P(m).stock?', сейчас':'');
+  /* поставка 123-б: метрики в подсказке — таблицей; у «в норме» второй столбец — с чем сравнили (цель, база, компания или
+     год назад), у остальных — год назад */
+  const refOf=m=>{const kpi=D.kpiAt(m.key,S,D.MONTHS[D.PER_I].m), pe=kpi?null:D.peerOf(m.key,rl), f=x=>D.fmtVal(m.key,x);
+    if(kpi)return 'цель '+f(kpi.green);
+    if(pe)return 'база '+f(pe.p50);
+    const b=D.comparable(m.key)&&!D.isSelfBase()?(D.periodTotal(bl,m.key)||{}).v:null;
+    return b!=null?'компания '+f(b):P(m).prev!=null?'год назад '+P(m).prev:'—'};
+  const chip=(cls,n,word,title,text,table)=>n?'<button class="in-chip '+cls+'" data-opscroll="1"'+
+      U.tipAttr({title:title,text:text,table:table,note:'Клик — к таблицам блоков ниже.'})+'>'+(cls==='ok'?'✓ ':'')+'<b>'+n+'</b> '+word+'</button>':'';
   return '<div class="in-sum">'+
     chip('ok',ok.length,U.plural(ok.length,['метрика в норме','метрики в норме','метрик в норме']),'В норме',
-      'Оценённые метрики без заметных отклонений: на уровне цели, базы или всей компании, а где ориентира нет — как год назад '+
-      '(изменение меньше '+Math.round(D.VERDICT_GAP*100)+'%).',ok.map(m=>row(m)))+
+      'Без заметных отклонений от ориентира, а где его нет — от прошлого года.',
+      {head:['','Значение','Ориентир'],rows:ok.map(m=>[nm(m),now(m),refOf(m)])})+
     chip('na',na.length,'без оценки — мало людей','Без оценки — мало людей',
-      (D.isSmall()?'В команде':'В HQ')+' меньше '+D.SMALL_N+' человек: один человек сдвигает долю на несколько процентных пунктов, '+
-      'поэтому доли и сроки с ориентиром не сравниваем.',na.map(m=>row(m)))+
-    chip('ref',info.length,'для справки','Для справки',
-      'Количества и метрики без направления цветом не оцениваются: значение и то же окно год назад.',info.map(m=>row(m,1)))+
+      (D.isSmall()?'В команде':'В HQ')+' меньше '+D.SMALL_N+' человек: один человек сдвигает долю на несколько пунктов.',
+      {head:['','Значение','Год назад'],rows:na.map(m=>[nm(m),now(m),P(m).prev])})+
+    chip('ref',info.length,'для справки','Для справки','Количества и метрики без направления — без оценки, с прошлым годом.',
+      {head:['',String(D.YEAR_CUR),String(D.YEAR_PREV)],rows:info.map(m=>[nm(m),now(m),P(m).prev])})+
     (dev?'<button class="in-chip dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
       dev+' в разработке</button>':'')+'</div>';
 }

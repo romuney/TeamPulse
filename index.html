@@ -2626,6 +2626,18 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .in-chip.dev{border-color:var(--dev-line);background:var(--dev-bg);color:var(--dev-ink)}
 .in-chip:hover{border-color:var(--act);color:var(--act)}
 .in-sumrow .legend{margin:0 0 0 auto}
+/* поставка 123-б: таблица в подсказке (счётчики «в норме», «без оценки», «для справки») — имя слева, значение жирным,
+   второй столбец серым, числа вправо; подсказка с таблицей шире обычной */
+.tip:has(.t-tb){max-width:440px}
+.tip .t-tb{border-collapse:collapse;width:100%;margin-top:6px;font-size:12px;line-height:1.35}
+.tip .t-tb th{font-weight:var(--fw-body);color:var(--muted);font-size:11px;text-align:right;padding:0 0 4px 16px;white-space:nowrap}
+.tip .t-tb th:first-child{text-align:left;padding-left:0}
+.tip .t-tb td{padding:4px 0 4px 16px;border-top:1px solid var(--line2);vertical-align:baseline}
+.tip .t-tb td.n{padding-left:0;color:var(--ink2);text-align:left}
+.tip .t-tb td.v{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tip .t-tb td.c{font-weight:var(--fw-bold);color:var(--ink)}
+.tip .t-tb td.p{color:var(--muted)}
+.tip .t-tb+.t-n{margin-top:6px;padding-top:6px;border-top:1px solid var(--line2)}
 
 </style>
 </head>
@@ -6490,6 +6502,7 @@ function tipHtml(o){
   if(o.title)s+='<span class="t-h">'+esc(o.title)+'</span>';
   if(o.text)s+=tipText(o.text);
   if(o.list)s+=tipList(o.list.filter(Boolean));
+  if(o.table)s+=tipTable(o.table);
   (o.rows||[]).forEach((r,i)=>{
     if(!r)return;
     const mk=r.color
@@ -6509,6 +6522,14 @@ function tipHtml(o){
   const ns=o.note==null?[]:(Array.isArray(o.note)?o.note:[o.note]);
   ns.forEach(n=>{if(n)s+='<span class="t-n">'+tipB(n)+'</span>'});
   return s;
+}
+/* поставка 123-б (владелец: «очень стрёмно выглядит» — длинные имена в три строки и «18 · год назад 16» одной жирной строкой):
+   таблица в подсказке — {head:['', '2026', '2025'], rows:[[имя, значение, второе]]}; имя слева, значение жирным, второе серым,
+   числа вправо табличными цифрами (.t-tb, подсказка с таблицей шире) */
+function tipTable(t){
+  const td=(c,i)=>'<td class="'+(i===0?'n':i===1?'v c':'v p')+'">'+esc(c==null?'—':c)+'</td>';
+  return '<table class="t-tb">'+(t.head?'<thead><tr>'+t.head.map(h=>'<th>'+esc(h||'')+'</th>').join('')+'</tr></thead>':'')+
+    '<tbody>'+t.rows.map(r=>'<tr>'+r.map(td).join('')+'</tr>').join('')+'</tbody></table>';
 }
 /* data-tip читает делегированный обработчик в ui.js */
 function tip(o){return ' data-tip="'+esc(tipHtml(o))+'"'}
@@ -12845,19 +12866,26 @@ function rated(m,S,rl,bl){
 function normRow(S,rl,ok0,bl){
   const dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
   const na=ok0.filter(m=>unrated(m,rl)), ok=ok0.filter(m=>rated(m,S,rl,bl)), info=ok0.filter(m=>!unrated(m,rl)&&!rated(m,S,rl,bl));
-  const row=(m,ago)=>{const P=D.periodTotal(rl,m.key);
-    return {label:m.name,value:P.cur+(P.stock?' сейчас':'')+(ago&&P.prev!=null?' · год назад '+P.prev:'')}};
-  const chip=(cls,n,word,title,text,rows)=>n?'<button class="in-chip '+cls+'" data-opscroll="1"'+
-      U.tipAttr({title:title,text:text,rows:rows,note:'Клик — к таблицам блоков ниже.'})+'>'+(cls==='ok'?'✓ ':'')+'<b>'+n+'</b> '+word+'</button>':'';
+  /* «сейчас» у остатков — в имени строки, столбец значений остаётся чисто числовым */
+  const P=m=>D.periodTotal(rl,m.key)||{}, now=m=>P(m).cur, nm=m=>m.name+(P(m).stock?', сейчас':'');
+  /* поставка 123-б: метрики в подсказке — таблицей; у «в норме» второй столбец — с чем сравнили (цель, база, компания или
+     год назад), у остальных — год назад */
+  const refOf=m=>{const kpi=D.kpiAt(m.key,S,D.MONTHS[D.PER_I].m), pe=kpi?null:D.peerOf(m.key,rl), f=x=>D.fmtVal(m.key,x);
+    if(kpi)return 'цель '+f(kpi.green);
+    if(pe)return 'база '+f(pe.p50);
+    const b=D.comparable(m.key)&&!D.isSelfBase()?(D.periodTotal(bl,m.key)||{}).v:null;
+    return b!=null?'компания '+f(b):P(m).prev!=null?'год назад '+P(m).prev:'—'};
+  const chip=(cls,n,word,title,text,table)=>n?'<button class="in-chip '+cls+'" data-opscroll="1"'+
+      U.tipAttr({title:title,text:text,table:table,note:'Клик — к таблицам блоков ниже.'})+'>'+(cls==='ok'?'✓ ':'')+'<b>'+n+'</b> '+word+'</button>':'';
   return '<div class="in-sum">'+
     chip('ok',ok.length,U.plural(ok.length,['метрика в норме','метрики в норме','метрик в норме']),'В норме',
-      'Оценённые метрики без заметных отклонений: на уровне цели, базы или всей компании, а где ориентира нет — как год назад '+
-      '(изменение меньше '+Math.round(D.VERDICT_GAP*100)+'%).',ok.map(m=>row(m)))+
+      'Без заметных отклонений от ориентира, а где его нет — от прошлого года.',
+      {head:['','Значение','Ориентир'],rows:ok.map(m=>[nm(m),now(m),refOf(m)])})+
     chip('na',na.length,'без оценки — мало людей','Без оценки — мало людей',
-      (D.isSmall()?'В команде':'В HQ')+' меньше '+D.SMALL_N+' человек: один человек сдвигает долю на несколько процентных пунктов, '+
-      'поэтому доли и сроки с ориентиром не сравниваем.',na.map(m=>row(m)))+
-    chip('ref',info.length,'для справки','Для справки',
-      'Количества и метрики без направления цветом не оцениваются: значение и то же окно год назад.',info.map(m=>row(m,1)))+
+      (D.isSmall()?'В команде':'В HQ')+' меньше '+D.SMALL_N+' человек: один человек сдвигает долю на несколько пунктов.',
+      {head:['','Значение','Год назад'],rows:na.map(m=>[nm(m),now(m),P(m).prev])})+
+    chip('ref',info.length,'для справки','Для справки','Количества и метрики без направления — без оценки, с прошлым годом.',
+      {head:['',String(D.YEAR_CUR),String(D.YEAR_PREV)],rows:info.map(m=>[nm(m),now(m),P(m).prev])})+
     (dev?'<button class="in-chip dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
       dev+' в разработке</button>':'')+'</div>';
 }
