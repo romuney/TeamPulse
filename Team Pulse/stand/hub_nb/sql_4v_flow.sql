@@ -4,8 +4,7 @@
 -- «конец = начало + найм − отток + переводы в − переводы из» тождественно, без «прочего».
 -- Принадлежность строке — как численность series: строка человека в ПОСЛЕДНИЙ ДЕНЬ ДАННЫХ месяца
 -- (eom_flg build_all_metrics: последний календарный день месяца, для неполного — max(calendar_dt)
--- источника), не уволен в этот день; юнит-путь — как series: pre || coalesce(цепочка юнита в том же месяце (_umap,
--- поставка 129), lvl-цепочка дня).
+-- источника), не уволен в этот день; юнит-путь — как series: pre || coalesce(upath, lvl-цепочка).
 -- Перевод «в» = стал принадлежать этой строке (пришёл откуда угодно: другой юнит, другая
 -- специализация, другой тип численности, возвращение), «из» = перестал принадлежать. Категории
 -- «внутри юнита» нет: перемещение внутри узла — это «из» старой строки и «в» новую (в строке узла
@@ -81,7 +80,7 @@ distributed by (e);
 analyze teampulse_hub_flg;
 
 -- 3. события человека × месяца: принадлежность (как series), найм, отток, смена ключа строки,
---    пути узлов cur/prev как в series: pre || coalesce(цепочка юнита в своём месяце (_umap), lvl-цепочка дня)
+--    пути узлов cur/prev как в series: pre || coalesce(upath, lvl-цепочка месяца)
 drop table if exists teampulse_hub_fle;
 create table teampulse_hub_fle as
 select q.e, q.m,
@@ -98,7 +97,7 @@ select q.e, q.m,
        -- отток «нанят и уволен в месяц» — на строку текущего месяца (последняя строка — день увольнения)
        (coalesce(q.fxx, 0) = 1 and coalesce(q.hf, 0) = 1
         and (q.pe is null or not (q.pfx = 0 and q.pis_eom and q.pleaf_lvl > 0)) and q.fx = 1) as fire_cur,
-       -- пути узлов как в series (поставка 129: цепочка юнита в том же месяце — _umap «hub · 1», нет её — lvl-цепочка дня)
+       -- пути узлов как в series (шаг 6 «hub · 1»: upath юнита нынешней структуры, нет его — lvl-цепочка месяца)
        q.cp_c, q.cp_p,
        -- смена ключа строки: путь узлов + срезы (+ тип численности — колонка строки)
        (ARRAY[q.cp_c, q.pa, q.itc, q.st, q.ac]
@@ -123,8 +122,8 @@ from (
     from teampulse_hub_flp c
     left join teampulse_hub_flp p on p.e = c.e and p.m = (c.m - interval '1 month')::date
     left join teampulse_hub_flg g on g.e = c.e and g.m = c.m
-    left join teampulse_hub_umap uc on uc.unit_rk = c.leaf_rk and uc.report_month = c.m
-    left join teampulse_hub_umap up on up.unit_rk = coalesce(p.leaf_rk, '-') and up.report_month = p.m
+    left join teampulse_hub_upath uc on uc.unit_rk = c.leaf_rk
+    left join teampulse_hub_upath up on up.unit_rk = coalesce(p.leaf_rk, '-')
     where c.m >= (select grid_start from teampulse_hub_cal)
 ) q
 distributed by (e);

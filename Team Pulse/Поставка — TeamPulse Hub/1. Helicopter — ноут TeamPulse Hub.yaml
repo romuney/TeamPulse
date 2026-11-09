@@ -23,7 +23,7 @@ paragraphs:
     **`teampulse_hub_*`**: в них
     посчитано всё, что нужно отчёту TeamPulse Hub. Виртуальный датасет отчёта не кешируется, поэтому
     на каждый запрос он только выбирает узлы ответа (выбранный юнит, базу и три уровня под ним) и
-    склеивает строки — без дерева, без склейки копий, без пересчёта путей.
+    склеивает строки — без дерева, без склейки копий, без истории в нынешней структуре.
 
     **Что изменено против TP 2.0** (подробно — «Предложения — физическая таблица под датасет.md»):
 
@@ -58,9 +58,8 @@ paragraphs:
     | `teampulse_hub_vacancy` | узел × месяц × разрезы вакансии | открыто на конец месяца, закрыто, новые, срок закрытия (сумма дней и число); из снимка `structure_x_vacancy` (поставка 50) |
     | `teampulse_hub_aiw` | узел × неделя (Пн) | WAU, численность-знаменатель и проникновение AI-инструментов (без стажёров) — из недельного источника; месячного AI нет (решение 06.11) |
 
-    Срез — покраска × IT × штат: фильтры отчёта. Подразделение — как в мастер-отчёте (поставка 129, 09.11): человек
-    относится к узлам цепочки своего юнита в том же месяце (`teampulse_hub_umap`); юнит переехал — прошлые месяцы остаются
-    в прежнем подразделении. Дерево узлов — для показа. ССЧ = (активная месяца + прошлого) / 2 по узлу и срезу.
+    Срез — покраска × IT × штат: фильтры отчёта. История — в нынешней структуре: юнит переехал — его
+    прошлое едет с ним. ССЧ = (активная месяца + прошлого) / 2 по узлу и срезу.
 
     **Порядок:** параграфы сверху вниз. `hub · 0 колонки` — до сборки: нет колонки источника — ошибка со списком.
     `hub checks` — до выгрузки: не сошлось — ошибка, выгрузки нет.
@@ -1645,9 +1644,7 @@ paragraphs:
     -- TeamPulse Hub · 1. Календарь и структура (поставка 58: SQL вместо build_hub)
     -- teampulse_hub_cal — последний месяц (lm), дата данных (dt), последний закрытый месяц (cm), начало сетки,
     -- общий корень (mo, pre);
-    -- _umap — цепочка юнита в каждом месяце (по ней люди относятся к подразделениям); _uall — пути юнитов последнего
-    -- месяца (имена узлов); _node — узлы нынешней структуры (дерево для показа).
-    -- С 09.11 (поставка 129) файл ведётся руками: генератор stand/hub_sql.py его больше не перезаписывает.
+    -- _uall / _uone / _upath — путь каждого юнита последнего месяца; _node — узлы нынешней структуры.
     -- =============================================================================
 
     -- 1. последний месяц — последний в источнике людей (и текущий незакрытый); dt — последний день этого
@@ -1680,8 +1677,8 @@ paragraphs:
     distributed by (lm);
     drop table if exists teampulse_hub_lm;
 
-    -- 2. пути юнитов последнего месяца — по маленьким таблицам: _uall — юнит × его пути (ключи и имена уровней
-    --    колонками): из них имена узлов дерева
+    -- 2. пути юнитов последнего месяца — по маленьким таблицам: _uall — юнит × его пути (ключи уровней
+    --    колонками), _uone — один путь на юнит (если их несколько — меньший строкой, путь целиком)
     drop table if exists teampulse_hub_uall;
     create table teampulse_hub_uall as
     select s.mng_unit_rk::text as unit_rk, s.leaf_lvl,
@@ -1697,168 +1694,46 @@ paragraphs:
     group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
     distributed by (unit_rk);
     drop table if exists teampulse_hub_uone;
+    create table teampulse_hub_uone as
+    select distinct on (unit_rk) *
+    from (select u.*, array_to_string((ARRAY[u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10, u.k11])[1:u.leaf_lvl], '|') as cp
+          from teampulse_hub_uall u) x
+    order by unit_rk, cp
+    distributed by (unit_rk);
     drop table if exists teampulse_hub_upath;
+    create table teampulse_hub_upath as
+    select unit_rk, cp from teampulse_hub_uone
+    distributed by (unit_rk);
 
-    -- 3. люди → подразделения. 09.11, поставка 129 (владелец: «подразделения не сходятся» с мастер-отчётом): человек
-    --    относится к подразделениям цепочки своего юнита В ТОМ ЖЕ МЕСЯЦЕ — как мастер-отчёт (подразделение там — фильтр
-    --    по уровню цепочки самой строки дня) и как переводы «hub · 5» (путь дня, поставка 59). Было: путь юнита в
-    --    последнем месяце для всех месяцев («история в нынешней структуре»), а с 07.11 (поставки 113-г…е) — путь по общему
-    --    дереву: люди юнитов с другой цепочкой (пропущен уровень, старый путь у части юнитов в месяц реорганизации)
-    --    засчитывались чужому предку. _umap: юнит × месяц → цепочка большинства его людей на конец месяца («-» внутри
-    --    пути выкинуты; людей поровну — больше строк, дальше меньшая строкой). На неизменной структуре — то же, что раньше
-    drop table if exists teampulse_hub_umap0;
-    create table teampulse_hub_umap0 as
-    select distinct on (x.unit_rk, x.report_month) x.unit_rk, x.report_month, x.cp
-    from (
-        select s.mng_unit_rk::text as unit_rk, s.report_month::date as report_month,
-               array_to_string(array_remove((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
-                   s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text, s.lvl9_rk::text, s.lvl10_rk::text,
-                   s.lvl11_rk::text])[1:s.leaf_lvl], '-'), '|') as cp,
-               sum(coalesce(s.hc_total_cnt, 0)) as hc, count(*) as n
-        from all_metrics_with_performance_and_office_traffic_and_grt s
-        where s.leaf_lvl > 0
-        group by 1, 2, 3
-    ) x
-    where x.cp <> ''
-    order by x.unit_rk, x.report_month, x.hc desc, x.n desc, x.cp
-    distributed by (unit_rk);
-    --    ключ, который в цепочке повторяется (бывает в mapped: один уровень дважды), — один раз, первое вхождение: иначе
-    --    человек засчитывался бы такому узлу дважды (до поставки 129 повтор снимал путь по дереву)
-    drop table if exists teampulse_hub_umap;
-    create table teampulse_hub_umap as
-    select y.unit_rk, y.report_month,
-           array_to_string(array_remove(ARRAY[max(case when y.i = 1 then y.rk end), max(case when y.i = 2 then y.rk end),
-               max(case when y.i = 3 then y.rk end), max(case when y.i = 4 then y.rk end), max(case when y.i = 5 then y.rk end),
-               max(case when y.i = 6 then y.rk end), max(case when y.i = 7 then y.rk end), max(case when y.i = 8 then y.rk end),
-               max(case when y.i = 9 then y.rk end), max(case when y.i = 10 then y.rk end),
-               max(case when y.i = 11 then y.rk end)], NULL), '|') as cp
-    from (
-        select z.unit_rk, z.report_month, z.rk, min(z.i) as i
-        from (select w.unit_rk, w.report_month, unnest(string_to_array(w.cp, '|')) as rk,
-                     generate_subscripts(string_to_array(w.cp, '|'), 1) as i
-              from teampulse_hub_umap0 w) z
-        group by 1, 2, 3
-    ) y
-    group by 1, 2
-    distributed by (unit_rk);
-    drop table if exists teampulse_hub_umap0;
-    --    месяц перед сеткой — только «начало» первого месяца водопада («hub · 4в»): цепочки первого месяца сетки
-    insert into teampulse_hub_umap (unit_rk, report_month, cp)
-    select unit_rk, (report_month - interval '1 month')::date, cp
-    from teampulse_hub_umap
-    where report_month = (select grid_start from teampulse_hub_cal);
-
-    -- 4. узлы — все начала путей последнего месяца: и юниты со своими людьми, и уровни над ними без своих строк. Дерево —
-    --    только для показа (фильтр подразделения, таблицы подразделений, руководители): людей оно не переносит (п. 3).
-    --    07.11 (бой, ноябрь): в mapped-цепочках один узел стоит в разных юнитах под разными родителями (пропущен
-    --    промежуточный уровень, у части юнитов старый путь; бывает, что A над B в одних цепочках и B над A в других).
-    --    Дерево собирается из целых цепочек (поставка 113-е: колец нет), родитель узла — там, где больше его людей
-    --    (поставка 129; было — из самой длинной цепочки: узел с тысячами людей вставал под предка из старого пути, где их
-    --    трое). Кандидаты узла X — начала цепочек до X (первое вхождение), вес начала — люди всех цепочек, которые с него
-    --    начинаются; лучшее — больше людей, поровну — короче, дальше — меньшее строкой; родитель — элемент перед X.
-    --    Колец нет: начало до родителя есть у тех же людей и короче, значит, лучшее начало родителя строго лучше начала
-    --    узла. У узла с двумя родителями люди чужой ветки остаются в её предках, как в мастер-отчёте, — сумма
-    --    подразделений бывает больше узла (hub checks № 10, справочно)
-    drop table if exists teampulse_hub_upw;
-    create table teampulse_hub_upw as
-    select x.unit_rk, x.cp, count(distinct x.emp) as ppl
-    from (
-        select s.mng_unit_rk::text as unit_rk, s.mdm_employee_rk as emp,
-               array_to_string(array_remove((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
-                   s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text, s.lvl9_rk::text, s.lvl10_rk::text,
-                   s.lvl11_rk::text])[1:s.leaf_lvl], '-'), '|') as cp
-        from all_metrics_with_performance_and_office_traffic_and_grt s
-        where s.report_month = (select lm from teampulse_hub_cal) and s.leaf_lvl > 0
-    ) x
-    where x.cp <> ''
-    group by 1, 2
-    distributed by (unit_rk);
-    drop table if exists teampulse_hub_nedge;
-    create table teampulse_hub_nedge as
-    select x.rk, x.unit_rk, x.cp, x.ppl, array_length(string_to_array(x.cp, '|'), 1) as ln, min(x.i) as i
-    from (
-        select p.unit_rk, p.cp, p.ppl, unnest(string_to_array(p.cp, '|')) as rk,
-               generate_subscripts(string_to_array(p.cp, '|'), 1) as i
-        from teampulse_hub_upw p
-    ) x
-    group by 1, 2, 3, 4, 5
-    distributed by (rk);
-    drop table if exists teampulse_hub_npre;
-    create table teampulse_hub_npre as
-    select e.rk, array_to_string((string_to_array(e.cp, '|'))[1:e.i], '|') as pfx, e.i, sum(e.ppl) as ppl
-    from teampulse_hub_nedge e
-    group by 1, 2, 3
-    distributed by (rk);
-    drop table if exists teampulse_hub_npar;
-    create table teampulse_hub_npar as
-    select y.rk, case when y.i = 1 then '' else (string_to_array(y.pfx, '|'))[y.i - 1] end as prk
-    from (
-        select distinct on (p.rk) p.rk, p.pfx, p.i
-        from teampulse_hub_npre p
-        order by p.rk, p.ppl desc, p.i, p.pfx
-    ) y
-    distributed by (rk);
-    --    имя узла — из путей юнитов (как раньше)
-    drop table if exists teampulse_hub_nnm;
-    create table teampulse_hub_nnm as
-    select x.rk, min(x.nm) as nm
-    from (
-        select unnest(ARRAY[u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10, u.k11]) as rk,
-               unnest(ARRAY[u.n1, u.n2, u.n3, u.n4, u.n5, u.n6, u.n7, u.n8, u.n9, u.n10, u.n11]) as nm
-        from teampulse_hub_uall u
-    ) x
-    where x.rk <> '-'
-    group by 1
-    distributed by (rk);
-    --    путь узла — подъёмом по родителям (до 20 шагов: дерево из разных цепочек может быть глубже 11 уровней)
+    -- 3. узлы — все начала путей: и юниты со своими людьми, и уровни над ними без своих строк
     drop table if exists teampulse_hub_node;
     create table teampulse_hub_node as
-    select n.rk, m.nm, array_length(n.pa, 1) as lv, n.prk, array_to_string(n.pa, '|') as pth
+    select rk, min(nm) as nm, min(lv) as lv, min(prk) as prk, min(pth) as pth
     from (
-        select a0.rk, a0.prk,
-               array_remove(ARRAY[a19.rk, a18.rk, a17.rk, a16.rk, a15.rk, a14.rk, a13.rk, a12.rk, a11.rk, a10.rk, a9.rk, a8.rk, a7.rk, a6.rk, a5.rk, a4.rk, a3.rk, a2.rk, a1.rk, a0.rk], NULL) as pa
-        from teampulse_hub_npar a0
-        left join teampulse_hub_npar a1 on a1.rk = a0.prk
-        left join teampulse_hub_npar a2 on a2.rk = a1.prk
-        left join teampulse_hub_npar a3 on a3.rk = a2.prk
-        left join teampulse_hub_npar a4 on a4.rk = a3.prk
-        left join teampulse_hub_npar a5 on a5.rk = a4.prk
-        left join teampulse_hub_npar a6 on a6.rk = a5.prk
-        left join teampulse_hub_npar a7 on a7.rk = a6.prk
-        left join teampulse_hub_npar a8 on a8.rk = a7.prk
-        left join teampulse_hub_npar a9 on a9.rk = a8.prk
-        left join teampulse_hub_npar a10 on a10.rk = a9.prk
-        left join teampulse_hub_npar a11 on a11.rk = a10.prk
-        left join teampulse_hub_npar a12 on a12.rk = a11.prk
-        left join teampulse_hub_npar a13 on a13.rk = a12.prk
-        left join teampulse_hub_npar a14 on a14.rk = a13.prk
-        left join teampulse_hub_npar a15 on a15.rk = a14.prk
-        left join teampulse_hub_npar a16 on a16.rk = a15.prk
-        left join teampulse_hub_npar a17 on a17.rk = a16.prk
-        left join teampulse_hub_npar a18 on a18.rk = a17.prk
-        left join teampulse_hub_npar a19 on a19.rk = a18.prk
+        select x.rk, x.nm, x.lv,
+               case when x.lv = 1 then '' else x.ra[x.lv - 1] end as prk,
+               array_to_string(x.ra[1:x.lv], '|') as pth
+        from (
+            select unnest(r.ra) as rk, unnest(r.na) as nm, generate_subscripts(r.ra, 1) as lv, r.ra
+            from (
+                select (ARRAY[u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10, u.k11])[1:u.leaf_lvl] as ra,
+                       (ARRAY[u.n1, u.n2, u.n3, u.n4, u.n5, u.n6, u.n7, u.n8, u.n9, u.n10, u.n11])[1:u.leaf_lvl] as na
+                from teampulse_hub_uone u
+            ) r
+        ) x
+        where x.rk <> '-'
     ) n
-    left join teampulse_hub_nnm m on m.rk = n.rk
+    group by rk
     distributed by (rk);
-    drop table if exists teampulse_hub_upw;
-    drop table if exists teampulse_hub_nedge;
-    drop table if exists teampulse_hub_npre;
-    drop table if exists teampulse_hub_npar;
-    drop table if exists teampulse_hub_nnm;
 
-    -- несколько корней — общий корень над ними: «вся компания» — сумма всех строк. Поставка 129: корни — и у дерева, и у
-    -- цепочек людей за все месяцы (люди считаются по своей цепочке: начнись она не с корня дерева — без общего корня они
-    -- выпали бы из «всей компании»)
-    update teampulse_hub_cal set mo = 1, pre = 'all|'
-    where (select count(*) from (select rk from teampulse_hub_node where prk = ''
-                                 union select split_part(cp, '|', 1) from teampulse_hub_umap) r) > 1;
+    -- несколько корней — общий корень над ними: «вся компания» — сумма всех строк
+    update teampulse_hub_cal set mo = 1, pre = 'all|' where (select count(*) from teampulse_hub_node where prk = '') > 1;
     update teampulse_hub_node set prk = 'all' where prk = '' and (select mo from teampulse_hub_cal) = 1;
     update teampulse_hub_node set pth = 'all|' || pth, lv = lv + 1 where (select mo from teampulse_hub_cal) = 1;
     insert into teampulse_hub_node (rk, nm, lv, prk, pth) select 'all', 'Все юниты', 1, '', 'all' where (select mo from teampulse_hub_cal) = 1;
 
     select c.lm as last_month, c.dt as data_dt, c.cm as closed_month, c.grid_start, c.mo as common_root,
-           (select count(*) from teampulse_hub_node) as nodes,
-           (select count(*) from teampulse_hub_umap where report_month = c.lm) as units
+           (select count(*) from teampulse_hub_node) as nodes, (select count(*) from teampulse_hub_upath) as units
     from teampulse_hub_cal c;
   isEnabled: true
 - sid: 986975db-dedf-5f1f-9289-a6e0bea042c4
@@ -2146,8 +2021,7 @@ paragraphs:
     left join teampulse_hub_head h on h.unit_rk = n.rk
     distributed by (unit_rk);
 
-    -- 6. строки источника → узлы, все месяцы одним запросом: путь строки — цепочка её юнита в том же месяце (_umap,
-    --    поставка 129: как мастер-отчёт; раньше — путь юнита в последнем месяце, с 07.11 — по дереву). Перевод входит в узел
+    -- 6. строки источника → узлы нынешней структуры, все месяцы одним запросом. Перевод входит в узел
     --    глубины d, если сменился уровень ≤ d (через границу узла). Тип численности — целиком, на конец месяца
     --    (act_type_nm); активная численность (hc_active_cnt) — тип «Активная», без подрядчиков
     drop table if exists teampulse_hub_sx;
@@ -2215,7 +2089,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0
         ) x
     ) e
@@ -2323,7 +2197,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
         ) x
     ) e
@@ -2361,7 +2235,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
         ) x
     ) e
@@ -2399,7 +2273,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
         ) x
     ) e
@@ -2424,7 +2298,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (date_trunc('year', (select lm from teampulse_hub_cal)) - interval '1 month')::date
         ) x
     ) e
@@ -2448,7 +2322,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
         ) x
     ) e
@@ -2479,7 +2353,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
         ) x
     ) e
@@ -2503,7 +2377,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month >= (select grid_start from teampulse_hub_cal)
         ) x
     ) e
@@ -2528,7 +2402,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
         ) x
     ) e
@@ -2557,7 +2431,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from structure_x_rost s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.finish_month >= (select grid_start from teampulse_hub_cal) and s.finish_month <= (select lm from teampulse_hub_cal)
         ) x
     ) e
@@ -2588,7 +2462,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from structure_x_rost s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.finish_month >= date_trunc('year', (select lm from teampulse_hub_cal))::date and s.finish_month <= (select lm from teampulse_hub_cal)
         ) x
     ) e
@@ -2640,7 +2514,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal) and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1
         ) x
     ) e
@@ -2678,7 +2552,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null
         ) x
     ) e
@@ -2711,7 +2585,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'
         ) x
     ) e
@@ -2746,7 +2620,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null
         ) x
     ) e
@@ -2775,7 +2649,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from office_traffic_calendar s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month between ((select cm from teampulse_hub_cal) - interval '1 month')::date and (select lm from teampulse_hub_cal)
         ) x
     ) e;
@@ -2836,7 +2710,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select date_trunc('month', we)::date from teampulse_hub_mpp) and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1
         ) x
     ) e
@@ -2883,7 +2757,7 @@ paragraphs:
                    case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                    coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
             from all_metrics_with_performance_and_office_traffic_and_grt s
-            left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+            left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
             where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
         ) x
     ) e
@@ -3494,9 +3368,8 @@ paragraphs:
     -- месяц, дата данных, сетка, корень, юнит по умолчанию. В конце — сколько строк в каждой таблице.
     -- =============================================================================
 
-    -- 11. вакансии: structure_x_vacancy → узлы. Путь — цепочка юнита в том же месяце (_umap, поставка 129: как у людей),
-    --     людей у юнита в этом месяце нет — свой путь из уровней вакансии. Вакансия — не человек: фильтры среза на неё не
-    --     действуют
+    -- 11. вакансии: structure_x_vacancy → узлы нынешней структуры. Путь юнита — по _upath, юнита нет в
+    --     последнем месяце — свой путь из уровней вакансии. Вакансия — не человек: фильтры среза на неё не действуют
     drop table if exists teampulse_hub_vacancy;
     create table teampulse_hub_vacancy as
     -- 03.11, поставка 103 (файл 9, п. 4): ttf_d — срок закрытой вакансии (дней без холда, снимок 2_11): по нему датасет
@@ -3507,7 +3380,7 @@ paragraphs:
     from (
         select x.*, unnest(string_to_array((select pre from teampulse_hub_cal) || coalesce(u.cp, x.unit_path), '|')) as node_rk
         from structure_x_vacancy x
-        left join teampulse_hub_umap u on u.unit_rk = x.mng_unit_rk::text and u.report_month = x.report_month::date
+        left join teampulse_hub_upath u on u.unit_rk = x.mng_unit_rk::text
         where x.report_month between (select grid_start from teampulse_hub_cal) and (select lm from teampulse_hub_cal)
     ) e
     group by 1, 2, 3, 4, 5, 6, 7, 8, 9
@@ -3553,8 +3426,7 @@ paragraphs:
     -- «конец = начало + найм − отток + переводы в − переводы из» тождественно, без «прочего».
     -- Принадлежность строке — как численность series: строка человека в ПОСЛЕДНИЙ ДЕНЬ ДАННЫХ месяца
     -- (eom_flg build_all_metrics: последний календарный день месяца, для неполного — max(calendar_dt)
-    -- источника), не уволен в этот день; юнит-путь — как series: pre || coalesce(цепочка юнита в том же месяце (_umap,
-    -- поставка 129), lvl-цепочка дня).
+    -- источника), не уволен в этот день; юнит-путь — как series: pre || coalesce(upath, lvl-цепочка).
     -- Перевод «в» = стал принадлежать этой строке (пришёл откуда угодно: другой юнит, другая
     -- специализация, другой тип численности, возвращение), «из» = перестал принадлежать. Категории
     -- «внутри юнита» нет: перемещение внутри узла — это «из» старой строки и «в» новую (в строке узла
@@ -3630,7 +3502,7 @@ paragraphs:
     analyze teampulse_hub_flg;
 
     -- 3. события человека × месяца: принадлежность (как series), найм, отток, смена ключа строки,
-    --    пути узлов cur/prev как в series: pre || coalesce(цепочка юнита в своём месяце (_umap), lvl-цепочка дня)
+    --    пути узлов cur/prev как в series: pre || coalesce(upath, lvl-цепочка месяца)
     drop table if exists teampulse_hub_fle;
     create table teampulse_hub_fle as
     select q.e, q.m,
@@ -3647,7 +3519,7 @@ paragraphs:
            -- отток «нанят и уволен в месяц» — на строку текущего месяца (последняя строка — день увольнения)
            (coalesce(q.fxx, 0) = 1 and coalesce(q.hf, 0) = 1
             and (q.pe is null or not (q.pfx = 0 and q.pis_eom and q.pleaf_lvl > 0)) and q.fx = 1) as fire_cur,
-           -- пути узлов как в series (поставка 129: цепочка юнита в том же месяце — _umap «hub · 1», нет её — lvl-цепочка дня)
+           -- пути узлов как в series (шаг 6 «hub · 1»: upath юнита нынешней структуры, нет его — lvl-цепочка месяца)
            q.cp_c, q.cp_p,
            -- смена ключа строки: путь узлов + срезы (+ тип численности — колонка строки)
            (ARRAY[q.cp_c, q.pa, q.itc, q.st, q.ac]
@@ -3672,8 +3544,8 @@ paragraphs:
         from teampulse_hub_flp c
         left join teampulse_hub_flp p on p.e = c.e and p.m = (c.m - interval '1 month')::date
         left join teampulse_hub_flg g on g.e = c.e and g.m = c.m
-        left join teampulse_hub_umap uc on uc.unit_rk = c.leaf_rk and uc.report_month = c.m
-        left join teampulse_hub_umap up on up.unit_rk = coalesce(p.leaf_rk, '-') and up.report_month = p.m
+        left join teampulse_hub_upath uc on uc.unit_rk = c.leaf_rk
+        left join teampulse_hub_upath up on up.unit_rk = coalesce(p.leaf_rk, '-')
         where c.m >= (select grid_start from teampulse_hub_cal)
     ) q
     distributed by (e);
@@ -3831,10 +3703,10 @@ paragraphs:
     select 9 as n, 'корней'::text as check_nm, 1 as must,
            ((select count(*) - 1 from teampulse_hub_unit where parent_rk = ''))::float8 as val
     union all
-    -- 09.11, поставка 129: люди считаются по цепочке своего юнита, дерево — только для показа. У узла с двумя родителями
-    -- (пропущен уровень, старый путь у части юнитов) люди чужой ветки остаются в её предках, как в мастер-отчёте, — сумма
-    -- подразделений бывает больше узла. Поэтому справочно; ошибка дерева — № 31, ошибка счёта людей — № 1–3, 11, 12, 15
-    select 10 as n, 'узлов, где подразделения больше узла (численность; люди в двух ветках — справочно)'::text as check_nm, 0 as must,
+    -- 09.11 (владелец: «дерево идёт из центральной витрины как оно есть, менять логику структуры и привязки людей
+    -- запрещено»): дерево и люди — по цепочкам витрины как есть. Если в витрине у узла два родителя (месяц реорганизации),
+    -- сумма подразделений бывает больше узла — это данные витрины, не ошибка сборки: проверка справочная, выгрузку не держит
+    select 10 as n, 'узлов, где подразделения больше узла (численность; справочно — так в витрине)'::text as check_nm, 0 as must,
            ((select count(*) from teampulse_hub_unit u
             join (select node_rk, sum(hc_cnt) as hc from teampulse_hub_series
                          where report_month = (select last_month from teampulse_hub_meta) group by 1) h on h.node_rk = u.unit_rk
@@ -3945,11 +3817,6 @@ paragraphs:
     select 30 as n, 'AI-разрезы недели: повторы ключа «узел x ключ x значение»'::text as check_nm, 1 as must,
            ((select count(*) from (select 1 from teampulse_hub_aix
                                     group by node_rk, k, v having count(*) > 1) t))::float8 as val
-    union all
-    -- 07.11: путь узла не от корня — кольцо в дереве или дерево глубже 20 уровней (люди такого узла не в корне)
-    select 31 as n, 'узлов, путь которых не от корня'::text as check_nm, 1 as must,
-           ((select count(*) from teampulse_hub_unit
-              where split_part(path_rk, '|', 1) <> (select root_rk from teampulse_hub_meta)))::float8 as val
     distributed randomly;
 
     select n, check_nm, val,

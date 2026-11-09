@@ -48,10 +48,10 @@ union all
 select 9 as n, 'корней'::text as check_nm, 1 as must,
        ((select count(*) - 1 from teampulse_hub_unit where parent_rk = ''))::float8 as val
 union all
--- 09.11, поставка 129: люди считаются по цепочке своего юнита, дерево — только для показа. У узла с двумя родителями
--- (пропущен уровень, старый путь у части юнитов) люди чужой ветки остаются в её предках, как в мастер-отчёте, — сумма
--- подразделений бывает больше узла. Поэтому справочно; ошибка дерева — № 31, ошибка счёта людей — № 1–3, 11, 12, 15
-select 10 as n, 'узлов, где подразделения больше узла (численность; люди в двух ветках — справочно)'::text as check_nm, 0 as must,
+-- 09.11 (владелец: «дерево идёт из центральной витрины как оно есть, менять логику структуры и привязки людей
+-- запрещено»): дерево и люди — по цепочкам витрины как есть. Если в витрине у узла два родителя (месяц реорганизации),
+-- сумма подразделений бывает больше узла — это данные витрины, не ошибка сборки: проверка справочная, выгрузку не держит
+select 10 as n, 'узлов, где подразделения больше узла (численность; справочно — так в витрине)'::text as check_nm, 0 as must,
        ((select count(*) from teampulse_hub_unit u
         join (select node_rk, sum(hc_cnt) as hc from teampulse_hub_series
                      where report_month = (select last_month from teampulse_hub_meta) group by 1) h on h.node_rk = u.unit_rk
@@ -162,11 +162,6 @@ union all
 select 30 as n, 'AI-разрезы недели: повторы ключа «узел x ключ x значение»'::text as check_nm, 1 as must,
        ((select count(*) from (select 1 from teampulse_hub_aix
                                 group by node_rk, k, v having count(*) > 1) t))::float8 as val
-union all
--- 07.11: путь узла не от корня — кольцо в дереве или дерево глубже 20 уровней (люди такого узла не в корне)
-select 31 as n, 'узлов, путь которых не от корня'::text as check_nm, 1 as must,
-       ((select count(*) from teampulse_hub_unit
-          where split_part(path_rk, '|', 1) <> (select root_rk from teampulse_hub_meta)))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,

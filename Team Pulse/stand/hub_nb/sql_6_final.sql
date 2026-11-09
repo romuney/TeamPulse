@@ -4,9 +4,8 @@
 -- месяц, дата данных, сетка, корень, юнит по умолчанию. В конце — сколько строк в каждой таблице.
 -- =============================================================================
 
--- 11. вакансии: structure_x_vacancy → узлы. Путь — цепочка юнита в том же месяце (_umap, поставка 129: как у людей),
---     людей у юнита в этом месяце нет — свой путь из уровней вакансии. Вакансия — не человек: фильтры среза на неё не
---     действуют
+-- 11. вакансии: structure_x_vacancy → узлы нынешней структуры. Путь юнита — по _upath, юнита нет в
+--     последнем месяце — свой путь из уровней вакансии. Вакансия — не человек: фильтры среза на неё не действуют
 drop table if exists teampulse_hub_vacancy;
 create table teampulse_hub_vacancy as
 -- 03.11, поставка 103 (файл 9, п. 4): ttf_d — срок закрытой вакансии (дней без холда, снимок 2_11): по нему датасет
@@ -17,7 +16,7 @@ select node_rk, report_month, channel, search_reason, cand_lvl, position_lvl, sp
 from (
     select x.*, unnest(string_to_array((select pre from teampulse_hub_cal) || coalesce(u.cp, x.unit_path), '|')) as node_rk
     from structure_x_vacancy x
-    left join teampulse_hub_umap u on u.unit_rk = x.mng_unit_rk::text and u.report_month = x.report_month::date
+    left join teampulse_hub_upath u on u.unit_rk = x.mng_unit_rk::text
     where x.report_month between (select grid_start from teampulse_hub_cal) and (select lm from teampulse_hub_cal)
 ) e
 group by 1, 2, 3, 4, 5, 6, 7, 8, 9

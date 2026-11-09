@@ -19,8 +19,7 @@ left join (select prk, count(*) as kids from teampulse_hub_node where prk <> '' 
 left join teampulse_hub_head h on h.unit_rk = n.rk
 distributed by (unit_rk);
 
--- 6. строки источника → узлы, все месяцы одним запросом: путь строки — цепочка её юнита в том же месяце (_umap,
---    поставка 129: как мастер-отчёт; раньше — путь юнита в последнем месяце, с 07.11 — по дереву). Перевод входит в узел
+-- 6. строки источника → узлы нынешней структуры, все месяцы одним запросом. Перевод входит в узел
 --    глубины d, если сменился уровень ≤ d (через границу узла). Тип численности — целиком, на конец месяца
 --    (act_type_nm); активная численность (hc_active_cnt) — тип «Активная», без подрядчиков
 drop table if exists teampulse_hub_sx;
@@ -88,7 +87,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
+        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
         where s.leaf_lvl > 0
     ) x
 ) e
