@@ -597,14 +597,31 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, {{ SPC }} AS spx, [{{ HI }}, {{ SI }}, {{ SU }}, {{ CI }}, {{ CO }}] AS tv
+        {#- 09.11 (владелец: одна методология на метрику): переводы по специализациям — то же правило, что карточки «Переводы»
+            (TI / TU: флаг юнита или атрибута под фильтром, как мастер-отчёт); остаток строки чарт показывает «сменой типа и
+            среза». Было: только флаг юнита своего уровня (SI / SU) + «внутри юнита» (CI / CO) #}
+        SELECT node_rk, {{ SPC }} AS spx, [{{ HI }}, {{ TI }}, {{ TU }}] AS tv
         FROM prod_proteus.teampulse_hub_trf
         WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }}
       )
       {#- поставка 101: здесь же шла помесячная детализация tsm («вид|специализация|ГГГГ-ММ»); поставка 109 (скорость) — снята:
           её заменил замкнутый водопад fsm (поставка 105), чарт tsm не читает #}
       {#- поставка 109 (скорость разбора): ключ и число — arrayZip двух массивов, а не пять кортежей со скобками #}
-      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso', 'tci', 'tco'], tv) AS kv
+      ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso'], tv) AS kv
+      WHERE spx != ''
+      GROUP BY u3, k3, v3
+      HAVING n4 > 0
+      UNION ALL
+      {#- 09.11: помесячные переводы по специализации у каждого узла ответа (tsm «i|специализация|ГГГГ-ММ», «o|…») — помесячная
+          детализация «Движения по специализациям»: найм и отток там из fsm, переводы — отсюда, тем же правилом #}
+      SELECT ifNull(node_rk, '') AS u3, 'tsm' AS k3, concat(kv.1, '|', spx, '|', mo) AS v3, sum(kv.2) AS n4
+      FROM
+      (
+        SELECT node_rk, {{ SPC }} AS spx, formatDateTime(report_month, '%Y-%m') AS mo, [{{ TI }}, {{ TU }}] AS tv
+        FROM prod_proteus.teampulse_hub_trf
+        WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }}
+      )
+      ARRAY JOIN arrayZip(['i', 'o'], tv) AS kv
       WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
