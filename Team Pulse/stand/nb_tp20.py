@@ -67,9 +67,13 @@ def simulate(seed=11):
                     con=pick([('Гибридный', .5), ('Офисный', .35), ('Удалённый', .15)]),
                     legal=pick([('АО «ТБанк»', .7), ('ООО «ТЦР»', .3)]),
                     stream=pick([('Управление', .3), ('Финансы', .2), ('Разработка', .4), (None, .1)]),
-                    act=pick([('Активная', .8), ('Подрядчики', .05), ('Декрет', .04), ('Стажеры', .07),
-                              ('Кандидаты в учебных юнитах', .04)]),
-                    it=pick([('IT', .4), ('Digital', .15), ('NonIT', .45)]), oper=pick([('HQ', .5), ('Line', .3), ('Support', .2)]),
+                    # 09.11, пропорции боя (файл 5): новые — 20% кандидаты учебных юнитов (найм переходом в БГ ~20% найма),
+                    # стажёры ~4%; покраска HQ / Line / Support ~29 / 54 / 17%
+                    act=(pick([('Активная', .8), ('Подрядчики', .05), ('Декрет', .04), ('Стажеры', .07),
+                               ('Кандидаты в учебных юнитах', .04)]) if day == D0 else
+                         pick([('Активная', .72), ('Кандидаты в учебных юнитах', .2), ('Стажеры', .04), ('Подрядчики', .03),
+                               ('Декрет', .01)])),
+                    it=pick([('IT', .4), ('Digital', .15), ('NonIT', .45)]), oper=pick([('HQ', .29), ('Line', .54), ('Support', .17)]),
                     hired=day - dt.timedelta(random.randint(0, 2500)) if day == D0 else day,
                     reason=None, init=None, regret=0, nonreg=0,
                     company=pick([('Банк', .6), ('ИТ-компания группы', .25), ('Страхование', .15)]),
@@ -86,16 +90,29 @@ def simulate(seed=11):
             p[k + 'h'] = [(day, p.pop(k))]
         return p
 
+    W = {'HQ': .29, 'Line': .54, 'Support': .17}           # 09.11: доли покраски боя — и у смены покраски
+
     def shift(p, k, day, opts):
         cur = p[k + 'h'][-1][1]
-        p[k + 'h'].append((day, random.choice([o for o in opts if o != cur])))
+        rest = [o for o in opts if o != cur]
+        p[k + 'h'].append((day, random.choices(rest, [W.get(o, 1) for o in rest])[0]))
     people = [new_p(D0) for _ in range(320)]
     for day in DAYS[1:]:
         alive = [p for p in people if p['end'] is None]
         if day.weekday() < 5:
+            spike = day.month in (5, 7)                         # 09.11, как на бою: месяцы массового выхода из «Активной»
             for p in alive:
+                # 09.11, пропорции боя: кандидат и стажёр переходят в боевую / штат быстро (~50% в месяц) — найм переходом
+                if p['acth'][-1][1] in CONV and (day.year, day.month) != (p['start'].year, p['start'].month) \
+                        and random.random() < .03:
+                    p['conv'].append((day, CONV[p['acth'][-1][1]]))
+                    p['acth'].append((day, 'Активная'))
+                    continue
+                if spike and p['acth'][-1][1] == 'Активная' and random.random() < .0002:
+                    p['acth'].append((day, 'Декрет'))           # ~1,3% за месяц сверх обычного
+                    continue
                 r = random.random()
-                if r < .0011:                                   # ~2,3% в месяц
+                if r < .0022:                                   # 09.11: ~4,8% в месяц, как на бою
                     p['end'] = day
                     p['reason'] = pick([('Лучшее предложение', .4), ('Личные обстоятельства', .3), ('Нет роста', .3)])
                     p['init'] = pick([('Работник', .8), ('Работодатель', .2)])
@@ -106,6 +123,10 @@ def simulate(seed=11):
                     p['unit'].append((day, random.choice([h for h in homes if h != cur])))
                     if random.random() < .3:                    # часть — со сменой покраски в тот же день
                         shift(p, 'oper', day, OPER)
+                    # 09.11, случай боя: переход в другое подразделение и в тот же день выход из «Активной» — у общих узлов
+                    # пути и у корня это «Перевод-» (флаг выхода из типа на строке «из»)
+                    if p['acth'][-1][1] == 'Активная' and random.random() < .03:
+                        p['acth'].append((day, 'Декрет'))
                 elif r < .0026:
                     p['grade'].append((day, p['grade'][-1][1] + 1))
                 elif r < .0066 and p['acth'][-1][1] in CONV:
@@ -133,7 +154,7 @@ def simulate(seed=11):
                 elif (.0100 <= r < .0101 and p['acth'][-1][1] == 'Активная'
                       and (day.year, day.month) != (p['start'].year, p['start'].month)):
                     p['acth'].append((day, 'Подрядчики'))      # редко — обратно в подрядчики
-            for _ in range(sum(random.random() < .0011 for _ in alive) + (1 if random.random() < .15 else 0)):
+            for _ in range(sum(random.random() < .0013 for _ in alive) + (1 if random.random() < .15 else 0)):
                 people.append(new_p(day))
     return U, people
 
@@ -250,6 +271,8 @@ def source_at(p, d):
     отчёт берёт значение дня найма ('-'), а не последнее за месяц"""
     if p['start'] > D0 and d.year == p['start'].year and d.month == p['start'].month:
         if p['rk'] % 13 == 0 and d == p['start']:
+            return None
+        if p['rk'] % 5 in (1, 2, 3) and d == p['start']:   # 09.11, как на бою: у большинства наймов пусто в день найма
             return None
         if p['rk'] % 4 == 0 and d > p['start']:
             return 'Внутренний перевод'
@@ -590,8 +613,11 @@ def side(people):
         last = p['end'] or D1
         m = dt.date(max(p['start'], D0).year, max(p['start'], D0).month, 1)
         while m <= last:
-            perf.append((p['rk'], m, random.choices(['normal', 'low', 'super_low', 'high', 'super_high', None],
-                                                    [.6, .05, .02, .12, .03, .18])[0]))
+            # 09.11, как на бою: размечен в основном HQ, Line почти нет, Support — немного
+            pm = at(p['operh'], min(last, dt.date(m.year + m.month // 12, m.month % 12 + 1, 1) - dt.timedelta(1)))
+            pw = ([.68, .02, .005, .11, .02, .165] if pm == 'HQ' else [.0005, 0, 0, .0005, 0, .999] if pm == 'Line'
+                  else [.035, .001, 0, .014, .002, .948])
+            perf.append((p['rk'], m, random.choices(['normal', 'low', 'super_low', 'high', 'super_high', None], pw)[0]))
             r = random.random()
             for k in range(2 if r < .015 else 1 if r < .06 else 0):
                 st = random.choices(['FNS', 'DCL', 'CNL', 'INP'], [.55, .25, .1, .1])[0]
@@ -600,7 +626,8 @@ def side(people):
         d = max(p['start'], D0)
         while d <= last:
             if d.weekday() < 5:
-                ov = int(random.random() < .4)
+                pd = at(p['operh'], d)                  # 09.11: посещаемость по покраске, как на бою
+                ov = int(random.random() < {'HQ': .4, 'Line': .2}.get(pd, .38))
                 office.extend(office_rows(p, d, ov))
             d += dt.timedelta(1)
     return perf, office, grt_ext(people, grt)
@@ -679,7 +706,7 @@ def office_rows(p, d, ov):
     rk = p['rk']
     h = (rk * 7919 + d.toordinal() * 104729) % 1000
     emp, fix, act = ('Да' if rk % 7 else 'Нет'), ('фикс' if rk % 5 == 0 else 'флекс'), at(p['acth'], d)
-    bk, bkv, vsv, city, reg, dn, ds = office_row(rk, d, ov)
+    bk, bkv, vsv, city, reg, dn, ds = office_row(rk, d, ov, {'HQ': .23, 'Line': .71}.get(at(p['operh'], d), .44))
     if not ov and bk and h % 29 == 0:
         bkv = None                                   # бронь вне учёта нарушений
     if ov and h % 31 == 0:
@@ -694,12 +721,12 @@ def office_rows(p, d, ov):
     return out
 
 
-def office_row(rk, d, ov):
+def office_row(rk, d, ov, nb=.22):
     """дополнение строки посещаемости (OFFICE_EXT): бронь, бронь без посещения, посещение без брони, город офиса
     (у посещения или брони), посещение в другом городе, день недели и его номер"""
     h = (rk * 7919 + d.toordinal() * 104729) % 1000
     if ov:
-        bk, bkv, vsv = int(h < 780), 0, int(h >= 780)
+        bk, bkv, vsv = int(h < 1000 * (1 - nb)), 0, int(h >= 1000 * (1 - nb))   # nb — доля посещений без брони
     else:
         bk = bkv = int(h < 60)
         vsv = 0

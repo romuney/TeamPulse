@@ -1500,6 +1500,9 @@ function leaveFewer(lp){const A=periodTotal(lp,'attrition');return !!A&&A.v!=nul
 function yoyMove(key,lp){
   const P=periodTotal(lp,key);
   if(!P||P.v==null||P.pv==null)return null;
+  /* 09.11 (стенд в пропорциях боя: у компании размечено меньше половины людей): где вывод о метрике не делается (мало
+     событий, малый HQ, мало размеченных мониторингом), и сдвиг к году не окрашивается — один вердикт на метрику */
+  if(thin(key,lp)||isSmallHq(key)||!monJudged(key,lp))return null;
   const s=deltaState(key,P.v,P.pv,lp);
   if(s==='good'&&LEAVE_RATE.has(key)&&!leaveFewer(lp))return null;
   return s==='bad'?'worse':s==='good'?'better':null;
