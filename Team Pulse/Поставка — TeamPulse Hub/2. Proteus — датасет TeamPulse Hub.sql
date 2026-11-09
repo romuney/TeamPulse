@@ -190,13 +190,15 @@
 {#- 09.11 (владелец: «найм — событие дня найма, никакого двойного счёта; активная численность — просто фильтр»): найм везде —
     «Найм, чел», найм водопада, найм по специализациям, строка HQ, разбивки найма (источник, канал, грейд, специализация) —
     одни и те же строки переходов: найм в компанию (вид h) со срезом дня найма и, при выбранных типах численности, переход
-    в выбранный тип (кандидат → боевая, стажёр → штат: вид i, in_ok = 0) с флагом. Нанят в Support и в том же периоде
+    из учебной группы в боевую или стажёра в штат (вид i, in_ok = 0) — по его флагу, как мастер-отчёт (Executive Report:
+    при фильтре типа численности флаги «Перевод в БГ» и «Перевод стажера в штат» входят в периметр сами, без флага
+    смены типа или юнита; было — с флагом FLG). Нанят в Support и в том же периоде
     переведён в HQ — при фильтре HQ это перевод «в», не найм. Было: ряды hire_cnt / hco_cnt (срез конца месяца) — водопад
     при фильтрах не сходился -#}
-{% macro hi_e(flg, on) -%}
-toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'{{ (" OR (trf_kind = 'i' AND " ~ flg ~ " AND ifNull(in_ok, 1) = 0)") if on else "" }})
+{% macro hi_e(on) -%}
+toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'{{ " OR (trf_kind = 'i' AND ifNull(in_ok, 1) = 0)" if on else "" }})
 {%- endmacro %}
-{% set HI = hi_e(FLG, act_on) %}
+{% set HI = hi_e(act_on) %}
 {% set TU = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND " ~ FLG ~ ")" %}
 {#- Поставка 65: вид перехода в найм (cv_k: c — из учебной группы в боевую, s — стажёр в штат) — матчером. Найм по
     видам — те же переходы, что во второй части HI (только при выбранных типах численности). -#}
@@ -226,7 +228,7 @@ toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'{{ (" OR (trf_kind = 'i' AND " ~ fl
 {#- Поставка 66: ряд таблицы series — матчером: таблица ноутбука до 66 колонки не знает — нули. -#}
 {% macro optf(c) -%}ifNull(toFloat64({{ c }}), 0){%- endmacro %}
 {% macro hk(v) -%}
-{%- if act_on -%}toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND {{ FLG }} AND ifNull(in_ok, 1) = 0 AND {{ CVK }} = '{{ v }}'){%- else -%}toFloat64(0){%- endif -%}
+{%- if act_on -%}toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND ifNull(in_ok, 1) = 0 AND {{ CVK }} = '{{ v }}'){%- else -%}toFloat64(0){%- endif -%}
 {%- endmacro %}
 {#- Метрики: ключ, таблица (s — series, t — trf, d — trf «напрямую», v — vacancy, a — ai, g/h — series-срезы,
     w — flow: замкнутый водопад поставки 105: узел × месяц × срез, строки юнитов teampulse_hub_flow sp = '-';
@@ -530,9 +532,8 @@ WITH
       WHERE node_rk = cxs AND {{ GRID }} AND {{ cond_hq() }}
       GROUP BY i6
       UNION ALL
-      {#- 09.11: найм строки HQ — те же события дня найма (HI), флаги — покраска и тип численности (фильтры строки HQ) #}
-      {%- set flq = ['fu = 1', 'fa = 1', 'fp = 1'] %}{% for c in CUTS %}{% if c[0] in ('it', 'staff') and F[c[0]]|length > 0 %}{% set _ = flq.append(FK[c[0]] ~ ' = 1') %}{% endif %}{% endfor %}
-      {%- set HIQ = hi_e('(' ~ flq|join(' OR ') ~ ')', true) %}
+      {#- 09.11: найм строки HQ — те же события дня найма (HI); тип численности у строки HQ выбран всегда («Активная») #}
+      {%- set HIQ = hi_e(true) %}
       SELECT {{ IDX }} AS i6, arrayMap(x -> ifNull(x, 0), [{% for m in M %}{{ ('sum(' ~ HIQ ~ ')') if m[0] == 'hire' else '0' }}{% if not loop.last %}, {% endif %}{% endfor %}]) AS a6
       FROM prod_proteus.teampulse_hub_trf
       WHERE node_rk = cxs AND {{ GRID }} AND {{ cond_hq() }}

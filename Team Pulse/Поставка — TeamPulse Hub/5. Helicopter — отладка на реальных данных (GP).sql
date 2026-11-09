@@ -20,7 +20,8 @@
 --   8  источник найма на день найма против последнего значения месяца (п. 12)
 --   9  откуда «прочее» водопада (запрос 1): кто сменил численность «Активная» не наймом и не увольнением — по категориям
 --   10 посещаемость в базе мастер-отчёта: посещаемость, фиксы, брони без посещения, посещения без брони
---   11 водопад против рядов отчёта одним выводом: найм и отток водопада рядом с отчётными (с 129-б — равны, hub checks № 32)
+--   11 как мастер-отчёт (Executive Report, «Активная», 12 мес.): помесячно численность, найм (из него БГ и стажёры), отток,
+--      «Перевод+» / «Перевод-» и водопад за окно — числа отчёта в раскладке борда мастера, сверять глазами
 -- Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub): все запросы выполняются на таблицах ноутбука.
 -- ============================================================================
 
@@ -264,51 +265,55 @@ select paint_cd,
 from s
 order by paint_cd;
 
--- 11. Водопад против рядов отчёта — одним выводом: по месяцам и итогом за период (январь..закрытый месяц) найм и
---     отток водопада (wf_*) рядом с наймом и оттоком отчёта (rep_*, они сверены с мастером), разница и откуда она:
---     tin_type — переводы «в» без смены подразделения из другого типа численности (учебная группа, стажёры: в
---     отчёте это найм по методологии DD), tout_type — так же «из». prochee — замыкание водопада (0)
+-- 11. Как мастер-отчёт (HR Executive Report, дефолт борда: «Активная», 12 месяцев) — числа отчёта в той же раскладке,
+--     что борд мастера, для сверки по месяцам. Правила мастера (снято с боя 09.11): численность — на последний день месяца;
+--     найм = найм в компанию + «Перевод в БГ» + «Перевод стажера в штат» (месяц события); отток — месяц события;
+--     «Перевод+» — вход в периметр (тип численности, при выбранном подразделении — и его флаг), месяц события;
+--     «Перевод-» — выход, месяц «день события + 1». Водопад: численность на конец первого месяца окна + найм + Перевод+ -
+--     отток - Перевод- за следующие месяцы = численность на конец последнего. Отчёт берёт найм и переводы из строк дня
+--     события (hub · 5), отток и численность — из рядов (hub · 3).
+--     *_unit_only — переводы только по флагу юнита (без смены типа): у корня мастер их не считает (на «всей компании»
+--     юнит-флагов в периметре нет) — у корня должны быть 0; ostatok — замыкание водопада (0)
 with p as (select null::text as unit),                                                  -- ← подразделение (null — корень)
 u as (select coalesce((select unit from p), (select root_rk from teampulse_hub_meta)) as rk),
-f as (
-    select report_month as m, sum(beg_cnt) as beg, sum(hire_cnt) as hire, sum(fire_cnt) as fire,
-           sum(case when chg_unit = 1 or oth_act_cd <> 'Активная' then tin_cnt else 0 end) as tin,
-           sum(case when chg_unit = 0 and oth_act_cd <> 'Активная' then tin_cnt else 0 end) as tin_type,
-           sum(case when chg_unit = 1 or oth_act_cd <> 'Активная' then tout_cnt else 0 end) as tout,
-           sum(case when chg_unit = 0 and oth_act_cd <> 'Активная' then tout_cnt else 0 end) as tout_type,
-           sum(fin_cnt) as fin
-    from teampulse_hub_flow
-    where node_rk = (select rk from u) and sp_cd = '-' and act_cd = 'Активная'          -- ← срез
+w as (select (date_trunc('month', lm) - interval '11 month')::date as m0, lm::date as m1 from teampulse_hub_cal),
+s as (
+    select report_month as m, sum(hc_cnt) as hc, sum(fire_cnt) as fire
+    from teampulse_hub_series
+    where node_rk = (select rk from u) and act_cd = 'Активная'                          -- ← тип численности
     group by 1
 ),
-s as (
-    select report_month as m, sum(hc_cnt) as hc, sum(hire_cnt) as hire, sum(fire_cnt) as fire
-    from teampulse_hub_series
-    where node_rk = (select rk from u) and act_cd = 'Активная'                          -- ← срез
+t as (
+    select report_month as m,
+           sum(case when trf_kind = 'h' or (trf_kind = 'i' and in_ok = 0) then trf_cnt else 0 end) as hire,
+           sum(case when trf_kind = 'i' and in_ok = 0 and cv_k = 'c' then trf_cnt else 0 end) as hire_bg,
+           sum(case when trf_kind = 'i' and in_ok = 0 and cv_k = 's' then trf_cnt else 0 end) as hire_intern,
+           sum(case when trf_kind = 'i' and in_ok = 1 and (fu = 1 or fa = 1) then trf_cnt else 0 end) as tin,
+           sum(case when trf_kind = 'o' and (fu = 1 or fa = 1) then trf_cnt else 0 end) as tout,
+           sum(case when trf_kind = 'i' and in_ok = 1 and fu = 1 and fa = 0 then trf_cnt else 0 end) as tin_unit_only,
+           sum(case when trf_kind = 'o' and fu = 1 and fa = 0 then trf_cnt else 0 end) as tout_unit_only
+    from teampulse_hub_trf
+    where node_rk = (select rk from u) and act_cd = 'Активная'                          -- ← тип численности
     group by 1
 ),
 r as (
-    select f.m, f.beg, f.hire as wf_hire, coalesce(s.hire, 0) as rep_hire, f.tin_type,
-           f.fire as wf_fire, coalesce(s.fire, 0) as rep_fire, f.tout_type,
-           f.tin, f.tout, f.fin, coalesce(s.hc, 0) as rep_hc
-    from f left join s on s.m = f.m
+    select s.m, s.hc, coalesce(t.hire, 0) as hire, coalesce(t.hire_bg, 0) as hire_bg,
+           coalesce(t.hire_intern, 0) as hire_intern, s.fire, coalesce(t.tin, 0) as tin, coalesce(t.tout, 0) as tout,
+           coalesce(t.tin_unit_only, 0) as tin_unit_only, coalesce(t.tout_unit_only, 0) as tout_unit_only
+    from s left join t on t.m = s.m
+    where s.m between (select m0 from w) and (select m1 from w)
 )
-select x.period, x.beg, x.wf_hire, x.rep_hire, x.rep_hire - x.wf_hire as hire_diff, x.tin_type,
-       x.wf_fire, x.rep_fire, x.rep_fire - x.wf_fire as fire_diff, x.tout_type,
-       x.tin, x.tout, x.fin, x.rep_hc, x.fin - x.beg - x.wf_hire + x.wf_fire - x.tin + x.tout as prochee
-from (
-    select to_char(m, 'YYYY-MM') as period, beg, wf_hire, rep_hire, tin_type, wf_fire, rep_fire, tout_type,
-           tin, tout, fin, rep_hc
-    from r
-    union all
-    select 'итог ' || to_char(date_trunc('year', (select cm from teampulse_hub_cal)), 'YYYY-MM') || '..'
-               || to_char((select cm from teampulse_hub_cal), 'YYYY-MM'),
-           sum(case when m = date_trunc('year', (select cm from teampulse_hub_cal))::date then beg end),
-           sum(wf_hire), sum(rep_hire), sum(tin_type), sum(wf_fire), sum(rep_fire), sum(tout_type),
-           sum(tin), sum(tout),
-           sum(case when m = (select cm from teampulse_hub_cal) then fin end),
-           sum(case when m = (select cm from teampulse_hub_cal) then rep_hc end)
-    from r
-    where m between date_trunc('year', (select cm from teampulse_hub_cal))::date and (select cm from teampulse_hub_cal)
-) x
-order by x.period;
+select to_char(m, 'YYYY-MM') as period, hc, hire, hire_bg, hire_intern, fire, tin, tout, tin_unit_only, tout_unit_only,
+       null::numeric as ostatok
+from r
+union all
+select 'водопад ' || to_char((select m0 from w), 'YYYY-MM') || '..' || to_char((select m1 from w), 'YYYY-MM'),
+       sum(case when m = (select m1 from w) then hc end),
+       sum(case when m > (select m0 from w) then hire end), sum(case when m > (select m0 from w) then hire_bg end),
+       sum(case when m > (select m0 from w) then hire_intern end), sum(case when m > (select m0 from w) then fire end),
+       sum(case when m > (select m0 from w) then tin end), sum(case when m > (select m0 from w) then tout end),
+       sum(case when m > (select m0 from w) then tin_unit_only end), sum(case when m > (select m0 from w) then tout_unit_only end),
+       sum(case when m = (select m1 from w) then hc end) - sum(case when m = (select m0 from w) then hc end)
+       - sum(case when m > (select m0 from w) then hire - fire + tin - tout end)
+from r
+order by 1;

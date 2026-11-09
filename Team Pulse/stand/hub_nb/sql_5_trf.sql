@@ -124,7 +124,10 @@ where x.calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year'
        coalesce(x.transfer_to_employment_relation_type_flg::text, '0') = '1' or
        coalesce(x.transfer_out_employment_relation_type_flg::text, '0') = '1' or
        coalesce(x.transfer_to_specialization_flg::text, '0') = '1' or
-       coalesce(x.transfer_out_specialization_flg::text, '0') = '1')
+       coalesce(x.transfer_out_specialization_flg::text, '0') = '1' or
+       -- 09.11 (мастер-отчёт: «Перевод в БГ» и «Перевод стажера в штат» — события сами по себе): переход в найм и без
+       -- флага смены типа или юнита
+       coalesce(x.transfer_candidate_flg::text, '0') = '1' or coalesce(x.transfer_internal_flg::text, '0') = '1')
 ) z
 group by e, dt, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11
 distributed by (e);
@@ -473,7 +476,7 @@ from (
 where report_month between (select grid_start from teampulse_hub_cal) and (select lm from teampulse_hub_cal)
   -- GP-перенос 104: юнит-переход пишется во все узлы пути; на уровнях, где юнит не менялся, у строки нет ни одного
   -- флага — датасет её не считает ни в одной формуле. Такие строки не храним (числа отчёта не меняются)
-  and not (trf_kind in ('i', 'o') and fu + fa + fp + fi + fs + fsp = 0)
+  and not (trf_kind in ('i', 'o') and in_ok = 1 and fu + fa + fp + fi + fs + fsp = 0)
 group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
 ) q
 distributed by (node_rk);
