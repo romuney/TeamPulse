@@ -186,7 +186,11 @@
 {% set FLWS = '(' ~ fchg('chg_unit', 1) ~ ' = 1 OR ' ~ fchg('chg_sp', 0) ~ ' = 1 OR NOT ' ~ OTHIN ~ ')' %}
 {% set FTI = "toFloat64(ifNull(tin_cnt, 0)) * toFloat64(" ~ FLW ~ ")" %}
 {% set FTU = "toFloat64(ifNull(tout_cnt, 0)) * toFloat64(" ~ FLW ~ ")" %}
-{% set TI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 1)" %}
+{#- 09.11 (стенд в пропорциях боя, мастер-отчёт): in_ok = 0 — день перехода из учебной группы в боевую или стажёра в штат.
+    При выбранных типах численности это найм (HI), не перевод. При «Вся» флаги «Перевод в БГ» / «Перевод стажера в штат»
+    в периметр не входят, переход — не событие: строка этого дня — перевод по флагу юнита или специализации, как любая -#}
+{% set INOK = "ifNull(in_ok, 1) = 1" if act_on else "1" %}
+{% set TI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND " ~ FLG ~ " AND " ~ INOK ~ ")" %}
 {#- 09.11 (владелец: «найм — событие дня найма, никакого двойного счёта; активная численность — просто фильтр»): найм везде —
     «Найм, чел», найм водопада, найм по специализациям, строка HQ, разбивки найма (источник, канал, грейд, специализация) —
     одни и те же строки переходов: найм в компанию (вид h) со срезом дня найма и, при выбранных типах численности, переход
@@ -196,7 +200,7 @@
     переведён в HQ — при фильтре HQ это перевод «в», не найм. Было: ряды hire_cnt / hco_cnt (срез конца месяца) — водопад
     при фильтрах не сходился -#}
 {% macro hi_e(on) -%}
-toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'{{ " OR (trf_kind = 'i' AND ifNull(in_ok, 1) = 0)" if on else "" }})
+toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'{{ " OR (trf_kind = 'i' AND ifNull(in_ok, 1) = 0 AND ifNull(toString(cv_k), '') != '')" if on else "" }})
 {%- endmacro %}
 {% set HI = hi_e(act_on) %}
 {% set TU = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND " ~ FLG ~ ")" %}
@@ -219,7 +223,7 @@ toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'{{ " OR (trf_kind = 'i' AND ifNull(
 {% set FU = "ifNull(fu, 0) = 1" %}
 {#- 09.11 (владелец: «пользоваться только флагами, суммой флагов»): переводы строки специализации — флаги in / out источника:
     юнит уровня узла и атрибуты под фильтрами (FLG, как карточки «Переводы») и смена специализации (fsp) -#}
-{% set SPI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1) AND ifNull(in_ok, 1) = 1)" %}
+{% set SPI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1) AND " ~ INOK ~ ")" %}
 {% set SPU = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1))" %}
 {% set SI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND " ~ FU ~ " AND ifNull(in_ok, 1) = 1)" %}
 {% set SU = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND " ~ FU ~ ")" %}

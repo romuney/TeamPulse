@@ -23,6 +23,7 @@
 --   9 посещаемость за месяц m по покраске, как мастер «Посещаемость и бронирование офисов» (допуск ±1 п.п.)
 --  10 посещения по шагам за месяц cm: источник -> таблица людей -> города -> отчёт (где теряются посещения по городам)
 --  11 формулы мастера прямо по источнику по дням (найм, отток, Перевод+, Перевод-) рядом с отчётом: d_* = 0
+--  12 «Движение по специализациям» всей компании как в отчёте: начало, найм, в, отток, из, конец, ostatok = 0 у каждой
 -- Ожидаемые числа сверки — в чате, не в репозитории. Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub).
 -- 09.11: файл — один запрос (было 13 отдельных); убраны устаревшие: водопад витрины движения и «откуда прочее» (найм и
 -- переводы отчёта — из строк дня события, водопад сходится без «прочего»), переводы по специализациям по флагу уровня
@@ -53,7 +54,7 @@ b1s as (
 ),
 b1t as (
     select report_month as m,
-           sum(case when trf_kind = 'h' or (trf_kind = 'i' and in_ok = 0) then trf_cnt else 0 end) as hire,
+           sum(case when trf_kind = 'h' or (trf_kind = 'i' and in_ok = 0 and cv_k <> '') then trf_cnt else 0 end) as hire,
            sum(case when trf_kind = 'i' and in_ok = 0 and cv_k = 'c' then trf_cnt else 0 end) as hire_bg,
            sum(case when trf_kind = 'i' and in_ok = 0 and cv_k = 's' then trf_cnt else 0 end) as hire_intern,
            sum(case when trf_kind = 'i' and in_ok = 1 and (fu = 1 or fa = 1) then trf_cnt else 0 end) as tin,
@@ -492,6 +493,35 @@ b11 as (
            r.hire - m.m_hire as d_hire, r.fire - m.m_fire as d_fire, r.tin - m.m_tin as d_tin, r.tout - m.m_tout as d_tout
     from b1 r left join b11m m on m.m = r.m
     where r.m > (select m0 from b1w)
+),
+-- 12. «Движение по специализациям» всей компании (корень, «Активная», с января по последний месяц) — как в отчёте: на начало
+--     (конец декабря) и на конец, отток — витрина движения по специализациям; найм — дни найма (специализация дня найма);
+--     переводы в / из — флаги источника (юнит, тип численности, смена специализации). ostatok = конец - начало - найм -
+--     в + отток + из (должен быть 0 у каждой специализации)
+b12y as (select date_trunc('year', lm)::date as y0, lm::date as m1 from teampulse_hub_cal),
+b12f as (
+    select sp_cd as sp, sum(case when report_month = (select y0 from b12y) then beg_cnt else 0 end) as b,
+           sum(case when report_month = (select m1 from b12y) then fin_cnt else 0 end) as e, sum(fire_cnt) as f
+    from teampulse_hub_flow
+    where node_rk = (select rk from u) and act_cd = 'Активная' and sp_cd <> '-'
+      and report_month between (select y0 from b12y) and (select m1 from b12y)
+    group by 1
+),
+b12t as (
+    select sp_cd as sp,
+           sum(case when trf_kind = 'h' or (trf_kind = 'i' and in_ok = 0 and cv_k <> '') then trf_cnt else 0 end) as h,
+           sum(case when trf_kind = 'i' and in_ok = 1 and (fu = 1 or fa = 1 or fsp = 1) then trf_cnt else 0 end) as i,
+           sum(case when trf_kind = 'o' and (fu = 1 or fa = 1 or fsp = 1) then trf_cnt else 0 end) as o
+    from teampulse_hub_trf
+    where node_rk = (select rk from u) and act_cd = 'Активная' and sp_cd not in ('', '-')
+      and report_month between (select y0 from b12y) and (select m1 from b12y)
+    group by 1
+),
+b12 as (
+    select coalesce(f.sp, t.sp) as k, coalesce(f.b, 0) as b, coalesce(t.h, 0) as h, coalesce(t.i, 0) as i,
+           coalesce(f.f, 0) as f, coalesce(t.o, 0) as o, coalesce(f.e, 0) as e,
+           coalesce(f.e, 0) - coalesce(f.b, 0) - coalesce(t.h, 0) - coalesce(t.i, 0) + coalesce(f.f, 0) + coalesce(t.o, 0) as ostatok
+    from b12f f full join b12t t on t.sp = f.sp
 )
 select 0 as n, 'поиск подразделения'::text as blok, (unit_rk || ' ' || unit_nm)::text as stroka,
        unnest(array[1, 2]) as ord, unnest(array['unit_lvl', 'kids_cnt']::text[]) as pokazatel,
@@ -547,6 +577,11 @@ select 11 as n, 'формулы мастера по источнику и отч
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) as ord, unnest(array['m_hire', 'rep_hire', 'm_fire', 'rep_fire', 'm_tin', 'rep_tin', 'm_tout', 'rep_tout', 'd_hire', 'd_fire', 'd_tin', 'd_tout']::text[]) as pokazatel,
        unnest(array[(m_hire)::numeric, (rep_hire)::numeric, (m_fire)::numeric, (rep_fire)::numeric, (m_tin)::numeric, (rep_tin)::numeric, (m_tout)::numeric, (rep_tout)::numeric, (d_hire)::numeric, (d_fire)::numeric, (d_tin)::numeric, (d_tout)::numeric]) as znachenie
 from b11
+union all
+select 12 as n, 'движение по специализациям (с января, Активная)'::text as blok, (k)::text as stroka,
+       unnest(array[1, 2, 3, 4, 5, 6, 7]) as ord, unnest(array['b', 'h', 'i', 'f', 'o', 'e', 'ostatok']::text[]) as pokazatel,
+       unnest(array[(b)::numeric, (h)::numeric, (i)::numeric, (f)::numeric, (o)::numeric, (e)::numeric, (ostatok)::numeric]) as znachenie
+from b12
 union all
 select 10 as n, 'посещения по шагам (месяц cm)'::text as blok, (k)::text as stroka,
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['src_visits', 'src_no_city', 'tbl_visits', 'tbl_city_json', 'tbl_visits_no_json', 'tbl_leaf0', 'rep_visits', 'rep_city']::text[]) as pokazatel,

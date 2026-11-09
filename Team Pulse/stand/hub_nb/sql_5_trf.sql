@@ -441,15 +441,24 @@ from (
     union all
     -- смена специализации: «внутри юнита» (CI / CO датасета); «из» последним днём месяца — в следующий
     select e2.node_rk, date_trunc('month', e2.dt)::date, 'i',
-           e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1,
+           e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1 - e2.cv,
            null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text
     from e2 where e2.kind = 'fs' and e2.isp = 1 and e2.hf = 0
+      -- 09.11 (бой: строки «Движения по специализациям» не сходились): одна строка дня — одно событие, как у мастера.
+      -- Флаг «в специализацию» уже несёт строка перевода юнита (ui, fsp = cisp) и входа в «Активную» (ti, fsp = isp);
+      -- переход из учебной группы / стажёр в штат (cv): in_ok = 0 — при выбранных типах численности это найм, и датасет
+      -- переводом строку не считает; при «Вся» — перевод в специализацию (вид перехода cv_k пустой — в найм не идёт)
+      and not exists (select 1 from ev v where v.e = e2.e and v.cdt = e2.dt and v.u_evt)
+      and not exists (select 1 from sr t where t.kind = 'ti' and t.e = e2.e and t.dt = e2.dt)
     union all
     select e2.node_rk, date_trunc('month', e2.dt + e2.ld)::date, 'o',
            e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1,
            null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text
     from e2 where e2.kind = 'fs' and e2.osp = 1
       and not exists (select 1 from xa where xa.e = e2.e and xa.dt = e2.dt)   -- 09.11: эта строка уже в xa (fsp = osp)
+      -- 09.11: и в строке перевода юнита «из» (uo, fsp = osp); в день увольнения — отток, не перевод
+      and not exists (select 1 from ev v where v.e = e2.e and v.pdt = e2.dt and v.u_evt)
+      and not exists (select 1 from teampulse_hub_trfr f where f.e = e2.e and f.dt = e2.dt and f.fx = 1)
     union all
     -- поставка 104: смена покраски / IT / штатности без перевода юнита (xi / xo выше): «в» — день новой строки, «из» —
     -- последний день прежнего значения, последний день месяца — в следующий месяц

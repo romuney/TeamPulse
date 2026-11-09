@@ -175,7 +175,7 @@ select 34 as n, 'водопад отчёта у корня («Активная»
                 + coalesce(sum(case when report_month > (date_trunc('month', c.lm) - interval '11 month')::date then fire_cnt end), 0)
          from teampulse_hub_series, teampulse_hub_cal c
          where node_rk = (select root_rk from teampulse_hub_meta) and act_cd = 'Активная')
-       - (select coalesce(sum(case when trf_kind = 'h' or (trf_kind = 'i' and in_ok = 0) then trf_cnt else 0 end), 0)
+       - (select coalesce(sum(case when trf_kind = 'h' or (trf_kind = 'i' and in_ok = 0 and cv_k <> '') then trf_cnt else 0 end), 0)
                + coalesce(sum(case when trf_kind = 'i' and in_ok = 1 and (fu = 1 or fa = 1) then trf_cnt else 0 end), 0)
                - coalesce(sum(case when trf_kind = 'o' and (fu = 1 or fa = 1) then trf_cnt else 0 end), 0)
           from teampulse_hub_trf, teampulse_hub_cal c

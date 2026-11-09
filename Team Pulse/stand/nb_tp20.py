@@ -251,6 +251,15 @@ def sp_change(p):
     """31.10, п. 10: у части людей (по ключу, без генератора — остальная симуляция не сдвигается) одна смена
     специализации в середине жизни: (первый день в новой, новая специализация) или None. Меняется только
     employee_specialization_desc источника и флаги transfer_to / transfer_out_specialization_flg"""
+    nxt = SPECS[(SPECS.index(p['spec']) + 1) % len(SPECS)]
+    # 09.11, как на бою (файл 5: строки «Движения по специализациям» не сходились): смена специализации в день перевода
+    # в другое подразделение и в день перехода в «Активную» (из учебной группы, стажёров, декрета)
+    if p['rk'] % 11 == 5 and len(p['unit']) > 1 and p['unit'][1][0] > max(p['start'], D0):
+        return p['unit'][1][0], nxt
+    if p['rk'] % 11 == 7:
+        ds = [d for (d, a), (_, b) in zip(p['acth'][1:], p['acth']) if a == 'Активная' and b != 'Активная' and d > max(p['start'], D0)]
+        if ds:
+            return ds[0], nxt
     if p['rk'] % 11 != 3:
         return None
     s0, last = max(p['start'], D0), p['end'] or D1
@@ -277,6 +286,21 @@ def source_at(p, d):
         if p['rk'] % 4 == 0 and d > p['start']:
             return 'Внутренний перевод'
     return p['source']
+
+
+def rehire_day(p):
+    """09.11: день найма при переходе в другое юрлицо (у каждого 9-го с «Активной» без других событий вокруг) или None"""
+    if True or p['rk'] % 9:    # 09.11: выключено — на бою эти выходы устроены иначе (мастер при «Вся» тоже не сходился бы);
+        return None            # правило «выход по флагу строки» подтверждено на бою файлом 5 (блок 11, № 34 = 0)
+    d = max(p['start'], D0) + dt.timedelta(20 + p['rk'] % 40)
+    last = p['end'] or D1
+    if d >= last - dt.timedelta(2):
+        return None
+    pd = d - dt.timedelta(1)
+    if any(at(p['acth'], x) != 'Активная' for x in (pd, d)) or at(p['unit'], pd) != at(p['unit'], d) \
+            or any(c in (pd, d) for c, _ in p['conv']) or any(c in (pd, d) for c, _ in p['acth'][1:]):
+        return None
+    return d
 
 
 def source_rows(U, people):
@@ -310,10 +334,11 @@ def source_rows(U, people):
                   for i, t in enumerate(('active_type', 'hq', 'it', 'employment_relation_type'))}
             of = {t: int(nx[i] != cur[i] and (want[i] is None or cur[i] == want[i]))
                   for i, t in enumerate(('active_type', 'hq', 'it', 'employment_relation_type'))}
-            # 09.11, как на бою (файл 5, блок 11: «Перевод-» мастера по флагу строки больше, чем у отчёта): источник бывает
-            # несогласован — у части выходов из «Активной» на следующей строке нет флага входа в новый тип
-            if tf['active_type'] and cur[0] not in ACTIVE and pv[0] in ACTIVE and p['rk'] % 9 == 0:
-                tf['active_type'] = 0
+            # 09.11, как на бою (файл 5, блок 11: «Перевод-» мастера по флагу строки больше, чем у отчёта): переход в другое
+            # юрлицо — последняя строка старого с флагом выхода из типа и без увольнения, следующая — с флагом найма
+            rd = rehire_day(p)
+            if rd and d == rd - dt.timedelta(1):
+                of['active_type'] = 1
             # 31.10, п. 10: смена специализации — «в» в первый день новой, «из» в последний день старой
             spd = spec_at(p, d)
             tf['specialization'] = int(d > p['start'] and spec_at(p, d - dt.timedelta(1)) != spd)
@@ -324,7 +349,7 @@ def source_rows(U, people):
                    + [act, int(act in ACTIVE), cur[2], cur[1], cur[3], p['gender'], p['age'], tenure(p, d), str(g), seniority(g),
                       p['reason'] if fired else None, p['init'] if fired else None,
                       p['con'], p['legal'], p['stream'],
-                      int(d == p['start'] and p['start'] > D0), int('transfer_candidate_flg' in cv),
+                      int(d == p['start'] and p['start'] > D0 or d == rd), int('transfer_candidate_flg' in cv),
                       int('transfer_internal_flg' in cv), fired, p['regret'] if fired else 0]
                    + [tf.get(t, 0) for t in TYPES] + [of.get(t, 0) for t in TYPES]
                    + [p['nonreg'] if fired else 0, p['company'], spd, source_at(p, d)]
