@@ -682,6 +682,8 @@ def office_rows(p, d, ov):
     bk, bkv, vsv, city, reg, dn, ds = office_row(rk, d, ov)
     if not ov and bk and h % 29 == 0:
         bkv = None                                   # бронь вне учёта нарушений
+    if ov and h % 31 == 0:
+        vsv = None                                   # 09.11, как на бою: посещение вне учёта нарушений (NULL)
     home = OFFICE_CITY[rk % len(OFFICE_CITY)]
     if city is None and emp == 'Да':
         city = home                                  # день без визита — город закреплённого офиса (рабочие дни города)

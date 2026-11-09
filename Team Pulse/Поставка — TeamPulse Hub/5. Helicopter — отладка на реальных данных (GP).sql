@@ -22,6 +22,7 @@
 --   8 источник найма на день найма против последнего значения месяца
 --   9 посещаемость за месяц m по покраске, как мастер «Посещаемость и бронирование офисов» (допуск ±1 п.п.)
 --  10 посещения по шагам за месяц cm: источник -> таблица людей -> города -> отчёт (где теряются посещения по городам)
+--  11 формулы мастера прямо по источнику по дням (найм, отток, Перевод+, Перевод-) рядом с отчётом: d_* = 0
 -- Ожидаемые числа сверки — в чате, не в репозитории. Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub).
 -- 09.11: файл — один запрос (было 13 отдельных); убраны устаревшие: водопад витрины движения и «откуда прочее» (найм и
 -- переводы отчёта — из строк дня события, водопад сходится без «прочего»), переводы по специализациям по флагу уровня
@@ -458,6 +459,39 @@ b10 as (
               and report_month = (select cm from teampulse_hub_cal)) as rep_visits,
            (select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'oc') as rep_city
     from b10s s cross join b10t t cross join b10j j
+),
+-- 11. формулы мастера (Executive Report, дефолт: «Активная», вся компания) прямо по источнику по дням — рядом с отчётом
+--     (блок 1). Строка дня в периметре — тип численности дня «Активная»; событие дня — его флаги: m_hire — найм в компанию,
+--     в БГ или стажёр в штат; m_fire — увольнение; m_tin — вход в тип (флаг to_active) без найма; m_tout — выход из типа
+--     (флаг out_active) без увольнения, месяц «день + 1». rep_* — отчёт (как блок 1), d_* = rep - m (должно быть 0)
+b11d as (
+    select mdm_employee_rk as e, calendar_dt::date as dt,
+           max((coalesce(hire_flg::text, '0') = '1' or coalesce(transfer_candidate_flg::text, '0') = '1'
+                or coalesce(transfer_internal_flg::text, '0') = '1')::int) as h,
+           max((coalesce(fire_flg::text, '0') = '1')::int) as f,
+           max((coalesce(transfer_to_active_type_flg::text, '0') = '1')::int) as ti,
+           max((coalesce(transfer_out_active_type_flg::text, '0') = '1')::int) as tu
+    from usr_cross_data.hr_executive_proteus
+    where calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year')::date
+      and calendar_dt >= (select m0 from b1w) and calendar_dt < ((select m1 from b1w) + interval '1 month')::date
+      and active_type_nm = 'Активная'
+    group by 1, 2
+),
+b11m as (
+    select m, sum(h) as m_hire, sum(f) as m_fire, sum(ti) as m_tin, sum(tu) as m_tout
+    from (
+        select date_trunc('month', dt)::date as m, h, f, case when h = 0 then ti else 0 end as ti, 0 as tu from b11d
+        union all
+        select date_trunc('month', dt + 1)::date, 0, 0, 0, case when f = 0 then tu else 0 end from b11d
+    ) x
+    group by 1
+),
+b11 as (
+    select to_char(r.m, 'YYYY-MM') as k, m.m_hire, r.hire as rep_hire, m.m_fire, r.fire as rep_fire,
+           m.m_tin, r.tin as rep_tin, m.m_tout, r.tout as rep_tout,
+           r.hire - m.m_hire as d_hire, r.fire - m.m_fire as d_fire, r.tin - m.m_tin as d_tin, r.tout - m.m_tout as d_tout
+    from b1 r left join b11m m on m.m = r.m
+    where r.m > (select m0 from b1w)
 )
 select 0 as n, 'поиск подразделения'::text as blok, (unit_rk || ' ' || unit_nm)::text as stroka,
        unnest(array[1, 2]) as ord, unnest(array['unit_lvl', 'kids_cnt']::text[]) as pokazatel,
@@ -508,6 +542,11 @@ select 9 as n, 'посещаемость (месяц m)'::text as blok, (paint_c
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['attendance_pct', 'fix_attendance_pct', 'bookings_no_visit', 'bookings_with_visit', 'visits_no_booking', 'visits_with_booking', 'no_visit_share_pct', 'no_booking_share_pct']::text[]) as pokazatel,
        unnest(array[(round(100.0 * ovis / nullif(wday, 0), 2))::numeric, (round(100.0 * fovis / nullif(fwday, 0), 2))::numeric, (bkv)::numeric, (bk - bkv)::numeric, (vsv)::numeric, (vbk)::numeric, (round(100.0 * bkv / nullif(bk, 0), 2))::numeric, (round(100.0 * vsv / nullif(ovis, 0), 2))::numeric]) as znachenie
 from b9s
+union all
+select 11 as n, 'формулы мастера по источнику и отчёт'::text as blok, (k)::text as stroka,
+       unnest(array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) as ord, unnest(array['m_hire', 'rep_hire', 'm_fire', 'rep_fire', 'm_tin', 'rep_tin', 'm_tout', 'rep_tout', 'd_hire', 'd_fire', 'd_tin', 'd_tout']::text[]) as pokazatel,
+       unnest(array[(m_hire)::numeric, (rep_hire)::numeric, (m_fire)::numeric, (rep_fire)::numeric, (m_tin)::numeric, (rep_tin)::numeric, (m_tout)::numeric, (rep_tout)::numeric, (d_hire)::numeric, (d_fire)::numeric, (d_tin)::numeric, (d_tout)::numeric]) as znachenie
+from b11
 union all
 select 10 as n, 'посещения по шагам (месяц cm)'::text as blok, (k)::text as stroka,
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['src_visits', 'src_no_city', 'tbl_visits', 'tbl_city_json', 'tbl_visits_no_json', 'tbl_leaf0', 'rep_visits', 'rep_city']::text[]) as pokazatel,
