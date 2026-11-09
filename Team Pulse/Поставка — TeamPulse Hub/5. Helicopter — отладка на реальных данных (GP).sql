@@ -21,6 +21,7 @@
 --   7 профили численности и средний возраст: lyudey_v_profilyah = chislennost
 --   8 источник найма на день найма против последнего значения месяца
 --   9 посещаемость за месяц m по покраске, как мастер «Посещаемость и бронирование офисов» (допуск ±1 п.п.)
+--  10 посещения по шагам за месяц cm: источник -> таблица людей -> города -> отчёт (где теряются посещения по городам)
 -- Ожидаемые числа сверки — в чате, не в репозитории. Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub).
 -- 09.11: файл — один запрос (было 13 отдельных); убраны устаревшие: водопад витрины движения и «откуда прочее» (найм и
 -- переводы отчёта — из строк дня события, водопад сходится без «прочего»), переводы по специализациям по флагу уровня
@@ -422,6 +423,41 @@ b9s as (
     from teampulse_hub_series
     where node_rk = (select rk from u) and report_month = (select m from u) and act_cd = 'Активная'
     group by 1
+),
+-- 10. посещения по шагам за месяц cm (hub checks № 18 / № 33: сумма по городам меньше посещений) — где теряются. У корня:
+--     src_visits — источник посещений (база мастера: активные с закреплённым офисом, главный офис дня), из них
+--     src_no_city — без города; tbl_visits — посещения в таблице людей (office_visit_amt строк last_row_flg = 1),
+--     tbl_city_json — сумма по городам из office_city_visits_json тех же строк, tbl_visits_no_json — посещения строк без
+--     json, tbl_leaf0 — посещения строк вне дерева (leaf_lvl = 0); rep_visits — ряды отчёта (ovis), rep_city — разрез
+--     по городам (oc). Должно быть: src = tbl = rep, tbl_city_json = tbl_visits, rep_city = rep_visits
+b10s as (
+    select sum(case when coalesce(main_office_visit_rn, 0) = 1 and active_office_emp_flg = 'Да' then coalesce(office_visit_flg, 0) else 0 end) as src_visits,
+           sum(case when coalesce(main_office_visit_rn, 0) = 1 and active_office_emp_flg = 'Да'
+                     and coalesce(trim(office_city_nm::text), '') in ('', '-') then coalesce(office_visit_flg, 0) else 0 end) as src_no_city
+    from usr_cross_data.office_traffic_attendance
+    where calendar_dt >= (select cm from teampulse_hub_cal) and calendar_dt < ((select cm from teampulse_hub_cal) + interval '1 month')::date
+      and work_day_flg = 1 and active_type_nm = 'Активная'
+),
+b10t as (
+    select sum(coalesce(office_visit_amt, 0)) as tbl_visits,
+           sum(case when office_city_visits_json is null then coalesce(office_visit_amt, 0) else 0 end) as tbl_visits_no_json,
+           sum(case when leaf_lvl = 0 then coalesce(office_visit_amt, 0) else 0 end) as tbl_leaf0
+    from all_metrics_with_performance_and_office_traffic_and_grt
+    where report_month = (select cm from teampulse_hub_cal)
+),
+b10j as (
+    select sum(coalesce((j.v ->> 'visit_count')::numeric, 0)) as tbl_city_json
+    from (select json_array_elements(office_city_visits_json::json) as v
+          from all_metrics_with_performance_and_office_traffic_and_grt
+          where report_month = (select cm from teampulse_hub_cal) and office_city_visits_json is not null) j
+),
+b10 as (
+    select 'месяц ' || to_char((select cm from teampulse_hub_cal), 'YYYY-MM') as k, s.src_visits, s.src_no_city,
+           t.tbl_visits, j.tbl_city_json, t.tbl_visits_no_json, t.tbl_leaf0,
+           (select sum(ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta)
+              and report_month = (select cm from teampulse_hub_cal)) as rep_visits,
+           (select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'oc') as rep_city
+    from b10s s cross join b10t t cross join b10j j
 )
 select 0 as n, 'поиск подразделения'::text as blok, (unit_rk || ' ' || unit_nm)::text as stroka,
        unnest(array[1, 2]) as ord, unnest(array['unit_lvl', 'kids_cnt']::text[]) as pokazatel,
@@ -472,4 +508,9 @@ select 9 as n, 'посещаемость (месяц m)'::text as blok, (paint_c
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['attendance_pct', 'fix_attendance_pct', 'bookings_no_visit', 'bookings_with_visit', 'visits_no_booking', 'visits_with_booking', 'no_visit_share_pct', 'no_booking_share_pct']::text[]) as pokazatel,
        unnest(array[(round(100.0 * ovis / nullif(wday, 0), 2))::numeric, (round(100.0 * fovis / nullif(fwday, 0), 2))::numeric, (bkv)::numeric, (bk - bkv)::numeric, (vsv)::numeric, (vbk)::numeric, (round(100.0 * bkv / nullif(bk, 0), 2))::numeric, (round(100.0 * vsv / nullif(ovis, 0), 2))::numeric]) as znachenie
 from b9s
+union all
+select 10 as n, 'посещения по шагам (месяц cm)'::text as blok, (k)::text as stroka,
+       unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['src_visits', 'src_no_city', 'tbl_visits', 'tbl_city_json', 'tbl_visits_no_json', 'tbl_leaf0', 'rep_visits', 'rep_city']::text[]) as pokazatel,
+       unnest(array[(src_visits)::numeric, (src_no_city)::numeric, (tbl_visits)::numeric, (tbl_city_json)::numeric, (tbl_visits_no_json)::numeric, (tbl_leaf0)::numeric, (rep_visits)::numeric, (rep_city)::numeric]) as znachenie
+from b10
 order by n, stroka, ord;
