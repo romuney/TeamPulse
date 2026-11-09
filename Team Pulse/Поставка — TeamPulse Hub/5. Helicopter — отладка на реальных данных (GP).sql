@@ -498,7 +498,7 @@ b11 as (
 -- 12. «Движение по специализациям» всей компании (корень, «Активная», с января по последний месяц) — как в отчёте: на начало
 --     (конец декабря) и на конец, отток — витрина движения по специализациям; найм — дни найма (специализация дня найма);
 --     переводы в / из — флаги источника (юнит, тип численности, смена специализации). ostatok = конец - начало - найм -
---     в + отток + из (должен быть 0 у каждой специализации)
+--     в + отток + из (должен быть 0 у каждой специализации). Люди без специализации — строка «Не указано»
 b12y as (select date_trunc('year', lm)::date as y0, lm::date as m1 from teampulse_hub_cal),
 b12f as (
     select sp_cd as sp, sum(case when report_month = (select y0 from b12y) then beg_cnt else 0 end) as b,
@@ -509,12 +509,12 @@ b12f as (
     group by 1
 ),
 b12t as (
-    select sp_cd as sp,
+    select case when sp_cd = '-' then 'Не указано' else sp_cd end as sp,
            sum(case when trf_kind = 'h' or (trf_kind = 'i' and in_ok = 0 and cv_k <> '') then trf_cnt else 0 end) as h,
            sum(case when trf_kind = 'i' and in_ok = 1 and (fu = 1 or fa = 1 or fsp = 1) then trf_cnt else 0 end) as i,
            sum(case when trf_kind = 'o' and (fu = 1 or fa = 1 or fsp = 1) then trf_cnt else 0 end) as o
     from teampulse_hub_trf
-    where node_rk = (select rk from u) and act_cd = 'Активная' and sp_cd not in ('', '-')
+    where node_rk = (select rk from u) and act_cd = 'Активная'
       and report_month between (select y0 from b12y) and (select m1 from b12y)
     group by 1
 ),
@@ -537,7 +537,7 @@ b12d as (
     group by 1, 2
 ),
 b12m as (
-    select sp, sum(i) as m_i, sum(o) as m_o
+    select case when sp = '-' then 'Не указано' else sp end as sp, sum(i) as m_i, sum(o) as m_o
     from (
         select sp, case when h = 0 and dt >= (select y0 from b12y) then ti else 0 end as i, 0 as o from b12d
         union all

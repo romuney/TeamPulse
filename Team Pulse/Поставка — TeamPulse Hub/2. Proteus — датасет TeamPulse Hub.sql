@@ -208,7 +208,9 @@ toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'{{ " OR (trf_kind = 'i' AND ifNull(
     видам — те же переходы, что во второй части HI (только при выбранных типах численности). -#}
 {% set CVK = "ifNull(toString(cv_k), '')" %}
 {#- 28.10: специализация строки переходов (sp_cd) — матчером; нет колонки — пусто, строки отбрасываются. -#}
-{% set SPC = "ifNull(toString(sp_cd), '')" %}
+{#- 09.11 (бой: строка людей без специализации в «Движении по специализациям» несла только переводы): нет специализации
+    ('-' в переходах) — «Не указано», строка со всеми колонками (в витрине движения sp_cd = 'Не указано') -#}
+{% set SPC = "if(ifNull(toString(sp_cd), '-') = '-', 'Не указано', toString(sp_cd))" %}
 {#- 31.10, п. 10; поставка 90 (заказчик): переводы по специализациям — по флагам переводов под фильтры (TI / TU: вход в
     выбор и выход из него) ИЛИ по флагу смены специализации transfer_to / transfer_out_specialization_flg (fsp строки
     переходов, матчером) — смена специализации и внутри выбора тоже перевод; строка одна — перевод один. Тогда «на начало +
@@ -607,7 +609,7 @@ WITH
       (
         SELECT node_rk, {{ HI }} AS hv,
                [ifNull(toString(hs_cd), ''), if(trf_kind = 'h', 'Найм в компанию', if({{ CVK }} = 'c', 'Из учебной группы в боевую', 'Стажёр в штат')),
-                ifNull(toString(hg_cd), ''), if({{ SPC }} = '-', '', {{ SPC }})] AS hx
+                ifNull(toString(hg_cd), ''), {{ SPC }}] AS hx
         FROM prod_proteus.teampulse_hub_trf
         WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }} AND trf_kind IN ('h', 'i')
       )
@@ -649,7 +651,6 @@ WITH
           её заменил замкнутый водопад fsm (поставка 105), чарт tsm не читает #}
       {#- поставка 109 (скорость разбора): ключ и число — arrayZip двух массивов, а не пять кортежей со скобками #}
       ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso'], tv) AS kv
-      WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL
@@ -663,7 +664,6 @@ WITH
         WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }}
       )
       ARRAY JOIN arrayZip(['i', 'o'], tv) AS kv
-      WHERE spx != ''
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL
@@ -697,7 +697,7 @@ WITH
                [toFloat64(0), {{ HI }}, toFloat64(0), toFloat64(0), toFloat64(0), toFloat64(0)] AS vv
         FROM prod_proteus.teampulse_hub_trf
         WHERE node_rk IN {{ PK }} AND {{ GRID }} AND report_month >= toStartOfYear(cxlm)
-          AND {{ cond() }} AND trf_kind IN ('h', 'i') AND {{ SPC }} NOT IN ('', '-')
+          AND {{ cond() }} AND trf_kind IN ('h', 'i')
       )
       ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1

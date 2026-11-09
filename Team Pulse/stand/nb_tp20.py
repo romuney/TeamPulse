@@ -274,6 +274,16 @@ def spec_at(p, d):
     return ch[1] if ch and d >= ch[0] else p['spec']
 
 
+def src_spec(p, d):
+    """09.11, как на бою (файл 5: около сотни наймов за год без специализации): специализация в источнике — у каждого
+    23-го пустая всегда, у следующего по ключу — пустая первые 30 дней, потом своя (флаги смены специализации)"""
+    if p['rk'] % 23 == 0:
+        return None
+    if p['rk'] % 23 == 1 and d < max(p['start'], D0) + dt.timedelta(30):
+        return None
+    return spec_at(p, d)
+
+
 def source_at(p, d):
     """источник найма на день d (поставка 103, файл 9, п. 12): у части нанятых в окне поле меняется после дня найма в том
     же месяце (каждый 4-й — «Внутренний перевод»), у каждого 13-го в день найма пусто и заполняется на следующий день —
@@ -340,9 +350,9 @@ def source_rows(U, people):
             if rd and d == rd - dt.timedelta(1):
                 of['active_type'] = 1
             # 31.10, п. 10: смена специализации — «в» в первый день новой, «из» в последний день старой
-            spd = spec_at(p, d)
-            tf['specialization'] = int(d > p['start'] and spec_at(p, d - dt.timedelta(1)) != spd)
-            of['specialization'] = int(d < last and spec_at(p, d + dt.timedelta(1)) != spd)
+            spd = src_spec(p, d)
+            tf['specialization'] = int(d > p['start'] and src_spec(p, d - dt.timedelta(1)) != spd)
+            of['specialization'] = int(d < last and src_spec(p, d + dt.timedelta(1)) != spd)
             yield ([d, p['rk']] + [pu[i] if i < len(pu) else None for i in range(NL)]
                    + [U[pu[i]][0] if i < len(pu) else None for i in range(NL)]
                    + inf + outf

@@ -3699,45 +3699,46 @@ paragraphs:
                0, 0, 0, 0, 0, 1, 0
         from tu where ((not in_end) or key_u) and (cu = 1 or dp + di + ds + da > 0)
         union all
-        -- ===== строки специализаций (только люди С специализацией: sp '-' склеился бы с юнит-строками
-        --      и удваивал их; человек без специализации виден только в строке юнита) =====
-        select unnest(ap_arr), m, sp_p, pa_p, itc_p, st_p, ac_p, 0, 0, '', '', '', '', 1, 0, 0, 0, 0, 0, 0
-        from ev where in_prev and sp_p <> '-'
+        -- ===== строки специализаций. 09.11 (бой: в «Движении по специализациям» строка людей без специализации несла
+        --      только переводы — без начала, найма, оттока и конца — и не сходилась): человек без специализации — своя
+        --      строка с sp_cd = 'Не указано' (не пустая строка: при выгрузке она стала бы NULL и слиплась со строками юнита) =====
+        select unnest(ap_arr), m, coalesce(nullif(sp_p, '-'), 'Не указано'), pa_p, itc_p, st_p, ac_p, 0, 0, '', '', '', '', 1, 0, 0, 0, 0, 0, 0
+        from ev where in_prev
         union all
-        select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 0, 0, 0, 0, 1
-        from ev where in_cur and sp_c <> '-'
+        select unnest(ac_arr), m, coalesce(nullif(sp_c, '-'), 'Не указано'), pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 0, 0, 0, 0, 1
+        from ev where in_cur
         union all
-        select unnest(ah_arr), m, sp_h, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 1, 0, 0, 0, 0, 0
-        from ev where hire_ev and sp_h <> '-'
+        select unnest(ah_arr), m, coalesce(nullif(sp_h, '-'), 'Не указано'), pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 1, 0, 0, 0, 0, 0
+        from ev where hire_ev
         union all
-        select unnest(ah_arr), m, sp_h, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 1, 0, 0, 0, 0
-        from ev where hco_ev and sp_h <> '-'
+        select unnest(ah_arr), m, coalesce(nullif(sp_h, '-'), 'Не указано'), pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 1, 0, 0, 0, 0
+        from ev where hco_ev
         union all
-        select unnest(ah_arr), m, sp_h, pa, itc, st, ac_c, 0, 0, pa, itc, st, '+', 0, 0, 0, 0, 1, 0, 0
-        from ev where hco_ev and not hire_ev and sp_h <> '-'
+        select unnest(ah_arr), m, coalesce(nullif(sp_h, '-'), 'Не указано'), pa, itc, st, ac_c, 0, 0, pa, itc, st, '+', 0, 0, 0, 0, 1, 0, 0
+        from ev where hco_ev and not hire_ev
         union all
-        select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 0, 1, 0, 0, 0
-        from ev where fire_ev and sp_c <> '-'
+        select unnest(ac_arr), m, coalesce(nullif(sp_c, '-'), 'Не указано'), pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 0, 1, 0, 0, 0
+        from ev where fire_ev
         union all
         -- 09.11: строки специализаций — найм в юните и специализации дня найма, к концу месяца в другом юните или другой
         -- специализации: «из» строки дня найма и «в» строку конца месяца (срез — конца месяца)
-        select z.node_rk, z.m, z.sp_h, z.pa, z.itc, z.st, z.ac_c, (not (z.node_rk = any(z.ac_arr)))::int,
+        select z.node_rk, z.m, coalesce(nullif(z.sp_h, '-'), 'Не указано'), z.pa, z.itc, z.st, z.ac_c, (not (z.node_rk = any(z.ac_arr)))::int,
                ((z.node_rk = any(z.ac_arr)) and z.sp_h <> z.sp_c)::int, '', '', '', '', 0, 0, 0, 0, 0, 1, 0
-        from (select ev.*, unnest(ah_arr) as node_rk from ev where (hire_ev or hco_ev) and (cp_h <> cp_c or sp_h <> sp_c) and sp_h <> '-') z
+        from (select ev.*, unnest(ah_arr) as node_rk from ev where (hire_ev or hco_ev) and (cp_h <> cp_c or sp_h <> sp_c)) z
         where not (z.node_rk = any(z.ac_arr) and z.sp_h = z.sp_c)
         union all
-        select z.node_rk, z.m, z.sp_c, z.pa, z.itc, z.st, z.ac_c, (not (z.node_rk = any(z.ah_arr)))::int,
+        select z.node_rk, z.m, coalesce(nullif(z.sp_c, '-'), 'Не указано'), z.pa, z.itc, z.st, z.ac_c, (not (z.node_rk = any(z.ah_arr)))::int,
                ((z.node_rk = any(z.ah_arr)) and z.sp_h <> z.sp_c)::int, '', '', '', '', 0, 0, 0, 0, 1, 0, 0
-        from (select ev.*, unnest(ac_arr) as node_rk from ev where (hire_ev or hco_ev) and (cp_h <> cp_c or sp_h <> sp_c) and sp_c <> '-') z
+        from (select ev.*, unnest(ac_arr) as node_rk from ev where (hire_ev or hco_ev) and (cp_h <> cp_c or sp_h <> sp_c)) z
         where not (z.node_rk = any(z.ah_arr) and z.sp_h = z.sp_c)
         union all
-        select node_rk, m, sp_c, pa, itc, st, ac_c, cu, dsp * (1 - cu), case when cu = 1 then '' else pa_p end, case when cu = 1 then '' else itc_p end, case when cu = 1 then '' else st_p end, case when cu = 1 then '' else ac_p end,
+        select node_rk, m, coalesce(nullif(sp_c, '-'), 'Не указано'), pa, itc, st, ac_c, cu, dsp * (1 - cu), case when cu = 1 then '' else pa_p end, case when cu = 1 then '' else itc_p end, case when cu = 1 then '' else st_p end, case when cu = 1 then '' else ac_p end,
                0, 0, 0, 0, 1, 0, 0
-        from ti where sp_c <> '-' and (cu = 1 or dp + di + ds + da + dsp > 0)
+        from ti where (cu = 1 or dp + di + ds + da + dsp > 0)
         union all
-        select node_rk, m, sp_p, pa_p, itc_p, st_p, ac_p, cu, dsp * (1 - cu), case when cu = 1 then '' else pa end, case when cu = 1 then '' else itc end, case when cu = 1 then '' else st end, case when cu = 1 then '' when conv then '+' else ac_c end,
+        select node_rk, m, coalesce(nullif(sp_p, '-'), 'Не указано'), pa_p, itc_p, st_p, ac_p, cu, dsp * (1 - cu), case when cu = 1 then '' else pa end, case when cu = 1 then '' else itc end, case when cu = 1 then '' else st end, case when cu = 1 then '' when conv then '+' else ac_c end,
                0, 0, 0, 0, 0, 1, 0
-        from tu where sp_p <> '-' and (cu = 1 or dp + di + ds + da + dsp > 0)
+        from tu where (cu = 1 or dp + di + ds + da + dsp > 0)
     ) t
     group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
     distributed by (node_rk);
