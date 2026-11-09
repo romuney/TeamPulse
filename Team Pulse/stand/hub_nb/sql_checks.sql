@@ -48,7 +48,10 @@ union all
 select 9 as n, 'корней'::text as check_nm, 1 as must,
        ((select count(*) - 1 from teampulse_hub_unit where parent_rk = ''))::float8 as val
 union all
-select 10 as n, 'узлов, где подразделения больше узла (численность)'::text as check_nm, 1 as must,
+-- 09.11, поставка 129: люди считаются по цепочке своего юнита, дерево — только для показа. У узла с двумя родителями
+-- (пропущен уровень, старый путь у части юнитов) люди чужой ветки остаются в её предках, как в мастер-отчёте, — сумма
+-- подразделений бывает больше узла. Поэтому справочно; ошибка дерева — № 31, ошибка счёта людей — № 1–3, 11, 12, 15
+select 10 as n, 'узлов, где подразделения больше узла (численность; люди в двух ветках — справочно)'::text as check_nm, 0 as must,
        ((select count(*) from teampulse_hub_unit u
         join (select node_rk, sum(hc_cnt) as hc from teampulse_hub_series
                      where report_month = (select last_month from teampulse_hub_meta) group by 1) h on h.node_rk = u.unit_rk

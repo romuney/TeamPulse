@@ -2,7 +2,9 @@
 -- TeamPulse Hub · 1. Календарь и структура (поставка 58: SQL вместо build_hub)
 -- teampulse_hub_cal — последний месяц (lm), дата данных (dt), последний закрытый месяц (cm), начало сетки,
 -- общий корень (mo, pre);
--- _uall / _uone / _upath — путь каждого юнита последнего месяца; _node — узлы нынешней структуры.
+-- _umap — цепочка юнита в каждом месяце (по ней люди относятся к подразделениям); _uall — пути юнитов последнего
+-- месяца (имена узлов); _node — узлы нынешней структуры (дерево для показа).
+-- С 09.11 (поставка 129) файл ведётся руками: генератор stand/hub_sql.py его больше не перезаписывает.
 -- =============================================================================
 
 -- 1. последний месяц — последний в источнике людей (и текущий незакрытый); dt — последний день этого
@@ -35,8 +37,8 @@ from (
 distributed by (lm);
 drop table if exists teampulse_hub_lm;
 
--- 2. пути юнитов последнего месяца — по маленьким таблицам: _uall — юнит × его пути (ключи уровней
---    колонками), _uone — один путь на юнит (если их несколько — меньший строкой, путь целиком)
+-- 2. пути юнитов последнего месяца — по маленьким таблицам: _uall — юнит × его пути (ключи и имена уровней
+--    колонками): из них имена узлов дерева
 drop table if exists teampulse_hub_uall;
 create table teampulse_hub_uall as
 select s.mng_unit_rk::text as unit_rk, s.leaf_lvl,
@@ -52,22 +54,68 @@ where s.report_month = (select lm from teampulse_hub_cal) and s.leaf_lvl > 0
 group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
 distributed by (unit_rk);
 drop table if exists teampulse_hub_uone;
-create table teampulse_hub_uone as
-select distinct on (unit_rk) *
-from (select u.*, array_to_string((ARRAY[u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10, u.k11])[1:u.leaf_lvl], '|') as cp
-      from teampulse_hub_uall u) x
-order by unit_rk, cp
+drop table if exists teampulse_hub_upath;
+
+-- 3. люди → подразделения. 09.11, поставка 129 (владелец: «подразделения не сходятся» с мастер-отчётом): человек
+--    относится к подразделениям цепочки своего юнита В ТОМ ЖЕ МЕСЯЦЕ — как мастер-отчёт (подразделение там — фильтр
+--    по уровню цепочки самой строки дня) и как переводы «hub · 5» (путь дня, поставка 59). Было: путь юнита в
+--    последнем месяце для всех месяцев («история в нынешней структуре»), а с 07.11 (поставки 113-г…е) — путь по общему
+--    дереву: люди юнитов с другой цепочкой (пропущен уровень, старый путь у части юнитов в месяц реорганизации)
+--    засчитывались чужому предку. _umap: юнит × месяц → цепочка большинства его людей на конец месяца («-» внутри
+--    пути выкинуты; людей поровну — больше строк, дальше меньшая строкой). На неизменной структуре — то же, что раньше
+drop table if exists teampulse_hub_umap0;
+create table teampulse_hub_umap0 as
+select distinct on (x.unit_rk, x.report_month) x.unit_rk, x.report_month, x.cp
+from (
+    select s.mng_unit_rk::text as unit_rk, s.report_month::date as report_month,
+           array_to_string(array_remove((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
+               s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text, s.lvl9_rk::text, s.lvl10_rk::text,
+               s.lvl11_rk::text])[1:s.leaf_lvl], '-'), '|') as cp,
+           sum(coalesce(s.hc_total_cnt, 0)) as hc, count(*) as n
+    from all_metrics_with_performance_and_office_traffic_and_grt s
+    where s.leaf_lvl > 0
+    group by 1, 2, 3
+) x
+where x.cp <> ''
+order by x.unit_rk, x.report_month, x.hc desc, x.n desc, x.cp
 distributed by (unit_rk);
--- 3. узлы — все начала путей: и юниты со своими людьми, и уровни над ними без своих строк.
---    07.11 (бой, ноябрь: hub checks № 10 = 26, потом корень - люди < 0): в mapped-цепочках последнего месяца один
---    узел стоит в разных юнитах под разными родителями (на разных уровнях; бывает, что A над B в одних цепочках и
---    B над A в других). Выбор родителя по каждому узлу отдельно давал либо расхождение «дети больше узла», либо
---    кольцо (A под B, B под A) — люди под кольцом выпадали из корня. Теперь дерево собирается из целых цепочек:
---    у каждой цепочки (юнит и путь, «-» внутри пути выкинуты) есть ранг — длиннее (подробнее: не пропущен
---    промежуточный уровень), при равной длине — больше людей, дальше — ключ юнита и путь. Узел берёт родителя из
---    лучшей по рангу цепочки, где он встречается (предыдущий элемент; узел встречается дважды — первое вхождение).
---    Колец так не бывает: у родителя лучшая цепочка не хуже, а в той же цепочке он стоит выше. Путь узла и юнита
---    (teampulse_hub_upath) — по этому дереву, люди и дерево согласованы. При согласованных путях — как раньше.
+--    ключ, который в цепочке повторяется (бывает в mapped: один уровень дважды), — один раз, первое вхождение: иначе
+--    человек засчитывался бы такому узлу дважды (до поставки 129 повтор снимал путь по дереву)
+drop table if exists teampulse_hub_umap;
+create table teampulse_hub_umap as
+select y.unit_rk, y.report_month,
+       array_to_string(array_remove(ARRAY[max(case when y.i = 1 then y.rk end), max(case when y.i = 2 then y.rk end),
+           max(case when y.i = 3 then y.rk end), max(case when y.i = 4 then y.rk end), max(case when y.i = 5 then y.rk end),
+           max(case when y.i = 6 then y.rk end), max(case when y.i = 7 then y.rk end), max(case when y.i = 8 then y.rk end),
+           max(case when y.i = 9 then y.rk end), max(case when y.i = 10 then y.rk end),
+           max(case when y.i = 11 then y.rk end)], NULL), '|') as cp
+from (
+    select z.unit_rk, z.report_month, z.rk, min(z.i) as i
+    from (select w.unit_rk, w.report_month, unnest(string_to_array(w.cp, '|')) as rk,
+                 generate_subscripts(string_to_array(w.cp, '|'), 1) as i
+          from teampulse_hub_umap0 w) z
+    group by 1, 2, 3
+) y
+group by 1, 2
+distributed by (unit_rk);
+drop table if exists teampulse_hub_umap0;
+--    месяц перед сеткой — только «начало» первого месяца водопада («hub · 4в»): цепочки первого месяца сетки
+insert into teampulse_hub_umap (unit_rk, report_month, cp)
+select unit_rk, (report_month - interval '1 month')::date, cp
+from teampulse_hub_umap
+where report_month = (select grid_start from teampulse_hub_cal);
+
+-- 4. узлы — все начала путей последнего месяца: и юниты со своими людьми, и уровни над ними без своих строк. Дерево —
+--    только для показа (фильтр подразделения, таблицы подразделений, руководители): людей оно не переносит (п. 3).
+--    07.11 (бой, ноябрь): в mapped-цепочках один узел стоит в разных юнитах под разными родителями (пропущен
+--    промежуточный уровень, у части юнитов старый путь; бывает, что A над B в одних цепочках и B над A в других).
+--    Дерево собирается из целых цепочек (поставка 113-е: колец нет), родитель узла — там, где больше его людей
+--    (поставка 129; было — из самой длинной цепочки: узел с тысячами людей вставал под предка из старого пути, где их
+--    трое). Кандидаты узла X — начала цепочек до X (первое вхождение), вес начала — люди всех цепочек, которые с него
+--    начинаются; лучшее — больше людей, поровну — короче, дальше — меньшее строкой; родитель — элемент перед X.
+--    Колец нет: начало до родителя есть у тех же людей и короче, значит, лучшее начало родителя строго лучше начала
+--    узла. У узла с двумя родителями люди чужой ветки остаются в её предках, как в мастер-отчёте, — сумма
+--    подразделений бывает больше узла (hub checks № 10, справочно)
 drop table if exists teampulse_hub_upw;
 create table teampulse_hub_upw as
 select x.unit_rk, x.cp, count(distinct x.emp) as ppl
@@ -92,13 +140,19 @@ from (
 ) x
 group by 1, 2, 3, 4, 5
 distributed by (rk);
+drop table if exists teampulse_hub_npre;
+create table teampulse_hub_npre as
+select e.rk, array_to_string((string_to_array(e.cp, '|'))[1:e.i], '|') as pfx, e.i, sum(e.ppl) as ppl
+from teampulse_hub_nedge e
+group by 1, 2, 3
+distributed by (rk);
 drop table if exists teampulse_hub_npar;
 create table teampulse_hub_npar as
-select y.rk, case when y.i = 1 then '' else (string_to_array(y.cp, '|'))[y.i - 1] end as prk
+select y.rk, case when y.i = 1 then '' else (string_to_array(y.pfx, '|'))[y.i - 1] end as prk
 from (
-    select distinct on (e.rk) e.rk, e.cp, e.i
-    from teampulse_hub_nedge e
-    order by e.rk, e.ln desc, e.ppl desc, e.unit_rk, e.cp
+    select distinct on (p.rk) p.rk, p.pfx, p.i
+    from teampulse_hub_npre p
+    order by p.rk, p.ppl desc, p.i, p.pfx
 ) y
 distributed by (rk);
 --    имя узла — из путей юнитов (как раньше)
@@ -143,25 +197,23 @@ from (
 ) n
 left join teampulse_hub_nnm m on m.rk = n.rk
 distributed by (rk);
---    путь юнита: его узел; юнит не в своём пути — узел последнего уровня пути; нет и его — путь как есть
-drop table if exists teampulse_hub_upath;
-create table teampulse_hub_upath as
-select u.unit_rk, coalesce(n.pth, nl.pth, u.cp) as cp
-from teampulse_hub_uone u
-left join teampulse_hub_node n on n.rk = u.unit_rk
-left join teampulse_hub_node nl on nl.rk = (ARRAY[u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10, u.k11])[u.leaf_lvl]
-distributed by (unit_rk);
 drop table if exists teampulse_hub_upw;
 drop table if exists teampulse_hub_nedge;
+drop table if exists teampulse_hub_npre;
 drop table if exists teampulse_hub_npar;
 drop table if exists teampulse_hub_nnm;
 
--- несколько корней — общий корень над ними: «вся компания» — сумма всех строк
-update teampulse_hub_cal set mo = 1, pre = 'all|' where (select count(*) from teampulse_hub_node where prk = '') > 1;
+-- несколько корней — общий корень над ними: «вся компания» — сумма всех строк. Поставка 129: корни — и у дерева, и у
+-- цепочек людей за все месяцы (люди считаются по своей цепочке: начнись она не с корня дерева — без общего корня они
+-- выпали бы из «всей компании»)
+update teampulse_hub_cal set mo = 1, pre = 'all|'
+where (select count(*) from (select rk from teampulse_hub_node where prk = ''
+                             union select split_part(cp, '|', 1) from teampulse_hub_umap) r) > 1;
 update teampulse_hub_node set prk = 'all' where prk = '' and (select mo from teampulse_hub_cal) = 1;
 update teampulse_hub_node set pth = 'all|' || pth, lv = lv + 1 where (select mo from teampulse_hub_cal) = 1;
 insert into teampulse_hub_node (rk, nm, lv, prk, pth) select 'all', 'Все юниты', 1, '', 'all' where (select mo from teampulse_hub_cal) = 1;
 
 select c.lm as last_month, c.dt as data_dt, c.cm as closed_month, c.grid_start, c.mo as common_root,
-       (select count(*) from teampulse_hub_node) as nodes, (select count(*) from teampulse_hub_upath) as units
+       (select count(*) from teampulse_hub_node) as nodes,
+       (select count(*) from teampulse_hub_umap where report_month = c.lm) as units
 from teampulse_hub_cal c;

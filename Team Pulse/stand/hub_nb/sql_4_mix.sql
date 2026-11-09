@@ -49,7 +49,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
     ) x
 ) e
@@ -87,7 +87,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
     ) x
 ) e
@@ -125,7 +125,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
     ) x
 ) e
@@ -150,7 +150,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (date_trunc('year', (select lm from teampulse_hub_cal)) - interval '1 month')::date
     ) x
 ) e
@@ -174,7 +174,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
     ) x
 ) e
@@ -205,7 +205,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
     ) x
 ) e
@@ -229,7 +229,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month >= (select grid_start from teampulse_hub_cal)
     ) x
 ) e
@@ -254,7 +254,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
     ) x
 ) e
@@ -283,7 +283,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from structure_x_rost s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.month::date
         where s.leaf_lvl > 0 and s.finish_month >= (select grid_start from teampulse_hub_cal) and s.finish_month <= (select lm from teampulse_hub_cal)
     ) x
 ) e
@@ -314,7 +314,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from structure_x_rost s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.month::date
         where s.leaf_lvl > 0 and s.finish_month >= date_trunc('year', (select lm from teampulse_hub_cal))::date and s.finish_month <= (select lm from teampulse_hub_cal)
     ) x
 ) e
@@ -366,7 +366,7 @@ with r as (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal) and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1
     ) x
 ) e
@@ -404,7 +404,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null
     ) x
 ) e
@@ -437,7 +437,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'
     ) x
 ) e
@@ -472,7 +472,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null
     ) x
 ) e
@@ -501,7 +501,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from office_traffic_calendar s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month between ((select cm from teampulse_hub_cal) - interval '1 month')::date and (select lm from teampulse_hub_cal)
     ) x
 ) e;
@@ -562,7 +562,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (select date_trunc('month', we)::date from teampulse_hub_mpp) and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1
     ) x
 ) e
@@ -609,7 +609,7 @@ from (
                case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join teampulse_hub_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = s.report_month::date
         where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal)
     ) x
 ) e

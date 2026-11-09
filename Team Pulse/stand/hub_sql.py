@@ -237,11 +237,13 @@ PRE = f'(select pre from {P}_cal)'          # 'all|' — если корней �
 MO = f'(select mo from {P}_cal)'            # 1 — общий корень над несколькими корнями
 
 
-def expl(cols, where, src=SRC):
-    """строки источника людей → узлы нынешней структуры: путь юнита в последнем месяце (переехал — прошлое
-    едет с ним), юнита нет — свой путь; d — глубина узла. Только нужные колонки: развёртка по узлам множит
-    строки на глубину. src — таблица с колонками пути и срезов источника людей (поставка 66: и календарь
-    посещений office_traffic_calendar)"""
+def expl(cols, where, src=SRC, mon='s.report_month'):
+    """строки источника людей → узлы: путь строки — цепочка её юнита в том же месяце (_umap; поставка 129, 09.11:
+    как мастер-отчёт — подразделение там фильтр по цепочке самой строки; раньше — путь юнита в последнем месяце,
+    «переехал — прошлое едет с ним»), юнита в месяце нет — свой путь; d — глубина узла. Только нужные колонки:
+    развёртка по узлам множит строки на глубину. src — таблица с колонками пути и срезов источника людей (поставка
+    66: и календарь посещений office_traffic_calendar); mon — месяц, из которого у строки цепочка (у заявок
+    «Роста» — месяц подачи)"""
     sel = wrap([f's.{c}' for c in cols], ' ' * 15)
     return f"""
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
@@ -254,7 +256,7 @@ def expl(cols, where, src=SRC):
                {staff_c} as staff_c,
                {act_c} as act_c
         from {src} s
-        left join {P}_upath u on u.unit_rk = s.mng_unit_rk::text
+        left join {P}_umap u on u.unit_rk = s.mng_unit_rk::text and u.report_month = {mon}::date
         where s.leaf_lvl > 0 {where}
     ) x
 """
@@ -482,8 +484,8 @@ def rost_mix():
     rcols = ['finish_month', 'is_approved', 'is_declined', 'grade_change_application_flg',
              'specialization_change_application_flg', 'tat_flg', 'required_grade_num', 'required_specialization',
              'current_grade_num', 'current_specialization']
-    ex_rm = expl(rcols, f'and s.finish_month >= (select grid_start from {P}_cal) and s.finish_month <= {lm}', SXR)
-    ex_rq = expl(rcols, f'and s.finish_month >= {y0} and s.finish_month <= {cm}', SXR)
+    ex_rm = expl(rcols, f'and s.finish_month >= (select grid_start from {P}_cal) and s.finish_month <= {lm}', SXR, 's.month')
+    ex_rq = expl(rcols, f'and s.finish_month >= {y0} and s.finish_month <= {cm}', SXR, 's.month')
     ex_rs = expl(['report_month', 'grade', 'mdm_employee_rk', 'hc_total_cnt', 'last_row_flg'],
                  f'and s.report_month = {lm} and coalesce(s.hc_total_cnt, 0) > 0 and s.last_row_flg = 1')
     return f"""-- поставка 73: T-рост по эталону отчёта «Рост» дашборда HQ. Тип заявки: s — смена специализации, g — повышение
@@ -1104,8 +1106,9 @@ def sql_final():
                'teampulse_hub_vacancy — узел × месяц × разрезы вакансии; teampulse_hub_meta — одна строка: последний',
                'месяц, дата данных, сетка, корень, юнит по умолчанию. В конце — сколько строк в каждой таблице.')}
 
--- 11. вакансии: structure_x_vacancy → узлы нынешней структуры. Путь юнита — по _upath, юнита нет в
---     последнем месяце — свой путь из уровней вакансии. Вакансия — не человек: фильтры среза на неё не действуют
+-- 11. вакансии: structure_x_vacancy → узлы. Путь — цепочка юнита в том же месяце (_umap, поставка 129: как у людей),
+--     людей у юнита в этом месяце нет — свой путь из уровней вакансии. Вакансия — не человек: фильтры среза на неё не
+--     действуют
 drop table if exists {P}_vacancy;
 create table {P}_vacancy as
 -- 03.11, поставка 103 (файл 9, п. 4): ttf_d — срок закрытой вакансии (дней без холда, снимок 2_11): по нему датасет
@@ -1116,7 +1119,7 @@ select node_rk, report_month, channel, search_reason, cand_lvl, position_lvl, sp
 from (
     select x.*, unnest(string_to_array({PRE} || coalesce(u.cp, x.unit_path), '|')) as node_rk
     from {VAC} x
-    left join {P}_upath u on u.unit_rk = x.mng_unit_rk::text
+    left join {P}_umap u on u.unit_rk = x.mng_unit_rk::text and u.report_month = x.report_month::date
     where x.report_month between {gs} and {lm}
 ) e
 group by 1, 2, 3, 4, 5, 6, 7, 8, 9
@@ -1304,7 +1307,8 @@ FILES = {
     'sql_0_cols.sql': sql_cols,
     # 31.10 (поставка 86): sql_vacancy.sql ведётся руками — в нём правки Адели (каналы подбора); генератор его
     # больше не перезаписывает. sql_vacancy_snapshot() — прежняя версия, для истории
-    'sql_1_structure.sql': sql_structure,
+    # 09.11, поставка 129: sql_1_structure.sql ведётся руками (дерево из целых цепочек 07.11, люди по цепочке юнита в
+    # том же месяце — _umap); sql_structure() ниже — прежняя версия, для истории
     # 05.11, поставка 104: hub · 3, hub · 5 и hub checks ведутся руками (hub_nb/sql_3_series.sql, sql_5_trf.sql,
     # sql_checks.sql) — в них логика, сверенная с мастер-отчётами на реальных данных (Trino, ноутбук «поставка-104»);
     # генератор их больше не перезаписывает. sql_series / sql_trf / sql_checks ниже — прежние версии, для истории
