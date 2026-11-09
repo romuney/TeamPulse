@@ -310,6 +310,10 @@ def source_rows(U, people):
                   for i, t in enumerate(('active_type', 'hq', 'it', 'employment_relation_type'))}
             of = {t: int(nx[i] != cur[i] and (want[i] is None or cur[i] == want[i]))
                   for i, t in enumerate(('active_type', 'hq', 'it', 'employment_relation_type'))}
+            # 09.11, как на бою (файл 5, блок 11: «Перевод-» мастера по флагу строки больше, чем у отчёта): источник бывает
+            # несогласован — у части выходов из «Активной» на следующей строке нет флага входа в новый тип
+            if tf['active_type'] and cur[0] not in ACTIVE and pv[0] in ACTIVE and p['rk'] % 9 == 0:
+                tf['active_type'] = 0
             # 31.10, п. 10: смена специализации — «в» в первый день новой, «из» в последний день старой
             spd = spec_at(p, d)
             tf['specialization'] = int(d > p['start'] and spec_at(p, d - dt.timedelta(1)) != spd)

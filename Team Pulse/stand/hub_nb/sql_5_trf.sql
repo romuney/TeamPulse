@@ -356,14 +356,19 @@ xi as (
 xo as (
     select r0.* from teampulse_hub_trfr r0
     where r0.fx = 0 and (r0.oq = 1 or r0.oi = 1 or r0.ost = 1)
-      and not exists (select 1 from ev v where v.e = r0.e and v.pdt = r0.dt
-                      and (v.u_evt or (v.cia = 1 and v.cactf = 0 and v.cpactf = 1 and v.cfx = 0 and v.chf = 0
-                                       and v.ccc = 0 and v.ctif = 0)))
-      and not (r0.actf = 1 and r0.oa = 1 and r0.hf = 0 and r0.cc = 0 and r0.tif = 0
-               and not exists (select 1 from usr_cross_data.hr_executive_proteus x
-                               where x.mdm_employee_rk = r0.e and x.calendar_dt = r0.dt + 1
-                                 and x.calendar_dt >= (select grid_start from teampulse_hub_cal) - 1))
-      and not exists (select 1 from tc where tc.dir = 'o' and tc.e = r0.e and tc.pdt = r0.dt)
+      and not exists (select 1 from ev v where v.e = r0.e and v.pdt = r0.dt and v.u_evt)
+      and r0.oa = 0                                   -- 09.11: строка с выходом из типа — в xa (несёт и oq / oi / ost)
+),
+-- 09.11 (сверка с мастер-отчётом Executive Report, файл 5, блок 11: «Перевод-» отчёта меньше на 9 за год): выход из типа
+-- численности — как у мастера, по флагу строки: transfer_out_active_type_flg = 1 и не увольнение, месяц «день + 1»; срез,
+-- юнит и флаги покраски / IT / штата / специализации — этой (старой) строки. Следующую строку не смотрим. Было: TO (a) —
+-- по паре строк (флаг входа в новый тип и признаки активной численности у следующей строки, не найм), TO (b) — уход
+-- «в оформление» перед разрывом, парная «из» к TI; при несогласованной следующей строке выход терялся. День перевода
+-- юнита — в строке U «из» (флаг oa там же)
+xa as (
+    select r0.* from teampulse_hub_trfr r0
+    where r0.oa = 1 and r0.fx = 0
+      and not exists (select 1 from ev v where v.e = r0.e and v.pdt = r0.dt and v.u_evt)
 ),
 -- поставка 104: переход «кандидат → боевая» и «стажёр → штат» — найм по дню события (hit и виды найма hcd / hst
 -- датасета: вид i, in_ok = 0). Переводом не считается (все формулы переводов берут in_ok = 1), как в правиле выше;
@@ -377,6 +382,8 @@ xr as (
     select xi.*, 'i' as dir from xi
     union all
     select xo.*, 'o' from xo
+    union all
+    select xa.*, 'a' from xa
     union all
     select hv.*, 'v' from hv
 ),
@@ -419,17 +426,11 @@ from (
            null::text, null::text, null::text, null::text, '', e2.sp, e2.isp, null::text, null::text
     from e2 where e2.kind = 'ti'
     union all
-    -- TO (a): выход из активной, юнит и срезы «до перевода»
-    select eo.node_rk, date_trunc('month', eo.cdt)::date, 'o',
-           eo.pa, eo.it, eo.st, eo.ac, 0, 1, eo.oq, eo.oi, eo.ost, 1,
-           null::text, null::text, null::text, null::text, '', eo.sp, eo.osp, null::text, null::text
-    from eo
-    union all
-    -- TO (b): уход «в оформление», событие — на следующий день
-    select e2.node_rk, date_trunc('month', e2.dt + 1)::date, 'o',
-           e2.pa, e2.it, e2.st, e2.ac, 0, 1, e2.oq, e2.oi, e2.ost, 1,
-           null::text, null::text, null::text, null::text, '', e2.sp, e2.osp, null::text, null::text
-    from e2 where e2.kind = 'tob'
+    -- 09.11: выход из типа численности по флагу строки (xa выше) — узлы и срезы этой строки, месяц «день + 1»
+    select xn.node_rk, date_trunc('month', xn.dt + 1)::date, 'o',
+           xn.pa, xn.it, xn.st, xn.ac, 0, 1, xn.oq, xn.oi, xn.ost, 1,
+           null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text
+    from xn where xn.dir = 'a'
     union all
     -- найм в компанию: узлы и срез дня найма; вид — c из учебной группы в боевую, s стажёр в штат
     select e2.node_rk, date_trunc('month', e2.dt)::date, 'h',
@@ -448,6 +449,7 @@ from (
            e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1,
            null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text
     from e2 where e2.kind = 'fs' and e2.osp = 1
+      and not exists (select 1 from xa where xa.e = e2.e and xa.dt = e2.dt)   -- 09.11: эта строка уже в xa (fsp = osp)
     union all
     -- поставка 104: смена покраски / IT / штатности без перевода юнита (xi / xo выше): «в» — день новой строки, «из» —
     -- последний день прежнего значения, последний день месяца — в следующий месяц
@@ -461,12 +463,7 @@ from (
            null::text, null::text, null::text, null::text, '', xn.sp, 0, null::text, null::text
     from xn where xn.dir = 'o'
     union all
-    -- поставка 104: парная строка к TI («из» — старая строка) и к TO-a («в» — новая строка), дата — день перехода
-    select tcn.node_rk, date_trunc('month', tcn.cdt)::date, 'o',
-           tcn.pa, tcn.it, tcn.st, tcn.ac, 0, 1, tcn.oq, tcn.oi, tcn.ost, 1,
-           null::text, null::text, null::text, null::text, '', tcn.sp, 0, null::text, null::text
-    from tcn where tcn.dir = 'o'
-    union all
+    -- поставка 104: парная строка к TO-a («в» — новая строка), дата — день перехода (09.11: «из» — по флагу строки, xa)
     select tcn.node_rk, date_trunc('month', tcn.cdt)::date, 'i',
            tcn.cpa, tcn.cit, tcn.cst, tcn.cac, 0, 1, tcn.cip, tcn.cii, tcn.cist, 1,
            null::text, null::text, null::text, null::text, '', tcn.csp, 0, null::text, null::text
