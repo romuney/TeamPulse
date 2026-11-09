@@ -576,12 +576,12 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
   /* 09.11 (владелец: одна методология): найм, отток, начало, конец — витрина движения; переводы — как карточки «Переводы»
      (флаги); остаток — «Смена типа и среза»: строка сходится с ним, переводы по специализациям не больше карточки */
   if(D.SPM_FSM){
-    const bad=sm.filter(z=>Math.abs(z.hc0+z.hire+z.tin-z.exit-z.tout+z.chg-z.hc1)>0.5||Math.abs(z.chg)>0.5), z0=sm[0]||{}, mm=z0.name?D.specMonths(rl,z0.name):[];
-    const mOk=!z0.name||['hire','tin','exit','tout','chg'].every(k=>mm.reduce((a,o)=>a+o[k],0)===z0[k]);
-    ok(sm.length>0&&!bad.length&&mOk&&!/Без флага<\/th>/.test(mv)&&/На начало<\/th>/.test(mv)&&
+    const bad=sm.filter(z=>Math.abs(z.hc0+z.hire+z.tin-z.exit-z.tout-z.hc1)>0.5), z0=sm[0]||{}, mm=z0.name?D.specMonths(rl,z0.name):[];
+    const mOk=!z0.name||['hire','tin','exit','tout'].every(k=>mm.reduce((a,o)=>a+o[k],0)===z0[k]);
+    ok(sm.length>0&&!bad.length&&mOk&&!/Без флага<\/th>|Внутри юнита|Смена типа/.test(mv)&&/На начало<\/th>/.test(mv)&&
        true,
       'движение по специализациям: '+sm.length+' строк, все сходятся по флагам без остатка (на начало + найм + в − отток − из = на конец), '+
-      'месяцы = строке, колонки «Без флага» нет');
+      'месяцы = строке, дополнительных колонок нет (только найм, переводы в / из, отток)');
   }else if(D.SPM_TRF)ok(Math.abs(S('hire')-Y('hire'))<=sm.length&&(FSP||Math.abs(S('tin')-Y('transfer_in'))<=sm.length&&
       Math.abs(S('tout')-Y('transfer_out'))<=sm.length)&&Math.abs(S('exit')-Y('attrition'))<=sm.length&&/Переводы из<\/th>/.test(mv)&&
       (!FSP||/На начало<\/th>/.test(mv)&&S('hc1')>0),

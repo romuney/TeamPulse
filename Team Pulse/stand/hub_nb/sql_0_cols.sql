@@ -42,6 +42,7 @@ with need (sch, tbl, col) as (
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'hire_cnt'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'transfer_candidate_amt'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'transfer_internal_amt'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'hire_specialization'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'fire_amt'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'regret_fire_amt'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'non_regret_fire_amt'),

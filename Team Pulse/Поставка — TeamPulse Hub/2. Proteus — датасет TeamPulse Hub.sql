@@ -648,7 +648,7 @@ WITH
       (
         {#- поставка 109 (скорость разбора): числа без ifNull — NULL в сумме не считается, как и 0 #}
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(hire_cnt), toFloat64(fire_cnt),
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), {{ "toFloat64(hire_cnt)" if act_on else "ifNull(toFloat64(hco_cnt), toFloat64(ifNull(hire_cnt, 0)))" }}, toFloat64(fire_cnt),
                 toFloat64(tin_cnt) * toFloat64({{ FLWS }}), toFloat64(tout_cnt) * toFloat64({{ FLWS }}),
                 toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow

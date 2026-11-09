@@ -181,7 +181,7 @@ from (
 where coalesce(e.hc_total_cnt, 0) > 0;
 
 -- найм с начала года (январь..последний закрытый месяц): источник, канал (найм в компанию / из учебной группы
--- в боевую / стажёр в штат), грейд, специализация
+-- в боевую / стажёр в штат), грейд, специализация (09.11: на день найма — hire_specialization, как источник найма)
 insert into teampulse_hub_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
@@ -189,14 +189,14 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
                     case when coalesce(e.hire_amt, 0) > 0 then 'Найм в компанию'
                               when coalesce(e.transfer_candidate_amt, 0) > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end,
                     coalesce(nullif(translate(e.grade::text, E'\t\n|', '  /'), '-'), ''),
-                    coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
+                    coalesce(nullif(translate(e.hire_specialization::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
        greatest(coalesce(e.hire_amt, 0), coalesce(e.transfer_candidate_amt, 0), coalesce(e.transfer_internal_amt, 0)) as mx_n
 from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
     from (
         select s.hire_amt, s.transfer_candidate_amt, s.transfer_internal_amt, s.source_type_nm, s.grade,
-               s.specialization,
+               s.hire_specialization,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
@@ -218,13 +218,13 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY[coalesce(nullif(translate(e.source_type_nm::text, E'\t\n|', '  /'), '-'), ''),
                     'Найм в компанию',
                     coalesce(nullif(translate(e.grade::text, E'\t\n|', '  /'), '-'), ''),
-                    coalesce(nullif(translate(e.specialization::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
+                    coalesce(nullif(translate(e.hire_specialization::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
        coalesce(e.hire_cnt, 0) as mx_n
 from (
     select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
            generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
     from (
-        select s.hire_cnt, s.source_type_nm, s.grade, s.specialization,
+        select s.hire_cnt, s.source_type_nm, s.grade, s.hire_specialization,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,

@@ -82,11 +82,12 @@ group by 1, 2
 distributed by (e);
 analyze teampulse_hub_flg;
 
--- 2б. 09.11: юнит дня найма — «Найм, чел» рядов стоит в строке юнита, где был найм (build_all_metrics: строка — человек ×
---     месяц × юнит), срез — на конец месяца. Водопад пишет найм туда же; переход в другой юнит до конца месяца — перевод
+-- 2б. 09.11: юнит и специализация дня найма (последний день месяца с флагом найма, как at_hire build_all_metrics) —
+--     «Найм, чел» рядов стоит в строке юнита, где был найм, разбивка по специализации — по специализации дня найма
+--     (hire_specialization). Водопад пишет найм туда же; смена юнита или специализации до конца месяца — перевод
 drop table if exists teampulse_hub_flh;
 create table teampulse_hub_flh as
-select distinct on (e, m) e, m, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11,
+select distinct on (e, m) e, m, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11, sp,
        case when k11 <> '-' then k11 when k10 <> '-' then k10 when k9 <> '-' then k9 when k8 <> '-' then k8 when k7 <> '-' then k7 when k6 <> '-' then k6 when k5 <> '-' then k5 when k4 <> '-' then k4 when k3 <> '-' then k3 when k2 <> '-' then k2 when k1 <> '-' then k1 else '-' end as leaf_rk,
        case when k11 <> '-' then 11 when k10 <> '-' then 10 when k9 <> '-' then 9 when k8 <> '-' then 8 when k7 <> '-' then 7 when k6 <> '-' then 6 when k5 <> '-' then 5 when k4 <> '-' then 4 when k3 <> '-' then 3 when k2 <> '-' then 2 when k1 <> '-' then 1 else 0 end as leaf_lvl
 from (
@@ -102,6 +103,7 @@ from (
            coalesce(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') as k9,
            coalesce(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') as k10,
            coalesce(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') as k11,
+           translate(coalesce(nullif(trim(x.employee_specialization_desc::text), ''), '-'), E'\t\n|', '  /') as sp,
            x.calendar_dt
     from usr_cross_data.hr_executive_proteus x
     where x.calendar_dt >= ((select grid_start from teampulse_hub_cal) - interval '1 month')::date
@@ -109,7 +111,7 @@ from (
       and (coalesce(x.hire_flg::text, '0') = '1' or coalesce(x.transfer_candidate_flg::text, '0') = '1'
            or coalesce(x.transfer_internal_flg::text, '0') = '1')
 ) z
-order by e, m, calendar_dt
+order by e, m, calendar_dt desc
 distributed by (e);
 analyze teampulse_hub_flh;
 
@@ -139,7 +141,7 @@ select q.e, q.m,
        (coalesce(q.fxx, 0) = 1 and q.leaf_lvl > 0
         and ((q.fx = 0 and q.is_eom) or q.fx = 1)) as fire_ev,
        -- пути узлов как в series (шаг 6 «hub · 1»: upath юнита нынешней структуры, нет его — lvl-цепочка месяца)
-       q.cp_c, q.cp_p, coalesce(q.cp_h, q.cp_c) as cp_h,
+       q.cp_c, q.cp_p, coalesce(q.cp_h, q.cp_c) as cp_h, coalesce(q.sp_h, q.sp) as sp_h,
        -- смена ключа строки: путь узлов + срезы (+ тип численности — колонка строки)
        (ARRAY[q.cp_c, q.pa, q.itc, q.st, q.ac]
         <> ARRAY[q.cp_p, q.pa_p, q.itc_p, q.st_p, q.ac_p]) as key_u,
@@ -152,7 +154,7 @@ from (
            p.e as pe, p.fx as pfx, p.is_eom as pis_eom, p.leaf_lvl as pleaf_lvl,
            p.sp as sp_p, coalesce(p.pa, '-') as pa_p, coalesce(p.itc, '-') as itc_p,
            coalesce(p.st, '-') as st_p, coalesce(p.ac, '-') as ac_p,
-           g.hf, g.cf, g.fxx,
+           g.hf, g.cf, g.fxx, h.sp as sp_h,
            (select pre from teampulse_hub_cal)
              || coalesce(uc.cp, array_to_string((ARRAY[c.k1, c.k2, c.k3, c.k4, c.k5, c.k6, c.k7, c.k8, c.k9, c.k10, c.k11])[1:c.leaf_lvl], '|')) as cp_c,
            (select pre from teampulse_hub_cal)
@@ -266,25 +268,29 @@ from (
     select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 0, 0, 0, 0, 1
     from ev where in_cur and sp_c <> '-'
     union all
-    select unnest(ah_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 1, 0, 0, 0, 0, 0
-    from ev where hire_ev and sp_c <> '-'
+    select unnest(ah_arr), m, sp_h, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 1, 0, 0, 0, 0, 0
+    from ev where hire_ev and sp_h <> '-'
     union all
-    select unnest(ah_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 1, 0, 0, 0, 0
-    from ev where hco_ev and sp_c <> '-'
+    select unnest(ah_arr), m, sp_h, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 1, 0, 0, 0, 0
+    from ev where hco_ev and sp_h <> '-'
     union all
-    select unnest(ah_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, pa, itc, st, '+', 0, 0, 0, 0, 1, 0, 0
-    from ev where hco_ev and not hire_ev and sp_c <> '-'
+    select unnest(ah_arr), m, sp_h, pa, itc, st, ac_c, 0, 0, pa, itc, st, '+', 0, 0, 0, 0, 1, 0, 0
+    from ev where hco_ev and not hire_ev and sp_h <> '-'
     union all
     select unnest(ac_arr), m, sp_c, pa, itc, st, ac_c, 0, 0, '', '', '', '', 0, 0, 0, 1, 0, 0, 0
     from ev where fire_ev and sp_c <> '-'
     union all
-    select z.node_rk, z.m, z.sp_c, z.pa, z.itc, z.st, z.ac_c, 1, 0, '', '', '', '', 0, 0, 0, 0, 0, 1, 0
-    from (select ev.*, unnest(ah_arr) as node_rk from ev where (hire_ev or hco_ev) and cp_h <> cp_c and sp_c <> '-') z
-    where not (z.node_rk = any(z.ac_arr))
+    -- 09.11: строки специализаций — найм в юните и специализации дня найма, к концу месяца в другом юните или другой
+    -- специализации: «из» строки дня найма и «в» строку конца месяца (срез — конца месяца)
+    select z.node_rk, z.m, z.sp_h, z.pa, z.itc, z.st, z.ac_c, (not (z.node_rk = any(z.ac_arr)))::int,
+           ((z.node_rk = any(z.ac_arr)) and z.sp_h <> z.sp_c)::int, '', '', '', '', 0, 0, 0, 0, 0, 1, 0
+    from (select ev.*, unnest(ah_arr) as node_rk from ev where (hire_ev or hco_ev) and (cp_h <> cp_c or sp_h <> sp_c) and sp_h <> '-') z
+    where not (z.node_rk = any(z.ac_arr) and z.sp_h = z.sp_c)
     union all
-    select z.node_rk, z.m, z.sp_c, z.pa, z.itc, z.st, z.ac_c, 1, 0, '', '', '', '', 0, 0, 0, 0, 1, 0, 0
-    from (select ev.*, unnest(ac_arr) as node_rk from ev where (hire_ev or hco_ev) and cp_h <> cp_c and sp_c <> '-') z
-    where not (z.node_rk = any(z.ah_arr))
+    select z.node_rk, z.m, z.sp_c, z.pa, z.itc, z.st, z.ac_c, (not (z.node_rk = any(z.ah_arr)))::int,
+           ((z.node_rk = any(z.ah_arr)) and z.sp_h <> z.sp_c)::int, '', '', '', '', 0, 0, 0, 0, 1, 0, 0
+    from (select ev.*, unnest(ac_arr) as node_rk from ev where (hire_ev or hco_ev) and (cp_h <> cp_c or sp_h <> sp_c) and sp_c <> '-') z
+    where not (z.node_rk = any(z.ah_arr) and z.sp_h = z.sp_c)
     union all
     select node_rk, m, sp_c, pa, itc, st, ac_c, cu, dsp * (1 - cu), case when cu = 1 then '' else pa_p end, case when cu = 1 then '' else itc_p end, case when cu = 1 then '' else st_p end, case when cu = 1 then '' else ac_p end,
            0, 0, 0, 0, 1, 0, 0

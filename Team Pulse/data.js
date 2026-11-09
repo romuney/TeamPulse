@@ -2916,10 +2916,10 @@ const SPM_END=!REAL||SPM_FSM||!!(REAL.scopeMix&&REAL.scopeMix('sp1'));
 /* поставка 103 (файл 9, п. 9): переводы в и из — только по флагу юнита своего уровня (tsi / tso); смена специализации или
    среза без смены юнита — отдельно (tci / tco), колонкой «Внутри юнита» (+ пришли в специализацию, − ушли). Датасет до 103
    их не отдаёт — колонки нет, переводы — как раньше */
-/* 09.11 (владелец: только флаги источника, их сумма): у витрины fsm начало, найм, отток, конец — из неё, переводы — tsi /
-   tso (флаги карточек «Переводы» + флаг смены специализации), остаток — изменение без флага (колонка «Без флага» видна
-   только при нём) */
-const SPM_CHG=SPM_FSM||!!(REAL&&REAL.scopeMix&&(REAL.scopeMix('tci')||REAL.scopeMix('tco')));
+/* 09.11 (владелец: в специализациях только найм, переводы в / из, отток — без дополнительных колонок): у витрины fsm
+   начало, найм (специализация дня найма), отток, конец — из неё, переводы — tsi / tso: сумма флагов in / out источника
+   (юнит, тип и срезы под фильтром, смена специализации) */
+const SPM_CHG=!SPM_FSM&&!!(REAL&&REAL.scopeMix&&(REAL.scopeMix('tci')||REAL.scopeMix('tco')));
 /* fsm выбранной строки за месяцы m0..m1 (ключи ГГГГ-ММ): по специализации — начало первого месяца, суммы событий,
    конец последнего; by[месяц] — помесячно */
 function fsmRows(lp,keys){
@@ -2943,8 +2943,7 @@ function specMovement(lp){
     const add=(o,k)=>Object.keys(o).forEach(v=>{const n=nm(v), z=by[n]||(by[n]={name:n,hc0:0,hire:0,tin:0,exit:0,tout:0,hc1:0});z[k]+=o[v]});
     add(ti,'tin');add(to,'tout');
     rows=Object.keys(by).map(k=>by[k]);
-    rows.forEach(z=>{['hc0','hire','tin','exit','tout','hc1'].forEach(k=>{z[k]=Math.round(z[k])});
-      z.chg=z.hc1-z.hc0-z.hire-z.tin+z.exit+z.tout});
+    rows.forEach(z=>{['hc0','hire','tin','exit','tout','hc1'].forEach(k=>{z[k]=Math.round(z[k])})});
   }else if(REAL){
     const x=realExit(lp,'xsp'), h=SPM_TRF?selMix(lp,'tsh'):realExit(lp,'hsp'),
       ti=SPM_TRF?selMix(lp,'tsi')||{}:{}, to=SPM_TRF?selMix(lp,'tso')||{}:{}, by={},
@@ -2978,16 +2977,14 @@ function specMonths(lp,name){
   const nm=v=>isNA(v)?NONE_NAME:v;
   if(REAL&&SPM_FSM){
     /* поставка 105: месяц строки — замкнутый водопад специализации этого месяца */
-    /* 09.11: найм и отток — из fsm, переводы — tsm (по флагам, как карточки); смена типа и среза месяца — разница переходов
-       витрины и переводов: (i − o) fsm − (в − из) */
-    const f=selMix(lp,'fsm')||{}, t=selMix(lp,'tsm')||{}, at={};ms.forEach(o=>{at[o.key]=o;o.fi=0;o.fo=0});
-    const K={h:'hire',i:'fi',f:'exit',o:'fo'};
+    /* 09.11: найм и отток — из fsm, переводы — tsm (сумма флагов, как таблица) */
+    const f=selMix(lp,'fsm')||{}, t=selMix(lp,'tsm')||{}, at={};ms.forEach(o=>{at[o.key]=o});
+    const K={h:'hire',f:'exit'};
     Object.keys(f).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), k=K[kk], o=at[mo];
       if(o&&k&&nm(p.join('|'))===name)o[k]+=f[v]});
     Object.keys(t).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), o=at[mo];
       if(o&&(kk==='i'||kk==='o')&&nm(p.join('|'))===name)o[kk==='i'?'tin':'tout']+=t[v]});
-    ms.forEach(o=>{['hire','tin','exit','tout','fi','fo'].forEach(k=>{o[k]=Math.round(o[k])});o.chg=o.fi-o.fo-o.tin+o.tout;
-      delete o.fi;delete o.fo});
+    ms.forEach(o=>{['hire','tin','exit','tout'].forEach(k=>{o[k]=Math.round(o[k])})});
   }else if(REAL){
     const t=selMix(lp,'tsm'), x=selMix(lp,'xsm');
     if(!t&&!x)return null;

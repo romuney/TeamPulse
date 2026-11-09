@@ -65,6 +65,7 @@ def clean(col):
 SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in LV] + [f'lvl{i}_nm' for i in LV]
             + ['paint_cd', 'emp_specialization_it_code', 'employment_relation_type', 'active_type_gr_nm', 'act_type_nm',
                'hc_total_cnt', 'hc_active_cnt', 'hire_amt', 'hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt',
+               'hire_specialization',
                'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt', 'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
                'work_day_amt', 'office_visit_amt', 'fix_work_day_amt', 'fix_office_visit_amt', 'visit_with_booking_amt',
                'grt_approve_cnt', 'grt_decline_cnt',
@@ -612,7 +613,7 @@ def sql_mix():
         ('c', 'employee_contract_type'), ('o', 'legal_organization'), ('w', 'employee_stream'),
         ('r', 'employment_relation_type'), ('fr', 'fire_reason_group'), ('fi', 'fire_initiative'),
         ('sp', 'specialization'), ('tc', 'type_company'), ('hs', 'source_type_nm'), ('rg', 'region'),
-        ('mh', 'management_head_flg'))}
+        ('mh', 'management_head_flg'), ('hsp', 'hire_specialization'))}
     # 22.10, поставка 62: регион (rg) и пара «стрим|специализация» (ws) — специализации внутри стрима. В значении
     # «|» не встречается: clean() меняет его на «/»
     a['ws'] = a['w'] + " || '|' || " + a['sp']
@@ -706,23 +707,23 @@ from ({expl(['hc_total_cnt', 'specialization'], f'and s.report_month = {lm}')}) 
 where {num('hc_total_cnt')} > 0;
 
 -- найм с начала года (январь..последний закрытый месяц): источник, канал (найм в компанию / из учебной группы
--- в боевую / стажёр в штат), грейд, специализация
+-- в боевую / стажёр в штат), грейд, специализация (09.11: на день найма — hire_specialization, как источник найма)
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
-       unnest(ARRAY[{(',' + chr(10) + ' ' * 20).join([a['hs'], hch, a['gr'], a['sp']])}]) as mx_val,
+       unnest(ARRAY[{(',' + chr(10) + ' ' * 20).join([a['hs'], hch, a['gr'], a['hsp']])}]) as mx_val,
        {hire_e} as mx_n
 from ({expl(['hire_amt', 'transfer_candidate_amt', 'transfer_internal_amt', 'source_type_nm', 'grade',
-             'specialization'], ytd)}) e
+             'hire_specialization'], ytd)}) e
 where {hire_e} > 0;
 
 -- то же для «Вся» (найм в компанию с любым типом численности, как hco_cnt рядов)
 insert into {P}_mixr
 select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY['hko', 'hcho', 'hgo', 'hspo']) as mx_key,
-       unnest(ARRAY[{(',' + chr(10) + ' ' * 20).join([a['hs'], "'Найм в компанию'", a['gr'], a['sp']])}]) as mx_val,
+       unnest(ARRAY[{(',' + chr(10) + ' ' * 20).join([a['hs'], "'Найм в компанию'", a['gr'], a['hsp']])}]) as mx_val,
        {hco_e} as mx_n
-from ({expl(['hire_cnt', 'source_type_nm', 'grade', 'specialization'], ytd)}) e
+from ({expl(['hire_cnt', 'source_type_nm', 'grade', 'hire_specialization'], ytd)}) e
 where {hco_e} > 0;
 
 -- 26.10-б: увольнения по инициатору и месяцу за всю сетку — «Текучесть по инициатору» (датасет отдаёт выбранному юниту)
