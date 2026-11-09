@@ -130,10 +130,8 @@
 {% set av = [] %}{% for v in F['act'] %}{% set _ = av.append(v|lower) %}{% endfor %}
 {% if 'вся' in av or 'all' in av %}{% set _ = F.update({'act': []}) %}{% elif av|length == 0 %}{% set _ = F.update({'act': ACT_DEF}) %}{% endif %}
 {% set act_on = F['act']|length > 0 %}
-{#- Найм: при выборе типов — по методологии HR (hire_cnt), на всей — найм в компанию с любым типом (hco_cnt;
-    нет колонки — hire_cnt). Обычные (non-regrettable) увольнения — матчером: нет колонки — ноль. -#}
+{#- Обычные (non-regrettable) увольнения — матчером: нет колонки — ноль. Найм — HI ниже (события дня найма). -#}
 {% set NREG = "ifNull(toFloat64(nreg_cnt), 0)" %}
-{% set HCO = "ifNull(toFloat64(hco_cnt), toFloat64(ifNull(hire_cnt, 0)))" %}
 {#- Строка проходит фильтры: значение в выбранном списке без учёта регистра; не выбран — 1. -#}
 {% macro cond() -%}
 {%- set parts = [] -%}
@@ -189,7 +187,16 @@
 {% set FTI = "toFloat64(ifNull(tin_cnt, 0)) * toFloat64(" ~ FLW ~ ")" %}
 {% set FTU = "toFloat64(ifNull(tout_cnt, 0)) * toFloat64(" ~ FLW ~ ")" %}
 {% set TI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 1)" %}
-{% set HI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'" ~ (" OR (trf_kind = 'i' AND " ~ FLG ~ " AND ifNull(in_ok, 1) = 0)" if act_on else "") ~ ")" %}
+{#- 09.11 (владелец: «найм — событие дня найма, никакого двойного счёта; активная численность — просто фильтр»): найм везде —
+    «Найм, чел», найм водопада, найм по специализациям, строка HQ, разбивки найма (источник, канал, грейд, специализация) —
+    одни и те же строки переходов: найм в компанию (вид h) со срезом дня найма и, при выбранных типах численности, переход
+    в выбранный тип (кандидат → боевая, стажёр → штат: вид i, in_ok = 0) с флагом. Нанят в Support и в том же периоде
+    переведён в HQ — при фильтре HQ это перевод «в», не найм. Было: ряды hire_cnt / hco_cnt (срез конца месяца) — водопад
+    при фильтрах не сходился -#}
+{% macro hi_e(flg, on) -%}
+toFloat64(trf_cnt) * toFloat64(trf_kind = 'h'{{ (" OR (trf_kind = 'i' AND " ~ flg ~ " AND ifNull(in_ok, 1) = 0)") if on else "" }})
+{%- endmacro %}
+{% set HI = hi_e(FLG, act_on) %}
 {% set TU = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND " ~ FLG ~ ")" %}
 {#- Поставка 65: вид перехода в найм (cv_k: c — из учебной группы в боевую, s — стажёр в штат) — матчером. Найм по
     видам — те же переходы, что во второй части HI (только при выбранных типах численности). -#}
@@ -224,7 +231,7 @@
 {#- Метрики: ключ, таблица (s — series, t — trf, d — trf «напрямую», v — vacancy, a — ai, g/h — series-срезы,
     w — flow: замкнутый водопад поставки 105: узел × месяц × срез, строки юнитов teampulse_hub_flow sp = '-';
     fin = beg + hire - fire + tin - tout по построению), выражение. Порядок — порядок в ms. -#}
-{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 's', 'hire_cnt' if act_on else HCO], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['fwday', 's', optf('fwday_amt')], ['fovis', 's', optf('fovis_amt')], ['vbk', 's', optf('vbk_amt')], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['fh', 'h', 'fire_cnt'], ['hch', 'h', 'hc_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')], ['gah', 'g', 'gapr_cnt'], ['gdh', 'g', 'gdec_cnt'], ['hrw', 's', optf('hrs_sum_amt')], ['pdw', 's', optf('plan_day_cnt')], ['tkw', 's', optf('tlk_sum_amt')], ['fbeg', 'w', 'beg_cnt'], ['fhire', 'w', 'hire_cnt' if act_on else "ifNull(toFloat64(hco_cnt), toFloat64(ifNull(hire_cnt, 0)))"], ['ffire', 'w', 'fire_cnt'], ['ftin', 'w', FTI], ['ftout', 'w', FTU], ['ffin', 'w', 'fin_cnt']] %}
+{% set M = [['hc', 's', 'hc_cnt'], ['act', 's', 'act_cnt'], ['avg', 's', 'avg_cnt'], ['hire', 't', HI], ['fire', 's', 'fire_cnt'], ['reg', 's', 'reg_cnt'], ['nreg', 's', NREG], ['tin', 't', TI], ['tout', 't', TU], ['pnor', 's', 'pnor_cnt'], ['plow', 's', 'plow_cnt'], ['phig', 's', 'phig_cnt'], ['pgry', 's', 'pgry_cnt'], ['wday', 's', 'wday_amt'], ['ovis', 's', 'ovis_amt'], ['fwday', 's', optf('fwday_amt')], ['fovis', 's', optf('fovis_amt')], ['vbk', 's', optf('vbk_amt')], ['gapr', 's', 'gapr_cnt'], ['gdec', 's', 'gdec_cnt'], ['vop', 'v', 'vac_open_cnt'], ['vcl', 'v', 'vac_close_cnt'], ['vap', 'v', 'vac_new_cnt'], ['vtd', 'v', 'vac_ttf_days'], ['vtn', 'v', 'vac_ttf_cnt'], ['vjn', 'v', "if(ifNull(cand_lvl, '') = 'Junior', vac_close_cnt, 0)"], ['hit', 't', HI], ['din', 'd', TI], ['dout', 'd', TU], ['hcd', 't', hk('c')], ['hst', 't', hk('s')], ['bk', 's', optf('bk_amt')], ['bkv', 's', optf('bkv_amt')], ['vsv', 's', optf('vsv_amt')], ['hwd', 's', optf('hwd_amt')], ['hov', 's', optf('hov_amt')], ['rh', 'h', 'reg_cnt'], ['nrh', 'h', NREG], ['avh', 'h', 'avg_cnt'], ['fh', 'h', 'fire_cnt'], ['hch', 'h', 'hc_cnt'], ['ab25', 's', optf('ab25_cnt')], ['ab5', 's', optf('ab5_cnt')], ['we25', 's', optf('we25_cnt')], ['we5', 's', optf('we5_cnt')], ['t23', 's', optf('t23_cnt')], ['t35', 's', optf('t35_cnt')], ['t5', 's', optf('t5_cnt')], ['hrs', 's', optf('hrs_amt')], ['hrn', 's', optf('hrn_cnt')], ['tlk', 's', optf('tlk_amt')], ['gah', 'g', 'gapr_cnt'], ['gdh', 'g', 'gdec_cnt'], ['hrw', 's', optf('hrs_sum_amt')], ['pdw', 's', optf('plan_day_cnt')], ['tkw', 's', optf('tlk_sum_amt')], ['fbeg', 'w', 'beg_cnt'], ['fhire', 't', HI], ['ffire', 'w', 'fire_cnt'], ['ftin', 'w', FTI], ['ftout', 'w', FTU], ['ffin', 'w', 'fin_cnt']] %}
 {% set MI = {} %}{% for m in M %}{% set _ = MI.update({m[0]: loop.index}) %}{% endfor %}
 {#- Метрики таблицы одним массивом: суммы по колонкам (быстрее, чем суммировать массивы построчно), чужие
     этой таблице — нули отрезками arrayWithConstant (короче текст). array(…), а не […]: в переводах внутри стоят
@@ -518,8 +525,16 @@ WITH
     SELECT i6, sumForEach(a6) AS s6
     FROM
     (
-      SELECT {{ IDX }} AS i6, {{ vec('s', ['hc', 'act', 'avg', 'hire', 'fire', 'reg', 'nreg']) }} AS a6
+      SELECT {{ IDX }} AS i6, {{ vec('s', ['hc', 'act', 'avg', 'fire', 'reg', 'nreg']) }} AS a6
       FROM prod_proteus.teampulse_hub_series
+      WHERE node_rk = cxs AND {{ GRID }} AND {{ cond_hq() }}
+      GROUP BY i6
+      UNION ALL
+      {#- 09.11: найм строки HQ — те же события дня найма (HI), флаги — покраска и тип численности (фильтры строки HQ) #}
+      {%- set flq = ['fu = 1', 'fa = 1', 'fp = 1'] %}{% for c in CUTS %}{% if c[0] in ('it', 'staff') and F[c[0]]|length > 0 %}{% set _ = flq.append(FK[c[0]] ~ ' = 1') %}{% endif %}{% endfor %}
+      {%- set HIQ = hi_e('(' ~ flq|join(' OR ') ~ ')', true) %}
+      SELECT {{ IDX }} AS i6, arrayMap(x -> ifNull(x, 0), [{% for m in M %}{{ ('sum(' ~ HIQ ~ ')') if m[0] == 'hire' else '0' }}{% if not loop.last %}, {% endif %}{% endfor %}]) AS a6
+      FROM prod_proteus.teampulse_hub_trf
       WHERE node_rk = cxs AND {{ GRID }} AND {{ cond_hq() }}
       GROUP BY i6
       UNION ALL
@@ -559,9 +574,7 @@ WITH
     SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
-      {#- 09.11: разбивки найма = «Найм, чел»: при выбранных типах — по DD (hk hch hg hsp), при «Вся» — найм в компанию с
-          любым типом (hko hcho hgo hspo ноутбука, в ответе под теми же ключами) #}
-      SELECT ifNull(node_rk, '') AS u3, {{ "ifNull(mx_key, '')" if act_on else "if(ifNull(mx_key, '') IN ('hko', 'hcho', 'hgo', 'hspo'), substring(mx_key, 1, length(mx_key) - 1), ifNull(mx_key, ''))" }} AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
+      SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       {#- 31.10-б, п. 6; файл 6, п. 4: разрезы «Роста» (rm rq rs) — по численности HQ (cond_rh), остальные — под все фильтры #}
       WHERE node_rk IN {{ PK }}
@@ -575,7 +588,26 @@ WITH
         {#- поставка 109 (скорость): помесячные уходы по специализации xsm заменены замкнутым водопадом fsm (поставка 105) —
             в ответ не идут #}
         AND ifNull(mx_key, '') != 'xsm'
-        AND ifNull(mx_key, '') NOT IN {{ "('hko', 'hcho', 'hgo', 'hspo')" if act_on else "('hk', 'hch', 'hg', 'hsp')" }}
+        {#- 09.11: разбивки найма — из переходов (ветка ниже); ключи найма таблицы разрезов ноутбука до 09.11 не читаем #}
+        AND ifNull(mx_key, '') NOT IN ('hk', 'hch', 'hg', 'hsp', 'hko', 'hcho', 'hgo', 'hspo')
+      GROUP BY u3, k3, v3
+      HAVING n4 > 0
+      UNION ALL
+      {#- 09.11 (владелец): найм с начала года по источнику (hk), каналу (hch: найм в компанию / из учебной группы в боевую /
+          стажёр в штат), грейду (hg) и специализации (hsp) — те же события дня найма, что «Найм, чел» (HI): срез, грейд,
+          источник и специализация — дня найма. В сумме по каждому разрезу — «Найм, чел» с начала года. Грейд и источник —
+          колонки hg_cd / hs_cd переходов (ноутбук 09.11: сначала прогон ноутбука, потом датасет) #}
+      SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, kv.2 AS v3, sum(hv) AS n4
+      FROM
+      (
+        SELECT node_rk, {{ HI }} AS hv,
+               [ifNull(toString(hs_cd), ''), if(trf_kind = 'h', 'Найм в компанию', if({{ CVK }} = 'c', 'Из учебной группы в боевую', 'Стажёр в штат')),
+                ifNull(toString(hg_cd), ''), if({{ SPC }} = '-', '', {{ SPC }})] AS hx
+        FROM prod_proteus.teampulse_hub_trf
+        WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }} AND trf_kind IN ('h', 'i')
+      )
+      ARRAY JOIN arrayZip(['hk', 'hch', 'hg', 'hsp'], hx) AS kv
+      WHERE hv > 0
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL
@@ -648,12 +680,19 @@ WITH
       (
         {#- поставка 109 (скорость разбора): числа без ifNull — NULL в сумме не считается, как и 0 #}
         SELECT node_rk, ifNull(sp_cd, '-') AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
-               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), {{ "toFloat64(hire_cnt)" if act_on else "ifNull(toFloat64(hco_cnt), toFloat64(ifNull(hire_cnt, 0)))" }}, toFloat64(fire_cnt),
+               [toFloat64(beg_cnt) * (report_month = toStartOfYear(cxlm)), toFloat64(0), toFloat64(fire_cnt),
                 toFloat64(tin_cnt) * toFloat64({{ FLWS }}), toFloat64(tout_cnt) * toFloat64({{ FLWS }}),
                 toFloat64(fin_cnt) * (report_month = cxlm)] AS vv
         FROM prod_proteus.teampulse_hub_flow
         WHERE node_rk IN {{ PK }} AND {{ GRID }} AND report_month >= toStartOfYear(cxlm)
           AND {{ cond() }} AND ifNull(sp_cd, '-') <> '-'
+        UNION ALL
+        {#- 09.11: найм строки специализации — события дня найма (HI), специализация дня найма #}
+        SELECT node_rk, {{ SPC }} AS spx, formatDateTime(report_month, '%Y') AS yr, formatDateTime(report_month, '%m') AS mo,
+               [toFloat64(0), {{ HI }}, toFloat64(0), toFloat64(0), toFloat64(0), toFloat64(0)] AS vv
+        FROM prod_proteus.teampulse_hub_trf
+        WHERE node_rk IN {{ PK }} AND {{ GRID }} AND report_month >= toStartOfYear(cxlm)
+          AND {{ cond() }} AND trf_kind IN ('h', 'i') AND {{ SPC }} NOT IN ('', '-')
       )
       ARRAY JOIN arrayZip([1, 2, 3, 4, 5, 6], vv) AS kv
       GROUP BY u3, spx, yr, mo, kv.1

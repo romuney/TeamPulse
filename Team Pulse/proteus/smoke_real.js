@@ -714,6 +714,13 @@ ok(['time_to_fill','tgrowth_conv','underwork','overwork'].every(k=>!D.PARTIAL||D
     pt&&pt.v===yt.cur[c0]&&/^На конец /.test(pt.head)&&pc&&pc.v===yc.cur[D.CUR_LEN-1]&&!pc.strip&&
     /class="pt-line"/.test(hire),
     'итог за период: найм '+(ph&&ph.cur)+' ('+(ph&&ph.head)+'), год назад '+(ph&&ph.prev)+'; накопительная текучесть и численность — на дату');
+  /* 09.11 (владелец: найм — событие дня найма, один счёт): каждая разбивка найма (источник, канал, грейд, специализация) в
+     сумме по листьям отчёта = «Найм, чел» с начала года */
+  if(R.has('hit')&&Object.keys(R.mixVals('hk')).length){
+    const ks=['hk','hch','hg','hsp'], tot=k=>lp.reduce((a,p)=>{const o=(R.mix(p)||{})[k]||{};return a+Object.keys(o).reduce((x,v)=>x+o[v],0)},0);
+    const hy=sum(yh.cur), bad=ks.filter(k=>Math.abs(tot(k)-hy)>0.5);
+    ok(!bad.length,'разбивки найма = «Найм, чел» с начала года ('+hy+'): '+ks.map(k=>k+' '+tot(k)).join(', '));
+  }
 }
 /* поставка 103: профили численности — у каждого листа разрезы из профилей = разрезы mix; пересечение двух разрезов —
    целые люди, в сумме по строке = разрез; средний возраст — из профилей */

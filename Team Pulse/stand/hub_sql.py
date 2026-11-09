@@ -620,16 +620,6 @@ def sql_mix():
     # поставка 66: mh — признак руководителя (1 — руководитель): численность сегментов посещаемости
     # поставка 73 (Адель): e — возраст в годах (средний возраст команды в портрете)
     hc_keys = ['g', 'a', 'e', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws', 'mh']
-    # 22.10, поставка 60: найм в компанию — с любым типом численности (hire_cnt): срез — тип на конец месяца целиком,
-    # и найм в любой выбранный тип попадает в разбивки (hire_amt — только «Активная»). У «Активной» — то же, что было
-    # 09.11 (владелец: «две методологии на одну метрику запрещены»): разбивки найма = «Найм, чел» рядов. hk / hch / hg / hsp
-    # — методология DD, как ряды при выбранных типах численности (hire_amt — найм в «Активную» + из учебной группы + стажёр
-    # в штат); hko / hcho / hgo / hspo — найм в компанию с любым типом, как ряды при «Вся» (hco). Было — смесь: найм любого
-    # типа + переходы (в других типах и при «Вся» не сходилось с «Найм, чел»)
-    hire_e = f"greatest({num('hire_amt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
-    hco_e = num('hire_cnt')
-    hch = (f"case when {num('hire_amt')} > 0 then 'Найм в компанию'\n"
-           f"{' ' * 30}when {num('transfer_candidate_amt')} > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end")
     attrs = ['gender', 'type_age', 'age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
              'legal_organization', 'employee_stream', 'employment_relation_type', 'specialization', 'type_company',
              'region', 'management_head_flg']
@@ -649,7 +639,7 @@ def sql_mix():
                'teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам',
                '(g a t gr s c o w r sp tc rg ws mh), увольнения с начала года (xr причина, xq regret по причине, xi',
                'инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),',
-               'найм с начала года (hk источник, hch канал, hg грейд, hsp специализация); «с начала года» — с января по',
+               '(разбивки найма — из переходов hub · 5, 09.11); «с начала года» — с января по',
                'дату данных, с незакрытым месяцем (lm, поставка 106; было — по закрытый cm). Поставка 66: oc / ocp — посещений и людей',
                'по городу офиса за последний закрытый месяц, dw / do — календарь с месяца перед закрытым по текущий:',
                'людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору',
@@ -706,25 +696,8 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'sp1' as mx_key, {a['sp
 from ({expl(['hc_total_cnt', 'specialization'], f'and s.report_month = {lm}')}) e
 where {num('hc_total_cnt')} > 0;
 
--- найм с начала года (январь..последний закрытый месяц): источник, канал (найм в компанию / из учебной группы
--- в боевую / стажёр в штат), грейд, специализация (09.11: на день найма — hire_specialization, как источник найма)
-insert into {P}_mixr
-select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
-       unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
-       unnest(ARRAY[{(',' + chr(10) + ' ' * 20).join([a['hs'], hch, a['gr'], a['hsp']])}]) as mx_val,
-       {hire_e} as mx_n
-from ({expl(['hire_amt', 'transfer_candidate_amt', 'transfer_internal_amt', 'source_type_nm', 'grade',
-             'hire_specialization'], ytd)}) e
-where {hire_e} > 0;
-
--- то же для «Вся» (найм в компанию с любым типом численности, как hco_cnt рядов)
-insert into {P}_mixr
-select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
-       unnest(ARRAY['hko', 'hcho', 'hgo', 'hspo']) as mx_key,
-       unnest(ARRAY[{(',' + chr(10) + ' ' * 20).join([a['hs'], "'Найм в компанию'", a['gr'], a['hsp']])}]) as mx_val,
-       {hco_e} as mx_n
-from ({expl(['hire_cnt', 'source_type_nm', 'grade', 'hire_specialization'], ytd)}) e
-where {hco_e} > 0;
+-- 09.11 (владелец: найм — событие дня найма): разбивки найма (источник, канал, грейд, специализация) — не здесь, а из
+-- переходов hub · 5 (те же строки, что «Найм, чел»: вид h и переходы в найм, срез дня найма; датасет 2)
 
 -- 26.10-б: увольнения по инициатору и месяцу за всю сетку — «Текучесть по инициатору» (датасет отдаёт выбранному юниту)
 insert into {P}_mixr

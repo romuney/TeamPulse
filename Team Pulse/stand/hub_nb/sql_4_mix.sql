@@ -3,7 +3,7 @@
 -- teampulse_hub_mix — узел × срез × разрез × значение: численность последнего месяца по атрибутам
 -- (g a t gr s c o w r sp tc rg ws mh), увольнения с начала года (xr причина, xq regret по причине, xi
 -- инициатива, xp причина|инициатива, xt стаж, xg грейд, xs стрим, xsp специализация, xtc тип компании),
--- найм с начала года (hk источник, hch канал, hg грейд, hsp специализация); «с начала года» — с января по
+-- (разбивки найма — из переходов hub · 5, 09.11); «с начала года» — с января по
 -- дату данных, с незакрытым месяцем (lm, поставка 106; было — по закрытый cm). Поставка 66: oc / ocp — посещений и людей
 -- по городу офиса за последний закрытый месяц, dw / do — календарь с месяца перед закрытым по текущий:
 -- людей с рабочим днём и из них в офисе, значение — дата. 26.10-б: xim — увольнения по инициатору
@@ -180,64 +180,8 @@ from (
 ) e
 where coalesce(e.hc_total_cnt, 0) > 0;
 
--- найм с начала года (январь..последний закрытый месяц): источник, канал (найм в компанию / из учебной группы
--- в боевую / стажёр в штат), грейд, специализация (09.11: на день найма — hire_specialization, как источник найма)
-insert into teampulse_hub_mixr
-select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
-       unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
-       unnest(ARRAY[coalesce(nullif(translate(e.source_type_nm::text, E'\t\n|', '  /'), '-'), ''),
-                    case when coalesce(e.hire_amt, 0) > 0 then 'Найм в компанию'
-                              when coalesce(e.transfer_candidate_amt, 0) > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end,
-                    coalesce(nullif(translate(e.grade::text, E'\t\n|', '  /'), '-'), ''),
-                    coalesce(nullif(translate(e.hire_specialization::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
-       greatest(coalesce(e.hire_amt, 0), coalesce(e.transfer_candidate_amt, 0), coalesce(e.transfer_internal_amt, 0)) as mx_n
-from (
-    select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
-           generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
-    from (
-        select s.hire_amt, s.transfer_candidate_amt, s.transfer_internal_amt, s.source_type_nm, s.grade,
-               s.hire_specialization,
-               (select pre from teampulse_hub_cal) || coalesce(u.cp,
-                   array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
-                                      s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
-                                      s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
-               coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
-               case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
-               coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
-        from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
-    ) x
-) e
-where greatest(coalesce(e.hire_amt, 0), coalesce(e.transfer_candidate_amt, 0), coalesce(e.transfer_internal_amt, 0)) > 0;
-
--- то же для «Вся» (найм в компанию с любым типом численности, как hco_cnt рядов)
-insert into teampulse_hub_mixr
-select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
-       unnest(ARRAY['hko', 'hcho', 'hgo', 'hspo']) as mx_key,
-       unnest(ARRAY[coalesce(nullif(translate(e.source_type_nm::text, E'\t\n|', '  /'), '-'), ''),
-                    'Найм в компанию',
-                    coalesce(nullif(translate(e.grade::text, E'\t\n|', '  /'), '-'), ''),
-                    coalesce(nullif(translate(e.hire_specialization::text, E'\t\n|', '  /'), '-'), '')]) as mx_val,
-       coalesce(e.hire_cnt, 0) as mx_n
-from (
-    select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
-           generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
-    from (
-        select s.hire_cnt, s.source_type_nm, s.grade, s.hire_specialization,
-               (select pre from teampulse_hub_cal) || coalesce(u.cp,
-                   array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
-                                      s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
-                                      s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
-               coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
-               case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
-               coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
-        from all_metrics_with_performance_and_office_traffic_and_grt s
-        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal)
-    ) x
-) e
-where coalesce(e.hire_cnt, 0) > 0;
+-- 09.11 (владелец: найм — событие дня найма): разбивки найма (источник, канал, грейд, специализация) — не здесь, а из
+-- переходов hub · 5 (те же строки, что «Найм, чел»: вид h и переходы в найм, срез дня найма; датасет 2)
 
 -- 26.10-б: увольнения по инициатору и месяцу за всю сетку — «Текучесть по инициатору» (датасет отдаёт выбранному юниту)
 insert into teampulse_hub_mixr
