@@ -318,9 +318,9 @@ function renderHead(){
      фильтров»): чип называет базу этого отчёта — группу численности; без базы — с чем сравниваем вместо неё */
   const pe0=D.peerOf('turnover_y');
   html+=pe0?'<span class="chip bench"'+U.baseTip(null,pe0)+'>База: <b>подразделения '+esc(pe0.bandName)+' чел</b></span>'
-    :'<span class="chip bench"'+U.tipAttr({title:'С чем сравниваем',text:'Базы — подразделений похожей численности с этими '+
-      'фильтрами — у отчёта нет'+(D.isSmall()?': в команде меньше '+D.SMALL_N+' человек, доли не сравниваются':'')+
-      '. Метрики сравниваются с целью KPI, со всей компанией с выбранными фильтрами и с прошлым годом.'})+
+    :'<span class="chip bench"'+U.tipAttr({title:'С чем сравниваем',text:D.isSmall()?'В команде меньше '+D.SMALL_N+' человек — доли не сравниваем. Количества сравниваем:'
+      :'Подразделений такого же размера для сравнения нет. Сравниваем:',
+      list:['с целью, где она есть','со всей компанией с теми же фильтрами','с прошлым годом']})+
       '>Сравнение: <b>'+esc(D.coName(S,'nom'))+'</b></span>';
   /* тип численности по умолчанию — чипом без крестика: отчёт на «Активной», и это видно */
   if(S.hcType==='active'&&(!ENV||D.REAL.cuts.has('act')))html+='<span class="chip bench"'+
@@ -1040,14 +1040,14 @@ on(document,'click',e=>{
   if(ei){S.exitIni=ei.dataset.exitini;render(true);return}
   /* 27.10-в, п. 8: статус роста — его тепловая таблица на вкладке «Как растут по грейдам?» */
   const rs=t.closest('[data-rostst]');
-  if(rs){S.rostSt=rs.dataset.rostst;render(true);return}
+  if(rs){S.rostSt=rs.dataset.rostst;render(true,true);return}   /* поставка 131: меняется только таблица — графики без повторной анимации */
   const tso=t.closest('[data-tsort]');
   if(tso){S.tsort=tso.dataset.tsort;render(true,true);return}
   const sps=t.closest('[data-spmsort]');
-  if(sps){S.spmSort=sps.dataset.spmsort;render(true);return}
+  if(sps){S.spmSort=sps.dataset.spmsort;render(true,true);return}
   /* поставка 101 (файл 7, п. 2): строка специализации — её помесячная детализация под таблицей; повторный клик — закрыть */
   const spd=t.closest('[data-spmsel]');
-  if(spd){S.spmSel=S.spmSel===spd.dataset.spmsel?null:spd.dataset.spmsel;render(true);return}
+  if(spd){S.spmSel=S.spmSel===spd.dataset.spmsel?null:spd.dataset.spmsel;render(true,true);return}
   /* конструктор на весь экран и обратно */
   const fs=t.closest('[data-mxfull]');
   if(fs){S.mxFull=fs.dataset.mxfull==='1';render(true);return}

@@ -144,9 +144,18 @@ function tipList(items){
   return items.length?'<span class="t-ul">'+items.map(x=>'<span class="t-li">'+tipB(x)+'</span>').join('')+'</span>':'';
 }
 /* абзацы и пункты: span, а не p/ul — подсказка живёт и в SVG-атрибуте, и в HTML */
+/* поставка 131 (владелец: «тултипы без перебора текста; большой — списками»): абзац длиннее TIP_PARA не выводим одним куском —
+   режем по предложениям: два — двумя абзацами, три и больше — первое абзацем, остальные пунктами списка. Страховка на все
+   подсказки отчёта, в том числе собранные из данных */
+const TIP_PARA=140;
+function tipSplit(l){
+  if(l.length<=TIP_PARA)return [l];
+  const ss=l.replace(/([.!?»)])\s+(?=[А-ЯЁA-Z«✓])/g,'$1\u0001').split('\u0001').filter(x=>x.trim());
+  return ss.length<2?[l]:ss.length===2?ss:[ss[0]].concat(ss.slice(1).map(x=>'• '+x.replace(/\.$/,'')));
+}
 function tipText(t){
   let s='', li=[];
-  String(t).split('\n').forEach(l=>{
+  String(t).split('\n').reduce((a,l)=>a.concat(/^•\s*/.test(l)?[l]:tipSplit(l)),[]).forEach(l=>{
     if(/^•\s*/.test(l)){li.push(l.replace(/^•\s*/,''));return}
     s+=tipList(li);li=[];
     if(l.trim())s+='<span class="t-x">'+tipB(l)+'</span>';
@@ -1264,16 +1273,12 @@ function drawPline(a,w,h){
   /* 07.11 (AI-итерация, п. 1): второй ряд a.key2 — светло-серой линией на той же шкале (численность под активными
      пользователями), в легенде и подсказке; клик по легенде прячет ряд */
   const off=offOf(o), k2=a.key2, v2=k2?P.map(p=>p[k2]):null, col2=o.color2||C_PREV, on1=!off.has('s1'), on2=!!k2&&!off.has('s2');
-  /* поставка 128 (аудит: глава AI «меньше, чем в базе 54,1%», а на графике базы нет): a.peer — база той недели, с которой
-     сравнивает глава (upto), полосой p25–p75 и медианой пунктиром у этой недели, как отметка базы на «год к году»; имя и
-     значение — в легенде, у недели — строкой подсказки */
-  const pe=a.peer&&a.peer.p50!=null&&P[a.peer.upto]?a.peer:null, onP=!!pe&&!off.has('peer');
-  const lg=k2?[{name:o.name||'',color:col,id:'s1'},{name:o.name2||'',color:col2,id:'s2'}]:pe?[{name:o.name||'',color:col,id:'s1'}]:null;
-  if(pe)lg.push({name:'база '+fmt(pe.p50),color:C_BENCH,dash:true,id:'peer'});
+  /* поставка 131: отметки базы на графике нет (как на «год к году») — её значение стоит в строке итога под заголовком (o.period.ref) */
+  const lg=k2?[{name:o.name||'',color:col,id:'s1'},{name:o.name2||'',color:col2,id:'s2'}]:null;
   const h0=headH(o.title,lg,w), pt=periodLine(o.period,h0+11,w), hh=h0+pt.h;
   h=h||o.h||200;
   const x0=PAD_X, plotW=w-PAD_X*2, bandW=plotW/P.length, X=i=>x0+bandW*(i+0.5);
-  const max=niceMax((on1?vals:[]).concat(on2?v2:[]).concat(onP?[pe.p75,pe.p25]:[]).concat([0])), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
+  const max=niceMax((on1?vals:[]).concat(on2?v2:[]).concat([0])), top=hh+LBL_ROOM, bot=h-AXIS_H+6, Y=v=>bot-v/max*(bot-top);
   let s=header(w,o.title,lg,{kind:'pline',off:o.off})+pt.s;
   if(on2){
     s+='<path class="ln" d="'+polyD(v2,X,Y)+'" fill="none" stroke="'+col2+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"'+sAttr('s2')+'/>';
@@ -1281,9 +1286,6 @@ function drawPline(a,w,h){
   }
   if(mark!=null&&P[mark])s+=rect(X(mark)-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4);
   s+=line(x0,bot,x0+plotW,bot,C_ZERO,1);
-  if(onP){const x1=X(pe.upto)-bandW*0.32, x2=X(pe.upto)+bandW*0.32, y75=Y(pe.p75), y25=Y(pe.p25), y50=Y(pe.p50);
-    s+='<g class="peer-mk" pointer-events="none"'+sAttr('peer')+'>'+rect(x1,Math.min(y75,y25),x2-x1,Math.max(2,Math.abs(y25-y75)),'rgba(122,128,140,.14)',3)+
-      '<line x1="'+num(x1)+'" y1="'+num(y50)+'" x2="'+num(x2)+'" y2="'+num(y50)+'" stroke="'+C_BENCH+'" stroke-width="1.6" stroke-dasharray="4 3"/></g>'}
   /* ревью 100: p.pt — незакрытый месяц: к нему линия пунктиром, точка полая и бледнее, в подсказке — «может измениться» */
   const pi=P.findIndex(p=>p.pt);
   /* файл 8, п. 1: текущий (незакрытый, pt) месяц в ряду — его вертикаль постоянная; нет его — только при наведении */
@@ -1300,8 +1302,7 @@ function drawPline(a,w,h){
   vals.forEach((v,i)=>{
     const on=i===mark, pm=mark!==undefined;
     /* 05.11, заказчик: «клик — отметить период» только у графиков, которые отметку просят (a.mark задан) */
-    const rows=(on1?[{label:o.name||'',value:fmt(v),color:col}]:[]).concat(on2?[{label:o.name2||'',value:fmt(v2[i]),color:col2}]:[])
-      .concat(onP&&i===pe.upto?[{label:'база',value:fmt(pe.p50),color:C_BENCH,dash:true}]:[]);
+    const rows=(on1?[{label:o.name||'',value:fmt(v),color:col}]:[]).concat(on2?[{label:o.name2||'',value:fmt(v2[i]),color:col2}]:[]);
     s+='<g class="ptg'+(pm?' pmk':'')+'"'+(pm?' data-pmark="'+i+'"':'')+tip({title:P[i].full,rows:rows,
       note:i===pi?PART_NOTE():!pm?'':on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
       '<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+

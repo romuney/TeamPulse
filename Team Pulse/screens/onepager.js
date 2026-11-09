@@ -70,15 +70,14 @@ function about(m,S){
 function obsInfo(S){
   const O=window.TPINSIGHTS.OBS, C=window.TPINSIGHTS.CARD;
   return '<span class="info"'+U.tipAttr({title:'Как отобраны выводы',
-    text:'Считается правилами по тем же числам, без ИИ. В выводы попадает:',
-    list:['метрика хуже или лучше ориентира на '+Math.round(O.dev*100)+'% и больше; где ориентир — база (подразделения похожей '+
-        'численности), — хуже или лучше, чем у трёх из четырёх',
-      'заметно изменилась за год',
-      'ухудшается '+O.trend+' месяца подряд',
-      'всплеск уходов и сдвиг численности'],
-    note:'Ориентир — цель KPI, где её нет — база (подразделения похожей численности с теми же фильтрами), где и её нет — '+
-      D.coName(S,'nom')+'. Порядок — по людям сверх ориентира. '+
-      'Подразделение названо, если на него приходится больше половины отклонения; меньше '+C.small+' человек — не оцениваем.'})+
+    /* поставка 131: коротко и списком; не больше четырёх выводов */
+    text:'Не больше '+C.show+' выводов — самые важные. Правила одни для всех, без ИИ.\nВ выводы попадает метрика, которая:',
+    list:['отличается от цели или от '+D.coName(S,'gen')+' на '+Math.round(O.dev*100)+'% и больше',
+      'заметно хуже или лучше базы',
+      'изменилась за год на '+Math.round(O.dev*100)+'% и больше',
+      'ухудшается '+O.trend+' месяца подряд'],
+    note:['Ориентир — цель; нет цели — база; нет базы — '+D.coName(S,'nom')+'.',
+      'Меньше '+C.small+' человек — доли не оцениваем.']})+
     ' aria-label="Как отобраны выводы">i</span>';
 }
 
@@ -143,7 +142,7 @@ function rated(m,S,rl,bl){
 /* поставка 123 (владелец: «что тут за свалка текста» — три строки пилюль «В норме», «Без оценки», «Для справки» под
    карточками): одна строка счётчиков; сами метрики со значениями — в подсказке счётчика, клик ведёт к таблицам блоков,
    где у каждой метрики строка с цветом, изменениями и ориентиром. Легенда цветов — в той же строке справа */
-function normRow(S,rl,ok0,bl){
+function normRow(S,rl,ok0,bl,more){
   const dev=D.METRICS.filter(m=>D.metricVisible(m.key,S)&&D.isStub(m.key)).length;
   const na=ok0.filter(m=>unrated(m,rl)), ok=ok0.filter(m=>rated(m,S,rl,bl)), info=ok0.filter(m=>!unrated(m,rl)&&!rated(m,S,rl,bl));
   /* «сейчас» у остатков — в имени строки, столбец значений остаётся чисто числовым */
@@ -156,8 +155,13 @@ function normRow(S,rl,ok0,bl){
     const b=D.comparable(m.key)&&!D.isSelfBase()?(D.periodTotal(bl,m.key)||{}).v:null;
     return b!=null?D.coWord(m.key,'short')+' '+f(b):P(m).prev!=null?'год назад '+P(m).prev:'—'};
   const chip=(cls,n,word,title,text,table)=>n?'<button class="in-chip '+cls+'" data-opscroll="1"'+
-      U.tipAttr({title:title,text:text,table:table,note:'Клик — к таблицам блоков ниже.'})+'>'+(cls==='ok'?'✓ ':'')+'<b>'+n+'</b> '+word+'</button>':'';
+      U.tipAttr({title:title,text:text,table:table,note:'Клик — к таблицам блоков ниже.'})+'>'+(cls==='ok'?'✓ ':cls==='more'?'ещё ':'')+'<b>'+n+'</b> '+word+'</button>':'';
+  /* поставка 131: выводы сверх четырёх карточек — счётчиком; в подсказке — метрика и вывод о ней */
+  const mN=(more||[]).length, mBad=(more||[]).filter(c=>c.sev!=='good').length;
   return '<div class="in-sum">'+
+    chip('more',mN,mBad?U.plural(mN,['отклонение','отклонения','отклонений']):U.plural(mN,['хорошая новость','хорошие новости','хороших новостей']),
+      'Ещё '+(mBad?'отклонения':'хорошие новости'),'На главной — четыре самых важных вывода. Остальные:',
+      {head:['','Вывод'],rows:(more||[]).slice(0,8).map(c=>[(D.METRIC_BY_KEY[c.key]||{}).name||'',String(c.head||'').replace(/<[^>]+>/g,'')])})+
     chip('ok',ok.length,U.plural(ok.length,['метрика в норме','метрики в норме','метрик в норме']),'В норме',
       'Без заметных отклонений от ориентира, а где его нет — от прошлого года.',
       {head:['','Значение','Ориентир'],rows:ok.map(m=>[nm(m),now(m),refOf(m)])})+
@@ -200,21 +204,15 @@ function render(S,openRows){
         'Сравнение — '+(pe0?'с базой (подразделения '+pe0.bandName+' чел с теми же фильтрами), ':'')+'со всей компанией и с тем же периодом '+D.YEAR_PREV]})+
     ' aria-label="Какие числа на главной">i</span></p></div>';
 
-  /* 2 · сводка и карточки выводов. Видно четыре, остальные (до восьми) — по
-     «Ещё N»: та же кнопка data-ai, что раскрывала «Что видно в данных». */
-  const all=I.cards(S,rl,bl,true), list=all.slice(0,I.OBS.max), ok=normOf(S,rl,all), open=S.aiOpen==='op';
+  /* 2 · сводка и карточки выводов. Поставка 131 (владелец: «не делать больше 4 выводов на юнит, это размывает фокус —
+     руководитель не сидит над HR-метриками»): карточек не больше четырёх, самые тяжёлые первыми; кнопки «Ещё N» нет.
+     Остальные отклонения не теряются — счётчиком в строке под карточками и цветом в таблицах блоков. */
+  const all=I.cards(S,rl,bl,true), list=all.slice(0,I.CARD.show), more=all.slice(I.CARD.show), ok=normOf(S,rl,all);
   I.lastSev=list.length?list[0].sev:'none';
   h+='<div class="in-lead">'+moodIco('point',46,'Пульс рассказывает')+'<div class="in-lt">'+I.lead(S,rl,list,ok.filter(m=>rated(m,S,rl,bl)).length)+' '+obsInfo(S)+'</div></div>';
-  if(list.length){
-    /* поставка 120 (критики 119: «Ниже — 5 выводов», а видно 4 и «Ещё 4»): видны все выводы «требует действий» и
-       «посмотреть», под кнопкой — только хорошие новости сверх первых четырёх карточек */
-    const nAct=list.filter(c=>c.sev!=='good').length, vis=Math.max(I.CARD.show,nAct), rest=list.length-vis;
-    h+='<div class="in-grid">'+(open?list:list.slice(0,vis)).map(insightCard).join('')+'</div>';
-    if(rest>0)h+='<button class="in-more-c" data-ai="op">'+(open?'Свернуть ▴':'Ещё '+rest+' '+
-      U.plural(rest,['хорошая новость','хорошие новости','хороших новостей'])+' ▾')+'</button>';
-  }
+  if(list.length)h+='<div class="in-grid">'+list.map(insightCard).join('')+'</div>';
   /* поставка 123: счётчики и легенда цветов — одной строкой */
-  h+='<div class="in-sumrow">'+normRow(S,rl,ok,bl)+U.trafficLegend()+'</div>';
+  h+='<div class="in-sumrow">'+normRow(S,rl,ok,bl,more)+U.trafficLegend()+'</div>';
 
   /* 3 · все метрики — таблицами по блокам, всегда раскрыты (20.10, заказчик: KPI-карточек на
      главной нет — те же метрики уже в выводах и в таблицах; сворачивать таблицы не нужно) */

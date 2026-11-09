@@ -258,6 +258,23 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const bad=[...new Set(txt.split(/[.!?…\n]+/).map(x=>x.trim()).filter(x=>(x.match(/(^|[\s,;:—–(«])но(?=[\s,])/gi)||[]).length>1))];
   ok(!bad.length,'в одном предложении не больше одного «но»'+(bad.length?' — '+bad.length+': '+bad.slice(0,3).map(x=>x.slice(0,140)).join(' | '):''));
 }
+/* поставка 131 (владелец: «тултипы хорошо отформатированы, без перебора текста; не больше 4 выводов на юнит; в инсайтах не
+   смешивать несколько метрик в одном предложении») */
+{
+  const dec=t=>t.replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+  const st=h=>h.replace(/<[^>]+>/g,''), bad=[];
+  [...new Set(html.match(/data-tip="[^"]*"/g)||[])].forEach(x=>{const h=dec(x.slice(10,-1));
+    const xs=(h.match(/<span class="t-x">[\s\S]*?<\/span>/g)||[]).map(st), ls=(h.match(/<span class="t-li">[\s\S]*?<\/span>/g)||[]).map(st);
+    if(xs.some(t=>t.length>170)||ls.some(t=>t.length>130)||xs.length>4||ls.length>6)bad.push(st(h).slice(0,70))});
+  ok(!bad.length,'подсказки: абзац до 170 знаков, пункт до 130, не больше 4 абзацев и 6 пунктов'+(bad.length?' — '+bad.length+': '+bad.slice(0,3).join(' | '):''));
+  const home=A.home0(), nC=home.split('<div class="in-card ').length-1;
+  ok(nC<=4&&!/in-more-c/.test(home),'главная: не больше 4 выводов ('+nC+'), кнопки «Ещё» нет');
+  const heads=(html.match(/<div class="st-head"><h3>[\s\S]*?<\/h3>/g)||[]).map(st);
+  const mix=heads.filter(h=>/был всплеск|тоже хуже цели|; главная причина|, чаще всего — |; переработчиков|; недоработчиков/.test(h));
+  ok(heads.length>5&&!mix.length,'заголовки глав: одна метрика в предложении'+(mix.length?' — '+mix.slice(0,2).join(' | '):''));
+  const lead=st((home.match(/<div class="in-lt">[\s\S]*?<\/div>/)||[''])[0]);
+  ok(!/(стабильна|растёт|сокращается|не изменилась), (но|и) /.test(lead),'сводка главной: численность и главный вывод — разными предложениями');
+}
 /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
    В обзоре длинный список — 6 строк и «Остальные», у стримов ушедших — 8 и «Остальные». */
 {
@@ -403,7 +420,7 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const j0=D.MONTHS[D.PER_I-D.MONTHS[D.PER_I].m], P0=MD.months[0];
     /* у команды меньше 30 человек заголовок — в людях за закрытый месяц (поставка 121), доли — в итоге под графиком */
     const fu=D.fmtVal('underwork',(D.periodTotal(rl,'underwork')||{}).v), fo=D.fmtVal('overwork',(D.periodTotal(rl,'overwork')||{}).v);
-    ok(P0&&P0.label===j0.label&&mo.indexOf(fu+' · ')>=0&&mo.indexOf(fo+' · ')>=0&&(D.isSmall()||(D.monJudged('underwork',rl)?mo.indexOf('недоработчиков — '+fu)>=0:/В мониторинге размечено \d+% людей/.test(mo))),
+    ok(P0&&P0.label===j0.label&&mo.indexOf(fu+' · ')>=0&&mo.indexOf(fo+' · ')>=0&&(D.isSmall()||(D.monJudged('underwork',rl)?(t=>{const i=t.search(/[Нн]едоработчиков/);return i>=0&&t.slice(i,i+140).indexOf(fu)>=0})(mo.replace(/<[^>]+>/g,'').replace(/\*\*/g,'')):/В мониторинге размечено \d+% людей/.test(mo))),
       'мониторинг: график состава с «'+(P0&&P0.label)+'», как доли с января; итог под ним '+fu+' и '+fo+' — как в заголовке');
     const C=MD.months.filter(p=>!p.pt), hm=C.reduce((a,p)=>a+p.hc,0)/(C.length||1), z={p25:0,p50:0,p75:0,n:7,band:1};
     if(!D.isSmall('underwork')&&D.monJudged('underwork',rl)&&hm>0)

@@ -241,8 +241,7 @@ CH.turnover={
       :fc.self?plainHead(Object.assign({},fc,{k:'turnover_y'}),c,'Уходят чаще','Уходят реже')
       :(fc.st==='bad'?'Уходят чаще, чем '+inRef(fc,c):fc.st==='good'?'Уходят реже, чем '+inRef(fc,c)
       :'Темп ухода — на уровне '+lvlRef(fc,c))+yoyTail(fc,c,'Уходят чаще','Уходят реже');
-    /* ревью 100: «реже, но был всплеск» — противопоставление; к «чаще» всплеск добавляется через «;» */
-    if(pk>=0)head+=(/, но /.test(head)||fc.st==='bad'?'; ':', но ')+mPrep(pk)+' был всплеск';
+    /* поставка 131: всплеск месяца — другой факт (число уходов): он в «Что важно» («Пик — март»), в заголовок не приклеиваем */
     const fo=focusCount(c,'attrition',{cap:'Где уходят',what:'общего оттока',win:'ytd'});
     return {sum:pl(y,EXITS),st:fc.st,head:head,
       lede:'Ушли **'+pl(y,PPL)+'**'+ago(c.lp,'attrition')+'. Текучесть накопительная — **'+
@@ -275,11 +274,12 @@ CH.turnover={
     /* выводы о нежелательных уходах без вердикта к ориентиру — в людях у малой HQ или «… чем год назад» — их текстом */
     const rc=(c.cards||[]).find(x=>/^(regret|nonregret)$/.test(x.key)&&/^(yoy|ppl)$/.test(x.fact.kind));
     const rgW=rg.st==='bad'||rg.st==='good'?D.METRIC_BY_KEY.regret.name+' '+f('regret',rg.v)+' — '+(rg.st==='bad'?'хуже':'лучше')+' '+
-      (rg.kpi?'цели '+f('regret',rg.base):rg.peer?'{{База|базы}} '+f('regret',rg.base):'всей компании ('+f('regret',rg.base)+')')+'; '
-      :rc?(rc.fact.kind==='ppl'?rc.fact.lead:rc.head)+'; ':'';
+      (rg.kpi?'цели '+f('regret',rg.base):rg.peer?'{{База|базы}} '+f('regret',rg.base):'всей компании ('+f('regret',rg.base)+')')
+      :rc?(rc.fact.kind==='ppl'?rc.fact.lead:rc.head):'';
     return {sum:D.isSmall()?regN+' из '+outN+' — нежелательные':rp+'% — нежелательные',st:rg.st,
-      head:rgW?rgW+(tie?'причины разные':'главная причина — «'+top.name+'»: '+top.value+' из '+tot)
-        :rp>=50&&!tie?rp+'% уходов — нежелательные: главная причина — «'+top.name+'»'
+      /* поставка 131: одна метрика в заголовке — вердикт нежелательной текучести; главная причина — первой строкой «Что важно» */
+      head:rgW?rgW
+        :rp>=50&&!tie?rp+'% уходов — нежелательные'
         :org*2>tot?'Большинство уходов — по инициативе работодателя: '+org+' из '+tot
         :tie?'Причины разные: '+tied.slice(0,3).map(r=>'«'+r.name+'»').join(', ')+' — поровну, по '+top.value+' из '+tot
         :'Главная причина ухода — «'+top.name+'»: '+top.value+' из '+tot,
@@ -333,16 +333,17 @@ CH.turnover={
     const cg=r=>r.kpi?'цель '+f(r.key,r.kpi.green)+(r.st==='bad'?' — хуже':r.st==='good'?' — лучше':''):'';
     const bad=h.rows.filter(r=>r.st==='bad'), good=h.rows.filter(r=>r.st==='good');
     const capF=x=>x.replace(/^./,y=>y.toUpperCase());
-    const head=bad.length?capF(nm[bad[0].key]+' '+f(bad[0].key,bad[0].v)+' — хуже цели '+f(bad[0].key,bad[0].kpi.green))+
-        (bad.length>1?'; '+bad.slice(1).map(r=>nm[r.key]).join(' и ')+' — тоже хуже цели':'')
+    /* поставка 131: в заголовке одна метрика — первая из тех, что хуже цели; остальные — в тексте ниже, каждая со своей оценкой */
+    const head=bad.length?capF(nm[bad[0].key]+' '+f(bad[0].key,bad[0].v)+' — хуже цели '+f(bad[0].key,bad[0].kpi.green))
       :good.length===h.rows.length?'HQ уходит в пределах целей: текучесть '+f('turnover_y',t.v)+' при цели '+f('turnover_y',t.kpi.green)
       :up.length?capF(nm[t.key]+' '+f('turnover_y',t.v)+' — '+yo(t)):'HQ уходит так же, как год назад';
     const part=r=>'**'+f(r.key,r.v)+'** ('+[cg(r),yo(r)].filter(Boolean).join('; ')+')';
     return {sum:'текучесть HQ '+f('turnover_y',t.v),st:bad.length?'bad':good.length===h.rows.length?'good':'n',
       head:U.esc(head),
       /* 26.10-б: накопительно с января по последний закрытый месяц — незакрытый ещё вызревает */
-      lede:'Активная численность HQ — **'+pl(h.hc,PPL)+'**. Накопительно с января по '+D.MONTH_NOM[h.month.m]+': текучесть '+
-        part(t)+', желательная '+part(nr)+', нежелательная '+part(rg)+'.',
+      /* поставка 131: каждая метрика — своим предложением */
+      lede:'Активная численность HQ — **'+pl(h.hc,PPL)+'**. Накопительно с января по '+D.MONTH_NOM[h.month.m]+'. Текучесть — '+
+        part(t)+'. Желательная — '+part(nr)+'. Нежелательная — '+part(rg)+'.',
       facts:h.rows.map(r=>r.ya!=null?r.label.replace(/ накопительн\S+/,'')+' год назад к этому месяцу — **'+f(r.key,r.ya)+'**':null)};
   }
 };
@@ -414,11 +415,12 @@ CH.hiring={
     const fo=focusCount(c,'vac_open',{cap:'Где открыты вакансии',what:'всех открытых вакансий',win:'last'});
     return {sum:f('time_to_fill',t.v)+' на вакансию',st:t.st,
       /* поставка 128: вывод «открытых вакансий в N раз больше, чем год назад» (вывод блока) — и в заголовке шага */
-      head:(h0=>{const vc=(c.cards||[]).find(x=>x.fact.kind==='vac');return vc?h0+(/, но /.test(h0)?'; ':', но ')+vc.fact.say:h0})(
-        vsBase(t,c,'Вакансии закрываются дольше','Вакансии закрываются быстрее','Скорость закрытия — на уровне базы')),
+      /* поставка 131: заголовок — только срок закрытия; вывод «открытых вакансий в N раз больше» — первой строкой «Что важно» */
+      head:vsBase(t,c,'Вакансии закрываются дольше','Вакансии закрываются быстрее','Скорость закрытия — на уровне базы'),
       lede:'Сейчас открыто **'+op+'**'+ago(c.lp,'vac_open')+'. Закрыто **'+cl+'**'+ago(c.lp,'vac_closed')+
         ', медианный срок закрытия — '+valAt('time_to_fill',t,c)+'.',
-      facts:[note>=0?'Больше всего открытых было '+mPrep(note)+': **'+vo[note]+'**':null],
+      facts:[(vc=>vc?vc.fact.say.replace(/^./,x=>x.toUpperCase()):null)((c.cards||[]).find(x=>x.fact.kind==='vac')),
+        note>=0?'Больше всего открытых было '+mPrep(note)+': **'+vo[note]+'**':null],
       focus:fo.focus,act:fo.act,ann:{vac_open:annFor(note,'пик')}};
   },
   plan(c){
@@ -507,33 +509,31 @@ function monStory(c,wk){
     if(pp&&!D.monJudged('underwork',c.lp))return {sum:'размечено '+Math.round(cov*100)+'%',st:'n',
       head:'В мониторинге размечено '+Math.round(cov*100)+'% людей — недо- и переработку не оцениваем',
       lede:'У остальных нет записей мониторинга («не размечено»), поэтому 0% здесь значит «нет данных», а не «никто не недорабатывает». '+
-        'В среднем за месяц: недоработчиков — **'+f('underwork',pu.v)+'**, переработчиков — **'+f('overwork',po.v)+'**.'};
+        'Недоработчиков — **'+f('underwork',pu.v)+'** в среднем за месяц. Переработчиков — **'+f('overwork',po.v)+'**.'};
     /* поставка 128 (аудит L6: точка шага красная при нейтральном заголовке, у «0 и 0» — зелёная): точка — по вердикту долей к
        ориентиру (judge, как строка главной и карточки), а не по сдвигу к прошлому месяцу; заголовок говорит этот вердикт */
     const ju=judge('underwork',c), jo=judge('overwork',c), vd=pp&&!D.isSmall();
     const bU=vd&&ju.st==='bad', bO=vd&&jo.st==='bad', gU=vd&&ju.st==='good', gO=vd&&jo.st==='good';
-    const vHead=bU&&bO?'Недо- и переработчиков больше, чем '+inRef(ju,c)+': '+f('underwork',pu.v)+' и '+f('overwork',po.v)+' в среднем за месяц'
-      :bU?'Недоработчиков больше, чем '+inRef(ju,c)+': '+f('underwork',pu.v)+' в среднем за месяц; переработчиков — '+f('overwork',po.v)
-      :bO?'Переработчиков больше, чем '+inRef(jo,c)+': '+f('overwork',po.v)+' в среднем за месяц; недоработчиков — '+f('underwork',pu.v)
-      :gU&&gO?'Недо- и переработчиков меньше, чем '+inRef(ju,c)+': '+f('underwork',pu.v)+' и '+f('overwork',po.v)+' в среднем за месяц'
-      :gU?'Недоработчиков меньше, чем '+inRef(ju,c)+': '+f('underwork',pu.v)+' в среднем за месяц; переработчиков — '+f('overwork',po.v)
-      :gO?'Переработчиков меньше, чем '+inRef(jo,c)+': '+f('overwork',po.v)+' в среднем за месяц; недоработчиков — '+f('underwork',pu.v):null;
+    /* поставка 131 (владелец: «в инсайтах не смешивать в одном предложении несколько метрик»): заголовок — об одной доле (той, у
+       которой вердикт; нет вердикта — о недоработке), вторая — своим предложением в тексте ниже; раньше — обе в одной фразе */
+    const hU=bU||!bO&&(gU||!gO), hk=hU?'underwork':'overwork', ok=hU?'overwork':'underwork', hp=hU?pu:po, op=hU?po:pu;
+    const hj=hU?ju:jo, oj=hU?jo:ju, NM={underwork:'Недоработчиков',overwork:'Переработчиков'};
+    const vw=j=>vd&&j.st==='bad'?'больше, чем '+inRef(j,c):vd&&j.st==='good'?'меньше, чем '+inRef(j,c):null;
     /* без вердикта к ориентиру — сдвиг к году тем же правилом, что чип YoY и карточки (D.yoyMove) */
-    const yU=vd&&!vHead?D.yoyMove('underwork',c.lp):null, yO=vd&&!vHead?D.yoyMove('overwork',c.lp):null;
-    const yP=[yU?'недоработчиков '+(yU==='worse'?'больше':'меньше'):null,yO?'переработчиков '+(yO==='worse'?'больше':'меньше'):null].filter(Boolean);
-    const yT=yP.length?(yU==='worse'||yO==='worse'?', но ':'; ')+yP.join(', ')+', чем год назад':'';
+    const yw=k=>{const y=vd?D.yoyMove(k,c.lp):null;return y?(y==='worse'?'больше':'меньше')+', чем год назад':null};
+    const one=(k,p,j)=>{const w=vw(j)||yw(k);return w?NM[k]+' '+w+': '+f(k,p.v)+' в среднем за месяц':NM[k]+' — '+f(k,p.v)+' в среднем за месяц'};
+    const ya=p=>p.pv!=null?' (год назад '+f(hk,p.pv)+')':'';
     return {sum:pp?'недор. '+f('underwork',pu.v)+' · перераб. '+f('overwork',po.v):'недор. '+cur.under+' · перераб. '+cur.over,
       st:bU||bO?'bad':gU||gO?'good':'n',
       /* поставка 121 (критики 119: «недоработку и переработку смотрим в людях», а заголовок — в процентах и «0,2 чел»): у команды
          меньше 30 человек — последний закрытый месяц в людях */
-      head:pp&&D.isSmall()?cur.full+': недорабатывали '+pl(cur.under,PPL)+', перерабатывали '+cur.over+' (месяцем раньше — '+prev.under+' и '+prev.over+')'
-        :vHead?vHead
-        :pp?'В среднем за месяц: недоработчиков — '+f('underwork',pu.v)+', переработчиков — '+f('overwork',po.v)+yT
-        :(wk&&md.weeks?cur.full+': н':'Н')+'едоработка — '+cur.under+' чел ('+pc1(cur.under)+'%), переработка — '+cur.over+' чел ('+pc1(cur.over)+'%)',
-      lede:(pp&&pu.pv!=null&&po.pv!=null?'Год назад — **'+f('underwork',pu.pv)+'** и **'+f('overwork',po.pv)+'**. ':'')+
-        (!(wk&&md.weeks)?cur.full+' к прошлому месяцу: недоработка **'+sg(du)+'**, переработка **'+sg(dv)+'**.'
-        :'К прошлой неделе: недоработка **'+sg(du)+'**, переработка **'+sg(dv)+'**. '+
-        'Дольше двух недель подряд в недоработке — **'+cur.u2p+'**, в переработке — **'+cur.o2p+'**.')};
+      head:pp&&D.isSmall()?cur.full+': недорабатывали '+pl(cur.under,PPL)+' (месяцем раньше — '+prev.under+')'
+        :pp?one(hk,hp,hj)
+        :'Недоработка — '+cur.under+' чел ('+pc1(cur.under)+'%)',
+      lede:pp&&D.isSmall()?'Перерабатывали **'+pl(cur.over,PPL)+'** (месяцем раньше — '+prev.over+').'
+        :pp?(hp.pv!=null?'Год назад — **'+f(hk,hp.pv)+'**. ':'')+one(ok,op,oj).replace(f(ok,op.v),'**'+f(ok,op.v)+'**')+
+          (op.pv!=null?' (год назад '+f(ok,op.pv)+')':'')+'.'
+        :'Переработка — **'+cur.over+' чел** ('+pc1(cur.over)+'%).'};
   }
 
 CH.monitor={
@@ -670,8 +670,8 @@ CH.ai={
     const top=u.dev.reduce((a,d)=>a.concat(d.tasks),[]).sort((a,b)=>b.value-a.value)[0];
     if(!u.msgs)return {sum:'нет сообщений',st:'n',head:'Сообщений инструментам разработчика за неделю нет',lede:''};
     return {sum:p+'% классифицированы',st:'n',
-      head:'Классифицировано '+p+'% сообщений инструментам разработчика'+(top?': чаще всего — «'+top.name+'»':''),
-      lede:'Всего **'+D.fmtInt(u.msgs)+'** сообщений, из них классифицировано **'+D.fmtInt(u.cls)+'**.'};
+      head:top?'Чаще всего инструменты разработчика используют для задачи «'+top.name+'»':'Классифицировано '+p+'% сообщений инструментам разработчика',
+      lede:'Всего **'+D.fmtInt(u.msgs)+'** сообщений, из них классифицировано **'+D.fmtInt(u.cls)+'** ('+p+'%).'};
   }
 };
 
@@ -794,10 +794,11 @@ CH.structure.work=function(c){
   if(!st.n)return {sum:'нет людей',st:'n'};
   const fm=D.MIX_BY_KEY.worksite&&!inSel('worksite')?(()=>{const p=P('worksite'), i=argmax(p);return D.mixCats('worksite')[i]})():null;
   return {sum:'штат '+st.t+'%',st:'n',
-    head:'В штате '+st.t+'% команды'+(fm?', чаще всего — '+fm.name.toLowerCase():''),
+    head:'В штате '+st.t+'% команды',
     /* поставка 128: со всей компанией — не у неё самой и не у малой команды */
     lede:'**'+pl(st.n,PPL)+'**'+(parts.length?' в срезе':'')+'. Штат — **'+st.t+'%**'+(D.isSelfBase()||D.isSmall()?''
-      :Math.abs(st.t-st.b)>=5?' при '+st.b+'% во '+D.coName(c.S,'prep'):', как во '+D.coName(c.S,'prep'))+'.'};
+      :Math.abs(st.t-st.b)>=5?' при '+st.b+'% во '+D.coName(c.S,'prep'):', как во '+D.coName(c.S,'prep'))+'.'+
+      (fm?' Самый частый формат работы — **'+fm.name.toLowerCase()+'**.':'')};
 };
 
 /* ---------- Зачем смотреть и что с этим делать (итерация 32, фидбэк 12.10) ----------
@@ -812,11 +813,13 @@ const GL={
   'Сеньорность':{dim:'seniority'},
   'Стрим':{text:'Профессиональное направление: разработка, тестирование, аналитика. Внутри стрима — специализации.'},
   'Водопад':{text:'График-лестница: от численности на конец первого месяца окна прибавляем пришедших, вычитаем ушедших — и получаем численность сейчас.'},
-  'Текучесть':{metric:'turnover_m',add:'\nУчитывает размер команды, поэтому её можно сравнивать с другими командами и с базой.'},
-  'Среднесписочная численность':{text:'Полусумма активной численности на конец прошлого и этого месяца — упрощённый способ из методологии HR. Знаменатель текучести.'},
+  'Текучесть':{text:'Какая доля команды уволилась за месяц.\n• Считаем: отток ÷ среднесписочная численность × 100%\n'+
+    '• Учитывает размер команды, поэтому её можно сравнивать с другими командами и с базой'},
+  'Среднесписочная численность':{text:'Среднее между активной численностью на конец прошлого и этого месяца. На неё делим отток, когда считаем текучесть.'},
   'Активная численность':{metric:'hc_active'},
   'База':{text:D.BASE_DEF},
-  'Нежелательный уход':{text:'Уход, о котором компания сожалеет. По методологии HR: сотрудник ушёл сам, не из-за релокации, со стажем от 12 месяцев; MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3. В причинах отмечен ★.\nИз таких уходов считается нежелательная текучесть.'},
+  'Нежелательный уход':{text:'Уход, о котором компания сожалеет. В причинах отмечен ★.\nПо методологии HR это сотрудник, который:\n'+
+    '• ушёл сам, не из-за релокации\n• проработал от 12 месяцев\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3'},
   'Нежелательная текучесть HQ':{metric:'regret'},
   'Желательная текучесть HQ':{metric:'nonregret'},
   'Срок закрытия вакансии':{metric:'time_to_fill'},
@@ -965,8 +968,8 @@ function book(bk,subTabs,cur,c,demo){
     const my=cs.filter(f);
     /* ухудшение несколько месяцев подряд (вывод «тренд») глава называет сама — в конце заголовка */
     my.filter(x=>x.fact.kind==='trend'&&x.fact.tr&&ch.head&&!/подряд/.test(ch.head)).forEach(x=>{const m=D.METRIC_BY_KEY[x.key], fv=v=>D.fmtVal(x.key,v);
-      ch.head+='; '+m.name.charAt(0).toLowerCase()+m.name.slice(1)+': '+I.OBS.trend+' '+U.plural(I.OBS.trend,['месяц','месяца','месяцев'])+
-        ' подряд хуже — '+fv(x.fact.tr.a)+' → '+fv(x.fact.tr.b)});
+      ch.facts=[m.name+': '+I.OBS.trend+' '+U.plural(I.OBS.trend,['месяц','месяца','месяцев'])+
+        ' подряд хуже — **'+fv(x.fact.tr.a)+' → '+fv(x.fact.tr.b)+'**'].concat(ch.facts||[])});
     if(ch.st&&ch.st!=='n')return;
     if(my.some(x=>x.sev==='high'))ch.st='bad';else if(my.some(x=>x.sev==='mid'))ch.st='warn';else if(my.length)ch.st='good'});
   const i=Math.max(0,chapters.findIndex(x=>x.key===cur));
