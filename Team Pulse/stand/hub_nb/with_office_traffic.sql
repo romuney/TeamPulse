@@ -20,7 +20,7 @@ with base as (
         , coalesce(booking_flg, 0)         as booking_flg
         , booking_violation_flg  -- бронь без посещения; null — бронь вне учёта нарушений (не coalesce: различаем)
         , visit_violation_flg    -- посещение без брони; null — вне учёта
-        , office_city_nm
+        , coalesce(nullif(trim(office_city_nm::text), ''), '-') as office_city_nm
     from usr_cross_data.office_traffic_attendance
     where work_day_flg = 1
       and active_type_nm = 'Активная'   -- 06.11: мастер — активная численность
@@ -58,7 +58,8 @@ with base as (
         , sum(booking_violation_flg) as booking_viol_count
         , sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 then visit_violation_flg else 0 end) as visit_viol_count
     from base
-    where office_city_nm is not null
+    -- 09.11 (hub checks № 33: посещения по городам = посещения): посещение без города — строкой «-» (в отчёте «Не
+    -- указано»); было — отбрасывалось, и сумма по городам была меньше посещений
     group by month, mdm_employee_rk, office_city_nm
     having sum(case when office_emp_flg = 1 and main_office_visit_rn <= 1 then 1 else 0 end)
          + sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 then office_visit_flg else 0 end)

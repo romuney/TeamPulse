@@ -138,7 +138,9 @@ select 24 as n, 'вакансии: корень - снимок (закрытые
        - coalesce((select sum(close_cnt) from structure_x_vacancy
                    where report_month >= (select grid_start from teampulse_hub_meta)), 0))::float8 as val
 union all
-select 27 as n, 'водопад: незамкнутые строки (конец - начало - найм + отток - в + из)'::text as check_nm, 1 as must,
+-- 09.11: справочно (must = 0). Найм и переводы витрины движения отчёт не читает (они — из переходов hub · 5, как мастер);
+-- из витрины — только численность на начало и конец (№ 28) и отток (№ 32). Замыкание водопада отчёта — № 34
+select 27 as n, 'водопад: незамкнутые строки витрины движения (справочно: отчёт берёт из неё только численность и отток)'::text as check_nm, 0 as must,
        ((select count(*) from (select 1 from teampulse_hub_flow
                                 group by node_rk, report_month, sp_cd, paint_cd, it_cd, staff_cd, act_cd
                                 having abs(sum(fin_cnt) - sum(beg_cnt) - sum(hire_cnt) + sum(fire_cnt)
@@ -162,6 +164,23 @@ union all
 select 30 as n, 'AI-разрезы недели: повторы ключа «узел x ключ x значение»'::text as check_nm, 1 as must,
        ((select count(*) from (select 1 from teampulse_hub_aix
                                 group by node_rk, k, v having count(*) > 1) t))::float8 as val
+union all
+-- 09.11 (сверка с мастер-отчётом Executive Report: водопад мастера замыкается без остатка): водопад отчёта у корня, срез
+-- «Активная», последние 12 месяцев — численность на конец первого месяца + найм + в - отток - из = на конец последнего;
+-- найм и переводы — строки дня события (hub · 5, правило датасета при фильтре по умолчанию), численность и отток — ряды.
+-- Значение — остаток (справочно, пока не подтверждено на бою; потом — обязательная)
+select 34 as n, 'водопад отчёта у корня («Активная», 12 мес.): остаток'::text as check_nm, 0 as must,
+       ((select coalesce(sum(case when report_month = c.lm then hc_cnt end), 0)
+                - coalesce(sum(case when report_month = (date_trunc('month', c.lm) - interval '11 month')::date then hc_cnt end), 0)
+                + coalesce(sum(case when report_month > (date_trunc('month', c.lm) - interval '11 month')::date then fire_cnt end), 0)
+         from teampulse_hub_series, teampulse_hub_cal c
+         where node_rk = (select root_rk from teampulse_hub_meta) and act_cd = 'Активная')
+       - (select coalesce(sum(case when trf_kind = 'h' or (trf_kind = 'i' and in_ok = 0) then trf_cnt else 0 end), 0)
+               + coalesce(sum(case when trf_kind = 'i' and in_ok = 1 and (fu = 1 or fa = 1) then trf_cnt else 0 end), 0)
+               - coalesce(sum(case when trf_kind = 'o' and (fu = 1 or fa = 1) then trf_cnt else 0 end), 0)
+          from teampulse_hub_trf, teampulse_hub_cal c
+          where node_rk = (select root_rk from teampulse_hub_meta) and act_cd = 'Активная'
+            and report_month > (date_trunc('month', c.lm) - interval '11 month')::date and report_month <= c.lm))::float8 as val
 union all
 -- 09.11 (владелец: «отчёт обязан быть консистентным, логика расчёта метрики не может быть разная»): отток водопада =
 -- «Ушли, чел» рядов в каждой ячейке узел x месяц x срез (строки юнитов, вся сетка водопада). Найм отчёта (и водопада) —

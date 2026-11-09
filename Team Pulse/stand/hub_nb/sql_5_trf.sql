@@ -401,10 +401,13 @@ from (
            case when ui.ccc + ui.ctif > 0 then ui.cgr end as hg_cd, case when ui.ccc + ui.ctif > 0 then ui.chs end as hs_cd
     from ui
     union all
-    -- U «из»: узлы старой строки, дата события — новая строка
+    -- U «из»: узлы старой строки, дата события — новая строка. 09.11 (сверка с мастер-отчётом Executive Report: «Перевод-»
+    -- на всей компании меньше мастера): флаг выхода из типа численности — старой строки (oa), как у «в» флаг входа новой
+    -- (cia). Было 0: переход в другое подразделение с выходом из «Активной» в тот же день у общих узлов пути (и у корня)
+    -- выходом не считался
     select uo.node_rk, date_trunc('month', uo.cdt)::date, 'o',
            uo.pa, uo.it, uo.st, uo.ac,
-           uo.fu, 0, uo.oq, uo.oi, uo.ost, 1,
+           uo.fu, uo.oa, uo.oq, uo.oi, uo.ost, 1,
            null::text, null::text, null::text, null::text, '', uo.sp, uo.osp, null::text, null::text
     from uo
     union all
