@@ -128,30 +128,24 @@ SC.blocks.turnover={
         U.btGroup({cap:'Причины увольнений',capSub:ytd,head:'',valueHead:'Чел',metricKey:'attrition',sort:true,compact:true,
           items:rs.map(r=>({name:r.name,note:reasonInit(r),value:r.value,
             mark:r.regret,color:r.regret?G.C_REGRET:G.C_NOREG}))})])+
-        '<div class="tbl-note">'+(rs.some(r=>r.regret)?'★ — у причины больше половины уходов нежелательные. ':'')+
-        'Всего — отток '+U.esc(D.CNT_TEXT)+'.</div>';
+        (rs.some(r=>r.regret)?'<div class="tbl-note">★ — у причины больше половины уходов нежелательные.</div>':'');
     }
     if(ctx.sub==='who'){
       /* Ранний уход — первые 12 месяцев (испытательный срок и первый год): это
          качество найма и адаптации, а не текучесть вообще. Его доля — в выводе шага и в степпере. */
       const ex=D.exitProfile(lp,'ytd');
-      /* 26.10, ревью критиков: группа, где уходят заметно чаще, чем в среднем по команде (доля в уходах ×1,2 к доле в
-         команде и на 3 человека больше ожидаемого), — сказано прямо. Поставка 117 (владелец: «"в команде N%" — вода»,
-         «"чаще своей доли" — непонятно»): под остальными строками ничего нет; у такой — «уходят чаще, чем в среднем»,
-         числа — в подсказке строки */
-      const grp=(cap,sub,items,dim,sort,top)=>{const ts=D.teamShare(lp,dim);return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Чел',
-        metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>{const t=ts[x.name], e=t*ex.total, hot=t!=null&&x.value>=1.2*e&&x.value-e>=3;
-          return {name:x.name,note:hot?'уходят чаще, чем в среднем':'',value:x.value,color:G.C_OUT,
-            tip:hot?'«'+x.name+'» — '+U.pct(t*100)+' команды, но '+U.pct(x.value/ex.total*100)+' всех уходов: здесь уходят чаще, чем в среднем по команде.':null}}),
-        top:top?top.n:0,restWord:top?top.word:null},top?SC.rest(ctx,'x'+dim,top.n,top.word):{}))};
+      /* 09.11, поставка 130 (владелец: «"уходят чаще, чем в среднем" — странно: для этого нужна текучесть группы; опираемся только на долю в
+         оттоке»): строки — сколько ушло и какая это доля оттока, без сравнения с долей в команде */
+      const grp=(cap,sub,items,dim,sort,top)=>U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Чел',
+        metricKey:'attrition',compact:true,sort:!!sort,items:items.map(x=>({name:x.name,value:x.value,color:G.C_OUT})),
+        top:top?top.n:0,restWord:top?top.word:null},top?SC.rest(ctx,'x'+dim,top.n,top.word):{}));
       return U.btStack([
         /* поставка 116: «ранний уход, до года» — уже в выводе шага и в степпере; подпись — период, итог — справа */
         grp('Стаж на момент ухода',ytd,ex.tenure,'tenure'),
         grp('Грейд',ytd,ex.grade,'grade'),
         /* стримов на верхних уровнях десятки — первые 8 и «Остальные» (16.10) */
         grp('Стрим',ytd,ex.stream,'stream',true,{n:8,word:['стрим','стрима','стримов']})])+
-        '<div class="tbl-note">Всего — отток '+U.esc(D.CNT_TEXT)+'. Стаж и грейд — на дату ухода. «Уходят чаще, чем в среднем» — '+
-        'группа заметно больше в уходах, чем в команде: например, 16% людей, а уходов — 23%.</div>';
+        '<div class="tbl-note">Стаж и грейд — на дату ухода.</div>';
     }
     /* Текучесть — всегда линия: это темп, а не количество. Барами остаётся
        только отток, потому что отток — счётные люди за месяц. Все три — год

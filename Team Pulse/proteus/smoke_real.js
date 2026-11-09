@@ -251,6 +251,13 @@ CASES.forEach(([t,s])=>{
   catch(e){scrOk=false;console.log('    падает',t,s,e.message)}
 });
 ok(scrOk,'все '+CASES.length+' экранов собираются на модели пробника');
+/* 09.11, поставка 130 (владелец: «запретим в одном предложении больше одного „но“»): по тексту всех экранов и подсказок */
+{
+  const dec=t=>t.replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/\\n/g,'. ');
+  const txt=dec(html).replace(/<[^>]+>/g,' . ').replace(/&nbsp;|&#160;/g,' ');
+  const bad=[...new Set(txt.split(/[.!?…\n]+/).map(x=>x.trim()).filter(x=>(x.match(/(^|[\s,;:—–(«])но(?=[\s,])/gi)||[]).length>1))];
+  ok(!bad.length,'в одном предложении не больше одного «но»'+(bad.length?' — '+bad.length+': '+bad.slice(0,3).map(x=>x.slice(0,140)).join(' | '):''));
+}
 /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
    В обзоре длинный список — 6 строк и «Остальные», у стримов ушедших — 8 и «Остальные». */
 {

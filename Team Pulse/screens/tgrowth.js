@@ -82,7 +82,7 @@ function flowYoy(ctx,f,what,head,tipName){
 function grades(ctx,p){
   const cur=p.st.find(x=>x.key===ctx.S.rostSt)||p.st[0];
   /* поставка 128: статусы — по заявкам с итогом с января по закрытый месяц (rs ноутбука), не «с 1 января» по дату и не 12 месяцев */
-  return U.btGroup({cap:'Статусы роста',capSub:(p.real?'численность последнего месяца':'активная численность')+' · заявки '+D.PER_TEXT,head:'',valueHead:'Чел',
+  return U.btGroup({cap:'Статусы роста',capSub:(p.real?'численность последнего месяца':'активная численность')+' · заявки '+D.PER_TEXT+' · клик по статусу — его тепловая таблица',head:'',valueHead:'Чел',
       metricKey:'hc_total',compact:true,items:p.st.map(s=>({name:s.name,value:s.n,color:ST_COL[s.key],on:s===cur,
         attr:'data-rostst="'+s.key+'"',attrTip:'Клик — «'+s.name+'» по текущему грейду. '+s.tip}))})+
     '<div class="bt-group"><div class="bt-cap">'+esc(cur.name)+': по текущему грейду<span class="bt-sub">человек · '+
@@ -90,7 +90,7 @@ function grades(ctx,p){
     flowYoy(ctx,p.grade,'на повышение грейда','Повышение грейда по месяцам, заявок')+
     U.btStack([succTable('Повышение грейда: «Рост»','по возрастанию грейдов · '+D.PER_TEXT,p.grade.rostT,'Текущий → желаемый',p.grade.rostS),
       succTable('Повышение грейда: T@T','по возрастанию грейдов · '+D.PER_TEXT,p.grade.tatT,'Текущий → желаемый',p.grade.tatS)])+
-    '<div class="tbl-note">Клик по статусу — его тепловая таблица. Заявок больше, чем людей: у одного их бывает несколько.</div>';
+    '<div class="tbl-note">Заявок больше, чем людей: у одного их бывает несколько.</div>';
 }
 function specs(ctx,p){
   return flowYoy(ctx,p.spec,'на смену специализации','Смена специализации по месяцам, заявок','смена специализации')+

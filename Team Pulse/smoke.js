@@ -326,10 +326,8 @@ checks.push(['минус во всех дельтах типографский, 
   const S1=Object.assign({},S0,{paint:'Line'});
   checks.push(['без KPI метрика возвращается к сравнению с базой',
     /* 27.10-в, п. 3: у желательной и нежелательной цель теперь при любой покраске — проверяем на HQ текучести */
-    /* 31.10, п. 6: линия базы по умолчанию выключена — в легенде перечёркнута, клик включает (offDef:null — включена) */
-    !D.kpiFor('turnover_y',S1)&&/class="lnb" data-s="bench"/.test(SC.metricLine('turnover_y',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{offDef:null}))&&
-    /class="lg dead" data-sid="bench"/.test(SC.metricLine('turnover_y',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{}))&&
-    !/class="lnb" data-s="bench"/.test(SC.metricLine('turnover_y',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{}))&&
+    /* 09.11, поставка 130: линии сравнения на графике нет (серый пунктир сливался с прошлым годом) — ни линии, ни пункта легенды */
+    !D.kpiFor('turnover_y',S1)&&!/data-s(id)?="bench"/.test(SC.metricLine('turnover_y',D.reportLeaves(S1),D.benchmarkLeaves(S1),S1,{}))&&
     !!D.kpiFor('regret',S1)]);
 })();
 
@@ -1520,8 +1518,9 @@ checks.push(['третьей палитры нет: в экранах ни од�
   /* поставка 90: в выводе — уходы с января по закрытый месяц, как итог под графиком */
   const rl=D.reportLeaves(st0), n12=D.sumWin(D.aggregate(rl,'attrition'),'ytd');
   /* поставка 96: у долей в панелях — линия «Вся компания», по умолчанию выключена (зачёркнута, клик включает) */
-  checks.push(['панели оттока: у текучести есть линия базы, по умолчанию выключена',
-    /class="lg dead" data-sid="bench"/.test(to)&&/class="lg dead" data-sid="bench"/.test(A.go('hiring','vacancies'))]);
+  /* 09.11, поставка 130: линии сравнения и отметки базы на графиках «год к году» нет — ориентир значением в строке итога */
+  checks.push(['панели оттока: линии сравнения и отметки базы на графике нет',
+    !/data-s(id)?="bench"/.test(to)&&!/data-s(id)?="bench"/.test(A.go('hiring','vacancies'))&&!/class="peer-mk"/.test(to)]);
   checks.push(['история: число уходов в выводе сходится с суммой баров графика',
     to.indexOf('<b>'+D.fmtInt(n12)+'\u00a0')>=0]);
   /* акценты на графике: заметка «пик года» на полосе, остальное НЕ приглушено
@@ -1546,9 +1545,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     D.METRICS.filter(m=>m.flow).map(m=>m.key).sort().join()==='attrition,hire,tgrowth_deny,tgrowth_pass,transfer_in,transfer_net,transfer_out,vac_closed']);
   /* разрыв с базой залит светофором хотя бы на одной главе */
   /* 31.10, п. 6: база по умолчанию выключена — заливка разрыва появляется, когда базу включили */
-  checks.push(['история: разрыв линии с базой залит цветом светофора',!/class="gapf"/.test(allHtml)&&
-    (()=>{const S=Object.assign({},D.DEFAULT_STATE,{paint:'Line'});
-      return /class="gapf"/.test(SC.metricLine('turnover_y',D.reportLeaves(S),D.benchmarkLeaves(S),S,{offDef:null}))})()]);
+  checks.push(['история: заливки разрыва с линией сравнения нет (линии нет)',!/class="gapf"/.test(allHtml)]);
   /* палитра A: одиночные метрики — кобальтом, цвет только у потоков */
   checks.push(['палитра «смысловая»: одиночные метрики — кобальтом, потоки — насыщенными тонами',
     G.C_VAC===G.C_LINE&&G.C_UNDER===G.C_LINE&&G.C_REVIEW===G.C_LINE&&G.C_AI===G.C_LINE&&

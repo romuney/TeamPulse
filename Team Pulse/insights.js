@@ -538,6 +538,8 @@ function say(f){
   const yo=f.kind==='dev'&&f.yo?', но '+(SAY[f.key]||[lc(m.name)+' хуже',lc(m.name)+' лучше'])[f.yo==='worse'?0:1].split(' ').pop()+', чем год назад':'';
   return st+(f.kind==='yoy'?', чем год назад':f.key==='regret'&&f.kpi?' цели':f.kpi?', чем по цели':f.peer?', чем в базе':', чем '+D.coWord(f.key,'prep'))+yo;
 }
+/* 09.11, поставка 130 (владелец: в одном предложении — не больше одного «но»): вторая часть уже с «но» — связка «;» */
+const but=(a,b)=>a+(/, но /.test(a+b)?'; ':', но ')+b;
 /* дробь метрики: своя или месячной, если накопительная — сумма месячных ('sum') */
 function ratioDef(m){
   if(m.derived)return m.derived;
@@ -772,7 +774,7 @@ function lead(S,rl,list,norm){
   /* сдвиг численности уже сказан словом «растёт / сокращается» — в сводке не повторяем («растёт, но выросла на 10%») */
   const bad=list.find(c=>c.sev!=='good'&&c.fact.kind!=='hc'), good=list.find(c=>c.sev==='good');
   const nAct=list.filter(c=>c.sev!=='good').length;
-  let h='<b>'+esc(team+(bad?', но '+say(bad.fact):good?', и '+say(good.fact):stable&&churn?'':', заметных отклонений нет'))+'.</b> '+
+  let h='<b>'+esc(team+(bad?but('',say(bad.fact)):good?', и '+say(good.fact):stable&&churn?'':', заметных отклонений нет'))+'.</b> '+
     esc(ppl(hc))+' — '+(net?'на '+D.fmtInt(Math.abs(net))+' '+(net>0?'больше':'меньше')+', чем на начало года':'столько же, сколько на начало года')+'.';
   /* у всей компании «переводы из команды» — смена типа численности, а не другие подразделения: их здесь не называем */
   /* вывод об уходах малой команды уже сказал, сколько ушло, — фразу о смене людей не повторяем */
@@ -793,7 +795,10 @@ function blockSummary(bk,S,rl,bl){
   const bad=list.find(c=>c.sev!=='good'), good=list.find(c=>c.sev==='good');
   const tail=c=>c.where&&c.where.top?' — '+(c.where.share>=0.8?'почти всё':'больше половины')+' в «'+c.where.top.n.name+'»'
     :c.where&&c.where.top2?' — почти всё в «'+c.where.top2[0].n.name+'» и «'+c.where.top2[1].n.name+'»':'';
-  const head=bad&&good&&good!==list[0]?cap(say(good.fact))+', но '+say(bad.fact)+tail(bad)
+  /* 09.11, поставка 130: у плохого факта уже есть своё «но» («чаще, чем по цели, но реже, чем год назад») — хороший факт перед ним
+     не ставим: он повторил бы эту оговорку («Уходят реже, чем год назад; уходят чаще…, но реже, чем год назад») */
+  const dup=bad&&good&&/, но /.test(say(bad.fact));
+  const head=bad&&good&&good!==list[0]?(dup?cap(say(bad.fact)):but(cap(say(good.fact)),say(bad.fact)))+tail(bad)
     :cap(say(list[0].fact))+tail(list[0]);
   return {sev,list,head,todo:(bad||list[0]).todo};
 }

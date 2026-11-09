@@ -1000,10 +1000,10 @@ on(document,'click',e=>{
     e.stopPropagation();
     expanded.clear();
     if(exAll.dataset.expall==='1')SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));
-    render(true);return;
+    render(true,true);return;
   }
   const ex=t.closest('[data-exp]');
-  if(ex){e.stopPropagation();const p=ex.dataset.exp;expanded.has(p)?expanded.delete(p):expanded.add(p);render(true);return}
+  if(ex){e.stopPropagation();const p=ex.dataset.exp;expanded.has(p)?expanded.delete(p):expanded.add(p);render(true,true);return}
   /* «во всю ширину» и полоса свёрнутой панели — один обработчик: режим едет в атрибуте */
   const smode=t.closest('[data-splitmode]');
   if(smode){splitMode=smode.dataset.splitmode;splitUnit=S.unit;render(true);return}
@@ -1042,7 +1042,7 @@ on(document,'click',e=>{
   const rs=t.closest('[data-rostst]');
   if(rs){S.rostSt=rs.dataset.rostst;render(true);return}
   const tso=t.closest('[data-tsort]');
-  if(tso){S.tsort=tso.dataset.tsort;render(true);return}
+  if(tso){S.tsort=tso.dataset.tsort;render(true,true);return}
   const sps=t.closest('[data-spmsort]');
   if(sps){S.spmSort=sps.dataset.spmsort;render(true);return}
   /* поставка 101 (файл 7, п. 2): строка специализации — её помесячная детализация под таблицей; повторный клик — закрыть */
@@ -1067,7 +1067,7 @@ on(document,'click',e=>{
     const keys=dim==='exitinit'?D.EXIT_INITIATORS.map(x=>'exitinit:'+x.key)
       :((D.MIX_BY_KEY[dim]||{}).cats||[]).map(c=>c.id);
     if(on==='1')keys.forEach(k=>mixOpen.add(k));
-    render(true);return;
+    render(true,true);return;
   }
   /* каретка стрима — раньше среза: она стоит ВНУТРИ строки, у которой есть
      data-mix, и общий обработчик среза перехватил бы клик по ней */
@@ -1076,7 +1076,7 @@ on(document,'click',e=>{
     e.stopPropagation();
     const k=bx.dataset.btexp;
     mixOpen.has(k)?mixOpen.delete(k):mixOpen.add(k);
-    render(true);return;
+    render(true,true);return;   /* 09.11, поставка 130: графики те же — без повторной анимации */
   }
   const mx=t.closest('[data-mix]');
   if(mx){e.stopPropagation();toggleMix(mx.dataset.mix,e.shiftKey);render(true);return}

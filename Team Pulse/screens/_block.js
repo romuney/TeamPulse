@@ -125,21 +125,19 @@ const YOY_COLOR={hc_total:G.C_CNT,hc_active:G.C_CNT,hc_avg:G.C_CNT,attrition:G.C
 function yoyChart(key,lp,bl,S,opt){
   opt=opt||{};
   /* opt.noBench (26.10-б) — без линии базы: ряд не метрики целиком, а её части (текучесть по инициатору) */
-  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi&&!opt.noBench, bench=D.benchmarkLabel(S);
+  const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi&&!opt.noBench;
   /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент; opt.yser (поставка 66) —
      свой ряд «год к году» той же метрики (настоящая посещаемость выбранного сегмента) */
   const y0=opt.yser||D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
   /* opt.ref (26.10, AI BI.md): свой пунктир вместо базы — {name, cur}: численность команды под WAU */
-  const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=opt.ref?opt.ref.cur:cmp?D.yoySeries(bl,key).cur:null;
+  const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=opt.ref?opt.ref.cur:null;
   const col=opt.color||YOY_COLOR[key]||G.C_LINE;
   /* счётный поток (найм, уход…) — бар этого года, позади прозрачный бар прошлого (15.10); численность — так же,
      серым (23.10) */
   const flow=G.asBars(key);
   const legend=(flow?[{name:String(D.YEAR_CUR),color:G.soft(col)},{name:String(D.YEAR_PREV),color:G.ghostCol(col),ghost:true}]
       :[{name:String(D.YEAR_CUR),color:col},{name:String(D.YEAR_PREV),color:G.C_PREV}])
-    .concat(opt.ref?[{name:opt.ref.name,color:G.C_BENCH,dash:true}]:cmp?[{name:bench,color:G.C_BENCH,dash:true}]:[]);
-  /* gap — заливка разрыва с базой светофором (итерация 32): где линия лучше
-     базы — зелёным, где хуже — красным, в мёртвой зоне ±5% — без заливки */
+    .concat(opt.ref?[{name:opt.ref.name,color:G.C_BENCH,dash:true}]:[]);
   /* 31.10: итог за период под шапкой — по ряду графика (свой ряд — простым правилом); opt.period:false — без него */
   const period=opt.period===false?null:D.periodTotal(lp,key,opt.yser||sc&&sc!==1?y:null,opt.periodKey);
   /* поставка 122 (критик на 49 человек: «где вывод «хуже базы», на графике самой базы нет»): у метрики, которую оценивает
@@ -151,10 +149,12 @@ function yoyChart(key,lp,bl,S,opt){
      остаётся выключенной, но когда вся компания — ориентир вывода (нет цели и базы по размеру, отчёт — не сама компания), её
      значение за тот же период стоит в строке итога под заголовком: сравнение видно без клика */
   const coRef=cmp&&!opt.ref&&!peer&&!D.isSelfBase()&&!D.isSmall(key)&&period&&!opt.yser&&!(sc&&sc!==1);
-  const per2=coRef?Object.assign({},period,{ref:D.coName(S,'nom')+' '+D.fmtVal(key,(D.periodTotal(bl,key)||{}).v)}):period;
+  /* 09.11, поставка 130 (владелец: серый пунктир сравнения сливается с прошлым годом, «странное выделение базы»): ни линии «вся
+     компания», ни отметки базы на графике нет — ориентир стоит значением в строке итога под заголовком */
+  const per2=coRef?Object.assign({},period,{ref:[D.coName(S,'nom'),D.fmtVal(key,(D.periodTotal(bl,key)||{}).v)]})
+    :peer&&period?Object.assign({},period,{ref:['база',D.fmtVal(key,pe.p50)]}):period;
   return G.chart('yoy',{metricKey:key,cur:y.cur,prev:y.prev,bench:by},
-    Object.assign({legend,benchName:opt.ref?opt.ref.name:bench,kpi:kpi,h:300,fill:true,gap:cmp&&!opt.ref,
-      offDef:cmp&&!opt.ref?['bench']:null,peer:peer},opt,{color:col,period:per2}));
+    Object.assign({legend,benchName:opt.ref?opt.ref.name:'',kpi:kpi,h:300,fill:true},opt,{color:col,period:per2}));
 }
 /* Метрика главы: одно полотно «год к году» с ориентиром. Акценты истории
    (opt.ann) приходят по окну отчёта — на ось года их переводит draw.js. */
@@ -174,16 +174,12 @@ function yoyPanels(lp,items,opt){
   const coRef=k=>!!opt.S&&!D.isSelfBase()&&cmp(k)&&!D.isSmall(k)&&!D.peerOf(k,lp);
   return G.chart('panels',{panels:items.map(it=>{
     const y=D.yoySeries(lp,it.key);
-    /* поставка 122: отметка базы — как у одиночного графика (yoyChart) */
-    const pe=opt.S&&!D.kpiFor(it.key,opt.S)&&!D.isSmall(it.key)?D.peerOf(it.key,lp):null;
+    /* 09.11, поставка 130: база — значением в строке итога панели (отметки на графике нет), как у одиночного графика (yoyChart) */
+    const pe=opt.S&&!D.kpiFor(it.key,opt.S)&&!D.isSmall(it.key)?D.peerOf(it.key,lp):null, P=D.periodTotal(lp,it.key);
     return {name:it.name,key:it.key,cur:y.cur,prev:y.prev,color:it.color||YOY_COLOR[it.key]||G.C_LINE,ann:it.ann||null,
-      period:coRef(it.key)&&D.periodTotal(lp,it.key)?Object.assign({},D.periodTotal(lp,it.key),{ref:D.coName(opt.S,'nom')+' '+
-        D.fmtVal(it.key,(D.periodTotal(opt.bl,it.key)||{}).v)}):D.periodTotal(lp,it.key),bench:cmp(it.key)?D.yoySeries(opt.bl,it.key).cur:null,
-      peer:pe?{p25:pe.p25,p50:pe.p50,p75:pe.p75,cum:it.key==='turnover_y',upto:D.PER_C}:null};
-  })},Object.assign({h:520,fill:true,benchName:opt.bl?D.benchmarkLabel(opt.S):'',offDef:['bench'],
-    /* третий пункт — для переключателя серий (легенда панелей рисуется у каждой панели своя) */
-    /* поставка 117: линия — та же метрика по всей компании (помесячно), не «база» (база — подразделения похожей численности) */
-    legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}].concat(opt.bl&&items.some(it=>cmp(it.key))?[{id:'bench',name:D.benchmarkLabel(opt.S)}]:[])},opt,{bl:null,S:null}));
+      period:P&&coRef(it.key)?Object.assign({},P,{ref:[D.coName(opt.S,'nom'),D.fmtVal(it.key,(D.periodTotal(opt.bl,it.key)||{}).v)]})
+        :P&&pe?Object.assign({},P,{ref:['база',D.fmtVal(it.key,pe.p50)]}):P};
+  })},Object.assign({h:520,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]},opt,{bl:null,S:null}));
 }
 /* Пара встречных потоков (пришли / ушли) на оси года — «ежики»: приход
    барами вверх, уход вниз, прошлый год — прозрачными барами позади (15.10). opt.legend — имена
@@ -438,8 +434,10 @@ function renderBlock(S,expanded,mixOpen,view){
      возрастанию, снова как в оргдереве. */
   const tcols=mod.cols||null, tdata=tcols?(lp=>mod.data?mod.data(lp):D.monData(lp)):null;
   const ts=String(S.tsort||'').split(':'), tsc=tcols&&tcols.find(c=>c.k===ts[0]&&c.val), tsd=ts[1]==='a'?1:-1;
+  /* 09.11, поставка 130 (владелец: «добавим сортировку в таблицу по подразделениям»): и у обычных колонок-метрик — тем же кликом по шапке */
+  const tsm=!tcols&&tmets.find(m=>m.key===ts[0]), tv=p=>{const v=val(rowLeaves(p,S),tsm.key);return v==null||!isFinite(v)?-1e18:v};
   const cmp=tsc?(a,b)=>{const x=tdata(rowLeaves(a.path,S)), y=tdata(rowLeaves(b.path,S));
-    return tsd*((x?tsc.val(x):0)-(y?tsc.val(y):0))}:null;
+    return tsd*((x?tsc.val(x):0)-(y?tsc.val(y):0))}:tsm?(a,b)=>tsd*(tv(a.path)-tv(b.path)):null;
   const rows=pivotRows(root,expanded,isEmpty,tq,cmp);
   /* инсайт про концентрацию считается по первому уровню всегда — от
      раскрытий и набранного поиска он зависеть не должен */
@@ -588,8 +586,8 @@ function renderBlock(S,expanded,mixOpen,view){
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+(c.per?'<span class="th-per">'+esc(c.per)+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :tmets.map(m=>'<th'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:perTxt(m.key,noGoal(U.metricText(m,1))),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
-      pt(m.key).head+' — как итог под графиком.':null})+'>'+esc(m.short)+
+    :tmets.map(m=>'<th class="tsort'+(tsm===m?' on':'')+'" data-tsort="'+(tsm===m&&tsd<0?m.key+':a':tsm===m?'':m.key+':d')+'"'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:perTxt(m.key,noGoal(U.metricText(m,1))),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
+      pt(m.key).head+' — как итог под графиком.':null})+'>'+esc(m.short)+(tsm===m?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
