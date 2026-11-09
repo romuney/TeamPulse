@@ -168,8 +168,8 @@ union all
 -- 09.11 (сверка с мастер-отчётом Executive Report: водопад мастера замыкается без остатка): водопад отчёта у корня, срез
 -- «Активная», последние 12 месяцев — численность на конец первого месяца + найм + в - отток - из = на конец последнего;
 -- найм и переводы — строки дня события (hub · 5, правило датасета при фильтре по умолчанию), численность и отток — ряды.
--- Значение — остаток (справочно, пока не подтверждено на бою; потом — обязательная)
-select 34 as n, 'водопад отчёта у корня («Активная», 12 мес.): остаток'::text as check_nm, 0 as must,
+-- Значение — остаток. Обязательная с 09.11: на бою 0 после правки «Перевод-» (выход из типа — по флагу строки, как мастер)
+select 34 as n, 'водопад отчёта у корня («Активная», 12 мес.): остаток'::text as check_nm, 1 as must,
        ((select coalesce(sum(case when report_month = c.lm then hc_cnt end), 0)
                 - coalesce(sum(case when report_month = (date_trunc('month', c.lm) - interval '11 month')::date then hc_cnt end), 0)
                 + coalesce(sum(case when report_month > (date_trunc('month', c.lm) - interval '11 month')::date then fire_cnt end), 0)
