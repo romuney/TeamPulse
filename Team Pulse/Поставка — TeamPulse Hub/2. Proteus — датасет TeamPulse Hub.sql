@@ -208,6 +208,10 @@
     уровня (fsp, флаги фильтров) — отдельно: ci / co («внутри юнита»), чтобы строка специализации сходилась:
     на начало + найм + в − отток − из + (ci − co) = на конец. -#}
 {% set FU = "ifNull(fu, 0) = 1" %}
+{#- 09.11 (владелец: «пользоваться только флагами, суммой флагов»): переводы строки специализации — флаги in / out источника:
+    юнит уровня узла и атрибуты под фильтрами (FLG, как карточки «Переводы») и смена специализации (fsp) -#}
+{% set SPI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1) AND ifNull(in_ok, 1) = 1)" %}
+{% set SPU = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND (" ~ FLG ~ " OR " ~ FSP ~ " = 1))" %}
 {% set SI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND " ~ FU ~ " AND ifNull(in_ok, 1) = 1)" %}
 {% set SU = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'o' AND " ~ FU ~ ")" %}
 {% set CI = "toFloat64(trf_cnt) * toFloat64(trf_kind = 'i' AND NOT (" ~ FU ~ " AND ifNull(in_ok, 1) = 1) AND ((" ~ FLG ~ " AND ifNull(in_ok, 1) = 1) OR " ~ FSP ~ " = 1))" %}
@@ -597,10 +601,10 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
       FROM
       (
-        {#- 09.11 (владелец: одна методология на метрику): переводы по специализациям — то же правило, что карточки «Переводы»
-            (TI / TU: флаг юнита или атрибута под фильтром, как мастер-отчёт); остаток строки чарт показывает «сменой типа и
-            среза». Было: только флаг юнита своего уровня (SI / SU) + «внутри юнита» (CI / CO) #}
-        SELECT node_rk, {{ SPC }} AS spx, [{{ HI }}, {{ TI }}, {{ TU }}] AS tv
+        {#- 09.11 (владелец: только флаги источника, их сумма): переводы по специализациям — флаги карточек «Переводы» (юнит
+            уровня узла, атрибуты под фильтрами) и флаг смены специализации (SPI / SPU). Было: флаг юнита своего уровня
+            (SI / SU) + «внутри юнита» (CI / CO) #}
+        SELECT node_rk, {{ SPC }} AS spx, [{{ HI }}, {{ SPI }}, {{ SPU }}] AS tv
         FROM prod_proteus.teampulse_hub_trf
         WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }}
       )
@@ -617,7 +621,7 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, 'tsm' AS k3, concat(kv.1, '|', spx, '|', mo) AS v3, sum(kv.2) AS n4
       FROM
       (
-        SELECT node_rk, {{ SPC }} AS spx, formatDateTime(report_month, '%Y-%m') AS mo, [{{ TI }}, {{ TU }}] AS tv
+        SELECT node_rk, {{ SPC }} AS spx, formatDateTime(report_month, '%Y-%m') AS mo, [{{ SPI }}, {{ SPU }}] AS tv
         FROM prod_proteus.teampulse_hub_trf
         WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }}
       )
