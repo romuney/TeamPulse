@@ -75,7 +75,7 @@ from (
                s.transfer_internal_amt, s.hire_cnt, s.fire_amt, s.regret_fire_amt, s.non_regret_fire_amt,
                s.perf_normal, s.perf_low, s.perf_high, s.perf_gray, s.work_day_amt, s.office_visit_amt,
                s.fix_work_day_amt, s.fix_office_visit_amt, s.visit_with_booking_amt,
-               s.grt_approve_cnt, s.grt_decline_cnt, s.booking_amt, s.booking_viol_amt, s.visit_viol_amt,
+               0 as grt_approve_cnt, 0 as grt_decline_cnt, s.booking_amt, s.booking_viol_amt, s.visit_viol_amt,
                s.management_head_flg, s.duration_hour, s.talk_call_duration_h, s.absence_segment_cd,
                s.weekend_segment_cd, s.talk_segment_cd,
                s.duration_plan_sum, s.plan_day_cnt, s.talk_plan_sum,
@@ -89,6 +89,22 @@ from (
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
         where s.leaf_lvl > 0
+        union all
+        -- 09.11 (владелец: одна методология на метрику, T-рост — как эталон «Роста»): одобрено / отклонено (gapr / gdec) —
+        -- из заявок structure_x_rost, как шаги «По грейдам» и «Смена специализации» (rm / rq): подразделение и срез человека
+        -- в месяц подачи, месяц — итог заявки; было — grt_* build_all_metrics (подразделение в месяц решения)
+        select s.finish_month::date as report_month, 0 as hc_total_cnt, 0 as hc_active_cnt, 0 as hire_amt, 0 as transfer_candidate_amt, 0 as transfer_internal_amt, 0 as hire_cnt, 0 as fire_amt, 0 as regret_fire_amt, 0 as non_regret_fire_amt, 0 as perf_normal, 0 as perf_low, 0 as perf_high, 0 as perf_gray, 0 as work_day_amt, 0 as office_visit_amt, 0 as fix_work_day_amt, 0 as fix_office_visit_amt, 0 as visit_with_booking_amt, (coalesce(s.is_approved, 0) = 1)::int as grt_approve_cnt, (coalesce(s.is_declined, 0) = 1)::int as grt_decline_cnt, 0 as booking_amt, 0 as booking_viol_amt, 0 as visit_viol_amt, null::text as management_head_flg, 0 as duration_hour, 0 as talk_call_duration_h, null::text as absence_segment_cd, null::text as weekend_segment_cd, null::text as talk_segment_cd, 0 as duration_plan_sum, 0 as plan_day_cnt, 0 as talk_plan_sum,
+               (select pre from teampulse_hub_cal) || coalesce(u.cp,
+                   array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
+                                      s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
+                                      s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
+               coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
+               case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
+               coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
+        from structure_x_rost s
+        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        where s.leaf_lvl > 0 and (coalesce(s.is_approved, 0) = 1 or coalesce(s.is_declined, 0) = 1)
+          and s.finish_month >= (select grid_start from teampulse_hub_cal) and s.finish_month <= (select lm from teampulse_hub_cal)
     ) x
 ) e
 group by 1, 2, 3, 4, 5, 6

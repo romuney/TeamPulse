@@ -186,7 +186,8 @@ select 32 as n, 'водопад: найм и отток = ряды отчёта 
 union all
 -- 09.11 (владелец: «две методологии на одну метрику категорически запрещены»): каждый разрез = своей метрике рядов в каждой
 -- ячейке узел x срез (x месяц): численность последнего месяца, отток и найм с начала года (найм по DD и найм при «Вся»),
--- посещения по городам (закрытый месяц) и календарь (рабочие дни и посещения по месяцам). Значение — расходящихся ячеек
+-- посещения по городам (закрытый месяц) и календарь (рабочие дни и посещения по месяцам), заявки «Роста» (одобрено /
+-- отклонено по месяцу итога = gapr / gdec). Значение — расходящихся ячеек
 select 33 as n, 'разрезы = ряды отчёта (численность, отток, найм, офис; узел x срез)'::text as check_nm, 1 as must,
        ((select count(*) from (
             select k.mx_key, s.node_rk
@@ -465,6 +466,24 @@ select 33 as n, 'разрезы = ряды отчёта (численность,
             from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, substr(mx_val, 1, 7) as m, sum(mx_n) as n from teampulse_hub_mix
                   where mx_key in ('do') and true group by 1, 2, 3, 4, 5, 6, 7) k
             full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, to_char(report_month, 'YYYY-MM') as m, sum(ovis_amt) as n from teampulse_hub_series where report_month between ((select cm from teampulse_hub_cal) - interval '1 month')::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5, 6) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, substr(mx_val, 1, 7) as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key = 'rm' and split_part(mx_val, '|', 4) = 'ok' group by 1, 2, 3, 4, 5, 6, 7) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, to_char(report_month, 'YYYY-MM') as m, sum(gapr_cnt) as n from teampulse_hub_series
+                       where gapr_cnt > 0 group by 1, 2, 3, 4, 5, 6) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, substr(mx_val, 1, 7) as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key = 'rm' and split_part(mx_val, '|', 4) = 'no' group by 1, 2, 3, 4, 5, 6, 7) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, to_char(report_month, 'YYYY-MM') as m, sum(gdec_cnt) as n from teampulse_hub_series
+                       where gdec_cnt > 0 group by 1, 2, 3, 4, 5, 6) s
               on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
              and s.act_cd = k.act_cd and s.m is not distinct from k.m
             where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
