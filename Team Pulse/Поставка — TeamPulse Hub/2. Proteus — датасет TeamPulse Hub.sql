@@ -555,7 +555,9 @@ WITH
     SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
+      {#- 09.11: разбивки найма = «Найм, чел»: при выбранных типах — по DD (hk hch hg hsp), при «Вся» — найм в компанию с
+          любым типом (hko hcho hgo hspo ноутбука, в ответе под теми же ключами) #}
+      SELECT ifNull(node_rk, '') AS u3, {{ "ifNull(mx_key, '')" if act_on else "if(ifNull(mx_key, '') IN ('hko', 'hcho', 'hgo', 'hspo'), substring(mx_key, 1, length(mx_key) - 1), ifNull(mx_key, ''))" }} AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       {#- 31.10-б, п. 6; файл 6, п. 4: разрезы «Роста» (rm rq rs) — по численности HQ (cond_rh), остальные — под все фильтры #}
       WHERE node_rk IN {{ PK }}
@@ -569,6 +571,7 @@ WITH
         {#- поставка 109 (скорость): помесячные уходы по специализации xsm заменены замкнутым водопадом fsm (поставка 105) —
             в ответ не идут #}
         AND ifNull(mx_key, '') != 'xsm'
+        AND ifNull(mx_key, '') NOT IN {{ "('hko', 'hcho', 'hgo', 'hspo')" if act_on else "('hk', 'hch', 'hg', 'hsp')" }}
       GROUP BY u3, k3, v3
       HAVING n4 > 0
       UNION ALL

@@ -183,6 +183,292 @@ select 32 as n, 'водопад: найм и отток = ряды отчёта 
             where abs(coalesce(f.hire, 0) - coalesce(s.hire, 0)) > 0.5
                or abs(coalesce(f.hco, 0) - coalesce(s.hco, 0)) > 0.5
                or abs(coalesce(f.fire, 0) - coalesce(s.fire, 0)) > 0.5) t))::float8 as val
+union all
+-- 09.11 (владелец: «две методологии на одну метрику категорически запрещены»): каждый разрез = своей метрике рядов в каждой
+-- ячейке узел x срез (x месяц): численность последнего месяца, отток и найм с начала года (найм по DD и найм при «Вся»),
+-- посещения по городам (закрытый месяц) и календарь (рабочие дни и посещения по месяцам). Значение — расходящихся ячеек
+select 33 as n, 'разрезы = ряды отчёта (численность, отток, найм, офис; узел x срез)'::text as check_nm, 1 as must,
+       ((select count(*) from (
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('g') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('a') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('e') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('t') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('gr') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('s') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('c') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('o') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('w') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('r') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('sp') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('tc') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('rg') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('ws') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('mh') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('sp1') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hc_cnt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('xr') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(fire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('xi') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(fire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('xp') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(fire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('xt') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(fire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('xg') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(fire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('xs') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(fire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('xsp') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(fire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('xtc') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(fire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('hk') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('hch') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('hg') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('hsp') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hire_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('hko') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hco_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('hcho') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hco_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('hgo') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hco_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('hspo') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(hco_cnt) as n from teampulse_hub_series where report_month between date_trunc('year', (select lm from teampulse_hub_cal))::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('oc') and true group by 1, 2, 3, 4, 5, 6) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(ovis_amt) as n from teampulse_hub_series where report_month = (select cm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, substr(mx_val, 1, 7) as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('dw') and true group by 1, 2, 3, 4, 5, 6, 7) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, to_char(report_month, 'YYYY-MM') as m, sum(wday_amt) as n from teampulse_hub_series where report_month between ((select cm from teampulse_hub_cal) - interval '1 month')::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5, 6) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+            union all
+            select k.mx_key, s.node_rk
+            from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, substr(mx_val, 1, 7) as m, sum(mx_n) as n from teampulse_hub_mix
+                  where mx_key in ('do') and true group by 1, 2, 3, 4, 5, 6, 7) k
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, to_char(report_month, 'YYYY-MM') as m, sum(ovis_amt) as n from teampulse_hub_series where report_month between ((select cm from teampulse_hub_cal) - interval '1 month')::date and (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5, 6) s
+              on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
+             and s.act_cd = k.act_cd and s.m is not distinct from k.m
+            where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
+        ) t))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,

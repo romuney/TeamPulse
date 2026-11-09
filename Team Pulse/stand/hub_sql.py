@@ -621,8 +621,13 @@ def sql_mix():
     hc_keys = ['g', 'a', 'e', 't', 'gr', 's', 'c', 'o', 'w', 'r', 'sp', 'tc', 'rg', 'ws', 'mh']
     # 22.10, поставка 60: найм в компанию — с любым типом численности (hire_cnt): срез — тип на конец месяца целиком,
     # и найм в любой выбранный тип попадает в разбивки (hire_amt — только «Активная»). У «Активной» — то же, что было
-    hire_e = f"greatest({num('hire_cnt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
-    hch = (f"case when {num('hire_cnt')} > 0 then 'Найм в компанию'\n"
+    # 09.11 (владелец: «две методологии на одну метрику запрещены»): разбивки найма = «Найм, чел» рядов. hk / hch / hg / hsp
+    # — методология DD, как ряды при выбранных типах численности (hire_amt — найм в «Активную» + из учебной группы + стажёр
+    # в штат); hko / hcho / hgo / hspo — найм в компанию с любым типом, как ряды при «Вся» (hco). Было — смесь: найм любого
+    # типа + переходы (в других типах и при «Вся» не сходилось с «Найм, чел»)
+    hire_e = f"greatest({num('hire_amt')}, {num('transfer_candidate_amt')}, {num('transfer_internal_amt')})"
+    hco_e = num('hire_cnt')
+    hch = (f"case when {num('hire_amt')} > 0 then 'Найм в компанию'\n"
            f"{' ' * 30}when {num('transfer_candidate_amt')} > 0 then 'Из учебной группы в боевую' else 'Стажёр в штат' end")
     attrs = ['gender', 'type_age', 'age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
              'legal_organization', 'employee_stream', 'employment_relation_type', 'specialization', 'type_company',
@@ -707,9 +712,18 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
        unnest(ARRAY['hk', 'hch', 'hg', 'hsp']) as mx_key,
        unnest(ARRAY[{(',' + chr(10) + ' ' * 20).join([a['hs'], hch, a['gr'], a['sp']])}]) as mx_val,
        {hire_e} as mx_n
-from ({expl(['hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt', 'source_type_nm', 'grade',
+from ({expl(['hire_amt', 'transfer_candidate_amt', 'transfer_internal_amt', 'source_type_nm', 'grade',
              'specialization'], ytd)}) e
 where {hire_e} > 0;
+
+-- то же для «Вся» (найм в компанию с любым типом численности, как hco_cnt рядов)
+insert into {P}_mixr
+select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c,
+       unnest(ARRAY['hko', 'hcho', 'hgo', 'hspo']) as mx_key,
+       unnest(ARRAY[{(',' + chr(10) + ' ' * 20).join([a['hs'], "'Найм в компанию'", a['gr'], a['sp']])}]) as mx_val,
+       {hco_e} as mx_n
+from ({expl(['hire_cnt', 'source_type_nm', 'grade', 'specialization'], ytd)}) e
+where {hco_e} > 0;
 
 -- 26.10-б: увольнения по инициатору и месяцу за всю сетку — «Текучесть по инициатору» (датасет отдаёт выбранному юниту)
 insert into {P}_mixr
