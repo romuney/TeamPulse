@@ -59,7 +59,7 @@ function about(m,S){
   let h='<p class="op-stp">'+esc(m.hint)+'</p>';
   if(fr)h+='<div class="op-math" aria-label="Как считаем"><math display="block">'+fr.ml+'</math>'+
     (fr.note?'<div class="op-frs">'+esc(fr.note[0].toUpperCase()+fr.note.slice(1))+'</div>':'')+'</div>';
-  const ref=kpi?'Ориентир: цель KPI '+D.fmtVal(m.key,kpi.green)+', порог '+D.fmtVal(m.key,kpi.red)
+  const ref=kpi?'Ориентир: цель KPI '+D.fmtVal(m.key,kpi.green)+', порог '+D.fmtVal(m.key,kpi.red)+(kpi.hi!=null?', верхний порог '+D.fmtVal(m.key,kpi.hi):'')
     /* поставка 120 (критик на 49 человек: «Ориентир: база «вся компания»» рядом с базой-медианой в колонке) */
     :D.comparable(m.key)?(D.peerOf(m.key)?'Ориентир: база — медиана подразделений похожей численности ('+D.peerOf(m.key).bandName+' человек) с теми же фильтрами'
       :D.isSelfBase()?'Ориентир: прошлый год — это вся компания, сравнивать её не с чем'
@@ -151,7 +151,7 @@ function normRow(S,rl,ok0,bl,more){
   /* поставка 123-б: метрики в подсказке — таблицей; у «в норме» второй столбец — с чем сравнили (цель, база, компания или
      год назад), у остальных — год назад */
   const refOf=m=>{const kpi=D.kpiAt(m.key,S,D.MONTHS[D.PER_I].m), pe=kpi?null:D.peerOf(m.key,rl), f=x=>D.fmtVal(m.key,x);
-    if(kpi)return 'цель '+f(kpi.green);
+    if(kpi)return 'цель '+f(kpi.green)+(kpi.hi!=null?'–'+f(kpi.hi):'');
     if(pe)return 'база '+f(pe.p50);
     const b=D.comparable(m.key)&&!D.isSelfBase()?(D.periodTotal(bl,m.key)||{}).v:null;
     return b!=null?D.coWord(m.key,'short')+' '+f(b):P(m).prev!=null?'год назад '+P(m).prev:'—'};
@@ -198,19 +198,19 @@ function render(S,openRows){
      одна короткая строка окна; оговорки (доли — по закрытый месяц, численность — на дату, с чем сравниваем) — в подсказке.
      Как отобраны выводы — значок в сводке огонька */
   const pe0=D.peerOf('turnover_y');
-  let h='<div class="page-h"><h2>'+(D.PARTIAL?'Главное на '+esc(D.ASOF_LABEL):'Главное за '+esc(D.CMP.cur))+'</h2>'+
+  /* поставка 138, п. 14 (владелец): голубого блока первого вывода нет; огонёк — в строке заголовка, перед «Главное на …» */
+  const all=I.cards(S,rl,bl,true), list=all.slice(0,I.CARD.show), more=all.slice(I.CARD.show), ok=normOf(S,rl,all);
+  I.lastSev=list.length?list[0].sev:'none';
+  let h='<div class="page-h"><h2 class="op-h">'+moodIco('point',30,'Пульс')+'<span>'+(D.PARTIAL?'Главное на '+esc(D.ASOF_LABEL):'Главное за '+esc(D.CMP.cur))+'</span></h2>'+
     '<p class="per-line">Числа с 1 января против того же периода '+D.YEAR_PREV+' <span class="info"'+U.tipAttr({title:'Какие числа на главной',
       list:['Найм, уходы и переводы — за **'+D.CNT_NAME+' '+D.YEAR_CUR+'**'+(D.CNT_ON?'; доли и средние — за **'+D.PER_NAME+'** (закрытые месяцы)':''),
         'Численность и открытые вакансии — на **'+D.ASOF_LABEL+'**',
         'Сравнение — '+(pe0?'с базой (подразделения '+pe0.bandName+' чел с теми же фильтрами), ':'')+'со всей компанией и с тем же периодом '+D.YEAR_PREV]})+
-    ' aria-label="Какие числа на главной">i</span></p></div>';
+    ' aria-label="Какие числа на главной">i</span> · как отобраны выводы '+obsInfo(S)+'</p></div>';
 
   /* 2 · сводка и карточки выводов. Поставка 131 (владелец: «не делать больше 4 выводов на юнит, это размывает фокус —
      руководитель не сидит над HR-метриками»): карточек не больше четырёх, самые тяжёлые первыми; кнопки «Ещё N» нет.
      Остальные отклонения не теряются — счётчиком в строке под карточками и цветом в таблицах блоков. */
-  const all=I.cards(S,rl,bl,true), list=all.slice(0,I.CARD.show), more=all.slice(I.CARD.show), ok=normOf(S,rl,all);
-  I.lastSev=list.length?list[0].sev:'none';
-  h+='<div class="in-lead">'+moodIco('point',46,'Пульс рассказывает')+'<div class="in-lt">'+I.lead(S,rl,list,ok.filter(m=>rated(m,S,rl,bl)).length)+' '+obsInfo(S)+'</div></div>';
   if(list.length)h+='<div class="in-grid">'+list.map(insightCard).join('')+'</div>';
   /* поставка 123: счётчики и легенда цветов — одной строкой */
   h+='<div class="in-sumrow">'+normRow(S,rl,ok,bl,more)+U.trafficLegend()+'</div>';
@@ -315,7 +315,8 @@ function render(S,openRows){
     h+=U.panel({body:t+'</tbody></table>'});
   });
 
-  return h+devS;
+  /* поставка 138, п. 3: переносы только между смысловыми фрагментами */
+  return U.keep('<div class="op-keep">'+h+devS+'</div>');
 }
 
 SC.onepager={render,insightCard,moodIco,MOOD_ICO};

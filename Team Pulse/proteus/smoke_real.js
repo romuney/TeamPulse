@@ -272,8 +272,8 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   const heads=(html.match(/<div class="st-head"><h3>[\s\S]*?<\/h3>/g)||[]).map(st);
   const mix=heads.filter(h=>/был всплеск|тоже хуже цели|; главная причина|, чаще всего — |; переработчиков|; недоработчиков/.test(h));
   ok(heads.length>5&&!mix.length,'заголовки глав: одна метрика в предложении'+(mix.length?' — '+mix.slice(0,2).join(' | '):''));
-  const lead=st((home.match(/<div class="in-lt">[\s\S]*?<\/div>/)||[''])[0]);
-  ok(!/(стабильна|растёт|сокращается|не изменилась), (но|и) /.test(lead),'сводка главной: численность и главный вывод — разными предложениями');
+  /* поставка 138, п. 14: голубой блока сводки на главной нет — огонёк в заголовке «Главное на …» */
+  ok(!/class="in-lead"|class="in-lt"/.test(home)&&new RegExp('class="op-h"><span class="in-ico"><img[^>]*></span><span>Главное на '+D.ASOF_LABEL).test(home),'главная: без голубого блока сводки, огонёк в строке «Главное на '+D.ASOF_LABEL+'»');
 }
 /* 16.10, заказчик: «юрлиц и регионов на высоких уровнях будет очень много — брать топ».
    В обзоре длинный список — 6 строк и «Остальные», у стримов ушедших — 8 и «Остальные». */
@@ -729,7 +729,7 @@ if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений з
   const I=window.TPINSIGHTS, S0=D.DEFAULT_STATE, cs=I.cards(S0,D.reportLeaves(S0),D.benchmarkLeaves(S0)), home=A.home0();
   /* поставка 106: у AI вывода блока нет — только недельная глава */
   const tops=D.visibleBlocks(S0).filter(b=>b.key!=='ai').map(b=>A.top(b.key));
-  ok(/<div class="in-lead">/.test(home)&&/* поставка 110: выводы «HQ против ориентира» и «подразделение хуже остальных» — без мини-графика */
+  ok(/class="op-h"/.test(home)&&!/class="in-lead"/.test(home)&&/* поставка 110: выводы «HQ против ориентира» и «подразделение хуже остальных» — без мини-графика */
     /* поставка 121: у вывода HQ — мини-график против ориентира (если есть ряд), у выводов о подразделении и событий в людях
        (кроме уходов команды) — без графика */
     cs.every(c=>!D.isStub(c.key)&&c.head&&(c.fact.kind==='hqb'?!c.chart||/class="mini"/.test(c.chart)

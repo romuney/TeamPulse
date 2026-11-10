@@ -34,6 +34,9 @@
 --     Ниже - сами такие узлы (до 40): hc узла, kids_hc - сумма его подразделений, kids - их число
 --  15 посещаемость текущего месяца (lm) по шагам: последняя дата источника посещений (src_max_dt, ГГГГММДД), рабочие дни
 --     и посещения в источнике, в таблице людей и в рядах отчёта. По ним видно, почему на вкладке нет текущего месяца
+--  16 желательная и нежелательная текучесть HQ (Активная + HQ) по месяцам: уходы, ССЧ, численность; месячная доля и четыре
+--     способа накопления с января: сумма месячных (как отчёт), сумма округлённых до 0.1, уходы к средней ССЧ, уходы к
+--     средней численности на конец месяцев. Расхождение с другим отчётом на 0.1-0.2 - сравнить его число с каждым способом
 -- Ожидаемые числа сверки — в чате, не в репозитории. Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub).
 -- 09.11: файл — один запрос (было 13 отдельных); убраны устаревшие: водопад витрины движения и «откуда прочее» (найм и
 -- переводы отчёта — из строк дня события, водопад сходится без «прочего»), переводы по специализациям по флагу уровня
@@ -650,6 +653,32 @@ b14 as (
     from (select b14k.*, row_number() over (order by kids_hc - hc desc, k) as rn from b14k) x
     where rn <= 40
 ),
+-- 16. желательная и нежелательная текучесть HQ по месяцам (Активная + HQ): уходы (nreg, reg), ССЧ (ssch), численность на
+--     конец месяца (hc); месячная доля без округления (*_m); накопительно с января: как отчёт - сумма месячных (*_ytd),
+--     сумма месячных, округлённых до 0.1 (*_ytd_r1), сумма уходов к средней ССЧ с января (*_ytd_ratio), сумма уходов к
+--     средней численности на конец месяцев (*_ytd_hc). Сверка с другим отчётом: какой способ даёт его числа
+b16m as (
+    select report_month as m, sum(nreg_cnt) as nreg, sum(reg_cnt) as reg, sum(avg_cnt) as ssch, sum(hc_cnt) as hc
+    from teampulse_hub_series
+    where node_rk = (select rk from u) and act_cd = 'Активная' and paint_cd = 'HQ'
+      and report_month >= (date_trunc('year', (select lm from teampulse_hub_cal)) - interval '1 year')::date
+    group by 1
+),
+b16 as (
+    select to_char(m, 'YYYY-MM') as k, nreg, reg, ssch, hc,
+           100.0 * nreg / nullif(ssch, 0) as nreg_m,
+           sum(100.0 * nreg / nullif(ssch, 0)) over w as nreg_ytd,
+           sum(round(100.0 * nreg / nullif(ssch, 0), 1)) over w as nreg_ytd_r1,
+           100.0 * sum(nreg) over w / nullif(avg(ssch) over w, 0) as nreg_ytd_ratio,
+           100.0 * sum(nreg) over w / nullif(avg(hc) over w, 0) as nreg_ytd_hc,
+           100.0 * reg / nullif(ssch, 0) as reg_m,
+           sum(100.0 * reg / nullif(ssch, 0)) over w as reg_ytd,
+           sum(round(100.0 * reg / nullif(ssch, 0), 1)) over w as reg_ytd_r1,
+           100.0 * sum(reg) over w / nullif(avg(ssch) over w, 0) as reg_ytd_ratio,
+           100.0 * sum(reg) over w / nullif(avg(hc) over w, 0) as reg_ytd_hc
+    from b16m
+    window w as (partition by date_trunc('year', m) order by m)
+),
 -- 15. посещаемость текущего месяца (последний месяц данных lm) по шагам - есть ли он и по какую дату. src_max_dt -
 --     последняя дата в источнике посещений (ГГГГММДД); src_* - рабочие дни и посещения источника за lm (база мастера:
 --     «Активная», рабочий день; посещение - главный офис дня у людей с закреплённым офисом); tbl_* - то же в таблице людей
@@ -754,6 +783,11 @@ select 15 as n, 'посещаемость текущего месяца по ш�
        unnest(array[1, 2, 3, 4, 5, 6, 7]) as ord, unnest(array['src_max_dt', 'src_workdays', 'src_visits', 'tbl_workdays', 'tbl_visits', 'rep_workdays', 'rep_visits']::text[]) as pokazatel,
        unnest(array[(src_max_dt)::numeric, (src_workdays)::numeric, (src_visits)::numeric, (tbl_workdays)::numeric, (tbl_visits)::numeric, (rep_workdays)::numeric, (rep_visits)::numeric]) as znachenie
 from b15
+union all
+select 16 as n, 'желательная и нежелательная текучесть HQ: числитель, ССЧ, округление'::text as blok, (k)::text as stroka,
+       unnest(array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]) as ord, unnest(array['nreg', 'reg', 'ssch', 'hc', 'nreg_m', 'nreg_ytd', 'nreg_ytd_r1', 'nreg_ytd_ratio', 'nreg_ytd_hc', 'reg_m', 'reg_ytd', 'reg_ytd_r1', 'reg_ytd_ratio', 'reg_ytd_hc']::text[]) as pokazatel,
+       unnest(array[(nreg)::numeric, (reg)::numeric, (round(ssch, 1))::numeric, (hc)::numeric, (round(nreg_m, 4))::numeric, (round(nreg_ytd, 4))::numeric, (round(nreg_ytd_r1, 4))::numeric, (round(nreg_ytd_ratio, 4))::numeric, (round(nreg_ytd_hc, 4))::numeric, (round(reg_m, 4))::numeric, (round(reg_ytd, 4))::numeric, (round(reg_ytd_r1, 4))::numeric, (round(reg_ytd_ratio, 4))::numeric, (round(reg_ytd_hc, 4))::numeric]) as znachenie
+from b16
 union all
 select 10 as n, 'посещения по шагам (месяц lm)'::text as blok, (k)::text as stroka,
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['src_visits', 'src_no_city', 'tbl_visits', 'tbl_city_json', 'tbl_visits_no_json', 'tbl_leaf0', 'rep_visits', 'rep_city']::text[]) as pokazatel,

@@ -248,7 +248,7 @@ const DEV_LIVE={
 /* поставка 71 (параграфы «Роста» Адели): статусы роста и заявки по грейдам и специализациям пришли — без отметки */
 if(D.ROST_LIVE){DEV_LIVE.tgrowth.subs.push('grades','spec');delete DEV_LIVE.tgrowth['*']}
 /* поставка 106: «Кто» и «Как пользуется» — из недельной витрины (разрезы aix в ответе) — без отметки */
-if(D.AI_CUTS){DEV_LIVE.ai.subs.push('who','usage','what');delete DEV_LIVE.ai['*']}
+if(D.AI_CUTS){DEV_LIVE.ai.subs.push('who','interns','usage','what');delete DEV_LIVE.ai['*']}
 /* поставка 66 (посещения Адели): вкладки «Офиса», чьи данные пришли в ответе, — без отметки */
 if(D.OFF_LIVE){
   const o=DEV_LIVE.office, L=D.OFF_LIVE, rest=[];
@@ -329,7 +329,7 @@ function conclusion(sum,b,S){
        без разметки); у всей компании (база — она сама) — сравнение только с прошлым годом, так и пишем. «Не сдвинулась за год»
        теперь правда: заметный сдвиг к году (D.yoyMove) всегда даёт вывод */
     const rl0=D.reportLeaves(S), bl0=D.benchmarkLeaves(S);
-    const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)),
+    const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)&&!((INS.TAB_SKIP||{})[b.key]||new Set()).has(m.key)),
       cmp=vis.filter(m=>(D.comparable(m.key)||D.kpiFor(m.key,S))&&D.verdictState(m.key,S,rl0,bl0)!=='neutral');
     /* поставка 128 (аудит: «Движение» — «Всё спокойно · к прошлому году без заметных сдвигов», а на главной у «Оттока» красный
        чип года, 27 против 18): у количеств (уволились, закрыто вакансий, заявки на рост) ориентира нет — на главной они «для
@@ -410,7 +410,8 @@ function renderBlock(S,expanded,mixOpen,view){
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
-  const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key]));
+  const SKIP=(INS.TAB_SKIP||{})[b.key];
+  const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key])&&!(SKIP&&SKIP.has(m.key)));
   const tmets=mets.concat((ov.add||[]).map(k=>D.METRIC_BY_KEY[k]).filter(m=>m&&D.metricVisible(m.key,S)&&mets.indexOf(m)<0));
   /* поставка 99: окно периода названо в шапке вкладки — под колонкой подписаны только исключения («сейчас», «на конец …») */
   /* файл 8, п. 6: закрытые вакансии в таблице подразделений — за текущий календарный год (с 1 января по дату данных,

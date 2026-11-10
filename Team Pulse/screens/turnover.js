@@ -5,7 +5,6 @@
    шкалой от нуля, а не два бара рядом на одной оси:
 
      1. Отток, чел          — счётный факт за месяц, бары
-     2. Текучесть месячная  — отток / среднесписочная за месяц, линия
      3. Текучесть накопительная — сумма месячных с января, линия. Обнуляется
         каждый январь, поэтому в январе она равна месячной, а к декабрю
         доходит до годового значения.
@@ -46,7 +45,10 @@ function hqView(ctx){
       '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+
     /* поставка 110 (A3): HQ меньше 30 человек — линии без оценки, один уход заметно сдвигает долю */
     (h.hc<D.SMALL_N?'<div class="tbl-note">В HQ '+D.fmtInt(h.hc)+' '+U.plural(h.hc,['человек','человека','человек'])+
-      ': один уход сдвигает текучесть примерно на '+String(Math.round(1000/h.hc)/10).replace('.',',')+' п.п. Доли не оцениваем.</div>':'')+
+      ': один уход сдвигает текучесть примерно на '+String(Math.round(1000/h.hc)/10).replace('.',',')+' п.п. Доли не оцениваем.</div>'
+      /* поставка 138, п. 6: HQ от 30 человек, но ниже порога строки (100 — текучесть и желательная, 50 — нежелательная) */
+      :h.rows.some(r=>r.low)?'<div class="tbl-note">'+U.esc(D.TURN_LOW_NOTE)+' Порог численности HQ: текучесть и желательная — от '+
+        D.turnMin('turnover_y')+' человек, нежелательная — от '+D.turnMin('regret')+'.</div>':'')+
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
       /* поставка 128 (владелец 08.11: «цели на шаге HQ»): цель — коридором по оси года, как на графиках KPI, и значением в строке
@@ -54,12 +56,14 @@ function hqView(ctx){
       kpi:r.kpi,
       /* поставка 128 (аудит: «доли не оцениваем», а чип текучести HQ красный — цвет брался по численности всего подразделения):
          в HQ меньше 30 человек — чип изменения без цвета, как и написано выше */
-      period:Object.assign({},D.periodTotal(h.lp,r.key,r.yoy)||{},h.hc<D.SMALL_N?{good:null}:{},
-        r.kpi?{ref:'цель '+D.fmtVal(r.key,r.kpi.green)+(r.st==='bad'?' — хуже':r.st==='good'?' — лучше':'')}:{})}))},
+      period:Object.assign({},D.periodTotal(h.lp,r.key,r.yoy)||{},h.hc<D.SMALL_N||r.low?{good:null}:{},
+        r.kpi?{ref:'цель '+D.fmtVal(r.key,r.kpi.green)+(r.kpi.hi!=null?', верхний порог '+D.fmtVal(r.key,r.kpi.hi):'')+
+          (r.st==='bad'?(r.kpi.hi!=null&&r.v>r.kpi.hi?' — выше порога':' — хуже'):r.st==='good'?' — лучше':'')}:{})}))},
       {h:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     (h.rows.some(r=>r.kpi)?'<div class="tbl-note">Цели — годовые, как в отчёте HQ: текучесть HQ — '+
       D.fmtVal('turnover_y',(h.rows[0].kpi||{annual:{}}).annual.green)+' за год, нежелательная — не выше '+
       D.fmtVal('regret',(h.rows[2].kpi||{annual:{}}).annual.green)+', желательная — не ниже '+D.fmtVal('nonregret',(h.rows[1].kpi||{annual:{}}).annual.green)+
+      ((h.rows[1].kpi||{annual:{}}).annual.hi!=null?' и не выше '+D.fmtVal('nonregret',h.rows[1].kpi.annual.hi):'')+
       '. На дату данных — их доля: годовая × прошедшая часть года; на графиках — пунктиром.</div>':'');
 }
 
@@ -74,14 +78,11 @@ function initChart(ctx){
   const c=xs.find(x=>x.key===ctx.S.exitIni)||xs.slice().sort((a,b)=>b.n-a.n)[0];
   /* 06.11, заказчик: заголовок — внутри графика, в одной строке с легендой, как у всех графиков (отдельной HTML-строкой
      он оставлял под собой пустую строку легенды — большой отступ до «В среднем за месяц»); переключатель — справа над ним */
+  /* поставка 138, п. 9 (владелец: «месячную текучесть и все упоминания с вкладки оттока убрать»): помесячный график текучести
+     по инициатору снят — остаётся накопительная того же инициатора (переключатель над ней); в сумме по инициаторам — она
+     и есть «Текучесть накопительная» */
   return '<div class="ch-blk"><div class="ch-bar ch-bar-r">'+
       U.segToggle('data-exitini',xs.map(x=>[x.key,INI_SHORT[x.key]||x.name]),c.key)+'</div>'+
-    SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:280,fill:false,
-      title:'Текучесть по инициатору, %',
-      color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>'+
-    /* 27.10-в, п. 11: под ней — накопительная того же инициатора (переключатель общий): сумма месячной с января, как
-       «Текучесть накопительная»; в сумме по инициаторам — она и есть */
-    '<div class="ch-blk">'+
     SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:280,
       title:'Накопительная текучесть по инициатору, %',
       fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>';
@@ -155,7 +156,7 @@ SC.blocks.turnover={
        лет и сравнивается месяц в месяц. */
     return SC.yoyPanels(lp,[
       {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
-      {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
+      /* поставка 138, п. 9 (владелец): месячной текучести на вкладке оттока нет */
       {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,bl:ctx.bl,S:ctx.S});
   }
 };

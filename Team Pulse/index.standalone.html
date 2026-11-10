@@ -189,7 +189,11 @@ button,select,input,textarea{font-family:inherit}
 
 /* ===== Заголовок страницы/блока ===== */
 .page-h{margin:0 0 16px}
+/* поставка 138, п. 3: One Pager — перенос только по границам слов; слово рвётся, лишь если иначе вылезет за край */
+.op-keep{word-break:normal;overflow-wrap:break-word;hyphens:manual}
 .page-h h2{font-size:19px;margin:0 0 4px;font-weight:var(--fw-bold);letter-spacing:-.3px}
+/* поставка 138, п. 14: огонёк в строке заголовка One Pager */
+.page-h h2.op-h{display:flex;align-items:center;gap:8px}.page-h h2.op-h .in-ico{flex:0 0 auto;display:inline-flex}.page-h h2.op-h .in-ico img{width:30px;height:30px}
 .page-h p{margin:0;color:var(--muted);font-size:13px;max-width:900px;line-height:1.45}
 .block-h{display:flex;align-items:baseline;gap:12px;margin:24px 0 9px;flex-wrap:wrap}
 .block-h:first-of-type{margin-top:6px}
@@ -3099,9 +3103,9 @@ const METRICS=[
 /* файл 8, п. 2 (заказчик): у желательной текучести HQ выше — лучше (уходят те, о ком компания не сожалеет): рост к году назад
    и к базе — улучшение, цвета и слова — так же. Коридор 5–15% с «выше 15% — плохо» этому противоречит: цель — нижняя граница
    «не ниже 5% за год» (на месяц — её доля) */
-{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть HQ',short:'Желат. HQ',fmt:'pct',better:'higher',unit:'%',anchor:null,ytd:'nonregret_m',kpi:{green:5,red:5,annual:true},
-  hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Для HQ — цель не ниже 5% за год, на каждый месяц — её доля.'+HQ_ONLY,
-  calc:'Сумма месячной: желательные увольнения ÷ средняя численность × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Цель на месяц: 5% × номер месяца ÷ 12.'},
+{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть HQ',short:'Желат. HQ',fmt:'pct',better:'higher',unit:'%',anchor:null,ytd:'nonregret_m',kpi:{green:5,red:5,annual:true,hi:15},
+  hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Для HQ — цель не ниже 5% за год, верхний порог — 15% за год, на каждый месяц — их доля.'+HQ_ONLY,
+  calc:'Сумма месячной: желательные увольнения ÷ средняя численность × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Цель на месяц: 5% × номер месяца ÷ 12, верхний порог — 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
@@ -3201,7 +3205,7 @@ if(HQR){
   const T=' Всегда по активной численности HQ: фильтры покраски и типа численности на неё не действуют.';
   const set=(k,h)=>{const m=METRICS.find(x=>x.key===k);m.hint=h+T;m.calc=m.calc.replace('средняя численность','средняя численность HQ')};
   set('regret','Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год, на каждый месяц — её доля, как в отчёте HQ.');
-  set('nonregret','Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Цель — не ниже 5% за год, на каждый месяц — её доля.');
+  set('nonregret','Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Цель — не ниже 5% за год, верхний порог — 15% за год, на каждый месяц — их доля.');
 }
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
 /* Служебные производные ряды: метрикой отчёта не являются, но считаются тем же
@@ -4228,15 +4232,29 @@ function blockSignal(bk,st){
      · база совпадает с самим отчётом (selfBase: юнит = вся компания под теми же фильтрами) — сравнения «с базой» нет,
        ориентир — цель или прошлый год. */
 const VERDICT_GAP=0.10, SMALL_N=30;
-let SMALL_REP=false, SELF_BASE=false, SMALL_HQ=false;
+let SMALL_REP=false, SELF_BASE=false, SMALL_HQ=false, REP_HC=null, HQ_HC=null;
+/* поставка 138, п. 6 (владелец: «светофор текучести — только при достаточной выборке»): цветовая оценка текучести — от
+   минимальной численности группы, включительно: общая и желательная — от 100 человек, нежелательная — от 50. Численность —
+   той же группы и под теми же фильтрами, что сама метрика: у метрик HQ — численность HQ (их знаменатель), у остальных — отчёта
+   или подразделения строки, на дату данных. Численности нет — оценки нет. Ниже порога значение показываем без цвета */
+const TURN_MIN={turnover_m:100,turnover_y:100,turnover_hq_y:100,nonregret:100,nonregret_m:100,regret:50,regret_m:50};
+const TURN_LOW_NOTE='Цветовая оценка не применяется: численность выборки ниже минимального порога.';
+function turnMin(key){return TURN_MIN[key]||0}
+function turnLow(key,lp){
+  const n=TURN_MIN[key];if(!n)return false;
+  const hq=!!(METRIC_BY_KEY[key]||{}).hqOnly;
+  let hc=lp&&lp.length?lastVal(lp,hq&&HQN?'hc_hq':'hc_total'):hq?HQ_HC:REP_HC;
+  if(hq&&lp&&lp.length&&!HQN)hc=HQ_HC;
+  return hc==null||!isFinite(hc)||Math.round(hc)<n;
+}
 function setVerdictScope(st){
   const rl=reportLeaves(st), hc=rl.length?lastVal(rl,'hc_total'):null;
-  SMALL_REP=hc!=null&&hc<SMALL_N;
+  SMALL_REP=hc!=null&&hc<SMALL_N;REP_HC=hc;
   /* поставка 113: группа размера — по численности на закрытый месяц (как у датасета) */
   PEER_BAND=bandOf(rl);
   try{AI_BAND=REAL?aiBandOf(rl):0}catch(e){AI_BAND=0}
   /* A3: доли HQ (текучесть HQ, желательная, нежелательная) — порог по численности HQ, их знаменателю */
-  try{const h=hqLight(st,null,null);SMALL_HQ=!!h&&h.hc<SMALL_N}catch(e){SMALL_HQ=false}
+  try{const h=hqLight(st,null,null);SMALL_HQ=!!h&&h.hc<SMALL_N;HQ_HC=h?h.hc:REP_HC}catch(e){SMALL_HQ=false;HQ_HC=REP_HC}
   /* база — вся компания под теми же фильтрами (benchmarkLeaves): совпадает с отчётом, когда выбран корень 'T' */
   /* в пробнике корень — не 'T': база — строка BASE ответа; совпадает с отчётом, когда численность и найм те же */
   const bl=benchmarkLeaves(st), same=k=>{const a=lastVal(rl,k), b=lastVal(bl,k);return a!=null&&a===b};
@@ -4293,7 +4311,7 @@ function peerPpl(key,lp){
 }
 function peerState(key,v,p,lp){
   const m=METRIC_BY_KEY[key]||{};
-  if(v==null||!p||isSmall(key)||!monJudged(key,lp))return'neutral';
+  if(v==null||!p||isSmall(key)||turnLow(key,lp)||!monJudged(key,lp))return'neutral';
   if(Math.abs(v-p.p50)<VERDICT_GAP*Math.abs(p.p50||1))return'warn';
   /* поставка 120 (критик на 49 человек: «хуже базы» решало округление — 22,30 против границы четверти 22,29): четверти в
      датасете округлены до сотых — значение на границе (±0,011) считаем «на уровне» */
@@ -4335,8 +4353,8 @@ function compareState(key,val,base){
   if(isStub(key))return'neutral';
   if(!comparable(key))return'neutral';
   if(m.better==='flat')return'neutral';
-  /* поставка 110: отчёт меньше SMALL_N человек — доли и сроки без оценки */
-  if(isSmall(key))return'neutral';
+  /* поставка 110: отчёт меньше SMALL_N человек — доли и сроки без оценки; поставка 138, п. 6: текучесть — от своего порога */
+  if(isSmall(key)||turnLow(key))return'neutral';
   const rel=(val-base)/Math.abs(base);
   if(Math.abs(rel)<VERDICT_GAP)return'warn';
   const good=m.better==='lower'?rel<0:rel>0;
@@ -4345,8 +4363,10 @@ function compareState(key,val,base){
 function stateForKpi(key,val,kpi){
   const m=METRIC_BY_KEY[key];if(!kpi||val==null)return'neutral';
   if(isStub(key))return'neutral';
-  if(isSmall(key))return'neutral';
+  if(isSmall(key)||turnLow(key))return'neutral';
   if(m.better==='lower')return val<=kpi.green?'good':(val>=kpi.red?'bad':'warn');
+  /* поставка 138, п. 2: выше верхнего порога — коридор пройден, оценка «хуже» */
+  if(kpi.hi!=null&&val>kpi.hi)return'bad';
   return val>=kpi.green?'good':(val<=kpi.red?'bad':'warn');
 }
 /* поставка 120 (критики-руководители 119: «−0,2 п.п.» зелёным, «+1 к августу» красным, «+44,5 п.п.» у HQ из одного
@@ -4358,7 +4378,7 @@ function deltaState(key,cur,prev,lp){
   const m=METRIC_BY_KEY[key];
   if(!m||cur==null||prev==null||!isFinite(cur)||!isFinite(prev)||m.better==='flat'||isStub(key))return 'neutral';
   const cnt=m.fmt==='int', hc=lp&&lp.length?lastVal(lp,'hc_total'):null, small=hc!=null?hc<SMALL_N:SMALL_REP;
-  if(!cnt&&(small||isSmall(key)||!!lp&&thin(key,lp)))return 'neutral';
+  if(!cnt&&(small||isSmall(key)||turnLow(key,lp)||!!lp&&thin(key,lp)))return 'neutral';
   const d=cur-prev;
   if(cnt&&Math.abs(Math.round(cur)-Math.round(prev))<(small?3:2))return 'neutral';
   if(prev?Math.abs(d)/Math.abs(prev)<VERDICT_GAP-1e-9:!d)return 'neutral';
@@ -4415,7 +4435,10 @@ function kpiAt(key,st,mm){
   if(!k.annual)return k;
   /* поставка 137: у незакрытого месяца доля годовой цели — по дату данных (месяц пропорционально дням) */
   const f=(PARTIAL&&mm===ASOF.m?mm+CNT_FRAC:mm+1)/12;
-  return {green:+(k.green*f).toFixed(2),red:+(k.red*f).toFixed(2),annual:{green:k.green,red:k.red}};
+  /* поставка 138, п. 2: верхний порог (hi) — у желательной текучести HQ 15% за год, доля на дату данных так же */
+  const o={green:+(k.green*f).toFixed(2),red:+(k.red*f).toFixed(2),annual:{green:k.green,red:k.red}};
+  if(k.hi!=null){o.hi=+(k.hi*f).toFixed(2);o.annual.hi=k.hi}
+  return o;
 }
 
 /* ---------- «Как уходит HQ?» (26.10, правки) ----------
@@ -4445,6 +4468,7 @@ function hqLeaves(st,lpSel,sel){
 }
 /* оценка доли HQ по цели — как stateForKpi, но без «мало людей» отчёта: численность здесь — HQ, её проверяет hqLight */
 function hqKpiState(key,v,kpi){const m=METRIC_BY_KEY[key];
+  if(m.better!=='lower'&&kpi.hi!=null&&v>kpi.hi)return'bad';
   return m.better==='lower'?(v<=kpi.green?'good':v>=kpi.red?'bad':'warn'):(v>=kpi.green?'good':v<=kpi.red?'bad':'warn')}
 function hqLight(st,lpSel,sel){
   const lp=hqLeaves(st,lpSel,sel), node=HQN&&!!lpSel, sk=k=>node&&HQ_SER[k]||k;
@@ -4464,7 +4488,9 @@ function hqLight(st,lpSel,sel){
     /* владелец 08.11: цели компании по HQ показываем всегда; при HQ меньше 30 человек — без оценки по ним (один уход сдвигает долю) */
     const kpi=kpiAt(x.key,sh,mon.m);
     return Object.assign({},x,{ser:ser,v:v,mom:d(e[i],e[i-1]),yoyD:d(e[i],e[i-12]),ya:e[i-12],kpi:kpi,
-      st:kpi&&v!=null&&hc>=SMALL_N?(sm=>sm==='good'||sm==='bad'?sm:'neutral')(hqKpiState(x.key,v,kpi)):'neutral',yoy:yoySeries(lp,sk(x.key))});
+      /* поставка 138, п. 6: цвет — от минимальной численности HQ своей строки (100 / 100 / 50) */
+      low:hc<Math.max(SMALL_N,TURN_MIN[x.key]||0),
+      st:kpi&&v!=null&&hc>=Math.max(SMALL_N,TURN_MIN[x.key]||0)?(sm=>sm==='good'||sm==='bad'?sm:'neutral')(hqKpiState(x.key,v,kpi)):'neutral',yoy:yoySeries(lp,sk(x.key))});
   });
   if(!REAL)setHcMode(m0);
   return {lp:lp,hc:hc,rows:rows,st:sh,month:mon};
@@ -6520,7 +6546,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,passRoot,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,BASE_DEF,baseLead,baseBounds,coName,
   metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,deltaState,kpiFor,comparable,
-  setVerdictScope,isSmall,isSmallHq,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
+  setVerdictScope,isSmall,isSmallHq,turnLow,turnMin,TURN_MIN,TURN_LOW_NOTE,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,
@@ -6967,7 +6993,7 @@ function kpiRoom(key,kpi){
   if(!kpi)return 0;
   const a=kpi.annual||kpi, suf=kpi.annual?' за год':'';
   return Math.ceil(Math.max(textW('порог '+CD.fmtVal(key,a.red)+suf,10.5),
-    textW('цель '+CD.fmtVal(key,a.green)+suf,10.5)))+12;
+    textW('цель '+CD.fmtVal(key,a.green)+suf,10.5),a.hi!=null?textW('верхний порог '+CD.fmtVal(key,a.hi)+suf,10.5):0))+12;
 }
 /* 21.10, поставка 50: годовая цель прод-отчёта HQ (kpi.annual) — коридор по оси года: в месяце i
    цель — годовая × (i + 1) / 12, к декабрю — годовая; подпись справа — годовая «за год». Цель и
@@ -6976,6 +7002,8 @@ function kpiSlope(key,kpi,xL,xR,Y){
   const a=kpi.annual, bw=(xR-xL)/12, X=i=>xL+bw*(i+0.5);
   const pts=v=>Array.from({length:12},(_,i)=>X(i).toFixed(1)+','+Y(v*(i+1)/12).toFixed(1)).join(' ');
   const rows=a.green===a.red?[['green',C_RED,'цель ']]:[['green',C_GREEN,'цель '],['red',C_RED,'порог ']];
+  /* поставка 138, п. 2: верхний порог коридора (желательная текучесть HQ — 15% за год) — третьей линией */
+  if(a.hi!=null)rows.push(['hi',C_RED,'верхний порог ']);
   const ty=rows.map(([k])=>Y(a[k]));
   if(ty.length===2&&Math.abs(ty[0]-ty[1])<13){const m=(ty[0]+ty[1])/2, up=ty[0]<=ty[1]?-1:1;ty[0]=m+up*6.5;ty[1]=m-up*6.5}
   let s='';
@@ -7138,7 +7166,7 @@ function yoyPlot(p,ar){
   const showMain=!off.has('main'), showPrev=!off.has('prev'), showBench=!!bench&&!off.has('bench');
   const nowI=CD.CUR_LEN-1, ya=p.ann||null, marks=p.marks||[];
   const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
-  if(p.kpi){const a=p.kpi.annual||p.kpi;all.push(a.green);all.push(a.red)}
+  if(p.kpi){const a=p.kpi.annual||p.kpi;all.push(a.green);all.push(a.red);if(a.hi!=null)all.push(a.hi)}
   const max=niceMax(all);
   const Y=v=>bot-(v/max)*(bot-top), X=i=>x0+bandW*(i+0.5);
   const big=(i,s)=>!!(ya&&ya.hi&&ya.hi.some(z=>z.i===i&&z.s===s));
@@ -7501,12 +7529,16 @@ function kpiAtI(kpi,i){
   return kpi.annual&&mm!=null?+(kpi.annual.green*(mm+1)/12).toFixed(2):kpi.green;
 }
 function cmpRow(key,i,base,kpi,name){
-  if(kpi)return [{label:'цель KPI',value:CD.fmtVal(key,kpiAtI(kpi,i)),color:C_BENCH,dash:true}];
+  if(kpi){const mm=(CD.MONTHS[i]||{}).m, hi=kpi.annual&&kpi.annual.hi!=null&&mm!=null?+(kpi.annual.hi*(mm+1)/12).toFixed(2):kpi.hi;
+    return [{label:'цель KPI',value:CD.fmtVal(key,kpiAtI(kpi,i)),color:C_BENCH,dash:true}]
+      .concat(hi!=null?[{label:'верхний порог',value:CD.fmtVal(key,hi),color:C_BENCH,dash:true}]:[])}
   return base?[{label:name||'вся компания',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[];
 }
 /* Оценка месяца: есть KPI — только против него (в месяце i — его доля годовой), базы здесь уже нет. */
 function cmpState(key,v,i,base,kpi,flat,state){
-  if(kpi)return CD.stateForKpi(key,v,kpi.annual?{green:kpiAtI(kpi,i),red:+(kpi.annual.red*(((CD.MONTHS[i]||{}).m||0)+1)/12).toFixed(2)}:kpi);
+  if(kpi){const fr=(((CD.MONTHS[i]||{}).m||0)+1)/12;
+    return CD.stateForKpi(key,v,kpi.annual?Object.assign({green:kpiAtI(kpi,i),red:+(kpi.annual.red*fr).toFixed(2)},
+      kpi.annual.hi!=null?{hi:+(kpi.annual.hi*fr).toFixed(2)}:{}):kpi)}
   return (flat||!base||!key)?state:CD.compareState(key,v,base[i]);
 }
 
@@ -8009,6 +8041,16 @@ window.TPDRAW={C_HEAT_RGB,HEAT_MAX,chart,lazy,miniYoy,remeasure,redraw,highlight
 const D=window.TPDATA, G=window.TPDRAW;
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+/* поставка 138, п. 3 (владелец: «в выводах One Pager название подразделения или число рвётся между строками»): в тексте
+   разметки (между тегами, атрибуты не трогаем) число не отрывается от единицы, знака процента и «п.п.», тонкий пробел внутри
+   числа и перед единицей — неразрывный (U+202F); название в «…» до 32 знаков — одним фрагментом (неразрывные пробелы),
+   длиннее — переносится по границам слов. Обрезки нет */
+const KEEP_U=/(\d)[ \u2009\u00a0](?=(?:%|п\.\s?п\.|чел(?:овека?)?\.?|дн(?:я|ей)?\.?|день|мес(?:яца?|яцев)?\.?|шт\.?|раза?|года?|лет)(?![а-яё]))/gi;
+function keepText(t){
+  return t.replace(/(\d)\u2009(?=[\d+\u2212-]?\S)/g,'$1\u202f').replace(KEEP_U,(m,d)=>d+'\u202f')
+    .replace(/«([^«»]{1,32})»/g,(m,n)=>'«'+n.replace(/ /g,'\u00a0')+'»');
+}
+function keep(html){return String(html).replace(/>([^<]+)</g,(m,t)=>'>'+keepText(t)+'<')}
 
 /* Русское склонение по числу: «1 специализация», «2 специализации»,
    «5 специализаций». Отдельной функцией, потому что подписей вида «N чего-то»
@@ -8464,12 +8506,13 @@ function barTable(o){
   /* поставка 116: в плотной таблице название шире (46%) — «По инициативе работодателя» не обрезается; с колонкой людей:
      длинный заголовок («С AI, чел») — 16%, название 40%; короткий («Чел») — 13% (пятизначное число на бою), название 44%;
      доля — 15% («Доля, %» в строку); «Распределение» — в строку */
-  const cw=cnt&&cnt.length>4?16:13;
+  /* поставка 138, п. 10: «Акт. пользователи» и «Проникновение» (AI) — колонки шире, заголовки целиком: 32 / 22 / 18% */
+  const cwL=!!cnt&&cnt.length>12, cw=cwL?22:cnt&&cnt.length>4?16:13;
   let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+(cnt?' bt-cnt':'')+'">'+
     /* поставка 117 (владелец: «в AI бары относятся к проценту, а визуально — к численности»): колонка людей — ПЕРЕД
        значением, значение (процент полосы) — вплотную к полосе, как «Чел · Доля · Распределение» в остальных таблицах */
-    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?(cw>13?'40%':'44%'):'46%'):'34%')+'">'+
-    (cnt?'<col style="width:'+cw+'%">':'')+'<col style="width:'+(lite?'9%':cnt?'15%':'14%')+'">'+
+    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?(cwL?'32%':cw>13?'40%':'44%'):'46%'):'34%')+'">'+
+    (cnt?'<col style="width:'+cw+'%">':'')+'<col style="width:'+(lite?'9%':cwL?'18%':cnt?'15%':'14%')+'">'+
     (withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
     /* поставка 116-б: общая каретка двухуровневой разбивки — в шапке колонки названий, над каретками строк (в подписи она
        выталкивала итог на вторую строку) */
@@ -9127,7 +9170,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
+window.TPUI={keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
@@ -9393,9 +9436,10 @@ function yoyStory(key,S,rl,bl){
   const refV=kpi?kpi.green:pe?pe.p50:D.comparable(key)&&!D.isSelfBase()?(D.periodTotal(bl,key)||{}).v:null;
   const rw=kpi?'цели':pe?'базы':D.coWord(key,'gen');
   const why=D.isSmall(key)?'без оценки: в команде меньше '+D.SMALL_N+' человек — смотрим людей'
+    :D.turnLow(key,rl)?'без цветовой оценки: численность ниже '+D.turnMin(key)+' человек'
     :D.thin(key,rl)?'без оценки: мало событий':!D.monJudged(key,rl)?'без оценки: в мониторинге размечено меньше половины людей':'';
   const say=flat||P.v==null?'':V==='good'?'лучше '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':'')
-    :V==='bad'?'хуже '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':''):V==='warn'?'на уровне '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':''):why;
+    :V==='bad'?(kpi&&kpi.hi!=null&&P.v>kpi.hi?'выше верхнего порога ('+D.fmtVal(key,kpi.hi)+')':'хуже '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':'')):V==='warn'?'на уровне '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':''):why;
   /* 1. Итог за период и ориентир — как в строке */
   if(P.v!=null)out.push(Object.assign(pt?{i:b,s:'main',pin:1}:{mi:range(b+1),pin:1},
     {html:'<b>'+esc(cap(P.head||''))+' — '+f(P.v)+'</b>'+(say?': '+esc(say)+'.':'.')}));
@@ -9462,6 +9506,11 @@ function yoyStory(key,S,rl,bl){
     if(marks.some(z=>z.i===it.i&&z.s===it.s)){it.mi=[it.i];delete it.i;return}
     it.n=marks.length+1;it.mi=[it.i];marks.push({i:it.i,s:it.s,n:it.n});
   });
+  /* поставка 138, п. 1 (владелец: «при наведении выделяется весь график, хотя пункт не про конкретные точки»): пункт,
+     который подсвечивал бы все месяцы периода (итог за период, год назад за те же месяцы, «все месяцы не хуже …»), — общий
+     вывод: без подсветки. Подсветка остаётся у конкретного: точки с номером, пика, худшего месяца, отрезка тренда,
+     месяцев «хуже ориентира» */
+  out.forEach(it=>{if(it.n==null&&it.mi&&it.mi.length===b+1&&it.mi.every((x,k)=>x===k))delete it.mi});
   out.sort((a,c)=>(a.pin||9)-(c.pin||9)||(a.n||99)-(c.n||99));
   return {items:out,marks:marks};
 }
@@ -9984,11 +10033,15 @@ function cardOf(f,S,rl,bl){
 const SMALL_OK=new Set(['underwork','overwork']), SMALL_PPL=3;
 function smallReport(rl){const hc=D.lastVal(rl,'hc_total');return hc!=null&&hc<CARD.small}
 /* Все карточки по отбору: по тяжести, внутри — по людям сверх ориентира; до восьми */
-function cards(S,rl,bl,all){
+/* поставка 138, п. 9 (владелец): на вкладке оттока месячной текучести нет — ни в выводе блока, ни в главе; на One Pager она
+   остаётся. TAB_SKIP — метрики, которые вкладка блока не показывает: их факты отбрасываются ДО «одна история — одна
+   карточка», чтобы место досталось накопительной текучести */
+const TAB_SKIP={turnover:new Set(['turnover_m'])};
+function cards(S,rl,bl,all,skip){
   const sm=smallReport(rl), rank={high:0,mid:1,good:2};
   /* 30.10, критики (маленькая команда: «переработка у 7 из 17, а отчёт пишет всё спокойно»): доли недоработчиков и
      переработчиков — это люди; у маленькой команды их оцениваем, если разница — от SMALL_PPL человек */
-  const list=overview(S,rl,bl,true).map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}))
+  const list=overview(S,rl,bl,true).filter(f=>!(skip&&skip.has(f.key))).map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}))
     .filter(c=>!(sm&&D.METRIC_BY_KEY[c.key].fmt==='pct'&&c.fact.kind!=='spike'&&c.fact.kind!=='hc'&&
       !(SMALL_OK.has(c.key)&&c.sev!=='good'&&c.ppl>=SMALL_PPL)));
   list.sort((a,c)=>rank[a.sev]-rank[c.sev]||c.ppl-a.ppl||a.i-c.i);
@@ -10042,7 +10095,7 @@ function lead(S,rl,list,norm){
 /* Вывод блока: заголовок, до трёх фактов по номерам, «Что сделать», где это
    происходит. Нет фактов — «всё спокойно» и что проверено. */
 function blockSummary(bk,S,rl,bl){
-  const list=cards(S,rl,bl,true).filter(c=>c.block===bk||(c.fact.kind==='spike'&&bk==='movement'));
+  const list=cards(S,rl,bl,true,TAB_SKIP[bk]).filter(c=>c.block===bk||(c.fact.kind==='spike'&&bk==='movement'));
   const sev=list.length?list[0].sev:'none';
   window.TPINSIGHTS.lastSev=sev;
   if(!list.length)return {sev,list};
@@ -10057,7 +10110,7 @@ function blockSummary(bk,S,rl,bl){
 
 /* lastSev — тяжесть последнего отрисованного инсайта: её читает mascot.js,
    чтобы эмоция огонька совпадала с тем, что пользователь видит в плашке. */
-window.TPINSIGHTS={yoyStory,overview,cards,lead,blockSummary,smallFact,whereOf,unitsOf,excess,CARD,SEV_TAG,OBS,INS_GAP,INS_TREND,lastSev:'none'};
+window.TPINSIGHTS={TAB_SKIP,yoyStory,overview,cards,lead,blockSummary,smallFact,whereOf,unitsOf,excess,CARD,SEV_TAG,OBS,INS_GAP,INS_TREND,lastSev:'none'};
 })();
 
 </script>
@@ -10149,13 +10202,15 @@ function judge(k,c){
      ориентир в них не участвует; иначе — только об ориентире. py — значение год назад */
   const py=yearAgo(c.lp,k), yoy=v!=null&&!D.isSmall(k)&&D.mainCmp(k,c.lp,c.S)==='yoy';
   if(yoy)st=D.yoyMove(k,c.lp)==='worse'?'bad':'good';
-  return {v:v,base:base,kpi:kpi,peer:pe,st:st,i:i,k:k,thin:thin,ev:ev,self:self,small:D.isSmall(k),smallHq:D.isSmallHq(k),yoy:yoy,py:py};
+  return {v:v,base:base,kpi:kpi,peer:pe,st:st,i:i,k:k,thin:thin,ev:ev,self:self,small:D.isSmall(k),smallHq:D.isSmallHq(k),low:!D.isSmall(k)&&!!D.turnLow&&D.turnLow(k,c.lp),yoy:yoy,py:py};
 }
 /* заголовок без сравнения: мало людей, мало событий или база = сам юнит (тогда — с прошлым годом) */
 function plainHead(j,c,more,less){
   const m=D.METRIC_BY_KEY[j.k], v=f(j.k,j.v);
   if(j.thin)return m.name+' — '+v+': '+(j.ev.n?'всего '+pl(j.ev.n,j.ev.noun):'нет событий')+', по стольким не оцениваем';
   if(j.small)return m.name+' — '+v+'; '+(j.smallHq?'в HQ':'в команде')+' меньше '+D.SMALL_N+' человек, с ориентиром не сравниваем';
+  /* поставка 138, п. 6: текучесть при выборке ниже своего порога (100 / 50 человек) — значение без оценки */
+  if(j.low)return m.name+' — '+v+'; численность ниже '+D.turnMin(j.k)+' человек, цветом не оцениваем';
   const py=yearAgo(c.lp,j.k);
   if(py==null||!py)return m.name+' — '+v;
   /* поставка 128: «чаще / реже, чем год назад» — тем же правилом, что чип года и карточки (D.yoyMove) */
@@ -10239,7 +10294,7 @@ const Q={
   tgrowth:{flow:'Растут ли люди внутри?',grades:'Как растут по грейдам?',spec:'Как меняют специализацию?'},
   monitor:{activity:'Рабочая активность',review:'Как прошло ревью?'},
   office:{calendar:'Когда ходят?',attend:'Кто и где ходит?',booking:'Соблюдают бронь?'},
-  ai:{adoption:'Пользуются ли AI?',who:'Кто пользуется?',usage:'Как пользуются?',what:'Что делают?'}
+  ai:{adoption:'Пользуются ли AI?',who:'Кто пользуется?',interns:'Как используют стажёры?',usage:'Как пользуются?',what:'Что делают?'}
 };
 
 /* поставка 127 (владелец 08.11: «нельзя переносить — может, мини-версии заголовков на мелком экране?»): короткие названия
@@ -10252,14 +10307,14 @@ const QS={
   tgrowth:{flow:'Растут ли',grades:'Грейды',spec:'Специализация'},
   monitor:{activity:'Активность',review:'Ревью'},
   office:{calendar:'Когда',attend:'Кто и где',booking:'Бронь'},
-  ai:{adoption:'Пользуются',who:'Кто',usage:'Как',what:'Что делают'}
+  ai:{adoption:'Пользуются',who:'Кто',interns:'Стажёры',usage:'Как',what:'Что делают'}
 };
 
 /* сравнение с базой одной фразой: «чаще / реже / на уровне» */
 function vsBase(j,c,more,less,same,noYoy){
   /* 30.10, критики: «Конверсия на уровне базы» при пустом значении — за месяц нет событий, так и пишем */
   if(j.v==null)return 'Нет данных — не с чем сравнить';
-  if(j.thin||j.small||j.self&&!j.kpi)return plainHead(j,c,more,less);
+  if(j.thin||j.small||j.low||j.self&&!j.kpi)return plainHead(j,c,more,less);
   /* поставка 136, п. 10: одно сравнение — либо год (изменение от 10%), либо ориентир; хвоста «…, но реже, чем год
      назад» больше нет */
   if(j.yoy)return (j.v>j.py?more:less)+', чем год назад';
@@ -10270,7 +10325,7 @@ function vsBase(j,c,more,less,same,noYoy){
 }
 /* значение за период и база; пустое — «нет данных», а не «— при базе 37,5%» */
 /* поставка 117: «при базе X» — база с расшифровкой; без базы — «при X во всей компании»; у цели — «при цели X» */
-const valAt=(k,j,c)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.yoy?' (год назад за тот же период — '+f(k,j.py)+')':j.base!=null&&!j.small&&!j.thin&&!j.self?(j.kpi?' при цели '+f(k,j.base)
+const valAt=(k,j,c)=>j.v==null?'нет данных':'**'+f(k,j.v)+'**'+(j.yoy?' (год назад за тот же период — '+f(k,j.py)+')':j.base!=null&&!j.small&&!j.low&&!j.thin&&!j.self?(j.kpi?' при цели '+f(k,j.base)
   :j.peer?' при {{База|базе}} '+f(k,j.base):' при '+f(k,j.base)+(c?' во '+D.coName(c.S,'prep'):' во всей компании')):'');
 const CH={};
 
@@ -10294,7 +10349,7 @@ CH.turnover={
     if(!y)return {sum:'уходов не было',st:'good',head:'Никто не ушёл'};
     /* 15.10: «прогноз годовой текучести» снят (нет в каталоге HQ/УС) — темп
        ухода судим по накопительной текучести, как «Текучесть YoY KPI» */
-    const fc=judge('turnover_y',c), tm=judge('turnover_m',c), ya=yearAgo(c.lp,'turnover_y');
+    const fc=judge('turnover_y',c), ya=yearAgo(c.lp,'turnover_y');
     const pk=spikeAt(a,3);
     /* поставка 110 (критики: у команды из 7 «Уходят чаще, чем в базе» над «Всё спокойно»): меньше 30 человек — уходы в людях,
        без сравнения с базой; база = сам юнит — с прошлым годом */
@@ -10311,7 +10366,7 @@ CH.turnover={
       lede:'Ушли **'+pl(y,PPL)+'**'+ago(c.lp,'attrition')+'. Текучесть накопительная — **'+
         f('turnover_y',fc.v)+'**'+(ya!=null?' (год назад '+f('turnover_y',ya)+')':'')+'.',
       facts:[pk>=0?'Пик — **'+mNom(pk)+'**: '+pl(a[pk],EXITS):null,
-        'Текучесть месячная, в среднем за период '+D.PER_NAME+' — '+valAt('turnover_m',tm,c),
+        /* поставка 138, п. 9: месячной текучести на вкладке оттока нет */
         ya!=null&&fc.v!=null?'Текучесть накопительная к прошлому году: **'+D.fmtDelta('turnover_y',+(fc.v-ya).toFixed(2))+'**':null],
       focus:fo.focus,act:fo.act,ann:{attrition:annFor(pk,'пик года')}};
   },
@@ -10394,11 +10449,15 @@ CH.turnover={
     const yo=r=>r.ya==null?'года назад нет':!sig(r)?'почти как год назад':(r.v>r.ya?'выше':'ниже')+', чем год назад';
     /* поставка 128 (владелец 08.11: «цели на шаге HQ»): оценка по цели закрытого месяца (D.hqLight, stateForKpi) — первой, тем же
        словом, что вывод блока и карточка «Текучесть HQ выше цели»; год к году — следом */
-    const cg=r=>r.kpi?'цель '+f(r.key,r.kpi.green)+(r.st==='bad'?' — хуже':r.st==='good'?' — лучше':''):'';
+    /* поставка 138, п. 2: у желательной текучести HQ — коридор «цель … верхний порог»; выше порога — «выше порога», не «хуже цели» */
+    /* поставка 138, п. 6: строка ниже порога численности — цель и порог без оценки */
+    const over=r=>!r.low&&r.kpi&&r.kpi.hi!=null&&r.v!=null&&r.v>r.kpi.hi;
+    const cg=r=>!r.kpi?'':r.low?'цель '+f(r.key,r.kpi.green)+(r.kpi.hi!=null?', верхний порог '+f(r.key,r.kpi.hi):'')+' — без цветовой оценки'
+      :over(r)?'верхний порог '+f(r.key,r.kpi.hi)+' — выше':'цель '+f(r.key,r.kpi.green)+(r.st==='bad'?' — хуже':r.st==='good'?' — лучше':'');
     const bad=h.rows.filter(r=>r.st==='bad'), good=h.rows.filter(r=>r.st==='good');
     const capF=x=>x.replace(/^./,y=>y.toUpperCase());
     /* поставка 131: в заголовке одна метрика — первая из тех, что хуже цели; остальные — в тексте ниже, каждая со своей оценкой */
-    const head=bad.length?capF(nm[bad[0].key]+' '+f(bad[0].key,bad[0].v)+' — хуже цели '+f(bad[0].key,bad[0].kpi.green))
+    const head=bad.length?capF(nm[bad[0].key]+' '+f(bad[0].key,bad[0].v)+(over(bad[0])?' — выше верхнего порога '+f(bad[0].key,bad[0].kpi.hi):' — хуже цели '+f(bad[0].key,bad[0].kpi.green)))
       :good.length===h.rows.length?'HQ уходит в пределах целей: текучесть '+f('turnover_y',t.v)+' при цели '+f('turnover_y',t.kpi.green)
       :up.length?capF(nm[t.key]+' '+f('turnover_y',t.v)+' — '+yo(t)):'HQ уходит так же, как год назад';
     const part=r=>'**'+f(r.key,r.v)+'** ('+[cg(r),yo(r)].filter(Boolean).join('; ')+')';
@@ -10699,24 +10758,26 @@ CH.ai={
   /* поставка 116: числа — те же, что в таблицах шага: вся численность (сотрудники и стажёры) и разбивки из сочетаний
      (D.aiCross без выбора). Без сочетаний (ноутбук до 113-б) — разрезы ноутбука без стажёров, так и сказано */
   who(c){
-    const u=D.aiUsage(c.lp), it=u.intern||{hc:0,act:0}, x0=D.aiCross(c.lp,[]);
+    /* поставка 138, п. 13: «Кто пользуется?» — сотрудники без стажёров (сочетания it|0); стажёры — своя глава */
+    const u=D.aiUsage(c.lp), x0=D.aiCross(c.lp,['it|0']);
     /* поставка 128 (аудит: строка выбрана — таблицы шага по выбранной группе, а заголовок — по всем): с выбором вывод — по выбранной
        группе, группы — из таблиц, где выбора нет (в таблице с выбором её строки — сама выбранная группа) */
-    const sl=(c.S&&c.S.aiSel)||[], xs=x0&&sl.length?D.aiCross(c.lp,sl):null, inS=!!(xs&&xs.sel);
-    const segs=inS?xs.dims.filter(d=>d.key!=='it'&&!d.rows.some(r=>r.on)):x0?x0.dims.filter(d=>d.key!=='it'):(u.segs||[]);
+    const sl=((c.S&&c.S.aiSel)||[]).filter(v=>!/^it\|/.test(v)), xs=x0&&sl.length?D.aiCross(c.lp,['it|0'].concat(sl)):null, inS=!!(xs&&sl.length);
+    /* поставка 138, п. 11: без грейдов */
+    const segs=(inS?xs.dims.filter(d=>d.key!=='it'&&!d.rows.some(r=>r.on)):x0?x0.dims.filter(d=>d.key!=='it'):(u.segs||[])).filter(d=>d.key!=='g');
     const emp=inS?{hc:xs.hc,act:xs.act}:x0?{hc:x0.hc,act:x0.act}:segs.length?segs[0].rows.reduce((a,x)=>({hc:a.hc+x.hc,act:a.act+x.act}),{hc:0,act:0}):null;
     if(inS&&!emp.hc)return {sum:'нет людей',st:'n',head:'В выбранной группе никого нет',lede:'Снимите выбор в таблицах ниже — повторный клик по строке.'};
     if(!emp||!emp.hc)return {sum:'нет данных',st:'n',head:'Данных по группам нет',lede:''};
     /* проценты — тем же форматом, что в таблицах шага («53,0%») */
     const P=v=>f('ai_penetration',v), pen=emp.act*100/emp.hc;
-    const itl=it.hc&&!inS?' Стажёров **'+D.fmtInt(it.hc)+'**, с AI — **'+D.fmtInt(it.act)+'**.':'';
+    const itl='';
     if(emp.hc<D.SMALL_N)return {sum:D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc),st:'n',
       head:(inS?'В выбранной группе AI пользуются ':'AI пользуются ')+D.fmtInt(emp.act)+' из '+pl(emp.hc,PPL),
-      lede:(inS?'Выбранная группа':x0?'Все сотрудники и стажёры.':'Без стажёров.')+(inS?' меньше ':' В команде меньше ')+D.SMALL_N+
+      lede:(inS?'Выбранная группа':'Сотрудники без стажёров.')+(inS?' меньше ':' В команде меньше ')+D.SMALL_N+
         ' человек — группы между собой не сравниваем: ниже видно, кто именно.'+itl};
     const cand=[];
     /* имя группы с разрезом: «грейд 15», «стаж до 1 года», остальные — как есть */
-    const lbl=(k,n)=>k==='g'?'грейд «'+n+'»':k==='t'?'стаж «'+n+'»':'«'+n+'»';
+    const lbl=(k,n)=>k==='t'?'стаж «'+n+'»':'«'+n+'»';
     /* специализаций в таблице — первые 10 по людям: группу, которой не видно, не называем */
     segs.forEach(sg=>(sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows).forEach(x=>{if(x.hc>=10&&!/^Не указано$/.test(x.name)&&Math.abs(x.pen-pen)>=10)cand.push(Object.assign({lb:lbl(sg.key,x.name)},x))}));
     const lag=cand.filter(x=>x.pen<pen).sort((a,b)=>(a.pen-pen)*Math.sqrt(a.hc)-(b.pen-pen)*Math.sqrt(b.hc))[0],
@@ -10727,8 +10788,18 @@ CH.ai={
       head:lag?pre+(inS?'реже':'Реже')+' всего AI пользуются '+lag.lb+': '+P(lag.pen)+' при '+P(pen)+inW
         :lead?pre+(inS?'чаще':'Чаще')+' всего AI пользуются '+lead.lb+': '+P(lead.pen)+' при '+P(pen)+inW
         :(inS?'В выбранной группе во всех заметных':'Во всех заметных')+' группах AI пользуются примерно одинаково — около '+P(pen),
-      lede:(inS?'Выбранная группа — **':x0?'Все сотрудники и стажёры — **':'В целом без стажёров — **')+P(pen)+'** ('+D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc)+').'+
+      lede:(inS?'Выбранная группа — **':'Сотрудники без стажёров — **')+P(pen)+'** ('+D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc)+').'+
         (lead?' Чаще всего — '+say(lead)+'.':'')+(lag?' Реже всего — '+say(lag)+'.':'')+itl};
+  },
+  /* поставка 138, п. 13: стажёры — своя глава: доля с AI у стажёров (признак витрины); меньше 3 — в людях */
+  interns(c){
+    const it=D.aiUsage(c.lp).intern||{hc:0,act:0};
+    if(!it.hc)return {sum:'стажёров нет',st:'n',head:'Стажёров в подразделении нет',lede:''};
+    const P=v=>f('ai_penetration',v), pen=it.act*100/it.hc, few=it.hc<D.SMALL_N;
+    return {sum:few?D.fmtInt(it.act)+' из '+D.fmtInt(it.hc):P(pen),st:'n',
+      head:few?'AI пользуются '+D.fmtInt(it.act)+' из '+pl(it.hc,['стажёра','стажёров','стажёров']):'AI пользуются '+P(pen)+' стажёров',
+      lede:'Стажёров **'+D.fmtInt(it.hc)+'**, активных пользователей AI среди них — **'+D.fmtInt(it.act)+'**.'+
+        (few?' Стажёров меньше '+D.SMALL_N+' — долю не сравниваем.':'')};
   },
   usage(c){
     const u=D.aiUsage(c.lp), t=u.tools[0];
@@ -10890,6 +10961,7 @@ const GL={
   'Водопад':{text:'График-лестница: от численности на конец первого месяца окна прибавляем пришедших, вычитаем ушедших — и получаем численность сейчас.'},
   'Текучесть':{text:'Какая доля команды уволилась за месяц.\n• Считаем: отток ÷ средняя численность × 100%\n'+
     '• Учитывает размер команды, поэтому её можно сравнивать с другими командами и с базой'},
+  'Текучесть накопительная':{metric:'turnover_y'},
   'Средняя численность':{text:'Среднее между активной численностью на конец прошлого и этого месяца. На неё делим отток, когда считаем текучесть.'},
   'Активная численность':{metric:'hc_active'},
   'База':{text:D.BASE_DEF},
@@ -10946,7 +11018,8 @@ const WHY={
     dynamics:['По месяцам видно, какой поток и когда двигал численность.',
       'Месяц, где отток выше найма, — сверьте с причинами ухода в «Отток и текучесть».']},
   turnover:{
-    dynamics:['{{Текучесть}} — темп ухода с поправкой на размер команды. Её и сравнивают с {{База|базой}}.',
+    /* поставка 138, п. 9: на вкладке — только накопительная текучесть (месячная — на One Pager) */
+    dynamics:['{{Текучесть накопительная}} — доля команды, ушедшая с 1 января: темп ухода с поправкой на размер команды. Её и сравнивают с {{База|базой}}.',
       'Всплеск в одном месяце — разберите уходы этого месяца: кто ушёл и почему. Текучесть выше, чем год назад, — повод поговорить с руководителями.'],
     reasons:['Причины показывают, на что можно повлиять: у каждой — сколько уходов {{Нежелательный уход|нежелательные}}.',
       'Начните с причины, где больше всего нежелательных уходов: оплата, рост или руководитель.'],
@@ -10993,9 +11066,11 @@ const WHY={
     adoption:['{{Проникновение AI|Проникновение}} — какая доля людей пользуется AI каждую неделю, {{WAU}} — сколько это человек.',
       'Отстающие подразделения — кандидаты на обучение и пилоты.'],
     /* поставка 128 (аудит: «клик по строке» там, где строки не кликаются — без сочетаний, например у всей компании) */
-    who:c=>['Кто пользуется AI: сверху — доля с AI у всей численности и отдельно у стажёров; ниже — по группам.'+
+    who:c=>['Кто пользуется AI среди сотрудников без стажёров: сверху — общая доля, ниже — по группам.'+
         (c&&c.lp&&D.aiCross(c.lp,[])?' Клик по строке — остальные таблицы только по этой группе.':''),
-      'Группа заметно отстаёт — спросите, что мешает: доступ, задачи, обучение. Стажёры отстают — добавьте AI в онбординг.'],
+      'Группа заметно отстаёт — спросите, что мешает: доступ, задачи, обучение.'],
+    interns:['Как используют AI стажёры: доля с AI, группы, частота и инструменты — только стажёры.',
+      'Стажёры отстают — добавьте AI в онбординг.'],
     usage:['Как часто и чем пользуются AI: дни в неделю, инструментов на человека, топ инструментов и инструменты по покраске.',
       'Пользуются редко — покажите команде задачи, где AI экономит время.'],
     what:['Что делают в AI: сколько сообщений инструментам разработчика классифицировано и по каким задачам.',
@@ -11031,7 +11106,7 @@ function book(bk,subTabs,cur,c,demo){
      называют то, о чём эти выводы (c.cards) */
   const I=window.TPINSIGHTS, map=CH_CARDS[bk];
   let cs=null;
-  if(map&&c&&c.S&&c.lp&&I&&I.cards&&!demo){try{cs=I.cards(c.S,c.lp,c.bl||D.benchmarkLeaves(c.S),true).filter(x=>x.block===bk)}catch(e){cs=null}}
+  if(map&&c&&c.S&&c.lp&&I&&I.cards&&!demo){try{cs=I.cards(c.S,c.lp,c.bl||D.benchmarkLeaves(c.S),true,(I.TAB_SKIP||{})[bk]).filter(x=>x.block===bk)}catch(e){cs=null}}
   const cx=cs?Object.assign({},c,{cards:cs}):c;
   const chapters=subTabs.map(([key,name])=>{
     let s={};
@@ -11058,7 +11133,7 @@ function book(bk,subTabs,cur,c,demo){
    в людях у малых групп; vac — открытые вакансии к году). Вне списка — выводы «где» и тренды: глава о них не говорит */
 const kk=(re,kinds)=>x=>re.test(x.key)&&kinds.test(x.fact.kind);
 const CH_CARDS={
-  turnover:{dynamics:x=>kk(/^(turnover_y|attrition)$/,/^(yoy|ppl)$/)(x)||kk(/^turnover_[my]$/,/^trend$/)(x),
+  turnover:{dynamics:x=>kk(/^(turnover_y|attrition)$/,/^(yoy|ppl)$/)(x)||kk(/^turnover_y$/,/^trend$/)(x),
     reasons:kk(/^(regret|nonregret)$/,/^(yoy|ppl|trend)$/)},
   hiring:{vacancies:x=>kk(/^time_to_fill$/,/^(yoy|trend)$/)(x)||x.fact.kind==='vac'},
   tgrowth:{flow:kk(/^tgrowth_(conv|deny)$/,/^(yoy|ppl|trend)$/)},
@@ -11320,7 +11395,7 @@ const DEV_LIVE={
 /* поставка 71 (параграфы «Роста» Адели): статусы роста и заявки по грейдам и специализациям пришли — без отметки */
 if(D.ROST_LIVE){DEV_LIVE.tgrowth.subs.push('grades','spec');delete DEV_LIVE.tgrowth['*']}
 /* поставка 106: «Кто» и «Как пользуется» — из недельной витрины (разрезы aix в ответе) — без отметки */
-if(D.AI_CUTS){DEV_LIVE.ai.subs.push('who','usage','what');delete DEV_LIVE.ai['*']}
+if(D.AI_CUTS){DEV_LIVE.ai.subs.push('who','interns','usage','what');delete DEV_LIVE.ai['*']}
 /* поставка 66 (посещения Адели): вкладки «Офиса», чьи данные пришли в ответе, — без отметки */
 if(D.OFF_LIVE){
   const o=DEV_LIVE.office, L=D.OFF_LIVE, rest=[];
@@ -11401,7 +11476,7 @@ function conclusion(sum,b,S){
        без разметки); у всей компании (база — она сама) — сравнение только с прошлым годом, так и пишем. «Не сдвинулась за год»
        теперь правда: заметный сдвиг к году (D.yoyMove) всегда даёт вывод */
     const rl0=D.reportLeaves(S), bl0=D.benchmarkLeaves(S);
-    const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)),
+    const vis=D.visibleMetricsOfBlock(b.key,S).filter(m=>!D.isStub(m.key)&&!((INS.TAB_SKIP||{})[b.key]||new Set()).has(m.key)),
       cmp=vis.filter(m=>(D.comparable(m.key)||D.kpiFor(m.key,S))&&D.verdictState(m.key,S,rl0,bl0)!=='neutral');
     /* поставка 128 (аудит: «Движение» — «Всё спокойно · к прошлому году без заметных сдвигов», а на главной у «Оттока» красный
        чип года, 27 против 18): у количеств (уволились, закрыто вакансий, заявки на рост) ориентира нет — на главной они «для
@@ -11482,7 +11557,8 @@ function renderBlock(S,expanded,mixOpen,view){
   /* mets — выбранные пользователем метрики блока. Отсюда и столбцы сводной
      таблицы, и KPI-карточки над ней. Графики в правой панели от набора
      не зависят: они рисуют смысл блока, а не список метрик. */
-  const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key]));
+  const SKIP=(INS.TAB_SKIP||{})[b.key];
+  const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!(ov.hide&&ov.hide[m.key])&&!(SKIP&&SKIP.has(m.key)));
   const tmets=mets.concat((ov.add||[]).map(k=>D.METRIC_BY_KEY[k]).filter(m=>m&&D.metricVisible(m.key,S)&&mets.indexOf(m)<0));
   /* поставка 99: окно периода названо в шапке вкладки — под колонкой подписаны только исключения («сейчас», «на конец …») */
   /* файл 8, п. 6: закрытые вакансии в таблице подразделений — за текущий календарный год (с 1 января по дату данных,
@@ -12222,7 +12298,6 @@ SC.blocks.movement={
    шкалой от нуля, а не два бара рядом на одной оси:
 
      1. Отток, чел          — счётный факт за месяц, бары
-     2. Текучесть месячная  — отток / среднесписочная за месяц, линия
      3. Текучесть накопительная — сумма месячных с января, линия. Обнуляется
         каждый январь, поэтому в январе она равна месячной, а к декабрю
         доходит до годового значения.
@@ -12263,7 +12338,10 @@ function hqView(ctx){
       '. По активной численности HQ: покраску и тип численности из шапки не учитываем, IT-код и штат — да.</div>'+
     /* поставка 110 (A3): HQ меньше 30 человек — линии без оценки, один уход заметно сдвигает долю */
     (h.hc<D.SMALL_N?'<div class="tbl-note">В HQ '+D.fmtInt(h.hc)+' '+U.plural(h.hc,['человек','человека','человек'])+
-      ': один уход сдвигает текучесть примерно на '+String(Math.round(1000/h.hc)/10).replace('.',',')+' п.п. Доли не оцениваем.</div>':'')+
+      ': один уход сдвигает текучесть примерно на '+String(Math.round(1000/h.hc)/10).replace('.',',')+' п.п. Доли не оцениваем.</div>'
+      /* поставка 138, п. 6: HQ от 30 человек, но ниже порога строки (100 — текучесть и желательная, 50 — нежелательная) */
+      :h.rows.some(r=>r.low)?'<div class="tbl-note">'+U.esc(D.TURN_LOW_NOTE)+' Порог численности HQ: текучесть и желательная — от '+
+        D.turnMin('turnover_y')+' человек, нежелательная — от '+D.turnMin('regret')+'.</div>':'')+
     /* 27.10-в, п. 6: у HQ текучести незакрытый месяц тоже вызревает — пунктиром, как у желательной и нежелательной */
     G.chart('panels',{panels:h.rows.map(r=>({name:r.label+', %',key:r.key,cur:r.yoy.cur,prev:r.yoy.prev,color:color[r.key],mature:true,
       /* поставка 128 (владелец 08.11: «цели на шаге HQ»): цель — коридором по оси года, как на графиках KPI, и значением в строке
@@ -12271,12 +12349,14 @@ function hqView(ctx){
       kpi:r.kpi,
       /* поставка 128 (аудит: «доли не оцениваем», а чип текучести HQ красный — цвет брался по численности всего подразделения):
          в HQ меньше 30 человек — чип изменения без цвета, как и написано выше */
-      period:Object.assign({},D.periodTotal(h.lp,r.key,r.yoy)||{},h.hc<D.SMALL_N?{good:null}:{},
-        r.kpi?{ref:'цель '+D.fmtVal(r.key,r.kpi.green)+(r.st==='bad'?' — хуже':r.st==='good'?' — лучше':'')}:{})}))},
+      period:Object.assign({},D.periodTotal(h.lp,r.key,r.yoy)||{},h.hc<D.SMALL_N||r.low?{good:null}:{},
+        r.kpi?{ref:'цель '+D.fmtVal(r.key,r.kpi.green)+(r.kpi.hi!=null?', верхний порог '+D.fmtVal(r.key,r.kpi.hi):'')+
+          (r.st==='bad'?(r.kpi.hi!=null&&r.v>r.kpi.hi?' — выше порога':' — хуже'):r.st==='good'?' — лучше':'')}:{})}))},
       {h:720,fill:true,legend:[{name:String(D.YEAR_CUR)},{name:String(D.YEAR_PREV)}]})+
     (h.rows.some(r=>r.kpi)?'<div class="tbl-note">Цели — годовые, как в отчёте HQ: текучесть HQ — '+
       D.fmtVal('turnover_y',(h.rows[0].kpi||{annual:{}}).annual.green)+' за год, нежелательная — не выше '+
       D.fmtVal('regret',(h.rows[2].kpi||{annual:{}}).annual.green)+', желательная — не ниже '+D.fmtVal('nonregret',(h.rows[1].kpi||{annual:{}}).annual.green)+
+      ((h.rows[1].kpi||{annual:{}}).annual.hi!=null?' и не выше '+D.fmtVal('nonregret',h.rows[1].kpi.annual.hi):'')+
       '. На дату данных — их доля: годовая × прошедшая часть года; на графиках — пунктиром.</div>':'');
 }
 
@@ -12291,14 +12371,11 @@ function initChart(ctx){
   const c=xs.find(x=>x.key===ctx.S.exitIni)||xs.slice().sort((a,b)=>b.n-a.n)[0];
   /* 06.11, заказчик: заголовок — внутри графика, в одной строке с легендой, как у всех графиков (отдельной HTML-строкой
      он оставлял под собой пустую строку легенды — большой отступ до «В среднем за месяц»); переключатель — справа над ним */
+  /* поставка 138, п. 9 (владелец: «месячную текучесть и все упоминания с вкладки оттока убрать»): помесячный график текучести
+     по инициатору снят — остаётся накопительная того же инициатора (переключатель над ней); в сумме по инициаторам — она
+     и есть «Текучесть накопительная» */
   return '<div class="ch-blk"><div class="ch-bar ch-bar-r">'+
       U.segToggle('data-exitini',xs.map(x=>[x.key,INI_SHORT[x.key]||x.name]),c.key)+'</div>'+
-    SC.metricLine('turnover_m',ctx.lp,ctx.bl,ctx.S,{yser:{cur:c.cur,prev:c.prev},noBench:true,h:280,fill:false,
-      title:'Текучесть по инициатору, %',
-      color:G.C_OUT,tipName:'Текучесть: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>'+
-    /* 27.10-в, п. 11: под ней — накопительная того же инициатора (переключатель общий): сумма месячной с января, как
-       «Текучесть накопительная»; в сумме по инициаторам — она и есть */
-    '<div class="ch-blk">'+
     SC.metricLine('turnover_y',ctx.lp,ctx.bl,ctx.S,{yser:{cur:cumY(c.cur),prev:cumY(c.prev)},noBench:true,kpi:null,h:280,
       title:'Накопительная текучесть по инициатору, %',
       fill:false,color:G.C_OUT,tipName:'Накопительная: '+c.name.charAt(0).toLowerCase()+c.name.slice(1)})+'</div>';
@@ -12372,7 +12449,7 @@ SC.blocks.turnover={
        лет и сравнивается месяц в месяц. */
     return SC.yoyPanels(lp,[
       {name:'Отток, чел',key:'attrition',color:G.C_OUT,ann:ctx.ann.attrition},
-      {name:'Текучесть месячная, %',key:'turnover_m',color:G.C_LINE},
+      /* поставка 138, п. 9 (владелец): месячной текучести на вкладке оттока нет */
       {name:'Текучесть накопительная, %',key:'turnover_y',color:G.C_TURN_Y}],{h:720,bl:ctx.bl,S:ctx.S});
   }
 };
@@ -13096,12 +13173,17 @@ function tools(ctx,k,cap,sub,items,base,rest,head){
    пользуется?» — доля с AI по сегментам без стажёров (покраска, сеньорность, грейд, стаж, специализация — ash / asu
    ноутбука), стажёры — одной строкой рядом с сотрудниками. Группа меньше 3 человек — серым: доля по 1–2 людям не сигнал */
 const SEG_SMALL=3;
+/* поставка 138, п. 10 и 12 (владелец): в таблицах справа — только «Акт. пользователи» и «Проникновение», названиями как в таблице
+   подразделений; численность группы не показываем (она остаётся знаменателем проникновения) */
+const AI_ACT='Акт. пользователи', AI_PEN='Проникновение';
+const AI_HEAD_TIP='Акт. пользователи — активные пользователи AI за неделю, человек. Проникновение — их доля в численности группы.';
+const AI_DIM_SKIP={g:1};   /* поставка 138, п. 11: детализации по грейдам нет */
 function segTable(cap,sub,rows,dim){
   /* keepZero: группа, где никто не пользуется AI (0%), — тоже ответ, а не пустая строка */
-  return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:'С AI, %',cnt:'С AI, чел',metricKey:'ai_penetration',
+  return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:AI_PEN,cnt:AI_ACT,metricKey:'ai_penetration',
     share:false,total:false,compact:true,keepZero:true,
     items:rows.map(x=>({name:x.name,value:x.pen,n:x.act,color:x.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
-      note:'из '+D.fmtInt(x.hc)+' чел'+(x.hc<SEG_SMALL?' · мало людей':''),
+      note:x.hc<SEG_SMALL?'мало людей':null,
       tip:x.hc<SEG_SMALL?'В группе меньше '+SEG_SMALL+' человек — долю не сравниваем.':null,
       /* поставка 113-б: кросс-фильтр — строка выбирается, выбор складывается */
       on:!!x.on,attr:dim?'data-aisel="'+esc(dim+'|'+x.key)+'"':null,attrTip:'Клик — остальные таблицы только по «'+x.name+'».'}))});
@@ -13111,40 +13193,51 @@ function segTable(cap,sub,rows,dim){
    численность (сотрудники и стажёры) и строкой стажёры: видно, выше они общего процента или ниже. Строка стажёров — кросс-
    фильтр, как раньше (клик — разбивки только по стажёрам). Ниже — разбивки без подписи «все люди»: уточнение «по выбранной
    группе» — только при выборе; неделя — один раз в подписи верхней таблицы. Таблицы «Сотрудники и стажёры» больше нет */
+/* поставка 138, п. 13 (владелец: «на одной вкладке смешаны стажёры и остальные»): «Кто пользуется?» — только сотрудники без
+   стажёров (признак стажёра витрины, is_intern_flg: сочетания it|0); стажёры — на своей вкладке «Как используют стажёры?» */
+const EMP=['it|0'], INT=['it|1'];
+const selOf=S=>(S.aiSel||[]).filter(v=>!/^it\|/.test(v));
 function who(ctx,u){
-  const S=ctx.S, it=u.intern||{hc:0,act:0}, sel=S.aiSel||[], x=D.aiCross(ctx.lp,sel), x0=sel.length?D.aiCross(ctx.lp,[]):x;
+  const S=ctx.S, sel=selOf(S), x=D.aiCross(ctx.lp,EMP.concat(sel)), x0=sel.length?D.aiCross(ctx.lp,EMP):x;
   const pc=(a,h)=>h?Math.round(a*1000/h)/10:0;
-  /* вся численность: из сочетаний (без выбора), без них — сотрудники по первому разрезу + стажёры */
+  /* без сочетаний — разрезы ноутбука, они и так без стажёров */
   const sg=(u.segs||[])[0], emp=sg?sg.rows.reduce((t,r)=>({hc:t.hc+r.hc,act:t.act+r.act}),{hc:0,act:0}):{hc:0,act:0};
-  const all=x0?{hc:x0.hc,act:x0.act}:{hc:emp.hc+it.hc,act:emp.act+it.act};
-  const itOn=sel.indexOf('it|1')>=0;
-  const rows=[{name:'Все сотрудники и стажёры',value:pc(all.act,all.hc),n:all.act,color:G.C_AI,note:'из '+D.fmtInt(all.hc)+' чел'}]
-    .concat(it.hc?[{name:'Стажёры',value:pc(it.act,it.hc),n:it.act,color:it.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
-      note:'из '+D.fmtInt(it.hc)+' чел'+(it.hc<SEG_SMALL?' · мало людей':''),
-      tip:it.hc<SEG_SMALL?'Стажёров меньше '+SEG_SMALL+' — долю не сравниваем.':null,
-      on:itOn,attr:x?'data-aisel="it|1"':null,attrTip:'Клик — разбивки ниже только по стажёрам.'}]:[]);
-  const head=U.btGroup({cap:'Пользуются AI',capSub:(it.hc?'':'стажёров нет · ')+wk(u).replace(/^ · /,''),head:'',
-    valueHead:'С AI, %',cnt:'С AI, чел',metricKey:'ai_penetration',share:false,total:false,compact:true,keepZero:true,items:rows});
+  const all=x0?{hc:x0.hc,act:x0.act}:emp;
+  const head=U.btGroup({cap:'Пользуются AI',capSub:'сотрудники без стажёров'+wk(u),head:'',
+    valueHead:AI_PEN,cnt:AI_ACT,metricKey:'ai_penetration',share:false,total:false,compact:true,keepZero:true,
+    items:[{name:'Сотрудники без стажёров',value:pc(all.act,all.hc),n:all.act,color:G.C_AI}]});
+  const note='<div class="tbl-note">Все таблицы — сотрудники без стажёров, неделя '+esc((u.week||'').replace(/^неделя /,''))+
+    '; стажёры — на вкладке «Как используют стажёры?». Сеньорность, стаж и специализация — на последний месяц отчёта. '+
+    'Группы меньше '+SEG_SMALL+' человек — серым.</div>';
   if(!x){
-    /* сочетаний нет (ноутбук до 113-б или подразделение ниже выбранного) — разрезы без кросс-фильтра (без стажёров) */
-    const segs=u.segs||[];
-    /* поставка 128 (аудит: у всей компании под таблицами не было пояснения, что в них): то же пояснение, без клика — строки здесь
-       не выбираются */
-    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров',sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'')+
-      /* поставка 131: сноска короче — три коротких факта */
-      (segs.length?'<div class="tbl-note">Первая строка — сотрудники и стажёры за неделю; разбивки ниже — без стажёров. '+
-        'Сеньорность, грейд, стаж и специализация — на последний месяц отчёта. Группы меньше '+SEG_SMALL+' человек — серым.</div>':'');
+    const segs=(u.segs||[]).filter(sg=>!AI_DIM_SKIP[sg.key]);
+    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'',sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'')+
+      (segs.length?note:'');
   }
-  const tabs=x.dims.filter(dm=>dm.key!=='it').map(dm=>{
+  const tabs=x.dims.filter(dm=>dm.key!=='it'&&!AI_DIM_SKIP[dm.key]).map(dm=>{
     const sp=dm.key==='sp', srt=dm.rows.slice().sort((a,b)=>b.hc-a.hc);
     const rs=sp?srt.slice(0,10).concat(dm.rows.filter(r=>r.on&&srt.indexOf(r)>=10)):dm.rows;
-    return segTable(dm.cap,(x.sel?(itOn?'только стажёры':'по выбранной группе'):'')+(sp&&dm.rows.length>10?(x.sel?' · ':'')+'первые 10 из '+dm.rows.length:''),rs,dm.key);
+    return segTable(dm.cap,(sel.length?'по выбранной группе':'')+(sp&&dm.rows.length>10?(sel.length?' · ':'')+'первые 10 из '+dm.rows.length:''),rs,dm.key);
   });
-  return U.btStack([head].concat(x.sel?['<div class="tbl-note">Выбрано: <b>'+D.fmtInt(x.hc)+'</b> чел, с AI — <b>'+D.fmtInt(x.act)+
-      '</b> чел ('+P1(x.pen)+').</div>']:[]).concat(tabs))+
-    /* поставка 131: про клик — в строке подсказки над таблицами (одно место на вкладку), здесь — только о данных */
-    '<div class="tbl-note">Первая строка — сотрудники и стажёры за неделю; «Проникновение AI» на первом шаге — без стажёров. '+
-      'Сеньорность, грейд, стаж и специализация — на последний месяц отчёта. Группы меньше '+SEG_SMALL+' человек — серым.</div>';
+  return U.btStack([head].concat(sel.length?['<div class="tbl-note">Выбрано: '+AI_ACT.toLowerCase()+' — <b>'+D.fmtInt(x.act)+
+      '</b> чел, проникновение — <b>'+P1(x.pen)+'</b>.</div>']:[]).concat(tabs))+note;
+}
+/* поставка 138, п. 13: «Как используют стажёры?» — только стажёры (признак витрины): итог, разрезы, частота и инструменты */
+function interns(ctx,u){
+  const it=u.intern||{hc:0,act:0};
+  if(!it.hc)return U.empty('Стажёров нет','В выбранном подразделении за неделю'+wk(u).replace(' · неделя','')+' стажёров нет.');
+  const pc=(a,h)=>h?Math.round(a*1000/h)/10:0, x=D.aiCross(ctx.lp,INT);
+  const head=U.btGroup({cap:'Пользуются AI',capSub:'только стажёры'+wk(u),head:'',
+    valueHead:AI_PEN,cnt:AI_ACT,metricKey:'ai_penetration',share:false,total:false,compact:true,keepZero:true,
+    items:[{name:'Стажёры',value:pc(it.act,it.hc),n:it.act,color:it.hc<SEG_SMALL?G.C_BENCH:G.C_AI,note:it.hc<SEG_SMALL?'мало людей':null}]});
+  const segs=x?x.dims.filter(dm=>dm.key!=='it'&&!AI_DIM_SKIP[dm.key]&&dm.rows.length).map(dm=>{
+    const sp=dm.key==='sp', rs=sp?dm.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):dm.rows;
+    return segTable(dm.cap,sp&&dm.rows.length>10?'первые 10 из '+dm.rows.length:'',rs,null)}):[];
+  const iT=it.tools||[], fr=it.freq||[];
+  return U.btStack([head].concat(segs,fr.some(f=>f.value)?[bars('Частота использования','дней с AI в неделю · только стажёры',fr)]:[],
+      iT.length?[tools(ctx,'aitooli','Топ инструментов','% и число стажёров',iT,it.hc,it.rest||0,'% стажёров')]:[]))+
+    '<div class="tbl-note">Все таблицы — только стажёры (признак стажёра недельной витрины AI), неделя '+esc((u.week||'').replace(/^неделя /,''))+
+      '. Проникновение — активные пользователи к числу стажёров той же недели. Группы меньше '+SEG_SMALL+' человек — серым.</div>';
 }
 /* 07.11 (п. 7): «Инструменты по покраске» — последним блоком «Как пользуются?»: топ-10 инструментов строками, % и число людей
    сегмента, «Остальное» раскрывается (в нём люди сегмента с инструментами вне топ-10 — каждый один раз) */
@@ -13205,7 +13298,7 @@ SC.blocks.ai={
     {k:'hc',hide:true,name:'Численность, чел',get per(){return wkPer()},tip:'Численность последней полной недели без стажёров — знаменатель проникновения. Фильтры среза на AI не действуют.',
       val:md=>md.hc,na:'Нет недель AI у подразделения.'},
     /* поставка 137, п. 1: дата актуальности AI — своя: последняя полная неделя данных */
-    {k:'wau',name:'Активные пользователи',get per(){return wkPer()},get asof(){return AI_ASOF()},tip:'Сколько человек пользовались AI-инструментами в последнюю полную неделю.',
+    {k:'wau',name:AI_ACT,get per(){return wkPer()},get asof(){return AI_ASOF()},tip:'Акт. пользователи — активные: сколько человек пользовались AI-инструментами в последнюю полную неделю.',
       val:md=>md.wau,share:true,na:'Нет недель AI у подразделения.'},
     {k:'pen',name:'Проникновение',get per(){return wkPer()},get asof(){return AI_ASOF()},tip:'Активные пользователи к численности той же недели без стажёров.',
       val:md=>md.pen,fmt:P1,pct:true,na:'Нет недель AI у подразделения.'}
@@ -13213,16 +13306,16 @@ SC.blocks.ai={
   data(lp){return D.aiCur(D.aiWeeks(lp))},
   /* 31.10, «AI.md», п. 2: три раздела — пользуются ли, кто, как */
   /* 07.11 (AI-итерация, п. 5 и 8): четыре раздела — «Как пользуются?» (было «Как пользуется?»), сообщения — в «Что делают?» */
-  subTabs:[['adoption','Пользуются ли AI?'],['who','Кто пользуется?'],['usage','Как пользуются?'],['what','Что делают?']],
+  subTabs:[['adoption','Пользуются ли AI?'],['who','Кто пользуется?'],['interns','Как используют стажёры?'],['usage','Как пользуются?'],['what','Что делают?']],
   defaultSub:'adoption',
   /* поставка 113-б: выбор кросс-фильтра «Кто пользуется» — пилюлями в шапке карточки (как срезы «Структуры» и «Офиса») */
   shelfChips(S){
-    if(S.subTab!=='who'||!(S.aiSel||[]).length)return [];
-    const nm={it:'Тип',p:'Покраска',s:'Сеньорность',g:'Грейд',t:'Стаж',sp:'Специализация'};
-    return S.aiSel.map(v=>{const i=v.indexOf('|'), d=v.slice(0,i), c=v.slice(i+1);
+    if(S.subTab!=='who'||!selOf(S).length)return [];
+    const nm={p:'Покраска',s:'Сеньорность',t:'Стаж',sp:'Специализация'};
+    return selOf(S).map(v=>{const i=v.indexOf('|'), d=v.slice(0,i), c=v.slice(i+1);
       return {dim:nm[d]||d,cat:d==='it'?(c==='1'?'Стажёры':'Сотрудники'):c==='-'?'Не указано':c,attr:'data-aisel="'+esc(v)+'"',tip:'Клик — снять.'}});
   },
-  title(sub){return sub==='who'?'Кто пользуется AI':sub==='usage'?'Как пользуются AI: частота и инструменты'
+  title(sub){return sub==='who'?'Кто пользуется AI (без стажёров)':sub==='interns'?'Как используют AI стажёры':sub==='usage'?'Как пользуются AI: частота и инструменты'
     :sub==='what'?'Что делают в AI: сообщения и задачи'
     :'Пользуются ли AI: проникновение и активные пользователи'},
   view(ctx){
@@ -13232,6 +13325,7 @@ SC.blocks.ai={
       'или проверьте выгрузку статистики AI.');
     if(ctx.sub==='usage')return usage(ctx,D.aiUsage(ctx.lp));
     if(ctx.sub==='who')return who(ctx,D.aiUsage(ctx.lp));
+    if(ctx.sub==='interns')return interns(ctx,D.aiUsage(ctx.lp));
     if(ctx.sub==='what')return what(D.aiUsage(ctx.lp));
     return adoption(ctx);
   }
@@ -13301,7 +13395,7 @@ function about(m,S){
   let h='<p class="op-stp">'+esc(m.hint)+'</p>';
   if(fr)h+='<div class="op-math" aria-label="Как считаем"><math display="block">'+fr.ml+'</math>'+
     (fr.note?'<div class="op-frs">'+esc(fr.note[0].toUpperCase()+fr.note.slice(1))+'</div>':'')+'</div>';
-  const ref=kpi?'Ориентир: цель KPI '+D.fmtVal(m.key,kpi.green)+', порог '+D.fmtVal(m.key,kpi.red)
+  const ref=kpi?'Ориентир: цель KPI '+D.fmtVal(m.key,kpi.green)+', порог '+D.fmtVal(m.key,kpi.red)+(kpi.hi!=null?', верхний порог '+D.fmtVal(m.key,kpi.hi):'')
     /* поставка 120 (критик на 49 человек: «Ориентир: база «вся компания»» рядом с базой-медианой в колонке) */
     :D.comparable(m.key)?(D.peerOf(m.key)?'Ориентир: база — медиана подразделений похожей численности ('+D.peerOf(m.key).bandName+' человек) с теми же фильтрами'
       :D.isSelfBase()?'Ориентир: прошлый год — это вся компания, сравнивать её не с чем'
@@ -13393,7 +13487,7 @@ function normRow(S,rl,ok0,bl,more){
   /* поставка 123-б: метрики в подсказке — таблицей; у «в норме» второй столбец — с чем сравнили (цель, база, компания или
      год назад), у остальных — год назад */
   const refOf=m=>{const kpi=D.kpiAt(m.key,S,D.MONTHS[D.PER_I].m), pe=kpi?null:D.peerOf(m.key,rl), f=x=>D.fmtVal(m.key,x);
-    if(kpi)return 'цель '+f(kpi.green);
+    if(kpi)return 'цель '+f(kpi.green)+(kpi.hi!=null?'–'+f(kpi.hi):'');
     if(pe)return 'база '+f(pe.p50);
     const b=D.comparable(m.key)&&!D.isSelfBase()?(D.periodTotal(bl,m.key)||{}).v:null;
     return b!=null?D.coWord(m.key,'short')+' '+f(b):P(m).prev!=null?'год назад '+P(m).prev:'—'};
@@ -13440,19 +13534,19 @@ function render(S,openRows){
      одна короткая строка окна; оговорки (доли — по закрытый месяц, численность — на дату, с чем сравниваем) — в подсказке.
      Как отобраны выводы — значок в сводке огонька */
   const pe0=D.peerOf('turnover_y');
-  let h='<div class="page-h"><h2>'+(D.PARTIAL?'Главное на '+esc(D.ASOF_LABEL):'Главное за '+esc(D.CMP.cur))+'</h2>'+
+  /* поставка 138, п. 14 (владелец): голубого блока первого вывода нет; огонёк — в строке заголовка, перед «Главное на …» */
+  const all=I.cards(S,rl,bl,true), list=all.slice(0,I.CARD.show), more=all.slice(I.CARD.show), ok=normOf(S,rl,all);
+  I.lastSev=list.length?list[0].sev:'none';
+  let h='<div class="page-h"><h2 class="op-h">'+moodIco('point',30,'Пульс')+'<span>'+(D.PARTIAL?'Главное на '+esc(D.ASOF_LABEL):'Главное за '+esc(D.CMP.cur))+'</span></h2>'+
     '<p class="per-line">Числа с 1 января против того же периода '+D.YEAR_PREV+' <span class="info"'+U.tipAttr({title:'Какие числа на главной',
       list:['Найм, уходы и переводы — за **'+D.CNT_NAME+' '+D.YEAR_CUR+'**'+(D.CNT_ON?'; доли и средние — за **'+D.PER_NAME+'** (закрытые месяцы)':''),
         'Численность и открытые вакансии — на **'+D.ASOF_LABEL+'**',
         'Сравнение — '+(pe0?'с базой (подразделения '+pe0.bandName+' чел с теми же фильтрами), ':'')+'со всей компанией и с тем же периодом '+D.YEAR_PREV]})+
-    ' aria-label="Какие числа на главной">i</span></p></div>';
+    ' aria-label="Какие числа на главной">i</span> · как отобраны выводы '+obsInfo(S)+'</p></div>';
 
   /* 2 · сводка и карточки выводов. Поставка 131 (владелец: «не делать больше 4 выводов на юнит, это размывает фокус —
      руководитель не сидит над HR-метриками»): карточек не больше четырёх, самые тяжёлые первыми; кнопки «Ещё N» нет.
      Остальные отклонения не теряются — счётчиком в строке под карточками и цветом в таблицах блоков. */
-  const all=I.cards(S,rl,bl,true), list=all.slice(0,I.CARD.show), more=all.slice(I.CARD.show), ok=normOf(S,rl,all);
-  I.lastSev=list.length?list[0].sev:'none';
-  h+='<div class="in-lead">'+moodIco('point',46,'Пульс рассказывает')+'<div class="in-lt">'+I.lead(S,rl,list,ok.filter(m=>rated(m,S,rl,bl)).length)+' '+obsInfo(S)+'</div></div>';
   if(list.length)h+='<div class="in-grid">'+list.map(insightCard).join('')+'</div>';
   /* поставка 123: счётчики и легенда цветов — одной строкой */
   h+='<div class="in-sumrow">'+normRow(S,rl,ok,bl,more)+U.trafficLegend()+'</div>';
@@ -13557,7 +13651,8 @@ function render(S,openRows){
     h+=U.panel({body:t+'</tbody></table>'});
   });
 
-  return h+devS;
+  /* поставка 138, п. 3: переносы только между смысловыми фрагментами */
+  return U.keep('<div class="op-keep">'+h+devS+'</div>');
 }
 
 SC.onepager={render,insightCard,moodIco,MOOD_ICO};

@@ -181,7 +181,11 @@ button,select,input,textarea{font-family:inherit}
 
 /* ===== Заголовок страницы/блока ===== */
 .page-h{margin:0 0 16px}
+/* поставка 138, п. 3: One Pager — перенос только по границам слов; слово рвётся, лишь если иначе вылезет за край */
+.op-keep{word-break:normal;overflow-wrap:break-word;hyphens:manual}
 .page-h h2{font-size:19px;margin:0 0 4px;font-weight:var(--fw-bold);letter-spacing:-.3px}
+/* поставка 138, п. 14: огонёк в строке заголовка One Pager */
+.page-h h2.op-h{display:flex;align-items:center;gap:8px}.page-h h2.op-h .in-ico{flex:0 0 auto;display:inline-flex}.page-h h2.op-h .in-ico img{width:30px;height:30px}
 .page-h p{margin:0;color:var(--muted);font-size:13px;max-width:900px;line-height:1.45}
 .block-h{display:flex;align-items:baseline;gap:12px;margin:24px 0 9px;flex-wrap:wrap}
 .block-h:first-of-type{margin-top:6px}

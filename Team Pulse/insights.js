@@ -112,9 +112,10 @@ function yoyStory(key,S,rl,bl){
   const refV=kpi?kpi.green:pe?pe.p50:D.comparable(key)&&!D.isSelfBase()?(D.periodTotal(bl,key)||{}).v:null;
   const rw=kpi?'цели':pe?'базы':D.coWord(key,'gen');
   const why=D.isSmall(key)?'без оценки: в команде меньше '+D.SMALL_N+' человек — смотрим людей'
+    :D.turnLow(key,rl)?'без цветовой оценки: численность ниже '+D.turnMin(key)+' человек'
     :D.thin(key,rl)?'без оценки: мало событий':!D.monJudged(key,rl)?'без оценки: в мониторинге размечено меньше половины людей':'';
   const say=flat||P.v==null?'':V==='good'?'лучше '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':'')
-    :V==='bad'?'хуже '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':''):V==='warn'?'на уровне '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':''):why;
+    :V==='bad'?(kpi&&kpi.hi!=null&&P.v>kpi.hi?'выше верхнего порога ('+D.fmtVal(key,kpi.hi)+')':'хуже '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':'')):V==='warn'?'на уровне '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':''):why;
   /* 1. Итог за период и ориентир — как в строке */
   if(P.v!=null)out.push(Object.assign(pt?{i:b,s:'main',pin:1}:{mi:range(b+1),pin:1},
     {html:'<b>'+esc(cap(P.head||''))+' — '+f(P.v)+'</b>'+(say?': '+esc(say)+'.':'.')}));
@@ -181,6 +182,11 @@ function yoyStory(key,S,rl,bl){
     if(marks.some(z=>z.i===it.i&&z.s===it.s)){it.mi=[it.i];delete it.i;return}
     it.n=marks.length+1;it.mi=[it.i];marks.push({i:it.i,s:it.s,n:it.n});
   });
+  /* поставка 138, п. 1 (владелец: «при наведении выделяется весь график, хотя пункт не про конкретные точки»): пункт,
+     который подсвечивал бы все месяцы периода (итог за период, год назад за те же месяцы, «все месяцы не хуже …»), — общий
+     вывод: без подсветки. Подсветка остаётся у конкретного: точки с номером, пика, худшего месяца, отрезка тренда,
+     месяцев «хуже ориентира» */
+  out.forEach(it=>{if(it.n==null&&it.mi&&it.mi.length===b+1&&it.mi.every((x,k)=>x===k))delete it.mi});
   out.sort((a,c)=>(a.pin||9)-(c.pin||9)||(a.n||99)-(c.n||99));
   return {items:out,marks:marks};
 }
@@ -703,11 +709,15 @@ function cardOf(f,S,rl,bl){
 const SMALL_OK=new Set(['underwork','overwork']), SMALL_PPL=3;
 function smallReport(rl){const hc=D.lastVal(rl,'hc_total');return hc!=null&&hc<CARD.small}
 /* Все карточки по отбору: по тяжести, внутри — по людям сверх ориентира; до восьми */
-function cards(S,rl,bl,all){
+/* поставка 138, п. 9 (владелец): на вкладке оттока месячной текучести нет — ни в выводе блока, ни в главе; на One Pager она
+   остаётся. TAB_SKIP — метрики, которые вкладка блока не показывает: их факты отбрасываются ДО «одна история — одна
+   карточка», чтобы место досталось накопительной текучести */
+const TAB_SKIP={turnover:new Set(['turnover_m'])};
+function cards(S,rl,bl,all,skip){
   const sm=smallReport(rl), rank={high:0,mid:1,good:2};
   /* 30.10, критики (маленькая команда: «переработка у 7 из 17, а отчёт пишет всё спокойно»): доли недоработчиков и
      переработчиков — это люди; у маленькой команды их оцениваем, если разница — от SMALL_PPL человек */
-  const list=overview(S,rl,bl,true).map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}))
+  const list=overview(S,rl,bl,true).filter(f=>!(skip&&skip.has(f.key))).map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}))
     .filter(c=>!(sm&&D.METRIC_BY_KEY[c.key].fmt==='pct'&&c.fact.kind!=='spike'&&c.fact.kind!=='hc'&&
       !(SMALL_OK.has(c.key)&&c.sev!=='good'&&c.ppl>=SMALL_PPL)));
   list.sort((a,c)=>rank[a.sev]-rank[c.sev]||c.ppl-a.ppl||a.i-c.i);
@@ -761,7 +771,7 @@ function lead(S,rl,list,norm){
 /* Вывод блока: заголовок, до трёх фактов по номерам, «Что сделать», где это
    происходит. Нет фактов — «всё спокойно» и что проверено. */
 function blockSummary(bk,S,rl,bl){
-  const list=cards(S,rl,bl,true).filter(c=>c.block===bk||(c.fact.kind==='spike'&&bk==='movement'));
+  const list=cards(S,rl,bl,true,TAB_SKIP[bk]).filter(c=>c.block===bk||(c.fact.kind==='spike'&&bk==='movement'));
   const sev=list.length?list[0].sev:'none';
   window.TPINSIGHTS.lastSev=sev;
   if(!list.length)return {sev,list};
@@ -776,5 +786,5 @@ function blockSummary(bk,S,rl,bl){
 
 /* lastSev — тяжесть последнего отрисованного инсайта: её читает mascot.js,
    чтобы эмоция огонька совпадала с тем, что пользователь видит в плашке. */
-window.TPINSIGHTS={yoyStory,overview,cards,lead,blockSummary,smallFact,whereOf,unitsOf,excess,CARD,SEV_TAG,OBS,INS_GAP,INS_TREND,lastSev:'none'};
+window.TPINSIGHTS={TAB_SKIP,yoyStory,overview,cards,lead,blockSummary,smallFact,whereOf,unitsOf,excess,CARD,SEV_TAG,OBS,INS_GAP,INS_TREND,lastSev:'none'};
 })();

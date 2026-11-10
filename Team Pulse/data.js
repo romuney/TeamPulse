@@ -249,9 +249,9 @@ const METRICS=[
 /* файл 8, п. 2 (заказчик): у желательной текучести HQ выше — лучше (уходят те, о ком компания не сожалеет): рост к году назад
    и к базе — улучшение, цвета и слова — так же. Коридор 5–15% с «выше 15% — плохо» этому противоречит: цель — нижняя граница
    «не ниже 5% за год» (на месяц — её доля) */
-{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть HQ',short:'Желат. HQ',fmt:'pct',better:'higher',unit:'%',anchor:null,ytd:'nonregret_m',kpi:{green:5,red:5,annual:true},
-  hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Для HQ — цель не ниже 5% за год, на каждый месяц — её доля.'+HQ_ONLY,
-  calc:'Сумма месячной: желательные увольнения ÷ средняя численность × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Цель на месяц: 5% × номер месяца ÷ 12.'},
+{key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть HQ',short:'Желат. HQ',fmt:'pct',better:'higher',unit:'%',anchor:null,ytd:'nonregret_m',kpi:{green:5,red:5,annual:true,hi:15},
+  hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Для HQ — цель не ниже 5% за год, верхний порог — 15% за год, на каждый месяц — их доля.'+HQ_ONLY,
+  calc:'Сумма месячной: желательные увольнения ÷ средняя численность × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Цель на месяц: 5% × номер месяца ÷ 12, верхний порог — 15% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
@@ -351,7 +351,7 @@ if(HQR){
   const T=' Всегда по активной численности HQ: фильтры покраски и типа численности на неё не действуют.';
   const set=(k,h)=>{const m=METRICS.find(x=>x.key===k);m.hint=h+T;m.calc=m.calc.replace('средняя численность','средняя численность HQ')};
   set('regret','Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год, на каждый месяц — её доля, как в отчёте HQ.');
-  set('nonregret','Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Цель — не ниже 5% за год, на каждый месяц — её доля.');
+  set('nonregret','Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Цель — не ниже 5% за год, верхний порог — 15% за год, на каждый месяц — их доля.');
 }
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
 /* Служебные производные ряды: метрикой отчёта не являются, но считаются тем же
@@ -1378,15 +1378,29 @@ function blockSignal(bk,st){
      · база совпадает с самим отчётом (selfBase: юнит = вся компания под теми же фильтрами) — сравнения «с базой» нет,
        ориентир — цель или прошлый год. */
 const VERDICT_GAP=0.10, SMALL_N=30;
-let SMALL_REP=false, SELF_BASE=false, SMALL_HQ=false;
+let SMALL_REP=false, SELF_BASE=false, SMALL_HQ=false, REP_HC=null, HQ_HC=null;
+/* поставка 138, п. 6 (владелец: «светофор текучести — только при достаточной выборке»): цветовая оценка текучести — от
+   минимальной численности группы, включительно: общая и желательная — от 100 человек, нежелательная — от 50. Численность —
+   той же группы и под теми же фильтрами, что сама метрика: у метрик HQ — численность HQ (их знаменатель), у остальных — отчёта
+   или подразделения строки, на дату данных. Численности нет — оценки нет. Ниже порога значение показываем без цвета */
+const TURN_MIN={turnover_m:100,turnover_y:100,turnover_hq_y:100,nonregret:100,nonregret_m:100,regret:50,regret_m:50};
+const TURN_LOW_NOTE='Цветовая оценка не применяется: численность выборки ниже минимального порога.';
+function turnMin(key){return TURN_MIN[key]||0}
+function turnLow(key,lp){
+  const n=TURN_MIN[key];if(!n)return false;
+  const hq=!!(METRIC_BY_KEY[key]||{}).hqOnly;
+  let hc=lp&&lp.length?lastVal(lp,hq&&HQN?'hc_hq':'hc_total'):hq?HQ_HC:REP_HC;
+  if(hq&&lp&&lp.length&&!HQN)hc=HQ_HC;
+  return hc==null||!isFinite(hc)||Math.round(hc)<n;
+}
 function setVerdictScope(st){
   const rl=reportLeaves(st), hc=rl.length?lastVal(rl,'hc_total'):null;
-  SMALL_REP=hc!=null&&hc<SMALL_N;
+  SMALL_REP=hc!=null&&hc<SMALL_N;REP_HC=hc;
   /* поставка 113: группа размера — по численности на закрытый месяц (как у датасета) */
   PEER_BAND=bandOf(rl);
   try{AI_BAND=REAL?aiBandOf(rl):0}catch(e){AI_BAND=0}
   /* A3: доли HQ (текучесть HQ, желательная, нежелательная) — порог по численности HQ, их знаменателю */
-  try{const h=hqLight(st,null,null);SMALL_HQ=!!h&&h.hc<SMALL_N}catch(e){SMALL_HQ=false}
+  try{const h=hqLight(st,null,null);SMALL_HQ=!!h&&h.hc<SMALL_N;HQ_HC=h?h.hc:REP_HC}catch(e){SMALL_HQ=false;HQ_HC=REP_HC}
   /* база — вся компания под теми же фильтрами (benchmarkLeaves): совпадает с отчётом, когда выбран корень 'T' */
   /* в пробнике корень — не 'T': база — строка BASE ответа; совпадает с отчётом, когда численность и найм те же */
   const bl=benchmarkLeaves(st), same=k=>{const a=lastVal(rl,k), b=lastVal(bl,k);return a!=null&&a===b};
@@ -1443,7 +1457,7 @@ function peerPpl(key,lp){
 }
 function peerState(key,v,p,lp){
   const m=METRIC_BY_KEY[key]||{};
-  if(v==null||!p||isSmall(key)||!monJudged(key,lp))return'neutral';
+  if(v==null||!p||isSmall(key)||turnLow(key,lp)||!monJudged(key,lp))return'neutral';
   if(Math.abs(v-p.p50)<VERDICT_GAP*Math.abs(p.p50||1))return'warn';
   /* поставка 120 (критик на 49 человек: «хуже базы» решало округление — 22,30 против границы четверти 22,29): четверти в
      датасете округлены до сотых — значение на границе (±0,011) считаем «на уровне» */
@@ -1485,8 +1499,8 @@ function compareState(key,val,base){
   if(isStub(key))return'neutral';
   if(!comparable(key))return'neutral';
   if(m.better==='flat')return'neutral';
-  /* поставка 110: отчёт меньше SMALL_N человек — доли и сроки без оценки */
-  if(isSmall(key))return'neutral';
+  /* поставка 110: отчёт меньше SMALL_N человек — доли и сроки без оценки; поставка 138, п. 6: текучесть — от своего порога */
+  if(isSmall(key)||turnLow(key))return'neutral';
   const rel=(val-base)/Math.abs(base);
   if(Math.abs(rel)<VERDICT_GAP)return'warn';
   const good=m.better==='lower'?rel<0:rel>0;
@@ -1495,8 +1509,10 @@ function compareState(key,val,base){
 function stateForKpi(key,val,kpi){
   const m=METRIC_BY_KEY[key];if(!kpi||val==null)return'neutral';
   if(isStub(key))return'neutral';
-  if(isSmall(key))return'neutral';
+  if(isSmall(key)||turnLow(key))return'neutral';
   if(m.better==='lower')return val<=kpi.green?'good':(val>=kpi.red?'bad':'warn');
+  /* поставка 138, п. 2: выше верхнего порога — коридор пройден, оценка «хуже» */
+  if(kpi.hi!=null&&val>kpi.hi)return'bad';
   return val>=kpi.green?'good':(val<=kpi.red?'bad':'warn');
 }
 /* поставка 120 (критики-руководители 119: «−0,2 п.п.» зелёным, «+1 к августу» красным, «+44,5 п.п.» у HQ из одного
@@ -1508,7 +1524,7 @@ function deltaState(key,cur,prev,lp){
   const m=METRIC_BY_KEY[key];
   if(!m||cur==null||prev==null||!isFinite(cur)||!isFinite(prev)||m.better==='flat'||isStub(key))return 'neutral';
   const cnt=m.fmt==='int', hc=lp&&lp.length?lastVal(lp,'hc_total'):null, small=hc!=null?hc<SMALL_N:SMALL_REP;
-  if(!cnt&&(small||isSmall(key)||!!lp&&thin(key,lp)))return 'neutral';
+  if(!cnt&&(small||isSmall(key)||turnLow(key,lp)||!!lp&&thin(key,lp)))return 'neutral';
   const d=cur-prev;
   if(cnt&&Math.abs(Math.round(cur)-Math.round(prev))<(small?3:2))return 'neutral';
   if(prev?Math.abs(d)/Math.abs(prev)<VERDICT_GAP-1e-9:!d)return 'neutral';
@@ -1565,7 +1581,10 @@ function kpiAt(key,st,mm){
   if(!k.annual)return k;
   /* поставка 137: у незакрытого месяца доля годовой цели — по дату данных (месяц пропорционально дням) */
   const f=(PARTIAL&&mm===ASOF.m?mm+CNT_FRAC:mm+1)/12;
-  return {green:+(k.green*f).toFixed(2),red:+(k.red*f).toFixed(2),annual:{green:k.green,red:k.red}};
+  /* поставка 138, п. 2: верхний порог (hi) — у желательной текучести HQ 15% за год, доля на дату данных так же */
+  const o={green:+(k.green*f).toFixed(2),red:+(k.red*f).toFixed(2),annual:{green:k.green,red:k.red}};
+  if(k.hi!=null){o.hi=+(k.hi*f).toFixed(2);o.annual.hi=k.hi}
+  return o;
 }
 
 /* ---------- «Как уходит HQ?» (26.10, правки) ----------
@@ -1595,6 +1614,7 @@ function hqLeaves(st,lpSel,sel){
 }
 /* оценка доли HQ по цели — как stateForKpi, но без «мало людей» отчёта: численность здесь — HQ, её проверяет hqLight */
 function hqKpiState(key,v,kpi){const m=METRIC_BY_KEY[key];
+  if(m.better!=='lower'&&kpi.hi!=null&&v>kpi.hi)return'bad';
   return m.better==='lower'?(v<=kpi.green?'good':v>=kpi.red?'bad':'warn'):(v>=kpi.green?'good':v<=kpi.red?'bad':'warn')}
 function hqLight(st,lpSel,sel){
   const lp=hqLeaves(st,lpSel,sel), node=HQN&&!!lpSel, sk=k=>node&&HQ_SER[k]||k;
@@ -1614,7 +1634,9 @@ function hqLight(st,lpSel,sel){
     /* владелец 08.11: цели компании по HQ показываем всегда; при HQ меньше 30 человек — без оценки по ним (один уход сдвигает долю) */
     const kpi=kpiAt(x.key,sh,mon.m);
     return Object.assign({},x,{ser:ser,v:v,mom:d(e[i],e[i-1]),yoyD:d(e[i],e[i-12]),ya:e[i-12],kpi:kpi,
-      st:kpi&&v!=null&&hc>=SMALL_N?(sm=>sm==='good'||sm==='bad'?sm:'neutral')(hqKpiState(x.key,v,kpi)):'neutral',yoy:yoySeries(lp,sk(x.key))});
+      /* поставка 138, п. 6: цвет — от минимальной численности HQ своей строки (100 / 100 / 50) */
+      low:hc<Math.max(SMALL_N,TURN_MIN[x.key]||0),
+      st:kpi&&v!=null&&hc>=Math.max(SMALL_N,TURN_MIN[x.key]||0)?(sm=>sm==='good'||sm==='bad'?sm:'neutral')(hqKpiState(x.key,v,kpi)):'neutral',yoy:yoySeries(lp,sk(x.key))});
   });
   if(!REAL)setHcMode(m0);
   return {lp:lp,hc:hc,rows:rows,st:sh,month:mon};
@@ -3670,7 +3692,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,passRoot,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,BASE_DEF,baseLead,baseBounds,coName,
   metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,deltaState,kpiFor,comparable,
-  setVerdictScope,isSmall,isSmallHq,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
+  setVerdictScope,isSmall,isSmallHq,turnLow,turnMin,TURN_MIN,TURN_LOW_NOTE,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,

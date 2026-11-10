@@ -431,7 +431,7 @@ function kpiRoom(key,kpi){
   if(!kpi)return 0;
   const a=kpi.annual||kpi, suf=kpi.annual?' за год':'';
   return Math.ceil(Math.max(textW('порог '+CD.fmtVal(key,a.red)+suf,10.5),
-    textW('цель '+CD.fmtVal(key,a.green)+suf,10.5)))+12;
+    textW('цель '+CD.fmtVal(key,a.green)+suf,10.5),a.hi!=null?textW('верхний порог '+CD.fmtVal(key,a.hi)+suf,10.5):0))+12;
 }
 /* 21.10, поставка 50: годовая цель прод-отчёта HQ (kpi.annual) — коридор по оси года: в месяце i
    цель — годовая × (i + 1) / 12, к декабрю — годовая; подпись справа — годовая «за год». Цель и
@@ -440,6 +440,8 @@ function kpiSlope(key,kpi,xL,xR,Y){
   const a=kpi.annual, bw=(xR-xL)/12, X=i=>xL+bw*(i+0.5);
   const pts=v=>Array.from({length:12},(_,i)=>X(i).toFixed(1)+','+Y(v*(i+1)/12).toFixed(1)).join(' ');
   const rows=a.green===a.red?[['green',C_RED,'цель ']]:[['green',C_GREEN,'цель '],['red',C_RED,'порог ']];
+  /* поставка 138, п. 2: верхний порог коридора (желательная текучесть HQ — 15% за год) — третьей линией */
+  if(a.hi!=null)rows.push(['hi',C_RED,'верхний порог ']);
   const ty=rows.map(([k])=>Y(a[k]));
   if(ty.length===2&&Math.abs(ty[0]-ty[1])<13){const m=(ty[0]+ty[1])/2, up=ty[0]<=ty[1]?-1:1;ty[0]=m+up*6.5;ty[1]=m-up*6.5}
   let s='';
@@ -602,7 +604,7 @@ function yoyPlot(p,ar){
   const showMain=!off.has('main'), showPrev=!off.has('prev'), showBench=!!bench&&!off.has('bench');
   const nowI=CD.CUR_LEN-1, ya=p.ann||null, marks=p.marks||[];
   const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
-  if(p.kpi){const a=p.kpi.annual||p.kpi;all.push(a.green);all.push(a.red)}
+  if(p.kpi){const a=p.kpi.annual||p.kpi;all.push(a.green);all.push(a.red);if(a.hi!=null)all.push(a.hi)}
   const max=niceMax(all);
   const Y=v=>bot-(v/max)*(bot-top), X=i=>x0+bandW*(i+0.5);
   const big=(i,s)=>!!(ya&&ya.hi&&ya.hi.some(z=>z.i===i&&z.s===s));
@@ -965,12 +967,16 @@ function kpiAtI(kpi,i){
   return kpi.annual&&mm!=null?+(kpi.annual.green*(mm+1)/12).toFixed(2):kpi.green;
 }
 function cmpRow(key,i,base,kpi,name){
-  if(kpi)return [{label:'цель KPI',value:CD.fmtVal(key,kpiAtI(kpi,i)),color:C_BENCH,dash:true}];
+  if(kpi){const mm=(CD.MONTHS[i]||{}).m, hi=kpi.annual&&kpi.annual.hi!=null&&mm!=null?+(kpi.annual.hi*(mm+1)/12).toFixed(2):kpi.hi;
+    return [{label:'цель KPI',value:CD.fmtVal(key,kpiAtI(kpi,i)),color:C_BENCH,dash:true}]
+      .concat(hi!=null?[{label:'верхний порог',value:CD.fmtVal(key,hi),color:C_BENCH,dash:true}]:[])}
   return base?[{label:name||'вся компания',value:CD.fmtVal(key,base[i]),color:C_BENCH,dash:true}]:[];
 }
 /* Оценка месяца: есть KPI — только против него (в месяце i — его доля годовой), базы здесь уже нет. */
 function cmpState(key,v,i,base,kpi,flat,state){
-  if(kpi)return CD.stateForKpi(key,v,kpi.annual?{green:kpiAtI(kpi,i),red:+(kpi.annual.red*(((CD.MONTHS[i]||{}).m||0)+1)/12).toFixed(2)}:kpi);
+  if(kpi){const fr=(((CD.MONTHS[i]||{}).m||0)+1)/12;
+    return CD.stateForKpi(key,v,kpi.annual?Object.assign({green:kpiAtI(kpi,i),red:+(kpi.annual.red*fr).toFixed(2)},
+      kpi.annual.hi!=null?{hi:+(kpi.annual.hi*fr).toFixed(2)}:{}):kpi)}
   return (flat||!base||!key)?state:CD.compareState(key,v,base[i]);
 }
 

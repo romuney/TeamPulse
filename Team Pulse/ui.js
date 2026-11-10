@@ -16,6 +16,16 @@
 const D=window.TPDATA, G=window.TPDRAW;
 
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+/* поставка 138, п. 3 (владелец: «в выводах One Pager название подразделения или число рвётся между строками»): в тексте
+   разметки (между тегами, атрибуты не трогаем) число не отрывается от единицы, знака процента и «п.п.», тонкий пробел внутри
+   числа и перед единицей — неразрывный (U+202F); название в «…» до 32 знаков — одним фрагментом (неразрывные пробелы),
+   длиннее — переносится по границам слов. Обрезки нет */
+const KEEP_U=/(\d)[ \u2009\u00a0](?=(?:%|п\.\s?п\.|чел(?:овека?)?\.?|дн(?:я|ей)?\.?|день|мес(?:яца?|яцев)?\.?|шт\.?|раза?|года?|лет)(?![а-яё]))/gi;
+function keepText(t){
+  return t.replace(/(\d)\u2009(?=[\d+\u2212-]?\S)/g,'$1\u202f').replace(KEEP_U,(m,d)=>d+'\u202f')
+    .replace(/«([^«»]{1,32})»/g,(m,n)=>'«'+n.replace(/ /g,'\u00a0')+'»');
+}
+function keep(html){return String(html).replace(/>([^<]+)</g,(m,t)=>'>'+keepText(t)+'<')}
 
 /* Русское склонение по числу: «1 специализация», «2 специализации»,
    «5 специализаций». Отдельной функцией, потому что подписей вида «N чего-то»
@@ -471,12 +481,13 @@ function barTable(o){
   /* поставка 116: в плотной таблице название шире (46%) — «По инициативе работодателя» не обрезается; с колонкой людей:
      длинный заголовок («С AI, чел») — 16%, название 40%; короткий («Чел») — 13% (пятизначное число на бою), название 44%;
      доля — 15% («Доля, %» в строку); «Распределение» — в строку */
-  const cw=cnt&&cnt.length>4?16:13;
+  /* поставка 138, п. 10: «Акт. пользователи» и «Проникновение» (AI) — колонки шире, заголовки целиком: 32 / 22 / 18% */
+  const cwL=!!cnt&&cnt.length>12, cw=cwL?22:cnt&&cnt.length>4?16:13;
   let h='<table class="ptable btable'+(o.compact?' dense':'')+(lite?' lite':'')+(cnt?' bt-cnt':'')+'">'+
     /* поставка 117 (владелец: «в AI бары относятся к проценту, а визуально — к численности»): колонка людей — ПЕРЕД
        значением, значение (процент полосы) — вплотную к полосе, как «Чел · Доля · Распределение» в остальных таблицах */
-    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?(cw>13?'40%':'44%'):'46%'):'34%')+'">'+
-    (cnt?'<col style="width:'+cw+'%">':'')+'<col style="width:'+(lite?'9%':cnt?'15%':'14%')+'">'+
+    '<colgroup><col style="width:'+(lite?'34%':o.compact?(cnt?(cwL?'32%':cw>13?'40%':'44%'):'46%'):'34%')+'">'+
+    (cnt?'<col style="width:'+cw+'%">':'')+'<col style="width:'+(lite?'9%':cwL?'18%':cnt?'15%':'14%')+'">'+
     (withShare?'<col style="width:'+(lite?'9%':'11%')+'">':'')+'<col></colgroup>'+
     /* поставка 116-б: общая каретка двухуровневой разбивки — в шапке колонки названий, над каретками строк (в подписи она
        выталкивала итог на вторую строку) */
@@ -1134,7 +1145,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
+window.TPUI={keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
