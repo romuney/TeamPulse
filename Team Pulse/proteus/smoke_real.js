@@ -478,9 +478,10 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       return d&&Math.abs(c.att-c.visits/+d[2]*100)<0.06});
     ok(cal.length===2&&Math.round(sw)===Math.round(wd2)&&near(viol,bk?+(bkv/bk*100).toFixed(2):null)&&
        x.segs[0].att===(hwd?+(hov/hwd*100).toFixed(1):0)&&Math.round(oc)===Math.round(raw)&&/Город офиса/.test(ofA2)&&
-       /Без посещения/.test(ofB2)&&/Посещения без брони, %/.test(ofB2)&&cityOk,
-      'офис на настоящих: календарь — рабочие дни '+Math.round(sw)+' = ряды двух месяцев, брони без посещения '+
-      D.fmtVal('booking_viol',viol)+', руководители '+x.segs[0].att+'%, городов '+x.cities.length+
+       /* 10.11, владелец: нарушений бронирования в отчёте нет — вкладка «Бронирование» снята */
+       !/Брони без посещения|Нарушения бронирования/.test(ofA2+ofB2)&&cityOk,
+      'офис на настоящих: календарь — рабочие дни '+Math.round(sw)+' = ряды двух месяцев, без нарушений бронирования'+
+      ', руководители '+x.segs[0].att+'%, городов '+x.cities.length+
       (ocd.length?', посещаемость городов = посещения ÷ рабочие дни':''));
     /* поставка 107 (как мастер): посещения с бронью (vbk) и фиксы (fovis ÷ fwday) — из рядов ответа, а не генератора */
     if(R.has('vbk')&&R.has('fwday')){
@@ -559,10 +560,9 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
 {
   const vc=D.violByCity(rl), bq=D.bookingQuality(rl), bk=A.go('office','booking');
   /* поставка 137: города — за последний месяц данных; ноутбук до 137 отдаёт закрытый месяц — тогда таблица подписана им */
-  if(D.OFF_LIVE.vcity)ok(vc.length>0&&(D.offCityMon()!==D.PER_MON||Math.abs(vc.reduce((a,c)=>a+c.viol,0)-bq.viol)<=vc.length)&&
-      bk.indexOf('Нарушения бронирования по городам')>bk.indexOf('Бронирования и посещения'),
-    'нарушения брони по городам: '+vc.length+' городов, в сумме '+vc.reduce((a,c)=>a+c.viol,0)+' = нарушениям месяца '+bq.viol);
-  else if(D.OFF_LIVE.bk)ok(vc===null&&/появятся, когда ноутбук отчёта обновят/.test(bk),'нарушения брони по городам: ответ без разреза — «появятся»');
+  /* 10.11, владелец: «нарушения бронирования убрать из отчёта» — ни вкладки, ни метрики, ни таблицы по городам */
+  ok(!D.metricVisible('booking_viol',A.st())&&bk.indexOf('Нарушения бронирования')<0&&
+    A.go('onepager').indexOf('Брони без посещения')<0,'нарушений бронирования в отчёте нет (вкладка, метрика, города)');
 }
 /* поставка 71: T-рост по разрезам «Роста» выбранного юнита (rs, rm, rq) — статусы в сумме = людям разреза, успешно
    закрытые по месяцам = rm, успешность = rq; вкладки без «в разработке». Без разрезов — условные цифры с плашкой */
@@ -804,7 +804,7 @@ if(D.TTF_MED){
   if(D.blockVisible('office',S)&&D.OFF_LIVE&&D.OFF_LIVE.city){
     const off=A.go('office','attend'), x0=D.officeCross(rl,null,null), c0=x0.cities[0], hasM=!!(R.scopeMix('ocm')&&R.scopeMix('ocdm'));
     const x1=c0&&x0.cross?D.officeCross(rl,null,c0.name):null;
-    ok(/Посещаемость, %<[\s\S]{0,200}th-per/.test(off)&&/Брони без посещения, %/.test(off),'посещаемость: в шапке таблицы подразделений — полные названия с единицами и период');
+    ok(/Посещаемость, %<[\s\S]{0,200}th-per/.test(off)&&!/Брони без посещения, %/.test(off),'посещаемость: в шапке таблицы подразделений — полные названия с единицами и период');
     if(x1)ok(!hasM||x1.cityDyn&&x1.yser&&x1.yser.cur.some(v=>v!=null),'посещаемость: выбран город «'+c0.name+'» — динамика по нему'+(hasM?'':' (ноутбук до 136: рядов города нет — сказано под графиком)'));
     const kid=D.rowsOf(D.passRoot(S.unit)).filter(n=>!n.direct)[0], kl=kid?D.leavesUnder(kid.path).map(l=>l.path):null;
     if(kl&&D.offDays)ok(D.offDays(rl)!==null&&(D.offDays(kl)===null||D.offDays(kl)!==D.offDays(rl)),'посещаемость: календарь по дням у строки первого уровня — свой'+(D.offDays(kl)?'':' (в ответе нет — подпись «по всему подразделению»)'));

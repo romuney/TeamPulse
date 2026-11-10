@@ -176,7 +176,7 @@ const Q={
   hiring:{vacancies:'Успеваем закрывать вакансии?',plan:'Выполняем план?',profile:'Кого и откуда берём?'},
   tgrowth:{flow:'Растут ли люди внутри?',grades:'Как растут по грейдам?',spec:'Как меняют специализацию?'},
   monitor:{activity:'Рабочая активность',review:'Как прошло ревью?'},
-  office:{calendar:'Когда ходят?',attend:'Кто и где ходит?',booking:'Соблюдают бронь?'},
+  office:{calendar:'Когда ходят?',attend:'Кто и где ходит?'},
   ai:{adoption:'Пользуются ли AI?',who:'Кто пользуется?',interns:'Как используют стажёры?',usage:'Как пользуются?',what:'Что делают?'}
 };
 
@@ -189,7 +189,7 @@ const QS={
   hiring:{vacancies:'Вакансии',plan:'План',profile:'Кого берём'},
   tgrowth:{flow:'Растут ли',grades:'Грейды',spec:'Специализация'},
   monitor:{activity:'Активность',review:'Ревью'},
-  office:{calendar:'Когда',attend:'Кто и где',booking:'Бронь'},
+  office:{calendar:'Когда',attend:'Кто и где'},
   ai:{adoption:'Пользуются',who:'Кто',interns:'Стажёры',usage:'Как',what:'Что делают'}
 };
 
@@ -598,16 +598,6 @@ CH.office={
         cb?'Чаще всего ходят в офисы города «'+cb[0].name+'» — **'+f('office_att',cb[0].att)+'**.':''].filter(Boolean).join(' ')||
         'Посещаемость '+PT+' — **'+f('office_att',v.v)+'**.',
       focus:fo.focus,act:fo.act,ann:{office_att:{hi:[D.PER_I]}}};
-  },
-  booking(c){
-    const v=judge('booking_viol',c), bk=D.bookingQuality(c.lp);
-    /* поставка 107 (как мастер): две доли — брони без посещения (метрика) и посещения без брони */
-    const nb=bk.visits?Math.round(bk.walkin/bk.visits*1000)/10:null;
-    return {sum:f('booking_viol',v.v)+' броней без посещения',st:v.st,
-      head:vsBase(v,c,'Без посещения остаётся больше броней','Без посещения остаётся меньше броней','Брони без посещения — на уровне базы'),
-      lede:'За '+bk.month+' — **'+D.fmtInt(bk.noshow)+'** броней без посещения из **'+D.fmtInt(bk.bookings)+'** и **'+D.fmtInt(bk.walkin)+
-        '** посещений без брони из **'+D.fmtInt(bk.visits)+'**'+(nb!=null?' (**'+String(nb).replace('.',',')+'%**)':'')+'.',
-      ann:{booking_viol:{hi:[D.PER_I]}}};
   }
 };
 
@@ -860,7 +850,6 @@ const GL={
   'Недоработчики':{metric:'underwork'},
   'Переработчики':{metric:'overwork'},
   'Ревью':{text:'Оценка результатов работы, раз в полгода. Между ревью значения не меняются.'},
-  'Брони без посещения':{metric:'booking_viol'},
   'Посещаемость офиса':{metric:'office_att'},
   'Проникновение AI':{metric:'ai_penetration'},
   'WAU':{metric:'ai_wau'}
@@ -942,9 +931,7 @@ const WHY={
     /* поставка 136, п. 18 (владелец: «пояснение перечисляет разрезы, но не объясняет пользу»): зачем смотреть посещаемость */
     attend:['Смотрите, какие команды и в каких городах ходят в офис: так видно, насколько востребованы офисы, и проще планировать рабочие места. '+
       'Это не оценка работы сотрудников.',
-      'Город или команда ходят заметно реже — сверьте с правилами гибрида и числом мест. Много броней без посещения — места простаивают: смотрите вкладку «Бронирование».'],
-    booking:['{{Брони без посещения|Без посещения}} — место забронировали и не пришли; посещения без брони — пришли, не забронировав.',
-      'Броней без посещения много — места простаивают; посещений без брони много — план офиса расходится с жизнью.']},
+      'Город или команда ходят заметно реже — сверьте с правилами гибрида и числом мест.']},
   ai:{
     adoption:['{{Проникновение AI|Проникновение}} — какая доля людей пользуется AI каждую неделю, {{WAU}} — сколько это человек.',
       'Отстающие подразделения — кандидаты на обучение и пилоты.'],
@@ -1021,7 +1008,7 @@ const CH_CARDS={
   hiring:{vacancies:x=>kk(/^time_to_fill$/,/^(yoy|trend)$/)(x)||x.fact.kind==='vac'},
   tgrowth:{flow:kk(/^tgrowth_(conv|deny)$/,/^(yoy|ppl|trend)$/)},
   monitor:{activity:kk(/^(underwork|overwork)$/,/^(yoy|trend)$/)},
-  office:{attend:kk(/^office_att$/,/^(yoy|trend)$/),booking:kk(/^booking_viol$/,/^(yoy|trend)$/)}};
+  office:{attend:kk(/^office_att$/,/^(yoy|trend)$/)}};
 
 window.TPSTORY={book,Q,CH,judge,GL,WHY,glossary,CH_CARDS};
 })();
