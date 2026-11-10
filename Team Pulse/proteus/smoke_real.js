@@ -55,7 +55,7 @@ rows.forEach(r=>{if(!r.mx)return;let pk='';
  'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js',
  'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js',
  'screens/onepager.js'].forEach(f=>require(path.join(dir,f)));
-const probe=path.join(dir,'.app.probe.real.js');
+const probe=path.join(dir,'.app.probe.real.'+process.pid+'.js');   /* свой у процесса: прогоны можно вести параллельно */
 fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   '\nmodule.exports={go:(t,sub)=>{S.tab=t;S.subTab=sub||null;S.selNode=null;render();return $("#view").innerHTML},'+
   '\n  top:t=>{S.tab=t;S.subTab=null;S.selNode=null;render();return $("#view").innerHTML},'+
@@ -345,7 +345,9 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
         /* поставка 121: сквозной уровень (единственное подразделение с теми же людьми) пропускаем — D.passRoot */
         const pr=D.passRoot?D.passRoot(st.unit):st.unit;
         const kid=D.NODES.find(n=>n.parent===pr&&!n.direct&&!n.hide), hk=kid&&D.hqLight(st,D.leavesUnder(kid.path).map(l=>l.path),kid.path);
-        ok(!!hn&&hn.rows.every((r,i)=>Math.abs(r.v-h.rows[i].v)<0.051)&&hn.hc===h.hc&&(!hk||hk.rows.some((r,i)=>r.v!==hn.rows[i].v)),
+        ok(!!hn&&hn.rows.every((r,i)=>Math.abs(r.v-h.rows[i].v)<0.051)&&hn.hc===h.hc&&
+          /* 10.11: у HQ из пары человек без уходов все три доли — нули и у юнита, и у подразделения: «свои числа» не проверить */
+          (!hk||hn.rows.every(r=>!r.v)||hk.rows.some((r,i)=>r.v!==hn.rows[i].v)),
           'светофор HQ по узлам = строка hq ('+hn.rows.map(r=>D.fmtVal(r.key,r.v)).join(', ')+')'+(hk?'; «'+kid.name.slice(0,3)+'…»: '+
           hk.rows.map(r=>D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+hk.hc+' чел':''));
       }
@@ -821,7 +823,8 @@ if(D.TTF_MED){
     B.chapters.forEach(ch=>{const f=STY.CH_CARDS[bk][ch.key];if(!f)return;
       const my=cs.filter(x=>x.block===bk&&f(x)), need=my.some(x=>x.sev==='high')?'bad':my.some(x=>x.sev==='mid')?'warn':my.length?'good':'n';
       if(need!=='n'&&rank[ch.st||'n']===0)errs.push(bk+'.'+ch.key+': точка серая при выводе '+need);
-      if(my.some(x=>x.fact.kind==='trend')&&!/подряд/.test(ch.head||''))errs.push(bk+'.'+ch.key+': тренд не назван')});
+      /* поставка 131: тренд — строкой «Что важно» (в заголовке главы — одна метрика), раньше — в конце заголовка */
+      if(my.some(x=>x.fact.kind==='trend')&&!/подряд/.test((ch.head||'')+' '+(ch.facts||[]).join(' ')))errs.push(bk+'.'+ch.key+': тренд не назван')});
   });
   if(D.blockVisible('monitor',S)&&!D.isSmall()&&D.monJudged('underwork',rl)){
     const a=window.TPSTORY.CH.monitor.activity({S:S,lp:rl,bl:bl}), ju=STY.judge('underwork',{S:S,lp:rl,bl:bl}).st, jo=STY.judge('overwork',{S:S,lp:rl,bl:bl}).st;

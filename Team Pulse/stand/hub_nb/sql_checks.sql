@@ -442,6 +442,22 @@ select 33 as n, 'разрезы = ряды отчёта (численность,
              and s.act_cd = k.act_cd and s.m is not distinct from k.m
             where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
         ) t))::float8 as val
+union all
+-- 10.11 (владелец: «человек не должен считаться дважды ни при каких фильтрах»): строки переводов по людям и дням
+-- (teampulse_hub_trf0) — сколько раз у человека за день в одном узле вышло больше одной строки входа (найм или перевод «в»)
+-- или выхода, и сколько строк «из» пришлось на день увольнения. В таблицу отчёта такие строки сводятся в одну (hub · 5 trf),
+-- поэтому числа не задваиваются; не ноль здесь — повод разобрать, какие ветки пересеклись (справочно)
+select 35 as n, 'переводы: повторные строки человека за день в узле (сведены в одну)'::text as check_nm, 0 as must,
+       ((select count(*) from (select 1 from teampulse_hub_trf0
+                               group by node_rk, e, ev_dt, case when trf_kind = 'o' then 'o' else 'i' end having count(*) > 1) t)
+        + (select count(*) from teampulse_hub_trf0 where trf_kind = 'o' and fx_day = 1))::float8 as val
+union all
+-- и обязательная: в таблице отчёта у человека за день в узле не больше одной строки входа и одной строки выхода. Таблица
+-- отчёта хранит счётчики, поэтому сверяем их сумму с числом пар «человек, день, узел, сторона» в строках по людям
+select 36 as n, 'переводы: один человек за день в узле — одна строка входа и одна выхода'::text as check_nm, 1 as must,
+       ((select coalesce(sum(trf_cnt), 0) from teampulse_hub_trf)
+        - (select count(*) from (select 1 from teampulse_hub_trf0 where not (trf_kind = 'o' and fx_day = 1)
+                                 group by node_rk, e, ev_dt, case when trf_kind = 'o' then 'o' else 'i' end) g))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,

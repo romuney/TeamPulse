@@ -2966,8 +2966,14 @@ paragraphs:
     distributed by (e);
     analyze teampulse_hub_trfv;
 
-    drop table if exists teampulse_hub_trf;
-    create table teampulse_hub_trf as
+    -- 10.11 (владелец: «человек не должен считаться дважды ни при каких фильтрах: за день он попадает в одно событие — найм,
+    -- отток, перевод в или перевод из»): строки переводов сначала пишутся по людям и дням (teampulse_hub_trf0: + e, ev_dt), затем
+    -- сводятся так, что у человека за день в одном узле не больше одной строки входа (найм или перевод «в») и одной строки
+    -- выхода (перевод «из»; в день увольнения — отток, перевода нет). Это свойство не зависит от фильтров: датасет считает
+    -- строку по «или» её флагов, одна строка — один счёт. Сколько строк пришлось слить — hub checks № 35 (на согласованных
+    -- ветках ниже — 0)
+    drop table if exists teampulse_hub_trf0;
+    create table teampulse_hub_trf0 as
     select * from (
     -- поставка 104 (05.11, сверка с мастер-отчётами Импульс — 168/168 помесячных счётов на трёх выгрузках:
     -- узел уровня 3 (юр/активная) и узел уровня 4 (юр×штат)): событие перевода = вход/выход из
@@ -3208,7 +3214,7 @@ paragraphs:
         select r.*, 'all' from xr r where (select mo from teampulse_hub_cal) = 1
     )
     select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok,
-           x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, sp_cd, fsp, hg_cd, hs_cd, count(*) as trf_cnt
+           x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, sp_cd, fsp, hg_cd, hs_cd, e, ev_dt, coalesce(fd.ffx, 0) as fx_day
     from (
         -- U «в»: узлы новой строки; флаги фильтров — её же (периметр строит датасет)
         select ui.node_rk, date_trunc('month', ui.cdt)::date as report_month, 'i' as trf_kind,
@@ -3220,7 +3226,8 @@ paragraphs:
                -- поставка 104: вид перехода в найм (c — из учебной группы, s — стажёр в штат) — для hcd / hst датасета
                case when ui.ccc = 1 then 'c' when ui.ctif = 1 then 's' else '' end as cv_k, ui.csp as sp_cd, ui.cisp as fsp,
                -- 09.11: грейд и источник дня найма — только у строк найма (вид h и переходы в найм, in_ok = 0)
-               case when ui.ccc + ui.ctif > 0 then ui.cgr end as hg_cd, case when ui.ccc + ui.ctif > 0 then ui.chs end as hs_cd
+               case when ui.ccc + ui.ctif > 0 then ui.cgr end as hg_cd, case when ui.ccc + ui.ctif > 0 then ui.chs end as hs_cd,
+               ui.e as e, ui.cdt as ev_dt
         from ui
         union all
         -- U «из»: узлы старой строки, дата события — новая строка. 09.11 (сверка с мастер-отчётом Executive Report: «Перевод-»
@@ -3230,32 +3237,32 @@ paragraphs:
         select uo.node_rk, date_trunc('month', uo.cdt)::date, 'o',
                uo.pa, uo.it, uo.st, uo.ac,
                uo.fu, uo.oa, uo.oq, uo.oi, uo.ost, 1,
-               null::text, null::text, null::text, null::text, '', uo.sp, uo.osp, null::text, null::text
+               null::text, null::text, null::text, null::text, '', uo.sp, uo.osp, null::text, null::text, uo.e, uo.pdt
         from uo
         union all
         -- TI: вход в активную численность юнита
         select e2.node_rk, date_trunc('month', e2.dt)::date, 'i',
                e2.pa, e2.it, e2.st, e2.ac, 0, 1, e2.ip, e2.ii, e2.ist, 1 - e2.cv,
-               null::text, null::text, null::text, null::text, '', e2.sp, e2.isp, null::text, null::text
+               null::text, null::text, null::text, null::text, '', e2.sp, e2.isp, null::text, null::text, e2.e, e2.dt
         from e2 where e2.kind = 'ti'
         union all
         -- 09.11: выход из типа численности по флагу строки (xa выше) — узлы и срезы этой строки, месяц «день + 1»
         select xn.node_rk, date_trunc('month', xn.dt + 1)::date, 'o',
                xn.pa, xn.it, xn.st, xn.ac, 0, 1, xn.oq, xn.oi, xn.ost, 1,
-               null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text
+               null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text, xn.e, xn.dt
         from xn where xn.dir = 'a'
         union all
         -- найм в компанию: узлы и срез дня найма; вид — c из учебной группы в боевую, s стажёр в штат
         select e2.node_rk, date_trunc('month', e2.dt)::date, 'h',
                e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1,
                null::text, null::text, null::text, null::text,
-               case when e2.cv = 0 then '' when e2.cc = 1 then 'c' else 's' end, e2.sp, 0, e2.gr, e2.hs
+               case when e2.cv = 0 then '' when e2.cc = 1 then 'c' else 's' end, e2.sp, 0, e2.gr, e2.hs, e2.e, e2.dt
         from e2 where e2.kind = 'h'
         union all
         -- смена специализации: «внутри юнита» (CI / CO датасета); «из» последним днём месяца — в следующий
         select e2.node_rk, date_trunc('month', e2.dt)::date, 'i',
                e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1 - e2.cv,
-               null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text
+               null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text, e2.e, e2.dt
         from e2 where e2.kind = 'fs' and e2.isp = 1 and e2.hf = 0
           -- 09.11 (бой: строки «Движения по специализациям» не сходились): одна строка дня — одно событие, как у мастера.
           -- Флаг «в специализацию» уже несёт строка перевода юнита (ui, fsp = cisp) и входа в «Активную» (ti, fsp = isp);
@@ -3272,7 +3279,7 @@ paragraphs:
         union all
         select e2.node_rk, date_trunc('month', e2.dt + e2.ld)::date, 'o',
                e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1,
-               null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text
+               null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text, e2.e, e2.dt
         from e2 where e2.kind = 'fs' and e2.osp = 1
           and not exists (select 1 from xa where xa.e = e2.e and xa.dt = e2.dt)   -- 09.11: эта строка уже в xa (fsp = osp)
           -- 09.11: и в строке перевода юнита «из» (uo, fsp = osp); в день увольнения — отток, не перевод
@@ -3284,32 +3291,63 @@ paragraphs:
         -- последний день прежнего значения, последний день месяца — в следующий месяц
         select xn.node_rk, date_trunc('month', xn.dt)::date, 'i',
                xn.pa, xn.it, xn.st, xn.ac, 0, 0, xn.ip, xn.ii, xn.ist, 1 - xn.cv,
-               null::text, null::text, null::text, null::text, '', xn.sp, xn.isp, null::text, null::text
+               null::text, null::text, null::text, null::text, '', xn.sp, xn.isp, null::text, null::text, xn.e, xn.dt
         from xn where xn.dir = 'i'
         union all
         select xn.node_rk, date_trunc('month', xn.dt + xn.ld)::date, 'o',
                xn.pa, xn.it, xn.st, xn.ac, 0, 0, xn.oq, xn.oi, xn.ost, 1,
-               null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text
+               null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text, xn.e, xn.dt
         from xn where xn.dir = 'o'
         union all
         -- поставка 104: парная строка к TO-a («в» — новая строка), дата — день перехода (09.11: «из» — по флагу строки, xa)
         select tcn.node_rk, date_trunc('month', tcn.cdt)::date, 'i',
                tcn.cpa, tcn.cit, tcn.cst, tcn.cac, 0, 1, tcn.cip, tcn.cii, tcn.cist, 1,
-               null::text, null::text, null::text, null::text, '', tcn.csp, tcn.cisp, null::text, null::text
+               null::text, null::text, null::text, null::text, '', tcn.csp, tcn.cisp, null::text, null::text, tcn.e, tcn.cdt
         from tcn where tcn.dir = 'i'    union all
         -- поставка 104: найм переходом (hv выше) — срез и флаги смены дня, in_ok = 0
         select xn.node_rk, date_trunc('month', xn.dt)::date, 'i',
                xn.pa, xn.it, xn.st, xn.ac, 0, xn.ia, xn.ip, xn.ii, xn.ist, 0,
                null::text, null::text, null::text, null::text,
-               case when xn.cc = 1 then 'c' else 's' end, xn.sp, xn.isp, xn.gr, xn.hs
+               case when xn.cc = 1 then 'c' else 's' end, xn.sp, xn.isp, xn.gr, xn.hs, xn.e, xn.dt
         from xn where xn.dir = 'v'
     ) t
+    -- fx_day — в этот день у человека увольнение (перевод «из» в такой день не считается: это отток)
+    left join (select e as fe, dt as fdt, max(fx) as ffx from teampulse_hub_trfr group by 1, 2) fd on fd.fe = t.e and fd.fdt = t.ev_dt
     where report_month between (select grid_start from teampulse_hub_cal) and (select lm from teampulse_hub_cal)
       -- GP-перенос 104: юнит-переход пишется во все узлы пути; на уровнях, где юнит не менялся, у строки нет ни одного
       -- флага — датасет её не считает ни в одной формуле. Такие строки не храним (числа отчёта не меняются)
       and not (trf_kind in ('i', 'o') and in_ok = 1 and fu + fa + fp + fi + fs + fsp = 0)
-    group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
     ) q
+    distributed by (node_rk);
+    analyze teampulse_hub_trf0;
+
+    -- сведение: один человек, один день, один узел — одна строка входа и одна строка выхода. Найм старше перевода «в» (строка
+    -- найма остаётся как есть, флаги перевода не несёт); переход в найм (in_ok = 0) старше обычного перевода; флаги нескольких
+    -- строк одного дня складываются по «или»; срез и специализация — этой строки дня (у повторов одинаковые). Перевод «из» в
+    -- день увольнения не пишется: это отток
+    drop table if exists teampulse_hub_trf;
+    create table teampulse_hub_trf as
+    select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok,
+           x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, sp_cd, fsp, hg_cd, hs_cd, count(*) as trf_cnt
+    from (
+        select node_rk, max(report_month) as report_month,
+               case when side = 'o' then 'o' when max(is_h) = 1 then 'h' else 'i' end as trf_kind,
+               min(paint_cd) as paint_cd, min(it_cd) as it_cd, min(staff_cd) as staff_cd, min(act_cd) as act_cd,
+               case when max(is_h) = 1 then 0 else max(fu) end as fu, case when max(is_h) = 1 then 0 else max(fa) end as fa,
+               case when max(is_h) = 1 then 0 else max(fp) end as fp, case when max(is_h) = 1 then 0 else max(fi) end as fi,
+               case when max(is_h) = 1 then 0 else max(fs) end as fs,
+               case when max(is_h) = 1 then 1 else min(in_ok) end as in_ok,
+               null::text as x_paint_cd, null::text as x_it_cd, null::text as x_staff_cd, null::text as x_act_cd,
+               max(cv_k) as cv_k, min(sp_cd) as sp_cd, case when max(is_h) = 1 then 0 else max(fsp) end as fsp,
+               max(hg_cd) as hg_cd, max(hs_cd) as hs_cd
+        from (
+            select t.*, case when t.trf_kind = 'o' then 'o' else 'i' end as side, (t.trf_kind = 'h')::int as is_h
+            from teampulse_hub_trf0 t
+            where not (t.trf_kind = 'o' and t.fx_day = 1)
+        ) z
+        group by node_rk, e, ev_dt, side
+    ) d
+    group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
     distributed by (node_rk);
 
     -- поставка 63: детализация переводов — событие × узел за 13 последних месяцев: кто (логин и шифр), когда, в
@@ -4201,6 +4239,22 @@ paragraphs:
                  and s.act_cd = k.act_cd and s.m is not distinct from k.m
                 where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5
             ) t))::float8 as val
+    union all
+    -- 10.11 (владелец: «человек не должен считаться дважды ни при каких фильтрах»): строки переводов по людям и дням
+    -- (teampulse_hub_trf0) — сколько раз у человека за день в одном узле вышло больше одной строки входа (найм или перевод «в»)
+    -- или выхода, и сколько строк «из» пришлось на день увольнения. В таблицу отчёта такие строки сводятся в одну (hub · 5 trf),
+    -- поэтому числа не задваиваются; не ноль здесь — повод разобрать, какие ветки пересеклись (справочно)
+    select 35 as n, 'переводы: повторные строки человека за день в узле (сведены в одну)'::text as check_nm, 0 as must,
+           ((select count(*) from (select 1 from teampulse_hub_trf0
+                                   group by node_rk, e, ev_dt, case when trf_kind = 'o' then 'o' else 'i' end having count(*) > 1) t)
+            + (select count(*) from teampulse_hub_trf0 where trf_kind = 'o' and fx_day = 1))::float8 as val
+    union all
+    -- и обязательная: в таблице отчёта у человека за день в узле не больше одной строки входа и одной строки выхода. Таблица
+    -- отчёта хранит счётчики, поэтому сверяем их сумму с числом пар «человек, день, узел, сторона» в строках по людям
+    select 36 as n, 'переводы: один человек за день в узле — одна строка входа и одна выхода'::text as check_nm, 1 as must,
+           ((select coalesce(sum(trf_cnt), 0) from teampulse_hub_trf)
+            - (select count(*) from (select 1 from teampulse_hub_trf0 where not (trf_kind = 'o' and fx_day = 1)
+                                     group by node_rk, e, ev_dt, case when trf_kind = 'o' then 'o' else 'i' end) g))::float8 as val
     distributed randomly;
 
     select n, check_nm, val,
