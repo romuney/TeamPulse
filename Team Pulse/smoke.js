@@ -343,6 +343,13 @@ checks.push(['метрики численности, движения и тек�
   ['hc_active','hc_total','hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret']
     .every(k=>D.METRIC_BY_KEY[k].calc&&U.infoDot(k).includes(U.esc(G.tipHtml({text:D.METRIC_BY_KEY[k].calc})).slice(0,40)))&&
   /стажёров в штат/.test(D.METRIC_BY_KEY.hire.calc)&&/полусумма активной/.test(D.METRIC_BY_KEY.turnover_m.calc)]);
+/* поставка 132: загрузка на борде — маркер «отчёт отрисован» один и тот же в чарте (prelude.js) и в CSS борда (файл 4) */
+checks.push(['загрузка на борде: маркер готовности в prelude.js и в CSS борда совпадает, рисунок огоньков на месте',
+  (()=>{const pre=fs.readFileSync(path.join(dir,'proteus/prelude.js'),'utf8'),
+    css=fs.readFileSync(path.join(dir,'Поставка — TeamPulse Hub','4. CSS борда (дописать в конец).css'),'utf8'),
+    mk=Buffer.from('TP-HUB-READY').toString('base64');
+    return pre.includes("'TP-HUB-READY'")&&css.includes('src*="'+mk+'"')&&/--tp-load: url\("data:image\/svg\+xml;base64,/.test(css)&&
+      !/Загружаю отчёт/.test(css)})()]);
 checks.push(['ряд hc_avg жив: текучесть по-прежнему считается',
   D.aggregate(rl,'hc_avg')[D.LAST]>0]);
 (function(){

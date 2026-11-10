@@ -62,6 +62,25 @@ root.innerHTML=TP_HTML;
 const vh=()=>root.style.setProperty('--vh',root.clientHeight+'px');
 vh();window.addEventListener('resize',vh);store.listeners.push({t:window,type:'resize',fn:vh});
 
+/* 10.11 (владелец: «заходим на дашборд — пустое место»): корень отчёта стоит и непрозрачен — говорим странице «отчёт
+   отрисован». Другого канала к родителю у песочницы нет: шлём PNG 1×1 с маркером в канал скриншотов, Proteus кладёт его
+   в img.echarts-plugin ячейки, и CSS борда (файл 4, блок 4) по маркеру убирает значок загрузки Proteus поверх отчёта —
+   дальше ожидание показывает сам отчёт (.tp-load). Маркер — 12 байт ASCII = 16 знаков base64, тот же, что в
+   proteus/board_css.js; байты PNG дополнены до кратности 3, чтобы маркер стоял в строке как есть (гайд SB-11).
+   Повтор через 0,4 и 1,5 с — страховка: платформа может записать в ту же картинку свой снимок (SB-14) */
+const sayReady=function(){
+  try{
+    if(!window.parent||window.parent===window||typeof btoa!=='function')return;
+    let raw=atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    while(raw.length%3)raw+='\0';
+    const url='data:image/png;base64,'+btoa(raw+'TP-HUB-READY');
+    window.parent.postMessage({type:'ECHARTS_UPDATE_DATA_URL',dataUrl:url,payload:{dataUrl:url}},'*');
+  }catch(e){}
+};
+sayReady();
+(store.readyT||[]).forEach(clearTimeout);
+store.readyT=[setTimeout(sayReady,400),setTimeout(sayReady,1500)];
+
 window.TP_REAL=window.TPREAL.build(typeof data!=='undefined'?data:[]);
 /* поставка 69: нет зоны доступа — экран «Нет доступа», дальше отчёт не собирается (tpStop ловит обёртка сборки) */
 if(window.TP_REAL.noAccess){
@@ -74,6 +93,7 @@ window.TP_ENV={root:root,scroller:root,store:store,
   /* маска целиком (юнит + фильтры), пустых значений не шлём — как в HRBP HUB */
   emit(mask){
     if(typeof applyCrossFilter!=='function')return false;
+    sayReady();                          /* перед запросом: маркер на месте, значок Proteus поверх отчёта не встанет */
     applyCrossFilter(mask);
     return true;
   }};
