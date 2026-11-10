@@ -330,7 +330,8 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       const want=D.aggregate(['HQ'],'turnover_y')[D.LAST-(D.PARTIAL?1:0)];
       ok(!!h&&h.lp[0]==='HQ'&&h.rows.length===3&&h.rows[0].v===want&&!/hq-tl/.test(hv)&&
         !/<tr class="mrow"/.test(hv)&&/HQ текучесть накопительная/.test(hv)&&!/YTD/.test(hv.split('hq-note')[1]||'')&&
-        /hq-note"><span class="live-tag ok"/.test(hv),
+        /* поставка 136, п. 12: пометки «сверены» в разделе HQ нет */
+        /hq-note">Накопительно/.test(hv)&&!/сверен/i.test(hv.split('hq-note')[1].split('</div>')[0]),
         'светофор HQ по строке hq: '+h.rows.map(r=>r.label.split(' ')[0]+' '+D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+h.hc+' чел');
       /* 31.10-б, п. 2: желательная (non-regrettable, nreg) и нежелательная (reg) — из рядов строки hq: накопительно = сумма
          уходов с января / ССЧ месяца… как ряд метрики; при уходах в строке — не ноль */
@@ -795,6 +796,23 @@ if(D.TTF_MED){
   ok(!bad.length&&pt&&/^Медиана за /.test(pt.head)&&med.some(v=>v!=null&&v>0),'срок закрытия — медиана: распределение = закрытым по месяцам, итог «'+
     (pt&&pt.head)+'» '+(pt&&pt.cur)+(bad.length?' — '+bad.join('; '):''));
 }
+/* поставка 136: итерация «понятность выводов» — мониторинг (период, покрытие), посещаемость (город → динамика, период в
+   шапке таблицы, календарь у строки первого уровня), карточки без «больше половины» и второго сравнения */
+{
+  const S=A.st(), rl=D.reportLeaves(S), mon=D.blockVisible('monitor',S)?A.go('monitor','activity'):'', all=A.home0();
+  if(mon)ok(/Мониторинг покрывает [\d\s ]+ из [\d\s ]+ человек/.test(mon)&&!/в среднем за месяц/i.test(mon)&&(!/В среднем за /.test(mon)||/В среднем за период /.test(mon)),
+    'мониторинг: строка покрытия (числитель и знаменатель), средние — «за период»');
+  ok(!/[Бб]ольше половины|в среднем за месяц|категория Gray|среднесписочн/i.test(all.replace(/<!--[\s\S]*?-->/g,'')),
+    'главная: нет «больше половины», «в среднем за месяц», «категория Gray», «среднесписочная»');
+  if(D.blockVisible('office',S)&&D.OFF_LIVE&&D.OFF_LIVE.city){
+    const off=A.go('office','attend'), x0=D.officeCross(rl,null,null), c0=x0.cities[0], hasM=!!(R.scopeMix('ocm')&&R.scopeMix('ocdm'));
+    const x1=c0&&x0.cross?D.officeCross(rl,null,c0.name):null;
+    ok(/Посещаемость, %<[\s\S]{0,200}th-per/.test(off)&&/Брони без посещения, %/.test(off),'посещаемость: в шапке таблицы подразделений — полные названия с единицами и период');
+    if(x1)ok(!hasM||x1.cityDyn&&x1.yser&&x1.yser.cur.some(v=>v!=null),'посещаемость: выбран город «'+c0.name+'» — динамика по нему'+(hasM?'':' (ноутбук до 136: рядов города нет — сказано под графиком)'));
+    const kid=D.rowsOf(D.passRoot(S.unit)).filter(n=>!n.direct)[0], kl=kid?D.leavesUnder(kid.path).map(l=>l.path):null;
+    if(kl&&D.offDays)ok(D.offDays(rl)!==null&&(D.offDays(kl)===null||D.offDays(kl)!==D.offDays(rl)),'посещаемость: календарь по дням у строки первого уровня — свой'+(D.offDays(kl)?'':' (в ответе нет — подпись «по всему подразделению»)'));
+  }
+}
 /* поставка 128 (владелец 08.11: «не должно быть расхождений логики подсказок и графиков — выводы обязательно должны совпадать»):
    один вердикт на метрику во всех местах — ячейка «Ориентир» в таблице главной, глава вкладки (judge), карточки выводов;
    значение в таблице и в карточке — итог за период (periodTotal), как под графиком */
@@ -810,11 +828,16 @@ if(D.TTF_MED){
     const tgt=strip((b.match(/<td class="col-tgt">([\s\S]*?)<\/td>/)||[])[1]), val=strip((b.match(/<td class="m-val">([\s\S]*?)<\/td>/)||[])[1]);
     if(chip(tgt)!==V)errs.push(k+': ориентир «'+tgt+'» при вердикте '+V);
     if(P.v!=null&&val.indexOf(nb(D.fmtVal(k,P.v)))!==0)errs.push(k+': значение '+val+' ≠ '+D.fmtVal(k,P.v));
-    const j=STY.judge(k,{S:S,lp:rl,bl:bl}), Vn=V==='good'?'good':V==='bad'?'bad':'n';
-    if(j&&j.st!==Vn)errs.push(k+': глава '+j.st+' при вердикте '+V);
+    /* поставка 136, п. 10: у вывода одно основное сравнение (D.mainVerdict): год — при изменении от 10%, иначе ориентир.
+       Глава и карточки говорят о нём и только о нём */
+    const MV=D.mainVerdict(k,S,rl,bl), j=STY.judge(k,{S:S,lp:rl,bl:bl}), Vn=MV.st==='good'?'good':MV.st==='bad'?'bad':'n';
+    if(j&&j.st!==Vn)errs.push(k+': глава '+j.st+' при основном вердикте '+MV.cmp+' '+MV.st);
+    if(j&&!!j.yoy!==(MV.cmp==='yoy'))errs.push(k+': глава сравнивает '+(j.yoy?'с годом':'с ориентиром')+', основное сравнение — '+MV.cmp);
     cards.filter(c=>c.key===k).forEach(c=>{const kd=c.fact.kind;
-      if(kd==='dev'&&(c.sev==='good'?'good':'bad')!==V)errs.push(k+': карточка '+c.sev+' при вердикте '+V);
-      if(kd==='yoy'&&!(V==='neutral'||V==='warn'&&c.fact.lvl))errs.push(k+': карточка «к году» при вердикте '+V);
+      if(kd==='dev'&&(MV.cmp!=='base'||(c.sev==='good'?'good':'bad')!==MV.st))errs.push(k+': карточка к ориентиру '+c.sev+' при основном вердикте '+MV.cmp+' '+MV.st);
+      if(kd==='yoy'&&(MV.cmp!=='yoy'||(c.sev==='good'?'good':'bad')!==MV.st))errs.push(k+': карточка «к году» '+c.sev+' при основном вердикте '+MV.cmp+' '+MV.st);
+      if((kd==='dev'||kd==='yoy')&&/, но |на уровне .*, /.test(c.head))errs.push(k+': в заголовке карточки два сравнения — '+c.head);
+      if((kd==='dev'||kd==='yoy')&&c.sub)errs.push(k+': под числом второе сравнение — '+c.sub);
       if((kd==='dev'||kd==='yoy')&&c.big&&P.v!=null&&nb(c.big.v)!==nb(D.fmtVal(k,P.v)))errs.push(k+': карточка '+c.big.v+' ≠ '+D.fmtVal(k,P.v))});
   });
   /* поставка 128: заметный сдвиг к году (D.yoyMove — тот же цвет чипа) у долей и сроков без оценки «хуже / лучше» — всегда вывод */

@@ -232,15 +232,15 @@ const METRICS=[
    графиков HQ и УС («Team Pulse — сводка графиков.md») их нет, это производные,
    придуманные для макета. */
 {key:'turnover_m',block:'turnover',aud:'all',name:'Текучесть месячная',short:'Тек. мес.',fmt:'pct',better:'lower',unit:'%',anchor:null,
-  derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Какая доля команды уволилась за месяц: отток к среднесписочной численности.',
-  calc:'Отток ÷ среднесписочная × 100%. Среднесписочная — полусумма активной численности на конец прошлого и этого месяца, как в отчётах HR.'},
+  derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Какая доля команды уволилась за месяц: отток к средней численности.',
+  calc:'Отток ÷ средняя численность × 100%. Средняя численность — полусумма активной численности на конец прошлого и этого месяца, как в отчётах HR.'},
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с янв.',fmt:'pct',better:'lower',unit:'%',anchor:null,
   ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
   calc:'Как в методологии HR: сумма месячной текучести с января — накопительно.'},
 /* 26.10-б, правки п. 3: желательная и нежелательная — накопительно с января (сумма месячной) и в макете: карточка
    показывает YTD по последнему закрытому месяцу (CLOSED_ONLY) */
 {key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть HQ',short:'Нежелат. HQ',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'regret_m',kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
-  calc:'Сумма месячной: нежелательные увольнения ÷ среднесписочная × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
+  calc:'Сумма месячной: нежелательные увольнения ÷ средняя численность × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
 /* файл 8, п. 2 (заказчик): у желательной текучести HQ выше — лучше (уходят те, о ком компания не сожалеет): рост к году назад
@@ -248,7 +248,7 @@ const METRICS=[
    «не ниже 5% за год» (на месяц — её доля) */
 {key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть HQ',short:'Желат. HQ',fmt:'pct',better:'higher',unit:'%',anchor:null,ytd:'nonregret_m',kpi:{green:5,red:5,annual:true},
   hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Для HQ — цель не ниже 5% за год, на каждый месяц — её доля.'+HQ_ONLY,
-  calc:'Сумма месячной: желательные увольнения ÷ среднесписочная × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Цель на месяц: 5% × номер месяца ÷ 12.'},
+  calc:'Сумма месячной: желательные увольнения ÷ средняя численность × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Цель на месяц: 5% × номер месяца ÷ 12.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
@@ -346,7 +346,7 @@ if(REAL){
    цель — при любых фильтрах; в макете — тоже */
 if(HQR){
   const T=' Всегда по активной численности HQ: фильтры покраски и типа численности на неё не действуют.';
-  const set=(k,h)=>{const m=METRICS.find(x=>x.key===k);m.hint=h+T;m.calc=m.calc.replace('среднесписочная','среднесписочная HQ')};
+  const set=(k,h)=>{const m=METRICS.find(x=>x.key===k);m.hint=h+T;m.calc=m.calc.replace('средняя численность','средняя численность HQ')};
   set('regret','Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год, на каждый месяц — её доля, как в отчёте HQ.');
   set('nonregret','Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Цель — не ниже 5% за год, на каждый месяц — её доля.');
 }
@@ -457,8 +457,9 @@ const DEV_PLAN=[
     /* 26.10-б, правки п. 5: блок «Как уходит HQ» сверен целиком */
     /* поставка 103 (файл 9, п. 10) сняла цели; поставка 128 (владелец 08.11: «по HQ, желательной и нежелательной текучести есть
        цели компании — они обязательно должны быть») вернула */
+    /* поставка 136, п. 12 (владелец): у раздела «Как уходит HQ» пометки «сверены» нет — ни на вкладке, ни в «Готовности данных» */
     {what:'Блок «Как уходит HQ?»: три текучести накопительно против целей отчёта HQ (15%, у IT — 12%; желательная — не ниже 5%; нежелательная — не выше 4%)',
-      aud:'hq',stage:'0',now:'live',hq:1,ok:1},
+      aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Инициатор и причины увольнения',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Отток по стажу, грейду и стриму',aud:'all',stage:'0',now:'live',ok:1},
     /* 21.10, ревизия источника (п. 10): по инициатору знаменатель — среднесписочная подразделения, она есть;
@@ -468,7 +469,7 @@ const DEV_PLAN=[
     {what:'Текучесть по инициатору увольнения',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Накопительная текучесть по инициатору',aud:'all',stage:'0',now:'live',ok:1},
     {what:'Текучесть по стажу, специализации и грейду',aud:'all',stage:'0',now:'todo',next:1,
-      need:'уходы есть; нужна среднесписочная по каждой группе'}]},
+      need:'уходы есть; нужна средняя численность по каждой группе'}]},
   {blk:'Найм и вакансии HQ',rows:[
     {what:'Открытые и закрытые вакансии по месяцам',aud:'all',stage:'2',now:'live',ok:1},
     /* поставка 103 (файл 9, п. 4 и 5): срок — медиана по вакансиям; открытые вакансии сходятся — сверены */
@@ -494,7 +495,7 @@ const DEV_PLAN=[
     {what:'Как меняют специализацию: смены «Рост» и T@T по месяцам, успешность по желаемой специализации',aud:'hq',stage:'0',now:'live',ok:1}]},
   {blk:'Мониторинг работы',rows:[
     {what:'Недоработчики и переработчики',aud:'hq',stage:'0',now:'live',hq:1},
-    {what:'Состав по категориям по месяцам: нормал, недоработка, переработка, Gray',aud:'hq',stage:'0',now:'live',hq:1},
+    {what:'Состав по категориям по месяцам: норма, недоработка, переработка, не размечено',aud:'hq',stage:'0',now:'live',hq:1},
     /* поставка 71: мониторинг по дням Адели — по месяцам; недели — с витриной по неделям */
     {what:'Звонки, прогулы, работа в выходные по месяцам',aud:'hq',stage:'0',now:'live',hq:1},
     {what:'Средняя рабочая активность и средняя доля звонков в Толк по месяцам',aud:'hq',stage:'0',now:'live',hq:1},
@@ -1309,7 +1310,8 @@ function periodTotal(lp,key,yser,dkey){
       const N=ser(d.num), Dn=ser(d.den), r=(a,b)=>{const t=sum(b);return t?sum(a)/t*(d.scale||1):null};
       cur=r(N.cur,Dn.cur);prev=r(N.prev,Dn.prev);
     }else{const av=a=>{const v=a.slice(0,c+1).filter(x=>x!=null);return v.length?v.reduce((t,x)=>t+x,0)/v.length:null};cur=av(y.cur);prev=av(y.prev)}
-    head=PT_MON.has(key)?'В среднем за месяц, '+span:(key==='time_to_fill'?'В среднем за ':'За ')+span;
+    /* поставка 136, п. 5 и 8: среднее за несколько месяцев — «в среднем за период январь–октябрь», не «за месяц» */
+    head=PT_MON.has(key)?'В среднем за период '+PER_NAME:(key==='time_to_fill'?'В среднем за ':'За ')+span;
   }
   if(cur==null||!isFinite(cur))return null;
   const pct=m.fmt==='pct', dd=prev==null?null:cur-prev, eps=pct?0.05:m.fmt==='int'?0.5:0.05;
@@ -1352,7 +1354,7 @@ function blockSignal(bk,st){
      порогом и правилами малых чисел (verdictState); было — последний месяц и мёртвая зона 5%, и плашка спорила с выводом */
   visibleMetricsOfBlock(bk,st).forEach(m=>{
     if(m.better==='flat')return;
-    const s=verdictState(m.key,st,rl,bl);
+    const s=mainVerdict(m.key,st,rl,bl).st;
     if(s==='good')good++;else if(s==='bad')bad++;
   });
   return {good,bad,state:bad?'bad':good?'good':'neutral'};
@@ -1501,7 +1503,7 @@ function deltaState(key,cur,prev,lp){
   if(!cnt&&(small||isSmall(key)||!!lp&&thin(key,lp)))return 'neutral';
   const d=cur-prev;
   if(cnt&&Math.abs(Math.round(cur)-Math.round(prev))<(small?3:2))return 'neutral';
-  if(prev?Math.abs(d)/Math.abs(prev)<VERDICT_GAP:!d)return 'neutral';
+  if(prev?Math.abs(d)/Math.abs(prev)<VERDICT_GAP-1e-9:!d)return 'neutral';
   return (m.better==='lower'?d<0:d>0)?'good':'bad';
 }
 /* поставка 128 (аудит: глава «на уровне базы, но хуже, чем год назад», красный чип года — и «в норме», «не сдвинулась за год»
@@ -1518,6 +1520,27 @@ function yoyMove(key,lp){
   const s=deltaState(key,P.v,P.pv,lp);
   if(s==='good'&&LEAVE_RATE.has(key)&&!leaveFewer(lp))return null;
   return s==='bad'?'worse':s==='good'?'better':null;
+}
+/* поставка 136, п. 10 (владелец: «одновременное сравнение с базой и прошлым годом усложняет чтение»): у вывода одно
+   основное сравнение. Метрика изменилась к тому же периоду прошлого года на 10% и больше (относительно, в любую сторону,
+   включительно) — вывод о годе ('yoy'); иначе — о сравнении с ориентиром: целью, базой или всей компанией ('base').
+   Года нет, год назад ноль (делить не на что), количество без оценки или сдвиг не оценивается (малые числа, yoyMove) —
+   тоже 'base'. Одно правило для карточек, выводов блоков и заголовков глав.
+   У метрики с целью (годовые цели HQ; st — настройка отчёта) основное сравнение — всегда с целью: «нежелательных уходов
+   меньше, чем год назад» при 10% против цели 3% читалось бы хорошей новостью */
+function mainCmp(key,lp,st){
+  const m=METRIC_BY_KEY[key], P=periodTotal(lp,key);
+  if(!m||!P||P.v==null||P.pv==null||!P.pv||m.better==='flat'||m.fmt==='int')return 'base';
+  if(st&&kpiAt(key,st,MONTHS[PER_I].m))return 'base';
+  if(Math.abs(P.v-P.pv)/Math.abs(P.pv)<VERDICT_GAP-1e-9)return 'base';
+  return yoyMove(key,lp)?'yoy':'base';
+}
+/* вердикт основного сравнения: {cmp:'yoy'|'base', st}. У 'yoy' — «лучше / хуже, чем год назад» (yoyMove), у 'base' —
+   оценка к ориентиру (verdictState). Его читают выводы: карточки, вывод блока, заголовок и точка шага, сигнал блока,
+   «В норме». Ячейка «Ориентир» таблицы главной остаётся оценкой к ориентиру (verdictState) — это её колонка */
+function mainVerdict(key,st,lp,bl){
+  if(!isSmall(key)&&mainCmp(key,lp,st)==='yoy')return {cmp:'yoy',st:yoyMove(key,lp)==='worse'?'bad':'good'};
+  return {cmp:'base',st:verdictState(key,st,lp,bl)};
 }
 /* есть ли у метрики жёсткий KPI в текущей настройке (regret — только по HQ) */
 /* 21.10, поставка 50: годовые цели прод-отчёта HQ (regrettable 4%, non-regrettable 5–15%, общая —
@@ -2599,6 +2622,26 @@ const CAL_MONTH=LAST;              /* календарь строится за �
    численность — разрез mh); города офиса — посещения последнего месяца (oc / ocp); бронирования — ряды
    bk / bkv / vsv. Чего нет в ответе — генератор макета, как раньше. */
 const OFF_DAYS=REAL&&REAL.dayMix?REAL.dayMix():null;
+/* поставка 136, п. 15 (владелец: «в посещаемости нет текущего месяца — по какую дату данные?»): последняя дата, за
+   которую в календаре посещений есть рабочие дни, — «данные о посещениях по …»; null — календаря нет */
+function offAsof(){
+  if(!OFF_DAYS)return null;
+  const ks=Object.keys(OFF_DAYS.dw).filter(k=>OFF_DAYS.dw[k]>0).sort(), k=ks[ks.length-1], m=k&&/^(\d{4})-(\d{2})-(\d{2})/.exec(k);
+  return m?{y:+m[1],m:+m[2]-1,d:+m[3],label:+m[3]+' '+MONTH_GEN[+m[2]-1]+' '+m[1]}:null;
+}
+/* поставка 136, п. 17 (владелец: «при клике на подразделение правый блок не пересчитывается»): календарь по дням — у
+   выбранной строки таблицы, если датасет отдал её дни (подразделения первого уровня); узел — общий предок листьев lp.
+   null — дней этой строки в ответе нет (глубже первого уровня, «напрямую») */
+function offDays(lp){
+  if(!OFF_DAYS)return null;
+  if(!lp||!lp.length)return OFF_DAYS;
+  const sg=lp.map(p=>p.split('/'));let n=sg[0].length;
+  sg.forEach(a=>{let i=0;while(i<n&&a[i]===sg[0][i])i++;n=i});
+  const at=sg[0].slice(0,n).join('/'), sp=REAL.scopePath||NODES[0].path;
+  if(at===sp||lp.length===leavesUnder(sp).length)return OFF_DAYS;
+  const m=(REAL.nodeMix&&REAL.nodeMix(at))||REAL.mix(at);
+  return m&&m.dw&&Object.keys(m.dw).length&&leavesUnder(at).length===lp.length?{dw:m.dw,do:m.do||{}}:null;
+}
 const OFF_LIVE={cal:!!OFF_DAYS,seg:!!(REAL&&REAL.has('hwd')&&REAL.has('hov')),
   city:!!(REAL&&Object.keys(REAL.mixVals('oc')).length),bk:!!(REAL&&REAL.has('bk')&&REAL.has('bkv')&&REAL.has('vsv')),
   /* 27.10-в, п. 14: нарушения брони по городам — ov (бронь без прихода + приход без брони), ob (с бронью + приход без) */
@@ -2697,12 +2740,12 @@ function attByDow(lp,months){
 /* Календарь на настоящих (поставка 66): посещаемость дня — из офиса к людям с рабочим днём; день без рабочих
    (выходной, праздник) — без значения. Текущий месяц — по дату данных */
 function attLastReal(lp,months,end){
-  const out=[];end=end==null?LAST:end;
+  const out=[], OD=offDays(lp)||OFF_DAYS;end=end==null?LAST:end;
   for(let i=Math.max(0,end-months+1);i<=end;i++){
     const mm=MONTHS[i], nd=new Date(mm.y,mm.m+1,0).getDate(), pre=mm.y+'-'+String(mm.m+1).padStart(2,'0')+'-';
     const to=i===LAST&&ASOF.y===mm.y&&ASOF.m===mm.m?Math.min(ASOF.d,nd):nd, days=[];
     for(let d=1;d<=to;d++){
-      const k=pre+String(d).padStart(2,'0'), w=OFF_DAYS.dw[k]||0, v=(OFF_DAYS.do||{})[k]||0;
+      const k=pre+String(d).padStart(2,'0'), w=OD.dw[k]||0, v=(OD.do||{})[k]||0;
       days.push({day:d,dow:(new Date(mm.y,mm.m,d).getDay()+6)%7,weekend:!w,val:w?+(v/w*100).toFixed(1):null,w:w,v:v});
     }
     out.push({y:mm.y,m:mm.m,label:mm.label,base:lp.length?aggregate(lp,'office_att')[i]:0,
@@ -3414,8 +3457,17 @@ function officeReal(lp,seg,city){
     segs.forEach(s=>{s.att=W[s.key]?+(V[s.key]/W[s.key]*100).toFixed(1):0;s.hc=c.people[s.key]})}
   /* поставка 107: владельцы фиксов — посещаемость тех, у кого фиксированное место (как в мастере) */
   const fix=OFF_LIVE.fix&&perVal(lp,'office_fix_wday')?{att:+perVal(lp,'office_fix').toFixed(1),wd:Math.round(perVal(lp,'office_fix_wday'))}:null;
+  /* поставка 136, п. 19 (владелец: «выбор города не меняет динамику»): ряд выбранного города по месяцам — посещения в
+     офисах города ÷ рабочие дни людей с закреплённым офисом этого города (ocm ÷ ocdm, как посещаемость города за месяц).
+     Ряды города есть у подразделения из фильтра; у строки таблицы и вместе с сегментом — нет (cityDyn:false, экран
+     говорит об этом прямо) */
+  let cy=null;
+  if(c&&!sg){
+    const vm=REAL.scopeMix&&REAL.scopeMix('ocm'), wm=REAL.scopeMix&&REAL.scopeMix('ocdm'), whole=lp.length===leavesUnder(REAL.scopePath||NODES[0].path).length;
+    if(vm&&wm&&whole)cy=yoyOf(MONTHS_EXT.map(mm=>{const k=c.raw+'|'+mm.y+'-'+(mm.m<9?'0':'')+(mm.m+1), w=wm[k]||0;return w?+((vm[k]||0)/w*100).toFixed(1):null}));
+  }
   return {real:true,cross:cross,segs:segs,cities:cities,cityAtt:!!od,fix:fix,seg:sg,city:c,att:sg?sg.att:perVal(lp,'office_att')||0,factor:1,
-    yser:sg?yoySeries(lp,sg.key==='lead'?'office_lead':'office_staff'):null};
+    cityDyn:!!cy,yser:cy||(sg?yoySeries(lp,sg.key==='lead'?'office_lead':'office_staff'):null)};
 }
 
 /* ---------- AI: инструменты и стримы ----------
@@ -3632,7 +3684,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
+  mainCmp,mainVerdict,offDays,offAsof,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};

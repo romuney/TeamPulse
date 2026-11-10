@@ -601,6 +601,10 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 /* Сноска под таблицей или графиком: помечаем допущения макета честно */
 .tbl-note{margin-top:var(--s4);font-size:var(--fs-note);color:var(--muted);font-weight:var(--fw-body);line-height:1.45}
+/* поставка 136, п. 11: строка покрытия мониторинга — заметная, над графиками; low — размечено меньше половины */
+.tbl-note.mon-cov{margin:0 0 var(--s5);padding:var(--s4) var(--s6);border-left:3px solid var(--act-line);background:#fafbfc;color:var(--ink2)}
+.tbl-note.mon-cov b{color:var(--ink)}
+.tbl-note.mon-cov.low{border-left-color:#e0a100;background:#fffaf0}
 /* в правой панели сноска — прямой ребёнок flex-колонки с gap:10px, и её собственный
    margin-top складывался с gap: 19px вместо 9px, как везде */
 .split-r .panel-b>.tbl-note{margin-top:0}

@@ -29,7 +29,8 @@ const PART={regret_m:'нежелательные уходы за месяц',hc_
   nonregret_cnt:'желательные уходы',regret_hq_cnt:'нежелательные уходы HQ',nonregret_hq_cnt:'желательные уходы HQ',
   hc_avg_hq:'средняя активная численность HQ',ttf_days:'дни от согласования до закрытия',ttf_n:'закрытые вакансии',
   ai_den:'сотрудники в источнике AI',vac_jun:'закрытые джунами',
-  perf_norm:'в норме',perf_low:'недоработка',perf_high:'переработка',perf_gray:'категория Gray'};
+  perf_norm:'в норме',perf_low:'недоработка',perf_high:'переработка',/* поставка 136, п. 6: категория в знаменателе названа так же, как на графике состава — «не размечено» */
+  perf_gray:'не размечено'};
 /* строчная — только первая буква: «T-рост», «AI», «WAU» остаются как есть */
 const partName=k=>{const n=PART[k]||(D.METRIC_BY_KEY[k]||{}).name||k;return n.charAt(0).toLowerCase()+n.slice(1)};
 /* Формула метрики — MathML (14.10, заказчик: «формулы выделять и использовать
@@ -123,7 +124,7 @@ function normOf(S,rl,all){
      у отчёта меньше 30 человек доли и сроки идут отдельной строкой «без оценки» (normRow), а не «в норме» */
   const bl=D.benchmarkLeaves(S);
   return D.METRICS.filter(m=>m.key!=='net_ytd'&&D.metricVisible(m.key,S)&&!D.isStub(m.key)&&!has.has(m.key)&&D.periodTotal(rl,m.key)&&
-    D.verdictState(m.key,S,rl,bl)!=='bad');
+    D.mainVerdict(m.key,S,rl,bl).st!=='bad');
 }
 /* без оценки из-за малых чисел: доли и сроки у отчёта меньше 30 человек */
 const unrated=(m,rl)=>D.isSmall(m.key)&&(D.comparable(m.key)||m.kpi)&&m.fmt!=='int';
@@ -288,7 +289,7 @@ function render(S,openRows){
         '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(hint)+'</span></td>'+
         /* поставка 120 (критики 119: «Текучесть месячная 2,3% · +0,8 к августу» читалось как «в сентябре 2,3%», а это среднее
            за январь–сентябрь): у средних за месяц — подпись «в ср. за мес.», под пилюлей MoM — значение самого месяца */
-        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.stock?'<span class="m-per">сейчас</span>':/^В среднем за месяц/.test(P.head||'')?'<span class="m-per">в ср. за мес.</span>':'')+'</td>'+
+        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.stock?'<span class="m-per">сейчас</span>':/^В среднем за период/.test(P.head||'')?'<span class="m-per"'+U.tipAttr({text:P.head+'.'})+'>в ср. за период</span>':'')+'</td>'+
         /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
         '<td class="col-num">'+U.deltaChip(m.key,dl.mom,Object.assign(cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip},{neu:neuN||/^на конец/.test(P.lab||''),
           from:dl.mom==null?null:e[i-1],lp:rl}))+(dl.mom!=null&&!P.stock&&e[i]!=null?'<span class="m-per">'+esc(D.MONTH_ABBR[D.MONTHS_EXT[i].m])+' '+

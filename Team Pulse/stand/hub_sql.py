@@ -736,6 +736,26 @@ from (
 ) c
 where c.vis > 0 or c.wd > 0;   -- 06.11: ocd нужны и дни не-посетителей (ocp у них 0)
 
+-- поставка 136, п. 19 (владелец: «выбор города не меняет динамику посещений»): то же по месяцам всей сетки - динамика
+-- посещаемости выбранного города. ocm - посещений, ocdm - рабочих дней города; значение - «город|ГГГГ-ММ»
+-- (датасет отдаёт выбранному юниту). Посещаемость города за месяц = ocm / ocdm, как у месяца cm (oc / ocd)
+insert into {P}_mixr
+select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
+       unnest(ARRAY['ocm', 'ocdm']) as mx_key,
+       unnest(ARRAY[c.city || '|' || c.ym, c.city || '|' || c.ym]) as mx_val,
+       unnest(ARRAY[c.vis, c.wd]) as mx_n
+from (
+    select j.node_rk, j.paint_c, j.it_c, j.staff_c, j.act_c, {city} as city, to_char(j.report_month, 'YYYY-MM') as ym,
+           coalesce((j.v ->> 'visit_count')::numeric, 0) as vis,
+           coalesce((j.v ->> 'work_day_count')::numeric, 0) as wd
+    from (
+        select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, e.report_month,
+               json_array_elements(e.office_city_visits_json::json) as v
+        from ({expl(['report_month', 'office_city_visits_json'], f'and s.report_month >= (select grid_start from {P}_cal) and s.office_city_visits_json is not null')}) e
+    ) j
+) c
+where c.vis > 0 or c.wd > 0;
+
 -- 31.10-б, п. 9: то же у руководителей (признак руководителя) — кросс-фильтр «руководители / сотрудники × город»:
 -- ocl — посещений, ocpl — руководителей; у сотрудников — всё минус руководители
 insert into {P}_mixr

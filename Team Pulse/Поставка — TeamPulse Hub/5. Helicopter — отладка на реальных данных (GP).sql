@@ -30,6 +30,8 @@
 --  14 численность одна на всех вкладках: у выбранного подразделения ряд численности (hc) = сумма разреза «Пол»
 --     (sostav_pol), d_sostav = 0; uzlov_s_prevysheniem - сколько в дереве узлов, у которых подразделения в сумме
 --     больше узла. Ниже - сами такие узлы (до 40): hc узла, kids_hc - сумма его подразделений, kids - их число
+--  15 посещаемость текущего месяца (lm) по шагам: последняя дата источника посещений (src_max_dt, ГГГГММДД), рабочие дни
+--     и посещения в источнике, в таблице людей и в рядах отчёта. По ним видно, почему на вкладке нет текущего месяца
 -- Ожидаемые числа сверки — в чате, не в репозитории. Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub).
 -- 09.11: файл — один запрос (было 13 отдельных); убраны устаревшие: водопад витрины движения и «откуда прочее» (найм и
 -- переводы отчёта — из строк дня события, водопад сходится без «прочего»), переводы по специализациям по флагу уровня
@@ -638,6 +640,36 @@ b14 as (
     select k, hc, 0, 0, kids_hc, kids, 0
     from (select b14k.*, row_number() over (order by kids_hc - hc desc, k) as rn from b14k) x
     where rn <= 40
+),
+-- 15. посещаемость текущего месяца (последний месяц данных lm) по шагам - есть ли он и по какую дату. src_max_dt -
+--     последняя дата в источнике посещений (ГГГГММДД); src_* - рабочие дни и посещения источника за lm (база мастера:
+--     «Активная», рабочий день; посещение - главный офис дня у людей с закреплённым офисом); tbl_* - то же в таблице людей
+--     за lm; rep_* - ряды отчёта у корня. Нули в src - источник за месяц ещё не обновлён; src есть, а tbl / rep нули -
+--     месяц теряется при сборке
+b15s as (
+    select to_char(max(calendar_dt), 'YYYYMMDD')::numeric as src_max_dt,
+           sum(case when calendar_dt >= (select lm from teampulse_hub_cal) and work_day_flg = 1 and active_type_nm = 'Активная'
+                    then 1 else 0 end) as src_workdays,
+           sum(case when calendar_dt >= (select lm from teampulse_hub_cal) and work_day_flg = 1 and active_type_nm = 'Активная'
+                     and coalesce(main_office_visit_rn, 0) = 1 and active_office_emp_flg = 'Да'
+                    then coalesce(office_visit_flg, 0) else 0 end) as src_visits
+    from usr_cross_data.office_traffic_attendance
+    where calendar_dt >= (select cm from teampulse_hub_cal)
+),
+b15t as (
+    select sum(coalesce(work_day_amt, 0)) as tbl_workdays, sum(coalesce(office_visit_amt, 0)) as tbl_visits
+    from all_metrics_with_performance_and_office_traffic_and_grt
+    where report_month = (select lm from teampulse_hub_cal) and leaf_lvl > 0
+),
+b15 as (
+    select 'месяц ' || to_char((select lm from teampulse_hub_cal), 'YYYY-MM') as k, s.src_max_dt,
+           coalesce(s.src_workdays, 0) as src_workdays, coalesce(s.src_visits, 0) as src_visits,
+           coalesce(t.tbl_workdays, 0) as tbl_workdays, coalesce(t.tbl_visits, 0) as tbl_visits,
+           coalesce((select sum(wday_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta)
+              and report_month = (select lm from teampulse_hub_cal)), 0) as rep_workdays,
+           coalesce((select sum(ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta)
+              and report_month = (select lm from teampulse_hub_cal)), 0) as rep_visits
+    from b15s s cross join b15t t
 )
 select 0 as n, 'поиск подразделения'::text as blok, (unit_rk || ' ' || unit_nm)::text as stroka,
        unnest(array[1, 2]) as ord, unnest(array['unit_lvl', 'kids_cnt']::text[]) as pokazatel,
@@ -708,6 +740,11 @@ select 14 as n, 'численность: узел и его подразделе
        unnest(array[1, 2, 3, 4, 5, 6]) as ord, unnest(array['hc', 'sostav_pol', 'd_sostav', 'kids_hc', 'kids', 'uzlov_s_prevysheniem']::text[]) as pokazatel,
        unnest(array[(hc)::numeric, (sostav_pol)::numeric, (d_sostav)::numeric, (kids_hc)::numeric, (kids)::numeric, (uzlov_s_prevysheniem)::numeric]) as znachenie
 from b14
+union all
+select 15 as n, 'посещаемость текущего месяца по шагам (месяц lm)'::text as blok, (k)::text as stroka,
+       unnest(array[1, 2, 3, 4, 5, 6, 7]) as ord, unnest(array['src_max_dt', 'src_workdays', 'src_visits', 'tbl_workdays', 'tbl_visits', 'rep_workdays', 'rep_visits']::text[]) as pokazatel,
+       unnest(array[(src_max_dt)::numeric, (src_workdays)::numeric, (src_visits)::numeric, (tbl_workdays)::numeric, (tbl_visits)::numeric, (rep_workdays)::numeric, (rep_visits)::numeric]) as znachenie
+from b15
 union all
 select 10 as n, 'посещения по шагам (месяц cm)'::text as blok, (k)::text as stroka,
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['src_visits', 'src_no_city', 'tbl_visits', 'tbl_city_json', 'tbl_visits_no_json', 'tbl_leaf0', 'rep_visits', 'rep_city']::text[]) as pokazatel,

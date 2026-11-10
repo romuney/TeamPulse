@@ -39,7 +39,10 @@ function monPh(title,what){
 function perLine(P,wk,lp){
   const C=P.filter(p=>!p.pt);
   if(!C.length)return null;
-  const head='В среднем за '+(wk?'неделю':'месяц')+', '+C[0].label+(C.length>1?'–'+C[C.length-1].label:'');
+  /* поставка 136, п. 8: среднее за несколько месяцев — «в среднем за период январь–октябрь» (не «за месяц, янв–окт») */
+  const mn=p=>String(p.full||p.label).split(/[ ,]/)[0].toLowerCase();
+  const head=wk?'В среднем за неделю, '+C[0].label+(C.length>1?'–'+C[C.length-1].label:'')
+    :'В среднем за период '+mn(C[0])+(C.length>1?'–'+mn(C[C.length-1]):'');
   const avg=k=>C.reduce((a,p)=>a+(p[k]||0),0)/C.length, n=v=>D.fmtInt?D.fmtInt(Math.round(v)):String(Math.round(v));
   const f1=v=>(Math.round(v*10)/10).toFixed(1).replace('.',',');
   const sum=k=>C.reduce((a,p)=>a+(p[k]||0),0), wt=C.every(p=>p.pdw!=null);
@@ -59,6 +62,25 @@ function perLine(P,wk,lp){
    KPI за весь период (D.monKpi: последние 16 полных недель по данным, люди без повторов, база — численность на конец
    периода) перед «Составом по категориям». Карточки — общие shareCards (как «Стажёры» AI и «Портрет»); нет данных —
    строка «нет данных», не ноль */
+/* поставка 136, п. 11 (владелец: «у сервисных линий размечено меньше 3% — без пояснения цифры читаются как про всю
+   команду»): заметная строка покрытия над вкладкой. Числитель — люди с категорией мониторинга (норма, недоработка,
+   переработка) в последнем закрытом месяце, знаменатель — вся численность выбора в том же месяце; остальные — «Не
+   размечено». Кого размечает мониторинг — проверено по данным боя (запрос сверки, блок 3: по покраскам) */
+function covNote(md){
+  const c=wk(md).cur, lab=(c.under||0)+(c.normal||0)+(c.over||0), hc=c.hc||0;
+  if(!hc)return '';
+  const pc=Math.round(lab/hc*1000)/10, info='<span class="info"'+U.tipAttr({title:'Покрытие мониторинга',
+    text:'Доля людей, по которым в мониторинге есть данные.',
+    list:['**Числитель** — люди с категорией: норма, недоработка или переработка',
+      '**Знаменатель** — вся численность выбранных фильтров за тот же месяц',
+      'Разметка есть в основном у HQ; у Line её почти нет, у Support — у малой части',
+      'От прав доступа покрытие не зависит: данные одни для всех, кому открыто подразделение'],
+    note:'«Не размечено» — данных нет. Это не значит, что человек не работал.'})+' aria-label="Покрытие мониторинга">i</span>';
+  return '<div class="tbl-note mon-cov'+(pc<50?' low':'')+'"><b>Мониторинг покрывает '+D.fmtInt(lab)+' из '+D.fmtInt(hc)+' человек ('+
+    String(pc).replace('.',',')+'%)</b> · '+U.esc(String(c.full||'').split(',')[0])+' '+info+'<br>'+
+    (pc<50?'Размечено меньше половины, поэтому доли недоработки и переработки не оцениваем: ноль здесь значит «нет данных».'
+      :'Выводы — о размеченных людях. Остальные — «Не размечено»: по ним данных нет.')+'</div>';
+}
 function kpiBlock(lp){
   const k=D.monKpi(lp);
   const pc=(n,b)=>b?(Math.round(n/b*1000)/10).toString().replace('.',',')+'%':'—';
@@ -122,7 +144,7 @@ SC.blocks.monitor={
     /* 05.11, заказчик: отметка периода кликом по столбику снята — графики без выделения */
     const wk=false, P=md.months;
     /* пробник без витрины по неделям и без мониторинга по дням: часы и звонки — заглушки */
-    if(md.monthly&&!md.daily)return kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    if(md.monthly&&!md.daily)return covNote(md)+kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
@@ -131,7 +153,7 @@ SC.blocks.monitor={
     /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой.
        Поставка 104 (заказчик): низкие (sm) — лист короче; под заголовком — среднее за период */
     const pl=perLine(P,wk,ctx.lp);
-    return kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    return covNote(md)+kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
       G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
       G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+'</div>';

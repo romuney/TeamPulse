@@ -1245,8 +1245,11 @@ function drawStack(a,w,h){
       const v=p[c[0]], y1=Y(acc+v), y0=Y(acc), lastSeg=ci===live.length-1;
       /* 2px просвет между кусками — цвета соседей не сливаются */
       const yt=y1+(lastSeg?0:1), yb=y0-(ci?1:0);
-      const ex=' class="bar up"'+sAttr(c[0])+' style="animation-delay:'+dly+'ms"';
-      segs+=lastSeg?barUp(cx-bw/2,yt,bw,yb-yt,COL[c[0]],ex):rect(cx-bw/2,yt,bw,Math.max(0,yb-yt),COL[c[0]],0,ex);
+      /* поставка 136, п. 7 (владелец: «текущий месяц — штриховкой, как на остальных вкладках»): незакрытый период (pt —
+         месяц даты данных, а не просто последний в ряду) — штриховка цветом своей категории, как у баров динамики */
+      const hk=p.pt&&hatchFill(COL[c[0]]), fl=hk?hk[1]:COL[c[0]];
+      const ex=' class="bar up'+(hk?' part':'')+'"'+sAttr(c[0])+' style="animation-delay:'+dly+'ms"';
+      segs+=(hk?hk[0]:'')+(lastSeg?barUp(cx-bw/2,yt,bw,yb-yt,fl,ex):rect(cx-bw/2,yt,bw,Math.max(0,yb-yt),fl,0,ex));
       acc+=v;
     });
     const t=tot[i];
@@ -1259,8 +1262,7 @@ function drawStack(a,w,h){
       note:(p.pt?'Период ещё идёт — значения могут измениться. ':'')+
         (a.cats?'Всего — '+CD.fmtInt(all)+(a.unit||'')+'.':(pm?(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. '):'')+'Всего — '+CD.fmtInt(all)+' чел.')})+'>'+
       (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+
-      /* поставка 104: незакрытый период (pt) — столбик бледнее, как пунктир на линиях */
-      '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+(p.pt?'<g opacity=".5">'+segs+'</g>':segs)+'</g>';
+      '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+segs+'</g>';
     if(t)s+=txt(cx,Y(t)-VAL_DY,CD.fmtInt(t),valOpt({delay:200+dly}));
   });
   s+=line(x0,bot,x0+plotW,bot,C_ZERO,1)+perAxis(P,X,h,mark,bandW);

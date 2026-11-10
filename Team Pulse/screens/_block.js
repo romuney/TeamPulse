@@ -364,7 +364,7 @@ function conclusion(sum,b,S){
     const lead=sum.list.find(c=>c.sev!=='good')||sum.list[0];
     const kp=sum.list.slice(0,3).map(c=>'<span class="bk-p '+c.sev+'">'+c.kp+'</span>');
     /* «где» — уже в заголовке и в панели справа, «год назад» — в пилюле метрики */
-    const more=(lead.pills||[]).filter(t=>!/^(год назад|почти всё|больше половины)/.test(t)).map(t=>'<span class="bk-p">'+t+'</span>');
+    const more=(lead.pills||[]).filter(t=>!/^год назад|этой разницы$/.test(t)).map(t=>'<span class="bk-p">'+t+'</span>');
     facts='<div class="bk-pl">'+kp.concat(more).join('')+'</div>';
   }
   /* огонёк по настроению вывода (20.10, заказчик): тревога, насторожен, улыбка, спокоен; подпись — та же, что у вывода (128: не
@@ -418,7 +418,8 @@ function renderBlock(S,expanded,mixOpen,view){
   const YNOW=new Set(['vac_closed']);
   const ynow=lp=>D.aggregate(lp,'vac_closed').reduce((t,v,i)=>t+(D.MONTHS[i].y===D.YEAR_CUR?v||0:0),0);
   /* окна потоков и долей (с незакрытым месяцем и без) названы в шапке вкладки («… (доли — …)»), под колонкой — только исключения */
-  const perOf=k=>MONTHLY.has(k)?D.MONTH_NOM[PM.m]+' '+PM.y:YNOW.has(k)?String(D.YEAR_CUR):b.key==='structure'||pt(k).lab===D.PER_SPAN||pt(k).lab===D.CNT_SPAN?'':pt(k).lab||'';
+  /* поставка 136, п. 16: блок с perAlways (посещаемость) подписывает период в шапке каждой колонки, даже общий */
+  const perOf=k=>MONTHLY.has(k)?D.MONTH_NOM[PM.m]+' '+PM.y:YNOW.has(k)?String(D.YEAR_CUR):mod.perAlways&&pt(k).lab?pt(k).lab:b.key==='structure'||pt(k).lab===D.PER_SPAN||pt(k).lab===D.CNT_SPAN?'':pt(k).lab||'';
   /* поставка 128 (аудит L3: подсказка колонки «…за месяц», а в колонке — итог с января): у колонок за период «за месяц» в
      описании метрики — окно колонки */
   const perTxt=(k,t)=>!MONTHLY.has(k)&&/^(янв\.|1–)/.test(pt(k).lab||'')?String(t).replace(/ за месяц(?![а-яё])(\.?)/g,(m,d)=>' за '+pt(k).lab+(/\.$/.test(pt(k).lab)?'':d)):t;
@@ -587,8 +588,8 @@ function renderBlock(S,expanded,mixOpen,view){
         U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+(c.per?'<span class="th-per">'+esc(c.per)+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :tmets.map(m=>'<th class="tsort'+(tsm===m?' on':'')+'" data-tsort="'+(tsm===m&&tsd<0?m.key+':a':tsm===m?'':m.key+':d')+'"'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:perTxt(m.key,noGoal(U.metricText(m,1))),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
-      pt(m.key).head+' — как итог под графиком.':null})+'>'+esc(m.short)+(tsm===m?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+
+    :tmets.map(m=>'<th class="tsort'+(tsm===m?' on':'')+'" data-tsort="'+(tsm===m&&tsd<0?m.key+':a':tsm===m?'':m.key+':d')+'"'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:perTxt(m.key,noGoal((mod.colTips||{})[m.key]||U.metricText(m,1))),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
+      pt(m.key).head+' — как итог под графиком.':null})+'>'+esc((mod.colNames||{})[m.key]||m.short)+(tsm===m?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.

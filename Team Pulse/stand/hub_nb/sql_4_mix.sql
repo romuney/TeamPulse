@@ -384,6 +384,42 @@ from (
 ) c
 where c.vis > 0 or c.wd > 0;   -- 06.11: ocd нужны и дни не-посетителей (ocp у них 0)
 
+-- поставка 136, п. 19 (владелец: «выбор города не меняет динамику посещений»): то же по месяцам всей сетки - динамика
+-- посещаемости выбранного города. ocm - посещений, ocdm - рабочих дней города; значение - «город|ГГГГ-ММ»
+-- (датасет отдаёт выбранному юниту). Посещаемость города за месяц = ocm / ocdm, как у месяца cm (oc / ocd)
+insert into teampulse_hub_mixr
+select c.node_rk, c.paint_c, c.it_c, c.staff_c, c.act_c,
+       unnest(ARRAY['ocm', 'ocdm']) as mx_key,
+       unnest(ARRAY[c.city || '|' || c.ym, c.city || '|' || c.ym]) as mx_val,
+       unnest(ARRAY[c.vis, c.wd]) as mx_n
+from (
+    select j.node_rk, j.paint_c, j.it_c, j.staff_c, j.act_c, coalesce(nullif(translate((j.v ->> 'office_city_nm')::text, E'\t\n|', '  /'), '-'), '') as city, to_char(j.report_month, 'YYYY-MM') as ym,
+           coalesce((j.v ->> 'visit_count')::numeric, 0) as vis,
+           coalesce((j.v ->> 'work_day_count')::numeric, 0) as wd
+    from (
+        select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, e.report_month,
+               json_array_elements(e.office_city_visits_json::json) as v
+        from (
+    select x.*, unnest(string_to_array(x.cp, '|')) as node_rk,
+           generate_subscripts(string_to_array(x.cp, '|'), 1) - (select mo from teampulse_hub_cal) as d
+    from (
+        select s.report_month, s.office_city_visits_json,
+               (select pre from teampulse_hub_cal) || coalesce(u.cp,
+                   array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
+                                      s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
+                                      s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) as cp,
+               coalesce(nullif(s.paint_cd::text, ''), '-') AS paint_c, coalesce(nullif(s.emp_specialization_it_code::text, ''), '-') AS it_c,
+               case when s.employment_relation_type = 'Штатный сотрудник' then 'Штат' else 'Не штат' end as staff_c,
+               coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
+        from all_metrics_with_performance_and_office_traffic_and_grt s
+        left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
+        where s.leaf_lvl > 0 and s.report_month >= (select grid_start from teampulse_hub_cal) and s.office_city_visits_json is not null
+    ) x
+) e
+    ) j
+) c
+where c.vis > 0 or c.wd > 0;
+
 -- 31.10-б, п. 9: то же у руководителей (признак руководителя) — кросс-фильтр «руководители / сотрудники × город»:
 -- ocl — посещений, ocpl — руководителей; у сотрудников — всё минус руководители
 insert into teampulse_hub_mixr

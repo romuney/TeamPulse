@@ -75,7 +75,10 @@ function tipTarget(e){
   if(c&&(c.scrollWidth>c.clientWidth+1||c.scrollHeight>c.clientHeight+1)){
     /* у названия — только оно само, без второй строки под ним */
     const txt=[...c.childNodes].filter(n=>!(n.classList&&n.classList.contains('unit-sub'))).map(n=>n.textContent).join('').trim();
-    c.setAttribute('data-ell',G.tipHtml({title:txt}));
+    /* поставка 136, п. 14 (владелец: «тултипы метрик на One Pager — жирным»): обрезанное пояснение метрики (.m-sub) шло в
+       подсказку заголовком — весь текст жирным. Теперь название метрики — заголовок, пояснение — обычным текстом */
+    const sub=c.classList.contains('m-sub'), nm=sub&&c.parentNode?[...c.parentNode.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent).join('').trim():'';
+    c.setAttribute('data-ell',G.tipHtml(sub?{title:nm||null,text:txt}:{title:txt}));
     return c;
   }
   return null;
