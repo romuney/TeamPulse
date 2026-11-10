@@ -106,7 +106,7 @@ function yoyStory(key,S,rl,bl){
      метрик пункт говорил «на уровне», у всей компании — сравнивал её с собой. Теперь пункт 1 — тот же итог и тот же вердикт,
      что у строки (D.periodTotal, D.verdictState), пункт 2 — год назад за те же месяцы, словом по тому же правилу, что цвет
      чипа «год к году» (D.deltaState) */
-  const P=D.periodTotal(rl,key)||{}, V=D.verdictState(key,S,rl,bl), pt=P.stock||/^На конец /.test(P.head||'');
+  const P=D.periodTotal(rl,key)||{}, V=D.verdictState(key,S,rl,bl), pt=P.stock||/^На конец /.test(P.head||'')||accum(m)&&!FLOW.has(key);
   if(P.v==null&&v==null)return {items:[],marks:[]};
   const kpi=D.kpiAt(key,S,D.MONTHS[D.PER_I].m), pe=kpi?null:D.peerOf(key,rl);
   const refV=kpi?kpi.green:pe?pe.p50:D.comparable(key)&&!D.isSelfBase()?(D.periodTotal(bl,key)||{}).v:null;
@@ -391,7 +391,7 @@ function overview(S,rl,bl,all){
      «Как уходит HQ?» её видит, а главная молчала; меньше 30 человек в HQ — не оцениваем */
   if(S.paint!=='HQ'&&D.metricVisible('turnover_y',S)&&D.hqLight){
     const h=D.hqLight(S,null,null), r=h&&h.hc>=CARD.small&&h.rows.find(x=>x.key==='turnover_y');
-    const Lh=D.LAST-(D.PARTIAL?1:0), kpi=r&&D.kpiAt('turnover_y',Object.assign({},S,{paint:'HQ'}),D.MONTHS[Lh].m);
+    const Lh=D.LAST, kpi=r&&D.kpiAt('turnover_y',Object.assign({},S,{paint:'HQ'}),D.MONTHS[Lh].m);
     /* поставка 128 (владелец: «цели на шаге HQ»): карточка — тем же правилом, что оценка на шаге HQ и строка главной при покраске
        HQ (stateForKpi: выше цели — хуже), без отдельного порога 10% */
     if(r&&r.v!=null&&kpi&&kpi.green&&r.st==='bad'){
@@ -656,7 +656,8 @@ function cardOf(f,S,rl,bl){
      сколько из этой разницы приходится на него. Правило выбора — больше половины разницы и отрыв от следующего от 2
      (whereOf). «Больше половины» без знаменателя и подразделение у срока закрытия (разница в днях, не в штуках) — убраны */
   const wh=bad&&x&&n>=1&&/^(dev|yoy|spike)$/.test(f.kind)?whereOf(f,S):null;
-  const part=k=>D.fmtInt(Math.min(Math.round(k),Math.round(wh.tot)))+' из '+ppl(Math.round(wh.tot),x.noun);
+  /* вся разница в одном месте — «все 3 человека этой разницы», а не «3 из 3» */
+  const part=k=>Math.round(k)>=Math.round(wh.tot)?'все '+ppl(Math.round(wh.tot),x.noun):D.fmtInt(Math.round(k))+' из '+ppl(Math.round(wh.tot),x.noun);
   if(wh&&wh.top)body.push('Из этой разницы '+part(wh.top.exc)+' — в <b>«'+esc(wh.top.n.name)+'»</b>.');
   if(wh&&wh.top)pills.push('<b>«'+esc(wh.top.n.name)+'»</b> — '+part(wh.top.exc)+' этой разницы');
   const two=wh&&wh.top2?'<b>«'+esc(wh.top2[0].n.name)+'»</b> и <b>«'+esc(wh.top2[1].n.name)+'»</b>':'';
@@ -666,7 +667,7 @@ function cardOf(f,S,rl,bl){
   if(f.kind==='hqb'&&f.hq){const q=f.hq, over=Math.round((f.v-f.ref)/100*q.hc);
     if(over>=1)pills.push('<b>≈ '+ppl(over)+'</b> сверх цели · в HQ '+ppl(q.hc));
     /* два ориентира в карточке путали (критик блока): годовой и его доля к закрытому месяцу — одной строкой */
-    if(q.ann)pills.push('цель '+fv(q.ann)+' в год, к '+D.MONTH_DAT[D.MONTHS_EXT[f.L].m]+' — '+fv(f.ref));
+    if(q.ann)pills.push('цель '+fv(q.ann)+' в год, на '+D.ASOF.d+' '+D.MONTH_GEN[D.ASOF.m]+' — '+fv(f.ref));
     /* поставка 136, п. 4: желательная и нежелательная части — другие метрики, у них свои строки и шаг «Как уходит HQ?» */
   }
   /* поставка 136, п. 4 и 10: строки «год назад X» под числом нет — в карточке одно сравнение (оно в чипе) */

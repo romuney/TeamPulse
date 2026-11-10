@@ -41,7 +41,8 @@ function balancedSteps(lp){
     Math.abs(other)<0.5?[]:[{name:'Без флага в источнике',value:other,note:D.REAL?'Изменение численности, у которого в '+
       'источнике нет флага найма, увольнения или перевода, — сбой данных. Найм, отток и переводы (флаги in / out) покрывают '+
       'всё движение людей.':'В демо численность и потоки генерируются независимо.'}],
-    [{name:'Конец',sub:D.WIN_TO,value:end,total:true}]);
+    /* поставка 137, п. 2 (владелец): у «Конца» — точная дата данных, а не месяц */
+    [{name:'Конец',sub:'на '+D.ASOF_LABEL,value:end,total:true}]);
 }
 
 /* 26.10-б, правки п. 1: «Движение по специализациям» — после переводов: с начала года по специализации.
@@ -75,12 +76,10 @@ function specMove(lp,ctx){
   const tw='Переводы';
   const cols=[['hc0','На начало']].concat([['hire','Найм']]).concat(trf?[['tin',tw+' в']]:[]).concat([['exit','Отток']])
     .concat(trf?[['tout',tw+' из']]:[]).concat(D.SPM_CHG?[['chg','Внутри юнита']]:[]).concat([['hc1',D.SPM_END?'На конец':'Сейчас']]);
-  /* поставка 101 (файл 7, п. 2): строка специализации кликается — под таблицей её состав по месяцам (и у строк внутри
-     «Остальных») */
-  const sel=ctx&&ctx.S&&ctx.S.spmSel, pick=z=>' data-spmsel="'+esc(z.name)+'"'+U.tipAttr({title:z.name,
-    text:sel===z.name?'Клик — закрыть помесячную детализацию.':'Клик — найм, переводы и отток по месяцам.'});
+  /* поставка 137, п. 6 (владелец): детализации по клику у строки специализации нет — строка не кликается (без подсказки
+     о клике и подсветки); кликаются только шапка (сортировка) и «Остальные» (раскрыть) */
   const row=z=>'<tr'+(z.total?' class="total top"':z.exp?' class="urow" data-btexp="'+K+'"'+U.tipAttr({title:'Остальные',
-        text:open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):' class="urow'+(z.sub?' lvl2':'')+(sel===z.name?' sel':'')+'"'+pick(z))+'><td class="txt">'+
+        text:open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):z.sub?' class="lvl2"':'')+'><td class="txt">'+
       (tree?'<span class="row-label">'+(z.total?'<span class="caret-spacer"></span>':lbl(z))+'<span class="row-body">':'')+esc(z.name)+
       (z.note?'<span class="unit-sub">'+esc(z.note)+'</span>':'')+(tree?'</span></span>':'')+'</td>'+
       cols.map(c=>'<td class="num'+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'">'+(z[c[0]]==null?'—':(c[0]==='chg'&&z[c[0]]>0?'+':'')+D.fmtInt(z[c[0]]))+'</td>').join('')+'</tr>';
@@ -88,9 +87,9 @@ function specMove(lp,ctx){
     '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col>').join('')+
     '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num tsort'+(c[0]===sk?' on':'')+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'" data-spmsort="'+c[0]+'"'+
       U.tipAttr({title:c[1],text:c[0]===sk?'Сейчас — по убыванию.':'Клик — сортировать по убыванию.'})+'>'+c[1]+'</th>').join('')+'</tr></thead><tbody>'+
-    top.map(row).join('')+'</tbody></table></div>'+specDetail(lp,rs.find(z=>z.name===sel),cols)+
+    top.map(row).join('')+'</tbody></table></div>'+
     '<div class="tbl-note">'+U.esc(D.CNT_TEXT.replace(/^./,x=>x.toUpperCase()))+'. На начало — численность на конец декабря, '+
-      (D.SPM_END?'на конец — '+(D.CNT_ON?'на '+U.esc(D.ASOF_LABEL):U.esc(D.MONTH_GEN[D.PER_C]))+', после наймов, увольнений и переводов':'«сейчас» — на дату данных')+'. '+
+      (D.SPM_END?'на конец — '+(D.PER_PART?'на '+U.esc(D.ASOF_LABEL):U.esc(D.MONTH_GEN[D.PER_C]))+', после наймов, увольнений и переводов':'«сейчас» — на дату данных')+'. '+
       (D.SPM_FSM?'В каждой строке: на начало + найм + переводы в − отток − переводы из = на конец. Переводы строки — это и '+
         'перевод в команду или из неё, и смена специализации внутри команды, поэтому их сумма по строкам больше, чем '+
         'переводов команды в водопаде выше. Найм — в специализации на день найма.':D.SPM_CHG?'Переводы — только смена юнита на уровне выбранного подразделения: перемещение между его подразделениями переводом не считается. '+
@@ -99,23 +98,6 @@ function specMove(lp,ctx){
       (trf?'':' Переводы по специализациям появятся, когда ноутбук отчёта обновят.')+'</div></div>';
 }
 
-/* помесячная детализация выбранной специализации: месяцы с января, итого — как строка таблицы; «итого» месяца =
-   найм + переводы в − отток − переводы из */
-function specDetail(lp,z,cols){
-  if(!z)return '';
-  const ms=D.specMonths(lp,z.name), esc=U.esc;
-  if(!ms)return '<div class="tbl-note">Помесячная детализация появится, когда ноутбук и датасет отчёта обновят до поставки 101.</div>';
-  const C=cols.filter(c=>c[0]!=='hc0'&&c[0]!=='hc1').concat([['net','Итого']]);
-  ms.forEach(o=>{o.net=o.hire+o.tin-o.exit-o.tout+(D.SPM_CHG?o.chg:0)});
-  const S=k=>ms.reduce((t,o)=>t+o[k],0), T={label:'Итого'};C.forEach(c=>{T[c[0]]=S(c[0])});
-  const off=C.some(c=>z[c[0]]!=null&&T[c[0]]!==z[c[0]]);
-  const tr=(o,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(o.label)+'</td>'+
-    C.map(c=>'<td class="num">'+((c[0]==='net'||c[0]==='chg')&&o[c[0]]>0?'+':'')+D.fmtInt(o[c[0]])+'</td>').join('')+'</tr>';
-  return '<div class="bt-group spm-d"><div class="bt-cap">«'+esc(z.name)+'» по месяцам<span class="bt-sub">чел · клик по строке ещё раз или Escape — закрыть</span></div>'+
-    '<div class="mx-wrap"><table class="ptable btable compact spm4"><thead><tr><th class="txt">Месяц</th>'+
-    C.map(c=>'<th class="num">'+esc(c[1])+'</th>').join('')+'</tr></thead><tbody>'+tr(T,'total top')+ms.map(o=>tr(o)).join('')+
-    '</tbody></table></div>'+(off?'<div class="tbl-note">Сумма по месяцам расходится со строкой таблицы — проверьте обновление ноутбука.</div>':'')+'</div>';
-}
 
 SC.blocks.movement={
   /* Итерация 32 (фидбэк 12.10): «вначале waterfall, а потом только динамики»,

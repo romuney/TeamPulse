@@ -340,7 +340,11 @@ WITH
       turnover_y — сумма месячных «уходы ÷ ССЧ», turnover_m — Σ уходов ÷ Σ ССЧ, underwork / overwork — Σ категории ÷ Σ четырёх,
       office_att — Σ посещений ÷ Σ рабочих дней. Строка peer: «метрика, группа, подразделений, p25, p50, p75» #}
   pmc AS (
-    SELECT if(dd = '' OR toDate(dd) >= toLastDayOfMonth(lm), lm, addMonths(lm, -1)) AS mc FROM cx
+    {#- поставка 137 (владелец: «все метрики — по текущую доступную дату»): окно базы — январь..последний месяц данных,
+        вместе с незакрытым (было — по закрытый); fr — доля незакрытого месяца по дням: с этим весом его ССЧ входит в
+        знаменатель turnover_m, как у чарта (periodTotal) #}
+    SELECT lm AS mc, if(dd = '' OR toDate(substring(dd, 1, 10)) >= toLastDayOfMonth(lm), 1.,
+                        toDayOfMonth(toDate(substring(dd, 1, 10))) / toDayOfMonth(toLastDayOfMonth(lm))) AS fr FROM cx
   ),
   {#- поставка 118 (владелец 07.11: «база — похожие по численности подразделения — по всему отчёту»): ещё четыре метрики.
       tgrowth_conv — Σ одобренных ÷ Σ рассмотренных заявок «Роста» (узел — от 5 заявок, как порог чарта), booking_viol —
@@ -354,12 +358,13 @@ WITH
       этих двух метрик, только если «не размечено» — не больше половины людей за те же месяцы (gy × 2 ≤ al), как в чарте
       (D.monJudged); формулы долей прежние #}
   pnv AS (
-    SELECT pu, sum(h) AS hc9, sumIf(f / a * 100, a > 0) AS v_ty, sum(f) / sum(a) * 100 AS v_tm,
+    SELECT pu, sum(h) AS hc9, sumIf(f / a * 100, a > 0) AS v_ty, sum(f) / sum(aw) * 100 AS v_tm,
            [if(sum(gy) * 2 <= sum(al), sum(lo) / sum(al) * 100, nan)][1] AS v_uw,
            [if(sum(gy) * 2 <= sum(al), sum(hi) / sum(al) * 100, nan)][1] AS v_ow, sum(ov) / sum(wd) * 100 AS v_oa,
            [if(sum(ga) + sum(gd) >= 5, sum(ga) / (sum(ga) + sum(gd)) * 100, nan)][1] AS v_tc, [sum(bv) / sum(bk) * 100][1] AS v_bv
     FROM (
       SELECT ifNull(node_rk, '') AS pu, sumIf(toFloat64(hc_cnt), report_month = mc) AS h, sum(toFloat64(avg_cnt)) AS a,
+             sum(toFloat64(avg_cnt) * if(report_month = mc, fr, 1.)) AS aw,
              sum(toFloat64(fire_cnt)) AS f, sum(plow_cnt) AS lo, sum(phig_cnt) AS hi,
              sum(pnor_cnt + plow_cnt + phig_cnt + pgry_cnt) AS al, sum(pgry_cnt) AS gy, sum(ovis_amt) AS ov, sum(wday_amt) AS wd,
              [sum(toFloat64(gapr_cnt))][1] AS ga, [sum(toFloat64(gdec_cnt))][1] AS gd, [sum({{ optf('bk_amt') }})][1] AS bk,
@@ -613,11 +618,12 @@ WITH
       (
         SELECT node_rk, {{ HI }} AS hv,
                [ifNull(toString(hs_cd), ''), if(trf_kind = 'h', 'Найм в компанию', if({{ CVK }} = 'c', 'Из учебной группы в боевую', 'Стажёр в штат')),
-                ifNull(toString(hg_cd), ''), {{ SPC }}] AS hx
+                ifNull(toString(hg_cd), ''), {{ SPC }}, ifNull(toString(hn_cd), '')] AS hx
         FROM prod_proteus.teampulse_hub_trf
         WHERE node_rk IN {{ PK }} AND report_month >= toStartOfYear(cxlm) AND {{ cond() }} AND trf_kind IN ('h', 'i')
       )
-      ARRAY JOIN arrayZip(['hk', 'hch', 'hg', 'hsp'], hx) AS kv
+      {#- поставка 137, п. 4: hsn — сеньорность дня найма (колонка hn_cd переходов, ноутбук 137: сначала прогон, потом датасет) #}
+      ARRAY JOIN arrayZip(['hk', 'hch', 'hg', 'hsp', 'hsn'], hx) AS kv
       WHERE hv > 0
       GROUP BY u3, k3, v3
       HAVING n4 > 0

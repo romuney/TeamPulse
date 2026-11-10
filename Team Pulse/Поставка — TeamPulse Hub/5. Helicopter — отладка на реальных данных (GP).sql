@@ -21,7 +21,7 @@
 --   7 профили численности и средний возраст: lyudey_v_profilyah = chislennost
 --   8 источник найма на день найма против последнего значения месяца
 --   9 посещаемость за месяц m по покраске, как мастер «Посещаемость и бронирование офисов» (допуск ±1 п.п.)
---  10 посещения по шагам за месяц cm: источник -> таблица людей -> города -> отчёт (где теряются посещения по городам)
+--  10 посещения по шагам за последний месяц данных lm: источник -> таблица людей -> города -> отчёт (где теряются посещения по городам)
 --  11 формулы мастера прямо по источнику по дням (найм, отток, Перевод+, Перевод-) рядом с отчётом: d_* = 0
 --  12 «Движение по специализациям» всей компании как в отчёте: начало, найм, в, отток, из, конец, ostatok = 0 у каждой;
 --     m_i / m_o — переводы в / из по формулам мастера прямо из источника, d_i / d_o = отчёт - мастер (должны быть 0)
@@ -436,7 +436,7 @@ b9s as (
     where node_rk = (select rk from u) and report_month = (select m from u) and act_cd = 'Активная'
     group by 1
 ),
--- 10. посещения по шагам за месяц cm (hub checks № 18 / № 33: сумма по городам меньше посещений) — где теряются. У корня:
+-- 10. посещения по шагам за последний месяц данных lm (поставка 137: города отчёта - за него, было - закрытый cm) (hub checks № 18 / № 33: сумма по городам меньше посещений) — где теряются. У корня:
 --     src_visits — источник посещений (база мастера: активные с закреплённым офисом, главный офис дня), из них
 --     src_no_city — без города; tbl_visits — посещения в таблице людей (office_visit_amt строк last_row_flg = 1),
 --     tbl_city_json — сумма по городам из office_city_visits_json тех же строк, tbl_visits_no_json — посещения строк без
@@ -447,7 +447,7 @@ b10s as (
            sum(case when coalesce(main_office_visit_rn, 0) = 1 and active_office_emp_flg = 'Да'
                      and coalesce(trim(office_city_nm::text), '') in ('', '-') then coalesce(office_visit_flg, 0) else 0 end) as src_no_city
     from usr_cross_data.office_traffic_attendance
-    where calendar_dt >= (select cm from teampulse_hub_cal) and calendar_dt < ((select cm from teampulse_hub_cal) + interval '1 month')::date
+    where calendar_dt >= (select lm from teampulse_hub_cal) and calendar_dt < ((select lm from teampulse_hub_cal) + interval '1 month')::date
       and work_day_flg = 1 and active_type_nm = 'Активная'
 ),
 b10t as (
@@ -455,19 +455,19 @@ b10t as (
            sum(case when office_city_visits_json is null then coalesce(office_visit_amt, 0) else 0 end) as tbl_visits_no_json,
            sum(case when leaf_lvl = 0 then coalesce(office_visit_amt, 0) else 0 end) as tbl_leaf0
     from all_metrics_with_performance_and_office_traffic_and_grt
-    where report_month = (select cm from teampulse_hub_cal)
+    where report_month = (select lm from teampulse_hub_cal)
 ),
 b10j as (
     select sum(coalesce((j.v ->> 'visit_count')::numeric, 0)) as tbl_city_json
     from (select json_array_elements(office_city_visits_json::json) as v
           from all_metrics_with_performance_and_office_traffic_and_grt
-          where report_month = (select cm from teampulse_hub_cal) and office_city_visits_json is not null) j
+          where report_month = (select lm from teampulse_hub_cal) and office_city_visits_json is not null) j
 ),
 b10 as (
-    select 'месяц ' || to_char((select cm from teampulse_hub_cal), 'YYYY-MM') as k, s.src_visits, s.src_no_city,
+    select 'месяц ' || to_char((select lm from teampulse_hub_cal), 'YYYY-MM') as k, s.src_visits, s.src_no_city,
            t.tbl_visits, j.tbl_city_json, t.tbl_visits_no_json, t.tbl_leaf0,
            (select sum(ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta)
-              and report_month = (select cm from teampulse_hub_cal)) as rep_visits,
+              and report_month = (select lm from teampulse_hub_cal)) as rep_visits,
            (select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'oc') as rep_city
     from b10s s cross join b10t t cross join b10j j
 ),
@@ -755,7 +755,7 @@ select 15 as n, 'посещаемость текущего месяца по ш�
        unnest(array[(src_max_dt)::numeric, (src_workdays)::numeric, (src_visits)::numeric, (tbl_workdays)::numeric, (tbl_visits)::numeric, (rep_workdays)::numeric, (rep_visits)::numeric]) as znachenie
 from b15
 union all
-select 10 as n, 'посещения по шагам (месяц cm)'::text as blok, (k)::text as stroka,
+select 10 as n, 'посещения по шагам (месяц lm)'::text as blok, (k)::text as stroka,
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['src_visits', 'src_no_city', 'tbl_visits', 'tbl_city_json', 'tbl_visits_no_json', 'tbl_leaf0', 'rep_visits', 'rep_city']::text[]) as pokazatel,
        unnest(array[(src_visits)::numeric, (src_no_city)::numeric, (tbl_visits)::numeric, (tbl_city_json)::numeric, (tbl_visits_no_json)::numeric, (tbl_leaf0)::numeric, (rep_visits)::numeric, (rep_city)::numeric]) as znachenie
 from b10

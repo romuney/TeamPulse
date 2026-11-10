@@ -73,12 +73,12 @@ function attendReal(ctx,x,lbl,attTbl){
        строка города выбирается (кросс-фильтр с сегментом) */
     /* поставка 107 (как мастер): с рабочими днями города (ocd) — посещаемость города = посещения ÷ рабочие дни, иначе (сегмент
        выбран или ноутбук до 107) — посещения */
-    (x.cities.length?U.btGroup(Object.assign(x.cityAtt?{cap:'Город офиса',capSub:D.PER_MON+' · посещаемость',head:'',
+    (x.cities.length?U.btGroup(Object.assign(x.cityAtt?{cap:'Город офиса',capSub:D.offCityMon()+' · посещаемость',head:'',
       valueHead:'Посещаемость',barHead:'Сравнение городов',metricKey:'office_att',share:false,compact:true,total:false,sort:true,
       items:x.cities.map(c=>Object.assign({name:c.name,note:D.fmtInt(c.visits)+' посещ. · '+D.fmtInt(c.people)+' чел',
         value:c.att,color:G.C_OFFICE},x.cross?{on:S.offCity===c.name,attr:'data-offcity="'+esc(c.name)+'"',
         attrTip:'Клик — сколько руководителей и сотрудников в «'+c.name+'».'}:{}))}
-      :{cap:'Город офиса',capSub:(x.seg?x.seg.name+' · ':'')+D.PER_MON+' · посещения',head:'',
+      :{cap:'Город офиса',capSub:(x.seg?x.seg.name+' · ':'')+D.offCityMon()+' · посещения',head:'',
       valueHead:'Посещений',barHead:'Распределение',metricKey:'hc_total',compact:true,total:false,sort:true,items:x.cities.map(c=>Object.assign({name:c.name,
         note:D.fmtInt(c.people)+' чел',value:c.visits,color:G.C_OFFICE},x.cross?{on:S.offCity===c.name,
         attr:'data-offcity="'+esc(c.name)+'"',attrTip:'Клик — сколько руководителей и сотрудников в «'+c.name+'».'}:{}))},
@@ -94,6 +94,8 @@ SC.blocks.office={
   /* поставка 136, п. 16 (владелец: «неясно, за какой период и что именно посчитано»): в шапке таблицы подразделений —
      полные названия с единицами и период под каждым; в подсказке — что в числителе и знаменателе */
   perAlways:true,
+  /* поставка 137: дата актуальности посещений — последняя дата календаря посещений, не дата основного источника */
+  asofLabel(){const a=D.offAsof&&D.offAsof();return a?a.label:null},
   colNames:{office_att:'Посещаемость, %',booking_viol:'Брони без посещения, %'},
   colTips:{office_att:'Доля рабочих дней, в которые сотрудники были в офисе.\n• Считаем: дни с посещением офиса ÷ рабочие дни × 100%\n• Посещение — день, когда человек был в офисе; бронь для этого не нужна',
     booking_viol:'Доля броней рабочего места, по которым человек не пришёл.\n• Считаем: брони без посещения ÷ все брони × 100%\n• Это не посещаемость: посещения без брони сюда не входят'},
@@ -159,7 +161,7 @@ SC.blocks.office={
         /* 27.10-в, п. 14–15: после «Бронирований и посещений» — нарушения по городам: по убыванию, первые 10 и
            раскрываемые «Остальные» */
         (!vc?'<div class="tbl-note">Нарушения бронирования по городам появятся, когда ноутбук отчёта обновят до поставки 70.</div>'
-        :vc.length?U.btGroup(Object.assign({cap:'Нарушения бронирования по городам',capSub:D.PER_MON+', человеко-дни',head:'',
+        :vc.length?U.btGroup(Object.assign({cap:'Нарушения бронирования по городам',capSub:D.offCityMon()+', человеко-дни',head:'',
           valueHead:'Нарушений',metricKey:'hc_total',compact:true,total:false,sort:true,items:vc.map(c=>({name:c.name,
             note:c.pct!=null?U.pct(c.pct)+' от броней и посещений без брони':'',value:c.viol,color:G.C_OFFICE}))},
           SC.rest(ctx,'vcity',10,['город','города','городов']))):'');
@@ -191,7 +193,7 @@ SC.blocks.office={
       {title:D.REAL?'Посещаемость по дням — '+blocks.map(b=>D.MONTH_NOM[b.m]).join(' и ')+' '+end.y+', %'
         :'Посещаемость по дням — по '+end.to+' '+D.MONTH_GEN[end.m]+' '+end.y+', %'})+
       '<div class="bt-group"><div class="bt-cap">По дням недели, среднее за '+
-      (D.DOW_MONTHS===2?D.MONTH_NOM[(D.PER_C+11)%12]+' и '+D.MONTH_NOM[D.PER_C]:D.DOW_MONTHS+' месяца')+'</div>'+
+      (D.DOW_MONTHS===2?D.MONTH_NOM[(D.PER_C+11)%12]+' и '+(D.PER_PART?'1–'+D.ASOF.d+' '+D.MONTH_GEN[D.ASOF.m]:D.MONTH_NOM[D.PER_C]):D.DOW_MONTHS+' месяца')+'</div>'+
       U.barTable({head:'День недели',metricKey:'office_att',valueHead:'Посещаемость',
         barHead:'Сравнение дней',share:false,total:false,compact:true,
         items:dow.map(d=>({name:d.name,value:d.value,

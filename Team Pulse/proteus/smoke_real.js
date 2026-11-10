@@ -327,11 +327,12 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const h=D.hqLight(A.st()), hv=A.go('turnover','hq');
     if(R.hasSeries('HQ')){
       /* 26.10-б: все три — по последнему закрытому месяцу, «накопительно» вместо «YTD», блок сверен */
-      const want=D.aggregate(['HQ'],'turnover_y')[D.LAST-(D.PARTIAL?1:0)];
+      /* поставка 137: накопительно по дату данных */
+      const want=D.aggregate(['HQ'],'turnover_y')[D.LAST];
       ok(!!h&&h.lp[0]==='HQ'&&h.rows.length===3&&h.rows[0].v===want&&!/hq-tl/.test(hv)&&
         !/<tr class="mrow"/.test(hv)&&/HQ текучесть накопительная/.test(hv)&&!/YTD/.test(hv.split('hq-note')[1]||'')&&
         /* поставка 136, п. 12: пометки «сверены» в разделе HQ нет */
-        /hq-note">Накопительно/.test(hv)&&!/сверен/i.test(hv.split('hq-note')[1].split('</div>')[0]),
+        /hq-note">Накопительно с 1 января по /.test(hv)&&!/сверен/i.test(hv.split('hq-note')[1].split('</div>')[0]),
         'светофор HQ по строке hq: '+h.rows.map(r=>r.label.split(' ')[0]+' '+D.fmtVal(r.key,r.v)).join(', ')+' · HQ '+h.hc+' чел');
       /* 31.10-б, п. 2: желательная (non-regrettable, nreg) и нежелательная (reg) — из рядов строки hq: накопительно = сумма
          уходов с января / ССЧ месяца… как ряд метрики; при уходах в строке — не ноль */
@@ -392,7 +393,8 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
   if(R.has('hrn')&&MD&&MD.daily){
     /* поставка 71: мониторинг по дням — KPI последнего закрытого месяца = строке выбранного юнита, линии часов и звонков */
     /* поставка 104: в ряду и незакрытый месяц (pt) — сверяется закрытый (cl); часы и звонки — взвешенно (hrw ÷ pdw) */
-    const lc=MD.months.find(p=>p.cl), k=R.n-1-(D.PARTIAL?1:0), v=c=>arr(scopeRow,c)[k], wt=R.has('pdw')&&arr(scopeRow,'pdw').some(x=>x>0);
+    /* поставка 137: «текущий» месяц мониторинга — последний месяц данных */
+    const lc=MD.months.find(p=>p.cl), k=R.n-1, v=c=>arr(scopeRow,c)[k], wt=R.has('pdw')&&arr(scopeRow,'pdw').some(x=>x>0);
     const hrs=v(wt?'hrw':'hrs'), hrn=v(wt?'pdw':'hrn'), tlk=v(wt?'tkw':'tlk');
     ok(['ab25','ab5','we25','we5','t23','t35','t5'].every(c=>lc[c]===Math.round(v(c)))&&MD.months[MD.months.length-1].pt===(D.PARTIAL||undefined)&&
        near(lc.hours,hrn?+(hrs/hrn).toFixed(2):null)&&near(lc.talk,hrs?+(tlk/hrs*100).toFixed(1):null)&&
@@ -556,7 +558,8 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
    бронирования месяца; без разрезов в ответе — строка «появятся со следующим обновлением», не условные числа */
 {
   const vc=D.violByCity(rl), bq=D.bookingQuality(rl), bk=A.go('office','booking');
-  if(D.OFF_LIVE.vcity)ok(vc.length>0&&Math.abs(vc.reduce((a,c)=>a+c.viol,0)-bq.viol)<=vc.length&&
+  /* поставка 137: города — за последний месяц данных; ноутбук до 137 отдаёт закрытый месяц — тогда таблица подписана им */
+  if(D.OFF_LIVE.vcity)ok(vc.length>0&&(D.offCityMon()!==D.PER_MON||Math.abs(vc.reduce((a,c)=>a+c.viol,0)-bq.viol)<=vc.length)&&
       bk.indexOf('Нарушения бронирования по городам')>bk.indexOf('Бронирования и посещения'),
     'нарушения брони по городам: '+vc.length+' городов, в сумме '+vc.reduce((a,c)=>a+c.viol,0)+' = нарушениям месяца '+bq.viol);
   else if(D.OFF_LIVE.bk)ok(vc===null&&/появятся, когда ноутбук отчёта обновят/.test(bk),'нарушения брони по городам: ответ без разреза — «появятся»');
@@ -628,12 +631,12 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
   /* 09.11 (владелец: одна методология): найм, отток, начало, конец — витрина движения; переводы — как карточки «Переводы»
      (флаги); остаток — «Смена типа и среза»: строка сходится с ним, переводы по специализациям не больше карточки */
   if(D.SPM_FSM){
-    const bad=sm.filter(z=>Math.abs(z.hc0+z.hire+z.tin-z.exit-z.tout-z.hc1)>0.5), z0=sm[0]||{}, mm=z0.name?D.specMonths(rl,z0.name):[];
-    const mOk=!z0.name||['hire','tin','exit','tout'].every(k=>mm.reduce((a,o)=>a+o[k],0)===z0[k]);
+    const bad=sm.filter(z=>Math.abs(z.hc0+z.hire+z.tin-z.exit-z.tout-z.hc1)>0.5);
+    const mOk=!/data-spmsel|spm-d/.test(mv);
     ok(sm.length>0&&!bad.length&&mOk&&!/Без флага<\/th>|Внутри юнита|Смена типа/.test(mv)&&/На начало<\/th>/.test(mv)&&
        true,
       'движение по специализациям: '+sm.length+' строк, все сходятся по флагам без остатка (на начало + найм + в − отток − из = на конец), '+
-      'месяцы = строке, дополнительных колонок нет (только найм, переводы в / из, отток)');
+      'строки не кликаются (поставка 137), дополнительных колонок нет (только найм, переводы в / из, отток)');
   }else if(D.SPM_TRF)ok(Math.abs(S('hire')-Y('hire'))<=sm.length&&(FSP||Math.abs(S('tin')-Y('transfer_in'))<=sm.length&&
       Math.abs(S('tout')-Y('transfer_out'))<=sm.length)&&Math.abs(S('exit')-Y('attrition'))<=sm.length&&/Переводы из<\/th>/.test(mv)&&
       (!FSP||/На начало<\/th>/.test(mv)&&S('hc1')>0),
@@ -661,13 +664,6 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
     if(Math.abs(o)>0.5)bad.push(n.name+': прочее '+Math.round(o));
   });
   ok(!bad.length,'водопад сходится у всех '+rows.length+' строк'+(bad.length?' — '+bad.slice(0,6).join('; '):''));
-}
-/* поставка 101 (файл 7, п. 2): помесячная детализация специализаций — сумма месяцев = строка таблицы (у юнита и подразделений) */
-if(R.scopeMix('tsm')||R.scopeMix('fsm')){
-  const st=A.st(), nodes=[st.unit].concat(D.NODES.filter(n=>n.parent===st.unit&&!n.direct&&!n.hide).map(n=>n.path)), bad=[];let n=0;
-  nodes.forEach(p=>{const lp=D.leavesUnder(p).map(l=>l.path);D.specMovement(lp).forEach(z=>{const ms=D.specMonths(lp,z.name);n++;
-    ['hire','tin','exit','tout'].concat(D.SPM_CHG?['chg']:[]).forEach(k=>{const v=ms.reduce((a,o)=>a+o[k],0);if(Math.abs(v-z[k])>0.5)bad.push(z.name+' '+k+' '+v+'≠'+z[k])})})});
-  ok(!bad.length,'детализация специализаций по месяцам = строки таблицы ('+n+' строк)'+(bad.length?' — '+bad.slice(0,5).join('; '):''));
 }
 /* ревью 100: у выбранного подразделения (строка ниже юнита) — его же уходы по инициатору и движение по специализациям:
    в сумме по инициаторам — его текучесть, таблица специализаций сходится, отток = его отток с начала года */
@@ -752,8 +748,9 @@ if(stories.filter(x=>/<ol class="op-ins">|Заметных изменений з
 }
 }
 /* 30.10: доли и средние, которые за неполный месяц неточны, в таблицах и выводах — по закрытому месяцу */
-ok(['time_to_fill','tgrowth_conv','underwork','overwork'].every(k=>!D.PARTIAL||D.lastIdx(k)===D.LAST-1),
-  'срок закрытия, конверсия T-роста, недоработчики и переработчики — по закрытому месяцу');
+/* поставка 137 (владелец: «все метрики — по текущую доступную дату»): правила «только по закрытому месяцу» больше нет */
+ok(['time_to_fill','tgrowth_conv','underwork','overwork','regret','nonregret','turnover_m','office_att'].every(k=>D.lastIdx(k)===D.LAST)&&D.PER_I===D.LAST&&(!D.PARTIAL||D.PER_NAME.indexOf(String(D.ASOF.d))>=0),
+  'все метрики — по дату данных: окно периода «'+D.PER_NAME+'»');
 /* поставка 89: итог за период на графиках — потоки суммой с января по закрытый месяц, накопительная — на закрытый месяц,
    численность — сейчас; тот же период год назад; в шапке графика найма — строка итога */
 {
@@ -763,7 +760,7 @@ ok(['time_to_fill','tgrowth_conv','underwork','overwork'].every(k=>!D.PARTIAL||D
   const yh=D.yoySeries(lp,'hire'), ph=D.periodTotal(lp,'hire'), yt=D.yoySeries(lp,'turnover_y'), pt=D.periodTotal(lp,'turnover_y');
   const yc=D.yoySeries(lp,'hc_total'), pc=D.periodTotal(lp,'hc_total'), hire=A.top('hiring');
   ok(c0<0||ph&&Math.abs(ph.v-sum(yh.cur))<1e-9&&Math.abs(ph.pv-(sum(yh.prev)-(1-D.CNT_FRAC)*(yh.prev[c]||0)))<1e-9&&/^Всего за /.test(ph.head)&&
-    pt&&pt.v===yt.cur[c0]&&/^На конец /.test(pt.head)&&pc&&pc.v===yc.cur[D.CUR_LEN-1]&&!pc.strip&&
+    pt&&pt.v===yt.cur[c]&&/^(На конец |За )/.test(pt.head)&&pc&&pc.v===yc.cur[D.CUR_LEN-1]&&!pc.strip&&
     /class="pt-line"/.test(hire),
     'итог за период: найм '+(ph&&ph.cur)+' ('+(ph&&ph.head)+'), год назад '+(ph&&ph.prev)+'; накопительная текучесть и численность — на дату');
   /* 09.11 (владелец: найм — событие дня найма, один счёт): каждая разбивка найма (источник, канал, грейд, специализация) в
@@ -812,6 +809,23 @@ if(D.TTF_MED){
     const kid=D.rowsOf(D.passRoot(S.unit)).filter(n=>!n.direct)[0], kl=kid?D.leavesUnder(kid.path).map(l=>l.path):null;
     if(kl&&D.offDays)ok(D.offDays(rl)!==null&&(D.offDays(kl)===null||D.offDays(kl)!==D.offDays(rl)),'посещаемость: календарь по дням у строки первого уровня — свой'+(D.offDays(kl)?'':' (в ответе нет — подпись «по всему подразделению»)'));
   }
+}
+/* поставка 137: актуальные периоды — таблицы подразделений с годом и датой, водопад с точной датой, подписи точек без
+   «по N-е», сеньорность найма перед грейдами, специализации без клика, AI без численности */
+{
+  const S=A.st(), rl=D.reportLeaves(S), dt=D.ASOF_LABEL, e=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const tabs=[['turnover','dynamics'],['movement','balance'],['hiring','profile'],['office','attend'],['monitor','activity'],['structure','portrait']].filter(t=>D.blockVisible(t[0],S));
+  const H={};tabs.forEach(t=>{H[t[0]]=A.go(t[0],t[1])});
+  const th=h=>(h.split('<table class="ptable dense tree">')[1]||'').split('</thead>')[0];
+  ok(tabs.every(t=>new RegExp('данные за <b>'+D.YEAR_CUR+'</b> год').test(H[t[0]])&&/(На \d+ [а-я]+ \d{4} года|За период |последняя полная неделя)/.test(th(H[t[0]]))),
+    'таблицы подразделений: год в описании, в подсказках колонок — дата актуальности или границы периода ('+tabs.length+' вкладок)');
+  if(H.movement)ok(H.movement.indexOf('на '+dt)>=0&&!/>окт\. \d{4}<|WIN_TO/.test(''),'водопад: у «Конца» точная дата — на '+dt);
+  ok(tabs.every(t=>!/ · по \d+-е/.test(H[t[0]].replace(/data-tip="[^"]*"/g,''))),'графики: у подписей точек нет «по N-е» (дата — на оси и в подсказке)');
+  if(H.hiring){const hp=D.hiringProfile(rl,'ytd'), tot=Math.round((D.periodTotal(rl,'hire')||{}).v||0);
+    if(hp.seniority)ok(H.hiring.indexOf('Найм по сеньорности')>0&&H.hiring.indexOf('Найм по сеньорности')<H.hiring.indexOf('Грейд принятых')&&
+        hp.seniority.reduce((a,x)=>a+x.value,0)===tot,'найм: распределение по сеньорности перед грейдами, в сумме '+tot+' = «Найм, чел»');
+    else ok(/появится после обновления ноутбука/.test(H.hiring)&&H.hiring.indexOf('Найм по сеньорности')<0,'найм: сеньорности в ответе нет (ноутбук до 137) — «появится», не оценка по долям')}
+  if(D.blockVisible('ai',S)){const ai=A.go('ai','adoption');ok(!/Численность, чел|Численность без стажёров/.test(ai),'AI: численность не показывается')}
 }
 /* поставка 128 (владелец 08.11: «не должно быть расхождений логики подсказок и графиков — выводы обязательно должны совпадать»):
    один вердикт на метрику во всех местах — ячейка «Ориентир» в таблице главной, глава вкладки (judge), карточки выводов;

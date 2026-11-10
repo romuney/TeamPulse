@@ -44,7 +44,7 @@ select e, dt, k1, k2, k3, k4, k5, k6, k7, k8, k9, k10, k11,
        max(hf) as hf, max(cv) as cv, max(cc) as cc, max(fx) as fx, max(ld) as ld, min(sp) as sp,
        max(ia) as ia, max(oa) as oa, max(ip) as ip, max(oq) as oq, max(ii) as ii, max(oi) as oi, max(ist) as ist, max(ost) as ost, max(isp) as isp, max(osp) as osp,
        max(actf) as actf, max(pactf) as pactf, max(tif) as tif,
-       min(gr) as gr, min(hs) as hs
+       min(gr) as gr, min(sn) as sn, min(hs) as hs
 from (
 select x.mdm_employee_rk as e, x.calendar_dt::date as dt,
        coalesce(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') as k1,
@@ -91,6 +91,8 @@ select x.mdm_employee_rk as e, x.calendar_dt::date as dt,
        -- 09.11 (владелец: найм — событие дня найма со срезом этого дня): грейд и источник найма строки — разбивки найма
        -- датасета по тем же строкам, что «Найм, чел» (вид h и переходы в найм); пусто и «-» — пустая строка
        coalesce(nullif(translate(trim(x.grade::text), E'\t\n|', '  /'), '-'), '') as gr,
+       -- поставка 137, п. 4 (владелец: распределение найма по сеньорности): сеньорность дня найма - поле источника, как грейд
+       coalesce(nullif(translate(trim(x.seniority::text), E'\t\n|', '  /'), '-'), '') as sn,
        coalesce(nullif(translate(trim(x.source_type_nm::text), E'\t\n|', '  /'), '-'), '') as hs,
        (coalesce(x.transfer_to_active_type_flg::text, '0') = '1')::int as ia, (coalesce(x.transfer_out_active_type_flg::text, '0') = '1')::int as oa,
        (coalesce(x.active_count_flg::text, '0') = '1')::int as actf, (coalesce(x.prev_active_count_flg::text, '0') = '1')::int as pactf,
@@ -195,7 +197,7 @@ p as (
            n.k1 as c1, n.k2 as c2, n.k3 as c3, n.k4 as c4, n.k5 as c5, n.k6 as c6, n.k7 as c7,
            n.k8 as c8, n.k9 as c9, n.k10 as c10, n.k11 as c11,
            n.pa as cpa, n.it as cit, n.st as cst, n.ac as cac, n.sp as csp,
-           n.gr as cgr, n.hs as chs
+           n.gr as cgr, n.sn as csn, n.hs as chs
     from teampulse_hub_trfr r0
     join nx on nx.e = r0.e and nx.dt = r0.dt
     join teampulse_hub_trfr n on n.e = nx.e and n.dt = nx.ndt
@@ -255,7 +257,7 @@ sr as (
     select r0.e, r0.dt, r0.ld, r0.cv, r0.cc, r0.hf, r0.ia, r0.oa, r0.isp, r0.osp,
            r0.ip, r0.ii, r0.ist, r0.oq, r0.oi, r0.ost,
            r0.pa, r0.it, r0.st, r0.ac, r0.sp, r0.k1, r0.k2, r0.k3, r0.k4, r0.k5,
-           r0.k6, r0.k7, r0.k8, r0.k9, r0.k10, r0.k11, r0.gr, r0.hs, 'ti' as kind
+           r0.k6, r0.k7, r0.k8, r0.k9, r0.k10, r0.k11, r0.gr, r0.sn, r0.hs, 'ti' as kind
     from teampulse_hub_trfr r0
     where r0.ia = 1 and r0.actf = 1 and r0.pactf = 0 and r0.hf = 0
       and r0.cc = 0 and r0.tif = 0
@@ -266,7 +268,7 @@ sr as (
     select r0.e, r0.dt, r0.ld, r0.cv, r0.cc, r0.hf, r0.ia, r0.oa, r0.isp, r0.osp,
            r0.ip, r0.ii, r0.ist, r0.oq, r0.oi, r0.ost,
            r0.pa, r0.it, r0.st, r0.ac, r0.sp, r0.k1, r0.k2, r0.k3, r0.k4, r0.k5,
-           r0.k6, r0.k7, r0.k8, r0.k9, r0.k10, r0.k11, r0.gr, r0.hs, 'tob' as kind
+           r0.k6, r0.k7, r0.k8, r0.k9, r0.k10, r0.k11, r0.gr, r0.sn, r0.hs, 'tob' as kind
     from teampulse_hub_trfr r0
     join nx on nx.e = r0.e and nx.dt = r0.dt
     where r0.actf = 1 and r0.oa = 1 and r0.fx = 0 and r0.hf = 0
@@ -280,14 +282,14 @@ sr as (
     select r0.e, r0.dt, r0.ld, r0.cv, r0.cc, r0.hf, r0.ia, r0.oa, r0.isp, r0.osp,
            r0.ip, r0.ii, r0.ist, r0.oq, r0.oi, r0.ost,
            r0.pa, r0.it, r0.st, r0.ac, r0.sp, r0.k1, r0.k2, r0.k3, r0.k4, r0.k5,
-           r0.k6, r0.k7, r0.k8, r0.k9, r0.k10, r0.k11, r0.gr, r0.hs, 'h' as kind
+           r0.k6, r0.k7, r0.k8, r0.k9, r0.k10, r0.k11, r0.gr, r0.sn, r0.hs, 'h' as kind
     from teampulse_hub_trfr r0
     where r0.hf = 1
     union all
     select r0.e, r0.dt, r0.ld, r0.cv, r0.cc, r0.hf, r0.ia, r0.oa, r0.isp, r0.osp,
            r0.ip, r0.ii, r0.ist, r0.oq, r0.oi, r0.ost,
            r0.pa, r0.it, r0.st, r0.ac, r0.sp, r0.k1, r0.k2, r0.k3, r0.k4, r0.k5,
-           r0.k6, r0.k7, r0.k8, r0.k9, r0.k10, r0.k11, r0.gr, r0.hs, 'fs' as kind
+           r0.k6, r0.k7, r0.k8, r0.k9, r0.k10, r0.k11, r0.gr, r0.sn, r0.hs, 'fs' as kind
     from teampulse_hub_trfr r0
     -- 09.11 (стенд в пропорциях боя): флаг «из специализации» в день найма (специализацию сменили на следующий день) —
     -- тоже выход из специализации, как в мастер-отчёте; «в специализацию» в день найма — найм, не перевод
@@ -401,7 +403,7 @@ xn as (
     select r.*, 'all' from xr r where (select mo from teampulse_hub_cal) = 1
 )
 select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok,
-       x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, sp_cd, fsp, hg_cd, hs_cd, e, ev_dt, coalesce(fd.ffx, 0) as fx_day
+       x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, sp_cd, fsp, hg_cd, hn_cd, hs_cd, e, ev_dt, coalesce(fd.ffx, 0) as fx_day
 from (
     -- U «в»: узлы новой строки; флаги фильтров — её же (периметр строит датасет)
     select ui.node_rk, date_trunc('month', ui.cdt)::date as report_month, 'i' as trf_kind,
@@ -413,7 +415,8 @@ from (
            -- поставка 104: вид перехода в найм (c — из учебной группы, s — стажёр в штат) — для hcd / hst датасета
            case when ui.ccc = 1 then 'c' when ui.ctif = 1 then 's' else '' end as cv_k, ui.csp as sp_cd, ui.cisp as fsp,
            -- 09.11: грейд и источник дня найма — только у строк найма (вид h и переходы в найм, in_ok = 0)
-           case when ui.ccc + ui.ctif > 0 then ui.cgr end as hg_cd, case when ui.ccc + ui.ctif > 0 then ui.chs end as hs_cd,
+           case when ui.ccc + ui.ctif > 0 then ui.cgr end as hg_cd, case when ui.ccc + ui.ctif > 0 then ui.csn end as hn_cd,
+           case when ui.ccc + ui.ctif > 0 then ui.chs end as hs_cd,
            ui.e as e, ui.cdt as ev_dt
     from ui
     union all
@@ -424,32 +427,32 @@ from (
     select uo.node_rk, date_trunc('month', uo.cdt)::date, 'o',
            uo.pa, uo.it, uo.st, uo.ac,
            uo.fu, uo.oa, uo.oq, uo.oi, uo.ost, 1,
-           null::text, null::text, null::text, null::text, '', uo.sp, uo.osp, null::text, null::text, uo.e, uo.pdt
+           null::text, null::text, null::text, null::text, '', uo.sp, uo.osp, null::text, null::text, null::text, uo.e, uo.pdt
     from uo
     union all
     -- TI: вход в активную численность юнита
     select e2.node_rk, date_trunc('month', e2.dt)::date, 'i',
            e2.pa, e2.it, e2.st, e2.ac, 0, 1, e2.ip, e2.ii, e2.ist, 1 - e2.cv,
-           null::text, null::text, null::text, null::text, '', e2.sp, e2.isp, null::text, null::text, e2.e, e2.dt
+           null::text, null::text, null::text, null::text, '', e2.sp, e2.isp, null::text, null::text, null::text, e2.e, e2.dt
     from e2 where e2.kind = 'ti'
     union all
     -- 09.11: выход из типа численности по флагу строки (xa выше) — узлы и срезы этой строки, месяц «день + 1»
     select xn.node_rk, date_trunc('month', xn.dt + 1)::date, 'o',
            xn.pa, xn.it, xn.st, xn.ac, 0, 1, xn.oq, xn.oi, xn.ost, 1,
-           null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text, xn.e, xn.dt
+           null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text, null::text, xn.e, xn.dt
     from xn where xn.dir = 'a'
     union all
     -- найм в компанию: узлы и срез дня найма; вид — c из учебной группы в боевую, s стажёр в штат
     select e2.node_rk, date_trunc('month', e2.dt)::date, 'h',
            e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1,
            null::text, null::text, null::text, null::text,
-           case when e2.cv = 0 then '' when e2.cc = 1 then 'c' else 's' end, e2.sp, 0, e2.gr, e2.hs, e2.e, e2.dt
+           case when e2.cv = 0 then '' when e2.cc = 1 then 'c' else 's' end, e2.sp, 0, e2.gr, e2.sn, e2.hs, e2.e, e2.dt
     from e2 where e2.kind = 'h'
     union all
     -- смена специализации: «внутри юнита» (CI / CO датасета); «из» последним днём месяца — в следующий
     select e2.node_rk, date_trunc('month', e2.dt)::date, 'i',
            e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1 - e2.cv,
-           null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text, e2.e, e2.dt
+           null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text, null::text, e2.e, e2.dt
     from e2 where e2.kind = 'fs' and e2.isp = 1 and e2.hf = 0
       -- 09.11 (бой: строки «Движения по специализациям» не сходились): одна строка дня — одно событие, как у мастера.
       -- Флаг «в специализацию» уже несёт строка перевода юнита (ui, fsp = cisp) и входа в «Активную» (ti, fsp = isp);
@@ -466,7 +469,7 @@ from (
     union all
     select e2.node_rk, date_trunc('month', e2.dt + e2.ld)::date, 'o',
            e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1,
-           null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text, e2.e, e2.dt
+           null::text, null::text, null::text, null::text, '', e2.sp, 1, null::text, null::text, null::text, e2.e, e2.dt
     from e2 where e2.kind = 'fs' and e2.osp = 1
       and not exists (select 1 from xa where xa.e = e2.e and xa.dt = e2.dt)   -- 09.11: эта строка уже в xa (fsp = osp)
       -- 09.11: и в строке перевода юнита «из» (uo, fsp = osp); в день увольнения — отток, не перевод
@@ -478,24 +481,24 @@ from (
     -- последний день прежнего значения, последний день месяца — в следующий месяц
     select xn.node_rk, date_trunc('month', xn.dt)::date, 'i',
            xn.pa, xn.it, xn.st, xn.ac, 0, 0, xn.ip, xn.ii, xn.ist, 1 - xn.cv,
-           null::text, null::text, null::text, null::text, '', xn.sp, xn.isp, null::text, null::text, xn.e, xn.dt
+           null::text, null::text, null::text, null::text, '', xn.sp, xn.isp, null::text, null::text, null::text, xn.e, xn.dt
     from xn where xn.dir = 'i'
     union all
     select xn.node_rk, date_trunc('month', xn.dt + xn.ld)::date, 'o',
            xn.pa, xn.it, xn.st, xn.ac, 0, 0, xn.oq, xn.oi, xn.ost, 1,
-           null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text, xn.e, xn.dt
+           null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text, null::text, xn.e, xn.dt
     from xn where xn.dir = 'o'
     union all
     -- поставка 104: парная строка к TO-a («в» — новая строка), дата — день перехода (09.11: «из» — по флагу строки, xa)
     select tcn.node_rk, date_trunc('month', tcn.cdt)::date, 'i',
            tcn.cpa, tcn.cit, tcn.cst, tcn.cac, 0, 1, tcn.cip, tcn.cii, tcn.cist, 1,
-           null::text, null::text, null::text, null::text, '', tcn.csp, tcn.cisp, null::text, null::text, tcn.e, tcn.cdt
+           null::text, null::text, null::text, null::text, '', tcn.csp, tcn.cisp, null::text, null::text, null::text, tcn.e, tcn.cdt
     from tcn where tcn.dir = 'i'    union all
     -- поставка 104: найм переходом (hv выше) — срез и флаги смены дня, in_ok = 0
     select xn.node_rk, date_trunc('month', xn.dt)::date, 'i',
            xn.pa, xn.it, xn.st, xn.ac, 0, xn.ia, xn.ip, xn.ii, xn.ist, 0,
            null::text, null::text, null::text, null::text,
-           case when xn.cc = 1 then 'c' else 's' end, xn.sp, xn.isp, xn.gr, xn.hs, xn.e, xn.dt
+           case when xn.cc = 1 then 'c' else 's' end, xn.sp, xn.isp, xn.gr, xn.sn, xn.hs, xn.e, xn.dt
     from xn where xn.dir = 'v'
 ) t
 -- fx_day — в этот день у человека увольнение (перевод «из» в такой день не считается: это отток)
@@ -515,7 +518,7 @@ analyze teampulse_hub_trf0;
 drop table if exists teampulse_hub_trf;
 create table teampulse_hub_trf as
 select node_rk, report_month, trf_kind, paint_cd, it_cd, staff_cd, act_cd, fu, fa, fp, fi, fs, in_ok,
-       x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, sp_cd, fsp, hg_cd, hs_cd, count(*) as trf_cnt
+       x_paint_cd, x_it_cd, x_staff_cd, x_act_cd, cv_k, sp_cd, fsp, hg_cd, hn_cd, hs_cd, count(*) as trf_cnt
 from (
     select node_rk, max(report_month) as report_month,
            case when side = 'o' then 'o' when max(is_h) = 1 then 'h' else 'i' end as trf_kind,
@@ -526,7 +529,7 @@ from (
            case when max(is_h) = 1 then 1 else min(in_ok) end as in_ok,
            null::text as x_paint_cd, null::text as x_it_cd, null::text as x_staff_cd, null::text as x_act_cd,
            max(cv_k) as cv_k, min(sp_cd) as sp_cd, case when max(is_h) = 1 then 0 else max(fsp) end as fsp,
-           max(hg_cd) as hg_cd, max(hs_cd) as hs_cd
+           max(hg_cd) as hg_cd, max(hn_cd) as hn_cd, max(hs_cd) as hs_cd
     from (
         select t.*, case when t.trf_kind = 'o' then 'o' else 'i' end as side, (t.trf_kind = 'h')::int as is_h
         from teampulse_hub_trf0 t
@@ -534,7 +537,7 @@ from (
     ) z
     group by node_rk, e, ev_dt, side
 ) d
-group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
+group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23
 distributed by (node_rk);
 
 -- поставка 63: детализация переводов — событие × узел за 13 последних месяцев: кто (логин и шифр), когда, в

@@ -527,7 +527,8 @@ const tipAhead=(i,nowI,key)=>i>nowI?tipMon(i)+' '+CD.YEAR_CUR+' ещё впер�
 /* 31.10, п. 8: текущий (незакрытый) месяц — подписью обычным шрифтом, как остальные; акцент — на закрытом месяце (жирная
    подпись месяца и значения). Месяц закрыт — он и есть закрытый. Поставка 90: штрихуется сам бар незакрытого месяца —
    мягким цветом ряда, бледнее закрытых, без контура; не полоса за ним (фон читался как «обратите внимание») */
-const closedIdx=nowI=>CD.PARTIAL?nowI-1:nowI;
+/* поставка 137: итог периода — по дату данных, выделяется последний месяц данных (был — последний закрытый) */
+const closedIdx=nowI=>nowI;
 let _hid=0;
 function hatchFill(col){
   const id='tpH'+(++_hid);
@@ -711,7 +712,8 @@ function yoyPlot(p,ar){
         /* ревью 100: подпись незакрытого месяца рядом с подписью закрытого на той же высоте — под точкой */
         nb=i===nowI&&i>0&&cur[i-1]!=null&&Math.abs(Y(c)-Y(cur[i-1]))<16&&rm(c), below=(both&&pv>c||nb)&&rm(c);
       const sh=mkAt(i,'main')?5:0;
-      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,CD.fmtVal(key,c)+(pl&&i===nowI?' · по '+CD.ASOF.d+'-е':''),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
+      lbl+=txt(cx,below?Y(c)+VAL_DY+VAL_ASC+sh:Y(c)-VAL_DY-sh,/* поставка 137, п. 5 (владелец): у точки — только значение; «по N-е» — на оси дат и в подсказке */
+        CD.fmtVal(key,c),valOpt({delay:dly,s:'main',weight:i===closedIdx(nowI)?VAL_NOW:VAL_W}));
       if(both)lbl+=txt(cx,below||!rm(pv)?Y(pv)-VAL_DY-(mkAt(i,'prev')?5:0):Y(pv)+VAL_DY+VAL_ASC+(mkAt(i,'prev')?5:0),CD.fmtVal(key,pv),
         valOpt({s:'prev',fill:C_AXIS,weight:400}));
     }

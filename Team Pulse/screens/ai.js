@@ -43,8 +43,10 @@ function adoption(ctx){
     G.chart('pline',{periods:P,key:'pen',focus:cw?W.indexOf(cw):null},{title:'Проникновение AI по неделям, %',
       name:'Проникновение',fmt:'pct',color:G.C_AI,h:220,period:cw?{head:'Последняя полная неделя, '+cw.label,cur:D.fmtVal('ai_penetration',cw.pen),
         ref:pe?['база',D.fmtVal('ai_penetration',pe.p50)]:null}:null})+
-    G.chart('pline',{periods:P,key:'wau',key2:'hc',focus:cw?W.indexOf(cw):null},{title:'Активные пользователи AI по неделям, чел',name:'Активные пользователи',
-      name2:'Численность без стажёров',fmt:'int',color:G.C_AI,h:240})+
+    /* поставка 137, п. 8 (владелец): численности на вкладке AI нет — ни второй линии на графике, ни колонки в таблице; она
+       остаётся знаменателем проникновения */
+    G.chart('pline',{periods:P,key:'wau',focus:cw?W.indexOf(cw):null},{title:'Активные пользователи AI по неделям, чел',name:'Активные пользователи',
+      fmt:'int',color:G.C_AI,h:240})+
     '<div class="tbl-note">Проникновение — активные пользователи AI за неделю к численности той же недели без стажёров; человек '+
     'в подразделении считается один раз. Фильтры покраски, IT, штата и типа численности на AI не действуют: здесь — все '+
     'сотрудники подразделения, кроме стажёров, а в шапке — только отобранные фильтрами, поэтому людей здесь бывает заметно больше.'+(cw?' Последняя полная неделя — '+esc(cw.full.replace(/^Неделя /,''))+': '+P1(cw.pen)+'.':'')+'</div>';
@@ -97,7 +99,7 @@ function who(ctx,u){
   const sg=(u.segs||[])[0], emp=sg?sg.rows.reduce((t,r)=>({hc:t.hc+r.hc,act:t.act+r.act}),{hc:0,act:0}):{hc:0,act:0};
   const all=x0?{hc:x0.hc,act:x0.act}:{hc:emp.hc+it.hc,act:emp.act+it.act};
   const itOn=sel.indexOf('it|1')>=0;
-  const rows=[{name:'Вся численность',value:pc(all.act,all.hc),n:all.act,color:G.C_AI,note:'из '+D.fmtInt(all.hc)+' чел'}]
+  const rows=[{name:'Все сотрудники и стажёры',value:pc(all.act,all.hc),n:all.act,color:G.C_AI,note:'из '+D.fmtInt(all.hc)+' чел'}]
     .concat(it.hc?[{name:'Стажёры',value:pc(it.act,it.hc),n:it.act,color:it.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
       note:'из '+D.fmtInt(it.hc)+' чел'+(it.hc<SEG_SMALL?' · мало людей':''),
       tip:it.hc<SEG_SMALL?'Стажёров меньше '+SEG_SMALL+' — долю не сравниваем.':null,
@@ -111,7 +113,7 @@ function who(ctx,u){
        не выбираются */
     return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'без стажёров',sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'')+
       /* поставка 131: сноска короче — три коротких факта */
-      (segs.length?'<div class="tbl-note">«Вся численность» — сотрудники и стажёры за неделю; разбивки ниже — без стажёров. '+
+      (segs.length?'<div class="tbl-note">Первая строка — сотрудники и стажёры за неделю; разбивки ниже — без стажёров. '+
         'Сеньорность, грейд, стаж и специализация — на последний месяц отчёта. Группы меньше '+SEG_SMALL+' человек — серым.</div>':'');
   }
   const tabs=x.dims.filter(dm=>dm.key!=='it').map(dm=>{
@@ -122,7 +124,7 @@ function who(ctx,u){
   return U.btStack([head].concat(x.sel?['<div class="tbl-note">Выбрано: <b>'+D.fmtInt(x.hc)+'</b> чел, с AI — <b>'+D.fmtInt(x.act)+
       '</b> чел ('+P1(x.pen)+').</div>']:[]).concat(tabs))+
     /* поставка 131: про клик — в строке подсказки над таблицами (одно место на вкладку), здесь — только о данных */
-    '<div class="tbl-note">«Вся численность» — сотрудники и стажёры за неделю; «Проникновение AI» на первом шаге — без стажёров. '+
+    '<div class="tbl-note">Первая строка — сотрудники и стажёры за неделю; «Проникновение AI» на первом шаге — без стажёров. '+
       'Сеньорность, грейд, стаж и специализация — на последний месяц отчёта. Группы меньше '+SEG_SMALL+' человек — серым.</div>';
 }
 /* 07.11 (п. 7): «Инструменты по покраске» — последним блоком «Как пользуются?»: топ-10 инструментов строками, % и число людей
@@ -177,14 +179,16 @@ function what(u){
 
 /* владелец, 06.11: таблица подразделений, «Кто» и «Как пользуется» — по последней закрытой неделе; даты — в подписи колонок */
 function wkPer(){const w=D.aiCur(D.aiWeeks(D.reportLeaves(D.DEFAULT_STATE)));return w?'неделя '+w.full.replace(/^Неделя /,''):'за неделю'}
+const AI_ASOF=()=>wkPer().replace(/^./,x=>x.toUpperCase())+' — последняя полная неделя в данных.';
 SC.blocks.ai={
   /* поставка 106: таблица подразделений — последняя полная неделя (численность без стажёров, активные, проникновение) */
   cols:[
-    {k:'hc',name:'Численность, чел',get per(){return wkPer()},tip:'Численность последней полной недели без стажёров — знаменатель проникновения. Фильтры среза на AI не действуют.',
+    {k:'hc',hide:true,name:'Численность, чел',get per(){return wkPer()},tip:'Численность последней полной недели без стажёров — знаменатель проникновения. Фильтры среза на AI не действуют.',
       val:md=>md.hc,na:'Нет недель AI у подразделения.'},
-    {k:'wau',name:'Активные пользователи',get per(){return wkPer()},tip:'Сколько человек пользовались AI-инструментами в последнюю полную неделю.',
+    /* поставка 137, п. 1: дата актуальности AI — своя: последняя полная неделя данных */
+    {k:'wau',name:'Активные пользователи',get per(){return wkPer()},get asof(){return AI_ASOF()},tip:'Сколько человек пользовались AI-инструментами в последнюю полную неделю.',
       val:md=>md.wau,share:true,na:'Нет недель AI у подразделения.'},
-    {k:'pen',name:'Проникновение',get per(){return wkPer()},tip:'Активные пользователи к численности той же недели без стажёров.',
+    {k:'pen',name:'Проникновение',get per(){return wkPer()},get asof(){return AI_ASOF()},tip:'Активные пользователи к численности той же недели без стажёров.',
       val:md=>md.pen,fmt:P1,pct:true,na:'Нет недель AI у подразделения.'}
   ],
   data(lp){return D.aiCur(D.aiWeeks(lp))},

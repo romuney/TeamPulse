@@ -61,23 +61,27 @@ const PARTIAL=ASOF.d<DIM(ASOF.y,ASOF.m);
    с января по последний закрытый месяц против тех же месяцев прошлого года. Незакрытый месяц — только на графиках
    (штриховкой) и в состояниях «сейчас»; пока в году нет закрытых месяцев — неполный январь. PER_I — индекс в окне
    MONTHS, PER_C — месяц года; PER_SPAN — «янв.–сент.», PER_TEXT — «с января по сентябрь» */
-const PER_PART=PARTIAL&&ASOF.m===0, PER_I=LAST-(PARTIAL&&!PER_PART?1:0), PER_C=MONTHS[PER_I].m;
-const PER_SPAN=PER_PART?'1–'+ASOF.d+' янв.':PER_C?'янв.–'+MONTH_ABBR[PER_C]:'янв.';
-const PER_TEXT=PER_PART?'с 1 по '+ASOF.d+' января':PER_C?'с января по '+MONTH_NOM[PER_C]:'за январь';
-/* поставка 99: окно для шапки экрана — «январь–сентябрь»; называется один раз, в строках — только исключения */
-const PER_NAME=PER_PART?'1–'+ASOF.d+' января':PER_C?'январь–'+MONTH_NOM[PER_C]:'январь';
-/* разрезы за один месяц (офис: сегменты, города, бронь) — закрытый месяц, «сентябрь 2026»; perVal — значение в нём */
-const PER_MON=PER_PART?'1–'+ASOF.d+' января '+ASOF.y:monthNom(MONTHS[PER_I]);
+/* поставка 137 (владелец: «все метрики — по текущую доступную дату, вместе с неполным месяцем»): окно одно для всех
+   метрик — с 1 января по дату данных (ASOF, из данных, не системная). Разделения «количества — по дату, доли — по
+   закрытый месяц» (поставки 90 и 106) больше нет. PER_PART — последний месяц окна не закрыт: год назад тогда — те же
+   дни (месяц пропорционально, CNT_FRAC) */
+const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'];
+const PER_PART=PARTIAL, PER_I=LAST, PER_C=MONTHS[PER_I].m;
+const PER_SPAN=PER_PART?(PER_C?'янв.–'+ASOF.d+' '+MONTH_ABBR_GEN[ASOF.m]:'1–'+ASOF.d+' янв.'):PER_C?'янв.–'+MONTH_ABBR[PER_C]:'янв.';
+const PER_TEXT=PER_PART?(PER_C?'с 1 января по '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'с 1 по '+ASOF.d+' января'):PER_C?'с января по '+MONTH_NOM[PER_C]:'за январь';
+/* окно для шапки экрана и подписей «в среднем за период …» */
+const PER_NAME=PER_PART?(PER_C?'1 января – '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'1–'+ASOF.d+' января'):PER_C?'январь–'+MONTH_NOM[PER_C]:'январь';
+/* разрезы за один месяц (офис: сегменты, города, бронь; мониторинг) — последний месяц данных: «1–10 ноября 2026», закрытый —
+   «октябрь 2026»; perVal — значение в нём */
+const PER_MON=PER_PART?'1–'+ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y:monthNom(MONTHS[PER_I]);
 function perVal(lp,key){return aggregate(lp,key)[PER_I]}
 const ASOF_LABEL=ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y;             /* «19 октября 2026» */
 /* Поставка 106 (владелец, 06.11): разбивки и количества «с начала года» (найм, увольнения, переводы, закрытые вакансии,
    заявки «Роста») — с 1 января по дату данных, вместе с незакрытым месяцем: итог сходится с мастер-отчётом. Доли и средние
    (текучесть, срок закрытия, конверсии) — по-прежнему по закрытый месяц (PER_*). Год назад у количеств — те же дни:
    месяцы целиком, текущий — пропорционально дням (CNT_FRAC). Без незакрытого месяца CNT_* = PER_* */
-const CNT_ON=PARTIAL&&!PER_PART, CNT_I=LAST, CNT_C=MONTHS[LAST].m, CNT_FRAC=CNT_ON?ASOF.d/DIM(ASOF.y,ASOF.m):1;
-const CNT_SPAN=CNT_ON?'янв.–'+ASOF.d+' '+['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'][ASOF.m]:PER_SPAN;
-const CNT_TEXT=CNT_ON?'с 1 января по '+ASOF.d+' '+MONTH_GEN[ASOF.m]:PER_TEXT;
-const CNT_NAME=CNT_ON?'1 января – '+ASOF.d+' '+MONTH_GEN[ASOF.m]:PER_NAME;
+const CNT_ON=false, CNT_I=LAST, CNT_C=PER_C, CNT_FRAC=PARTIAL?ASOF.d/DIM(ASOF.y,ASOF.m):1;
+const CNT_SPAN=PER_SPAN, CNT_TEXT=PER_TEXT, CNT_NAME=PER_NAME;
 /* 21.10, правка Антона: вызревающими могут быть только regrettable и non-regrettable текучесть и
    проникновение AI — их значение за последний месяц ещё уточняется (признак увольнения и статистика AI
    приходят позже). У остальных метрик статуса «вызревает» нет: ни метки «по 20.10», ни пунктира. */
@@ -90,7 +94,8 @@ function matures(key){return PARTIAL&&MATURING.has(key)}
 /* 30.10, заказчик (по критикам: «срок закрытия 45 дн в выводе, 95 в таблице»): численность и потоки-количества —
    на сегодня, а доли и средние, которые за неполный месяц противоречат логике (срок закрытия вакансий, конверсия
    T-роста, доли недоработчиков и переработчиков), — везде по закрытому месяцу, с меткой «за сент.» */
-const CLOSED_ONLY=new Set(['regret','nonregret','time_to_fill','tgrowth_conv','underwork','overwork']);
+/* поставка 137: значения «только по закрытому месяцу» сняты — все метрики по дату данных */
+const CLOSED_ONLY=new Set();
 function closedOnly(key){return PARTIAL&&CLOSED_ONLY.has(key)}
 /* Потоки за незакрытый месяц (найм, отток, переводы и что из них считается): значение — за 1–20 число,
    оно точное, но месяц ещё идёт. Метки «вызревает» у них нет; выводы и оценка изменения — по последнему
@@ -101,8 +106,6 @@ const PART_FLOW=new Set(['hire','attrition','transfer_in','transfer_out','transf
      (карточку с 1–12 октября сравнивали с сентябрём источника) */
   'office_att','booking_viol']);
 function partFlow(key){return PARTIAL&&PART_FLOW.has(key)}
-/* короткий родительный — «1–19 окт.» */
-const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'];
 /* Границы окна для водопада (20.10, заказчик): начало — численность первого месяца окна, как её
    отчитывают, — на конец месяца; подписи — только месяц и год, без числа: «окт. 2025», «окт. 2026».
    Потоки водопада — со второго месяца окна, иначе потоки первого уходили бы в «Прочее» */
@@ -170,7 +173,7 @@ const BLOCKS=[
 {key:'office',name:'Посещаемость офисов',hint:'Кто, когда и где ходит в офис; соблюдают ли бронь.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
    У Hub были AI-подсказки, но не было метрик внедрения AI. */
-{key:'ai',name:'AI-инструменты',hint:'Сколько людей пользуются AI по неделям и какими инструментами. Численность — без стажёров; фильтры покраски, IT, штата и типа численности на AI не действуют.',drillUrl:'#/detail/ai',dash:['34136']}
+{key:'ai',name:'AI-инструменты',hint:'Сколько людей пользуются AI по неделям и какими инструментами. Проникновение считается без стажёров; фильтры покраски, IT, штата и типа численности на AI не действуют.',drillUrl:'#/detail/ai',dash:['34136']}
 ];
 const BLOCK_BY_KEY=Object.fromEntries(BLOCKS.map(b=>[b.key,b]));
 const PROTEUS_DASH={'34661':'Team Pulse: Управленческая структура','34136':'Team Pulse: Управленческая структура HQ'};
@@ -1292,12 +1295,16 @@ function periodTotal(lp,key,yser,dkey){
   const m=METRIC_BY_KEY[key]||{}, d=defOf(dkey||key).derived, y=yser||yoySeries(lp,key);
   const stock=PT_STOCK.has(key), cum=PT_CUM.has(key)||!!(m.ytd||m.ytdDelta||d&&d.win==='ytd'), flow=!!m.flow&&!cum;
   /* поставка 106: потоки-количества — по дату данных (CNT_*), прошлый год — те же дни (текущий месяц пропорционально) */
-  const c=stock?CUR_LEN-1:flow?CNT_C:PER_C, part=flow?CNT_ON||PER_PART:PER_PART, span=flow?CNT_SPAN:PER_SPAN;
-  const sum=a=>a.slice(0,c+1).reduce((t,v)=>t+(v||0),0);
+  /* поставка 137: окно у всех — по дату данных (c — последний месяц, part — он не закрыт). Год назад — те же дни: у
+     количеств и накопительных месяц c — пропорционально (FR); у долей из числителя и знаменателя месяц c прошлого года
+     входит с весом FR, а знаменатель-численность незакрытого месяца — с весом FR и в этом году (иначе неполный месяц
+     занижал бы средний темп) */
+  const c=stock?CUR_LEN-1:PER_C, part=PER_PART, span=PER_SPAN, FR=part?CNT_FRAC:1;
+  const sum=a=>a.slice(0,c+1).reduce((t,v)=>t+(v||0),0), sumP=a=>sum(a)-(1-FR)*(a[c]||0);
   let cur,prev,head;
-  if(flow){cur=sum(y.cur);prev=sum(y.prev)-(1-CNT_FRAC)*(y.prev[c]||0);head='Всего за '+span}
+  if(flow){cur=sum(y.cur);prev=sumP(y.prev);head='Всего за '+span}
   else if(stock){cur=y.cur[c];prev=y.prev[c];head=PARTIAL?'Сейчас, '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'На конец '+MONTH_GEN[c]}
-  else if(cum){cur=y.cur[c];prev=y.prev[c];head=part?'За '+span:'На конец '+MONTH_GEN[c]}
+  else if(cum){cur=y.cur[c];const p0=c?y.prev[c-1]||0:0;prev=y.prev[c]==null?null:p0+FR*(y.prev[c]-p0);head=part?'За '+span:'На конец '+MONTH_GEN[c]}
   else if(key==='time_to_fill'&&TTF_MED&&!yser){
     /* поставка 103 (файл 9, п. 4): медиана по всем вакансиям, закрытым в периоде, — не среднее и не медиана месячных */
     const idx=off=>{const a=[];for(let j=0;j<=c;j++)a.push(YOY_FROM+off+j);return a};
@@ -1307,8 +1314,9 @@ function periodTotal(lp,key,yser,dkey){
     if(d&&(!yser||dkey)){
       const ks=k=>[].concat(k), ser=k=>ks(k).map(x=>yoySeries(lp,x)).reduce((a,b)=>({cur:a.cur.map((v,i)=>(v||0)+(b.cur[i]||0)),
         prev:a.prev.map((v,i)=>(v||0)+(b.prev[i]||0))}));
-      const N=ser(d.num), Dn=ser(d.den), r=(a,b)=>{const t=sum(b);return t?sum(a)/t*(d.scale||1):null};
-      cur=r(N.cur,Dn.cur);prev=r(N.prev,Dn.prev);
+      const N=ser(d.num), Dn=ser(d.den), hcDen=ks(d.den).every(k=>/^hc_/.test(k));
+      const r=(a,b)=>b?a/b*(d.scale||1):null;
+      cur=r(sum(N.cur),hcDen?sumP(Dn.cur):sum(Dn.cur));prev=r(sumP(N.prev),sumP(Dn.prev));
     }else{const av=a=>{const v=a.slice(0,c+1).filter(x=>x!=null);return v.length?v.reduce((t,x)=>t+x,0)/v.length:null};cur=av(y.cur);prev=av(y.prev)}
     /* поставка 136, п. 5 и 8: среднее за несколько месяцев — «в среднем за период январь–октябрь», не «за месяц» */
     head=PT_MON.has(key)?'В среднем за период '+PER_NAME:(key==='time_to_fill'?'В среднем за ':'За ')+span;
@@ -1555,7 +1563,8 @@ function kpiAt(key,st,mm){
   let k=m.kpi;
   if(k.bench){const b=st.itSeg==='IT'?12:15;k={green:b,red:b,annual:true}}
   if(!k.annual)return k;
-  const f=(mm+1)/12;
+  /* поставка 137: у незакрытого месяца доля годовой цели — по дату данных (месяц пропорционально дням) */
+  const f=(PARTIAL&&mm===ASOF.m?mm+CNT_FRAC:mm+1)/12;
   return {green:+(k.green*f).toFixed(2),red:+(k.red*f).toFixed(2),annual:{green:k.green,red:k.red}};
 }
 
@@ -1593,7 +1602,8 @@ function hqLight(st,lpSel,sel){
   const m0=HC_MODE, sh=Object.assign({},st,{paint:'HQ',hcType:'active'});
   if(!REAL)setHcMode('active');
   const hc=!lp.length?0:node?Math.round(lastVal(lp,'hc_hq')):Math.round(lastVal(lp,'hc_total'));
-  const L=LAST-(PARTIAL?1:0), mon=MONTHS[L];
+  /* поставка 137: накопительно по дату данных (незакрытый месяц входит; цель — её доля на эту дату, kpiAt) */
+  const L=LAST, mon=MONTHS[L];
   const rows=HQ_LIGHT.map(x=>{
     /* поставка 103 (файл 9, п. 10) сняла цели с блока «Как уходит HQ?»; поставка 128 (владелец 08.11: вывод блока, карточка на
        главной и шаг «Почему уходят?» судят HQ по целям, а на самом шаге HQ их не видно — «цели на шаге HQ»): цель закрытого
@@ -2478,7 +2488,8 @@ function monMonthly(lp){
     }
     months.push(x);
   }
-  months[months.length-1-(PARTIAL&&months.length>1?1:0)].cl=true;
+  /* поставка 137: «текущий» период мониторинга — последний месяц данных (незакрытый — по дату данных) */
+  months[months.length-1].cl=true;
   return {monthly:true,daily:day,weeks:null,months:months};
 }
 /* поставка 108 (владелец, 06.11): KPI мониторинга за весь период — MPW последних полных недель (пн–вс), границы — по данным
@@ -2622,6 +2633,17 @@ const CAL_MONTH=LAST;              /* календарь строится за �
    численность — разрез mh); города офиса — посещения последнего месяца (oc / ocp); бронирования — ряды
    bk / bkv / vsv. Чего нет в ответе — генератор макета, как раньше. */
 const OFF_DAYS=REAL&&REAL.dayMix?REAL.dayMix():null;
+/* поставка 137: города посещений — за последний месяц данных (ноутбук 137). Ноутбук до 137 отдаёт их за закрытый
+   месяц: тогда сумма посещений по городам ближе к ряду того месяца — и подпись таблиц городов называет его, а не текущий */
+let _ocm;
+function offCityMon(){
+  if(_ocm!==undefined)return _ocm;
+  _ocm=PER_MON;
+  const oc=REAL&&PARTIAL&&LAST>0&&REAL.scopeMix&&REAL.scopeMix('oc');
+  if(oc){const s=Object.keys(oc).reduce((a,k)=>a+oc[k],0), v=aggregate(leavesUnder(REAL.scopePath).map(l=>l.path),'ovis');
+    if(Math.abs(s-(v[LAST-1]||0))<Math.abs(s-(v[LAST]||0)))_ocm=monthNom(MONTHS[LAST-1])}
+  return _ocm;
+}
 /* поставка 136, п. 15 (владелец: «в посещаемости нет текущего месяца — по какую дату данные?»): последняя дата, за
    которую в календаре посещений есть рабочие дни, — «данные о посещениях по …»; null — календаря нет */
 function offAsof(){
@@ -2793,7 +2815,7 @@ function officeRank(lp){
 const YTD_FROM=MONTHS.findIndex(mm=>mm.y===CUR_M.y&&mm.m===0);
 /* поставка 106: разбивки «с начала года» — по дату данных: «1 января — 5 ноября 2026» (без незакрытого месяца —
    «январь — сентябрь 2026», как в поставке 90) */
-const YTD_RANGE=PER_PART?CMP_SPAN():CNT_ON?'1 января — '+ASOF_LABEL:MONTH_NOM[0]+(PER_C?' — '+MONTH_NOM[PER_C]:'')+' '+MONTHS[PER_I].y;
+const YTD_RANGE=PER_PART&&!PER_C?CMP_SPAN():PER_PART?'1 января — '+ASOF_LABEL:MONTH_NOM[0]+(PER_C?' — '+MONTH_NOM[PER_C]:'')+' '+MONTHS[PER_I].y;
 function CMP_SPAN(){return '1–'+ASOF.d+' января '+ASOF.y}
 function winFrom(win){return win==='ytd'?Math.max(0,YTD_FROM):0}
 /* поставка 106: «с начала года» у количеств — по дату данных (CNT_I = LAST), как разбивки */
@@ -3038,38 +3060,6 @@ function specMovement(lp){
     .sort((a,b)=>b.hire+b.tin+b.exit+b.tout-(a.hire+a.tin+a.exit+a.tout)||a.name.localeCompare(b.name,'ru'));
 }
 
-/* поставка 101 (файл 7, п. 2): помесячная детализация строки «Движения по специализациям» — найм, переводы в, отток,
-   переводы из по месяцам с января по закрытый; в сумме — строка таблицы. Пробник: tsm («вид|специализация|месяц») и xsm
-   («специализация|месяц») у узла; датасет без них — null. Макет — строка таблицы, разложенная по месяцам */
-function specMonths(lp,name){
-  const ms=[];for(let m=0;m<=CNT_C;m++)ms.push({m:m,label:MONTH_ABBR[m],key:YEAR_CUR+'-'+String(m+1).padStart(2,'0'),hire:0,tin:0,exit:0,tout:0,chg:0});
-  const nm=v=>isNA(v)?NONE_NAME:v;
-  if(REAL&&SPM_FSM){
-    /* поставка 105: месяц строки — замкнутый водопад специализации этого месяца */
-    /* 09.11: найм и отток — из fsm, переводы — tsm (сумма флагов, как таблица) */
-    const f=selMix(lp,'fsm')||{}, t=selMix(lp,'tsm')||{}, at={};ms.forEach(o=>{at[o.key]=o});
-    const K={h:'hire',f:'exit'};
-    Object.keys(f).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), k=K[kk], o=at[mo];
-      if(o&&k&&nm(p.join('|'))===name)o[k]+=f[v]});
-    Object.keys(t).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), o=at[mo];
-      if(o&&(kk==='i'||kk==='o')&&nm(p.join('|'))===name)o[kk==='i'?'tin':'tout']+=t[v]});
-    ms.forEach(o=>{['hire','tin','exit','tout'].forEach(k=>{o[k]=Math.round(o[k])})});
-  }else if(REAL){
-    const t=selMix(lp,'tsm'), x=selMix(lp,'xsm');
-    if(!t&&!x)return null;
-    const at={};ms.forEach(o=>{at[o.key]=o});
-    const K={h:'hire',i:'tin',o:'tout',ci:'chg',co:'chg'};
-    Object.keys(t||{}).forEach(v=>{const p=v.split('|'), mo=p.pop(), kk=p.shift(), k=K[kk], o=at[mo];
-      if(o&&k&&nm(p.join('|'))===name)o[k]+=(kk==='co'?-1:1)*t[v]});
-    Object.keys(x||{}).forEach(v=>{const p=v.split('|'), mo=p.pop(), o=at[mo];if(o&&nm(p.join('|'))===name)o.exit+=x[v]});
-    ms.forEach(o=>['hire','tin','exit','tout','chg'].forEach(k=>{o[k]=Math.round(o[k])}));
-  }else{
-    const z=specMovement(lp).find(r=>r.name===name);if(!z)return null;
-    const r=rng(lpSeed(lp,'spmm'+name)), w=()=>jitter(r,ms.map(()=>1),0.6);
-    ['hire','tin','exit','tout'].forEach(k=>splitBy(z[k]||0,w()).forEach((v,i)=>{ms[i][k]=v}));
-  }
-  return ms;
-}
 
 /* ---------- Откуда приходят: каналы, сеньорность, грейд ----------
    Джуны — ровно служебный ряд hire_jun, поэтому строка Junior делит найм
@@ -3105,7 +3095,10 @@ function hiringProfile(lp,win){
      (atributy_nayma); без них — оценка по долям */
   if(REAL&&win==='ytd'&&Object.keys(REAL.mixVals('hk')).length){
     const x=k=>realExit(lp,k), list=(k,dimKey)=>{const v=x(k);return realExitList(k,dimKey).map((n,i)=>({key:k+i,name:n||NONE_NAME,value:Math.round(v[n]||0)}))};
-    return {total:total,jun:jun,tin:tin,channels:list('hk'),grade:list('hg','grade'),path:list('hch'),seniority:[]};
+    /* поставка 137, п. 4: сеньорность дня найма (hsn — колонка hn_cd переходов, ноутбук 137); ноутбук без неё — null, экран
+       говорит «появится», а не делит найм по долям состава */
+    return {total:total,jun:jun,tin:tin,channels:list('hk'),grade:list('hg','grade'),path:list('hch'),
+      seniority:Object.keys(REAL.mixVals('hsn')).length?list('hsn','seniority'):null};
   }
   const ch=splitBy(total,jitter(r,HIRE_CHANNELS.map(c=>c.wIT*it+c.wNon*(1-it)),0.25));
   const sen=REAL?splitBy(total,mixParts(lp,'seniority').map(v=>v+1e-6)):[jun].concat(splitBy(total-jun,jitter(r,[0.56,0.32,0.12],0.2)));
@@ -3684,7 +3677,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  mainCmp,mainVerdict,offDays,offAsof,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
+  mainCmp,mainVerdict,offDays,offAsof,offCityMon,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
-  planFact,PF_STATUS,rostProfile,rostHc,specMonths,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
+  planFact,PF_STATUS,rostProfile,rostHc,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};

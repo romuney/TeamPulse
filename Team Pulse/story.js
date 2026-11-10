@@ -58,6 +58,8 @@ function median(a){const b=a.filter(v=>v!=null).slice().sort((x,y)=>x-y);return 
    в шапке вкладки (D.PER_NAME); в текстах глав только исключения (за 12 месяцев, за сентябрь, сейчас).
    потоки — сумма, доли — за период целиком, накопительные — на закрытый месяц. Незакрытый месяц в текстах не участвует */
 const PT=D.PER_TEXT, PTc=PT.charAt(0).toUpperCase()+PT.slice(1), SP=D.PER_SPAN;
+/* поставка 137: последний месяц данных словами — «октябрь» или, если не закрыт, «1–12 октября» */
+const MON1=D.PER_PART?'1–'+D.ASOF.d+' '+D.MONTH_GEN[D.ASOF.m]:D.MONTH_NOM[D.PER_C];
 const per=(lp,k)=>D.periodTotal(lp,k)||{};
 const pn=(lp,k)=>Math.round(per(lp,k).v||0);
 const ago=(lp,k)=>{const p=per(lp,k);return p.pv!=null?' (год назад '+f(k,p.pv)+')':''};
@@ -470,9 +472,7 @@ CH.tgrowth={
       /* поставка 128 (аудит: «Одобрено 9, отклонено 2. Конверсия — 87,5%» — счёт по 12 октября, конверсия по сентябрь, 9 из 11 —
          это 81,8%): решения — за то же окно, что конверсия; до даты данных — отдельной фразой, с причиной */
       lede:D.PER_TEXT.replace(/^./,x=>x.toUpperCase())+' одобрено **'+D.perSum(c.lp,'tgrowth_pass')+'** '+U.plural(D.perSum(c.lp,'tgrowth_pass'),['заявка','заявки','заявок'])+
-        ', отклонено **'+D.perSum(c.lp,'tgrowth_deny')+'** — конверсия '+valAt('tgrowth_conv',cv,c)+'.'+
-        (ps!==D.perSum(c.lp,'tgrowth_pass')||dn!==D.perSum(c.lp,'tgrowth_deny')?' По '+D.ASOF_LABEL+' — одобрено '+ps+', отклонено '+dn+
-          ' (так на графике заявок): незакрытый месяц в конверсию не входит.':''),
+        ', отклонено **'+D.perSum(c.lp,'tgrowth_deny')+'** — конверсия '+valAt('tgrowth_conv',cv,c)+'.',
       focus:fo.focus,act:fo.act,ann:{tgrowth_conv:{hi:[cv.i]}}};
   },
   /* 27.10-в, п. 8: «Как растут по грейдам?» и «Как меняют специализацию?» — по описанию вкладки «Рост» дашборда HQ */
@@ -567,7 +567,7 @@ CH.office={
     return {sum:'пик '+DOW_IN[b.name],st:'n',
       head:'Чаще всего ходят '+DOW_IN[b.name]+', реже всего — '+DOW_IN[w.name],
       lede:'Разница — **'+Math.round(b.value-w.value)+' п.п.**: '+f('office_att',b.value)+' против '+f('office_att',w.value)+
-        ' в среднем за '+(D.DOW_MONTHS===2?mNom(D.PER_I-1)+' и '+mNom(D.PER_I):D.DOW_MONTHS+' месяца')+'.'};
+        ' в среднем за '+(D.DOW_MONTHS===2?mNom(D.PER_I-1)+' и '+MON1:D.DOW_MONTHS+' месяца')+'.'};
   },
   /* 22.10: «Кто и где ходит» — динамика, сегмент, локация; выбор сегмента и города — в c.S */
   attend(c){
@@ -577,7 +577,7 @@ CH.office={
       /* ревью 100: у города посещаемости нет — число в заголовке только у сегмента */
       /* файл 8, п. 5: с городом — посещаемость сегмента в офисах этого города (доля рабочих дней) */
       head:x.seg?'Посещаемость: '+x.seg.name+(x.city?' в офисах «'+x.city.name+'»':'')+' — '+f('office_att',x.att):'Город офиса: '+x.city.name,
-      lede:'Значение — за '+mNom(D.PER_I)+'; по всему отбору '+PT+' — **'+f('office_att',per(c.lp,'office_att').v)+'**. Снять выбор — Escape.'};
+      lede:'Значение — за '+MON1+'; по всему отбору '+PT+' — **'+f('office_att',per(c.lp,'office_att').v)+'**. Снять выбор — Escape.'};
     /* поставка 110 (A6): группа меньше 3 человек в рассказ не идёт — «Руководители ходят реже» про одного человека (часто читателя) */
     const segs=x.segs.filter(s=>s.hc>=3), cs=x.cities.filter(r=>r.hc>=3);
     const v=judge('office_att',c), ya=yearAgo(c.lp,'office_att');
@@ -588,7 +588,7 @@ CH.office={
         /* поставка 136, п. 10: числа в заголовке — того же сравнения, что слова: год назад или ориентир */
         (v.yoy?': '+f('office_att',v.v)+' против '+f('office_att',v.py):v.base!=null&&!v.small&&!v.thin&&!v.self?': '+f('office_att',v.v)+' против '+f('office_att',v.base):''),
       /* одно предложение — одна группа сравнения: сегменты за закрытый месяц, затем города */
-      lede:[sg?'За '+mNom(D.PER_I)+': «'+sg[0].name+'» — **'+f('office_att',sg[0].att)+'**, «'+sg[sg.length-1].name+'» — **'+f('office_att',sg[sg.length-1].att)+'**.':'',
+      lede:[sg?'За '+MON1+': «'+sg[0].name+'» — **'+f('office_att',sg[0].att)+'**, «'+sg[sg.length-1].name+'» — **'+f('office_att',sg[sg.length-1].att)+'**.':'',
         cb?'Чаще всего ходят в офисы города «'+cb[0].name+'» — **'+f('office_att',cb[0].att)+'**.':''].filter(Boolean).join(' ')||
         'Посещаемость '+PT+' — **'+f('office_att',v.v)+'**.',
       focus:fo.focus,act:fo.act,ann:{office_att:{hi:[D.PER_I]}}};
@@ -648,7 +648,7 @@ CH.ai={
     const itl=it.hc&&!inS?' Стажёров **'+D.fmtInt(it.hc)+'**, с AI — **'+D.fmtInt(it.act)+'**.':'';
     if(emp.hc<D.SMALL_N)return {sum:D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc),st:'n',
       head:(inS?'В выбранной группе AI пользуются ':'AI пользуются ')+D.fmtInt(emp.act)+' из '+pl(emp.hc,PPL),
-      lede:(inS?'Выбранная группа':x0?'Вся численность, со стажёрами.':'Без стажёров.')+(inS?' меньше ':' В команде меньше ')+D.SMALL_N+
+      lede:(inS?'Выбранная группа':x0?'Все сотрудники и стажёры.':'Без стажёров.')+(inS?' меньше ':' В команде меньше ')+D.SMALL_N+
         ' человек — группы между собой не сравниваем: ниже видно, кто именно.'+itl};
     const cand=[];
     /* имя группы с разрезом: «грейд 15», «стаж до 1 года», остальные — как есть */
@@ -663,7 +663,7 @@ CH.ai={
       head:lag?pre+(inS?'реже':'Реже')+' всего AI пользуются '+lag.lb+': '+P(lag.pen)+' при '+P(pen)+inW
         :lead?pre+(inS?'чаще':'Чаще')+' всего AI пользуются '+lead.lb+': '+P(lead.pen)+' при '+P(pen)+inW
         :(inS?'В выбранной группе во всех заметных':'Во всех заметных')+' группах AI пользуются примерно одинаково — около '+P(pen),
-      lede:(inS?'Выбранная группа — **':x0?'Вся численность — **':'В целом без стажёров — **')+P(pen)+'** ('+D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc)+').'+
+      lede:(inS?'Выбранная группа — **':x0?'Все сотрудники и стажёры — **':'В целом без стажёров — **')+P(pen)+'** ('+D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc)+').'+
         (lead?' Чаще всего — '+say(lead)+'.':'')+(lag?' Реже всего — '+say(lag)+'.':'')+itl};
   },
   usage(c){

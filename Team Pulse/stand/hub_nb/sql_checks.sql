@@ -97,9 +97,9 @@ select 17 as n, 'T-рост: заявки с итогом по месяцам - 
        - (select count(*) from structure_x_rost where leaf_lvl > 0 and finish_month >= (select grid_start from teampulse_hub_meta)
           and finish_month <= (select last_month from teampulse_hub_meta) and (is_approved = 1 or is_declined = 1)))::float8 as val
 union all
-select 18 as n, 'города - посещения последнего закрытого месяца (корень)'::text as check_nm, 0 as must,
+select 18 as n, 'города - посещения последнего месяца данных (корень)'::text as check_nm, 0 as must,
        (coalesce((select sum(mx_n) from teampulse_hub_mix where node_rk = (select root_rk from teampulse_hub_meta) and mx_key = 'oc'), 0)
-       - (select sum(ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta) and report_month = (select cm from teampulse_hub_cal)))::float8 as val
+       - (select sum(ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta) and report_month = (select lm from teampulse_hub_cal)))::float8 as val
 union all
 select 19 as n, 'вакансии: корень - снимок (открытые на конец последнего месяца)'::text as check_nm, 0 as must,
        (coalesce((select sum(vac_open_cnt) from teampulse_hub_vacancy
@@ -403,7 +403,7 @@ select 33 as n, 'разрезы = ряды отчёта (численность,
             select k.mx_key, s.node_rk
             from (select mx_key, node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(mx_n) as n from teampulse_hub_mix
                   where mx_key in ('oc') and true group by 1, 2, 3, 4, 5, 6) k
-            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(ovis_amt) as n from teampulse_hub_series where report_month = (select cm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
+            full join (select node_rk, paint_cd, it_cd, staff_cd, act_cd, ''::text as m, sum(ovis_amt) as n from teampulse_hub_series where report_month = (select lm from teampulse_hub_cal) group by 1, 2, 3, 4, 5) s
               on s.node_rk = k.node_rk and s.paint_cd = k.paint_cd and s.it_cd = k.it_cd and s.staff_cd = k.staff_cd
              and s.act_cd = k.act_cd and s.m is not distinct from k.m
             where abs(coalesce(k.n, 0) - coalesce(s.n, 0)) > 0.5

@@ -348,8 +348,8 @@ with r as (
 select node_rk, paint_c, it_c, staff_c, act_c, 'rs' as mx_key, st || '|' || tp || '|' || gr as mx_val, 1 as mx_n
 from p;
 
--- поставка 66: посещения офисов по городам (office_city_visits_json — параграф with_office_traffic), поставка 90 — за
--- последний закрытый месяц:
+-- поставка 66: посещения офисов по городам (office_city_visits_json — параграф with_office_traffic). Поставка 137
+-- (владелец: «посещения — по текущий месяц»): за последний месяц данных lm, вместе с незакрытым (было — закрытый cm):
 -- oc — посещений, ocp — людей, которые были в офисе этого города; 06.11: ocd — рабочие дни города
 -- (посещаемость города = oc / ocd, как в мастере)
 insert into teampulse_hub_mixr
@@ -377,7 +377,7 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null
+        where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal) and s.office_city_visits_json is not null
     ) x
 ) e
     ) j
@@ -446,7 +446,7 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'
+        where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal) and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'
     ) x
 ) e
     ) j
@@ -481,7 +481,7 @@ from (
                coalesce(nullif(trim(s.act_type_nm::text), ''), '-') as act_c
         from all_metrics_with_performance_and_office_traffic_and_grt s
         left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
-        where s.leaf_lvl > 0 and s.report_month = (select cm from teampulse_hub_cal) and s.office_city_visits_json is not null
+        where s.leaf_lvl > 0 and s.report_month = (select lm from teampulse_hub_cal) and s.office_city_visits_json is not null
     ) x
 ) e
     ) j

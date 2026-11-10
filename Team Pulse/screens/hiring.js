@@ -89,8 +89,11 @@ SC.blocks.hiring={
            найма, что подсказки графика (в сумме — итог под ним); срез пути (hch) — только когда рядов нет */
         .concat(hk?[tbl('Как пришли',sub,D.HIRE_KINDS.map(c=>{let v=0;for(let m=0;m<=D.CNT_C;m++)v+=hk[m][c[0]]||0;return {name:c[1],value:v,color:G.C_IN}}),{sort:true})]
           :hp.path&&hp.path.length?[tbl('Как пришли',sub,hp.path.map(x=>({name:x.name,value:x.value,color:G.C_IN})),{sort:true})]:[])
+        /* поставка 137, п. 4 (владелец): перед грейдами — распределение найма по сеньорности: те же принятые, тот же период и
+           фильтры (сеньорность дня найма из источника; без значения — строкой «Не указано») */
+        .concat(hp.seniority&&hp.seniority.length?[tbl('Найм по сеньорности','принято, чел ·'+sub,hp.seniority.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]:[])
         .concat([tbl('Грейд принятых',sub,hp.grade.map(x=>({name:x.name,value:x.value,color:G.C_IN})))]))+
-        '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+').</div>';
+        '<div class="tbl-note">С начала года ('+esc(D.YTD_RANGE)+').'+(hp.seniority?'':' Распределение найма по сеньорности появится после обновления ноутбука отчёта.')+'</div>';
     }
     /* срок закрытия — линией: это темп, а не количество, ровно как текучесть
        в блоке оттока. Барами остаются штуки вакансий. */

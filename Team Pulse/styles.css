@@ -2571,7 +2571,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* ревью 100: подписи значений не перехватывают наведение — подсказка месяца не пропадает над цифрой */
 .svgchart text.fade{pointer-events:none}
 /* поставка 101: помесячная детализация специализации — отступ от таблицы, как между группами */
-.bt-group.spm-d{margin-top:var(--s9)}
 /* файл 8, п. 1: направляющая месяца на линейных графиках — только при наведении */
 .ptg .hg{opacity:0;pointer-events:none}.ptg:hover .hg{opacity:1}
 

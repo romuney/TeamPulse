@@ -419,7 +419,12 @@ function renderBlock(S,expanded,mixOpen,view){
   const ynow=lp=>D.aggregate(lp,'vac_closed').reduce((t,v,i)=>t+(D.MONTHS[i].y===D.YEAR_CUR?v||0:0),0);
   /* окна потоков и долей (с незакрытым месяцем и без) названы в шапке вкладки («… (доли — …)»), под колонкой — только исключения */
   /* поставка 136, п. 16: блок с perAlways (посещаемость) подписывает период в шапке каждой колонки, даже общий */
-  const perOf=k=>MONTHLY.has(k)?D.MONTH_NOM[PM.m]+' '+PM.y:YNOW.has(k)?String(D.YEAR_CUR):mod.perAlways&&pt(k).lab?pt(k).lab:b.key==='structure'||pt(k).lab===D.PER_SPAN||pt(k).lab===D.CNT_SPAN?'':pt(k).lab||'';
+  /* поставка 137, п. 1 (владелец: «в тултипах — точная дата актуальности, у показателей за период — его границы»): дата —
+     из данных (D.ASOF; у блока со своей датой — mod.asofLabel, например посещения). Состояние — «На 10 ноября 2026 года.»;
+     за период — «За период 1 января – 10 ноября 2026 года.» */
+  const asofL=(mod.asofLabel&&mod.asofLabel())||D.ASOF_LABEL, asofN='На '+asofL+' года.';
+  const asofOf=k=>b.key==='structure'||pt(k).stock?asofN:'За период '+D.PER_NAME+' '+D.YEAR_CUR+' года'+(asofL!==D.ASOF_LABEL?'; данные — по '+asofL:'')+'.';
+  const perOf=k=>MONTHLY.has(k)?(D.PER_PART?D.PER_MON.replace(/ \d{4}$/,''):D.MONTH_NOM[PM.m]+' '+PM.y):YNOW.has(k)?String(D.YEAR_CUR):mod.perAlways&&pt(k).lab?pt(k).lab:b.key==='structure'||pt(k).lab===D.PER_SPAN||pt(k).lab===D.CNT_SPAN?'':pt(k).lab||'';
   /* поставка 128 (аудит L3: подсказка колонки «…за месяц», а в колонке — итог с января): у колонок за период «за месяц» в
      описании метрики — окно колонки */
   const perTxt=(k,t)=>!MONTHLY.has(k)&&/^(янв\.|1–)/.test(pt(k).lab||'')?String(t).replace(/ за месяц(?![а-яё])(\.?)/g,(m,d)=>' за '+pt(k).lab+(/\.$/.test(pt(k).lab)?'':d)):t;
@@ -433,7 +438,9 @@ function renderBlock(S,expanded,mixOpen,view){
   /* свои колонки таблицы (мониторинг, 21.10): {k, name, tip, val(md) | spark(md), share};
      md — данные блока по листьям строки (mod.data). Шапка сортирует: по убыванию, по
      возрастанию, снова как в оргдереве. */
-  const tcols=mod.cols||null, tdata=tcols?(lp=>mod.data?mod.data(lp):D.monData(lp)):null;
+  /* поставка 137, п. 8: колонка с hide — в таблице не показывается (численность на вкладке AI), но остаётся знаменателем
+     долей и правила малых чисел (tcols0[0]) */
+  const tcols0=mod.cols||null, tcols=tcols0&&tcols0.filter(c=>!c.hide), tdata=tcols?(lp=>mod.data?mod.data(lp):D.monData(lp)):null;
   const ts=String(S.tsort||'').split(':'), tsc=tcols&&tcols.find(c=>c.k===ts[0]&&c.val), tsd=ts[1]==='a'?1:-1;
   /* 09.11, поставка 130 (владелец: «добавим сортировку в таблицу по подразделениям»): и у обычных колонок-метрик — тем же кликом по шапке */
   const tsm=!tcols&&tmets.find(m=>m.key===ts[0]), tv=p=>{const v=val(rowLeaves(p,S),tsm.key);return v==null||!isFinite(v)?-1e18:v};
@@ -569,7 +576,7 @@ function renderBlock(S,expanded,mixOpen,view){
     text:'Один человек сдвигает долю на '+(100/hc).toFixed(1).replace('.',',')+' п.п.'})};
   const tcell=(c,md,lead,unit)=>{
     if(!md)return '<td>—</td>';
-    const v=c.val&&c.val(md), hc=tcols[0].val(md);
+    const v=c.val&&c.val(md), hc=tcols0[0].val(md);
     if(c.spark)return '<td'+(unit&&isSm(hc)?smAttr(hc,'sp'):' class="sp"')+'>'+c.spark(md)+'</td>';
     if(v==null)return '<td'+U.tipAttr({title:c.name,text:c.na||'Появится с витриной мониторинга по неделям.'})+'>—</td>';
     /* поставка 128 (аудит L4/L10: доли AI у команды из 7 человек — «50%» без пометки, а доли в таблицах других вкладок — серым):
@@ -578,18 +585,17 @@ function renderBlock(S,expanded,mixOpen,view){
     return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
   };
   const hcT=val(rl,'hc_total');
-  const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),i===1)).join('')
+  const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),c===tcols0[1])).join('')
     :tmets.map(m=>'<td'+(m.fmt==='pct'&&isSm(hcT)?smAttr(hcT,m.key===mainK?'lead':''):m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   /* поставка 103 убирала фразы о целях из подсказок шапок на «Как уходит HQ?»; поставка 128 (владелец 08.11) их вернула */
   const noGoal=t=>t;
   let tbl='<table class="ptable dense tree"><thead><tr><th class="txt"'+
     U.tipAttr({title:'Подразделение',text:'Три уровня вниз от «'+rootNode.name+'».\nГлубже — выберите строку и нажмите значок у её названия.'})+'>Подразделение</th>'+
     (tcols?tcols.map(c=>{const on=tsc===c;return '<th'+(c.val?' class="tsort'+(on?' on':'')+'" data-tsort="'+(on&&tsd<0?c.k+':a':on?'':c.k+':d')+'"':'')+
-        U.tipAttr({title:c.name,text:c.tip,note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
+        U.tipAttr({title:c.name,text:c.tip+'\n'+(c.asof||(c.per?c.per.charAt(0).toUpperCase()+c.per.slice(1)+'. ':'')+asofN),note:c.val?(on?(tsd<0?'Сейчас — по убыванию. Клик — по возрастанию.':'Сейчас — по возрастанию. Клик — как в оргдереве.'):'Клик — сортировать по убыванию.'):null})+'>'+
         esc(c.name)+(on?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+(c.per?'<span class="th-per">'+esc(c.per)+'</span>':'')+'</th>'}).join('')
     /* 27.10, Антон (вопрос 1): период — в подсказке шапки (метка в самой шапке расширяла таблицу и сжимала правую панель) */
-    :tmets.map(m=>'<th class="tsort'+(tsm===m?' on':'')+'" data-tsort="'+(tsm===m&&tsd<0?m.key+':a':tsm===m?'':m.key+':d')+'"'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:perTxt(m.key,noGoal((mod.colTips||{})[m.key]||U.metricText(m,1))),note:MONTHLY.has(m.key)?'За '+D.MONTH_NOM[PM.m]+' '+PM.y+' — последний закрытый месяц; то же значение, что точка этого месяца на графике.':YNOW.has(m.key)?'За '+D.YEAR_CUR+' год: с 1 января по '+D.ASOF_LABEL+', вместе с текущим месяцем.':pt(m.key).head?
-      pt(m.key).head+' — как итог под графиком.':null})+'>'+esc((mod.colNames||{})[m.key]||m.short)+(tsm===m?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+
+    :tmets.map(m=>'<th class="tsort'+(tsm===m?' on':'')+'" data-tsort="'+(tsm===m&&tsd<0?m.key+':a':tsm===m?'':m.key+':d')+'"'+U.tipAttr({title:m.name+(perOf(m.key)?' — '+perOf(m.key):''),text:perTxt(m.key,noGoal((mod.colTips||{})[m.key]||U.metricText(m,1))),note:MONTHLY.has(m.key)?'За '+D.PER_MON+(D.PER_PART?' — месяц не закрыт':'')+'; то же значение, что точка этого месяца на графике. '+asofN:asofOf(m.key)})+'>'+esc((mod.colNames||{})[m.key]||m.short)+(tsm===m?'<span class="ts-ar">'+(tsd<0?'↓':'↑')+'</span>':'')+
       (D.isDev(m.key)?U.devTag(D.devStage(m.key),true):'')+(perOf(m.key)?'<span class="th-per">'+esc(perOf(m.key))+'</span>':'')+'</th>').join(''))+
     '</tr></thead><tbody>'+
     /* ИТОГО первой строкой: при длинном списке итог не должен уезжать под скролл.
@@ -633,7 +639,7 @@ function renderBlock(S,expanded,mixOpen,view){
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
-      (tcols?tcols.map((c,i)=>tcell(c,tdata(lp),i===1,1)).join('')
+      (tcols?tcols.map((c,i)=>tcell(c,tdata(lp),c===tcols0[1],1)).join('')
       :tmets.map(m=>{const hc=val(lp,'hc_total'), ld=m.key===mainK?'lead':'';
         return '<td'+(m.fmt==='pct'&&isSm(hc)&&!D.directNA(r.n,m.key)?smAttr(hc,ld):ld?' class="lead"':'')+'>'+
         (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>'}).join(''))+'</tr>';
@@ -650,7 +656,8 @@ function renderBlock(S,expanded,mixOpen,view){
      переходом. Пока взят срез состава, подзаголовок говорит о нём. */
   h+=U.panel({cls:'split-l',title:'Подразделения',
     /* 31.10 (поставка 82): что выбрано — в строке «Выбрано» над карточками, здесь не повторяем */
-    subHtml:'три уровня вниз · глубже — значок '+U.icoOpen(),
+    /* поставка 137, п. 1: в описании таблицы — год данных */
+    subHtml:'данные за <b>'+D.YEAR_CUR+'</b> год · три уровня вниз · глубже — значок '+U.icoOpen(),
     tabs:U.searchBox({q:view&&view.tq||'',placeholder:'Название, логин, ФИО'})+U.unitHide(),
     body:tbl,bodyCls:'tbl-wrap'})+U.splitGut(share)+U.unitRail(INS.unitsOf(S).length);
 

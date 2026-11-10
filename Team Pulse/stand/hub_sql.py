@@ -716,8 +716,8 @@ select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, 'xsm' as mx_key,
 from ({expl(['report_month', 'fire_amt', 'specialization'], ytd)}) e
 where {num('fire_amt')} > 0;
 
-{ROST_MIX}-- поставка 66: посещения офисов по городам (office_city_visits_json — параграф with_office_traffic), поставка 90 — за
--- последний закрытый месяц:
+{ROST_MIX}-- поставка 66: посещения офисов по городам (office_city_visits_json — параграф with_office_traffic). Поставка 137
+-- (владелец: «посещения — по текущий месяц»): за последний месяц данных lm, вместе с незакрытым (было — закрытый cm):
 -- oc — посещений, ocp — людей, которые были в офисе этого города; 06.11: ocd — рабочие дни города
 -- (посещаемость города = oc / ocd, как в мастере)
 insert into {P}_mixr
@@ -731,7 +731,7 @@ from (
            coalesce((j.v ->> 'work_day_count')::numeric, 0) as wd
     from (
         select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
-        from ({expl(['office_city_visits_json'], f'and s.report_month = {cm} and s.office_city_visits_json is not null')}) e
+        from ({expl(['office_city_visits_json'], f'and s.report_month = {lm} and s.office_city_visits_json is not null')}) e
     ) j
 ) c
 where c.vis > 0 or c.wd > 0;   -- 06.11: ocd нужны и дни не-посетителей (ocp у них 0)
@@ -768,7 +768,7 @@ from (
            coalesce((j.v ->> 'visit_count')::numeric, 0) as vis
     from (
         select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
-        from ({expl(['office_city_visits_json', 'management_head_flg'], f"and s.report_month = {cm} and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'")}) e
+        from ({expl(['office_city_visits_json', 'management_head_flg'], f"and s.report_month = {lm} and s.office_city_visits_json is not null and coalesce(s.management_head_flg::text, '0') = '1'")}) e
     ) j
 ) c
 where c.vis > 0;
@@ -787,7 +787,7 @@ from (
            coalesce((j.v ->> 'booking_count')::numeric, 0) + coalesce((j.v ->> 'visit_viol_count')::numeric, 0) as base
     from (
         select e.node_rk, e.paint_c, e.it_c, e.staff_c, e.act_c, json_array_elements(e.office_city_visits_json::json) as v
-        from ({expl(['office_city_visits_json'], f'and s.report_month = {cm} and s.office_city_visits_json is not null')}) e
+        from ({expl(['office_city_visits_json'], f'and s.report_month = {lm} and s.office_city_visits_json is not null')}) e
     ) j
 ) c
 where c.base > 0;
