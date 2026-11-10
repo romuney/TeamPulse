@@ -436,6 +436,8 @@ const aiA=A.go('ai','adoption'), aiW=A.go('ai','who'), aiU=A.go('ai','usage');
 {const aiX=A.go('ai','what'), stI=A.st();stI.mixOpen=stI.mixOpen||null;
 checks.push(['AI — «Пользуются ли AI?», «Кто пользуется?», «Как используют стажёры?», «Как пользуются?», «Что делают?», без прошлого года',subsOf('ai')==='adoption,who,interns,usage,what'&&
   /по неделям \(Пн–Вс\)/.test(aiA)&&/Проникновение AI по неделям/.test(aiA)&&/Активные пользователи AI по неделям/.test(aiA)&&
+  /* поставка 138, п. 7: у подразделения — второй линией «Вся компания» на графике проникновения */
+  (D.isSelfBase()||/Вся компания/.test(aiA))&&
   /* поставка 137, п. 8: численности на вкладке AI нет */
   !/Численность по неделям|Численность без стажёров|Численность, чел/.test(aiA)&&
   !new RegExp('data-sid="prev"|>'+D.YEAR_PREV+'<').test(aiA)&&

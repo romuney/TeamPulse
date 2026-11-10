@@ -36,12 +36,17 @@ function adoption(ctx){
   const W=D.aiWeeks(ctx.lp), cw=D.aiCur(W), pt=W.some(w=>w.pt);
   /* поставка 128: база — та же, с которой сравнивает глава (неделя cw, без стажёров; меньше 30 человек — без базы) */
   const pe=cw&&cw.hc>=D.SMALL_N?D.peerOf('ai_penetration',ctx.lp):null;
-  const P=W.map(w=>({label:w.label,full:w.full,pen:w.pen,wau:w.wau,hc:w.hc,cl:w.cl,pt:w.pt}));
+  /* поставка 138, п. 7 (владелец: «верните тренд по всей компании»): второй линией — проникновение всей компании за те же недели,
+     по прежней логике ряда «по компании»: все сотрудники без стажёров, фильтры шапки на него не действуют. У самой компании — нет */
+  const CW=D.isSelfBase()?null:D.aiWeeks(D.benchmarkLeaves(ctx.S)), co={};
+  (CW||[]).forEach(w=>{co[w.wk]=w.pen});
+  const P=W.map(w=>({label:w.label,full:w.full,pen:w.pen,wau:w.wau,hc:w.hc,cl:w.cl,pt:w.pt,co:co[w.wk]!=null?co[w.wk]:null}));
+  const coOn=P.some(p=>p.co!=null);
   return '<div class="mon-bar"><span class="mon-note">Последние '+W.length+' '+U.plural(W.length,['неделя','недели','недель'])+
       ', по неделям (Пн–Вс)'+(pt?' · текущая неделя ещё идёт — бледнее':'')+'</span></div>'+
     /* поставка 131: база — значением в строке итога под заголовком (серой отметки на графике нет, как на «год к году») */
-    G.chart('pline',{periods:P,key:'pen',focus:cw?W.indexOf(cw):null},{title:'Проникновение AI по неделям, %',
-      name:'Проникновение',fmt:'pct',color:G.C_AI,h:220,period:cw?{head:'Последняя полная неделя, '+cw.label,cur:D.fmtVal('ai_penetration',cw.pen),
+    G.chart('pline',Object.assign({periods:P,key:'pen',focus:cw?W.indexOf(cw):null},coOn?{key2:'co'}:{}),{title:'Проникновение AI по неделям, %',
+      name:coOn?'Подразделение':'Проникновение',name2:'Вся компания',fmt:'pct',color:G.C_AI,h:220,period:cw?{head:'Последняя полная неделя, '+cw.label,cur:D.fmtVal('ai_penetration',cw.pen),
         ref:pe?['база',D.fmtVal('ai_penetration',pe.p50)]:null}:null})+
     /* поставка 137, п. 8 (владелец): численности на вкладке AI нет — ни второй линии на графике, ни колонки в таблице; она
        остаётся знаменателем проникновения */
