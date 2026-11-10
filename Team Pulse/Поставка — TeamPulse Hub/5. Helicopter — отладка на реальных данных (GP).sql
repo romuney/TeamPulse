@@ -29,7 +29,9 @@
 --     мастера (m_i, m_o); d_i и d_o должны быть 0 у каждой специализации
 --  14 численность одна на всех вкладках: у выбранного подразделения ряд численности (hc) = сумма разреза «Пол»
 --     (sostav_pol), d_sostav = 0; uzlov_s_prevysheniem - сколько в дереве узлов, у которых подразделения в сумме
---     больше узла. Ниже - сами такие узлы (до 40): hc узла, kids_hc - сумма его подразделений, kids - их число
+--     больше узла; lishnie_v_strukture - на сколько человек «Структура» до поставки 135 показывала больше численности
+--     у выбранного подразделения (сумма превышений у него и на двух уровнях под ним; приблизительно).
+--     Ниже - сами такие узлы (до 40): hc узла, kids_hc - сумма его подразделений, kids - их число
 --  15 посещаемость текущего месяца (lm) по шагам: последняя дата источника посещений (src_max_dt, ГГГГММДД), рабочие дни
 --     и посещения в источнике, в таблице людей и в рядах отчёта. По ним видно, почему на вкладке нет текущего месяца
 -- Ожидаемые числа сверки — в чате, не в репозитории. Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub).
@@ -635,9 +637,16 @@ b14 as (
            coalesce((select hc from b14h where node_rk = (select rk from u)), 0) as hc,
            coalesce((select g from b14g), 0) as sostav_pol,
            coalesce((select g from b14g), 0) - coalesce((select hc from b14h where node_rk = (select rk from u)), 0) as d_sostav,
-           0::numeric as kids_hc, 0::numeric as kids, (select count(*) from b14k)::numeric as uzlov_s_prevysheniem
+           0::numeric as kids_hc, 0::numeric as kids, (select count(*) from b14k)::numeric as uzlov_s_prevysheniem,
+           -- превышение внутри выбранного подразделения: оно само и два уровня под ним (их отчёт раскладывает на строки)
+           coalesce((select sum(kids_hc - hc) from b14k
+                     where k = (select rk from u)
+                        or k in (select unit_rk::text from teampulse_hub_unit where parent_rk = (select rk from u))
+                        or k in (select c2.unit_rk::text from teampulse_hub_unit c1
+                                 join teampulse_hub_unit c2 on c2.parent_rk = c1.unit_rk
+                                 where c1.parent_rk = (select rk from u))), 0)::numeric as lishnie_v_strukture
     union all
-    select k, hc, 0, 0, kids_hc, kids, 0
+    select k, hc, 0, 0, kids_hc, kids, 0, 0
     from (select b14k.*, row_number() over (order by kids_hc - hc desc, k) as rn from b14k) x
     where rn <= 40
 ),
@@ -737,8 +746,8 @@ select 13 as n, 'переводы по специализациям при фи�
 from b13
 union all
 select 14 as n, 'численность: узел и его подразделения (последний месяц, Активная)'::text as blok, (k)::text as stroka,
-       unnest(array[1, 2, 3, 4, 5, 6]) as ord, unnest(array['hc', 'sostav_pol', 'd_sostav', 'kids_hc', 'kids', 'uzlov_s_prevysheniem']::text[]) as pokazatel,
-       unnest(array[(hc)::numeric, (sostav_pol)::numeric, (d_sostav)::numeric, (kids_hc)::numeric, (kids)::numeric, (uzlov_s_prevysheniem)::numeric]) as znachenie
+       unnest(array[1, 2, 3, 4, 5, 6, 7]) as ord, unnest(array['hc', 'sostav_pol', 'd_sostav', 'kids_hc', 'kids', 'uzlov_s_prevysheniem', 'lishnie_v_strukture']::text[]) as pokazatel,
+       unnest(array[(hc)::numeric, (sostav_pol)::numeric, (d_sostav)::numeric, (kids_hc)::numeric, (kids)::numeric, (uzlov_s_prevysheniem)::numeric, (lishnie_v_strukture)::numeric]) as znachenie
 from b14
 union all
 select 15 as n, 'посещаемость текущего месяца по шагам (месяц lm)'::text as blok, (k)::text as stroka,
