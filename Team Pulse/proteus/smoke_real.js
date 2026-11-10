@@ -598,6 +598,31 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
       'водопад численности (флаги): '+b+' + '+W('flow_hire')+' − '+W('flow_fire')+' + '+W('transfer_in')+' − '+W('transfer_out')+' = '+e+
       ' = численность, «Прочего» нет');
   }
+  /* 10.11 (владелец: «численность на движении одна, на структуре — если сложить женщин и мужчин — другая, всего тоже другая;
+     базовая метрика не может расходиться»): численность одна на всех вкладках — ряд численности (шапка, главная) = конец
+     водопада = сумма строк «Движения по специализациям» = сумма категорий КАЖДОГО разреза состава (пол, возраст, грейд,
+     стаж, оформление…). Разрез, где у части людей значение не заполнено, обязан показывать их строкой «Не указано» */
+  {
+    const hc=Math.round(D.aggregate(rl,'hc_total')[D.LAST]), sum=a=>a.reduce((x,y)=>x+y,0), off=[];
+    if(D.FLOW){const e=Math.round(D.aggregate(rl,'flow_fin')[D.LAST]);if(e!==hc)off.push('водопад '+e)}
+    if(D.SPM_FSM&&sm.length){const e=Math.round(S('hc1'));if(e!==hc)off.push('специализации '+e)}
+    Object.keys(D.MIX_BY_KEY).forEach(k=>{const dm=D.MIX_BY_KEY[k];if(dm.parentDim||dm.noTotal)return;
+      const t=sum(D.mixParts(rl,k));if(t&&Math.round(t)!==hc)off.push(k+' '+Math.round(t))});
+    /* то же — у каждой строки таблицы подразделений (клик по строке пересчитывает все вкладки по её людям) */
+    D.NODES.filter(n=>!n.hide&&n.path!==A.st().unit).forEach(n=>{
+      const lv=D.leavesUnder(n.path).map(l=>l.path);if(!lv.length)return;
+      const h=Math.round(D.aggregate(lv,'hc_total')[D.LAST]), o=[];
+      if(D.FLOW){const e=Math.round(D.aggregate(lv,'flow_fin')[D.LAST]);if(e!==h)o.push('водопад '+e)}
+      if(D.SPM_FSM){const m=D.specMovement(lv), e=Math.round(m.reduce((x,z)=>x+z.hc1,0));if(m.length&&e!==h)o.push('специализации '+e)}
+      Object.keys(D.MIX_BY_KEY).forEach(k=>{const dm=D.MIX_BY_KEY[k];if(dm.parentDim||dm.noTotal)return;
+        const t=sum(D.mixParts(lv,k));if(t&&Math.round(t)!==h)o.push(k+' '+Math.round(t))});
+      if(o.length)off.push('«'+n.name+'» '+h+': '+o.slice(0,4).join(', '));
+    });
+    if(process.env.TP_HC==='leaf')console.log('TP_LEAF '+rl.map(p=>p+' hc='+Math.round(D.aggregate([p],'hc_total')[D.LAST])+' g='+Math.round(sum(D.mixParts([p],'gender')))).join(' | '));
+    if(process.env.TP_HC==='hire')console.log('TP_HIRE '+rl.map(p=>{const y=k=>D.yoySeries([p],k).cur.reduce((a,b)=>a+(b||0),0);return p+' h='+y('hire')+' k='+(y('hire_co')+y('hire_cand')+y('hire_int'))}).join(' | '));
+    if(process.env.TP_HC==='all')console.log('TP_HC '+hc+' | '+off.join(' ; '));else if(process.env.TP_HC)console.log('TP_HC '+hc+' | '+(off.slice(0,6).join(' ; ')||'везде то же')+(off.length>6?' … ещё '+(off.length-6):''));
+    ok(!off.length,'численность одна на всех вкладках и у каждой строки таблицы: '+hc+(off.length?' — расходится: '+off.slice(0,5).join(' ; '):' = водопад = специализации = каждый разрез состава'));
+  }
   /* поставка 105: замкнутый водопад специализаций (fsm) — каждая строка сходится, «Внутри юнита» нет, месяцы = строке */
   /* 09.11 (владелец: одна методология): найм, отток, начало, конец — витрина движения; переводы — как карточки «Переводы»
      (флаги); остаток — «Смена типа и среза»: строка сходится с ним, переводы по специализациям не больше карточки */

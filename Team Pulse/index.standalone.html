@@ -3885,7 +3885,9 @@ function seriesRaw(leafPath,key){
      датасета 2а; макет — каждый принятый с долей команды) */
   if(key==='hire_co'){
     const h=seriesExt(leafPath,'hire'), c=seriesRaw(leafPath,'hire_cand'), t=seriesRaw(leafPath,'hire_int');
-    for(let i=0;i<NEXT;i++)out[i]=Math.max(0,h[i]-c[i]-t[i]);
+    /* 10.11, поставка 135: в пробнике остаток со знаком — у строки «напрямую» при двух родителях узла в витрине ряды
+       отрицательные (разность), и обнуление ломало сумму видов по листьям: она обязана равняться найму узла */
+    for(let i=0;i<NEXT;i++)out[i]=REAL?h[i]-c[i]-t[i]:Math.max(0,h[i]-c[i]-t[i]);
     _sc[ck]=out;return out;
   }
   /* 26.10-б: нежелательные и желательные увольнения макета — части оттока команды (каждый ушедший — нежелательный с
@@ -4648,7 +4650,18 @@ if(REAL_WS)REAL_DIM.spec='ws';
    нескольким разрезам, матрица конструктора и средний возраст в срезе считаются по людям, без допущения о независимости
    разрезов. Без профилей (ноутбук до 103, слишком большой выбор) — как раньше: оценка по долям */
 const PROF=!!(REAL&&REAL.profOK&&REAL.profOK());
-const profRows=leafPath=>PROF?REAL.prof(leafPath):null;
+/* 10.11, поставка 135: профили листа берём, только если это ровно его люди (сумма профилей = численность листа). В
+   витрине у узла бывает два родителя: строки дерева пересекаются, остаток «напрямую» — разность, а профили делят людей
+   по узлам без пересечений. Тогда у такого листа срез считается по долям (как без профилей), и численность среза та же,
+   что на остальных вкладках */
+const _pfOK=new Map();
+const profRows=leafPath=>{
+  if(!PROF)return null;
+  if(_pfOK.has(leafPath))return _pfOK.get(leafPath);
+  let r=REAL.prof(leafPath);
+  if(r&&Math.abs(r.reduce((a,x)=>a+x.n,0)-lastVal([leafPath],'hc_total'))>0.5)r=null;
+  _pfOK.set(leafPath,r);return r;
+};
 const pfVal=(r,dimKey)=>{const k=REAL_DIM[dimKey];return k==='ws'?r.v.w+'|'+r.v.sp:r.v[k]};
 const pfTot=rows=>rows.reduce((a,r)=>a+r.n,0);
 /* строка профиля проходит срез: в каждом разрезе — одна из выбранных категорий */

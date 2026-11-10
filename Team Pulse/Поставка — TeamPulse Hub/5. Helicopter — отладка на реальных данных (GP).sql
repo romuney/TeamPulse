@@ -27,6 +27,9 @@
 --     m_i / m_o — переводы в / из по формулам мастера прямо из источника, d_i / d_o = отчёт - мастер (должны быть 0)
 --  13 переводы по специализациям при фильтре покраски HQ (вся компания, «Активная» + HQ): в отчёте (i, o) и по формулам
 --     мастера (m_i, m_o); d_i и d_o должны быть 0 у каждой специализации
+--  14 численность одна на всех вкладках: у выбранного подразделения ряд численности (hc) = сумма разреза «Пол»
+--     (sostav_pol), d_sostav = 0; uzlov_s_prevysheniem - сколько в дереве узлов, у которых подразделения в сумме
+--     больше узла. Ниже - сами такие узлы (до 40): hc узла, kids_hc - сумма его подразделений, kids - их число
 -- Ожидаемые числа сверки — в чате, не в репозитории. Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub).
 -- 09.11: файл — один запрос (было 13 отдельных); убраны устаревшие: водопад витрины движения и «откуда прочее» (найм и
 -- переводы отчёта — из строк дня события, водопад сходится без «прочего»), переводы по специализациям по флагу уровня
@@ -601,6 +604,40 @@ b13 as (
            coalesce(t.i, 0) - coalesce(m.m_i, 0) as d_i, coalesce(t.o, 0) - coalesce(m.m_o, 0) as d_o
     from b13t t full join b13m m on m.sp = t.sp
     where coalesce(t.i, 0) + coalesce(t.o, 0) + coalesce(m.m_i, 0) + coalesce(m.m_o, 0) > 0
+),
+-- 14. численность одна на всех вкладках (последний месяц, «Активная»). Строка «0 выбранное подразделение»: hc - ряд
+--     численности узла («Движение», шапка), sostav_pol - сумма разреза «Пол» того же узла («Структура»); d_sostav = 0.
+--     Остальные строки - узлы, у которых подразделения в сумме больше самого узла (kids_hc > hc): в витрине у части
+--     людей цепочка идёт через другого родителя, и один человек входит в два соседних подразделения. Отчёт до поставки
+--     135 складывал состав по строкам дерева - и у такого узла «Структура» выходила больше численности; с 135 состав
+--     берётся по самому узлу. До 40 узлов с самым большим превышением
+b14h as (
+    select node_rk, sum(hc_cnt) as hc from teampulse_hub_series
+    where report_month = (select last_month from teampulse_hub_meta) and act_cd = 'Активная' group by 1
+),
+b14g as (
+    select sum(mx_n) as g from teampulse_hub_mix
+    where node_rk = (select rk from u) and mx_key = 'g' and act_cd = 'Активная'
+),
+b14k as (
+    select u2.unit_rk::text as k, max(coalesce(h.hc, 0)) as hc, sum(coalesce(hk.hc, 0)) as kids_hc, count(*) as kids
+    from teampulse_hub_unit u2
+    join teampulse_hub_unit c on c.parent_rk = u2.unit_rk
+    left join b14h h on h.node_rk = u2.unit_rk
+    left join b14h hk on hk.node_rk = c.unit_rk
+    group by 1
+    having sum(coalesce(hk.hc, 0)) > max(coalesce(h.hc, 0))
+),
+b14 as (
+    select '0 выбранное подразделение'::text as k,
+           coalesce((select hc from b14h where node_rk = (select rk from u)), 0) as hc,
+           coalesce((select g from b14g), 0) as sostav_pol,
+           coalesce((select g from b14g), 0) - coalesce((select hc from b14h where node_rk = (select rk from u)), 0) as d_sostav,
+           0::numeric as kids_hc, 0::numeric as kids, (select count(*) from b14k)::numeric as uzlov_s_prevysheniem
+    union all
+    select k, hc, 0, 0, kids_hc, kids, 0
+    from (select b14k.*, row_number() over (order by kids_hc - hc desc, k) as rn from b14k) x
+    where rn <= 40
 )
 select 0 as n, 'поиск подразделения'::text as blok, (unit_rk || ' ' || unit_nm)::text as stroka,
        unnest(array[1, 2]) as ord, unnest(array['unit_lvl', 'kids_cnt']::text[]) as pokazatel,
@@ -666,6 +703,11 @@ select 13 as n, 'переводы по специализациям при фи�
        unnest(array[1, 2, 3, 4, 5, 6]) as ord, unnest(array['i', 'o', 'm_i', 'm_o', 'd_i', 'd_o']::text[]) as pokazatel,
        unnest(array[(i)::numeric, (o)::numeric, (m_i)::numeric, (m_o)::numeric, (d_i)::numeric, (d_o)::numeric]) as znachenie
 from b13
+union all
+select 14 as n, 'численность: узел и его подразделения (последний месяц, Активная)'::text as blok, (k)::text as stroka,
+       unnest(array[1, 2, 3, 4, 5, 6]) as ord, unnest(array['hc', 'sostav_pol', 'd_sostav', 'kids_hc', 'kids', 'uzlov_s_prevysheniem']::text[]) as pokazatel,
+       unnest(array[(hc)::numeric, (sostav_pol)::numeric, (d_sostav)::numeric, (kids_hc)::numeric, (kids)::numeric, (uzlov_s_prevysheniem)::numeric]) as znachenie
+from b14
 union all
 select 10 as n, 'посещения по шагам (месяц cm)'::text as blok, (k)::text as stroka,
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['src_visits', 'src_no_city', 'tbl_visits', 'tbl_city_json', 'tbl_visits_no_json', 'tbl_leaf0', 'rep_visits', 'rep_city']::text[]) as pokazatel,

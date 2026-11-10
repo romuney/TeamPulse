@@ -458,6 +458,71 @@ select 36 as n, 'переводы: один человек за день в уз
        ((select coalesce(sum(trf_cnt), 0) from teampulse_hub_trf)
         - (select count(*) from (select 1 from teampulse_hub_trf0 where not (trf_kind = 'o' and fx_day = 1)
                                  group by node_rk, e, ev_dt, case when trf_kind = 'o' then 'o' else 'i' end) g))::float8 as val
+union all
+-- 10.11, поставка 135 (владелец: «численность на движении одна, на структуре другая»): справочно — люди, у которых в
+-- последний день данных один и тот же узел стоит в цепочке дважды. Такой человек входит в узел дважды уже в витрине
+-- (строки двух уровней); в отчёте числа узла при этом одни на всех вкладках, но больше, чем людей. Не ноль — повод
+-- показать цепочку владельцам витрины
+select 37 as n, 'структура: люди с повтором узла в своей цепочке (последний день; справочно - так в витрине)'::text as check_nm, 0 as must,
+       ((select count(*) from usr_cross_data.hr_executive_proteus x
+         where x.calendar_dt = (select max(calendar_dt) from usr_cross_data.hr_executive_proteus)
+           and (
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl1_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl2_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl3_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl4_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl5_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl6_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl7_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl8_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
+              nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-')
+           )))::float8 as val
 distributed randomly;
 
 select n, check_nm, val,
