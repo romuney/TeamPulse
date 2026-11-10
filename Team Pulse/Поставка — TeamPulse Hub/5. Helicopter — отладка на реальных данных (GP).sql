@@ -25,6 +25,8 @@
 --  11 формулы мастера прямо по источнику по дням (найм, отток, Перевод+, Перевод-) рядом с отчётом: d_* = 0
 --  12 «Движение по специализациям» всей компании как в отчёте: начало, найм, в, отток, из, конец, ostatok = 0 у каждой;
 --     m_i / m_o — переводы в / из по формулам мастера прямо из источника, d_i / d_o = отчёт - мастер (должны быть 0)
+--  13 переводы по специализациям при фильтре покраски HQ (вся компания, «Активная» + HQ): в отчёте (i, o) и по формулам
+--     мастера (m_i, m_o); d_i и d_o должны быть 0 у каждой специализации
 -- Ожидаемые числа сверки — в чате, не в репозитории. Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub).
 -- 09.11: файл — один запрос (было 13 отдельных); убраны устаревшие: водопад витрины движения и «откуда прочее» (найм и
 -- переводы отчёта — из строк дня события, водопад сходится без «прочего»), переводы по специализациям по флагу уровня
@@ -553,6 +555,52 @@ b12 as (
            coalesce(f.e, 0) - coalesce(f.b, 0) - coalesce(t.h, 0) - coalesce(t.i, 0) + coalesce(f.f, 0) + coalesce(t.o, 0) as ostatok
     from b12f f full join b12t t on t.sp = f.sp
     left join b12m m on m.sp = coalesce(f.sp, t.sp)
+),
+-- 13. переводы по специализациям при фильтре покраски HQ (вся компания, «Активная» + HQ, с января): в отчёте (i, o) и по
+--     формулам мастера по источнику (m_i, m_o); d_* = отчёт - мастер (должно быть 0). Строка дня в периметре — тип «Активная»
+--     и покраска HQ; «в» — флаг входа в тип, в HQ или в специализацию без найма, «из» — флаг выхода без увольнения, месяц
+--     «день + 1». Один день человека — одно событие, даже если в этот день сменились и покраска, и специализация
+b13t as (
+    select case when sp_cd = '-' then 'Не указано' else sp_cd end as sp,
+           sum(case when trf_kind = 'i' and in_ok = 1 and (fu = 1 or fa = 1 or fp = 1 or fsp = 1) then trf_cnt else 0 end) as i,
+           sum(case when trf_kind = 'o' and (fu = 1 or fa = 1 or fp = 1 or fsp = 1) then trf_cnt else 0 end) as o
+    from teampulse_hub_trf
+    where node_rk = (select root_rk from teampulse_hub_meta) and act_cd = 'Активная' and paint_cd = 'HQ'
+      and report_month between (select y0 from b12y) and (select m1 from b12y)
+    group by 1
+),
+b13d as (
+    select mdm_employee_rk as e, calendar_dt::date as dt,
+           min(translate(coalesce(nullif(trim(employee_specialization_desc::text), ''), '-'), E'	
+|', '  /')) as sp,
+           max((coalesce(hire_flg::text, '0') = '1' or coalesce(transfer_candidate_flg::text, '0') = '1'
+                or coalesce(transfer_internal_flg::text, '0') = '1')::int) as h,
+           max((coalesce(fire_flg::text, '0') = '1')::int) as f,
+           max((coalesce(transfer_to_active_type_flg::text, '0') = '1' or coalesce(transfer_to_hq_flg::text, '0') = '1'
+                or coalesce(transfer_to_specialization_flg::text, '0') = '1')::int) as ti,
+           max((coalesce(transfer_out_active_type_flg::text, '0') = '1' or coalesce(transfer_out_hq_flg::text, '0') = '1'
+                or coalesce(transfer_out_specialization_flg::text, '0') = '1')::int) as tu
+    from usr_cross_data.hr_executive_proteus
+    where calendar_dt >= (date_trunc('year', current_date - 1) - interval '3 year')::date
+      and calendar_dt >= (select y0 from b12y) - 1 and calendar_dt < ((select m1 from b12y) + interval '1 month')::date
+      and active_type_nm = 'Активная' and emp_specialization_oper_code = 'HQ'
+    group by 1, 2
+),
+b13m as (
+    select case when sp = '-' then 'Не указано' else sp end as sp, sum(i) as m_i, sum(o) as m_o
+    from (
+        select sp, case when h = 0 and dt >= (select y0 from b12y) then ti else 0 end as i, 0 as o from b13d
+        union all
+        select sp, 0, case when f = 0 and dt + 1 >= (select y0 from b12y) and dt + 1 < ((select m1 from b12y) + interval '1 month')::date
+                           then tu else 0 end from b13d
+    ) x
+    group by 1
+),
+b13 as (
+    select coalesce(t.sp, m.sp) as k, coalesce(t.i, 0) as i, coalesce(t.o, 0) as o, coalesce(m.m_i, 0) as m_i, coalesce(m.m_o, 0) as m_o,
+           coalesce(t.i, 0) - coalesce(m.m_i, 0) as d_i, coalesce(t.o, 0) - coalesce(m.m_o, 0) as d_o
+    from b13t t full join b13m m on m.sp = t.sp
+    where coalesce(t.i, 0) + coalesce(t.o, 0) + coalesce(m.m_i, 0) + coalesce(m.m_o, 0) > 0
 )
 select 0 as n, 'поиск подразделения'::text as blok, (unit_rk || ' ' || unit_nm)::text as stroka,
        unnest(array[1, 2]) as ord, unnest(array['unit_lvl', 'kids_cnt']::text[]) as pokazatel,
@@ -613,6 +661,11 @@ select 12 as n, 'движение по специализациям (с янва
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) as ord, unnest(array['b', 'h', 'i', 'f', 'o', 'e', 'ostatok', 'm_i', 'm_o', 'd_i', 'd_o']::text[]) as pokazatel,
        unnest(array[(b)::numeric, (h)::numeric, (i)::numeric, (f)::numeric, (o)::numeric, (e)::numeric, (ostatok)::numeric, (m_i)::numeric, (m_o)::numeric, (d_i)::numeric, (d_o)::numeric]) as znachenie
 from b12
+union all
+select 13 as n, 'переводы по специализациям при фильтре HQ (с января, Активная + HQ)'::text as blok, (k)::text as stroka,
+       unnest(array[1, 2, 3, 4, 5, 6]) as ord, unnest(array['i', 'o', 'm_i', 'm_o', 'd_i', 'd_o']::text[]) as pokazatel,
+       unnest(array[(i)::numeric, (o)::numeric, (m_i)::numeric, (m_o)::numeric, (d_i)::numeric, (d_o)::numeric]) as znachenie
+from b13
 union all
 select 10 as n, 'посещения по шагам (месяц cm)'::text as blok, (k)::text as stroka,
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['src_visits', 'src_no_city', 'tbl_visits', 'tbl_city_json', 'tbl_visits_no_json', 'tbl_leaf0', 'rep_visits', 'rep_city']::text[]) as pokazatel,

@@ -450,6 +450,12 @@ from (
       -- переводом строку не считает; при «Вся» — перевод в специализацию (вид перехода cv_k пустой — в найм не идёт)
       and not exists (select 1 from ev v where v.e = e2.e and v.cdt = e2.dt and v.u_evt)
       and not exists (select 1 from sr t where t.kind = 'ti' and t.e = e2.e and t.dt = e2.dt)
+      -- 10.11 (бой: у юнита при фильтре HQ переводы в / из по специализации больше, чем в мастер-отчёте): тот же день уже
+      -- несёт строка смены покраски / IT / штата (xi), найма переходом (hv) или парная «в» к выходу из типа (tc) — флаг
+      -- специализации теперь у неё (fsp = isp). Было: две строки одного дня, и при фильтре по покраске считались обе
+      and not exists (select 1 from xi where xi.e = e2.e and xi.dt = e2.dt)
+      and not exists (select 1 from hv where hv.e = e2.e and hv.dt = e2.dt)
+      and not exists (select 1 from tc where tc.dir = 'i' and tc.e = e2.e and tc.cdt = e2.dt)
     union all
     select e2.node_rk, date_trunc('month', e2.dt + e2.ld)::date, 'o',
            e2.pa, e2.it, e2.st, e2.ac, 0, 0, 0, 0, 0, 1,
@@ -459,29 +465,30 @@ from (
       -- 09.11: и в строке перевода юнита «из» (uo, fsp = osp); в день увольнения — отток, не перевод
       and not exists (select 1 from ev v where v.e = e2.e and v.pdt = e2.dt and v.u_evt)
       and not exists (select 1 from teampulse_hub_trfr f where f.e = e2.e and f.dt = e2.dt and f.fx = 1)
+      and not exists (select 1 from xo where xo.e = e2.e and xo.dt = e2.dt)   -- 10.11: эта строка уже в xo (fsp = osp)
     union all
     -- поставка 104: смена покраски / IT / штатности без перевода юнита (xi / xo выше): «в» — день новой строки, «из» —
     -- последний день прежнего значения, последний день месяца — в следующий месяц
     select xn.node_rk, date_trunc('month', xn.dt)::date, 'i',
            xn.pa, xn.it, xn.st, xn.ac, 0, 0, xn.ip, xn.ii, xn.ist, 1 - xn.cv,
-           null::text, null::text, null::text, null::text, '', xn.sp, 0, null::text, null::text
+           null::text, null::text, null::text, null::text, '', xn.sp, xn.isp, null::text, null::text
     from xn where xn.dir = 'i'
     union all
     select xn.node_rk, date_trunc('month', xn.dt + xn.ld)::date, 'o',
            xn.pa, xn.it, xn.st, xn.ac, 0, 0, xn.oq, xn.oi, xn.ost, 1,
-           null::text, null::text, null::text, null::text, '', xn.sp, 0, null::text, null::text
+           null::text, null::text, null::text, null::text, '', xn.sp, xn.osp, null::text, null::text
     from xn where xn.dir = 'o'
     union all
     -- поставка 104: парная строка к TO-a («в» — новая строка), дата — день перехода (09.11: «из» — по флагу строки, xa)
     select tcn.node_rk, date_trunc('month', tcn.cdt)::date, 'i',
            tcn.cpa, tcn.cit, tcn.cst, tcn.cac, 0, 1, tcn.cip, tcn.cii, tcn.cist, 1,
-           null::text, null::text, null::text, null::text, '', tcn.csp, 0, null::text, null::text
+           null::text, null::text, null::text, null::text, '', tcn.csp, tcn.cisp, null::text, null::text
     from tcn where tcn.dir = 'i'    union all
     -- поставка 104: найм переходом (hv выше) — срез и флаги смены дня, in_ok = 0
     select xn.node_rk, date_trunc('month', xn.dt)::date, 'i',
            xn.pa, xn.it, xn.st, xn.ac, 0, xn.ia, xn.ip, xn.ii, xn.ist, 0,
            null::text, null::text, null::text, null::text,
-           case when xn.cc = 1 then 'c' else 's' end, xn.sp, 0, xn.gr, xn.hs
+           case when xn.cc = 1 then 'c' else 's' end, xn.sp, xn.isp, xn.gr, xn.hs
     from xn where xn.dir = 'v'
 ) t
 where report_month between (select grid_start from teampulse_hub_cal) and (select lm from teampulse_hub_cal)

@@ -260,6 +260,15 @@ def sp_change(p):
         ds = [d for (d, a), (_, b) in zip(p['acth'][1:], p['acth']) if a == 'Активная' and b != 'Активная' and d > max(p['start'], D0)]
         if ds:
             return ds[0], nxt
+    # 10.11, как на бою (владелец: у выбранного юнита при фильтре HQ переводы в / из по специализации больше, чем в
+    # мастер-отчёте): смена специализации в день смены покраски или IT-кода БЕЗ перевода в другое подразделение
+    # (человек стал HQ и в тот же день сменил специализацию) — одно событие, а не два
+    for r9, k in ((9, 'operh'), (1, 'ith')):
+        if p['rk'] % 11 == r9:
+            ud = {d for d, _ in p['unit'][1:]} | {d for d, _ in p['acth'][1:]}
+            ds = [d for d, _ in p[k][1:] if d > max(p['start'], D0) and d not in ud]
+            if ds:
+                return ds[0], nxt
     if p['rk'] % 11 != 3:
         return None
     s0, last = max(p['start'], D0), p['end'] or D1
