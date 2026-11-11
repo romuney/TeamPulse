@@ -524,6 +524,10 @@ function utHead(i,q){
   return i.head?'<span class="ut-h">'+utHl(i.head,q)+'</span>':'';
 }
 function utRow(p,i,depth,tw,extra){
+  /* 12.11-б: предок зоны доступа — строка структуры: не выбирается, без числа людей */
+  if(i.anc)return '<div class="ut-r anc" role="presentation"'+(depth!=null?' style="padding-left:'+(9+depth*16)+'px"':'')+
+    U.tipAttr({title:i.name,text:'У вас нет доступа к этому уровню целиком — только к подразделениям ниже.'})+'><span class="ut-sp"></span>'+
+    '<span class="ut-n">'+esc(i.name)+'</span></div>';
   const n=D.draftCount(p,DRAFT);
   return '<div class="ut-r'+(DRAFT.unit===p?' cur':'')+'" data-upick="'+esc(p)+'" role="option" aria-selected="'+(DRAFT.unit===p)+'"'+
     (depth!=null?' style="padding-left:'+(9+depth*16)+'px"':'')+
@@ -539,13 +543,14 @@ function utListHTML(){
       const i=P.info(p);
       if(!i||out.n>=UT_MAX)return;
       out.n++;
-      const kids=i.kids?P.kids(p):[], open=kids.length&&utOpen(p,lvl0);
+      /* 12.11-б: несколько корней зоны — дерево идёт сверху через предков (строки-предки раскрыты всегда) */
+      const kids=i.kids?(P.treeRoots?P.treeKids(p):P.kids(p)):[], open=kids.length&&(i.anc||utOpen(p,lvl0));
       out.s+=utRow(p,i,depth,kids.length?'<button class="ut-tw" data-utw="'+esc(p)+'" aria-expanded="'+!!open+'">'+(open?'▾':'▸')+'</button>':'<span class="ut-sp"></span>');
       if(open)kids.map(k=>[k,P.info(k)]).filter(x=>x[1]).sort((a,b)=>a[1].name.localeCompare(b[1].name,'ru'))
         .forEach(x=>walk(x[0],depth+1));
     };
     /* поставка 69: окно начинается с корней зоны доступа (у полного доступа — корень компании) */
-    (P.roots||[P.root]).forEach(r=>walk(r,0));
+    (P.treeRoots||P.roots||[P.root]).forEach(r=>walk(r,0));
     return out.s;
   }
   /* поиск: по названию, логину и имени руководителя (имя — с поставки 66; «Иван Петров» находится и по фамилии);

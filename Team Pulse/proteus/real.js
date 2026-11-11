@@ -382,12 +382,28 @@ function build(data){
   }
   /* поставка 69, доступ по зоне: корни зоны (полный доступ — корень компании); окно выбора начинается с них */
   const zoneIds=(Array.isArray(meta.zone)?meta.zone:[]).map(str).filter(id=>byId[id]);
+  /* 12.11-б (бой: у логина десятки отдельных юнитов — окно выбора показывало их плоским списком, «иерархия непонятная»):
+     корней зоны несколько — дерево выбора строится сверху, через предков (их нельзя выбрать — только раскрыть), так что
+     юниты стоят на своих местах в структуре. Цепочка «один предок — один потомок» сверху пропускается */
+  const zoneIdSet={};zoneIds.forEach(id=>{zoneIdSet[id]=1});
   const zoneRoots=meta.full===1||!zoneIds.length?['T']:zoneIds.map(id=>pathOf(id)).filter(Boolean);
+  const zoneTree=zoneRoots.length>1;
+  let treeRoots=null;
+  if(zoneTree){
+    let tops=Object.keys(byId).filter(id=>!byId[byId[id].pid]);
+    for(let g=0;g<20&&tops.length===1&&byId[tops[0]].anc&&!zoneIdSet[tops[0]]&&(kidsBy[tops[0]]||[]).length===1;g++)tops=kidsBy[tops[0]].slice();
+    const tr=tops.map(id=>pathOf(id)).filter(Boolean);
+    if(tr.length)treeRoots=tr;
+  }
   const pick={
     ok:fdOk,
     root:zoneRoots[0],roots:zoneRoots,base:'T',
     kids(p){const id=idOfPath(p);return (kidsBy[id]||[]).filter(k=>!byId[k].anc).map(k=>pathOf(k)).filter(Boolean)},
-    info(p){const u=byId[idOfPath(p)];return u?{name:u.name||'—',lvl:u.lvl,head:u.head||'',hname:u.hname||'',kids:(kidsBy[u.id]||[]).length}:null},
+    /* дерево окна выбора при нескольких корнях зоны: верхние узлы (treeRoots) и дети вместе с предками; null — обычное дерево */
+    treeRoots:treeRoots,
+    treeKids(p){const id=idOfPath(p);return (kidsBy[id]||[]).map(k=>pathOf(k)).filter(Boolean)},
+    /* anc — предок корня зоны: в дереве выбора он только для структуры, выбрать его нельзя */
+    info(p){const u=byId[idOfPath(p)];return u?{name:u.name||'—',lvl:u.lvl,head:u.head||'',hname:u.hname||'',kids:(kidsBy[u.id]||[]).length,anc:!!u.anc}:null},
     all(){return Object.keys(byId).filter(id=>!byId[id].anc).map(id=>pathOf(id)).filter(Boolean)},
     /* путь узла по ключу (07.11: «Сбросить фильтры» возвращает юнит по умолчанию) */
     path(id){return pathOf(str(id))},

@@ -210,7 +210,10 @@ WITH
       {#- поставка 69, доступ: fl — полный доступ; zr — корни зоны (вся компания у полного доступа, иначе подразделения,
           где логин — руководитель); узел в зоне — корень зоны есть в его пути; s — запрошенный юнит, если он в зоне,
           иначе юнит по умолчанию (полный доступ) или первый корень зоны #}
-      SELECT lm, m0, n, r, d, dd, has(au, r) AS fl,
+      {#- 12.11-б (бой: суперюзеру открылся случайный юнит): вся компания — у кого открыт корень ИЛИ единственный потомок
+          корня (корень технический: под ним одна «компания», и права выдают на неё). У корня несколько потомков — только корень #}
+      SELECT lm, m0, n, r, d, dd,
+             has(au, r) OR (arrayCount(x -> x.2 = r, al) = 1 AND has(au, tupleElement(arrayFirst(x -> x.2 = r, al), 1))) AS fl,
              {#- 12.11, бой (Code 241, 10 ГиБ): зона считалась лямбдой по юнитам логина с захватом всего справочника al — у
                  логина с тысячами строк доступа справочник копировался на каждом шаге. Теперь корни зоны (zq) и их предки
                  (anq) приходят готовыми из соединения таблиц (fa), лямбд с захватом растущих массивов нет #}
@@ -240,8 +243,9 @@ WITH
           предок не открыт этому же логину (юнит под уже открытым юнитом отдельным корнем не нужен); anq — узлы путей к корням #}
       CROSS JOIN (SELECT (SELECT groupUniqArray(ifNull(toString(unit_rk), '')) FROM prod_proteus.teampulse_hub_access
                           WHERE lowerUTF8(trimBoth(ifNull(toString(login), ''))) = {{ me() }} AND {{ me() }} != '') AS au,
-                         arraySort(groupArray(t.id)) AS zq, arrayDistinct(arrayFlatten(groupArray(t.ph))) AS anq
-                  FROM (SELECT ifNull(unit_rk, '') AS id, splitByChar('|', ifNull(path_rk, '')) AS ph
+                         {#- корни зоны — сверху вниз по уровню: первым (юнит по умолчанию) идёт самый верхний, а не случайный #}
+                         arrayMap(x -> x.2, arraySort(groupArray((t.lv, t.id)))) AS zq, arrayDistinct(arrayFlatten(groupArray(t.ph))) AS anq
+                  FROM (SELECT ifNull(unit_rk, '') AS id, splitByChar('|', ifNull(path_rk, '')) AS ph, toInt32(ifNull(unit_lvl, 0)) AS lv
                         FROM prod_proteus.teampulse_hub_unit) AS t
                   WHERE t.id != '' AND has(au, t.id) AND NOT hasAny(arrayPopBack(t.ph), au)) AS fa
     )

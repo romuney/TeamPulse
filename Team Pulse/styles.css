@@ -2782,6 +2782,10 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* 12.11: цельное название внутри плашки вывода — без собственной плашки */
 .in-pl span.nw,.bk-p .nw{display:inline-block;padding:0;border:0;border-radius:0;background:none;box-shadow:none;gap:0}
 
+/* 12.11-б: предок зоны доступа в дереве выбора — серым, не выбирается */
+.ut-r.anc{color:var(--muted);cursor:default}
+.ut-r.anc:hover{background:none}
+
 /* ---------- поставка «по частям» (11.11): значки загрузки частей ответа ----------
    кольцо на значке вкладки, чьи разрезы ещё в пути; экран ожидания вкладки; чип «Догружаю детали…» в шапке.
    Блок между метками split — только в сборке главного чарта «по частям» */

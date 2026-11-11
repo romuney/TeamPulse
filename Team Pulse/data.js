@@ -918,6 +918,9 @@ function techOf(P){
   const t=new Set();let r='T';
   if(!P||!P.info||!P.info('T'))return {tech:t,top:r};
   for(let g=0;g<6;g++){const k=P.kids(r);if(k.length!==1)break;t.add(r);r=k[0]}
+  /* 12.11-б: у логина с зоной доступа корень справочника — предок (в kids его потомков нет): технический корень с одним
+     потомком не показываем и ему — в пути и в дереве выбора */
+  if(!t.size&&P.treeKids&&!P.kids('T').length){const k=P.treeKids('T');if(k.length===1){t.add('T');r=k[0]}}
   return {tech:t,top:r};
 }
 const TECH=techOf(PICK).tech, TOP=techOf(PICK).top;

@@ -873,6 +873,10 @@ def load(pg, U, people):
     _two = sorted(k for k, v in U.items() if v[1])[:2]
     _acc += [('Multi.User ', k, 'h' + k) for k in _two] + [('multi.user', _two[0], 'h' + _two[0])]
     _acc += [(a, b, c) for a, b, c in _acc[:5]] + [('ghost', 'no_such_unit', ''), ('tester', 'no_such_unit', '')]
+    # 12.11-б: логин с юнитами в разных ветках и на разных уровнях (без корня) — дерево выбора через предков
+    _par = {v[1] for v in U.values()}
+    _lf = sorted(k for k in U if k not in _par)
+    _acc += [('tree.user', k, '') for k in (_lf[0], _lf[len(_lf) // 2], _lf[-1], U[_lf[-1]][1])]
     pg.run("CREATE TABLE usr_cross_data.new_access_to_digest_line (login text, mngt_unit_rk text, leader_login text)")
     pg.copy('usr_cross_data.new_access_to_digest_line', ['login', 'mngt_unit_rk', 'leader_login'], _acc)
     # 21.10: вакансии по дням (источник structure_x_vacancy)
