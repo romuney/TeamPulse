@@ -67,7 +67,9 @@ const PARTIAL=ASOF.d<DIM(ASOF.y,ASOF.m);
    дни (месяц пропорционально, CNT_FRAC) */
 const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','июня','июля','авг.','сент.','окт.','нояб.','дек.'];
 const PER_PART=PARTIAL, PER_I=LAST, PER_C=MONTHS[PER_I].m;
-const PER_SPAN=PER_PART?(PER_C?'янв.–'+ASOF.d+' '+MONTH_ABBR_GEN[ASOF.m]:'1–'+ASOF.d+' янв.'):PER_C?'янв.–'+MONTH_ABBR[PER_C]:'янв.';
+/* 11.11, владелец («янв.–9 нояб. — 1»: тире перед числом читается как минус): диапазон — с днём начала и пробелами вокруг
+   тире, неразрывными слева: «1 янв. – 9 нояб.», «янв. – сент.» */
+const PER_SPAN=PER_PART?(PER_C?'1\u00a0янв.\u00a0– '+ASOF.d+'\u00a0'+MONTH_ABBR_GEN[ASOF.m]:'1–'+ASOF.d+'\u00a0янв.'):PER_C?'янв.\u00a0– '+MONTH_ABBR[PER_C]:'янв.';
 const PER_TEXT=PER_PART?(PER_C?'с 1 января по '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'с 1 по '+ASOF.d+' января'):PER_C?'с января по '+MONTH_NOM[PER_C]:'за январь';
 /* окно для шапки экрана и подписей «в среднем за период …» */
 const PER_NAME=PER_PART?(PER_C?'1 января – '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'1–'+ASOF.d+' января'):PER_C?'январь–'+MONTH_NOM[PER_C]:'январь';

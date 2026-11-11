@@ -118,7 +118,8 @@ function yoyStory(key,S,rl,bl){
     :V==='bad'?(kpi&&kpi.hi!=null&&P.v>kpi.hi?'выше верхнего порога ('+D.fmtVal(key,kpi.hi)+')':'хуже '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':'')):V==='warn'?'на уровне '+rw+(refV!=null?' ('+D.fmtVal(key,refV)+')':''):why;
   /* 1. Итог за период и ориентир — как в строке */
   if(P.v!=null)out.push(Object.assign(pt?{i:b,s:'main',pin:1}:{mi:range(b+1),pin:1},
-    {html:'<b>'+esc(cap(P.head||''))+' — '+f(P.v)+'</b>'+(say?': '+esc(say)+'.':'.')}));
+    /* 11.11, владелец: «— 1» после периода читалось как отрицательное число — значение после двоеточия, оценка — отдельно */
+    {html:'<b>'+esc(cap(P.head||''))+': '+f(P.v)+'</b>'+(say?'. '+esc(cap(say))+'.':'.')}));
   /* 2. Год назад — за тот же период */
   const pv=P.pv;
   if(P.v!=null&&pv!=null){
@@ -132,9 +133,9 @@ function yoyStory(key,S,rl,bl){
     const top=Math.max.apply(null,cur.concat(prev,ref?range(12).map(k=>ref.at(k)):[],ref&&ref.kpi?[(ref.kpi.annual||ref.kpi).red]:[])
       .filter(x=>x!=null&&isFinite(x)).concat([0]));
     const near=top>0&&Math.abs(v-pv)/top<0.08;
-    out.push(!pt?{mi:range(b+1),pin:2,html:'<b>Год назад за те же месяцы — '+f(pv)+'</b>: сейчас '+esc(dot(w))}
-      :near?{mi:[b],pin:2,html:'<b>Год назад — '+f(pv)+'</b>: сейчас '+esc(dot(w))}
-      :{i:b,s:'prev',pin:2,html:'<b>Год назад — '+f(pv)+'</b>: сейчас '+esc(dot(w))});
+    out.push(!pt?{mi:range(b+1),pin:2,html:'<b>Год назад за те же месяцы: '+f(pv)+'</b>. Сейчас '+esc(dot(w))}
+      :near?{mi:[b],pin:2,html:'<b>Год назад: '+f(pv)+'</b>. Сейчас '+esc(dot(w))}
+      :{i:b,s:'prev',pin:2,html:'<b>Год назад: '+f(pv)+'</b>. Сейчас '+esc(dot(w))});
   }
   /* 3. Экстремум года: у накопительной суммы — месяц, добавивший больше всех;
      у доли с начала года — ничего (январь у неё шумный); иначе худший месяц
