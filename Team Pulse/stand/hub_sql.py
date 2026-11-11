@@ -316,6 +316,11 @@ select s.mng_unit_rk::text as unit_rk, s.leaf_lvl,
        {ncol}
 from {SRC} s
 where s.report_month = (select lm from {P}_cal) and s.leaf_lvl > 0
+  -- 12.11 (бой: в дереве юниты, которых уже нет на портале): структура - по строке человека на дату данных
+  -- (last_row_flg = 1), а не по всем строкам месяца. У перешедшего в месяце строк две, и юнит, откуда он ушёл
+  -- (расформированный в середине месяца), попадал в дерево. История таких юнитов не теряется: их строки идут
+  -- по своему пути из источника (coalesce(u.cp, путь строки) в рядах и разрезах)
+  and s.last_row_flg = 1
 group by {', '.join(str(i) for i in range(1, len(LV) + 3))}
 {dist('unit_rk')};
 drop table if exists {P}_uone;
