@@ -69,7 +69,9 @@ const MONTH_ABBR_GEN=['янв.','февр.','марта','апр.','мая','и�
 const PER_PART=PARTIAL, PER_I=LAST, PER_C=MONTHS[PER_I].m;
 /* 11.11, владелец («янв.–9 нояб. — 1»: тире перед числом читается как минус): диапазон — с днём начала и пробелами вокруг
    тире, неразрывными слева: «1 янв. – 9 нояб.», «янв. – сент.» */
-const PER_SPAN=PER_PART?(PER_C?'1\u00a0янв.\u00a0– '+ASOF.d+'\u00a0'+MONTH_ABBR_GEN[ASOF.m]:'1–'+ASOF.d+'\u00a0янв.'):PER_C?'янв.\u00a0– '+MONTH_ABBR[PER_C]:'янв.';
+/* 11.11, владелец (дальше): период словами, совсем без тире — «с 1 янв. по 9 нояб.» (коротко: под числом, в шапке колонки);
+   в заголовках чисел — полностью, PER_TEXT: «Всего с 1 января по 9 ноября: 135» */
+const PER_SPAN=PER_PART?(PER_C?'с\u00a01\u00a0янв. по\u00a0'+ASOF.d+'\u00a0'+MONTH_ABBR_GEN[ASOF.m]:'с\u00a01 по\u00a0'+ASOF.d+'\u00a0янв.'):PER_C?'с\u00a0янв. по\u00a0'+MONTH_ABBR[PER_C]:'за\u00a0янв.';
 const PER_TEXT=PER_PART?(PER_C?'с 1 января по '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'с 1 по '+ASOF.d+' января'):PER_C?'с января по '+MONTH_NOM[PER_C]:'за январь';
 /* окно для шапки экрана и подписей «в среднем за период …» */
 const PER_NAME=PER_PART?(PER_C?'1 января – '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'1–'+ASOF.d+' января'):PER_C?'январь–'+MONTH_NOM[PER_C]:'январь';
@@ -1320,16 +1322,16 @@ function periodTotal(lp,key,yser,dkey){
      количеств и накопительных месяц c — пропорционально (FR); у долей из числителя и знаменателя месяц c прошлого года
      входит с весом FR, а знаменатель-численность незакрытого месяца — с весом FR и в этом году (иначе неполный месяц
      занижал бы средний темп) */
-  const c=stock?CUR_LEN-1:PER_C, part=PER_PART, span=PER_SPAN, FR=part?CNT_FRAC:1;
+  const c=stock?CUR_LEN-1:PER_C, part=PER_PART, span=PER_SPAN, FR=part?CNT_FRAC:1, capT=t=>t.charAt(0).toUpperCase()+t.slice(1);
   const sum=a=>a.slice(0,c+1).reduce((t,v)=>t+(v||0),0), sumP=a=>sum(a)-(1-FR)*(a[c]||0);
   let cur,prev,head;
-  if(flow){cur=sum(y.cur);prev=sumP(y.prev);head='Всего за '+span}
+  if(flow){cur=sum(y.cur);prev=sumP(y.prev);head='Всего '+PER_TEXT}
   else if(stock){cur=y.cur[c];prev=y.prev[c];head=PARTIAL?'Сейчас, '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'На конец '+MONTH_GEN[c]}
-  else if(cum){cur=y.cur[c];const p0=c?y.prev[c-1]||0:0;prev=y.prev[c]==null?null:p0+FR*(y.prev[c]-p0);head=part?'За '+span:'На конец '+MONTH_GEN[c]}
+  else if(cum){cur=y.cur[c];const p0=c?y.prev[c-1]||0:0;prev=y.prev[c]==null?null:p0+FR*(y.prev[c]-p0);head=part?capT(PER_TEXT):'На конец '+MONTH_GEN[c]}
   else if(key==='time_to_fill'&&TTF_MED&&!yser){
     /* поставка 103 (файл 9, п. 4): медиана по всем вакансиям, закрытым в периоде, — не среднее и не медиана месячных */
     const idx=off=>{const a=[];for(let j=0;j<=c;j++)a.push(YOY_FROM+off+j);return a};
-    cur=ttfMedian(lp,idx(12));prev=ttfMedian(lp,idx(0));head='Медиана за '+span;
+    cur=ttfMedian(lp,idx(12));prev=ttfMedian(lp,idx(0));head='Медиана '+PER_TEXT;
   }
   else{
     if(d&&(!yser||dkey)){
@@ -1340,7 +1342,7 @@ function periodTotal(lp,key,yser,dkey){
       cur=r(sum(N.cur),hcDen?sumP(Dn.cur):sum(Dn.cur));prev=r(sumP(N.prev),sumP(Dn.prev));
     }else{const av=a=>{const v=a.slice(0,c+1).filter(x=>x!=null);return v.length?v.reduce((t,x)=>t+x,0)/v.length:null};cur=av(y.cur);prev=av(y.prev)}
     /* поставка 136, п. 5 и 8: среднее за несколько месяцев — «в среднем за период январь–октябрь», не «за месяц» */
-    head=PT_MON.has(key)?'В среднем за период '+PER_NAME:(key==='time_to_fill'?'В среднем за ':'За ')+span;
+    head=PT_MON.has(key)?'В среднем '+PER_TEXT:(key==='time_to_fill'?'В среднем '+PER_TEXT:capT(PER_TEXT));
   }
   if(cur==null||!isFinite(cur))return null;
   const pct=m.fmt==='pct', dd=prev==null?null:cur-prev, eps=pct?0.05:m.fmt==='int'?0.5:0.05;

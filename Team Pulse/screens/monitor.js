@@ -41,7 +41,8 @@ function perLine(P,wk,lp){
   const C=wk?P.filter(p=>!p.pt):P;
   if(!C.length)return null;
   /* поставка 136, п. 8: среднее за несколько месяцев — «в среднем за период январь–октябрь» (не «за месяц, янв–окт») */
-  const head=wk?'В среднем за неделю, '+C[0].label+(C.length>1?'–'+C[C.length-1].label:''):'В среднем за период '+D.PER_NAME;
+  /* 11.11, владелец: период словами, без тире — «в среднем с 1 января по 12 октября», у недель — «с 06.10 по 12.10» */
+  const head=wk?'В среднем за неделю'+(C.length>1?', с '+C[0].label+' по '+C[C.length-1].label:', '+C[0].label):'В среднем '+D.PER_TEXT;
   const avg=k=>C.reduce((a,p)=>a+(p[k]||0),0)/C.length, n=v=>D.fmtInt?D.fmtInt(Math.round(v)):String(Math.round(v));
   const f1=v=>(Math.round(v*10)/10).toFixed(1).replace('.',',');
   const sum=k=>C.reduce((a,p)=>a+(p[k]||0),0), wt=C.every(p=>p.pdw!=null);

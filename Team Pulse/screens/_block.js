@@ -428,7 +428,7 @@ function renderBlock(S,expanded,mixOpen,view){
   const perOf=k=>MONTHLY.has(k)?(D.PER_PART?D.PER_MON.replace(/ \d{4}$/,''):D.MONTH_NOM[PM.m]+' '+PM.y):YNOW.has(k)?String(D.YEAR_CUR):mod.perAlways&&pt(k).lab?pt(k).lab:b.key==='structure'||pt(k).lab===D.PER_SPAN||pt(k).lab===D.CNT_SPAN?'':pt(k).lab||'';
   /* поставка 128 (аудит L3: подсказка колонки «…за месяц», а в колонке — итог с января): у колонок за период «за месяц» в
      описании метрики — окно колонки */
-  const perTxt=(k,t)=>!MONTHLY.has(k)&&/^(янв\.|1–)/.test(pt(k).lab||'')?String(t).replace(/ за месяц(?![а-яё])(\.?)/g,(m,d)=>' за '+pt(k).lab+(/\.$/.test(pt(k).lab)?'':d)):t;
+  const perTxt=(k,t)=>!MONTHLY.has(k)&&/^(с\u00a0|за\u00a0янв)/.test(pt(k).lab||'')?String(t).replace(/ за месяц(?![а-яё])(\.?)/g,(m,d)=>' '+pt(k).lab+(/\.$/.test(pt(k).lab)?'':d)):t;
 
   if(!rl.length){
     return '<div class="page-h"><h2>'+esc(b.name)+'</h2><p>'+esc(b.hint)+'</p></div>'+

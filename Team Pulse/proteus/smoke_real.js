@@ -761,8 +761,8 @@ ok(['time_to_fill','tgrowth_conv','underwork','overwork','regret','nonregret','t
   const lp=D.reportLeaves(D.DEFAULT_STATE), c0=D.CUR_LEN-1-(D.PARTIAL?1:0), c=D.CUR_LEN-1, sum=a=>a.slice(0,c+1).reduce((t,v)=>t+(v||0),0);
   const yh=D.yoySeries(lp,'hire'), ph=D.periodTotal(lp,'hire'), yt=D.yoySeries(lp,'turnover_y'), pt=D.periodTotal(lp,'turnover_y');
   const yc=D.yoySeries(lp,'hc_total'), pc=D.periodTotal(lp,'hc_total'), hire=A.top('hiring');
-  ok(c0<0||ph&&Math.abs(ph.v-sum(yh.cur))<1e-9&&Math.abs(ph.pv-(sum(yh.prev)-(1-D.CNT_FRAC)*(yh.prev[c]||0)))<1e-9&&/^Всего за /.test(ph.head)&&
-    pt&&pt.v===yt.cur[c]&&/^(На конец |За )/.test(pt.head)&&pc&&pc.v===yc.cur[D.CUR_LEN-1]&&!pc.strip&&
+  ok(c0<0||ph&&Math.abs(ph.v-sum(yh.cur))<1e-9&&Math.abs(ph.pv-(sum(yh.prev)-(1-D.CNT_FRAC)*(yh.prev[c]||0)))<1e-9&&/^Всего с /.test(ph.head)&&
+    pt&&pt.v===yt.cur[c]&&/^(На конец |С )/.test(pt.head)&&pc&&pc.v===yc.cur[D.CUR_LEN-1]&&!pc.strip&&
     /class="pt-line"/.test(hire),
     'итог за период: найм '+(ph&&ph.cur)+' ('+(ph&&ph.head)+'), год назад '+(ph&&ph.prev)+'; накопительная текучесть и численность — на дату');
   /* 09.11 (владелец: найм — событие дня найма, один счёт): каждая разбивка найма (источник, канал, грейд, специализация) в
@@ -792,7 +792,7 @@ if(D.TTF_MED){
   D.MONTHS.forEach((mm,i)=>{const k=mm.y+'-'+String(mm.m+1).padStart(2,'0');let c=0;Object.keys(vt).forEach(x=>{if(x.indexOf(k+'|')===0)c+=vt[x]});
     if(Math.abs(c-(vtn[i]||0))>0.5)bad.push(k+': '+c+'≠'+vtn[i])});
   const pt=D.periodTotal(lp,'time_to_fill'), med=D.aggregate(lp,'time_to_fill');
-  ok(!bad.length&&pt&&/^Медиана за /.test(pt.head)&&med.some(v=>v!=null&&v>0),'срок закрытия — медиана: распределение = закрытым по месяцам, итог «'+
+  ok(!bad.length&&pt&&/^Медиана с /.test(pt.head)&&med.some(v=>v!=null&&v>0),'срок закрытия — медиана: распределение = закрытым по месяцам, итог «'+
     (pt&&pt.head)+'» '+(pt&&pt.cur)+(bad.length?' — '+bad.join('; '):''));
 }
 /* поставка 136: итерация «понятность выводов» — мониторинг (период, покрытие), посещаемость (город → динамика, период в
