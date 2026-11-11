@@ -54,6 +54,11 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        sum(coalesce(e.visit_with_booking_amt, 0)) as vbk,
        sum(case when e.management_head_flg::text = '1' then coalesce(e.work_day_amt, 0) else 0 end) as hwd,
        sum(case when e.management_head_flg::text = '1' then coalesce(e.office_visit_amt, 0) else 0 end) as hov,
+       -- 12.11 (владелец: «у сегмента люди и база метрики - разные множества»): база сегментов посещаемости людьми -
+       -- руководители (hob) и остальные (nob) с закреплённым офисом, у кого в месяце был рабочий день; то же
+       -- определение, что у общей базы obase (office_emp_cnt): hob + nob = obase по построению
+       sum(case when e.management_head_flg::text = '1' then coalesce(e.office_emp_cnt, 0) else 0 end) as hob,
+       sum(case when e.management_head_flg::text = '1' then 0 else coalesce(e.office_emp_cnt, 0) end) as nob,
        -- поставка 71 (мониторинг по дням): людей с прогулами 2–5 и больше 5 дней, с работой в выходные 2–5 и
        -- больше 5 дней, со звонками 20–30%, 30–50% и больше 50% рабочего времени; часы рабочего дня и звонков —
        -- сумма средних по людям с данными (hrn — сколько таких людей): среднее по команде — hrs / hrn, доля звонков —
@@ -139,6 +144,7 @@ select k.node_rk, k.report_month, k.paint_c as paint_cd, k.it_c as it_cd, k.staf
        coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt,
        coalesce(c.bk, 0) as bk_amt, coalesce(c.bkv, 0) as bkv_amt, coalesce(c.vsv, 0) as vsv_amt,
        coalesce(c.hwd, 0) as hwd_amt, coalesce(c.hov, 0) as hov_amt,
+       coalesce(c.hob, 0) as hob_cnt, coalesce(c.nob, 0) as nob_cnt,
        coalesce(c.ab25, 0) as ab25_cnt, coalesce(c.ab5, 0) as ab5_cnt, coalesce(c.we25, 0) as we25_cnt,
        coalesce(c.we5, 0) as we5_cnt, coalesce(c.t23, 0) as t23_cnt, coalesce(c.t35, 0) as t35_cnt,
        coalesce(c.t5, 0) as t5_cnt, coalesce(c.hrs, 0) as hrs_amt, coalesce(c.hrn, 0) as hrn_cnt,

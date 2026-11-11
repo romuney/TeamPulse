@@ -3548,6 +3548,8 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
   'office_fix_wday','office_fix_ovis','bk_visit_ok',
   /* 11.11 (исследование посещаемости): база посещаемости людьми — сотрудники с закреплённым офисом (знаменатель) */
   'office_base',
+  /* 12.11: база сегментов посещаемости людьми — руководители и остальные с закреплённым офисом */
+  'office_hob','office_nob',
   /* поставка 71: мониторинг по дням — люди в сегментах, суммы средних часов дня и звонков по людям */
   'mon_ab25','mon_ab5','mon_we25','mon_we5','mon_t23','mon_t35','mon_t5','mon_hrs','mon_hrn','mon_tlk',
   /* поставка 104: взвешенные суммы — часы и звонки плановых дней, плановые дни */
@@ -6426,8 +6428,12 @@ function officeCross(lp,seg,city){
 function officeReal(lp,seg,city){
   const mh=realExit(lp,'mh'), hcAll=Object.keys(mh).reduce((a,k)=>a+mh[k],0), lead=mh['1']||0;
   const att=(v,w)=>{const W=perVal(lp,w);return W?+(perVal(lp,v)/W*100).toFixed(1):0};
-  const segs=OFF_LIVE.seg?[{key:'lead',name:'Руководители',hc:lead,att:att('ovis_lead','wday_lead')},
-    {key:'staff',name:'Сотрудники',hc:hcAll-lead,att:att('ovis_staff','wday_staff')}]:[];
+  /* 12.11 (владелец: «у сегмента „2 чел“ — численность, а процент — по одному человеку с офисом»): base — люди сегмента в
+     базе метрики (с закреплённым офисом и рабочим днём в месяце; ряды hob / nob ноутбука с 12.11), hc — вся численность
+     сегмента. Нет рядов (ноутбук до 12.11) — base null, подпись прежняя */
+  const sb=REAL.has('hob')&&REAL.has('nob'), bs=k=>sb?Math.round(perVal(lp,k)||0):null;
+  const segs=OFF_LIVE.seg?[{key:'lead',name:'Руководители',hc:lead,base:bs('office_hob'),att:att('ovis_lead','wday_lead')},
+    {key:'staff',name:'Сотрудники',hc:hcAll-lead,base:bs('office_nob'),att:att('ovis_staff','wday_staff')}]:[];
   /* 11.11, владелец: «владельцы фиксов не пересчитывают динамику» — фиксы выбираются как сегмент: динамика — их посещаемость
      (office_fix), таблицы городов — без разбивки по ним (у городов разреза по фиксам нет) */
   const fix=OFF_LIVE.fix&&perVal(lp,'office_fix_wday')?{att:+perVal(lp,'office_fix').toFixed(1),wd:Math.round(perVal(lp,'office_fix_wday'))}:null;
@@ -13096,13 +13102,21 @@ const offLabel=x=>[x.seg?x.seg.name:'',x.city?x.city.name:''].filter(Boolean).jo
 /* 11.11: база посещаемости числом — под графиком посещаемости и в подсказке колонки */
 const OFF_BASE_TIP='Посещаемость считается по сотрудникам с закреплённым офисом (офисный и гибридный формат). Дистанционные '+
   'и ГПД в знаменатель не входят — поэтому она выше, чем «по всей численности» у мастер-борда посещаемости.';
+/* 12.11 (владелец: «очевидно показать, что метрика только по тем, у кого офис и гибрид, и сколько это от общей численности,
+   которая на других вкладках»): плашка сверху вкладки, на обеих под-вкладках (как покрытие у «Мониторинга»): N из M человек
+   и доля; M — та же численность под теми же фильтрами, что на остальных вкладках */
 function baseNote(lp){
   const b=D.offBase(lp);
   if(!b)return '';
-  return '<div class="tbl-note off-base"'+U.tipAttr({title:'База посещаемости',text:OFF_BASE_TIP})+'><b>Считаем по '+D.fmtInt(b.base)+' '+
-    U.plural(b.base,['сотруднику','сотрудникам','сотрудникам'])+' с закреплённым офисом</b>'+
-    (b.hc?' из '+D.fmtInt(b.hc)+' в численности ('+String(b.pct).replace('.',',')+'%)':'')+' · '+esc(b.mon)+
-    '. Дистанционные и ГПД в базу не входят.</div>';
+  const info='<span class="info"'+U.tipAttr({title:'База посещаемости',text:OFF_BASE_TIP,
+    list:['**В базе** — сотрудники с закреплённым офисом (офисный и гибридный формат), у кого в месяце был рабочий день',
+      '**Не в базе** — дистанционные, ГПД и без закреплённого офиса: в процент посещаемости они не входят',
+      '**Численность** — та же, что на остальных вкладках, под теми же фильтрами'],
+    note:'Процент посещаемости — дни с посещением офиса ÷ рабочие дни людей базы.'})+' aria-label="База посещаемости">i</span>';
+  return '<div class="tbl-note mon-cov off-base"><b>Посещаемость считаем по '+D.fmtInt(b.base)+' из '+D.fmtInt(b.hc||b.base)+' '+
+    U.plural(b.hc||b.base,['человека','человек','человек'])+(b.hc?' ('+String(b.pct).replace('.',',')+'% численности)':'')+
+    '</b> · '+esc(b.mon)+' '+info+'<br>Только сотрудники с закреплённым офисом: офисный и гибридный формат. '+
+    'Дистанционные и ГПД в метрику не входят'+(b.hc&&b.hc>b.base?' — это '+D.fmtInt(b.hc-b.base)+' чел.':'.')+'</div>';
 }
 function offNow(lp){
   if(!D.REAL||!D.PARTIAL)return '';
@@ -13119,8 +13133,16 @@ function attendReal(ctx,x,lbl,attTbl){
   /* файл 8, п. 5: таблица «Сегмент» при выборе города не меняет вид — та же посещаемость по сегментам, пересчитанная для
      города (посещения в его офисах ÷ рабочие дни сегмента), в подписи — люди сегмента, бывшие в офисе города */
   /* поставка 107 (как мастер): владельцы фиксов — своя посещаемость отдельной строкой (часть численности, не сегмент) */
-  const segTbl=attTbl('Сегмент',(cc?x.city.name+' · ':'')+D.PER_MON,x.segs.filter(s=>cc||s.hc>0).map(s=>({name:s.name,
-      note:D.fmtInt(s.hc)+' чел'+(cc?' в офисе':''),
+  /* 12.11: у сегмента — «A из N»: A — люди с закреплённым офисом (по ним процент), N — численность сегмента; без офисной
+     базы (A = 0) — «нет офисной базы» вместо 0% или 100%; рядов базы нет (старый ноутбук) — подпись прежняя */
+  const segNote=s=>cc||s.base==null?D.fmtInt(s.hc)+' чел'+(cc?' в офисе':''):D.fmtInt(Math.min(s.base,s.hc||s.base))+' из '+D.fmtInt(Math.max(s.hc,s.base))+' чел';
+  const segTip=s=>cc||s.base==null?null:'Процент — посещаемость людей с закреплённым офисом ('+D.fmtInt(s.base)+' из '+D.fmtInt(Math.max(s.hc,s.base))+
+    '). Дистанционные и без закреплённого офиса в процент не входят.';
+  /* сегмент без офисной базы — не строкой с 0% или 100%, а отдельной строкой-пояснением под таблицей */
+  const noBase=cc?[]:x.segs.filter(s=>s.hc>0&&s.base===0);
+  const segNo=noBase.length?'<div class="tbl-note">'+noBase.map(s=>'<b>'+esc(s.name)+'</b>: 0 из '+D.fmtInt(s.hc)+' чел — нет офисной базы, посещаемость не считается.').join(' ')+'</div>':'';
+  const segTbl=attTbl('Сегмент',(cc?x.city.name+' · ':'')+D.PER_MON,x.segs.filter(s=>cc||s.hc>0&&s.base!==0).map(s=>({name:s.name,
+      note:segNote(s),tip:segTip(s),
       value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
       attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})).concat(x.fix&&!cc?[{name:'Владельцы фиксов',
       note:'фиксированное место · '+D.fmtInt(x.fix.wd)+' раб. дней',value:x.fix.att,color:G.C_OFFICE,
@@ -13136,8 +13158,8 @@ function attendReal(ctx,x,lbl,attTbl){
       'за которыми закреплён офис этого города. Сброс выбора города возвращает все города.'
       :'Город «'+esc(x.city.name)+'» на динамику здесь не влияет: помесячные данные по городу есть только у подразделения из фильтра и '+
         'без выбора сегмента. По городу пересчитаны таблицы ниже.')+'</div>':'')+
-    offNow(ctx.lp)+baseNote(ctx.lp)+
-    (x.segs.length?segTbl:'')+
+    offNow(ctx.lp)+
+    (x.segs.length?segTbl+segNo:'')+
     /* 27.10-в, п. 15: по убыванию посещений, первые 10 и раскрываемые «Остальные»; 31.10-б, п. 9: колонка «Посещаемость»,
        строка города выбирается (кросс-фильтр с сегментом) */
     /* поставка 107 (как мастер): с рабочими днями города (ocd) — посещаемость города = посещения ÷ рабочие дни, иначе (сегмент
@@ -13180,7 +13202,9 @@ SC.blocks.office={
       tip:real?'Город офиса — где были посещения. Таблицы и динамика — по выбранному городу; где помесячных данных города нет, это сказано под графиком.':tip});
     return chips;
   },
-  view(ctx){
+  /* 12.11: сверху обеих под-вкладок — плашка базы посещаемости (кого считаем и какая это доля численности) */
+  view(ctx){return baseNote(ctx.lp)+SC.blocks.office.view0(ctx)},
+  view0(ctx){
     /* Таблицы посещаемости — проценты: доля процента в сумме процентов ничего
        не значит, поэтому ни колонки «Доля», ни строки ИТОГО у них нет. */
     const attTbl=(cap,capSub,items,barHead)=>U.btGroup({cap:cap,capSub:capSub,head:'',metricKey:'office_att',

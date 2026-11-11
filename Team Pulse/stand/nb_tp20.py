@@ -1163,6 +1163,7 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
     city = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     vcity = defaultdict(lambda: defaultdict(lambda: defaultdict(float)))
     OB = defaultdict(set)
+    HOB, NOB = defaultdict(set), defaultdict(set)
     for r in office:
         d, rk, wd, ov, bk, bkv, vsv, cty = r[:8]
         rn, emp, fix, dact = r[11:15]
@@ -1186,6 +1187,7 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
             # 11.11: база посещаемости людьми — человек с рабочим днём в закреплённом офисе, один раз за месяц
             if E and rn <= 1 and wd:
                 OB[(n, m)].add(rk)
+                (HOB if hf else NOB)[(n, m)].add(rk)     # 12.11: база сегментов - руководители и остальные
             t['hwd'] += wdx * hf; t['hov'] += ovx * hf
             if m in two and E:
                 Dd[(n, d)]['dw'] += int(rn <= 1)
@@ -1211,6 +1213,7 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
                 C[n]['ob'][c] += v['ob']
     for k, v in OB.items():
         T[k]['obase'] = len(v)
+        T[k]['hob'] = len(HOB.get(k, ())); T[k]['nob'] = len(NOB.get(k, ()))
     e = eom(lm)
     for p in people:
         if p['start'] <= e and (p['end'] is None or e < p['end']) and ok(p, lm):

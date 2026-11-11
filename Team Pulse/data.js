@@ -603,6 +603,8 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
   'office_fix_wday','office_fix_ovis','bk_visit_ok',
   /* 11.11 (исследование посещаемости): база посещаемости людьми — сотрудники с закреплённым офисом (знаменатель) */
   'office_base',
+  /* 12.11: база сегментов посещаемости людьми — руководители и остальные с закреплённым офисом */
+  'office_hob','office_nob',
   /* поставка 71: мониторинг по дням — люди в сегментах, суммы средних часов дня и звонков по людям */
   'mon_ab25','mon_ab5','mon_we25','mon_we5','mon_t23','mon_t35','mon_t5','mon_hrs','mon_hrn','mon_tlk',
   /* поставка 104: взвешенные суммы — часы и звонки плановых дней, плановые дни */
@@ -3481,8 +3483,12 @@ function officeCross(lp,seg,city){
 function officeReal(lp,seg,city){
   const mh=realExit(lp,'mh'), hcAll=Object.keys(mh).reduce((a,k)=>a+mh[k],0), lead=mh['1']||0;
   const att=(v,w)=>{const W=perVal(lp,w);return W?+(perVal(lp,v)/W*100).toFixed(1):0};
-  const segs=OFF_LIVE.seg?[{key:'lead',name:'Руководители',hc:lead,att:att('ovis_lead','wday_lead')},
-    {key:'staff',name:'Сотрудники',hc:hcAll-lead,att:att('ovis_staff','wday_staff')}]:[];
+  /* 12.11 (владелец: «у сегмента „2 чел“ — численность, а процент — по одному человеку с офисом»): base — люди сегмента в
+     базе метрики (с закреплённым офисом и рабочим днём в месяце; ряды hob / nob ноутбука с 12.11), hc — вся численность
+     сегмента. Нет рядов (ноутбук до 12.11) — base null, подпись прежняя */
+  const sb=REAL.has('hob')&&REAL.has('nob'), bs=k=>sb?Math.round(perVal(lp,k)||0):null;
+  const segs=OFF_LIVE.seg?[{key:'lead',name:'Руководители',hc:lead,base:bs('office_hob'),att:att('ovis_lead','wday_lead')},
+    {key:'staff',name:'Сотрудники',hc:hcAll-lead,base:bs('office_nob'),att:att('ovis_staff','wday_staff')}]:[];
   /* 11.11, владелец: «владельцы фиксов не пересчитывают динамику» — фиксы выбираются как сегмент: динамика — их посещаемость
      (office_fix), таблицы городов — без разбивки по ним (у городов разреза по фиксам нет) */
   const fix=OFF_LIVE.fix&&perVal(lp,'office_fix_wday')?{att:+perVal(lp,'office_fix').toFixed(1),wd:Math.round(perVal(lp,'office_fix_wday'))}:null;

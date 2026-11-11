@@ -523,6 +523,14 @@ select 37 as n, 'структура: люди с повтором узла в с
               nullif(nullif(x.lvl9_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-') or
               nullif(nullif(x.lvl10_mapped_management_unit_rk::text, ''), '-') = nullif(nullif(x.lvl11_mapped_management_unit_rk::text, ''), '-')
            )))::float8 as val
+union all
+-- 38 (12.11): сегменты посещаемости согласованы - база руководителей + база остальных = общая база офиса; сегмент не
+-- больше целого (рабочие дни и посещения руководителей - часть общих). Любая строка рядов с нарушением - выгрузки нет
+select 38 as n, 'посещаемость: база сегментов = общая база, сегмент не больше целого (строк рядов с нарушением)'::text as check_nm, 1 as must,
+       (select count(*) from teampulse_hub_series
+        where coalesce(hob_cnt, 0) + coalesce(nob_cnt, 0) <> coalesce(obase_cnt, 0)
+           or coalesce(hwd_amt, 0) > coalesce(wday_amt, 0) or coalesce(hov_amt, 0) > coalesce(ovis_amt, 0)
+           or coalesce(hob_cnt, 0) < 0 or coalesce(nob_cnt, 0) < 0)::float8 as val
 distributed randomly;
 
 select n, check_nm, val,

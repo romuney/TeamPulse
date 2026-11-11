@@ -219,7 +219,7 @@ def main():
                     # руководители (hwd hov) — под фильтрами
                     # поставка 107 (база мастера): + фиксы (fwday fovis) и посещения с бронью (vbk)
                     # 11.11: + база посещаемости людьми (obase)
-                    for k in ('wday', 'ovis', 'bk', 'bkv', 'vsv', 'hwd', 'hov', 'fwday', 'fovis', 'vbk', 'obase'):
+                    for k in ('wday', 'ovis', 'bk', 'bkv', 'vsv', 'hwd', 'hov', 'fwday', 'fovis', 'vbk', 'obase', 'hob', 'nob'):
                         if r.get('m_' + k) is None:
                             bad['нет ряда ' + k] += 1
                             continue

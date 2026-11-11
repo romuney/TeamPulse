@@ -254,6 +254,8 @@ function make(split){
     const code=r.code, v=MIN.verify(code,src);
     if(!/(^|[;}\n])option=\{[^]*\};?\n$/.test(code))v.fails.push('option не последний после сжатия');
     if(split&&!/function TP_RUN\(/.test(code))v.fails.push('в главном чарте нет TP_RUN');
+    /* 12.11 (правка сегментов посещаемости, проверка сборки): в чарте есть ключи рядов базы сегментов и подпись «A из N» */
+    ['office_hob','office_nob','"hob"','"nob"',' из '].forEach(t=>{if(code.indexOf(t)<0)v.fails.push('в сборке нет «'+t+'» (база сегментов посещаемости)')});
     if(Buffer.byteLength(code)>BUD*1024)v.fails.push('больше бюджета '+BUD+' КиБ: '+(Buffer.byteLength(code)/1024).toFixed(1)+' КиБ');
     v.warns.forEach(t=>console.error('  ! '+t));
     if(!v.ok||v.fails.length){console.error('СЖАТИЕ НЕ ПРОШЛО:\n  '+v.fails.join('\n  '));process.exit(1)}

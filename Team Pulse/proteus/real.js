@@ -42,7 +42,7 @@ const COLS=['hc','act','avg','hire','fire','reg','tin','tout','pnor','plow','phi
 /* Поставка 66 (посещения Адели): bk bkv vsv — дни с бронью, бронь без прихода, приход без брони; hwd hov — рабочие дни
    и посещения руководителей (у остальных — wds ovs: всё минус руководители) */
 /* поставка 107 (база мастера посещаемости): fwday fovis — рабочие дни и посещения владельцев фиксов, vbk — посещения с бронью */
-const OPT=['wday','ovis','fwday','fovis','vbk','obase','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','hit','din','dout','hcd','hst',
+const OPT=['wday','ovis','fwday','fovis','vbk','obase','hob','nob','gapr','gdec','nreg','vop','vcl','vap','vtd','vtn','vjn','hit','din','dout','hcd','hst',
   'bk','bkv','vsv','hwd','hov','rh','nrh','avh',
   /* файл 6, п. 2: уходы по активной численности HQ у каждого узла — HQ-текучесть «Как уходит HQ» по выбранной строке */
   'fh','hch',
@@ -66,7 +66,7 @@ const KEY={hc_total:'hc',hc_active:'act',hc_avg:'avg',hire:'hire',attrition:'fir
   nonregret_cnt:'nreg',vac_open:'vop',vac_closed:'vcl',vac_new:'vap',ttf_days:'vtd',ttf_n:'vtn',vac_jun:'vjn',
   /* поставка 65: найм по видам — из учебной группы в боевую, стажёр в штат (части hit) */
   hire_cand:'hcd',hire_int:'hst',
-  bk_days:'bk',bk_noshow:'bkv',bk_walkin:'vsv',office_fix_wday:'fwday',office_fix_ovis:'fovis',office_base:'obase',bk_visit_ok:'vbk',wday_lead:'hwd',ovis_lead:'hov',wday_staff:'wds',ovis_staff:'ovs',
+  bk_days:'bk',bk_noshow:'bkv',bk_walkin:'vsv',office_fix_wday:'fwday',office_fix_ovis:'fovis',office_base:'obase',office_hob:'hob',office_nob:'nob',bk_visit_ok:'vbk',wday_lead:'hwd',ovis_lead:'hov',wday_staff:'wds',ovis_staff:'ovs',
   mon_ab25:'ab25',mon_ab5:'ab5',mon_we25:'we25',mon_we5:'we5',mon_t23:'t23',mon_t35:'t35',mon_t5:'t5',
   mon_hrs:'hrs',mon_hrn:'hrn',mon_tlk:'tlk',mon_hrw:'hrw',mon_pdw:'pdw',mon_tkw:'tkw',
   flow_beg:'fbeg',flow_hire:'fhire',flow_fire:'ffire',flow_in:'ftin',flow_out:'ftout',flow_fin:'ffin'};

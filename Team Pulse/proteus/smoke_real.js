@@ -819,9 +819,16 @@ if(D.TTF_MED){
     /* 11.11, владелец: база посещаемости числом — люди с закреплённым офисом за тот же месяц, не больше численности */
     if(R.has('obase')){const b=D.offBase(rl);
       ok(!!b&&b.base>0&&b.hc>0&&b.base<=b.hc&&b.base===Math.round(arr(scopeRow,'obase')[R.n-1-(D.LAST-D.PER_I)])&&
-        off.indexOf('Считаем по '+D.fmtInt(b.base).replace(/\u2009/g,'\u2009'))>=0&&/Дистанционные и ГПД в базу не входят/.test(off),
-        'посещаемость: база '+(b&&b.base)+' с закреплённым офисом из '+(b&&b.hc)+' ('+(b&&b.pct)+'%) — числом под графиком');
-    } else ok(!/Считаем по \d/.test(off),'посещаемость: ответ без базы (ноутбук до 145) — числа базы нет');
+        /* 12.11: плашка базы — сверху вкладки, на обеих под-вкладках */
+        off.indexOf('Посещаемость считаем по '+D.fmtInt(b.base)+' из '+D.fmtInt(b.hc))>=0&&/Дистанционные и ГПД в метрику не входят/.test(off)&&
+        A.go('office','calendar').indexOf('Посещаемость считаем по '+D.fmtInt(b.base)+' из '+D.fmtInt(b.hc))>=0,
+        'посещаемость: база '+(b&&b.base)+' из '+(b&&b.hc)+' человек ('+(b&&b.pct)+'%) — плашкой сверху вкладки, на обеих под-вкладках');
+      /* 12.11: база сегментов — руководители + остальные = общая база; у сегмента «A из N», процент прежний */
+      if(R.has('hob')&&R.has('nob')){const x=D.officeCross(rl,null,null), sb=x.segs.reduce((a,s)=>a+(s.base||0),0);
+        ok(x.segs.length===2&&x.segs.every(s=>s.base!=null&&s.base<=s.hc)&&sb===b.base&&
+          x.segs.filter(s=>s.base>0).every(s=>off.indexOf(D.fmtInt(s.base)+' из '+D.fmtInt(s.hc)+' чел')>=0),
+          'посещаемость: сегменты — '+x.segs.map(s=>s.name+' '+s.base+' из '+s.hc).join(', ')+'; сумма баз '+sb+' = общей базе '+b.base)}
+    } else ok(!/Посещаемость считаем по \d/.test(off),'посещаемость: ответ без базы (ноутбук до 145) — числа базы нет');
     /* 11.11, владелец: «кликаю владельцев фиксов — динамика не пересчитывается»: фиксы — сегмент с собственным рядом */
     if(x0.fix){const xf=D.officeCross(rl,'fix',null), yf=D.yoySeries(rl,'office_fix'), offF=(()=>{const s0=A.st();s0.offSeg='fix';return A.go('office','attend')})();
       ok(!!xf.seg&&xf.seg.key==='fix'&&!!xf.yser&&JSON.stringify(xf.yser.cur)===JSON.stringify(yf.cur)&&
