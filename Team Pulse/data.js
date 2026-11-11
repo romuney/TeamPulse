@@ -140,9 +140,6 @@ const CMP={
   yoy:'к '+MONTH_DAT[YOY_M.m]+' '+YOY_M.y,
   momTip:{title:'Изменение за месяц',
     text:monthNom(CUR_M)+' против '+monthGen(PREV_M)+'.',note:'Это не сравнение с базой.'},
-  /* у значения по закрытому месяцу (CLOSED_ONLY) — закрытый против предыдущего */
-  momShortC:'к '+MONTH_DAT[MONTHS[LAST-2].m],
-  momTipC:{title:'Изменение за месяц',text:monthNom(PREV_M)+' против '+monthGen(MONTHS[LAST-2])+'.'},
 };
 
 /* Расширенная сетка: 6 месяцев до окна (янв.–июнь 2025) + сами 12.
@@ -3377,47 +3374,6 @@ function reviewProfile(lp){
     groups:groups};
 }
 
-/* ---------- Посещаемость: бронирование, города, грейды, роль и локация ----------
-   Бронирование — человеко-дни последнего месяца: посещения выведены из
-   office_att и численности, нарушения — из booking_viol. Сходится в двух
-   точках: доля нарушений в таблице = метрике, «пришли» = посещениям месяца.
-   По грейдам и по роли с локацией посещаемость нормирована так, что среднее,
-   взвешенное по людям, равно office_att, — тот же приём, что у календаря. */
-function workdays(mIdx){
-  const mm=MONTHS[mIdx], nd=new Date(mm.y,mm.m+1,0).getDate();
-  let w=0;for(let d=1;d<=nd;d++)if((new Date(mm.y,mm.m,d).getDay()+6)%7<5)w++;
-  return w;
-}
-function bookingQuality(lp){
-  if(OFF_LIVE.bk){
-    /* поставка 66: настоящие — дни с бронью (из них без прихода) и приход без брони; поставка 90 — за закрытый месяц */
-    const bk=perVal(lp,'bk_days'), ns=perVal(lp,'bk_noshow'), wi=perVal(lp,'bk_walkin');
-    /* поставка 107 (как мастер): брони — с посещением / без; посещения (главный офис дня) — с бронью / без брони */
-    const vis=perVal(lp,'ovis'), vb=OFF_LIVE.vbk?perVal(lp,'bk_visit_ok'):Math.max(0,vis-wi);
-    return {total:bk+wi,ok:bk-ns,noshow:ns,walkin:wi,viol:ns+wi,visits:vis,bookings:bk,visitBk:vb,month:PER_MON};
-  }
-  const hc=perVal(lp,'hc_total'), att=perVal(lp,'office_att')/100, v=perVal(lp,'booking_viol')/100;
-  const V=Math.round(hc*workdays(PER_I)*att), r=rng(lpSeed(lp,'bk'));
-  const q=0.52+r()*0.18;                     /* доля «бронь без прихода» среди нарушений */
-  /* поставка 107: метрика — доля броней без посещения (v); посещения без брони — своя доля от посещений */
-  const B=Math.round(V*(0.55+r()*0.2)/(1-v)), noshow=Math.round(B*v), walkin=Math.round(V*q*0.6);
-  return {total:B+walkin,ok:B-noshow,noshow:noshow,walkin:walkin,viol:noshow+walkin,visits:V,bookings:B,visitBk:Math.max(0,V-walkin),month:PER_MON};
-}
-/* 27.10-в, п. 14: нарушения брони по городам за последний месяц — число и доля от дней с бронью и приходов без неё
-   (как «Нарушения бронирования»); макет — нарушения отбора по городам офиса пропорционально людям */
-function violByCity(lp){
-  let v,b;
-  /* пробник без разреза (ноутбук до 27.10-в) — null: блок «придёт со следующим обновлением», не условные числа */
-  if(REAL&&!OFF_LIVE.vcity)return null;
-  if(OFF_LIVE.vcity){v=realExit(lp,'ov');b=realExit(lp,'ob')}
-  else{
-    const bk=bookingQuality(lp), cs=officeByCity(lp), r=rng(lpSeed(lp,'vc')), w=jitter(r,cs.map(c=>c.hc),0.4);
-    const sv=splitBy(bk.viol,w), sb=splitBy(bk.total,cs.map(c=>c.hc));v={};b={};
-    cs.forEach((c,i)=>{v[c.name]=sv[i];b[c.name]=Math.max(sb[i],sv[i])});
-  }
-  return Object.keys(v).filter(k=>v[k]>0).map(k=>({name:k||NONE_NAME,viol:Math.round(v[k]),
-    pct:b[k]?+(v[k]/b[k]*100).toFixed(1):null})).sort((a,c)=>c.viol-a.viol||a.name.localeCompare(c.name,'ru'));
-}
 function officeByCity(lp){
   const by={};
   officeRank(lp).forEach(o=>{const c=by[o.city]||(by[o.city]={name:o.city,hc:0,w:0,offices:0});
@@ -3734,7 +3690,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  mainCmp,mainVerdict,offDays,offAsof,offCityMon,PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
+  mainCmp,mainVerdict,offDays,offAsof,offCityMon,PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};
+  TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};

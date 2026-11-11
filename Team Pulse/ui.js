@@ -794,8 +794,23 @@ const ICO={
   hybrid:'M2.5 21V10l5.5-4.5 5.5 4.5v11M13.5 21v-9H21v9M1.5 21h21M6.5 14h3M6.5 17.5h3M16 15h2.5',
   home:'M3 11 12 3.8 21 11M5.5 9.5V20h13V9.5M10 20v-5.5h4V20',
   company:'M3 21V7.5L9 4.5V21M9 21V10h6v11M15 21v-8h6v8M2 21h20',
-  layers:'M12 3 21 8l-9 5-9-5zM3 12.5l9 5 9-5M3 16.5l9 5 9-5'
+  layers:'M12 3 21 8l-9 5-9-5zM3 12.5l9 5 9-5M3 16.5l9 5 9-5',
+  /* 11.11, итерация «MoM и меню», п. 4: значки графиков остальных вкладок — тем же набором и видом, что в «Структуре» */
+  exit:'M13 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H13M10 12h10M17 8.5l3.5 3.5-3.5 3.5',
+  swap:'M4 8h14M14.5 4.5 18 8l-3.5 3.5M20 16H6M9.5 12.5 6 16l3.5 3.5',
+  hire:'M9 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M18.5 7.5v6M15.5 10.5h6',
+  pulse:'M3 12.5h4l2.5-6.5 5 13 2.5-6.5h4',
+  spark:'M11 3.5l1.9 4.9 4.9 1.9-4.9 1.9L11 17.1l-1.9-4.9-4.9-1.9 4.9-1.9zM18.5 14.5l.8 2.1 2.2.9-2.2.8-.8 2.2-.9-2.2-2.1-.8 2.1-.9z',
+  trend:'M3 18l6-6 4 4 7.5-7.5M15 8.5h5.5V14',
+  chart:'M4 20V10M10 20V4M16 20v-7M2.5 20h19'
 };
+/* значок графика по смыслу заголовка (п. 4): первое совпадение по словам; нет совпадения — столбики */
+const ICO_BY=[[/стаж[её]р|AI|проникнов|инструмент|сообщен|классиф/i,'spark'],[/пульс|мониторинг|недоработ|перерабо|звонк|прогул|выходн|категори|толк/i,'pulse'],
+  [/город|локац|регион/i,'pin'],[/посещ|офис|брон|календар|дн[яеи] недели/i,'office'],[/перевод|движени|переход/i,'swap'],
+  [/срок|медиан/i,'hourglass'],[/вакан|найм|принят|нанят/i,'hire'],[/уход|отток|увол|текуч|инициатор|причин/i,'exit'],
+  [/рост|заявк|конверс|одобр/i,'trend'],[/грейд/i,'grade'],[/сеньор|уров/i,'stairs'],[/возраст/i,'calendar'],
+  [/числен|сотрудник|людей|состав|чел\b|пол\b/i,'people']];
+function icoFor(t){const s=String(t||'');for(const [re,k] of ICO_BY)if(re.test(s))return k;return 'chart'}
 function ico(name,cls){
   const d=ICO[name];
   return d?'<svg class="ico '+(cls||'')+'" viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>':'';
@@ -1145,7 +1160,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
+window.TPUI={ICO,icoFor,keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};

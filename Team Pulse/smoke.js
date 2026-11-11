@@ -268,7 +268,10 @@ checks.push(['минус во всех дельтах типографский, 
   /* поставка 108: прогулы, выходные и звонки в Толк от 20% — три KPI за 16 недель перед «Составом по категориям», графиков нет */
   const moHtml=A.go('monitor','activity');
   checks.push(['мониторинг: три KPI за '+D.MPW+' недель перед «Составом по категориям», графиков прогулов, выходных и звонков нет',
-    (moHtml.match(/class="shc"/g)||[]).length===3&&moHtml.indexOf('class="mon-kpi"')>=0&&
+    /* 11.11, п. 5: под тремя KPI — состав по категориям (норма, недоработка, переработка, не размечено) */
+    (moHtml.match(/class="shc"/g)||[]).length===3+4&&moHtml.indexOf('class="mon-kpi"')>=0&&
+    /mon-cat-cap">Состав по категориям[\s\S]*Норма[\s\S]*Недоработка[\s\S]*Переработка[\s\S]*Не размечено/.test(moHtml)&&
+    moHtml.indexOf('mon-cat-cap')>moHtml.indexOf('Звонки в Толк от 20%')&&
     moHtml.indexOf('class="mon-kpi"')<moHtml.indexOf('Состав по категориям')&&/За 16 недель/.test(moHtml)&&
     /Прогулы[\s\S]*Работа в выходные[\s\S]*Звонки в Толк от 20%/.test(moHtml)&&
     !/Прогулы, чел|Работа в выходные, чел|Звонки в Толк от 20% рабочего времени, чел/.test(moHtml)]);
@@ -1273,10 +1276,6 @@ checks.push(['третьей палитры нет: в экранах ни од�
     sum(rv.dyn.map(x=>x.value))===rv.E&&near(rv.U/rv.E*100,e('review_up'))&&
     rv.groups.every(g=>rv.scores.every((sc,j)=>sum(g.cells.map(r=>r[j]))===sc.value)&&
       g.cells.every((r,i)=>sum(r)===g.tot[i]))]);
-  const bk=D.bookingQuality(rl0);
-  /* поставка 107 (как мастер): метрика — брони без посещения ÷ брони; брони и посещения складываются частями */
-  checks.push(['бронирование: доля броней без посещения в таблице = метрике блока, брони и посещения — частями',
-    bk.ok+bk.noshow===bk.bookings&&bk.visitBk+bk.walkin===bk.visits&&near(bk.noshow/bk.bookings*100,ep('booking_viol'),0.6)]);
   const wavg=rows=>sum(rows.map(r=>r.hc*r.att))/sum(rows.map(r=>r.hc));
   checks.push(['посещаемость по грейдам и по роли с локацией в среднем = посещаемости отбора',
     near(wavg(D.attByRoleLoc(rl0)),e('office_att'),0.11)&&
@@ -2053,6 +2052,18 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !/id="helpOvl"/.test(html)&&/id="btnHelp"/.test(html)&&/if\(t\.closest\('#btnHelp'\)\)\{tourStart\(/.test(app)&&
     sels.length>=18&&/drawer:true/.test(app)&&/demo:true/.test(app)&&/data-tact="nexttab"|'nexttab':'next'/.test(app)&&
     css.includes('.tr-sh{position:fixed;')&&css.includes('.tr-ring{position:fixed;')]);
+}
+
+/* 11.11, итерация «MoM и меню»: MoM — только значение (периоды в подсказке), значки у графиков, кнопка меню с aria-expanded */
+{
+  const op=A.go('onepager'), tb=op.slice(op.indexOf('class="mtable'));
+  const html=fs.readFileSync(path.join(dir,'index.html'),'utf8'), app=fs.readFileSync(path.join(dir,'app.js'),'utf8');
+  checks.push(['11.11: MoM на One Pager — только значение, без «к месяцу» и месяца под пилюлей; оба периода — в подсказке',
+    !/class="d-vs"/.test(tb)&&!/class="m-per">[а-яё]{3,5}\. /.test(tb)&&/MoM — месяц к месяцу/.test(tb)]);
+  checks.push(['11.11: значок перед заголовком у SVG-графиков остальных вкладок',
+    /class="ttl-ic"/.test(A.go('turnover','dynamics'))&&/class="ttl-ic"/.test(A.go('hiring'))&&/class="ttl-ic"/.test(A.go('office','attend'))]);
+  checks.push(['11.11: кнопка меню — состояние в памяти отчёта (песочница без localStorage), aria-expanded',
+    /aria-expanded="true" aria-controls="sideNav"/.test(html)&&/STORE\.navMini=v/.test(app)&&/setAttribute\('aria-expanded'/.test(app)]);
 }
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

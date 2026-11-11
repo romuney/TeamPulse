@@ -337,14 +337,20 @@ function lgItem(x,y,it,sid,off,lock){
     +g+'<rect class="hit" x="'+num(mx-4)+'" y="'+num(y)+'" width="'+num(tw+16+6+8)+'" height="18"/></g>'};
 }
 /* 27.10-в, п. 18: узкий график — легенда не помещается рядом с заголовком и встаёт второй строкой под ним */
+/* 11.11, п. 4: перед заголовком графика — значок по смыслу (набор и цвет — как у разделов «Структуры»); TTL_IC — место под него */
+const TTL_IC=22;
 function wraps(w,title,legend){
-  return !!(w&&title&&legend&&legend.length&&textW(title,TTL_SZ)+legend.reduce((v,it)=>v+textW(it.name,11.5)+30,0)+24>w);
+  return !!(w&&title&&legend&&legend.length&&TTL_IC+textW(title,TTL_SZ)+legend.reduce((v,it)=>v+textW(it.name,11.5)+30,0)+24>w);
+}
+function ttlIco(title){
+  const U=window.TPUI, d=U&&U.ICO&&U.ICO[U.icoFor(title)];
+  return d?'<path class="ttl-ic" transform="translate(0,-2) scale(.6667)" d="'+d+'"/>':'';
 }
 function header(w,title,legend,ctx){
   ctx=ctx||{};
   const off=ctx.off, lock=LOCKED[ctx.kind];
   let s='';
-  if(title)s+=txt(0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+  if(title){const ic=ttlIco(title);s+=ic+txt(ic?TTL_IC:0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'})}
   if(legend&&legend.length){
     const ids=seriesOf(ctx.kind,legend), y=wraps(w,title,legend)?22:0;
     let x=w;
@@ -884,9 +890,10 @@ function drawPanels(a,w,h){
     const base=pi*panelH, ya=yas[pi];
     /* поставка 98: легенда не помещается рядом с названием (узкая панель, есть «вся компания») — второй строкой под ним */
     const bn=p.bench&&o.benchName, kw=[String(CD.YEAR_CUR),String(CD.YEAR_PREV)].concat(bn?[bn]:[]).reduce((a,t)=>a+textW(t,11.5)+30,0),
-      kr=textW(p.name,TTL_SZ)+kw+16>w?18:0;
+      kr=TTL_IC+textW(p.name,TTL_SZ)+kw+16>w?18:0;
     const pt=periodLine(p.period,base+HEAD+kr+13,w), top=base+HEAD+kr+pt.h+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
-    s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+    /* 11.11, п. 4: значок у названия панели — как у заголовка графика */
+    {const ic=ttlIco(p.name);s+=(ic?'<g transform="translate(0,'+(base-1)+')">'+ic+'</g>':'')+txt(ic?TTL_IC:0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'})}
     s+=pt.s;
     s+=yoyKey(w,base-1+kr,p.color||C_LINE,off,false,asBars(p.key),bn);
     s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,bench:p.bench,benchName:o.benchName,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period,kpi:p.kpi},

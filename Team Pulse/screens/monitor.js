@@ -81,7 +81,28 @@ function covNote(md){
     (pc<50?'Размечено меньше половины, поэтому доли недоработки и переработки не оцениваем: ноль здесь значит «нет данных».'
       :'Выводы — о размеченных людях. Остальные — «Не размечено»: по ним данных нет.')+'</div>';
 }
-function kpiBlock(lp){
+/* 11.11, итерация «MoM и меню», п. 5: состав выборки по категориям мониторинга — в блоке KPI: сколько людей и какая доля в
+   норме, недоработке, переработке и без разметки. Месяц — последний месяц данных (конец периода KPI), фильтры те же; доля —
+   от всех людей выборки в мониторинге за этот месяц (норма + недоработка + переработка + не размечено). Нет данных — строка
+   «нет данных», не нули */
+function catBlock(md){
+  const c=md&&md.months&&wk(md).cur;
+  if(!c)return '';
+  const hc=(c.normal||0)+(c.under||0)+(c.over||0)+(c.grey||0);
+  if(!hc)return '<div class="tbl-note">Состав по категориям: нет данных мониторинга за последний месяц.</div>';
+  const pc=n=>(Math.round(n/hc*1000)/10).toFixed(1).replace('.',',')+'%';
+  const mon=String(c.full||c.label||'').split(',')[0];
+  const info='<span class="info"'+U.tipAttr({title:'Состав по категориям',text:'Категория каждого человека за '+mon.toLowerCase()+
+    (/данные по/.test(c.full||'')?' ('+String(c.full).split(', ')[1]+')':'')+'.',
+    list:['**Доля** — от всех людей выборки в мониторинге за этот месяц: '+D.fmtInt(hc)+' чел. (норма + недоработка + переработка + не размечено)',
+      '**Не размечено** — данных мониторинга по человеку нет; это не значит, что он не работал'],
+    note:'Фильтры — те же, что у карточек выше.'})+' aria-label="Как считаются доли">i</span>';
+  const cards=[['normal','Норма',G.C_MON.normal],['under','Недоработка',G.C_MON.under],['over','Переработка',G.C_MON.over],['grey','Не размечено',G.C_MON.grey]]
+    .filter(x=>x[0]!=='grey'||c.grey!=null).map(x=>({id:'c'+x[0],name:x[1],n:c[x[0]]||0,bg:x[2],sub:pc(c[x[0]]||0)+' выборки'}));
+  return '<div class="bt-cap mon-cat-cap">Состав по категориям '+info+'<span class="bt-sub">'+U.esc(mon)+' · '+D.fmtInt(hc)+' чел</span></div>'+
+    U.shareCards({static:true,cards:cards});
+}
+function kpiBlock(lp,md){
   const k=D.monKpi(lp);
   const pc=(n,b)=>b?(Math.round(n/b*1000)/10).toString().replace('.',',')+'%':'—';
   const per=k&&k.fromTxt?k.fromTxt+' – '+k.toTxt:'';
@@ -93,11 +114,11 @@ function kpiBlock(lp){
     note:'Процент — от численности на конец периода.'})+'>i</span>';
   const cap='<div class="bt-cap">За '+(k&&k.weeks||D.MPW)+' недель '+info+(per?'<span class="bt-sub">'+U.esc(per)+'</span>':'')+'</div>';
   if(!k)return '<div class="mon-kpi">'+cap+'<div class="tbl-note">Нет данных мониторинга по дням за последние '+D.MPW+
-    ' недель — KPI не считаются.</div></div>';
+    ' недель — KPI не считаются.</div>'+catBlock(md)+'</div>';
   const sum=a=>a.reduce((x,y)=>x+y,0);
   const card=(id,name,a,bg)=>({id:id,name:name,n:sum(a),bg:bg,sub:pc(sum(a),k.hc)+' численности'});
   const cards=[card('ab','Прогулы',k.ab,C.per2),card('we','Работа в выходные',k.we,C.per),card('tk','Звонки в Толк от 20%',k.talk,C.talk)];
-  return '<div class="mon-kpi">'+cap+U.shareCards({static:true,cards:cards})+'</div>';
+  return '<div class="mon-kpi">'+cap+U.shareCards({static:true,cards:cards})+catBlock(md)+'</div>';
 }
 
 SC.blocks.monitor={
@@ -144,7 +165,7 @@ SC.blocks.monitor={
     /* 05.11, заказчик: отметка периода кликом по столбику снята — графики без выделения */
     const wk=false, P=md.months;
     /* пробник без витрины по неделям и без мониторинга по дням: часы и звонки — заглушки */
-    if(md.monthly&&!md.daily)return covNote(md)+kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    if(md.monthly&&!md.daily)return covNote(md)+kpiBlock(ctx.lp,md)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
@@ -153,7 +174,7 @@ SC.blocks.monitor={
     /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой.
        Поставка 104 (заказчик): низкие (sm) — лист короче; под заголовком — среднее за период */
     const pl=perLine(P,wk,ctx.lp);
-    return covNote(md)+kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    return covNote(md)+kpiBlock(ctx.lp,md)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
       G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
       G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+'</div>';

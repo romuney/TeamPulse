@@ -917,10 +917,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* ---------- Разводка со справкой ----------
    Единственное место, где два входа в объяснения встречаются, — и здесь же
    сказано, чем они отличаются. */
-.help-pulse{display:flex;align-items:flex-start;gap:11px;margin-top:4px;
-  background:#f7f8fa;border:1px solid var(--line2);border-radius:var(--r4);padding:11px 13px;
-  font-size:12px;color:var(--ink2);font-weight:var(--fw-body);line-height:1.5}
-.help-pulse b{color:var(--ink)}
 
 /* ---------- Пустое состояние и строка «отклонений нет» ---------- */
 .empty-pic{display:flex;justify-content:center;margin-bottom:10px}
@@ -1084,7 +1080,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 
 /* ---------- Справка: разводка без второго портрета ---------- */
-.help-pulse{gap:0}
 
 /* ============================================================================
    Итерация 24: состав численности — срез по клику, матрица, конструктор
@@ -2765,6 +2760,12 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   transition:left .65s cubic-bezier(.3,.7,.2,1),top .65s cubic-bezier(.3,.7,.2,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
 .tr-clk{position:fixed;z-index:9993;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:2px solid var(--blue);pointer-events:none;opacity:0}
 
+/* значок перед заголовком SVG-графика (11.11, п. 4) — как .pf-h .pf-i у «Структуры»: 16px, тон --pt-hi, контур 1.7 */
+.ttl-ic{fill:none;stroke:var(--pt-hi);stroke-width:2.55;stroke-linecap:round;stroke-linejoin:round}
+
+/* состав по категориям в KPI мониторинга (11.11, п. 5) — второй ряд карточек под KPI */
+.mon-kpi .mon-cat-cap{margin-top:var(--s7)}
+
 </style>
 </head>
 <body>
@@ -2788,7 +2789,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   <nav class="nav" id="sideNav" aria-label="Разделы отчёта">
     <!-- 11.11, владелец: панель сворачивается до значков — сама на экранах уже 1280px и кнопкой -->
     <div class="nav-top"><div class="nav-h">Сводка</div>
-      <button class="nav-mini-btn" id="navMini" type="button" aria-label="Свернуть панель" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16M16 10l-2 2 2 2"/></svg></button></div>
+      <button class="nav-mini-btn" id="navMini" type="button" aria-label="Свернуть панель" aria-expanded="true" aria-controls="sideNav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16M16 10l-2 2 2 2"/></svg></button></div>
     <div id="navOne"></div>
     <div class="nav-sep"></div>
     <div class="nav-h">Блоки метрик</div>
@@ -3034,9 +3035,6 @@ const CMP={
   yoy:'к '+MONTH_DAT[YOY_M.m]+' '+YOY_M.y,
   momTip:{title:'Изменение за месяц',
     text:monthNom(CUR_M)+' против '+monthGen(PREV_M)+'.',note:'Это не сравнение с базой.'},
-  /* у значения по закрытому месяцу (CLOSED_ONLY) — закрытый против предыдущего */
-  momShortC:'к '+MONTH_DAT[MONTHS[LAST-2].m],
-  momTipC:{title:'Изменение за месяц',text:monthNom(PREV_M)+' против '+monthGen(MONTHS[LAST-2])+'.'},
 };
 
 /* Расширенная сетка: 6 месяцев до окна (янв.–июнь 2025) + сами 12.
@@ -6271,47 +6269,6 @@ function reviewProfile(lp){
     groups:groups};
 }
 
-/* ---------- Посещаемость: бронирование, города, грейды, роль и локация ----------
-   Бронирование — человеко-дни последнего месяца: посещения выведены из
-   office_att и численности, нарушения — из booking_viol. Сходится в двух
-   точках: доля нарушений в таблице = метрике, «пришли» = посещениям месяца.
-   По грейдам и по роли с локацией посещаемость нормирована так, что среднее,
-   взвешенное по людям, равно office_att, — тот же приём, что у календаря. */
-function workdays(mIdx){
-  const mm=MONTHS[mIdx], nd=new Date(mm.y,mm.m+1,0).getDate();
-  let w=0;for(let d=1;d<=nd;d++)if((new Date(mm.y,mm.m,d).getDay()+6)%7<5)w++;
-  return w;
-}
-function bookingQuality(lp){
-  if(OFF_LIVE.bk){
-    /* поставка 66: настоящие — дни с бронью (из них без прихода) и приход без брони; поставка 90 — за закрытый месяц */
-    const bk=perVal(lp,'bk_days'), ns=perVal(lp,'bk_noshow'), wi=perVal(lp,'bk_walkin');
-    /* поставка 107 (как мастер): брони — с посещением / без; посещения (главный офис дня) — с бронью / без брони */
-    const vis=perVal(lp,'ovis'), vb=OFF_LIVE.vbk?perVal(lp,'bk_visit_ok'):Math.max(0,vis-wi);
-    return {total:bk+wi,ok:bk-ns,noshow:ns,walkin:wi,viol:ns+wi,visits:vis,bookings:bk,visitBk:vb,month:PER_MON};
-  }
-  const hc=perVal(lp,'hc_total'), att=perVal(lp,'office_att')/100, v=perVal(lp,'booking_viol')/100;
-  const V=Math.round(hc*workdays(PER_I)*att), r=rng(lpSeed(lp,'bk'));
-  const q=0.52+r()*0.18;                     /* доля «бронь без прихода» среди нарушений */
-  /* поставка 107: метрика — доля броней без посещения (v); посещения без брони — своя доля от посещений */
-  const B=Math.round(V*(0.55+r()*0.2)/(1-v)), noshow=Math.round(B*v), walkin=Math.round(V*q*0.6);
-  return {total:B+walkin,ok:B-noshow,noshow:noshow,walkin:walkin,viol:noshow+walkin,visits:V,bookings:B,visitBk:Math.max(0,V-walkin),month:PER_MON};
-}
-/* 27.10-в, п. 14: нарушения брони по городам за последний месяц — число и доля от дней с бронью и приходов без неё
-   (как «Нарушения бронирования»); макет — нарушения отбора по городам офиса пропорционально людям */
-function violByCity(lp){
-  let v,b;
-  /* пробник без разреза (ноутбук до 27.10-в) — null: блок «придёт со следующим обновлением», не условные числа */
-  if(REAL&&!OFF_LIVE.vcity)return null;
-  if(OFF_LIVE.vcity){v=realExit(lp,'ov');b=realExit(lp,'ob')}
-  else{
-    const bk=bookingQuality(lp), cs=officeByCity(lp), r=rng(lpSeed(lp,'vc')), w=jitter(r,cs.map(c=>c.hc),0.4);
-    const sv=splitBy(bk.viol,w), sb=splitBy(bk.total,cs.map(c=>c.hc));v={};b={};
-    cs.forEach((c,i)=>{v[c.name]=sv[i];b[c.name]=Math.max(sb[i],sv[i])});
-  }
-  return Object.keys(v).filter(k=>v[k]>0).map(k=>({name:k||NONE_NAME,viol:Math.round(v[k]),
-    pct:b[k]?+(v[k]/b[k]*100).toFixed(1):null})).sort((a,c)=>c.viol-a.viol||a.name.localeCompare(c.name,'ru'));
-}
 function officeByCity(lp){
   const by={};
   officeRank(lp).forEach(o=>{const c=by[o.city]||(by[o.city]={name:o.city,hc:0,w:0,offices:0});
@@ -6628,10 +6585,10 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  mainCmp,mainVerdict,offDays,offAsof,offCityMon,PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
+  mainCmp,mainVerdict,offDays,offAsof,offCityMon,PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
-  TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};
+  TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};
 
 </script>
 <script>
@@ -6974,14 +6931,20 @@ function lgItem(x,y,it,sid,off,lock){
     +g+'<rect class="hit" x="'+num(mx-4)+'" y="'+num(y)+'" width="'+num(tw+16+6+8)+'" height="18"/></g>'};
 }
 /* 27.10-в, п. 18: узкий график — легенда не помещается рядом с заголовком и встаёт второй строкой под ним */
+/* 11.11, п. 4: перед заголовком графика — значок по смыслу (набор и цвет — как у разделов «Структуры»); TTL_IC — место под него */
+const TTL_IC=22;
 function wraps(w,title,legend){
-  return !!(w&&title&&legend&&legend.length&&textW(title,TTL_SZ)+legend.reduce((v,it)=>v+textW(it.name,11.5)+30,0)+24>w);
+  return !!(w&&title&&legend&&legend.length&&TTL_IC+textW(title,TTL_SZ)+legend.reduce((v,it)=>v+textW(it.name,11.5)+30,0)+24>w);
+}
+function ttlIco(title){
+  const U=window.TPUI, d=U&&U.ICO&&U.ICO[U.icoFor(title)];
+  return d?'<path class="ttl-ic" transform="translate(0,-2) scale(.6667)" d="'+d+'"/>':'';
 }
 function header(w,title,legend,ctx){
   ctx=ctx||{};
   const off=ctx.off, lock=LOCKED[ctx.kind];
   let s='';
-  if(title)s+=txt(0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+  if(title){const ic=ttlIco(title);s+=ic+txt(ic?TTL_IC:0,12,title,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'})}
   if(legend&&legend.length){
     const ids=seriesOf(ctx.kind,legend), y=wraps(w,title,legend)?22:0;
     let x=w;
@@ -7521,9 +7484,10 @@ function drawPanels(a,w,h){
     const base=pi*panelH, ya=yas[pi];
     /* поставка 98: легенда не помещается рядом с названием (узкая панель, есть «вся компания») — второй строкой под ним */
     const bn=p.bench&&o.benchName, kw=[String(CD.YEAR_CUR),String(CD.YEAR_PREV)].concat(bn?[bn]:[]).reduce((a,t)=>a+textW(t,11.5)+30,0),
-      kr=textW(p.name,TTL_SZ)+kw+16>w?18:0;
+      kr=TTL_IC+textW(p.name,TTL_SZ)+kw+16>w?18:0;
     const pt=periodLine(p.period,base+HEAD+kr+13,w), top=base+HEAD+kr+pt.h+LBL_ROOM+yoyRoom(ya), bot=base+panelH-AX-GAP;
-    s+=txt(0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'});
+    /* 11.11, п. 4: значок у названия панели — как у заголовка графика */
+    {const ic=ttlIco(p.name);s+=(ic?'<g transform="translate(0,'+(base-1)+')">'+ic+'</g>':'')+txt(ic?TTL_IC:0,base+11,p.name,{size:TTL_SZ,weight:TTL_W,fill:C_INK,anchor:'start'})}
     s+=pt.s;
     s+=yoyKey(w,base-1+kr,p.color||C_LINE,off,false,asBars(p.key),bn);
     s+=yoyPlot({key:p.key,cur:p.cur,prev:p.prev,bench:p.bench,benchName:o.benchName,color:p.color,ann:ya,off:off,mature:p.mature,period:p.period,kpi:p.kpi},
@@ -8896,8 +8860,23 @@ const ICO={
   hybrid:'M2.5 21V10l5.5-4.5 5.5 4.5v11M13.5 21v-9H21v9M1.5 21h21M6.5 14h3M6.5 17.5h3M16 15h2.5',
   home:'M3 11 12 3.8 21 11M5.5 9.5V20h13V9.5M10 20v-5.5h4V20',
   company:'M3 21V7.5L9 4.5V21M9 21V10h6v11M15 21v-8h6v8M2 21h20',
-  layers:'M12 3 21 8l-9 5-9-5zM3 12.5l9 5 9-5M3 16.5l9 5 9-5'
+  layers:'M12 3 21 8l-9 5-9-5zM3 12.5l9 5 9-5M3 16.5l9 5 9-5',
+  /* 11.11, итерация «MoM и меню», п. 4: значки графиков остальных вкладок — тем же набором и видом, что в «Структуре» */
+  exit:'M13 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H13M10 12h10M17 8.5l3.5 3.5-3.5 3.5',
+  swap:'M4 8h14M14.5 4.5 18 8l-3.5 3.5M20 16H6M9.5 12.5 6 16l3.5 3.5',
+  hire:'M9 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M18.5 7.5v6M15.5 10.5h6',
+  pulse:'M3 12.5h4l2.5-6.5 5 13 2.5-6.5h4',
+  spark:'M11 3.5l1.9 4.9 4.9 1.9-4.9 1.9L11 17.1l-1.9-4.9-4.9-1.9 4.9-1.9zM18.5 14.5l.8 2.1 2.2.9-2.2.8-.8 2.2-.9-2.2-2.1-.8 2.1-.9z',
+  trend:'M3 18l6-6 4 4 7.5-7.5M15 8.5h5.5V14',
+  chart:'M4 20V10M10 20V4M16 20v-7M2.5 20h19'
 };
+/* значок графика по смыслу заголовка (п. 4): первое совпадение по словам; нет совпадения — столбики */
+const ICO_BY=[[/стаж[её]р|AI|проникнов|инструмент|сообщен|классиф/i,'spark'],[/пульс|мониторинг|недоработ|перерабо|звонк|прогул|выходн|категори|толк/i,'pulse'],
+  [/город|локац|регион/i,'pin'],[/посещ|офис|брон|календар|дн[яеи] недели/i,'office'],[/перевод|движени|переход/i,'swap'],
+  [/срок|медиан/i,'hourglass'],[/вакан|найм|принят|нанят/i,'hire'],[/уход|отток|увол|текуч|инициатор|причин/i,'exit'],
+  [/рост|заявк|конверс|одобр/i,'trend'],[/грейд/i,'grade'],[/сеньор|уров/i,'stairs'],[/возраст/i,'calendar'],
+  [/числен|сотрудник|людей|состав|чел\b|пол\b/i,'people']];
+function icoFor(t){const s=String(t||'');for(const [re,k] of ICO_BY)if(re.test(s))return k;return 'chart'}
 function ico(name,cls){
   const d=ICO[name];
   return d?'<svg class="ico '+(cls||'')+'" viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>':'';
@@ -9247,7 +9226,7 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
+window.TPUI={ICO,icoFor,keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
@@ -12874,7 +12853,28 @@ function covNote(md){
     (pc<50?'Размечено меньше половины, поэтому доли недоработки и переработки не оцениваем: ноль здесь значит «нет данных».'
       :'Выводы — о размеченных людях. Остальные — «Не размечено»: по ним данных нет.')+'</div>';
 }
-function kpiBlock(lp){
+/* 11.11, итерация «MoM и меню», п. 5: состав выборки по категориям мониторинга — в блоке KPI: сколько людей и какая доля в
+   норме, недоработке, переработке и без разметки. Месяц — последний месяц данных (конец периода KPI), фильтры те же; доля —
+   от всех людей выборки в мониторинге за этот месяц (норма + недоработка + переработка + не размечено). Нет данных — строка
+   «нет данных», не нули */
+function catBlock(md){
+  const c=md&&md.months&&wk(md).cur;
+  if(!c)return '';
+  const hc=(c.normal||0)+(c.under||0)+(c.over||0)+(c.grey||0);
+  if(!hc)return '<div class="tbl-note">Состав по категориям: нет данных мониторинга за последний месяц.</div>';
+  const pc=n=>(Math.round(n/hc*1000)/10).toFixed(1).replace('.',',')+'%';
+  const mon=String(c.full||c.label||'').split(',')[0];
+  const info='<span class="info"'+U.tipAttr({title:'Состав по категориям',text:'Категория каждого человека за '+mon.toLowerCase()+
+    (/данные по/.test(c.full||'')?' ('+String(c.full).split(', ')[1]+')':'')+'.',
+    list:['**Доля** — от всех людей выборки в мониторинге за этот месяц: '+D.fmtInt(hc)+' чел. (норма + недоработка + переработка + не размечено)',
+      '**Не размечено** — данных мониторинга по человеку нет; это не значит, что он не работал'],
+    note:'Фильтры — те же, что у карточек выше.'})+' aria-label="Как считаются доли">i</span>';
+  const cards=[['normal','Норма',G.C_MON.normal],['under','Недоработка',G.C_MON.under],['over','Переработка',G.C_MON.over],['grey','Не размечено',G.C_MON.grey]]
+    .filter(x=>x[0]!=='grey'||c.grey!=null).map(x=>({id:'c'+x[0],name:x[1],n:c[x[0]]||0,bg:x[2],sub:pc(c[x[0]]||0)+' выборки'}));
+  return '<div class="bt-cap mon-cat-cap">Состав по категориям '+info+'<span class="bt-sub">'+U.esc(mon)+' · '+D.fmtInt(hc)+' чел</span></div>'+
+    U.shareCards({static:true,cards:cards});
+}
+function kpiBlock(lp,md){
   const k=D.monKpi(lp);
   const pc=(n,b)=>b?(Math.round(n/b*1000)/10).toString().replace('.',',')+'%':'—';
   const per=k&&k.fromTxt?k.fromTxt+' – '+k.toTxt:'';
@@ -12886,11 +12886,11 @@ function kpiBlock(lp){
     note:'Процент — от численности на конец периода.'})+'>i</span>';
   const cap='<div class="bt-cap">За '+(k&&k.weeks||D.MPW)+' недель '+info+(per?'<span class="bt-sub">'+U.esc(per)+'</span>':'')+'</div>';
   if(!k)return '<div class="mon-kpi">'+cap+'<div class="tbl-note">Нет данных мониторинга по дням за последние '+D.MPW+
-    ' недель — KPI не считаются.</div></div>';
+    ' недель — KPI не считаются.</div>'+catBlock(md)+'</div>';
   const sum=a=>a.reduce((x,y)=>x+y,0);
   const card=(id,name,a,bg)=>({id:id,name:name,n:sum(a),bg:bg,sub:pc(sum(a),k.hc)+' численности'});
   const cards=[card('ab','Прогулы',k.ab,C.per2),card('we','Работа в выходные',k.we,C.per),card('tk','Звонки в Толк от 20%',k.talk,C.talk)];
-  return '<div class="mon-kpi">'+cap+U.shareCards({static:true,cards:cards})+'</div>';
+  return '<div class="mon-kpi">'+cap+U.shareCards({static:true,cards:cards})+catBlock(md)+'</div>';
 }
 
 SC.blocks.monitor={
@@ -12937,7 +12937,7 @@ SC.blocks.monitor={
     /* 05.11, заказчик: отметка периода кликом по столбику снята — графики без выделения */
     const wk=false, P=md.months;
     /* пробник без витрины по неделям и без мониторинга по дням: часы и звонки — заглушки */
-    if(md.monthly&&!md.daily)return covNote(md)+kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    if(md.monthly&&!md.daily)return covNote(md)+kpiBlock(ctx.lp,md)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
@@ -12946,7 +12946,7 @@ SC.blocks.monitor={
     /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой.
        Поставка 104 (заказчик): низкие (sm) — лист короче; под заголовком — среднее за период */
     const pl=perLine(P,wk,ctx.lp);
-    return covNote(md)+kpiBlock(ctx.lp)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    return covNote(md)+kpiBlock(ctx.lp,md)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
       G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
       G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+'</div>';
@@ -13197,8 +13197,8 @@ const wk=u=>u.week?' · неделя '+u.week:' · за неделю';
 const AI_NO='var(--pt-na)';
 function split(cap,sub,parts,unit,word){
   const tot=parts.reduce((a,x)=>a+(x.n||0),0);
-  if(!tot)return '<section class="pf-s">'+U.pfHead(cap,esc(sub))+'<div class="tbl-note">Нет данных за неделю.</div></section>';
-  return '<section class="pf-s">'+U.pfHead(cap,esc(sub))+
+  if(!tot)return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+'<div class="tbl-note">Нет данных за неделю.</div></section>';
+  return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+
     U.shareBar({static:true,names:true,unit:unit,segs:parts.map((x,i)=>({id:'a'+i,name:x.name,n:x.n,bg:x.bg}))})+
     U.shareCards({static:true,cards:parts.map((x,i)=>({id:'a'+i,name:x.name,n:x.n,unit:word,bg:x.bg,
       sub:'<b>'+P1(Math.round(x.n/tot*1000)/10)+'</b> от '+(unit==='Сообщений'?'всех сообщений':'всех')}))})+'</section>';
@@ -13566,6 +13566,15 @@ function blockDevTag(bk){
 }
 
 /* ---------- рендер ---------- */
+/* подсказка MoM (11.11, п. 2): текущий период с датой актуальности и прошлый месяц, с которым сравнили */
+function momTip(key,cur,prev,stock){
+  const C=D.MONTHS_EXT[D.NEXT-1], Pm=D.MONTHS_EXT[D.NEXT-2], f=x=>x==null?'нет данных':D.fmtVal(key,x);
+  const cy=C.y!==Pm.y?' '+Pm.y:'', mg=D.MONTH_GEN[Pm.m];
+  const now=stock?(D.PARTIAL?'Сейчас, '+D.ASOF_LABEL:'На конец '+D.MONTH_GEN[C.m]):D.PARTIAL?'С 1 по '+D.ASOF_LABEL:D.MONTH_NOM[C.m].replace(/^./,x=>x.toUpperCase())+' '+C.y;
+  const was=stock?'на конец '+mg+cy:D.MONTH_NOM[Pm.m]+' '+Pm.y+(D.PARTIAL?' целиком':'');
+  return {title:'MoM — месяц к месяцу',text:now+': '+f(cur)+'\n'+was.replace(/^./,x=>x.toUpperCase())+': '+f(prev),
+    note:!stock&&D.PARTIAL?'Текущий месяц ещё идёт — сравниваем его неполным с полным прошлым месяцем, поэтому без оценки цветом.':null};
+}
 function render(S,openRows){
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S), I=window.TPINSIGHTS;
   if(!rl.length)return U.empty('Под эти фильтры никто не попал',
@@ -13634,7 +13643,7 @@ function render(S,openRows){
       '<thead><tr><th>Метрика</th><th class="num"'+U.tipAttr({title:'Значение',text:'Потоки — '+D.CNT_TEXT+', доли — '+D.PER_TEXT+
         ', накопительные — по дату данных, численность и открытые вакансии — сейчас.'})+'>Значение</th>'+
       /* 27.10-в, п. 1: шапки — MoM и YoY; месяцы сравнения — в подсказке */
-      '<th class="num"'+U.tipAttr({title:'MoM — месяц к месяцу',text:'Последний закрытый месяц против предыдущего; у численности и вакансий — сейчас против конца прошлого месяца.'})+'>MoM</th>'+
+      '<th class="num"'+U.tipAttr({title:'MoM — месяц к месяцу',text:'Текущий месяц по дату данных против полного прошлого месяца; у численности и вакансий — сейчас против конца прошлого месяца. Оба значения — в подсказке пилюли.'})+'>MoM</th>'+
       '<th class="num"'+U.tipAttr({title:'YoY — год к году',text:'Значение против того же периода год назад — как в строке итога под графиком.'})+'>YoY</th><th class="mid"'+U.tipAttr({title:'12 мес',text:'Мини-график — последние 12 месяцев: '+
         (D.PARTIAL?D.PERIOD_LABEL.split(' — ')[0]+' — '+D.ASOF_LABEL:D.PERIOD_LABEL)+'. Значение и YoY — с 1 января.'})+'>12 мес</th>'+
       '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Цель KPI; где её нет — база: медиана подразделений похожей численности с теми же фильтрами; где и её нет — вся компания с теми же фильтрами.'})+'>Ориентир</th>'+
@@ -13644,8 +13653,12 @@ function render(S,openRows){
       '<th class="col-caret">'+U.allCaret('data-opexpall',b.key+'|'+(allOpen?'0':'1'),allOpen,
         'Графики всех метрик блока разом.')+'</th></tr></thead><tbody>';
     bMets.forEach(m=>{
-      const s=D.aggregate(rl,m.key), P=D.periodTotal(rl,m.key)||{}, v=P.v, cl=D.PARTIAL&&!P.stock&&D.LAST>0;   /* MoM — закрытый месяц против предыдущего (неполный с полным не сравниваем) */
-      const e=D.aggregateExt(rl,m.key), i=D.NEXT-1-(cl?1:0), dl={mom:e[i]==null||e[i-1]==null?null:e[i]-e[i-1],yoy:v==null||P.pv==null?null:+(v-P.pv).toFixed(2)};
+      /* 11.11, итерация «MoM и меню», п. 2 (владелец: «MoM — текущий месяц на дату данных против предыдущего; предыдущий — полный»):
+         текущий месяц по дату данных (неполный) против полного прошлого; у численности и открытых вакансий — сейчас против конца
+         прошлого месяца. Переход года — по расширенной сетке (декабрь перед январём). Нет значения — прочерк, не ноль */
+      const s=D.aggregate(rl,m.key), P=D.periodTotal(rl,m.key)||{}, v=P.v;
+      const e=D.aggregateExt(rl,m.key), i=D.NEXT-1, pt=D.PARTIAL&&!P.stock;
+      const dl={mom:e[i]==null||e[i-1]==null||!isFinite(e[i])||!isFinite(e[i-1])?null:+(e[i]-e[i-1]).toFixed(4),yoy:v==null||P.pv==null?null:+(v-P.pv).toFixed(2)};
       /* поставка 110 (критики 07.11): месяц к месяцу по 1–3 заявкам или вакансиям — шум («−66,7 п.п. к августу»): у метрики
          с малым числом событий в месяце пилюли нет; у команды меньше 30 человек пилюли долей — без цвета */
       const evm=k=>D.aggregateExt(rl,k)[i]||0;
@@ -13670,9 +13683,10 @@ function render(S,openRows){
            за январь–сентябрь): у средних за месяц — подпись «в ср. за мес.», под пилюлей MoM — значение самого месяца */
         '<td class="m-val">'+D.fmtVal(m.key,v)+(P.stock?'<span class="m-per">сейчас</span>':/^В среднем /.test(P.head||'')?'<span class="m-per"'+U.tipAttr({text:P.head+'.'})+'>в ср. за период</span>':'')+'</td>'+
         /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
-        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,Object.assign(cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip},{neu:neuN||/^на конец/.test(P.lab||''),
-          from:dl.mom==null?null:e[i-1],lp:rl}))+(dl.mom!=null&&!P.stock&&e[i]!=null?'<span class="m-per">'+esc(D.MONTH_ABBR[D.MONTHS_EXT[i].m])+' '+
-          D.fmtVal(m.key,e[i])+'</span>':'')+'</td>'+
+        /* 11.11, п. 1: в пилюле — только изменение со знаком и единицей; периоды и оба значения — в подсказке. Неполный месяц
+           против полного прошлого — без цвета (сравнение не равное) */
+        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:momTip(m.key,e[i],e[i-1],P.stock),neu:neuN||pt||/^на конец/.test(P.lab||''),
+          from:dl.mom==null?null:e[i-1],lp:rl})+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{neu:neuN,from:P.pv,lp:rl,st:neuN?null:({worse:'bad',better:'good'})[D.yoyMove(m.key,rl)]||'neutral',tip:{title:'Год к году',text:(P.head||'')+' против того же периода год назад.'}})+'</td>'+
         /* Короткая динамика — у всех метрик одним видом, спарклайном (13.10:
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
@@ -14100,7 +14114,15 @@ function renderNav(){
 }
 /* свёрнутая панель: выбор пользователя (кнопка) запоминается; пока его нет — по ширине окна (уже 1280px — значки) */
 const NAV_MINI_W=1280;
-function navPref(){try{const v=localStorage.getItem('tp_nav_mini');return v==='1'?true:v==='0'?false:null}catch(e){return null}}
+/* 11.11, итерация «MoM и меню», п. 3 («кнопка не работает»): в песочнице Proteus хранилища браузера нет — выбор держим в памяти
+   отчёта (STORE переживает перезапуск скрипта на каждый ответ датасета), localStorage — только запасной */
+let NAV_PREF=null;
+function navPref(){
+  if(STORE&&STORE.navMini!=null)return STORE.navMini;
+  if(NAV_PREF!=null)return NAV_PREF;
+  try{const v=localStorage.getItem('tp_nav_mini');return v==='1'?true:v==='0'?false:null}catch(e){return null}
+}
+function setNavPref(v){NAV_PREF=v;if(STORE)STORE.navMini=v;try{localStorage.setItem('tp_nav_mini',v?'1':'0')}catch(e){}}
 function navMini(){const p=navPref();return p!=null?p:window.innerWidth<NAV_MINI_W}
 function applyNavMini(){
   /* класс — на корне отчёта (в Proteus — контейнер чарта, иначе body) */
@@ -14108,7 +14130,8 @@ function applyNavMini(){
   const on=navMini(), was=el.classList.contains('nav-mini');
   el.classList.toggle('nav-mini',on);
   const b=$('#navMini');
-  if(b){b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Развернуть панель':'Свернуть панель')}
+  if(b){b.setAttribute('aria-expanded',String(!on));b.setAttribute('aria-label',on?'Развернуть панель':'Свернуть панель');
+    b.setAttribute('title',on?'Развернуть панель':'Свернуть до значков')}
   return was!==on;
 }
 
@@ -14652,7 +14675,7 @@ on(document,'click',e=>{
   if(t.closest('#navToggle')){navOpen(!$('#sideNav').classList.contains('open'));return}
   /* 11.11: свернуть / развернуть панель до значков — выбор запоминается; графики перемеряются под новую ширину */
   if(t.closest('#navMini')){
-    try{localStorage.setItem('tp_nav_mini',navMini()?'0':'1')}catch(e){}
+    setNavPref(!navMini());
     applyNavMini();renderNav();renderMascot();setTimeout(relayout,240);return}
   if(t.id==='navScrim'){navOpen(false);return}
 

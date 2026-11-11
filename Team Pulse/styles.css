@@ -909,10 +909,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 /* ---------- Разводка со справкой ----------
    Единственное место, где два входа в объяснения встречаются, — и здесь же
    сказано, чем они отличаются. */
-.help-pulse{display:flex;align-items:flex-start;gap:11px;margin-top:4px;
-  background:#f7f8fa;border:1px solid var(--line2);border-radius:var(--r4);padding:11px 13px;
-  font-size:12px;color:var(--ink2);font-weight:var(--fw-body);line-height:1.5}
-.help-pulse b{color:var(--ink)}
 
 /* ---------- Пустое состояние и строка «отклонений нет» ---------- */
 .empty-pic{display:flex;justify-content:center;margin-bottom:10px}
@@ -1076,7 +1072,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 
 /* ---------- Справка: разводка без второго портрета ---------- */
-.help-pulse{gap:0}
 
 /* ============================================================================
    Итерация 24: состав численности — срез по клику, матрица, конструктор
@@ -2756,3 +2751,9 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .tr-cur{position:fixed;z-index:9993;display:none;left:0;top:0;pointer-events:none;
   transition:left .65s cubic-bezier(.3,.7,.2,1),top .65s cubic-bezier(.3,.7,.2,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
 .tr-clk{position:fixed;z-index:9993;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:2px solid var(--blue);pointer-events:none;opacity:0}
+
+/* значок перед заголовком SVG-графика (11.11, п. 4) — как .pf-h .pf-i у «Структуры»: 16px, тон --pt-hi, контур 1.7 */
+.ttl-ic{fill:none;stroke:var(--pt-hi);stroke-width:2.55;stroke-linecap:round;stroke-linejoin:round}
+
+/* состав по категориям в KPI мониторинга (11.11, п. 5) — второй ряд карточек под KPI */
+.mon-kpi .mon-cat-cap{margin-top:var(--s7)}

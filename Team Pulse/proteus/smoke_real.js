@@ -487,10 +487,9 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       (ocd.length?', посещаемость городов = посещения ÷ рабочие дни':''));
     /* поставка 107 (как мастер): посещения с бронью (vbk) и фиксы (fovis ÷ fwday) — из рядов ответа, а не генератора */
     if(R.has('vbk')&&R.has('fwday')){
-      const q=D.bookingQuality(rl), vbk=arr(scopeRow,'vbk')[L], fw=arr(scopeRow,'fwday')[L], fo=arr(scopeRow,'fovis')[L];
-      ok(Math.round(q.visitBk)===Math.round(vbk)&&Math.round(q.walkin)===Math.round(vsv)&&
-         (!x.fix||Math.abs(x.fix.att-(fw?fo/fw*100:0))<0.06),
-        'посещения с бронью '+Math.round(q.visitBk)+' и без брони '+Math.round(q.walkin)+' — из рядов ответа; фиксы '+(x.fix?x.fix.att+'%':'—'));
+      /* 11.11: брони сняты из отчёта (bookingQuality удалена) — остаются фиксы */
+      const fw=arr(scopeRow,'fwday')[L], fo=arr(scopeRow,'fovis')[L];
+      ok(!x.fix||Math.abs(x.fix.att-(fw?fo/fw*100:0))<0.06,'фиксы '+(x.fix?x.fix.att+'%':'—')+' — из рядов ответа');
     }
     const hn=R.pick.all().map(p=>R.pick.info(p)).find(i=>i&&/ /.test(i.hname)), last=hn?hn.hname.split(' ').pop():'';
     const sq=hn?A.setup(last.slice(0,4).toLowerCase()):'';
@@ -560,7 +559,7 @@ ok(hasNew?!/dev-note/.test(tgF)&&(offAll?!/dev-note/.test(ofD+ofC+ofB)
 /* 27.10-в, п. 14: нарушения брони по городам (разрезы ov / ob) — после «Бронирований и посещений», в сумме = нарушениям
    бронирования месяца; без разрезов в ответе — строка «появятся со следующим обновлением», не условные числа */
 {
-  const vc=D.violByCity(rl), bq=D.bookingQuality(rl), bk=A.go('office','booking');
+  const bk=A.go('office','booking');
   /* поставка 137: города — за последний месяц данных; ноутбук до 137 отдаёт закрытый месяц — тогда таблица подписана им */
   /* 10.11, владелец: «нарушения бронирования убрать из отчёта» — ни вкладки, ни метрики, ни таблицы по городам */
   ok(!D.metricVisible('booking_viol',A.st())&&bk.indexOf('Нарушения бронирования')<0&&

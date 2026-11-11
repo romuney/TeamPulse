@@ -395,7 +395,15 @@ function renderNav(){
 }
 /* свёрнутая панель: выбор пользователя (кнопка) запоминается; пока его нет — по ширине окна (уже 1280px — значки) */
 const NAV_MINI_W=1280;
-function navPref(){try{const v=localStorage.getItem('tp_nav_mini');return v==='1'?true:v==='0'?false:null}catch(e){return null}}
+/* 11.11, итерация «MoM и меню», п. 3 («кнопка не работает»): в песочнице Proteus хранилища браузера нет — выбор держим в памяти
+   отчёта (STORE переживает перезапуск скрипта на каждый ответ датасета), localStorage — только запасной */
+let NAV_PREF=null;
+function navPref(){
+  if(STORE&&STORE.navMini!=null)return STORE.navMini;
+  if(NAV_PREF!=null)return NAV_PREF;
+  try{const v=localStorage.getItem('tp_nav_mini');return v==='1'?true:v==='0'?false:null}catch(e){return null}
+}
+function setNavPref(v){NAV_PREF=v;if(STORE)STORE.navMini=v;try{localStorage.setItem('tp_nav_mini',v?'1':'0')}catch(e){}}
 function navMini(){const p=navPref();return p!=null?p:window.innerWidth<NAV_MINI_W}
 function applyNavMini(){
   /* класс — на корне отчёта (в Proteus — контейнер чарта, иначе body) */
@@ -403,7 +411,8 @@ function applyNavMini(){
   const on=navMini(), was=el.classList.contains('nav-mini');
   el.classList.toggle('nav-mini',on);
   const b=$('#navMini');
-  if(b){b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Развернуть панель':'Свернуть панель')}
+  if(b){b.setAttribute('aria-expanded',String(!on));b.setAttribute('aria-label',on?'Развернуть панель':'Свернуть панель');
+    b.setAttribute('title',on?'Развернуть панель':'Свернуть до значков')}
   return was!==on;
 }
 
@@ -947,7 +956,7 @@ on(document,'click',e=>{
   if(t.closest('#navToggle')){navOpen(!$('#sideNav').classList.contains('open'));return}
   /* 11.11: свернуть / развернуть панель до значков — выбор запоминается; графики перемеряются под новую ширину */
   if(t.closest('#navMini')){
-    try{localStorage.setItem('tp_nav_mini',navMini()?'0':'1')}catch(e){}
+    setNavPref(!navMini());
     applyNavMini();renderNav();renderMascot();setTimeout(relayout,240);return}
   if(t.id==='navScrim'){navOpen(false);return}
 

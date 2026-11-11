@@ -63,8 +63,8 @@ const wk=u=>u.week?' · неделя '+u.week:' · за неделю';
 const AI_NO='var(--pt-na)';
 function split(cap,sub,parts,unit,word){
   const tot=parts.reduce((a,x)=>a+(x.n||0),0);
-  if(!tot)return '<section class="pf-s">'+U.pfHead(cap,esc(sub))+'<div class="tbl-note">Нет данных за неделю.</div></section>';
-  return '<section class="pf-s">'+U.pfHead(cap,esc(sub))+
+  if(!tot)return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+'<div class="tbl-note">Нет данных за неделю.</div></section>';
+  return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+
     U.shareBar({static:true,names:true,unit:unit,segs:parts.map((x,i)=>({id:'a'+i,name:x.name,n:x.n,bg:x.bg}))})+
     U.shareCards({static:true,cards:parts.map((x,i)=>({id:'a'+i,name:x.name,n:x.n,unit:word,bg:x.bg,
       sub:'<b>'+P1(Math.round(x.n/tot*1000)/10)+'</b> от '+(unit==='Сообщений'?'всех сообщений':'всех')}))})+'</section>';

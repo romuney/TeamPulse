@@ -187,6 +187,15 @@ function blockDevTag(bk){
 }
 
 /* ---------- рендер ---------- */
+/* подсказка MoM (11.11, п. 2): текущий период с датой актуальности и прошлый месяц, с которым сравнили */
+function momTip(key,cur,prev,stock){
+  const C=D.MONTHS_EXT[D.NEXT-1], Pm=D.MONTHS_EXT[D.NEXT-2], f=x=>x==null?'нет данных':D.fmtVal(key,x);
+  const cy=C.y!==Pm.y?' '+Pm.y:'', mg=D.MONTH_GEN[Pm.m];
+  const now=stock?(D.PARTIAL?'Сейчас, '+D.ASOF_LABEL:'На конец '+D.MONTH_GEN[C.m]):D.PARTIAL?'С 1 по '+D.ASOF_LABEL:D.MONTH_NOM[C.m].replace(/^./,x=>x.toUpperCase())+' '+C.y;
+  const was=stock?'на конец '+mg+cy:D.MONTH_NOM[Pm.m]+' '+Pm.y+(D.PARTIAL?' целиком':'');
+  return {title:'MoM — месяц к месяцу',text:now+': '+f(cur)+'\n'+was.replace(/^./,x=>x.toUpperCase())+': '+f(prev),
+    note:!stock&&D.PARTIAL?'Текущий месяц ещё идёт — сравниваем его неполным с полным прошлым месяцем, поэтому без оценки цветом.':null};
+}
 function render(S,openRows){
   const rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S), I=window.TPINSIGHTS;
   if(!rl.length)return U.empty('Под эти фильтры никто не попал',
@@ -255,7 +264,7 @@ function render(S,openRows){
       '<thead><tr><th>Метрика</th><th class="num"'+U.tipAttr({title:'Значение',text:'Потоки — '+D.CNT_TEXT+', доли — '+D.PER_TEXT+
         ', накопительные — по дату данных, численность и открытые вакансии — сейчас.'})+'>Значение</th>'+
       /* 27.10-в, п. 1: шапки — MoM и YoY; месяцы сравнения — в подсказке */
-      '<th class="num"'+U.tipAttr({title:'MoM — месяц к месяцу',text:'Последний закрытый месяц против предыдущего; у численности и вакансий — сейчас против конца прошлого месяца.'})+'>MoM</th>'+
+      '<th class="num"'+U.tipAttr({title:'MoM — месяц к месяцу',text:'Текущий месяц по дату данных против полного прошлого месяца; у численности и вакансий — сейчас против конца прошлого месяца. Оба значения — в подсказке пилюли.'})+'>MoM</th>'+
       '<th class="num"'+U.tipAttr({title:'YoY — год к году',text:'Значение против того же периода год назад — как в строке итога под графиком.'})+'>YoY</th><th class="mid"'+U.tipAttr({title:'12 мес',text:'Мини-график — последние 12 месяцев: '+
         (D.PARTIAL?D.PERIOD_LABEL.split(' — ')[0]+' — '+D.ASOF_LABEL:D.PERIOD_LABEL)+'. Значение и YoY — с 1 января.'})+'>12 мес</th>'+
       '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'Цель KPI; где её нет — база: медиана подразделений похожей численности с теми же фильтрами; где и её нет — вся компания с теми же фильтрами.'})+'>Ориентир</th>'+
@@ -265,8 +274,12 @@ function render(S,openRows){
       '<th class="col-caret">'+U.allCaret('data-opexpall',b.key+'|'+(allOpen?'0':'1'),allOpen,
         'Графики всех метрик блока разом.')+'</th></tr></thead><tbody>';
     bMets.forEach(m=>{
-      const s=D.aggregate(rl,m.key), P=D.periodTotal(rl,m.key)||{}, v=P.v, cl=D.PARTIAL&&!P.stock&&D.LAST>0;   /* MoM — закрытый месяц против предыдущего (неполный с полным не сравниваем) */
-      const e=D.aggregateExt(rl,m.key), i=D.NEXT-1-(cl?1:0), dl={mom:e[i]==null||e[i-1]==null?null:e[i]-e[i-1],yoy:v==null||P.pv==null?null:+(v-P.pv).toFixed(2)};
+      /* 11.11, итерация «MoM и меню», п. 2 (владелец: «MoM — текущий месяц на дату данных против предыдущего; предыдущий — полный»):
+         текущий месяц по дату данных (неполный) против полного прошлого; у численности и открытых вакансий — сейчас против конца
+         прошлого месяца. Переход года — по расширенной сетке (декабрь перед январём). Нет значения — прочерк, не ноль */
+      const s=D.aggregate(rl,m.key), P=D.periodTotal(rl,m.key)||{}, v=P.v;
+      const e=D.aggregateExt(rl,m.key), i=D.NEXT-1, pt=D.PARTIAL&&!P.stock;
+      const dl={mom:e[i]==null||e[i-1]==null||!isFinite(e[i])||!isFinite(e[i-1])?null:+(e[i]-e[i-1]).toFixed(4),yoy:v==null||P.pv==null?null:+(v-P.pv).toFixed(2)};
       /* поставка 110 (критики 07.11): месяц к месяцу по 1–3 заявкам или вакансиям — шум («−66,7 п.п. к августу»): у метрики
          с малым числом событий в месяце пилюли нет; у команды меньше 30 человек пилюли долей — без цвета */
       const evm=k=>D.aggregateExt(rl,k)[i]||0;
@@ -291,9 +304,10 @@ function render(S,openRows){
            за январь–сентябрь): у средних за месяц — подпись «в ср. за мес.», под пилюлей MoM — значение самого месяца */
         '<td class="m-val">'+D.fmtVal(m.key,v)+(P.stock?'<span class="m-per">сейчас</span>':/^В среднем /.test(P.head||'')?'<span class="m-per"'+U.tipAttr({text:P.head+'.'})+'>в ср. за период</span>':'')+'</td>'+
         /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
-        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,Object.assign(cl?{vs:D.CMP.momShortC,tip:D.CMP.momTipC}:{tip:D.CMP.momTip},{neu:neuN||/^на конец/.test(P.lab||''),
-          from:dl.mom==null?null:e[i-1],lp:rl}))+(dl.mom!=null&&!P.stock&&e[i]!=null?'<span class="m-per">'+esc(D.MONTH_ABBR[D.MONTHS_EXT[i].m])+' '+
-          D.fmtVal(m.key,e[i])+'</span>':'')+'</td>'+
+        /* 11.11, п. 1: в пилюле — только изменение со знаком и единицей; периоды и оба значения — в подсказке. Неполный месяц
+           против полного прошлого — без цвета (сравнение не равное) */
+        '<td class="col-num">'+U.deltaChip(m.key,dl.mom,{tip:momTip(m.key,e[i],e[i-1],P.stock),neu:neuN||pt||/^на конец/.test(P.lab||''),
+          from:dl.mom==null?null:e[i-1],lp:rl})+'</td>'+
         '<td class="col-num">'+U.deltaChip(m.key,dl.yoy,{neu:neuN,from:P.pv,lp:rl,st:neuN?null:({worse:'bad',better:'good'})[D.yoyMove(m.key,rl)]||'neutral',tip:{title:'Год к году',text:(P.head||'')+' против того же периода год назад.'}})+'</td>'+
         /* Короткая динамика — у всех метрик одним видом, спарклайном (13.10:
            «где-то барчарты, где-то лайнчарты»). Оценка по месяцам — цветом
