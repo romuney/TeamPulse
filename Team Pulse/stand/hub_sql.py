@@ -313,7 +313,8 @@ drop table if exists {P}_uall;
 create table {P}_uall as
 select s.mng_unit_rk::text as unit_rk, s.leaf_lvl,
        {kcol},
-       {ncol}
+       {ncol},
+       count(*) as w
 from {SRC} s
 where s.report_month = (select lm from {P}_cal) and s.leaf_lvl > 0
   -- 12.11 (бой: в дереве юниты, которых уже нет на портале): структура - по строке человека на дату данных
@@ -335,26 +336,72 @@ create table {P}_upath as
 select unit_rk, cp from {P}_uone
 {dist('unit_rk')};
 
--- 3. узлы — все начала путей: и юниты со своими людьми, и уровни над ними без своих строк
-drop table if exists {P}_node;
-create table {P}_node as
-select rk, min(nm) as nm, min(lv) as lv, min(prk) as prk, min(pth) as pth
+-- 3. узлы — все начала путей: и юниты со своими людьми, и уровни над ними без своих строк.
+--    12.11-ж (бой: подразделение стояло под расформированным департаментом, а сумма людей внутри была больше, чем
+--    у родителя): в витрине один и тот же узел у разных юнитов бывает под разными родителями (часть строк - со
+--    старым путём). Раньше родитель узла - меньший ключ из всех (min(prk)), а люди считались по путям строк: дерево
+--    и суммы расходились. Теперь родитель узла - тот, через кого проходит больше людей (w - строк человека на дату
+--    данных), путь узла собирается заново сверху по выбранным родителям, и путь юнита (_upath) - этот же путь:
+--    ряды, разрезы и окно выбора идут по одному дереву, сумма детей = родителю. Узел, через который не идёт ни один
+--    юнит, из дерева уходит
+drop table if exists {P}_nedge;
+create table {P}_nedge as
+select x.rk, x.prk, min(x.nm) as nm, min(x.lv) as olv, min(x.pth) as opth, sum(x.w) as w
 from (
-    select x.rk, x.nm, x.lv,
-           case when x.lv = 1 then '' else x.ra[x.lv - 1] end as prk,
-           array_to_string(x.ra[1:x.lv], '|') as pth
+    select y.rk, y.nm, y.lv, y.w,
+           case when y.lv = 1 then '' else y.ra[y.lv - 1] end as prk,
+           array_to_string(y.ra[1:y.lv], '|') as pth
     from (
-        select unnest(r.ra) as rk, unnest(r.na) as nm, generate_subscripts(r.ra, 1) as lv, r.ra
+        select unnest(r.ra) as rk, unnest(r.na) as nm, generate_subscripts(r.ra, 1) as lv, r.ra, r.w
         from (
-            select ({k_arr_u})[1:u.leaf_lvl] as ra,
-                   ({n_arr_u})[1:u.leaf_lvl] as na
+            select ({k_arr_u})[1:u.leaf_lvl] as ra, ({n_arr_u})[1:u.leaf_lvl] as na, u.w
             from {P}_uone u
         ) r
-    ) x
-    where x.rk <> '-'
-) n
-group by rk
+    ) y
+) x
+where x.rk <> '-'
+group by x.rk, x.prk
 {dist('rk')};
+drop table if exists {P}_node;
+create table {P}_node as
+select distinct on (e.rk) e.rk, e.nm, e.olv as lv, e.prk, ''::text as pth, e.opth
+from {P}_nedge e
+order by e.rk, e.w desc, e.prk
+{dist('rk')};
+update {P}_node set pth = rk, lv = 1 where prk = '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+update {P}_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
+from {P}_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
+-- путь не собрался (цикл родителей в витрине) - прежний путь узла
+update {P}_node set pth = opth where pth = '';
+update {P}_upath u set cp = n.pth from {P}_node n where n.rk = u.unit_rk;
+drop table if exists {P}_nused;
+create table {P}_nused as select distinct unnest(string_to_array(cp, '|')) as rk from {P}_upath {dist('rk')};
+delete from {P}_node n where not exists (select 1 from {P}_nused x where x.rk = n.rk);
+alter table {P}_node drop column opth;
+drop table if exists {P}_nused;
+drop table if exists {P}_nedge;
 
 -- несколько корней — общий корень над ними: «вся компания» — сумма всех строк
 update {P}_cal set mo = 1, pre = '{HUB_ALL}|' where (select count(*) from {P}_node where prk = '') > 1;
