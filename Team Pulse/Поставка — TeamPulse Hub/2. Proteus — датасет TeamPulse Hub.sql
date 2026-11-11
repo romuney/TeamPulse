@@ -81,7 +81,7 @@
         «Активная» вместо выбранных, IT-код и штат — как выбраны) у каждого узла ответа и у базы: эти две текучести
         всегда считаются по HQ (вопрос 4); файл 6, п. 2: fh — увольнения, hch — численность там же, у каждого узла: «Как уходит HQ»
         считается по выбранной строке таблицы подразделений, а не только по строке hq;
-      - доступ по зоне видимости, как в TeamPulse (вопрос 10): логины из FULL видят всю компанию; остальные — свою
+      - доступ по зоне видимости, как в TeamPulse (вопрос 10): с 12.11 права — из teampulse_hub_access (единый источник прав): у кого открыт корень — видит всю компанию; остальные — свою
         ветку вниз: подразделения, где логин — руководитель (teampulse_hub_unit.head_login), и всё под ними. Выбрать
         подразделение выше зоны нельзя — запрос откатывается на зону. Справочник dict — зона и предки её корней (у
         предков без численности — только для пути). База для сравнения (base) и значения фильтров — общие, как в
@@ -114,9 +114,7 @@
 {#- Значения фильтров собираются циклом: при сохранении датасета Proteus отдаёт
     вместо списка AlwaysTrueObject — у него нет ни длины, ни «+». -#}
 {% set unit_req = [] %}{% for v in (filter_values('unit_f') or []) %}{% if v|string|trim != '' and unit_req|length < 1 %}{% set _ = unit_req.append(v|string|trim) %}{% endif %}{% endfor %}
-{#- Поставка 69: ПОЛНЫЙ ДОСТУП — логины, которые видят всю компанию. Впишите их строчными в кавычках через
-    запятую, например: {% set FULL = ['ivanov', 'petrova'] %}. Пустой список — полного доступа нет ни у кого. -#}
-{% set FULL = [] %}
+{#- 12.11: списка логинов полного доступа больше нет — права целиком из таблицы teampulse_hub_access (см. cx0). -#}
 {#- Поставка «по частям» (11.11): тот же датасет отдаёт либо весь ответ (PART = 'all' — один чарт, как раньше), либо одну
     часть для чарта-загрузчика. Части: dict — справочник узлов (от фильтров не зависит: датасет главного чарта); core — meta,
     ряды узлов ответа и строка HQ (первый экран); people — разрезы из teampulse_hub_mix и профили; flow — разрезы
@@ -307,8 +305,8 @@ WITH
       {#- поставка 69, доступ: fl — полный доступ; zr — корни зоны (вся компания у полного доступа, иначе подразделения,
           где логин — руководитель); узел в зоне — корень зоны есть в его пути; s — запрошенный юнит, если он в зоне,
           иначе юнит по умолчанию (полный доступ) или первый корень зоны #}
-      SELECT lm, m0, n, r, d, dd, fl,
-             if(fl, [r], arrayMap(x -> x.1, arrayFilter(x -> x.4 = {{ me() }} AND x.4 != '' AND x.1 != '', al))) AS zr,
+      SELECT lm, m0, n, r, d, dd, has(au, r) AS fl,
+             if(fl, [r], arrayFilter(z -> arrayExists(x -> x.1 = z, al), au)) AS zr,
              length(zr) > 0 AS ok,
              arrayDistinct(arrayFlatten(arrayMap(z -> splitByChar('|', arrayElement(arrayFilter(x -> x.1 = z, al), 1).3), zr))) AS an,
              if({% if unit_req %}arrayExists(x -> x.1 = {{ qs(unit_req[0]) }} AND hasAny(splitByChar('|', x.3), zr), al){% else %}0{% endif %},
@@ -327,7 +325,12 @@ WITH
       CROSS JOIN (SELECT groupArray((ifNull(unit_rk, ''), ifNull(parent_rk, ''), ifNull(path_rk, ''),
                                      lowerUTF8(trimBoth(ifNull(toString(head_login), ''))))) AS al
                   FROM prod_proteus.teampulse_hub_unit) AS ua
-      CROSS JOIN (SELECT has({{ qa(FULL) }}, {{ me() }}) AS fl) AS fa
+      {#- 12.11 (владелец: единый источник прав): доступ — из teampulse_hub_access (ноутбук: уникальные пары «логин, юнит» из
+          usr_cross_data.new_access_to_digest_line). au — юниты логина; логин открывает юнит и всё под ним; есть корень — вся
+          компания. Нет строк у логина (или таблица пуста) — доступа нет. Списка логинов полного доступа в датасете больше нет #}
+      CROSS JOIN (SELECT arraySort(groupUniqArray(ifNull(toString(unit_rk), ''))) AS au
+                  FROM prod_proteus.teampulse_hub_access
+                  WHERE lowerUTF8(trimBoth(ifNull(toString(login), ''))) = {{ me() }} AND {{ me() }} != '') AS fa
     )
   ),
   {#- поставка 113-и (скорость: 8б на бою — почти всё время в разборе и плане запроса): контекст — скаляр ctx и его поля

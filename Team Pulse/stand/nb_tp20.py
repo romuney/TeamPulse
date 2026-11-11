@@ -865,6 +865,16 @@ def load(pg, U, people):
                                                      'management_head_ad_login', 'management_unit_rk', 'management_unit_nm',
                                                      'first_nm', 'last_nm', 'last_day_flg', 'last_day_of_month_flg'],
             structure_rows(U, people))
+    # 12.11: единый источник прав — логин получателя, юнит, руководитель юнита. Стенд: tester — корень (вся компания);
+    # руководитель h<юнит> — свой юнит (ветка вниз); multi.user — два юнита; дубли строк, разный регистр и пробелы;
+    # строка с юнитом вне структуры; ghost — только такой юнит (доступа нет)
+    _roots = [k for k, v in U.items() if not v[1]]
+    _acc = [('tester', r, 'h' + r) for r in _roots] + [('h' + k, k, 'h' + k) for k in U]
+    _two = sorted(k for k, v in U.items() if v[1])[:2]
+    _acc += [('Multi.User ', k, 'h' + k) for k in _two] + [('multi.user', _two[0], 'h' + _two[0])]
+    _acc += [(a, b, c) for a, b, c in _acc[:5]] + [('ghost', 'no_such_unit', ''), ('tester', 'no_such_unit', '')]
+    pg.run("CREATE TABLE usr_cross_data.new_access_to_digest_line (login text, mngt_unit_rk text, leader_login text)")
+    pg.copy('usr_cross_data.new_access_to_digest_line', ['login', 'mngt_unit_rk', 'leader_login'], _acc)
     # 21.10: вакансии по дням (источник structure_x_vacancy)
     vtyp = lambda c: 'date' if c in ('issue_day', 'approved_dt', 'approved_dt_last') else 'int' if c.endswith('_flg') else 'text'
     pg.run(f"CREATE TABLE usr_cross_data.vacancy_daily ({', '.join(f'{c} {vtyp(c)}' for c in VAC_COLS)})")

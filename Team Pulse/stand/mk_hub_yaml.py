@@ -95,6 +95,8 @@ EXTRA = {
          "    'teampulse_hub_pfd':     'prod_proteus.teampulse_hub_pfd',\n"
          "    # поставка 105: замкнутый водопад движения (юниты и специализации: начало/найм/отток/в/из/конец)\n"
          "    'teampulse_hub_flow': 'prod_proteus.teampulse_hub_flow',\n"
+         "    # 12.11: доступ к отчёту — уникальные пары «логин, юнит» из usr_cross_data.new_access_to_digest_line\n"
+         "    'teampulse_hub_access': 'prod_proteus.teampulse_hub_access',\n"
          "}"),
         # Адель, 29.10: владелец таблиц — d.stonis
         ("OWNERS = ['d.i.dyachenko',", "OWNERS = ['d.stonis',"),

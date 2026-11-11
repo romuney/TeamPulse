@@ -1879,6 +1879,7 @@ paragraphs:
     #   teampulse_hub_head  юнит → логин руководителя на дату данных и его имя (для teampulse_hub_unit, параграф
     #                       «hub · 3»; имя — с поставки 66, из unit_head_structure Адели)
     #   teampulse_hub_login сотрудник → логин на ту же дату (детализация переводов, параграф «hub · 5», поставка 63)
+    #   teampulse_hub_access логин → юнит: кому какой юнит открыт (12.11, источник прав usr_cross_data.new_access_to_digest_line)
     #   teampulse_hub_aiw   узел × неделя: WAU, численность и проникновение AI-инструментов (без стажёров)
     # =============================================================================
     from dal_client import query as dal
@@ -1995,6 +1996,30 @@ paragraphs:
     create table {HUB_P}_login as select 0::bigint as erk, ''::text as login where false
     distributed by (erk)""")
         print(f'[WARN] логинов руководителей нет ни в одном источнике {[t for t, _ in HUB_HEAD_SRC]} — логины пустые')
+
+    # 4а. Доступ к отчёту (12.11, владелец: единый источник прав): usr_cross_data.new_access_to_digest_line — логин получателя
+    #     доступа (login) и юнит (mngt_unit_rk). Таблица teampulse_hub_access — уникальные пары «логин, юнит»: дубли источника
+    #     не размножают строки. Датасет открывает логину юнит и всё под ним; у кого юнит — корень, видит всю компанию
+    #     (суперюзеры — тоже строками источника, списка логинов в датасете больше нет). leader_login — руководитель юнита, к
+    #     правам не относится. Нет источника или колонок — таблица пустая: доступа нет ни у кого (не «всем всё»)
+    HUB_ACC_SRC = 'usr_cross_data.new_access_to_digest_line'
+    if {'mngt_unit_rk', 'login'} <= _hub_cols(HUB_ACC_SRC):
+        _hub_q(f"""
+    drop table if exists {HUB_P}_access;
+    create table {HUB_P}_access as
+    select distinct login, unit_rk
+    from (select lower(trim(login::text)) as login, trim(mngt_unit_rk::text) as unit_rk from {HUB_ACC_SRC}) a
+    where coalesce(login, '') <> '' and coalesce(unit_rk, '') <> ''
+    distributed by (login)""")
+        _ha = _hub_q(f"""select count(*) as n, count(distinct login) as lg, (select count(*) from {HUB_ACC_SRC}) as src
+                    from {HUB_P}_access""").iloc[0]
+        print(f"[OK] {HUB_P}_access: строк источника {_ha['src']}, уникальных пар «логин, юнит» {_ha['n']}, логинов {_ha['lg']}")
+    else:
+        _hub_q(f"""
+    drop table if exists {HUB_P}_access;
+    create table {HUB_P}_access as select ''::text as login, ''::text as unit_rk where false
+    distributed by (login)""")
+        print(f'[WARN] источника прав {HUB_ACC_SRC} нет или в нём нет колонок login, mngt_unit_rk — доступа к отчёту нет ни у кого')
 
     # 12. AI-инструменты — ТОЛЬКО НЕДЕЛИ (решение заказчика 06.11, поставка 106): месячный AI и месячный
     #     дайджест больше не используются, месяц из недель не сворачивается. Витрина teampulse_hub_aiw —
@@ -4527,6 +4552,8 @@ paragraphs:
         'teampulse_hub_pfd':     'prod_proteus.teampulse_hub_pfd',
         # поставка 105: замкнутый водопад движения (юниты и специализации: начало/найм/отток/в/из/конец)
         'teampulse_hub_flow': 'prod_proteus.teampulse_hub_flow',
+        # 12.11: доступ к отчёту — уникальные пары «логин, юнит» из usr_cross_data.new_access_to_digest_line
+        'teampulse_hub_access': 'prod_proteus.teampulse_hub_access',
     }
 
     OWNERS = ['d.stonis', 'a.a.varnavskiy', 'r.kazantsev', 'a.khisamova']
