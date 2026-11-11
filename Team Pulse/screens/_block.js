@@ -478,12 +478,8 @@ function renderBlock(S,expanded,mixOpen,view){
     (kpiMets.length?' Где есть цель KPI — с целью.':'');
   /* «Детальный дашборд» ведёт туда, где блок есть в Proteus: при покраске HQ —
      в HQ-версию 34136, иначе в общую 34661; HQ-блоки — всегда в 34136. */
-  const dash=D.blockDash(b.key,S);
-  let h='<div class="page-h"><div class="ph-row"><h2>'+esc(b.name)+'</h2>'+
-    '<a class="btn dash" href="'+(dash?dash.href:b.drillUrl)+'" target="_blank" rel="noopener"'+
-    (dash?U.tipAttr({title:'Детальный дашборд',text:'«'+dash.name+'» в Proteus — все графики этого блока.',
-      note:dash.only?'':'Для покраски HQ откроется HQ-версия.'}):'')+
-    '>Детальный дашборд'+U.icoExt()+'</a></div>'+
+  /* 12.11 (итерация «переносы, интерфейс, AI», п. 4): кнопки «Детальный дашборд» в шапке блока нет */
+  let h='<div class="page-h"><div class="ph-row"><h2>'+esc(b.name)+'</h2></div>'+
     '<p>'+esc(b.hint)+' '+cmpTxt+'</p>'+
     /* поставка 83: охват данных вкладки (у «Рост HQ» — только HQ) — сразу под описанием, до вывода и графиков */
     (b.scope?'<p class="ph-scope">'+esc(b.scope)+'</p>':'')+'</div>';
@@ -628,11 +624,13 @@ function renderBlock(S,expanded,mixOpen,view){
       (canExp?'<button class="caret-btn"'+(isOpen?' data-open="1"':'')+' data-exp="'+r.n.path+'" aria-label="'+
         (isOpen?'Свернуть':'Раскрыть')+'">'+(isOpen?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>')+
       /* поставка 83: наведение на подразделение — численность, ФИ и логин руководителя */
-      '<span class="row-body"'+U.unitTip(r.n.name,D.fmtVal('hc_total',val(lp,'hc_total'))+' чел',r.n.head)+'>'+(tq?U.hlText(r.n.name,tq):esc(r.n.name))+
+      /* 12.11 (итерация «переносы, интерфейс, AI», п. 5): на вкладке AI численности у подразделения нет — ни под названием,
+         ни в подсказке (там свои числа: активные пользователи и проникновение) */
+      '<span class="row-body"'+U.unitTip(r.n.name,S.tab==='ai'?null:D.fmtVal('hc_total',val(lp,'hc_total'))+' чел',r.n.head)+'>'+(tq?U.hlText(r.n.name,tq):esc(r.n.name))+
       /* 31.10 (поставка 82, «перегруз под названием»): без уровня и ФИО — численность и логин руководителя */
-      '<span class="unit-sub">'+(r.n.direct?'без подразделения · ':'')+
-        D.fmtVal('hc_total',val(lp,'hc_total'))+' чел'+
-      (below?' · <span class="below"'+U.tipAttr({title:'Ниже ещё '+below+' '+U.plural(below,['подразделение','подразделения','подразделений']),
+      '<span class="unit-sub">'+(r.n.direct?'без подразделения'+(S.tab==='ai'?'':' · '):'')+
+        (S.tab==='ai'?'':D.fmtVal('hc_total',val(lp,'hc_total'))+' чел')+
+      (below?(S.tab==='ai'&&!r.n.direct?'':' · ')+'<span class="below"'+U.tipAttr({title:'Ниже ещё '+below+' '+U.plural(below,['подразделение','подразделения','подразделений']),
           text:'Таблица показывает три уровня вниз.\nГлубже — выберите строку и нажмите значок у её названия.'})+
         '>ниже ещё '+below+'</span>':'')+
       /* руководитель — в той же второй строке: строка таблицы везде в две строки текста (16.10) */

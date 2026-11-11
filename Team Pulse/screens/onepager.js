@@ -72,7 +72,8 @@ function obsInfo(S){
   const O=window.TPINSIGHTS.OBS, C=window.TPINSIGHTS.CARD;
   return '<span class="info"'+U.tipAttr({title:'Как отобраны выводы',
     /* поставка 131: коротко и списком; не больше четырёх выводов */
-    text:'Не больше '+C.show+' выводов — самые важные. Правила одни для всех, без ИИ.\nВ выводы попадает метрика, которая:',
+    /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 5): вводная фраза про число выводов снята */
+    text:'В выводы попадает метрика, которая:',
     list:['отличается от цели или от '+D.coName(S,'gen')+' на '+Math.round(O.dev*100)+'% и больше',
       'заметно хуже или лучше базы',
       'изменилась за год на '+Math.round(O.dev*100)+'% и больше',
@@ -161,7 +162,8 @@ function normRow(S,rl,ok0,bl,more){
   const mN=(more||[]).length, mBad=(more||[]).filter(c=>c.sev!=='good').length;
   return '<div class="in-sum">'+
     chip('more',mN,mBad?U.plural(mN,['отклонение','отклонения','отклонений']):U.plural(mN,['хорошая новость','хорошие новости','хороших новостей']),
-      'Ещё '+(mBad?'отклонения':'хорошие новости'),'На главной — четыре самых важных вывода. Остальные:',
+      /* 12.11, п. 6: в подсказке — только таблица выводов, без вводного текста */
+      'Ещё '+(mBad?'отклонения':'хорошие новости'),'',
       {head:['','Вывод'],rows:(more||[]).slice(0,8).map(c=>[(D.METRIC_BY_KEY[c.key]||{}).name||'',String(c.head||'').replace(/<[^>]+>/g,'')])})+
     chip('ok',ok.length,U.plural(ok.length,['метрика в норме','метрики в норме','метрик в норме']),'В норме',
       'Без заметных отклонений от ориентира, а где его нет — от прошлого года.',
@@ -233,18 +235,28 @@ function render(S,openRows){
   /* 29.10, п. 3: сводка — всегда; полоса — сверенные метрики */
   /* 30.10, шаг 1: служебная сводка «Готовность данных» — в самом низу главной, а не между выводами и таблицами
      (критики: «шум в зоне главного внимания») */
-  const devS=U.devSummary({live,total:D.SHOWN.length,ver:D.SHOWN.filter(m=>D.VERIFIED.has(m.key)).length,plan:D.DEV_PLAN});
 
   /* мини-навигация по блокам: липкая, с точкой худшего сигнала */
   /* поставка 120 (критики 119: «Отток и текучесть 1 — хуже ориентира: 1 метрика» при двух красных карточках, «Всё на уровне
      ориентира» у блока с карточкой «Посмотреть»): точка и счётчик — из тех же выводов, что карточки и вывод блока */
   const sig={};all.forEach(c=>[c.block].concat(c.fact.kind==='spike'?['movement']:[]).forEach(bk=>{
     const s=sig[bk]||(sig[bk]={act:0,high:0,good:0});if(c.sev==='good')s.good++;else{s.act++;if(c.sev==='high')s.high++}}));
-  h+=U.blockNav(D.visibleBlocks(S).filter(b=>D.visibleMetricsOfBlock(b.key,S).length).map(b=>{const s=sig[b.key]||{act:0,high:0,good:0};
+  h+=U.blockNav(D.visibleBlocks(S).filter(b=>D.visibleMetricsOfBlock(b.key,S).length||b.key==='ai'&&D.aiChartsOn(S).length>0).map(b=>{const s=sig[b.key]||{act:0,high:0,good:0};
     return {key:b.key,name:b.name,bad:s.act,high:s.high,good:s.good,state:s.high?'bad':s.act?'warn':s.good?'good':'neutral'}}));
 
   /* блоки: пропускаем те, где отключены все метрики (поставка 106: и AI — у него только недельная вкладка) */
-  D.visibleBlocks(S).filter(b=>D.visibleMetricsOfBlock(b.key,S).length).forEach(b=>{
+  /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 11): AI на One Pager — два графика по неделям (проникновение и
+     активные пользователи), те же, что на вкладке AI (SC.aiCharts: один расчёт, одна неделя, те же фильтры); какой показывать —
+     «Настрой свой дашборд» → Метрики → AI-инструменты. Оба отключены — блока нет; данных нет — так и сказано, без нулей */
+  const aiOn=D.aiChartsOn(S).length>0;
+  D.visibleBlocks(S).filter(b=>D.visibleMetricsOfBlock(b.key,S).length||b.key==='ai'&&aiOn).forEach(b=>{
+    if(b.key==='ai'){
+      h+='<div class="block-h" id="op-ai"><span class="block-name">'+esc(b.name)+'</span>'+
+        '<span class="block-hint">Сколько людей пользуются AI — по неделям.</span>'+
+        '<button class="btn ghost" data-tab="ai">Подробнее →</button></div>'+
+        '<div class="card op-ai">'+(SC.aiCharts(rl,S,true)||'<div class="tbl-note">Нет данных об использовании AI за последние недели.</div>')+'</div>';
+      return;
+    }
     h+='<div class="block-h" id="op-'+b.key+'"><span class="block-name">'+esc(b.name)+blockDevTag(b.key)+'</span>'+
       '<span class="block-hint">'+esc(b.hint)+'</span>'+
       '<button class="btn ghost" data-tab="'+b.key+'">Подробнее →</button></div>';
@@ -302,7 +314,7 @@ function render(S,openRows){
         '<td class="m-name bar-'+st+'">'+esc(m.name)+(D.isDev(m.key)?U.devTag(D.devStage(m.key)):'')+'<span class="m-sub">'+esc(hint)+'</span></td>'+
         /* поставка 120 (критики 119: «Текучесть месячная 2,3% · +0,8 к августу» читалось как «в сентябре 2,3%», а это среднее
            за январь–сентябрь): у средних за месяц — подпись «в ср. за мес.», под пилюлей MoM — значение самого месяца */
-        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.stock?'<span class="m-per">сейчас</span>':/^В среднем /.test(P.head||'')?'<span class="m-per"'+U.tipAttr({text:P.head+'.'})+'>в ср. за период</span>':'')+'</td>'+
+        '<td class="m-val">'+D.fmtVal(m.key,v)+(P.stock?'<span class="m-per">сейчас</span>':m.key==='turnover_m'&&P.lab?'<span class="m-per"'+U.tipAttr({title:m.name,text:P.head+'.',note:D.PARTIAL?'Месяц ещё идёт: значение — по дату данных.':null})+'>'+esc(P.lab)+'</span>':/^В среднем /.test(P.head||'')?'<span class="m-per"'+U.tipAttr({text:P.head+'.'})+'>в ср. за период</span>':'')+'</td>'+
         /* значение по закрытому месяцу: шапка колонки — про текущий, поэтому месяц подписан в самой пилюле */
         /* 11.11, п. 1: в пилюле — только изменение со знаком и единицей; периоды и оба значения — в подсказке. Неполный месяц
            против полного прошлого — без цвета (сравнение не равное) */
@@ -330,7 +342,8 @@ function render(S,openRows){
   });
 
   /* поставка 138, п. 3: переносы только между смысловыми фрагментами */
-  return U.keep('<div class="op-keep">'+h+devS+'</div>');
+  /* 12.11 (итерация «переносы, интерфейс, AI», п. 2): служебной сводки «Готовность данных» внизу главной нет */
+  return U.keep('<div class="op-keep">'+h+'</div>');
 }
 
 SC.onepager={render,insightCard,moodIco,MOOD_ICO};

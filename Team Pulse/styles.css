@@ -2728,6 +2728,10 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    смотреть»; рамка цели; карточка со стрелкой; курсор показа. Слой — fixed поверх отчёта и окна настройки */
 .tr-layer{display:none}
 .tr-sh{position:fixed;left:0;top:0;width:0;height:0;z-index:9990;background:rgba(17,24,39,.62);transition:left .2s,top .2s,width .2s,height .2s}
+/* 12.11 (итерация «переносы, интерфейс, AI», п. 3): пятая полоса (h) лежит НАД целью шага «только показать» и не пускает
+   клик — она прозрачная: раньше была тёмной, как остальные, и цель шага (путь, фильтры, зоны окна настройки) оставалась
+   затемнённой */
+.tr-sh[data-tb="h"]{background:transparent}
 .tr-ring{position:fixed;z-index:9991;border-radius:10px;box-shadow:0 0 0 2px var(--blue),0 0 0 6px rgba(43,108,255,.22);pointer-events:none;
   transition:left .2s,top .2s,width .2s,height .2s}
 .tr-card{position:fixed;z-index:9992;width:min(340px,calc(100vw - 24px));background:#fff;border-radius:var(--r4);box-shadow:var(--shadow-lg);
@@ -2756,7 +2760,29 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ttl-ic{fill:none;stroke:var(--pt-hi);stroke-width:2.55;stroke-linecap:round;stroke-linejoin:round}
 
 /* состав по категориям в KPI мониторинга (11.11, п. 5) — второй ряд карточек под KPI */
-.mon-kpi .mon-cat-cap{margin-top:var(--s7)}
+.mon-kpi .mon-cat-cap{margin-top:0}
+
+/* 12.11: «Выбрать все» в типе численности — отделена чертой; отмечены не все типы — в квадрате черта (часть) */
+.hcd-l .hcd-all{border-bottom:1px solid var(--line);margin-bottom:var(--s1)}
+.hcd-l .hcd-all.part .box{position:relative}
+.hcd-l .hcd-all.part .box::after{content:"";position:absolute;left:3px;right:3px;top:50%;height:2px;margin-top:-1px;background:var(--blue);border-radius:1px}
+/* 12.11: AI на One-pager — два графика по неделям в карточке блока */
+.op-ai{padding:var(--s5)}
+.op-ai .chart+.chart{margin-top:var(--chart-gap)}
+@media (min-width:1100px){.op-ai{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s7)}.op-ai .chart+.chart{margin-top:0}.op-ai>.tbl-note{grid-column:1/-1}}
+
+/* 12.11 (итерация «переносы, интерфейс, AI», п. 1): название в кавычках — цельным куском (см. tidyText в app.js) */
+.nw{display:inline-block;max-width:100%;vertical-align:baseline}
+/* 12.11, п. 11: стрелки «Назад» и «Уровнем выше» — крупнее, по центру строки текста, одинаковый зазор */
+.rh-crumbs .nb{gap:var(--s2)}
+.rh-crumbs .nb .nb-ar{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;font-size:var(--fs-head);line-height:1;margin-top:-2px}
+.rh-crumbs .nb:focus-visible{outline:2px solid var(--act);outline-offset:2px}
+/* 12.11, п. 10: процент в ячейке «Инструменты по покраске» — с подсказкой; нет данных — серым прочерком */
+.ai-paint .ai-pc{cursor:default}
+.ai-paint .ai-pc.na{color:var(--muted2)}
+
+/* 12.11: цельное название внутри плашки вывода — без собственной плашки */
+.in-pl span.nw,.bk-p .nw{display:inline-block;padding:0;border:0;border-radius:0;background:none;box-shadow:none;gap:0}
 
 /* ---------- поставка «по частям» (11.11): значки загрузки частей ответа ----------
    кольцо на значке вкладки, чьи разрезы ещё в пути; экран ожидания вкладки; чип «Догружаю детали…» в шапке.

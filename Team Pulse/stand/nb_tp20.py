@@ -384,7 +384,7 @@ def source_rows(U, people):
 
 # ---- вакансии (21.10): usr_cross_data.vacancy_daily по дням, как источник TP 2.0 ----------
 VAC_COLS = (['issue_full_nm', 'issue_day', 'approved_dt', 'approved_dt_last', 'close_flg', 'end_of_month_flg', 'last_dt_flg',
-             'status_name', 'status_name_chng_group', 'search_reason', 'mapping_channel_name', 'act_month',
+             'status_name', 'status_name_chng', 'status_name_chng_group', 'search_reason', 'mapping_channel_name', 'act_month',
              'specialization', 'lvl_position_adj', 'finalist_level_candy']
             + [f'resource_level_{i}_rk' for i in range(1, NL + 1)])
 
@@ -445,7 +445,7 @@ def vacancy_rows(U, vacs):
             st, gr = vac_status(v, d)
             nxt = d + dt.timedelta(1)
             yield ([v['id'], d, v['adt'], v['adt'], int(v['end'] == d and v['kind'] == 'close'), int(nxt.month != d.month),
-                    int(d == last), st, gr, v['reason'], v['channel'], f'{d.year}-{d.month:02d}', v['spec'], v['pos'],
+                    int(d == last), st, 'Hold' if st == 'Hold' else 'В работе', gr, v['reason'], v['channel'], f'{d.year}-{d.month:02d}', v['spec'], v['pos'],
                     v['cand'] if v['kind'] == 'close' and d == v['end'] else None]
                    + [pu[i] if i < len(pu) else '-' for i in range(NL)])
             d = nxt
@@ -522,6 +522,10 @@ def ai_extra(p, w, u):
     nt = 1 + h % 4
     tools = [AI_TOOLS[min(len(AI_TOOLS) - 1, int(((h // 7 + k * 5) % 100) ** 2 / 700))] for k in range(nt)]
     tools = sorted(set(tools), key=AI_TOOLS.index)
+    # 12.11: у части активных пользователей источник не знает инструментов (tools_count = 0) — в распределении
+    # «инструментов на человека» они отдельной категорией «0», а не теряются
+    if h % 29 == 0:
+        tools = []
     days = 1 + (h // 11) % 5
     dev = [t for t in tools if t in ('Copilot', 'Nestor IDE', 'Nessy CLI')]
     msgs = (h // 13) % 40 + 5 if dev else 0
@@ -731,7 +735,9 @@ def mon_days(people):
             if plan or bal == 1:
                 # поставка 104: дневная категория перформанса (hub · 3н — категория недели = последняя непустая дневная)
                 cat = ['normal', 'normal', 'normal', 'low', 'high', 'super_low', 'super_high', None][(rk * 13 + d.toordinal() // 7) % 8]
-                out.append((rk, d, dur, plan, bal, round(dur * talk, 2) if plan else 0.0, cat))
+                # 11.11 (мониторинг как в мастере): reduced_duration_hour — у части дней; больше 7 — он и есть часы дня
+                red = round(dur + 1.5, 1) if dur > 0 and h % 17 == 0 else round(dur - 2, 1) if dur > 0 and h % 19 == 0 else None
+                out.append((rk, d, dur, plan, bal, round(dur * talk, 2) if plan else 0.0, cat, red))
             d += dt.timedelta(1)
     return out
 
@@ -825,10 +831,27 @@ def load(pg, U, people):
                                                        'valid_from_dttm', 'valid_to_dttm', 'tgrowth_effective_dt'],
             [(i + 1, s_, 0, '2000-01-01', '5999-01-01', '2024-01-01' if SPEC_GROW[s_] else None) for i, s_ in enumerate(SPECS)])
     pg.run("CREATE TABLE prod_v_sse_crossdata.performance_metric_d (mdm_employee_rk bigint, calendar_dt date, duration_hour numeric, "
-           "plan_working_day_flg int, working_balance int, talk_call_duration_h numeric, performance_category text)")
+           "plan_working_day_flg int, working_balance int, talk_call_duration_h numeric, performance_category text, "
+           "reduced_duration_hour numeric)")
+    md = mon_days(people)
     pg.copy('prod_v_sse_crossdata.performance_metric_d', ['mdm_employee_rk', 'calendar_dt', 'duration_hour', 'plan_working_day_flg',
-                                                         'working_balance', 'talk_call_duration_h', 'performance_category'],
-            mon_days(people))
+                                                         'working_balance', 'talk_call_duration_h', 'performance_category',
+                                                         'reduced_duration_hour'], md)
+    # 11.11 (мониторинг как в мастере): календарь посещаемости — плановый рабочий день («Работа»), категория недели;
+    # decode(значение, образец, да, нет) — как в Greenplum (в PostgreSQL стенда такой нет)
+    pg.run("""DROP SCHEMA IF EXISTS prod_v_hrmart CASCADE; CREATE SCHEMA prod_v_hrmart;
+              CREATE TABLE prod_v_hrmart.mdm_employee_attendance (mdm_employee_rk bigint, attendance_dt date, attendance_group_nm text);
+              CREATE TABLE prod_v_sse_crossdata.performance_metric_w (mdm_employee_rk bigint, calendar_dt date, performance_category text);
+              CREATE OR REPLACE FUNCTION decode(text, text, int, int) RETURNS int LANGUAGE sql IMMUTABLE AS
+                $$ select case when $1 = $2 then $3 else $4 end $$""")
+    pg.copy('prod_v_hrmart.mdm_employee_attendance', ['mdm_employee_rk', 'attendance_dt', 'attendance_group_nm'],
+            [(r[0], r[1], 'Работа' if r[3] else 'Выходной') for r in md])
+    wk = {}
+    for r in md:
+        if r[6]:
+            wk[(r[0], r[1] - dt.timedelta(r[1].weekday()))] = r[6]
+    pg.copy('prod_v_sse_crossdata.performance_metric_w', ['mdm_employee_rk', 'calendar_dt', 'performance_category'],
+            [(k[0], k[1], v) for k, v in wk.items()])
     pg.run("""CREATE TABLE prod_v_dds_dic.mdm_employee_appl_status (mdm_employee_appl_status_cd text, mdm_employee_appl_status_desc text);
               INSERT INTO prod_v_dds_dic.mdm_employee_appl_status VALUES ('FNS','Одобрена'),('DCL','Отклонена'),('CNL','Отменена'),('INP','В работе')""")
     # 19.10: структура сотрудников с логинами — источник логина руководителя юнита (build_hub, как
@@ -1187,23 +1210,43 @@ def truth_office(U, people, office, pred=lambda p, d: True, act=ACTIVE):
 
 
 def mon_month(md):
-    """поставка 71: мониторинг человека за месяц, как performance_metric_d_aggr Адели: средние часы рабочего дня и звонков
-    по плановым дням, прогулы, работа в выходной, доля разговоров и сегменты"""
+    """мониторинг человека за месяц, как параграф with_performance (11.11 — логика мастер-дашборда, «ПРАВКИ» боевого
+    ноутбука): часы дня — reduced_duration_hour, если он больше 7, иначе duration_hour; средние часы дня и звонков — по
+    плановым дням месяца; прогулы и работа в выходной для сегментов — скользящие 16 недель (строк недель человека) на
+    последнюю неделю, начавшуюся в месяце; доля звонков — недельная (среднее звонков / среднее часов по плановым дням),
+    той же последней недели"""
     from decimal import Decimal, ROUND_HALF_UP
-    A = defaultdict(lambda: [0.0, 0, 0, 0, 0.0])
-    for rk, d, dur, plan, bal, talk, *_ in md:
+    A = defaultdict(lambda: [Decimal(0), 0, 0, 0, Decimal(0)])
+    W = defaultdict(lambda: [0, 0, Decimal(0), Decimal(0), 0])
+    for rk, d, dur, plan, bal, talk, _cat, red in md:
+        dc = Decimal(str(red if red is not None and red > 7 else dur))
+        tk = Decimal(str(talk))
         a = A[(rk, dt.date(d.year, d.month, 1))]
         if plan:
-            a[0] += dur; a[1] += 1; a[4] += talk
+            a[0] += dc; a[1] += 1; a[4] += tk
         a[2] += bal == -1; a[3] += bal == 1
+        w = W[(rk, d - dt.timedelta(d.weekday()))]
+        w[0] += bal == -1; w[1] += bal == 1
+        if plan:
+            w[2] += tk; w[3] += dc; w[4] += 1
+    byrk = defaultdict(list)
+    for (rk, ws) in W:
+        byrk[rk].append(ws)
+    last = {}                                   # (человек, месяц начала недели) → (прогулы 16 нед., выходные 16 нед., доля звонков)
+    for rk, wl in byrk.items():
+        wl.sort()
+        for i, ws in enumerate(wl):
+            win = wl[max(0, i - 15):i + 1]
+            x = W[(rk, ws)]
+            sh = float((x[2] / x[4] / (x[3] / x[4]) * 100).quantize(Decimal('0.1'), ROUND_HALF_UP)) if x[4] and x[3] else 0.0
+            last[(rk, dt.date(ws.year, ws.month, 1))] = (sum(W[(rk, v)][0] for v in win), sum(W[(rk, v)][1] for v in win), sh)
     out = {}
     for k, (ds, pd, ab, wo, ts) in A.items():
-        dur = ds / pd if pd else 0.0
-        sh = float(Decimal(100.0 * ts / ds).quantize(Decimal('0.1'), ROUND_HALF_UP)) if pd and ds else 0.0
-        out[k] = dict(dur=dur, talk=ts / pd if pd else 0.0, ab=ab, wo=wo,
-                      ts='нет данных' if dur <= 0 else 'до 20%' if sh < 20 else '20-30%' if sh <= 30 else
+        a16, w16, sh = last.get(k, (0, 0, 0.0))
+        out[k] = dict(dur=float(ds / pd) if pd else 0.0, talk=float(ts / pd) if pd else 0.0, ab=ab, wo=wo,
+                      ts='нет данных' if sh <= 0 else 'до 20%' if sh < 20 else '20-30%' if sh <= 30 else
                          '30-50%' if sh <= 50 else '50%+',
-                      as_='0-1' if ab <= 1 else '2-5' if ab <= 5 else '5+', ws='0-1' if wo <= 1 else '2-5' if wo <= 5 else '5+')
+                      as_='0-1' if a16 <= 1 else '2-5' if a16 <= 5 else '5+', ws='0-1' if w16 <= 1 else '2-5' if w16 <= 5 else '5+')
     return out
 
 

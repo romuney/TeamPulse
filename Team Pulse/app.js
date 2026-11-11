@@ -175,6 +175,9 @@ function request(next){
   const id=unitId(next.unit);
   if(!id)return;
   const sig=sigOf(next), was=STORE.pending;
+  /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 4): новое действие — плашка ошибки прошлого запроса («Ответ не
+     пришёл за 45 секунд») снимается сразу, при любом исходе; ошибка нового запроса встанет уже от него */
+  STORE.warn='';STORE.warnSig=null;
   /* уже показано — запроса нет (MC-03: повтор той же маски Proteus может не перезапросить) */
   if(sig===echoSig()&&!was){render();return}
   /* тот же выбор уже в пути: не дублируем; если ждём дольше STALE_WAIT — повтор с меткой */
@@ -200,6 +203,7 @@ function request(next){
   clearTimeout(_pendT);
   _pendT=setTimeout(()=>{
     if(!STORE.pending)return;
+    STORE.warnSig=STORE.pending.sig;
     STORE.pending=null;ROOTEL.classList.remove('tp-busy');
     STORE.warn='Ответ не пришёл за 45 секунд. Проверьте кросс-фильтры чарта в настройках дашборда.';
     renderHead();
@@ -225,6 +229,9 @@ function arrive(){
     if(prev.unit!==S.unit){S.selNode=null;expanded.clear();openRows.clear();tq=''}
   }
   const pend=STORE.pending;
+  /* 12.11, п. 4: ответ на запрос, по которому уже показана «Ответ не пришёл за 45 секунд», всё-таки пришёл — плашка
+     снимается: она говорит о состоянии текущего запроса, а не о прошлой неудаче */
+  if(!pend&&STORE.warnSig!=null&&STORE.warnSig===echoSig()){STORE.warn='';STORE.warnSig=null}
   /* ответ не на последний запрос (устаревший или перерисовка прежними данными): ждём нужный.
      Пришёл позже секунды после запроса — это настоящий старый ответ; нужный не пришёл за
      STALE_WAIT — один повтор той же маски с меткой */
@@ -240,6 +247,7 @@ function arrive(){
     clearTimeout(_pendT);
     _pendT=setTimeout(()=>{
       if(STORE.pending!==pend)return;
+      STORE.warnSig=pend.sig;
       STORE.pending=null;ROOTEL.classList.remove('tp-busy');
       STORE.warn='Ответ не пришёл за 45 секунд. Проверьте кросс-фильтры чарта в настройках дашборда.';
       renderHead();
@@ -301,12 +309,7 @@ function pilotChips(){
     note:'Пока их нет, выводы и сравнения с базой могут быть неполными — они обновятся сами.'})+'>'+
     (D.partsLate('onepager').length?'<span class="pc-x">!</span>Часть данных не пришла':'<span class="pc-sp" aria-hidden="true"></span>Догружаю детали…')+'</span>';
   /*:split*/
-  h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на настоящих данных',
-    text:'Настоящие цифры:',
-    list:['численность, найм, отток, переводы','текучесть, нежелательная и желательная','посещаемость офиса и T-рост — если данные уже пришли'],
-    note:'С полосатой меткой «в разработке» — условные цифры. Данные по '+(D.PARTIAL?D.ASOF_LABEL:D.CMP.cur)+' включительно: текущий месяц ещё не закрыт.'})+
-    /* 30.10, шаг 1: служебная метка — коротко, подробности в подсказке */
-    '><span class="pl-t">О данных</span></span>';
+  /* 12.11 (итерация «переносы, интерфейс, AI», п. 2): служебной плашки «О данных» в шапке нет */
   return h;
 }
 
@@ -320,9 +323,9 @@ function renderHead(){
   /* «← Назад» и «↑ Уровнем выше» стоят перед путём: путь отвечает «где я»,
      кнопки — «как вернуться». Предки в пути кликабельны, как и раньше. */
   const nav=(prev?'<button class="nb" data-uback="1"'+U.tipAttr({title:'Назад',
-      text:'Вернуться к «'+prev.name+'».'})+'>← Назад</button>':'')+
+      text:'Вернуться к «'+prev.name+'».'})+'><span class="nb-ar" aria-hidden="true">←</span>Назад</button>':'')+
     (par?'<button class="nb" data-crumb="'+par.path+'"'+U.tipAttr({title:'Уровнем выше',
-      text:'Перейти к «'+par.name+'».'})+'>↑ Уровнем выше</button>':'');
+      text:'Перейти к «'+par.name+'».'})+'><span class="nb-ar" aria-hidden="true">↑</span>Уровнем выше</button>':'');
   $('#crumbs').innerHTML=(nav?'<span class="nbs">'+nav+'</span>':'')+D.ancestorsOf(S.unit).filter(a=>!D.isTech(a.path)).map((a,i,arr)=>
     i===arr.length-1
       ? '<span>'+esc(a.name)+'</span>'
@@ -622,8 +625,14 @@ function metricOpts(){
         U.tipAttr({title:m.name,text:U.metricText(m)})+
         '><span class="box"></span><span class="nm">'+esc(m.name)+'</span></button>';
     }).join('');
+    /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 1): у AI метрик-строк нет — галочки управляют его графиками
+       (вкладка AI и One Pager): «Проникновение» и «Активные пользователи» */
+    const ai=b.key==='ai'?D.AI_CHARTS.map(x=>'<button class="mp-i'+(hid.has(x[0])?'':' on')+'" data-mtoggle="'+x[0]+'"'+
+      U.tipAttr({title:x[1],text:'График по неделям на вкладке «AI-инструменты» и на One-pager.'})+
+      '><span class="box"></span><span class="nm">График «'+esc(x[1])+'»</span></button>').join(''):'';
+    if(!items&&!ai)return '';
     return '<div class="mpick-g"><div class="mpick-h">'+esc(b.name)+'</div>'+
-      '<div class="mpick-l">'+items+'</div></div>';
+      '<div class="mpick-l">'+items+ai+'</div></div>';
   }).join('');
   const hidB=D.BLOCKS.length-D.visibleBlocks(DRAFT).length;
   $('#metricCount').innerHTML='Выбрано <b>'+D.visibleCount(DRAFT)+'</b> из '+D.SHOWN.length+' метрик'+
@@ -675,6 +684,10 @@ function hcDdHTML(){
   return '<div class="hcd'+(HCDD?' open':'')+'" id="hcDd"><button type="button" class="hcd-b" data-hcdd aria-expanded="'+HCDD+'">'+
     '<span class="hcd-v">'+esc(v)+'</span>'+nn(n)+'<span class="hcd-c"></span></button><div class="hcd-p">'+
     '<div class="hcd-l">'+
+    /* 12.11, п. 2: «Выбрать все» — первая строка: все типы одним нажатием; отмечены не все — черта (часть), все — галочка.
+       Повторное нажатие при всех отмеченных возвращает набор по умолчанию (совсем без типов выбор не бывает) */
+    (D.HC_TYPES.length>1?'<button type="button" class="mp-i hcd-all'+(d.hcType==='all'?' on':' part')+'" data-hcall aria-pressed="'+(d.hcType==='all')+'">'+
+      '<span class="box"></span><span class="nm">Выбрать все</span>'+nn(D.draftCount(d.unit,Object.assign({},d,{hcType:'all',hcSet:[]})))+'</button>':'')+
     D.HC_TYPES.map(t=>'<button type="button" class="mp-i'+(on(t)?' on':'')+'" data-hct="'+esc(t)+'"><span class="box"></span>'+
       '<span class="nm">'+esc(t==='-'?'Без типа':t)+'</span>'+nn(D.draftCount(d.unit,Object.assign({},d,{hcType:'set',hcSet:[t]})))+
       '</button>').join('')+'</div></div></div>';
@@ -734,6 +747,35 @@ function enhanceA11y(){
    графиков начинает сверху только при смене вкладки или главы — там другой
    экран, и стоять посередине чужого нечему. */
 const INNER_SCROLL=['.split-l .tbl-wrap','.split-r .panel-b','.st-rail'];
+/* 12.11 (итерация «переносы, интерфейс, AI», п. 1): переносы в текстах экрана. Название в кавычках-ёлочках («Блок 2») —
+   цельным куском: не рвётся между строк, а если не помещается в остаток строки — уходит на следующую целиком (inline-block
+   .nw; название длиннее строки переносится внутри себя — без обрезки и горизонтальной прокрутки). Число и его единица
+   (%, п.п., чел, дн, ч, мес) — через неразрывный пробел. Проход по текстовым узлам после вставки экрана; SVG не трогаем */
+const NB_RE=/(\d)[ \u2009](?=(?:%|п\.\s?п\.|чел|дн[\s.,;)]|дн$|дня|дней|день|ч[\s.,;)\/]|ч$|мес|раз[\s.,;)а]|нед|млн|тыс))/g;
+const NW_RE=/(«[^«»]{2,80}»[,.:;!?…)]?)/;
+function tidyText(root){
+  if(!root||typeof document.createTreeWalker!=='function'||typeof NodeFilter==='undefined')return;
+  const tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null), list=[];
+  for(let n=tw.nextNode();n;n=tw.nextNode())list.push(n);
+  list.forEach(n=>{
+    const p=n.parentNode;
+    if(!p||!p.closest||p.closest('svg,script,style,textarea,input,.nw'))return;
+    let t=n.nodeValue;
+    if(!t||t.length<3)return;
+    const t2=t.replace(NB_RE,'$1\u00a0');
+    if(t2!==t){n.nodeValue=t2;t=t2}
+    if(t.indexOf('«')<0)return;
+    const parts=t.split(NW_RE);
+    if(parts.length<2)return;
+    const fr=document.createDocumentFragment();
+    parts.forEach((s,i)=>{
+      if(!s)return;
+      if(i%2){const sp=document.createElement('span');sp.className='nw';sp.textContent=s;fr.appendChild(sp)}
+      else fr.appendChild(document.createTextNode(s));
+    });
+    p.replaceChild(fr,n);
+  });
+}
 let lastView='';
 function render(keepScroll,quiet){
   D.setHcMode(S.hcType);                 /* макет: ряды по типу численности (в пробнике — датасет) */
@@ -759,6 +801,7 @@ function render(keepScroll,quiet){
       /*split:*/: D.partsWait(S.tab).length ? partWaitView(S.tab)/*:split*/
       : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitUnit===S.unit?splitMode:null,share:splitShare}});
   }finally{if(G.lazy)G.lazy(false)}
+  tidyText($('#view'));tidyText($('#chips'));
   /* true — проиграть анимацию появления графиков */
   G.remeasure($('#view'),!quiet);
   /* после смены вкладки или главы (S.subTab подставляется при сборке) */
@@ -973,7 +1016,9 @@ on(document,'click',e=>{
   if(t.closest('#btnCancel')){closeSetup();return}
   /* 07.11 (замер 111 на бою: «кнопка не срабатывает»): сбрасывала только покраску и типы, а юнит оставляла — если менялся
      только юнит, нажатие ничего не меняло. Теперь и юнит — по умолчанию (тот, что открывается без фильтра юнита) */
+  /* 12.11, п. 3: сброс возвращает и все галочки блока «Метрики» (вместе с графиками AI); применяется той же «Применить» */
   if(t.closest('#btnReset')&&DRAFT){DRAFT.paint='all';DRAFT.itSeg='all';DRAFT.staffType='all';DRAFT.hcType='active';DRAFT.hcSet=[];
+    DRAFT.hiddenMetrics=[];
     DRAFT.unit=defUnit();UT={q:'',open:{}};$('#utQ').value='';
     paintOpts();utCenter();return}
   if(t.closest('#btnLink')){
@@ -995,6 +1040,8 @@ on(document,'click',e=>{
   /* тип численности: кнопка раскрывает список, галочка — тип; раньше общей
      проверки .opt. Клик мимо открытого списка его закрывает и идёт дальше (например, «Применить») */
   if(DRAFT&&t.closest('[data-hcdd]')){HCDD=!HCDD;paintOpts();return}
+  if(DRAFT&&t.closest('[data-hcall]')){
+    Object.assign(DRAFT,DRAFT.hcType==='all'?{hcType:'active',hcSet:[]}:D.hcNorm(D.HC_TYPES.slice()));paintOpts();return}
   const hct=t.closest('[data-hct]');
   if(hct&&DRAFT){hcToggle(hct.dataset.hct);paintOpts();return}
   if(HCDD&&DRAFT&&!t.closest('#hcDd')){HCDD=false;const dd=$('#hcDd');if(dd)dd.classList.remove('open')}
@@ -1331,8 +1378,7 @@ function tourSteps(v){
     add({sel:'#sideNav',title:'Разделы отчёта',html:'<b>One-pager</b> — главное на одном экране, ниже — блоки метрик с подробностями. '+
       'Точка на значке — сигнал блока: красная — есть что разбирать. Кнопка сверху сворачивает панель до значков.'});
     add({sel:'#crumbs',lock:true,title:'Где вы',html:'Путь к подразделению: клик по уровню — перейти к нему, «↑ Уровнем выше» — к родителю.'});
-    add({sel:'#chips',lock:true,title:'Фильтры и сравнение',html:'Применённые фильтры (× снимает фильтр), с чем сравниваем и тип численности. '+
-      '«О данных» — какие числа настоящие и по какую дату.'});
+    add({sel:'#chips',lock:true,title:'Фильтры и сравнение',html:'Применённые фильтры (× снимает фильтр), с чем сравниваем и тип численности.'});
     add({sel:'#btnSetup',demo:true,done:()=>!$('#setupOvl').classList.contains('hidden'),title:'Настрой свой дашборд',
       html:'Подразделение, фильтры и метрики — в одном окне.',hint:'Нажмите на подсвеченную кнопку или «Показать».'});
     add({sel:'#setupOvl .sc-org',drawer:true,lock:true,title:'Управленческая структура',
@@ -1364,7 +1410,8 @@ function tourSteps(v){
     add({sel:'#view .st-main .svgchart, #view .st-main .pf-s, #view .st-main table',title:'Графики и таблицы',
       html:'На графиках синяя линия — этот год, серая — прошлый, пунктир — цель или база. Наведите — значения месяца; клик по легенде '+
       'прячет ряд. Строки таблиц кликаются — выбор пересчитывает соседние.'});
-    add({sel:'#view .ph-row .btn',last:true,title:'Детальный дашборд',html:'Тот же блок в полном дашборде Proteus — для глубокого разбора.'});
+    /* 12.11, п. 4: кнопки «Детальный дашборд» больше нет — шага о ней тоже; последний шаг — графики и таблицы */
+    st[st.length-1].last=true;
   }
   return st;
 }

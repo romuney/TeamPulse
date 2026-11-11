@@ -118,13 +118,14 @@ function panel(S){
   let body='';
   if(onep){
     const groups=D.visibleBlocks(S).map(bl=>{
-      const mets=D.visibleMetricsOfBlock(bl.key,S);
+      /* 12.11 (словарь метрик, п. 5): метрика с noDict в словаре не описывается */
+      const mets=D.visibleMetricsOfBlock(bl.key,S).filter(m=>!m.noDict);
       return '<div class="pp-g"><div class="pp-g-h">'+esc(bl.name)+'</div>'+
         mets.map(m=>metricItem(m,S)).join('')+'</div>';
     }).join('');
     body='<div class="pp-lead">Сводка собирает метрики всех блоков. Ниже — что означает каждая из выбранных вами.</div>'+groups;
   }else{
-    const mets=D.visibleMetricsOfBlock(b.key,S);
+    const mets=D.visibleMetricsOfBlock(b.key,S).filter(m=>!m.noDict);
     body='<div class="pp-lead">'+esc(b.hint)+'</div>'+
       '<div class="pp-g">'+mets.map(m=>metricItem(m,S)).join('')+'</div>';
   }

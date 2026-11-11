@@ -611,8 +611,13 @@ function yoyPlot(p,ar){
   const nowI=CD.CUR_LEN-1, ya=p.ann||null, marks=p.marks||[];
   const all=[].concat(showMain?cur:[],showPrev?prev:[],showBench?bench:[]).filter(v=>v!=null);
   if(p.kpi){const a=p.kpi.annual||p.kpi;all.push(a.green);all.push(a.red);if(a.hi!=null)all.push(a.hi)}
-  const max=niceMax(all);
-  const Y=v=>bot-(v/max)*(bot-top), X=i=>x0+bandW*(i+0.5);
+  /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 8): у линии бывают отрицательные значения («Прирост с начала
+     года») — ось идёт от «красивого» минимума, а не от нуля: точка и подпись не уходят под график; нулевая линия видна.
+     Все значения неотрицательные — шкала прежняя, от нуля */
+  const neg=flow?[]:all.filter(v=>v<0), pos=all.filter(v=>v>0);
+  const lo=neg.length?-niceMax(neg.map(v=>-v)):0;
+  const max=neg.length?(pos.length?niceMax(pos):0):niceMax(all);
+  const Y=v=>bot-((v-lo)/((max-lo)||1))*(bot-top), X=i=>x0+bandW*(i+0.5);
   const big=(i,s)=>!!(ya&&ya.hi&&ya.hi.some(z=>z.i===i&&z.s===s));
   const noteAt=(i,s)=>ya&&ya.notes.find(z=>z.i===i&&z.s===s);
   const mkAt=(i,s)=>marks.find(z=>z.i===i&&z.s===s);
@@ -629,6 +634,7 @@ function yoyPlot(p,ar){
   const pl=!flow&&CD.PARTIAL&&CD.partFlow(key)&&!part;
   if(p.link)s+=yoyBands(x0,bandW,top,bot);
   s+=yoyAxis(X,bandW,top,bot,nowI,flow,key);
+  if(lo<0)s+=line(x0,Y(0),x0+plotW,Y(0),C_ZERO,1);
   /* вызревающий последний месяц: линия к нему — пунктиром, точка и бар — пунктирным контуром */
   if(p.kpi)s+=kpiLines(key,p.kpi,x0,x0+plotW,Y);
   /* Счётный поток (найм, уход, переводы, решения) — барами (14.10, заказчик:

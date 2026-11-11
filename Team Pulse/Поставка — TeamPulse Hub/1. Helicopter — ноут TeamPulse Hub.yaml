@@ -666,6 +666,11 @@ paragraphs:
     -- (hc_total_cnt = 1), как численность отчёта: ушедшие в течение месяца в мониторинг не попадают (было 341 против 339).
     -- Человек численности без записи перформанса — «не размечено» (perf_gray), а не пропуск: сумма категорий = численность
     -- той же выборки, покраска HQ / Support / Line — на конец месяца, как у численности
+    -- 11.11 (владелец, параграф «ПРАВКИ» боевого ноутбука — логика мастер-дашборда мониторинга): плановый рабочий день — из
+    -- календаря посещаемости (mdm_employee_attendance, «Работа»); часы дня — reduced_duration_hour, если он больше 7, иначе
+    -- duration_hour; прогулы и работа в выходные для сегментов — скользящие 16 недель на последнюю неделю месяца; доля
+    -- звонков — недельная (среднее звонков / среднее часов), последняя неделя месяца; категория недели и срок в ней —
+    -- из performance_metric_w
     -- =============================================================================
     drop table if exists all_metrics_with_performance_added ;
     create table all_metrics_with_performance_added as
@@ -698,38 +703,129 @@ paragraphs:
         from performance_base
         group by 1,2
     )
-    , performance_metric_d as (
+    , cat_week as(
         select
             mdm_employee_rk
-            , calendar_dt
-            , date_trunc('month', calendar_dt) as report_month
-            , duration_hour
-            , plan_working_day_flg
-            , case when working_balance = -1 then 1 else 0 end as absence -- прогул
-            , case when working_balance = 1 then 1 else 0 end as work_dayoff -- Работа в выходной
-            , talk_call_duration_h
-        from prod_v_sse_crossdata.performance_metric_d
-        where 1=1
-        and calendar_dt >= date_trunc('year', current_date - interval '1 year')
+            , date_trunc('week', calendar_dt)::date as report_week
+            , performance_category as cat_week
+        from prod_v_sse_crossdata.performance_metric_w
+        where calendar_dt >= (date_trunc('week', current_date) - interval '15 week')::date
     )
-    , performance_metric_d_aggr as (
+    , cat_week_location as(
+        with base_data as(
+            select
+                mdm_employee_rk
+                , date_trunc('week', calendar_dt)::date as report_week
+                , performance_category
+            from prod_v_sse_crossdata.performance_metric_w
+            where calendar_dt >= (date_trunc('week', current_date) - interval '15 week')::date
+        )
+        , islands as(
+            select mdm_employee_rk, report_week, performance_category,
+                row_number() over (partition by mdm_employee_rk order by report_week)
+                - row_number() over (partition by mdm_employee_rk, performance_category order by report_week) as grp
+            from base_data
+        )
+        select
+            mdm_employee_rk
+            , report_week
+            , performance_category as cat_week
+            , row_number() over (partition by mdm_employee_rk, performance_category, grp order by report_week) as weeks_in_current_category
+        from islands
+    )
+    , performance_metric_d as (
+        select
+            pmd.mdm_employee_rk
+            , pmd.calendar_dt
+            , date_trunc('month', pmd.calendar_dt)::date as report_month
+            , date_trunc('week', pmd.calendar_dt)::date as report_week
+            , pmd.duration_hour
+            , pmd.reduced_duration_hour
+            , extract(dow from pmd.calendar_dt) as weekday -- PG dow: вс=0..сб=6; будни = 1..5
+            , case when pmd.reduced_duration_hour > 7 then pmd.reduced_duration_hour else pmd.duration_hour end as duration_hour_correct
+            , decode(ec.attendance_group_nm, 'Работа', 1, 0) as plan_working_day_flg -- из календаря (mdm_employee_attendance), как в мастер-дашборде мониторинга
+            , case when pmd.working_balance = -1 then 1 else 0 end as absence -- прогул
+            , case when pmd.working_balance = 1 then 1 else 0 end as work_dayoff -- Работа в выходной
+            , pmd.talk_call_duration_h
+        from prod_v_sse_crossdata.performance_metric_d pmd
+        left join prod_v_hrmart.mdm_employee_attendance ec
+            on ec.mdm_employee_rk = pmd.mdm_employee_rk and ec.attendance_dt = pmd.calendar_dt
+        where 1=1
+        and pmd.calendar_dt >= date_trunc('year', current_date - interval '1 year')
+    )
+    , performance_month as (
         select
             report_month
             , mdm_employee_rk
-            , sum(case when plan_working_day_flg=1 then duration_hour end)/nullif(sum(plan_working_day_flg), 0)*1.0 as duration_hour
+            , sum(duration_hour_correct) filter (where plan_working_day_flg = 1) as duration_plan_sum
+            , sum(plan_working_day_flg) as plan_day_cnt
             , sum(absence) as absence
             , sum(work_dayoff) as work_dayoff
-            , sum(case when plan_working_day_flg=1 then talk_call_duration_h end)/nullif(sum(plan_working_day_flg), 0)*1.0 as talk_call_duration_h
-            , round(100.0 * sum(case when plan_working_day_flg=1 then talk_call_duration_h end)
-                / nullif(sum(case when plan_working_day_flg=1 then duration_hour end), 0), 1) as share_talk
-            -- поставка 104 (сверка с боевым мониторингом 05.11): суммы, а не только средние — активность
-            -- и доля звонков у боевого взвешены по плановым дням (активность = duration_plan_sum / plan_day_cnt,
-            -- доля звонков = 100 * talk_plan_sum / duration_plan_sum), среднее средних завышало активность на 0,15–0,2 ч
-            , sum(case when plan_working_day_flg=1 then duration_hour end) as duration_plan_sum
-            , sum(plan_working_day_flg) as plan_day_cnt
-            , sum(case when plan_working_day_flg=1 then talk_call_duration_h end) as talk_plan_sum
+            , sum(talk_call_duration_h) filter (where plan_working_day_flg = 1) as talk_plan_sum
+            , sum(duration_hour_correct) as dur_all_sum
+            , count(duration_hour_correct) as dur_all_cnt
+            , sum(talk_call_duration_h) filter (where (weekday in (1,2,3,4,5) and plan_working_day_flg is null and duration_hour > 0) or plan_working_day_flg = 1) as talk_h_sum
+            , sum(duration_hour_correct) filter (where (weekday in (1,2,3,4,5) and plan_working_day_flg is null and duration_hour > 0) or plan_working_day_flg = 1) as work_h_sum
         from performance_metric_d
         group by report_month, mdm_employee_rk
+    )
+    , performance_week as(
+        select
+            report_week
+            , mdm_employee_rk
+            , date_trunc('month', report_week)::date as report_month
+            , sum(absence) as absence_w
+            , sum(work_dayoff) as work_dayoff_w
+        from performance_metric_d
+        group by report_week, mdm_employee_rk
+    )
+    , performance_rolling as(
+        select
+            report_week
+            , mdm_employee_rk
+            , report_month
+            , sum(absence_w)     over (partition by mdm_employee_rk order by report_week rows between 15 preceding and current row) as absence_16w
+            , sum(work_dayoff_w) over (partition by mdm_employee_rk order by report_week rows between 15 preceding and current row) as work_dayoff_16w
+        from performance_week
+    )
+    , performance_rolling_month as(
+        select distinct on (mdm_employee_rk, report_month)
+            report_month
+            , mdm_employee_rk
+            , absence_16w
+            , work_dayoff_16w
+        from performance_rolling
+        order by mdm_employee_rk, report_month, report_week desc
+    )
+    , performance_share_week as(
+        select
+            mdm_employee_rk
+            , report_week
+            , round(
+                avg(talk_call_duration_h) filter (where (weekday in (1,2,3,4,5) and plan_working_day_flg is null and duration_hour > 0) or plan_working_day_flg = 1)
+                / nullif(avg(duration_hour_correct) filter (where (weekday in (1,2,3,4,5) and plan_working_day_flg is null and duration_hour > 0) or plan_working_day_flg = 1), 0)
+                * 100, 1) as share_talk
+        from performance_metric_d
+        group by mdm_employee_rk, report_week
+    )
+    , performance_share_month as(
+        select distinct on (mdm_employee_rk, report_month)
+            report_month
+            , mdm_employee_rk
+            , share_talk
+        from (select mdm_employee_rk, report_week, date_trunc('month', report_week)::date as report_month, share_talk from performance_share_week) s
+        order by mdm_employee_rk, report_month, report_week desc
+    )
+    , cat_week_month as(
+        select distinct on (c.mdm_employee_rk, date_trunc('month', c.report_week)::date)
+            date_trunc('month', c.report_week)::date as report_month
+            , c.mdm_employee_rk
+            , c.cat_week
+            , cl.weeks_in_current_category
+        from cat_week c
+        left join cat_week_location cl
+            on cl.mdm_employee_rk = c.mdm_employee_rk and cl.report_week = c.report_week
+        order by c.mdm_employee_rk, date_trunc('month', c.report_week)::date, c.report_week desc
     )
 
 
@@ -741,37 +837,52 @@ paragraphs:
         , case when coalesce(nm.hc_total_cnt, 0) = 1 then coalesce(perf.perf_high, 0) else 0 end   as perf_high
         , case when coalesce(nm.hc_total_cnt, 0) = 1
                then case when perf.mdm_employee_rk is null then 1 else coalesce(perf.perf_gray, 0) end else 0 end as perf_gray
-        , coalesce(pmd.duration_hour, 0)    as duration_hour -- Длительность рабочего дня в часах средняя
-        , coalesce(pmd.absence, 0)          as absence -- прогул
-        , coalesce(pmd.work_dayoff, 0)        as work_dayoff -- Работа в выходной
-        , coalesce(pmd.talk_call_duration_h, 0) as talk_call_duration_h -- Длительность звонков в часах средняя
-        , coalesce(pmd.share_talk, 0)       as share_talk -- доля времени на разговоры, %
-        , coalesce(pmd.duration_plan_sum, 0) as duration_plan_sum -- часы плановых дней месяца (поставка 104)
-        , coalesce(pmd.plan_day_cnt, 0)      as plan_day_cnt -- плановые дни месяца
-        , coalesce(pmd.talk_plan_sum, 0)     as talk_plan_sum -- часы звонков плановых дней месяца
+        , coalesce(pm.duration_plan_sum,0)/nullif(coalesce(pm.plan_day_cnt,0),0) as duration_hour -- Длительность рабочего дня в часах средняя
+        , coalesce(pm.talk_plan_sum,0)/nullif(coalesce(pm.plan_day_cnt,0),0) as talk_call_duration_h -- Длительность звонков в часах средняя
+        , coalesce(pm.absence, 0)          as absence -- прогул
+        , coalesce(pm.work_dayoff, 0)      as work_dayoff -- Работа в выходной
+        , coalesce(pm.talk_h_sum, 0)       as talk_h_sum
+        , coalesce(pm.work_h_sum, 0)       as work_h_sum
+        , coalesce(psm.share_talk, 0)      as share_talk -- доля времени на разговоры, % (недельно avg/avg, как в мастер-дашборде мониторинга)
+        , coalesce(pm.duration_plan_sum, 0) as duration_plan_sum -- часы плановых дней месяца (поставка 104)
+        , coalesce(pm.plan_day_cnt, 0)     as plan_day_cnt -- плановые дни месяца
+        , coalesce(pm.talk_plan_sum, 0)    as talk_plan_sum -- часы звонков плановых дней месяца
+        , coalesce(cwm.cat_week, 'grey')   as cat_week -- категория недели (performance_metric_w)
+        , coalesce(cwm.weeks_in_current_category, 0) as weeks_in_current_category
+        , coalesce(prm.absence_16w, 0)     as flg_absent_total -- прогулы за 16 недель
+        , coalesce(prm.work_dayoff_16w, 0) as flg_work_in_rest_total -- работа в выходные за 16 недель
         , case
-            when coalesce(pmd.duration_hour, 0) <= 0 then 'нет данных'
-            when coalesce(pmd.share_talk, 0) < 20 then 'до 20%'
-            when coalesce(pmd.share_talk, 0) <= 30 then '20-30%'
-            when coalesce(pmd.share_talk, 0) <= 50 then '30-50%'
+            when coalesce(psm.share_talk, 0) <= 0 then 'нет данных'
+            when coalesce(psm.share_talk, 0) < 20 then 'до 20%'
+            when coalesce(psm.share_talk, 0) <= 30 then '20-30%'
+            when coalesce(psm.share_talk, 0) <= 50 then '30-50%'
             else '50%+'
         end as talk_segment_cd
         , case
-            when coalesce(pmd.absence, 0) <= 1 then '0-1'
-            when coalesce(pmd.absence, 0) <= 5 then '2-5'
+            when coalesce(prm.absence_16w, 0) <= 1 then '0-1'
+            when coalesce(prm.absence_16w, 0) <= 5 then '2-5'
             else '5+'
         end as absence_segment_cd
         , case
-            when coalesce(pmd.work_dayoff, 0) <= 1 then '0-1'
-            when coalesce(pmd.work_dayoff, 0) <= 5 then '2-5'
+            when coalesce(prm.work_dayoff_16w, 0) <= 1 then '0-1'
+            when coalesce(prm.work_dayoff_16w, 0) <= 5 then '2-5'
             else '5+'
         end as weekend_segment_cd
     from all_metrics nm
     left join performance perf
         on nm.mdm_employee_rk = perf.mdm_employee_rk and perf.calendar_dt = nm.report_month--::date
         and nm.last_row_flg = 1
-    left join performance_metric_d_aggr pmd
-        on nm.mdm_employee_rk = pmd.mdm_employee_rk and pmd.report_month = nm.report_month
+    left join performance_month pm
+        on nm.mdm_employee_rk = pm.mdm_employee_rk and pm.report_month = nm.report_month
+        and nm.last_row_flg = 1
+    left join performance_rolling_month prm
+        on nm.mdm_employee_rk = prm.mdm_employee_rk and prm.report_month = nm.report_month
+        and nm.last_row_flg = 1
+    left join performance_share_month psm
+        on nm.mdm_employee_rk = psm.mdm_employee_rk and psm.report_month = nm.report_month
+        and nm.last_row_flg = 1
+    left join cat_week_month cwm
+        on nm.mdm_employee_rk = cwm.mdm_employee_rk and cwm.report_month = nm.report_month
         and nm.last_row_flg = 1
 
     distributed by (mdm_employee_rk, report_month);
@@ -1409,12 +1520,20 @@ paragraphs:
             ('prod_v_sse_crossdata', 'performance_metric_d', 'plan_working_day_flg'),
             ('prod_v_sse_crossdata', 'performance_metric_d', 'working_balance'),
             ('prod_v_sse_crossdata', 'performance_metric_d', 'talk_call_duration_h'),
-            ('prod_v_sse_crossdata', 'performance_metric_d', 'performance_category')
+            ('prod_v_sse_crossdata', 'performance_metric_d', 'performance_category'),
+            ('prod_v_sse_crossdata', 'performance_metric_d', 'reduced_duration_hour'),
+            ('prod_v_sse_crossdata', 'performance_metric_w', 'calendar_dt'),
+            ('prod_v_sse_crossdata', 'performance_metric_w', 'mdm_employee_rk'),
+            ('prod_v_sse_crossdata', 'performance_metric_w', 'performance_category'),
+            ('prod_v_hrmart', 'mdm_employee_attendance', 'mdm_employee_rk'),
+            ('prod_v_hrmart', 'mdm_employee_attendance', 'attendance_dt'),
+            ('prod_v_hrmart', 'mdm_employee_attendance', 'attendance_group_nm'),
+            ('usr_cross_data', 'vacancy_daily', 'status_name_chng')
     ),
     have as (
         select table_schema as sch, table_name as tbl, column_name as col
         from information_schema.columns
-        where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'rost_info', 'structure_x_rost', 'employee_specialization', 'office_traffic_calendar', 'hr_executive_proteus', 'vacancy_daily', 'performance_metric_d')
+        where table_name in ('all_metrics_with_performance_and_office_traffic_and_grt', 'org_structure', 'rost_info', 'structure_x_rost', 'employee_specialization', 'office_traffic_calendar', 'hr_executive_proteus', 'vacancy_daily', 'performance_metric_d', 'performance_metric_w', 'mdm_employee_attendance')
     )
     select case when count(*) = 0 then 'колонки на месте'
                 else ('НЕТ КОЛОНОК (параграф «hub · 0 колонки»): '
@@ -1478,7 +1597,7 @@ paragraphs:
               ,vd.approved_dt::date            as adt
               ,vd.approved_dt_last::date       as adt_last
               ,coalesce(vd.close_flg::int, 0)  as cf
-              ,(vd.status_name = 'Hold')::int  as is_hold
+              ,(vd.status_name_chng not in ('Approved', 'В работе', 'Оффер', 'На Рассмотрении', 'В очереди'))::int  as is_hold
         from usr_cross_data.vacancy_daily vd
         where vd.issue_day >= (select dt_from from p)
           and vd.issue_day <= (select last_dt from mx)
@@ -1988,7 +2107,7 @@ paragraphs:
     union all select node_rk, 'apt', paint || '|' || tool, count(distinct pid) from bt where it = 0 group by 1, 3
     union all select node_rk, 'aut', tool, count(distinct pid) from bt where it = 0 group by 1, 3
     union all select node_rk, 'auf', days::text, count(distinct pid) from b where it = 0 and u = 1 and days > 0 group by 1, 3
-    union all select node_rk, 'aun', least(ntools, 4)::text, count(distinct pid) from b where it = 0 and u = 1 and ntools > 0 group by 1, 3
+    union all select node_rk, 'aun', case when ntools > 0 then least(ntools, 4) else 0 end::text, count(distinct pid) from b where it = 0 and u = 1 group by 1, 3
     union all select node_rk, 'aum', '', sum(msgs) from b where it = 0 group by 1
     union all select node_rk, 'auc', '', sum(cls) from b where it = 0 group by 1
     union all select node_rk, 'auk', task, sum(n) from bk group by 1, 3

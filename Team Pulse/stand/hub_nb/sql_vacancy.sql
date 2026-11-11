@@ -46,7 +46,7 @@ base as (
           ,vd.approved_dt::date            as adt
           ,vd.approved_dt_last::date       as adt_last
           ,coalesce(vd.close_flg::int, 0)  as cf
-          ,(vd.status_name = 'Hold')::int  as is_hold
+          ,(vd.status_name_chng not in ('Approved', 'В работе', 'Оффер', 'На Рассмотрении', 'В очереди'))::int  as is_hold
     from usr_cross_data.vacancy_daily vd
     where vd.issue_day >= (select dt_from from p)
       and vd.issue_day <= (select last_dt from mx)

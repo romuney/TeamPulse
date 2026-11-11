@@ -96,29 +96,17 @@ function catBlock(md){
     (/данные по/.test(c.full||'')?' ('+String(c.full).split(', ')[1]+')':'')+'.',
     list:['**Доля** — от всех людей выборки в мониторинге за этот месяц: '+D.fmtInt(hc)+' чел. (норма + недоработка + переработка + не размечено)',
       '**Не размечено** — данных мониторинга по человеку нет; это не значит, что он не работал'],
-    note:'Фильтры — те же, что у карточек выше.'})+' aria-label="Как считаются доли">i</span>';
+    note:'Фильтры — выбранные в отчёте.'})+' aria-label="Как считаются доли">i</span>';
   const cards=[['normal','Норма',G.C_MON.normal],['under','Недоработка',G.C_MON.under],['over','Переработка',G.C_MON.over],['grey','Не размечено',G.C_MON.grey]]
     .filter(x=>x[0]!=='grey'||c.grey!=null).map(x=>({id:'c'+x[0],name:x[1],n:c[x[0]]||0,bg:x[2],sub:pc(c[x[0]]||0)+' выборки'}));
   return '<div class="bt-cap mon-cat-cap">Состав по категориям '+info+'<span class="bt-sub">'+U.esc(mon)+' · '+D.fmtInt(hc)+' чел</span></div>'+
     U.shareCards({static:true,cards:cards});
 }
+/* 12.11 (итерация «настройки, One Pager, мониторинг», п. 12): блок «За 16 недель» и три KPI (прогулы, работа в выходные,
+   звонки в Толк) сняты; остаётся состав по категориям и всё, что ниже */
 function kpiBlock(lp,md){
-  const k=D.monKpi(lp);
-  const pc=(n,b)=>b?(Math.round(n/b*1000)/10).toString().replace('.',',')+'%':'—';
-  const per=k&&k.fromTxt?k.fromTxt+' – '+k.toTxt:'';
-  /* поставка 110 (E5, критики 07.11): что считается в каждой карточке — подсказкой у заголовка, карточки без подписей */
-  const info='<span class="info"'+U.tipAttr({title:'Что в карточках',text:'Каждый человек — один раз за весь период.',
-    list:['**Прогулы** — у кого за период 2 и больше дней с отметкой «прогул» в мониторинге',
-      '**Работа в выходные** — 2 и больше выходных дней с рабочей активностью',
-      '**Звонки в Толк от 20%** — часы звонков составили 20% рабочих часов периода и больше'],
-    note:'Процент — от численности на конец периода.'})+'>i</span>';
-  const cap='<div class="bt-cap">За '+(k&&k.weeks||D.MPW)+' недель '+info+(per?'<span class="bt-sub">'+U.esc(per)+'</span>':'')+'</div>';
-  if(!k)return '<div class="mon-kpi">'+cap+'<div class="tbl-note">Нет данных мониторинга по дням за последние '+D.MPW+
-    ' недель — KPI не считаются.</div>'+catBlock(md)+'</div>';
-  const sum=a=>a.reduce((x,y)=>x+y,0);
-  const card=(id,name,a,bg)=>({id:id,name:name,n:sum(a),bg:bg,sub:pc(sum(a),k.hc)+' численности'});
-  const cards=[card('ab','Прогулы',k.ab,C.per2),card('we','Работа в выходные',k.we,C.per),card('tk','Звонки в Толк от 20%',k.talk,C.talk)];
-  return '<div class="mon-kpi">'+cap+U.shareCards({static:true,cards:cards})+catBlock(md)+'</div>';
+  const c=catBlock(md);
+  return c?'<div class="mon-kpi">'+c+'</div>':'';
 }
 
 SC.blocks.monitor={

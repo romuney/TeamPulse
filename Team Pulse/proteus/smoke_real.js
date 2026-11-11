@@ -403,17 +403,22 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
       ', '+lc.hours+' ч/день, звонки '+lc.talk+'% — как в строке юнита; линии часов и звонков, плашек KPI нет (30.10)');
     /* поставка 108: три графика (прогулы, выходные, звонки ≥20%) сняты — KPI за 16 недель из разрезов mp / mpd ответа
        перед «Составом по категориям»; у выбранного юнита — сумма листьев = строке узла */
-    const KP=D.monKpi(rl), mpx={};
-    String(scopeRow.mx||'').split('\n').forEach(l=>{const f=l.split('\t');if(f[0]==='mp')mpx[f[1]]=+f[2]});
-    if(Object.keys(R.mixVals('mp')).length){
-      const s_=a=>a.reduce((x,y)=>x+y,0);
-      ok(KP&&KP.hc===Math.round(mpx.hc||0)&&s_(KP.ab)===Math.round((mpx.ab25||0)+(mpx.ab5||0))&&
-         s_(KP.talk)===Math.round((mpx.t23||0)+(mpx.t35||0)+(mpx.t5||0))&&KP.weeks===16&&
-         mo.indexOf('class="mon-kpi"')>=0&&mo.indexOf('class="mon-kpi"')<mo.indexOf('Состав по категориям')&&
-         !/Прогулы, чел|Работа в выходные, чел|Звонки в Толк от 20% рабочего времени, чел/.test(mo),
-        'KPI мониторинга за '+(KP&&KP.weeks)+' недель ('+(KP&&KP.fromTxt)+' – '+(KP&&KP.toTxt)+'): база '+(KP&&KP.hc)+', прогулы '+(KP&&s_(KP.ab))+
-        ', выходные '+(KP&&s_(KP.we))+', звонки ≥20% '+(KP&&s_(KP.talk))+' — перед «Составом», графиков нет');
-    }else ok(/class="mon-kpi"/.test(mo)&&/Нет данных мониторинга по дням/.test(mo),'KPI мониторинга: в ответе нет mp — «нет данных», не ноль');
+    /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 12): блок «За 16 недель» и три KPI сняты — на вкладке остаётся
+       состав по категориям и графики под ним */
+    ok(mo.indexOf('class="mon-kpi"')>=0&&/Состав по категориям/.test(mo)&&
+       !/За 16 недель|Работа в выходные|Звонки в Толк от 20%|Прогулы, чел/.test(mo),
+      'мониторинг: блока «За 16 недель» и трёх KPI нет, состав по категориям на месте');
+    /* 12.11 (итерация «переносы, интерфейс, AI», п. 9): инструментов на человека — каждый активный пользователь ровно в одной
+       категории (с «Не определено»), сумма = активным пользователям той же недели без стажёров */
+    {const u=D.aiUsage(rl), cwA=D.aiCur(D.aiWeeks(rl));
+      if(u&&u.real&&cwA){const sp=u.per.reduce((a,x)=>a+x.value,0);
+        ok(sp===cwA.wau&&sp>0,'AI: инструментов на человека — сумма категорий '+sp+' = активным пользователям '+cwA.wau+
+          (u.per.some(x=>x.na)?' (в том числе «Не определено» '+u.per.find(x=>x.na).value+')':''))}}
+    /* 12.11, п. 11: на One-pager — графики AI по неделям, числа — те же, что на вкладке AI */
+    {const opA=A.go('onepager'), cwA=D.aiCur(D.aiWeeks(rl));
+      if(cwA)ok(opA.indexOf('id="op-ai"')>=0&&/Проникновение AI по неделям/.test(opA)&&/Активные пользователи AI по неделям/.test(opA)&&
+        opA.slice(opA.indexOf('id="op-ai"')).indexOf(D.fmtVal('ai_penetration',cwA.pen))>=0,
+        'One-pager: графики AI по неделям, проникновение последней полной недели '+D.fmtVal('ai_penetration',cwA.pen)+' — как на вкладке AI')}
     /* 06.11: мониторинг по неделям снят — на реальных данных только месяцы, шагов «недели» нет */
     ok(MD.monthly&&!MD.weeks&&SC.blocks.monitor.subTabs.map(t=>t[0]).join(',')==='activity','мониторинг: только месяцы, недельного шага нет');
   }else ok(!/class="kpi mk/.test(mo)&&/Состав по категориям/.test(mo)&&!/data-mongran|data-pmark/.test(mo),
@@ -534,7 +539,8 @@ ok(R.nodes.filter(n=>n.direct&&n.hide).every(n=>!new RegExp('data-node="'+n.path
   'пустая «Напрямую» не показана, но в суммах участвует (сверка листьев выше)');
 ok(!/data-openunit="[^"]*\/·"/.test(exp),'у строки «Напрямую» нет «Открыть юнит»');
 ok(!/NaN|undefined/.test(html.replace(/data-[a-z-]+="[^"]*"/g,'')),'в разметке нет NaN и undefined');
-ok(/dev-tag/.test(html)&&/dev-sum/.test(html),'метрики без источника помечены «в разработке», сводка готовности на One-pager');
+/* 12.11: сводки «Готовность данных» на One-pager и плашки «О данных» в шапке нет */
+ok(!/dev-sum|Готовность данных/.test(html),'сводки готовности на One-pager нет');
 /* плашки «в разработке» по вкладкам: с колонками 12.10 у живых вкладок плашки нет */
 const tgF=A.go('tgrowth','flow'), ofD=A.go('office','attend'), ofC=A.go('office','calendar'), ofB=A.go('office','booking');
 /* поставка 66: посещения Адели в ответе — вкладки «Офиса» без «в разработке» */

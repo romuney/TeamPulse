@@ -199,7 +199,7 @@ function ytdBase(i){const j=YEAR_START_EXT[i];return j>0?j-1:0}
    Hub заменяет оба, а дашборды остаются детальным слоем: кнопка «Детальный
    дашборд» ведёт туда, где блок есть, — при покраске HQ в HQ-версию. */
 const BLOCKS=[
-{key:'structure',name:'Структура численности',hint:'Сколько людей в команде, кто они и как оформлены.',drillUrl:'#/detail/structure',dash:['34661','34136']},
+{key:'structure',name:'Структура численности',hint:'Сколько людей в команде.',drillUrl:'#/detail/structure',dash:['34661','34136']},
 {key:'movement',name:'Движение персонала',hint:'Кто пришёл и кто ушёл: найм, отток, переводы. Растёт ли команда.',drillUrl:'#/detail/movement',dash:['34661','34136']},
 {key:'turnover',name:'Отток и текучесть',hint:'Сколько уходит, кто и почему.',drillUrl:'#/detail/turnover',dash:['34661','34136']},
 {key:'hiring',name:'Найм и вакансии HQ',hint:'Вакансии, план найма, откуда приходят и кого нанимаем.',drillUrl:'#/detail/hiring',dash:['34661','34136']},
@@ -242,24 +242,24 @@ const METRICS=[
 {key:'hc_active',block:'structure',aud:'all',name:'Активная численность',short:'Активные',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сотрудники на конец месяца с типом численности «Активная». Без подрядчиков, стажёров и неактивных: тех, кто в декрете, в учебной группе или не выходит на работу.',
   calc:'Тип численности «Активная». Не входят:\n• подрядчики — их добавляют в фильтре «Тип численности»;\n• стажёры;\n• неактивные: декрет, прогул, мобилизация, учебные группы, POS-агенты и амбассадоры.\nПо ней считают текучесть и сравнивают подразделения.'},
 {key:'hc_total',block:'structure',aud:'all',name:'Численность',short:'Всего',fmt:'int',better:'flat',unit:'чел',anchor:null,hint:'Сколько людей в команде на конец месяца. По умолчанию — тип «Активная»; подрядчиков и другие типы численности добавляет фильтр «Тип численности» в настройке.',
-  calc:'По умолчанию — тип численности «Активная»; по ней считают текучесть и сравнивают команды. Фильтр «Тип численности» выбирает любой набор типов: например, «Активная» и «Подрядчики» — как в мастер-отчёте. Отмечены все типы — все, кто числится.'},
+},
 /* Среднесписочная численность в списке метрик не стоит: как строка отчёта она
    ничего не сообщала руководителю (это всегда полусумма двух соседних значений
    численности), а место в таблице и карточку занимала. Ряд `hc_avg` остался —
    он знаменатель текучести и считается в seriesExt по ключу. */
 {key:'hire',block:'movement',aud:'all',name:'Найм',short:'Найм',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек пришли в активную численность за месяц: приняты в компанию, переведены из учебной группы в боевую или из стажёров в штат.',
-  calc:'Как в методологии HR: найм в компанию + переводы в боевую группу + переводы стажёров в штат. Подрядчики в найм не входят. Считается в день найма, по подразделению, покраске и типу численности этого дня: если человека наняли в Support, а потом в том же периоде перевели в HQ, то при фильтре HQ он — перевод, а не найм. Тот же счёт — в водопаде, разбивках найма и движении по специализациям.'},
+  calc:'Подрядчики в найм не входят. Считается в день найма, по подразделению, покраске и типу численности этого дня: если человека наняли в Support, а потом в том же периоде перевели в HQ, то при фильтре HQ он — перевод, а не найм.'},
 {key:'attrition',block:'movement',aud:'all',name:'Отток',short:'Отток',fmt:'int',flow:true,better:'lower',unit:'чел',anchor:null,hint:'Сколько человек уволились из компании за месяц, по любой причине.',
   calc:'Переводы с сохранением непрерывного стажа — не увольнения (методология HR).'},
-{key:'transfer_in',block:'movement',aud:'all',name:'Переводы в команду',short:'Перев. в',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек за месяц пришли в команду из других подразделений. Сюда же — кто стал подходить под выбранные фильтры: например, при фильтре HQ — кто стал HQ.',
-  calc:'Перевод в выбор: вчера человек был вне команды или не подходил под фильтры (покраска, IT-код, штат, тип численности), сегодня — в команде и подходит. Считается по дням; найм, перевод стажёра в штат и из учебной группы в боевую — это найм, не перевод. Без фильтров смена покраски или штата — не перевод; на активной численности возвращение из декрета — перевод. Переходы между подразделениями внутри команды сюда не попадают.'},
+{key:'transfer_in',block:'movement',aud:'all',name:'Переводы в команду',short:'Перев. в',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек за месяц пришли в команду из других подразделений. В том числе — кто стал подходить под выбранные фильтры: например, при фильтре HQ — кто стал HQ.',
+  calc:'Перевод в выбор: вчера человек был вне команды или не подходил под фильтры (покраска, IT-код, штат, тип численности), сегодня — в команде и подходит.'},
 /* 27.10-в, п. 20: на вкладке «Движение персонала» две карточки переводов — одной: «Переводы» = в − из. Метрика только
    для карточки (kpiOnly): в таблицах, One-pager и выводах — по-прежнему «в» и «из» */
 {key:'transfer_net',block:'movement',kpiOnly:1,aud:'all',name:'Переводы',short:'Переводы',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,
   diff:['transfer_in','transfer_out'],hint:'Переводы в команду минус переводы из неё за месяц: плюс — пришло больше, чем ушло.',
   calc:'Переводы в команду − переводы из команды за месяц. Каждое слагаемое — как в карточках «Переводы в команду» и «Переводы из команды».'},
-{key:'transfer_out',block:'movement',aud:'all',name:'Переводы из команды',short:'Перев. из',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек за месяц ушли из команды в другие подразделения. Сюда же — кто перестал подходить под выбранные фильтры: например, при фильтре «Штат» — кто перешёл на ГПД.',
-  calc:'Перевод из выбора: вчера человек был в команде и подходил под фильтры (покраска, IT-код, штат, тип численности), сегодня — вне команды или не подходит. Считается по дням; увольнение — не перевод. Без фильтров смена покраски или штата — не перевод; на активной численности уход в декрет — перевод. Переходы между подразделениями внутри команды сюда не попадают.'},
+{key:'transfer_out',block:'movement',aud:'all',name:'Переводы из команды',short:'Перев. из',fmt:'int',flow:true,better:'flat',unit:'чел',anchor:null,hint:'Сколько человек за месяц ушли из команды в другие подразделения. В том числе — кто перестал подходить под выбранные фильтры: например, при фильтре «Штат» — кто перешёл на ГПД.',
+  calc:'Перевод из выбора: вчера человек был в команде и подходил под фильтры (покраска, IT-код, штат, тип численности), сегодня — вне команды или не подходит.'},
 /* Итог движения персонала: найм + переводы в − отток − переводы из за вычетом
    прочих изменений. Пять потоков без итога не отвечали на вопрос «команда
    выросла или нет» — считать в уме четыре числа приходилось самому. */
@@ -273,14 +273,14 @@ const METRICS=[
    придуманные для макета. */
 {key:'turnover_m',block:'turnover',aud:'all',name:'Текучесть месячная',short:'Тек. мес.',fmt:'pct',better:'lower',unit:'%',anchor:null,
   derived:{num:'attrition',den:'hc_avg',scale:100},hint:'Какая доля команды уволилась за месяц: отток к средней численности.',
-  calc:'Отток ÷ средняя численность × 100%. Средняя численность — полусумма активной численности на конец прошлого и этого месяца, как в отчётах HR.'},
+  calc:'Отток ÷ средняя численность × 100%. Средняя численность — среднее значение численности на конец прошлого и на конец текущего месяца с учётом выбранных фильтров.'},
 {key:'turnover_y',block:'turnover',aud:'all',name:'Текучесть накопительная',short:'Тек. с янв.',fmt:'pct',better:'lower',unit:'%',anchor:null,
-  ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую. Для HQ — бенчмарк 15% за год (у IT — 12%), на каждый месяц — его доля, как в отчёте HQ.',
-  calc:'Как в методологии HR: сумма месячной текучести с января — накопительно.'},
+  ytd:'turnover_m',kpi:{green:15,red:15,annual:true,bench:true},hint:'Текучесть с 1 января: сумма месячной. В январе обнуляется и к декабрю набирает годовую.',
+  calc:'Бенчмарк для HQ — 15% за год (у IT — 12%); на каждый месяц — его доля, как в отчёте HQ.'},
 /* 26.10-б, правки п. 3: желательная и нежелательная — накопительно с января (сумма месячной) и в макете: карточка
    показывает YTD по последнему закрытому месяцу (CLOSED_ONLY) */
-{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть HQ',short:'Нежелат. HQ',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'regret_m',kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год, на каждый месяц — её доля, как в отчёте HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
-  calc:'Сумма месячной: нежелательные увольнения ÷ средняя численность × 100%. Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
+{key:'regret',block:'turnover',aud:'hq',hqOnly:true,name:'Нежелательная текучесть HQ',short:'Нежелат. HQ',fmt:'pct',better:'lower',unit:'%',anchor:null,ytd:'regret_m',kpi:{green:4,red:4,annual:true},hint:'Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — только у HQ (фильтр покраски HQ): 4% за год; на каждый месяц — её доля, как в отчёте «Светофор» HQ. Без фильтра HQ цели нет — сравнение с базой.'+HQ_ONLY,
+  calc:'Нежелательное увольнение по методологии HR:\n• ушёл по своей инициативе, не из-за релокации;\n• стаж от 12 месяцев;\n• MLTIIP, грейд 15+ с оценкой от 2 или оценка от 3.'},
 /* 21.10, поставка 50 — из прод-ноутбука HQ (non_regrettable_set_hq): обычная текучесть с коридором
    5–15% за год. Цель на месяц — доля годовой (5 и 15 × месяц / 12), как плановый коридор в HQ. */
 /* файл 8, п. 2 (заказчик): у желательной текучести HQ выше — лучше (уходят те, о ком компания не сожалеет): рост к году назад
@@ -288,7 +288,7 @@ const METRICS=[
    «не ниже 5% за год» (на месяц — её доля) */
 {key:'nonregret',block:'turnover',aud:'hq',hqOnly:true,name:'Желательная текучесть HQ',short:'Желат. HQ',fmt:'pct',better:'higher',unit:'%',anchor:null,ytd:'nonregret_m',kpi:{green:5,red:5,annual:true,hi:15},
   hint:'Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Для HQ — цель не ниже 5% за год, верхний порог — 15% за год, на каждый месяц — их доля.'+HQ_ONLY,
-  calc:'Сумма месячной: желательные увольнения ÷ средняя численность × 100%. Желательное увольнение — признак источника, как в отчёте HQ. Цель на месяц: 5% × номер месяца ÷ 12, верхний порог — 15% × номер месяца ÷ 12.'},
+  calc:'Желательное увольнение — увольнение по инициативе работодателя или увольнение сотрудника с оценкой ревью меньше 2.'},
 /* 15.10: «Прогноз годовой текучести» (run-rate) снят — в каталоге его нет. */
 {key:'vac_open',block:'hiring',aud:'all',name:'Открытые вакансии',short:'Открытые',fmt:'int',better:'flat',unit:'шт',anchor:null,hint:'Вакансии в работе на конец месяца.'},
 {key:'vac_closed',block:'hiring',aud:'all',name:'Закрытые вакансии',short:'Закрытые',fmt:'int',flow:true,better:'higher',unit:'шт',anchor:null,hint:'Вакансии, закрытые за месяц.'},
@@ -305,8 +305,8 @@ const METRICS=[
   hint:'Какая часть плана найма выполнена с начала года: массовый и профильный найм вместе.'},
 {key:'junior_share',block:'hiring',aud:'all',name:'Доля джунов в найме',short:'Джуны',fmt:'pct',better:'flat',unit:'%',anchor:null,
   derived:{num:'hire_jun',den:'hire',scale:100,win:'ytd'},
-  hint:'Доля джунов среди принятых с начала года. Сколько их брать — выбор стратегии найма.'},
-{key:'internal_share',block:'hiring',aud:'all',name:'Доля внутреннего найма',short:'Внутр. найм',fmt:'pct',better:'flat',unit:'%',anchor:null,
+  hint:'Доля джунов среди принятых с начала года.'},
+{key:'internal_share',noDict:1,block:'hiring',aud:'all',name:'Доля внутреннего найма',short:'Внутр. найм',fmt:'pct',better:'flat',unit:'%',anchor:null,
   derived:{num:'transfer_in',den:['hire','transfer_in'],scale:100,win:'ytd'},
   hint:'Доля пришедших переводом из других подразделений среди всех пришедших с начала года.'},
 {key:'tgrowth_pass',block:'tgrowth',aud:'hq',name:'Одобренные заявки на T-рост',short:'Одобрено',fmt:'int',flow:true,better:'flat',unit:'шт',anchor:null,hint:'Заявки на T-рост, одобренные за месяц. Число заявок зависит от цикла роста и не оценивается: оцениваем конверсию T-роста.'},
@@ -377,20 +377,19 @@ if(REAL){
   /* поставка 103 (файл 9, п. 4): с распределением сроков (vt) — медиана по вакансиям: за месяц — по закрытым в месяце, за
      период — по всем закрытым в периоде (не из месячных медиан) */
   if(REAL.scopeMix&&REAL.scopeMix('vt'))ov.time_to_fill=Object.assign(ov.time_to_fill||{},{name:'Медианный срок закрытия вакансии',
-    hint:'Медиана: половина вакансий закрывается быстрее, половина — дольше.',
-    calc:'Медиана сроков закрытых вакансий: за месяц — закрытых в этом месяце, за период — всех закрытых в периоде. Срок — дней от согласования до закрытия без дней в холде. Каналы — из списка подбора. Вакансия — не человек: фильтры покраски, IT, штата и типа численности на неё не действуют.'});
+    hint:'Медиана. Часть вакансий закрывается быстрее, часть — дольше. По каждой вакансии рассчитывается количество дней, в течение которых вакансия была в работе. Для агрегации рассчитывается медиана по всем закрытым вакансиям.',calc:''});
   /* ревью 100: на настоящих — доля джунов среди закрытых вакансий; название говорит это, а не «в найме» */
   if(REAL.has('vjn')&&REAL.has('vcl'))ov.junior_share={name:'Доля джунов в закрытых вакансиях',derived:{num:'vac_jun',den:'vac_closed',scale:100,win:'ytd'},
-    hint:'Доля вакансий, закрытых джунами, среди всех закрытых с начала года. Сколько их брать — выбор стратегии найма.'};
-  if(REAL.has('vop'))ov.vac_open={calc:'Вакансии в работе (согласованные) на конец месяца, у незакрытого — на последний загруженный день. Вакансия — не человек: фильтры среза на неё не действуют.'};
+    hint:'Доля вакансий, закрытых джунами, среди всех закрытых с начала года.'};
+  if(REAL.has('vop'))ov.vac_open={calc:'Вакансии в работе (согласованные) на конец месяца, у незакрытого — на последний загруженный день.'};
   METRICS.forEach(m=>{if(ov[m.key])Object.assign(m,ov[m.key]);if(REAL.stub.has(m.key))m.stub=true});
 }
 /* поставка 69 (Антон, вопрос 4 — «Б»), 27.10-в, п. 3: желательная и нежелательная всегда по активной численности HQ узла,
    цель — при любых фильтрах; в макете — тоже */
 if(HQR){
   const T=' Всегда по активной численности HQ: фильтры покраски и типа численности на неё не действуют.';
-  const set=(k,h)=>{const m=METRICS.find(x=>x.key===k);m.hint=h+T;m.calc=m.calc.replace('средняя численность','средняя численность HQ')};
-  set('regret','Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год, на каждый месяц — её доля, как в отчёте HQ.');
+  const set=(k,h)=>{const m=METRICS.find(x=>x.key===k);m.hint=h+T};
+  set('regret','Текучесть с 1 января по уходам, о которых компания сожалеет. Цель — 4% за год; на каждый месяц — её доля, как в отчёте «Светофор» HQ.');
   set('nonregret','Текучесть с 1 января по желательным уходам — о которых компания не сожалеет. Чем выше, тем лучше. Цель — не ниже 5% за год, верхний порог — 15% за год, на каждый месяц — их доля.');
 }
 const METRIC_BY_KEY=Object.fromEntries(METRICS.map(m=>[m.key,m]));
@@ -661,6 +660,10 @@ function visibleMetricsOfBlock(bk,S){return metricsOfBlock(bk).filter(m=>metricV
 /* поставка 106: у AI месячных метрик нет — вкладка живёт на недельном ряду, в навигации она всегда */
 function blockVisible(bk,S){return bk==='ai'||visibleMetricsOfBlock(bk,S).length>0}
 function visibleBlocks(S){return BLOCKS.filter(b=>blockVisible(b.key,S))}
+/* 12.11, п. 1 и 11: графики AI (вкладка AI и One Pager) включаются в «Настрой свой дашборд» теми же галочками метрик;
+   ключи — ai_penetration и ai_wau (метрики описания недельного ряда) */
+const AI_CHARTS=[['ai_penetration','Проникновение'],['ai_wau','Активные пользователи']];
+function aiChartsOn(S){const h=hiddenSet(S);return AI_CHARTS.map(x=>x[0]).filter(k=>!h.has(k))}
 function visibleCount(S){return SHOWN.filter(m=>metricVisible(m.key,S)).length}
 function hiddenForPreset(pk){
   const p=METRIC_PRESETS.find(x=>x.key===pk);
@@ -1346,7 +1349,12 @@ function yoySeries(leafPaths,key){return yoyOf(aggregateExt(leafPaths,key))}
 /* поставка 120 (критики 119: «22 человека — на 2 больше, чем на начало года» в сводке и «Прирост с начала года 4» в
    таблице — на конец сентября): прирост — сейчас, как численность */
 const PT_CUM=new Set(['turnover_y','regret','nonregret']), PT_STOCK=new Set(['hc_total','hc_active','hc_avg','vac_open','ai_wau','net_ytd']),
-  PT_MON=new Set(['turnover_m','underwork','overwork','ai_penetration']);
+  PT_MON=new Set(['turnover_m','underwork','overwork','ai_penetration']),
+  /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 10): месячная текучесть — значение ТЕКУЩЕГО месяца по дату
+     данных, а не среднее за период: формула метрики та же, меняется только показанный период. Год назад — тот же месяц,
+     те же дни (доля месяца FR). Данных за текущий месяц нет — значения нет (не среднее за период). Ориентир — компания
+     за тот же месяц: база «похожие подразделения» посчитана за период и с месяцем не сравнима (PEER_KEYS — без неё) */
+  PT_NOW=new Set(['turnover_m']);
 /* dkey (поставка 128, аудит L3: «Посещения без брони» — среднее месячных долей, а рядом «Брони без посещения» — доля за период из
    сумм): свой ряд графика (yser) с итогом из сумм числителя и знаменателя служебного ряда dkey, в формате метрики key */
 function periodTotal(lp,key,yser,dkey){
@@ -1360,7 +1368,10 @@ function periodTotal(lp,key,yser,dkey){
   const c=stock?CUR_LEN-1:PER_C, part=PER_PART, span=PER_SPAN, FR=part?CNT_FRAC:1, capT=t=>t.charAt(0).toUpperCase()+t.slice(1);
   const sum=a=>a.slice(0,c+1).reduce((t,v)=>t+(v||0),0), sumP=a=>sum(a)-(1-FR)*(a[c]||0);
   let cur,prev,head;
-  if(flow){cur=sum(y.cur);prev=sumP(y.prev);head='Всего '+PER_TEXT}
+  const now=PT_NOW.has(key)&&!yser, ni=CUR_LEN-1;
+  if(now){cur=y.cur[ni];prev=y.prev[ni]==null?null:y.prev[ni]*(PARTIAL?CNT_FRAC:1);
+    head=capT(MONTH_NOM[ni])+' '+MONTHS[MONTHS.length-1].y+(PARTIAL?', по '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'')}
+  else if(flow){cur=sum(y.cur);prev=sumP(y.prev);head='Всего '+PER_TEXT}
   else if(stock){cur=y.cur[c];prev=y.prev[c];head=PARTIAL?'Сейчас, '+ASOF.d+' '+MONTH_GEN[ASOF.m]:'На конец '+MONTH_GEN[c]}
   else if(cum){cur=y.cur[c];const p0=c?y.prev[c-1]||0:0;prev=y.prev[c]==null?null:p0+FR*(y.prev[c]-p0);head=part?capT(PER_TEXT):'На конец '+MONTH_GEN[c]}
   else if(key==='time_to_fill'&&TTF_MED&&!yser){
@@ -1396,15 +1407,17 @@ function periodTotal(lp,key,yser,dkey){
          — только если и людей ушло меньше (от 2 человек), иначе темп упал лишь от роста численности; одно правило для итога
          под графиком, чипа года, главы и карточек */
       if(good===true&&LEAVE_RATE.has(key)&&lp&&!leaveFewer(lp))good=null;
+      /* 12.11: месяц ещё идёт — сравнение с годом назад без цвета (10–20 дней месяца — не повод для оценки), как у MoM */
+      if(now&&PARTIAL)good=null;
     }
   }
   /* lab — окно коротко для подписи под числом: «янв.–сент.», «на конец сентября», «сейчас» */
   /* поставка 128 (аудит L7: «в среднем за месяц 2,4%», а среднее точек графика — 2,5%): у долей из числителя и знаменателя итог
      окна — из сумм за его месяцы (месяц с бо́льшей численностью весит больше), это и сказано в подсказке строки итога */
-  const wtip=!flow&&!stock&&!cum&&d&&(!yser||dkey)&&!(key==='time_to_fill'&&TTF_MED)?'Месяц, где людей или событий больше, весит в итоге больше.\n'+
+  const wtip=!now&&!flow&&!stock&&!cum&&d&&(!yser||dkey)&&!(key==='time_to_fill'&&TTF_MED)?'Месяц, где людей или событий больше, весит в итоге больше.\n'+
     'Поэтому итог может на десятые доли отличаться от простого среднего точек графика.':null;
   return {head:head,cur:fmtVal(key,cur),prev:prev==null?null:fmtVal(key,prev),delta:delta,good:good,c:c,strip:!stock&&!part,
-    v:cur,pv:prev,stock:stock,lab:stock?'сейчас':cum&&!part?'на конец '+MONTH_ABBR_GEN[c]:span,tip:wtip};
+    v:cur,pv:prev,stock:stock,lab:now?(PARTIAL?'1–'+ASOF.d+' '+MONTH_ABBR_GEN[ni]:'за '+MONTH_ABBR[ni]):stock?'сейчас':cum&&!part?'на конец '+MONTH_ABBR_GEN[c]:span,tip:wtip};
 }
 
 /* ---------- Сигнал блока ----------
@@ -1474,7 +1487,7 @@ function setVerdictScope(st){
 /* поставка 118 (владелец 07.11: «база — по всему отчёту»): ещё срок закрытия вакансии, конверсия T-роста, брони без
    посещения и проникновение AI. У AI группа — по численности последней полной недели без стажёров (как на вкладке AI,
    фильтры на AI не действуют) */
-const PEER_MIN=5, PEER_KEYS=new Set(['turnover_y','turnover_m','underwork','overwork','office_att',
+const PEER_MIN=5, PEER_KEYS=new Set(['turnover_y','underwork','overwork','office_att',
   'time_to_fill','tgrowth_conv','booking_viol','ai_penetration']),
   PEER_BAND_NAME={1:'30–99',2:'100–299',3:'300–999',4:'1000+'};
 let PEER_BAND=0, AI_BAND=0;
@@ -1599,6 +1612,8 @@ function yoyMove(key,lp){
   /* 09.11 (стенд в пропорциях боя: у компании размечено меньше половины людей): где вывод о метрике не делается (мало
      событий, малый HQ, мало размеченных мониторингом), и сдвиг к году не окрашивается — один вердикт на метрику */
   if(thin(key,lp)||isSmallHq(key)||!monJudged(key,lp))return null;
+  /* 12.11: месячная текучесть незакрытого месяца — без оценки сдвига к году (см. PT_NOW) */
+  if(PT_NOW.has(key)&&PARTIAL)return null;
   const s=deltaState(key,P.v,P.pv,lp);
   if(s==='good'&&LEAVE_RATE.has(key)&&!leaveFewer(lp))return null;
   return s==='bad'?'worse':s==='good'?'better':null;
@@ -3593,7 +3608,10 @@ function aiUsageReal(lp){
   const aur=g('aur'), air=g('air'), byR=rk=>(a,b)=>(rk[a.key]||999)-(rk[b.key]||999)||b.n-a.n;
   const tools=Object.keys(aut).map(t=>({key:t,name:t,value:pc(aut[t],hc),n:R(aut[t])})).sort(byR(aur));
   const days=o=>AI_DAYS.map((nm,i)=>({name:nm,value:R(o[String(i+1)]||0)}));
-  const per=['1','2','3','4'].map(k=>({name:k==='4'?'4 и больше':k,value:R(g('aun')[k]||0)}));
+  /* 12.11 (итерация «переносы, интерфейс, AI», п. 9): каждый активный пользователь — ровно в одной категории; у кого источник
+     не знает числа инструментов (ключ «0» ноутбука с 12.11) — отдельной строкой «Не определено», а не молча вне распределения */
+  const per=['1','2','3','4'].map(k=>({name:k==='4'?'4 и больше':k,value:R(g('aun')[k]||0)}))
+    .concat(R(g('aun')['0']||0)?[{name:'Не определено',na:true,value:R(g('aun')['0'])}]:[]);
   const msgs=one(g('aum')), cls=one(g('auc'));
   const tasks=Object.keys(auk).map(t=>({name:isNA(t)?NONE_NAME:t,value:R(auk[t])})).sort((a,b)=>b.value-a.value);
   const po=PAINTS.slice(1).map(x=>x.name), ps=Object.keys(aph).sort((a,b)=>((po.indexOf(a)+1)||99)-((po.indexOf(b)+1)||99)||a.localeCompare(b));
@@ -3606,8 +3624,11 @@ function aiUsageReal(lp){
   const ash=g('ash'), asu=g('asu');
   const segs=Object.keys(ash).length?AI_SEG_DIMS.map(([d,cap,dk])=>{
     const vals={}, us={};
-    Object.keys(ash).forEach(kv=>{const i=kv.indexOf('|');if(kv.slice(0,i)===d)vals[kv.slice(i+1)]=ash[kv]});
-    Object.keys(asu).forEach(kv=>{const i=kv.indexOf('|');if(kv.slice(0,i)===d)us[kv.slice(i+1)]=asu[kv]});
+    /* 12.11 (итерация «переносы, интерфейс, AI», п. 7): пустое значение и его написания («-», «Не указано», «n/a») — одна
+       категория: люди и активные пользователи складываются, проникновение считается от сумм (не среднее процентов) */
+    const nk=v=>isNA(v)?'-':v;
+    Object.keys(ash).forEach(kv=>{const i=kv.indexOf('|');if(kv.slice(0,i)===d){const k=nk(kv.slice(i+1));vals[k]=(vals[k]||0)+ash[kv]}});
+    Object.keys(asu).forEach(kv=>{const i=kv.indexOf('|');if(kv.slice(0,i)===d){const k=nk(kv.slice(i+1));us[k]=(us[k]||0)+asu[kv]}});
     const po=PAINTS.slice(1).map(x=>x.name);
     const ord=d==='p'?Object.keys(vals).sort((a,b)=>((po.indexOf(a)+1)||99)-((po.indexOf(b)+1)||99)||a.localeCompare(b))
       :dk?realOrder(dk,vals):Object.keys(vals).sort((a,b)=>vals[b]-vals[a]||a.localeCompare(b));
@@ -3631,7 +3652,8 @@ function aiCombos(lp){
   if(REAL){
     const m=selMix(lp,'aip');
     if(!m||!Object.keys(m).length)return null;
-    return Object.keys(m).map(k=>{const a=k.split('|');return {v:a,n:Math.round(m[k])}}).filter(x=>x.v.length>=7&&x.n>0);
+    /* 12.11, п. 7: написания «нет значения» разреза — одним ключом «-» (в таблице — одна строка «Не указано») */
+    return Object.keys(m).map(k=>{const a=k.split('|');for(let i=2;i<a.length;i++)if(isNA(a[i]))a[i]='-';return {v:a,n:Math.round(m[k])}}).filter(x=>x.v.length>=7&&x.n>0);
   }
   /* макет: люди по долям разрезов численности, доля с AI — вокруг общей */
   const u=aiUsage(lp), r=rng(lpSeed(lp,'aip')), hc=Math.min(600,Math.max(0,Math.round(lastVal(lp,'hc_total'))));
@@ -3719,7 +3741,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  mainCmp,mainVerdict,offDays,offAsof,offCityMon,offBase,/*split:*/partsWait,partsLate,PART_NAMES,/*:split*/PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
+  mainCmp,mainVerdict,offDays,offAsof,offCityMon,offBase,AI_CHARTS,aiChartsOn,/*split:*/partsWait,partsLate,PART_NAMES,/*:split*/PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};

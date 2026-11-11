@@ -250,8 +250,9 @@ checks.push(['знак говорит направление, класс — о�
   /delta down/.test(U.deltaChip('time_to_fill',1.4))&&/delta down/.test(U.deltaChip('turnover_m',1.4))&&
   /delta up/.test(U.deltaChip('review_up',3))&&/delta neu/.test(U.deltaChip('hc_total',3))&&
   [...D.MATURING].sort().join()==='ai_penetration,nonregret,regret,turnover_m,turnover_y']);
-checks.push(['переход на детальный дашборд — иконка, а не символ ↗',
-  /class="ico-ext"/.test(allHtml)&&!/↗/.test(allHtml)]);
+/* 12.11 (итерация «переносы, интерфейс, AI», п. 4): кнопки «Детальный дашборд» нет нигде */
+checks.push(['кнопки «Детальный дашборд» в отчёте нет',
+  !/Детальный дашборд|class="btn dash"/.test(allHtml)&&!/↗/.test(allHtml)]);
 checks.push(['минус во всех дельтах типографский, а не дефис',
   !/>\s*-\d/.test(allHtml)&&/−/.test(D.fmtDelta('hire',-3))&&/−/.test(D.fmtDelta('turnover_m',-1.4))]);
 
@@ -267,14 +268,11 @@ checks.push(['минус во всех дельтах типографский, 
     D.BLOCKS.every(b=>!/class="kpis compact|class="kpi">/.test(A.top(b.key)))]);
   /* поставка 108: прогулы, выходные и звонки в Толк от 20% — три KPI за 16 недель перед «Составом по категориям», графиков нет */
   const moHtml=A.go('monitor','activity');
-  checks.push(['мониторинг: три KPI за '+D.MPW+' недель перед «Составом по категориям», графиков прогулов, выходных и звонков нет',
-    /* 11.11, п. 5: под тремя KPI — состав по категориям (норма, недоработка, переработка, не размечено) */
-    (moHtml.match(/class="shc"/g)||[]).length===3+4&&moHtml.indexOf('class="mon-kpi"')>=0&&
+  /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 12): блок «За 16 недель» и три KPI сняты — остаётся состав по категориям */
+  checks.push(['мониторинг: блока «За 16 недель» и трёх KPI нет, состав по категориям — на месте',
+    (moHtml.match(/class="shc"/g)||[]).length===4&&moHtml.indexOf('class="mon-kpi"')>=0&&
     /mon-cat-cap">Состав по категориям[\s\S]*Норма[\s\S]*Недоработка[\s\S]*Переработка[\s\S]*Не размечено/.test(moHtml)&&
-    moHtml.indexOf('mon-cat-cap')>moHtml.indexOf('Звонки в Толк от 20%')&&
-    moHtml.indexOf('class="mon-kpi"')<moHtml.indexOf('Состав по категориям')&&/За 16 недель/.test(moHtml)&&
-    /Прогулы[\s\S]*Работа в выходные[\s\S]*Звонки в Толк от 20%/.test(moHtml)&&
-    !/Прогулы, чел|Работа в выходные, чел|Звонки в Толк от 20% рабочего времени, чел/.test(moHtml)]);
+    !/За 16 недель|Звонки в Толк от 20%|Работа в выходные/.test(moHtml)&&/Состав по категориям, чел/.test(moHtml)]);
   checks.push(['подпись месяца берётся из одного места, а не пишется руками',
     D.CMP.momShort==='к '+'маю'&&D.CMP.momFull==='к маю 2026'&&D.CMP.yoy==='к июню 2025']);
   /* 27.10-в, п. 1: шапки — MoM и YoY, месяцы сравнения — в их подсказках */
@@ -344,9 +342,15 @@ checks.push(['среднесписочной численности нет ср�
 /* 19.10: определения — по методологии HR из Data Detective: у численности, найма, оттока,
    переводов и текучести есть «как считается» (calc), он виден в «i» и в словаре «Пульс» */
 checks.push(['метрики численности, движения и текучести описаны по методологии HR (calc в «i» и словаре)',
-  ['hc_active','hc_total','hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret']
+  /* 12.11 (правки словаря метрик): у численности «как считается» снято (осталось одно упоминание типа «Активная» в описании);
+     средняя численность — среднее концов месяцев с учётом фильтров; формул у желательной и нежелательной нет */
+  ['hc_active','hire','attrition','transfer_in','transfer_out','turnover_m','turnover_y','regret']
     .every(k=>D.METRIC_BY_KEY[k].calc&&U.infoDot(k).includes(U.esc(G.tipHtml({text:D.METRIC_BY_KEY[k].calc})).slice(0,40)))&&
-  /стажёров в штат/.test(D.METRIC_BY_KEY.hire.calc)&&/полусумма активной/.test(D.METRIC_BY_KEY.turnover_m.calc)]);
+  !D.METRIC_BY_KEY.hc_total.calc&&/Подрядчики в найм не входят/.test(D.METRIC_BY_KEY.hire.calc)&&!/методологии HR: найм/.test(D.METRIC_BY_KEY.hire.calc)&&
+  /среднее значение численности на конец прошлого и на конец текущего месяца с учётом выбранных фильтров/.test(D.METRIC_BY_KEY.turnover_m.calc)&&
+  !/÷/.test(D.METRIC_BY_KEY.regret.calc+D.METRIC_BY_KEY.nonregret.calc)&&/по инициативе работодателя/.test(D.METRIC_BY_KEY.nonregret.calc)&&
+  !/Считается по дням|Переходы между подразделениями/.test(D.METRIC_BY_KEY.transfer_in.calc+D.METRIC_BY_KEY.transfer_out.calc)&&
+  !!D.METRIC_BY_KEY.internal_share.noDict]);
 /* поставка 132: загрузка на борде — маркер «отчёт отрисован» один и тот же в чарте (prelude.js) и в CSS борда (файл 4) */
 checks.push(['загрузка на борде: маркер готовности в prelude.js и в CSS борда совпадает, рисунок огоньков на месте',
   (()=>{const pre=fs.readFileSync(path.join(dir,'proteus/prelude.js'),'utf8'),
@@ -425,7 +429,9 @@ const aiA=A.go('ai','adoption'), aiW=A.go('ai','who'), aiU=A.go('ai','usage');
     !!W&&W.length===16&&W[15].pt&&W[14].cl&&cw===W[14]&&W.every(w=>w.hc>0&&Math.abs(w.pen-w.wau*100/w.hc)<0.051)&&
     new RegExp('Акт. пользователи<span class="th-per">неделя '+cw.full.replace(/^Неделя /,'')).test(aiA)&&aiA.indexOf(String(cw.pen).replace('.',',')+'%')>=0&&
     !/data-aigran=/.test(aiA)&&!/по месяцам/.test(aiA)&&D.blockVisible('ai',A.st())&&D.metricsOfBlock('ai').length===0&&
-    op.indexOf('id="op-ai"')<0&&op.indexOf('Проникновение AI')<0])}
+    /* 12.11, п. 11: на One-pager у AI — два графика по неделям (те же, что на вкладке), строк-метрик по-прежнему нет */
+    op.indexOf('id="op-ai"')>=0&&/Проникновение AI по неделям[\s\S]*Активные пользователи AI по неделям/.test(op.slice(op.indexOf('id="op-ai"')))&&
+    !/data-metric="ai_/.test(op)])}
 /* поставка 113-б: AI «Кто пользуется» — кросс-фильтр: выбор «Стажёры» пересчитывает остальные разрезы по стажёрам, свой разрез
    не режет; итог по выбору = стажёрам */
 {const lpX=D.reportLeaves(A.st()), x0=D.aiCross(lpX,[]), x1=D.aiCross(lpX,['it|1']);
@@ -449,9 +455,11 @@ checks.push(['AI — «Пользуются ли AI?», «Кто пользуе�
   /* поставка 112: «Кто пользуется?» — сегменты (покраска, сеньорность, грейд, стаж, специализация), не стажёры; 116: сверху
      «Пользуются AI» — вся численность и стажёры строкой, без таблицы «Сотрудники и стажёры» и без подписи «все люди» */
   /* поставка 138, п. 10–13: «Акт. пользователи» и «Проникновение», без численности групп («из N чел»), без грейдов, без стажёров */
-  ['Пользуются AI','Сотрудники без стажёров','По покраске','По сеньорности','По стажу','По специализации','>Проникновение<','>Акт. пользователи<'].every(t=>aiW.indexOf(t)>=0)&&
+  /* 12.11 (итерация «переносы, интерфейс, AI», п. 6 и 8): первой таблицы («Сотрудники без стажёров», «Стажёры») нет — с покраски */
+  ['По покраске','По сеньорности','По стажу','По специализации','>Проникновение<','>Акт. пользователи<'].every(t=>aiW.indexOf(t)>=0)&&
+  !/class="row-body">Сотрудники без стажёров|class="bt-t">Пользуются AI/.test(aiW)&&aiW.indexOf('class="bt-t">')===aiW.indexOf('class="bt-t">По покраске')&&
   !/По грейду|С AI, %|С AI, чел|из \d+ чел|class="row-body">Стажёры/.test(aiW)&&aiW.indexOf('все люди')<0&&
-  (aiI=>/Пользуются AI/.test(aiI)&&/только стажёры/.test(aiI)&&/class="row-body">Стажёры/.test(aiI)&&!/По грейду|из \d+ чел/.test(aiI)||/Стажёров нет/.test(aiI))(A.go('ai','interns'))&&
+  (aiI=>!/class="bt-t">Пользуются AI|class="row-body">Стажёры/.test(aiI)&&/только стажёры/.test(aiI)&&!/По грейду|из \d+ чел/.test(aiI)||/Стажёров нет/.test(aiI))(A.go('ai','interns'))&&
   aiW.indexOf('Какими инструментами пользуются стажёры')<0&&aiW.indexOf('Инструменты по покраске')<0&&aiW.indexOf('Воронка сообщений')<0&&
   ['Частота использования','Инструментов на человека','Топ инструментов','Инструменты по покраске'].every(t=>aiU.indexOf(t)>=0)&&
   aiU.indexOf('Инструменты по покраске')>aiU.indexOf('Топ инструментов')&&aiU.indexOf('bt-cap',aiU.indexOf('Инструменты по покраске'))<0&&
@@ -1298,10 +1306,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /нет данных/.test(U.targetCell('hire_plan',null,null,{green:95,red:80}))]);
 
   /* --- раскладка и детальный слой --- */
-  checks.push(['«Детальный дашборд» ведёт в ту версию Proteus, где блок есть',
-    D.blockDash('structure',{paint:'HQ'}).id==='34136'&&D.blockDash('structure',{paint:'Line'}).id==='34661'&&
-    D.blockDash('ai',{paint:'Line'}).id==='34136'&&D.blockDash('monitor',{paint:'HQ'}).id==='34661'&&
-    /href="#\/proteus\/34136"/.test(A.go('ai','adoption'))]);
+  checks.push(['шапка блока — без кнопки «Детальный дашборд»',
+    !/Детальный дашборд|#\/proteus\//.test(A.go('ai','adoption')+A.go('structure','portrait'))]);
   const op=A.go('onepager',null);
   /* 20.10, заказчик: KPI-карточек на главной нет — те же метрики в выводах и таблицах */
   checks.push(['на главной нет KPI-карточек: сверху выводы, ниже таблицы метрик',
@@ -1377,7 +1383,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
 
   const before=A.crumbs();
   checks.push(['путь над отчётом: «↑ Уровнем выше», «Назад» до первого перехода нет',
-    new RegExp('data-crumb="'+n0.parent+'"[^>]*>↑ Уровнем выше').test(before)&&!/data-uback/.test(before)]);
+    new RegExp('data-crumb="'+n0.parent+'"[^>]*><span class="nb-ar" aria-hidden="true">↑</span>Уровнем выше').test(before)&&!/data-uback/.test(before)]);
   A.unit(pick);
   const after=A.go('turnover','dynamics'), cr=A.crumbs();
   checks.push(['«Открыть юнит» делает строку юнитом отчёта: его дети — новый первый уровень',
@@ -1385,7 +1391,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     (after.match(/ data-node="/g)||[]).length===D.childrenOf(pick).length&&
     D.reportLeaves(A.st()).every(p=>p.indexOf(pick+'/')===0)]);
   checks.push(['после перехода путь ведёт назад: «← Назад» и предки кликабельны',
-    /data-uback="1"[^>]*>← Назад/.test(cr)&&new RegExp('data-crumb="'+U0+'"').test(cr)&&
+    /data-uback="1"[^>]*><span class="nb-ar" aria-hidden="true">←<\/span>Назад/.test(cr)&&new RegExp('data-crumb="'+U0+'"').test(cr)&&
     A.stack().slice(-1)[0]===U0]);
   checks.push(['ссылка открывает юнит, в который перешли',
     A.link().indexOf('unit='+encodeURIComponent(pick))>0]);
@@ -1789,17 +1795,15 @@ checks.push(['третьей палитры нет: в экранах ни од�
        T@T, ревью и бронирование; поставка 66 (посещения Адели) — ожило и бронирование */
     devK.every(k=>D.devStage(k)!=null)&&!D.isDev('hc_total')&&!D.isDev('turnover_m')&&
     !D.isDev('office_att')&&!D.isDev('booking_viol')&&!D.isDev('vac_open')&&!D.isDev('ai_penetration')&&!D.METRIC_BY_KEY.tgrowth_tat&&(op.match(/class="dev-tag"/g)||[]).length>=devK.length&&!/demo-tag/.test(op)]);
-  checks.push(['«в разработке»: сводка готовности на One-pager с планом этапов',
-    /* 29.10, п. 3: полоса — сверенные из всех показанных */
-    /class="dev-sum"/.test(op)&&new RegExp('<b>'+D.SHOWN.filter(m=>D.VERIFIED.has(m.key)).length+' из '+D.SHOWN.length+'</b> метрик сверено').test(op)&&
-    new RegExp('width:'+Math.round(D.SHOWN.filter(m=>D.VERIFIED.has(m.key)).length/D.SHOWN.length*100)+'%').test(op)&&
-    (op.match(/<tr class="plan-(live|data|dev|todo|extra)">/g)||[]).length===D.DEV_PLAN.reduce((a,g)=>a+g.rows.filter(r=>!r.next).length,0)]);
+  /* 12.11 (итерация «переносы, интерфейс, AI», п. 2): сводки «Готовность данных» на главной и плашки «О данных» в шапке нет */
+  checks.push(['сводки «Готовность данных» на One-pager нет',
+    !/class="dev-sum"|Готовность данных|метрик сверено/.test(op)]);
   /* 15.10: план — каталог графиков HQ и УС; у каждой строки «для кого» и статус */
   const pn=D.planCount();
   checks.push(['план по каталогу: у строк «для кого» и статус, есть что добавить и что решить',
     D.DEV_PLAN.every(g=>g.rows.every(r=>D.AUD_LABEL[r.aud]&&D.PLAN_NOW[r.now]&&(r.now!=='dev'||D.devPlan(r.stage))))&&
     /* 27.10-в, п. 12–13: строк следующих релизов (next) в плане нет */
-    pn.todo>0&&/ещё добавить/.test(op)&&/class="aud-tag hq"/.test(op)&&
+    pn.todo>0&&
     !/Текучесть по стажу, специализации и грейду|Посещаемость в Москве и регионах|Итоги ревью/.test(op)&&
     !/[Вв]оронка найма|[Лл]оу-перформ|[Пп]рогноз текучести/.test(op)]);
   /* 21.10, правки Антона: «сверены» — численность, найм, отток; лишние строки сняты; «данные есть» отмечены.
@@ -1811,12 +1815,11 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /* 27.10-в, п. 10: желательная и нежелательная сверены — расхождений нет */
     /* 31.10, п. 3: «Рост HQ» сверен */
     [...D.VERIFIED].sort().join()==='ai_penetration,attrition,hc_active,hc_total,hire,net_ytd,nonregret,regret,tgrowth_conv,tgrowth_deny,tgrowth_pass,transfer_in,transfer_net,transfer_out,turnover_m,turnover_y,vac_closed,vac_open'&&
-    !D.MISMATCH.size&&pn.bad===0&&pn.ok>=16&&pn.data===0&&/✓ сверены/.test(op)&&!/расхождение/.test(op)&&
+    !D.MISMATCH.size&&pn.bad===0&&pn.ok>=16&&pn.data===0&&!/расхождение/.test(op)&&
     /* 26.10-б: «Движение по специализациям» — новый график, с мастер-источником ещё не сверен;
        строк «данные есть» не осталось: инициатор и специализации стали живыми */
     D.DEV_PLAN.filter(g=>/Структура|Движение/.test(g.blk)).every(g=>g.rows.every(r=>r.now!=='live'||r.ok||/специализациям|Средний возраст|Пересечения разрезов/.test(r.what)))&&
-    !/одной воронкой|[Вв]оронка численности|Пол и возраст|Списки ушедших|AI-рекомендации/.test(op)&&
-    /считается только для HQ-численности/.test(op)]);
+    !/одной воронкой|[Вв]оронка численности|Пол и возраст|Списки ушедших|AI-рекомендации/.test(op)]);
   /* 28.10, п. 1: движение по специализациям — найм, переводы в, отток, переводы из; в сумме = те же ряды с начала года */
   {
     const lp=D.reportLeaves(D.DEFAULT_STATE), sm=D.specMovement(lp), S=k=>sm.reduce((a,z)=>a+z[k],0), Y=k=>D.sumWin(D.aggregate(lp,k),'ytd');

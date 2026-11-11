@@ -118,7 +118,13 @@ def sql_cols():
             + [tuple(SPEC_DIC.split('.')) + (c,) for c in SPEC_DIC_COLS]
             + [('', CAL, c) for c in CAL_COLS]
             + [tuple(DAY.split('.')) + (c,) for c in DAY_COLS] + [tuple(VAC_SRC.split('.')) + (c,) for c in VAC_COLS]
-            + [tuple(PMD.split('.')) + (c,) for c in PMD_COLS])
+            + [tuple(PMD.split('.')) + (c,) for c in PMD_COLS]
+            # 11.11 (параграф «ПРАВКИ» боевого ноутбука — мониторинг как в мастере): часы дня с поправкой, категория недели,
+            # календарь посещаемости (плановый рабочий день); вакансии — статус с изменениями (холд)
+            + [('prod_v_sse_crossdata', 'performance_metric_d', 'reduced_duration_hour')]
+            + [('prod_v_sse_crossdata', 'performance_metric_w', c) for c in ('calendar_dt', 'mdm_employee_rk', 'performance_category')]
+            + [('prod_v_hrmart', 'mdm_employee_attendance', c) for c in ('mdm_employee_rk', 'attendance_dt', 'attendance_group_nm')]
+            + [('usr_cross_data', 'vacancy_daily', 'status_name_chng')])
     vals = ',\n'.join(f"        ('{s}', '{t}', '{c}')" for s, t, c in need)
     tabs = ', '.join(f"'{t}'" for t in dict.fromkeys(t for _, t, _ in need))
     return f"""{head('0. Колонки источников (поставка 58)',

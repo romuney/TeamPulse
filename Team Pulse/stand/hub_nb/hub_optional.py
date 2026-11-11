@@ -234,7 +234,7 @@ union all select node_rk, 'aph', paint, count(distinct pid) from b where it = 0 
 union all select node_rk, 'apt', paint || '|' || tool, count(distinct pid) from bt where it = 0 group by 1, 3
 union all select node_rk, 'aut', tool, count(distinct pid) from bt where it = 0 group by 1, 3
 union all select node_rk, 'auf', days::text, count(distinct pid) from b where it = 0 and u = 1 and days > 0 group by 1, 3
-union all select node_rk, 'aun', least(ntools, 4)::text, count(distinct pid) from b where it = 0 and u = 1 and ntools > 0 group by 1, 3
+union all select node_rk, 'aun', case when ntools > 0 then least(ntools, 4) else 0 end::text, count(distinct pid) from b where it = 0 and u = 1 group by 1, 3
 union all select node_rk, 'aum', '', sum(msgs) from b where it = 0 group by 1
 union all select node_rk, 'auc', '', sum(cls) from b where it = 0 group by 1
 union all select node_rk, 'auk', task, sum(n) from bk group by 1, 3

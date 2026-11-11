@@ -32,26 +32,39 @@ const pctBars=(cap,sub,items,head)=>bars(cap,sub,items,head||'Доля, %',{metr
    07.11 (AI-итерация, п. 1): отдельного графика численности нет — она второй светло-серой линией в «Активных пользователях»
    (одна шкала людей, в легенде и подсказке). Неделя, а не месяц — решение заказчика 06.11 (AI только по неделям) */
 const P1=v=>v==null?'—':String(v).replace('.',',')+'%';
-function adoption(ctx){
-  const W=D.aiWeeks(ctx.lp), cw=D.aiCur(W), pt=W.some(w=>w.pt);
+/* 12.11 (итерация «настройки, One Pager, мониторинг», п. 1 и 11): графики недельного ряда — одной функцией для вкладки AI и
+   One Pager; какие показывать — галочки «AI-инструменты» в «Настрой свой дашборд» (D.aiChartsOn). small — One Pager: ниже и
+   без длинной сноски. Данных нет — null */
+function aiCharts(lp,S,small){
+  const W=D.aiWeeks(lp);
+  if(!W)return null;
+  const cw=D.aiCur(W), on=new Set(D.aiChartsOn(S));
   /* поставка 128: база — та же, с которой сравнивает глава (неделя cw, без стажёров; меньше 30 человек — без базы) */
-  const pe=cw&&cw.hc>=D.SMALL_N?D.peerOf('ai_penetration',ctx.lp):null;
+  const pe=cw&&cw.hc>=D.SMALL_N?D.peerOf('ai_penetration',lp):null;
   /* поставка 138, п. 7 (владелец: «верните тренд по всей компании»): второй линией — проникновение всей компании за те же недели,
      по прежней логике ряда «по компании»: все сотрудники без стажёров, фильтры шапки на него не действуют. У самой компании — нет */
-  const CW=D.isSelfBase()?null:D.aiWeeks(D.benchmarkLeaves(ctx.S)), co={};
+  const CW=D.isSelfBase()?null:D.aiWeeks(D.benchmarkLeaves(S)), co={};
   (CW||[]).forEach(w=>{co[w.wk]=w.pen});
   const P=W.map(w=>({label:w.label,full:w.full,pen:w.pen,wau:w.wau,hc:w.hc,cl:w.cl,pt:w.pt,co:co[w.wk]!=null?co[w.wk]:null}));
   const coOn=P.some(p=>p.co!=null);
+  let h='';
+  /* поставка 131: база — значением в строке итога под заголовком (серой отметки на графике нет, как на «год к году») */
+  if(on.has('ai_penetration'))h+=G.chart('pline',Object.assign({periods:P,key:'pen',focus:cw?W.indexOf(cw):null},coOn?{key2:'co'}:{}),{title:'Проникновение AI по неделям, %',
+      name:coOn?'Подразделение':'Проникновение',name2:'Вся компания',fmt:'pct',color:G.C_AI,h:small?200:220,sm:!!small,period:cw?{head:'Последняя полная неделя, '+cw.label,cur:D.fmtVal('ai_penetration',cw.pen),
+        ref:pe?['база',D.fmtVal('ai_penetration',pe.p50)]:null}:null});
+  /* поставка 137, п. 8 (владелец): численности на вкладке AI нет — ни второй линии на графике, ни колонки в таблице; она
+     остаётся знаменателем проникновения */
+  if(on.has('ai_wau'))h+=G.chart('pline',{periods:P,key:'wau',focus:cw?W.indexOf(cw):null},{title:'Активные пользователи AI по неделям, чел',name:'Активные пользователи',
+      fmt:'int',color:G.C_AI,h:small?200:240,sm:!!small,period:small&&cw?{head:'Последняя полная неделя, '+cw.label,cur:D.fmtInt(cw.wau)+' чел'}:null});
+  return h;
+}
+SC.aiCharts=aiCharts;
+function adoption(ctx){
+  const W=D.aiWeeks(ctx.lp), cw=D.aiCur(W), pt=W.some(w=>w.pt);
+  const ch=aiCharts(ctx.lp,ctx.S,false);
   return '<div class="mon-bar"><span class="mon-note">Последние '+W.length+' '+U.plural(W.length,['неделя','недели','недель'])+
       ', по неделям (Пн–Вс)'+(pt?' · текущая неделя ещё идёт — бледнее':'')+'</span></div>'+
-    /* поставка 131: база — значением в строке итога под заголовком (серой отметки на графике нет, как на «год к году») */
-    G.chart('pline',Object.assign({periods:P,key:'pen',focus:cw?W.indexOf(cw):null},coOn?{key2:'co'}:{}),{title:'Проникновение AI по неделям, %',
-      name:coOn?'Подразделение':'Проникновение',name2:'Вся компания',fmt:'pct',color:G.C_AI,h:220,period:cw?{head:'Последняя полная неделя, '+cw.label,cur:D.fmtVal('ai_penetration',cw.pen),
-        ref:pe?['база',D.fmtVal('ai_penetration',pe.p50)]:null}:null})+
-    /* поставка 137, п. 8 (владелец): численности на вкладке AI нет — ни второй линии на графике, ни колонки в таблице; она
-       остаётся знаменателем проникновения */
-    G.chart('pline',{periods:P,key:'wau',focus:cw?W.indexOf(cw):null},{title:'Активные пользователи AI по неделям, чел',name:'Активные пользователи',
-      fmt:'int',color:G.C_AI,h:240})+
+    (ch||'<div class="tbl-note">Оба графика отключены в «Настрой свой дашборд» → Метрики → AI-инструменты.</div>')+
     '<div class="tbl-note">Проникновение — активные пользователи AI за неделю к численности той же недели без стажёров; человек '+
     'в подразделении считается один раз. Фильтры покраски, IT, штата и типа численности на AI не действуют: здесь — все '+
     'сотрудники подразделения, кроме стажёров, а в шапке — только отобранные фильтрами, поэтому людей здесь бывает заметно больше.'+(cw?' Последняя полная неделя — '+esc(cw.full.replace(/^Неделя /,''))+': '+P1(cw.pen)+'.':'')+'</div>';
@@ -120,7 +133,7 @@ function who(ctx,u){
     'Группы меньше '+SEG_SMALL+' человек — серым.</div>';
   if(!x){
     const segs=(u.segs||[]).filter(sg=>!AI_DIM_SKIP[sg.key]);
-    return head+(segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'',sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'')+
+    return (segs.length?U.btStack(segs.map(sg=>segTable(sg.cap,'',sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows))):'')+
       (segs.length?note:'');
   }
   const tabs=x.dims.filter(dm=>dm.key!=='it'&&!AI_DIM_SKIP[dm.key]).map(dm=>{
@@ -128,7 +141,9 @@ function who(ctx,u){
     const rs=sp?srt.slice(0,10).concat(dm.rows.filter(r=>r.on&&srt.indexOf(r)>=10)):dm.rows;
     return segTable(dm.cap,(sel.length?'по выбранной группе':'')+(sp&&dm.rows.length>10?(sel.length?' · ':'')+'первые 10 из '+dm.rows.length:''),rs,dm.key);
   });
-  return U.btStack([head].concat(sel.length?['<div class="tbl-note">Выбрано: '+AI_ACT.toLowerCase()+' — <b>'+D.fmtInt(x.act)+
+  /* 12.11 (итерация «переносы, интерфейс, AI», п. 6): первой таблицы «Сотрудники без стажёров» нет — детализация начинается с
+     покраски; выборка та же (сотрудники без стажёров) */
+  return U.btStack([].concat(sel.length?['<div class="tbl-note">Выбрано: '+AI_ACT.toLowerCase()+' — <b>'+D.fmtInt(x.act)+
       '</b> чел, проникновение — <b>'+P1(x.pen)+'</b>.</div>']:[]).concat(tabs))+note;
 }
 /* поставка 138, п. 13: «Как используют стажёры?» — только стажёры (признак витрины): итог, разрезы, частота и инструменты */
@@ -143,7 +158,8 @@ function interns(ctx,u){
     const sp=dm.key==='sp', rs=sp?dm.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):dm.rows;
     return segTable(dm.cap,sp&&dm.rows.length>10?'первые 10 из '+dm.rows.length:'',rs,null)}):[];
   const iT=it.tools||[], fr=it.freq||[];
-  return U.btStack([head].concat(segs,fr.some(f=>f.value)?[bars('Частота использования','дней с AI в неделю · только стажёры',fr)]:[],
+  /* 12.11, п. 8: первой таблицы «Стажёры» нет — детализация начинается с покраски; выборка — те же стажёры */
+  return U.btStack([].concat(segs,fr.some(f=>f.value)?[bars('Частота использования','дней с AI в неделю · только стажёры',fr)]:[],
       iT.length?[tools(ctx,'aitooli','Топ инструментов','% и число стажёров',iT,it.hc,it.rest||0,'% стажёров')]:[]))+
     '<div class="tbl-note">Все таблицы — только стажёры (признак стажёра недельной витрины AI), неделя '+esc((u.week||'').replace(/^неделя /,''))+
       '. Проникновение — активные пользователи к числу стажёров той же недели. Группы меньше '+SEG_SMALL+' человек — серым.</div>';
@@ -154,20 +170,23 @@ function byPaint(ctx,u){
   const segs=u.bySeg.filter(x=>x.hc>0);
   if(!segs.length)return '';
   const I=D.fmtInt, rk='rest:aipaint', open=!!(ctx.mixOpen&&ctx.mixOpen.has(rk)), T=u.tools, more=T.length>11;
-  /* процент и под ним число людей — колонки сегментов узкие, в одну строку не помещаются */
-  const two=(p,n)=>P1(p)+'<span class="unit-sub">'+I(n)+' чел</span>';
-  const cell=(x,j)=>x.cells[j]==null?'—':two(x.cells[j],x.cnt[j]);
-  const row=(t,j,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(t.name)+'</td>'+segs.map(x=>'<td>'+cell(x,j)+'</td>').join('')+'</tr>';
+  /* 12.11 (итерация «переносы, интерфейс, AI», п. 10): в ячейке — только процент; число людей, инструмент, покраска и от чего
+     процент — в подсказке. Нет данных — прочерк (с подсказкой), ноль — «0,0%» */
+  const two=(p,n,x,nm)=>'<span class="ai-pc"'+U.tipAttr({title:nm+' · '+x.name,
+    list:['**Доля** — '+P1(p),'**Людей** — '+I(n)+' чел'],
+    note:'Процент — от всех сотрудников покраски «'+x.name+'» без стажёров ('+I(x.hc)+' чел) за ту же неделю.'})+'>'+P1(p)+'</span>';
+  const cell=(x,j,nm)=>x.cells[j]==null?'<span class="ai-pc na"'+U.tipAttr({title:nm+' · '+x.name,text:'Нет данных: в этой покраске нет людей за неделю.'})+'>—</span>':two(x.cells[j],x.cnt[j],x,nm);
+  const row=(t,j,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td class="txt">'+esc(t.name)+'</td>'+segs.map(x=>'<td>'+cell(x,j,t.name)+'</td>').join('')+'</tr>';
   let body=T.slice(0,more?10:T.length).map((t,j)=>row(t,j,'')).join('');
   if(more){
     const n=T.length-10;
     body+='<tr class="urow" data-btexp="'+rk+'"'+U.tipAttr({title:'Остальное',text:open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'})+
       '><td class="txt"><span class="row-label"><button class="caret-btn"'+(open?' data-open="1"':'')+' data-btexp="'+rk+'">'+(open?'▾':'▸')+
       '</button><span class="row-body">Остальное<span class="unit-sub">'+n+' '+U.plural(n,['инструмент','инструмента','инструментов'])+'</span></span></span></td>'+
-      segs.map(x=>'<td>'+two(x.hc?Math.round(x.rest/x.hc*1000)/10:0,x.rest)+'</td>').join('')+'</tr>';
+      segs.map(x=>'<td>'+two(x.hc?Math.round(x.rest/x.hc*1000)/10:0,x.rest,x,'Остальные инструменты')+'</td>').join('')+'</tr>';
     if(open)body+=T.slice(10).map((t,j)=>row(t,j+10,'lvl2')).join('');
   }
-  return '<div class="bt-group"><div class="bt-cap">Инструменты по покраске<span class="bt-sub">% и число людей сегмента без стажёров'+esc(wk(u))+'</span></div>'+
+  return '<div class="bt-group"><div class="bt-cap">Инструменты по покраске<span class="bt-sub">% людей покраски без стажёров · число людей — в подсказке'+esc(wk(u))+'</span></div>'+
     '<table class="ptable stable dense ai-paint"><thead><tr><th class="txt">Инструмент</th>'+segs.map(x=>'<th>'+esc(x.name)+'<span class="th-per">'+I(x.hc)+' чел</span></th>').join('')+
     '</tr></thead><tbody>'+body+'</tbody></table></div>';
 }
@@ -175,7 +194,9 @@ function byPaint(ctx,u){
 function usage(ctx,u){
   const act=u.per.reduce((a,x)=>a+x.value,0);
   /* инструментов на человека: распределение активных пользователей; среднее — «4 и больше» считаем как 4 (нижняя граница) */
-  const avg=act?u.per.reduce((a,x,i)=>a+x.value*(i+1),0)/act:0;
+  /* 12.11, п. 9: среднее — по тем, у кого число инструментов известно */
+  const known=u.per.filter(x=>!x.na), kn=known.reduce((a,x)=>a+x.value,0);
+  const avg=kn?known.reduce((a,x,i)=>a+x.value*(i+1),0)/kn:0;
   const base=Math.round(u.act&&u.pen?u.act*100/u.pen:0);
   return U.btStack([
       /* поставка 116: «активные пользователи» — в итоге справа («Всего 217 чел») и в выводе шага; подпись в одну строку */

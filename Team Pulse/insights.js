@@ -718,7 +718,9 @@ function cards(S,rl,bl,all,skip){
   const sm=smallReport(rl), rank={high:0,mid:1,good:2};
   /* 30.10, критики (маленькая команда: «переработка у 7 из 17, а отчёт пишет всё спокойно»): доли недоработчиков и
      переработчиков — это люди; у маленькой команды их оцениваем, если разница — от SMALL_PPL человек */
-  const list=overview(S,rl,bl,true).filter(f=>!(skip&&skip.has(f.key))).map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}))
+  /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 10): месячная текучесть теперь — значение текущего, ещё не закрытого
+     месяца; вывод по 10–20 дням месяца — шум, поэтому, пока месяц не закрыт, карточек по ней нет: тренд ухода говорит накопительная текучесть */
+  const list=overview(S,rl,bl,true).filter(f=>!(f.key==='turnover_m'&&D.PARTIAL)&&!(skip&&skip.has(f.key))).map((f,i)=>Object.assign(cardOf(f,S,rl,bl),{i}))
     .filter(c=>!(sm&&D.METRIC_BY_KEY[c.key].fmt==='pct'&&c.fact.kind!=='spike'&&c.fact.kind!=='hc'&&
       !(SMALL_OK.has(c.key)&&c.sev!=='good'&&c.ppl>=SMALL_PPL)));
   list.sort((a,c)=>rank[a.sev]-rank[c.sev]||c.ppl-a.ppl||a.i-c.i);

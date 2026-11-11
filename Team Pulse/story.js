@@ -617,13 +617,15 @@ CH.ai={
     /* поставка 118: база — подразделения похожей численности (без стажёров, та же неделя); меньше 30 человек — без неё */
     const pe=sm?null:D.peerOf('ai_penetration',c.lp), ps=pe?D.peerState('ai_penetration',cw.pen,pe,c.lp):'neutral';
     const vb=ps==='good'?' — больше, чем в {{База|базе}}':ps==='bad'?' — меньше, чем в {{База|базе}}':'';
-    return {sum:sm?D.fmtInt(cw.wau)+' из '+D.fmtInt(cw.hc):P(cw.pen),st:ps==='good'?'good':ps==='bad'?'bad':'n',
-      head:(sm?'AI пользуются '+D.fmtInt(cw.wau)+' из '+pl(cw.hc,PPL):'AI пользуются '+P(cw.pen)+' сотрудников')+vb+
+    /* 12.11 (итерация «переносы, интерфейс, AI», п. 5): численности в выводах AI нет — активные пользователи и проникновение */
+    const ppl=n=>D.fmtInt(n)+' '+U.plural(n,['человек','человека','человек']);
+    return {sum:sm?ppl(cw.wau):P(cw.pen),st:ps==='good'?'good':ps==='bad'?'bad':'n',
+      head:(sm?'AI пользуются '+ppl(cw.wau):'AI пользуются '+P(cw.pen)+' сотрудников')+vb+
         (d==null?'':flat?(vb?';':' —')+per+' почти без изменений':
         sm?' —'+per+' на '+pl(Math.abs(dn),PPL)+' '+(dn>0?'больше':'меньше'):
         (vb?';':' —')+per+' на '+P(Math.abs(d)).replace('%',' п.п.')+' '+(d>0?'больше':'меньше')),
-      lede:'За неделю '+cw.full.replace(/^Неделя /,'')+' — **'+D.fmtInt(cw.wau)+'** активных пользователей из **'+D.fmtInt(cw.hc)+
-        '** без стажёров'+(pe?' (**'+P(cw.pen)+'**, {{База|база}} — '+f('ai_penetration',pe.p50)+')':'')+'.'+
+      lede:'За неделю '+cw.full.replace(/^Неделя /,'')+' — **'+D.fmtInt(cw.wau)+'** активных пользователей без стажёров, проникновение — **'+
+        P(cw.pen)+'**'+(pe?' ({{База|база}} — '+f('ai_penetration',pe.p50)+')':'')+'.'+
         (w0!==cw?' В начале окна, '+w0.full.replace(/^Неделя /,'')+', — **'+D.fmtInt(w0.wau)+'**'+(sm?'':' (**'+P(w0.pen)+'**)')+'.':'')};
   },
   /* поставка 112: «Кто пользуется» — какая группа отстаёт или опережает: доля с AI группы против общей, группа от
@@ -644,8 +646,9 @@ CH.ai={
     /* проценты — тем же форматом, что в таблицах шага («53,0%») */
     const P=v=>f('ai_penetration',v), pen=emp.act*100/emp.hc;
     const itl='';
-    if(emp.hc<D.SMALL_N)return {sum:D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc),st:'n',
-      head:(inS?'В выбранной группе AI пользуются ':'AI пользуются ')+D.fmtInt(emp.act)+' из '+pl(emp.hc,PPL),
+    const ppl=n=>D.fmtInt(n)+' '+U.plural(n,['человек','человека','человек']);
+    if(emp.hc<D.SMALL_N)return {sum:ppl(emp.act),st:'n',
+      head:(inS?'В выбранной группе AI пользуются ':'AI пользуются ')+ppl(emp.act),
       lede:(inS?'Выбранная группа':'Сотрудники без стажёров.')+(inS?' меньше ':' В команде меньше ')+D.SMALL_N+
         ' человек — группы между собой не сравниваем: ниже видно, кто именно.'+itl};
     const cand=[];
@@ -655,13 +658,13 @@ CH.ai={
     segs.forEach(sg=>(sg.key==='sp'?sg.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):sg.rows).forEach(x=>{if(x.hc>=10&&!/^Не указано$/.test(x.name)&&Math.abs(x.pen-pen)>=10)cand.push(Object.assign({lb:lbl(sg.key,x.name)},x))}));
     const lag=cand.filter(x=>x.pen<pen).sort((a,b)=>(a.pen-pen)*Math.sqrt(a.hc)-(b.pen-pen)*Math.sqrt(b.hc))[0],
       lead=cand.filter(x=>x.pen>pen).sort((a,b)=>(b.pen-pen)*Math.sqrt(b.hc)-(a.pen-pen)*Math.sqrt(a.hc))[0];
-    const say=x=>x.lb+' — **'+P(x.pen)+'** ('+D.fmtInt(x.act)+' из '+D.fmtInt(x.hc)+')';
+    const say=x=>x.lb+' — **'+P(x.pen)+'** ('+D.fmtInt(x.act)+' чел)';
     const inW=inS?' по группе':' в целом', pre=inS?'В выбранной группе ':'';
     return {sum:lag?'отстают: '+lag.lb:lead?'впереди: '+lead.lb:'группы на одном уровне',st:'n',
       head:lag?pre+(inS?'реже':'Реже')+' всего AI пользуются '+lag.lb+': '+P(lag.pen)+' при '+P(pen)+inW
         :lead?pre+(inS?'чаще':'Чаще')+' всего AI пользуются '+lead.lb+': '+P(lead.pen)+' при '+P(pen)+inW
         :(inS?'В выбранной группе во всех заметных':'Во всех заметных')+' группах AI пользуются примерно одинаково — около '+P(pen),
-      lede:(inS?'Выбранная группа — **':'Сотрудники без стажёров — **')+P(pen)+'** ('+D.fmtInt(emp.act)+' из '+D.fmtInt(emp.hc)+').'+
+      lede:(inS?'Выбранная группа — **':'Сотрудники без стажёров — **')+P(pen)+'** ('+D.fmtInt(emp.act)+' чел).'+
         (lead?' Чаще всего — '+say(lead)+'.':'')+(lag?' Реже всего — '+say(lag)+'.':'')+itl};
   },
   /* поставка 138, п. 13: стажёры — своя глава: доля с AI у стажёров (признак витрины); меньше 3 — в людях */
@@ -669,9 +672,10 @@ CH.ai={
     const it=D.aiUsage(c.lp).intern||{hc:0,act:0};
     if(!it.hc)return {sum:'стажёров нет',st:'n',head:'Стажёров в подразделении нет',lede:''};
     const P=v=>f('ai_penetration',v), pen=it.act*100/it.hc, few=it.hc<D.SMALL_N;
-    return {sum:few?D.fmtInt(it.act)+' из '+D.fmtInt(it.hc):P(pen),st:'n',
-      head:few?'AI пользуются '+D.fmtInt(it.act)+' из '+pl(it.hc,['стажёра','стажёров','стажёров']):'AI пользуются '+P(pen)+' стажёров',
-      lede:'Стажёров **'+D.fmtInt(it.hc)+'**, активных пользователей AI среди них — **'+D.fmtInt(it.act)+'**.'+
+    const stj=n=>D.fmtInt(n)+' '+U.plural(n,['стажёр','стажёра','стажёров']);
+    return {sum:few?stj(it.act):P(pen),st:'n',
+      head:few?'AI пользуются '+stj(it.act):'AI пользуются '+P(pen)+' стажёров',
+      lede:'Активных пользователей AI среди стажёров — **'+D.fmtInt(it.act)+'**, проникновение — **'+P(pen)+'**.'+
         (few?' Стажёров меньше '+D.SMALL_N+' — долю не сравниваем.':'')};
   },
   usage(c){
