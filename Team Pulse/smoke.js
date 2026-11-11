@@ -2022,6 +2022,20 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !css.includes('minmax(min-content,.7fr)')&&!css.includes('minmax(380px,1.3fr)')]);
 })();
 
+/* 11.11, владелец: «Настрой свой дашборд» — три зоны без нумерации (структура, фильтры, метрики); левая панель — значки у всех
+   вкладок и свёрнутый режим (уже 1280px сам, и кнопкой) */
+{
+  const html=fs.readFileSync(path.join(dir,'index.html'),'utf8'), app=fs.readFileSync(path.join(dir,'app.js'),'utf8');
+  const ic=(app.match(/const NAV_IC=\{([\s\S]*?)\};/)||[])[1]||'', keys=['onepager'].concat(D.BLOCKS.map(b=>b.key));
+  checks.push(['11.11: окно настройки — три зоны «Управленческая структура», «Фильтры», «Метрики», без номеров шагов',
+    /class="sc-col sc-org"[\s\S]*Управленческая структура[\s\S]*class="sc-col sc-flt"[\s\S]*>Фильтры<[\s\S]*class="sc-col sc-met"[\s\S]*>Метрики</.test(html)&&
+    !/\d · (Подразделение|Тип численности|Покраска|IT|Штат|Метрики)/.test(html)&&
+    css.includes('.setup-cols{display:grid;grid-template-columns:minmax(0,1.05fr)minmax(0,.9fr)minmax(0,1.15fr);')]);
+  checks.push(['11.11: левая панель — значок у каждой вкладки, свёрнутый режим (64px) по ширине и кнопкой',
+    keys.every(k=>new RegExp('\\b'+k+":'<").test(ic))&&/id="navMini"/.test(html)&&/NAV_MINI_W=1280/.test(app)&&
+    /tp_nav_mini/.test(app)&&css.includes('.nav-mini.nav{width:64px;flex:0064px;')&&css.includes('.nav-mini.nav-i.ni-t')]);
+}
+
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});
 
 console.log();

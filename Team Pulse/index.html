@@ -26,8 +26,10 @@
 <!-- ===== Левая навигация + контент ===== -->
 <div class="layout">
   <nav class="nav" id="sideNav" aria-label="Разделы отчёта">
-    <div class="nav-h">Сводка</div>
-    <button class="nav-i" data-tab="onepager"><span class="ico"></span>One-pager</button>
+    <!-- 11.11, владелец: панель сворачивается до значков — сама на экранах уже 1280px и кнопкой -->
+    <div class="nav-top"><div class="nav-h">Сводка</div>
+      <button class="nav-mini-btn" id="navMini" type="button" aria-label="Свернуть панель" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16M16 10l-2 2 2 2"/></svg></button></div>
+    <div id="navOne"></div>
     <div class="nav-sep"></div>
     <div class="nav-h">Блоки метрик</div>
     <div id="navBlocks"></div>
@@ -70,47 +72,50 @@
     <div class="modal-h">
       <div class="mh-pulse" id="setupPulse"></div>
       <h3>Настрой свой дашборд</h3>
-      <p>Выберите подразделение, фильтры и метрики. Фильтры задают и вашу команду, и базу — то, с чем её сравниваем.</p>
+      <p>Подразделение, фильтры и метрики. Фильтры задают и вашу команду, и базу — то, с чем её сравниваем.</p>
     </div>
-    <!-- Два столбца: слева — кто мы и какие разрезы, справа — что показывать.
-         Так окно целиком помещается в ноутбучный экран без вертикального скролла. -->
+    <!-- 11.11, владелец: три зоны слева направо — управленческая структура, фильтры, метрики. Без нумерации шагов;
+         у каждой колонки своя прокрутка, поэтому метрики видны сразу и на ноутбуке. Узкий экран — см. styles.css -->
     <div class="modal-b setup-cols">
-      <div class="sc-col">
-      <!-- 19.10, как в HRBP HUB: дерево с поиском по названию и логину руководителя;
-           у строки — сколько людей попадёт в выбор с набранными фильтрами -->
-      <div class="fgrp">
-        <label>1 · Подразделение</label>
-        <div class="ut-s"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="utQ" type="text" placeholder="Юнит, имя или логин руководителя" autocomplete="off" spellcheck="false"></div>
-        <div class="ut-list" id="utList" role="listbox" aria-label="Подразделения"></div>
-        <div class="fhint" id="utHint">Ваша команда. На базу сравнения не влияет.</div>
-      </div>
-      <div class="fgrp">
-        <label>2 · Тип численности</label>
-        <div class="opts" id="optHc"></div>
-        <div class="fhint">По умолчанию — «Активная», без подрядчиков. Отметьте в списке любые типы — например, «Активная» и «Подрядчики», как в мастер-отчёте: численность, найм и переводы посчитаются по ним. Меняет весь отчёт.</div>
-      </div>
-      <div class="fgrp">
-        <label>3 · Покраска</label>
-        <div class="opts" id="optPaint"></div>
-      </div>
-      <div class="fgrp">
-        <label>4 · IT</label>
-        <div class="opts" id="optIt"></div>
-      </div>
-      <div class="fgrp">
-        <label>5 · Штат и не штат</label>
-        <div class="opts" id="optStaff"></div>
-      </div>
-      <div class="bench-preview" id="benchPreview"></div>
-      </div>
-      <div class="sc-col">
-      <div class="fgrp last">
-        <label>6 · Метрики в отчёте</label>
-        <div class="opts tight" id="optPreset"></div>
-        <div class="mpick" id="metricPick"></div>
-        <div class="fhint" id="metricCount"></div>
-      </div>
-      </div>
+      <section class="sc-col sc-org" aria-labelledby="scOrgH">
+        <div class="sc-h"><h4 id="scOrgH">Управленческая структура</h4><span>Выберите подразделение</span></div>
+        <!-- 19.10, как в HRBP HUB: дерево с поиском по названию и логину руководителя;
+             у строки — сколько людей попадёт в выбор с набранными фильтрами -->
+        <div class="fgrp sc-tree">
+          <div class="ut-s"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="utQ" type="text" placeholder="Юнит, имя или логин руководителя" autocomplete="off" spellcheck="false"></div>
+          <div class="ut-list" id="utList" role="listbox" aria-label="Подразделения"></div>
+          <div class="fhint" id="utHint">Ваша команда. На базу сравнения не влияет.</div>
+        </div>
+      </section>
+      <section class="sc-col sc-flt" aria-labelledby="scFltH">
+        <div class="sc-h"><h4 id="scFltH">Фильтры</h4><span>Выберите, кого считать</span></div>
+        <div class="fgrp">
+          <label>Тип численности</label>
+          <div class="opts" id="optHc"></div>
+          <div class="fhint">По умолчанию — «Активная», без подрядчиков. Отметьте в списке любые типы — например, «Активная» и «Подрядчики», как в мастер-отчёте: численность, найм и переводы посчитаются по ним. Меняет весь отчёт.</div>
+        </div>
+        <div class="fgrp">
+          <label>Покраска</label>
+          <div class="opts" id="optPaint"></div>
+        </div>
+        <div class="fgrp">
+          <label>IT</label>
+          <div class="opts" id="optIt"></div>
+        </div>
+        <div class="fgrp">
+          <label>Штат и не штат</label>
+          <div class="opts" id="optStaff"></div>
+        </div>
+        <div class="bench-preview" id="benchPreview"></div>
+      </section>
+      <section class="sc-col sc-met" aria-labelledby="scMetH">
+        <div class="sc-h"><h4 id="scMetH">Метрики</h4><span>Настройте отображаемые метрики</span></div>
+        <div class="fgrp last">
+          <div class="opts tight" id="optPreset"></div>
+          <div class="mpick" id="metricPick"></div>
+          <div class="fhint" id="metricCount"></div>
+        </div>
+      </section>
     </div>
     <div class="modal-f">
       <button class="btn" id="btnReset">Сбросить фильтры</button>

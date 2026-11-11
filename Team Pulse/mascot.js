@@ -92,6 +92,9 @@ function dock(S,open){
     /* к эмоции вкладки доклеивается вторая служебная строка; сам словарь MOOD не трогаем */
     U.tipAttr(Object.assign({},m.tip,{note:[].concat(m.tip.note||[],'Клик — объяснит метрики этой вкладки.')}))+'>'+
     /* 21.10, заказчик: огонёк внизу дублировал огонёк сводки и отвлекал — словарь остаётся строкой без него */
+    /* 11.11: в свёрнутой панели вместо подписи — значок книги */
+    '<span class="pd-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '+
+      'stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7.5h8M8 11h6"/></svg></span>'+
     '<span class="pd-txt"><b>Словарь метрик</b><span>этой вкладки</span></span>'+
     '<span class="pd-caret">'+(open?'✕':'▸')+'</span></button>';
 }

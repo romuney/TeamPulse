@@ -987,20 +987,47 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .rh-tl .rh-title{margin:0}
 .rh-side{flex-wrap:wrap;justify-content:flex-end}
 
-/* ---------- Настройка дашборда: два столбца ----------
-   В одну колонку окно не помещалось в ноутбучный экран и уезжало в скролл.
-   Слева — кто мы и в каких разрезах, справа — состав метрик. */
-.modal.wide{max-width:1020px}
-.setup-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
-  column-gap:26px;align-items:start}
-.setup-cols .sc-col{min-width:0;display:flex;flex-direction:column}
-.setup-cols .sc-col+.sc-col{border-left:1px solid var(--line2);padding-left:26px}
-.setup-cols .fgrp.last{margin-bottom:12px}
-/* Скроллится только список метрик — само окно остаётся целиком на экране */
-.setup-cols .fgrp.last .mpick{max-height:min(48vh,400px)}
-#setupOvl{padding:34px 18px;align-items:center}
-#setupOvl .modal{max-height:calc(var(--vh,100vh) - 68px);display:flex;flex-direction:column}
-#setupOvl .modal-b{flex:1;min-height:0;overflow:auto}
+/* ---------- Настройка дашборда: три зоны (11.11, владелец) ----------
+   Слева направо: управленческая структура, фильтры, метрики. Окно — почти на весь экран по высоте, у каждой колонки
+   своя прокрутка: метрики видны сразу и на ноутбуке. Колонки делят ширину по содержимому: дерево и метрики шире,
+   фильтры уже. До 900px — три колонки (уже 1180px плотнее), уже — структура и фильтры стопкой слева, метрики справа;
+   уже 760px — одна колонка. */
+.modal.wide{max-width:1320px}
+.setup-cols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.9fr) minmax(0,1.15fr);
+  column-gap:0;align-items:stretch;padding:0;overflow:hidden}
+.setup-cols .sc-col{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:16px 22px 10px}
+.setup-cols .sc-col+.sc-col{border-left:1px solid var(--line2)}
+.sc-h{display:flex;flex-direction:column;gap:2px;margin:0 0 12px}
+.sc-h h4{margin:0;font-size:14px;font-weight:var(--fw-bold);color:var(--ink);letter-spacing:-.1px}
+.sc-h span{font-size:var(--fs-note);color:var(--muted)}
+.setup-cols .fgrp.last{margin-bottom:6px}
+/* дерево тянется на всю высоту своей колонки */
+.setup-cols .sc-tree{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:6px}
+.setup-cols .sc-tree .ut-list{flex:1;max-height:none;min-height:180px}
+.setup-cols .fgrp.last .mpick{max-height:none}
+#setupOvl{padding:24px 18px;align-items:center}
+#setupOvl .modal{height:min(860px,calc(var(--vh,100vh) - 48px));max-height:calc(var(--vh,100vh) - 48px);display:flex;flex-direction:column}
+#setupOvl .modal-b{flex:1;min-height:0}
+@media(max-width:1180px){
+  /* ноутбук: те же три колонки, плотнее; метрики — в один столбец внутри группы */
+  .setup-cols{grid-template-columns:minmax(0,1fr) minmax(0,.85fr) minmax(0,1fr)}
+  .setup-cols .sc-col{padding:14px 16px 8px}
+  .setup-cols .mpick-l{grid-template-columns:1fr}
+}
+@media(max-width:900px){
+  .setup-cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"org met" "flt met"}
+  .setup-cols .sc-org{grid-area:org}.setup-cols .sc-flt{grid-area:flt;border-left:0;border-top:1px solid var(--line2)}
+  .setup-cols .sc-met{grid-area:met;border-left:1px solid var(--line2)}
+}
+@media(max-width:760px){
+  #setupOvl .modal{height:auto}
+  .setup-cols{display:block;overflow:visible}
+  #setupOvl .modal-b{overflow:auto}
+  .setup-cols .sc-col{overflow:visible;padding:14px 16px 6px}
+  .setup-cols .sc-col+.sc-col{border-left:0;border-top:1px solid var(--line2)}
+  .setup-cols .sc-tree .ut-list{max-height:260px;flex:none}
+}
 
 /* ---------- Рабочая зона детальной вкладки во весь экран ----------
    Было: высота .split ограничена 620px. Из-за этого, во-первых, в таблицу
@@ -1024,12 +1051,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 @media(max-width:1100px){
   .reporthead{padding-left:22px;padding-right:22px}
-  .modal.wide{max-width:760px}
-}
-@media(max-width:900px){
-  .setup-cols{grid-template-columns:1fr;row-gap:0}
-  .setup-cols .sc-col+.sc-col{border-left:0;padding-left:0;border-top:1px solid var(--line2);padding-top:16px;margin-top:2px}
-  .setup-cols .fgrp.last .mpick{max-height:236px}
 }
 @media(max-width:780px){
   /* Мобильная навигация снова выезжающая панель, поэтому sticky тут не нужен */
@@ -2683,6 +2704,38 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .tip .t-tb td.p{color:var(--muted)}
 .tip .t-tb+.t-n{margin-top:6px;padding-top:6px;border-top:1px solid var(--line2)}
 
+/* ---------- Левая панель: значки и свёрнутый режим (11.11, владелец) ----------
+   У каждой вкладки — значок; точка сигнала блока — на углу значка (только когда сигнал есть). Свёрнутая панель (body.nav-mini:
+   уже 1280px сама или по кнопке) — 64px, только значки, название — в подсказке. На телефоне (до 780px) панель по-прежнему
+   выезжает по кнопке ☰ и всегда развёрнута. */
+.nav-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:0 0 9px}
+.nav-top .nav-h{margin:0}
+.nav-mini-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:0;border-radius:8px;
+  background:transparent;color:var(--muted);cursor:pointer;flex:none;transition:background .15s,color .15s}
+.nav-mini-btn:hover{background:#f1f4f9;color:var(--ink)}
+.nav-mini-btn svg{transition:transform .2s ease}
+.nav-i .ni-ic{position:relative;display:inline-flex;width:20px;height:20px;flex:none;color:var(--muted)}
+.nav-i:hover .ni-ic{color:var(--ink2)}
+.nav-i.active .ni-ic{color:var(--blue)}
+.nav-i .ni-t{flex:1;min-width:0}
+.nav-i .ni-ic .ico{display:none;position:absolute;right:-3px;top:-3px;width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 2px #fff}
+.nav-i .ni-ic .ico.sig-bad,.nav-i .ni-ic .ico.sig-good,.nav-i .ni-ic .ico.sig-warn{display:block}
+.nav-i.active .ni-ic .ico{box-shadow:0 0 0 2px var(--blue-bg)}
+.pulse-dock .pd-ic{display:none}
+@media(min-width:781px){
+  .nav{transition:width .2s ease,flex-basis .2s ease,padding .2s ease}
+  .nav-mini .nav{width:64px;flex:0 0 64px;padding-left:8px;padding-right:8px;overflow-x:hidden}
+  .nav-mini .nav-top{justify-content:center}
+  .nav-mini .nav-mini-btn svg{transform:scaleX(-1)}
+  .nav-mini .nav-h,.nav-mini .nav-i .ni-t,.nav-mini .nav-i .nav-dev{display:none}
+  .nav-mini .nav-i{justify-content:center;padding:10px 0;gap:0}
+  .nav-mini .nav-sep{margin:8px 6px}
+  .nav-mini .pulse-dock{justify-content:center;padding:10px 0}
+  .nav-mini .pulse-dock .pd-txt,.nav-mini .pulse-dock .pd-caret{display:none}
+  .nav-mini .pulse-dock .pd-ic{display:inline-flex;color:var(--muted)}
+  .nav-mini .pulse-panel{left:76px}
+}
+
 </style>
 </head>
 <body>
@@ -2704,8 +2757,10 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 <!-- ===== Левая навигация + контент ===== -->
 <div class="layout">
   <nav class="nav" id="sideNav" aria-label="Разделы отчёта">
-    <div class="nav-h">Сводка</div>
-    <button class="nav-i" data-tab="onepager"><span class="ico"></span>One-pager</button>
+    <!-- 11.11, владелец: панель сворачивается до значков — сама на экранах уже 1280px и кнопкой -->
+    <div class="nav-top"><div class="nav-h">Сводка</div>
+      <button class="nav-mini-btn" id="navMini" type="button" aria-label="Свернуть панель" aria-pressed="false"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9 4v16M16 10l-2 2 2 2"/></svg></button></div>
+    <div id="navOne"></div>
     <div class="nav-sep"></div>
     <div class="nav-h">Блоки метрик</div>
     <div id="navBlocks"></div>
@@ -2748,47 +2803,50 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
     <div class="modal-h">
       <div class="mh-pulse" id="setupPulse"></div>
       <h3>Настрой свой дашборд</h3>
-      <p>Выберите подразделение, фильтры и метрики. Фильтры задают и вашу команду, и базу — то, с чем её сравниваем.</p>
+      <p>Подразделение, фильтры и метрики. Фильтры задают и вашу команду, и базу — то, с чем её сравниваем.</p>
     </div>
-    <!-- Два столбца: слева — кто мы и какие разрезы, справа — что показывать.
-         Так окно целиком помещается в ноутбучный экран без вертикального скролла. -->
+    <!-- 11.11, владелец: три зоны слева направо — управленческая структура, фильтры, метрики. Без нумерации шагов;
+         у каждой колонки своя прокрутка, поэтому метрики видны сразу и на ноутбуке. Узкий экран — см. styles.css -->
     <div class="modal-b setup-cols">
-      <div class="sc-col">
-      <!-- 19.10, как в HRBP HUB: дерево с поиском по названию и логину руководителя;
-           у строки — сколько людей попадёт в выбор с набранными фильтрами -->
-      <div class="fgrp">
-        <label>1 · Подразделение</label>
-        <div class="ut-s"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="utQ" type="text" placeholder="Юнит, имя или логин руководителя" autocomplete="off" spellcheck="false"></div>
-        <div class="ut-list" id="utList" role="listbox" aria-label="Подразделения"></div>
-        <div class="fhint" id="utHint">Ваша команда. На базу сравнения не влияет.</div>
-      </div>
-      <div class="fgrp">
-        <label>2 · Тип численности</label>
-        <div class="opts" id="optHc"></div>
-        <div class="fhint">По умолчанию — «Активная», без подрядчиков. Отметьте в списке любые типы — например, «Активная» и «Подрядчики», как в мастер-отчёте: численность, найм и переводы посчитаются по ним. Меняет весь отчёт.</div>
-      </div>
-      <div class="fgrp">
-        <label>3 · Покраска</label>
-        <div class="opts" id="optPaint"></div>
-      </div>
-      <div class="fgrp">
-        <label>4 · IT</label>
-        <div class="opts" id="optIt"></div>
-      </div>
-      <div class="fgrp">
-        <label>5 · Штат и не штат</label>
-        <div class="opts" id="optStaff"></div>
-      </div>
-      <div class="bench-preview" id="benchPreview"></div>
-      </div>
-      <div class="sc-col">
-      <div class="fgrp last">
-        <label>6 · Метрики в отчёте</label>
-        <div class="opts tight" id="optPreset"></div>
-        <div class="mpick" id="metricPick"></div>
-        <div class="fhint" id="metricCount"></div>
-      </div>
-      </div>
+      <section class="sc-col sc-org" aria-labelledby="scOrgH">
+        <div class="sc-h"><h4 id="scOrgH">Управленческая структура</h4><span>Выберите подразделение</span></div>
+        <!-- 19.10, как в HRBP HUB: дерево с поиском по названию и логину руководителя;
+             у строки — сколько людей попадёт в выбор с набранными фильтрами -->
+        <div class="fgrp sc-tree">
+          <div class="ut-s"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="utQ" type="text" placeholder="Юнит, имя или логин руководителя" autocomplete="off" spellcheck="false"></div>
+          <div class="ut-list" id="utList" role="listbox" aria-label="Подразделения"></div>
+          <div class="fhint" id="utHint">Ваша команда. На базу сравнения не влияет.</div>
+        </div>
+      </section>
+      <section class="sc-col sc-flt" aria-labelledby="scFltH">
+        <div class="sc-h"><h4 id="scFltH">Фильтры</h4><span>Выберите, кого считать</span></div>
+        <div class="fgrp">
+          <label>Тип численности</label>
+          <div class="opts" id="optHc"></div>
+          <div class="fhint">По умолчанию — «Активная», без подрядчиков. Отметьте в списке любые типы — например, «Активная» и «Подрядчики», как в мастер-отчёте: численность, найм и переводы посчитаются по ним. Меняет весь отчёт.</div>
+        </div>
+        <div class="fgrp">
+          <label>Покраска</label>
+          <div class="opts" id="optPaint"></div>
+        </div>
+        <div class="fgrp">
+          <label>IT</label>
+          <div class="opts" id="optIt"></div>
+        </div>
+        <div class="fgrp">
+          <label>Штат и не штат</label>
+          <div class="opts" id="optStaff"></div>
+        </div>
+        <div class="bench-preview" id="benchPreview"></div>
+      </section>
+      <section class="sc-col sc-met" aria-labelledby="scMetH">
+        <div class="sc-h"><h4 id="scMetH">Метрики</h4><span>Настройте отображаемые метрики</span></div>
+        <div class="fgrp last">
+          <div class="opts tight" id="optPreset"></div>
+          <div class="mpick" id="metricPick"></div>
+          <div class="fhint" id="metricCount"></div>
+        </div>
+      </section>
     </div>
     <div class="modal-f">
       <button class="btn" id="btnReset">Сбросить фильтры</button>
@@ -9273,6 +9331,9 @@ function dock(S,open){
     /* к эмоции вкладки доклеивается вторая служебная строка; сам словарь MOOD не трогаем */
     U.tipAttr(Object.assign({},m.tip,{note:[].concat(m.tip.note||[],'Клик — объяснит метрики этой вкладки.')}))+'>'+
     /* 21.10, заказчик: огонёк внизу дублировал огонёк сводки и отвлекал — словарь остаётся строкой без него */
+    /* 11.11: в свёрнутой панели вместо подписи — значок книги */
+    '<span class="pd-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '+
+      'stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7.5h8M8 11h6"/></svg></span>'+
     '<span class="pd-txt"><b>Словарь метрик</b><span>этой вкладки</span></span>'+
     '<span class="pd-caret">'+(open?'✕':'▸')+'</span></button>';
 }
@@ -13990,14 +14051,43 @@ function navSig0(bk){
   try{const sv=I.blockSummary(bk,S,D.reportLeaves(S),D.benchmarkLeaves(S)).sev;
     return sv==='high'?'bad':sv==='mid'?'warn':sv==='good'?'good':'neutral'}catch(e){return 'neutral'}
 }
+/* 11.11, владелец: у каждой вкладки — свой значок; на узком экране (и по кнопке) панель сворачивается до значков, название —
+   в подсказке. Точка сигнала блока — на углу значка, только если сигнал есть */
+const NAV_IC={
+  onepager:'<rect x="3.5" y="3.5" width="7" height="8" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.5"/>',
+  structure:'<rect x="9" y="3" width="6" height="5" rx="1.3"/><rect x="3" y="16" width="6" height="5" rx="1.3"/><rect x="15" y="16" width="6" height="5" rx="1.3"/><path d="M12 8v4M6 16v-4h12v4"/>',
+  movement:'<path d="M4 8h14M14.5 4.5 18 8l-3.5 3.5M20 16H6M9.5 12.5 6 16l3.5 3.5"/>',
+  turnover:'<path d="M13 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H13M10 12h10M17 8.5l3.5 3.5-3.5 3.5"/>',
+  hiring:'<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M18.5 7.5v6M15.5 10.5h6"/>',
+  tgrowth:'<path d="M3 18l6-6 4 4 7.5-7.5M15 8.5h5.5V14"/>',
+  monitor:'<path d="M3 12.5h4l2.5-6.5 5 13 2.5-6.5h4"/>',
+  office:'<rect x="4" y="3" width="11" height="18" rx="1.3"/><path d="M15 9h4a1 1 0 0 1 1 1v11M8 7.5h3M8 11.5h3M8 15.5h3M2.5 21h19"/>',
+  ai:'<path d="M11 3.5l1.9 4.9 4.9 1.9-4.9 1.9L11 17.1l-1.9-4.9-4.9-1.9 4.9-1.9z"/><path d="M18.5 14.5l.8 2.1 2.2.9-2.2.8-.8 2.2-.9-2.2-2.1-.8 2.1-.9z"/>'};
+const navIc=(k,sig)=>'<span class="ni-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '+
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(NAV_IC[k]||'<circle cx="12" cy="12" r="4"/>')+'</svg>'+
+  '<span class="ico'+(sig?' sig-'+sig:'')+'"></span></span>';
+const navBtn=(k,name,sig,tail)=>'<button class="nav-i'+(S.tab===k?' active':'')+'" data-tab="'+k+'" aria-label="'+esc(name)+'"'+
+  (navMini()?U.tipAttr({title:name}):'')+'>'+navIc(k,sig)+'<span class="ni-t">'+esc(name)+'</span>'+(tail||'')+'</button>';
 function renderNav(){
+  const one=$('#navOne');if(one)one.innerHTML=navBtn('onepager','One-pager',null,'');
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */
   $('#navBlocks').innerHTML=D.visibleBlocks(S).map(b=>
     /* точка у пункта — худший сигнал блока, тем же цветом, что в мини-навигации
        One-pager: в какой блок идти, видно с любой вкладки */
-    '<button class="nav-i'+(S.tab===b.key?' active':'')+'" data-tab="'+b.key+'"><span class="ico sig-'+navSig(b.key)+'"></span>'+esc(b.name)+
-      navDev(b.key)+'</button>').join('');
-  $$('.nav-i[data-tab="onepager"]').forEach(b=>b.classList.toggle('active',S.tab==='onepager'));
+    navBtn(b.key,b.name,navSig(b.key),navDev(b.key))).join('');
+}
+/* свёрнутая панель: выбор пользователя (кнопка) запоминается; пока его нет — по ширине окна (уже 1280px — значки) */
+const NAV_MINI_W=1280;
+function navPref(){try{const v=localStorage.getItem('tp_nav_mini');return v==='1'?true:v==='0'?false:null}catch(e){return null}}
+function navMini(){const p=navPref();return p!=null?p:window.innerWidth<NAV_MINI_W}
+function applyNavMini(){
+  /* класс — на корне отчёта (в Proteus — контейнер чарта, иначе body) */
+  const el=ROOTEL&&ROOTEL.classList?ROOTEL:document.body;if(!el||!el.classList)return false;
+  const on=navMini(), was=el.classList.contains('nav-mini');
+  el.classList.toggle('nav-mini',on);
+  const b=$('#navMini');
+  if(b){b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Развернуть панель':'Свернуть панель')}
+  return was!==on;
 }
 
 /* ---------- маскот ----------
@@ -14311,7 +14401,7 @@ function render(keepScroll,quiet){
      точка на всё: и ссылка с ?tab=tgrowth&hide=…, и отключение метрик в модалке */
   if(S.tab!=='onepager'&&!(D.BLOCK_BY_KEY[S.tab]&&D.blockVisible(S.tab,S))){S.tab='onepager';S.subTab=null}
   G.reset();
-  renderHead();renderNav();writeURL();
+  applyNavMini();renderHead();renderNav();writeURL();
   if(G.lazy)G.lazy(true);
   try{
     $('#view').innerHTML = S.tab==='onepager'
@@ -14509,7 +14599,7 @@ if(ENV)on(ROOTEL,'scroll',()=>{if(!_sv)_sv=requestAnimationFrame(saveScroll)},{p
 /* перерисовка графиков под новую ширину окна, без пересчёта данных */
 let _rz=null;
 on(window,'resize',()=>{
-  clearTimeout(_rz);_rz=setTimeout(()=>{G.remeasure($('#view'));stickTotals()},140);
+  clearTimeout(_rz);_rz=setTimeout(()=>{if(applyNavMini())renderNav();G.remeasure($('#view'));stickTotals()},140);
 });
 
 /* ---------- события ----------
@@ -14546,6 +14636,10 @@ on(document,'click',e=>{
   /* детализация переводов (поставка 63) */
   if(t.id==='helpOvl'){$('#helpOvl').classList.add('hidden');return}
   if(t.closest('#navToggle')){navOpen(!$('#sideNav').classList.contains('open'));return}
+  /* 11.11: свернуть / развернуть панель до значков — выбор запоминается; графики перемеряются под новую ширину */
+  if(t.closest('#navMini')){
+    try{localStorage.setItem('tp_nav_mini',navMini()?'0':'1')}catch(e){}
+    applyNavMini();renderNav();renderMascot();setTimeout(relayout,240);return}
   if(t.id==='navScrim'){navOpen(false);return}
 
   /* тип численности: кнопка раскрывает список, галочка — тип; раньше общей

@@ -368,14 +368,43 @@ function navSig0(bk){
   try{const sv=I.blockSummary(bk,S,D.reportLeaves(S),D.benchmarkLeaves(S)).sev;
     return sv==='high'?'bad':sv==='mid'?'warn':sv==='good'?'good':'neutral'}catch(e){return 'neutral'}
 }
+/* 11.11, владелец: у каждой вкладки — свой значок; на узком экране (и по кнопке) панель сворачивается до значков, название —
+   в подсказке. Точка сигнала блока — на углу значка, только если сигнал есть */
+const NAV_IC={
+  onepager:'<rect x="3.5" y="3.5" width="7" height="8" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="14.5" width="7" height="6" rx="1.5"/>',
+  structure:'<rect x="9" y="3" width="6" height="5" rx="1.3"/><rect x="3" y="16" width="6" height="5" rx="1.3"/><rect x="15" y="16" width="6" height="5" rx="1.3"/><path d="M12 8v4M6 16v-4h12v4"/>',
+  movement:'<path d="M4 8h14M14.5 4.5 18 8l-3.5 3.5M20 16H6M9.5 12.5 6 16l3.5 3.5"/>',
+  turnover:'<path d="M13 4H6.5A1.5 1.5 0 0 0 5 5.5v13A1.5 1.5 0 0 0 6.5 20H13M10 12h10M17 8.5l3.5 3.5-3.5 3.5"/>',
+  hiring:'<circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M18.5 7.5v6M15.5 10.5h6"/>',
+  tgrowth:'<path d="M3 18l6-6 4 4 7.5-7.5M15 8.5h5.5V14"/>',
+  monitor:'<path d="M3 12.5h4l2.5-6.5 5 13 2.5-6.5h4"/>',
+  office:'<rect x="4" y="3" width="11" height="18" rx="1.3"/><path d="M15 9h4a1 1 0 0 1 1 1v11M8 7.5h3M8 11.5h3M8 15.5h3M2.5 21h19"/>',
+  ai:'<path d="M11 3.5l1.9 4.9 4.9 1.9-4.9 1.9L11 17.1l-1.9-4.9-4.9-1.9 4.9-1.9z"/><path d="M18.5 14.5l.8 2.1 2.2.9-2.2.8-.8 2.2-.9-2.2-2.1-.8 2.1-.9z"/>'};
+const navIc=(k,sig)=>'<span class="ni-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '+
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(NAV_IC[k]||'<circle cx="12" cy="12" r="4"/>')+'</svg>'+
+  '<span class="ico'+(sig?' sig-'+sig:'')+'"></span></span>';
+const navBtn=(k,name,sig,tail)=>'<button class="nav-i'+(S.tab===k?' active':'')+'" data-tab="'+k+'" aria-label="'+esc(name)+'"'+
+  (navMini()?U.tipAttr({title:name}):'')+'>'+navIc(k,sig)+'<span class="ni-t">'+esc(name)+'</span>'+(tail||'')+'</button>';
 function renderNav(){
+  const one=$('#navOne');if(one)one.innerHTML=navBtn('onepager','One-pager',null,'');
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */
   $('#navBlocks').innerHTML=D.visibleBlocks(S).map(b=>
     /* точка у пункта — худший сигнал блока, тем же цветом, что в мини-навигации
        One-pager: в какой блок идти, видно с любой вкладки */
-    '<button class="nav-i'+(S.tab===b.key?' active':'')+'" data-tab="'+b.key+'"><span class="ico sig-'+navSig(b.key)+'"></span>'+esc(b.name)+
-      navDev(b.key)+'</button>').join('');
-  $$('.nav-i[data-tab="onepager"]').forEach(b=>b.classList.toggle('active',S.tab==='onepager'));
+    navBtn(b.key,b.name,navSig(b.key),navDev(b.key))).join('');
+}
+/* свёрнутая панель: выбор пользователя (кнопка) запоминается; пока его нет — по ширине окна (уже 1280px — значки) */
+const NAV_MINI_W=1280;
+function navPref(){try{const v=localStorage.getItem('tp_nav_mini');return v==='1'?true:v==='0'?false:null}catch(e){return null}}
+function navMini(){const p=navPref();return p!=null?p:window.innerWidth<NAV_MINI_W}
+function applyNavMini(){
+  /* класс — на корне отчёта (в Proteus — контейнер чарта, иначе body) */
+  const el=ROOTEL&&ROOTEL.classList?ROOTEL:document.body;if(!el||!el.classList)return false;
+  const on=navMini(), was=el.classList.contains('nav-mini');
+  el.classList.toggle('nav-mini',on);
+  const b=$('#navMini');
+  if(b){b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Развернуть панель':'Свернуть панель')}
+  return was!==on;
 }
 
 /* ---------- маскот ----------
@@ -689,7 +718,7 @@ function render(keepScroll,quiet){
      точка на всё: и ссылка с ?tab=tgrowth&hide=…, и отключение метрик в модалке */
   if(S.tab!=='onepager'&&!(D.BLOCK_BY_KEY[S.tab]&&D.blockVisible(S.tab,S))){S.tab='onepager';S.subTab=null}
   G.reset();
-  renderHead();renderNav();writeURL();
+  applyNavMini();renderHead();renderNav();writeURL();
   if(G.lazy)G.lazy(true);
   try{
     $('#view').innerHTML = S.tab==='onepager'
@@ -887,7 +916,7 @@ if(ENV)on(ROOTEL,'scroll',()=>{if(!_sv)_sv=requestAnimationFrame(saveScroll)},{p
 /* перерисовка графиков под новую ширину окна, без пересчёта данных */
 let _rz=null;
 on(window,'resize',()=>{
-  clearTimeout(_rz);_rz=setTimeout(()=>{G.remeasure($('#view'));stickTotals()},140);
+  clearTimeout(_rz);_rz=setTimeout(()=>{if(applyNavMini())renderNav();G.remeasure($('#view'));stickTotals()},140);
 });
 
 /* ---------- события ----------
@@ -924,6 +953,10 @@ on(document,'click',e=>{
   /* детализация переводов (поставка 63) */
   if(t.id==='helpOvl'){$('#helpOvl').classList.add('hidden');return}
   if(t.closest('#navToggle')){navOpen(!$('#sideNav').classList.contains('open'));return}
+  /* 11.11: свернуть / развернуть панель до значков — выбор запоминается; графики перемеряются под новую ширину */
+  if(t.closest('#navMini')){
+    try{localStorage.setItem('tp_nav_mini',navMini()?'0':'1')}catch(e){}
+    applyNavMini();renderNav();renderMascot();setTimeout(relayout,240);return}
   if(t.id==='navScrim'){navOpen(false);return}
 
   /* тип численности: кнопка раскрывает список, галочка — тип; раньше общей

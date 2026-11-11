@@ -979,20 +979,47 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .rh-tl .rh-title{margin:0}
 .rh-side{flex-wrap:wrap;justify-content:flex-end}
 
-/* ---------- Настройка дашборда: два столбца ----------
-   В одну колонку окно не помещалось в ноутбучный экран и уезжало в скролл.
-   Слева — кто мы и в каких разрезах, справа — состав метрик. */
-.modal.wide{max-width:1020px}
-.setup-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
-  column-gap:26px;align-items:start}
-.setup-cols .sc-col{min-width:0;display:flex;flex-direction:column}
-.setup-cols .sc-col+.sc-col{border-left:1px solid var(--line2);padding-left:26px}
-.setup-cols .fgrp.last{margin-bottom:12px}
-/* Скроллится только список метрик — само окно остаётся целиком на экране */
-.setup-cols .fgrp.last .mpick{max-height:min(48vh,400px)}
-#setupOvl{padding:34px 18px;align-items:center}
-#setupOvl .modal{max-height:calc(var(--vh,100vh) - 68px);display:flex;flex-direction:column}
-#setupOvl .modal-b{flex:1;min-height:0;overflow:auto}
+/* ---------- Настройка дашборда: три зоны (11.11, владелец) ----------
+   Слева направо: управленческая структура, фильтры, метрики. Окно — почти на весь экран по высоте, у каждой колонки
+   своя прокрутка: метрики видны сразу и на ноутбуке. Колонки делят ширину по содержимому: дерево и метрики шире,
+   фильтры уже. До 900px — три колонки (уже 1180px плотнее), уже — структура и фильтры стопкой слева, метрики справа;
+   уже 760px — одна колонка. */
+.modal.wide{max-width:1320px}
+.setup-cols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.9fr) minmax(0,1.15fr);
+  column-gap:0;align-items:stretch;padding:0;overflow:hidden}
+.setup-cols .sc-col{min-width:0;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:16px 22px 10px}
+.setup-cols .sc-col+.sc-col{border-left:1px solid var(--line2)}
+.sc-h{display:flex;flex-direction:column;gap:2px;margin:0 0 12px}
+.sc-h h4{margin:0;font-size:14px;font-weight:var(--fw-bold);color:var(--ink);letter-spacing:-.1px}
+.sc-h span{font-size:var(--fs-note);color:var(--muted)}
+.setup-cols .fgrp.last{margin-bottom:6px}
+/* дерево тянется на всю высоту своей колонки */
+.setup-cols .sc-tree{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:6px}
+.setup-cols .sc-tree .ut-list{flex:1;max-height:none;min-height:180px}
+.setup-cols .fgrp.last .mpick{max-height:none}
+#setupOvl{padding:24px 18px;align-items:center}
+#setupOvl .modal{height:min(860px,calc(var(--vh,100vh) - 48px));max-height:calc(var(--vh,100vh) - 48px);display:flex;flex-direction:column}
+#setupOvl .modal-b{flex:1;min-height:0}
+@media(max-width:1180px){
+  /* ноутбук: те же три колонки, плотнее; метрики — в один столбец внутри группы */
+  .setup-cols{grid-template-columns:minmax(0,1fr) minmax(0,.85fr) minmax(0,1fr)}
+  .setup-cols .sc-col{padding:14px 16px 8px}
+  .setup-cols .mpick-l{grid-template-columns:1fr}
+}
+@media(max-width:900px){
+  .setup-cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"org met" "flt met"}
+  .setup-cols .sc-org{grid-area:org}.setup-cols .sc-flt{grid-area:flt;border-left:0;border-top:1px solid var(--line2)}
+  .setup-cols .sc-met{grid-area:met;border-left:1px solid var(--line2)}
+}
+@media(max-width:760px){
+  #setupOvl .modal{height:auto}
+  .setup-cols{display:block;overflow:visible}
+  #setupOvl .modal-b{overflow:auto}
+  .setup-cols .sc-col{overflow:visible;padding:14px 16px 6px}
+  .setup-cols .sc-col+.sc-col{border-left:0;border-top:1px solid var(--line2)}
+  .setup-cols .sc-tree .ut-list{max-height:260px;flex:none}
+}
 
 /* ---------- Рабочая зона детальной вкладки во весь экран ----------
    Было: высота .split ограничена 620px. Из-за этого, во-первых, в таблицу
@@ -1016,12 +1043,6 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 
 @media(max-width:1100px){
   .reporthead{padding-left:22px;padding-right:22px}
-  .modal.wide{max-width:760px}
-}
-@media(max-width:900px){
-  .setup-cols{grid-template-columns:1fr;row-gap:0}
-  .setup-cols .sc-col+.sc-col{border-left:0;padding-left:0;border-top:1px solid var(--line2);padding-top:16px;margin-top:2px}
-  .setup-cols .fgrp.last .mpick{max-height:236px}
 }
 @media(max-width:780px){
   /* Мобильная навигация снова выезжающая панель, поэтому sticky тут не нужен */
@@ -2674,3 +2695,35 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .tip .t-tb td.c{font-weight:var(--fw-bold);color:var(--ink)}
 .tip .t-tb td.p{color:var(--muted)}
 .tip .t-tb+.t-n{margin-top:6px;padding-top:6px;border-top:1px solid var(--line2)}
+
+/* ---------- Левая панель: значки и свёрнутый режим (11.11, владелец) ----------
+   У каждой вкладки — значок; точка сигнала блока — на углу значка (только когда сигнал есть). Свёрнутая панель (body.nav-mini:
+   уже 1280px сама или по кнопке) — 64px, только значки, название — в подсказке. На телефоне (до 780px) панель по-прежнему
+   выезжает по кнопке ☰ и всегда развёрнута. */
+.nav-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:0 0 9px}
+.nav-top .nav-h{margin:0}
+.nav-mini-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:0;border-radius:8px;
+  background:transparent;color:var(--muted);cursor:pointer;flex:none;transition:background .15s,color .15s}
+.nav-mini-btn:hover{background:#f1f4f9;color:var(--ink)}
+.nav-mini-btn svg{transition:transform .2s ease}
+.nav-i .ni-ic{position:relative;display:inline-flex;width:20px;height:20px;flex:none;color:var(--muted)}
+.nav-i:hover .ni-ic{color:var(--ink2)}
+.nav-i.active .ni-ic{color:var(--blue)}
+.nav-i .ni-t{flex:1;min-width:0}
+.nav-i .ni-ic .ico{display:none;position:absolute;right:-3px;top:-3px;width:8px;height:8px;border-radius:50%;box-shadow:0 0 0 2px #fff}
+.nav-i .ni-ic .ico.sig-bad,.nav-i .ni-ic .ico.sig-good,.nav-i .ni-ic .ico.sig-warn{display:block}
+.nav-i.active .ni-ic .ico{box-shadow:0 0 0 2px var(--blue-bg)}
+.pulse-dock .pd-ic{display:none}
+@media(min-width:781px){
+  .nav{transition:width .2s ease,flex-basis .2s ease,padding .2s ease}
+  .nav-mini .nav{width:64px;flex:0 0 64px;padding-left:8px;padding-right:8px;overflow-x:hidden}
+  .nav-mini .nav-top{justify-content:center}
+  .nav-mini .nav-mini-btn svg{transform:scaleX(-1)}
+  .nav-mini .nav-h,.nav-mini .nav-i .ni-t,.nav-mini .nav-i .nav-dev{display:none}
+  .nav-mini .nav-i{justify-content:center;padding:10px 0;gap:0}
+  .nav-mini .nav-sep{margin:8px 6px}
+  .nav-mini .pulse-dock{justify-content:center;padding:10px 0}
+  .nav-mini .pulse-dock .pd-txt,.nav-mini .pulse-dock .pd-caret{display:none}
+  .nav-mini .pulse-dock .pd-ic{display:inline-flex;color:var(--muted)}
+  .nav-mini .pulse-panel{left:76px}
+}
