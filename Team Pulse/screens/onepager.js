@@ -251,10 +251,46 @@ function render(S,openRows){
   const aiOn=D.aiChartsOn(S).length>0;
   D.visibleBlocks(S).filter(b=>D.visibleMetricsOfBlock(b.key,S).length||b.key==='ai'&&aiOn).forEach(b=>{
     if(b.key==='ai'){
+      /* 12.11 (итерация «оформление AI на One Pager», п. 1): AI — той же таблицей, что остальные блоки: метрика, значение,
+         динамика, ориентир, раскрытие строки в график. Значение — последняя ЗАКРЫТАЯ неделя данных (D.aiCur; текущая неполная
+         не берётся), даты недели — под числом и в подсказке. MoM и YoY у AI нет. Динамика — по неделям до закрытой, период
+         подписан в шапке колонки. Ориентир: у проникновения — вся компания за ту же неделю, у активных пользователей — прочерк */
+      const W=D.aiWeeks(rl), cw=D.aiCur(W), on=D.aiChartsOn(S);
       h+='<div class="block-h" id="op-ai"><span class="block-name">'+esc(b.name)+'</span>'+
         '<span class="block-hint">Сколько людей пользуются AI — по неделям.</span>'+
-        '<button class="btn ghost" data-tab="ai">Подробнее →</button></div>'+
-        '<div class="card op-ai">'+(SC.aiCharts(rl,S,true)||'<div class="tbl-note">Нет данных об использовании AI за последние недели.</div>')+'</div>';
+        '<button class="btn ghost" data-tab="ai">Подробнее →</button></div>';
+      if(!cw){h+=U.panel({body:'<div class="tbl-note">Нет данных об использовании AI за последние недели.</div>'});return}
+      const WW=W.slice(0,W.indexOf(cw)+1), wkTxt=cw.full.replace(/^Неделя /,''), perTxt=WW[0].label+' – '+wkTxt.split('–')[1];
+      const CW=D.isSelfBase()?null:D.aiWeeks(bl), cc=CW?CW.find(x=>x.wk===cw.wk):null;
+      const allOpen=on.every(k=>openRows.has(k));
+      let t='<table class="mtable">'+
+        '<colgroup><col style="width:26%"><col style="width:12%"><col style="width:10%"><col style="width:10%"><col>'+
+        '<col style="width:19%"><col style="width:28px"></colgroup>'+
+        '<thead><tr><th>Метрика</th><th class="num"'+U.tipAttr({title:'Значение',text:'Последняя закрытая неделя в данных: '+wkTxt+'.'})+'>Значение</th>'+
+        '<th class="num"></th><th class="num"></th>'+
+        '<th class="mid"'+U.tipAttr({title:'Динамика по неделям',text:WW.length+' '+U.plural(WW.length,['неделя','недели','недель'])+
+          ' (Пн–Вс): с '+WW[0].label+' по '+wkTxt.split('–')[1]+'. Последняя точка — закрытая неделя '+wkTxt+'.'})+'>'+WW.length+' нед<span class="th-per">'+esc(perTxt)+'</span></th>'+
+        '<th class="mid"'+U.tipAttr({title:'Ориентир',text:'У проникновения — вся компания за ту же неделю. Число активных пользователей зависит от размера подразделения и не сравнивается.'})+'>Ориентир</th>'+
+        '<th class="col-caret">'+U.allCaret('data-opexpall','ai|'+(allOpen?'0':'1'),allOpen,'Графики обеих метрик разом.')+'</th></tr></thead><tbody>';
+      const row=(key,name,hint,val,ser,tgt)=>{
+        const open=openRows.has(key);
+        let r='<tr class="mrow'+(open?' open':'')+'" data-metric="'+key+'">'+
+          '<td class="m-name bar-neutral">'+esc(name)+'<span class="m-sub">'+esc(hint)+'</span></td>'+
+          '<td class="m-val">'+val+'<span class="m-per"'+U.tipAttr({title:name,text:'Неделя '+wkTxt+' — последняя закрытая в данных.'})+'>нед. '+esc(wkTxt)+'</span></td>'+
+          '<td class="col-num"></td><td class="col-num"></td>'+
+          '<td class="col-spark">'+G.sparkLine(ser,'neutral',180,28,{ink:true,dots:false})+'</td>'+
+          '<td class="col-tgt">'+tgt+'</td>'+
+          '<td class="col-caret">'+U.rowCaret(open)+'</td></tr>';
+        if(open)r+='<tr class="detail-row"><td colspan="7"><div class="detail-chart">'+(SC.aiCharts(rl,S,true,key)||'')+'</div></td></tr>';
+        return r;
+      };
+      if(on.indexOf('ai_penetration')>=0)t+=row('ai_penetration','Проникновение','Доля сотрудников без стажёров, которые пользовались AI за неделю.',
+        D.fmtVal('ai_penetration',cw.pen),WW.map(w=>w.pen),
+        cc?'<div class="tgt"'+U.tipAttr({title:'Вся компания',text:'Проникновение AI по всей компании за ту же неделю, '+wkTxt+'.'})+'><b>'+D.coWord('ai_penetration','short')+' '+D.fmtVal('ai_penetration',cc.pen)+'</b></div>'
+          :'<div class="tgt">—</div>');
+      if(on.indexOf('ai_wau')>=0)t+=row('ai_wau','Активные пользователи','Сколько сотрудников без стажёров пользовались AI за неделю.',
+        D.fmtInt(cw.wau),WW.map(w=>w.wau),'<div class="tgt">—</div>');
+      h+=U.panel({body:t+'</tbody></table>'});
       return;
     }
     h+='<div class="block-h" id="op-'+b.key+'"><span class="block-name">'+esc(b.name)+blockDevTag(b.key)+'</span>'+

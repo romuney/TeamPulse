@@ -629,7 +629,7 @@ function metricOpts(){
        (вкладка AI и One Pager): «Проникновение» и «Активные пользователи» */
     const ai=b.key==='ai'?D.AI_CHARTS.map(x=>'<button class="mp-i'+(hid.has(x[0])?'':' on')+'" data-mtoggle="'+x[0]+'"'+
       U.tipAttr({title:x[1],text:'График по неделям на вкладке «AI-инструменты» и на One-pager.'})+
-      '><span class="box"></span><span class="nm">График «'+esc(x[1])+'»</span></button>').join(''):'';
+      '><span class="box"></span><span class="nm">'+esc(x[1])+'</span></button>').join(''):'';
     if(!items&&!ai)return '';
     return '<div class="mpick-g"><div class="mpick-h">'+esc(b.name)+'</div>'+
       '<div class="mpick-l">'+items+ai+'</div></div>';
@@ -1215,6 +1215,8 @@ on(document,'click',e=>{
     const [bk,on]=opa.dataset.opexpall.split('|');
     D.metricsOfBlock(bk).forEach(m=>openRows.delete(m.key));
     if(on==='1')D.visibleMetricsOfBlock(bk,S).forEach(m=>openRows.add(m.key));
+    /* 12.11: у AI строки One-pager — его графики (ключи D.AI_CHARTS) */
+    if(bk==='ai'){D.AI_CHARTS.forEach(x=>openRows.delete(x[0]));if(on==='1')D.aiChartsOn(S).forEach(k=>openRows.add(k))}
     render(true);return;
   }
   const mr=t.closest('.mrow');

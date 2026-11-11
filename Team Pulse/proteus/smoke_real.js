@@ -416,9 +416,14 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
           (u.per.some(x=>x.na)?' (в том числе «Не определено» '+u.per.find(x=>x.na).value+')':''))}}
     /* 12.11, п. 11: на One-pager — графики AI по неделям, числа — те же, что на вкладке AI */
     {const opA=A.go('onepager'), cwA=D.aiCur(D.aiWeeks(rl));
-      if(cwA)ok(opA.indexOf('id="op-ai"')>=0&&/Проникновение AI по неделям/.test(opA)&&/Активные пользователи AI по неделям/.test(opA)&&
-        opA.slice(opA.indexOf('id="op-ai"')).indexOf(D.fmtVal('ai_penetration',cwA.pen))>=0,
-        'One-pager: графики AI по неделям, проникновение последней полной недели '+D.fmtVal('ai_penetration',cwA.pen)+' — как на вкладке AI')}
+      /* 12.11 (итерация «оформление AI на One Pager»): AI — строками общей таблицы: значение закрытой недели с её датами, без MoM
+         и YoY, у активных пользователей ориентир — прочерк, у проникновения — вся компания за ту же неделю */
+      if(cwA){const sec=opA.slice(opA.indexOf('id="op-ai"')), rw=k=>(new RegExp('<tr class="mrow[^"]*" data-metric="'+k+'">([\\s\\S]*?)</tr>').exec(sec)||[])[1]||'';
+        const wk=cwA.full.replace(/^Неделя /,''), rp=rw('ai_penetration'), ra=rw('ai_wau');
+        ok(opA.indexOf('id="op-ai"')>=0&&rp.indexOf(D.fmtVal('ai_penetration',cwA.pen))>=0&&rp.indexOf('нед. '+wk)>=0&&
+          ra.indexOf('>'+D.fmtInt(cwA.wau)+'<')>=0&&/<td class="col-num"><\/td><td class="col-num"><\/td>/.test(rp)&&/<td class="col-num"><\/td><td class="col-num"><\/td>/.test(ra)&&
+          /class="col-tgt"><div class="tgt">—<\/div>/.test(ra)&&!/delta|MoM|YoY/.test(rp+ra),
+          'One-pager: AI строками таблицы — проникновение '+D.fmtVal('ai_penetration',cwA.pen)+' и '+D.fmtInt(cwA.wau)+' активных за закрытую неделю '+wk+', без MoM и YoY, у активных ориентир «—»')}}
     /* 06.11: мониторинг по неделям снят — на реальных данных только месяцы, шагов «недели» нет */
     ok(MD.monthly&&!MD.weeks&&SC.blocks.monitor.subTabs.map(t=>t[0]).join(',')==='activity','мониторинг: только месяцы, недельного шага нет');
   }else ok(!/class="kpi mk/.test(mo)&&/Состав по категориям/.test(mo)&&!/data-mongran|data-pmark/.test(mo),
@@ -853,7 +858,7 @@ if(D.TTF_MED){
   const S=A.st(), rl=D.reportLeaves(S), bl=D.benchmarkLeaves(S), I=window.TPINSIGHTS, STY=window.TPSTORY, home=A.home0(), errs=[];
   const nb=x=>String(x==null?'':x).replace(/[   ]/g,' ');
   const strip=h=>nb(String(h||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/g,' ')).replace(/\s+/g,' ').trim();
-  const RW={};home.replace(/<tr class="mrow[^"]*" data-metric="([^"]+)">([\s\S]*?)<\/tr>/g,(m,k,b)=>{RW[k]=b;return m});
+  const RW={};home.replace(/<tr class="mrow[^"]*" data-metric="([^"]+)">([\s\S]*?)<\/tr>/g,(m,k,b)=>{if(!/^ai_/.test(k))RW[k]=b;return m});   /* 12.11: строки AI — недельные, у них своя проверка */
   const chip=t=>/лучше|в цели/.test(t)?'good':/хуже|ниже порога|выше порога/.test(t)?'bad':/на уровне|зона риска/.test(t)?'warn':'neutral';
   const cards=I.cards(S,rl,bl,true);
   Object.keys(RW).forEach(k=>{

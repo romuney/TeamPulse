@@ -430,8 +430,9 @@ const aiA=A.go('ai','adoption'), aiW=A.go('ai','who'), aiU=A.go('ai','usage');
     new RegExp('Акт. пользователи<span class="th-per">неделя '+cw.full.replace(/^Неделя /,'')).test(aiA)&&aiA.indexOf(String(cw.pen).replace('.',',')+'%')>=0&&
     !/data-aigran=/.test(aiA)&&!/по месяцам/.test(aiA)&&D.blockVisible('ai',A.st())&&D.metricsOfBlock('ai').length===0&&
     /* 12.11, п. 11: на One-pager у AI — два графика по неделям (те же, что на вкладке), строк-метрик по-прежнему нет */
-    op.indexOf('id="op-ai"')>=0&&/Проникновение AI по неделям[\s\S]*Активные пользователи AI по неделям/.test(op.slice(op.indexOf('id="op-ai"')))&&
-    !/data-metric="ai_/.test(op)])}
+    /* 12.11 (итерация «оформление AI на One Pager»): AI — строками общей таблицы, значение — закрытая неделя */
+    op.indexOf('id="op-ai"')>=0&&/data-metric="ai_penetration"[\s\S]*data-metric="ai_wau"/.test(op.slice(op.indexOf('id="op-ai"')))&&
+    op.slice(op.indexOf('id="op-ai"')).indexOf('нед. '+cw.full.replace(/^Неделя /,''))>=0])}
 /* поставка 113-б: AI «Кто пользуется» — кросс-фильтр: выбор «Стажёры» пересчитывает остальные разрезы по стажёрам, свой разрез
    не режет; итог по выбору = стажёрам */
 {const lpX=D.reportLeaves(A.st()), x0=D.aiCross(lpX,[]), x1=D.aiCross(lpX,['it|1']);

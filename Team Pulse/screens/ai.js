@@ -35,10 +35,11 @@ const P1=v=>v==null?'—':String(v).replace('.',',')+'%';
 /* 12.11 (итерация «настройки, One Pager, мониторинг», п. 1 и 11): графики недельного ряда — одной функцией для вкладки AI и
    One Pager; какие показывать — галочки «AI-инструменты» в «Настрой свой дашборд» (D.aiChartsOn). small — One Pager: ниже и
    без длинной сноски. Данных нет — null */
-function aiCharts(lp,S,small){
+function aiCharts(lp,S,small,only){
   const W=D.aiWeeks(lp);
   if(!W)return null;
-  const cw=D.aiCur(W), on=new Set(D.aiChartsOn(S));
+  /* only — один график (раскрытая строка One-pager) */
+  const cw=D.aiCur(W), on=new Set(only?[only]:D.aiChartsOn(S));
   /* поставка 128: база — та же, с которой сравнивает глава (неделя cw, без стажёров; меньше 30 человек — без базы) */
   const pe=cw&&cw.hc>=D.SMALL_N?D.peerOf('ai_penetration',lp):null;
   /* поставка 138, п. 7 (владелец: «верните тренд по всей компании»): второй линией — проникновение всей компании за те же недели,
@@ -84,8 +85,8 @@ function split(cap,sub,parts,unit,word){
 }
 /* 07.11 (п. 3–4): инструменты — % людей и число людей, порядок — по числу людей (ранг ноутбука), первые 10 и раскрываемое
    «Остальное»: в его итоге каждый человек один раз (rest — уникальные люди с инструментами вне топ-10) */
-function tools(ctx,k,cap,sub,items,base,rest,head){
-  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Доля, %',cnt:'Чел',metricKey:'ai_penetration',
+function tools(ctx,k,cap,sub,items,base,rest,head,cnt){
+  return U.btGroup(Object.assign({cap:cap,capSub:sub,head:'',valueHead:'Доля, %',cnt:cnt||'Чел',metricKey:'ai_penetration',
     share:false,total:false,compact:true,restName:'Остальное',
     restAgg:()=>({value:base?Math.round(rest/base*1000)/10:0,n:rest}),
     items:items.map(x=>({name:x.name,value:x.value,n:x.n,color:G.C_AI}))},
@@ -100,9 +101,9 @@ const SEG_SMALL=3;
 const AI_ACT='Акт. пользователи', AI_PEN='Проникновение';
 const AI_HEAD_TIP='Акт. пользователи — активные пользователи AI за неделю, человек. Проникновение — их доля в численности группы.';
 const AI_DIM_SKIP={g:1};   /* поставка 138, п. 11: детализации по грейдам нет */
-function segTable(cap,sub,rows,dim){
+function segTable(cap,sub,rows,dim,cnt){
   /* keepZero: группа, где никто не пользуется AI (0%), — тоже ответ, а не пустая строка */
-  return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:AI_PEN,cnt:AI_ACT,metricKey:'ai_penetration',
+  return U.btGroup({cap:cap,capSub:sub,head:'',valueHead:AI_PEN,cnt:cnt||AI_ACT,metricKey:'ai_penetration',
     share:false,total:false,compact:true,keepZero:true,
     items:rows.map(x=>({name:x.name,value:x.pen,n:x.act,color:x.hc<SEG_SMALL?G.C_BENCH:G.C_AI,
       note:x.hc<SEG_SMALL?'мало людей':null,
@@ -154,15 +155,18 @@ function interns(ctx,u){
   const head=U.btGroup({cap:'Пользуются AI',capSub:'только стажёры'+wk(u),head:'',
     valueHead:AI_PEN,cnt:AI_ACT,metricKey:'ai_penetration',share:false,total:false,compact:true,keepZero:true,
     items:[{name:'Стажёры',value:pc(it.act,it.hc),n:it.act,color:it.hc<SEG_SMALL?G.C_BENCH:G.C_AI,note:it.hc<SEG_SMALL?'мало людей':null}]});
-  const segs=x?x.dims.filter(dm=>dm.key!=='it'&&!AI_DIM_SKIP[dm.key]&&dm.rows.length).map(dm=>{
+  /* 12.11 (итерация «оформление AI на One Pager», п. 3): у стажёров детализации по сеньорности нет; столбец количества во
+     всех таблицах вкладки — «чел.» (в таблицах разрезов это активные пользователи AI среди стажёров — сказано в сноске) */
+  const CH='чел.';
+  const segs=x?x.dims.filter(dm=>dm.key!=='it'&&dm.key!=='s'&&!AI_DIM_SKIP[dm.key]&&dm.rows.length).map(dm=>{
     const sp=dm.key==='sp', rs=sp?dm.rows.slice().sort((a,b)=>b.hc-a.hc).slice(0,10):dm.rows;
-    return segTable(dm.cap,sp&&dm.rows.length>10?'первые 10 из '+dm.rows.length:'',rs,null)}):[];
+    return segTable(dm.cap,sp&&dm.rows.length>10?'первые 10 из '+dm.rows.length:'',rs,null,CH)}):[];
   const iT=it.tools||[], fr=it.freq||[];
   /* 12.11, п. 8: первой таблицы «Стажёры» нет — детализация начинается с покраски; выборка — те же стажёры */
-  return U.btStack([].concat(segs,fr.some(f=>f.value)?[bars('Частота использования','дней с AI в неделю · только стажёры',fr)]:[],
-      iT.length?[tools(ctx,'aitooli','Топ инструментов','% и число стажёров',iT,it.hc,it.rest||0,'% стажёров')]:[]))+
+  return U.btStack([].concat(segs,fr.some(f=>f.value)?[bars('Частота использования','дней с AI в неделю · только стажёры',fr,CH)]:[],
+      iT.length?[tools(ctx,'aitooli','Топ инструментов','% и число стажёров',iT,it.hc,it.rest||0,'% стажёров',CH)]:[]))+
     '<div class="tbl-note">Все таблицы — только стажёры (признак стажёра недельной витрины AI), неделя '+esc((u.week||'').replace(/^неделя /,''))+
-      '. Проникновение — активные пользователи к числу стажёров той же недели. Группы меньше '+SEG_SMALL+' человек — серым.</div>';
+      '. «чел.» — стажёры, которые пользовались AI за неделю (в «Частоте» и «Топе инструментов» — с этой частотой или инструментом). Проникновение — их доля в числе стажёров той же недели. Группы меньше '+SEG_SMALL+' человек — серым.</div>';
 }
 /* 07.11 (п. 7): «Инструменты по покраске» — последним блоком «Как пользуются?»: топ-10 инструментов строками, % и число людей
    сегмента, «Остальное» раскрывается (в нём люди сегмента с инструментами вне топ-10 — каждый один раз) */
