@@ -125,7 +125,11 @@ const MIN=require('./min.cjs');
 const BUDGET_KIB = 644;
 const dir=path.join(__dirname,'..');
 const OUT=path.join(dir,'Поставка — TeamPulse Hub','3. Proteus — чарт TeamPulse Hub.js');
-const read=f=>fs.readFileSync(path.join(dir,f),'utf8');
+const read0=f=>fs.readFileSync(path.join(dir,f),'utf8');
+/* 11.11, поставка «по частям»: код и стили между метками-комментариями «split:» … «:split» (ожидание частей ответа) нужны только
+   главному чарту дашборда из нескольких чартов; из сборки одного чарта они вырезаются — её вес не растёт */
+let SPLIT=false;
+const read=f=>SPLIT?read0(f):read0(f).replace(/\/\*split:\*\/[\s\S]*?\/\*:split\*\//g,'');
 
 /* порядок как в index.html, плюс модель и вход Proteus впереди */
 const FILES=['proteus/real.js','proteus/prelude.js','data.js','draw.js','ui.js','mascot.js','insights.js','story.js',
@@ -150,7 +154,7 @@ function fold(src){
 /* 31.10, поставка 89 (итог за период, вес чарта): в неймспейсах window.TP… (TPDATA, TPDRAW, TPUI, …) и SC.экран
    в сборке остаются только имена, к которым обращаются модули чарта (.имя); остальное — помощники макета и smoke.js,
    сжатие выбрасывает их вместе с кодом. Макет и smoke.js работают на исходниках как раньше. */
-const SRC={};FILES.forEach(f=>{SRC[f]=read(f)});
+let SRC={};
 function prune(src){
   return src.replace(/(window\.TP[A-Z]+|SC\.[a-z]+)=\{([^{}]*)\};/g,(all,ns,body)=>{
     const rest=FILES.map(f=>SRC[f]).join('\n').replace(all,'');
@@ -160,12 +164,12 @@ function prune(src){
     return ns+'={'+keep.join(',')+'};';
   });
 }
-const index=read('index.html');
+const index=read0('index.html');
 const body=index.slice(index.indexOf('<body>')+6,index.lastIndexOf('</body>'))
   .replace(/<script[\s\S]*?<\/script>/g,'')
   .replace(/<!--[\s\S]*?-->/g,'')
   .replace(/\n\s*\n+/g,'\n').trim();
-const css=read('styles.css');
+
 
 const HEAD=`// ============================================================================
 // TeamPulse Hub — чарт Proteus (тип ECHARTS), пробник. СОБРАН АВТОМАТИЧЕСКИ:
@@ -179,54 +183,104 @@ const HEAD=`// =================================================================
 // Кросс-фильтры чарт шлёт сам себе: unit_f и staff_f (покраски и IT в таблице с 15.10 нет).
 // ============================================================================
 `;
-let src='var TP_CSS='+JSON.stringify(css)+';\nvar TP_HTML='+JSON.stringify(body)+';\n'+
-  'try{\n'+FILES.map(f=>'/* '+f+' */\n(function(){\n'+(/^proteus\//.test(f)?read(f):prune(fold(read(f))))+'\n})();').join('\n')+
-  '\n}catch(err){if(!(err&&err.tpStop)){\n'+
+/* 11.11, поставка «по частям»: тот же отчёт вторым выходом — главный чарт дашборда из нескольких чартов. Модули те же;
+   отличие — обёртка: отчёт целиком лежит в функции TP_RUN(data), а proteus/parts.js собирает ответ из частей, которые
+   присылают чарты-загрузчики (proteus/loader.js), и вызывает TP_RUN на каждую догрузившуюся часть. Код загрузчика — третий
+   выход (сжатый loader.js). Папка — «Поставка — TeamPulse Hub (по частям)»; датасеты частей и остальное пишет
+   stand/mk_split.py. Бюджет главного чарта — свой (BUDGET_SPLIT_KIB): parts.js, экран ожидания вкладки и значки загрузки ≈ +10 КиБ к сборке одного
+   чарта; этот код едет на сервер только при открытии дашборда — после выбора юнита или фильтра главный чарт не запрашивается. */
+const SPLIT_DIR=path.join(dir,'Поставка — TeamPulse Hub (по частям)');
+const OUT_MAIN=path.join(SPLIT_DIR,'3. Proteus — главный чарт TeamPulse Hub.js');
+const OUT_LOADER=path.join(SPLIT_DIR,'3а. Proteus — чарт-загрузчик (один код на четыре чарта).js');
+const BUDGET_SPLIT_KIB = BUDGET_KIB + 12;
+const HEAD_MAIN=`// ============================================================================
+// TeamPulse Hub — ГЛАВНЫЙ чарт дашборда «по частям» (тип ECHARTS). СОБРАН АВТОМАТИЧЕСКИ:
+// не правьте здесь — правка живёт в исходниках макета (папка «Team Pulse»),
+// сборка: cd "Team Pulse/proteus" && node build.js.
+// Датасет главного чарта — часть dict (справочник узлов). Остальные части (core, people, flow, aux)
+// присылают чарты-загрузчики того же дашборда по каналу postMessage (proteus/parts.js).
+// «Измерения» чарта — все колонки датасета: role, id, pid, lvl, nm, kids, j, ms, mx. Метрик и сортировки нет.
+// Кросс-фильтры главный чарт шлёт загрузчикам (области — JSON дашборда из поставки), себя не фильтрует.
+// ============================================================================
+`;
+const ERR_TAIL='\n}catch(err){if(!(err&&err.tpStop)){\n'+
   '  var _h=document.querySelectorAll("[_echarts_instance_]");\n'+
   '  var _box=_h.length?_h[_h.length-1]:document.body, _m=document.createElement("div");\n'+
   '  _m.style.cssText="position:absolute;inset:0;padding:24px;font:14px Arial,sans-serif;color:#d11414;background:#fff;z-index:20";\n'+
   '  _m.textContent="TeamPulse Hub: ошибка чарта — "+(err&&err.message?err.message:String(err));\n'+
   '  _box.appendChild(_m);\n'+
   '}}\n';
-
-const out=babel.transformSync(src,{
-  sourceType:'script',comments:false,compact:false,babelrc:false,configFile:false,
-  presets:[[require.resolve('@babel/preset-env'),{targets:{ie:'11'},modules:false,useBuiltIns:false}]]
-}).code;
+const mods=()=>FILES.map(f=>'/* '+f+' */\n(function(){\n'+(/^proteus\//.test(f)?read(f):prune(fold(read(f))))+'\n})();').join('\n');
 /* контракт Proteus: option — глобальный, последним выражением, не мутируется */
 const tail='\n// ---------- Пустой option: холст ECharts не используется ----------\n'+
   'option = { animation: false, xAxis: { show: false, type: "value" }, yAxis: { show: false, type: "value" },\n'+
   '  series: [{ type: "scatter", data: [] }] };\n';
-const result=HEAD+out+tail;
 
-/* проверки собранного */
-const fail=[];
-try{acorn.parse(result,{ecmaVersion:5,sourceType:'script'})}
-catch(e){fail.push('не ES5: '+e.message)}
-[[/\bgetElementById\b/,'getElementById'],[/\bconsole\./,'console'],[/\beval\(/,'eval'],
- [/=>/,'стрелочная функция'],[/`/,'шаблонная строка']].forEach(([re,name])=>{
-  const body=result.replace(/"(?:[^"\\]|\\.)*"/g,'""').replace(/'(?:[^'\\]|\\.)*'/g,"''");
-  if(re.test(body))fail.push('в коде есть '+name);
-});
-if(!/\noption = \{[^\n]*\n[^\n]*\};\n$/.test(result))fail.push('option не последний');
-if(fail.length){console.error('СБОРКА НЕ ПРОШЛА:\n  '+fail.join('\n  '));process.exit(1)}
+function make(split){
+  SPLIT=split;SRC={};FILES.forEach(f=>{SRC[f]=read(f)});prune.n=0;
+  const css=read('styles.css');
+  const HD=split?HEAD_MAIN:HEAD, OUTF=split?OUT_MAIN:OUT, BUD=split?BUDGET_SPLIT_KIB:BUDGET_KIB;
+  /* один чарт: модули выполняются сразу; «по частям»: модули — тело TP_RUN(data), запускает parts.js */
+  let src='var TP_CSS='+JSON.stringify(css)+';\nvar TP_HTML='+JSON.stringify(body)+';\n'+(split
+    ?'function TP_RUN(data){\ntry{\n'+mods()+ERR_TAIL+'}\ntry{\n/* proteus/parts.js */\n(function(){\n'+read('proteus/parts.js')+'\n})();'+ERR_TAIL
+    :'try{\n'+mods()+ERR_TAIL);
 
-/* 6. сжатие: шапка — комментарием сборки, код — terser, TP_CSS — cssMin */
-const head=HEAD.replace(/^\/\/ ?/gm,'').replace(/^=+\n|\n=+\n$/g,'').trim();
-/* поставка 85: перед основным сжатием — проход terser без переименований в несколько итераций: после подстановки
-   констант (fold) выпадают демо-ветки, за ними — ставшие ненужными функции генератора макета */
-require('terser').minify(out+tail,{ecma:5,toplevel:false,mangle:false,
-  compress:{toplevel:false,keep_fargs:true,passes:3,unused:true,dead_code:true,reduce_funcs:false},format:{comments:false,beautify:true}})
-.then(pre=>MIN.minifyChart(pre.code,head,{cssVars:['TP_CSS']}).then(r=>({r,src:pre.code})))
-.then(({r,src})=>{
-  const code=r.code, v=MIN.verify(code,src);
-  if(!/(^|[;}\n])option=\{[^]*\};?\n$/.test(code))v.fails.push('option не последний после сжатия');
-  if(Buffer.byteLength(code)>BUDGET_KIB*1024)v.fails.push('больше бюджета '+BUDGET_KIB+' КиБ: '+(Buffer.byteLength(code)/1024).toFixed(1)+' КиБ');
-  v.warns.forEach(t=>console.error('  ! '+t));
-  if(!v.ok||v.fails.length){console.error('СЖАТИЕ НЕ ПРОШЛО:\n  '+v.fails.join('\n  '));process.exit(1)}
-  fs.writeFileSync(OUT,code);
-  const kb=n=>(n/1024).toFixed(0)+' КиБ';
-  console.log('чарт собран: '+path.relative(dir,OUT)+' — '+kb(Buffer.byteLength(code))+
-    ' (до сжатия '+kb(Buffer.byteLength(result))+'; '+r.notes.join('; ')+', разметка '+kb(Buffer.byteLength(body))+
-    '; бюджет '+BUDGET_KIB+' КиБ, ≈'+(Buffer.byteLength(code)/1024/50).toFixed(1)+' с отправки на запрос при 50 КБ/с), ES5 и сборка проверены; вне сборки имён: '+(prune.n||0)+'');
-}).catch(e=>{console.error('СЖАТИЕ НЕ ПРОШЛО: '+(e.message||e));process.exit(1)});
+  const out=babel.transformSync(src,{
+    sourceType:'script',comments:false,compact:false,babelrc:false,configFile:false,
+    presets:[[require.resolve('@babel/preset-env'),{targets:{ie:'11'},modules:false,useBuiltIns:false}]]
+  }).code;
+  const result=HD+out+tail;
+
+  /* проверки собранного */
+  const fail=[];
+  try{acorn.parse(result,{ecmaVersion:5,sourceType:'script'})}
+  catch(e){fail.push('не ES5: '+e.message)}
+  [[/\bgetElementById\b/,'getElementById'],[/\bconsole\./,'console'],[/\beval\(/,'eval'],
+   [/=>/,'стрелочная функция'],[/`/,'шаблонная строка']].forEach(([re,name])=>{
+    const body=result.replace(/"(?:[^"\\]|\\.)*"/g,'""').replace(/'(?:[^'\\]|\\.)*'/g,"''");
+    if(re.test(body))fail.push('в коде есть '+name);
+  });
+  if(!/\noption = \{[^\n]*\n[^\n]*\};\n$/.test(result))fail.push('option не последний');
+  if(fail.length){console.error('СБОРКА НЕ ПРОШЛА:\n  '+fail.join('\n  '));process.exit(1)}
+
+  /* 6. сжатие: шапка — комментарием сборки, код — terser, TP_CSS — cssMin */
+  const head=HD.replace(/^\/\/ ?/gm,'').replace(/^=+\n|\n=+\n$/g,'').trim();
+  /* поставка 85: перед основным сжатием — проход terser без переименований в несколько итераций: после подстановки
+     констант (fold) выпадают демо-ветки, за ними — ставшие ненужными функции генератора макета */
+  return require('terser').minify(out+tail,{ecma:5,toplevel:false,mangle:false,
+    compress:{toplevel:false,keep_fargs:true,passes:3,unused:true,dead_code:true,reduce_funcs:false},format:{comments:false,beautify:true}})
+  .then(pre=>MIN.minifyChart(pre.code,head,{cssVars:['TP_CSS']}).then(r=>({r,src:pre.code})))
+  .then(({r,src})=>{
+    const code=r.code, v=MIN.verify(code,src);
+    if(!/(^|[;}\n])option=\{[^]*\};?\n$/.test(code))v.fails.push('option не последний после сжатия');
+    if(split&&!/function TP_RUN\(/.test(code))v.fails.push('в главном чарте нет TP_RUN');
+    if(Buffer.byteLength(code)>BUD*1024)v.fails.push('больше бюджета '+BUD+' КиБ: '+(Buffer.byteLength(code)/1024).toFixed(1)+' КиБ');
+    v.warns.forEach(t=>console.error('  ! '+t));
+    if(!v.ok||v.fails.length){console.error('СЖАТИЕ НЕ ПРОШЛО:\n  '+v.fails.join('\n  '));process.exit(1)}
+    fs.mkdirSync(path.dirname(OUTF),{recursive:true});
+    fs.writeFileSync(OUTF,code);
+    const kb=n=>(n/1024).toFixed(0)+' КиБ';
+    console.log((split?'главный чарт «по частям» собран: ':'чарт собран: ')+path.relative(dir,OUTF)+' — '+kb(Buffer.byteLength(code))+
+      ' (до сжатия '+kb(Buffer.byteLength(result))+'; '+r.notes.join('; ')+', разметка '+kb(Buffer.byteLength(body))+
+      '; бюджет '+BUD+' КиБ, ≈'+(Buffer.byteLength(code)/1024/50).toFixed(1)+' с отправки на запрос при 50 КБ/с), ES5 и сборка проверены; вне сборки имён: '+(prune.n||0)+'');
+  });
+}
+/* чарт-загрузчик: исходник уже ES5; сжатие — тем же min.cjs, шапка — коротким комментарием */
+function makeLoader(){
+  const srcL=read('proteus/loader.js');
+  try{acorn.parse(srcL,{ecmaVersion:5,sourceType:'script'})}
+  catch(e){console.error('ЗАГРУЗЧИК НЕ ПРОШЁЛ: не ES5: '+e.message);process.exit(1)}
+  const headL='TeamPulse Hub — чарт-загрузчик дашборда «по частям» (тип ECHARTS). СОБРАН АВТОМАТИЧЕСКИ из proteus/loader.js.\n'+
+    'Один и тот же код для всех четырёх загрузчиков: часть (core, people, flow, aux) задаёт датасет чарта.\n'+
+    '«Измерения» чарта — все колонки датасета: role, id, pid, lvl, nm, kids, j, ms, mx. Метрик и сортировки нет.';
+  const codeOnly=srcL.replace(/^\/\/[^\n]*\n/gm,'');
+  return MIN.minifyChart(codeOnly,headL,{}).then(r=>{
+    const v=MIN.verify(r.code,codeOnly);
+    if(!v.ok||v.fails.length){console.error('СЖАТИЕ ЗАГРУЗЧИКА НЕ ПРОШЛО:\n  '+v.fails.join('\n  '));process.exit(1)}
+    fs.mkdirSync(path.dirname(OUT_LOADER),{recursive:true});
+    fs.writeFileSync(OUT_LOADER,r.code);
+    console.log('чарт-загрузчик собран: '+path.relative(dir,OUT_LOADER)+' — '+Buffer.byteLength(r.code)+' Б');
+  });
+}
+make(false).then(()=>make(true)).then(makeLoader)
+  .catch(e=>{console.error('СЖАТИЕ НЕ ПРОШЛО: '+(e.message||e));process.exit(1)});

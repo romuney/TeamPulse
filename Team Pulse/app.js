@@ -263,6 +263,19 @@ function arrive(){
   const lg=$('.logo small');if(lg)lg.textContent='Hub · пробник';
   return pend?(STORE.pending?'stale':true):false;
 }
+/* поставка «по частям»: экран вкладки, пока её данные не пришли от загрузчика, — значок загрузки и что именно ждём; экран
+   вкладки не собирается (без разрезов он был бы неполным). Часть не пришла за срок — причина и что проверить */
+/*split:*/
+function partWaitView(tab){
+  const b=D.BLOCK_BY_KEY[tab]||{}, w=D.partsWait(tab), late=D.partsLate(tab);
+  const what=w.map(p=>D.PART_NAMES[p]||p).join(', ');
+  return '<div class="part-wait'+(late.length?' late':'')+'" role="status" aria-live="polite">'+(late.length?'':'<span class="pw-sp" aria-hidden="true"></span>')+
+    '<b>'+(late.length?'Данные вкладки «'+esc(b.name||'')+'» не пришли':'Загружаю данные вкладки «'+esc(b.name||'')+'»…')+'</b>'+
+    '<span>'+(late.length
+      ?'Не ответил загрузчик: '+esc(late.map(p=>D.PART_NAMES[p]||p).join(', '))+'. Проверьте, что чарты-загрузчики TeamPulse Hub есть на дашборде и загрузились, затем обновите дашборд.'
+      :'Осталось: '+esc(what)+'. Вкладка откроется сама, как только данные придут.')+'</span></div>';
+}
+/*:split*/
 /* Чипы пробника в шапке: ожидание ответа, предупреждение и что здесь живое */
 /* Пункт меню блока в разработке (14.10): целиком — полосатая метка, частично —
    полосатый квадратик с подсказкой, сколько вкладок ещё без источника. */
@@ -280,6 +293,14 @@ function pilotChips(){
   const ln=$('#tpLoadN');
   if(ln)ln.textContent=p&&p.name?(p.flt?'Фильтры для «'+p.name+'»':'«'+p.name+'»'):'';
   if(STORE.warn)h+='<span class="chip warn">'+esc(STORE.warn)+'</span>';
+  /* поставка «по частям»: первый экран уже показан, а часть деталей ещё в пути — говорим об этом, а не меняем цифры молча */
+  /*split:*/
+  const pw=D.partsWait('onepager');
+  if(pw.length&&!p)h+='<span class="chip part"'+U.tipAttr({title:D.partsLate('onepager').length?'Часть данных не пришла':'Данные догружаются',
+    text:'Первый экран уже готов. '+(D.partsLate('onepager').length?'Не пришли':'Ещё в пути')+': '+pw.map(x=>D.PART_NAMES[x]||x).join(', ')+'.',
+    note:'Пока их нет, выводы и сравнения с базой могут быть неполными — они обновятся сами.'})+'>'+
+    (D.partsLate('onepager').length?'<span class="pc-x">!</span>Часть данных не пришла':'<span class="pc-sp" aria-hidden="true"></span>Догружаю детали…')+'</span>';
+  /*:split*/
   h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на настоящих данных',
     text:'Настоящие цифры:',
     list:['численность, найм, отток, переводы','текучесть, нежелательная и желательная','посещаемость офиса и T-рост — если данные уже пришли'],
@@ -356,6 +377,8 @@ const NAV_UI=new Set(['tab','subTab','tsort','spmSort','exitIni','mixSel','mixRo
   'mxFull','aiOpen','offCity','offSeg','rostSt','aiSel']);
 let _navKey=null, _navMemo={};
 function navSig(bk){
+  /* поставка «по частям»: разрезы блока ещё грузятся — сигнала нет (вместо точки — значок загрузки) */
+  /*split:*/if(D.partsWait(bk).length)return null;/*:split*/
   const k=JSON.stringify(S,(n,v)=>NAV_UI.has(n)?undefined:v);
   if(k!==_navKey){_navKey=k;_navMemo={}}
   return _navMemo[bk]||(_navMemo[bk]=navSig0(bk));
@@ -383,8 +406,16 @@ const NAV_IC={
 const navIc=(k,sig)=>'<span class="ni-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '+
   'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(NAV_IC[k]||'<circle cx="12" cy="12" r="4"/>')+'</svg>'+
   '<span class="ico'+(sig?' sig-'+sig:'')+'"></span></span>';
-const navBtn=(k,name,sig,tail)=>'<button class="nav-i'+(S.tab===k?' active':'')+'" data-tab="'+k+'" aria-label="'+esc(name)+'"'+
-  (navMini()?U.tipAttr({title:name}):'')+'>'+navIc(k,sig)+'<span class="ni-t">'+esc(name)+'</span>'+(tail||'')+'</button>';
+/* поставка «по частям»: у вкладки, чьи данные ещё грузятся, — кольцо загрузки на значке; не пришли за срок — метка «!» */
+const navWait=k=>{
+  /*split:*/
+  if(k!=='onepager'&&D.partsWait(k).length)
+    return D.partsLate(k).length?'<span class="ni-w late" aria-label="Данные не загрузились"></span>':'<span class="ni-w" aria-label="Данные загружаются"></span>';
+  /*:split*/
+  return '';
+};
+const navBtn=(k,name,sig,tail)=>'<button class="nav-i'+(S.tab===k?' active':'')+(navWait(k)?' wait':'')+'" data-tab="'+k+'" aria-label="'+esc(name)+'"'+
+  (navMini()?U.tipAttr({title:name}):'')+'>'+navIc(k,sig).replace('</span></span>','</span>'+navWait(k)+'</span>')+'<span class="ni-t">'+esc(name)+'</span>'+(tail||'')+'</button>';
 function renderNav(){
   const one=$('#navOne');if(one)one.innerHTML=navBtn('onepager','One-pager',null,'');
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */
@@ -725,6 +756,7 @@ function render(keepScroll,quiet){
   try{
     $('#view').innerHTML = S.tab==='onepager'
       ? SC.onepager.render(S,openRows)
+      /*split:*/: D.partsWait(S.tab).length ? partWaitView(S.tab)/*:split*/
       : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitUnit===S.unit?splitMode:null,share:splitShare}});
   }finally{if(G.lazy)G.lazy(false)}
   /* true — проиграть анимацию появления графиков */
@@ -1256,7 +1288,19 @@ mountStaticMascots();
 readURL();
 /* перезапуск без нового запроса (ресайз, перерисовка) — тот же вид на том же месте, без анимации */
 const pend0=ENV&&arrive(), back=ENV&&(!pend0||pend0==='stale')&&STORE.scroll;
-render(!!back,!!back);
+/* поставка «по частям»: части кэшируются в Proteus порознь — после обновления таблиц одна может прийти из старого кэша
+   (отметка сборки данных не та, что у core). Такая часть к ответу не приклеена; просим загрузчики перезапросить этот же
+   выбор мимо кэша (метка tp_nonce — как у повтора устаревшего ответа), не чаще раза в минуту на выбор */
+/*split:*/
+if(ENV&&window.TP_PARTS&&window.TP_PARTS.mixed&&!STORE.pending){
+  const rk=echoSig(), rp=STORE.repair||(STORE.repair={});
+  if(!rp[rk]||Date.now()-rp[rk]>60000){rp[rk]=Date.now();emitPend(maskOf(curReq()),true)}
+}
+/*:split*/
+/* поставка «по частям»: тот же выбор, догрузилась часть разрезов — тот же вид на том же месте, без анимации */
+let again=false;
+/*split:*/again=!!(window.TP_PARTS&&window.TP_PARTS.again)&&!pend0;/*:split*/
+render(!!back||again,!!back||again);
 if(back&&back.k===viewKey()){
   ENV.scroller.scrollTop=back.y;
   INNER_SCROLL.forEach((q,i)=>{const el=$(q), v=back.inner&&back.inner[i];if(el&&v){el.scrollTop=v[0];el.scrollLeft=v[1]}});

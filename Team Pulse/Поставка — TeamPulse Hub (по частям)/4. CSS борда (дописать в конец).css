@@ -1,0 +1,173 @@
+/* ==== ДАШБОРД «ПО ЧАСТЯМ»: номера чартов ============================================================================
+   Собрано stand/mk_split.py из CSS обычной поставки (файл 4) + блок 8 (чарты-загрузчики).
+   Номера чартов в этом файле: главный 900000, загрузчики core 900001, people 900002, flow 900003, aux 900004.
+   Если это заглушки (900000 … 900004) — замените каждую на id своего чарта во ВСЕХ местах (Ctrl+H) или
+   пришлите номера: скрипт подставит сам. Id чарта — число после slice_id= в адресе «Редактировать график».
+   ================================================================================================================== */
+/* ==== TeamPulse Hub — CSS борда · НАЧАЛО блока отчёта ==============================================================
+   Как на HRBP HUB и «Детальных списках» (гайд proteus-playbook: templates/board.template.css, 10-board-css.md, BC).
+   Отчёт — ровно на высоту окна, длинное прокручивается внутри отчёта (правая часть; навигация слева стоит на месте),
+   а не страница борда.
+
+   Вставить ЦЕЛИКОМ в конец CSS дашборда («Редактировать дашборд → CSS»); прежний блок отчёта — от строки «TeamPulse
+   Hub — CSS борда · НАЧАЛО» до строки «КОНЕЦ блока отчёта» (или, в старых поставках, от «TeamPulse Hub — один чарт
+   на весь лист» до последнего правила iframe) — удалить. Чужой CSS не трогать. Сохранить → Cmd/Ctrl+Shift+R.
+
+   900000 — id чарта «TeamPulse Hub» на борде Team Pulse 2.0 (замер с борда 19.10: класс ячейки
+   dashboard-chart-id-900000). Вставлять как есть. Если чарт пересоздали и id другой (меню чарта «⋮» → «Редактировать
+   график» — число после slice_id= в адресе) — замените 900000 во ВСЕХ местах (Ctrl+H; в файле 6 — тоже).
+
+   Блоки (номер закреплён за назначением, как в гайде; 2, 3, 5, 8 — не нужны этому борду):
+     1 — ячейка: без белой карточки, поля 16 px и теней форка, iframe во всю ячейку, без шапки чарта Proteus
+         («TeamPulse Hub ⋯» — у отчёта своя шапка); ячейка узнаётся по классу холдера — на загрузке той же формы
+     4 — загрузка: пока отчёта нет — белая карточка и наши огоньки с подписями (рисунок — длинная строка
+         --tp-load, её собирает скрипт; руками не править); отчёт отрисован — значок Proteus поверх него не нужен
+     6 — поля борда, как на HRBP HUB: от шапки до отчёта 12, по бокам и снизу 24 (у Proteus — 24 / 32)
+     7 — высота ряда по экрану: отчёт — ровно до низа окна (поле 24 px), не ниже 300 px; 149 — верх ряда + нижнее
+         поле, число борда HRBP HUB с той же раскладкой (меню → шапка борда → ряд, без вкладок). Если низ отчёта не на
+         24 px от низа окна — файл 6 поставки скажет, какое число нужно.
+   Красные «!» редактора CSS у строк с :has(…), :not(…) и max(…) — линтер редактора их не знает, на работу не влияет.
+   ================================================================================================================== */
+
+/* ==== 1. Ячейка ===================================================================================================
+   Поле 16 px и белый фон холдера и есть «рамка» вокруг отчёта. Высоту iframe Proteus пишет атрибутом один раз при
+   монтаже — растягивает только этот CSS (цепочка flex и height:100%). Шапка чарта Proteus не нужна: у отчёта своя,
+   а меню легло бы на его кнопки справа; открыть чарт для правки — «Графики» → «TeamPulse Hub». */
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) {
+  background-color: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) .chart-slice,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) .dashboard-chart,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) .chart-container,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) .slice_container,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) .slice_container > div,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) .react_sanbbox {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+.resizable-container:has(> .dashboard-component-chart-holder.dashboard-chart-id-900000) {
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+/* подложка размера и скругления отчёта: пока его нет, ячейка не пустеет и не моргает (что на ней — блок 4) */
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) .chart-container {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) .header-title,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) .header-controls,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) [data-test="slice-header"] {
+  display: none !important;
+}
+#chart-id-900000 iframe,
+.dashboard-chart-id-900000 .react_sanbbox iframe {
+  display: block !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ==== 4. Загрузка ==================================================================================================
+   Пока отчёта нет, на его месте — белая карточка и наши огоньки с подписями: тот же рисунок, что карточка ожидания
+   внутри отчёта. Блок собирает скрипт proteus/board_css.js — длинную строку с рисунком руками не править.
+   Как устроено:
+     · рисунок лежит ФОНОМ самой ячейки (холдера): её размер задан рядом борда и не зависит от того, что Proteus
+       положил внутрь на время загрузки. Фон под отчётом и виден всё время, пока отчёт не отрисован; отрисованный
+       отчёт закрывает его сам — условий «когда показать» нет, поэтому пустого места не бывает;
+     · значок загрузки Proteus: пока в ячейке нет iframe — спрятан (огоньки уже на фоне); iframe есть, а отчёт ещё
+       не отрисован — показан тем же рисунком поверх iframe;
+     · когда отчёт отрисован, он шлёт маркер «готов» (канал скриншотов, VFAtSFVCLVJFQURZ) — значок Proteus поверх
+       отчёта больше не нужен: у отчёта своя карточка ожидания;
+     · заглушку Proteus «Не было получено данных…» до появления iframe прячем, как раньше. Ошибка запроса видна. */
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)) {
+  --tp-load: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNDAiIGhlaWdodD0iMTIwIiB2aWV3Qm94PSIwIDAgMjQwIDEyMCI+PHN0eWxlPi5me29wYWNpdHk6MDt0cmFuc2Zvcm0tYm94OmZpbGwtYm94O3RyYW5zZm9ybS1vcmlnaW46NTAlIDEwMCU7YW5pbWF0aW9uOnAgM3MgaW5maW5pdGUgYm90aH0uZjJ7YW5pbWF0aW9uLWRlbGF5Oi40NXN9LmYze2FuaW1hdGlvbi1kZWxheTouOXN9LmN7b3BhY2l0eTowO2ZvbnQ6NzAwIDE1cHggQXJpYWwsSGVsdmV0aWNhLHNhbnMtc2VyaWY7ZmlsbDojMWYxZjFmO3RleHQtYW5jaG9yOm1pZGRsZTthbmltYXRpb246YyA2cyBpbmZpbml0ZSBib3RofS5jMnthbmltYXRpb24tZGVsYXk6MnN9LmMze2FuaW1hdGlvbi1kZWxheTo0c31Aa2V5ZnJhbWVzIHB7MCV7b3BhY2l0eTowO3RyYW5zZm9ybTp0cmFuc2xhdGVZKDEwcHgpIHNjYWxlKC40KX0xMCV7b3BhY2l0eToxO3RyYW5zZm9ybTp0cmFuc2xhdGVZKC04cHgpIHNjYWxlKDEuMTIpfTE2JSw3OCV7b3BhY2l0eToxO3RyYW5zZm9ybTpub25lfTg4JSwxMDAle29wYWNpdHk6MDt0cmFuc2Zvcm06c2NhbGUoLjg1KX19QGtleWZyYW1lcyBjezAle29wYWNpdHk6MH01JSwyOCV7b3BhY2l0eToxfTMzJSwxMDAle29wYWNpdHk6MH19PC9zdHlsZT48aW1hZ2UgY2xhc3M9ImYiIHg9IjMyIiB5PSIxMCIgd2lkdGg9IjUyIiBoZWlnaHQ9IjUyIiBocmVmPSJkYXRhOmltYWdlL3dlYnA7YmFzZTY0LFVrbEdSb29SQUFCWFJVSlFWbEE0V0FvQUFBQVFBQUFBYndBQWJ3QUFRVXhRU0o4R0FBQVJzRWIrL3p0WDF0dlg3OEV3eEJCQ3pDMWhpTzBid3RZanQyenZ2ZmNXY2t2WUZtNDl0dmZlU3c2SEVDR2M3YnVIN2IyRWJjTzJFTGRFaUJCaStQUHo1Zk5nL3BueS8vL3lQQ0ltZ0ZJYWpmc213SXlkYytDbmJHRWN3bzVodkNhMW5xdGpPMFZncnpMcFA5ZUM3UlN6Y2tWcGJ3M2JJZWJsa2tjMXg3Q2R3TmpmSmtWdG5JYnRBQXcyOCtTSzEyTEpDNXpucm54WG5NUlNCeTlwTzhrMVRVaWJjWnBjblhoMkhwWXlvOXIwanVUYUhDZmxnVm01T25jdEQ1dVZKb1IrQmFiazZqWnFId2JEV0JuNkhqZ3BjM1VmTlUzZzdVbXNVQmFBMFpucE9oQjZGaGhiOTE3SXMzRmpRZWNRaWdRWVAwaXpCSHBxZ0RHeUtsZFA5SGJnRnZrNVdJSHFVeldPeUtKdkhNYmd0WU5ZTndZWTlhWmN2WTJhWmtyZW1pQVV4R2g4cHg5ZVc1ZWtsVDFOdlYyalMrTzRBNkR5dGx5OTlyWEtsWXJhT0FBcmlDMG9rK1R1TGluVHcxZ25CamV1ajJLeml1cWRabTZSdXo2dUZ1Wkp1WHVVSkhlNXBqb3l1RTFmMS9pSG92cTV1U29wNmttc0dJeXNTdExYaTR2ZlNhNmxTaWRHZGEvMEJSZktWY0NvYTdBaXdNU1d1KzZzUXUxSnVkWkcyZDZvN2xPbXQwYzJpaUhmYU5CL1kyeCtTMUVMRUFLOEo5ZjZmY041Um1XZm9yUzhKRmN4OUhhd0Fpeks1YjdMREFJWEtrcTZFUU9NNmo1RkZkbzFpZlZ2WDh6a3JUcTBuYWFvVnZ4YkRqYW5xSFl2akh4emhQNDlMTW45UWlwdFU0cVNMbTR6ZTBaUlJYZk5ZMzJDMnBuN0ZmVlpCV0Q0UDNJOWVWd0ZDTXdvcXZnZUo3Qit3ZUNLWEcvOFliQjJYRk5SbndVQTQwSzV5cUNYUXQ5Q21OaDBTVnBha3VSYUhqYkRPS1RsS3FYN0xxeFBzS0RvSGwzeTZCNTFHNGJaZnBWRmI5QnZZN2R5M1pWN0RSaTNLRk5KUFJ2RCtnT1ZKOWVlMmZXU3UvdmNFVSt1M1lZWnYxbDNsVVpQRXZvRkF6Q3dLVFVIb0FvWXo2aE15M1dzYjJEc3piSUhDUURHSVp1dThyck9Ld1F3Tkdqa0JoNVdMTlZjVWJZM0JqZGRwWTdqWUFVeXhqOVF5YlE1VThXS3c5K2lFdmpCSVZoQmpBZmxYcjZvalYwVTlUWmxTbUhVK204S1lZeTdLNDFSejJFRkNPeFZLdVJyQjJCOU0wYlcwaEUxVllqTEZKVksxOGRHQVdmbHlaQ3k0UUpVVnBWUTl6T3hIbGllV2M0aDBWT2k1d2pkR2NQMU5qQXdwcFdXRDdEdU9MTTFCOFpoUndPQnhjVDhNSVIxWVp3VTlTQVdtTThPSWNBSFNaSEg0d2hkVUZ0eDNVSUl2S1lGTTRaL1NrdlVWRGZHeVdycHlsQUo5ckc4QVJOUlNZMjZFK3ZtUG1XNkVoaGVjWjBNRjh1VDRwcWpTMk9Qb242NGJIUmlYcGt1Z3luRnhIeFI2ZW9XdWFUL1pKTHJEekNkbksrclhVQWp1anhLTHQ4Y2dvdmxpZGtYdWpFZVZwUmN5dlEzektwdnk5TnlHZFlGaExmbGFwOE5obEhmVWtKZEQ1dlJyVEhtTHRmbUZMbjFWbHIrUm5jaERMUWs5MXNJZ1BGbmVWSSs3Z0ZVV3BMV0J3MGc4RkppMXNld0xnNjc4N1libzF3cjVGZVdrcUtvS1VJbnhtNVh1K3MxTThDWWFMbFM2cG96T3A2V3UzdmJYVUN3d0o4Vmt5SnREblhVV0hWWC9zWmRZd1ptRDZmR05ZNTFNS21vVGwvNjI5R3dKRS9OZEVlejhnN2NwYTNtRjY3RXV0N29hSDlIa2tjbDJQV0QwZUZpRjVMY2t5T3ROckR0WnJwTHNmdHBoTzJPYnUwRVdxcGoyOWdleGVUSjlWTUR5NlArbldMeUZMWFN3UEpvZktFZDBOVWNKTjhZbU4wQkZQVkd4WElJak1vbFJVK2FvdjZHNVJoL3k1SGNQV0Z5SFUyN2NjQzY1RnFhYkVyeTZBbjdPQmhBWmI5Y3JxOFpPRzd1QjFmQ295WUpHR2NxaytTNkZxaWNjOThINlhJMWE1aHhuN3VrcUx1b0dEQ3ltaXk1enNQZzRXMTJFeUNFNms4cCt4aU1jNVM1UFBPVE1OcWI4bFJKV3lOQTlTVzFMMklBeGdjSmMwMEIxSGF2Wk11M1ZjazFIa3hZMUd3YjFPbzF0alZPUzVqckRXc3p3TGFCRVZmQ3ZoNXE2N2J5bVR4ZEs0MGVHTHNWMDdVODBwTS90RHhkbnczMEFPd3plVnErdTB1K3pUeTlOR2JTNHJxdHRwRVhOZDBUR0ZoTHk5b0JQS2dveWZXZldtK01hY1YwdU83RDZxdHlkMlZuWWoyQjZoZnlWTGpXQmpHT2FMYlVhdjRCbzdmR2NlbUl1Z3pEQ0JQWFROQkg0MDdGTkVRdGhBQVk3ZFk3TE94WFRJRnJhWUI4TTZPZlJ2MG54Zks1VmtheHZMNGJqV1hGc3JsV2o4QW9hbUQwTzhWeVJTMlBZeFRYR0h4TjBjdmpVWitOWUJUWkNBOUtzU3hSbXExaUZOdmd3aFc1bDhGZDZ4ZUNVWGhqNkptVzNJdm1ydGFUUXhobE5OaTFJQ2w2Y1R4S210c0ZSa2tESExHNEtubjBJbmgwNlQ5elkyQ1UxNENSbWRkY2tqeTZlMi9jUGJvaytVczMxZ0dqM0FiaGtDdmZXTnRTcnZkUzdadHJpeGNlWUdDVTN3SkFaZnpQenkyOHQ3eWxIbVlySDh3L2R1VUJBU0FZYVRRanR6SXlmdEtGMTk1NDUyT3p6ODNOUFRmNzJKMDNUbDU4MmhHTktybG05QjBBVmxBNElNUUtBQUN3TGdDZEFTcHdBSEFBUHAxQW5FbWxvNktoTEhLTWlMQVRpV3dBdnJmM0IyU1dhMS9mL3lEeHlKZ0xIdnFmL1RtOWg4MWZtcSttWGVjdDVtd0ZYK2IvaGY0Vy81YndwOHV2eHVXUVZpOGxGTEZ3UjdXL2IrLzAxZlpPTCtaOFRyNmQvd1BZQS9QSHFzZjRIa0QvTlA5Vi83UGNGL25IOXc5SXIyWC90bjdPbjZ3Tldmd0lvbHhMd3FydzdZL1hSTHFpb3dNZlBpZ3NCQ2p3MmxpN09tM1d6c0Nod3BDdHlrV3Y2NWlwNm1HcTFwSzdDa01ZZ0p5L1FhdXJHNmFCUmZBL1hrc21uOUhiUEhsdVBwMEEyUm1iQzkvSUkySG9nZEZ4SjA3KzdHeDN4VlFRMFBUTTg0MHo0cnU2VWhkUmhTNmtDT0FMZ0xUN1BmOE9qTFpEdklJRllDalRKREhrdTRxYjdSOXh6V05Hd3NVUWRrSG1na1YyRkt2UzJzYjlzNmVvLy8zT3dwdzNLa2NDeVZLbVIrbWpTVTIrUWk3emt1bGVzamJHZFR1clk1UFB6aXJtQXBKNnJIU0JZS3V1Y3pYUjNSb2pEeEdmYjlYQm1rczdrQlgvOGJSTHpaUUIrU0JKNEkxeFBjWERYb1UzUk1GTnNOL3htN2E2L3BnQUFQNVk2eDN3VXM1YlRNZkxYVzRWeFQzVXFjYzU5WDJBUzd0S1BTdWpmMVhPSkcrc0RxRGJMQm12RnB1NW5LM25mbzhjUkFvTlNoYWZaM1l6T0UzaXJRNVA3dGw0MGtTRUlqK0UvN2VVdGovdnV5aytzOTJGRDlFOHpXQ0xuNDBwNjJULzJJdXRxTFpjR1dXTmxaY3I5aEZCL00wQzkrSVZZVmlnQTRWL1NVTHllMzVRbTBkNldKdHJudDNTdm5wWTRWaE56R1M4WXJpVi80aTRBTDhBTkpPc0ZoUlBmMXFyQzVOTmw4VUw3WkRvRVQ5dHQwRW1XeFJaNWlhZWpzLzRXVEcwNmlDcG85NllZRHcrMHo4dzFHM1FCdEs1OUdqTFBTMjBIeWFTN2Q5SE56VWovc2VRM2YzNlNiWUx1U0llaEpPWU9kT2hrSmZkWGJhSzA3OXVBYXA4dWo2VGlzS3dmbjhnbWUwWkk5Z3lGMkpTUmVCMUlCNU5ZeHFTWHpXQUFoS3hxbGcxWDhDcUNYMWMxbDFkTFQvNTU5VE4vRmUrejhqYWthYzViY1dhM25RNjhZL2l3bWdvQ091UE53ZzM2UDlLRnZKWEV6NEIwUThnTCtyMk85Wk0xb2JDdzE3b0ZDdC80ZTVWdDlKQ3FGZ1paaVBsc3Y2RHJTa25nNkttdU0zMUdWMExqNGE1NzNycDFVVUMzdnlYK2grY3lwVHdtaFB2MTVGY0wzcmkzaUNwMG9tWVBwNGFXMGtOaFhaLzdFS0RXQll6T2NhK2tNSGtLSmRYcGxXZHFzczhBUmFVd1o1ZTc1SDJaTlFrdzBQdTV6UW41VmlLZEY2SHJEZ3hvRHh2Y1I0Z2NidTcybisrV2xrYi9uT0hsc2N6MEJOVXpWZm9JRG9DOVNRL0MxdVRQNHoxNjlwYlp6TWt5ZlVBVnhOS2Y2ZFhDVkpDcGxwZEg2Q2I2V1U3OG92cFgxdmFWSG5TWVVwaERXN0R4bmRmRzlLS2VHT1RvQ0RsdWNjQ3FoVnA4dlVCdi9Bd08xUnpldWRJaWZZdDhWQ1FVYnV4cGMydnRNVFJUYjdSSXVkd2NLODdmQXZ6VGFlMFplenRXeHVRazI4cUpEQkhGZUpuZWM1bDdkQWs5K1pIYTQyRjRJYlVreGFYR1FVOGs2OWFPSy9uNkh1SmpzWW1IRFhHNW03RmlFbHdVZVV4MWtOZ0JuYmJkaFpseWhvWEphamtNUlFXMDZxNFhmelV1SDkzeTJaS29aREJjMkV5OXU4R3dhUThrVklSN2tCN01PdnJNVWg0a2pZK1FMVkZUTXdRR1FXendJVTBNSjA3c0k3aE5RY3pJR0dWUGhGc0phdDk1b2ZZTVN0ZWtzV0FXdXkvQ2JSM0hPOHJ3d1AzdW5nQjhtK1gvQTF2YUozNFRaUGNYc0VJak81bmlWZVl0RGVNOEFvUE1OOGhpNy9ZUjIwZmtPbVdJNGRud3kzcGx3TE4waTNmc3ZrU1NyeE41TXhjWjVOMVA5Y0k3Y2FyMERxSUhEbEo1am0ySGJEbTNxRDNPMUwybm95Y1B6UVNlMUZQb2NtZjBkbnBtclJmUHdjS1ZVd2FMbG5RSndsM2NEQWhLWXJ1SzMzUWVqclpRSFU3elB4UVpwZnVJU3dXekFOVU1XVkZzSmY2OFVjZjNwV3lmS1ZlZ3pkd29MOGRaa2s1Uml2VkZReFBScW9Yenk4cFVRV1A3MTUweGwxcUc2U1loVjRMY1dsVi80WmJSZFRWYlZJeFJKcmFSZVdOUEozdjdXdG5xSVdPckpHZDJPdUJuUHpjWkhSMHEwZVpnc2U4bk5UbStIMVgzcHJCdEtVSHJDYzFxS3ZhQ1B4YnlLR1lpME15QkpvSFgxM1FBV3R2VmFXT2RuRTIxR00vL2doQmE5QlpaSVRCZHExOURpNHJENjdOVXMwbFpuNkwwTEZxNmh5N2xHdlowd2c2enNQV0tpSTc5K1pkOTBKTS9zeWFBR0xYdCtRMHI3T1BhTms2dTIzcXd3ZXZOWml2d3prZ201eHBERGNqdzhnZFRXSFZwVXdpYTlhd2RVR1lWMXRyb2NxdVVkc2Jlc1ZQc1h5TDdyd3FWMkpickJyTlFSSGtNd1k3S2FJSzg2Q0RkSlQxNFR0ZW5vVWRyRG91TVdUQkc0VzI2dWpmZGFyZlBKZDdmOGVGMzNack1ZeE45bVZDZTh5MmZLT0ZocXRvVVlPR2ZpZDFWK0RXRW1jU0xsbHY2cWhtdTFJczJmdmsvY1o4QUxwdVdkMG10aW5JM2VGWTZrUGhCdWZPdUsrNXMzbXJ3ZUEzUzdLR2lHZWU0QU1aeEJjSWZCQzJHQWYrYzA0RjZGWklReWN3QkZWV3Q2WEpyWndXQi9ZcS9iVjY5MWZmajlGQjd6d0ZiQVRZWXZMN2xSdU5GTEpJN283bXYzNUZhMHNaL0MvNEV2eEZRVm16Y3YzY1ZaOVNHY1hNanJZSmZkU1NTRmJyb0xoazJkMnMzYTBuU2pNdVZtYWN2K1h4cExoT0FjNnYrN1ZQSU56VmJ2ZGlxanNma3pKeENkMi90LzVteDlTQnNxWXZVTEhUQTRJKzBDU2luNFdmRjk1bWdHMElCemgvcVpOc2h3VURUWHJxaDFXQ212T3FzWXdMeWgvdTVJczQ4T0hBczJkNmZJSlo2amFUQjF4OEU0R1RsSlI5TFFXR0h0QTVZUS9WWFZaaXdPWG53NWI5S1o0ZjRNMmdua1luZmlOSm4yZXYvYW1BUndPSDRJRmNQcFZTWEF5UU9lRlZhSFRDdUgreHh4UkxoSG9ubVkrWUN4L1RWTEZodGFOZGV3akhCNnB0NDZ5RnYwaXI1SFpHb0FTRVB5OUpPTk9uM0VRQkEwMFRWZEo1Q1U0aDZQQ05Oa1htakdzUUxZaTJCaVVydE5kck5lU1NaSWdBVlJPOXovUjNaQ1JZaWZ5dHpMSkcyQ2RKdTRuR0FwM0UxVTU5VnA5c3N2V0J6N1VxZ1VwRzhhaEFjQXVKdERYVS9tVXg1Rk1Za2k4eExQSGJ1UWF0Ulh3bVY3dXdmSFRTRkM3cmxrRmZqV0htQnZLVjB6cnNZZ1dpK01ySHIxY05FUjBuN0Zwa3RQOVI2b0lFelZxc09WdXJtZnplMFVBYkZQSGZNalc4MExtSmF1c01SOHBGSkh0aUk4OFFDNmRvMDliTC9ZdEtlK2ozNGc1VmxqenJMazMyZFJzb1hQNDA2RktnQmxxRS9lMEhRblRsZWdRRkFjUVhMQmJqZTFoQ0xZb29iTzVSM0xMOG1ISVNKdldWSDZGWmRIaFZNUnhxdjJpczlWRXJuMnBTZnd0b0tFdDZxY0RENFB6eDk1NVc2U3M2VHFjS3lqMkpnV011WWdyOWMrbmRKQVNWNDl1ODFDVjQ5eHRMYnljV2R2Q3gxWkovcStyd1djQTZVWWZaUzdiaDhrQmNSL3Fub3NGUnBmY3YzS2tkTnc1REZaUzZzZitsVWtaek45M1BxVWIzVCtqdUZ2bHhFWmIrWXd5QlhyOHI1OXcrMDJOWXpXWFVaWUp5Ny9qNVJNNXlLTzdxamtlcC94MnNpS0RMU25COFVkWi9ZZG5QOGlIOHpkWTE0T3dFNjE3OWh4akExM3dVWVZZaER3eDExUmk1WnAzSmtBdU5OcnJKbmJxVUhkMndIZ1RjOEFQd2EzYUc3Vm1BZEFXVUNQWFozMTV0Ry9MSkdFSmdOc3VGdGc3bjZrVG1BeHR6cXNnODIzRTdHU05jVEZyYjhHeDBwR2NCM3l3NmYyWkgvazhQeVlTd3I2bDh2bFJxa2NXMnIyWkFpYW9hV0pMQnUyV1BuSmJiRjUwbzVDWEFhZms1dWdpTXU4dUhxTGJpdlVGeVdhUkpoWC91SVYxeStKeWFyQ2dDODBVeHJLVW4xYnNHbmp2a3o1L2pzRlJxbkJRb0Z5UEh4R1FXaHBPbHpURW9yKzNPdU90WExrbU05MzJZMGNMMUdWMm9seUgwSzVUbHZLeUpsUU1SOU9RaE5GZUlCK0JZcWFOb3VvZUhsMEE4UWQzYkNPc0d5QlRFVzB2UHphMDdqTG03UVgyV3kxYk9TMXNSOUxOaWxJMVkzT3hRTi9YWjdnbE9tL0ZwMW5uSHJtQlBkV1lPRGVKSlcvSDFxS3B3aVRqV0E3djRHaXZVZ0tkVWJGQ0FUOGZBQUE9PSIvPjxpbWFnZSBjbGFzcz0iZiBmMiIgeD0iOTQiIHk9IjEwIiB3aWR0aD0iNTIiIGhlaWdodD0iNTIiIGhyZWY9ImRhdGE6aW1hZ2Uvd2VicDtiYXNlNjQsVWtsR1J0NE1BQUJYUlVKUVZsQTRXQW9BQUFBUUFBQUFid0FBYndBQVFVeFFTSFVFQUFBUm9NYmExckZKT3JsNWZuekpOMmk3SzIyTWJWUlNTZHNZMjdadDI3WnQyOU8yclMvZGd5K3BWUElsVDA1eUJvMTYzdWZXLzRpWUFCVGVNUDdIUVlBWldzNE9UZnF3SGdndEI1Wkl0V2ZxWUMzSGRFV3FjaHhnTGNVVVVaUmVLY05haUNXaXhLanAyOEZhaEhKRkc2VXFReEg4TXd5dGNTT2k0dUVJN2dVOHBiZ3hrYlZERUp3ejlGdFBiWnJVNFREZkFwN1I1b2lzTmNBOE13d1h0ZG5VeXQ0d3Z3eGRsM01MUlAxWTNvaTVoUElrVVZzYTlUZ01ZU2VZUTRablJHMTU1QmhZbURrZTVvN2hTbEhOU0ZaNkdGNXZISVRnak9FVVVjMUtQUTljb3VvZ21CZjJ2NEJEUkRVek5SeFhpcFh0WUQ0WU9oMWVBaHJJQkpQc1N0VzB2QlBNZzRDdXZ6d1BiTGRlVkxOSEhmMkFTSDFlQ2c0RTdERmZOMW1IS2FKU1ZxcVNvcTZCWldlb3I0bzM0UjFSQll3YUNzc3NZRkFUYXpyblJFVVZrVnJlQ1phVllSUkY2Zk1LVlV6cUtZU2NBaHBxcEFvZE5SeVdqNkdoUmtvU2l5TXRhcFdQWWVkR1VVV1B1aE9XaWFISGNsSEZaM1VBTEErRXIwVGxvRWN5Q2JoZFVWbXlxUWR5TkRTSXlrU1B3M0lvVDJjdTBwb2VzTUlacmxSVXJsSG5JQlROMEhVOWxTMDFxWVNpQjl5aW1JK29uYzJLWmRacEpablZQUWlGTXVBVVVWbFhkd0tzT0liU0dZM0t2ZkhDRXF3b2h0N2ZLSHRLWC9XQUZRVDk1aWhtSjBXdDJRNEYzV2E2b2p5TVd0TEpyQUNHQnhUbFkwMlhJNlF6MUsybm5DUlh0a0w2Z0VzVXZSQTFCcFlNOW83b3lLZnBETDJyOG5SSkdla0dLVHJDcGdaWXNwdEVSNkl1UVVnRVRIZm1jVmlxVWtXZVVqK1drZFl3b09xS1dCc0FTM1NpNkl2cUV3VThvdWhLMUhISlhoRmRvZTVCV3NNNzdueWFDSGpQblc4U0JieWs2TXhEaVF4N05OS1p2V0ZKWURoRWRJUThINFpFZHB5aUovRVFoRVRBRk5HUnFNZGhxVnF0bDZmVThrNUlheGdWNlltb0EyRkpBaDVTZE9iMlJNQjdvalB6a2RUUWRZa3owcCtka2dRMGlQS1ZQQVNXd0hDMG9qTlJEeUVrQUc1M2gzb0xsc0orRk4yWnRBMHNRZmxQK2R1MGM1SzZtai9VOEFTRy9TUGRpVG82eVhIeTZKSWsxemhFUFlYbUQ3akhwYStTdk9LUXRDaWsrTlNsUDBzdFRhMmM0aDJYbXBJODVWSmpxZmtNdHpoRUxRb3BUbkhwVTZTb3AwZVBKQUI2MU9SdTFEbXdCS1dLNk0vNEpIakxIOWIyU0dFNFM5RVphbEtyTklORWQxNkhJVVdIT2FJM2x5TWtRTUJUaXI2b3NRZVNHZ1pGdWtKTlFtcWJML3B5Q0N5TjRVUkZSNmo1SGRKdE01MzBJK29TQkNRMkhDSS9xRVZsV0NvWTNoTDlHQVZEQWV2V2l6NUVQUTVEQVEyakdGMmdwclN5UXNCd2h1Z0F0WDQ3R0lwcHVGNlJ1VkhWL1dFb3F1RnlrWGxGVmZaQlFIRU5wMURNS1dyNlRqQVUyVEIwdWNoY1NMM2VEZ0hGTnZSNFQ0cFprS3FlQXhpS2JzQXBpeVFXanBUZTZZY3NEZWg2VTVNVVdTQkdTZDhNQnl3THdJQzZlNVpJakN3RVNhbnh4NkVsR0xJMUExcWQ4UllsTVpKc05wS1JralRuOXYwQkJHUnRBTFk3NnROS1RmL25SamVERzlmLy81eC8vWUh0QUROa0h3Q2dYSC85OHgvT2JGSXpWMzU0NWFHajZnQWdHRncwdzBZNzdUSHE2RXR1ZWVtcitaVTE2eGtybGNyMEQ1Ky81WnpEQjIxWHh2L05ERVVFQUZaUU9DQkNDQUFBc0NZQW5RRXFjQUJ3QUQ2Tk5wWklKU01pSVRiWXJiQ2dFWWxvQ0pBbTI5Ry90M1N4Z1BRKzBkZlFmUmp4L0pYTGN2K3o5WG42WDNzbm1GODNUVGpONXB2MVh0Ly8xWGg3Mkc1ajlaaENDYzlTWGVacjVsNTgvUnB6NFBtZittOWdmK1cvM2ZmZ1AxZGFLMmxVL2tSTmtZcFNQZ21pL2lPWFlzc3RudFY1cGpjVHljVUxxQ3JteHA3MkdyWmpFdzNibFJCcWhMejU3QklmVUhST1NjTjhNT0hpR0lHMkM3d3hBa1pOMjRhdENiSllLWFFJeGZqZ2hNYUI3SHgrL1hJcEMwa2d2dDY1ZWlyaEtoQ2FoRjhsOEpKMjdhWC80a0J6YmtuakM1T0UvbXFHUkR6OHlZVEhreitOU0RvV05sMzJsWGh6YUYwRkdaNW02bENvZ1B5NmdqYkREZkY4YmtyQnhxekV2bEZ3QVo0TmpaalczL0l2a1lUQ2NsSlo2NDBLejdBbHNTZXZtSGdSRE5TYnFFSFhTRlVER2hsdEh4MDRBZ3RFRUhnQUFQN3Y1d0tqN05uTXliY2t3K3Y2TDJCU3VXWE1ESDkvenQyUlhnYWFLWmNLcTZPUHhoVVpSMmZZNW5IcFZjNDljK2VOQyttemRYNE40cFoySlVsMWRnOXpySnBpOXJnQnljY3JnaXhUUDFGeU9jeEJrbm5VbDhhM2xjaXBBaHhmcnBqa1NrTkdIbXNzamFTc3VSM0VBZzRIc3lKZDdFMHphZ2dJZFM2bUM4NEptdVk3RWJyNUJNVTNud1k3ajRNVXpXYXd3cEx0bXBYQ3RWYUx3K3I1Z0podjhNUDZtL1gzVklyaG1HK3F5dmhmampxNFlmSW00UmEwR1lIZTNwek1MbWJIVWxtbUxoRzhZZEV0NmJkenc5L1NSbUhHOE9idElzaHl1Qno4Nkh5aDZtSnd4UUphN1RGSGhoZk9DMmxKVms2L3l5UzRTMzlsc1ZKU1VRR2x2dkxrMGJYdGh6dGFVNGwvR3Y3MG1yUnN0YmtLWVd6TUR5bTBHZzNGZWo4OWp1amNnajVWKzdDcEt4M3lMMEduZG5KeEVZMEplMm90dWR4NldzN3NDa3NWdHB1NFY4WmkvQ3pXbGltdDdMY2RSamVyZnF4R0owazk1eEs2dEF5QU80WUJxNFJscnkvOXU5YVBUTitNTXVYTVV2QU9GbXdSVFYzTWo5dkF3czU5YldVaTJXUG10dTdjSFNhRmx5b0YvcEpsNE9rN1ZLNFJNblg1R21xcnR6aVVVWGJkRUJPOHFiLzJGaHQ1enhYQVFSS0NqQkkwckJuKzNqdGNERzdIaEdUOXBudnNPY1NGN1JQZjBXRmtQRGs3SVZiM1pxNnhiMjcrQUpOQW1qTWMvYXRPN1NnYTdoUHFLejhtK1poMWpTM2IwTHJjRThHbmVrVXJxd3Y0YWsvTFhYSUpOSjlFZmMycGc3Ky8yeDVWVVBoMzY2L2VQTE5YZDZvcWFKcVQ2T0F5bXk4NlR1L0lDQVQ3cXgvYkt3eDRhOHNReDNiQ01IenkxL3pJa2t6c09QZDhKQTVXVTlMVjVubjRoeXZZWmE0RFVFbWxnT1FSbWNsS2dhUjVZWFJvbmpCY2RNQVM2azN4MUNiLzhNZUJSZkJMSGUzVWg0aWV6eWdEUWdTdjhxVkZvRFgxc0VDMkRBVGowUTdneGk4RExGRGVvdVdXamd3NCtnakZuTFRwV3R6UWMxNVZxQnMrRmFoaWZzNWVTdEUyOEJUZFRWRjN6bkw3OE5VNzM4NXlnVEMyVlNmYUlLQkhONzgrL3hoZjFyVFBxVFYzNVd1a1dURlJKY09YQUxDWDQ0cHpKUDl5Tkg3Ny83UjV3dlBIUURYbGpHblo4VXg3My85enlxTW5BWjR5ZDY3UWZjL3lydHBXaE5CZzdONlIxcUZ2NWxIcWVQQ1I4c3Y2YUs3WjkrT1grUU4rOFF5OFhlTFh6YUMyelhLL2hQMk85YW94RFY0cHhYVzM0Vm53a3J2U05tNFU1UGFZUnZJdHlaKzlUTTNOTHNTb0RhNnJDVDF1NGtEdHExSzF5amhybUZ4aFpoTmM5dzlTSlcyMFRtR3dUNnhMSVJwQXJKaUEwdk9VOCtmWFI5WlpoRWdKdmxXRGVhbGNRWGptd2d5MEIwVEtBeHJZQ0s2ZVNGaVQweGZ0aU51eGdlTHhJZGZqSzJSVDNDaUN1SHAvSU8zMk5yL1ozK0lFZ2Q2VllqbEpwT2VzV2h3Zm1iRXNrSllkRldNQVNyYzFlRUJVRXVZdzZXbkw1a2FoWXBGNU5PWXQxM2xLZEI3NlBLei9XSWIxOWpWbERMQjlLQ1Q4QkZuNUZsbTZEZjlzNXpUT2xxdjlkaUZTclo0dEIrbXdPcmhkN0VhK1lxVi9HNFZCMlRXMktieFZtdXVOM3p5bU9lYzREeWJsYWt2eGlRSk1nTVdCRjdBRkhzUmtpZGV0Y3Jpb3d0RndkMEQ4MEpEcVJMenY0WmM3dG5EQTlYSFBQa0R1WEUvbGMxbVlBbW9xTTk1QVhQOUNibUpsTHZGbzR1TW1HalY2WTc0QXA2V2pFcmRHTGpkb3ZRL3g1MmQrczlZdVQ1Sngyc2ZmNmtiWG1yam15WStRWXRBc0NlUnFwV05pdDJTbG1YMk5WMk5MU0ZFM1AvazdaMkN1RDlOcG5HNHFaeGQxR0JpalI0SkxCUWxOenFhd21PS1NoelRIanJiK0RkOGtxOHVKNUlGdDkwUnlDL2QybTREay81SFdaR2tTT0FzLzI4M21KVGhQUEwvNkJkU3hZZEtpSlhjemNObWZzUFlTQmRIbDJIS3VpS3hmT0ZzVFZtdXFIaGQ3azRMQTB2d1FKekovWkxaekN6K2pLWmJZSzZ6enNDN2lncmVwNHFqMVkyRmd3VmI5Z290NjFNbU5jSTVOM25oTjBqaitsU0hTcjN0QW1wc252cFFKQVhrSDRmMmxFWWJQQ283SThNSzVEOTFNR2NPWVNNT0JJM0V5dUZIL1N4eGJHNk16ZVVaRFpMSkQ2YlBvcGxoSE9iK0w0U1hFd2lyNHJEWVpoSzFGb01OcHJYRnVqOWc4MU53T2l0WXRtWGhrTFZ4Lzl0bFQzcWZLengvcnRrM01lVTBrVEtXT0RNcGRTMm5JVlNoV0orak14d2RyZ3d2R2RDZWE0K2RYbURrd2g0V3FQYXAwMVgzbzArNVY3SW9rZ0NnTVV6dXlpNWw1c3ByNFB1YmVYdkZVa0l0YUlSVVFXVldJQ3Q1ZzkybVN6TDNmOTJyODM4WUk5cEVDYUFGWEpDdDV6TU1malhFeFVucFdBRjU5VTkzTHY5eWlaNEdrUlNBQlVwSDg2Z1k0cE0xNFpRVldNcy9JeVovamxmdm5XSWtxbVFtbFpscy9lazdzdjErTWtsdGtWMFBpcFBzQ2VMbHBhTHlLckpiRTk4VUxwUmxlUW1zMm9odXFTMjlFdU1QTlB3VG1pVWVYc2Q2MGoweVdsWDh6ZTQ5WHkwQlVpODBoakVDbkNXbmc5OWd3YnFoUEJjVTdKTDFyT3Q1NHlNazE0UWJPdXh4MjZzdGVGaDl2U2ZlbzZkVHdTanJJbFZxQVZYR0l4UFBJZUQxL0hWSlZOekhIU24vbThPOUdyaXZjRmF4RmFNbWFuVFBTanBiL21XOE5xaGNyZStNeGd0WC80TVVmSWhISkdMaEFBQUE9Ii8+PGltYWdlIGNsYXNzPSJmIGYzIiB4PSIxNTYiIHk9IjEwIiB3aWR0aD0iNTIiIGhlaWdodD0iNTIiIGhyZWY9ImRhdGE6aW1hZ2Uvd2VicDtiYXNlNjQsVWtsR1JsSU1BQUJYUlVKUVZsQTRXQW9BQUFBUUFBQUFid0FBYndBQVFVeFFTR2tFQUFBUm9JYmF0dkpJT2x6ZWo4QTNQdTFGUVh1UHUwdlJHaGozdG5GM2QzZDN0N1p4ZDNlWGRuY1pEYUdnb0NBVUJCNEh6a2hKM3ZmZCtoOFJFNERjR3liK1dBYk0wSHYycSttOUZpRDBIdmhOcXM5c2h2VWVDeFdwNmttQTlSWnpSVkY2T1lQMUVtdEZpVkVMdDRMMUNsbFZuVkxWQXhEOE01VHI3RVJVUEJibVhzRFQ2a0prL1ZnRTV3eERLOTJRcUdNUmZBdVlKcW83N0JnTjg4eFFGdFZ0Nm84Uk1MOE1UYit4QjZKK3pEb3hsNURORnRYVHFLZGhDTnZCSERKN1RsVFBJdytEaGNWSHd0d3gzQ0NxZ1dTbDJmQm1yWXpnak9GTVVRMmxwZ0hYcUcwMHpBdjdYOEJFVVEybXlyaE9yRzREODhIUU5DVVl4a1VtbUczWHFLN2Yrc0U4Q0dqK1pTYXdUYXVvaGxOVEhoU3B6MHJCZ1lCZFYrb082ek5YVk1wcW02U282eEFLWjJocEYrL0FtNkp5R0ZXR0ZTeGdYSTExblgrQ292SkkvZEVFSzVTaEhFWHB5MVlxbjlTMFlnV003aUNWNjZpRFljVXhqSzZUa3NUOFNHczJMWTVocHpaUmVZKzZBMVlRdytEZlJPV2ViTjhLVmd5RUwwVVZrSHFvSUFIM0txcVE3QmlNSWhyS2lpcUlub1lWSVZ0SUZxYlNETXVkNFVwRkZaVTZIeUZ2aHFaV3FrQnpTOGg3d0IyS3hSRzFxMW0rekpvcVpLRWVSY2lWQVdlS0tsVGJUb0RseDFBNnJhYWkxMjRvd2ZKaUdQcWxQUHh5QkN3bkdMeFkwWUdveWpiSWFUWmJVUjdXdGJhZldRNE1qeXJLeDZqcmtBZjBxVkJlc3RvSDZRUE9weU02RXBZTTlwbzgrU0NkWVhDN1BGMmJJVjFaMFJGMmpJTWx1ME4wSk9vYWhFVEFRbWVlZ0tYS3F2S1UrcWFFdElaZGE2Nkk5YTFnU1FMT0ZuMVJTN0tIRkYySk9pM1ppNklyMUtOSS9ZNDdueVY3ejUxdkVnVTg1ODV6aVF3NzFieHBnU1dCWWFMb0NIVUpESW5zSkVWUGVBSkNJbUMyNkVqVU5GaXFUVnZsS2ZYYlFLUTFIRkNuSjZKYVlFa0NIcFEzdHlVeXZPUE9TaVExREZ6cGpOUTJNRW5BYUZLK01oNEpTMkE0VnRHWnFJY1FFZ0IzdUVPOUJrdnlqZWpPTHhrc1FkWXFiNm4yN1pJMDE5MFJkVUNTUGFNL1VTY2tNQndydWtOZGt1UUdsNTVHNHczM3V2Ukpnb0RuWEZvV1VuemdrTlJXU3ZHSlMvVXN4VHU5empTWDJrdU5NOXpoRUxVeXBEalRwUStRWWpROWVqUUJNTGd1ZDZQT2h5VW9WVVJ2cUNPVDRFMS8xTEZyQ3NQNWlzNVFzN00wWmRHZDEyQkkwVytaNkF5dlJFaUFnR21LdnFnMkdFa041VHBkb1g1QjhtV2lMeE5oYVF3bktUcENyZXlUYnBPRnBCOVJseUFnc1dHaS9LQldaa2h2ZUZQMDR4QllPcUM1VmZRaDZna1ljbWc0aE5FRjZwZE5MQmN3bkMwNlFGVzNnaUdmaGhzVVdUU3FmVDhZOG1xNFRtU3hvcXA3SVNDL2hqTXBGaWxxNFhZdzVObHd3RzhpaTBMcDVUNEl5TGRoOER0U0xBU3A5dk1CUTk0Tk9HMk54TnlSMGpzalVFZ0RCdDdXSVpFNVlwVDB6U0dBRlFJd29QbnV0WklpYzhGSXFmYmpBUUdHd3BvQm01NzlacFRFR01tR2tZeVVwR1YzN0FVZ29OQUdZS3NwbjFUcitqODc3UVk3MS8vYlZ0NjhYeC9BRElVUEFKQ052dm01OXhiVzFPRHFkeTgvTktVSkFJTEJSVE4wMm0vWFE0Njk1TGJuUGxsY3JWWVpLOVhLN1BlbTNYeitsSEZiWmZpL21TR1BBRlpRT0NEQ0J3QUE4Q0lBblFFcWNBQndBRDZOT0pkSUpTT2xJVFdYVGZpZ0VZbG9BTW4rTG44QjFIM28wTzlNWDBQQkVHVmhoYmU3ek4rYWZwemU4dzM1bnQ3b0ZSOE01eGtvOHlIekwwRGVxai9rZVEvNnY5Z3Y5ZWZTcTlsWG9wZnJNemdRYk1hQ240Q3RabXZ1cHZ6enNMbExuQU1OOVc3eTBsdklHdytTTURock9LMkY4eUdqRVR3emlyaWgxOG5hbmdrazd4RTdERU0xQ3gvT0E0Mmk1Y3p4KzF6MVdUdkl2aTE4dzd2OHNzTGkyODdFbW12U29JTUxNNWovamx5S3JFZXlMaWZha0p0bWtIS09LRnVKM0UwNTBMb1hHRW5rQ1RWMlBRRjh6ZDZNWmJKNkhNMmc5WVZTWm5DRHZaSFlJcDEwVkJFb1JGZDFyaTk1MVNUU1hzR00xNVp4UGF5SzRDWldtNzBPRUhvRWVPZ09kZFdjT09mVWRnMTUvRkQ3eUtrVTlLalFBUDc4clJBYmZ5TmRJL2hhQkZZaFFNeldwK2s3ZDJwdlJKcGdSV25rTGlCOWNsWDFyenN4MmE5LzhzT1hrVEE1ZE1RZ3dyeHVVTFN1VWlXYnZuN2pqVW9oS2VjZElleEljaXNVZTZTbklUR0dtaDVYWnRSUWRsK2g2bm9rMDFjUmx2ekxwMkYxUzZwWXRUaTkrdHZRcndzdnM1MldDK2tVbnpYYjM4Tnc0OEplRVlMWTFPeXRhM0twbDczb2phWWoxWHhCVmVoN0JWekRXVk4rMW52TXZTY3Y4Sno2VmdOMTFvckEwazljZ3UwZVhRdE9udjlzTkp0d1d2blkrNENGTlZaNVN6QjY1d1BkMnZDeDdnS2x6cHM2WHgxTGtCSkRNM1NRMWl2YUE3WFBPenBmckVSR0hqT2VxWXN1SHhtbXIzejdVN0k0b3BUZXNNODhSV1VITVFFbGNtYU1FVm5vMHVpWFZqWW5QYXUyRnkzY3JSREUzQVRXNTZocHNVZHNyZzVlcXFqazRJVnc3Umo1TWhQemJMZnpDVDgzSVRmbkRHTWhrVmVYemN5VDJJbjg3eXhzTEZRakp2WU9TamVFMlp6eVdJQW5kTnZZY25taUY5K1EySmM4eE41K09OcWpxOTRlNEpQSGJaR3NyNlZOVlNzVFptVElobm0vRmowSkhKWnVXZW93citQSzc1LzVzbXR1MDljY3MrY3l1L0hkb2J5M0xNbVBlSTNDR1pLRmZnUnMvaENwcmJMbmdZV2tIQ2dldkhmT1pmRG53aHJ2QzZNR0pqVWRmYU5PL1BmYzJYRWxSRWIzTjA1ZVlNSkVqQzdhSzNBaTliQWhjMTkvcFdOczRJYjVINVg1alF5QzIvK25lSURuZ1F3K2tlandsa0swcXdlZGNwS3gzc0ttbHVsbk1RSmswWDM5ZFV1bm5qdVczRzFmbDJPSHRGZGhqOFk2cjM0cGpQQmxvR3ZmTUV5dksxN09kYk5leFp0dy9OQVFJa254U3NHY21iRXBlVnJEU0ZPZzVXbFFxdmErYytlMm05ay9qR1h3TkVSQ293NXNyZHJSdjRPbnhZWmlxY0NnMGpTS0V0UUhEdGlUMm1KaERpWUY0WWxPQkxNS0J3ZGd2WTc5N1hUOWd4SzVVZGg4MDBxenNsS1dtYWNLRUFxL3ljWE9Jb0JGRHZPRDRJdHpnc0oxL1gxRTVzTUhiaTRaaklBNXNibnJCRlZxTTNFcll2Qjg3bGtyREdaeTZRRHhNNUVSR0x6N2lVcUx1QjV6NVQ2b0tzWi9NMUJGNkxBeU5ZcmFzcTI4SnhkbnZHdEYvalAvZGZqdXozU29oelovRzlMQk5zeDRwQTQ0TjRiR0FlMzZIV3hVTzF5clhoalo2cHJYUStTUmZrVDVzS3RMaFppT3VISnFsWC9DcUY2VnlDeTY4Ny9Ga05Zdk1DMDVVNjlOZXpkdWJWMVVYV202N0hqNWZReEpTTXpRL1VScXRkb1lHM2YyTU8rV0Zjcm0wanFtT1V1Q0pvVDNrdXBkS0xKT25JakYwbGJjaEJjekZzTkM3SytodkliMVpkeXNMbVpROFB4OHhNZ0UvT3BoTGVxS1IxaHlHRHY3VWtPQk5iQWhYdTJrSVZPa201bzY3TmlmSFRYMCtYUXQwNlNqbXV2RTFSdkVQR3g1eGpKY1hSdFQ2dmNXWUdBNjl0K2R1UEZFSFJhZFltbFpZN05mWWdKcTg5QUZqTGxtbE43RjY0SkhCZ0grbWpsdC9jbmFpQzdxamw5V3BOaWk0dExpVi80ZlEyaER3N3M3WVNsOWVSdzlwTWRIQm9lejNwQUJHLzFnUHZWK2VxN2xPelR0REJNNXlRRi9JdjliVVRlYkprRU5vRVIvVHFmQWlvN1RXV3BDT21NR2JRdndRU1U0WkpiV3pkUG1qcm9EZitoTC8xaldKbWNpdExJWEVNNjhBY1pOb2djQ3pxa1NpbDZvQ1ExcHFLcDFzL1RwcXlWTTRqOUVCRlE1T1JlaDRLYW9GM0puUEpudndrUDVOVWFWVXR5UURvWkQxRzlUemhURllDZGx4SFQxVFNQQW5NYlo3Nyt3bllLUDVYUHB4eU9ablcyN2VMaEo1M0lwN0pHbmJuV29uaDE0WXhPeDFja1JYZUxwR3dPYTNyQlYwSjJUSUpKMXJRNFFaa2kxTUJQM0xKMWtSaVp5eHdZOTJuMXRmOG5KT3NYQkdkVlIxUGowYVlYcWpMRXdDOVUxS2xKNmYwSWJOVWp6VFpnd3JPLzJybjNKa0pPQW56WUJBRjhhakhHMmpSUEE1Y3UwVVhKNSt5dGJBb3JIWGtYcFZxNGd5MmRiRHFISGNDODFPTDRpNFRMUnZYU3RoVnpoVS8xVTBNTUZJa0JJUjMrSTYyMmU3dHZaN2l3TGtKZCtDSXF1L1I1cmEyT29Jbm9teUxMelBaVGtaS2l6SFlSSmpRWjlDeXpRRkh4eThkRTMvWVBGUnRSM3ZZZ29aU3haaFVmcCtJWVZlNEoxcHkveFgzWGlCalRwZngyd0tOQ2l5ZGhsV3BlcjMrbFduWUNJbm53QVBiWVdVcWtyUzc1eEwzWE5ya05Db2pEcnJjWmc4MW5RNjJrc0FIVGljTEZ1emhpZGt2V3VjMFFIODcxZEx6QWFwMVJuNkNJcDJjNWl0ZHducDdXcUtZL282djJUSlhWQ0swdmo4K2VCYlNmVzVVZi9Rb050YTBtcHhFcm1iRGY5ek9BcmgvZHUxa1BOVTZXYTMwUno1U2IvanJOazRva2g1TjY2SHFMaFFJOHVnWFFZSGkxQmQvcXYzTkhnRCtEcFFKMnNGYnh3bGZjZmNDeFR5Szl3V0RmR3pRR2prRHpOZlVHTjQwaStmOEduaW0xOE1IVlVybkxBNEo0S0pmRXNocDZDZTZQb2xrRUhUNkFpSHZGdzdzdGx0TWdiRmVleUlhcjRuUWZUdlZXNnFPYXROVDU3L3UyN3BFQi9yR1RmQUFBQSIvPjx0ZXh0IGNsYXNzPSJjIiB4PSIxMjAiIHk9Ijk4Ij7QodC+0LHQuNGA0LDQtdC8INC00LDQvdC90YvQteKApjwvdGV4dD48dGV4dCBjbGFzcz0iYyBjMiIgeD0iMTIwIiB5PSI5OCI+0KHRh9C40YLQsNC10Lwg0LzQtdGC0YDQuNC60LjigKY8L3RleHQ+PHRleHQgY2xhc3M9ImMgYzMiIHg9IjEyMCIgeT0iOTgiPtCT0L7RgtC+0LLQuNC8INCy0YvQstC+0LTRi+KApjwvdGV4dD48L3N2Zz4=");
+  background: #fff var(--tp-load) center / 240px 120px no-repeat !important;
+}
+.dashboard-chart-id-900000:not(:has(iframe)) .slice_container {
+  visibility: hidden !important;
+}
+.dashboard-chart-id-900000:not(:has(iframe)) img.loading,
+.dashboard-chart-id-900000:not(:has(iframe)) [aria-label="Loading"] {
+  display: none !important;
+}
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)):has(iframe) .chart-container {
+  position: relative !important;
+}
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)):has(iframe) img.loading,
+.dashboard-component-chart-holder:is(.dashboard-chart-id-900000, :has(#chart-id-900000)):has(iframe) [aria-label="Loading"] {
+  content: var(--tp-load) !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  width: 240px !important;
+  height: 120px !important;
+  margin: -60px 0 0 -120px !important;
+  padding: 0 !important;
+  transform: none !important;
+  object-fit: contain !important;
+  background: #fff !important;
+  z-index: 99 !important;
+}
+.dashboard-chart-id-900000:has(img.echarts-plugin[src*="VFAtSFVCLVJFQURZ"]) img.loading,
+.dashboard-chart-id-900000:has(img.echarts-plugin[src*="VFAtSFVCLVJFQURZ"]) [aria-label="Loading"] {
+  display: none !important;
+}
+
+/* ==== 6. Поля борда ================================================================================================
+   Числа HRBP HUB и «Детальных списков»: сверху 12, по бокам и снизу 24 (у Proteus сетка с полями 24 сверху и снизу,
+   32 по бокам). Действует на весь этот дашборд — на нём только отчёт. Режим правки не трогаем: там поля и высоту
+   задаёт Proteus. */
+.grid-container:not(.dashboard--editing *):not(#tp-grid) {
+  margin: 12px 24px 24px !important;
+}
+.dashboard-grid .grid-content > :not(:last-child) {
+  margin-bottom: 16px !important;
+}
+
+/* ==== 7. Высота ряда по экрану ======================================================================================
+   Ряд с отчётом — от своего верха до низа окна с полем 24 px, не ниже 300 px. 149 = верх ряда 125 (шапка борда 113 +
+   поле 12 блока 6) + нижнее поле 24 — число борда HRBP HUB, раскладка та же. Нижний предел маленький нарочно:
+   страница борда не прокручивается, и ряд выше окна (был предел 560 — окна ниже 709 px) обрезал низ отчёта; отчёт
+   прокручивается внутри себя при любой высоте. Самый внутренний .resizable-container с отчётом, кроме режима правки.
+   Селектор — одной строкой: перенос между «)» и «:not» стал бы пробелом-потомком. */
+.resizable-container:not(.dashboard--editing *):has(.dashboard-chart-id-900000):not(:has(.resizable-container .dashboard-chart-id-900000)) {
+  height: max(300px, calc(100vh - 149px)) !important;
+}
+/* ==== 8. Чарты-загрузчики (дашборд «по частям») ====================================================================
+   Четыре чарта-загрузчика (core 900001, people 900002, flow 900003, aux 900004) только возят данные главному чарту (900000).
+   На экране их нет, но они остаются в окне и не нулевого размера: 1×1 px, прозрачные, клики сквозь них. Так Proteus
+   их загружает и перезапрашивает как обычные чарты. display: none НЕ ставить: скрытый так чарт форк может не загрузить.
+   Ряд с загрузчиками места не занимает. Ставить этот ряд ПЕРВЫМ на вкладке, выше ряда отчёта.
+   В режиме правки дашборда загрузчики видны как обычные чарты — их можно двигать и настраивать. */
+.resizable-container:not(.dashboard--editing *):has(> .dashboard-component-chart-holder:is(.dashboard-chart-id-900001, .dashboard-chart-id-900002, .dashboard-chart-id-900003, .dashboard-chart-id-900004)),
+.dashboard-component-chart-holder:not(.dashboard--editing *):is(.dashboard-chart-id-900001, .dashboard-chart-id-900002, .dashboard-chart-id-900003, .dashboard-chart-id-900004, :has(#chart-id-900001, #chart-id-900002, #chart-id-900003, #chart-id-900004)) {
+  width: 1px !important; min-width: 0 !important; max-width: 1px !important;
+  height: 1px !important; min-height: 0 !important; max-height: 1px !important;
+  flex: none !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important;
+  opacity: 0 !important; pointer-events: none !important; border: 0 !important; box-shadow: none !important;
+}
+/* ряд, где стоят только загрузчики: без высоты, зазоров и отступа до следующего ряда */
+.dragdroppable-row:not(.dashboard--editing *):has(.dashboard-chart-id-900001, .dashboard-chart-id-900002, .dashboard-chart-id-900003, .dashboard-chart-id-900004):not(:has(.dashboard-chart-id-900000)),
+.dragdroppable-row:not(.dashboard--editing *):has(.dashboard-chart-id-900001, .dashboard-chart-id-900002, .dashboard-chart-id-900003, .dashboard-chart-id-900004):not(:has(.dashboard-chart-id-900000)) .grid-row {
+  height: 1px !important; min-height: 0 !important; margin: 0 0 -1px 0 !important; padding: 0 !important;
+  gap: 0 !important; overflow: hidden !important; opacity: 0 !important; pointer-events: none !important;
+}
+
+/* ==== TeamPulse Hub — CSS борда · КОНЕЦ блока отчёта =============================================================== */

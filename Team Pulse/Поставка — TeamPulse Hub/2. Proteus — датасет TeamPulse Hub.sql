@@ -117,6 +117,19 @@
 {#- Поставка 69: ПОЛНЫЙ ДОСТУП — логины, которые видят всю компанию. Впишите их строчными в кавычках через
     запятую, например: {% set FULL = ['ivanov', 'petrova'] %}. Пустой список — полного доступа нет ни у кого. -#}
 {% set FULL = [] %}
+{#- Поставка «по частям» (11.11): тот же датасет отдаёт либо весь ответ (PART = 'all' — один чарт, как раньше), либо одну
+    часть для чарта-загрузчика. Части: dict — справочник узлов (от фильтров не зависит: датасет главного чарта); core — meta,
+    ряды узлов ответа и строка HQ (первый экран); people — разрезы из teampulse_hub_mix и профили; flow — разрезы
+    переводов, водопада и вакансий; aux — AI-инструменты и база похожих подразделений (peer). Файлы частей пишет
+    stand/mk_split.py: меняется только эта строка. У части первая строка — role = 'part': какая часть и эхо применённых фильтров
+    (по нему главный чарт сводит части одного выбора). -#}
+{% set PART = 'all' %}
+{% set P_ALL = PART == 'all' %}{% set P_DICT = PART in ('all', 'dict') %}{% set P_CORE = PART in ('all', 'core') %}
+{% set P_PPL = PART in ('all', 'people') %}{% set P_FLOW = PART in ('all', 'flow') %}{% set P_AUX = PART in ('all', 'aux') %}
+{% set P_MX = P_PPL or P_FLOW or P_AUX %}
+{#- UNION ALL между ветками, которые есть в части: перед первой веткой пусто -#}
+{% set U1 = [] %}{% set U2 = [] %}
+{% macro ua(us) -%}{%- if us|length > 0 -%}UNION ALL{%- endif -%}{%- set _ = us.append(1) -%}{%- endmacro %}
 {#- логин входит в ключ кэша: Proteus ищет вызов current_username() внутри {{ }} на одной строке -#}
 {% macro me() -%}{{ qs((current_username() or '')|string|trim|lower) }}{%- endmacro %}
 {#- Тип численности строки: act_cd матчером; колонки нет — «∅» (строка проходит любой фильтр типа). -#}
@@ -339,6 +352,7 @@ WITH
       январь–закрытый месяц (закрытый: последний, если дата данных — его последний день, иначе предыдущий):
       turnover_y — сумма месячных «уходы ÷ ССЧ», turnover_m — Σ уходов ÷ Σ ССЧ, underwork / overwork — Σ категории ÷ Σ четырёх,
       office_att — Σ посещений ÷ Σ рабочих дней. Строка peer: «метрика, группа, подразделений, p25, p50, p75» #}
+  {% if P_AUX %}
   pmc AS (
     {#- поставка 137 (владелец: «все метрики — по текущую доступную дату»): окно базы — январь..последний месяц данных,
         вместе с незакрытым (было — по закрытый); fr — доля незакрытого месяца по дням: с этим весом его ССЧ входит в
@@ -417,6 +431,8 @@ WITH
       GROUP BY k, b
     )
   ),
+  {% endif %}
+  {% if P_CORE or P_DICT or P_PPL %}
   st2 AS (
     SELECT ifNull(unit_rk, '') AS id, ifNull(parent_rk, '') AS pid, toInt32(ifNull(unit_lvl, 0)) AS lv,
            ifNull(unit_nm, '') AS nm0, toUInt32(ifNull(kids_cnt, 0)) AS kd, splitByChar('|', ifNull(path_rk, '')) AS ph,
@@ -424,8 +440,10 @@ WITH
            replaceAll(replaceAll(ifNull(toString(head_nm), ''), char(9), ' '), char(10), ' ') AS hn
     FROM prod_proteus.teampulse_hub_unit
   ),
+  {% endif %}
   {#- Численность последнего месяца по значениям фильтров (ряды узла — уже вся ветка); fv — порядок значений,
       по которому кодируется сочетание (в meta — fdv) #}
+  {% if P_CORE or P_DICT %}
   fdb AS (
     SELECT ifNull(node_rk, '') AS u7, ifNull(paint_cd, '-') AS v7a, ifNull(it_cd, '-') AS v7b,
            ifNull(staff_cd, '-') AS v7c, {{ AC }} AS v7d, sum(toFloat64(ifNull(hc_cnt, 0))) AS n7
@@ -439,6 +457,8 @@ WITH
             arraySort(groupUniqArray(v7d))) AS fv
     FROM fdb
   ),
+  {% endif %}
+  {% if P_DICT %}
   fdr AS (
     SELECT u7 AS fr,
            arrayStringConcat(arraySort(groupArray(concat(toString(toUInt32(
@@ -448,8 +468,10 @@ WITH
     FROM fdb
     GROUP BY u7
   ),
+  {% endif %}
   {#- Поставка 109 (скорость разбора в Proteus): JSON строки meta — здесь, а не в последнем SELECT. reindent sqlparse для
       каждой скобки заново проходит текст от начала запроса: скобки в конце текста — самые дорогие #}
+  {% if P_CORE %}
   mj AS (
     SELECT concat('{"lm":"', toString(cxlm), '","m0":"', toString(cxm0),
              '","n":', toString(cxn), ',"today":"', toString(today()),
@@ -561,11 +583,13 @@ WITH
       FROM (SELECT i6, s6, cxn AS nh FROM mh)
     )
   ),
+  {% endif %}
   {#- Поставка 103: профили численности последнего месяца (teampulse_hub_prof) — точные пересечения разрезов. Строка
       ноутбука — нижний юнит человека; здесь — узел ответа: ближайший к нему узел из ответа по пути (у подразделений
       третьего уровня — всё поддерево, у остальных узлов — люди «напрямую»). Только внутри выбранного юнита, под всеми
       фильтрами. Больше PF_MAX строк — профилей нет (отчёт режет срез оценкой, как раньше) #}
   {%- set PF_MAX = 40000 %}
+  {% if P_PPL %}
   pfr AS (
     SELECT u.mp AS u3, 'pf' AS k3, ifNull(p.pf, '') AS v3, sum(toFloat64(ifNull(p.cnt, 0))) AS n4
     FROM prod_proteus.teampulse_hub_prof AS p
@@ -575,10 +599,12 @@ WITH
     GROUP BY u3, v3
     HAVING n4 > 0
   ),
+  {% endif %}
   {#- Разрезы узлов ответа под фильтрами: «ключ \t значение \t число» через \n, отсортировано. Поставка 113-з (ответ легче):
       ключ — только у первой строки своего ключа, у следующих пусто (чарт берёт ключ прошлой строки). 07.11, бой: первая версия
       брала ls[i - 1] в лямбде arrayMap — лямбда копирует захваченный массив на каждом шаге, у узла с десятками тысяч строк это
       квадрат по памяти (Code 241, 10 ГиБ). Теперь без лямбды: блок ключа «ключ» + строки «\t значение \t число», блоки — через \n #}
+  {% if P_MX %}
   mxr AS (
     SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
     FROM
@@ -586,6 +612,7 @@ WITH
     SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
     FROM
     (
+      {% if P_PPL %}{{ ua(U1) }}
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3, sum(toFloat64(ifNull(mx_n, 0))) AS n4
       FROM prod_proteus.teampulse_hub_mix
       {#- 31.10-б, п. 6; файл 6, п. 4: разрезы «Роста» (rm rq rs) — по численности HQ (cond_rh), остальные — под все фильтры #}
@@ -608,7 +635,8 @@ WITH
         AND ifNull(mx_key, '') NOT IN ('hk', 'hch', 'hg', 'hsp', 'hko', 'hcho', 'hgo', 'hspo')
       GROUP BY u3, k3, v3
       HAVING n4 > 0
-      UNION ALL
+      {% endif %}
+      {% if P_FLOW %}{{ ua(U1) }}
       {#- 09.11 (владелец): найм с начала года по источнику (hk), каналу (hch: найм в компанию / из учебной группы в боевую /
           стажёр в штат), грейду (hg) и специализации (hsp) — те же события дня найма, что «Найм, чел» (HI): срез, грейд,
           источник и специализация — дня найма. В сумме по каждому разрезу — «Найм, чел» с начала года. Грейд и источник —
@@ -627,7 +655,8 @@ WITH
       WHERE hv > 0
       GROUP BY u3, k3, v3
       HAVING n4 > 0
-      UNION ALL
+      {% endif %}
+      {% if P_FLOW %}{{ ua(U1) }}
       {#- вакансии: открытые на конец последнего месяца по статусу (vs), причине (vr), специализации (vp),
           уровню позиции (vl); закрытые с начала года по каналу (vk) и уровню кандидата (vq). Поставка 106 (владелец): закрытые —
           с 1 января по дату данных, вместе с незакрытым месяцем (было январь..cm): итог сходится с мастер-отчётом #}
@@ -644,7 +673,8 @@ WITH
       )
       ARRAY JOIN kvs AS kv
       GROUP BY u3, k3, v3
-      UNION ALL
+      {% endif %}
+      {% if P_FLOW %}{{ ua(U1) }}
       {#- 28.10, п. 1: найм, переводы в и из с начала года по специализации; поставка 106 (владелец): с 1 января по дату
           данных, вместе с незакрытым месяцем (было январь..cm); поставка 100 (ревью) — у каждого узла ответа #}
       SELECT ifNull(node_rk, '') AS u3, kv.1 AS k3, spx AS v3, sum(kv.2) AS n4
@@ -663,7 +693,8 @@ WITH
       ARRAY JOIN arrayZip(['tsh', 'tsi', 'tso'], tv) AS kv
       GROUP BY u3, k3, v3
       HAVING n4 > 0
-      UNION ALL
+      {% endif %}
+      {% if P_FLOW %}{{ ua(U1) }}
       {#- 09.11: помесячные переводы по специализации у каждого узла ответа (tsm «i|специализация|ГГГГ-ММ», «o|…») — помесячная
           детализация «Движения по специализациям»: найм и отток там из fsm, переводы — отсюда, тем же правилом #}
       SELECT ifNull(node_rk, '') AS u3, 'tsm' AS k3, concat(kv.1, '|', spx, '|', mo) AS v3, sum(kv.2) AS n4
@@ -676,7 +707,8 @@ WITH
       ARRAY JOIN arrayZip(['i', 'o'], tv) AS kv
       GROUP BY u3, k3, v3
       HAVING n4 > 0
-      UNION ALL
+      {% endif %}
+      {% if P_FLOW %}{{ ua(U1) }}
       {#- поставка 105: движение по специализациям — замкнутый водопад строки специализации, помесячно:
           «вид|специализация|ГГГГ-ММ», виды b начало, h найм, f отток, i переводы в, o переводы из, e конец;
           e = b + h − f + i − o по построению (принадлежность — последняя строка человека в месяце; перевод —
@@ -714,7 +746,8 @@ WITH
       HAVING sum(kv.2) > 0
       )
       GROUP BY u3, spx, yr
-      UNION ALL
+      {% endif %}
+      {% if P_AUX %}{{ ua(U1) }}
       {#- поставка 106: AI по неделям — у каждого узла ответа последние 16 недель источника (105 дней от последней недели;
           последняя неделя может быть неполной): «ГГГГ-ММ-ДД|WAU,численность,%». Численность — без стажёров, человек
           в узле один раз за неделю (ноутбук). Фильтры среза на AI не действуют — условия cond здесь нет #}
@@ -731,7 +764,8 @@ WITH
         GROUP BY u8, w8
       )
       WHERE a8[2] > 0
-      UNION ALL
+      {% endif %}
+      {% if P_AUX %}{{ ua(U1) }}
       {#- поставка 106: «Кто пользуется?» и «Как пользуется?» — разрезы последней полной недели (teampulse_hub_aix ноутбука:
           стажёры aih aiu ait aif, покраска и инструменты aph apt, инструменты aut, дни в неделю auf, инструментов на человека
           aun, сообщения aum auc auk, неделя aik) — у каждого узла ответа, без cond: срезы на AI не действуют. Поставка 113-б:
@@ -739,7 +773,8 @@ WITH
       SELECT ifNull(node_rk, '') AS u3, ifNull(k, '') AS k3, ifNull(v, '') AS v3, toFloat64(ifNull(n, 0)) AS n4
       FROM prod_proteus.teampulse_hub_aix
       WHERE node_rk IN {{ PK }} AND ifNull(n, 0) > 0 AND (ifNull(k, '') != 'aip' OR node_rk = cxs)
-      UNION ALL
+      {% endif %}
+      {% if P_FLOW %}{{ ua(U1) }}
       {#- поставка 103 (файл 9, п. 4): срок закрытия — медиана по вакансиям. vt — распределение сроков закрытых вакансий
           «ГГГГ-ММ|дней» → вакансий за всю сетку, у каждого узла ответа (ttf_d — срок вакансии без холда, ноутбук 2_11;
           матчером: таблица до поставки 103 колонки не знает — разреза нет, срок — средний, как раньше) #}
@@ -755,43 +790,65 @@ WITH
       WHERE td9 IS NOT NULL
       GROUP BY u3, v3
       HAVING n4 > 0
-      UNION ALL
+      {% endif %}
+      {% if P_PPL %}{{ ua(U1) }}
       {#- поставка 103: профили (pf) и их словарь (pfd «разрез¦значение» → номер + 1) — у корня (строка base) #}
       SELECT u3, k3, v3, n4 FROM pfr WHERE (SELECT count() FROM pfr) <= {{ PF_MAX }}
-      UNION ALL
+      {% endif %}
+      {% if P_PPL %}{{ ua(U1) }}
       SELECT cxr AS u3, 'pfd' AS k3, concat(ifNull(k, ''), '¦', ifNull(v, '')) AS v3, toFloat64(ifNull(i, 0) + 1) AS n4
       FROM prod_proteus.teampulse_hub_pfd
       WHERE (SELECT count() FROM pfr) BETWEEN 1 AND {{ PF_MAX }}
+      {% endif %}
     )
     GROUP BY u3, k3
     )
     GROUP BY u3
   )
+  {% else %}
+  zz AS (SELECT 1 AS z1)
+  {% endif %}
 {#- поставка 111: ответ легче — Proteus пишет каждую русскую букву в JSON как \u04xx (6 знаков). Текстовые колонки
     nm, j, mx (кроме j строки meta) — кириллица одним ASCII-знаком: латиница и знаки !#$%&*+;<=>?@_^ — с префиксом ^,
     затем 66 букв (а–я, ё, А–Я, Ё) → a–z, A–Z, !#$%&*+;<=>?@_ (translateUTF8). Чарт расшифровывает по meta.enc = 'a1'.
     Числа и порядок строк не меняются. #}
 SELECT o, role, id, pid, lvl, translateUTF8(replaceRegexpAll(nm_, '([A-Za-z!#$%&*+;<=>?@_^])', '^\\1'), 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=>?@_') AS nm, kids,
-       if(role = 'meta', j_, translateUTF8(replaceRegexpAll(j_, '([A-Za-z!#$%&*+;<=>?@_^])', '^\\1'), 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=>?@_')) AS j, ms, translateUTF8(replaceRegexpAll(mx_, '([A-Za-z!#$%&*+;<=>?@_^])', '^\\1'), 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=>?@_') AS mx, nm_
+       if(role = 'meta'{% if not P_ALL %} OR role = 'part'{% endif %}, j_, translateUTF8(replaceRegexpAll(j_, '([A-Za-z!#$%&*+;<=>?@_^])', '^\\1'), 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=>?@_')) AS j, ms, translateUTF8(replaceRegexpAll(mx_, '([A-Za-z!#$%&*+;<=>?@_^])', '^\\1'), 'абвгдеёжзийклмнопрстуфхцчшщъыьэюяАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ', 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&*+;<=>?@_') AS mx, nm_
 FROM
 (
+  {% if not P_ALL %}
+  {#- строка части: какая часть и эхо запроса — юнит из unit_f (req), применённый юнит (scope), применённые фильтры; у главного
+      чарта по эху сводятся части одного выбора. bt — отметка сборки данных (built_at ноутбука): части кэшируются в Proteus
+      порознь, и после обновления таблиц одна может прийти из старого кэша — части с разной отметкой главный чарт не сводит,
+      а перезапрашивает. Не кодируется (как meta) #}
+  {{ ua(U2) }}
+  SELECT toUInt8(0) AS o, 'part' AS role, '{{ PART }}' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
+         concat('{"v":1,"p":"{{ PART }}","ok":', toString(toUInt8(cxok)), ',"scope":"', cxs, '","def":"', cxd,
+                '","req":', toJSONString({{ qa(unit_req) }}),
+                ',"paint":', toJSONString({{ qa(F['paint']) }}), ',"it":', toJSONString({{ qa(F['it']) }}),
+                ',"staff":', toJSONString({{ qa(F['staff']) }}), ',"act":', toJSONString({{ qa(F['act']) }}),
+                ',"bt":"', (SELECT toString(any(built_at)) FROM prod_proteus.teampulse_hub_meta), '"}') AS j_,
+         '' AS ms, '' AS mx_
+  {% endif %}
+  {% if P_CORE %}
+  {{ ua(U2) }}
   SELECT toUInt8(0) AS o, 'meta' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
          (SELECT mj0 FROM mj) AS j_,
          '' AS ms, '' AS mx_
 
-  UNION ALL
+  {{ ua(U2) }}
 
   SELECT p.po AS o, multiIf(p.po = 1, 'scope', p.po = 2, 'base', p.po = 5, 'c', p.po = 6, 'g', 'x') AS role,
          s.id AS id, s.pid AS pid, s.lv AS lvl, s.nm0 AS nm_, s.kd AS kids, '' AS j_,
          arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(x, 1)), r1), ','), a.tr), ';') AS ms,
-         ifNull(x.mxs, '') AS mx_
+         {% if P_MX %}ifNull(x.mxs, ''){% else %}''{% endif %} AS mx_
   FROM (SELECT tupleElement(pe, 1) AS pn, tupleElement(pe, 2) AS po FROM (SELECT arrayJoin(cxpk) AS pe)) AS p
   INNER JOIN st2 AS s ON s.id = p.pn
   INNER JOIN arr AS a ON a.rk = p.pn
-  LEFT JOIN mxr AS x ON x.mu = p.pn
+  {% if P_MX %}LEFT JOIN mxr AS x ON x.mu = p.pn{% endif %}
   WHERE p.po <= 2 OR a.lv5 > 0
 
-  UNION ALL
+  {{ ua(U2) }}
 
   {#- поставка 65: светофор HQ — выбранный юнит под «HQ + Активная» #}
   SELECT toUInt8(4) AS o, 'hq' AS role, cxs AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids, '' AS j_,
@@ -799,8 +856,17 @@ FROM
          '' AS mx_
   FROM arh AS h
   WHERE cxok
-
-  UNION ALL
+  {% endif %}
+  {% if P_MX and not P_CORE %}
+  {#- часть с разрезами: только узлы ответа, у которых разрезы есть; имена, уровни и ряды — в части core #}
+  {{ ua(U2) }}
+  SELECT p.po AS o, multiIf(p.po = 1, 'scope', p.po = 2, 'base', p.po = 5, 'c', p.po = 6, 'g', 'x') AS role,
+         p.pn AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids, '' AS j_, '' AS ms, x.mxs AS mx_
+  FROM (SELECT tupleElement(pe, 1) AS pn, tupleElement(pe, 2) AS po FROM (SELECT arrayJoin(cxpk) AS pe)) AS p
+  INNER JOIN mxr AS x ON x.mu = p.pn
+  {% endif %}
+  {% if P_DICT %}
+  {{ ua(U2) }}
 
   {#- поставка 69: справочник — зона логина и предки корней зоны (у предков — только имя: путь над отчётом) #}
   SELECT toUInt8(3) AS o, 'dict' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
@@ -811,15 +877,17 @@ FROM
   FROM (SELECT *, hasAny(ph, cxzr) AS iz FROM st2) AS t
   LEFT JOIN fdr AS f ON f.fr = t.id
   WHERE cxok AND (t.iz OR has(cxan, t.id))
-
-  UNION ALL
+  {% endif %}
+  {% if P_AUX %}
+  {{ ua(U2) }}
 
   {#- поставка 113: распределение метрик по подразделениям того же размера под фильтрами (CTE peer) #}
   SELECT toUInt8(8) AS o, 'peer' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
          (SELECT pj FROM peer) AS j_, '' AS ms, '' AS mx_
   WHERE cxok
+  {% endif %}
 
-  UNION ALL
+  {{ ua(U2) }}
 
   SELECT toUInt8(9) AS o, 'end' AS role, '' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
          '' AS j_, '' AS ms, '' AS mx_

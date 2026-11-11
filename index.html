@@ -2766,6 +2766,32 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 /* состав по категориям в KPI мониторинга (11.11, п. 5) — второй ряд карточек под KPI */
 .mon-kpi .mon-cat-cap{margin-top:var(--s7)}
 
+/* ---------- поставка «по частям» (11.11): значки загрузки частей ответа ----------
+   кольцо на значке вкладки, чьи разрезы ещё в пути; экран ожидания вкладки; чип «Догружаю детали…» в шапке.
+   Блок между метками split — только в сборке главного чарта «по частям» */
+/*split:*/
+@keyframes tp-spin{to{transform:rotate(360deg)}}
+.nav-i .ni-ic .ni-w{position:absolute;right:-5px;top:-5px;width:11px;height:11px;box-sizing:border-box;border-radius:50%;
+  border:2px solid var(--line);border-top-color:var(--blue);background:#fff;animation:tp-spin .9s linear infinite}
+.nav-i .ni-ic .ni-w.late{animation:none;border:0;background:var(--warn);box-shadow:0 0 0 2px #fff}
+.nav-i.wait .ni-ic .ico{display:none}
+.part-wait{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s3);min-height:320px;
+  padding:var(--s7) var(--s5);text-align:center;color:var(--ink3);background:var(--card,#fff);border:1px solid var(--line);
+  border-radius:var(--r3)}
+.part-wait b{color:var(--ink);font-size:var(--fs-head);font-weight:var(--fw-bold)}
+.part-wait span{max-width:520px;font-size:13px;line-height:1.45}
+.part-wait .pw-sp{width:34px;height:34px;max-width:none;box-sizing:border-box;border-radius:50%;border:4px solid var(--line);
+  border-top-color:var(--blue);animation:tp-spin .9s linear infinite}
+.part-wait.late b{color:var(--warn-tx)}
+.chip.part{display:inline-flex;align-items:center;gap:6px;background:none;border:0;border-radius:0;padding:0;font-size:13px;
+  color:var(--ink3);font-weight:var(--fw-body)}
+.chip.part .pc-sp{width:11px;height:11px;box-sizing:border-box;border-radius:50%;border:2px solid var(--line);
+  border-top-color:var(--blue);animation:tp-spin .9s linear infinite}
+.chip.part .pc-x{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;
+  background:var(--warn);color:#fff;font-size:10px;font-weight:var(--fw-bold)}
+@media (prefers-reduced-motion:reduce){.nav-i .ni-ic .ni-w,.part-wait .pw-sp,.chip.part .pc-sp{animation-duration:2.4s}}
+/*:split*/
+
 </style>
 </head>
 <body>
@@ -2912,6 +2938,24 @@ function rng(seed){return mulberry32(hashStr(seed))}
    в макете — по настоящей численности юнита — и помечены «демо» (isStub).
    Без TP_REAL всё как было: макет на генераторе, smoke.js его и проверяет. */
 const REAL=(typeof window!=='undefined'&&window.TP_REAL)||null;
+/* 11.11, поставка «по частям»: ответ собирается из частей от чартов-загрузчиков (proteus/parts.js кладёт window.TP_PARTS:
+   какие части пришли к показанному выбору). Первый экран — по части core; вкладке нужны ещё разрезы: people — из разрезов
+   людей (состав, уходы, «Рост», мониторинг, офис), flow — переводы, водопад и вакансии, aux — AI и база похожих
+   подразделений. Пока части нет — у вкладки значок загрузки, экран вкладки не собирается. Один чарт (TP_PARTS нет) — всё есть.
+   Код между метками split — только в сборке главного чарта «по частям» (proteus/build.js): из сборки одного чарта он вырезается */
+/*split:*/
+const PARTS=(typeof window!=='undefined'&&window.TP_PARTS)||null;
+const BLOCK_PARTS={structure:['people'],movement:['people','flow'],turnover:['people','flow'],hiring:['people','flow'],
+  tgrowth:['people'],monitor:['people'],office:['people'],ai:['aux']};
+const PART_NAMES={people:'разрезы людей',flow:'переводы и вакансии',aux:'AI и база похожих подразделений'};
+/* каких частей ещё нет у вкладки (One-pager — у деталей: выводы и сравнения досчитываются по всем частям) */
+function partsWait(tab){
+  if(!PARTS)return [];
+  return (tab==='onepager'?['people','flow','aux']:(BLOCK_PARTS[tab]||[])).filter(p=>!PARTS.have[p]);
+}
+/* из них — не пришедшие за срок ожидания (загрузчик не ответил) */
+function partsLate(tab){return partsWait(tab).filter(p=>(PARTS.late||[]).indexOf(p)>=0)}
+/*:split*/
 
 /* ---------- Периоды: 12 мес (июль 2025 — июнь 2026) ---------- */
 const MONTH_ABBR=['янв.','февр.','март','апр.','май','июнь','июль','авг.','сент.','окт.','нояб.','дек.'];
@@ -6596,7 +6640,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  mainCmp,mainVerdict,offDays,offAsof,offCityMon,offBase,PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
+  mainCmp,mainVerdict,offDays,offAsof,offCityMon,offBase,/*split:*/partsWait,partsLate,PART_NAMES,/*:split*/PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};
@@ -14004,6 +14048,19 @@ function arrive(){
   const lg=$('.logo small');if(lg)lg.textContent='Hub · пробник';
   return pend?(STORE.pending?'stale':true):false;
 }
+/* поставка «по частям»: экран вкладки, пока её данные не пришли от загрузчика, — значок загрузки и что именно ждём; экран
+   вкладки не собирается (без разрезов он был бы неполным). Часть не пришла за срок — причина и что проверить */
+/*split:*/
+function partWaitView(tab){
+  const b=D.BLOCK_BY_KEY[tab]||{}, w=D.partsWait(tab), late=D.partsLate(tab);
+  const what=w.map(p=>D.PART_NAMES[p]||p).join(', ');
+  return '<div class="part-wait'+(late.length?' late':'')+'" role="status" aria-live="polite">'+(late.length?'':'<span class="pw-sp" aria-hidden="true"></span>')+
+    '<b>'+(late.length?'Данные вкладки «'+esc(b.name||'')+'» не пришли':'Загружаю данные вкладки «'+esc(b.name||'')+'»…')+'</b>'+
+    '<span>'+(late.length
+      ?'Не ответил загрузчик: '+esc(late.map(p=>D.PART_NAMES[p]||p).join(', '))+'. Проверьте, что чарты-загрузчики TeamPulse Hub есть на дашборде и загрузились, затем обновите дашборд.'
+      :'Осталось: '+esc(what)+'. Вкладка откроется сама, как только данные придут.')+'</span></div>';
+}
+/*:split*/
 /* Чипы пробника в шапке: ожидание ответа, предупреждение и что здесь живое */
 /* Пункт меню блока в разработке (14.10): целиком — полосатая метка, частично —
    полосатый квадратик с подсказкой, сколько вкладок ещё без источника. */
@@ -14021,6 +14078,14 @@ function pilotChips(){
   const ln=$('#tpLoadN');
   if(ln)ln.textContent=p&&p.name?(p.flt?'Фильтры для «'+p.name+'»':'«'+p.name+'»'):'';
   if(STORE.warn)h+='<span class="chip warn">'+esc(STORE.warn)+'</span>';
+  /* поставка «по частям»: первый экран уже показан, а часть деталей ещё в пути — говорим об этом, а не меняем цифры молча */
+  /*split:*/
+  const pw=D.partsWait('onepager');
+  if(pw.length&&!p)h+='<span class="chip part"'+U.tipAttr({title:D.partsLate('onepager').length?'Часть данных не пришла':'Данные догружаются',
+    text:'Первый экран уже готов. '+(D.partsLate('onepager').length?'Не пришли':'Ещё в пути')+': '+pw.map(x=>D.PART_NAMES[x]||x).join(', ')+'.',
+    note:'Пока их нет, выводы и сравнения с базой могут быть неполными — они обновятся сами.'})+'>'+
+    (D.partsLate('onepager').length?'<span class="pc-x">!</span>Часть данных не пришла':'<span class="pc-sp" aria-hidden="true"></span>Догружаю детали…')+'</span>';
+  /*:split*/
   h+='<span class="chip pilot"'+U.tipAttr({title:'Пробник на настоящих данных',
     text:'Настоящие цифры:',
     list:['численность, найм, отток, переводы','текучесть, нежелательная и желательная','посещаемость офиса и T-рост — если данные уже пришли'],
@@ -14097,6 +14162,8 @@ const NAV_UI=new Set(['tab','subTab','tsort','spmSort','exitIni','mixSel','mixRo
   'mxFull','aiOpen','offCity','offSeg','rostSt','aiSel']);
 let _navKey=null, _navMemo={};
 function navSig(bk){
+  /* поставка «по частям»: разрезы блока ещё грузятся — сигнала нет (вместо точки — значок загрузки) */
+  /*split:*/if(D.partsWait(bk).length)return null;/*:split*/
   const k=JSON.stringify(S,(n,v)=>NAV_UI.has(n)?undefined:v);
   if(k!==_navKey){_navKey=k;_navMemo={}}
   return _navMemo[bk]||(_navMemo[bk]=navSig0(bk));
@@ -14124,8 +14191,16 @@ const NAV_IC={
 const navIc=(k,sig)=>'<span class="ni-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '+
   'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(NAV_IC[k]||'<circle cx="12" cy="12" r="4"/>')+'</svg>'+
   '<span class="ico'+(sig?' sig-'+sig:'')+'"></span></span>';
-const navBtn=(k,name,sig,tail)=>'<button class="nav-i'+(S.tab===k?' active':'')+'" data-tab="'+k+'" aria-label="'+esc(name)+'"'+
-  (navMini()?U.tipAttr({title:name}):'')+'>'+navIc(k,sig)+'<span class="ni-t">'+esc(name)+'</span>'+(tail||'')+'</button>';
+/* поставка «по частям»: у вкладки, чьи данные ещё грузятся, — кольцо загрузки на значке; не пришли за срок — метка «!» */
+const navWait=k=>{
+  /*split:*/
+  if(k!=='onepager'&&D.partsWait(k).length)
+    return D.partsLate(k).length?'<span class="ni-w late" aria-label="Данные не загрузились"></span>':'<span class="ni-w" aria-label="Данные загружаются"></span>';
+  /*:split*/
+  return '';
+};
+const navBtn=(k,name,sig,tail)=>'<button class="nav-i'+(S.tab===k?' active':'')+(navWait(k)?' wait':'')+'" data-tab="'+k+'" aria-label="'+esc(name)+'"'+
+  (navMini()?U.tipAttr({title:name}):'')+'>'+navIc(k,sig).replace('</span></span>','</span>'+navWait(k)+'</span>')+'<span class="ni-t">'+esc(name)+'</span>'+(tail||'')+'</button>';
 function renderNav(){
   const one=$('#navOne');if(one)one.innerHTML=navBtn('onepager','One-pager',null,'');
   /* блок, у которого пользователь отключил все метрики, из навигации уходит */
@@ -14466,6 +14541,7 @@ function render(keepScroll,quiet){
   try{
     $('#view').innerHTML = S.tab==='onepager'
       ? SC.onepager.render(S,openRows)
+      /*split:*/: D.partsWait(S.tab).length ? partWaitView(S.tab)/*:split*/
       : SC.renderBlock(S,expanded,mixOpen,{tq,split:{mode:splitUnit===S.unit?splitMode:null,share:splitShare}});
   }finally{if(G.lazy)G.lazy(false)}
   /* true — проиграть анимацию появления графиков */
@@ -14997,7 +15073,19 @@ mountStaticMascots();
 readURL();
 /* перезапуск без нового запроса (ресайз, перерисовка) — тот же вид на том же месте, без анимации */
 const pend0=ENV&&arrive(), back=ENV&&(!pend0||pend0==='stale')&&STORE.scroll;
-render(!!back,!!back);
+/* поставка «по частям»: части кэшируются в Proteus порознь — после обновления таблиц одна может прийти из старого кэша
+   (отметка сборки данных не та, что у core). Такая часть к ответу не приклеена; просим загрузчики перезапросить этот же
+   выбор мимо кэша (метка tp_nonce — как у повтора устаревшего ответа), не чаще раза в минуту на выбор */
+/*split:*/
+if(ENV&&window.TP_PARTS&&window.TP_PARTS.mixed&&!STORE.pending){
+  const rk=echoSig(), rp=STORE.repair||(STORE.repair={});
+  if(!rp[rk]||Date.now()-rp[rk]>60000){rp[rk]=Date.now();emitPend(maskOf(curReq()),true)}
+}
+/*:split*/
+/* поставка «по частям»: тот же выбор, догрузилась часть разрезов — тот же вид на том же месте, без анимации */
+let again=false;
+/*split:*/again=!!(window.TP_PARTS&&window.TP_PARTS.again)&&!pend0;/*:split*/
+render(!!back||again,!!back||again);
 if(back&&back.k===viewKey()){
   ENV.scroller.scrollTop=back.y;
   INNER_SCROLL.forEach((q,i)=>{const el=$(q), v=back.inner&&back.inner[i];if(el&&v){el.scrollTop=v[0];el.scrollLeft=v[1]}});

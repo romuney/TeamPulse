@@ -2757,3 +2757,29 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 
 /* состав по категориям в KPI мониторинга (11.11, п. 5) — второй ряд карточек под KPI */
 .mon-kpi .mon-cat-cap{margin-top:var(--s7)}
+
+/* ---------- поставка «по частям» (11.11): значки загрузки частей ответа ----------
+   кольцо на значке вкладки, чьи разрезы ещё в пути; экран ожидания вкладки; чип «Догружаю детали…» в шапке.
+   Блок между метками split — только в сборке главного чарта «по частям» */
+/*split:*/
+@keyframes tp-spin{to{transform:rotate(360deg)}}
+.nav-i .ni-ic .ni-w{position:absolute;right:-5px;top:-5px;width:11px;height:11px;box-sizing:border-box;border-radius:50%;
+  border:2px solid var(--line);border-top-color:var(--blue);background:#fff;animation:tp-spin .9s linear infinite}
+.nav-i .ni-ic .ni-w.late{animation:none;border:0;background:var(--warn);box-shadow:0 0 0 2px #fff}
+.nav-i.wait .ni-ic .ico{display:none}
+.part-wait{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s3);min-height:320px;
+  padding:var(--s7) var(--s5);text-align:center;color:var(--ink3);background:var(--card,#fff);border:1px solid var(--line);
+  border-radius:var(--r3)}
+.part-wait b{color:var(--ink);font-size:var(--fs-head);font-weight:var(--fw-bold)}
+.part-wait span{max-width:520px;font-size:13px;line-height:1.45}
+.part-wait .pw-sp{width:34px;height:34px;max-width:none;box-sizing:border-box;border-radius:50%;border:4px solid var(--line);
+  border-top-color:var(--blue);animation:tp-spin .9s linear infinite}
+.part-wait.late b{color:var(--warn-tx)}
+.chip.part{display:inline-flex;align-items:center;gap:6px;background:none;border:0;border-radius:0;padding:0;font-size:13px;
+  color:var(--ink3);font-weight:var(--fw-body)}
+.chip.part .pc-sp{width:11px;height:11px;box-sizing:border-box;border-radius:50%;border:2px solid var(--line);
+  border-top-color:var(--blue);animation:tp-spin .9s linear infinite}
+.chip.part .pc-x{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;
+  background:var(--warn);color:#fff;font-size:10px;font-weight:var(--fw-bold)}
+@media (prefers-reduced-motion:reduce){.nav-i .ni-ic .ni-w,.part-wait .pw-sp,.chip.part .pc-sp{animation-duration:2.4s}}
+/*:split*/

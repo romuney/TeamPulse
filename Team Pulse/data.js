@@ -17,6 +17,24 @@ function rng(seed){return mulberry32(hashStr(seed))}
    в макете — по настоящей численности юнита — и помечены «демо» (isStub).
    Без TP_REAL всё как было: макет на генераторе, smoke.js его и проверяет. */
 const REAL=(typeof window!=='undefined'&&window.TP_REAL)||null;
+/* 11.11, поставка «по частям»: ответ собирается из частей от чартов-загрузчиков (proteus/parts.js кладёт window.TP_PARTS:
+   какие части пришли к показанному выбору). Первый экран — по части core; вкладке нужны ещё разрезы: people — из разрезов
+   людей (состав, уходы, «Рост», мониторинг, офис), flow — переводы, водопад и вакансии, aux — AI и база похожих
+   подразделений. Пока части нет — у вкладки значок загрузки, экран вкладки не собирается. Один чарт (TP_PARTS нет) — всё есть.
+   Код между метками split — только в сборке главного чарта «по частям» (proteus/build.js): из сборки одного чарта он вырезается */
+/*split:*/
+const PARTS=(typeof window!=='undefined'&&window.TP_PARTS)||null;
+const BLOCK_PARTS={structure:['people'],movement:['people','flow'],turnover:['people','flow'],hiring:['people','flow'],
+  tgrowth:['people'],monitor:['people'],office:['people'],ai:['aux']};
+const PART_NAMES={people:'разрезы людей',flow:'переводы и вакансии',aux:'AI и база похожих подразделений'};
+/* каких частей ещё нет у вкладки (One-pager — у деталей: выводы и сравнения досчитываются по всем частям) */
+function partsWait(tab){
+  if(!PARTS)return [];
+  return (tab==='onepager'?['people','flow','aux']:(BLOCK_PARTS[tab]||[])).filter(p=>!PARTS.have[p]);
+}
+/* из них — не пришедшие за срок ожидания (загрузчик не ответил) */
+function partsLate(tab){return partsWait(tab).filter(p=>(PARTS.late||[]).indexOf(p)>=0)}
+/*:split*/
 
 /* ---------- Периоды: 12 мес (июль 2025 — июнь 2026) ---------- */
 const MONTH_ABBR=['янв.','февр.','март','апр.','май','июнь','июль','авг.','сент.','окт.','нояб.','дек.'];
@@ -3701,7 +3719,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  mainCmp,mainVerdict,offDays,offAsof,offCityMon,offBase,PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
+  mainCmp,mainVerdict,offDays,offAsof,offCityMon,offBase,/*split:*/partsWait,partsLate,PART_NAMES,/*:split*/PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};
