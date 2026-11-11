@@ -211,10 +211,13 @@ WITH
           где логин — руководитель); узел в зоне — корень зоны есть в его пути; s — запрошенный юнит, если он в зоне,
           иначе юнит по умолчанию (полный доступ) или первый корень зоны #}
       SELECT lm, m0, n, r, d, dd, has(au, r) AS fl,
-             if(fl, [r], arrayFilter(z -> arrayExists(x -> x.1 = z, al), au)) AS zr,
+             {#- 12.11, бой (Code 241, 10 ГиБ): зона считалась лямбдой по юнитам логина с захватом всего справочника al — у
+                 логина с тысячами строк доступа справочник копировался на каждом шаге. Теперь корни зоны (zq) и их предки
+                 (anq) приходят готовыми из соединения таблиц (fa), лямбд с захватом растущих массивов нет #}
+             if(fl, [r], zq) AS zr,
              length(zr) > 0 AS ok,
-             arrayDistinct(arrayFlatten(arrayMap(z -> splitByChar('|', arrayElement(arrayFilter(x -> x.1 = z, al), 1).3), zr))) AS an,
-             if({% if unit_req %}arrayExists(x -> x.1 = {{ qs(unit_req[0]) }} AND hasAny(splitByChar('|', x.3), zr), al){% else %}0{% endif %},
+             if(fl, [r], anq) AS an,
+             if({% if unit_req %}hasAny(splitByChar('|', tupleElement(arrayFirst(x -> x.1 = {{ qs(unit_req[0]) }}, al), 3)), zr){% else %}0{% endif %},
                 {{ qs(unit_req[0]) if unit_req else "''" }}, if(fl, d, if(ok, zr[1], ''))) AS s,
              arrayMap(x -> x.1, arrayFilter(x -> x.2 = s AND x.1 != '', al)) AS d1,
              arrayMap(x -> x.1, arrayFilter(x -> has(d1, x.2), al)) AS d2,
@@ -233,9 +236,14 @@ WITH
       {#- 12.11 (владелец: единый источник прав): доступ — из teampulse_hub_access (ноутбук: уникальные пары «логин, юнит» из
           usr_cross_data.new_access_to_digest_line). au — юниты логина; логин открывает юнит и всё под ним; есть корень — вся
           компания. Нет строк у логина (или таблица пуста) — доступа нет. Списка логинов полного доступа в датасете больше нет #}
-      CROSS JOIN (SELECT arraySort(groupUniqArray(ifNull(toString(unit_rk), ''))) AS au
-                  FROM prod_proteus.teampulse_hub_access
-                  WHERE lowerUTF8(trimBoth(ifNull(toString(login), ''))) = {{ me() }} AND {{ me() }} != '') AS fa
+      {#- au — все юниты логина; zq — корни его зоны: юниты логина, которые есть в структуре отчёта и у которых ни один
+          предок не открыт этому же логину (юнит под уже открытым юнитом отдельным корнем не нужен); anq — узлы путей к корням #}
+      CROSS JOIN (SELECT (SELECT groupUniqArray(ifNull(toString(unit_rk), '')) FROM prod_proteus.teampulse_hub_access
+                          WHERE lowerUTF8(trimBoth(ifNull(toString(login), ''))) = {{ me() }} AND {{ me() }} != '') AS au,
+                         arraySort(groupArray(t.id)) AS zq, arrayDistinct(arrayFlatten(groupArray(t.ph))) AS anq
+                  FROM (SELECT ifNull(unit_rk, '') AS id, splitByChar('|', ifNull(path_rk, '')) AS ph
+                        FROM prod_proteus.teampulse_hub_unit) AS t
+                  WHERE t.id != '' AND has(au, t.id) AND NOT hasAny(arrayPopBack(t.ph), au)) AS fa
     )
   ),
   {#- поставка 113-и (скорость: 8б на бою — почти всё время в разборе и плане запроса): контекст — скаляр ctx и его поля
