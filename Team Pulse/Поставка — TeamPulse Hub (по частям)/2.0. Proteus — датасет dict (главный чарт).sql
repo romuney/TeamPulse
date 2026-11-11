@@ -19,7 +19,11 @@
 {#- Значения фильтров собираются циклом: при сохранении датасета Proteus отдаёт
     вместо списка AlwaysTrueObject — у него нет ни длины, ни «+». -#}
 {% set unit_req = [] %}{% for v in (filter_values('unit_f') or []) %}{% if v|string|trim != '' and unit_req|length < 1 %}{% set _ = unit_req.append(v|string|trim) %}{% endif %}{% endfor %}
-{#- 12.11: списка логинов полного доступа больше нет — права целиком из таблицы teampulse_hub_access (см. cx0). -#}
+{#- Поставка 69: ПОЛНЫЙ ДОСТУП — логины, которые видят всю компанию. Впишите их строчными в кавычках через
+    запятую, например: {% set FULL = ['ivanov', 'petrova'] %}. Пустой список — полного доступа по списку нет ни у кого.
+    12.11-в: таблица прав teampulse_hub_access — ДОПОЛНЕНИЕ к прежнему доступу, а не замена: список FULL и зона
+    руководителя (head_login) работают как до неё; строки таблицы прав только добавляют логину юниты (см. cx0). -#}
+{% set FULL = [] %}
 {#- Поставка «по частям» (11.11): тот же датасет отдаёт либо весь ответ (PART = 'all' — один чарт, как раньше), либо одну
     часть для чарта-загрузчика. Части: dict — справочник узлов (от фильтров не зависит: датасет главного чарта); core — meta,
     ряды узлов ответа и строка HQ (первый экран); people — разрезы из teampulse_hub_mix и профили; flow — разрезы
@@ -213,7 +217,7 @@ WITH
       {#- 12.11-б (бой: суперюзеру открылся случайный юнит): вся компания — у кого открыт корень ИЛИ единственный потомок
           корня (корень технический: под ним одна «компания», и права выдают на неё). У корня несколько потомков — только корень #}
       SELECT lm, m0, n, r, d, dd,
-             has(au, r) OR (arrayCount(x -> x.2 = r, al) = 1 AND has(au, tupleElement(arrayFirst(x -> x.2 = r, al), 1))) AS fl,
+             has({{ qa(FULL) }}, {{ me() }}) OR has(au, r) OR (arrayCount(x -> x.2 = r, al) = 1 AND has(au, tupleElement(arrayFirst(x -> x.2 = r, al), 1))) AS fl,
              {#- 12.11, бой (Code 241, 10 ГиБ): зона считалась лямбдой по юнитам логина с захватом всего справочника al — у
                  логина с тысячами строк доступа справочник копировался на каждом шаге. Теперь корни зоны (zq) и их предки
                  (anq) приходят готовыми из соединения таблиц (fa), лямбд с захватом растущих массивов нет #}
@@ -238,11 +242,15 @@ WITH
                   FROM prod_proteus.teampulse_hub_unit) AS ua
       {#- 12.11 (владелец: единый источник прав): доступ — из teampulse_hub_access (ноутбук: уникальные пары «логин, юнит» из
           usr_cross_data.new_access_to_digest_line). au — юниты логина; логин открывает юнит и всё под ним; есть корень — вся
-          компания. Нет строк у логина (или таблица пуста) — доступа нет. Списка логинов полного доступа в датасете больше нет #}
+          компания. Таблица прав дополняет список FULL и зону руководителя, а не заменяет их (12.11-в) #}
       {#- au — все юниты логина; zq — корни его зоны: юниты логина, которые есть в структуре отчёта и у которых ни один
           предок не открыт этому же логину (юнит под уже открытым юнитом отдельным корнем не нужен); anq — узлы путей к корням #}
-      CROSS JOIN (SELECT (SELECT groupUniqArray(ifNull(toString(unit_rk), '')) FROM prod_proteus.teampulse_hub_access
-                          WHERE lowerUTF8(trimBoth(ifNull(toString(login), ''))) = {{ me() }} AND {{ me() }} != '') AS au,
+      {#- 12.11-в: au = юниты логина из таблицы прав + юниты, где логин — руководитель (как было до таблицы прав) #}
+      CROSS JOIN (SELECT arrayDistinct(arrayConcat(
+                           (SELECT groupUniqArray(ifNull(toString(unit_rk), '')) FROM prod_proteus.teampulse_hub_access
+                            WHERE lowerUTF8(trimBoth(ifNull(toString(login), ''))) = {{ me() }} AND {{ me() }} != ''),
+                           (SELECT groupUniqArray(ifNull(toString(unit_rk), '')) FROM prod_proteus.teampulse_hub_unit
+                            WHERE lowerUTF8(trimBoth(ifNull(toString(head_login), ''))) = {{ me() }} AND {{ me() }} != ''))) AS au,
                          {#- корни зоны — сверху вниз по уровню: первым (юнит по умолчанию) идёт самый верхний, а не случайный #}
                          arrayMap(x -> x.2, arraySort(groupArray((t.lv, t.id)))) AS zq, arrayDistinct(arrayFlatten(groupArray(t.ph))) AS anq
                   FROM (SELECT ifNull(unit_rk, '') AS id, splitByChar('|', ifNull(path_rk, '')) AS ph, toInt32(ifNull(unit_lvl, 0)) AS lv
