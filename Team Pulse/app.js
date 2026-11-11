@@ -133,7 +133,7 @@ function defUnit(){
   const u=p||(D.REAL.pick&&D.REAL.pick.root)||'T';
   return D.isTech(u)?D.TOP:u;
 }
-function curReq(){return {unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType,hcSet:(S.hcSet||[]).slice()}}
+function curReq(){return {as:ENV&&D.REAL?D.REAL.asLogin:'',unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType,hcSet:(S.hcSet||[]).slice()}}
 /* подпись типа численности: набор по умолчанию, все или свой набор (строчными, по алфавиту) */
 function hcSig(st){return st.hcType==='set'?'set:'+(st.hcSet||[]).map(x=>String(x).toLowerCase()).sort().join(','):st.hcType}
 /* Подпись запроса и эхо ответа (21.10, правка Антона: «фильтр не всегда срабатывает с первого раза»).
@@ -146,12 +146,12 @@ function hcSig(st){return st.hcType==='set'?'set:'+(st.hcSet||[]).map(x=>String(
 const STALE_WAIT=15000, MAX_RESEND=1;
 function sigOf(st){
   const id=unitId(st.unit), c=D.REAL.cuts;
-  return [id===D.REAL.defId?'':id,c.has('paint')?st.paint:'all',c.has('it')?st.itSeg:'all',
+  return [st.as||'',id===D.REAL.defId?'':id,c.has('paint')?st.paint:'all',c.has('it')?st.itSeg:'all',
     c.has('staff')?st.staffType:'all',c.has('act')?hcSig(st):'all'].join('|');
 }
 function echoSig(){
   const a=D.REAL.applied;
-  return [D.REAL.req[0]||'',a.paint,a.itSeg,a.staffType,D.REAL.cuts.has('act')?hcSig(a):'all'].join('|');
+  return [D.REAL.asLogin||'',D.REAL.req[0]||'',a.paint,a.itSeg,a.staffType,D.REAL.cuts.has('act')?hcSig(a):'all'].join('|');
 }
 function emitPend(mask,nonce){
   return ENV.emit(nonce?mask.concat([{column:'tp_nonce',operator:'IN',value:[String(Date.now())]}]):mask);
@@ -160,6 +160,8 @@ let _pendT=null, _staleT=null;
 /* маска кросс-фильтров запроса (вынесена из request в поставке 63: ею же пользуется детализация переводов) */
 function maskOf(next){
   const id=unitId(next.unit), mask=[];
+  /* 12.11-д: «смотреть как логин» (только администратор; чужой маске датасет не верит) — в каждой маске, пока включено */
+  if(next.as)mask.push({column:'as_f',operator:'IN',value:[next.as]});
   /* юнит по умолчанию не шлём: ответ без фильтра юнита общий для всех */
   if(id&&id!==D.REAL.defId)mask.push({column:'unit_f',operator:'IN',value:[id]});
   [['paint','paint_f'],['itSeg','it_f'],['staffType','staff_f']].forEach(([k,col])=>{
@@ -257,7 +259,8 @@ function arrive(){
     /* новый запрос (юнит, фильтры) — экран начинается сверху: прежнюю прокрутку забываем */
     STORE.scroll=null;
     ROOTEL.classList.remove('tp-busy');
-    STORE.warn=pend.unit!==S.unit&&D.REAL.scopeId!==unitId(pend.unit)
+    /* смена «Смотреть как» просит юнит по умолчанию — у другого логина он свой: это не «юнит не открылся» */
+    STORE.warn=!pend.asSw&&pend.unit!==S.unit&&D.REAL.scopeId!==unitId(pend.unit)
       ?'«'+(pend.name||'Юнит')+'» не открылся: его нет в данных последнего полного месяца.':'';
   }
   if(D.REAL.truncated)STORE.warn='Ответ датасета обрезан лимитом строк чарта — часть подразделений не показана. '+
@@ -336,7 +339,10 @@ function renderHead(){
      строку и притягивало взгляд, ничего при этом не сообщая. Остаются только
      чипы базы сравнения, они есть всегда. */
   const chips=D.filterChips(S);
-  let html=chips.map(c=>'<span class="chip">'+esc(c.label)+'<button class="x" data-unchip="'+c.k+'"'+
+  /* 12.11-д: администратор смотрит чужими глазами — первым чипом, с крестиком «вернуться к себе» */
+  let html=(ENV&&D.REAL&&D.REAL.adm&&D.REAL.asLogin?'<span class="chip as"'+U.tipAttr({title:'Смотреть как пользователь',
+    text:'Отчёт посчитан так, как его видит логин «'+D.REAL.asLogin+'»: его подразделения, юнит по умолчанию и цифры. Крестик — вернуться к себе.'})+
+    '>Глазами: <b>'+esc(D.REAL.asLogin)+'</b><button class="x" data-asoff="1"'+U.tipAttr({title:'Вернуться к себе'})+'>×</button></span>':'')+chips.map(c=>'<span class="chip">'+esc(c.label)+'<button class="x" data-unchip="'+c.k+'"'+
     U.tipAttr({title:'Снять фильтр',text:c.label})+'>×</button></span>').join('');
   /* поставка 117 (владелец: «у нас есть база — при наведении расшифровка: похожие по численности подразделения с учётом
      фильтров»): чип называет базу этого отчёта — группу численности; без базы — с чем сравниваем вместо неё */
@@ -489,8 +495,30 @@ function openSetup(){
   UT={q:'',open:{}};
   $('#utQ').value='';
   paintOpts();
+  asGrp();
   $('#setupOvl').classList.remove('hidden');
   utCenter();
+}
+/* 12.11-д, «Смотреть как пользователь» (владелец: разбирать жалобы «вижу не те цифры» — как именно настроен доступ
+   логина). Блок есть только у администраторов (meta.adm: логин в списке FULL датасета). Отчёт перезапрашивается
+   с кросс-фильтром as_f: датасет считает зону, юнит по умолчанию и цифры так, как их видит этот логин */
+function asGrp(){
+  const g=$('#asGrp');if(!g)return;
+  const on=!!(ENV&&D.REAL&&D.REAL.adm);
+  g.classList.toggle('hidden',!on);
+  if(!on)return;
+  const cur=D.REAL.asLogin;
+  $('#asNow').innerHTML=cur?'Сейчас отчёт — глазами <b>'+esc(cur)+'</b>. <button class="lnk" data-asoff="1">Вернуться к себе</button>':'';
+  $('#asQ').value='';
+}
+function viewAs(login){
+  const l=String(login||'').trim().toLowerCase();
+  if(!ENV||!D.REAL||!D.REAL.adm||l===(D.REAL.asLogin||''))return;
+  closeSetup();
+  /* у другого логина своя зона: история «Назад», раскрытия и выбор строки — от прежнего дерева */
+  unitBack.length=0;S.selNode=null;expanded.clear();openRows.clear();tq='';
+  request(Object.assign(curReq(),{as:l,unit:defUnit()}));
+  if(STORE.pending)STORE.pending.asSw=1;
 }
 /* выбранная строка — посередине списка (прокрутка только у списка, не у окна) */
 function utCenter(){
@@ -711,7 +739,7 @@ function applySetup(){
       hcSig(DRAFT)!==hcSig(S);
     S.hiddenMetrics=DRAFT.hiddenMetrics.slice();
     if(S.mainMetric&&!D.metricVisible(S.mainMetric,S))S.mainMetric=null;
-    const next={unit:DRAFT.unit,paint:DRAFT.paint,itSeg:DRAFT.itSeg,staffType:DRAFT.staffType,hcType:DRAFT.hcType,
+    const next={as:D.REAL.asLogin,unit:DRAFT.unit,paint:DRAFT.paint,itSeg:DRAFT.itSeg,staffType:DRAFT.staffType,hcType:DRAFT.hcType,
       hcSet:(DRAFT.hcSet||[]).slice()};
     openRows.clear();closeSetup();
     if(changed){if(next.unit!==S.unit)pushBack(S.unit);request(next)}else render();
@@ -1018,6 +1046,8 @@ on(document,'click',e=>{
   /* модалки и кнопки шапки */
   if(t.closest('#btnSetup')){openSetup();return}
   if(t.closest('#btnApply')){applySetup();return}
+  if(t.closest('[data-asgo]')){viewAs($('#asQ').value);return}
+  if(t.closest('[data-asoff]')){viewAs('');return}
   if(t.closest('#btnCancel')){closeSetup();return}
   /* 07.11 (замер 111 на бою: «кнопка не срабатывает»): сбрасывала только покраску и типы, а юнит оставляла — если менялся
      только юнит, нажатие ничего не меняло. Теперь и юнит — по умолчанию (тот, что открывается без фильтра юнита) */
@@ -1284,6 +1314,8 @@ on(document,'mouseover',e=>lgHover(e,true));
 on(document,'mouseout',e=>lgHover(e,false));
 on(document,'focusin',e=>lgHover(e,true));
 on(document,'focusout',e=>lgHover(e,false));
+/* 12.11-д: Enter в поле «Смотреть как» — то же, что «Показать» (формы нет: песочница Proteus запрещает отправку форм) */
+on(document,'keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.id==='asQ'){e.preventDefault();viewAs(e.target.value)}});
 on(document,'keydown',e=>{
   if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('.mrow,.urow,.mx-cell')){e.preventDefault();e.target.click()}
   /* У SVGElement может не быть .click() — зовём обработчик напрямую.

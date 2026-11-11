@@ -84,8 +84,18 @@ store.readyT=[setTimeout(sayReady,400),setTimeout(sayReady,1500)];
 window.TP_REAL=window.TPREAL.build(typeof data!=='undefined'?data:[]);
 /* поставка 69: нет зоны доступа — экран «Нет доступа», дальше отчёт не собирается (tpStop ловит обёртка сборки) */
 if(window.TP_REAL.noAccess){
-  root.innerHTML='<div class="tp-noacc"><b>Нет доступа к отчёту</b><span>Отчёт показывает подразделения, где вы '+
+  /* 12.11-д: администратор смотрит глазами логина без доступа — так и пишем, и даём вернуться к себе */
+  const asl=window.TP_REAL.adm&&window.TP_REAL.asLogin;
+  /* запрос, на который пришёл этот ответ, закрыт: таймеры повтора прошлого прогона (app.js) не перешлют его маску */
+  store.pending=null;
+  const esc0=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]);
+  root.innerHTML=asl?'<div class="tp-noacc"><b>Логин «'+esc0(asl)+'» не видит отчёт</b><span>У него нет доступа ни к одному '+
+    'подразделению: нет строк в таблице прав, он не руководитель и не в списке администраторов.</span>'+
+    '<button class="btn primary" data-asoff="1">Вернуться к себе</button></div>'
+    :'<div class="tp-noacc"><b>Нет доступа к отчёту</b><span>Отчёт показывает подразделения, где вы '+
     'руководитель. Если доступ нужен — напишите владельцу отчёта.</span></div>';
+  const bk=root.querySelector('[data-asoff]');
+  if(bk)bk.addEventListener('click',function(){if(typeof applyCrossFilter==='function')applyCrossFilter([])});
   throw {tpStop:1};
 }
 window.TP_ENV={root:root,scroller:root,store:store,

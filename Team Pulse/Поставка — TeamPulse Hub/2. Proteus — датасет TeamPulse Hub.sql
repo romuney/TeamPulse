@@ -119,6 +119,11 @@
     12.11-в: таблица прав teampulse_hub_access — ДОПОЛНЕНИЕ к прежнему доступу, а не замена: список FULL и зона
     руководителя (head_login) работают как до неё; строки таблицы прав только добавляют логину юниты (см. cx0). -#}
 {% set FULL = [] %}
+{#- 12.11-д, «смотреть как логин» (владелец: администраторам — для разбора жалоб «вижу не те цифры»): логин из FULL
+    может прислать кросс-фильтр as_f с другим логином — датасет считает зону доступа, юнит по умолчанию и всё остальное
+    так, как их видит этот логин. Логину не из FULL as_f ничего не даёт (его маска игнорируется). Логин входит в ключ
+    кэша: и свой (current_username), и чужой (значение фильтра). -#}
+{% set as_req = [] %}{% for v in (filter_values('as_f') or []) %}{% if v|string|trim != '' and as_req|length < 1 %}{% set _ = as_req.append(v|string|trim|lower) %}{% endif %}{% endfor %}
 {#- Поставка «по частям» (11.11): тот же датасет отдаёт либо весь ответ (PART = 'all' — один чарт, как раньше), либо одну
     часть для чарта-загрузчика. Части: dict — справочник узлов (от фильтров не зависит: датасет главного чарта); core — meta,
     ряды узлов ответа и строка HQ (первый экран); people — разрезы из teampulse_hub_mix и профили; flow — разрезы
@@ -133,7 +138,11 @@
 {% set U1 = [] %}{% set U2 = [] %}
 {% macro ua(us) -%}{%- if us|length > 0 -%}UNION ALL{%- endif -%}{%- set _ = us.append(1) -%}{%- endmacro %}
 {#- логин входит в ключ кэша: Proteus ищет вызов current_username() внутри {{ }} на одной строке -#}
-{% macro me() -%}{{ qs((current_username() or '')|string|trim|lower) }}{%- endmacro %}
+{#- 12.11-д: me() — логин, ГЛАЗАМИ которого считается отчёт: свой или (у администратора из FULL) из as_f -#}
+{% macro me() -%}{{ qs(as_req[0] if (as_req and ((current_username() or '')|string|trim|lower) in FULL) else (current_username() or '')|string|trim|lower) }}{%- endmacro %}
+{#- adm — смотрящий сам из FULL (настройка «Смотреть как» видна только ему); asl — чей отчёт показан ('' — свой) -#}
+{% macro adm() -%}{{ 1 if ((current_username() or '')|string|trim|lower) in FULL else 0 }}{%- endmacro %}
+{% macro asl() -%}{{ qs(as_req[0] if (as_req and ((current_username() or '')|string|trim|lower) in FULL) else '') }}{%- endmacro %}
 {#- Тип численности строки: act_cd матчером; колонки нет — «∅» (строка проходит любой фильтр типа). -#}
 {% set AC = "ifNull(toString(act_cd), '∅')" %}
 {% set CUTS = [['paint', 'paint_f', "ifNull(paint_cd, '-')"], ['it', 'it_f', "ifNull(it_cd, '-')"], ['staff', 'staff_f', "ifNull(staff_cd, '-')"], ['act', 'act_f', AC]] %}
@@ -504,6 +513,7 @@ WITH
              '","root":"', cxr, '","scope":"', cxs,
              '","def":"', cxd, '","ok":', toString(toUInt8(cxok)),
              ',"full":', toString(toUInt8(cxfl)), ',"zone":', toJSONString(cxzr),
+             ',"adm":{{ adm() }},"as":', toJSONString({{ asl() }}),
              ',"dt":"', cxdd, '","schema":"hub-2","enc":"a1","cuts":["paint","it","staff"', if(has(tupleElement({{ FV }}, 4), '∅'), '', ',"act"'), ']',
              ',"mk":"{% for m in M %}{{ m[0] }}{% if not loop.last %},{% endif %}{% endfor %}"',
              ',"req":', toJSONString({{ qa(unit_req) }}),
@@ -850,7 +860,8 @@ FROM
   {{ ua(U2) }}
   SELECT toUInt8(0) AS o, 'part' AS role, '{{ PART }}' AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids,
          concat('{"v":1,"p":"{{ PART }}","ok":', toString(toUInt8(cxok)), ',"scope":"', cxs, '","def":"', cxd,
-                '","req":', toJSONString({{ qa(unit_req) }}),
+                '","as":', toJSONString({{ asl() }}),
+                ',"req":', toJSONString({{ qa(unit_req) }}),
                 ',"paint":', toJSONString({{ qa(F['paint']) }}), ',"it":', toJSONString({{ qa(F['it']) }}),
                 ',"staff":', toJSONString({{ qa(F['staff']) }}), ',"act":', toJSONString({{ qa(F['act']) }}),
                 ',"bt":"', (SELECT toString(any(built_at)) FROM prod_proteus.teampulse_hub_meta), '"}') AS j_,

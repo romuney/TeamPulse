@@ -34,7 +34,7 @@ function echoOf(rows){
   let j={};
   try{j=JSON.parse(str(pr.j))||{}}catch(e){j={}}
   const a=k=>(Array.isArray(j[k])?j[k]:[]).map(str).join(',');
-  return {p:str(pr.id),sig:[a('req'),str(j.scope),a('paint'),a('it'),a('staff'),a('act')].join('|'),bt:str(j.bt),ok:j.ok!==0,end:end};
+  return {p:str(pr.id),sig:[str(j.as),a('req'),str(j.scope),a('paint'),a('it'),a('staff'),a('act')].join('|'),bt:str(j.bt),ok:j.ok!==0,end:end};
 }
 /* свод частей: строки core — основа (meta, ряды и имена узлов, HQ); разрезы people / flow / aux того же выбора
    дописываются узлу по (role, id) — блок ключа начинается с ключа, порядок блоков не важен; база похожих (peer) и

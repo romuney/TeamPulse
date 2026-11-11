@@ -124,7 +124,7 @@ const MIN=require('./min.cjs');
    мониторинга, кнопка меню без localStorage): 640 → 644.
    12.11, поставки 147–149 и исправление доступа (AI на One Pager таблицей, база сегментов посещаемости и плашка базы,
    дерево выбора через предков при нескольких корнях зоны): 644 → 648 — ≈+0,1 с на запрос. */
-const BUDGET_KIB = 648;
+const BUDGET_KIB = 652;
 const dir=path.join(__dirname,'..');
 const OUT=path.join(dir,'Поставка — TeamPulse Hub','3. Proteus — чарт TeamPulse Hub.js');
 const read0=f=>fs.readFileSync(path.join(dir,f),'utf8');

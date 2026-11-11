@@ -480,6 +480,9 @@ function build(data){
     missing,noMeta:!by('meta').length,
     /* поставка 69: логин без зоны доступа — датасет отдаёт только meta с ok 0 */
     noAccess:meta.ok===0,
+    /* 12.11-д: adm — смотрящий из списка администраторов (FULL датасета): ему видна настройка «Смотреть как»;
+       asLogin — чьими глазами посчитан ответ ('' — своими) */
+    adm:meta.adm===1,asLogin:str(meta.as),
     empty:!scopeU,
     nodes,
     applied:{paint:one(meta.paint,pv),itSeg:one(meta.it,iv),staffType:one(meta.staff,sv),
