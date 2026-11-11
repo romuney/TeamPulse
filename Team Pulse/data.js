@@ -86,6 +86,15 @@ const ASOF_LABEL=ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y;             /* «19 о
    месяцы целиком, текущий — пропорционально дням (CNT_FRAC). Без незакрытого месяца CNT_* = PER_* */
 const CNT_ON=false, CNT_I=LAST, CNT_C=PER_C, CNT_FRAC=PARTIAL?ASOF.d/DIM(ASOF.y,ASOF.m):1;
 const CNT_SPAN=PER_SPAN, CNT_TEXT=PER_TEXT, CNT_NAME=PER_NAME;
+/* 11.11, владелец: «в графиках можно с тире, в выводах — читаемо»: на графиках (строка итога над полотном) период компактно —
+   «1 янв. – 12 окт.»; в выводах, карточках и текстах — словами (PER_TEXT) */
+const PER_DASH=PER_PART?(PER_C?'1\u00a0янв.\u00a0– '+ASOF.d+'\u00a0'+MONTH_ABBR_GEN[ASOF.m]:'1–'+ASOF.d+'\u00a0янв.'):PER_C?'янв.\u00a0– '+MONTH_ABBR[PER_C]:'янв.';
+/* заголовок итога словами → для графика: «Всего с 1 января по 12 октября» → «Всего за 1 янв. – 12 окт.» */
+function chartHead(h){
+  if(!h||h.indexOf(PER_TEXT)<0)return h;
+  const T=PER_TEXT.charAt(0).toUpperCase()+PER_TEXT.slice(1);
+  return h.indexOf(T)===0?'За '+PER_DASH+h.slice(T.length):h.replace(' '+PER_TEXT,' за '+PER_DASH);
+}
 /* 21.10, правка Антона: вызревающими могут быть только regrettable и non-regrettable текучесть и
    проникновение AI — их значение за последний месяц ещё уточняется (признак увольнения и статистика AI
    приходят позже). У остальных метрик статуса «вызревает» нет: ни метки «по 20.10», ни пунктира. */
@@ -3725,7 +3734,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  mainCmp,mainVerdict,offDays,offAsof,offCityMon,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
+  mainCmp,mainVerdict,offDays,offAsof,offCityMon,PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,workdays,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,bookingQuality,violByCity,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};

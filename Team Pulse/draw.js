@@ -755,6 +755,8 @@ const PERIOD_H=20, PT_BG={g:'#e6f6ec',b:'#fdecec',n:'#eef0f3'}, PT_FG={g:'#0a8f3
    (узкий экран), разделитель « · » в начале строки снимаем. У пары (p.parts) — оба потока, у каждого — год назад */
 function periodLine(p,y,w){
   if(!p)return {s:'',h:0};
+  /* 11.11: на графике период компактно, с тире (в выводах — словами) */
+  if(p.head&&CD.chartHead)p=Object.assign({},p,{head:CD.chartHead(p.head)});
   const gs=p.parts?[[[p.head+': ']]].concat(p.parts.map((q,i)=>[[(i?' · ':'')+q.name+' '],[q.cur,1]].concat(q.prev!=null?[[' (год назад '+q.prev+')']]:[]))):
     [[[p.head+': '],[p.cur,1]]].concat(p.prev!=null?[[[' · год назад '+p.prev]]]:[],p.delta?[[[p.delta,1,p.good==null?'n':p.good?'g':'b']]]:[],
       /* поставка 128: ориентир «вся компания» — значением в строке итога (линия по умолчанию выключена) */
