@@ -312,7 +312,7 @@ WITH
       {#- 12.11-б (бой: суперюзеру открылся случайный юнит): вся компания — у кого открыт корень ИЛИ единственный потомок
           корня (корень технический: под ним одна «компания», и права выдают на неё). У корня несколько потомков — только корень #}
       SELECT lm, m0, n, r, d, dd,
-             has({{ qa(FULL) }}, {{ me() }}) OR has(au, r) OR (arrayCount(x -> x.2 = r, al) = 1 AND has(au, tupleElement(arrayFirst(x -> x.2 = r, al), 1))) AS fl,
+             has({{ qa(FULL) }}, {{ me() }}) OR has(zq, r) OR (arrayCount(x -> x.2 = r, al) = 1 AND has(zq, tupleElement(arrayFirst(x -> x.2 = r, al), 1))) AS fl,
              {#- 12.11, бой (Code 241, 10 ГиБ): зона считалась лямбдой по юнитам логина с захватом всего справочника al — у
                  логина с тысячами строк доступа справочник копировался на каждом шаге. Теперь корни зоны (zq) и их предки
                  (anq) приходят готовыми из соединения таблиц (fa), лямбд с захватом растущих массивов нет #}
@@ -340,17 +340,20 @@ WITH
           компания. Таблица прав дополняет список FULL и зону руководителя, а не заменяет их (12.11-в) #}
       {#- au — все юниты логина; zq — корни его зоны: юниты логина, которые есть в структуре отчёта и у которых ни один
           предок не открыт этому же логину (юнит под уже открытым юнитом отдельным корнем не нужен); anq — узлы путей к корням #}
-      {#- 12.11-в: au = юниты логина из таблицы прав + юниты, где логин — руководитель (как было до таблицы прав) #}
-      CROSS JOIN (SELECT arrayDistinct(arrayConcat(
-                           (SELECT groupUniqArray(ifNull(toString(unit_rk), '')) FROM prod_proteus.teampulse_hub_access
-                            WHERE lowerUTF8(trimBoth(ifNull(toString(login), ''))) = {{ me() }} AND {{ me() }} != ''),
-                           (SELECT groupUniqArray(ifNull(toString(unit_rk), '')) FROM prod_proteus.teampulse_hub_unit
-                            WHERE lowerUTF8(trimBoth(ifNull(toString(head_login), ''))) = {{ me() }} AND {{ me() }} != ''))) AS au,
-                         {#- корни зоны — сверху вниз по уровню: первым (юнит по умолчанию) идёт самый верхний, а не случайный #}
+      {#- 12.11-г (бой: у суперюзера в таблице прав строки на все юниты, кроме двух верхних уровней-заглушек — отчёт видел
+          сотни отдельных корней вместо компании). Узел открыт, если открыт он сам, его предок ИЛИ все листья под ним:
+          AUQ — юниты логина (таблица прав + где он руководитель, 12.11-в); UX — узлы над хотя бы одним закрытым листом
+          (лист закрыт, если в его пути нет юнита из AUQ). Открытый узел — не из UX; корень зоны — открытый узел, чей
+          родитель закрыт. Открыто всё — корень отчёта не в UX, это полный доступ. Множества — через IN (хеш), без лямбд
+          с захватом больших массивов (урок Code 241) #}
+      {%- set AUQ = "(SELECT ifNull(toString(unit_rk), '') FROM prod_proteus.teampulse_hub_access WHERE lowerUTF8(trimBoth(ifNull(toString(login), ''))) = " ~ me() ~ " AND " ~ me() ~ " != '' UNION ALL SELECT ifNull(unit_rk, '') FROM prod_proteus.teampulse_hub_unit WHERE lowerUTF8(trimBoth(ifNull(toString(head_login), ''))) = " ~ me() ~ " AND " ~ me() ~ " != '')" %}
+      {%- set UX = "(SELECT arrayJoin(splitByChar('|', ifNull(path_rk, ''))) FROM prod_proteus.teampulse_hub_unit WHERE ifNull(kids_cnt, 0) = 0 AND ifNull(unit_rk, '') IN (SELECT lf FROM (SELECT ifNull(unit_rk, '') AS lf, splitByChar('|', ifNull(path_rk, '')) AS lph FROM prod_proteus.teampulse_hub_unit WHERE ifNull(kids_cnt, 0) = 0) ARRAY JOIN lph AS la GROUP BY lf HAVING max(la IN " ~ AUQ ~ ") = 0))" %}
+      CROSS JOIN (SELECT {#- корни зоны — сверху вниз по уровню: первым (юнит по умолчанию) идёт самый верхний, а не случайный #}
                          arrayMap(x -> x.2, arraySort(groupArray((t.lv, t.id)))) AS zq, arrayDistinct(arrayFlatten(groupArray(t.ph))) AS anq
-                  FROM (SELECT ifNull(unit_rk, '') AS id, splitByChar('|', ifNull(path_rk, '')) AS ph, toInt32(ifNull(unit_lvl, 0)) AS lv
+                  FROM (SELECT ifNull(unit_rk, '') AS id, ifNull(parent_rk, '') AS pr, splitByChar('|', ifNull(path_rk, '')) AS ph,
+                               toInt32(ifNull(unit_lvl, 0)) AS lv
                         FROM prod_proteus.teampulse_hub_unit) AS t
-                  WHERE t.id != '' AND has(au, t.id) AND NOT hasAny(arrayPopBack(t.ph), au)) AS fa
+                  WHERE t.id != '' AND t.id NOT IN {{ UX }} AND (t.pr = '' OR t.pr IN {{ UX }})) AS fa
     )
   ),
   {#- поставка 113-и (скорость: 8б на бою — почти всё время в разборе и плане запроса): контекст — скаляр ctx и его поля
