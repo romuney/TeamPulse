@@ -37,6 +37,12 @@
 --  16 желательная и нежелательная текучесть HQ (Активная + HQ) по месяцам: уходы, ССЧ, численность; месячная доля и четыре
 --     способа накопления с января: сумма месячных (как отчёт), сумма округлённых до 0.1, уходы к средней ССЧ, уходы к
 --     средней численности на конец месяцев. Расхождение с другим отчётом на 0.1-0.2 - сравнить его число с каждым способом
+--  17 посещаемость за месяц m лестницей, от источника к отчёту (вся компания; последняя строка - выбранное подразделение):
+--     у каждой ступени - люди, рабочие дни, посещения и процент. По ней видно, на какой ступени число расходится с
+--     эталоном: 01 все типы численности -> 02 «Активная» (так считает мастер-борд посещаемости по всей компании) ->
+--     03 «Активная» с закреплённым офисом (так считает отчёт) -> 04 по признаку закреплённого офиса -> 05 по типу
+--     посещения -> 06 по фиксам -> 07-08 таблица людей ноутбука -> 09-10 ряды отчёта -> 11 кто потерялся между источником
+--     и таблицей людей. posescheniya_ms - посещения по колонке ms_office_visit_flg (её берёт мастер-борд), если она есть
 -- Ожидаемые числа сверки — в чате, не в репозитории. Проверено на стенде PostgreSQL (stand/nb_tp20.py --hub).
 -- 09.11: файл — один запрос (было 13 отдельных); убраны устаревшие: водопад витрины движения и «откуда прочее» (найм и
 -- переводы отчёта — из строк дня события, водопад сходится без «прочего»), переводы по специализациям по флагу уровня
@@ -708,6 +714,61 @@ b15 as (
            coalesce((select sum(ovis_amt) from teampulse_hub_series where node_rk = (select root_rk from teampulse_hub_meta)
               and report_month = (select lm from teampulse_hub_cal)), 0) as rep_visits
     from b15s s cross join b15t t
+),
+-- 17. посещаемость лестницей за месяц m. Рабочий день - work_day_flg = 1; строка в знаменателе - главный офис дня или день
+--     без визита (main_office_visit_rn <= 1); посещение - главный офис дня (rn = 1). Колонки ms_office_visit_flg и
+--     office_visit_type_cd читаются через row_to_json: нет колонки в источнике - запрос не падает, значения пустые
+b17r as (
+    select o.mdm_employee_rk as rk, coalesce(o.main_office_visit_rn, 0) as rn, coalesce(o.office_visit_flg, 0) as v,
+           coalesce(o.active_type_nm::text, 'пусто') as act, coalesce(o.active_office_emp_flg::text, 'пусто') as emp,
+           coalesce(o.fix_flex_cat::text, 'пусто') as fix,
+           nullif(row_to_json(o) ->> 'ms_office_visit_flg', '')::numeric as msv,
+           coalesce(row_to_json(o) ->> 'office_visit_type_cd', 'нет колонки') as vt
+    from usr_cross_data.office_traffic_attendance o
+    where o.calendar_dt >= (select m from u) and o.calendar_dt < ((select m from u) + interval '1 month')::date
+      and o.work_day_flg = 1
+),
+b17a as (
+    select '01 источник: все типы численности'::text as k, rk, rn, v, msv from b17r
+    union all select '02 Активная (мастер-борд: вся компания)', rk, rn, v, msv from b17r where act = 'Активная'
+    union all select '03 Активная + закреплён офис (как отчёт)', rk, rn, v, msv from b17r where act = 'Активная' and emp = 'Да'
+    union all select '04 Активная, закреплён офис: ' || emp, rk, rn, v, msv from b17r where act = 'Активная'
+    union all select '05 Активная, тип посещения: ' || vt, rk, rn, v, msv from b17r where act = 'Активная'
+    union all select '06 Активная + закреплён офис, фикс: ' || fix, rk, rn, v, msv from b17r where act = 'Активная' and emp = 'Да'
+),
+b17s as (
+    select k, count(distinct case when rn <= 1 then rk end) as lyudi, sum(case when rn <= 1 then 1 else 0 end) as dni,
+           sum(case when rn = 1 then v else 0 end) as vis, sum(case when rn = 1 then msv end) as vis_ms
+    from b17a group by k
+),
+b17p as (
+    select rk, sum(case when rn <= 1 then 1 else 0 end) as dni, sum(case when rn = 1 then v else 0 end) as vis
+    from b17r where act = 'Активная' and emp = 'Да' group by rk
+),
+b17 as (
+    select k, lyudi, dni, vis, vis_ms from b17s
+    union all
+    select '07 таблица людей: все строки месяца', count(distinct case when coalesce(work_day_amt, 0) > 0 then mdm_employee_rk end),
+           sum(coalesce(work_day_amt, 0)), sum(coalesce(office_visit_amt, 0)), null
+    from all_metrics_with_performance_and_office_traffic_and_grt where report_month = (select m from u)
+    union all
+    select '08 таблица людей: строки в дереве отчёта', count(distinct case when coalesce(work_day_amt, 0) > 0 then mdm_employee_rk end),
+           sum(coalesce(work_day_amt, 0)), sum(coalesce(office_visit_amt, 0)), null
+    from all_metrics_with_performance_and_office_traffic_and_grt where report_month = (select m from u) and leaf_lvl > 0
+    union all
+    select '09 отчёт: вся компания, Активная', null, sum(wday_amt), sum(ovis_amt), null
+    from teampulse_hub_series
+    where node_rk = (select root_rk from teampulse_hub_meta) and report_month = (select m from u) and act_cd = 'Активная'
+    union all
+    select '10 отчёт: выбранное подразделение, Активная', null, sum(wday_amt), sum(ovis_amt), null
+    from teampulse_hub_series
+    where node_rk = (select rk from u) and report_month = (select m from u) and act_cd = 'Активная'
+    union all
+    select '11 потеря: люди ступени 03 без строки в таблице людей', count(*), sum(s.dni), sum(s.vis), null
+    from b17p s
+    left join (select distinct mdm_employee_rk from all_metrics_with_performance_and_office_traffic_and_grt
+               where report_month = (select m from u) and last_row_flg = 1) t on t.mdm_employee_rk = s.rk
+    where t.mdm_employee_rk is null and s.dni > 0
 )
 select 0 as n, 'поиск подразделения'::text as blok, (unit_rk || ' ' || unit_nm)::text as stroka,
        unnest(array[1, 2]) as ord, unnest(array['unit_lvl', 'kids_cnt']::text[]) as pokazatel,
@@ -793,4 +854,9 @@ select 10 as n, 'посещения по шагам (месяц lm)'::text as bl
        unnest(array[1, 2, 3, 4, 5, 6, 7, 8]) as ord, unnest(array['src_visits', 'src_no_city', 'tbl_visits', 'tbl_city_json', 'tbl_visits_no_json', 'tbl_leaf0', 'rep_visits', 'rep_city']::text[]) as pokazatel,
        unnest(array[(src_visits)::numeric, (src_no_city)::numeric, (tbl_visits)::numeric, (tbl_city_json)::numeric, (tbl_visits_no_json)::numeric, (tbl_leaf0)::numeric, (rep_visits)::numeric, (rep_city)::numeric]) as znachenie
 from b10
+union all
+select 17 as n, 'посещаемость лестницей: от источника к отчёту (месяц m)'::text as blok, (k)::text as stroka,
+       unnest(array[1, 2, 3, 4, 5, 6]) as ord, unnest(array['lyudi', 'rab_dni', 'posescheniya', 'pct', 'posescheniya_ms', 'pct_ms']::text[]) as pokazatel,
+       unnest(array[(lyudi)::numeric, (dni)::numeric, (vis)::numeric, (round(100.0 * vis / nullif(dni, 0), 2))::numeric, (vis_ms)::numeric, (round(100.0 * vis_ms / nullif(dni, 0), 2))::numeric]) as znachenie
+from b17
 order by n, stroka, ord;
