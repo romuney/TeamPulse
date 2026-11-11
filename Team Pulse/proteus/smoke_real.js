@@ -805,6 +805,12 @@ if(D.TTF_MED){
   if(D.blockVisible('office',S)&&D.OFF_LIVE&&D.OFF_LIVE.city){
     const off=A.go('office','attend'), x0=D.officeCross(rl,null,null), c0=x0.cities[0], hasM=!!(R.scopeMix('ocm')&&R.scopeMix('ocdm'));
     const x1=c0&&x0.cross?D.officeCross(rl,null,c0.name):null;
+    /* 11.11, владелец: база посещаемости числом — люди с закреплённым офисом за тот же месяц, не больше численности */
+    if(R.has('obase')){const b=D.offBase(rl);
+      ok(!!b&&b.base>0&&b.hc>0&&b.base<=b.hc&&b.base===Math.round(arr(scopeRow,'obase')[R.n-1-(D.LAST-D.PER_I)])&&
+        off.indexOf('Считаем по '+D.fmtInt(b.base).replace(/\u2009/g,'\u2009'))>=0&&/Дистанционные и ГПД в базу не входят/.test(off),
+        'посещаемость: база '+(b&&b.base)+' с закреплённым офисом из '+(b&&b.hc)+' ('+(b&&b.pct)+'%) — числом под графиком');
+    } else ok(!/Считаем по \d/.test(off),'посещаемость: ответ без базы (ноутбук до 145) — числа базы нет');
     /* 11.11, владелец: «кликаю владельцев фиксов — динамика не пересчитывается»: фиксы — сегмент с собственным рядом */
     if(x0.fix){const xf=D.officeCross(rl,'fix',null), yf=D.yoySeries(rl,'office_fix'), offF=(()=>{const s0=A.st();s0.offSeg='fix';return A.go('office','attend')})();
       ok(!!xf.seg&&xf.seg.key==='fix'&&!!xf.yser&&JSON.stringify(xf.yser.cur)===JSON.stringify(yf.cur)&&

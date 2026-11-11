@@ -35,6 +35,9 @@ with base as (
         , mdm_employee_rk
         , sum(case when office_emp_flg = 1 and main_office_visit_rn <= 1 then 1 else 0 end) as work_day_amt
         , sum(case when office_emp_flg = 1 and main_office_visit_rn = 1 then office_visit_flg else 0 end) as office_visit_amt
+        -- 11.11 (исследование посещаемости): база посещаемости людьми — 1, если у человека в месяце был рабочий день с
+        -- закреплённым офисом (знаменатель посещаемости); в отчёте — «по N сотрудникам с закреплённым офисом из M»
+        , max(case when office_emp_flg = 1 and main_office_visit_rn <= 1 then 1 else 0 end) as office_emp_cnt
         , sum(case when fix_flg = 1 and main_office_visit_rn <= 1 then 1 else 0 end) as fix_work_day_amt
         , sum(case when fix_flg = 1 and main_office_visit_rn = 1 then office_visit_flg else 0 end) as fix_office_visit_amt
         , sum(case when booking_violation_flg is not null then booking_flg else 0 end) as booking_amt
@@ -90,6 +93,7 @@ with base as (
 select m.*
     , o.work_day_amt
     , o.office_visit_amt
+    , o.office_emp_cnt
     , o.fix_work_day_amt
     , o.fix_office_visit_amt
     , o.booking_amt

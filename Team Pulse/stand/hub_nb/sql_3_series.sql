@@ -43,6 +43,8 @@ select node_rk, report_month::date as report_month, paint_c, it_c, staff_c, act_
        -- (посещаемость = ovis / wday; проверена с выгрузками мастера 06.11, HQ 12/12 месяцев ±0.4 п.п.);
        -- fwday/fovis — то же у владельцев фиксов (fix_flex_cat = 'фикс'); vbk — посещения с бронью
        sum(coalesce(e.fix_work_day_amt, 0)) as fwday, sum(coalesce(e.fix_office_visit_amt, 0)) as fovis,
+       -- 11.11: база посещаемости людьми — сколько человек с закреплённым офисом (знаменатель посещаемости)
+       sum(coalesce(e.office_emp_cnt, 0)) as obase,
        sum(coalesce(e.grt_approve_cnt, 0)) as gapr, sum(coalesce(e.grt_decline_cnt, 0)) as gdec,
        -- поставка 66 : бронирования — дней с бронью, бронь без посещения, посещение без брони; рабочие
        -- дни и посещения руководителей (management_head_flg = 1) — сегмент «Руководители» посещаемости;
@@ -74,7 +76,7 @@ from (
         select s.report_month, s.hc_total_cnt, s.hc_active_cnt, s.hire_amt, s.transfer_candidate_amt,
                s.transfer_internal_amt, s.hire_cnt, s.fire_amt, s.regret_fire_amt, s.non_regret_fire_amt,
                s.perf_normal, s.perf_low, s.perf_high, s.perf_gray, s.work_day_amt, s.office_visit_amt,
-               s.fix_work_day_amt, s.fix_office_visit_amt, s.visit_with_booking_amt,
+               s.office_emp_cnt, s.fix_work_day_amt, s.fix_office_visit_amt, s.visit_with_booking_amt,
                0 as grt_approve_cnt, 0 as grt_decline_cnt, s.booking_amt, s.booking_viol_amt, s.visit_viol_amt,
                s.management_head_flg, s.duration_hour, s.talk_call_duration_h, s.absence_segment_cd,
                s.weekend_segment_cd, s.talk_segment_cd,
@@ -93,7 +95,7 @@ from (
         -- 09.11 (владелец: одна методология на метрику, T-рост — как эталон «Роста»): одобрено / отклонено (gapr / gdec) —
         -- из заявок structure_x_rost, как шаги «По грейдам» и «Смена специализации» (rm / rq): подразделение и срез человека
         -- в месяц подачи, месяц — итог заявки; было — grt_* build_all_metrics (подразделение в месяц решения)
-        select s.finish_month::date as report_month, 0 as hc_total_cnt, 0 as hc_active_cnt, 0 as hire_amt, 0 as transfer_candidate_amt, 0 as transfer_internal_amt, 0 as hire_cnt, 0 as fire_amt, 0 as regret_fire_amt, 0 as non_regret_fire_amt, 0 as perf_normal, 0 as perf_low, 0 as perf_high, 0 as perf_gray, 0 as work_day_amt, 0 as office_visit_amt, 0 as fix_work_day_amt, 0 as fix_office_visit_amt, 0 as visit_with_booking_amt, (coalesce(s.is_approved, 0) = 1)::int as grt_approve_cnt, (coalesce(s.is_declined, 0) = 1)::int as grt_decline_cnt, 0 as booking_amt, 0 as booking_viol_amt, 0 as visit_viol_amt, null::text as management_head_flg, 0 as duration_hour, 0 as talk_call_duration_h, null::text as absence_segment_cd, null::text as weekend_segment_cd, null::text as talk_segment_cd, 0 as duration_plan_sum, 0 as plan_day_cnt, 0 as talk_plan_sum,
+        select s.finish_month::date as report_month, 0 as hc_total_cnt, 0 as hc_active_cnt, 0 as hire_amt, 0 as transfer_candidate_amt, 0 as transfer_internal_amt, 0 as hire_cnt, 0 as fire_amt, 0 as regret_fire_amt, 0 as non_regret_fire_amt, 0 as perf_normal, 0 as perf_low, 0 as perf_high, 0 as perf_gray, 0 as work_day_amt, 0 as office_visit_amt, 0 as office_emp_cnt, 0 as fix_work_day_amt, 0 as fix_office_visit_amt, 0 as visit_with_booking_amt, (coalesce(s.is_approved, 0) = 1)::int as grt_approve_cnt, (coalesce(s.is_declined, 0) = 1)::int as grt_decline_cnt, 0 as booking_amt, 0 as booking_viol_amt, 0 as visit_viol_amt, null::text as management_head_flg, 0 as duration_hour, 0 as talk_call_duration_h, null::text as absence_segment_cd, null::text as weekend_segment_cd, null::text as talk_segment_cd, 0 as duration_plan_sum, 0 as plan_day_cnt, 0 as talk_plan_sum,
                (select pre from teampulse_hub_cal) || coalesce(u.cp,
                    array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text,
                                       s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text,
@@ -132,6 +134,7 @@ select k.node_rk, k.report_month, k.paint_c as paint_cd, k.it_c as it_cd, k.staf
        coalesce(c.phig, 0) as phig_cnt, coalesce(c.pgry, 0) as pgry_cnt,
        coalesce(c.wday, 0) as wday_amt, coalesce(c.ovis, 0) as ovis_amt,
        coalesce(c.fwday, 0) as fwday_amt, coalesce(c.fovis, 0) as fovis_amt,
+       coalesce(c.obase, 0) as obase_cnt,
        coalesce(c.vbk, 0) as vbk_amt,
        coalesce(c.gapr, 0) as gapr_cnt, coalesce(c.gdec, 0) as gdec_cnt,
        coalesce(c.bk, 0) as bk_amt, coalesce(c.bkv, 0) as bkv_amt, coalesce(c.vsv, 0) as vsv_amt,

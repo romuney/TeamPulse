@@ -52,6 +52,7 @@ with need (sch, tbl, col) as (
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'perf_gray'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'work_day_amt'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'office_visit_amt'),
+        ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'office_emp_cnt'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'fix_work_day_amt'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'fix_office_visit_amt'),
         ('', 'all_metrics_with_performance_and_office_traffic_and_grt', 'visit_with_booking_amt'),

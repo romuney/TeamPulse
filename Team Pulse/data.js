@@ -79,6 +79,15 @@ const PER_NAME=PER_PART?(PER_C?'1 января – '+ASOF.d+' '+MONTH_GEN[ASOF.m
    «октябрь 2026»; perVal — значение в нём */
 const PER_MON=PER_PART?'1–'+ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y:monthNom(MONTHS[PER_I]);
 function perVal(lp,key){return aggregate(lp,key)[PER_I]}
+/* 11.11 (исследование посещаемости, владелец: «показать базу числом»): посещаемость считается по сотрудникам с закреплённым
+   офисом — дистанционные и ГПД в знаменатель не входят, а рядом в отчёте — вся численность. База числом: сколько людей с
+   закреплённым офисом и какая это доля численности за тот же месяц под теми же фильтрами. Нет ряда (ноутбук до 145) — null */
+function offBase(lp){
+  if(!REAL||!REAL.has||!REAL.has('obase')||!lp||!lp.length)return null;
+  const b=perVal(lp,'office_base'), hc=perVal(lp,'hc_total');
+  if(b==null||!isFinite(b))return null;
+  return {base:Math.round(b),hc:hc==null?null:Math.round(hc),pct:hc?Math.round(b/hc*1000)/10:null,mon:PER_MON};
+}
 const ASOF_LABEL=ASOF.d+' '+MONTH_GEN[ASOF.m]+' '+ASOF.y;             /* «19 октября 2026» */
 /* Поставка 106 (владелец, 06.11): разбивки и количества «с начала года» (найм, увольнения, переводы, закрытые вакансии,
    заявки «Роста») — с 1 января по дату данных, вместе с незакрытым месяцем: итог сходится с мастер-отчётом. Доли и средние
@@ -299,7 +308,7 @@ const METRICS=[
   derived:{num:'rev_up',den:'rev_eval',scale:100},
   hint:'Доля сотрудников, чья оценка в последнем ревью выше прошлой. Ревью — раз в полгода, между ними значение не меняется. '+
     'Ревью учитывается только у тех, кто по правилам ревью должен его проходить.'},
-{key:'office_att',block:'office',aud:'hq',name:'Посещаемость офиса',short:'Офис',fmt:'pct',better:'higher',unit:'%',anchor:58,hint:'Какую долю рабочих дней сотрудники провели в офисе.'},
+{key:'office_att',block:'office',aud:'hq',name:'Посещаемость офиса',short:'Офис',fmt:'pct',better:'higher',unit:'%',anchor:58,hint:'Какую долю рабочих дней сотрудники с закреплённым офисом провели в офисе.'},
 /* Качество бронирования из дашборда HQ 34136 */
 /* поставка 107 (владелец, как мастер «Посещаемость и бронирование офисов»): брони без посещения — доля броней, по которым не
    пришли; вторая доля — посещения без брони (сервисный ряд visit_nobook) — на той же вкладке */
@@ -575,6 +584,8 @@ const COUNT_METRICS=new Set(['hc_active','hc_total','hc_avg','hire','attrition',
   'bk_days','bk_noshow','bk_walkin','wday_lead','ovis_lead','wday_staff','ovis_staff',
   /* поставка 107 (база мастера): рабочие дни и посещения владельцев фиксов, посещения с бронью */
   'office_fix_wday','office_fix_ovis','bk_visit_ok',
+  /* 11.11 (исследование посещаемости): база посещаемости людьми — сотрудники с закреплённым офисом (знаменатель) */
+  'office_base',
   /* поставка 71: мониторинг по дням — люди в сегментах, суммы средних часов дня и звонков по людям */
   'mon_ab25','mon_ab5','mon_we25','mon_we5','mon_t23','mon_t35','mon_t5','mon_hrs','mon_hrn','mon_tlk',
   /* поставка 104: взвешенные суммы — часы и звонки плановых дней, плановые дни */
@@ -2715,7 +2726,7 @@ function offDays(lp){
   const m=(REAL.nodeMix&&REAL.nodeMix(at))||REAL.mix(at);
   return m&&m.dw&&Object.keys(m.dw).length&&leavesUnder(at).length===lp.length?{dw:m.dw,do:m.do||{}}:null;
 }
-const OFF_LIVE={cal:!!OFF_DAYS,seg:!!(REAL&&REAL.has('hwd')&&REAL.has('hov')),
+const OFF_LIVE={cal:!!OFF_DAYS,seg:!!(REAL&&REAL.has('hwd')&&REAL.has('hov')),base:!!(REAL&&REAL.has('obase')),
   city:!!(REAL&&Object.keys(REAL.mixVals('oc')).length),bk:!!(REAL&&REAL.has('bk')&&REAL.has('bkv')&&REAL.has('vsv')),
   /* 27.10-в, п. 14: нарушения брони по городам — ov (бронь без прихода + приход без брони), ob (с бронью + приход без) */
   vcity:!!(REAL&&Object.keys(REAL.mixVals('ov')).length),
@@ -3690,7 +3701,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */
-  mainCmp,mainVerdict,offDays,offAsof,offCityMon,PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
+  mainCmp,mainVerdict,offDays,offAsof,offCityMon,offBase,PER_DASH,chartHead,PER_I,PER_C,PER_SPAN,PER_TEXT,PER_NAME,PER_PART,PER_MON,CNT_ON,CNT_I,CNT_C,CNT_FRAC,CNT_SPAN,CNT_TEXT,CNT_NAME,perVal,PROTEUS_DASH,blockDash,fmtNum,EXIT_INITIATORS,YTD_FROM,YTD_RANGE,sumWin,
   exitReasons,exitInitiators,exitProfile,EXIT_TENURE,hiringProfile,HIRE_CHANNELS,
   planFact,PF_STATUS,rostProfile,rostHc,aiLast,aiWeeks,aiCur,AI_NW,AI_CUTS,ROST_ST,ROST_LIVE,ROST_NODE,reviewProfile,REVIEW_SCORES,REVIEW_DYN,
   TTF_MED,medianOf,ttfMedian,periodTotal,ytdTableVal,SPM_END,exitInitTurnover,specMovement,SPM_TRF,SPM_CHG,officeByCity,attByRoleLoc,ROLE_LOC,aiProfile,aiUsage,aiCombos,aiCross,AI_TOOLS,OFF_LIVE};

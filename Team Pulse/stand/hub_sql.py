@@ -67,7 +67,7 @@ SRC_COLS = (['report_month', 'mng_unit_rk', 'leaf_lvl'] + [f'lvl{i}_rk' for i in
                'hc_total_cnt', 'hc_active_cnt', 'hire_amt', 'hire_cnt', 'transfer_candidate_amt', 'transfer_internal_amt',
                'hire_specialization',
                'fire_amt', 'regret_fire_amt', 'non_regret_fire_amt', 'perf_normal', 'perf_low', 'perf_high', 'perf_gray',
-               'work_day_amt', 'office_visit_amt', 'fix_work_day_amt', 'fix_office_visit_amt', 'visit_with_booking_amt',
+               'work_day_amt', 'office_visit_amt', 'office_emp_cnt', 'fix_work_day_amt', 'fix_office_visit_amt', 'visit_with_booking_amt',
                'grt_approve_cnt', 'grt_decline_cnt',
                'gender', 'type_age', 'age', 'experience_group_nm', 'grade', 'seniority', 'employee_contract_type',
                'legal_organization', 'employee_stream', 'fire_reason_group', 'fire_initiative', 'specialization',
