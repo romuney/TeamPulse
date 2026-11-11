@@ -1822,11 +1822,6 @@ paragraphs:
            min(s.lvl10_nm::text) as n10, min(s.lvl11_nm::text) as n11
     from all_metrics_with_performance_and_office_traffic_and_grt s
     where s.report_month = (select lm from teampulse_hub_cal) and s.leaf_lvl > 0
-      -- 12.11 (бой: в дереве юниты, которых уже нет на портале): структура - по строке человека на дату данных
-      -- (last_row_flg = 1), а не по всем строкам месяца. У перешедшего в месяце строк две, и юнит, откуда он ушёл
-      -- (расформированный в середине месяца), попадал в дерево. История таких юнитов не теряется: их строки идут
-      -- по своему пути из источника (coalesce(u.cp, путь строки) в рядах и разрезах)
-      and s.last_row_flg = 1
     group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
     distributed by (unit_rk);
     drop table if exists teampulse_hub_uone;
