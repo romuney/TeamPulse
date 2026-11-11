@@ -632,9 +632,19 @@ function paintOpts(){
   const tn=D.draftCount(d.unit,d), bn=D.draftCount(D.PICK.base||D.PICK.root,d);
   const nm=(D.PICK.info(d.unit)||D.NODE_BY_PATH[d.unit]||{}).name||'';
   const rl=D.reportLeaves(d), bl=D.benchmarkLeaves(d);
+  /* 12.11 (владелец: «в настройках база — вся компания, 79 тыс., а в шапке — подразделения 30–99 чел»): база в окне — та же,
+     что в шапке: подразделения той же группы численности с теми же фильтрами (D.peerOf). Группа — по численности команды
+     с набранными фильтрами; выбор как в отчёте — группа и наличие базы из ответа датасета. Нет базы (команда меньше 30 или
+     таких подразделений мало) — «сравниваем со всей компанией», число компании — только если оно посчитано (у логина с
+     ограниченной зоной компании в справочнике нет — числа нет, а не старое число без фильтров) */
+  const teamN=tn!=null?tn:D.lastVal(rl,'hc_total');
+  const same=d.unit===S.unit&&d.paint===S.paint&&d.itSeg===S.itSeg&&d.staffType===S.staffType&&hcSig(d)===hcSig(S);
+  const pe=same?D.peerOf('turnover_y'):null, band=same?(pe?pe.band:0):D.bandN(teamN);
+  const coN=bn!=null?bn:same?D.lastVal(bl,'hc_total'):null;
   $('#benchPreview').innerHTML=(tn!=null?'После «Применить» — ваша команда: <b>':'Ваша команда: <b>')+esc(nm)+'</b>, '+
-    D.fmtVal('hc_total',tn!=null?tn:D.lastVal(rl,'hc_total'))+' чел.<br>База сравнения: <b>'+
-    esc(D.benchmarkLabel(d))+'</b>, '+D.fmtVal('hc_total',bn!=null?bn:D.lastVal(bl,'hc_total'))+' чел.';
+    D.fmtVal('hc_total',teamN)+' чел.<br>'+(band?'База сравнения: <b>подразделения '+esc(D.PEER_BAND_NAME[band])+' чел</b> — такого же размера, с теми же фильтрами.'
+      :'Подразделений такого же размера для сравнения нет'+(teamN!=null&&teamN<D.SMALL_N?' (в команде меньше '+D.SMALL_N+' человек)':'')+
+       '. Сравниваем со <b>'+esc(D.coName(d,'ins'))+'</b>'+(coN!=null?', '+D.fmtVal('hc_total',coN)+' чел.':'.'));
 }
 /* ---------- выбор метрик в модалке ----------
    Пресет только проставляет галочки: после него набор донастраивается руками,

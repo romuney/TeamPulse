@@ -3732,7 +3732,7 @@ function aiUsage(lp){
       freq:splitBy(iact,jitter(r,[0.2,0.22,0.2,0.16,0.12,0.06,0.04],0.2)).map((n,i)=>({name:AI_DAYS[i],value:n}))}};
 }
 
-window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
+window.TPDATA={REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,yoyMove,perSum,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
