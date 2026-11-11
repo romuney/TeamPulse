@@ -911,3 +911,30 @@ T-рост `rm rq rs`; посещения и брони по городам `oc 
 kids j ms mx`, лимит строк 50 000 → чарт (файл 3) → CSS (файл 4) в конец CSS дашборда → кросс-фильтр чарта на самого
 себя в JSON-метаданных дашборда (`"cross_filters_enabled": true`, у чарта в `chart_configuration` — пустой `excluded`).
 Новый датасет без нового ноутбука падает: сначала ноутбук и `to click`.
+
+## Структура: проверки 39-40 (12.11)
+
+Дерево отчёта — один в один из витрины (`all_metrics_with_performance_and_office_traffic_and_grt`, она же
+`hr_executive_proteus` с колонками перформанса, посещаемости и T-роста). Отчёт его не чинит. Если в «hub checks»
+проверка 39 или 40 не ноль, в источнике у узла несколько родителей или у юнита несколько путей. Тогда суммы
+детей и родителя в окне выбора могут не сойтись — разбираться в источнике. Список узлов:
+
+```sql
+select y.rk, max(y.nm) as unit_nm, string_agg(distinct y.pnm || ' (' || y.prk || ')', '  ||  ') as roditeli, count(*) as strok_putey
+from (
+    select a.ra[g] as rk, a.na[g] as nm, a.ra[g - 1] as prk, a.na[g - 1] as pnm
+    from (select (ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text, s.lvl5_rk::text, s.lvl6_rk::text,
+                        s.lvl7_rk::text, s.lvl8_rk::text, s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl] as ra,
+                 (ARRAY[s.lvl1_nm::text, s.lvl2_nm::text, s.lvl3_nm::text, s.lvl4_nm::text, s.lvl5_nm::text, s.lvl6_nm::text,
+                        s.lvl7_nm::text, s.lvl8_nm::text, s.lvl9_nm::text, s.lvl10_nm::text, s.lvl11_nm::text])[1:s.leaf_lvl] as na
+          from all_metrics_with_performance_and_office_traffic_and_grt s
+          where s.report_month = (select max(report_month) from all_metrics_with_performance_and_office_traffic_and_grt)
+            and s.leaf_lvl > 0) a,
+         generate_series(2, 11) g
+    where g <= array_length(a.ra, 1)
+) y
+where y.rk <> '-'
+group by y.rk
+having count(distinct y.prk) > 1
+order by 1;
+```

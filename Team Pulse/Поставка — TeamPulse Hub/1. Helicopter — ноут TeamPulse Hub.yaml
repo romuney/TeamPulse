@@ -4525,6 +4525,31 @@ paragraphs:
             where coalesce(hob_cnt, 0) + coalesce(nob_cnt, 0) <> coalesce(obase_cnt, 0)
                or coalesce(hwd_amt, 0) > coalesce(wday_amt, 0) or coalesce(hov_amt, 0) > coalesce(ovis_amt, 0)
                or coalesce(hob_cnt, 0) < 0 or coalesce(nob_cnt, 0) < 0)::float8 as val
+    union all
+    -- 39, 40 (12.11, владелец: структура - один в один из витрины; неладное в ней подсвечиваем, а не чиним в отчёте).
+    -- 39: узлы последнего месяца, у которых в строках витрины больше одного родителя (часть строк со старым путём): в
+    -- дереве такой узел встаёт под одного из родителей, а люди считаются по путям строк - суммы детей и родителя могут не
+    -- сойтись. 40: юниты с больше чем одним путём. Не ноль - разбираться в источнике (hr_executive_proteus); список узлов
+    -- - запрос в AGENT.md, раздел «Структура: проверки 39-40»
+    select 39 as n, 'структура: узлов с несколькими родителями в витрине (разобраться в источнике)'::text as check_nm, 0 as must,
+           (select count(*) from (
+                select y.rk from (
+                    select unnest(a.ra) as rk, generate_subscripts(a.ra, 1) as lv, a.ra
+                    from (select distinct (ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text, s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text, s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl] as ra
+                          from all_metrics_with_performance_and_office_traffic_and_grt s
+                          where s.report_month = (select lm from teampulse_hub_cal) and s.leaf_lvl > 0) a
+                ) y
+                where y.lv > 1 and y.rk <> '-'
+                group by y.rk
+                having count(distinct y.ra[y.lv - 1]) > 1) z)::float8 as val
+    union all
+    select 40 as n, 'структура: юнитов с несколькими путями в витрине (разобраться в источнике)'::text as check_nm, 0 as must,
+           (select count(*) from (
+                select s.mng_unit_rk
+                from all_metrics_with_performance_and_office_traffic_and_grt s
+                where s.report_month = (select lm from teampulse_hub_cal) and s.leaf_lvl > 0
+                group by s.mng_unit_rk
+                having count(distinct array_to_string((ARRAY[s.lvl1_rk::text, s.lvl2_rk::text, s.lvl3_rk::text, s.lvl4_rk::text, s.lvl5_rk::text, s.lvl6_rk::text, s.lvl7_rk::text, s.lvl8_rk::text, s.lvl9_rk::text, s.lvl10_rk::text, s.lvl11_rk::text])[1:s.leaf_lvl], '|')) > 1) z)::float8 as val
     distributed randomly;
 
     select n, check_nm, val,
