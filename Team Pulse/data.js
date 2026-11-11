@@ -866,6 +866,24 @@ const PICK=REAL?REAL.pick:{
       kids:childrenOf(p).filter(x=>!x.direct).length}:null},
   all:()=>NODES.filter(n=>!n.direct).map(n=>n.path)
 };
+/* 11.11, владелец: технический верхний уровень (у корня справочника один-единственный потомок, и так вниз) в отчёте не
+   показываем нигде — ни в пути, ни в «Уровнем выше», ни в дереве выбора, ни в поиске. Верхний уровень отчёта — первый узел,
+   где разбивка есть (TOP). Определяется по полному справочнику (PICK), а не по узлам ответа: у ответа по глубокому юниту
+   предки загружены цепочкой, и каждый из них «с одним потомком». Ноутбук и так открывает отчёт на этом узле (meta def_rk) */
+function techOf(P){
+  const t=new Set();let r='T';
+  if(!P||!P.info||!P.info('T'))return {tech:t,top:r};
+  for(let g=0;g<6;g++){const k=P.kids(r);if(k.length!==1)break;t.add(r);r=k[0]}
+  return {tech:t,top:r};
+}
+const TECH=techOf(PICK).tech, TOP=techOf(PICK).top;
+(function(){
+  if(!TECH.size)return;
+  /* дерево выбора начинается с TOP; PICK.root (корень справочника или зоны доступа) не трогаем — по нему считается база */
+  PICK.roots=(PICK.roots||[PICK.root]).map(x=>TECH.has(x)?TOP:x).filter((x,i,a)=>a.indexOf(x)===i);
+  const all=PICK.all;PICK.all=()=>all().filter(p=>!TECH.has(p));
+})();
+const isTech=p=>TECH.has(p);
 /* d — ключи состояния (paint, itSeg, staffType, hcType, hcSet); null — посчитать нельзя (прежний датасет без fd) */
 function draftCount(p,d){
   if(REAL)return REAL.pick.count(p,{paint:REAL.filterValue('paint',d.paint),it:REAL.filterValue('itSeg',d.itSeg),
@@ -1679,7 +1697,7 @@ function fmtDelta(key,v){
 /* ---------- Дефолтный state ---------- */
 /* В пробнике юнит и фильтры — те, что применил датасет (эхо в meta): отчёт
    показывает ровно то, что пришло, а не то, что хотелось бы. */
-const DEFAULT_STATE={unit:REAL?REAL.scopePath:'T/01',paint:REAL?REAL.applied.paint:'HQ',
+const DEFAULT_STATE={unit:REAL?(TECH.has(REAL.scopePath)?TOP:REAL.scopePath):'T/01',paint:REAL?REAL.applied.paint:'HQ',
   itSeg:REAL?REAL.applied.itSeg:'all',staffType:REAL?REAL.applied.staffType:'all',
   hcType:REAL?REAL.applied.hcType:'active',hcSet:REAL?REAL.applied.hcSet:[],period:PERIOD_LABEL,
   tab:'onepager',subTab:null,selNode:null,aiOpen:false,
@@ -3452,13 +3470,17 @@ function officeReal(lp,seg,city){
   const att=(v,w)=>{const W=perVal(lp,w);return W?+(perVal(lp,v)/W*100).toFixed(1):0};
   const segs=OFF_LIVE.seg?[{key:'lead',name:'Руководители',hc:lead,att:att('ovis_lead','wday_lead')},
     {key:'staff',name:'Сотрудники',hc:hcAll-lead,att:att('ovis_staff','wday_staff')}]:[];
-  const sg=seg?segs.find(x=>x.key===seg)||null:null;
+  /* 11.11, владелец: «владельцы фиксов не пересчитывают динамику» — фиксы выбираются как сегмент: динамика — их посещаемость
+     (office_fix), таблицы городов — без разбивки по ним (у городов разреза по фиксам нет) */
+  const fix=OFF_LIVE.fix&&perVal(lp,'office_fix_wday')?{att:+perVal(lp,'office_fix').toFixed(1),wd:Math.round(perVal(lp,'office_fix_wday'))}:null;
+  const sg=seg==='fix'?(fix?{key:'fix',name:'Владельцы фиксов',att:fix.att}:null):seg?segs.find(x=>x.key===seg)||null:null;
+  const sgc=sg&&sg.key!=='fix'?sg:null;
   const oc=realExit(lp,'oc'), op=realExit(lp,'ocp'), ol=realExit(lp,'ocl'), opl=realExit(lp,'ocpl');
   const cross=!!REAL.mixVals&&Object.keys(REAL.mixVals('ocpl')||{}).length>0&&OFF_LIVE.seg;
-  const pick=(all,ld)=>k=>!cross||!sg?all[k]||0:sg.key==='lead'?ld[k]||0:Math.max(0,(all[k]||0)-(ld[k]||0));
+  const pick=(all,ld)=>k=>!cross||!sgc?all[k]||0:sgc.key==='lead'?ld[k]||0:Math.max(0,(all[k]||0)-(ld[k]||0));
   /* поставка 107 (как мастер): посещаемость города = посещения ÷ рабочие дни города (ocd — рабочие дни людей с закреплённым
      офисом этого города); по сегменту рабочих дней города нет — тогда у города только посещения */
-  const od=OFF_LIVE.ocd&&!(cross&&sg)?realExit(lp,'ocd'):null;
+  const od=OFF_LIVE.ocd&&!(cross&&sgc)?realExit(lp,'ocd'):null;
   const vis=pick(oc,ol), ppl=pick(op,opl), tot0=Object.keys(oc).reduce((a,k)=>a+vis(k),0);
   const keys=Object.keys(Object.assign({},oc,od||{})).filter(k=>vis(k)>0||od&&od[k]>0), tot=tot0;
   const cities=keys.map(k=>({name:k||NONE_NAME,raw:k,visits:Math.round(vis(k)),people:Math.round(ppl(k)),
@@ -3471,8 +3493,7 @@ function officeReal(lp,seg,city){
        за тот же месяц (доля рабочих дней в офисе этого города; по всем городам в сумме — посещаемость сегмента) */
     const V={lead:ol[c.raw]||0,staff:Math.max(0,(oc[c.raw]||0)-(ol[c.raw]||0))}, W={lead:perVal(lp,'wday_lead'),staff:perVal(lp,'wday_staff')};
     segs.forEach(s=>{s.att=W[s.key]?+(V[s.key]/W[s.key]*100).toFixed(1):0;s.hc=c.people[s.key]})}
-  /* поставка 107: владельцы фиксов — посещаемость тех, у кого фиксированное место (как в мастере) */
-  const fix=OFF_LIVE.fix&&perVal(lp,'office_fix_wday')?{att:+perVal(lp,'office_fix').toFixed(1),wd:Math.round(perVal(lp,'office_fix_wday'))}:null;
+  /* поставка 107: владельцы фиксов — посещаемость тех, у кого фиксированное место (как в мастере); fix — выше */
   /* поставка 136, п. 19 (владелец: «выбор города не меняет динамику»): ряд выбранного города по месяцам — посещения в
      офисах города ÷ рабочие дни людей с закреплённым офисом этого города (ocm ÷ ocdm, как посещаемость города за месяц).
      Ряды города есть у подразделения из фильтра; у строки таблицы и вместе с сегментом — нет (cityDyn:false, экран
@@ -3483,7 +3504,7 @@ function officeReal(lp,seg,city){
     if(vm&&wm&&whole)cy=yoyOf(MONTHS_EXT.map(mm=>{const k=c.raw+'|'+mm.y+'-'+(mm.m<9?'0':'')+(mm.m+1), w=wm[k]||0;return w?+((vm[k]||0)/w*100).toFixed(1):null}));
   }
   return {real:true,cross:cross,segs:segs,cities:cities,cityAtt:!!od,fix:fix,seg:sg,city:c,att:sg?sg.att:perVal(lp,'office_att')||0,factor:1,
-    cityDyn:!!cy,yser:cy||(sg?yoySeries(lp,sg.key==='lead'?'office_lead':'office_staff'):null)};
+    cityDyn:!!cy,yser:cy||(sg?yoySeries(lp,sg.key==='lead'?'office_lead':sg.key==='fix'?'office_fix':'office_staff'):null)};
 }
 
 /* ---------- AI: инструменты и стримы ----------
@@ -3693,7 +3714,7 @@ window.TPDATA={REAL,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_
   childrenOf,descendantsOf,leavesUnder,ancestorsOf,levelLabel,passRoot,
   leafPasses,reportLeaves,benchmarkLeaves,benchmarkLabel,filterChips,BASE_DEF,baseLead,baseBounds,coName,
   metricSeries,reasonSeries,aggregate,lastVal,compareState,stateForKpi,deltaState,kpiFor,comparable,
-  setVerdictScope,isSmall,isSmallHq,turnLow,turnMin,TURN_MIN,TURN_LOW_NOTE,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
+  TECH,TOP,isTech,techOf,setVerdictScope,isSmall,isSmallHq,turnLow,turnMin,TURN_MIN,TURN_LOW_NOTE,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
   fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,

@@ -54,8 +54,10 @@ function attendReal(ctx,x,lbl,attTbl){
   const segTbl=attTbl('Сегмент',(cc?x.city.name+' · ':'')+D.PER_MON,x.segs.filter(s=>cc||s.hc>0).map(s=>({name:s.name,
       note:D.fmtInt(s.hc)+' чел'+(cc?' в офисе':''),
       value:s.att,color:G.C_OFFICE,on:S.offSeg===s.key,attr:'data-offseg="'+esc(s.key)+'"',
-      attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})).concat(x.fix&&!cc&&!x.seg?[{name:'Владельцы фиксов',
-      note:'фиксированное место · '+D.fmtInt(x.fix.wd)+' раб. дней',value:x.fix.att,color:G.C_OFFICE}]:[]),'Сравнение сегментов');
+      attrTip:'Клик — динамика посещаемости и города только у «'+s.name+'».'})).concat(x.fix&&!cc?[{name:'Владельцы фиксов',
+      note:'фиксированное место · '+D.fmtInt(x.fix.wd)+' раб. дней',value:x.fix.att,color:G.C_OFFICE,
+      /* 11.11: фиксы выбираются, как сегмент, — динамика пересчитывается по ним */
+      on:S.offSeg==='fix',attr:'data-offseg="fix"',attrTip:'Клик — динамика посещаемости только у владельцев фиксов.'}]:[]),'Сравнение сегментов');
   /* поставка 128 (аудит: выбран город — таблицы по нему, а динамика та же, без подписи): помесячной посещаемости по городам в
      данных нет (у рабочего дня нет города) — динамика по всем городам, так и подписано */
   return SC.metricLine('office_att',ctx.lp,ctx.bl,S,{ann:lbl?null:ctx.ann.office_att,yser:x.yser,h:260,fill:false,
@@ -102,7 +104,7 @@ SC.blocks.office={
   /* выбор вкладки «Кто и где ходит» — пилюлями в шапке карточки графиков (поставка 82) */
   shelfChips(S){
     if(S.subTab!=='attend')return [];
-    const seg=S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[], tip='Динамика и таблицы — по выбору.';
+    const seg=S.offSeg==='fix'?{key:'fix',name:'Владельцы фиксов'}:S.offSeg?D.OFF_SEGS.find(x=>x.key===S.offSeg):null, chips=[], tip='Динамика и таблицы — по выбору.';
     /* поставка 128: на настоящих данных город динамику не меняет (по городам помесячно данных нет) — так и в подсказке */
     const real=!!S.offCity&&D.officeCross(D.reportLeaves(S),null,null).real;
     if(seg)chips.push({dim:'Сегмент',cat:seg.name,attr:'data-offseg="'+esc(seg.key)+'"',tip:tip});

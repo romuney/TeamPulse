@@ -2036,6 +2036,25 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /tp_nav_mini/.test(app)&&css.includes('.nav-mini.nav{width:64px;flex:0064px;')&&css.includes('.nav-mini.nav-i.ni-t')]);
 }
 
+/* 11.11, владелец: технический верхний уровень (у корня один потомок) в отчёте не показываем — отчёт начинается с первого
+   уровня, где есть разбивка */
+{
+  const tree={'T':['T/a'],'T/a':['T/a/x','T/a/y'],'T/a/x':[],'T/a/y':[]}, P={info:p=>tree[p]?{}:null,kids:p=>tree[p]||[]};
+  const r=D.techOf(P), r0=D.techOf({info:p=>p==='T'?{}:null,kids:()=>['T/1','T/2']});
+  checks.push(['11.11: технический верхний уровень скрыт — отчёт начинается с первого уровня с разбивкой',
+    r.top==='T/a'&&r.tech.has('T')&&r.tech.size===1&&r0.top==='T'&&!r0.tech.size&&!D.isTech(A.st().unit)]);
+}
+
+/* 11.11, владелец: «Как читать отчёт» — интерактивный тур, как в HRBP HUB, а не окно с текстом */
+{
+  const html=fs.readFileSync(path.join(dir,'index.html'),'utf8'), app=fs.readFileSync(path.join(dir,'app.js'),'utf8');
+  const sels=(app.match(/function tourSteps[\s\S]*?\n}\n/)||[''])[0].match(/sel:'[^']+'/g)||[];
+  checks.push(['11.11: «Как читать отчёт» — интерактивный тур (затемнение, рамка, карточка, «Показать»), окна-справки нет',
+    !/id="helpOvl"/.test(html)&&/id="btnHelp"/.test(html)&&/if\(t\.closest\('#btnHelp'\)\)\{tourStart\(/.test(app)&&
+    sels.length>=18&&/drawer:true/.test(app)&&/demo:true/.test(app)&&/data-tact="nexttab"|'nexttab':'next'/.test(app)&&
+    css.includes('.tr-sh{position:fixed;')&&css.includes('.tr-ring{position:fixed;')]);
+}
+
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});
 
 console.log();

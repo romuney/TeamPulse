@@ -2727,3 +2727,32 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
   .nav-mini .pulse-dock .pd-ic{display:inline-flex;color:var(--muted)}
   .nav-mini .pulse-panel{left:76px}
 }
+
+/* ---------- Тур «Как читать отчёт» (11.11, как в HRBP HUB) ----------
+   Четыре шторки вокруг цели затемняют всё, кроме неё, и не пропускают клики мимо; пятая ложится на цель, если та «только
+   смотреть»; рамка цели; карточка со стрелкой; курсор показа. Слой — fixed поверх отчёта и окна настройки */
+.tr-layer{display:none}
+.tr-sh{position:fixed;left:0;top:0;width:0;height:0;z-index:9990;background:rgba(17,24,39,.62);transition:left .2s,top .2s,width .2s,height .2s}
+.tr-ring{position:fixed;z-index:9991;border-radius:10px;box-shadow:0 0 0 2px var(--blue),0 0 0 6px rgba(43,108,255,.22);pointer-events:none;
+  transition:left .2s,top .2s,width .2s,height .2s}
+.tr-card{position:fixed;z-index:9992;width:min(340px,calc(100vw - 24px));background:#fff;border-radius:var(--r4);box-shadow:var(--shadow-lg);
+  padding:14px 16px 12px;font-size:var(--fs-body);color:var(--ink2);line-height:1.45}
+.tr-arr{position:absolute;display:none;width:10px;height:10px;background:#fff;transform:rotate(45deg)}
+.tr-arr.tr-a-bottom{display:block;top:-5px}.tr-arr.tr-a-top{display:block;bottom:-5px}
+.tr-arr.tr-a-right{display:block;left:-5px}.tr-arr.tr-a-left{display:block;right:-5px}
+.tr-ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.tr-cs{font-size:var(--fs-note);color:var(--muted)}
+.tr-x{border:0;background:transparent;color:var(--muted);cursor:pointer;width:24px;height:24px;border-radius:6px;font-size:12px}
+.tr-x:hover{background:#f1f4f9;color:var(--ink)}
+.tr-ct{font-size:15px;font-weight:var(--fw-bold);color:var(--ink);margin-bottom:4px}
+.tr-cx b{color:var(--ink)}
+.tr-hint{margin-top:8px;font-size:var(--fs-note);color:var(--muted)}
+.tr-cf{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.tr-cf .btn{height:30px;padding:0 12px}
+.tr-cf .btn:first-child{margin-right:auto}
+.tr-ul{margin:6px 0 0;padding-left:18px}.tr-ul li{margin:0 0 6px}
+.tr-pl{display:inline-block;border-radius:var(--r-pill);padding:0 7px;margin:0 3px 2px 0;font-size:var(--fs-note);line-height:18px}
+.tr-pl.good{background:#dcf5e5;color:#1f7a45}.tr-pl.bad{background:#fde2e2;color:#b42318}.tr-pl.neu{background:#eef1f5;color:var(--ink2)}
+.tr-cur{position:fixed;z-index:9993;display:none;left:0;top:0;pointer-events:none;
+  transition:left .65s cubic-bezier(.3,.7,.2,1),top .65s cubic-bezier(.3,.7,.2,1);filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
+.tr-clk{position:fixed;z-index:9993;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:2px solid var(--blue);pointer-events:none;opacity:0}

@@ -88,7 +88,7 @@ function readURL(){
   if(mxr&&D.MIX_BY_KEY[mxr])S.mixRows=mxr;
   if(mxc!=null)S.mixCols=D.MIX_BY_KEY[mxc]?mxc:'';
   if(mxm&&['abs','row','col'].indexOf(mxm)>=0)S.mixMode=mxm;
-  if(!D.NODE_BY_PATH[S.unit])S.unit=D.DEFAULT_STATE.unit;
+  if(!D.NODE_BY_PATH[S.unit]||D.isTech(S.unit))S.unit=D.DEFAULT_STATE.unit;
 }
 /* в Proteus адресной строки у чарта нет: состояние живёт в TP_ENV.store */
 function writeURL(){if(ENV)return;history.replaceState(null,'','?'+urlParams().toString())}
@@ -130,7 +130,8 @@ function unitId(p){
 function defUnit(){
   if(!D.REAL)return D.DEFAULT_STATE.unit;
   const p=D.REAL.pick&&D.REAL.pick.path?D.REAL.pick.path(D.REAL.defId||D.REAL.rootId):null;
-  return p||(D.REAL.pick&&D.REAL.pick.root)||'T';
+  const u=p||(D.REAL.pick&&D.REAL.pick.root)||'T';
+  return D.isTech(u)?D.TOP:u;
 }
 function curReq(){return {unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType,hcSet:(S.hcSet||[]).slice()}}
 /* подпись типа численности: набор по умолчанию, все или свой набор (строчными, по алфавиту) */
@@ -260,8 +261,6 @@ function arrive(){
   const bl=$('#btnLink');if(bl)bl.style.display='none';
   ROOTEL.classList.add('tp-pilot');
   const lg=$('.logo small');if(lg)lg.textContent='Hub · пробник';
-  const ph=$('#planHost');
-  if(ph)ph.innerHTML=U.planTable(D.DEV_PLAN);
   return pend?(STORE.pending?'stale':true):false;
 }
 /* Чипы пробника в шапке: ожидание ответа, предупреждение и что здесь живое */
@@ -293,7 +292,8 @@ function pilotChips(){
 /* ---------- шапка и навигация ---------- */
 function renderHead(){
   /* поставка 69: выше зоны доступа — нельзя: предок корня зоны (anc) не кнопка и не «Уровнем выше» */
-  const n=D.NODE_BY_PATH[S.unit], par0=D.NODE_BY_PATH[n.parent], par=par0&&!par0.anc?par0:null;
+  /* 11.11: технический верхний уровень (D.TECH) — ни в пути, ни в «Уровнем выше» */
+  const n=D.NODE_BY_PATH[S.unit], par0=D.NODE_BY_PATH[n.parent], par=par0&&!par0.anc&&!D.isTech(par0.path)?par0:null;
   const pp=unitBack[unitBack.length-1];
   const prev=D.NODE_BY_PATH[pp]||(pp&&unitNames[pp]?{name:unitNames[pp]}:null);
   /* «← Назад» и «↑ Уровнем выше» стоят перед путём: путь отвечает «где я»,
@@ -302,7 +302,7 @@ function renderHead(){
       text:'Вернуться к «'+prev.name+'».'})+'>← Назад</button>':'')+
     (par?'<button class="nb" data-crumb="'+par.path+'"'+U.tipAttr({title:'Уровнем выше',
       text:'Перейти к «'+par.name+'».'})+'>↑ Уровнем выше</button>':'');
-  $('#crumbs').innerHTML=(nav?'<span class="nbs">'+nav+'</span>':'')+D.ancestorsOf(S.unit).map((a,i,arr)=>
+  $('#crumbs').innerHTML=(nav?'<span class="nbs">'+nav+'</span>':'')+D.ancestorsOf(S.unit).filter(a=>!D.isTech(a.path)).map((a,i,arr)=>
     i===arr.length-1
       ? '<span>'+esc(a.name)+'</span>'
       : (a.anc?'<span>'+esc(a.name)+'</span>':'<button data-crumb="'+a.path+'">'+esc(a.name)+'</button>')+'<span class="sep">/</span>'
@@ -436,13 +436,6 @@ function mountStaticMascots(){
   if(tl)tl.innerHTML='<div class="ld-f">'+M.img('setup',52)+M.img('base',52)+M.img('ok',52)+'</div>'+
     '<div class="ld-c"><span>Собираем данные…</span><span>Считаем метрики…</span><span>Готовим выводы…</span></div>'+
     '<div class="ld-n" id="tpLoadN"></div>';
-  const htp=$('#helpTopPulse');
-  if(htp)htp.innerHTML=M.img('point',54);
-  /* В справке огонёк остаётся только в шапке модалки: в разводке внизу
-     он был вторым портретом в одном окне и отвлекал от текста правила. */
-  const hp=$('#helpPulse');
-  if(hp)hp.innerHTML=
-    '<span>Здесь — как читать весь отчёт. Что значит конкретная метрика, подскажет <b>Пульс</b> внизу слева.</span>';
 }
 
 /* ---------- модалка настройки ---------- */
@@ -527,7 +520,7 @@ function utListHTML(){
   hits.sort((a,b)=>a.rank-b.rank||a.i.name.localeCompare(b.i.name,'ru'));
   return hits.slice(0,80).map(h=>{
     const chain=h.p.split('/'), names=[];
-    for(let k=Math.max(1,chain.length-4);k<chain.length;k++){const x=P.info(chain.slice(0,k).join('/'));if(x)names.push(x.name)}
+    for(let k=Math.max(1,chain.length-4);k<chain.length;k++){const q=chain.slice(0,k).join('/'), x=D.isTech(q)?null:P.info(q);if(x)names.push(x.name)}
     return utRow(h.p,h.i,null,'<span class="ut-sp"></span>',{name:h.byHead?esc(h.i.name):utHl(h.i.name,q),
       path:names.join(' › '),q:h.byHead?q:''});
   }).join('')+(hits.length>80?'<div class="ut-none">Показаны 80 из '+hits.length+' — уточните запрос</div>':'');
@@ -931,7 +924,7 @@ on(document,'click',e=>{
   if(pulseOpen&&!t.closest('#pulsePanel')&&!t.closest('#pulseDock'))pulse(false);
   if(t.closest('#pulseDock')){pulse(!pulseOpen);return}
   if(t.closest('#pulseClose')){pulse(false);return}
-  if(t.closest('#pulseToHelp')){pulse(false);$('#helpOvl').classList.remove('hidden');return}
+  if(t.closest('#pulseToHelp')){pulse(false);tourStart(S.tab==='onepager'?'onepager':'block');return}
 
   /* модалки и кнопки шапки */
   if(t.closest('#btnSetup')){openSetup();return}
@@ -947,11 +940,10 @@ on(document,'click',e=>{
     $('#btnLink').textContent='Ссылка скопирована';
     setTimeout(()=>$('#btnLink').textContent='Скопировать ссылку',1600);return;
   }
-  if(t.closest('#btnHelp')){$('#helpOvl').classList.remove('hidden');return}
-  if(t.closest('#btnHelpClose')){$('#helpOvl').classList.add('hidden');return}
+  /* 11.11: «Как читать отчёт» — интерактивный тур по текущей вкладке (был текст справки) */
+  if(t.closest('#btnHelp')){tourStart(S.tab==='onepager'?'onepager':'block');return}
   if(t.id==='setupOvl'){closeSetup();return}
   /* детализация переводов (поставка 63) */
-  if(t.id==='helpOvl'){$('#helpOvl').classList.add('hidden');return}
   if(t.closest('#navToggle')){navOpen(!$('#sideNav').classList.contains('open'));return}
   /* 11.11: свернуть / развернуть панель до значков — выбор запоминается; графики перемеряются под новую ширину */
   if(t.closest('#navMini')){
@@ -1227,9 +1219,15 @@ on(document,'keydown',e=>{
   if(e.key==='Escape'&&tq&&e.target.matches&&e.target.matches('[data-tsearch]')){searchInput('',0);return}
   /* Escape (файл «Структура»): сначала выход из полноэкранного конструктора, потом — сброс
      всех срезов состава; окна и меню закрываются, как раньше */
+  /* тур: Esc — закрыть, ← → — шаги */
+  if(TOUR){
+    if(e.key==='Escape'){tourEnd();return}
+    if(e.key==='ArrowRight'){tourAct('next');e.preventDefault();return}
+    if(e.key==='ArrowLeft'){tourAct('back');e.preventDefault();return}
+  }
   if(e.key==='Escape'){
-    const ovl=!$('#setupOvl').classList.contains('hidden')||!$('#helpOvl').classList.contains('hidden');
-    closeSetup();$('#helpOvl').classList.add('hidden');navOpen(false);pulse(false);
+    const ovl=!$('#setupOvl').classList.contains('hidden');
+    closeSetup();navOpen(false);pulse(false);
     if(!ovl&&S.mxFull){S.mxFull=false;render(true);return}
     /* мониторинг: Escape снимает выбор строки таблицы */
     if(!ovl&&S.tab==='monitor'&&S.selNode){S.selNode=null;render(true);return}
@@ -1246,7 +1244,6 @@ mountStaticMascots();
 /* ?tour=0 читаем ДО первого рендера: render() переписывает адрес своими
    параметрами, и после него флага в location.search уже нет — справка
    открывалась поверх скриншота, хотя её просили не показывать. */
-const noTour=ENV?true:location.search.indexOf('tour=0')>=0;
 readURL();
 /* перезапуск без нового запроса (ресайз, перерисовка) — тот же вид на том же месте, без анимации */
 const pend0=ENV&&arrive(), back=ENV&&(!pend0||pend0==='stale')&&STORE.scroll;
@@ -1257,11 +1254,225 @@ if(back&&back.k===viewKey()){
   stickTotals();
 }
 
-/* первый вход: справка «Как читать отчёт» работает онбордингом.
-   ?tour=0 — не показывать: нужно, чтобы скриншот сразу показывал отчёт. */
-try{
-  if(!localStorage.getItem('tp_onboarded')&&!noTour){
-    $('#helpOvl').classList.remove('hidden');
-    $('#btnHelpClose').addEventListener('click',()=>localStorage.setItem('tp_onboarded','1'),{once:true});
+/* ---------- Тур «Как читать отчёт» (11.11, владелец: «как в HRBP HUB — интерактивный гид, а не стена текста») ----------
+   Экран затемняется, нужный элемент — в синей рамке, рядом карточка со стрелкой: что это и что будет по клику; «Назад /
+   Далее», ✕, Esc, стрелки ← →. Шаг «нажми — будет» (demo): «Показать» нажимает цель тем же обработчиком, что и мышь, —
+   или пользователь нажимает сам, и тур идёт дальше. lock — подсвеченное только показываем (клик не проходит). drawer —
+   шаг внутри окна «Настрой свой дашборд»: тур сам открывает и закрывает окно. Цели нет (нет строк, скрытый блок) — шаг
+   пропускается. Тур One-pager в конце ведёт в тур вкладки блока. Слой тура — в корне отчёта, вне #view: перерисовка
+   экрана его не стирает. */
+let TOUR=null, tourEl=null;
+const TOUR_NAME={onepager:'One-pager',block:'Вкладка блока'};
+function tourIntro(){
+  const pl=(c,t)=>'<span class="tr-pl '+c+'">'+t+'</span>';
+  return '<ul class="tr-ul">'+
+    '<li>Числа — <b>с 1 января по '+esc(D.ASOF_LABEL||'дату данных')+'</b>, против того же периода прошлого года.</li>'+
+    '<li>Цвет — оценка: '+pl('good','лучше')+pl('bad','хуже')+pl('neu','на уровне или без оценки')+'. Численность, найм и переводы не окрашиваем: больше — не значит лучше.</li>'+
+    '<li>С чем сравниваем: где есть цель KPI — с ней, иначе — с подразделениями похожего размера («база») или со всей компанией с теми же фильтрами.</li>'+
+    '<li>Подразделение, фильтры и метрики — в «Настрой свой дашборд». Наведите на число или ⓘ — подсказка объяснит, что это и как посчитано.</li></ul>';
+}
+function tourSteps(v){
+  const st=[], add=o=>{if(o.need===undefined||o.need)st.push(o)};
+  if(v==='onepager'){
+    add({intro:true,title:'TeamPulse за минуту',html:tourIntro()});
+    add({sel:'#sideNav',title:'Разделы отчёта',html:'<b>One-pager</b> — главное на одном экране, ниже — блоки метрик с подробностями. '+
+      'Точка на значке — сигнал блока: красная — есть что разбирать. Кнопка сверху сворачивает панель до значков.'});
+    add({sel:'#crumbs',lock:true,title:'Где вы',html:'Путь к подразделению: клик по уровню — перейти к нему, «↑ Уровнем выше» — к родителю.'});
+    add({sel:'#chips',lock:true,title:'Фильтры и сравнение',html:'Применённые фильтры (× снимает фильтр), с чем сравниваем и тип численности. '+
+      '«О данных» — какие числа настоящие и по какую дату.'});
+    add({sel:'#btnSetup',demo:true,done:()=>!$('#setupOvl').classList.contains('hidden'),title:'Настрой свой дашборд',
+      html:'Подразделение, фильтры и метрики — в одном окне.',hint:'Нажмите на подсвеченную кнопку или «Показать».'});
+    add({sel:'#setupOvl .sc-org',drawer:true,lock:true,title:'Управленческая структура',
+      html:'Дерево подразделений с поиском по названию, имени и логину руководителя. Справа — сколько людей попадёт в выбор с текущими фильтрами.'});
+    add({sel:'#setupOvl .sc-flt',drawer:true,lock:true,title:'Фильтры',
+      html:'Тип численности, покраска, IT, штат. Фильтры задают и вашу команду, и базу сравнения; внизу — кто получится после «Применить».'});
+    add({sel:'#setupOvl .sc-met',drawer:true,lock:true,title:'Метрики',
+      html:'Какие метрики показывать: наборы сверху или флажки по одной. Выключенные пропадут из One-pager, карточек и таблиц.'});
+    add({sel:'#setupOvl .modal-f',drawer:true,lock:true,title:'Применить',
+      html:'«Применить» пересчитывает отчёт, «Отмена» закрывает окно без изменений, «Сбросить фильтры» возвращает как по умолчанию.'});
+    add({sel:'.op-h',title:'Главное на дату данных',html:'Ниже — выводы по подразделению. Как они отобраны — в ⓘ под заголовком.'});
+    add({sel:'#view .in-card',title:'Карточка вывода',html:'Статус (требует действий, посмотреть, хорошая новость), главная цифра, с чем сравнили, '+
+      'где это происходит и что сделать. Ссылка внизу открывает нужный блок.'});
+    add({sel:'#view .in-sumrow',title:'Остальное — одной строкой',html:'Сколько метрик в норме и сколько — для справки, без оценки. Клик — список.'});
+    add({sel:'#view .op-nav',title:'Блоки на странице',html:'Переход к таблице блока ниже. Цифра — сколько в блоке выводов.'});
+    add({sel:'#view tr.mrow',demo:true,at:'left',done:()=>openRows.size>0,title:'Метрика',
+      html:'Строка — метрика за период, изменение за месяц и год к году, 12 месяцев и ориентир. Нажмите — откроется её динамика.',
+      hint:'Нажмите на подсвеченную строку или «Показать».'});
+    add({sel:'#view tr.detail-row .op-stc',title:'Этот год и прошлый',html:'Синяя линия — этот год, серая — прошлый, пунктир — ориентир. '+
+      'Цифры в кружках — точки из «Что видно» справа: наведите на пункт — точка подсветится.'});
+    add({sel:'#view tr.detail-row .op-sts',title:'Что видно и о метрике',html:'Главное по метрике и как она считается.'});
+    add({sel:'#pulseDock',last:true,next:'block',title:'Словарь метрик',html:'Все метрики текущей вкладки: что значит, как считаем, что лучше — выше или ниже.'});
+  }else{
+    add({sel:'#view .bk-top',title:'Вывод блока',html:'Главное по блоку одной фразой: статус, числа и что сделать.'});
+    add({sel:'#view .split .panel',title:'Подразделения',html:'«Итого» — ваше подразделение, ниже — три уровня под ним (▸ раскрывает строку). '+
+      'Клик по строке — графики справа покажут только её. Поиск — по названию и логину.'});
+    add({sel:'#view .st-steps',title:'Вопросы блока',html:'Блок разбит на вопросы: «Сколько?», «Почему?», «Кто?». Переключайте — справа ответ на выбранный.'});
+    add({sel:'#view .st-head',title:'Ответ',html:'Заголовок — главный вывод шага, ниже — числа. «Зачем смотреть» и «Что с этим делать» — как читать и что предпринять.'});
+    add({sel:'#view .st-main .svgchart, #view .st-main .pf-s, #view .st-main table',title:'Графики и таблицы',
+      html:'На графиках синяя линия — этот год, серая — прошлый, пунктир — цель или база. Наведите — значения месяца; клик по легенде '+
+      'прячет ряд. Строки таблиц кликаются — выбор пересчитывает соседние.'});
+    add({sel:'#view .ph-row .btn',last:true,title:'Детальный дашборд',html:'Тот же блок в полном дашборде Proteus — для глубокого разбора.'});
   }
-}catch(e){}
+  return st;
+}
+function tourLayer(){
+  if(tourEl&&tourEl.parentNode)return tourEl;
+  const host=ENV&&ENV.root?ENV.root:document.body;
+  tourEl=document.createElement('div');
+  tourEl.className='tr-layer';
+  tourEl.innerHTML=['t','b','l','r','h'].map(k=>'<div class="tr-sh" data-tb="'+k+'"></div>').join('')+
+    '<div class="tr-ring"></div><div class="tr-card" role="dialog" aria-modal="true" aria-label="Как читать отчёт"></div>'+
+    '<span class="tr-clk"></span><span class="tr-cur"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">'+
+    '<path d="M5 2.5v16.2l4.3-4.1 2.9 6.6 2.6-1.1-2.9-6.5h6z" fill="#1f2530" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg></span>';
+  host.appendChild(tourEl);
+  tourEl.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-tact]');if(b)tourAct(b.getAttribute('data-tact'))});
+  return tourEl;
+}
+const tourQ=c=>tourEl?tourEl.querySelector('.'+c):null;
+function tourEls(step){
+  if(!step||!step.sel)return [];
+  const el=$(step.sel);
+  if(!el)return [];
+  const r=el.getBoundingClientRect();
+  return r.width>0&&r.height>0?[el]:[];
+}
+function tourBox(el,l,t,w,h){el.style.left=Math.round(l)+'px';el.style.top=Math.round(t)+'px';
+  el.style.width=Math.max(0,Math.round(w))+'px';el.style.height=Math.max(0,Math.round(h))+'px'}
+/* карточка — со стороны, где помещается (снизу, сверху, справа, слева); стрелка смотрит в центр цели */
+function tourPlace(r){
+  const card=tourQ('tr-card'), arr=card&&card.querySelector('.tr-arr');
+  if(!card||!arr)return;
+  const W=window.innerWidth, H=window.innerHeight, m=12, g=14, cw=card.offsetWidth, ch=card.offsetHeight;
+  let side='', left, top;
+  if(!r){left=(W-cw)/2;top=Math.max(m,(H-ch)/2)}
+  else{
+    const cx=(r.l+r.r)/2, cy=(r.t+r.b)/2;
+    const fits={bottom:r.b+g+ch<=H-m,top:r.t-g-ch>=m,right:r.r+g+cw<=W-m,left:r.l-g-cw>=m};
+    side=['bottom','top','right','left'].find(s=>fits[s])||'';
+    if(side==='bottom'){top=r.b+g;left=cx-cw/2}
+    else if(side==='top'){top=r.t-g-ch;left=cx-cw/2}
+    else if(side==='right'){left=r.r+g;top=cy-ch/2}
+    else if(side==='left'){left=r.l-g-cw;top=cy-ch/2}
+    else{left=W-cw-m;top=H-ch-m}
+  }
+  left=Math.max(m,Math.min(left,W-cw-m));top=Math.max(m,Math.min(top,H-ch-m));
+  card.style.left=Math.round(left)+'px';card.style.top=Math.round(top)+'px';
+  arr.className='tr-arr'+(side?' tr-a-'+side:'');
+  if(side==='bottom'||side==='top'){arr.style.left=Math.round(Math.max(14,Math.min(cw-24,(r.l+r.r)/2-left-5)))+'px';arr.style.top=''}
+  else if(side){arr.style.top=Math.round(Math.max(14,Math.min(ch-24,(r.t+r.b)/2-top-5)))+'px';arr.style.left=''}
+}
+/* шторки, рамка и карточка — по текущему месту цели (прокрутка, ресайз, перерисовка) */
+function tourPos(){
+  const t=TOUR;
+  if(!t||!tourEl||tourEl.style.display!=='block')return;
+  const step=tourSteps(t.view)[t.i];
+  if(!step)return;
+  const els=tourEls(step), W=window.innerWidth, H=window.innerHeight;
+  let r=null;
+  if(els.length){
+    const u=els[0].getBoundingClientRect(), pd=step.pad==null?6:step.pad;
+    r={l:Math.max(0,u.left-pd),t:Math.max(0,u.top-pd),r:Math.min(W,u.right+pd),b:Math.min(H,u.bottom+pd)};
+    if(r.r-r.l<4||r.b-r.t<4)r=null;
+  }
+  const Q=k=>tourEl.querySelector('[data-tb="'+k+'"]'), ring=tourQ('tr-ring');
+  if(r){
+    tourBox(Q('t'),0,0,W,r.t);tourBox(Q('b'),0,r.b,W,H-r.b);tourBox(Q('l'),0,r.t,r.l,r.b-r.t);tourBox(Q('r'),r.r,r.t,W-r.r,r.b-r.t);
+    tourBox(Q('h'),r.l,r.t,step.lock?r.r-r.l:0,step.lock?r.b-r.t:0);
+    ring.style.display='block';tourBox(ring,r.l,r.t,r.r-r.l,r.b-r.t);
+  }else{
+    tourBox(Q('t'),0,0,W,H);['b','l','r','h'].forEach(k=>tourBox(Q(k),0,0,0,0));ring.style.display='none';
+  }
+  tourPlace(r);
+}
+function tourCard(list,i,step,done){
+  const b=(i>0?'<button type="button" class="btn" data-tact="back">Назад</button>':'<button type="button" class="btn" data-tact="close">Закрыть</button>')+
+    (step.demo&&!done?'<button type="button" class="btn" data-tact="next">Далее</button><button type="button" class="btn primary" data-tact="demo">Показать</button>'
+    :step.last&&!step.next?'<button type="button" class="btn primary" data-tact="close">Готово</button>'
+    :'<button type="button" class="btn primary" data-tact="'+(step.last?'nexttab':'next')+'">'+(step.intro?'Начать':step.last?'Дальше':'Далее')+'</button>');
+  return '<span class="tr-arr"></span><div class="tr-ch"><span class="tr-cs">'+esc(TOUR_NAME[TOUR.view])+' · '+(i+1)+' из '+list.length+'</span>'+
+    '<button type="button" class="tr-x" data-tact="close" aria-label="Закрыть тур">✕</button></div>'+
+    '<div class="tr-ct">'+esc(step.title)+'</div><div class="tr-cx">'+step.html+'</div>'+
+    (step.demo&&!done&&step.hint?'<div class="tr-hint">'+esc(step.hint)+'</div>':'')+
+    (step.last&&step.next?'<div class="tr-hint">Дальше — тур по вкладке блока: таблица подразделений, вопросы и графики.</div>':'')+
+    '<div class="tr-cf">'+b+'</div>';
+}
+function tourShow(){
+  const t=TOUR, list=tourSteps(t.view), step=list[t.i];
+  if(!step){tourEnd();return}
+  /* шаги про окно настройки — с открытым окном, остальные — с закрытым */
+  const open=!$('#setupOvl').classList.contains('hidden');
+  if(!!step.drawer!==open){if(step.drawer)openSetup();else closeSetup()}
+  const els=tourEls(step);
+  if(step.sel&&!els.length){tourGo(t.i+(t.dir||1),t.dir||1);return}
+  t.was=step.demo?!!step.done():false;t.busy=false;
+  const L=tourLayer();
+  L.style.display='block';
+  tourQ('tr-cur').style.display='none';
+  if(els.length){
+    const r=els[0].getBoundingClientRect();
+    if(r.top<60||r.bottom>window.innerHeight-60)try{els[0].scrollIntoView({block:r.height>window.innerHeight-200?'start':'center'})}catch(e){}
+  }
+  tourQ('tr-card').innerHTML=tourCard(list,t.i,step,t.was);
+  tourPos();
+  const pb=L.querySelector('.tr-cf .primary');if(pb&&pb.focus)pb.focus({preventScroll:true});
+}
+function tourGo(i,dir){
+  const t=TOUR;if(!t)return;
+  if(i>=tourSteps(t.view).length){tourEnd();return}
+  if(i<0){i=0;dir=1}
+  t.i=i;t.dir=dir;tourShow();
+}
+function tourStart(view){
+  pulse(false);
+  TOUR={view:view,i:0,dir:1,was:false,busy:false};
+  tourShow();
+}
+function tourEnd(){
+  TOUR=null;
+  if(tourEl)tourEl.style.display='none';
+  closeSetup();
+}
+/* после клика и перерисовки: шаг «нажми — будет» сделан — следующий; иначе подсветка — по новому месту цели */
+function tourSync(){
+  const t=TOUR;if(!t)return;
+  const step=tourSteps(t.view)[t.i];
+  if(step&&step.demo&&!t.was&&!t.busy&&step.done()){tourGo(t.i+1,1);return}
+  tourPos();
+}
+/* «Показать»: курсор едет от кнопки к цели и «нажимает» — клик идёт по-настоящему */
+function tourDemo(){
+  const t=TOUR;if(!t||t.busy)return;
+  const step=tourSteps(t.view)[t.i], els=tourEls(step);
+  if(!els.length)return;
+  const r=els[0].getBoundingClientRect(), cur=tourQ('tr-cur'), clk=tourQ('tr-clk');
+  const x=step.at==='left'?r.left+Math.min(140,r.width/3):r.left+r.width/2, y=r.top+r.height/2;
+  const fire=()=>{t.busy=false;cur.style.display='none';if(TOUR!==t)return;const now=tourEls(step);if(now.length&&!step.done())now[0].click();setTimeout(tourSync,80)};
+  let still=false;try{still=window.matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){}
+  if(still||!cur.animate){fire();return}
+  t.busy=true;
+  const btn=tourEl.querySelector('[data-tact="demo"]'), br=btn?btn.getBoundingClientRect():{left:x,top:y+90,width:0,height:0};
+  cur.style.transition='none';cur.style.left=Math.round(br.left+br.width/2)+'px';cur.style.top=Math.round(br.top+br.height/2)+'px';
+  cur.style.display='block';cur.getBoundingClientRect();cur.style.transition='';
+  cur.style.left=Math.round(x-5)+'px';cur.style.top=Math.round(y-2.5)+'px';
+  setTimeout(()=>{
+    clk.style.left=Math.round(x)+'px';clk.style.top=Math.round(y)+'px';
+    clk.animate([{opacity:.9,transform:'scale(.35)'},{opacity:0,transform:'scale(1.5)'}],{duration:450,easing:'ease-out'});
+    setTimeout(fire,220);
+  },700);
+}
+function tourAct(a){
+  if(!TOUR)return;
+  if(a==='next')tourGo(TOUR.i+1,1);
+  else if(a==='back')tourGo(TOUR.i-1,-1);
+  else if(a==='demo')tourDemo();
+  else if(a==='close')tourEnd();
+  else if(a==='nexttab'){
+    /* тур вкладки блока — на первом видимом блоке, если сейчас One-pager */
+    if(S.tab==='onepager'){const b=D.visibleBlocks(S)[0];if(b){S.tab=b.key;S.subTab=null;render()}}
+    TOUR={view:'block',i:0,dir:1,was:false,busy:false};tourShow();
+  }
+}
+on(window,'resize',()=>{if(TOUR)tourPos()});
+on(ROOTEL,'scroll',()=>{if(TOUR)tourPos()},{passive:true,capture:true});
+on(document,'click',()=>{if(TOUR)setTimeout(tourSync,60)});
+/* показа «при первом входе» нет (как в HRBP HUB: Proteus не помнит первый вход) — тур только кнопкой «Как читать отчёт» */

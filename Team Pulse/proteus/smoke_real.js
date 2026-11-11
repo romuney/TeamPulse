@@ -438,15 +438,17 @@ ok(scrOk,'все '+CASES.length+' экранов собираются на мо�
     const su=A.setup(), rowsN=(su.match(/data-upick="/g)||[]).length;
     if(R.pick.ok){
       /* поставка 69: у зоны доступа дерево начинается с её корня, у корня — численность выбранного юнита-корня */
-      const zr=R.pick.root, zEsc=zr.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      /* 11.11: дерево начинается с первого уровня с разбивкой (технический корень скрыт) — первый из R.pick.roots */
+      const zr=(R.pick.roots||[R.pick.root])[0], zEsc=zr.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
       const top=+((su.match(new RegExp('data-upick="'+zEsc+'"[^>]*>[\\s\\S]*?<span class="ut-c[^"]*">([\\d\\s ]+)<'))||[])[1]||'').replace(/\s/g,'');
-      const baseHc=zr==='T'?Math.round(arr(baseRow,'hc')[R.n-1]):R.pick.count(zr,{act:D.hcSel(D.DEFAULT_STATE)});
+      const baseHc=R.pick.root==='T'?Math.round(arr(baseRow,'hc')[R.n-1]):R.pick.count(zr,{act:D.hcSel(D.DEFAULT_STATE)});
       const sv=(su.split('|')[2].match(/<span class="opt-n">([\d\s ]+)</g)||[]).map(x=>+x.replace(/\D/g,''));
       const hd=R.pick.all().map(p=>R.pick.info(p)).find(i=>i&&i.head);
       const sq=hd?A.setup(hd.head.slice(0,4)):'';
-      ok(rowsN>0&&top===baseHc&&sv.length===3&&sv[1]+sv[2]===sv[0]&&/После «Применить»/.test(su)&&
+      ok(rowsN>0&&top===baseHc&&[...D.TECH].every(p=>su.indexOf('data-upick="'+p+'"')<0&&A.head().indexOf('data-crumb="'+p+'"')<0)&&sv.length===3&&sv[1]+sv[2]===sv[0]&&/После «Применить»/.test(su)&&
          (!hd||(/<mark class="ut-hl">/.test(sq)&&/class="ut-h"/.test(su))),
-        'окно настройки: дерево '+R.pick.all().length+' узлов, у корня '+top+(zr==='T'?' = компания':' = корень зоны')+', штат + не штат = все'+
+        'окно настройки: дерево '+R.pick.all().length+' узлов, у корня '+top+(R.pick.root==='T'?' = компания':' = корень зоны')+
+        (D.TECH.size?', технический корень скрыт':'')+', штат + не штат = все'+
         (hd?', поиск по логину':', логинов в справочнике нет'));
     } else ok(rowsN>0&&!/class="ut-c/.test(su)&&!/opt-n/.test(su),'окно настройки: прежний датасет без fd — дерево без чисел');
   }
@@ -804,6 +806,12 @@ if(D.TTF_MED){
   if(D.blockVisible('office',S)&&D.OFF_LIVE&&D.OFF_LIVE.city){
     const off=A.go('office','attend'), x0=D.officeCross(rl,null,null), c0=x0.cities[0], hasM=!!(R.scopeMix('ocm')&&R.scopeMix('ocdm'));
     const x1=c0&&x0.cross?D.officeCross(rl,null,c0.name):null;
+    /* 11.11, владелец: «кликаю владельцев фиксов — динамика не пересчитывается»: фиксы — сегмент с собственным рядом */
+    if(x0.fix){const xf=D.officeCross(rl,'fix',null), yf=D.yoySeries(rl,'office_fix'), offF=(()=>{const s0=A.st();s0.offSeg='fix';return A.go('office','attend')})();
+      ok(!!xf.seg&&xf.seg.key==='fix'&&!!xf.yser&&JSON.stringify(xf.yser.cur)===JSON.stringify(yf.cur)&&
+        /data-offseg="fix"/.test(off)&&/Посещаемость офиса: Владельцы фиксов/.test(offF),
+        'посещаемость: «Владельцы фиксов» выбираются, динамика — их посещаемость по месяцам');
+      A.st().offSeg=null}
     ok(/Посещаемость, %<[\s\S]{0,200}th-per/.test(off)&&!/Брони без посещения, %/.test(off),'посещаемость: в шапке таблицы подразделений — полные названия с единицами и период');
     if(x1)ok(!hasM||x1.cityDyn&&x1.yser&&x1.yser.cur.some(v=>v!=null),'посещаемость: выбран город «'+c0.name+'» — динамика по нему'+(hasM?'':' (ноутбук до 136: рядов города нет — сказано под графиком)'));
     const kid=D.rowsOf(D.passRoot(S.unit)).filter(n=>!n.direct)[0], kl=kid?D.leavesUnder(kid.path).map(l=>l.path):null;
