@@ -46,8 +46,7 @@ select s.mng_unit_rk::text as unit_rk, s.leaf_lvl,
        min(s.lvl1_nm::text) as n1, min(s.lvl2_nm::text) as n2, min(s.lvl3_nm::text) as n3,
        min(s.lvl4_nm::text) as n4, min(s.lvl5_nm::text) as n5, min(s.lvl6_nm::text) as n6,
        min(s.lvl7_nm::text) as n7, min(s.lvl8_nm::text) as n8, min(s.lvl9_nm::text) as n9,
-       min(s.lvl10_nm::text) as n10, min(s.lvl11_nm::text) as n11,
-       count(*) as w
+       min(s.lvl10_nm::text) as n10, min(s.lvl11_nm::text) as n11
 from all_metrics_with_performance_and_office_traffic_and_grt s
 where s.report_month = (select lm from teampulse_hub_cal) and s.leaf_lvl > 0
   -- 12.11 (бой: в дереве юниты, которых уже нет на портале): структура - по строке человека на дату данных
@@ -69,72 +68,26 @@ create table teampulse_hub_upath as
 select unit_rk, cp from teampulse_hub_uone
 distributed by (unit_rk);
 
--- 3. узлы — все начала путей: и юниты со своими людьми, и уровни над ними без своих строк.
---    12.11-ж (бой: подразделение стояло под расформированным департаментом, а сумма людей внутри была больше, чем
---    у родителя): в витрине один и тот же узел у разных юнитов бывает под разными родителями (часть строк - со
---    старым путём). Раньше родитель узла - меньший ключ из всех (min(prk)), а люди считались по путям строк: дерево
---    и суммы расходились. Теперь родитель узла - тот, через кого проходит больше людей (w - строк человека на дату
---    данных), путь узла собирается заново сверху по выбранным родителям, и путь юнита (_upath) - этот же путь:
---    ряды, разрезы и окно выбора идут по одному дереву, сумма детей = родителю. Узел, через который не идёт ни один
---    юнит, из дерева уходит
-drop table if exists teampulse_hub_nedge;
-create table teampulse_hub_nedge as
-select x.rk, x.prk, min(x.nm) as nm, min(x.lv) as olv, min(x.pth) as opth, sum(x.w) as w
-from (
-    select y.rk, y.nm, y.lv, y.w,
-           case when y.lv = 1 then '' else y.ra[y.lv - 1] end as prk,
-           array_to_string(y.ra[1:y.lv], '|') as pth
-    from (
-        select unnest(r.ra) as rk, unnest(r.na) as nm, generate_subscripts(r.ra, 1) as lv, r.ra, r.w
-        from (
-            select (ARRAY[u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10, u.k11])[1:u.leaf_lvl] as ra, (ARRAY[u.n1, u.n2, u.n3, u.n4, u.n5, u.n6, u.n7, u.n8, u.n9, u.n10, u.n11])[1:u.leaf_lvl] as na, u.w
-            from teampulse_hub_uone u
-        ) r
-    ) y
-) x
-where x.rk <> '-'
-group by x.rk, x.prk
-distributed by (rk);
+-- 3. узлы — все начала путей: и юниты со своими людьми, и уровни над ними без своих строк
 drop table if exists teampulse_hub_node;
 create table teampulse_hub_node as
-select distinct on (e.rk) e.rk, e.nm, e.olv as lv, e.prk, ''::text as pth, e.opth
-from teampulse_hub_nedge e
-order by e.rk, e.w desc, e.prk
+select rk, min(nm) as nm, min(lv) as lv, min(prk) as prk, min(pth) as pth
+from (
+    select x.rk, x.nm, x.lv,
+           case when x.lv = 1 then '' else x.ra[x.lv - 1] end as prk,
+           array_to_string(x.ra[1:x.lv], '|') as pth
+    from (
+        select unnest(r.ra) as rk, unnest(r.na) as nm, generate_subscripts(r.ra, 1) as lv, r.ra
+        from (
+            select (ARRAY[u.k1, u.k2, u.k3, u.k4, u.k5, u.k6, u.k7, u.k8, u.k9, u.k10, u.k11])[1:u.leaf_lvl] as ra,
+                   (ARRAY[u.n1, u.n2, u.n3, u.n4, u.n5, u.n6, u.n7, u.n8, u.n9, u.n10, u.n11])[1:u.leaf_lvl] as na
+            from teampulse_hub_uone u
+        ) r
+    ) x
+    where x.rk <> '-'
+) n
+group by rk
 distributed by (rk);
-update teampulse_hub_node set pth = rk, lv = 1 where prk = '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
-update teampulse_hub_node n set pth = p.pth || '|' || n.rk, lv = p.lv + 1
-from teampulse_hub_node p where p.rk = n.prk and n.pth = '' and p.pth <> '';
--- путь не собрался (цикл родителей в витрине) - прежний путь узла
-update teampulse_hub_node set pth = opth where pth = '';
-update teampulse_hub_upath u set cp = n.pth from teampulse_hub_node n where n.rk = u.unit_rk;
-drop table if exists teampulse_hub_nused;
-create table teampulse_hub_nused as select distinct unnest(string_to_array(cp, '|')) as rk from teampulse_hub_upath distributed by (rk);
-delete from teampulse_hub_node n where not exists (select 1 from teampulse_hub_nused x where x.rk = n.rk);
-alter table teampulse_hub_node drop column opth;
-drop table if exists teampulse_hub_nused;
-drop table if exists teampulse_hub_nedge;
 
 -- несколько корней — общий корень над ними: «вся компания» — сумма всех строк
 update teampulse_hub_cal set mo = 1, pre = 'all|' where (select count(*) from teampulse_hub_node where prk = '') > 1;
