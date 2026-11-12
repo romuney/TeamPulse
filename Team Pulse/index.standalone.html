@@ -10452,7 +10452,12 @@ function focusCount(c,k,o){
   if(!tot)return {};
   rows.sort((a,b)=>b.v-a.v);
   /* 23.10, Антон: полоса — доля от суммы по подразделениям (шкала 0–100%), не от максимума */
-  const focus={cap:o.cap,rows:rows.slice(0,4).map(r=>({name:r.name,val:D.fmtInt(r.v),w:r.v/tot,path:r.path}))};
+  /* поставка 150 («Больше всего нанимает … из 020107»): val — строка для показа (fmtInt), считать по ней нельзя — сложение
+     склеивало строки, а сумма шла только по четырём показанным строкам. v — число строки; sum — итог по ВСЕМ подразделениям
+     числом; хотя бы одно значение не число (пусто, NaN, текст) — итога нет (null), нулём его не подменяем */
+  const nv=rows.map(r=>r.v==null||r.v===''?NaN:Number(r.v));
+  const focus={cap:o.cap,sum:nv.every(Number.isFinite)?nv.reduce((a,b)=>a+b,0):null,
+    rows:rows.slice(0,4).map(r=>({name:r.name,val:D.fmtInt(r.v),v:r.v,w:r.v/tot,path:r.path}))};
   const top=rows[0], sv=pc(top.v,tot), sh=pc(top.hc,hc);
   /* 26.10-б, правки: «46% общего оттока при 36% общей численности» — доля в итоге метрики против доли в численности */
   const act=top.v>=3&&sv-sh>=8?{text:'Начните с «'+top.name+'»: **'+sv+'%** '+o.what+' при **'+sh+'%** общей численности.',
@@ -10691,7 +10696,10 @@ CH.movement={
     /* поставка 121 (критики 119): окно водопада — точными датами, «за 12 месяцев» было неправдой (≈10,5 месяца) */
     const since=' с '+D.WIN_START;
     const fo=focusCount(c,'hire',{cap:'Где нанимают ·'+since,what:'общего найма',win:'win'});
-    const fr=fo.focus?fo.focus.rows:[], top=fr[0], tie=fr[1]&&fr[1].val===top.val;
+    /* поставка 150: лидер, ничья и итог «из» — числами (v, focus.sum), в текст — только после расчёта через fmtInt.
+       Итог — сумма тех же строк за то же окно, что у лидера; не число или меньше лидера — часть «из …» не пишем */
+    const fr=fo.focus?fo.focus.rows:[], top=fr[0], tie=!!fr[1]&&fr[1].v===top.v;
+    const hTot=fo.focus?fo.focus.sum:null, hOf=top&&Number.isFinite(hTot)&&Number.isFinite(top.v)&&hTot>=top.v;
     return {sum:signed(net)+since,st:'n',
       head:net>0?'Команда выросла на '+pl(net,PPL)+since:net<0?'Команда сократилась на '+pl(-net,PPL)+since
         :'Численность'+since+' не изменилась',
@@ -10707,7 +10715,7 @@ CH.movement={
         /* поставка 128 (аудит: «41 из 106» — 41 весь найм подразделения, 106 только приём в компанию из витрины движения): делитель —
            сумма тех же строк, весь найм со стажёрами в штат */
         top?(tie?'Больше всего нанимают «'+top.name+'» и «'+fr[1].name+'»: по **'+top.val+'**':'Больше всего нанимает «'+top.name+'»: **'+top.val+'**')+
-          ' из **'+fr.reduce((s,r)=>s+(r.val||0),0)+'**'+since+' — весь найм, со стажёрами в штат':null],
+          (hOf?' из **'+D.fmtInt(hTot)+'**':'')+since+' — весь найм, со стажёрами в штат':null],
       focus:fo.focus,act:fo.act};
   },
   dynamics(c){

@@ -2070,6 +2070,35 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /aria-expanded="true" aria-controls="sideNav"/.test(html)&&/STORE\.navMini=v/.test(app)&&/setAttribute\('aria-expanded'/.test(app)]);
 }
 
+/* 12.11, поставка 150: «Больше всего нанимает «…»: 20 из 020107» — итог склеивал строки (fmtInt) и шёл по четырём показанным
+   строкам. Теперь после «из» — число: сумма найма всех подразделений уровнем ниже за окно водопада, при тех же фильтрах;
+   некорректное значение у подразделения — части «из …» нет (нулём не подменяем) */
+{
+  const S=A.st(), keep={unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType};
+  const txt=h=>h.replace(/<[^>]+>/g,'').replace(/\*\*/g,'').replace(/ /g,' ');
+  const line=()=>{const t=txt(A.top('movement')), i=t.indexOf('Больше всего наним');return i<0?'':t.slice(i,t.indexOf('в штат',i))};
+  const kidLp=u=>D.rowsOf(D.passRoot(u)).map(n=>D.leavesUnder(n.path).map(l=>l.path).filter(p=>D.leafPasses(p,S))).filter(l=>l.length);
+  let n=0, okSum=true;
+  [[keep.unit,'HQ','all','all'],[keep.unit,'all','all','all'],[keep.unit,'Line','IT','staff'],[keep.unit,'all','nonIT','nonstaff'],
+   ['T/01/01','all','all','all'],[D.ROOT.path,'HQ','all','all'],[D.ROOT.path,'all','all','staff']].forEach(([u,p,it,st])=>{
+    Object.assign(S,{unit:u,paint:p,itSeg:it,staffType:st});
+    const l=line();if(!l)return;n++;
+    const ks=kidLp(u).map(lp=>D.winSum(lp,'hire')), tot=Math.round(ks.reduce((a,b)=>a+b,0)), top=Math.round(Math.max.apply(null,ks));
+    const m=l.match(/: (?:по )?(\d[\d ]*) из (\d[\d ]*) с /), num=s=>+String(s).replace(/ /g,'');
+    if(!m||num(m[1])!==top||num(m[2])!==tot||tot!==Math.round(D.winSum(D.reportLeaves(S),'hire')))okSum=false;
+  });
+  /* одно подразделение отдаёт NaN — итога нет, «из 0» или «из NaN» не пишем */
+  Object.assign(S,{unit:keep.unit,paint:'all',itSeg:'all',staffType:'all'});
+  const ws=D.winSum, bad1=kidLp(keep.unit)[1].join(',');
+  D.winSum=(lp,k)=>k==='hire'&&lp.join(',')===bad1?NaN:ws(lp,k);
+  const lNaN=line();D.winSum=ws;
+  Object.assign(S,keep);
+  checks.push(['поставка 150: «Больше всего нанимает» — после «из» сумма найма подразделений числом (не склейка), те же окно и фильтры',
+    n>=5&&okSum]);
+  checks.push(['поставка 150: некорректное значение подразделения — без части «из …», нулём не подменяется',
+    /Больше всего наним/.test(lNaN)&&!/ из /.test(lNaN)&&!/NaN/.test(lNaN)]);
+}
+
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});
 
 console.log();
