@@ -687,7 +687,7 @@ function yoyPlot(p,ar){
     if(showPrev&&pv!=null)rows.push({label:String(yP),value:CD.fmtVal(key,pv),
       color:!flow?C_PREV:p.parts?alpha(p.parts.pcol[0],showMain?.45:1):showMain?alpha(ghostCol(col),GHOST_OP):soft(col)});
     if(showBench&&b!=null)rows.push({label:p.benchName||'вся компания',value:CD.fmtVal(key,b),color:C_BENCH,dash:true});
-    const pf=part||CD.partFlow(key), note=pf&&i===nowI?PART_NOTE(key):c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,+(c-pv).toFixed(2))
+    const pf=part||CD.partFlow(key), note=pf&&i===nowI?PART_NOTE(key):c!=null&&pv!=null?'Год к году: '+CD.fmtDelta(key,c-pv)
       :c==null?tipAhead(i,nowI,key):null;
     const dly=d0+DRAW_MS*(i/Math.max(1,nowI))*0.9;
     s+='<g class="ptg" data-mi="'+i+'"'+tip({title:tipMon(i,nowI,pf)+((p.tipName||nm.name)?' · '+(p.tipName||nm.name):''),rows,note})+'>';
@@ -1170,7 +1170,7 @@ function drawCalendar(a,w,h){
      процент по-разному слева и справа, и сравнить месяцы стало бы нельзя. */
   const allWd=blocks.reduce((acc,b)=>acc.concat(b.days.filter(d=>!d.weekend&&d.val!=null).map(d=>d.val)),[]);
   const max=niceMax(allWd);
-  const num1=v=>(+v).toFixed(1).replace('.',',');
+  const num1=CD.fmtNumber;
   /* Подписи в клетке рисуются, только если помещаются. Два месяца рядом ужимают
      клетку вдвое, и втиснуть туда и число месяца, и процент уже нельзя. Тогда
      остаётся хитмап — заливка честно несёт величину, а точное число живёт
@@ -1281,7 +1281,7 @@ function drawStack(a,w,h){
     const pm='mark' in a&&a.mark!==undefined;
     s+='<g class="barg'+(pm?' pmk':'')+(on?' on':'')+'"'+(pm?' data-pmark="'+i+'"':'')+tip({title:p.full,
       /* поставка 128 (аудит L2: в подсказке месяца «7%», в итоге под графиком и в заголовке — «6,8%»): доля — с одной десятой */
-      rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+(all?((p[c[0]]||0)/all*100).toFixed(1).replace('.',','):'0,0')+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
+      rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+CD.fmtNumber(all?(p[c[0]]||0)/all*100:0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
       note:(p.pt?'Период ещё идёт — значения могут измениться. ':'')+
         (a.cats?'Всего — '+CD.fmtInt(all)+(a.unit||'')+'.':(pm?(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. '):'')+'Всего — '+CD.fmtInt(all)+' чел.')})+'>'+
       (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+
@@ -1293,7 +1293,7 @@ function drawStack(a,w,h){
 }
 function drawPline(a,w,h){
   const o=a.opt||{}, P=a.periods, key=a.key, mark=a.mark, col=o.color||C_LINE;
-  const fmt=v=>v==null?'—':o.fmt==='int'?CD.fmtInt(v):o.fmt==='pct'?(Math.round(v*10)/10).toFixed(1).replace('.',',')+'%':(Math.round(v*10)/10).toFixed(1).replace('.',',');
+  const fmt=v=>CD.fmtNum(o.fmt==='pct'?'pct':'ratio',v);
   const vals=P.map(p=>p[key]);
   /* 07.11 (AI-итерация, п. 1): второй ряд a.key2 — светло-серой линией на той же шкале (численность под активными
      пользователями), в легенде и подсказке; клик по легенде прячет ряд */

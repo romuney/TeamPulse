@@ -104,8 +104,8 @@ function treeTable(dim,lp,sel,mixSel,open){
 /* ---------- Портрет сотрудника ----------
    Блоки сверху вниз: пол, возраст, регион (26.10: без воронки численности). */
 const sumA=a=>a.reduce((x,y)=>x+y,0);
-const pc=(a,b)=>b?Math.round(a/b*100):0;
-const num1=v=>v==null?'—':(Math.round(v*10)/10).toFixed(1).replace('.',',');
+const pc=(a,b)=>D.fmtNumber(b?a/b*100:null);
+const num1=D.fmtNumber;
 /* мужчины первыми: «М : Ж» — так в файле; категория пола узнаётся по имени */
 const isMale=c=>/^м|муж|male|^m$/i.test(c.name)||c.key==='m';
 /* в данных пол в единственном числе («Женщина»), на полосе и карточках — во множественном */

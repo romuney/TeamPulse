@@ -327,7 +327,7 @@ function render(S,openRows){
          прошлого месяца. Переход года — по расширенной сетке (декабрь перед январём). Нет значения — прочерк, не ноль */
       const s=D.aggregate(rl,m.key), P=D.periodTotal(rl,m.key)||{}, v=P.v;
       const e=D.aggregateExt(rl,m.key), i=D.NEXT-1, pt=D.PARTIAL&&!P.stock;
-      const dl={mom:e[i]==null||e[i-1]==null||!isFinite(e[i])||!isFinite(e[i-1])?null:+(e[i]-e[i-1]).toFixed(4),yoy:v==null||P.pv==null?null:+(v-P.pv).toFixed(2)};
+      const dl={mom:e[i]==null||e[i-1]==null||!isFinite(e[i])||!isFinite(e[i-1])?null:e[i]-e[i-1],yoy:v==null||P.pv==null?null:v-P.pv};
       /* поставка 110 (критики 07.11): месяц к месяцу по 1–3 заявкам или вакансиям — шум («−66,7 п.п. к августу»): у метрики
          с малым числом событий в месяце пилюли нет; у команды меньше 30 человек пилюли долей — без цвета */
       const evm=k=>D.aggregateExt(rl,k)[i]||0;

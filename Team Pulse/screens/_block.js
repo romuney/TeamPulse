@@ -128,7 +128,7 @@ function yoyChart(key,lp,bl,S,opt){
   const kpi=D.kpiFor(key,S), cmp=D.comparable(key)&&!kpi&&!opt.noBench;
   /* opt.scale (22.10, посещаемость по сегменту и городу): ряд выбора — ряд отбора × коэффициент; opt.yser (поставка 66) —
      свой ряд «год к году» той же метрики (настоящая посещаемость выбранного сегмента) */
-  const y0=opt.yser||D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:+(v*sc).toFixed(1));
+  const y0=opt.yser||D.yoySeries(lp,key), sc=opt.scale, mul=a=>a.map(v=>v==null?null:v*sc);
   /* opt.ref (26.10, AI BI.md): свой пунктир вместо базы — {name, cur}: численность команды под WAU */
   const y=sc&&sc!==1?{cur:mul(y0.cur),prev:mul(y0.prev)}:y0, by=opt.ref?opt.ref.cur:null;
   const col=opt.color||YOY_COLOR[key]||G.C_LINE;
@@ -320,7 +320,7 @@ function conclusion(sum,b,S){
        «недо- и переработку не оцениваем»): без оценки, как в главе и в строке главной */
     const cv=D.monCover(D.reportLeaves(S));
     tag='Без оценки';
-    head='В мониторинге размечено '+Math.round((cv||0)*100)+'% людей — недо- и переработку не оцениваем';
+    head='В мониторинге размечено '+D.fmtNumber(cv==null?null:cv*100)+'% людей — недо- и переработку не оцениваем';
     facts='<div class="bk-pl"><span class="bk-p"'+U.tipAttr({title:'Почему без оценки',text:'У остальных нет записей мониторинга '+
       '(«не размечено»), поэтому 0% недоработчиков здесь значит «нет данных», а не «никто не недорабатывает».'})+'>мониторинг почти не размечен</span></div>';
     todo='Числа — на графике ниже, для справки.';
@@ -570,7 +570,7 @@ function renderBlock(S,expanded,mixOpen,view){
   const SMALL=INS.CARD.small, isSm=hc=>hc&&hc<SMALL;
   let anySm=false;
   const smAttr=(hc,cls)=>{anySm=true;return ' class="small-n'+(cls?' '+cls:'')+'"'+U.tipAttr({title:'Меньше '+SMALL+' человек',
-    text:'Один человек сдвигает долю на '+(100/hc).toFixed(1).replace('.',',')+' п.п.'})};
+    text:'Один человек сдвигает долю на '+D.fmtNumber(100/hc)+' п.п.'})};
   const tcell=(c,md,lead,unit)=>{
     if(!md)return '<td>—</td>';
     const v=c.val&&c.val(md), hc=tcols0[0].val(md);
@@ -579,7 +579,7 @@ function renderBlock(S,expanded,mixOpen,view){
     /* поставка 128 (аудит L4/L10: доли AI у команды из 7 человек — «50%» без пометки, а доли в таблицах других вкладок — серым):
        колонка-доля (c.pct) у группы меньше 30 человек — серым, как везде; и в строке «Итого», если мал весь отчёт */
     if(c.pct&&isSm(hc))return '<td'+smAttr(hc,lead?'lead':'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
-    return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?(Math.round(v/hc*1000)/10).toFixed(1).replace('.',',')+'%':'—'}]}):'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
+    return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?D.fmtNumber(v/hc*100)+'%':'—'}]}):'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
   };
   const hcT=val(rl,'hc_total');
   const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),c===tcols0[1])).join('')

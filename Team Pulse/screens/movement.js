@@ -82,7 +82,7 @@ function specMove(lp,ctx){
         text:open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):z.sub?' class="lvl2"':'')+'><td class="txt">'+
       (tree?'<span class="row-label">'+(z.total?'<span class="caret-spacer"></span>':lbl(z))+'<span class="row-body">':'')+esc(z.name)+
       (z.note?'<span class="unit-sub">'+esc(z.note)+'</span>':'')+(tree?'</span></span>':'')+'</td>'+
-      cols.map(c=>'<td class="num'+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'">'+(z[c[0]]==null?'—':(c[0]==='chg'&&z[c[0]]>0?'+':'')+D.fmtInt(z[c[0]]))+'</td>').join('')+'</tr>';
+      cols.map(c=>'<td class="num'+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'">'+(z[c[0]]==null?'—':D.fmtNumber(z[c[0]],c[0]==='chg'))+'</td>').join('')+'</tr>';
   return '<div class="bt-group spm"><div class="bt-cap">Движение по специализациям<span class="bt-sub">'+U.esc(D.CNT_TEXT)+', чел</span></div>'+
     '<div class="mx-wrap"><table class="ptable btable compact spm4"><colgroup><col>'+cols.map(()=>'<col>').join('')+
     '</colgroup><thead><tr><th class="txt"></th>'+cols.map(c=>'<th class="num tsort'+(c[0]===sk?' on':'')+(c[0]==='hc0'||c[0]==='hc1'?' spm-hc':'')+'" data-spmsort="'+c[0]+'"'+

@@ -1401,11 +1401,10 @@ function periodTotal(lp,key,yser,dkey){
   if(dd!=null){
     if(Math.abs(dd)<eps)delta='без изменений';
     else{
-      /* поставка 110 (D4, критики: «27 против 18 — +52%»): у количеств разница и % — от показанных (округлённых) чисел;
-         прошлый год у незакрытого месяца дробный (доля месяца), и % от него расходился с числами на экране */
-      const ri=Math.round(cur)-Math.round(prev), rp=Math.round(prev);
-      delta=pct||m.fmt!=='int'?fmtDelta(key,+dd.toFixed(2)):!ri?'без изменений':(ri>0?'+':'\u2212')+fmtInt(Math.abs(ri))+(m.unit==='чел'?' чел.':'')+
-        (rp>=10?' ('+(ri>0?'+':'\u2212')+Math.abs(Math.round(ri/rp*100))+'%)':'');
+      /* Разница и относительное изменение считаются до форматирования. */
+      const ri=cur-prev, rp=prev;
+      delta=pct||m.fmt!=='int'?fmtDelta(key,dd):!ri?'без изменений':fmtNumber(ri,true)+(m.unit==='чел'?' чел.':'')+
+        (rp>=10?' ('+fmtNumber(ri/rp*100,true)+'%)':'');
       /* поставка 120: цвет плашки — тем же правилом, что у вердикта (deltaState): от 10%, малые группы — серым */
       const ds=deltaState(key,cur,prev,lp);good=ds==='good'?true:ds==='bad'?false:null;
       /* поставка 128 (аудит: глава «Уходят реже, чем год назад», а главная эту хорошую новость прятала): темп ухода «лучше года»
@@ -1721,37 +1720,32 @@ function hqLight(st,lpSel,sel){
 }
 
 /* ---------- Форматирование ---------- */
-/* минус типографский: у «Прироста с начала года» значение бывает отрицательным,
-   и дефис рядом с плюсом в соседней пилюле выглядит короче и ниже */
-function fmtInt(v){return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'\u2009').replace('-','\u2212')}
-/* Формат по виду числа, а не по метрике: им же пользуются таблицы, где в одной
-   колонке стоят разные величины (план-факт: штуки, проценты, дни). */
+/* Только отображение: исходные значения, сравнения и геометрия не округляются.
+   Десятичный сдвиг избегает ошибки 1.15 * 10; половины округляются от нуля.
+   fmtInt сохранён как совместимое имя для числовых ячеек и счётчиков. */
+function fmtNumber(v,signed){
+  if(v==null||v===''||!isFinite(v))return '—';
+  const value=+v, abs=Math.abs(value), parts=String(abs).split('e');
+  const shifted=Number(parts[0]+'e'+((+parts[1]||0)+1));
+  const rounded=isFinite(shifted)?Math.round(shifted)/10:abs;
+  const out=String(rounded).split('.');
+  out[0]=out[0].replace(/\B(?=(\d{3})+(?!\d))/g,'\u2009');
+  return (rounded?(value<0?'\u2212':signed?'+':''):'')+out.join(',');
+}
+function fmtInt(v){return fmtNumber(v)}
+/* Единицы добавляются после единственного округления отображаемого числа. */
 function fmtNum(fmt,v){
-  if(v==null||!isFinite(v))return'—';
-  if(fmt==='int')return fmtInt(v);
-  if(fmt==='days')return (+v).toFixed(0).replace('.',',')+'\u2009дн';
-  if(fmt==='mon')return (+v).toFixed(1).replace('.',',')+'\u2009мес';
-  /* коэффициент — две цифры после запятой: 1,1 и 1,14 — разные ответы на
-     «растём или держимся», а третья цифра уже шум */
-  if(fmt==='ratio')return (+v).toFixed(2).replace('.',',');
-  return (+v).toFixed(1).replace('.',',')+'%';
+  const n=fmtNumber(v);if(n==='—')return n;
+  return n+(fmt==='days'?'\u2009дн':fmt==='mon'?'\u2009мес':fmt==='int'||fmt==='ratio'?'':'%');
 }
 function fmtVal(key,v){
-  if(v==null)return'—';
-  const m=METRIC_BY_KEY[key];if(!m)return String(v);
-  return fmtNum(m.fmt,v);
+  const m=METRIC_BY_KEY[key];
+  return m?fmtNum(m.fmt,v):fmtNumber(v);
 }
-/* Минус во всех дельтах типографский. Раньше его подставлял только deltaChip,
-   а пилюля «К базе» в сводной таблице, которая зовёт fmtDelta напрямую,
-   оставалась с дефисом: два соседних элемента одного экрана писали минус по-разному. */
 function fmtDelta(key,v){
-  const m=METRIC_BY_KEY[key];if(v==null)return'—';
-  const s=v>0?'+':'';
-  if(m.fmt==='int')return s+fmtInt(v);
-  if(m.fmt==='days')return s+(+v).toFixed(0).replace('-','\u2212')+'\u2009дн';
-  if(m.fmt==='mon')return s+(+v).toFixed(1).replace('.',',').replace('-','\u2212')+'\u2009мес';
-  if(m.fmt==='ratio')return s+(+v).toFixed(2).replace('.',',').replace('-','\u2212');
-  return s+(+v).toFixed(1).replace('.',',').replace('-','\u2212')+'\u2009п.п.';
+  const n=fmtNumber(v,true);if(n==='—')return n;
+  const m=METRIC_BY_KEY[key], fmt=m&&m.fmt;
+  return n+(fmt==='days'?'\u2009дн':fmt==='mon'?'\u2009мес':!fmt||fmt==='int'||fmt==='ratio'?'':'\u2009п.п.');
 }
 /* ---------- Дефолтный state ---------- */
 /* В пробнике юнит и фильтры — те, что применил датасет (эхо в meta): отчёт
@@ -3746,7 +3740,7 @@ window.TPDATA={REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_T
   TECH,TOP,isTech,techOf,setVerdictScope,isSmall,isSmallHq,turnLow,turnMin,TURN_MIN,TURN_LOW_NOTE,isSelfBase,peerOf,peerState,PEER_BAND_NAME,eventsOf,thin,verdictState,VERDICT_GAP,SMALL_N,
   LOCKED_METRICS,METRIC_PRESETS,sanitizeHidden,metricVisible,visibleMetricsOfBlock,visibleBlocks,
   blockVisible,visibleCount,hiddenForPreset,activePreset,
-  fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,
+  fmtNumber,fmtInt,fmtVal,fmtDelta,DEFAULT_STATE,
   PRE,NEXT,MONTHS_EXT,YEAR_START_EXT,seriesExt,aggregateExt,
   YEAR_CUR,YEAR_PREV,CUR_LEN,MONTH_ABBR,MONTH_NOM,yoySeries,blockSignal,
   /* итерация 28: блок AI, детальный слой Proteus, разбивки потоков */

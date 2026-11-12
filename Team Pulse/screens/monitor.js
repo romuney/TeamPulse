@@ -43,8 +43,8 @@ function perLine(P,wk,lp){
   /* поставка 136, п. 8: среднее за несколько месяцев — «в среднем за период январь–октябрь» (не «за месяц, янв–окт») */
   /* 11.11, владелец: период словами, без тире — «в среднем с 1 января по 12 октября», у недель — «с 06.10 по 12.10» */
   const head=wk?'В среднем за неделю'+(C.length>1?', с '+C[0].label+' по '+C[C.length-1].label:', '+C[0].label):'В среднем '+D.PER_TEXT;
-  const avg=k=>C.reduce((a,p)=>a+(p[k]||0),0)/C.length, n=v=>D.fmtInt?D.fmtInt(Math.round(v)):String(Math.round(v));
-  const f1=v=>(Math.round(v*10)/10).toFixed(1).replace('.',',');
+  const avg=k=>C.reduce((a,p)=>a+(p[k]||0),0)/C.length, n=D.fmtNumber;
+  const f1=D.fmtNumber;
   const sum=k=>C.reduce((a,p)=>a+(p[k]||0),0), wt=C.every(p=>p.pdw!=null);
   return {
     cats:()=>{const hc=avg('hc');return {head:head,parts:[['under','недоработка','underwork'],['over','переработка','overwork']].map(c=>({name:c[1],
@@ -69,7 +69,7 @@ function perLine(P,wk,lp){
 function covNote(md){
   const c=wk(md).cur, lab=(c.under||0)+(c.normal||0)+(c.over||0), hc=c.hc||0;
   if(!hc)return '';
-  const pc=Math.round(lab/hc*1000)/10, info='<span class="info"'+U.tipAttr({title:'Покрытие мониторинга',
+  const pc=lab/hc*100, info='<span class="info"'+U.tipAttr({title:'Покрытие мониторинга',
     text:'Доля людей, по которым в мониторинге есть данные.',
     list:['**Числитель** — люди с категорией: норма, недоработка или переработка',
       '**Знаменатель** — вся численность выбранных фильтров за тот же месяц',
@@ -77,7 +77,7 @@ function covNote(md){
       'От прав доступа покрытие не зависит: данные одни для всех, кому открыто подразделение'],
     note:'«Не размечено» — данных нет. Это не значит, что человек не работал.'})+' aria-label="Покрытие мониторинга">i</span>';
   return '<div class="tbl-note mon-cov'+(pc<50?' low':'')+'"><b>Мониторинг покрывает '+D.fmtInt(lab)+' из '+D.fmtInt(hc)+' человек ('+
-    String(pc).replace('.',',')+'%)</b> · '+U.esc(String(c.full||'').split(',')[0])+' '+info+'<br>'+
+    D.fmtNumber(pc)+'%)</b> · '+U.esc(String(c.full||'').split(',')[0])+' '+info+'<br>'+
     (pc<50?'Размечено меньше половины, поэтому доли недоработки и переработки не оцениваем: ноль здесь значит «нет данных».'
       :'Выводы — о размеченных людях. Остальные — «Не размечено»: по ним данных нет.')+'</div>';
 }
@@ -90,7 +90,7 @@ function catBlock(md){
   if(!c)return '';
   const hc=(c.normal||0)+(c.under||0)+(c.over||0)+(c.grey||0);
   if(!hc)return '<div class="tbl-note">Состав по категориям: нет данных мониторинга за последний месяц.</div>';
-  const pc=n=>(Math.round(n/hc*1000)/10).toFixed(1).replace('.',',')+'%';
+  const pc=n=>D.fmtNum('pct',n/hc*100);
   const mon=String(c.full||c.label||'').split(',')[0];
   const info='<span class="info"'+U.tipAttr({title:'Состав по категориям',text:'Категория каждого человека за '+mon.toLowerCase()+
     (/данные по/.test(c.full||'')?' ('+String(c.full).split(', ')[1]+')':'')+'.',

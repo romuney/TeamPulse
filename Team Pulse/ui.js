@@ -546,11 +546,11 @@ function barTable(o){
     h+='<tr'+hook+'>'+
       '<td class="txt">'+(tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
       (cnt?'<td>'+(x.n==null?'—':D.fmtInt(x.n))+'</td>':'')+'<td class="lead">'+D.fmtVal(key,x.value)+'</td>'+
-      (withShare?'<td>'+share.toFixed(o.shareDec||share<10?1:0).replace('.',',')+'%</td>':'')+
+      (withShare?'<td>'+D.fmtNumber(share)+'%</td>':'')+
       '<td class="barcell"'+tipAttr({title:x.name,
         rows:[{label:o.valueHead||'Значение',value:D.fmtVal(key,x.value),color:G.soft(x.color||G.C_LINE)}]
           .concat(cnt&&x.n!=null?[{label:cnt,value:D.fmtInt(x.n)}]:[])
-          .concat(withShare?[{label:'доля',value:share.toFixed(o.shareDec||share<10?1:0).replace('.',',')+'%'}]:[]),
+          .concat(withShare?[{label:'доля',value:D.fmtNumber(share)+'%'}]:[]),
         note:x.tip||null})+
         '><span class="cellbar"><i style="width:'+barW(key,x.value,withShare?sum:0,max).toFixed(1)+'%'+
         /* полоса в ячейке — мягкий тон цвета строки: это фон под числом */
@@ -615,7 +615,7 @@ function btStack(list,cls){return '<div class="bt-stack'+(cls?' '+cls:'')+'">'+l
    o.mode            — 'abs' люди · 'row' % по строке · 'col' % по колонке
    o.sel             — Set взятых срезов (id вида 'grade:g2')
    ========================================================================== */
-function pct(v){return v.toFixed(v<10&&v>0?1:0).replace('.',',')+'%'}
+function pct(v){return D.fmtNum('pct',v)}
 function mxPick(id,name,on,cls,cat){
   /* «Остальные» длинной оси — не категория, срезом не берётся: кто в ней — в подсказке */
   if(cat&&cat.other)return '<span class="mx-pick mx-rest'+(cls?' '+cls:'')+'"'+tipAttr({title:'Остальные',text:cat.note||''})+'>'+esc(name)+'</span>';
@@ -747,13 +747,13 @@ function sliceChips(parts,tip){
 function shareBar(o){
   const tot=o.segs.reduce((a,x)=>a+x.n,0)||1, any=o.segs.some(x=>x.on);
   return '<div class="shbar'+(any?' has-on':'')+'">'+o.segs.filter(x=>x.n>0).map(x=>{
-    const p=Math.round(x.n/tot*100);
+    const p=x.n/tot*100;
     /* 07.11 (AI-итерация, п. 2): o.static — полоса без среза по клику (стажёры, воронка сообщений); o.unit — подпись числа */
     return '<span class="'+[x.dk?'dk':'',x.on?'on':''].filter(Boolean).join(' ')+'"'+(o.static?'':' data-mix="'+esc(x.id)+'"')+
       ' style="flex:'+(x.n/tot*100).toFixed(2)+' 1 0;background:'+x.bg+'"'+
-      tipAttr({title:x.name,rows:[{label:o.unit||'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:(x.n>0&&!p?'<1':p)+'%'}],
+      tipAttr({title:x.name,rows:[{label:o.unit||'Человек',value:D.fmtInt(x.n)},{label:'Доля',value:D.fmtNum('pct',p)}],
         note:o.static?null:x.on?'Срез взят. Клик — снять.':'Клик — срез по «'+x.name+'». Shift+клик — добавить к срезу.'})+'>'+
-      (p>=6?'<em class="shb-t">'+(o.names&&p>=14?esc(x.name)+' ':'')+'<b>'+p+'%</b></em>':'')+'</span>';
+      (p>=6?'<em class="shb-t">'+(o.names&&p>=14?esc(x.name)+' ':'')+'<b>'+D.fmtNumber(p)+'%</b></em>':'')+'</span>';
   }).join('')+'</div>';
 }
 /* Карточки категорий под полосой: метка цвета, имя, число и строка пояснения
@@ -774,8 +774,8 @@ function shareCards(o){
 function genderSplit(m,f){
   const t=m+f;
   if(!t)return '<span class="gsp-x">нет людей</span>';
-  const pm=Math.round(m/t*100), pf=100-pm;
-  return '<span class="gsp"><span class="gsp-t">М <b>'+pm+'%</b> · Ж <b>'+pf+'%</b></span>'+
+  const pm=m/t*100, pf=f/t*100;
+  return '<span class="gsp"><span class="gsp-t">М <b>'+D.fmtNumber(pm)+'%</b> · Ж <b>'+D.fmtNumber(pf)+'%</b></span>'+
     '<span class="gsp-b"><i class="m" style="flex:'+pm+' 1 0"></i><i class="f" style="flex:'+pf+' 1 0"></i></span></span>';
 }
 /* Иконки разделов «Структуры численности» (23.10, заказчик: «на SVG — иконки: мальчик, девочка, возраст, уровень»).
@@ -1148,7 +1148,7 @@ function planTable(groups){
    отчёта; на настоящих данных и в разработке — рядом числом. o.ver — сверенные из показанных */
 const U_TIPV=()=>'<span class="info"'+tipAttr(D.VERIFIED_TIP)+' aria-label="Что значит «сверено»">i</span>';
 function devSummary(o){
-  const ver=o.ver==null?D.VERIFIED.size:o.ver, pc=o.total?Math.round(ver/o.total*100):0, n=D.planCount();
+  const ver=o.ver==null?D.VERIFIED.size:o.ver, pc=D.fmtNumber(o.total?ver/o.total*100:0), n=D.planCount();
   return '<details class="dev-sum"><summary><span class="dev-sum-h">Готовность данных</span>'+
     '<span class="dev-sum-bar" role="img" aria-label="'+pc+'% метрик сверено"><i style="width:'+pc+'%"></i></span>'+
     '<span class="dev-sum-n"><b>'+ver+' из '+o.total+'</b> метрик сверено'+U_TIPV()+' · на настоящих данных '+o.live+

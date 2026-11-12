@@ -322,7 +322,7 @@ checks.push(['минус во всех дельтах типографский, 
   const line=SC.metricLine('regret',rl0,bl0,S0,{});
   checks.push(['у метрики с KPI на графике пороги цели, а не линия базы',
     /* 21.10: у HQ только план 4% за год (порога 7% в отчёте HQ нет) — одна линия цели */
-    />цель 4,0% за год</.test(line)&&!/>порог /.test(line)&&/<polyline [^>]*stroke-dasharray="2 3"/.test(line)&&
+    />цель 4% за год</.test(line)&&!/>порог /.test(line)&&/<polyline [^>]*stroke-dasharray="2 3"/.test(line)&&
     !/class="lnb" data-s="bench"/.test(line)]);
   /* без KPI (regret вне HQ) поведение прежнее: линия базы на месте */
   const S1=Object.assign({},S0,{paint:'Line'});
@@ -564,7 +564,7 @@ checks.push(['дни недели — таблица, а не бар-чарт',
      процент по-разному слева и справа, и месяцы стало бы нельзя сравнить. */
   const wd=two.reduce((a,b)=>a.concat(b.days.filter(d=>!d.weekend).map(d=>d.val)),[]);
   checks.push(['шкала интенсивности одна на оба месяца',
-    h2.indexOf('чаще, до '+G.niceMax(wd).toFixed(1).replace('.',','))>0]);
+    h2.indexOf('чаще, до '+D.fmtNumber(G.niceMax(wd)))>0]);
 
   /* Клетка стала тесной — значение уходит в подсказку, заливка остаётся.
      Лучше честный хитмап, чем налезающие друг на друга цифры. */
@@ -988,9 +988,8 @@ checks.push(['марки графиков помечены data-s',
     !D.sliceable('turnover_m')&&!D.sliceable('office_att')&&
     D.lastValSlice(rl,'turnover_m',['seniority:s'])===D.lastVal(rl,'turnover_m')]);
 
-  /* Карточка KPI и ИТОГО соседней разбивки — одно и то же число.
-     Двойное округление (сначала до десятых, потом до целых) давало 54 в
-     карточке против 53 в таблице: один человек, но после него не верят обеим. */
+  /* Модель распределяет людей по категориям целыми числами. Сверяем её
+     исходное правило распределения; форматтер больше не скрывает дробный итог среза. */
   (function(){
     let bad=0,n=0;
     /* Уровни одного разреза (стрим и специализация) из сверки исключены:
@@ -998,13 +997,13 @@ checks.push(['марки графиков помечены data-s',
        и схлопнуть его собственной категорией нельзя, иначе не переключиться. */
     const same=(a,b)=>a.childDim===b.key||b.childDim===a.key;
     dims.forEach(d=>d.cats.forEach(c=>{
-      const one=[c.id], card=D.fmtVal('hc_total',D.lastValSlice(rl,'hc_total',one));
+      const one=[c.id], card=Math.round(D.lastValSlice(rl,'hc_total',one));
       dims.filter(x=>x.key!==d.key&&!same(x,d)).forEach(other=>{
         n++;
-        if(card!==D.fmtVal('hc_total',D.mixParts(rl,other.key,one).reduce((a,b)=>a+b,0)))bad++;
+        if(card!==D.mixParts(rl,other.key,one).reduce((a,b)=>a+b,0))bad++;
       });
     }));
-    checks.push(['карточка и ИТОГО разбивки под срезом дают одно число ('+n+' пар)',bad===0]);
+    checks.push(['целочисленное распределение модели сохраняет итог среза ('+n+' пар)',bad===0]);
   })();
 
   /* 6. Срез виден в карточках, в таблице подразделений и в плашке */
@@ -2097,6 +2096,28 @@ checks.push(['третьей палитры нет: в экранах ни од�
     n>=5&&okSum]);
   checks.push(['поставка 150: некорректное значение подразделения — без части «из …», нулём не подменяется',
     /Больше всего наним/.test(lNaN)&&!/ из /.test(lNaN)&&!/NaN/.test(lNaN)]);
+}
+
+/* Единое отображение: значения и знаки проверяем независимо от модели. */
+{
+  const cases=[[12.34,'12,3'],[12.36,'12,4'],[12,'12'],[12.96,'13'],[-3.27,'−3,3'],
+    [-0.04,'0'],[-0,'0'],[1.15,'1,2'],[-1.15,'−1,2'],[0.05,'0,1'],[-0.05,'−0,1'],
+    [12.349,'12,3'],[999.96,'1\u2009000'],[1234.56,'1\u2009234,6'],[null,'—'],[undefined,'—'],[NaN,'—'],[Infinity,'—']];
+  checks.push(['числа: десятые, целые, математическое округление обоих знаков, нет отрицательного нуля и подмены пропусков',
+    cases.every(([v,w])=>D.fmtNumber(v)===w&&D.fmtInt(v)===w)]);
+  checks.push(['форматы процентов, коэффициентов, дней и месяцев используют одно правило',
+    D.fmtNum('pct',15)==='15%'&&D.fmtNum('pct',15.26)==='15,3%'&&D.fmtNum('ratio',1.15)==='1,2'&&
+    D.fmtNum('days',12.36)==='12,4\u2009дн'&&D.fmtNum('mon',12)==='12\u2009мес'&&D.fmtNum('pct',null)==='—']);
+  checks.push(['изменения: плюс, типографский минус, единицы; округлённый ноль без знака',
+    D.fmtDelta('turnover_m',.44)==='+0,4\u2009п.п.'&&D.fmtDelta('turnover_m',-.04)==='0\u2009п.п.'&&
+    D.fmtDelta('turnover_m',.04)==='0\u2009п.п.'&&D.fmtDelta('hire',-3.27)==='−3,3'&&D.fmtDelta('hire',null)==='—']);
+  const values=[12.349,12.351,-.04,null], before=JSON.stringify(values);
+  const decisions=values.slice(0,3).map(v=>D.compareState('turnover_m',v,12.35));
+  values.forEach(v=>D.fmtVal('turnover_m',v));
+  checks.push(['форматирование не меняет исходные значения и пороговые оценки',
+    JSON.stringify(values)===before&&JSON.stringify(decisions)===JSON.stringify(values.slice(0,3).map(v=>D.compareState('turnover_m',v,12.35)))]);
+  const shares=U.shareBar({segs:[{n:1,name:'A',bg:'#fff'},{n:2,name:'B',bg:'#000'}]});
+  checks.push(['доли в полосах и подсказках: одна десятая после масштабирования',shares.includes('33,3%')&&shares.includes('66,7%')]);
 }
 
 checks.forEach(([name,ok])=>{if(!ok)bad++;console.log((ok?'  ok  ':'  FAIL')+'  '+name)});

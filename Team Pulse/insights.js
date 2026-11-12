@@ -123,7 +123,7 @@ function yoyStory(key,S,rl,bl){
   /* 2. Год назад — за тот же период */
   const pv=P.pv;
   if(P.v!=null&&pv!=null){
-    const d=+(P.v-pv).toFixed(2), ds=D.deltaState(key,P.v,pv,rl);
+    const d=P.v-pv, ds=D.deltaState(key,P.v,pv,rl);
     const w=!d||P.delta==='без изменений'?'столько же':flat?(d>0?'больше на ':'меньше на ')+absD(key,d)
       :ds==='bad'?'хуже на '+absD(key,d):ds==='good'?'лучше на '+absD(key,d):(d>0?'больше':'меньше')+' на '+absD(key,d);
     /* Точки двух лет почти совпадают (меньше 8% высоты полотна) — две отметки
@@ -144,7 +144,7 @@ function yoyStory(key,S,rl,bl){
     let best=-1,inc=0;
     for(let j=0;j<=b;j++){const a0=j?cur[j-1]:0,a1=cur[j];if(a1!=null&&a0!=null&&a1-a0>inc){inc=a1-a0;best=j}}
     if(best>=0)out.push({i:best,s:'main',html:'<b>Больше всего прибавил '+esc(D.MONTH_NOM[best])+'</b>: '+
-      esc(D.fmtDelta(key,+inc.toFixed(2)))+' за месяц.'});
+      esc(D.fmtDelta(key,inc))+' за месяц.'});
   }else if(!accum(m)&&b>0&&v!=null&&!D.eventsOf(key,rl)){
     let wi=-1;
     for(let k=0;k<=b;k++){
@@ -350,7 +350,7 @@ function overview(S,rl,bl,all){
     if(last>=OBS.spikeMin&&last>=OBS.spikeX*usual)
       out.push({key:'attrition',sev:last>=3*usual?'high':'mid',pri:0,w:last-usual,
         lead:'Всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[La].m]+
-          ': '+D.fmtInt(last)+' — обычно '+(usual<1?'меньше одного':'около '+D.fmtInt(Math.round(usual)))+' в месяц',
+          ': '+D.fmtInt(last)+' — обычно '+(usual<1?'меньше одного':'около '+D.fmtNumber(usual))+' в месяц',
         body:'Уволились за месяц, по любой причине.',kind:'spike',v:last,usual,L:La});
   }
   /* поставка 121 (критики-руководители 119): у группы меньше 30 человек выводы — в людях. Отчёт меньше 30 — его отток и
@@ -375,7 +375,7 @@ function overview(S,rl,bl,all){
   if(hcMove){
     /* поставка 90: численность — сейчас, потоки — с января по закрытый месяц, с подписью */
     const Lc=factL('hire'), sm=k=>{const e=D.aggregateExt(rl,k);let x=0;for(let i=y0;i<=Lc;i++)x+=e[i]||0;return x};
-    const dp=Math.round(Math.abs(to-from)/from*100);
+    const dp=D.fmtNumber(Math.abs(to-from)/from*100);
     const dn=Math.abs(Math.round(to)-Math.round(from));
     out.push({key:'hc_total',sev:'mid',pri:5,w:0,
       lead:smallHc?'Численность '+(to>from?'выросла':'сократилась')+' на '+ppl(dn)+' с начала года: '+D.fmtInt(from)+' → '+D.fmtInt(to)
@@ -387,7 +387,7 @@ function overview(S,rl,bl,all){
   if(D.metricVisible('vac_open',S)&&!D.isStub('vac_open')){
     const P=perOf(rl,'vac_open'), v=P.v, pv=P.pv;
     if(v!=null&&pv!=null&&pv>=5&&v>=1.5*pv&&v-pv>=5){
-      const x=Math.round(v/pv*10)/10, xs=String(x).replace('.',',');
+      const xs=D.fmtNumber(v/pv);
       out.push({key:'vac_open',sev:'mid',pri:2,w:(v-pv)/pv,kind:'vac',v,pv,L,
         lead:'Открытых вакансий в '+xs+' раза больше, чем год назад',
         say:'открытых вакансий в '+xs+' раза больше, чем год назад',
@@ -505,7 +505,7 @@ function say(f){
   const m=D.METRIC_BY_KEY[f.key], bad=f.sev!=='good';
   if(f.kind==='spike')return 'всплеск уходов в '+MONTH_IN[D.MONTHS_EXT[f.L].m];
   if(f.kind==='hc')return 'численность '+(f.v>f.pv?'выросла':'сократилась')+' на '+(f.pv<D.SMALL_N?ppl(Math.abs(Math.round(f.v)-Math.round(f.pv)))
-    :Math.round(Math.abs(f.v-f.pv)/f.pv*100)+'%')+' с начала года';
+    :D.fmtNumber(Math.abs(f.v-f.pv)/f.pv*100)+'%')+' с начала года';
   if(f.kind==='vac'||f.kind==='unit'||f.kind==='hqb'||f.kind==='ppl'||f.kind==='uppl')return f.say;
   if(f.kind==='trend')return lc(m.name)+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд';
   if(f.key==='hire_plan'&&f.kind==='dev')return bad?'найм отстаёт от плана':'план найма выполняется с запасом';
@@ -621,7 +621,7 @@ function cardOf(f,S,rl,bl){
   const mn=m.name+(STOCK.has(f.key)?', сейчас':'');
   if(f.kind==='dev'||f.kind==='yoy')head=cap(say(f));
   else if(f.kind==='trend')head=m.name+' '+(f.tr.b>f.tr.a?'растёт':'снижается')+' '+OBS.trend+' месяца подряд: '+fv(f.tr.a)+' → '+fv(f.tr.b);
-  const cmpV=f.kind==='dev'?f.ref:f.kind==='yoy'?f.pv:null, dv=cmpV==null?null:+(f.v-cmpV).toFixed(2);
+  const cmpV=f.kind==='dev'?f.ref:f.kind==='yoy'?f.pv:null, dv=cmpV==null?null:f.v-cmpV;
   /* поставка 136, п. 3–5: у числа — за какой период оно (как итог под графиком: «в среднем за период январь–октябрь»,
      «за янв.–сент.», «на конец сентября»), у чипа — с чем сравнили: тот же период прошлого года или ориентир */
   const Pf=perOf(rl,f.key), perLab=STOCK.has(f.key)||!Pf.head?'':', '+lc(Pf.head), yoLab=Pf.stock||/^На конец /.test(Pf.head||'')?' к той же дате год назад ':' к тому же периоду год назад ';
@@ -631,11 +631,11 @@ function cardOf(f,S,rl,bl){
     chipTip:f.kind==='dev'&&f.peer&&!f.kpi?{key:f.key,pe:f.peer}:null,
     cls:bad?'down':'up'}
     /* поставка 110: у новых выводов (HQ против ориентира, хвост вакансий) — то же крупное число с чипом, что у остальных */
-    :f.kind==='hqb'?{v:fv(f.v),name:'Текучесть HQ, накопительно',chip:D.fmtDelta('turnover_y',+(f.v-f.ref).toFixed(2))+' к цели '+fv(f.ref),cls:'down'}
-    :f.kind==='vac'?{v:D.fmtInt(f.v),name:'Открытые вакансии, сейчас',chip:'+'+D.fmtInt(f.v-f.pv)+' к той же дате год назад '+D.fmtInt(f.pv),cls:'down'}
+    :f.kind==='hqb'?{v:fv(f.v),name:'Текучесть HQ, накопительно',chip:D.fmtDelta('turnover_y',f.v-f.ref)+' к цели '+fv(f.ref),cls:'down'}
+    :f.kind==='vac'?{v:D.fmtInt(f.v),name:'Открытые вакансии, сейчас',chip:D.fmtNumber(f.v-f.pv,true)+' к той же дате год назад '+D.fmtInt(f.pv),cls:'down'}
     /* поставка 136, п. 4: численность — одно число и одно сравнение (с началом года); найм, отток и переводы — другие метрики */
-    :f.kind==='hc'?{v:D.fmtInt(f.v),name:'Численность, сейчас',chip:(f.v>f.pv?'+':'−')+D.fmtInt(Math.abs(Math.round(f.v)-Math.round(f.pv)))+
-      (f.pv>=D.SMALL_N?' ('+(f.v>f.pv?'+':'−')+Math.round(Math.abs(f.v-f.pv)/f.pv*100)+'%)':'')+' к началу года '+D.fmtInt(f.pv),cls:'neu'}
+    :f.kind==='hc'?{v:D.fmtInt(f.v),name:'Численность, сейчас',chip:D.fmtNumber(f.v-f.pv,true)+
+      (f.pv>=D.SMALL_N?' ('+D.fmtNumber((f.v-f.pv)/f.pv*100,true)+'%)':'')+' к началу года '+D.fmtInt(f.pv),cls:'neu'}
     /* поставка 121: вывод в людях (малая группа) — число и подпись приходят с фактом */
     :f.kind==='ppl'||f.kind==='uppl'?f.big:null;
   const body=[];
