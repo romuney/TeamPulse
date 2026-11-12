@@ -1,6 +1,6 @@
 /* ===== TeamPulse Hub — дизайн-система (токены из референса HRBP HUB) ===== */
 :root{
-  --bg:#f4f5f7; --card:#ffffff; --line:#e7e9ee; --line2:#eef0f3;
+  --bg:#f6f7f8; --card:#ffffff; --line:#e7e9ee; --line2:#eef0f3;
   --ink:#1f1f1f; --ink2:#3a3f4a; --muted:#8a909c; --muted2:#aab0bb;
   --green:#12b048; --green-bg:#bff2cd; --green-tx:#0a8f3c;
   --red:#f51f1f;   --red-bg:#ffcccc;  --red-tx:#d11414;
@@ -1571,7 +1571,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 }
 @media(min-width:1761px){
   .nav{border-left:1px solid var(--line)}
-  .main-col{border-right:1px solid var(--line)}
+  /* 12.11 (владелец): справа полосы нет — фон отчёта = фон Proteus (#f6f7f8), переход не виден */
   .pulse-panel{left:calc((100vw - var(--shell))/2 + 244px)}
 }
 
