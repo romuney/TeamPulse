@@ -83,6 +83,7 @@ function devNote(d){return d?'<div class="dev-note" role="status">Не все д
   }
   if(file==='styles.css')src+='\n.part-wait.tp-part-status{min-height:0;align-items:flex-start;text-align:left;padding:16px;margin-bottom:16px;gap:8px}.tp-details-ready{position:fixed;right:24px;bottom:24px;z-index:20;max-width:calc(100% - 48px)}\n';
   if(file==='screens/_block.js')src+='\n'+local('preview.js');
+  if(file==='insights.js'||file==='app.js')src=require('./insight-cache.cjs').patch(src,replace);
   return src;
 }
 module.exports={read};

@@ -134,6 +134,7 @@ function bcast(msg){
 const WAIT_MS=1500, LATE_MS=20000;
 const t0=Date.now();
 let shown=null, shownSig=null, shownCore=null, shownParts={};
+let preparing=null;
 const deferred={};
 function askDeferred(){
   Object.keys(deferred).forEach(p=>{delete deferred[p]});
@@ -175,6 +176,25 @@ function boot(late){
 function held(){
   try{return !!document.querySelector('.tp-overlay .ovl:not(.hidden), .tr-layer')}catch(e){return false}
 }
+function currentPreparation(job){
+  return preparing===job&&!store.pending&&P.core===job.core&&shown===job.shown&&
+    store.latestRequestedSig===job.request&&store.updateParts===job.update&&
+    (Date.now()-(P.core.at||t0)>LATE_MS)===job.late&&
+    MX.every((p,i)=>(P[p]&&P[p].by[P.core.sig])===job.entries[i]);
+}
+function discardPreparation(job,retry){
+  window.TP_TIMING.cancel(job.frame);
+  if(preparing===job){preparing=null;if(retry)soon(false)}
+}
+function preparationStep(job,fn,delay){
+  // Real tasks, not Promise microtasks: queued input can run between stages.
+  later(()=>{
+    if(!currentPreparation(job)){discardPreparation(job,true);return}
+    if(held()){preparationStep(job,fn,400);return}
+    try{window.TP_TIMING.active(job.frame,fn)}
+    catch(e){discardPreparation(job,false);throw e}
+  },delay||0);
+}
 function run(force){
   if(!P.core){boot(Date.now()-t0>LATE_MS);return}
   if(store.latestRequestedSig&&P.core.reqSig!==store.latestRequestedSig)return;
@@ -191,25 +211,49 @@ function run(force){
   if(key===shown&&!store.pending)return;
   const same=shownSig===P.core.sig&&shownCore===P.core.h&&!store.pending;
   if(!force&&same&&held()){later(()=>run(),400);return}
+  if(preparing){
+    if(preparing.key===key&&currentPreparation(preparing))return;
+    discardPreparation(preparing,false);
+  }
   const timing=window.TP_TIMING;
   const frame=timing.begin({people:lack.indexOf('people')<0,flow:lack.indexOf('flow')<0,aux:lack.indexOf('aux')<0});
   const m=timing.measure('merge',()=>merge(P));
   const changed=MX.filter(p=>shownParts[p]!==stamps[p]);
-  note('run '+MX.filter(p=>m.have[p]).join('+')+(late&&lack.length?' late':'')+(m.mixed?' mixed':''));
-  /* window.TP_PARTS — что знает отчёт о частях: какие пришли к показанному выбору, какие не пришли за LATE_MS */
-  window.TP_PARTS={sig:m.sig,have:m.have,late:late?lack:[],again:shownSig===m.sig,mixed:m.mixed};
-  try{
-    if(!(same&&!m.mixed&&typeof store.updateParts==='function'&&store.updateParts(m.rows,changed)))TP_RUN(m.rows);
-  }finally{timing.end(frame)}
-  const firstPaint=!shownCore;
-  shown=key;shownSig=m.sig;shownCore=P.core.h;shownParts=stamps;
-  note('ran');
-  if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>later(()=>timing.afterFrame(frame),0));
-  // Paint usable core before cloning megabytes of background responses.
-  if(firstPaint||Object.keys(deferred).length){
-    if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>later(askDeferred,0));
-    else later(askDeferred,0);
+  const parts={sig:m.sig,have:m.have,late:late?lack:[],again:shownSig===m.sig,mixed:m.mixed};
+  const label=MX.filter(p=>m.have[p]).join('+')+(late&&lack.length?' late':'')+(m.mixed?' mixed':'');
+  function commit(prepared){
+    note('run '+label);
+    // Publish readiness, model, data API and DOM in one synchronous task.
+    window.TP_PARTS=parts;
+    try{
+      if(same&&!m.mixed&&typeof store.updateParts==='function'){
+        // The parser mutates its input. A rejected candidate needs fresh rows.
+        if(!store.updateParts(m.rows,changed,prepared))TP_RUN(merge(P).rows);
+      }else TP_RUN(m.rows);
+    }finally{timing.end(frame)}
+    const firstPaint=!shownCore;
+    shown=key;shownSig=m.sig;shownCore=P.core.h;shownParts=stamps;
+    note('ran');
+    if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>later(()=>timing.afterFrame(frame),0));
+    if(firstPaint||Object.keys(deferred).length){
+      if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>later(askDeferred,0));
+      else later(askDeferred,0);
+    }
   }
+  if(same&&!m.mixed&&store.prepareParts&&typeof store.updateParts==='function'){
+    const job={key,frame,core:P.core,shown,late,request:store.latestRequestedSig,update:store.updateParts,
+      entries:MX.map(p=>P[p]&&P[p].by[P.core.sig])};
+    const prepare=store.prepareParts;
+    preparing=job;note('prepare '+label);timing.suspend();
+    preparationStep(job,()=>{
+      const real=timing.measure('model',()=>prepare.model(m.rows));
+      preparationStep(job,()=>{
+        const valid=!(real.noAccess||real.noMeta||real.missing.length||real.truncated);
+        const api=valid?timing.measure('data',()=>prepare.data(real,parts)):null;
+        preparationStep(job,()=>{preparing=null;commit({real,api})});
+      });
+    });
+  }else commit();
 }
 /* core — сразу (первый экран); догрузившиеся разрезы — пачкой: части приходят почти одновременно, и отчёт
    пересобирается один раз, а не на каждую (не дольше BATCH_MAX от первой в пачке) */

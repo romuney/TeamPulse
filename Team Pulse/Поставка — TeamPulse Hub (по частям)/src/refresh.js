@@ -42,18 +42,24 @@ if(STORE){
       if(target)ENV.scroller.scrollTop+=target.getBoundingClientRect().top-top;
     };
   }
-  STORE.updateParts=function(rows,changed){
+  // Preparation returns private candidates. No global data or DOM changes until
+  // the scheduler atomically commits a still-current candidate.
+  STORE.prepareParts={
+    model:rows=>window.TPREAL.build(rows),
+    data:(real,parts)=>TP_PREPARE_DATA(real,parts)
+  };
+  STORE.updateParts=function(rows,changed,prepared){
     const restoreFocus=keepFocus();
     const restoreReading=keepReading();
     const preview=$('.tp-core-preview');
     if(preview&&(ENV.scroller.scrollTop>80||preview.contains(document.activeElement)))STORE.previewTab=S.tab;
     const previousWait=D.partsWait(S.tab).join('|')+'/'+D.partsLate(S.tab).join('|');
-    const old=D, previous=window.TP_REAL;
-    const next=window.TP_TIMING.measure('model',()=>window.TPREAL.build(rows));
+    const old=D;
+    const next=prepared?prepared.real:window.TP_TIMING.measure('model',()=>window.TPREAL.build(rows));
     if(next.noAccess||next.noMeta||next.missing.length||next.truncated)return false;
+    const api=prepared?prepared.api:window.TP_TIMING.measure('data',()=>TP_PREPARE_DATA(next,window.TP_PARTS));
     window.TP_REAL=next;
-    try{window.TP_TIMING.measure('data',TP_REBUILD_DATA)}catch(err){window.TP_REAL=previous;window.TPDATA=old;throw err}
-    Object.assign(old,window.TPDATA);
+    Object.assign(old,api);
     window.TPDATA=old;
     D.setHcMode(S.hcType);D.setVerdictScope(S);
     _navKey=null;_navMemo={};

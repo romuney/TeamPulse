@@ -13,6 +13,9 @@
   window.TP_TIMING={
     now:now,record:record,
     measure(name,fn){const start=now();try{return fn()}finally{record(name,start)}},
+    active(frame,fn){const previous=current;current=frame;try{return fn()}finally{current=previous}},
+    suspend(){current=null},
+    cancel(frame){frame.superseded=true;if(current===frame)current=null},
     intent(){perf.intent++;perf.intentAtMs=now()},
     begin(have){
       current={id:++serial,intent:perf.intent,intentAtMs:perf.intentAtMs,startMs:now(),
@@ -25,7 +28,7 @@
     afterFrame(frame){
       // A rendering opportunity is a timing proxy, never proof of visible pixels.
       // No data is committed here; a newer intent invalidates the old observation.
-      frame.superseded=frame.id!==serial||frame.intent!==perf.intent;
+      frame.superseded=frame.superseded||frame.id!==serial||frame.intent!==perf.intent;
       if(!frame.superseded)frame.frameOpportunityMs=now();
     }
   };

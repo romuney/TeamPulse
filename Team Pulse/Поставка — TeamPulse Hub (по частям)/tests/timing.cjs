@@ -35,6 +35,17 @@ assert.equal(frame.phasesMs.model,15);assert.equal(frame.phasesMs.data,3);
 assert.equal(frame.frameOpportunityMs,25);
 frame=t.begin({});t.end(frame);t.intent();t.afterFrame(frame);
 assert.equal(frame.frameOpportunityMs,null);assert.equal(frame.superseded,true);
+frame=t.begin({});t.suspend();now+=100;
+t.measure('render',()=>{now+=7});
+t.active(frame,()=>t.measure('model',()=>{now+=11}));
+now+=40;
+t.active(frame,()=>t.measure('data',()=>{now+=13}));
+assert.deepEqual({...frame.phasesMs},{model:11,data:13},'queued input/wait is not background CPU work');
+t.cancel(frame);t.afterFrame(frame);
+assert.equal(frame.applyEndMs,null);assert.equal(frame.frameOpportunityMs,null);
+assert.equal(frame.superseded,true,'cancelled candidate is never reported as applied');
+t.measure('nav',()=>{now+=3});
+assert.equal(frame.phasesMs.nav,undefined,'timing scope restored after an async stage');
 for(let i=0;i<50;i++){frame=t.begin({});t.end(frame)}
 assert.equal(perf.frames.length,40,'bounded local telemetry');
 assert(perf.frames.every(f=>Object.keys(f).every(k=>[

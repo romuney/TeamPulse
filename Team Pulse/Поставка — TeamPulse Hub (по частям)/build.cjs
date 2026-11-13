@@ -5,6 +5,7 @@ const dep=require('module').createRequire(path.join(__dirname,'..','proteus','bu
 const babel=dep('@babel/core'), acorn=dep('acorn'), MIN=dep('./min.cjs');
 const patches=require('./src/patches.cjs');
 const textCodec=require('./src/text-codec.cjs');
+const dataFactory=require('./src/data-factory.cjs');
 const BUDGET_KIB = 652;
 const dir=path.join(__dirname,'..');
 const OUT=path.join(dir,'Поставка — TeamPulse Hub','3. Proteus — чарт TeamPulse Hub.js');
@@ -95,7 +96,7 @@ const ERR_TAIL='\n}catch(err){if(!(err&&err.tpStop)){\n'+
   '}}\n';
 const mods=()=>FILES.map(f=>{
   const code=/^proteus\//.test(f)?read(f):prune(fold(read(f)));
-  return f==='data.js'?'function TP_REBUILD_DATA(){\n'+code+'\n}\nwindow.TP_TIMING.measure("data",TP_REBUILD_DATA);'
+  return f==='data.js'?dataFactory(code)
     :'/* '+f+' */\n(function(){\n'+code+'\n})();';
 }).join('\n');
 /* контракт Proteus: option — глобальный, последним выражением, не мутируется */
