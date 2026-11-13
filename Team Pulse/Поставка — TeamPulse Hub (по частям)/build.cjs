@@ -95,7 +95,7 @@ const ERR_TAIL='\n}catch(err){if(!(err&&err.tpStop)){\n'+
   '}}\n';
 const mods=()=>FILES.map(f=>{
   const code=/^proteus\//.test(f)?read(f):prune(fold(read(f)));
-  return f==='data.js'?'function TP_REBUILD_DATA(){\n'+code+'\n}\nTP_REBUILD_DATA();'
+  return f==='data.js'?'function TP_REBUILD_DATA(){\n'+code+'\n}\nwindow.TP_TIMING.measure("data",TP_REBUILD_DATA);'
     :'/* '+f+' */\n(function(){\n'+code+'\n})();';
 }).join('\n');
 /* контракт Proteus: option — глобальный, последним выражением, не мутируется */
@@ -114,7 +114,7 @@ function make(split){
     ?textCodec.runtime+'\nvar TP_CSS=TP_UNPACK('+JSON.stringify(textCodec.pack(MIN.cssMin(css)))+');\n'+
       'var TP_HTML=TP_UNPACK('+JSON.stringify(textCodec.pack(body))+');\n'
     :'var TP_CSS='+JSON.stringify(css)+';\nvar TP_HTML='+JSON.stringify(body)+';\n';
-  let src=textHead+(split
+  let src=textHead+(split?fs.readFileSync(path.join(__dirname,'src/timing.js'),'utf8')+'\n':'')+(split
     ?'function TP_RUN(data){\ntry{\n'+mods()+ERR_TAIL+'}\ntry{\n/* proteus/parts.js */\n(function(){\n'+read('proteus/parts.js')+'\n})();'+ERR_TAIL
     :'try{\n'+mods()+ERR_TAIL);
 

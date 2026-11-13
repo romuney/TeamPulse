@@ -49,10 +49,10 @@ if(STORE){
     if(preview&&(ENV.scroller.scrollTop>80||preview.contains(document.activeElement)))STORE.previewTab=S.tab;
     const previousWait=D.partsWait(S.tab).join('|')+'/'+D.partsLate(S.tab).join('|');
     const old=D, previous=window.TP_REAL;
-    const next=window.TPREAL.build(rows);
+    const next=window.TP_TIMING.measure('model',()=>window.TPREAL.build(rows));
     if(next.noAccess||next.noMeta||next.missing.length||next.truncated)return false;
     window.TP_REAL=next;
-    try{TP_REBUILD_DATA()}catch(err){window.TP_REAL=previous;window.TPDATA=old;throw err}
+    try{window.TP_TIMING.measure('data',TP_REBUILD_DATA)}catch(err){window.TP_REAL=previous;window.TPDATA=old;throw err}
     Object.assign(old,window.TPDATA);
     window.TPDATA=old;
     D.setHcMode(S.hcType);D.setVerdictScope(S);

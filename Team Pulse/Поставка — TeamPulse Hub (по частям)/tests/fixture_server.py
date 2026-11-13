@@ -59,6 +59,13 @@ def dataset(part, mask, stale=False, rich=False, zero=False):
                                  f'\noc\tМосква\t{n*8}\nocd\tМосква\t{n*20}\nocp\tМосква\t{n}'
                                  f'\nrs\tnone|av|10\t{n-3}\nrs\tok|g|10\t3'
                                  '\nrm\t2026-10|g|0|ok\t3\nrq\tg|0|ok|11|10\t3')
+            # The stream dimension does not exist in core. A delayed people
+            # response must register its tab and chapter from the new data API.
+            # B deliberately has no stream; A uses different category names.
+            if unit != 'B':
+                stream = 'Аналитика' if unit == 'A' else 'Разработка'
+                chunks['people'] += (f'\nw\t{stream}\t{n*.7}\nw\tПоддержка\t{n*.3}'
+                                     f'\nws\t{stream}|Специалист\t{n*.7}\nws\tПоддержка|Консультант\t{n*.3}')
             chunks['flow'] += '\nvt\t2026-10|20\t1\nvt\t2026-10|30\t1\nvt\t2026-10|40\t1'
             chunks['aux'] = (f'aw\t2026-10-26|{n*.5},{n}\t1\naw\t2026-11-02|{n*.6},{n}\t1'
                              f'\naik\t2026-11-02\t1\naut\tCopilot\t{n*.6}\naur\tCopilot\t1'

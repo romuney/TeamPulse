@@ -1,5 +1,5 @@
 const vm=require('vm'),fs=require('fs'),path=require('path'),assert=require('assert/strict');
-const src=fs.readFileSync(path.join(__dirname,'../src/parts.js'),'utf8');
+const src=fs.readFileSync(path.join(__dirname,'../src/timing.js'),'utf8')+'\n'+fs.readFileSync(path.join(__dirname,'../src/parts.js'),'utf8');
 function fixture(){
   let now=0,id=0,receive,held=false;
   const timers=new Map(),runs=[],updates=[],asks=[];

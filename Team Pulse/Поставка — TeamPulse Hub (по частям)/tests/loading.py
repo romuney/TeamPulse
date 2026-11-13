@@ -32,6 +32,18 @@ def main():
         assert frame.locator('[data-metric="hc_total"] .m-val').inner_text().startswith('100')
         page.screenshot(path=str(OUT/'02-normal-report-core.png'))
         frame.wait_for_function('TP_PARTS.have.people&&TP_PARTS.have.flow&&TP_PARTS.have.aux')
+        frame.wait_for_function('__pvtState.tp.perf.frames.some(f=>f.partsReady===3&&f.frameOpportunityMs!==null)')
+        perf = frame.evaluate('__pvtState.tp.perf')
+        assert len(perf['frames']) <= 40
+        assert perf['frames'][0]['partsReady'] == 0
+        for timing in perf['frames']:
+            assert set(timing) == {'id', 'intent', 'intentAtMs', 'startMs', 'partsReady',
+                                   'phasesMs', 'applyEndMs', 'frameOpportunityMs', 'superseded'}
+            assert set(timing['phasesMs']) <= {'merge', 'model', 'data', 'render', 'nav'}
+            assert timing['applyEndMs'] >= timing['startMs']
+            if timing['frameOpportunityMs'] is not None:
+                assert timing['frameOpportunityMs'] >= timing['applyEndMs']
+        assert all(k in perf['frames'][-1]['phasesMs'] for k in ['merge', 'model', 'data', 'render', 'nav'])
         page.screenshot(path=str(OUT/'03-normal-report-complete.png'))
         print('PASS: existing flames -> normal One-pager before background responses; no intermediate layout', flush=True)
         page.close()

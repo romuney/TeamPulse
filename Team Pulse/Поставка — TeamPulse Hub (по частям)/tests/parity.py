@@ -134,8 +134,14 @@ def main():
 
         page, split = open_page('rich=1&delay=core:100,people:1600,flow:2300,aux:3200')
         assert not split.evaluate('window.TP_PARTS.have.aux'), 'fixture must exercise partial first render'
+        assert not split.evaluate('!!window.TPDATA.MIX_BY_KEY.stream'), 'core must not contain stream dimensions'
+        stream_tabs = 'window.TPSCREENS.blocks.structure.subTabs.map(t=>t[0])'
+        assert 'stream' not in split.evaluate(stream_tabs), 'no invented stream tab before its source arrives'
         assert 'в разработ' not in split.locator('body').inner_text().lower()
         assert 'метрик в норме' not in split.locator('#view').inner_text(), 'premature peer-dependent conclusion'
+        split.wait_for_function('window.TP_PARTS.have.people')
+        assert split.evaluate('!!window.TPDATA.MIX_BY_KEY.stream'), 'people must populate stream dimensions'
+        assert 'stream' in split.evaluate(stream_tabs), 'late people must restore the stream tab without a new core'
         single, ordinary = open_page('single=1&rich=1')
         settled(split)
         flags = ordinary.evaluate(MODEL)['flags']
@@ -153,6 +159,28 @@ def main():
             frame.wait_for_function('window.TP_REAL.req[0]==="A" && !window.__pvtState.tp.pending')
             settled(frame)
         compare_pages(split, ordinary, 'rich filtered response')
+
+        # A dimension can legitimately disappear for another selection. The
+        # current model controls both navigation and the chapter's dimension
+        # list; returning must restore both, with the new category labels.
+        for unit in ['B', 'A']:
+            for frame in [split, ordinary]:
+                go(frame, 'structure')
+                frame.locator('#btnSetup').click()
+                frame.locator('[data-upick="T/'+unit+'"]').click()
+                frame.locator('#btnApply').click()
+            for frame in [split, ordinary]:
+                frame.wait_for_function('(unit)=>window.TP_REAL.req[0]===unit && !window.__pvtState.tp.pending', arg=unit)
+                settled(frame)
+            compare_equal(split.evaluate(MODEL), ordinary.evaluate(MODEL), 'stream selection '+unit+' model')
+            compare_equal(split.evaluate(stream_tabs), ordinary.evaluate(stream_tabs), 'stream selection '+unit+' tabs')
+            assert ('stream' in split.evaluate(stream_tabs)) == (unit == 'A')
+            if unit == 'A':
+                for frame in [split, ordinary]:
+                    frame.locator('[data-subtab="stream"]').first.click()
+                assert 'Аналитика' in split.locator('#view').inner_text()
+            compare_equal(split.evaluate(CONTENT), ordinary.evaluate(CONTENT), 'stream selection '+unit+' chapter')
+        print('PASS: stream dimension absent in core, added by people, removed for B and restored for A; tab and chapter match golden', flush=True)
 
         page.close()
         single.close()

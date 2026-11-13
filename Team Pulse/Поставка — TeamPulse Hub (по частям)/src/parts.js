@@ -191,15 +191,20 @@ function run(force){
   if(key===shown&&!store.pending)return;
   const same=shownSig===P.core.sig&&shownCore===P.core.h&&!store.pending;
   if(!force&&same&&held()){later(()=>run(),400);return}
-  const m=merge(P);
+  const timing=window.TP_TIMING;
+  const frame=timing.begin({people:lack.indexOf('people')<0,flow:lack.indexOf('flow')<0,aux:lack.indexOf('aux')<0});
+  const m=timing.measure('merge',()=>merge(P));
   const changed=MX.filter(p=>shownParts[p]!==stamps[p]);
   note('run '+MX.filter(p=>m.have[p]).join('+')+(late&&lack.length?' late':'')+(m.mixed?' mixed':''));
   /* window.TP_PARTS — что знает отчёт о частях: какие пришли к показанному выбору, какие не пришли за LATE_MS */
   window.TP_PARTS={sig:m.sig,have:m.have,late:late?lack:[],again:shownSig===m.sig,mixed:m.mixed};
-  if(!(same&&!m.mixed&&typeof store.updateParts==='function'&&store.updateParts(m.rows,changed)))TP_RUN(m.rows);
+  try{
+    if(!(same&&!m.mixed&&typeof store.updateParts==='function'&&store.updateParts(m.rows,changed)))TP_RUN(m.rows);
+  }finally{timing.end(frame)}
   const firstPaint=!shownCore;
   shown=key;shownSig=m.sig;shownCore=P.core.h;shownParts=stamps;
   note('ran');
+  if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>later(()=>timing.afterFrame(frame),0));
   // Paint usable core before cloning megabytes of background responses.
   if(firstPaint||Object.keys(deferred).length){
     if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>later(askDeferred,0));
