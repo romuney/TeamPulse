@@ -134,6 +134,14 @@ function bcast(msg){
 const WAIT_MS=1500, LATE_MS=20000;
 const t0=Date.now();
 let shown=null, shownSig=null, shownCore=null, shownParts={};
+const deferred={};
+function askDeferred(){
+  Object.keys(deferred).forEach(p=>{delete deferred[p]});
+  // HELLO may have arrived before this main chart existed. Explicitly ask all
+  // missing parts after the first paint instead of waiting for the 1.5 s poll.
+  const missing=lacking();
+  if(missing.length)bcast({type:'TP_ASK',v:V,parts:missing});
+}
 /* чего не хватает показанному выбору: части разрезов и сам core */
 function lacking(){
   if(!P.core)return ['core'];
@@ -154,13 +162,12 @@ function boot(late){
       'text-align:center;padding:24px;box-sizing:border-box';
     host.appendChild(el);
   }
-  el.innerHTML='<svg width="38" height="38" viewBox="0 0 38 38" aria-hidden="true"><circle cx="19" cy="19" r="15" fill="none" '+
-    'stroke="#d9dde3" stroke-width="4"/><path d="M19 4a15 15 0 0 1 15 15" fill="none" stroke="#2f6fed" stroke-width="4" '+
-    'stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 19 19" to="360 19 19" dur="0.9s" '+
-    'repeatCount="indefinite"/></path></svg><div role="status">'+(late
-      ?'<b style="color:#1f2733">Данные отчёта не пришли</b><br>Основной загрузчик данных не ответил за '+Math.round(LATE_MS/1000)+
-       ' секунд. Проверьте, что на дашборде есть чарты-загрузчики TeamPulse Hub и они загрузились (первый — с датасетом core).'
-      :'Загружаю данные отчёта…')+'</div>';
+  el.style.cssText='position:absolute;inset:0;z-index:10;background:#f6f7f8;color:#252b33;font:14px Arial,sans-serif;overflow:auto';
+  el.innerHTML='<header style="padding:20px 28px;background:#fff;border-bottom:1px solid #e0e3e7"><b>TeamPulse Hub</b></header>'+
+    '<main style="max-width:1000px;margin:32px auto;padding:0 24px"><h1 style="font-size:24px">Основные показатели</h1><p role="status">'+
+    (late?'Данные отчёта не пришли. Обновите дашборд; если это повторится, сообщите владельцу отчёта.':'Загружаем показатели вашего подразделения…')+
+    '</p><div aria-hidden="true" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">'+
+    [0,1,2,3].map(()=>'<div style="height:90px;background:#fff;border:1px solid #e0e3e7;border-radius:12px"></div>').join('')+'</div></main>';
 }
 /* отчёт сейчас занят окном (настройка, тур, словарь): пересборку от догрузившейся части откладываем, чтобы окно не
    закрылось под рукой; новый выбор (другой core) не ждёт */
@@ -189,12 +196,18 @@ function run(force){
   /* window.TP_PARTS — что знает отчёт о частях: какие пришли к показанному выбору, какие не пришли за LATE_MS */
   window.TP_PARTS={sig:m.sig,have:m.have,late:late?lack:[],again:shownSig===m.sig,mixed:m.mixed};
   if(!(same&&!m.mixed&&typeof store.updateParts==='function'&&store.updateParts(m.rows,changed)))TP_RUN(m.rows);
+  const firstPaint=!shownCore;
   shown=key;shownSig=m.sig;shownCore=P.core.h;shownParts=stamps;
   note('ran');
+  // Paint usable core before cloning megabytes of background responses.
+  if(firstPaint||Object.keys(deferred).length){
+    if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>later(askDeferred,0));
+    else later(askDeferred,0);
+  }
 }
 /* core — сразу (первый экран); догрузившиеся разрезы — пачкой: части приходят почти одновременно, и отчёт
    пересобирается один раз, а не на каждую (не дольше BATCH_MAX от первой в пачке) */
-const BATCH=250, BATCH_MAX=700;
+const BATCH=60, BATCH_MAX=180;
 let runT=null, batch0=0, fastPending=false;
 const soon=fast=>{
   // Background arrivals cannot cancel the first core paint.
@@ -213,7 +226,7 @@ function watch(){
   if(asking)return;
   asking=true;
   (function ask(){
-    const lack=lacking();
+    const lack=shownCore?lacking():['core'];
     if(!lack.length||asks>=80){asking=false;return}
     asks++;
     bcast({type:'TP_ASK',v:V,parts:lack});
@@ -251,6 +264,7 @@ store.partsOn=function(ev){
   if(d.type==='TP_HELLO'){
     if(P.seen[str(d.part)]===str(d.h))return;
     note('hello '+str(d.part));
+    if(!shownCore&&d.part!=='core'){deferred[str(d.part)]=ev.source;return}
     try{ev.source.postMessage({type:'TP_ASK',v:V},'*')}catch(e){}
   }else if(d.type==='TP_PART'&&Array.isArray(d.rows))take(d);
 };

@@ -25,7 +25,8 @@ if(STORE){
   STORE.updateParts=function(rows,changed){
     const restoreFocus=keepFocus();
     const preview=$('.tp-core-preview');
-    if(preview&&ENV.scroller.scrollTop>80)STORE.previewTab=S.tab;
+    if(preview&&(ENV.scroller.scrollTop>80||preview.contains(document.activeElement)))STORE.previewTab=S.tab;
+    const previousWait=D.partsWait(S.tab).join('|')+'/'+D.partsLate(S.tab).join('|');
     const old=D, previous=window.TP_REAL;
     const next=window.TPREAL.build(rows);
     if(next.noAccess||next.noMeta||next.missing.length||next.truncated)return false;
@@ -45,7 +46,8 @@ if(STORE){
     }
     const needs=window.TPPARTS.needs(S.tab);
     // aux carries comparisons used throughout the report, not just AI.
-    const affects=S.tab==='onepager'||D.partsWait(S.tab).length||changed.indexOf('aux')>=0||changed.some(p=>needs.indexOf(p)>=0);
+    const readinessChanged=previousWait!==D.partsWait(S.tab).join('|')+'/'+D.partsLate(S.tab).join('|');
+    const affects=S.tab==='onepager'||readinessChanged||changed.indexOf('aux')>=0||changed.some(p=>needs.indexOf(p)>=0);
     if(affects){render(true,true);restoreFocus()}
     else{renderHead();renderNav()}
     return true;

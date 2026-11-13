@@ -4,6 +4,7 @@ const fs=require('fs'), path=require('path');
 const dep=require('module').createRequire(path.join(__dirname,'..','proteus','build.js'));
 const babel=dep('@babel/core'), acorn=dep('acorn'), MIN=dep('./min.cjs');
 const patches=require('./src/patches.cjs');
+const textCodec=require('./src/text-codec.cjs');
 const BUDGET_KIB = 652;
 const dir=path.join(__dirname,'..');
 const OUT=path.join(dir,'Поставка — TeamPulse Hub','3. Proteus — чарт TeamPulse Hub.js');
@@ -107,7 +108,13 @@ function make(split){
   const css=read('styles.css');
   const HD=split?HEAD_MAIN:HEAD, OUTF=split?OUT_MAIN:OUT, BUD=split?BUDGET_SPLIT_KIB:BUDGET_KIB;
   /* один чарт: модули выполняются сразу; «по частям»: модули — тело TP_RUN(data), запускает parts.js */
-  let src='var TP_CSS='+JSON.stringify(css)+';\nvar TP_HTML='+JSON.stringify(body)+';\n'+(split
+  // Pack only inert text, preserving the existing CSS minifier byte for byte.
+  // The executable modules are ordinary ES5, never decoded/evaluated strings.
+  const textHead=split
+    ?textCodec.runtime+'\nvar TP_CSS=TP_UNPACK('+JSON.stringify(textCodec.pack(MIN.cssMin(css)))+');\n'+
+      'var TP_HTML=TP_UNPACK('+JSON.stringify(textCodec.pack(body))+');\n'
+    :'var TP_CSS='+JSON.stringify(css)+';\nvar TP_HTML='+JSON.stringify(body)+';\n';
+  let src=textHead+(split
     ?'function TP_RUN(data){\ntry{\n'+mods()+ERR_TAIL+'}\ntry{\n/* proteus/parts.js */\n(function(){\n'+read('proteus/parts.js')+'\n})();'+ERR_TAIL
     :'try{\n'+mods()+ERR_TAIL);
 
@@ -135,7 +142,7 @@ function make(split){
      констант (fold) выпадают демо-ветки, за ними — ставшие ненужными функции генератора макета */
   return dep('terser').minify(out+tail,{ecma:5,toplevel:false,mangle:false,
     compress:{toplevel:false,keep_fargs:true,passes:3,unused:true,dead_code:true,reduce_funcs:false},format:{comments:false,beautify:true}})
-  .then(pre=>MIN.minifyChart(pre.code,head,{cssVars:['TP_CSS']}).then(r=>({r,src:pre.code})))
+  .then(pre=>MIN.minifyChart(pre.code,head,{cssVars:split?[]:['TP_CSS']}).then(r=>({r,src:pre.code})))
   .then(({r,src})=>{
     const code=r.code, v=MIN.verify(code,src);
     if(!/(^|[;}\n])option=\{[^]*\};?\n$/.test(code))v.fails.push('option не последний после сжатия');

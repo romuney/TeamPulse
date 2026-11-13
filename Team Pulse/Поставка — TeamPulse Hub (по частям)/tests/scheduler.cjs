@@ -19,11 +19,13 @@ function fixture(){
     now=to;
   }
   function send(p,at,sig='a',bt='v1',h=p+sig+bt){tick(at);receive({data:{type:'TP_PART',v:1,h,rows:row(p,sig,bt)}})}
-  return {w,runs,updates,asks,tick,send,hold:v=>held=v};
+  function hello(p,at){tick(at);receive({data:{type:'TP_HELLO',v:1,part:p,h:p},source:{postMessage:m=>asks.push({at:now,target:p,...m})}})}
+  return {w,runs,updates,asks,tick,send,hello,hold:v=>held=v};
 }
 let x=fixture();x.send('core',1000);x.send('people',1010);x.send('flow',1020);x.tick(1030);
 assert.equal(x.runs[0].at,1030,'background must not postpone first core paint');
 x.send('aux',2000);x.tick(2300);assert.equal(x.runs.length,1);assert.equal(x.updates.length,1);
+assert.equal(x.updates[0].at,2060,'ready background response has only a 60 ms batch window');
 x.send('aux',2400);x.tick(2800);assert.equal(x.updates.length,1,'duplicate ignored');
 for(const tab of ['structure','movement','turnover','hiring','tgrowth','monitor','office','ai','onepager']){
   x=fixture();for(const [i,p] of ['core','people','flow','aux'].entries())x.send(p,100+i*10);x.tick(500);
@@ -42,4 +44,14 @@ x=fixture();x.send('core',100);x.tick(200);x.send('people',300,'a','old');x.tick
 assert.equal(x.w.TP_PARTS.mixed,true,'mixed build detected');assert.equal(x.w.TP_PARTS.have.people,false);
 x.send('people',700,'b');x.tick(1000);assert.equal(x.w.TP_PARTS.have.people,false,'other filter never merged');
 x.send('people',1100,'a');x.tick(1500);assert.equal(x.w.TP_PARTS.have.people,true);
+x=fixture();x.hello('people',100);x.hello('flow',110);x.hello('aux',120);
+assert(!x.asks.some(a=>a.target),'heavy replies are not requested before core');
+x.hello('core',130);assert.equal(x.asks.at(-1).target,'core');
+x.send('core',200);x.tick(229);
+assert(!x.asks.some(a=>a.target==='people'),'core must paint before background handoff');
+x.tick(230);
+assert.equal(x.runs.length,1);
+assert.deepEqual([...x.asks.at(-1).parts],['people','flow','aux']);
+x=fixture();x.send('core',200);x.tick(230);
+assert.deepEqual([...x.asks.at(-1).parts],['people','flow','aux'],'request ready replies even when earlier HELLO was lost');
 console.log('PASS: scheduler, active dependencies for 9 tabs, incremental refresh, dialogs, selective polling, mixed/stale responses');

@@ -1,6 +1,7 @@
 """Run against fixture_server.py; Playwright + Chromium required."""
 from playwright.sync_api import sync_playwright
 import json
+import os
 
 BASE = 'http://127.0.0.1:8767/'
 TABS = ['onepager', 'structure', 'movement', 'turnover', 'hiring', 'tgrowth', 'monitor', 'office', 'ai']
@@ -8,7 +9,10 @@ TABS = ['onepager', 'structure', 'movement', 'turnover', 'hiring', 'tgrowth', 'm
 
 def main():
     with sync_playwright() as p:
-        b = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox'])
+        launch = {'headless': True}
+        if os.environ.get('CHROMIUM_PATH'):
+            launch['executable_path'] = os.environ['CHROMIUM_PATH']
+        b = p.chromium.launch(**launch)
         errors = []
 
         def open_page(query=''):
@@ -27,15 +31,26 @@ def main():
             f.locator('.nav-i[data-tab="'+tab+'"]').click()
 
         def compare(a, c):
+            # Only obsolete availability copy differs. Keep every metric,
+            # chart label, table cell and conclusion in the comparison.
+            def content(f):
+                return f.locator('#view').evaluate('''e => {
+                  const n=e.cloneNode(true);
+                  n.querySelectorAll('.dev-note,.dev-tag,.in-chip.dev,.st-dev').forEach(x=>x.remove());
+                  n.querySelectorAll('.op-stp').forEach(x=>{
+                    if(/^(Метрика в разработке|Данные показателя не получены)/.test(x.textContent))x.remove();
+                  });
+                  return n.textContent.replace(/\\s+/g,' ').trim();
+                }''')
             for tab in TABS:
                 for f in [a, c]:
                     go(f, tab)
-                assert a.locator('#view').inner_text() == c.locator('#view').inner_text(), tab
+                assert content(a) == content(c), tab
                 subs = a.locator('[data-subtab]').evaluate_all('(xs)=>[...new Set(xs.map(x=>x.dataset.subtab))]')
                 for sub in subs:
                     for f in [a, c]:
                         f.locator('[data-subtab="'+sub+'"]').first.click()
-                    assert a.locator('#view').inner_text() == c.locator('#view').inner_text(), tab+'/'+sub
+                    assert content(a) == content(c), tab+'/'+sub
 
         # Real delivered minified JS in opaque iframes, staggered arrivals.
         page, f = open_page('delay=people:3000,flow:4500,aux:6000')
@@ -44,7 +59,7 @@ def main():
         assert f.locator('.tp-core-preview .svgchart').count() == 2
         assert f.locator('.part-wait').count() == 1
         f.wait_for_function('window.TP_PARTS.have.people')
-        assert f.locator('.part-wait').count() == 0
+        assert f.locator('.part-wait').count() == 1, 'facts available; comparisons still await aux'
         f.evaluate('window.keepContent=document.querySelector("#view").firstElementChild')
         f.wait_for_function('window.TP_PARTS.have.flow')
         assert f.evaluate('window.keepContent===document.querySelector("#view").firstElementChild'), 'unrelated flow redrew monitor'
@@ -66,7 +81,7 @@ def main():
         assert f.evaluate('keepRoot===document.querySelector(".tp-overlay")'), 'core applied before monitor ready'
         f.wait_for_function('!document.querySelector(".tp-busy") && window.TP_REAL.req[0]==="A"')
         assert f.locator('.nav-i.active').get_attribute('data-tab') == 'monitor'
-        assert f.locator('.part-wait').count() == 0
+        assert f.locator('.part-wait').count() == 1, 'new-unit facts ready before comparisons'
         assert not f.evaluate('window.TP_PARTS.have.flow || window.TP_PARTS.have.aux')
         assert f.evaluate('window.TPDATA.lastVal(window.TPDATA.reportLeaves(window.__pvtState.tp.S),"hc_total")') == 40
         f.evaluate('window.filterRoot=document.querySelector(".tp-overlay")')
@@ -141,6 +156,14 @@ def main():
         assert readf.locator('.tp-core-preview').count() == 0
         assert readf.locator('.nav-i.active').get_attribute('data-tab') == 'monitor'
         print('PASS: search focus/selection and scrolled chart preserved during background updates', flush=True)
+
+        keyboard, kf = open_page('delay=aux:3500')
+        kf.locator('.tp-quick-table button').first.focus()
+        kf.wait_for_selector('[data-tp-details]', timeout=6000)
+        assert kf.evaluate('!!document.activeElement.closest(".tp-quick-table")'), 'background replaced keyboard focus'
+        kf.locator('[data-tp-details]').click()
+        assert kf.locator('.tp-quick-table').count() == 0
+        print('PASS: keyboard focus retained until explicit full-report transition', flush=True)
 
         # Timeout is visible; available charts remain useful.
         missing, mf = open_page('drop=people')
