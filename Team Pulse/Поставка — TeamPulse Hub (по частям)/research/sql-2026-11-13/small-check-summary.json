@@ -1,0 +1,8 @@
+{
+  "cases": 19,
+  "part_comparisons": 95,
+  "candidate_rows": 1038,
+  "merged_vs_ordinary_all": 19,
+  "seconds": 164.44316058512777,
+  "PASS": true
+}

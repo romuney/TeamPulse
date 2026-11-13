@@ -1,0 +1,36 @@
+[
+  {
+    "part": "aux",
+    "variant": "base",
+    "events_minus_probe": {
+      "SelectedRows": 11101380,
+      "SelectedBytes": 895865489,
+      "SelectedMarks": 1368,
+      "ReadBufferFromFileDescriptorReadBytes": 174179563
+    },
+    "merge_tree_steps": 2,
+    "probe_overhead": {
+      "SelectedRows": 34,
+      "SelectedBytes": 4311,
+      "SelectedMarks": 0,
+      "ReadBufferFromFileDescriptorReadBytes": 0
+    }
+  },
+  {
+    "part": "aux",
+    "variant": "peer",
+    "events_minus_probe": {
+      "SelectedRows": 11137176,
+      "SelectedBytes": 391451225,
+      "SelectedMarks": 1374,
+      "ReadBufferFromFileDescriptorReadBytes": 85156572
+    },
+    "merge_tree_steps": 2,
+    "probe_overhead": {
+      "SelectedRows": 34,
+      "SelectedBytes": 4311,
+      "SelectedMarks": 0,
+      "ReadBufferFromFileDescriptorReadBytes": 0
+    }
+  }
+]

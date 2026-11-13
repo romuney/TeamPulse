@@ -1,0 +1,93 @@
+Expression ((Project names + Projection))
+  Limit (preliminary LIMIT (without OFFSET))
+    Aggregating
+      Union
+        Expression ((Before GROUP BY + (Change column names to column identifiers + (Project names + (Before ORDER BY + (Projection + (Change column names to column identifiers + (Project names + (Projection + (Change column names to column identifiers + (Conversion before UNION + (Project names + (Projection + Change column names to column identifiers)))))))))))))
+          ReadFromStorage (SystemOne)
+        Expression (( + ( + ( + ( + ( + ( + ( + ( + ( + (Conversion before UNION + (Project names + (Projection + Change column names to column identifiers)))))))))))))
+          ReadFromStorage (SystemOne)
+        Expression (( + ( + ( + ( + ( + ( + ( + ( + ( + (Conversion before UNION + (Project names + Projection))))))))))))
+          Filter ((WHERE + DROP unused columns after JOIN))
+            Join (JOIN FillRightFirst)
+              Expression ((JOIN actions + DROP unused columns after JOIN))
+                Join (JOIN FillRightFirst)
+                  Expression ((JOIN actions + (Change column names to column identifiers + (Project names + (Projection + (Change column names to column identifiers + (Project names + (Projection + Change column names to column identifiers))))))))
+                    ReadFromStorage (SystemOne)
+                  Expression ((JOIN actions + (Change column names to column identifiers + (Project names + (Projection + Change column names to column identifiers)))))
+                    ReadFromMergeTree (prod_proteus.teampulse_hub_unit)
+              Expression ((JOIN actions + (Change column names to column identifiers + (Project names + (Projection + (Change column names to column identifiers + (Project names + Projection)))))))
+                Aggregating
+                  Expression ((Before GROUP BY + (Change column names to column identifiers + (Project names + (Projection + (Change column names to column identifiers + (Project names + Projection)))))))
+                    Aggregating
+                      Union
+                        Expression ((Before GROUP BY + (Change column names to column identifiers + (Project names + Projection))))
+                          Aggregating
+                            Expression ((Before GROUP BY + Change column names to column identifiers))
+                              CreatingSets (Create sets before main query execution)
+                                Expression ((Project names + Projection))
+                                  Expression
+                                    ReadFromMergeTree (prod_proteus.teampulse_hub_series)
+                                CreatingSet (Create set for subquery)
+                                  Expression ((Project names + (Projection + Change column names to column identifiers)))
+                                    ReadFromStorage (SystemOne)
+                        Expression (( + ))
+                          CreatingSets (Create sets before main query execution)
+                            Expression ((Project names + Projection))
+                              Aggregating
+                                Expression (Before GROUP BY)
+                                  Expression
+                                    ReadFromMergeTree (prod_proteus.teampulse_hub_trf)
+                            CreatingSet (Create set for subquery)
+                              Expression ((Project names + (Projection + Change column names to column identifiers)))
+                                ReadFromStorage (SystemOne)
+                        Expression (( + ))
+                          CreatingSets (Create sets before main query execution)
+                            Expression ((Project names + Projection))
+                              Aggregating
+                                Expression (Before GROUP BY)
+                                  Expression
+                                    ReadFromMergeTree (prod_proteus.teampulse_hub_trf)
+                            CreatingSet (Create set for subquery)
+                              Expression ((Project names + (Projection + Change column names to column identifiers)))
+                                ReadFromStorage (SystemOne)
+                        Expression (( + ))
+                          CreatingSets (Create sets before main query execution)
+                            Expression ((Project names + Projection))
+                              Aggregating
+                                Expression (Before GROUP BY)
+                                  Expression
+                                    ReadFromMergeTree (prod_proteus.teampulse_hub_vacancy)
+                            CreatingSet (Create set for subquery)
+                              Expression ((Project names + (Projection + Change column names to column identifiers)))
+                                ReadFromStorage (SystemOne)
+                        Expression (( + ))
+                          CreatingSets (Create sets before main query execution)
+                            Expression ((Project names + Projection))
+                              Aggregating
+                                Expression (Before GROUP BY)
+                                  Expression
+                                    ReadFromMergeTree (prod_proteus.teampulse_hub_flow)
+                            CreatingSet (Create set for subquery)
+                              Expression ((Project names + (Projection + Change column names to column identifiers)))
+                                ReadFromStorage (SystemOne)
+                        Expression (( + ( + (Conversion before UNION + (Project names + (Projection + Change column names to column identifiers))))))
+                          ReadFromStorage (SystemOne)
+        Expression (( + ( + ( + ( + ( + ( + ( + ( + ( + (Conversion before UNION + (Project names + (Projection + (Change column names to column identifiers + (Project names + (Projection + (Change column names to column identifiers + (Project names + Projection))))))))))))))))))
+          Aggregating
+            Expression ((Before GROUP BY + (Change column names to column identifiers + (Project names + (Projection + (Change column names to column identifiers + (Project names + Projection)))))))
+              Aggregating
+                Union
+                  Expression ((Before GROUP BY + (Change column names to column identifiers + (Project names + Projection))))
+                    Aggregating
+                      Expression (Before GROUP BY)
+                        Expression
+                          ReadFromMergeTree (prod_proteus.teampulse_hub_series)
+                  Expression (( + ( + (Project names + Projection))))
+                    Aggregating
+                      Expression (Before GROUP BY)
+                        Expression
+                          ReadFromMergeTree (prod_proteus.teampulse_hub_trf)
+                  Expression (( + ( + (Conversion before UNION + (Project names + (Projection + Change column names to column identifiers))))))
+                    ReadFromStorage (SystemOne)
+        Expression (( + ( + ( + ( + ( + ( + ( + ( + ( + (Conversion before UNION + (Project names + (Projection + Change column names to column identifiers)))))))))))))
+          ReadFromStorage (SystemOne)

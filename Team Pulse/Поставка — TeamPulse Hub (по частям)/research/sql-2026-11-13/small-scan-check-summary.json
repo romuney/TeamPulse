@@ -1,0 +1,11 @@
+{
+  "cases": 5,
+  "parts_tested": [
+    "core"
+  ],
+  "part_comparisons": 10,
+  "candidate_rows": 178,
+  "merged_vs_ordinary_all": 10,
+  "seconds": 39.12490658299066,
+  "PASS": true
+}

@@ -1,0 +1,1222 @@
+[
+  {
+    "part": "dict",
+    "variant": "base",
+    "path_s": 0.4477920000208542,
+    "key_parse_s": 0.15968112496193498,
+    "steps": {
+      "strip": 1.3329554349184036e-06,
+      "format(strip_comments)": 0.03896224999334663,
+      "split": 0.008450207998976111,
+      "ParsedQuery (parse)": 0.0362311250064522,
+      "is_select (format + parse)": 0.07603620900772512,
+      "format(reindent) обёртки": 0.20513908297289163,
+      "parse_sql (get_df)": 0.0828480829950422
+    },
+    "sql_bytes": 8433,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 1,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 0
+    },
+    "path_samples": [
+      0.4477920000208542,
+      0.4919769170228392,
+      0.4645018329611048
+    ],
+    "key_samples": [
+      0.15968112496193498,
+      0.18848700006492436,
+      0.17082449910230935
+    ],
+    "ch_s": [
+      0.25498845893889666,
+      0.24563679192215204,
+      0.2452377500012517
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 2023131,
+    "sha256": "ecc024e895112ad27dabcc97345fdf0d70bfae5173c696c10d2b90fdc5c6b8f3",
+    "result_rows": [
+      3,
+      3,
+      3
+    ],
+    "result_bytes": [
+      1915745,
+      1915745,
+      1915745
+    ],
+    "driver_elapsed": [
+      0.253305125,
+      0.243925041,
+      0.243629333
+    ]
+  },
+  {
+    "part": "dict",
+    "variant": "zone",
+    "path_s": 0.30587333301082253,
+    "key_parse_s": 0.11818116786889732,
+    "steps": {
+      "strip": 3.4999102354049683e-06,
+      "format(strip_comments)": 0.029049041913822293,
+      "split": 0.006337583996355534,
+      "ParsedQuery (parse)": 0.02691966702695936,
+      "is_select (format + parse)": 0.05587137502152473,
+      "format(reindent) обёртки": 0.12857712502591312,
+      "parse_sql (get_df)": 0.0590887910220772
+    },
+    "sql_bytes": 6601,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 1,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 0
+    },
+    "path_samples": [
+      0.30587333301082253,
+      0.3142386249965057,
+      0.3456419169669971
+    ],
+    "key_samples": [
+      0.11818116786889732,
+      0.12104937399271876,
+      0.14343558379914612
+    ],
+    "ch_s": [
+      0.22484337503556162,
+      0.22393812506925315,
+      0.22428316692821681
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 2023131,
+    "sha256": "ecc024e895112ad27dabcc97345fdf0d70bfae5173c696c10d2b90fdc5c6b8f3",
+    "result_rows": [
+      3,
+      3,
+      3
+    ],
+    "result_bytes": [
+      1915745,
+      1915745,
+      1915745
+    ],
+    "driver_elapsed": [
+      0.2235345,
+      0.222550958,
+      0.222964792
+    ]
+  },
+  {
+    "part": "dict",
+    "variant": "fdb",
+    "path_s": 0.4300482909893617,
+    "key_parse_s": 0.15141649905126542,
+    "steps": {
+      "strip": 1.4579854905605316e-06,
+      "format(strip_comments)": 0.037316458066925406,
+      "split": 0.00810900004580617,
+      "ParsedQuery (parse)": 0.03439849999267608,
+      "is_select (format + parse)": 0.0715910829603672,
+      "format(reindent) обёртки": 0.20260804193094373,
+      "parse_sql (get_df)": 0.0759939169511199
+    },
+    "sql_bytes": 8125,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 1,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 0
+    },
+    "path_samples": [
+      0.4300482909893617,
+      0.4567041249247268,
+      0.4375556670129299
+    ],
+    "key_samples": [
+      0.15141649905126542,
+      0.17136204219423234,
+      0.16413120599463582
+    ],
+    "ch_s": [
+      0.11080558295361698,
+      0.11835433298256248,
+      0.11030408297665417
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 2023131,
+    "sha256": "ecc024e895112ad27dabcc97345fdf0d70bfae5173c696c10d2b90fdc5c6b8f3",
+    "result_rows": [
+      3,
+      3,
+      3
+    ],
+    "result_bytes": [
+      1915745,
+      1915745,
+      1915745
+    ],
+    "driver_elapsed": [
+      0.109247958,
+      0.116694417,
+      0.108704375
+    ]
+  },
+  {
+    "part": "dict",
+    "variant": "both",
+    "path_s": 0.28972045809496194,
+    "key_parse_s": 0.11344562587328255,
+    "steps": {
+      "strip": 2.4170149117708206e-06,
+      "format(strip_comments)": 0.027695124968886375,
+      "split": 0.006439708988182247,
+      "ParsedQuery (parse)": 0.025502666947431862,
+      "is_select (format + parse)": 0.053805707953870296,
+      "format(reindent) обёртки": 0.11772220896091312,
+      "parse_sql (get_df)": 0.05851820902898908
+    },
+    "sql_bytes": 6293,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 1,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 0
+    },
+    "path_samples": [
+      0.28972045809496194,
+      0.31164650002028793,
+      0.30173220799770206
+    ],
+    "key_samples": [
+      0.11344562587328255,
+      0.12554662604816258,
+      0.12338404206093401
+    ],
+    "ch_s": [
+      0.08962408395018429,
+      0.09322929091285914,
+      0.08950687502510846
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 2023131,
+    "sha256": "ecc024e895112ad27dabcc97345fdf0d70bfae5173c696c10d2b90fdc5c6b8f3",
+    "result_rows": [
+      3,
+      3,
+      3
+    ],
+    "result_bytes": [
+      1915745,
+      1915745,
+      1915745
+    ],
+    "driver_elapsed": [
+      0.088401416,
+      0.092000625,
+      0.088279416
+    ]
+  },
+  {
+    "part": "core",
+    "variant": "base",
+    "path_s": 0.8602263750508428,
+    "key_parse_s": 0.2643609988735989,
+    "steps": {
+      "strip": 1.500011421740055e-06,
+      "format(strip_comments)": 0.062032916001044214,
+      "split": 0.01404866692610085,
+      "ParsedQuery (parse)": 0.06759670795872808,
+      "is_select (format + parse)": 0.120681207976304,
+      "format(reindent) обёртки": 0.49371108296327293,
+      "parse_sql (get_df)": 0.10212545795366168
+    },
+    "sql_bytes": 21060,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 6,
+      "trf": 3,
+      "flow": 1,
+      "vacancy": 1
+    },
+    "path_samples": [
+      0.8602263750508428,
+      0.9306004169629887,
+      0.8758099169936031
+    ],
+    "key_samples": [
+      0.2643609988735989,
+      0.2806157487211749,
+      0.26206408196594566
+    ],
+    "ch_s": [
+      1.6524083339609206,
+      1.7264985829824582,
+      1.6977122910320759
+    ],
+    "strict_equal": [
+      true,
+      false,
+      false
+    ],
+    "response_bytes": 2232245,
+    "sha256": "36d34547e8222fca217aba2efca7547dd1a1cb037ad4c3bdce87a5a8f1934607",
+    "result_rows": [
+      472,
+      472,
+      472
+    ],
+    "result_bytes": [
+      2229121,
+      2229161,
+      2229182
+    ],
+    "driver_elapsed": [
+      1.648581208,
+      1.722522333,
+      1.693860875
+    ]
+  },
+  {
+    "part": "core",
+    "variant": "zone",
+    "path_s": 0.6796000829199329,
+    "key_parse_s": 0.22484083415474743,
+    "steps": {
+      "strip": 1.334003172814846e-06,
+      "format(strip_comments)": 0.052662833011709154,
+      "split": 0.01201975008007139,
+      "ParsedQuery (parse)": 0.04857629199977964,
+      "is_select (format + parse)": 0.11158062506001443,
+      "format(reindent) обёртки": 0.3676875829696655,
+      "parse_sql (get_df)": 0.08704358409158885
+    },
+    "sql_bytes": 19228,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 6,
+      "trf": 3,
+      "flow": 1,
+      "vacancy": 1
+    },
+    "path_samples": [
+      0.6796000829199329,
+      0.7086997909937054,
+      0.6985013750381768
+    ],
+    "key_samples": [
+      0.22484083415474743,
+      0.2451356661040336,
+      0.2331017911201343
+    ],
+    "ch_s": [
+      1.615423750015907,
+      1.7092097499407828,
+      1.6989994160830975
+    ],
+    "strict_equal": [
+      false,
+      false,
+      false
+    ],
+    "response_bytes": 2232233,
+    "sha256": "0e5e71085fc92516e30fc15670964fd3dbd07fbc11a76a397e9ab0261a8570c0",
+    "result_rows": [
+      472,
+      472,
+      472
+    ],
+    "result_bytes": [
+      2229047,
+      2229059,
+      2229085
+    ],
+    "driver_elapsed": [
+      1.611738208,
+      1.705402292,
+      1.695408166
+    ]
+  },
+  {
+    "part": "core",
+    "variant": "fdb",
+    "path_s": 0.8394475840032101,
+    "key_parse_s": 0.2642282929737121,
+    "steps": {
+      "strip": 1.6670674085617065e-06,
+      "format(strip_comments)": 0.06212070898618549,
+      "split": 0.014620999922044575,
+      "ParsedQuery (parse)": 0.057217458030208945,
+      "is_select (format + parse)": 0.1302674589678645,
+      "format(reindent) обёртки": 0.4735862499801442,
+      "parse_sql (get_df)": 0.10160191601607949
+    },
+    "sql_bytes": 20752,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 6,
+      "trf": 3,
+      "flow": 1,
+      "vacancy": 1
+    },
+    "path_samples": [
+      0.8394475840032101,
+      0.868680041981861,
+      0.8704981249757111
+    ],
+    "key_samples": [
+      0.2642282929737121,
+      0.27951345802284777,
+      0.28065437509212643
+    ],
+    "ch_s": [
+      1.5667312499135733,
+      1.6485380838857964,
+      1.67110249993857
+    ],
+    "strict_equal": [
+      false,
+      false,
+      false
+    ],
+    "response_bytes": 2232253,
+    "sha256": "94e0700b9feaa4a07a92fdaf96c611ff7714c0a4174b755dfbfb4ae8e66d716e",
+    "result_rows": [
+      472,
+      472,
+      472
+    ],
+    "result_bytes": [
+      2229176,
+      2229187,
+      2229190
+    ],
+    "driver_elapsed": [
+      1.562829208,
+      1.644628875,
+      1.667052375
+    ]
+  },
+  {
+    "part": "core",
+    "variant": "both",
+    "path_s": 0.6574827079894021,
+    "key_parse_s": 0.21313070692121983,
+    "steps": {
+      "strip": 1.374981366097927e-06,
+      "format(strip_comments)": 0.05264320794958621,
+      "split": 0.01221087493468076,
+      "ParsedQuery (parse)": 0.04909820796456188,
+      "is_select (format + parse)": 0.09917704109102488,
+      "format(reindent) обёртки": 0.3511007920606062,
+      "parse_sql (get_df)": 0.09322420798707753
+    },
+    "sql_bytes": 18920,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 6,
+      "trf": 3,
+      "flow": 1,
+      "vacancy": 1
+    },
+    "path_samples": [
+      0.6574827079894021,
+      0.6687553749652579,
+      0.6868409590097144
+    ],
+    "key_samples": [
+      0.21313070692121983,
+      0.22253641695715487,
+      0.24062691710423678
+    ],
+    "ch_s": [
+      1.568009625072591,
+      1.7374090000521392,
+      1.6456442499766126
+    ],
+    "strict_equal": [
+      false,
+      false,
+      false
+    ],
+    "response_bytes": 2232239,
+    "sha256": "12bdebca89f4352cfd2d3052fb75d4d2eb49ea58a0ea8130dba64d06c7b25deb",
+    "result_rows": [
+      472,
+      472,
+      472
+    ],
+    "result_bytes": [
+      2229156,
+      2229082,
+      2229040
+    ],
+    "driver_elapsed": [
+      1.564444292,
+      1.733676167,
+      1.642098
+    ]
+  },
+  {
+    "part": "people",
+    "variant": "base",
+    "path_s": 0.4277207920094952,
+    "key_parse_s": 0.15722062392160296,
+    "steps": {
+      "strip": 1.125037670135498e-06,
+      "format(strip_comments)": 0.03848733298946172,
+      "split": 0.008251582970842719,
+      "ParsedQuery (parse)": 0.03584437491372228,
+      "is_select (format + parse)": 0.07463620800990611,
+      "format(reindent) обёртки": 0.21016320795752108,
+      "parse_sql (get_df)": 0.06031037506181747
+    },
+    "sql_bytes": 9238,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 0,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 0
+    },
+    "path_samples": [
+      0.4277207920094952,
+      0.4442447079345584,
+      0.47181487502530217
+    ],
+    "key_samples": [
+      0.15722062392160296,
+      0.16818400099873543,
+      0.1827749158255756
+    ],
+    "ch_s": [
+      1.7287851669825613,
+      1.7156103329034522,
+      1.747935000108555
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 3113047,
+    "sha256": "6e34b8ff2a83011e47cc457778dffa1a3bf5928744ec7f964f34ec43f5b384dd",
+    "result_rows": [
+      470,
+      470,
+      470
+    ],
+    "result_bytes": [
+      2660087,
+      2660087,
+      2660087
+    ],
+    "driver_elapsed": [
+      1.726924833,
+      1.713877083,
+      1.746177458
+    ]
+  },
+  {
+    "part": "people",
+    "variant": "zone",
+    "path_s": 0.302520832978189,
+    "key_parse_s": 0.12888804089743644,
+    "steps": {
+      "strip": 1.4579854905605316e-06,
+      "format(strip_comments)": 0.029283875017426908,
+      "split": 0.007355540990829468,
+      "ParsedQuery (parse)": 0.02647212496958673,
+      "is_select (format + parse)": 0.06577504193410277,
+      "format(reindent) обёртки": 0.13132162496913224,
+      "parse_sql (get_df)": 0.04228545806836337
+    },
+    "sql_bytes": 7406,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 0,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 0
+    },
+    "path_samples": [
+      0.302520832978189,
+      0.31104495807085186,
+      0.3152921670116484
+    ],
+    "key_samples": [
+      0.12888804089743644,
+      0.1298505839658901,
+      0.1332864590222016
+    ],
+    "ch_s": [
+      1.627020791056566,
+      1.7415827079676092,
+      1.7194187920540571
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 3113047,
+    "sha256": "6e34b8ff2a83011e47cc457778dffa1a3bf5928744ec7f964f34ec43f5b384dd",
+    "result_rows": [
+      470,
+      470,
+      470
+    ],
+    "result_bytes": [
+      2660087,
+      2660087,
+      2660087
+    ],
+    "driver_elapsed": [
+      1.625579375,
+      1.740112834,
+      1.717971042
+    ]
+  },
+  {
+    "part": "people",
+    "variant": "fdb",
+    "path_s": 0.4236573340604082,
+    "key_parse_s": 0.1548968341667205,
+    "steps": {
+      "strip": 1.2079253792762756e-06,
+      "format(strip_comments)": 0.03814320906531066,
+      "split": 0.008372000069357455,
+      "ParsedQuery (parse)": 0.035260792006738484,
+      "is_select (format + parse)": 0.07311962509993464,
+      "format(reindent) обёртки": 0.2092089579673484,
+      "parse_sql (get_df)": 0.05952599993906915
+    },
+    "sql_bytes": 9238,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 0,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 0
+    },
+    "path_samples": [
+      0.4236573340604082,
+      0.4491486659971997,
+      0.44621249998454005
+    ],
+    "key_samples": [
+      0.1548968341667205,
+      0.167217583861202,
+      0.1685797079699114
+    ],
+    "ch_s": [
+      1.6626361249946058,
+      1.701615042053163,
+      1.7415039170300588
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 3113047,
+    "sha256": "6e34b8ff2a83011e47cc457778dffa1a3bf5928744ec7f964f34ec43f5b384dd",
+    "result_rows": [
+      470,
+      470,
+      470
+    ],
+    "result_bytes": [
+      2660087,
+      2660087,
+      2660087
+    ],
+    "driver_elapsed": [
+      1.660894375,
+      1.69989825,
+      1.739741375
+    ]
+  },
+  {
+    "part": "people",
+    "variant": "both",
+    "path_s": 0.3061687920708209,
+    "key_parse_s": 0.13171979086473584,
+    "steps": {
+      "strip": 1.250067725777626e-06,
+      "format(strip_comments)": 0.02922899997793138,
+      "split": 0.01688924990594387,
+      "ParsedQuery (parse)": 0.026792165939696133,
+      "is_select (format + parse)": 0.05880812497343868,
+      "format(reindent) обёртки": 0.13172987499274313,
+      "parse_sql (get_df)": 0.04269254195969552
+    },
+    "sql_bytes": 7406,
+    "baseline_text_refs": {
+      "unit": 9,
+      "access": 2,
+      "series": 0,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 0
+    },
+    "path_samples": [
+      0.3061687920708209,
+      0.3045690420549363,
+      0.3129845829680562
+    ],
+    "key_samples": [
+      0.13171979086473584,
+      0.12501637486275285,
+      0.13071541488170624
+    ],
+    "ch_s": [
+      1.6451725410297513,
+      1.7374246660619974,
+      1.7265983750112355
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 3113047,
+    "sha256": "6e34b8ff2a83011e47cc457778dffa1a3bf5928744ec7f964f34ec43f5b384dd",
+    "result_rows": [
+      470,
+      470,
+      470
+    ],
+    "result_bytes": [
+      2660087,
+      2660087,
+      2660087
+    ],
+    "driver_elapsed": [
+      1.643647542,
+      1.7359715,
+      1.72513375
+    ]
+  },
+  {
+    "part": "flow",
+    "variant": "base",
+    "path_s": 0.5465585000347346,
+    "key_parse_s": 0.18310862593352795,
+    "steps": {
+      "strip": 1.249951310455799e-06,
+      "format(strip_comments)": 0.04495520901400596,
+      "split": 0.01063420798163861,
+      "ParsedQuery (parse)": 0.041419874993152916,
+      "is_select (format + parse)": 0.08609808399342,
+      "format(reindent) обёртки": 0.28264641598798335,
+      "parse_sql (get_df)": 0.08077833289280534
+    },
+    "sql_bytes": 13668,
+    "baseline_text_refs": {
+      "unit": 8,
+      "access": 2,
+      "series": 0,
+      "trf": 4,
+      "flow": 1,
+      "vacancy": 2
+    },
+    "path_samples": [
+      0.5465585000347346,
+      0.5573742919368669,
+      0.5707772080786526
+    ],
+    "key_samples": [
+      0.18310862593352795,
+      0.19689304090570658,
+      0.20036279095802456
+    ],
+    "ch_s": [
+      1.2888914580689743,
+      1.252474624896422,
+      1.3022112080361694
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 2098936,
+    "sha256": "72088f526f458f4789d0975b89bc0cd19057bc55d638b68220adfe0e3e99fca9",
+    "result_rows": [
+      470,
+      470,
+      470
+    ],
+    "result_bytes": [
+      1860782,
+      1860782,
+      1860782
+    ],
+    "driver_elapsed": [
+      1.2862855,
+      1.249920916,
+      1.299537
+    ]
+  },
+  {
+    "part": "flow",
+    "variant": "zone",
+    "path_s": 0.39516233291942626,
+    "key_parse_s": 0.14850758388638496,
+    "steps": {
+      "strip": 1.08394306153059e-06,
+      "format(strip_comments)": 0.03634829097427428,
+      "split": 0.008828709018416703,
+      "ParsedQuery (parse)": 0.03339983301702887,
+      "is_select (format + parse)": 0.06992966693360358,
+      "format(reindent) обёртки": 0.19513804104644805,
+      "parse_sql (get_df)": 0.05148933397140354
+    },
+    "sql_bytes": 11836,
+    "baseline_text_refs": {
+      "unit": 8,
+      "access": 2,
+      "series": 0,
+      "trf": 4,
+      "flow": 1,
+      "vacancy": 2
+    },
+    "path_samples": [
+      0.39516233291942626,
+      0.4177447500405833,
+      0.42189870902802795
+    ],
+    "key_samples": [
+      0.14850758388638496,
+      0.16278537479229271,
+      0.1634094591718167
+    ],
+    "ch_s": [
+      1.2443181660491973,
+      1.234819749952294,
+      1.2685567089356482
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 2098936,
+    "sha256": "72088f526f458f4789d0975b89bc0cd19057bc55d638b68220adfe0e3e99fca9",
+    "result_rows": [
+      470,
+      470,
+      470
+    ],
+    "result_bytes": [
+      1860782,
+      1860782,
+      1860782
+    ],
+    "driver_elapsed": [
+      1.241865333,
+      1.232367291,
+      1.266333167
+    ]
+  },
+  {
+    "part": "flow",
+    "variant": "fdb",
+    "path_s": 0.5472970000701025,
+    "key_parse_s": 0.1949813332175836,
+    "steps": {
+      "strip": 1.5830155462026596e-06,
+      "format(strip_comments)": 0.045323583064600825,
+      "split": 0.010596292093396187,
+      "ParsedQuery (parse)": 0.04139229201246053,
+      "is_select (format + parse)": 0.09766758303157985,
+      "format(reindent) обёртки": 0.2828947500092909,
+      "parse_sql (get_df)": 0.06939537497237325
+    },
+    "sql_bytes": 13668,
+    "baseline_text_refs": {
+      "unit": 8,
+      "access": 2,
+      "series": 0,
+      "trf": 4,
+      "flow": 1,
+      "vacancy": 2
+    },
+    "path_samples": [
+      0.5472970000701025,
+      0.5585809169569984,
+      0.5649424169678241
+    ],
+    "key_samples": [
+      0.1949813332175836,
+      0.19354774989187717,
+      0.20135175087489188
+    ],
+    "ch_s": [
+      1.2594719999469817,
+      1.2510149159934372,
+      1.293094708933495
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 2098936,
+    "sha256": "72088f526f458f4789d0975b89bc0cd19057bc55d638b68220adfe0e3e99fca9",
+    "result_rows": [
+      470,
+      470,
+      470
+    ],
+    "result_bytes": [
+      1860782,
+      1860782,
+      1860782
+    ],
+    "driver_elapsed": [
+      1.256681458,
+      1.2485265,
+      1.290362834
+    ]
+  },
+  {
+    "part": "flow",
+    "variant": "both",
+    "path_s": 0.4061377909965813,
+    "key_parse_s": 0.14877241605427116,
+    "steps": {
+      "strip": 1.4579854905605316e-06,
+      "format(strip_comments)": 0.03703150001820177,
+      "split": 0.008624042035080492,
+      "ParsedQuery (parse)": 0.03313412505667657,
+      "is_select (format + parse)": 0.06998129095882177,
+      "format(reindent) обёртки": 0.19389779202174395,
+      "parse_sql (get_df)": 0.06344120798166841
+    },
+    "sql_bytes": 11836,
+    "baseline_text_refs": {
+      "unit": 8,
+      "access": 2,
+      "series": 0,
+      "trf": 4,
+      "flow": 1,
+      "vacancy": 2
+    },
+    "path_samples": [
+      0.4061377909965813,
+      0.4214959579985589,
+      0.4165860419161618
+    ],
+    "key_samples": [
+      0.14877241605427116,
+      0.16355924913659692,
+      0.16149262501858175
+    ],
+    "ch_s": [
+      1.23704924993217,
+      1.2199074589880183,
+      1.2663875420112163
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 2098936,
+    "sha256": "72088f526f458f4789d0975b89bc0cd19057bc55d638b68220adfe0e3e99fca9",
+    "result_rows": [
+      470,
+      470,
+      470
+    ],
+    "result_bytes": [
+      1860782,
+      1860782,
+      1860782
+    ],
+    "driver_elapsed": [
+      1.234790916,
+      1.217699083,
+      1.264155416
+    ]
+  },
+  {
+    "part": "aux",
+    "variant": "base",
+    "path_s": 0.5180530420038849,
+    "key_parse_s": 0.18911083322018385,
+    "steps": {
+      "strip": 1.250067725777626e-06,
+      "format(strip_comments)": 0.0467693330720067,
+      "split": 0.010074666002765298,
+      "ParsedQuery (parse)": 0.04308795905672014,
+      "is_select (format + parse)": 0.08917762502096593,
+      "format(reindent) обёртки": 0.2599937920458615,
+      "parse_sql (get_df)": 0.06892258301377296
+    },
+    "sql_bytes": 11915,
+    "baseline_text_refs": {
+      "unit": 10,
+      "access": 2,
+      "series": 1,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 1
+    },
+    "path_samples": [
+      0.5180530420038849,
+      0.5506342500448227,
+      0.5547259589657187
+    ],
+    "key_samples": [
+      0.18911083322018385,
+      0.21303341595921665,
+      0.20446883398108184
+    ],
+    "ch_s": [
+      0.5000920410966501,
+      0.461196708958596,
+      0.49944779195357114
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 1796226,
+    "sha256": "82bba5b07567c770b15f5cb12e2f86b60a39383ad539d39fd908bd24840c444d",
+    "result_rows": [
+      471,
+      471,
+      471
+    ],
+    "result_bytes": [
+      1565409,
+      1565409,
+      1565409
+    ],
+    "driver_elapsed": [
+      0.4976455,
+      0.45892725,
+      0.497174417
+    ]
+  },
+  {
+    "part": "aux",
+    "variant": "zone",
+    "path_s": 0.3935241249855608,
+    "key_parse_s": 0.16542291804216802,
+    "steps": {
+      "strip": 1.1669471859931946e-06,
+      "format(strip_comments)": 0.03921954205725342,
+      "split": 0.008874084101989865,
+      "ParsedQuery (parse)": 0.034248749958351254,
+      "is_select (format + parse)": 0.08307937497738749,
+      "format(reindent) обёртки": 0.17910283303353935,
+      "parse_sql (get_df)": 0.04897070792503655
+    },
+    "sql_bytes": 10083,
+    "baseline_text_refs": {
+      "unit": 10,
+      "access": 2,
+      "series": 1,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 1
+    },
+    "path_samples": [
+      0.3935241249855608,
+      0.40711354091763496,
+      0.41997120797168463
+    ],
+    "key_samples": [
+      0.16542291804216802,
+      0.16632658301386982,
+      0.17299525009002537
+    ],
+    "ch_s": [
+      0.4644680420169607,
+      0.4442638329928741,
+      0.4574399160919711
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 1796226,
+    "sha256": "82bba5b07567c770b15f5cb12e2f86b60a39383ad539d39fd908bd24840c444d",
+    "result_rows": [
+      471,
+      471,
+      471
+    ],
+    "result_bytes": [
+      1565409,
+      1565409,
+      1565409
+    ],
+    "driver_elapsed": [
+      0.462170083,
+      0.44228175,
+      0.455332708
+    ]
+  },
+  {
+    "part": "aux",
+    "variant": "fdb",
+    "path_s": 0.529812499997206,
+    "key_parse_s": 0.1894864160567522,
+    "steps": {
+      "strip": 1.3329554349184036e-06,
+      "format(strip_comments)": 0.046609750017523766,
+      "split": 0.010193458059802651,
+      "ParsedQuery (parse)": 0.04356054204981774,
+      "is_select (format + parse)": 0.08912133297417313,
+      "format(reindent) обёртки": 0.26080612500663847,
+      "parse_sql (get_df)": 0.07949095801450312
+    },
+    "sql_bytes": 11915,
+    "baseline_text_refs": {
+      "unit": 10,
+      "access": 2,
+      "series": 1,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 1
+    },
+    "path_samples": [
+      0.529812499997206,
+      0.5449158339761198,
+      0.5729745000135154
+    ],
+    "key_samples": [
+      0.1894864160567522,
+      0.20863799995277077,
+      0.21564116794615984
+    ],
+    "ch_s": [
+      0.4838748329784721,
+      0.4619609579676762,
+      0.4755789169576019
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 1796226,
+    "sha256": "82bba5b07567c770b15f5cb12e2f86b60a39383ad539d39fd908bd24840c444d",
+    "result_rows": [
+      471,
+      471,
+      471
+    ],
+    "result_bytes": [
+      1565409,
+      1565409,
+      1565409
+    ],
+    "driver_elapsed": [
+      0.481168166,
+      0.459681833,
+      0.473074959
+    ]
+  },
+  {
+    "part": "aux",
+    "variant": "both",
+    "path_s": 0.3813882910180837,
+    "key_parse_s": 0.15101874992251396,
+    "steps": {
+      "strip": 1.0409858077764511e-06,
+      "format(strip_comments)": 0.0371292500058189,
+      "split": 0.009003749932162464,
+      "ParsedQuery (parse)": 0.03388000000268221,
+      "is_select (format + parse)": 0.07100470899604261,
+      "format(reindent) обёртки": 0.17869979096576571,
+      "parse_sql (get_df)": 0.05164404190145433
+    },
+    "sql_bytes": 10083,
+    "baseline_text_refs": {
+      "unit": 10,
+      "access": 2,
+      "series": 1,
+      "trf": 0,
+      "flow": 0,
+      "vacancy": 1
+    },
+    "path_samples": [
+      0.3813882910180837,
+      0.4138215830316767,
+      0.42421374993864447
+    ],
+    "key_samples": [
+      0.15101874992251396,
+      0.1712824999121949,
+      0.17766720918007195
+    ],
+    "ch_s": [
+      0.4563086669659242,
+      0.45130662503652275,
+      0.45236004202160984
+    ],
+    "strict_equal": [
+      true,
+      true,
+      true
+    ],
+    "response_bytes": 1796226,
+    "sha256": "82bba5b07567c770b15f5cb12e2f86b60a39383ad539d39fd908bd24840c444d",
+    "result_rows": [
+      471,
+      471,
+      471
+    ],
+    "result_bytes": [
+      1565409,
+      1565409,
+      1565409
+    ],
+    "driver_elapsed": [
+      0.454119917,
+      0.44930625,
+      0.450362917
+    ]
+  }
+]

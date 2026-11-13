@@ -1,7 +1,7 @@
-{#- TeamPulse Hub, дашборд «по частям». ЧАСТЬ core — загрузчик 1: meta, ряды узлов ответа, строка HQ — первый экран.
-    Собрано stand/mk_split.py из датасета обычной поставки (файл 2): тот же текст, отличается одна строка —
-    {% set PART = 'core' %}. Руками не править: правка — в файле 2, затем скрипт. Описание строк и колонок ответа —
-    в шапке файла 2. Колонки: role, id, pid, lvl, nm, kids, j, ms, mx. Первая строка части — role = 'part'. -#}
+{#- TeamPulse Hub: экспериментальная часть core.
+    Собрано build-sql.py из обычного датасета с точечными src/sql-patches.py.
+    Обычная поставка — эталон; GP, права, фильтры и контракт ответа сохранены.
+    Не править вручную. Пересборка: python build-sql.py. -#}
 {#- Строковый литерал ClickHouse: сначала слэш → \\, затем кавычка → '' (не \': лексер
     sqlparse Proteus его не понимает — тихо меняет ответ); слэши в конце — repeat(char(92), N). -#}
 {% macro qs(v) -%}
@@ -434,13 +434,29 @@ WITH
   ),
   {#- Метрики узлов ответа под фильтрами: узел × месяц × массив метрик (по строке от каждой таблицы); нулевые
       строки — все месяцы каждого узла: ряд узла без людей и месяцы без строк — нули #}
+{#- Split delivery: disjoint M slots, original independent predicates. #}
+{% macro vec_mm_series() -%}
+{%- set conditions = {'s': 'tp_mm_selected', 'g': 'tp_mm_growth', 'h': 'tp_mm_hq'} -%}
+{%- set xs = [] -%}
+{%- for m in M -%}
+{%- if m[1] in conditions -%}
+{%- set _ = xs.append('sumIf(toFloat64(' ~ m[2] ~ '), ' ~ conditions[m[1]] ~ ')') -%}
+{%- else -%}{%- set _ = xs.append('0') -%}{%- endif -%}
+{%- endfor -%}
+arrayMap(x -> ifNull(x, 0), [{{ xs|join(', ') }}])
+{%- endmacro %}
   mm AS (
     SELECT u2, i2, sumForEach(a2) AS s2
     FROM
     (
-      SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('s') }} AS a2
-      FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN {{ PK }} AND {{ GRID }} AND {{ cond() }}
+      SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec_mm_series() }} AS a2
+      FROM
+      (
+        SELECT *, {{ cond() }} AS tp_mm_selected, {{ cond_rh() }} AS tp_mm_growth, {{ cond_hq() }} AS tp_mm_hq
+        FROM prod_proteus.teampulse_hub_series
+        WHERE node_rk IN {{ PK }} AND {{ GRID }}
+          AND (({{ cond() }}) OR ({{ cond_rh() }}) OR ({{ cond_hq() }}))
+      )
       GROUP BY u2, i2
       UNION ALL
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('t') }} AS a2
@@ -453,18 +469,8 @@ WITH
       FROM prod_proteus.teampulse_hub_trf
       WHERE node_rk IN {{ PKD }} AND {{ GRID }} AND {{ cond() }}
       GROUP BY u2, i2
-      UNION ALL
-      {#- 31.10-б, п. 6; файл 6, п. 4: одобренные и отклонённые заявки «Роста» по численности HQ — у каждого узла ответа #}
-      SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('g') }} AS a2
-      FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN {{ PK }} AND {{ GRID }} AND {{ cond_rh() }}
-      GROUP BY u2, i2
-      UNION ALL
-      {#- поставка 69: нежелательные, желательные и ССЧ по активной численности HQ — у каждого узла ответа #}
-      SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('h') }} AS a2
-      FROM prod_proteus.teampulse_hub_series
-      WHERE node_rk IN {{ PK }} AND {{ GRID }} AND {{ cond_hq() }}
-      GROUP BY u2, i2
+
+
       UNION ALL
       SELECT ifNull(node_rk, '') AS u2, {{ IDX }} AS i2, {{ vec('v') }} AS a2
       FROM prod_proteus.teampulse_hub_vacancy

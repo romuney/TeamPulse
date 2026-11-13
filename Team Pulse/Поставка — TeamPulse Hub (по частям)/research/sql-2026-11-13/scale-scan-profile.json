@@ -1,0 +1,53 @@
+[
+  {
+    "part": "core",
+    "variant": "base",
+    "events_minus_probe": {
+      "SelectedRows": 46673101,
+      "SelectedBytes": 5726993812,
+      "SelectedMarks": 5724,
+      "ReadBufferFromFileDescriptorReadBytes": 926130467
+    },
+    "merge_tree_steps": 10,
+    "probe_overhead": {
+      "SelectedRows": 34,
+      "SelectedBytes": 4311,
+      "SelectedMarks": 0,
+      "ReadBufferFromFileDescriptorReadBytes": 0
+    }
+  },
+  {
+    "part": "core",
+    "variant": "scan",
+    "events_minus_probe": {
+      "SelectedRows": 38951272,
+      "SelectedBytes": 5060248676,
+      "SelectedMarks": 4780,
+      "ReadBufferFromFileDescriptorReadBytes": 842543927
+    },
+    "merge_tree_steps": 8,
+    "probe_overhead": {
+      "SelectedRows": 34,
+      "SelectedBytes": 4311,
+      "SelectedMarks": 0,
+      "ReadBufferFromFileDescriptorReadBytes": 0
+    }
+  },
+  {
+    "part": "core",
+    "variant": "scan_both",
+    "events_minus_probe": {
+      "SelectedRows": 35196802,
+      "SelectedBytes": 4664101569,
+      "SelectedMarks": 4319,
+      "ReadBufferFromFileDescriptorReadBytes": 782090737
+    },
+    "merge_tree_steps": 8,
+    "probe_overhead": {
+      "SelectedRows": 34,
+      "SelectedBytes": 4311,
+      "SelectedMarks": 0,
+      "ReadBufferFromFileDescriptorReadBytes": 0
+    }
+  }
+]

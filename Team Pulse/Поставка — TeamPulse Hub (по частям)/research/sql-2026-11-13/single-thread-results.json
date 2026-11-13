@@ -1,0 +1,26 @@
+[
+  {
+    "label": "base-first",
+    "threads": 1,
+    "rows": 472,
+    "seconds": 4.764770915964618,
+    "sha256": "0dc6403f353448f88de64c289cecb1e131be61153d51ecd528d96bda12fe5994",
+    "strict_equal_first": true
+  },
+  {
+    "label": "zone",
+    "threads": 1,
+    "rows": 472,
+    "seconds": 4.750622832914814,
+    "sha256": "0dc6403f353448f88de64c289cecb1e131be61153d51ecd528d96bda12fe5994",
+    "strict_equal_first": true
+  },
+  {
+    "label": "base-repeat",
+    "threads": 1,
+    "rows": 472,
+    "seconds": 4.797116375062615,
+    "sha256": "0dc6403f353448f88de64c289cecb1e131be61153d51ecd528d96bda12fe5994",
+    "strict_equal_first": true
+  }
+]
