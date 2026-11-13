@@ -29,6 +29,11 @@ MODEL = """() => {
     office:D.offDays(lp),growth:D.rostProfile(lp),weeks:D.aiWeeks(lp),ai:D.aiUsage(lp),
     peer:window.TP_REAL.peer};
 }"""
+ROW_FACTS = """() => [...document.querySelectorAll('#view .mrow[data-metric]')].map(r=>({
+  key:r.dataset.metric,
+  pending:r.classList.contains('tp-op-pending'),
+  facts:[...r.querySelectorAll('.m-val,.col-num')].map(n=>n.textContent.replace(/\\s+/g,' ').trim())
+}))"""
 
 
 def compare_equal(actual, expected, label):
@@ -80,6 +85,52 @@ def main():
                     compare_equal(split.evaluate(CONTENT), ordinary.evaluate(CONTENT), label + ' ' + tab + '/' + sub)
                     count += 1
             print('PASS:', label, 'model, readiness and', count, 'subtabs match ordinary delivery', flush=True)
+
+        def compare_ready_rows(split, ordinary, label):
+            actual = split.evaluate(ROW_FACTS)
+            expected = {r['key']: r['facts'] for r in ordinary.evaluate(ROW_FACTS)}
+            assert split.locator('.mtable').count() >= 6, 'normal One-pager tables must appear with core'
+            assert not split.locator('.tp-quick-table,.tp-core-preview').count(), 'temporary summary layout must not appear'
+            for row in actual:
+                if not row['pending']:
+                    compare_equal(row['facts'], expected[row['key']], label + ' ready row ' + row['key'])
+            return {r['key']: r for r in actual}
+
+        # Each detail part is independently slow. The ordinary One-pager is
+        # already the visible layout; only regions needing that part are pending.
+        ref_page, ref = open_page('single=1&rich=1')
+        for late in ['people', 'flow', 'aux']:
+            delays = {part: 900 for part in ['people', 'flow', 'aux']}
+            delays[late] = 5000
+            query = 'rich=1&delay=core:100,' + ','.join(k+':'+str(v) for k, v in delays.items())
+            pg, pf = open_page(query)
+            assert not pf.evaluate('window.TP_PARTS.have.'+late), 'must observe incomplete response'
+            rows = compare_ready_rows(pf, ref, late + ' first core')
+            assert rows['time_to_fill']['pending'], 'do not flash mean before vacancy median arrives'
+            assert rows['ai_penetration']['pending'], 'AI must await its weekly data'
+            assert not pf.locator('.in-grid').count(), 'do not derive provisional conclusions'
+            assert 'Загружа' in pf.locator('[data-metric="underwork"] .col-tgt').inner_text()
+            # Trigger the real delegated click handler immediately, before
+            # Playwright's scroll/stability wait lets the auxiliary response win.
+            pf.locator('.mrow[data-metric="underwork"]').evaluate('(el)=>el.click()')
+            assert pf.locator('.detail-row .svgchart').count(), 'ready metric expands in the normal table'
+            assert 'Выводы и сравнения загружаются' in pf.locator('.detail-row').inner_text()
+            # Wait only for the two non-delayed detail parts.
+            pf.wait_for_function('(late)=>["people","flow","aux"].filter(k=>k!==late).every(k=>window.TP_PARTS.have[k])', arg=late)
+            rows = compare_ready_rows(pf, ref, late + ' other parts ready')
+            assert rows['time_to_fill']['pending'] == (late == 'flow')
+            assert rows['ai_penetration']['pending'] == (late == 'aux')
+            if late == 'aux':
+                assert 'Загружа' in pf.locator('[data-metric="underwork"] .col-tgt').inner_text()
+                assert not pf.locator('.in-grid').count()
+            else:
+                compare_equal(pf.locator('[data-metric="underwork"] .col-tgt').inner_text(),
+                              ref.locator('[data-metric="underwork"] .col-tgt').inner_text(), late+' reference ready')
+            settled(pf)
+            compare_ready_rows(pf, ref, late + ' completed')
+            pg.close()
+        ref_page.close()
+        print('PASS: normal One-pager from core; independently delayed parts; ready values match golden rows; safe expansion and references', flush=True)
 
         page, split = open_page('rich=1&delay=core:100,people:1600,flow:2300,aux:3200')
         assert not split.evaluate('window.TP_PARTS.have.aux'), 'fixture must exercise partial first render'

@@ -158,12 +158,12 @@ def main():
         print('PASS: search focus/selection and scrolled chart preserved during background updates', flush=True)
 
         keyboard, kf = open_page('delay=aux:3500')
-        kf.locator('.tp-quick-table button').first.focus()
-        kf.wait_for_selector('[data-tp-details]', timeout=6000)
-        assert kf.evaluate('!!document.activeElement.closest(".tp-quick-table")'), 'background replaced keyboard focus'
-        kf.locator('[data-tp-details]').click()
-        assert kf.locator('.tp-quick-table').count() == 0
-        print('PASS: keyboard focus retained until explicit full-report transition', flush=True)
+        kf.locator('#op-movement button').focus()
+        settled(kf)
+        assert kf.evaluate('!!document.activeElement.closest("#op-movement")'), 'background replaced keyboard focus'
+        assert kf.locator('.tp-quick-table,[data-tp-details]').count() == 0
+        assert kf.locator('.op-keep .mtable').count() > 0
+        print('PASS: normal One-pager and keyboard focus retained during automatic updates', flush=True)
 
         # Timeout is visible; available charts remain useful.
         missing, mf = open_page('drop=people')

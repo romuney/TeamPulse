@@ -3,12 +3,15 @@ No corporate data, SQL or service access. Run: python tests/fixture_server.py.
 """
 import ast
 import json
+import re
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 DELIVERY = Path(__file__).resolve().parents[1]
 ROOT = DELIVERY.parent
+board_css = (DELIVERY / '4. CSS борда (дописать в конец).css').read_text()
+flame = re.search(r'--tp-load:\s*(url\("[^"]+"\))', board_css).group(1)
 # Reuse the production-like sandbox/cross-filter transport of the existing stand.
 tree = ast.parse((ROOT / 'stand/serve_split.py').read_text())
 templates = {n.targets[0].id: ast.literal_eval(n.value) for n in tree.body
@@ -110,6 +113,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send((folder / name).read_text(), 'application/javascript; charset=utf-8')
         else:
             board = templates['BOARD'].replace('%(loaders)s', json.dumps(PARTS[1:]))
+            # The real board already owns the initial flame loader. Keep it
+            # behind transparent frames, exactly like the shipped board CSS.
+            board = board.replace('</style>', 'body{background:#fff '+flame+' center / 260px 180px no-repeat}</style>')
             board = board.replace("fetch('/data?c=' + c +",
                                   "fetch('/data?rich=' + (Q.get('rich') || '') + '&zero=' + (Q.get('zero') || '') + '&c=' + c +")
             self.send(board, 'text/html; charset=utf-8')

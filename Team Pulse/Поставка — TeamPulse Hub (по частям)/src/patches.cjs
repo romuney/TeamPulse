@@ -21,8 +21,9 @@ function read(root,file){
   }
   if(file==='app.js'){
     src=replace(src,'function navDev(bk){','function navDev(bk){return "";');
+    src=replace(src,"  html+=pe0?", "  html+=D.partsWait('onepager').indexOf('aux')>=0?'<span class=\"chip bench\" role=\"status\">'+(D.partsLate('onepager').indexOf('aux')>=0?'Не удалось загрузить базу сравнения':'База сравнения загружается')+'</span>':pe0?");
+    src=replace(src,"+' чел.<br>'+(band?", "+' чел.<br>'+(D.partsWait('onepager').indexOf('aux')>=0?'База сравнения загружается.':band?");
     src=replace(src,"if(D.partsWait(bk).length)return null;","if(D.partsWait(bk).length||D.partsWait('onepager').indexOf('aux')>=0)return null;");
-    src=replace(src,"? SC.onepager.render(S,openRows)","? (D.partsWait('onepager').length||STORE.previewTab==='onepager' ? partWaitView('onepager')+SC.quickSummary(S) : SC.onepager.render(S,openRows))");
     src=replace(src,': D.partsWait(S.tab).length ? partWaitView(S.tab)',
       ': (D.partsWait(S.tab).length || STORE.previewTab===S.tab) ? partWaitView(S.tab)+SC.corePreview(S)');
     src=replace(src,'/* ---------- старт ---------- */',local('refresh.js')+'\n/* ---------- старт ---------- */');
@@ -36,9 +37,10 @@ function read(root,file){
     src=replace(src,'function render(keepScroll,quiet){',`function render(keepScroll,quiet){
   if(STORE.previewTab&&STORE.previewTab!==S.tab)STORE.previewTab=null;
   if(STORE.pending&&STORE.recheckParts)STORE.recheckParts();`);
-    src=replace(src,'Догружаю детали…',"'+(S.tab!=='onepager'&&!D.partsWait(S.tab).length?'Вкладка готова · другие разделы загружаются':'Догружаю детали…')+'");
+    src=replace(src,'Догружаю детали…','Отчёт доступен · остальные данные загружаются');
   }
   if(file==='screens/onepager.js'){
+    src=require('./onepager.cjs')(src,replace);
     src=replace(src,'function blockDevTag(bk){','function blockDevTag(bk){return "";');
     src=src.replaceAll('Метрики без источника: цифры условные, выводов по ним нет.','Данные этих показателей не получены. Выводы по ним не строятся.')
       .replaceAll('В разработке','Нет данных').replaceAll(' в разработке',' без данных');
@@ -54,7 +56,7 @@ function devNote(d){return d?'<div class="dev-note" role="status">Не все д
       .replaceAll('В разработке: цифры условные.','Данные не получены.')
       .replaceAll('в разработке','нет данных').replaceAll('в разраб.','без данных');
   }
-  if(file==='styles.css')src+='\n.part-wait.tp-part-status{min-height:0;align-items:flex-start;text-align:left;padding:16px;margin-bottom:16px;gap:8px}.tp-details-ready{position:fixed;right:24px;bottom:24px;z-index:20;max-width:calc(100% - 48px)}.tp-quick-table{width:100%;border-collapse:collapse;background:#fff}.tp-quick-table th,.tp-quick-table td{padding:14px 16px;text-align:left;border-bottom:1px solid #e0e3e7}.tp-quick-table tbody th{font-weight:400}.tp-quick-table td:nth-child(2){font-weight:700;font-size:20px;white-space:nowrap}@media(max-width:600px){.tp-quick-table th,.tp-quick-table td{padding:10px 6px}.tp-quick-table .btn{font-size:12px;padding:6px}}\n';
+  if(file==='styles.css')src+='\n.part-wait.tp-part-status{min-height:0;align-items:flex-start;text-align:left;padding:16px;margin-bottom:16px;gap:8px}.tp-details-ready{position:fixed;right:24px;bottom:24px;z-index:20;max-width:calc(100% - 48px)}\n';
   if(file==='screens/_block.js')src+='\n'+local('preview.js');
   return src;
 }

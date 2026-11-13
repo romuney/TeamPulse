@@ -147,27 +147,28 @@ function lacking(){
   if(!P.core)return ['core'];
   return MX.filter(p=>{const x=P[p]&&P[p].by&&P[p].by[P.core.sig];return !(x&&str(x.bt)===str(P.core.bt))});
 }
-/* экран до первой части core: значок загрузки вместо пустого места; долго нет ответа — причина (гайд MC-15) */
+/* Until core, retain the board's existing flame loader. The iframe stays
+   transparent; no second loading scene and no early ready marker. */
 function boot(late){
   const hosts=document.querySelectorAll('[_echarts_instance_]');
   const host=hosts.length?hosts[hosts.length-1]:document.body;
   if(!host)return;
-  let el=host.querySelector('.tp-boot');
-  if(!el){
-    if(host!==document.body&&getComputedStyle(host).position==='static')host.style.position='relative';
-    el=document.createElement('div');
-    el.className='tp-boot tp-overlay';
-    el.style.cssText='position:absolute;left:0;top:0;width:100%;height:100%;z-index:10;display:flex;flex-direction:column;'+
-      'align-items:center;justify-content:center;gap:14px;background:#f5f6f8;color:#5b6472;font:14px/1.45 Arial,sans-serif;'+
-      'text-align:center;padding:24px;box-sizing:border-box';
-    host.appendChild(el);
-  }
-  el.style.cssText='position:absolute;inset:0;z-index:10;background:#f6f7f8;color:#252b33;font:14px Arial,sans-serif;overflow:auto';
-  el.innerHTML='<header style="padding:20px 28px;background:#fff;border-bottom:1px solid #e0e3e7"><b>TeamPulse Hub</b></header>'+
-    '<main style="max-width:1000px;margin:32px auto;padding:0 24px"><h1 style="font-size:24px">Основные показатели</h1><p role="status">'+
-    (late?'Данные отчёта не пришли. Обновите дашборд; если это повторится, сообщите владельцу отчёта.':'Загружаем показатели вашего подразделения…')+
-    '</p><div aria-hidden="true" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">'+
-    [0,1,2,3].map(()=>'<div style="height:90px;background:#fff;border:1px solid #e0e3e7;border-radius:12px"></div>').join('')+'</div></main>';
+  document.documentElement.style.background='transparent';
+  if(document.body)document.body.style.background='transparent';
+  if(!late)return;
+  let el=host.querySelector('.tp-boot-error');
+  if(el)return;
+  if(host!==document.body&&getComputedStyle(host).position==='static')host.style.position='relative';
+  el=document.createElement('div');el.className='tp-boot-error tp-overlay';
+  el.style.cssText='position:absolute;inset:0;z-index:10;background:#fff;padding:32px;box-sizing:border-box;font:14px Arial,sans-serif';
+  el.innerHTML='<p role="alert">Данные отчёта не пришли. Обновите дашборд; если это повторится, сообщите владельцу отчёта.</p>';
+  host.appendChild(el);
+  try{
+    let raw=atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+    while(raw.length%3)raw+='\0';
+    const url='data:image/png;base64,'+btoa(raw+'TP-HUB-READY');
+    window.parent.postMessage({type:'ECHARTS_UPDATE_DATA_URL',dataUrl:url,payload:{dataUrl:url}},'*');
+  }catch(e){}
 }
 /* отчёт сейчас занят окном (настройка, тур, словарь): пересборку от догрузившейся части откладываем, чтобы окно не
    закрылось под рукой; новый выбор (другой core) не ждёт */
