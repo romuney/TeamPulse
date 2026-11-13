@@ -1,7 +1,7 @@
-{#- TeamPulse Hub: экспериментальная часть aux.
-    Собрано build-sql.py из обычного датасета с точечными src/sql-patches.py.
-    Обычная поставка — эталон; GP, права, фильтры и контракт ответа сохранены.
-    Не править вручную. Пересборка: python build-sql.py. -#}
+{#- TeamPulse Hub, дашборд «по частям». ЧАСТЬ aux — загрузчик 4: AI-инструменты и база похожих подразделений.
+    Собрано stand/mk_split.py из датасета обычной поставки (файл 2): тот же текст, отличается одна строка —
+    {% set PART = 'aux' %}. Руками не править: правка — в файле 2, затем скрипт. Описание строк и колонок ответа —
+    в шапке файла 2. Колонки: role, id, pid, lvl, nm, kids, j, ms, mx. Первая строка части — role = 'part'. -#}
 {#- Строковый литерал ClickHouse: сначала слэш → \\, затем кавычка → '' (не \': лексер
     sqlparse Proteus его не понимает — тихо меняет ответ); слэши в конце — repeat(char(92), N). -#}
 {% macro qs(v) -%}
@@ -311,10 +311,6 @@ WITH
       мониторинга — у них все люди «не размечено», доли 0%, и база по группе выходила 0%. Теперь подразделение входит в базу
       этих двух метрик, только если «не размечено» — не больше половины людей за те же месяцы (gy × 2 ≤ al), как в чарте
       (D.monJudged); формулы долей прежние #}
-  plin AS (
-    SELECT [ifNull(unit_rk, '')][1] AS xu FROM prod_proteus.teampulse_hub_unit
-    WHERE [has(splitByChar('|', ifNull(path_rk, '')), cxs) OR has(splitByChar('|', ifNull((SELECT any(path_rk) FROM prod_proteus.teampulse_hub_unit WHERE unit_rk = cxs), '')), ifNull(unit_rk, ''))][1]
-  ),
   pnv AS (
     SELECT pu, sum(h) AS hc9, sumIf(f / a * 100, a > 0) AS v_ty, sum(f) / sum(aw) * 100 AS v_tm,
            [if(sum(gy) * 2 <= sum(al), sum(lo) / sum(al) * 100, nan)][1] AS v_uw,
@@ -328,7 +324,7 @@ WITH
              [sum(toFloat64(gapr_cnt))][1] AS ga, [sum(toFloat64(gdec_cnt))][1] AS gd, [sum({{ optf('bk_amt') }})][1] AS bk,
              [sum({{ optf('bkv_amt') }})][1] AS bv
       FROM prod_proteus.teampulse_hub_series, pmc
-      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND {{ cond() }} AND ifNull(node_rk, '') NOT IN (SELECT xu FROM plin)
+      WHERE report_month BETWEEN toStartOfYear(mc) AND mc AND {{ cond() }}
       GROUP BY pu, report_month
     )
     GROUP BY pu
@@ -338,7 +334,7 @@ WITH
            [quantilesExactWeighted(0.5, 0.500001)(toFloat64(ttf_d), toUInt64(round(toFloat64(vac_ttf_cnt))))][1] AS mq,
            (mq[1] + mq[2]) / 2 AS v_tf
     FROM prod_proteus.teampulse_hub_vacancy, pmc
-    WHERE [report_month BETWEEN toStartOfYear(mc) AND mc AND ttf_d IS NOT NULL AND ifNull(vac_ttf_cnt, 0) > 0][1] AND ifNull(node_rk, '') NOT IN (SELECT xu FROM plin)
+    WHERE [report_month BETWEEN toStartOfYear(mc) AND mc AND ttf_d IS NOT NULL AND ifNull(vac_ttf_cnt, 0) > 0][1]
     GROUP BY tu
   ),
   pai AS (
@@ -347,13 +343,16 @@ WITH
     FROM prod_proteus.teampulse_hub_aiw
     WHERE week = (SELECT max(week) FROM prod_proteus.teampulse_hub_aiw
                   WHERE [addDays(toDate(assumeNotNull(week)), 6) <= ifNull(toDateOrNull(substring(cxdd, 1, 10)), today() - 1)][1])
-      AND ifNull(node_rk, '') NOT IN (SELECT xu FROM plin)
     GROUP BY pu
   ),
   {#- поставка 122 (критик на 49 человек: подразделение входило в свою же базу вместе с предками и потомками — граница
       четверти была его же значением, «хуже базы» решало округление): из распределения исключены выбранный юнит, его
       предки (узлы из его пути) и потомки (узлы, в пути которых он есть). У всей компании так исключается всё — базы нет,
       как и должно быть: с собой не сравниваем #}
+  plin AS (
+    SELECT [ifNull(unit_rk, '')][1] AS xu FROM prod_proteus.teampulse_hub_unit
+    WHERE [has(splitByChar('|', ifNull(path_rk, '')), cxs) OR has(splitByChar('|', ifNull((SELECT any(path_rk) FROM prod_proteus.teampulse_hub_unit WHERE unit_rk = cxs), '')), ifNull(unit_rk, ''))][1]
+  ),
   peer AS (
     SELECT arrayStringConcat(arraySort(groupArray(concat(k, '\t', toString(b), '\t', toString(n), '\t',
              arrayStringConcat(arrayMap(q -> toString(round(q, 2)), qs), '\t')))), '\n') AS pj
