@@ -152,13 +152,13 @@ function mxMinus(u,kids){
        численности отрицательный. Здесь он обнулялся — и сумма состава по строкам дерева выходила больше численности узла.
        Со знаком сумма по листьям узла — ровно разрез самого узла (как и ряд): значения, которых нет у узла, но есть у
        подразделений, тоже вычитаются */
-    const uk=u[k]||{}, vs=new Set(Object.keys(uk));
-    kids.forEach(c=>Object.keys(c[k]||{}).forEach(v=>vs.add(v)));
-    vs.forEach(v=>{
-      let s=uk[v]||0;
-      kids.forEach(c=>{s-=((c[k]||{})[v]||0)});
-      s=Math.round(s*10)/10;
-      if(s)(out[k]=out[k]||{})[v]=s;
+    const remainder=Object.assign(Object.create(null),u[k]||{});
+    kids.forEach(c=>{const m=c[k];if(m)Object.keys(m).forEach(v=>{
+      remainder[v]=(remainder[v]||0)-m[v];
+    })});
+    Object.keys(remainder).forEach(v=>{
+      const n=Math.round(remainder[v]*10)/10;
+      if(n)(out[k]=out[k]||{})[v]=n;
     });
   });
   return out;
@@ -464,7 +464,7 @@ function build(data){
   };
   return {
     n,pre,months,monthsExt,periodLabel,
-    lm:str(meta.lm),today:str(meta.today),asof,reviewVersion:str(meta.rv),
+    lm:str(meta.lm),today:str(meta.today),asof,reviewVersion:str(meta.rv),reviewMode:str(meta.reviewMode),
     rootId,scopeId:scopeU?scopeU.id:rootId,
     scopePath:scopeU?(pathOf(scopeU.id)||'T'):'T',
     defId:str(meta.def),

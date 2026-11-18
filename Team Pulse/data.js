@@ -3745,6 +3745,7 @@ function aiUsage(lp){
 /* Annual review, owner contract 18.11.2026. Counts arrive from the filtered snapshot;
    no mock fallback and no derivation of first review from a missing previous score. */
 const REVIEW_SCALE=['не соответствует ожиданиям','есть над чем поработать','хорошо, продолжай в том же духе','огонь','звезда'];
+const reviewOrder=new Intl.Collator('ru',{numeric:true});
 function reviewFromMix(mx,version){
   const ver=/^hub-2-review-1\|(\d{4})$/.exec(version||'');
   if(!ver)return {state:'unavailable'};
@@ -3776,7 +3777,7 @@ function reviewFromMix(mx,version){
     }).filter(r=>r.n>0);
     a.sort((x,y)=>x.name==='Не указано'?1:y.name==='Не указано'?-1:
       key==='rvt'?(bound(x.name,'mon')-bound(y.name,'mon')||x.name.localeCompare(y.name,'ru')):
-      x.name.localeCompare(y.name,'ru',{numeric:true}));
+      reviewOrder.compare(x.name,y.name));
     if(sum(a.map(r=>r.n))!==c.eligible||sum(a.map(r=>sum(r.cells)))!==c.rated)bad=true;
     return a;
   }

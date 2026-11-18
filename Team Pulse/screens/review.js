@@ -40,11 +40,13 @@ const counts=[
 SC.blocks.review={subTabs:tabs,defaultSub:'who',
   cols:counts.map(([k,name,tip])=>({k,name,tip,val:c=>c[k]})),
   data(lp){
+    if(D.REAL&&D.REAL.reviewMode==='deferred')return null;
     const r=D.reviewData(lp);
     return r.state==='ready'||r.state==='empty'?r.c:null;
   },
   title(sub){return tabs.find(t=>t[0]===sub)[1]},
   view(ctx){
+    if(D.REAL&&D.REAL.reviewMode==='deferred')return U.empty('Ожидаем данные ревью','Чтобы повторить запрос, нажмите «Ревью» в меню.');
     const r=D.reviewData(ctx.lp);
     let body;
     if(r.state==='unavailable')body=U.empty('Данные ревью ещё не подключены','Для этой версии отчёта не получен годовой набор данных ревью.');

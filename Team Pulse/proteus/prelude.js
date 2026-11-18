@@ -17,6 +17,7 @@
 'use strict';
 const ST=window.__pvtState||(window.__pvtState={});
 const store=ST.tp||(ST.tp={});
+const timing={start:performance.now(),receivedAt:Date.now(),rows:typeof data!=='undefined'&&data?data.length:0};
 (store.listeners||[]).forEach(l=>{try{l.t.removeEventListener(l.type,l.fn,l.opt)}catch(e){}});
 store.listeners=[];
 
@@ -81,8 +82,10 @@ sayReady();
 (store.readyT||[]).forEach(clearTimeout);
 store.readyT=[setTimeout(sayReady,400),setTimeout(sayReady,1500)];
 
+const adapterStart=performance.now();
 window.TP_REAL=window.TPREAL.build(typeof data!=='undefined'?data:[]);
 /* поставка 69: нет зоны доступа — экран «Нет доступа», дальше отчёт не собирается (tpStop ловит обёртка сборки) */
+timing.adapterMs=Math.round(performance.now()-adapterStart);
 if(window.TP_REAL.noAccess){
   /* 12.11-д: администратор смотрит глазами логина без доступа — так и пишем, и даём вернуться к себе */
   const asl=window.TP_REAL.adm&&window.TP_REAL.asLogin;
@@ -98,7 +101,7 @@ if(window.TP_REAL.noAccess){
   if(bk)bk.addEventListener('click',function(){if(typeof applyCrossFilter==='function')applyCrossFilter([])});
   throw {tpStop:1};
 }
-window.TP_ENV={root:root,scroller:root,store:store,
+window.TP_ENV={timing:timing,root:root,scroller:root,store:store,
   on(t,type,fn,opt){t.addEventListener(type,fn,opt);store.listeners.push({t:t,type:type,fn:fn,opt:opt})},
   /* маска целиком (юнит + фильтры), пустых значений не шлём — как в HRBP HUB */
   emit(mask){

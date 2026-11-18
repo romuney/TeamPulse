@@ -144,23 +144,25 @@ function hcSig(st){return st.hcType==='set'?'set:'+(st.hcSet||[]).map(x=>String(
    запросом; на устаревший — ждём дальше, а если нужный не пришёл, один раз шлём ту же маску с меткой
    tp_nonce (колонки нет в датасете: ключ кэша новый, Proteus перезапрашивает; гайд MC-03, MC-08). */
 const STALE_WAIT=15000, MAX_RESEND=1;
+function reviewSig(wanted){return D.REAL.reviewMode?(wanted?'|review':'|core'):''}
 function sigOf(st){
   const id=unitId(st.unit), c=D.REAL.cuts;
   return [st.as||'',id===D.REAL.defId?'':id,c.has('paint')?st.paint:'all',c.has('it')?st.itSeg:'all',
-    c.has('staff')?st.staffType:'all',c.has('act')?hcSig(st):'all'].join('|');
+    c.has('staff')?st.staffType:'all',c.has('act')?hcSig(st):'all'].join('|')+reviewSig(S.tab==='review');
 }
 function echoSig(){
   const a=D.REAL.applied;
-  return [D.REAL.asLogin||'',D.REAL.req[0]||'',a.paint,a.itSeg,a.staffType,D.REAL.cuts.has('act')?hcSig(a):'all'].join('|');
+  return [D.REAL.asLogin||'',D.REAL.req[0]||'',a.paint,a.itSeg,a.staffType,D.REAL.cuts.has('act')?hcSig(a):'all'].join('|')+reviewSig(D.REAL.reviewMode==='loaded');
 }
 function emitPend(mask,nonce){
   return ENV.emit(nonce?mask.concat([{column:'tp_nonce',operator:'IN',value:[String(Date.now())]}]):mask);
 }
-let _pendT=null, _staleT=null;
+/* Таймеры принадлежат выбору, который переживает перезапуск чарта. */
 /* маска кросс-фильтров запроса (вынесена из request в поставке 63: ею же пользуется детализация переводов) */
 function maskOf(next){
   const id=unitId(next.unit), mask=[];
   /* 12.11-д: «смотреть как логин» (только администратор; чужой маске датасет не верит) — в каждой маске, пока включено */
+  if(D.REAL.reviewMode&&S.tab==='review')mask.push({column:'review_f',operator:'IN',value:['1']});
   if(next.as)mask.push({column:'as_f',operator:'IN',value:[next.as]});
   /* юнит по умолчанию не шлём: ответ без фильтра юнита общий для всех */
   if(id&&id!==D.REAL.defId)mask.push({column:'unit_f',operator:'IN',value:[id]});
@@ -191,9 +193,9 @@ function request(next){
   const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
   unitNames[next.unit]=nm;
   unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||unitNames[S.unit]||'';
-  STORE.pending={unit:next.unit,name:nm,at:Date.now(),sig:sig,mask:mask,tries:0,flt:next.unit===S.unit};
+  STORE.pending={unit:next.unit,name:nm,at:Date.now(),sig:sig,mask:mask,sentAt:Date.now(),tries:0,flt:next.unit===S.unit};
   STORE.warn='';
-  clearTimeout(_staleT);
+  clearTimeout(STORE.retryTimer);
   /* выбор снова тот, что на экране (ушли и вернулись, пока ждали ответа) — маска та же, что у
      показанного ответа: Proteus её может не перезапросить, поэтому с меткой */
   if(!(sig===echoSig()?emitPend(mask,true):ENV.emit(mask))){
@@ -202,15 +204,19 @@ function request(next){
   }
   ROOTEL.classList.toggle('tp-busy',!!STORE.pending);
   /* ответа нет 45 секунд — говорим об этом, а не ждём молча */
-  clearTimeout(_pendT);
-  _pendT=setTimeout(()=>{
-    if(!STORE.pending)return;
+  clearTimeout(STORE.responseTimer);
+  const awaiting=STORE.pending;
+  STORE.responseTimer=setTimeout(()=>{
+    if(!awaiting||STORE.pending!==awaiting)return;
     STORE.warnSig=STORE.pending.sig;
     STORE.pending=null;ROOTEL.classList.remove('tp-busy');
-    STORE.warn='Ответ не пришёл за 45 секунд. Проверьте кросс-фильтры чарта в настройках дашборда.';
+    STORE.warn='За 45 секунд не пришёл ответ для выбранных фильтров. Проверьте запрос датасета и кросс-фильтры.';
     renderHead();
   },45000);
   renderHead();
+}
+function loadReview(){
+  if(ENV&&S.tab==='review'&&D.REAL.reviewMode==='deferred'&&!STORE.pending)request(curReq());
 }
 function requestUnit(p,back){
   if(p===S.unit||!unitId(p))return;
@@ -240,22 +246,23 @@ function arrive(){
   if(pend&&pend.sig&&pend.sig!==echoSig()){
     ROOTEL.classList.add('tp-busy');
     const late=Date.now()-pend.at>1000;
-    clearTimeout(_staleT);
-    if(late&&pend.tries<MAX_RESEND)_staleT=setTimeout(()=>{
+    clearTimeout(STORE.retryTimer);
+    if(late&&pend.tries<MAX_RESEND)STORE.retryTimer=setTimeout(()=>{
       const p=STORE.pending;
       if(p!==pend||p.tries>=MAX_RESEND)return;
       p.tries++;p.at=Date.now();emitPend(p.mask,true);renderHead();
     },STALE_WAIT);
-    clearTimeout(_pendT);
-    _pendT=setTimeout(()=>{
+    clearTimeout(STORE.responseTimer);
+    STORE.responseTimer=setTimeout(()=>{
       if(STORE.pending!==pend)return;
       STORE.warnSig=pend.sig;
       STORE.pending=null;ROOTEL.classList.remove('tp-busy');
-      STORE.warn='Ответ не пришёл за 45 секунд. Проверьте кросс-фильтры чарта в настройках дашборда.';
+      STORE.warn='За 45 секунд не пришёл ответ для выбранных фильтров. Проверьте запрос датасета и кросс-фильтры.';
       renderHead();
     },Math.max(1000,45000-(Date.now()-pend.at)));
   }else if(pend){
-    STORE.pending=null;clearTimeout(_pendT);clearTimeout(_staleT);
+    if(ENV.timing&&pend.sentAt)ENV.timing.waitMs=ENV.timing.receivedAt-pend.sentAt;
+    STORE.pending=null;clearTimeout(STORE.responseTimer);clearTimeout(STORE.retryTimer);
     /* новый запрос (юнит, фильтры) — экран начинается сверху: прежнюю прокрутку забываем */
     STORE.scroll=null;
     ROOTEL.classList.remove('tp-busy');
@@ -490,6 +497,14 @@ function mountStaticMascots(){
 
 /* ---------- модалка настройки ---------- */
 function openSetup(){
+  const diag=$('#reportTiming');
+  if(diag&&ENV&&ENV.timing){
+    const t=ENV.timing;
+    diag.hidden=false;
+    diag.querySelector('p').textContent=(STORE.pending?'Ожидаем выбранные фильтры. ':STORE.warn?STORE.warn+' ':'')+
+      (t.waitMs==null?'':('От отправки фильтра до получения ответа: '+t.waitMs+' мс. '))+
+      'Обработка ответа и первый рендер: '+t.renderMs+' мс (адаптер данных: '+t.adapterMs+' мс). Строк ответа: '+t.rows+'.';
+  }
   DRAFT={unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType,hcSet:(S.hcSet||[]).slice(),
     hiddenMetrics:(S.hiddenMetrics||[]).slice()};
   HCDD=false;
@@ -1129,7 +1144,7 @@ on(document,'click',e=>{
   /* навигация по разделам */
   const tab=t.closest('[data-tab]');
   /* 27.10-в, п. 21: выбранное слева подразделение остаётся выбранным на всех вкладках — KPI каждой вкладки по нему */
-  if(tab){S.tab=tab.dataset.tab;S.subTab=null;S.mainMetric=null;openRows.clear();render();return}
+  if(tab){S.tab=tab.dataset.tab;S.subTab=null;S.mainMetric=null;openRows.clear();render();loadReview();return}
   const sub=t.closest('[data-subtab]');
   if(sub){S.subTab=sub.dataset.subtab;render(true);return}
   /* масштаб динамики один на все детальные вкладки: переключили на «год к
@@ -1398,6 +1413,10 @@ if(ENV&&window.TP_PARTS&&window.TP_PARTS.mixed&&!STORE.pending){
 let again=false;
 /*split:*/again=!!(window.TP_PARTS&&window.TP_PARTS.again)&&!pend0;/*:split*/
 render(!!back||again,!!back||again);
+if(ENV&&ENV.timing){
+  ENV.timing.renderMs=Math.round(performance.now()-ENV.timing.start);
+  if(!STORE.warn&&!STORE.pending)loadReview();
+}
 if(back&&back.k===viewKey()){
   ENV.scroller.scrollTop=back.y;
   INNER_SCROLL.forEach((q,i)=>{const el=$(q), v=back.inner&&back.inner[i];if(el&&v){el.scrollTop=v[0];el.scrollLeft=v[1]}});
