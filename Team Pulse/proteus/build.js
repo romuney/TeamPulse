@@ -286,5 +286,5 @@ function makeLoader(){
     console.log('чарт-загрузчик собран: '+path.relative(dir,OUT_LOADER)+' — '+Buffer.byteLength(r.code)+' Б');
   });
 }
-make(false).then(()=>make(true)).then(makeLoader)
+make(false).then(()=>process.argv.includes('--single')?null:make(true).then(makeLoader))
   .catch(e=>{console.error('СЖАТИЕ НЕ ПРОШЛО: '+(e.message||e));process.exit(1)});
