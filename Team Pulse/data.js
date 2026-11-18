@@ -3747,7 +3747,8 @@ function aiUsage(lp){
 const REVIEW_SCALE=['не соответствует ожиданиям','есть над чем поработать','хорошо, продолжай в том же духе','огонь','звезда'];
 const reviewOrder=new Intl.Collator('ru',{numeric:true});
 function reviewFromMix(mx,version){
-  const ver=/^hub-2-review-1\|(\d{4})$/.exec(version||'');
+  if(version==='hub-2-review-2|missing-field'||version==='hub-2-review-2|unsupported-type')return {state:'schema'};
+  const ver=/^hub-2-review-2\|(\d{4})$/.exec(version||'');
   if(!ver)return {state:'unavailable'};
   const c=Object.assign({all:0,eligible:0,rated:0,up:0,down:0,same:0,first:0,unpaired:0,missing:0},mx.rvc||{});
   const sum=a=>a.reduce((s,n)=>s+n,0), score=x=>/^[0-4]$/.test(x);
@@ -3794,7 +3795,6 @@ function reviewData(lp){
   lp.forEach(p=>{const m=REAL.mix(p)||{};['rvc','rvyear','rvtr','rvfirst','rvgr','rvt','rvsp'].forEach(k=>{
     if(!m[k])return;const t=mx[k]||(mx[k]={});Object.keys(m[k]).forEach(v=>{t[v]=(t[v]||0)+m[k][v]});
   })});
-  if(!mx.rvc&&lp.some(p=>{const a=REAL.series(p,'hc_total');return a&&a[a.length-1]>0}))return {state:'unavailable'};
   return reviewFromMix(mx,REAL.reviewVersion);
 }
 

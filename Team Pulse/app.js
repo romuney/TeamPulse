@@ -144,15 +144,14 @@ function hcSig(st){return st.hcType==='set'?'set:'+(st.hcSet||[]).map(x=>String(
    запросом; на устаревший — ждём дальше, а если нужный не пришёл, один раз шлём ту же маску с меткой
    tp_nonce (колонки нет в датасете: ключ кэша новый, Proteus перезапрашивает; гайд MC-03, MC-08). */
 const STALE_WAIT=15000, MAX_RESEND=1;
-function reviewSig(wanted){return D.REAL.reviewMode?(wanted?'|review':'|core'):''}
 function sigOf(st){
   const id=unitId(st.unit), c=D.REAL.cuts;
   return [st.as||'',id===D.REAL.defId?'':id,c.has('paint')?st.paint:'all',c.has('it')?st.itSeg:'all',
-    c.has('staff')?st.staffType:'all',c.has('act')?hcSig(st):'all'].join('|')+reviewSig(S.tab==='review');
+    c.has('staff')?st.staffType:'all',c.has('act')?hcSig(st):'all'].join('|');
 }
 function echoSig(){
   const a=D.REAL.applied;
-  return [D.REAL.asLogin||'',D.REAL.req[0]||'',a.paint,a.itSeg,a.staffType,D.REAL.cuts.has('act')?hcSig(a):'all'].join('|')+reviewSig(D.REAL.reviewMode==='loaded');
+  return [D.REAL.asLogin||'',D.REAL.req[0]||'',a.paint,a.itSeg,a.staffType,D.REAL.cuts.has('act')?hcSig(a):'all'].join('|');
 }
 function emitPend(mask,nonce){
   return ENV.emit(nonce?mask.concat([{column:'tp_nonce',operator:'IN',value:[String(Date.now())]}]):mask);
@@ -162,7 +161,6 @@ function emitPend(mask,nonce){
 function maskOf(next){
   const id=unitId(next.unit), mask=[];
   /* 12.11-д: «смотреть как логин» (только администратор; чужой маске датасет не верит) — в каждой маске, пока включено */
-  if(D.REAL.reviewMode&&S.tab==='review')mask.push({column:'review_f',operator:'IN',value:['1']});
   if(next.as)mask.push({column:'as_f',operator:'IN',value:[next.as]});
   /* юнит по умолчанию не шлём: ответ без фильтра юнита общий для всех */
   if(id&&id!==D.REAL.defId)mask.push({column:'unit_f',operator:'IN',value:[id]});
@@ -214,9 +212,6 @@ function request(next){
     renderHead();
   },45000);
   renderHead();
-}
-function loadReview(){
-  if(ENV&&S.tab==='review'&&D.REAL.reviewMode==='deferred'&&!STORE.pending)request(curReq());
 }
 function requestUnit(p,back){
   if(p===S.unit||!unitId(p))return;
@@ -1144,7 +1139,7 @@ on(document,'click',e=>{
   /* навигация по разделам */
   const tab=t.closest('[data-tab]');
   /* 27.10-в, п. 21: выбранное слева подразделение остаётся выбранным на всех вкладках — KPI каждой вкладки по нему */
-  if(tab){S.tab=tab.dataset.tab;S.subTab=null;S.mainMetric=null;openRows.clear();render();loadReview();return}
+  if(tab){S.tab=tab.dataset.tab;S.subTab=null;S.mainMetric=null;openRows.clear();render();return}
   const sub=t.closest('[data-subtab]');
   if(sub){S.subTab=sub.dataset.subtab;render(true);return}
   /* масштаб динамики один на все детальные вкладки: переключили на «год к
@@ -1415,7 +1410,6 @@ let again=false;
 render(!!back||again,!!back||again);
 if(ENV&&ENV.timing){
   ENV.timing.renderMs=Math.round(performance.now()-ENV.timing.start);
-  if(!STORE.warn&&!STORE.pending)loadReview();
 }
 if(back&&back.k===viewKey()){
   ENV.scroller.scrollTop=back.y;

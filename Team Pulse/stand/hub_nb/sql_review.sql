@@ -4,14 +4,30 @@
 -- История БЕЗ нижней границы нужна для первого ревью; LAG не используется.
 drop table if exists teampulse_hub_review_scores;
 create table teampulse_hub_review_scores as
-select mdm_employee_rk, extract(year from business_dt)::int as review_year,
-       trim(status_desc::text) = 'Оценка выставлена' as is_final,
-       case when trim(summary_score::text) ~ '^[0-4]([.]0+)?$'
-            then trim(summary_score::text)::numeric::int end as score
-from prod_v_hrmart.summary_evaluation
-where deleted_flg = 0 and valid_to_dttm = '5999-01-01'
-  and mdm_employee_rk is not null and business_dt is not null
+select mdm_employee_rk, extract(year from business_dt)::int as review_year, null::int as score
+from prod_v_hrmart.summary_evaluation where false
 distributed by (mdm_employee_rk);
+
+drop table if exists teampulse_hub_review_contract;
+create temp table teampulse_hub_review_contract as
+select case when count(*) = 0 then 'missing-field'
+            when max(data_type) in ('date','character varying','text','character') then 'ready'
+            else 'unsupported-type' end as state
+from information_schema.columns
+where table_schema = 'prod_v_hrmart' and table_name = 'summary_evaluation'
+  and column_name = 'valit_dttm';
+
+do $$ begin
+    if exists (select 1 from teampulse_hub_review_contract where state = 'ready') then
+        insert into teampulse_hub_review_scores
+        select mdm_employee_rk, extract(year from business_dt)::int,
+               case when trim(summary_score::text) ~ '^[0-4]([.]0+)?$'
+                    then trim(summary_score::text)::numeric::int end
+        from prod_v_hrmart.summary_evaluation
+        where valit_dttm = '5999-10-10'
+          and mdm_employee_rk is not null and business_dt is not null;
+    end if;
+end $$;
 
 -- Нарушение согласованной уникальности останавливает сборку, а не выбирает случайную оценку.
 do $$ begin
@@ -40,19 +56,19 @@ select distinct s.mdm_employee_rk,
        coalesce(nullif(trim(translate(s.experience_group_nm::text, E'\t\n|', '  /')), '-'), '') as tenure,
        coalesce(nullif(trim(translate(s.specialization::text, E'\t\n|', '  /')), '-'), '') as specialization,
        coalesce(e.eligible_flg = 1, false) as eligible,
-       case when c.is_final then c.score end as current_score,
-       case when p.is_final then p.score end as previous_score,
+       c.score as current_score,
+       p.score as previous_score,
        -- NULL прошлого года не равен первому ревью: ищем любое более раннее финальное ревью.
-       case when c.is_final and c.score is not null
+       case when c.score is not null
                  and h.first_review_year = extract(year from current_date)::int
             then 1 else 0 end as first_review_flg
 from all_metrics_with_performance_and_office_traffic_and_grt s
 left join teampulse_hub_upath u on u.unit_rk = s.mng_unit_rk::text
 left join usr_cross_data.eligible e on e.mdm_employee_rk = s.mdm_employee_rk
 left join (select mdm_employee_rk, min(review_year) as first_review_year
-           from teampulse_hub_review_scores where is_final group by mdm_employee_rk) h
+           from teampulse_hub_review_scores group by mdm_employee_rk) h
     on h.mdm_employee_rk = s.mdm_employee_rk
-left join teampulse_hub_review_scores c on c.mdm_employee_rk = s.mdm_employee_rk
+join teampulse_hub_review_scores c on c.mdm_employee_rk = s.mdm_employee_rk
     and c.review_year = extract(year from current_date)::int
 left join teampulse_hub_review_scores p on p.mdm_employee_rk = s.mdm_employee_rk
     and p.review_year = extract(year from current_date)::int - 1
@@ -116,7 +132,10 @@ distributed by (node_rk);
 
 -- Метаданные существуют даже при нулевой кадровой популяции. Общие meta/mix не меняются.
 insert into teampulse_hub_review_test
-values ('', '', '', '', '', 'rvmeta', extract(year from current_date)::int::text, 1);
+select '', '', '', '', '', 'rvmeta',
+       'hub-2-review-2|' || case when state='ready' then extract(year from current_date)::int::text else state end, 1
+from teampulse_hub_review_contract;
+drop table teampulse_hub_review_contract;
 
 drop table if exists teampulse_hub_review_nodes;
 drop table if exists teampulse_hub_review_people;

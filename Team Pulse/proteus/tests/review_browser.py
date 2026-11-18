@@ -35,7 +35,7 @@ try:
             assert page.locator('.review-matrix').count()==3
             assert '33,3%' in page.locator('.review-matrix').first.inner_text()
             assert '66,7%' in page.locator('.review-matrix').first.inner_text()
-            assert page.locator('a[href$="#d-001-h1"]').count()==1
+            assert page.locator('.review-matrix a').count()==0
             # Percent headers explain the eligible denominator via the shared tooltip.
             headers=page.locator('.review-matrix').first.locator('th')
             assert 'доля 3–4' in headers.last.inner_text().lower(),headers.last.inner_text()
@@ -105,5 +105,5 @@ try:
         page.screenshot(path='/tmp/teampulse-review-sandbox.png',full_page=True)
         page.close()
         browser.close()
-    print('PASS: review tabs, real adapter fixture, 3 widths, exact values, glossary links, contained horizontal scroll, no browser errors; shipped minified ES5 artifact in opaque-origin sandbox')
+    print('PASS: review tabs, real adapter fixture, 3 widths, exact values, plain category labels, contained horizontal scroll, no browser errors; shipped minified ES5 artifact in opaque-origin sandbox')
 finally:server.shutdown();server.server_close()

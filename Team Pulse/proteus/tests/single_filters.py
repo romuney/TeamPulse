@@ -22,7 +22,13 @@ with sync_playwright() as playwright:
             return schedule(cb,delay,...args);
         };
     }""")
-    for unit, mode in [('A','deferred'), ('B','loaded'), ('R','deferred')]:
+    for tab in chart.locator('.nav-i[data-tab]').evaluate_all('(items)=>items.map(x=>x.dataset.tab)'):
+        chart.locator('.nav-i[data-tab="'+tab+'"]').click()
+        if tab=='review':
+            chart.locator('[data-subtab="how"]').click()
+            expect(chart.locator('.review-matrix').first.locator('tr.total td').nth(1)).to_have_text('100')
+        assert frame.evaluate('window.requestCount')==1
+    for count,unit in enumerate(('A','B','R'),2):
         if unit=='R':
             chart.locator('.nav-i[data-tab="structure"]').click()
         chart.locator('#btnSetup').click()
@@ -36,16 +42,17 @@ with sync_playwright() as playwright:
                 requestTimeouts[0]();
                 return !!pending && window.__pvtState.tp.pending===pending;
             }""")
-        frame.wait_for_function('([u,m])=>TP_REAL.scopeId===u && TP_REAL.reviewMode===m && !__pvtState.tp.pending', arg=[unit,mode])
+        frame.wait_for_function('u=>TP_REAL.scopeId===u && !__pvtState.tp.pending', arg=unit)
         if unit=='A':
             chart.locator('.nav-i[data-tab="review"]').click()
             chart.locator('[data-subtab="how"]').click()
         if unit!='R':
             expect(chart.locator('.review-matrix').first.locator('tr.total td').nth(1)).to_have_text('40' if unit=='A' else '60')
         chart.locator('#btnSetup').click()
+        assert frame.evaluate('window.requestCount')==count
         chart.locator('#reportTiming summary').click()
         expect(chart.locator('#reportTiming p')).to_contain_text('От отправки фильтра')
         chart.locator('#btnApply').click()
     assert not errors,errors
     browser.close()
-    print('PASS: filters, review on demand, stale timeout, diagnostics, return to root')
+    print('PASS: filters, one complete response per selection, stale timeout, diagnostics, return to root')

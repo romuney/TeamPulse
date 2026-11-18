@@ -10,16 +10,14 @@ fixture = runpy.run_path(str(ROOT / 'Поставка — TeamPulse Hub (по ч
 chart = next(delivery.glob('3. *.js')).read_text()
 
 
-def response(unit, review):
+def response(unit):
     rows = fixture['dataset']('all', [{'column': 'unit_f', 'value': [unit]}] if unit != 'R' else [], rich=True)
     for row in rows:
         if row['role'] == 'meta':
             meta = json.loads(row['j'])
-            meta['reviewMode'] = 'loaded' if review else 'deferred'
-            if review:
-                meta['rv'] = 'hub-2-review-1|2026'
+            meta['rv'] = 'hub-2-review-2|2026'
             row['j'] = json.dumps(meta)
-        if review and row['role'] in ('scope', 'c'):
+        if row['role'] in ('scope', 'c'):
             a, b = {'R': (40, 60), 'A': (40, 0), 'B': (0, 60)}[row['id']]
             total = a + b
             counts = [('rvc', key, total) for key in ('all', 'eligible', 'rated', 'same')]
@@ -34,7 +32,7 @@ def js(value):
     return json.dumps(value, ensure_ascii=False).replace('<', '\\u003c')
 
 
-responses = {u: [response(u, False), response(u, True)] for u in ('R', 'A', 'B')}
+responses = {u: response(u) for u in ('R', 'A', 'B')}
 # srcdoc has an opaque origin, as on the real board. All responses are embedded.
 frame = """<!doctype html><meta charset=utf-8><style>*{box-sizing:border-box}body{margin:0}#cell{height:100vh}</style>
 <div id=cell _echarts_instance_="preview"></div><script>
@@ -42,7 +40,8 @@ const renderChart=new Function('data','applyCrossFilter',SOURCE);
 const responses=RESPONSES;
 function apply(mask){
   const get=k=>(mask.find(x=>x.column===k)||{value:[]}).value[0];
-  const rows=responses[get('unit_f')||'R'][get('review_f')==='1'?1:0];
+  window.requestCount=(window.requestCount||0)+1;
+  const rows=responses[get('unit_f')||'R'];
   setTimeout(()=>renderChart(rows,apply),150);
 }
 apply([]);

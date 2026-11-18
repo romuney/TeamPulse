@@ -131,7 +131,6 @@
     stand/mk_split.py: меняется только эта строка. У части первая строка — role = 'part': какая часть и эхо применённых фильтров
     (по нему главный чарт сводит части одного выбора). -#}
 {% set PART = 'all' %}
-{% set REVIEW = PART == 'all' and '1' in ((filter_values('review_f') or [])|map('string')|list) %}
 {% set P_ALL = PART == 'all' %}{% set P_DICT = PART in ('all', 'dict') %}{% set P_CORE = PART in ('all', 'core') %}
 {% set P_PPL = PART in ('all', 'people') %}{% set P_FLOW = PART in ('all', 'flow') %}{% set P_AUX = PART in ('all', 'aux') %}
 {% set P_MX = P_PPL or P_FLOW or P_AUX %}
@@ -517,8 +516,7 @@ WITH
              ',"adm":{{ adm() }},"as":', toJSONString({{ asl() }}),
              ',"dt":"', cxdd, '","schema":"hub-2","enc":"a1","cuts":["paint","it","staff"', if(has(tupleElement({{ FV }}, 4), '∅'), '', ',"act"'), ']',
              ',"mk":"{% for m in M %}{{ m[0] }}{% if not loop.last %},{% endif %}{% endfor %}"',
-             ',"reviewMode":"{{ 'loaded' if REVIEW else 'deferred' }}"',
-             {% if REVIEW %}',"rv":', toJSONString((SELECT concat('hub-2-review-1|', ifNull(mx_val, '')) FROM prod_proteus.teampulse_hub_review_test WHERE node_rk = '' AND mx_key = 'rvmeta' LIMIT 1)),{% endif %}
+             ',"rv":', toJSONString(ifNull((SELECT mx_val FROM prod_proteus.teampulse_hub_review_test WHERE mx_key = 'rvmeta' LIMIT 1), '')),
              ',"req":', toJSONString({{ qa(unit_req) }}),
              ',"paint":', toJSONString({{ qa(F['paint']) }}),
              ',"it":', toJSONString({{ qa(F['it']) }}),
@@ -674,7 +672,7 @@ WITH
         AND ifNull(mx_key, '') NOT IN ('hk', 'hch', 'hg', 'hsp', 'hko', 'hcho', 'hgo', 'hspo')
       GROUP BY u3, k3, v3
       HAVING n4 > 0
-      {% if REVIEW %}UNION ALL
+      UNION ALL
       {# Годовое ревью только единого тестового контура; production mix не расширяется. #}
       SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3,
              sum(toFloat64(ifNull(mx_n, 0))) AS n4
@@ -682,7 +680,6 @@ WITH
       WHERE node_rk IN {{ PK }} AND mx_key != 'rvmeta' AND {{ cond() }}
       GROUP BY node_rk, mx_key, mx_val
       HAVING n4 > 0
-      {% endif %}
       {% endif %}
       {% if P_FLOW %}{{ ua(U1) }}
       {#- 09.11 (владелец): найм с начала года по источнику (hk), каналу (hch: найм в компанию / из учебной группы в боевую /

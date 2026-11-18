@@ -2839,5 +2839,4 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ptable.review-matrix thead th:nth-child(2),.ptable.review-matrix thead th:nth-child(3){width:9%}
 .ptable.review-matrix thead th:nth-last-child(-n+2){width:9.5%}
 .ptable.review-matrix :is(th,td):nth-child(n+4):nth-child(-n+8){text-align:center}
-.review-matrix .txt a{color:inherit;text-decoration:underline;text-decoration-style:dotted}
 .review-screen .stable .txt{white-space:normal;overflow-wrap:anywhere}

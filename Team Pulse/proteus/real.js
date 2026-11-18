@@ -464,7 +464,7 @@ function build(data){
   };
   return {
     n,pre,months,monthsExt,periodLabel,
-    lm:str(meta.lm),today:str(meta.today),asof,reviewVersion:str(meta.rv),reviewMode:str(meta.reviewMode),
+    lm:str(meta.lm),today:str(meta.today),asof,reviewVersion:str(meta.rv),
     rootId,scopeId:scopeU?scopeU.id:rootId,
     scopePath:scopeU?(pathOf(scopeU.id)||'T'):'T',
     defId:str(meta.def),
