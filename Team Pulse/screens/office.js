@@ -173,6 +173,7 @@ SC.blocks.office={
     const blocks=D.attLast(ctx.lp,D.REAL?D.DOW_MONTHS:null,D.REAL?D.PER_I:null), dow=D.attByDow(ctx.lp);
     /* конец периода называем явно: иначе непонятно, почему текущий месяц
        оборван и на каком именно дне */
+    if(!blocks.length)return U.empty('Нет данных о посещаемости по дням','Для выбранного подразделения нет календаря посещений.');
     const end=blocks[blocks.length-1];
     /* Календарь БЕЗ fill и без своей высоты — единственный такой график в правых
        панелях, и намеренно. fill отдал бы ему всю высоту панели, а клетка всё

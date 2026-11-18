@@ -257,10 +257,12 @@ SC.blocks.ai={
     if(!D.aiWeeks(ctx.lp))return U.empty('Нет статистики AI-инструментов',
       'У «'+((D.NODE_BY_PATH[ctx.sel]||{}).name||'')+'» в недельной витрине AI нет данных. Выберите подразделение выше по дереву '+
       'или проверьте выгрузку статистики AI.');
-    if(ctx.sub==='usage')return usage(ctx,D.aiUsage(ctx.lp));
-    if(ctx.sub==='who')return who(ctx,D.aiUsage(ctx.lp));
-    if(ctx.sub==='interns')return interns(ctx,D.aiUsage(ctx.lp));
-    if(ctx.sub==='what')return what(D.aiUsage(ctx.lp));
+    const detail=ctx.sub==='adoption'?null:D.aiUsage(ctx.lp);
+    if(ctx.sub!=='adoption'&&!detail)return U.empty('Нет данных по этому разрезу','Для выбранного подразделения нет детализации использования AI.');
+    if(ctx.sub==='usage')return usage(ctx,detail);
+    if(ctx.sub==='who')return who(ctx,detail);
+    if(ctx.sub==='interns')return interns(ctx,detail);
+    if(ctx.sub==='what')return what(detail);
     return adoption(ctx);
   }
 };

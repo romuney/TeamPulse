@@ -74,8 +74,8 @@ function read(root,file){
     const a=src.indexOf('function devTip(stage){'), b=src.indexOf('/* План по каталогу',a);
     if(a<0||b<0)throw new Error('Split build: missing availability UI');
     src=src.slice(0,a)+`function devTip(){return {title:'Нет данных',text:'Ответ для этого показателя не получен. Выводы по нему не строятся.'}}
-function devTag(stage,small){return '<span class="dev-tag'+(small?' sm':'')+'"'+tipAttr(devTip())+'>нет данных</span>'}
-function devNote(d){return d?'<div class="dev-note" role="status">Не все данные вкладки получены. Обновите отчёт; если это повторится, сообщите владельцу.</div>':''}
+function devTag(){return ''}
+function devNote(){return ''}
 `+src.slice(b);
     src=src.replaceAll('Метрика в разработке: цифры условные, поэтому выводов нет.','Данные показателя не получены, поэтому выводов нет.')
       .replaceAll('В разработке: цифры условные.','Данные не получены.')

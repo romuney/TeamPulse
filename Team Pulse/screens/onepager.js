@@ -173,7 +173,7 @@ function normRow(S,rl,ok0,bl,more){
       {head:['','Значение','Год назад'],rows:na.map(m=>[nm(m),now(m),P(m).prev])})+
     chip('ref',info.length,'для справки','Для справки','Количества и метрики без направления — без оценки, с прошлым годом.',
       {head:['',String(D.YEAR_CUR),String(D.YEAR_PREV)],rows:info.map(m=>[nm(m),now(m),P(m).prev])})+
-    (dev?'<button class="in-chip dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
+    (!D.REAL&&dev?'<button class="in-chip dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
       dev+' в разработке</button>':'')+'</div>';
 }
 

@@ -264,6 +264,7 @@ if(D.OFF_LIVE){
 }
 function devOf(bk,sub){
   const lv=DEV_LIVE[bk];
+  if(D.REAL)return null;
   if(lv&&lv.live.every(k=>!D.isDev(k)))return lv.subs.indexOf(sub)>=0?null:(lv.part&&lv.part[sub])||lv['*'];
   const d=DEV_TABS[bk]||{};
   return d[sub]||d['*']||null;

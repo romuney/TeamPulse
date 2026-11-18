@@ -1116,7 +1116,7 @@ function seriesRaw(leafPath,key){
   }
   /* 26.10-б: нежелательные и желательные увольнения макета — части оттока команды (каждый ушедший — нежелательный с
      вероятностью 0,22, из остальных желательный — 0,55); в пробнике без своих колонок — тоже заглушка */
-  if(key==='regret_cnt'||key==='nonregret_cnt'){
+  if(!REAL&&(key==='regret_cnt'||key==='nonregret_cnt')){
     const a=seriesExt(leafPath,'attrition'), r=rng(lpSeed([leafPath],'rg')), rg=[], nr=[];
     for(let i=0;i<NEXT;i++){let x=0,y=0;for(let k=0;k<a[i];k++){const u=r();if(u<0.22)x++;else if(u<0.22+0.78*0.55)y++}rg.push(x);nr.push(y)}
     _sc['x|'+HC_MODE+'|'+leafPath+'|regret_cnt']=rg;_sc['x|'+HC_MODE+'|'+leafPath+'|nonregret_cnt']=nr;
@@ -1168,6 +1168,7 @@ function seriesRaw(leafPath,key){
     _sc[ck]=out;return out;
   }
 
+  if(REAL)return _sc[ck]=out.fill(null);
   const r=rng('ser'+leafPath+key);
   /* Счётная метрика: ожидание = численность × месячная ставка × сезонность × «рваность».
      Округление стохастическое (floor(x + случайное)) — оно сохраняет среднее на длинном
@@ -1274,6 +1275,7 @@ function medianOf(list){
 }
 function ttfMedian(lp,idx){const by=ttfByMonth(lp), L=[];idx.forEach(i=>{(by[extKey(i)]||[]).forEach(x=>L.push(x))});return medianOf(L)}
 function aggregateExt(leafPaths,key){
+  if(REAL&&isStub(key))return new Array(NEXT).fill(null);
   if(!leafPaths.length)return new Array(NEXT).fill(0);
   const ck='x'+HC_MODE+key+'#'+leafPaths.length+'#'+hashStr(leafPaths.join(','));
   if(_ac.has(ck))return _ac.get(ck);
@@ -1304,12 +1306,15 @@ function aggregateExt(leafPaths,key){
     const o=trfOwnOf(leafPaths,key);
     for(let i=0;i<NEXT;i++)out[i]=+(+o[i]||0).toFixed(1);
   } else if(COUNT_METRICS.has(key)){
-    for(let i=0;i<NEXT;i++){let s=0;leafPaths.forEach(p=>{s+=seriesExt(p,key)[i]});out[i]=+s.toFixed(1)}
+    for(let i=0;i<NEXT;i++){let sum=0,seen=false;
+      leafPaths.forEach(p=>{const v=seriesExt(p,key)[i];if(v!=null){sum+=v;seen=true}});
+      out[i]=seen?+sum.toFixed(1):null}
   } else {
     for(let i=0;i<NEXT;i++){
-      let num=0,den=0;
-      leafPaths.forEach(p=>{const w=seriesExt(p,'hc_total')[i];num+=seriesExt(p,key)[i]*w;den+=w});
-      out[i]=den?+(num/den).toFixed(1):0;
+      let num=0,den=0,seen=false;
+      leafPaths.forEach(p=>{const v=seriesExt(p,key)[i], w=seriesExt(p,'hc_total')[i];
+        if(v!=null){num+=v*w;den+=w;seen=true}});
+      out[i]=den?+(num/den).toFixed(1):seen?0:null;
     }
   }
   _ac.set(ck,out);return out;
@@ -1364,6 +1369,7 @@ const PT_CUM=new Set(['turnover_y','regret','nonregret']), PT_STOCK=new Set(['hc
 /* dkey (поставка 128, аудит L3: «Посещения без брони» — среднее месячных долей, а рядом «Брони без посещения» — доля за период из
    сумм): свой ряд графика (yser) с итогом из сумм числителя и знаменателя служебного ряда dkey, в формате метрики key */
 function periodTotal(lp,key,yser,dkey){
+  if(REAL&&isStub(key))return null;
   const m=METRIC_BY_KEY[key]||{}, d=defOf(dkey||key).derived, y=yser||yoySeries(lp,key);
   const stock=PT_STOCK.has(key), cum=PT_CUM.has(key)||!!(m.ytd||m.ytdDelta||d&&d.win==='ytd'), flow=!!m.flow&&!cum;
   /* поставка 106: потоки-количества — по дату данных (CNT_*), прошлый год — те же дни (текущий месяц пропорционально) */
@@ -2823,7 +2829,7 @@ const CAL_MONTHS=2;
 const CAL_TODAY=15;
 function attLast(lp,months,end){
   months=months||CAL_MONTHS;
-  if(OFF_DAYS)return attLastReal(lp,months,end);
+  if(REAL)return OFF_DAYS?attLastReal(lp,months,end):[];
   const out=[];
   for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
     const blk=attDays(lp,i);
@@ -2847,6 +2853,7 @@ function attByDow(lp,months){
     attLastReal(lp,months,PER_I).forEach(b=>b.days.forEach(d=>{a[d.dow].w+=d.w;a[d.dow].v+=d.v}));
     return a.map((x,i)=>({name:DOW_NAME[i],value:x.w?+(x.v/x.w*100).toFixed(1):0,weekend:i>=5,w:x.w})).filter(x=>x.w);
   }
+  if(REAL)return [];
   const acc=DOW_NAME.map(()=>({s:0,n:0}));
   for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
     attDays(lp,i).days.forEach(d=>{acc[d.dow].s+=d.val;acc[d.dow].n++});
@@ -3188,7 +3195,7 @@ function hiringProfile(lp,win){
   const r=rng(lpSeed(lp,'hpr'+win)), it=hcIT(lp);
   /* поставка 50: найм с начала года по источнику (hk) и грейду (hg) — из колонки mx, как в отчёте HQ
      (atributy_nayma); без них — оценка по долям */
-  if(REAL&&win==='ytd'&&Object.keys(REAL.mixVals('hk')).length){
+  if(REAL){
     const x=k=>realExit(lp,k), list=(k,dimKey)=>{const v=x(k);return realExitList(k,dimKey).map((n,i)=>({key:k+i,name:n||NONE_NAME,value:Math.round(v[n]||0)}))};
     /* поставка 137, п. 4: сеньорность дня найма (hsn — колонка hn_cd переходов, ноутбук 137); ноутбук без неё — null, экран
        говорит «появится», а не делит найм по долям состава */
@@ -3287,8 +3294,8 @@ const byGrades=(a,b)=>{const x=a.name.split(' → '),y=b.name.split(' → ');
 /* файл 6, п. 3 и 6: разрезы «Роста» у каждого узла — вкладка по листьям выбранной строки таблицы подразделений (их сумма на
    корне = выбранный юнит); ответ, где они только у выбранного юнита, — как раньше. П. 4: в датасете — только численность HQ */
 const ROST_NODE=ROST_LIVE&&NODES.some(n=>n.leaf&&n.path!==NODES[0].path&&!!(REAL.mix(n.path)||{}).rs);
-function rostReal(lp){
-  const src=k=>ROST_NODE&&lp?realExit(lp,k):REAL.scopeMix(k)||{};
+function rostReal(lp,nodeData){
+  const src=k=>nodeData?realExit(lp,k):REAL.scopeMix(k)||{};
   const rs=src('rs'), rm=src('rm'), rq=src('rq');
   /* поставка 73 (эталон «Роста»): у «Нет заявки» — «Нет развития» (nd) и «Рост доступен» (av, у специализации есть
      запуск T-роста). Ответ до 73 без признака — одна колонка */
@@ -3348,7 +3355,15 @@ function rostHc(lp){const rs=realExit(lp,'rs');return Object.keys(rs).reduce((a,
 /* итог таблицы успешности «Роста» по всем строкам, а не по показанным первым N */
 const succSum=a=>a.reduce((t,x)=>({apps:t.apps+(x.apps||0),ok:t.ok+(x.ok||0),no:t.no+(x.no||0)}),{apps:0,ok:0,no:0});
 function rostProfile(lp){
-  if(ROST_LIVE)return rostReal(lp);
+  if(REAL){
+    const selected=lp||[];
+    const nodeData=selected.some(p=>{const m=REAL.mix(p);return m&&(m.rs||m.rm||m.rq)});
+    if(nodeData)return rostReal(selected,true);
+    const scope=leavesUnder(REAL.scopePath), paths=new Set(selected);
+    if(scope.length===paths.size&&scope.every(n=>paths.has(n.path))&&
+      ['rs','rm','rq'].some(k=>REAL.scopeMix(k)))return rostReal(selected,false);
+    return null;
+  }
   const r=rng(lpSeed(lp,'rost')), cats=MIX_BY_KEY.grade.cats, gp=mixParts(lp,'grade').map(v=>Math.round(v));
   const hc=gp.reduce((a,b)=>a+b,0), n=gp.length;
   const stT=splitBy(hc,jitter(r,ROST_ST.map(s=>s.w),0.2));
@@ -3455,7 +3470,7 @@ function attByRoleLoc(lp){
    выбора отличается от общей: на него умножается ряд динамики. */
 const OFF_SEGS=[{key:'lead',name:'Руководители',rows:['rm','rt']},{key:'staff',name:'Сотрудники',rows:['lm','lt']}];
 function officeCross(lp,seg,city){
-  if(OFF_LIVE.seg||OFF_LIVE.city)return officeReal(lp,seg,city);
+  if(REAL)return officeReal(lp,seg,city);
   const base=perVal(lp,'office_att')||0, rl=attByRoleLoc(lp), cities=officeByCity(lp);
   const segs=OFF_SEGS.map(s=>{
     const rows=rl.filter(r=>s.rows.indexOf(r.key)>=0), hc=rows.reduce((a,r)=>a+r.hc,0);
@@ -3690,7 +3705,7 @@ function aiCross(lp,sel){
   return {dims:dims,hc:th,act:ta,pen:th?+(ta*100/th).toFixed(1):0,sel:(sel||[]).length};
 }
 function aiUsage(lp){
-  if(AI_CUTS){const x=aiUsageReal(lp);if(x)return x}
+  if(REAL)return aiUsageReal(lp);
   const ai=aiProfile(lp), r=rng(lpSeed(lp,'aiu')), hc=Math.max(1,Math.round(lastVal(lp,'hc_total'))), pen=ai.pen||0;
   const act=Math.round(hc*pen/100), it=hcIT(lp), cl=(v,a,z)=>Math.max(a,Math.min(z,v));
   /* поставка 106: частота — дней с AI за неделю (как у недельной витрины) */

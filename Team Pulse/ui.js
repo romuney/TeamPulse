@@ -1094,12 +1094,14 @@ function devTip(stage){
     text:'Данных пока нет: цифры условные и показывают, где появится показатель.'+(p?'\nИсточник: **'+p.src+'**.':'')};
 }
 function devTag(stage,small){
+  if(D.REAL)return '';
   /* 15.10: «в разраб.» — полная «в разработке» раздувала шапки колонок и карточки;
      полностью — в подсказке, на плашке вкладки и в меню */
   return '<span class="dev-tag'+(small?' sm':'')+'"'+tipAttr(devTip(stage))+'>в разраб.</span>';
 }
 /* Плашка вкладки: d = {stage, t — что здесь не настоящее, need — что нужно, part} */
 function devNote(d){
+  if(D.REAL)return '';
   if(!d)return '';
   const p=d.stage!=null?D.devPlan(d.stage):null, need=d.need||(p&&p.need!=='—'?p.need:'');
   /* 15.10: плашка — одной строкой («очень много места занимает»): статус и что

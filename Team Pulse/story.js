@@ -491,7 +491,7 @@ CH.tgrowth={
   },
   /* 27.10-в, п. 8: «Как растут по грейдам?» и «Как меняют специализацию?» — по описанию вкладки «Рост» дашборда HQ */
   grades(c){
-    const p=D.rostProfile(c.lp), n=k=>(p.st.find(x=>x.key===k)||{n:0}).n;
+    const p=D.rostProfile(c.lp);if(!p)return {};const n=k=>(p.st.find(x=>x.key===k)||{n:0}).n;
     if(!p.hc)return {sum:'нет людей',st:'n'};
     return {sum:pl(n('done'),PPL)+' прошли рост',st:'n',
       head:'Рост прошли '+D.fmtNumber(pc(n('done'),p.hc))+'% людей',
@@ -500,7 +500,7 @@ CH.tgrowth={
         '**, без заявки — **'+n('none')+'**. Повышений грейда в «Росте» — **'+p.grade.rost+'**, в T@T — **'+p.grade.tat+'**.'};
   },
   spec(c){
-    const p=D.rostProfile(c.lp), s=p.spec, t=s.rostT[0];
+    const p=D.rostProfile(c.lp);if(!p)return {};const s=p.spec, t=s.rostT[0];
     const ns=s.rost+s.tat;
     return {sum:ns?ns+' '+U.plural(ns,['смена','смены','смен'])+' специализации':'смен специализации нет',st:'n',
       head:ns?'Специализацию сменили по '+ns+' '+U.plural(ns,['заявке','заявкам','заявкам']):'Специализацию не меняли',
@@ -642,7 +642,7 @@ CH.ai={
      (D.aiCross без выбора). Без сочетаний (ноутбук до 113-б) — разрезы ноутбука без стажёров, так и сказано */
   who(c){
     /* поставка 138, п. 13: «Кто пользуется?» — сотрудники без стажёров (сочетания it|0); стажёры — своя глава */
-    const u=D.aiUsage(c.lp), x0=D.aiCross(c.lp,['it|0']);
+    const u=D.aiUsage(c.lp);if(!u)return {};const x0=D.aiCross(c.lp,['it|0']);
     /* поставка 128 (аудит: строка выбрана — таблицы шага по выбранной группе, а заголовок — по всем): с выбором вывод — по выбранной
        группе, группы — из таблиц, где выбора нет (в таблице с выбором её строки — сама выбранная группа) */
     const sl=((c.S&&c.S.aiSel)||[]).filter(v=>!/^it\|/.test(v)), xs=x0&&sl.length?D.aiCross(c.lp,['it|0'].concat(sl)):null, inS=!!(xs&&sl.length);
@@ -677,7 +677,7 @@ CH.ai={
   },
   /* поставка 138, п. 13: стажёры — своя глава: доля с AI у стажёров (признак витрины); меньше 3 — в людях */
   interns(c){
-    const it=D.aiUsage(c.lp).intern||{hc:0,act:0};
+    const u=D.aiUsage(c.lp);if(!u)return {};const it=u.intern||{hc:0,act:0};
     if(!it.hc)return {sum:'стажёров нет',st:'n',head:'Стажёров в подразделении нет',lede:''};
     const P=v=>f('ai_penetration',v), pen=it.act*100/it.hc, few=it.hc<D.SMALL_N;
     const stj=n=>D.fmtInt(n)+' '+U.plural(n,['стажёр','стажёра','стажёров']);
@@ -687,7 +687,7 @@ CH.ai={
         (few?' Стажёров меньше '+D.SMALL_N+' — долю не сравниваем.':'')};
   },
   usage(c){
-    const u=D.aiUsage(c.lp), t=u.tools[0];
+    const u=D.aiUsage(c.lp);if(!u)return {};const t=u.tools[0];
     if(!t)return {sum:'нет данных',st:'n'};
     const act=u.freq.reduce((a,x)=>a+x.value,0), often=u.freq.slice(4).reduce((a,x)=>a+x.value,0);
     return {sum:'лидер — «'+t.name+'»',st:'n',
@@ -697,7 +697,7 @@ CH.ai={
   /* 07.11 (AI-итерация, п. 5): «Что делают?» — сообщения инструментам разработчика */
   what(c){
     /* поставка 128 (аудит L2: «73%» в заголовке, «73,4%» на полосе ниже): доля — тем же форматом, что полоса (одна десятая) */
-    const u=D.aiUsage(c.lp), p=u.msgs?D.fmtNumber(u.cls/u.msgs*100):null;
+    const u=D.aiUsage(c.lp);if(!u)return {};const p=u.msgs?D.fmtNumber(u.cls/u.msgs*100):null;
     const top=u.dev.reduce((a,d)=>a.concat(d.tasks),[]).sort((a,b)=>b.value-a.value)[0];
     if(!u.msgs)return {sum:'нет сообщений',st:'n',head:'Сообщений инструментам разработчика за неделю нет',lede:''};
     return {sum:p+'% классифицированы',st:'n',
@@ -978,7 +978,7 @@ const TODO_LEAF={
   hiring:{profile:c=>{const h=nP(c,'hire'), hc=D.lastVal(c.lp,'hc_total')||0;return h>=3||hc&&h/hc>=0.2?
     'Много новичков — закрепите за каждым наставника на первые три месяца.':null}},
   tgrowth:{flow:c=>nP(c,'tgrowth_deny')?'Заявку отклонили — обсудите с сотрудником план роста: отказ без плана — частый предвестник ухода.':null,
-    grades:c=>{const p=D.rostProfile(c.lp), n=(p.st.find(x=>x.key==='none')||{n:0}).n;return n?
+    grades:c=>{const p=D.rostProfile(c.lp);if(!p)return null;const n=(p.st.find(x=>x.key==='none')||{n:0}).n;return n?
       'Обсудите планы роста с теми, у кого заявок не было, — особенно с опытными.':null}},
   monitor:{activity:'Недоработка или переработка у одного человека несколько месяцев подряд — повод поговорить один на один.'},
   ai:{adoption:c=>{const cw=D.aiCur(D.aiWeeks(c.lp));return cw&&cw.wau<cw.hc?'Кто не пользуется AI — спросите, что мешает: доступ, задачи, обучение.':null}}};
