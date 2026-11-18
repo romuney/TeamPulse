@@ -45,6 +45,36 @@ try:
                 box=page.locator('.review-matrix').first.locator('..')
                 assert box.evaluate('(e)=>e.scrollWidth>e.clientWidth'), 'matrix must scroll horizontally inside the panel'
             if width==1440:page.screenshot(path='/tmp/teampulse-review-how.png',full_page=True)
+            left=page.locator('#bk-det .split-l')
+            right=page.locator('#bk-det .split-r')
+            unit=left.locator('tr.urow').filter(has_text='Отдел 22')
+            grade=right.locator('.review-matrix').first
+            assert left.is_visible() and unit.locator('td').nth(1).inner_text()=='1'
+            if width==1440:
+                assert left.bounding_box()['x']<right.bounding_box()['x']
+                assert grade.locator('..').evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
+                grade.locator('..').screenshot(path='/tmp/teampulse-review-heatmap.png')
+                left.locator('[data-tsort="eligible:d"]').click()
+                assert 'Отдел 11' in left.locator('tr.urow').first.inner_text()
+                left.locator('[data-tsort="eligible:a"]').click()
+                assert 'Отдел 22' in left.locator('tr.urow').first.inner_text()
+            def grade_count():
+                return grade.locator('tr.total td').nth(1).inner_text()
+            def grade_four_color():
+                return grade.locator('tbody tr').filter(has_text='G1').locator('td').nth(7).evaluate('(el)=>el.style.backgroundColor')
+            assert grade_count()=='11'
+            company_color=grade_four_color()
+            unit.locator('.row-body').click()
+            assert grade_count()=='1' and grade_four_color() and grade_four_color()!=company_color
+            assert grade.locator('tbody tr').filter(has_text='G1').locator('td').nth(3).evaluate('(el)=>!el.style.backgroundColor')
+            assert '100%' in grade.inner_text()
+            page.locator('[data-subtab="who"]').click()
+            assert 'Отдел 22' in left.locator('tr.sel').inner_text()
+            assert 'Отдел 22' in right.inner_text()
+            page.locator('[data-subtab="how"]').click()
+            assert grade_count()=='1'
+            unit.locator('.row-body').click()
+            assert grade_count()=='11' and grade_four_color()==company_color
             # Switching sections preserves annual results and does not revive old mock review.
             page.locator('[data-subtab="who"]').click()
             assert 'Из них eligible' in page.locator('.review-screen').inner_text()
@@ -68,6 +98,8 @@ try:
         frame.locator('[data-subtab="how"]').click()
         assert frame.locator('.review-matrix').count()==3
         assert '33,3%' in frame.locator('.review-matrix').first.inner_text()
+        frame.locator('.split-l tr.urow').filter(has_text='Отдел 22').locator('.row-body').click()
+        assert frame.locator('.review-matrix').first.locator('tr.total td').nth(1).inner_text()=='1'
         assert 'ошибка чарта' not in frame.locator('body').inner_text()
         assert not errors,errors
         page.screenshot(path='/tmp/teampulse-review-sandbox.png',full_page=True)

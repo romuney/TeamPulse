@@ -381,7 +381,6 @@ function conclusion(sum,b,S){
 function renderBlock(S,expanded,mixOpen,view){
   const b=D.BLOCK_BY_KEY[S.tab];
   const mod=blocks[b.key];
-  if(mod.render)return mod.render(S);
   /* под-вкладка проверяется по списку блока: после перекомпоновки вкладок ссылка
      с ?sub=speed или ?sub=conv ведёт в никуда, и экран собирался бы наполовину */
   if(!S.subTab||!mod.subTabs.some(t=>t[0]===S.subTab))S.subTab=mod.defaultSub;
@@ -446,7 +445,12 @@ function renderBlock(S,expanded,mixOpen,view){
   const ts=String(S.tsort||'').split(':'), tsc=tcols&&tcols.find(c=>c.k===ts[0]&&c.val), tsd=ts[1]==='a'?1:-1;
   /* 09.11, поставка 130 (владелец: «добавим сортировку в таблицу по подразделениям»): и у обычных колонок-метрик — тем же кликом по шапке */
   const tsm=!tcols&&tmets.find(m=>m.key===ts[0]), tv=p=>{const v=val(rowLeaves(p,S),tsm.key);return v==null||!isFinite(v)?-1e18:v};
-  const cmp=tsc?(a,b)=>{const x=tdata(rowLeaves(a.path,S)), y=tdata(rowLeaves(b.path,S));
+  const dataByUnit=new Map();
+  function unitData(path,lp){
+    if(!dataByUnit.has(path))dataByUnit.set(path,tdata(lp||rowLeaves(path,S)));
+    return dataByUnit.get(path);
+  }
+  const cmp=tsc?(a,b)=>{const x=unitData(a.path), y=unitData(b.path);
     return tsd*((x?tsc.val(x):0)-(y?tsc.val(y):0))}:tsm?(a,b)=>tsd*(tv(a.path)-tv(b.path)):null;
   const rows=pivotRows(root,expanded,isEmpty,tq,cmp);
   /* инсайт про концентрацию считается по первому уровню всегда — от
@@ -471,7 +475,7 @@ function renderBlock(S,expanded,mixOpen,view){
       '>базой</span> — подразделениями похожей численности за ту же неделю.':cw.hc<D.SMALL_N?'Без стажёров в подразделении меньше '+
       D.SMALL_N+' человек — проникновение в людях, без сравнения с базой.':(D.isSelfBase()?'Для всей компании базы нет':
       'Базы для подразделений такого размера нет')+' — проникновение сравниваем с началом окна графика.'};
-  const cmpTxt=b.key==='ai'?aiCmp():(cmpMets.length
+  const cmpTxt=b.key==='review'?'Выберите подразделение для просмотра результатов ревью.':b.key==='ai'?aiCmp():(cmpMets.length
       ? 'Сравниваем '+(pm.length?'с <span class="term" tabindex="0"'+U.baseTip(null,pe0)+'>базой</span> — подразделениями похожей численности'+
           (pm.length<cmpMets.length?', где её нет — со всей компанией':'')+'.':'со всей компанией с выбранными фильтрами.')
       : kpiMets.length?'':'Здесь количества — с другими подразделениями они не сравниваются.')+
@@ -487,7 +491,6 @@ function renderBlock(S,expanded,mixOpen,view){
 
   /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
      это происходит → таблица»). Факты — те же карточки, что на главной. */
-  const sum=INS.blockSummary(b.key,S,rl,bl);
   /* 31.10, файл итерации п. 2 и 6: в «Саммари» только короткий текстовый вывод — таблица «Где это происходит» снята на
      всех вкладках (подразделения — в таблице ниже), блок в одну колонку и ниже по высоте */
   /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» вывод блока (он сравнивает текучесть отдела с целями) не ставим —
@@ -495,7 +498,10 @@ function renderBlock(S,expanded,mixOpen,view){
   /* поставка 106: у AI месячных метрик нет — вывод блока (ориентиры, «N мес. подряд») не ставим; вывод недель — в главе */
   /* поставка 128 (владелец 08.11: цели HQ обязательны): вывод блока снова и на «Как уходит HQ?» — его снимала поставка 103 вместе
      с целями */
-  if(b.key!=='ai')h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
+  if(b.key!=='ai'&&b.key!=='review'){
+    const sum=INS.blockSummary(b.key,S,rl,bl);
+    h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
+  }
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -532,7 +538,7 @@ function renderBlock(S,expanded,mixOpen,view){
   const sp=view&&view.split||{};
   /* 30.10, шаг 2: у маленькой команды (нет подразделений ниже или меньше 30 человек) таблица по умолчанию
      свёрнута в полоску слева — графики во всю ширину; выбор пользователя (sp.mode) — главнее */
-  const hcR=D.lastVal(rl,'hc_total'), smallTeam=!INS.unitsOf(S).length||(hcR!=null&&hcR<INS.CARD.small);
+  const hcR=D.lastVal(rl,'hc_total'), smallTeam=b.key!=='review'&&(!INS.unitsOf(S).length||(hcR!=null&&hcR<INS.CARD.small));
   const mode=sp.mode==='charts'||sp.mode==='both'?sp.mode:smallTeam?'charts':'both', share=sp.share!=null?sp.share:null;
   /* 31.10 (поставка 82, заказчик): всё, что выбрано кликом, — пилюлями в строке над обеими карточками: срез меняет и
      таблицу слева, и графики справа. Подразделение (действует на всех вкладках), срез структуры, сегмент и город
@@ -583,7 +589,8 @@ function renderBlock(S,expanded,mixOpen,view){
     return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?D.fmtNumber(v/hc*100)+'%':'—'}]}):'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
   };
   const hcT=val(rl,'hc_total');
-  const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),c===tcols0[1])).join('')
+  const totalData=tcols&&tdata(rl);
+  const totalCells=tcols?tcols.map((c,i)=>tcell(c,totalData,c===tcols0[1])).join('')
     :tmets.map(m=>'<td'+(m.fmt==='pct'&&isSm(hcT)?smAttr(hcT,m.key===mainK?'lead':''):m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   /* поставка 103 убирала фразы о целях из подсказок шапок на «Как уходит HQ?»; поставка 128 (владелец 08.11) их вернула */
   const noGoal=t=>t;
@@ -614,7 +621,7 @@ function renderBlock(S,expanded,mixOpen,view){
     '<span class="row-body">Итого</span></span></td>'+totalCells+
     '</tr>';
   rows.forEach(r=>{
-    const lp=rowLeaves(r.n.path,S);
+    const lp=rowLeaves(r.n.path,S), rowData=tcols&&unitData(r.n.path,lp);
     const canExp=!tq&&r.kids>0&&r.depth<TREE_DEPTH, isOpen=expanded.has(r.n.path), isSel=sel===r.n.path;
     /* На границе глубины подразделения ниже не показаны — говорим, сколько их
        и как до них дойти. Число — прямые подразделения, а не все потомки. */
@@ -639,7 +646,7 @@ function renderBlock(S,expanded,mixOpen,view){
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
-      (tcols?tcols.map((c,i)=>tcell(c,tdata(lp),c===tcols0[1],1)).join('')
+      (tcols?tcols.map((c,i)=>tcell(c,rowData,c===tcols0[1],1)).join('')
       :tmets.map(m=>{const hc=val(lp,'hc_total'), ld=m.key===mainK?'lead':'';
         return '<td'+(m.fmt==='pct'&&isSm(hc)&&!D.directNA(r.n,m.key)?smAttr(hc,ld):ld?' class="lead"':'')+'>'+
         (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>'}).join(''))+'</tr>';
@@ -680,12 +687,12 @@ function renderBlock(S,expanded,mixOpen,view){
     rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act})});
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
-  h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
+  h+=U.panel({cls:b.key==='review'?'split-r review-screen':'split-r',title:mod.title(S.subTab),
     subHtml:esc(selNode.name)+(sel!==root?'':' · всё подразделение')+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
       /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
       /* поставка 106: у AI — недели, без сравнения с прошлым годом */
-      (b.key==='structure'?'':b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
+      (b.key==='structure'?'':b.key==='review'?' · кадровый снимок на '+D.ASOF_LABEL:b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';

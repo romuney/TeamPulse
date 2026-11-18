@@ -1169,12 +1169,20 @@ function ratingTable(o){
   total.high=total.n?100*(total.cells[3]+total.cells[4])/total.n:null;
   const label=r=>{if(r.total)return esc(r.name);const code=r.name.trim().toUpperCase().replace(/[—-]/g,'–');const id=o.kind==='grade'?(Object.prototype.hasOwnProperty.call(grades,code)?grades[code]:'d-006-grade'):o.kind==='tenure'?'d-015-tenure':'d-016-specialization';
     return '<a href="'+dict+id+'" target="_blank" rel="noopener noreferrer" aria-label="'+esc('Определение: '+r.name)+'">'+esc(r.name)+'</a>'};
+  function scoreCell(row,n,score){
+    if(row.total||!n||!row.n)return '<td>'+D.fmtInt(n)+'</td>';
+    const share=n/row.n;
+    return '<td class="mx-cell" style="background:'+G.heat(share)+';color:'+G.heatInk(share)+'"'+
+      tipAttr({title:row.name+' · '+score+' · '+D.REVIEW_SCALE[score],
+        rows:[{label:'Человек',value:D.fmtInt(n)},{label:'Доля от eligible строки',value:D.fmtNum('pct',100*share)}]})+
+      '>'+D.fmtInt(n)+'</td>';
+  }
   const pctTip=range=>tipAttr({title:'Доля с оценкой '+range,text:'100 × число eligible-сотрудников строки с финальной оценкой '+range+' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
   return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt">'+esc(o.title)+'</th><th>Все eligible</th><th>Без оценки</th>'+
     D.REVIEW_SCALE.map((name,i)=>'<th'+tipAttr({title:String(i),text:name})+'>'+i+'</th>').join('')+
     '<th'+pctTip('0–1')+'>Доля 0–1</th><th'+pctTip('3–4')+'>Доля 3–4</th></tr></thead><tbody>'+
     [total].concat(o.rows).map(r=>'<tr'+(r.total?' class="total top"':'')+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
-      r.cells.map(n=>'<td>'+D.fmtNumber(n)+'</td>').join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
+      r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
     '</tbody></table></div>';
 }
 function reviewNote(text){return '<p class="review-note">'+esc(text)+'</p>'}

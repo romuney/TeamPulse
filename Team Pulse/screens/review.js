@@ -24,26 +24,34 @@ function how(r){
   h+=U.panel({title:'Первые оценки',sub:'Нет более раннего финального ревью в истории источника',body:r.c.first?
     U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.score+' · '+x.name,vals:[x.n]}))}):
     U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')});
-  h+=U.reviewNote('В таблицах — число сотрудников по текущей финальной оценке. Обе доли считаются от всех eligible строки, включая «Без оценки». Грейд, стаж и специализация взяты из текущего кадрового снимка; пустые категории показаны как «Не указано».');
+  h+=U.reviewNote('Число в ячейке — сотрудники с этой оценкой. Чем темнее синий, тем больше их доля среди всех eligible в строке. Обе доли считаются от всех eligible строки, включая сотрудников без оценки.');
   [['По грейду','grade',r.gr],['По стажу','tenure',r.tenure],['По специализации','spec',r.spec]].forEach(x=>{
     h+=U.panel({title:x[0],body:U.ratingTable({title:x[0],kind:x[1],rows:x[2]})});
   });
   return h;
 }
-SC.blocks.review={subTabs:tabs,defaultSub:'who',title(){return 'Ревью'},
-  render(S){
-    if(!tabs.some(t=>t[0]===S.subTab))S.subTab='who';
-    const root=SC.currentRoot(S),sel=S.selNode&&D.NODE_BY_PATH[S.selNode]?S.selNode:root;
-    const r=D.reviewData(SC.rowLeaves(sel,S));
+const counts=[
+  ['eligible','Eligible','Сотрудники, включённые в оцениваемую популяцию.'],
+  ['rated','Оценены','Сотрудники с финальной оценкой за год.'],
+  ['up','Улучшили','Текущая оценка выше прошлогодней.'],
+  ['down','Ухудшили','Текущая оценка ниже прошлогодней.'],
+  ['first','Впервые','Первая финальная оценка по доступной истории.']
+];
+SC.blocks.review={subTabs:tabs,defaultSub:'who',
+  cols:counts.map(([k,name,tip])=>({k,name,tip,val:c=>c[k]})),
+  data(lp){
+    const r=D.reviewData(lp);
+    return r.state==='ready'||r.state==='empty'?r.c:null;
+  },
+  title(sub){return tabs.find(t=>t[0]===sub)[1]},
+  view(ctx){
+    const r=D.reviewData(ctx.lp);
     let body;
     if(r.state==='unavailable')body=U.empty('Данные ревью ещё не подключены','Для этой версии отчёта не получен годовой набор данных ревью.');
     else if(r.state==='error')body=U.empty('Не удалось проверить данные ревью','Итоги и распределения не согласованы. Обновите отчёт; если ошибка повторится, проверьте сборку источника.');
     else if(r.state==='empty')body=U.empty('Пустая выборка','В текущем кадровом снимке нет сотрудников под выбранными фильтрами.');
-    else body=S.subTab==='how'?how(r):who(r);
-    const sty=window.TPSTORY,w=sty.WHY.review[S.subTab];
-    body=U.storyHead(sty.Q.review[S.subTab],null,null,w[0],w[1])+body;
-    return U.panel({cls:'review-screen',title:'Ревью'+(r.year?' · '+r.year:''),tabs:U.subTabs(tabs,S.subTab),
-      sub:(D.NODE_BY_PATH[sel]||{}).name+' · кадровый снимок на '+D.ASOF_LABEL+(r.year?' · сравнение с '+r.previousYear+' годом':''),body});
+    else body=ctx.sub==='how'?how(r):who(r);
+    return (r.year?U.reviewNote('Год ревью '+r.year+' · сравнение с '+r.previousYear+' годом'):'')+body;
   }
 };
 })();
