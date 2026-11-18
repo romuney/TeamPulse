@@ -207,6 +207,7 @@ const BLOCKS=[
 {key:'tgrowth',name:'Рост HQ',scope:'Сейчас данные по росту доступны только для HQ.',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
 /* поставка 128 (аудит): шаг «Ревью» скрыт (OFF_SUBS) — описание блока без него; вернётся шаг — вернуть «и итоги ревью» */
 {key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и переработчики по данным мониторинга — под выбранными фильтрами (по умолчанию вся активная численность).',drillUrl:'#/detail/monitor',dash:['34661']},
+{key:'review',name:'Ревью',hint:'Годовое ревью eligible-сотрудников: финальные оценки и изменения.',dash:['34661']},
 {key:'office',name:'Посещаемость офисов',hint:'Кто, когда и где ходит в офис.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
    У Hub были AI-подсказки, но не было метрик внедрения AI. */
@@ -660,7 +661,7 @@ function metricVisible(key,S){
 function visibleMetricsOfBlock(bk,S){return metricsOfBlock(bk).filter(m=>metricVisible(m.key,S))}
 /* блок без единой показанной метрики уходит и из OnePager, и из навигации */
 /* поставка 106: у AI месячных метрик нет — вкладка живёт на недельном ряду, в навигации она всегда */
-function blockVisible(bk,S){return bk==='ai'||visibleMetricsOfBlock(bk,S).length>0}
+function blockVisible(bk,S){return bk==='ai'||bk==='review'||visibleMetricsOfBlock(bk,S).length>0}
 function visibleBlocks(S){return BLOCKS.filter(b=>blockVisible(b.key,S))}
 /* 12.11, п. 1 и 11: графики AI (вкладка AI и One Pager) включаются в «Настрой свой дашборд» теми же галочками метрик;
    ключи — ai_penetration и ai_wau (метрики описания недельного ряда) */
@@ -3726,7 +3727,62 @@ function aiUsage(lp){
       freq:splitBy(iact,jitter(r,[0.2,0.22,0.2,0.16,0.12,0.06,0.04],0.2)).map((n,i)=>({name:AI_DAYS[i],value:n}))}};
 }
 
-window.TPDATA={REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
+/* Annual review, owner contract 18.11.2026. Counts arrive from the filtered snapshot;
+   no mock fallback and no derivation of first review from a missing previous score. */
+const REVIEW_SCALE=['не соответствует ожиданиям','есть над чем поработать','хорошо, продолжай в том же духе','огонь','звезда'];
+function reviewFromMix(mx,version){
+  const ver=/^hub-2-review-1\|(\d{4})$/.exec(version||'');
+  if(!ver)return {state:'unavailable'};
+  const c=Object.assign({all:0,eligible:0,rated:0,up:0,down:0,same:0,first:0,unpaired:0,missing:0},mx.rvc||{});
+  const sum=a=>a.reduce((s,n)=>s+n,0), score=x=>/^[0-4]$/.test(x);
+  let bad=Object.keys(c).some(k=>!Number.isInteger(c[k])||c[k]<0);
+  const years=mx.rvyear||{};
+  if(c.all>0&&(Object.keys(years).length!==1||years[ver[1]]!==c.all))bad=true;
+  const transitions=Object.keys(mx.rvtr||{}).map(k=>{
+    const p=k.split('|'),n=mx.rvtr[k];
+    if(p.length!==2||!score(p[0])||!score(p[1])||p[0]===p[1]||!Number.isInteger(n)||n<0)bad=true;
+    return {previous:+p[0],current:+p[1],n};
+  }).filter(x=>x.n>0).sort((a,b)=>a.previous-b.previous||a.current-b.current);
+  const first=REVIEW_SCALE.map((name,i)=>({score:i,name,n:(mx.rvfirst||{})[i]||0}));
+  if(Object.keys(mx.rvfirst||{}).some(k=>!score(k)))bad=true;
+  function groups(key){
+    const rows=Object.create(null);
+    Object.keys(mx[key]||{}).forEach(k=>{
+      const i=k.lastIndexOf('|'),name=k.slice(0,i)||'Не указано',v=k.slice(i+1),n=mx[key][k];
+      if(i<0||!Number.isInteger(n)||n<0||!(score(v)||v==='b'||v==='na')){bad=true;return}
+      const r=rows[name]||(rows[name]={name,n:0,missing:0,cells:[0,0,0,0,0]});
+      if(v==='b')r.n+=n;else if(v==='na')r.missing+=n;else r.cells[+v]+=n;
+    });
+    const a=Object.keys(rows).map(k=>{
+      const r=rows[k];if(sum(r.cells)+r.missing!==r.n)bad=true;
+      r.low=r.n?100*(r.cells[0]+r.cells[1])/r.n:null;
+      r.high=r.n?100*(r.cells[3]+r.cells[4])/r.n:null;
+      return r;
+    }).filter(r=>r.n>0);
+    a.sort((x,y)=>x.name==='Не указано'?1:y.name==='Не указано'?-1:
+      key==='rvt'?(bound(x.name,'mon')-bound(y.name,'mon')||x.name.localeCompare(y.name,'ru')):
+      x.name.localeCompare(y.name,'ru',{numeric:true}));
+    if(sum(a.map(r=>r.n))!==c.eligible||sum(a.map(r=>sum(r.cells)))!==c.rated)bad=true;
+    return a;
+  }
+  const gr=groups('rvgr'),tenure=groups('rvt'),spec=groups('rvsp');
+  if(c.eligible>c.all||c.rated+c.missing!==c.eligible||c.up+c.down+c.same+c.first+c.unpaired!==c.rated||
+     sum(transitions.filter(t=>t.current>t.previous).map(t=>t.n))!==c.up||
+     sum(transitions.filter(t=>t.current<t.previous).map(t=>t.n))!==c.down||
+     first.some(x=>!Number.isInteger(x.n)||x.n<0)||sum(first.map(x=>x.n))!==c.first)bad=true;
+  return {state:bad?'error':c.all===0?'empty':'ready',year:+ver[1],previousYear:+ver[1]-1,c,transitions,first,gr,tenure,spec};
+}
+function reviewData(lp){
+  if(!REAL)return {state:'unavailable'};
+  const mx={};
+  lp.forEach(p=>{const m=REAL.mix(p)||{};['rvc','rvyear','rvtr','rvfirst','rvgr','rvt','rvsp'].forEach(k=>{
+    if(!m[k])return;const t=mx[k]||(mx[k]={});Object.keys(m[k]).forEach(v=>{t[v]=(t[v]||0)+m[k][v]});
+  })});
+  if(!mx.rvc&&lp.some(p=>{const a=REAL.series(p,'hc_total');return a&&a[a.length-1]>0}))return {state:'unavailable'};
+  return reviewFromMix(mx,REAL.reviewVersion);
+}
+
+window.TPDATA={REVIEW_SCALE,reviewData,reviewFromMix,REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,yoyMove,perSum,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,

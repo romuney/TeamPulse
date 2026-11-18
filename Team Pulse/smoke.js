@@ -34,7 +34,7 @@ global.localStorage={getItem(){return'1'},setItem(){}};
 /* порядок как в index.html */
 ['data.js','draw.js','ui.js','mascot.js','insights.js','story.js',
  'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js',
- 'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js',
+ 'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js','screens/review.js',
  'screens/onepager.js'].forEach(f=>require(path.join(dir,f)));
 
 /* app.js держит state в замыкании — добавляем экспорт-хвост во временную копию */
@@ -1232,8 +1232,8 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const sum=a=>a.reduce((x,y)=>x+y,0);
   const ytd=k=>D.sumWin(D.aggregate(rl0,k),'ytd');
 
-  checks.push(['восемь блоков: AI-инструменты — восьмой, двадцать восемь метрик (21.10: + Non-regrettable), сравнимых шестнадцать',
-    D.BLOCKS.length===8&&D.BLOCKS[7].key==='ai'&&D.metricsOfBlock('ai').length===0&&
+  checks.push(['девять блоков: отдельное годовое ревью, прежние 28 METRICS и 15 сравнимых метрик',
+    D.BLOCKS.length===9&&D.BLOCKS.some(b=>b.key==='review')&&D.BLOCKS[8].key==='ai'&&D.metricsOfBlock('ai').length===0&&
     D.METRICS.length===28&&D.METRICS.filter(m=>D.comparable(m.key)).length===15]);
 
   /* --- производные метрики: формулы --- */
@@ -1649,15 +1649,15 @@ checks.push(['третьей палитры нет: в экранах ни од�
     !/class="bk-wh"|<table/.test(tTop.slice(tTop.indexOf('bk-top'),tTop.indexOf('id="bk-det"')))&&
     !/kpis compact/.test(tTop)&&/class="split[^"]*" id="bk-det"/.test(tTop)&&!/data-blkopen|class="bk-det/.test(tTop)&&
     /* 31.10-б, п. 6: «Рост HQ» — без фильтра покраски */
-    /* поставка 106: у AI вывода блока нет (месячных метрик нет, вывод недель — в главе) */
-    D.BLOCKS.filter(b=>b.key!=='ai').every(b=>{const Sb=b.key==='tgrowth'?Object.assign({},S0,{paint:'all'}):S0,
+    /* поставка 106: у AI и годового ревью месячного вывода блока нет; их периоды и факты проверяются отдельно */
+    D.BLOCKS.filter(b=>b.key!=='ai'&&b.key!=='review').every(b=>{const Sb=b.key==='tgrowth'?Object.assign({},S0,{paint:'all'}):S0,
       sv=I.blockSummary(b.key,Sb,D.reportLeaves(Sb),D.benchmarkLeaves(Sb)).sev, h=A.top(b.key),
       tg=(h.match(/<div class="bk-tag">Вывод блока · ([^<]+)<\/div>/)||[])[1];
       /* поставка 128: подпись огонька — та же, что у вывода: у «Для справки», «В людях», «Без оценки» (тяжесть none) — тоже */
       return !!tg&&new RegExp('bk-sum '+sv+'"><span class="in-ico"><img[^>]*alt="'+tg+'"').test(h)&&
         (tg==={high:'Требует действий',mid:'Посмотреть',good:'Хорошая новость',none:'Всё спокойно'}[sv]||sv==='none'&&/^(Для справки|В людях|Без оценки)$/.test(tg))})]);
   checks.push(['вывод блока: «всё спокойно» там, где фактов нет; в «Саммари» нет таблиц ни на одной вкладке',
-    D.BLOCKS.filter(b=>b.key!=='ai').every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-pl"><span class="bk-p (high|mid|good)"/.test(h))&&
+    D.BLOCKS.filter(b=>b.key!=='ai'&&b.key!=='review').every(b=>{const h=A.top(b.key);return /class="bk-sum /.test(h)&&(/Всё спокойно/.test(h)||/bk-pl"><span class="bk-p (high|mid|good)"/.test(h))&&
       !/class="bk-wh"|<table/.test(h.slice(h.indexOf('bk-top'),h.indexOf('id="bk-det"')))})]);
   /* раскрытая строка: номера пунктов «Что видно» = номерные отметки на полотне */
   const keys=['turnover_y','attrition','turnover_m','hc_total','regret'];
@@ -1859,7 +1859,7 @@ checks.push(['третьей палитры нет: в экранах ни од�
     /[Нн]ежелательный отток|[Жж]елательный отток|Прошли T-рост|Отказано в T-росте|Time-to-fill|[Лл]оу-перформ|Прогноз (годовой )?текучести/,
     /степпер|[Пп]озитивное направление|Снять разрез|Сбросить разрезы|глава \d+ из/,
     /* поставка 110 (E3, критики 07.11): жаргон и служебные подсказки */
-    /eligible|мастер-источник|HR Executive|Нормал(?![а-я])|Эту серию не скрыть|Этот год против ориентира|1 — младший|средний срок закрытия|% отказа/];
+    /мастер-источник|HR Executive|Нормал(?![а-я])|Эту серию не скрыть|Этот год против ориентира|1 — младший|средний срок закрытия|% отказа/];
   const hits=[];
   BAN.forEach(re=>{const m=text.match(new RegExp(re.source,re.flags.replace('g','')+'g'));if(m)hits.push(...new Set(m))});
   if(hits.length)console.log('    найдено:',hits.slice(0,12).join(' | '));

@@ -85,6 +85,7 @@ EXTRA = {
          "    'teampulse_hub_unit':   'prod_proteus.teampulse_hub_unit',\n"
          "    'teampulse_hub_series': 'prod_proteus.teampulse_hub_series',\n"
          "    'teampulse_hub_mix':    'prod_proteus.teampulse_hub_mix',\n"
+         "    'teampulse_hub_review_test': 'prod_proteus.teampulse_hub_review_test',  # только единый тестовый контур\n"
          "    'teampulse_hub_trf':    'prod_proteus.teampulse_hub_trf',     # переходы — переводы под фильтры\n"
          "    'teampulse_hub_trfe':   'prod_proteus.teampulse_hub_trfe',    # события переводов — детализация (поставка 63)\n"
          "    'teampulse_hub_vacancy': 'prod_proteus.teampulse_hub_vacancy',  # вакансии по узлам\n"
@@ -127,6 +128,7 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
         # 06.11: «hub · 3н мониторинг по неделям» (поставка 104) снят по решению владельца — источник недель ещё не готов;
         # параграф лежит в hub_nb/sql_3w_mon.sql, вернуть — строкой ('new', 'hub · 3н мониторинг по неделям', 'gp', 'sql_3w_mon.sql')
         ('new', 'hub · 4 разрезы', 'gp', 'sql_4_mix.sql'),
+        ('new', 'hub · ревью', 'gp', 'sql_review.sql'),
         ('new', 'hub · 5 переходы', 'gp', 'sql_5_trf.sql'),
         ('new', 'hub · 6 вакансии и meta', 'gp', 'sql_6_final.sql'),
         # 06.11, поставка 105 (ноутбук агента, проверен на GP): замкнутый водопад teampulse_hub_flow

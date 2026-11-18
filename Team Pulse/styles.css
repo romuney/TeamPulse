@@ -2823,3 +2823,14 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .chip.as{background:var(--warn-bg);color:var(--warn-tx);border-color:var(--warn)}
 .chip.as .x{background:rgba(154,101,0,.16);color:var(--warn-tx)}
 .tp-noacc .btn{margin-top:12px;align-self:flex-start}
+
+/* Годовое ревью: таблицы прокручиваются внутри панели, названия переносятся. */
+.review-screen>.panel-b{display:flex;flex-direction:column;gap:20px;padding:20px;min-width:0}
+.review-screen .panel,.review-screen .panel-b{min-width:0}
+.review-note{margin:0;line-height:1.5;color:var(--muted,#667085)}
+.review-legend{display:flex;flex-wrap:wrap;gap:10px 24px;line-height:1.5}
+.review-matrix{min-width:720px;width:100%}
+.review-matrix .txt{min-width:140px;max-width:320px;white-space:normal;overflow-wrap:anywhere}
+.review-matrix .txt a{color:inherit;text-decoration:underline;text-decoration-style:dotted}
+.review-screen .stable .txt{white-space:normal;overflow-wrap:anywhere}
+@media(max-width:600px){.review-screen>.panel-b{padding:12px}.review-screen>.panel-h{flex-wrap:wrap}}

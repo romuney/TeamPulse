@@ -53,7 +53,7 @@ rows.forEach(r=>{if(!r.mx)return;let pk='';
   r.mx=String(r.mx).split('\n').map(l=>{if(!l)return l;const t=l.indexOf('\t');if(t>0){pk=l.slice(0,t);return l}return t===0?pk+l:l}).join('\n')});
 ['data.js','draw.js','ui.js','mascot.js','insights.js','story.js',
  'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js',
- 'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js',
+ 'screens/hiring.js','screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js','screens/review.js',
  'screens/onepager.js'].forEach(f=>require(path.join(dir,f)));
 const probe=path.join(dir,'.app.probe.real.'+process.pid+'.js');   /* свой у процесса: прогоны можно вести параллельно */
 fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+

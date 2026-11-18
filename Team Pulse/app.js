@@ -411,6 +411,7 @@ const NAV_IC={
   tgrowth:'<path d="M3 18l6-6 4 4 7.5-7.5M15 8.5h5.5V14"/>',
   monitor:'<path d="M3 12.5h4l2.5-6.5 5 13 2.5-6.5h4"/>',
   office:'<rect x="4" y="3" width="11" height="18" rx="1.3"/><path d="M15 9h4a1 1 0 0 1 1 1v11M8 7.5h3M8 11.5h3M8 15.5h3M2.5 21h19"/>',
+  review:'<path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/>',
   ai:'<path d="M11 3.5l1.9 4.9 4.9 1.9-4.9 1.9L11 17.1l-1.9-4.9-4.9-1.9 4.9-1.9z"/><path d="M18.5 14.5l.8 2.1 2.2.9-2.2.8-.8 2.2-.9-2.2-2.1-.8 2.1-.9z"/>'};
 const navIc=(k,sig)=>'<span class="ni-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '+
   'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(NAV_IC[k]||'<circle cx="12" cy="12" r="4"/>')+'</svg>'+

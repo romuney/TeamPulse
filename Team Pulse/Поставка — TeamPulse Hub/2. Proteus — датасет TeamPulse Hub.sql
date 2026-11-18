@@ -311,7 +311,7 @@ WITH
   cx0 AS (
     SELECT (lm, m0, n, r, d, dd, s,
             if(ok, arrayConcat([(s, toUInt8(1)), (r, toUInt8(2))], arrayMap(x -> (x, toUInt8(5)), d1),
-                               arrayMap(x -> (x, toUInt8(6)), d2), arrayMap(x -> (x, toUInt8(7)), d3)), CAST([], 'Array(Tuple(String, UInt8))')),
+                               arrayMap(x -> (x, toUInt8(6)), d2), arrayMap(x -> (x, toUInt8(7)), d3)), arrayFilter(x -> 0, [('', toUInt8(0))])),
             zr, ok, fl, an) AS c0
     FROM
     (
@@ -516,6 +516,7 @@ WITH
              ',"adm":{{ adm() }},"as":', toJSONString({{ asl() }}),
              ',"dt":"', cxdd, '","schema":"hub-2","enc":"a1","cuts":["paint","it","staff"', if(has(tupleElement({{ FV }}, 4), '∅'), '', ',"act"'), ']',
              ',"mk":"{% for m in M %}{{ m[0] }}{% if not loop.last %},{% endif %}{% endfor %}"',
+             ',"rv":', toJSONString((SELECT concat('hub-2-review-1|', ifNull(mx_val, '')) FROM prod_proteus.teampulse_hub_review_test WHERE mx_key = 'rvmeta' LIMIT 1)),
              ',"req":', toJSONString({{ qa(unit_req) }}),
              ',"paint":', toJSONString({{ qa(F['paint']) }}),
              ',"it":', toJSONString({{ qa(F['it']) }}),
@@ -670,6 +671,14 @@ WITH
         {#- 09.11: разбивки найма — из переходов (ветка ниже); ключи найма таблицы разрезов ноутбука до 09.11 не читаем #}
         AND ifNull(mx_key, '') NOT IN ('hk', 'hch', 'hg', 'hsp', 'hko', 'hcho', 'hgo', 'hspo')
       GROUP BY u3, k3, v3
+      HAVING n4 > 0
+      UNION ALL
+      {# Годовое ревью только единого тестового контура; production mix не расширяется. #}
+      SELECT ifNull(node_rk, '') AS u3, ifNull(mx_key, '') AS k3, ifNull(mx_val, '') AS v3,
+             sum(toFloat64(ifNull(mx_n, 0))) AS n4
+      FROM prod_proteus.teampulse_hub_review_test
+      WHERE node_rk IN {{ PK }} AND mx_key != 'rvmeta' AND {{ cond() }}
+      GROUP BY node_rk, mx_key, mx_val
       HAVING n4 > 0
       {% endif %}
       {% if P_FLOW %}{{ ua(U1) }}

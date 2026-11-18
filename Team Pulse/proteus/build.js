@@ -124,7 +124,8 @@ const MIN=require('./min.cjs');
    мониторинга, кнопка меню без localStorage): 640 → 644.
    12.11, поставки 147–149 и исправление доступа (AI на One Pager таблицей, база сегментов посещаемости и плашка базы,
    дерево выбора через предков при нескольких корнях зоны): 644 → 648 — ≈+0,1 с на запрос. */
-const BUDGET_KIB = 652;
+// 18.11: годовое ревью +12,2 КиБ к 648; ≈+0,24 с отправки при 50 КБ/с. Только единая тестовая поставка.
+const BUDGET_KIB = 662;
 const dir=path.join(__dirname,'..');
 const OUT=path.join(dir,'Поставка — TeamPulse Hub','3. Proteus — чарт TeamPulse Hub.js');
 const read0=f=>fs.readFileSync(path.join(dir,f),'utf8');
@@ -136,7 +137,7 @@ const read=f=>SPLIT?read0(f):read0(f).replace(/\/\*split:\*\/[\s\S]*?\/\*:split\
 /* порядок как в index.html, плюс модель и вход Proteus впереди */
 const FILES=['proteus/real.js','proteus/prelude.js','data.js','draw.js','ui.js','mascot.js','insights.js','story.js',
   'screens/_block.js','screens/structure.js','screens/movement.js','screens/turnover.js','screens/hiring.js',
-  'screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js','screens/onepager.js','app.js'];
+  'screens/tgrowth.js','screens/monitor.js','screens/office.js','screens/ai.js','screens/review.js','screens/onepager.js','app.js'];
 
 /* 31.10, поставка 85 (вес чарта): в Proteus модель данных (window.TP_REAL) и окружение (window.TP_ENV) есть ВСЕГДА —
    их кладёт prelude.js до модулей (нет доступа — сборка останавливается раньше). Проверки «макет или Proteus» в исходниках

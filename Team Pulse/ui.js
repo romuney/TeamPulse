@@ -1159,7 +1159,28 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={ICO,icoFor,keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
+/* Absolute rating counts; both rightmost percentages use all eligible in the row. */
+function ratingTable(o){
+  const dict='https://github.com/romuney/TeamPulse/blob/main/Team%20Pulse/'+encodeURIComponent('Поставка — TeamPulse Hub')+'/metrics_dictionary.md#';
+  const grades={H1:'d-001-h1','G1–G3':'d-002-g1-g3',G1:'d-003-g1',G2:'d-004-g2',G3:'d-005-g3'};
+  const total={name:'Итого',total:true,n:0,missing:0,cells:[0,0,0,0,0]};
+  o.rows.forEach(r=>{total.n+=r.n;total.missing+=r.missing;r.cells.forEach((v,i)=>{total.cells[i]+=v})});
+  total.low=total.n?100*(total.cells[0]+total.cells[1])/total.n:null;
+  total.high=total.n?100*(total.cells[3]+total.cells[4])/total.n:null;
+  const label=r=>{if(r.total)return esc(r.name);const code=r.name.trim().toUpperCase().replace(/[—-]/g,'–');const id=o.kind==='grade'?(Object.prototype.hasOwnProperty.call(grades,code)?grades[code]:'d-006-grade'):o.kind==='tenure'?'d-015-tenure':'d-016-specialization';
+    return '<a href="'+dict+id+'" target="_blank" rel="noopener noreferrer" aria-label="'+esc('Определение: '+r.name)+'">'+esc(r.name)+'</a>'};
+  const pctTip=range=>tipAttr({title:'Доля с оценкой '+range,text:'100 × число eligible-сотрудников строки с финальной оценкой '+range+' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
+  return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt">'+esc(o.title)+'</th><th>Все eligible</th><th>Без оценки</th>'+
+    D.REVIEW_SCALE.map((name,i)=>'<th'+tipAttr({title:String(i),text:name})+'>'+i+'</th>').join('')+
+    '<th'+pctTip('0–1')+'>Доля 0–1</th><th'+pctTip('3–4')+'>Доля 3–4</th></tr></thead><tbody>'+
+    [total].concat(o.rows).map(r=>'<tr'+(r.total?' class="total top"':'')+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
+      r.cells.map(n=>'<td>'+D.fmtNumber(n)+'</td>').join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
+    '</tbody></table></div>';
+}
+function reviewNote(text){return '<p class="review-note">'+esc(text)+'</p>'}
+function ratingLegend(){return '<div class="review-legend">'+D.REVIEW_SCALE.map((s,i)=>'<span><b>'+i+'</b> — '+esc(s)+'</span>').join('')+'</div>'}
+
+window.TPUI={ratingTable,reviewNote,ratingLegend,ICO,icoFor,keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};

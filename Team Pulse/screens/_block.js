@@ -381,6 +381,7 @@ function conclusion(sum,b,S){
 function renderBlock(S,expanded,mixOpen,view){
   const b=D.BLOCK_BY_KEY[S.tab];
   const mod=blocks[b.key];
+  if(mod.render)return mod.render(S);
   /* под-вкладка проверяется по списку блока: после перекомпоновки вкладок ссылка
      с ?sub=speed или ?sub=conv ведёт в никуда, и экран собирался бы наполовину */
   if(!S.subTab||!mod.subTabs.some(t=>t[0]===S.subTab))S.subTab=mod.defaultSub;
