@@ -3011,30 +3011,13 @@ paragraphs:
     -- История БЕЗ нижней границы нужна для первого ревью; LAG не используется.
     drop table if exists teampulse_hub_review_scores;
     create table teampulse_hub_review_scores as
-    select mdm_employee_rk, extract(year from business_dt)::int as review_year, null::int as score
-    from prod_v_hrmart.summary_evaluation where false
+    select mdm_employee_rk, extract(year from business_dt)::int as review_year,
+           case when trim(summary_score::text) ~ '^[0-4]([.]0+)?$'
+                then trim(summary_score::text)::numeric::int end as score
+    from prod_v_hrmart.summary_evaluation
+    where deleted_flg = 0 and valid_to_dttm = '5999-01-01'
+      and mdm_employee_rk is not null and business_dt is not null
     distributed by (mdm_employee_rk);
-
-    drop table if exists teampulse_hub_review_contract;
-    create temp table teampulse_hub_review_contract as
-    select case when count(*) = 0 then 'missing-field'
-                when max(data_type) in ('date','character varying','text','character') then 'ready'
-                else 'unsupported-type' end as state
-    from information_schema.columns
-    where table_schema = 'prod_v_hrmart' and table_name = 'summary_evaluation'
-      and column_name = 'valit_dttm';
-
-    do $$ begin
-        if exists (select 1 from teampulse_hub_review_contract where state = 'ready') then
-            insert into teampulse_hub_review_scores
-            select mdm_employee_rk, extract(year from business_dt)::int,
-                   case when trim(summary_score::text) ~ '^[0-4]([.]0+)?$'
-                        then trim(summary_score::text)::numeric::int end
-            from prod_v_hrmart.summary_evaluation
-            where valit_dttm = '5999-10-10'
-              and mdm_employee_rk is not null and business_dt is not null;
-        end if;
-    end $$;
 
     -- Нарушение согласованной уникальности останавливает сборку, а не выбирает случайную оценку.
     do $$ begin
@@ -3075,9 +3058,9 @@ paragraphs:
     left join (select mdm_employee_rk, min(review_year) as first_review_year
                from teampulse_hub_review_scores group by mdm_employee_rk) h
         on h.mdm_employee_rk = s.mdm_employee_rk
-    join teampulse_hub_review_scores c on c.mdm_employee_rk = s.mdm_employee_rk
+    left join teampulse_hub_review_scores c on c.mdm_employee_rk = s.mdm_employee_rk and e.eligible_flg = 1
         and c.review_year = extract(year from current_date)::int
-    left join teampulse_hub_review_scores p on p.mdm_employee_rk = s.mdm_employee_rk
+    left join teampulse_hub_review_scores p on p.mdm_employee_rk = s.mdm_employee_rk and e.eligible_flg = 1
         and p.review_year = extract(year from current_date)::int - 1
     where s.report_month = (select lm from teampulse_hub_cal)
       and s.leaf_lvl > 0 and coalesce(s.hc_total_cnt, 0) > 0
@@ -3139,10 +3122,7 @@ paragraphs:
 
     -- Метаданные существуют даже при нулевой кадровой популяции. Общие meta/mix не меняются.
     insert into teampulse_hub_review_test
-    select '', '', '', '', '', 'rvmeta',
-           'hub-2-review-2|' || case when state='ready' then extract(year from current_date)::int::text else state end, 1
-    from teampulse_hub_review_contract;
-    drop table teampulse_hub_review_contract;
+    values ('', '', '', '', '', 'rvmeta', 'hub-2-review-2|' || extract(year from current_date)::int::text, 1);
 
     drop table if exists teampulse_hub_review_nodes;
     drop table if exists teampulse_hub_review_people;

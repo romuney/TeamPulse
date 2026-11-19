@@ -5,9 +5,13 @@ Outputs only aggregate fixtures, never employee-level data.
 import json, os, re, sys
 from pathlib import Path
 import psycopg2
+import yaml
 
 ROOT=Path(__file__).resolve().parents[2]
 SQL=(ROOT/'stand/hub_nb/sql_review.sql').read_text()
+notebook=yaml.safe_load(next((ROOT/'Поставка — TeamPulse Hub').glob('1. *.yaml')).read_text())
+paragraph=next(p for p in notebook['paragraphs'] if p['title']=='hub · ревью')
+assert paragraph.get('isEnabled',True) and paragraph['code'].strip()==SQL.strip()
 SQL=re.sub(r'\s+distributed by \([^)]+\)', '', SQL, flags=re.I)
 conn=psycopg2.connect(os.environ['REVIEW_TEST_DSN'])
 cur=conn.cursor()
@@ -17,7 +21,7 @@ try:
     cur.execute('''create schema usr_cross_data; create schema prod_v_hrmart;
       create table usr_cross_data.eligible(mdm_employee_rk int,eligible_flg int);
       create table prod_v_hrmart.summary_evaluation(mdm_employee_rk int,business_dt date,
-        status_desc text,summary_score text,deleted_flg int default 0,valit_dttm text default '5999-10-10');
+        status_desc text,summary_score text,deleted_flg int default 0,valid_to_dttm timestamp default '5999-01-01');
       create table teampulse_hub_cal(lm date,pre text,dt date);
       insert into teampulse_hub_cal values(date_trunc('month',current_date)::date,'',current_date);
       create table teampulse_hub_upath(unit_rk text,cp text);
@@ -42,18 +46,18 @@ try:
         from generate_series(1,13) i;
       insert into usr_cross_data.eligible select i,case when i=9 then 0 else 1 end from generate_series(1,13) i where i<>10;
     ''')
-    def rating(person,y,score,status='Оценка выставлена',deleted=0,until='5999-10-10'):
+    def rating(person,y,score,status='Оценка выставлена',deleted=0,until='5999-01-01'):
         cur.execute('insert into prod_v_hrmart.summary_evaluation values(%s,%s,%s,%s,%s,%s)',
                     (person,f'{y}-01-01',status,score,deleted,until))
     for person,current,prev in [(1,'3','2'),(2,'0','1'),(3,'4',None),(4,'2',None),(5,'2','2'),
                                 (6,None,None),(7,'5',None),(8,None,'0'),(9,'4','0'),(10,'4',None),
                                 (11,'1',None),(12,'0',None),(13,'4','2')]:
-        rating(person,year,current,'Калибровка' if person in (2,6,13) else None)
+        if person!=8:rating(person,year,current,'Калибровка' if person in (2,6,13) else None)
         if prev is not None:rating(person,year-1,prev)
     rating(4,year-2,'1');rating(11,year-3,'0')
-    rating(11,year-1,'2',until=None);rating(12,year-1,'3',until='')
-    rating(1,year,'0',until='bad-date');rating(2,year,'4',until='5999-10-11')
-    rating(1,year,'1',until=f'{year}-02-01');rating(3,year-2,'1',until='5999-01-01')
+    rating(11,year-1,'2',until=None);rating(12,year-1,'3',until='5999-10-10')
+    rating(1,year,'0',deleted=1);rating(2,year,'4',until='5999-10-11')
+    rating(1,year,'1',until=f'{year}-02-01');rating(3,year-2,'1',deleted=1)
     rating(3,year+1,'1')
     cur.execute(SQL)
     cur.execute("select node_rk,paint_cd,it_cd,staff_cd,act_cd,mx_key,mx_val,mx_n from teampulse_hub_review_test where mx_key <> 'rvmeta' order by 1,6,7")
@@ -89,19 +93,13 @@ try:
         else:raise AssertionError('Duplicate contract was accepted: '+violation)
         cur.execute('rollback to savepoint invalid_contract')
     cur.execute('savepoint no_matches')
-    cur.execute("update prod_v_hrmart.summary_evaluation set valit_dttm=null")
+    cur.execute("update prod_v_hrmart.summary_evaluation set valid_to_dttm=null")
     cur.execute(SQL)
-    cur.execute("select count(*) from teampulse_hub_review_test where mx_key!='rvmeta'")
-    assert cur.fetchone()[0]==0
+    cur.execute("select mx_val,mx_n from teampulse_hub_review_test where node_rk='1' and mx_key='rvc'")
+    counts={}
+    for k,n in cur.fetchall():counts[k]=counts.get(k,0)+n
+    assert counts==dict(all=13,eligible=11,missing=11), counts
     cur.execute('rollback to savepoint no_matches')
-    for ddl,state in [('drop column valit_dttm','missing-field'),('alter column valit_dttm type timestamp using null::timestamp','unsupported-type')]:
-        cur.execute('savepoint schema_case')
-        cur.execute('alter table prod_v_hrmart.summary_evaluation alter column valit_dttm drop default')
-        cur.execute('alter table prod_v_hrmart.summary_evaluation '+ddl)
-        cur.execute(SQL)
-        cur.execute('select mx_key,mx_val from teampulse_hub_review_test')
-        assert cur.fetchall()==[('rvmeta','hub-2-review-2|'+state)]
-        cur.execute('rollback to savepoint schema_case')
     print('PASS: annual SQL, status independence, score 0, eligibility, all-history first review, missing year, source NULLs, current SCD2, deleted/future records, HR filters, 3 duplicate failures')
 finally:
     conn.rollback();conn.close()
