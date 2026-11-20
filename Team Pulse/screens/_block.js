@@ -161,6 +161,8 @@ function yoyChart(key,lp,bl,S,opt){
 function metricLine(key,lp,bl,S,opt){return yoyChart(key,lp,bl,S,opt)}
 /* 27.10-в, п. 5: длинный список — первые n и «Остальные», которые раскрываются вторым уровнем (как регион в «Структуре»);
    раскрытие помнит общий набор mixOpen под ключом rest:<k> */
+/* 20.11: окно «Ревью» в шапке правой панели — год ревью против прошлого и дата кадрового снимка */
+function reviewWin(lp){const r=D.reviewData(lp);return (r.year?' · <b>ревью '+r.year+'</b> против '+r.previousYear:'')+' · кадровый снимок на '+esc(D.ASOF_LABEL)}
 function rest(ctx,k,n,word){return {top:n,restWord:word,restKey:'rest:'+k,restOpen:!!(ctx.mixOpen&&ctx.mixOpen.has('rest:'+k))}}
 /* Несколько метрик одной главы — панели друг под другом, у каждой своя шкала
    и своя легенда «этот год / прошлый»; клик по ней скрывает линию во всех
@@ -693,7 +695,7 @@ function renderBlock(S,expanded,mixOpen,view){
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
       /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
       /* поставка 106: у AI — недели, без сравнения с прошлым годом */
-      (b.key==='structure'?'':b.key==='review'?' · кадровый снимок на '+D.ASOF_LABEL:b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
+      (b.key==='structure'?'':b.key==='review'?reviewWin(ctx.lp):b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';

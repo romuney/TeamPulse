@@ -2836,7 +2836,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    чего у них нет: прокрутка матрицы внутри панели и значки оценок. Шапки — одной строкой (поставка 117). */
 .review-screen .st-main,.review-screen .panel-b{min-width:0}
 .review-screen .mx-wrap{max-width:100%;overflow-x:auto}
-.review-screen .bt-stack+.tbl-note{margin:var(--s5) 0}
 .ptable.review-matrix th{vertical-align:bottom}
 .ptable.review-matrix th.txt{min-width:88px}
 .ptable.review-matrix :is(th,td):is(:nth-child(2),:nth-child(3),:nth-child(9)){padding-left:4px;padding-right:4px}
@@ -9499,7 +9498,7 @@ function ratingTable(o){
   const trCls=r=>r.total?' class="total top"':r===restRow&&tree?' class="urow" data-btexp="'+esc(r.exp)+'"'+
     tipAttr({title:'Остальные',text:r.open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):r.sub?' class="lvl2"':'';
   const pctTip=range=>tipAttr({title:'Доля с оценкой '+range,text:'100 × число eligible-сотрудников строки с финальной оценкой '+range+' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
-  return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt">'+esc(o.title)+'</th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
+  return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt" aria-label="'+esc(o.title)+'"></th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
     D.REVIEW_SCALE.map((name,i)=>'<th class="rv-h"'+tipAttr({title:i+' — '+name})+'>'+scoreMark(i,{tip:false})+'</th>').join('')+
     /* шапка одной строкой (правило поставки 117): «% 0–1» — коротко, «Доля с оценкой …» и формула — в подсказке */
     '<th'+pctTip('0–1')+'>% 0–1</th><th'+pctTip('3–4')+'>% 3–4</th></tr></thead><tbody>'+
@@ -9507,7 +9506,8 @@ function ratingTable(o){
       r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
     '</tbody></table></div>';
 }
-/* 20.11: сноски и легенда «Ревью» — общими классами отчёта (.tbl-note, .legend), своего оформления у вкладки нет */
+/* 20.11: имя таблицы стоит над ней (.bt-cap) — первая колонка его не повторяет (чек-лист 12), для чтения с экрана — aria-label.
+   Сноски и легенда «Ревью» — общими классами отчёта (.tbl-note, .legend), своего оформления у вкладки нет */
 function reviewNote(text){return '<div class="tbl-note">'+esc(text)+'</div>'}
 function ratingLegend(){return '<div class="legend rv-legend">'+D.REVIEW_SCALE.map((s,i)=>'<span class="sw">'+scoreMark(i,{tip:false})+esc(i+' — '+s)+'</span>').join('')+'</div>'}
 
@@ -11665,6 +11665,8 @@ function yoyChart(key,lp,bl,S,opt){
 function metricLine(key,lp,bl,S,opt){return yoyChart(key,lp,bl,S,opt)}
 /* 27.10-в, п. 5: длинный список — первые n и «Остальные», которые раскрываются вторым уровнем (как регион в «Структуре»);
    раскрытие помнит общий набор mixOpen под ключом rest:<k> */
+/* 20.11: окно «Ревью» в шапке правой панели — год ревью против прошлого и дата кадрового снимка */
+function reviewWin(lp){const r=D.reviewData(lp);return (r.year?' · <b>ревью '+r.year+'</b> против '+r.previousYear:'')+' · кадровый снимок на '+esc(D.ASOF_LABEL)}
 function rest(ctx,k,n,word){return {top:n,restWord:word,restKey:'rest:'+k,restOpen:!!(ctx.mixOpen&&ctx.mixOpen.has('rest:'+k))}}
 /* Несколько метрик одной главы — панели друг под другом, у каждой своя шкала
    и своя легенда «этот год / прошлый»; клик по ней скрывает линию во всех
@@ -12197,7 +12199,7 @@ function renderBlock(S,expanded,mixOpen,view){
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
       /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
       /* поставка 106: у AI — недели, без сравнения с прошлым годом */
-      (b.key==='structure'?'':b.key==='review'?' · кадровый снимок на '+D.ASOF_LABEL:b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
+      (b.key==='structure'?'':b.key==='review'?reviewWin(ctx.lp):b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';
@@ -13772,13 +13774,15 @@ function how(r,ctx){
   /* «n/a» — нет предыдущей оценки: своего значка для него нет (задание: не подбирать), остаётся текстом */
   blocks.push(group('Первые оценки','нет более раннего финального ревью в истории источника',r.c.first?
     U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.score,
-      html:'<span class="rv-pair"><span class="rv-na" title="Нет предыдущей оценки">n/a</span>'+arrow+U.scoreMark(x.score)+'</span>',vals:[x.n]}))}):
+      html:'<span class="rv-pair"><span class="rv-na"'+U.tipAttr({title:'n/a',text:'Предыдущей финальной оценки нет.'})+'>n/a</span>'+arrow+U.scoreMark(x.score)+'</span>',vals:[x.n]}))}):
     U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')));
   const tables=[['По грейду','grade',r.gr],['По стажу','tenure',r.tenure],['По специализации','spec',r.spec,
     SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций'])]].map(x=>
     group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2]},x[3]||{}))));
-  return U.btStack(blocks)+U.reviewNote('Число в ячейке — сотрудники с этой оценкой. Чем темнее синий, тем больше их доля среди всех eligible в строке. Обе доли считаются от всех eligible строки, включая сотрудников без оценки.')+
-    U.btStack(tables,'rv-tables');
+  /* подвал матриц — как у матрицы состава (.mx-foot): шкала заливки и сноска под таблицами, а не абзац перед ними */
+  return U.btStack(blocks.concat(tables))+
+    '<div class="mx-foot">'+U.heatLegend()+'<span class="tbl-note">В клетке — сотрудники с этой оценкой, цвет — их доля среди eligible строки. '+
+    'Обе доли справа — тоже от всех eligible строки, включая сотрудников без оценки.</span></div>';
 }
 const counts=[
   ['eligible','Eligible','Сотрудники, включённые в оцениваемую популяцию.'],
@@ -13797,12 +13801,14 @@ SC.blocks.review={subTabs:tabs,defaultSub:'who',
   view(ctx){
     const r=D.reviewData(ctx.lp);
     let body;
-    if(r.state==='unavailable')body=U.empty('Данные ревью ещё не подключены','Для этой версии отчёта не получен годовой набор данных ревью.');
-    else if(r.state==='schema')body=U.empty('Данные ревью недоступны','В источнике отсутствует согласованное поле даты ревью или его формат требует уточнения.');
-    else if(r.state==='error')body=U.empty('Не удалось проверить данные ревью','Итоги и распределения не согласованы. Обновите отчёт; если ошибка повторится, проверьте сборку источника.');
-    else if(r.state==='empty')body=U.empty('Пустая выборка','В выбранном подразделении и периоде нет подходящих записей ревью.');
+    /* 20.11, TEXT_GUIDE п. 3 и DESIGN_SYSTEM 4.12: без технических слов («поле», «сборка источника»), пустое состояние — с действием */
+    if(r.state==='unavailable')body=U.empty('Итогов ревью пока нет','Они появятся, когда в отчёт загрузят данные годового ревью.');
+    else if(r.state==='schema')body=U.empty('Итоги ревью не показываем','Данные ревью пришли в неожиданном виде. Сообщите владельцу отчёта.');
+    else if(r.state==='error')body=U.empty('Итоги ревью не сходятся','Цифры не показываем, чтобы не ввести в заблуждение. Обновите страницу; если не поможет — сообщите владельцу отчёта.');
+    else if(r.state==='empty')body=U.empty('Здесь нет записей ревью','Выберите другое подразделение или снимите один из фильтров в шапке.');
     else body=ctx.sub==='how'?how(r,ctx):who(r);
-    return (r.year?U.reviewNote('Год ревью '+r.year+' · сравнение с '+r.previousYear+' годом'):'')+body;
+    /* год ревью — один раз, в шапке правой панели (TEXT_GUIDE п. 6), а не отдельной строкой над главой */
+    return body;
   }
 };
 })();

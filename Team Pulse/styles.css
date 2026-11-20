@@ -2828,7 +2828,6 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    чего у них нет: прокрутка матрицы внутри панели и значки оценок. Шапки — одной строкой (поставка 117). */
 .review-screen .st-main,.review-screen .panel-b{min-width:0}
 .review-screen .mx-wrap{max-width:100%;overflow-x:auto}
-.review-screen .bt-stack+.tbl-note{margin:var(--s5) 0}
 .ptable.review-matrix th{vertical-align:bottom}
 .ptable.review-matrix th.txt{min-width:88px}
 .ptable.review-matrix :is(th,td):is(:nth-child(2),:nth-child(3),:nth-child(9)){padding-left:4px;padding-right:4px}

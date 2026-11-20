@@ -45,6 +45,9 @@ try:
             assert page.evaluate("[...document.querySelectorAll('.review-screen img.rv-ico')].every(i=>i.complete&&i.naturalWidth>0&&/^[0-4] — /.test(i.alt)&&i.getBoundingClientRect().width===i.getBoundingClientRect().height)")
             assert headers.nth(3).locator('img').get_attribute('alt')=='0 — не соответствует ожиданиям'
             assert headers.nth(7).locator('img').get_attribute('alt')=='4 — звезда'
+            # Checklist 12: tooltips only via data-tip, never the native title attribute (smoke cannot see this tab on mocks).
+            assert page.locator('.review-screen [title]').count()==0
+            assert headers.first.inner_text().strip()=='' # table name stands above the table, not in its first column
             assert page.locator('.review-matrix').first.locator('tbody tr').count()==4
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'),(width,'page overflow')
             if width==420:

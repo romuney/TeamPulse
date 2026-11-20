@@ -1204,7 +1204,7 @@ function ratingTable(o){
   const trCls=r=>r.total?' class="total top"':r===restRow&&tree?' class="urow" data-btexp="'+esc(r.exp)+'"'+
     tipAttr({title:'Остальные',text:r.open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):r.sub?' class="lvl2"':'';
   const pctTip=range=>tipAttr({title:'Доля с оценкой '+range,text:'100 × число eligible-сотрудников строки с финальной оценкой '+range+' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
-  return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt">'+esc(o.title)+'</th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
+  return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt" aria-label="'+esc(o.title)+'"></th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
     D.REVIEW_SCALE.map((name,i)=>'<th class="rv-h"'+tipAttr({title:i+' — '+name})+'>'+scoreMark(i,{tip:false})+'</th>').join('')+
     /* шапка одной строкой (правило поставки 117): «% 0–1» — коротко, «Доля с оценкой …» и формула — в подсказке */
     '<th'+pctTip('0–1')+'>% 0–1</th><th'+pctTip('3–4')+'>% 3–4</th></tr></thead><tbody>'+
@@ -1212,7 +1212,8 @@ function ratingTable(o){
       r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
     '</tbody></table></div>';
 }
-/* 20.11: сноски и легенда «Ревью» — общими классами отчёта (.tbl-note, .legend), своего оформления у вкладки нет */
+/* 20.11: имя таблицы стоит над ней (.bt-cap) — первая колонка его не повторяет (чек-лист 12), для чтения с экрана — aria-label.
+   Сноски и легенда «Ревью» — общими классами отчёта (.tbl-note, .legend), своего оформления у вкладки нет */
 function reviewNote(text){return '<div class="tbl-note">'+esc(text)+'</div>'}
 function ratingLegend(){return '<div class="legend rv-legend">'+D.REVIEW_SCALE.map((s,i)=>'<span class="sw">'+scoreMark(i,{tip:false})+esc(i+' — '+s)+'</span>').join('')+'</div>'}
 
