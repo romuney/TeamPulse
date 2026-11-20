@@ -2832,6 +2832,29 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .chip.as .x{background:rgba(154,101,0,.16);color:var(--warn-tx)}
 .tp-noacc .btn{margin-top:12px;align-self:flex-start}
 
+/* Годовое ревью. 20.11: оформление — общими классами (.bt-group, .ptable.dense, .legend, .tbl-note); здесь только то,
+   чего у них нет: прокрутка матрицы внутри панели и значки оценок. Шапки — одной строкой (поставка 117). */
+.review-screen .st-main,.review-screen .panel-b{min-width:0}
+.review-screen .mx-wrap{max-width:100%;overflow-x:auto}
+.review-screen .bt-stack+.tbl-note{margin:var(--s5) 0}
+.ptable.review-matrix th{vertical-align:bottom}
+.ptable.review-matrix th.txt{min-width:88px}
+.ptable.review-matrix :is(th,td):is(:nth-child(2),:nth-child(3),:nth-child(9)){padding-left:4px;padding-right:4px}
+.ptable.review-matrix :is(th,td):nth-child(n+4):nth-child(-n+8){padding-left:2px;padding-right:2px}
+.ptable.review-matrix td.txt{white-space:normal;min-width:88px;max-width:150px;position:sticky;left:0;z-index:1;background:#fff}
+.ptable.review-matrix thead th.txt{position:sticky;left:0;z-index:4}
+.ptable.review-matrix tr.total td.txt{background:#fafbfc}
+.ptable.review-matrix tr.lvl2 td.txt{background:#fcfcfd}
+.ptable.review-matrix :is(th,td):nth-child(n+4):nth-child(-n+8){text-align:center}
+.rv-mark{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle}
+.rv-ico{display:block;width:24px;height:24px;object-fit:contain;flex:0 0 auto}
+.ptable.review-matrix th.rv-h{padding-top:2px;padding-bottom:4px}
+.ptable.review-matrix th.rv-h .rv-mark{display:flex}
+.rv-pair{display:inline-flex;align-items:center;gap:6px;vertical-align:middle}
+.rv-arr{color:var(--muted)}
+.rv-na{display:inline-flex;align-items:center;justify-content:center;width:24px;font-size:var(--fs-cap);color:var(--muted)}
+.legend.rv-legend .sw .rv-ico{width:20px;height:20px}
+
 </style>
 </head>
 <body>
@@ -2912,6 +2935,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
           <div class="fhint" id="asNow"></div>
           <div class="fhint">Отчёт откроется так, как его видит этот логин: его подразделения и цифры. Блок видят только администраторы.</div>
         </div>
+        <details id="reportTiming" hidden><summary>Диагностика загрузки</summary><p></p></details>
         <div class="sc-h"><h4 id="scOrgH">Управленческая структура</h4><span>Выберите подразделение</span></div>
         <!-- 19.10, как в HRBP HUB: дерево с поиском по названию и логину руководителя;
              у строки — сколько людей попадёт в выбор с набранными фильтрами -->
@@ -3175,6 +3199,7 @@ const BLOCKS=[
 {key:'tgrowth',name:'Рост HQ',scope:'Сейчас данные по росту доступны только для HQ.',hint:'Как растут внутри: заявки, решения, время до повышения.',drillUrl:'#/detail/tgrowth',dash:['34136']},
 /* поставка 128 (аудит): шаг «Ревью» скрыт (OFF_SUBS) — описание блока без него; вернётся шаг — вернуть «и итоги ревью» */
 {key:'monitor',name:'Мониторинг работы',hint:'Недоработчики и переработчики по данным мониторинга — под выбранными фильтрами (по умолчанию вся активная численность).',drillUrl:'#/detail/monitor',dash:['34661']},
+{key:'review',name:'Ревью',hint:'Годовое ревью eligible-сотрудников: финальные оценки и изменения.',dash:['34661']},
 {key:'office',name:'Посещаемость офисов',hint:'Кто, когда и где ходит в офис.',drillUrl:'#/detail/office',dash:['34136']},
 /* Восьмой блок — из HQ-дашборда 34136: самый заметный разрыв бизнес-анализа.
    У Hub были AI-подсказки, но не было метрик внедрения AI. */
@@ -3628,7 +3653,7 @@ function metricVisible(key,S){
 function visibleMetricsOfBlock(bk,S){return metricsOfBlock(bk).filter(m=>metricVisible(m.key,S))}
 /* блок без единой показанной метрики уходит и из OnePager, и из навигации */
 /* поставка 106: у AI месячных метрик нет — вкладка живёт на недельном ряду, в навигации она всегда */
-function blockVisible(bk,S){return bk==='ai'||visibleMetricsOfBlock(bk,S).length>0}
+function blockVisible(bk,S){return bk==='ai'||bk==='review'||visibleMetricsOfBlock(bk,S).length>0}
 function visibleBlocks(S){return BLOCKS.filter(b=>blockVisible(b.key,S))}
 /* 12.11, п. 1 и 11: графики AI (вкладка AI и One Pager) включаются в «Настрой свой дашборд» теми же галочками метрик;
    ключи — ai_penetration и ai_wau (метрики описания недельного ряда) */
@@ -4083,7 +4108,7 @@ function seriesRaw(leafPath,key){
   }
   /* 26.10-б: нежелательные и желательные увольнения макета — части оттока команды (каждый ушедший — нежелательный с
      вероятностью 0,22, из остальных желательный — 0,55); в пробнике без своих колонок — тоже заглушка */
-  if(key==='regret_cnt'||key==='nonregret_cnt'){
+  if(!REAL&&(key==='regret_cnt'||key==='nonregret_cnt')){
     const a=seriesExt(leafPath,'attrition'), r=rng(lpSeed([leafPath],'rg')), rg=[], nr=[];
     for(let i=0;i<NEXT;i++){let x=0,y=0;for(let k=0;k<a[i];k++){const u=r();if(u<0.22)x++;else if(u<0.22+0.78*0.55)y++}rg.push(x);nr.push(y)}
     _sc['x|'+HC_MODE+'|'+leafPath+'|regret_cnt']=rg;_sc['x|'+HC_MODE+'|'+leafPath+'|nonregret_cnt']=nr;
@@ -4135,6 +4160,7 @@ function seriesRaw(leafPath,key){
     _sc[ck]=out;return out;
   }
 
+  if(REAL)return _sc[ck]=out.fill(null);
   const r=rng('ser'+leafPath+key);
   /* Счётная метрика: ожидание = численность × месячная ставка × сезонность × «рваность».
      Округление стохастическое (floor(x + случайное)) — оно сохраняет среднее на длинном
@@ -4241,6 +4267,7 @@ function medianOf(list){
 }
 function ttfMedian(lp,idx){const by=ttfByMonth(lp), L=[];idx.forEach(i=>{(by[extKey(i)]||[]).forEach(x=>L.push(x))});return medianOf(L)}
 function aggregateExt(leafPaths,key){
+  if(REAL&&isStub(key))return new Array(NEXT).fill(null);
   if(!leafPaths.length)return new Array(NEXT).fill(0);
   const ck='x'+HC_MODE+key+'#'+leafPaths.length+'#'+hashStr(leafPaths.join(','));
   if(_ac.has(ck))return _ac.get(ck);
@@ -4271,12 +4298,15 @@ function aggregateExt(leafPaths,key){
     const o=trfOwnOf(leafPaths,key);
     for(let i=0;i<NEXT;i++)out[i]=+(+o[i]||0).toFixed(1);
   } else if(COUNT_METRICS.has(key)){
-    for(let i=0;i<NEXT;i++){let s=0;leafPaths.forEach(p=>{s+=seriesExt(p,key)[i]});out[i]=+s.toFixed(1)}
+    for(let i=0;i<NEXT;i++){let sum=0,seen=false;
+      leafPaths.forEach(p=>{const v=seriesExt(p,key)[i];if(v!=null){sum+=v;seen=true}});
+      out[i]=seen?+sum.toFixed(1):null}
   } else {
     for(let i=0;i<NEXT;i++){
-      let num=0,den=0;
-      leafPaths.forEach(p=>{const w=seriesExt(p,'hc_total')[i];num+=seriesExt(p,key)[i]*w;den+=w});
-      out[i]=den?+(num/den).toFixed(1):0;
+      let num=0,den=0,seen=false;
+      leafPaths.forEach(p=>{const v=seriesExt(p,key)[i], w=seriesExt(p,'hc_total')[i];
+        if(v!=null){num+=v*w;den+=w;seen=true}});
+      out[i]=den?+(num/den).toFixed(1):seen?0:null;
     }
   }
   _ac.set(ck,out);return out;
@@ -4331,6 +4361,7 @@ const PT_CUM=new Set(['turnover_y','regret','nonregret']), PT_STOCK=new Set(['hc
 /* dkey (поставка 128, аудит L3: «Посещения без брони» — среднее месячных долей, а рядом «Брони без посещения» — доля за период из
    сумм): свой ряд графика (yser) с итогом из сумм числителя и знаменателя служебного ряда dkey, в формате метрики key */
 function periodTotal(lp,key,yser,dkey){
+  if(REAL&&isStub(key))return null;
   const m=METRIC_BY_KEY[key]||{}, d=defOf(dkey||key).derived, y=yser||yoySeries(lp,key);
   const stock=PT_STOCK.has(key), cum=PT_CUM.has(key)||!!(m.ytd||m.ytdDelta||d&&d.win==='ytd'), flow=!!m.flow&&!cum;
   /* поставка 106: потоки-количества — по дату данных (CNT_*), прошлый год — те же дни (текущий месяц пропорционально) */
@@ -5790,7 +5821,7 @@ const CAL_MONTHS=2;
 const CAL_TODAY=15;
 function attLast(lp,months,end){
   months=months||CAL_MONTHS;
-  if(OFF_DAYS)return attLastReal(lp,months,end);
+  if(REAL)return OFF_DAYS?attLastReal(lp,months,end):[];
   const out=[];
   for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
     const blk=attDays(lp,i);
@@ -5814,6 +5845,7 @@ function attByDow(lp,months){
     attLastReal(lp,months,PER_I).forEach(b=>b.days.forEach(d=>{a[d.dow].w+=d.w;a[d.dow].v+=d.v}));
     return a.map((x,i)=>({name:DOW_NAME[i],value:x.w?+(x.v/x.w*100).toFixed(1):0,weekend:i>=5,w:x.w})).filter(x=>x.w);
   }
+  if(REAL)return [];
   const acc=DOW_NAME.map(()=>({s:0,n:0}));
   for(let i=Math.max(0,LAST-months+1);i<=LAST;i++){
     attDays(lp,i).days.forEach(d=>{acc[d.dow].s+=d.val;acc[d.dow].n++});
@@ -6155,7 +6187,7 @@ function hiringProfile(lp,win){
   const r=rng(lpSeed(lp,'hpr'+win)), it=hcIT(lp);
   /* поставка 50: найм с начала года по источнику (hk) и грейду (hg) — из колонки mx, как в отчёте HQ
      (atributy_nayma); без них — оценка по долям */
-  if(REAL&&win==='ytd'&&Object.keys(REAL.mixVals('hk')).length){
+  if(REAL){
     const x=k=>realExit(lp,k), list=(k,dimKey)=>{const v=x(k);return realExitList(k,dimKey).map((n,i)=>({key:k+i,name:n||NONE_NAME,value:Math.round(v[n]||0)}))};
     /* поставка 137, п. 4: сеньорность дня найма (hsn — колонка hn_cd переходов, ноутбук 137); ноутбук без неё — null, экран
        говорит «появится», а не делит найм по долям состава */
@@ -6254,8 +6286,8 @@ const byGrades=(a,b)=>{const x=a.name.split(' → '),y=b.name.split(' → ');
 /* файл 6, п. 3 и 6: разрезы «Роста» у каждого узла — вкладка по листьям выбранной строки таблицы подразделений (их сумма на
    корне = выбранный юнит); ответ, где они только у выбранного юнита, — как раньше. П. 4: в датасете — только численность HQ */
 const ROST_NODE=ROST_LIVE&&NODES.some(n=>n.leaf&&n.path!==NODES[0].path&&!!(REAL.mix(n.path)||{}).rs);
-function rostReal(lp){
-  const src=k=>ROST_NODE&&lp?realExit(lp,k):REAL.scopeMix(k)||{};
+function rostReal(lp,nodeData){
+  const src=k=>nodeData?realExit(lp,k):REAL.scopeMix(k)||{};
   const rs=src('rs'), rm=src('rm'), rq=src('rq');
   /* поставка 73 (эталон «Роста»): у «Нет заявки» — «Нет развития» (nd) и «Рост доступен» (av, у специализации есть
      запуск T-роста). Ответ до 73 без признака — одна колонка */
@@ -6315,7 +6347,15 @@ function rostHc(lp){const rs=realExit(lp,'rs');return Object.keys(rs).reduce((a,
 /* итог таблицы успешности «Роста» по всем строкам, а не по показанным первым N */
 const succSum=a=>a.reduce((t,x)=>({apps:t.apps+(x.apps||0),ok:t.ok+(x.ok||0),no:t.no+(x.no||0)}),{apps:0,ok:0,no:0});
 function rostProfile(lp){
-  if(ROST_LIVE)return rostReal(lp);
+  if(REAL){
+    const selected=lp||[];
+    const nodeData=selected.some(p=>{const m=REAL.mix(p);return m&&(m.rs||m.rm||m.rq)});
+    if(nodeData)return rostReal(selected,true);
+    const scope=leavesUnder(REAL.scopePath), paths=new Set(selected);
+    if(scope.length===paths.size&&scope.every(n=>paths.has(n.path))&&
+      ['rs','rm','rq'].some(k=>REAL.scopeMix(k)))return rostReal(selected,false);
+    return null;
+  }
   const r=rng(lpSeed(lp,'rost')), cats=MIX_BY_KEY.grade.cats, gp=mixParts(lp,'grade').map(v=>Math.round(v));
   const hc=gp.reduce((a,b)=>a+b,0), n=gp.length;
   const stT=splitBy(hc,jitter(r,ROST_ST.map(s=>s.w),0.2));
@@ -6422,7 +6462,7 @@ function attByRoleLoc(lp){
    выбора отличается от общей: на него умножается ряд динамики. */
 const OFF_SEGS=[{key:'lead',name:'Руководители',rows:['rm','rt']},{key:'staff',name:'Сотрудники',rows:['lm','lt']}];
 function officeCross(lp,seg,city){
-  if(OFF_LIVE.seg||OFF_LIVE.city)return officeReal(lp,seg,city);
+  if(REAL)return officeReal(lp,seg,city);
   const base=perVal(lp,'office_att')||0, rl=attByRoleLoc(lp), cities=officeByCity(lp);
   const segs=OFF_SEGS.map(s=>{
     const rows=rl.filter(r=>s.rows.indexOf(r.key)>=0), hc=rows.reduce((a,r)=>a+r.hc,0);
@@ -6657,7 +6697,7 @@ function aiCross(lp,sel){
   return {dims:dims,hc:th,act:ta,pen:th?+(ta*100/th).toFixed(1):0,sel:(sel||[]).length};
 }
 function aiUsage(lp){
-  if(AI_CUTS){const x=aiUsageReal(lp);if(x)return x}
+  if(REAL)return aiUsageReal(lp);
   const ai=aiProfile(lp), r=rng(lpSeed(lp,'aiu')), hc=Math.max(1,Math.round(lastVal(lp,'hc_total'))), pen=ai.pen||0;
   const act=Math.round(hc*pen/100), it=hcIT(lp), cl=(v,a,z)=>Math.max(a,Math.min(z,v));
   /* поставка 106: частота — дней с AI за неделю (как у недельной витрины) */
@@ -6694,7 +6734,63 @@ function aiUsage(lp){
       freq:splitBy(iact,jitter(r,[0.2,0.22,0.2,0.16,0.12,0.06,0.04],0.2)).map((n,i)=>({name:AI_DAYS[i],value:n}))}};
 }
 
-window.TPDATA={REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
+/* Annual review, owner contract 18.11.2026. Counts arrive from the filtered snapshot;
+   no mock fallback and no derivation of first review from a missing previous score. */
+const REVIEW_SCALE=['не соответствует ожиданиям','есть над чем поработать','хорошо, продолжай в том же духе','огонь','звезда'];
+const reviewOrder=new Intl.Collator('ru',{numeric:true});
+function reviewFromMix(mx,version){
+  if(version==='hub-2-review-2|missing-field'||version==='hub-2-review-2|unsupported-type')return {state:'schema'};
+  const ver=/^hub-2-review-2\|(\d{4})$/.exec(version||'');
+  if(!ver)return {state:'unavailable'};
+  const c=Object.assign({all:0,eligible:0,rated:0,up:0,down:0,same:0,first:0,unpaired:0,missing:0},mx.rvc||{});
+  const sum=a=>a.reduce((s,n)=>s+n,0), score=x=>/^[0-4]$/.test(x);
+  let bad=Object.keys(c).some(k=>!Number.isInteger(c[k])||c[k]<0);
+  const years=mx.rvyear||{};
+  if(c.all>0&&(Object.keys(years).length!==1||years[ver[1]]!==c.all))bad=true;
+  const transitions=Object.keys(mx.rvtr||{}).map(k=>{
+    const p=k.split('|'),n=mx.rvtr[k];
+    if(p.length!==2||!score(p[0])||!score(p[1])||p[0]===p[1]||!Number.isInteger(n)||n<0)bad=true;
+    return {previous:+p[0],current:+p[1],n};
+  }).filter(x=>x.n>0).sort((a,b)=>a.previous-b.previous||a.current-b.current);
+  const first=REVIEW_SCALE.map((name,i)=>({score:i,name,n:(mx.rvfirst||{})[i]||0}));
+  if(Object.keys(mx.rvfirst||{}).some(k=>!score(k)))bad=true;
+  function groups(key){
+    const rows=Object.create(null);
+    Object.keys(mx[key]||{}).forEach(k=>{
+      const i=k.lastIndexOf('|'),name=k.slice(0,i)||'Не указано',v=k.slice(i+1),n=mx[key][k];
+      if(i<0||!Number.isInteger(n)||n<0||!(score(v)||v==='b'||v==='na')){bad=true;return}
+      const r=rows[name]||(rows[name]={name,n:0,missing:0,cells:[0,0,0,0,0]});
+      if(v==='b')r.n+=n;else if(v==='na')r.missing+=n;else r.cells[+v]+=n;
+    });
+    const a=Object.keys(rows).map(k=>{
+      const r=rows[k];if(sum(r.cells)+r.missing!==r.n)bad=true;
+      r.low=r.n?100*(r.cells[0]+r.cells[1])/r.n:null;
+      r.high=r.n?100*(r.cells[3]+r.cells[4])/r.n:null;
+      return r;
+    }).filter(r=>r.n>0);
+    a.sort((x,y)=>x.name==='Не указано'?1:y.name==='Не указано'?-1:
+      key==='rvt'?(bound(x.name,'mon')-bound(y.name,'mon')||x.name.localeCompare(y.name,'ru')):
+      reviewOrder.compare(x.name,y.name));
+    if(sum(a.map(r=>r.n))!==c.eligible||sum(a.map(r=>sum(r.cells)))!==c.rated)bad=true;
+    return a;
+  }
+  const gr=groups('rvgr'),tenure=groups('rvt'),spec=groups('rvsp');
+  if(c.eligible>c.all||c.rated+c.missing!==c.eligible||c.up+c.down+c.same+c.first+c.unpaired!==c.rated||
+     sum(transitions.filter(t=>t.current>t.previous).map(t=>t.n))!==c.up||
+     sum(transitions.filter(t=>t.current<t.previous).map(t=>t.n))!==c.down||
+     first.some(x=>!Number.isInteger(x.n)||x.n<0)||sum(first.map(x=>x.n))!==c.first)bad=true;
+  return {state:bad?'error':c.all===0?'empty':'ready',year:+ver[1],previousYear:+ver[1]-1,c,transitions,first,gr,tenure,spec};
+}
+function reviewData(lp){
+  if(!REAL)return {state:'unavailable'};
+  const mx={};
+  lp.forEach(p=>{const m=REAL.mix(p)||{};['rvc','rvyear','rvtr','rvfirst','rvgr','rvt','rvsp'].forEach(k=>{
+    if(!m[k])return;const t=mx[k]||(mx[k]={});Object.keys(m[k]).forEach(v=>{t[v]=(t[v]||0)+m[k][v]});
+  })});
+  return reviewFromMix(mx,REAL.reviewVersion);
+}
+
+window.TPDATA={REVIEW_SCALE,reviewData,reviewFromMix,REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,yoyMove,perSum,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
@@ -9163,7 +9259,7 @@ function statTable(o){
   rows.forEach(r=>{
     if(r.sec){h+='<tr class="st-sec"><td class="txt" colspan="'+(nc+1)+'">'+esc(r.sec)+'</td></tr>';return}
     const cls=[r.total?'total top':'',r.sub?'st-sub':''].filter(Boolean).join(' ');
-    h+='<tr'+(cls?' class="'+cls+'"':'')+(r.tip?tipAttr(r.tip):'')+'><td class="txt">'+esc(r.name)+
+    h+='<tr'+(cls?' class="'+cls+'"':'')+(r.tip?tipAttr(r.tip):'')+'><td class="txt">'+(r.html||esc(r.name))+
       (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+'</td>'+
       r.vals.map((v,j)=>{
         const txt=D.fmtNum(r.fmt||(o.fmts&&o.fmts[j])||'int',v);
@@ -9293,12 +9389,14 @@ function devTip(stage){
     text:'Данных пока нет: цифры условные и показывают, где появится показатель.'+(p?'\nИсточник: **'+p.src+'**.':'')};
 }
 function devTag(stage,small){
+  if(D.REAL)return '';
   /* 15.10: «в разраб.» — полная «в разработке» раздувала шапки колонок и карточки;
      полностью — в подсказке, на плашке вкладки и в меню */
   return '<span class="dev-tag'+(small?' sm':'')+'"'+tipAttr(devTip(stage))+'>в разраб.</span>';
 }
 /* Плашка вкладки: d = {stage, t — что здесь не настоящее, need — что нужно, part} */
 function devNote(d){
+  if(D.REAL)return '';
   if(!d)return '';
   const p=d.stage!=null?D.devPlan(d.stage):null, need=d.need||(p&&p.need!=='—'?p.need:'');
   /* 15.10: плашка — одной строкой («очень много места занимает»): статус и что
@@ -9358,7 +9456,62 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-window.TPUI={ICO,icoFor,keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
+/* 20.11, «Ревью»: оценка — значком. Одно соответствие на всю вкладку: картинка берётся из mascot.js по ключу rv<оценка>
+   (файлы «В работу/0.png … 4.png», имя файла = оценка), а не по порядку. alt — номер и название; подсказка — у владельца
+   (o.tip:false — подсказку держит ячейка шапки или подпись рядом). Нет картинки — номер и название текстом, сломанного <img> не бывает. */
+function scoreMark(i,o){
+  const name=D.REVIEW_SCALE[i], M=window.TPMASCOT, src=M&&M.srcOf?M.srcOf('rv'+i):'', label=i+' — '+name;
+  return '<span class="rv-mark"'+(o&&o.tip===false?'':tipAttr({title:label}))+'>'+
+    (src?'<img class="rv-ico" src='+JSON.stringify(src)+' width="24" height="24" alt="'+esc(label)+'">':'<b>'+i+'</b>&nbsp;'+esc(name))+'</span>';
+}
+/* Absolute rating counts; both rightmost percentages use all eligible in the row.
+   20.11, специализации: o.top — строки по числу eligible (по убыванию, при равенстве — прежний порядок) всегда, первые o.top на виду,
+   остальные — свёрнутой строкой «Остальные» с кареткой, раскрываются вторым уровнем, как «Движение по специализациям»
+   (o.restKey — ключ раскрытия в mixOpen, o.restOpen — раскрыта ли). Это только показ: Итого и доли — по всем строкам. */
+function ratingTable(o){
+  const total={name:'Итого',total:true,n:0,missing:0,cells:[0,0,0,0,0]};
+  const shares=r=>{r.low=r.n?100*(r.cells[0]+r.cells[1])/r.n:null;r.high=r.n?100*(r.cells[3]+r.cells[4])/r.n:null;return r};
+  const add=(t,r)=>{t.n+=r.n;t.missing+=r.missing;r.cells.forEach((v,i)=>{t.cells[i]+=v})};
+  o.rows.forEach(r=>add(total,r));
+  shares(total);
+  let rows=o.top?o.rows.map((r,i)=>({r,i})).sort((x,y)=>y.r.n-x.r.n||x.i-y.i).map(x=>x.r):o.rows, restRow=null;
+  if(o.top&&rows.length>o.top){
+    const ranked=rows;
+    const rest=ranked.slice(o.top), word=o.restWord||['значение','значения','значений'];
+    restRow={name:'Остальные',note:rest.length+' '+plural(rest.length,word),n:0,missing:0,cells:[0,0,0,0,0],exp:o.restKey||null,open:!!o.restOpen};
+    rest.forEach(r=>add(restRow,r));
+    shares(restRow);
+    rows=ranked.slice(0,o.top).concat([restRow]).concat(restRow.exp&&restRow.open?rest.map(r=>Object.assign({sub:1},r)):[]);
+  }
+  const tree=!!(restRow&&restRow.exp);
+  function scoreCell(row,n,score){
+    if(row.total||!n||!row.n)return '<td>'+D.fmtInt(n)+'</td>';
+    const share=n/row.n;
+    return '<td class="mx-cell" style="background:'+G.heat(share)+';color:'+G.heatInk(share)+'"'+
+      tipAttr({title:row.name+' · '+score+' — '+D.REVIEW_SCALE[score],
+        rows:[{label:'Человек',value:D.fmtInt(n)},{label:'Доля от eligible строки',value:D.fmtNum('pct',100*share)}]})+
+      '>'+D.fmtInt(n)+'</td>';
+  }
+  const caret=r=>!tree?'':r===restRow?'<button class="caret-btn"'+(r.open?' data-open="1"':'')+' data-btexp="'+esc(r.exp)+'" aria-label="'+
+    (r.open?'Свернуть':'Раскрыть')+'">'+(r.open?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>';
+  const label=r=>(tree?'<span class="row-label">'+caret(r)+'<span class="row-body">':'')+esc(r.name)+
+    (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+(tree?'</span></span>':'');
+  const trCls=r=>r.total?' class="total top"':r===restRow&&tree?' class="urow" data-btexp="'+esc(r.exp)+'"'+
+    tipAttr({title:'Остальные',text:r.open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):r.sub?' class="lvl2"':'';
+  const pctTip=range=>tipAttr({title:'Доля с оценкой '+range,text:'100 × число eligible-сотрудников строки с финальной оценкой '+range+' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
+  return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt">'+esc(o.title)+'</th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
+    D.REVIEW_SCALE.map((name,i)=>'<th class="rv-h"'+tipAttr({title:i+' — '+name})+'>'+scoreMark(i,{tip:false})+'</th>').join('')+
+    /* шапка одной строкой (правило поставки 117): «% 0–1» — коротко, «Доля с оценкой …» и формула — в подсказке */
+    '<th'+pctTip('0–1')+'>% 0–1</th><th'+pctTip('3–4')+'>% 3–4</th></tr></thead><tbody>'+
+    [total].concat(rows).map(r=>'<tr'+trCls(r)+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
+      r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
+    '</tbody></table></div>';
+}
+/* 20.11: сноски и легенда «Ревью» — общими классами отчёта (.tbl-note, .legend), своего оформления у вкладки нет */
+function reviewNote(text){return '<div class="tbl-note">'+esc(text)+'</div>'}
+function ratingLegend(){return '<div class="legend rv-legend">'+D.REVIEW_SCALE.map((s,i)=>'<span class="sw">'+scoreMark(i,{tip:false})+esc(i+' — '+s)+'</span>').join('')+'</div>'}
+
+window.TPUI={ratingTable,scoreMark,reviewNote,ratingLegend,ICO,icoFor,keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};
@@ -9405,7 +9558,14 @@ const IMG={
   'alert':'UklGRuIMAABXRUJQVlA4WAoAAAAQAAAAbwAAbwAAQUxQSGAEAAARoIXatmpHWmzOR+BR7u7u1e7u7u7u7u7uWu7uVe3u7l3ugUCgpB+EwIPDgtVSknPPTn9HxASg8IajHuoPGBpNw3DWvNAGsMYCCNVS7Q0lWKOBdaxIn+2PxnOlqKi6WwFrJNaJEqm5rWCNQlWtthn1Uy8E/wx71m9LUauHw9wLeEHclqJq9kFwzqzNyh0QtWlPmHN4VNQOUuu6wzwzDKlQO0z90ATml1mrpdoJRS0M4T/mE6aK2lnqVhiqWsEcMtyrqJ1n/Z5Am6W7wNwJuJBRDaFfmhu21PSHOWM4XlSDUvcCb2ljd5grAfvUs4FEDsckamUHMzf2bwL0rxHVUHoLM1TRO04YwqQvDM1/ENXgrD/oHTHqKZgDhlZzNRWYJSqBasqSIs+CZWfo9K34Kl5QVBHr+sMyCxiyWvW6d3dRabkN6iPLzDCoWqQ+Wp1su1F3IeQU0GejoopMlgfB8jF0XSpKEgsj6ivka2j1raiiU5cj5DNDURms62CWh+EpRWUYdRPyMJwlKs+aEnI0dK1mJtTtsBxsrqJy+aNJBobjReVKnopQvNLKnDQ1oOgBVzIqX8auRTMr/SDmpEsQCob9RWX1UwkFP2qlcl95eqGaTJKH45vAilL6QJHZMeqrViimhYWqyMOK3ilZEQyXKMrHqLNgBUBYSjpBfRaQPuCkCuUlNRyWzPCqoiNPpTM0/0l05Jci7C7K0eoOsGTnKjrCeCpCImCS6EjUQwVY7cwkJG9SK0+ppa1gSQy71LsiakiigCtFV6KOSPaCojOXJJvkDPVEsqnuPJvsWWeibkoEdKqVr+X+qQyHip7Es2BIZAe5wrp9kgFjXIl6CiGVbXSF+qgKaQ39y3KVcRAsScANoitR5yUbr+gKtRCJ7QPRFakmJDH03yRvy4OSBBwlOkNdg5DAcImiM1FjkgAvic5QC2FJPnPol1ZIWdokf+uGwBJ0qPhDHZFkUPQn6vQEhkNJh65Jcro8eijJlQ5Ro9DwhttdmtHovPW/4hKXZiU5nh6NSrJLlEMPJQA6VfyJuhyWoLTJH+qkJPhAdKeyewrDfYrOUH+0SXOSQwuQ0tCnVvQl6iWEBDAs9IaVI2ApAm7wRrUBiduU5Sr1KpLPEn3ZHZbGsEv0hFpgSG02VdGRyqEIydB/E92g5sKQ3HC7ohNkbaciwOwt0YeoS2AoArpvFD2IGgVDIQ37VMT8ot4KKKrh2EjmFvVWCcUNOKqsmFfUW81hxYFhl6WKGZEaVYViB3RaKDITUuVrUHhDuKtOZA5R+nY4rHD/HfKWRBaMlDbeajDkaMBJX0mKLE6kVH60F2DI1FB1/BdliWQRGCWtfKgTYMg3ANj90W8liYwkG4b/laRN48+tAsyQtRnQZPebfthU0Ta505H6L7dUv35EdwCG/C0AQPND7x2/4NvqihqwfuUHU586tTsAWICTZthm8z57HnvW5bc+8eqoGW+9NWnUCw/dcMnpR+zS1bBNMxQSVlA4IFwIAADQJgCdASpwAHAAPpU8mEglo6KhMlSecLASiWgIkCaB1Xf2NeocamfoN19NnCt29Hme803Tl/QA6Wb+9YCN+EHcg/Gbzv8rPySYAWePf3UPgzoU8Fbzv2AP0h6rn+R5D/zT/XewJ/Nf8B6WHUgfr0xVEuY0Cwn2bM/SFLH09yNC9s3VDIjiVf4jwc7fR1RmWlha5wnpejTvTP3lwSURpyTCvvmtrq1kNGkLvDPdrGd1MY3O1S8dbcwNpVUo61D6dNoa/ah3YIH99l6yplHz0PCoSArED+Vb3K2oHcuFZ51kI2aJ8Oi4ggcA4TthqbQY9Og1DOHZCsxCfG2+3G3FOUWc/YII56GB4IyAkm4kuIqkw+uQqc82Z0GxnUS9dZn7KItpXH0n38rblho8BWFGFr2jJABPl1URd71emLcB6OgAAP7ucoHDsTsNgYzygkoOyRAu5CU10DY4M755ziSZKxxyHrpgxUNjq623PlMt0B6wVeF4L5oqGARHGWZH4xs2OoPf4QHddmactBWIcGJ8P5sqZ0J1MlR9Lfn9UhPw7jaXUE0vwVJIitfpZeN0fPS3RvsGaGg9WWGeCnbTaULsXdvRF0hxbi/6G/0Kmztttp5fjSjS0KMztrtbp8w6Cogsr8ZQeGY74FQa7BavvyA9UgOIDsR0HNkPLCmbYeV9OUTxOZGxAT0HN9ycn7XhkEIweNSp0hDPXlguJEl0dOcJoeZvfhCrpLEwCsLyy6ngphMYA9KlYI3D+fipO9/uUZcDW3xh4r3T7inQhv8buZNjCoG1aXazLojWYPLgCLyb4f/WmAFyxmukSRvwH9Z/k3gPxJd4y2v7Yv4ByUxUby4XllSlvtN76/LHdD3GiPe3/mhHHH584Otjk1d/pZAtP2GfyoC3g+Vl0LA4pdR63E2pv0r/OIyLoMSk5CKOm7LNsx20BH4nBKOzlmVYwiN8+JoznzLlbp6w+PBF3BVu6AeNWzYZ8M/gycEK9JY3QC7ESqkpAI+kJtolhHw3aixGeod/GFNSprMUsobJunWioHxuHi9P/ATZkDE4FX637v8/e4GVfD1fhw18aLddup7fNHuZ+PHgd8M9OsL32WIzjd+FiO14S1FJJ21Z9cNFiV04MRkXYVHGlxaau2i3S9BIgyy+wamoz84sg7XFmIdrtqpOKNCtOkvTWMHub6dTQsWmV29mYH96+M9LBLJ41QSZJWBejdDOzWq2iaTrcSOi9aj1r/5zoZvuGkggUfm/2tFpBpSugnxeYcje4tLHGt0rBNvs2KbZ+h3fWBO8GrVMDM++Nt+E7tLVuUfY8IRKFkOhWDoQAWZ9eZrjE9s93tEFXWuo9j8xGkCiQ64orRD274lFCgxmES8bGXVoLa4avwgjLymL0e1any/6DvZ2uo4jH5DMc/60nxp9VcQ7e0cZusBvGz/bJEiIchm/Obl9T8AEZlCPtPDJyNKDjuk1rEiGLI1yIumaKWg9+kS+MchunCvdrHx8MXZh05OObpglUg5JKhhQ4sLTxthu5rsLvk/ZY7k7UMCJk4Ck2fIKXUcalhihkuq9+5FAm+BmcX6jpDVmX0bZazKuQX6WLTRUKc7LPWhdtxlpR7scugw0VucZ15NRvQ/0TaphM7mHaGf3y3GmL08GVTUAko6pOtk/dF2f7dAeKgl8QoWbupH8AH9Re6CopCZMMfwR3c2IW2ZW3b1p0G5f4HH5g2zxHnLn5VMLH3hzaF43n/b787H7WAePnIe2zoDl2VgnmWqkdqXkKaNnW+jdwLZ2OvN8DlQoePdP75irqoWeyA7Wnd4ARwI569T1xNopoMou9K6QxJu7FnLrNR+7eODcjME+L2RgxdZ0qE9K55G2Piqmwmp4K0eWarFgYv7qmpK99LKDjFkaAwUlKgOtaA8fLUBh7sRtSNEEd8XxVw3c9fLg6aaUcHS0qt1b7Efht2CWNC4rgdEoHh/ctnSkU/z/lm0fv3+Xyzs9lnDqp487jHMVnYU5t/gKDtyNf39LrxB3F6JEE6+AauAi+pXw4QXCKdojkhe7I/eWyCYppsNA0TvdCTuumYQ7r81KR+BL2vqfrR2P+PAwPFl8VyxoguxZVUQMDersfBSiOO7qPPmWNfBS6fTht5wcR+32LCOrlKoGg26juevG7bxBSvcFg54ZvLtiuV9ivv6FKRJ8cQDmJTONAtcQg4wVTV8bHBh3MYNLKl1luwt6ZL5eqCHCY+Hvxf/zg+pw7GXNJamUMp1NRRXafXcUOE7APkMEyYuq16NQk8tND4T/oxvl9UhGH/af/Mf+6Wse39zNNtIz1IPF7tcN46hVuxWYO/V/VCqNrXBeGXnn5RDbhvvDa+08GVwxDMd7fjiTo8B3jG183JcuR5NSC3148Y03NLHyEO3uGMeh/a8dgX4+zbPuR+/nxPnONSbpBOjmIcCA4xv4PVhiwwCoatDzEnYdAF2xYi1M8gzZV0uQf5NMg+M+iKxkYVMsMgKdaARYlcikY8WTiAL6fXaq1UsMlSwPOgUEJJW1g0vcsmosnvipgv5HK79BSeXdKAT78H7T0m4AjejJvVDW/FTyBu+UQa16s3SqNkV+eMWvejYKOkjmiuRNJ1qeVvtRKPg/O75czs3+rguDiw+m6y4+AEotvMDiR29U6C73hxk985kzzIUvUEiQfV5d0IZktau6dfjOk92SRFqhM+AswmILv2xDsVKB/WKEaGWrp1Xw2GvFPQEgNeaor6KGTnE0AO8HPpArXjdadGRRJc/t67oWbVGCDuyPvVB9QtApihhbYCORFUAyCxkJ7pXRag0lh+OnBUl/CVrwCq95PoBQEXgS0R7g2IlT9wa8O0O6qv+mSuAQWd5H84AA',
   'nodata':'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',
   'setup':'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',
-  'point':'UklGRhQOAABXRUJQVlA4WAoAAAAQAAAAbwAAbwAAQUxQSOQEAAAR8IZs2yLp2bZtsEERTxpOYyDu7u6e62qI53L364rb5e7uV9zd3f1y94GGoSHW0JdGGwZ2Nth+TE9NVR37/I+ICUCpD31+DUAsm8RN/sfH1wK5fJwle3AKwGXjRIXsGzYGl4vjJSs8OhJcJt5v2Q7Hx8Hl4aIplnwplgX+fJodvqMCsyP2eVVeNHwvkd9FruHwHWRuxD6S64avBXPj713P4U+BiRHfd3iJmj8WTIt4h8JL0nhjEHutlRFx4EReuvwQK/zojorMhtjl32rCoQ8B+/sKZEoAxJqh5Sall7bElq/6UjINAiBW/N7hZuVbseV8+PNgEsQph4C823LT8oG9cOhNYAYETp/fH/i+wy3csYtkT3YDEwC+4rkZnOtwm5MXZMuzK8jSiLUutf/BYx3uoHwFSiPWusnz/s2aZ62WtMDy+8GiiHVvctjP/txyJ6UXNgYLIte61+FOh28qCrjB4YXqjOXjwWKIHzncdXnYK4Y41+Huyx8HyyBOcbiIZ1ehSGK7l6QSHD4fLIL3Wi50tBYKJN7rcKHS6WD30HtBLsZPE50nvuJyLB0CdozYbKSCwl8p4HyHSx4R7BRRPeui5XMBdojY7l6rKEu3bgl2hjjrVcuFy/8+EewI8SlLLl7WR8BOEB9xOEMp+mAXMPNfOUf5rxt2gfi6IwmH+2B72PA3VhbyTWifOFJynpNeF0535CEdC7YFPGYl4ks70Js4Ufnp1ogDQ6nMrQHb+rgzsXRce3fkEj69vZ9n8/W2sGrgVOWHiFaJvV7K5oVeW30rFVsbt3ViOt6srR1fzUUer2gHxLesTMJfAdsBqt9YecgPrYXW15pzovJNYEvEXlYqz86AbX09FYff1gCriqzzWDbfamA6OQWrBrnYww1Rn0D/W98/fx8AqAjieMmpyjuCtbDxb+ZtT4af2hEAK57ryOb9S1g161BItm46fTMAP83n7lrExx2eKtujP379bc86WXkW9f8qL65wzqPNwDpj15eUj3Qiaz1h1Uo5/ClUixHvcGQnze0I1lgxsJKzPNoGnAbisHkpOYeHG5PTQJwiR3IOP4jFQPSHtnJz+FxwERAbXyFLqUmTXcBFQGD/x2xJeVm+ljVAAP0bZCuUleXtwMUAEtjmK7Pzzlu+tB5AADj26z9XVvZoBZZMAOvOWUlJH0G1FIAV/pFW+FJwaSB+lZY82wObuCgty3s18+7M3tTMbpl9qwlgxX+d14No9morrb82QpzuSMoeNrTj2EnLP28ExINWLqrx3abelM3i8nFgE0A1sDKZPB1aEJ7tNUS8zZGH/Cv8xhERVh9Es1zraSuRPrb7vW3/+00gmsI+eYRvBVG9/9prz+2BaJz4rCMHaW4NiOlEi+SDjhTCfRAASaJVYmboSCB8Loiubjd2lKZ5fx4VukrsOHCUJfnzILpLzPzcUZIcp4PoMrHuRbZKkTw4EkS3CXzoJUtFhH3DGhCdJza7w5Y6J/sfbwKIAgkc94TtUIdC9vjjGwJEmUTV//nEDnVDYXvw8RUAUSwBHPL9gW0rJDUmhWz71avfUQFE0SSw6rBvDV/yQoUW1tBUL5yMbjh+SwBE8SQAbPn+i279+cgNT/569xXn71UBIJEiSSxcd7sj3/Shz/703t+Px+NwjMdzj9303Y+/+/h9VmEqibYBVlA4IAoJAACQKACdASpwAHAAPo0+lkglI6IhNPWNoKARiWoNsAVs994/fhPNerv993wwsVin1XbfLzWeav6g/8Bvwe834C1/T+3Tvxske0B5ujTxb8bfh4eVewB+ePVa/yPIB+c/6n2Bf5t/c+t76HP69Mmp2kKfiANEeMfnXykWm+MiG0759Xpsxq3PGAU5tjAKhuazQ1UTzZbZcYzTztopU74aOogj1Ni5HKrd+MrJzAw+XFoV0/3QxO6h2rEGXLCiCYowaIFbzIWWoK6MU3uQpLh0d82wTaxiNhB34XlO/IuVHu0/5X2mNzLnHAgmMX1nMsRPM3nE4rNq36xdGBuB6pautZVR5WnmRSf3qaWoS3+WemhmtifRni3YpIf8RFH87W3vwxQtGETVA9dChsfn/y/inAu52gSseBjjttmbMOAPV+ol2Xe7ekwF72dsL6E7DsAA/vytECE/GCAmyIY49LtVIeUxevKc/DSRQgEJKjKIOuLVWjrA7fGB2YhBRN8L/bJcp8W9+P0bSI71TRpR0uw0fxioDjs9CjPBrZvr08Xb+DxH+JzIUdfmXvBagx7LvGrYBT4VdTs+d+Fjdx/0jID/GnzElveTsMf9Zgzk9jjG5lmsSrGnPbdOe1mc/7h4sJNU7wabysFIXfc4001TK1cbI9edDnM8pkAYm5zXk7nDyhVDtG7uqEn8ToRFYILs56DpkheFcZJJ01/7mezEcd9bj7rVFtPhVCCC4sKmZj2G/tW2SWxCutzB1O217SBWBHY5hwcxBmKCuXJ1oo+MR2KKUFdBj+wd4mSpdPq5fuLHetVO9mImDQ0N2kzTVYSCj1VK6lNQLbXHtwL8y90C7tfpJQ2Nio4qy1IVBaq0NI01qaiEFsPaeRZzXn9bXrKGIAIe5+MewduEe94eA4qTCH8xNxjscG6en9MH4yExoTadywhb9csMcEjeeYvXf2oKfEvSU9IsgviHk6pbq7KJAVN1NW+5EA3wU8fbJWcrpq0gyiOcHYti5Ku1/au7IrpRQBaXGHOBH+zVks+a4Y279EP33QXs+5Dw1EsfMUiAhLwWMBVXBj0QZleGg+wE5hJ7KCbXUSeJ4U/76rTXJKnRc+8xQG5URDSdRQmxyXsVPGB/BZNsURegQsXO7It7AGqEpg6nhU6aTP5/udzWnACZQdhmZVxeM7wlm0v9yhErZwKngCLjR3SK5lMj7dA4cui27Du6H04UuVAwx/IbHPX4QK4+FulkAELLAM0JcBYr3PQxjM4xX2sPib5cpHW7yNu7QyEsKsw2HSNNjiThAN32j2nH2lAYik+4wHVI0PjQWnFDLtZA5GP14h5fcam78dWVcwxuoXfN3F156CP77652daDXF742AZ8qYGXtHdQ3XCY5BbYOC/2XGsj0chOXus0dMLW0/nzYjXzg3RCFfRdUIh8Gwbc2KIi9OfdMHqmBfQPMT+p67oQFByx6fP38E0hc5q5mmMARf6PYnuvLbyG3QPpQGUPn1KCxxMsqzutUTEjYqtv+eiQj3G2Apl2tN9xafbGPgcQbpq5/wU3U+efUUsHLgnUZOQqB+GW8GdPTuXtoFmrKwBYshNYCQ/Wgsy9hUWSlzbb1i1A5kF0DzSqQ8D2bC7MaofKvEc74EVi+zURBUaw5RGOCeZv6PRNnccVM5UYkpELCc3FsLgE9LvMAF7kMvRRjJA/jv8nvYHMA+UIDd8pNWF2Kh45oS9NrdqUxPw4iJYuKOF34PuGeJhKppYHSsc+/2gsGKwQb+jk0anmj6BWZC2sMILNBPd4fg8jxD4TbuWLJZWWI5O3UDCnM3SNHBtyLF3pcy8EK+LDu/CVp9u45CrRemnvxKaEdh18tf8DveFCB4ibjIWhdMD1vSyhbXwO1tRsXkKdZ/1DLbY/fnX8/Fo7SqEPxBwNYZC0s46sOEpgxYJ1cu92DeqX0xNdmrRV373+CGt+ennrSp5buhdrYJqX5Zg9Yl2rRM/ew8H6IwhPrB6shnyhnZyZv1WwaN1U9TXFAPhlk/F60VLIvq2e1EuWx2DBHLzOFeQ2sLFyRK0e+ijXJ5zpzZRmOq9prklVlkUyziiZEP3YPbz4m1bJJZEvBpAuOSOB5pO9O7O62oMympmbfVNUtB1WW0kg/WhIrYh0+ugAlbx35Eo/p5XMWSm2VlHKfLwgOYu8EPUPp5YjX0coFIE0LAmTpVMDAVA2uf8fSS4+wjsp9++rPnQ8X5FAufLbLzv/zGDYeYyLoByMVLmrvmppvXaR4cT2GnxJKpiyWwcOlqk6azMBAtB6H5ZS/PN4YfKlm3ArZ1FrRuk0F7mK9RRjrEZedw4/Grir06ihtidPjdplPYd0TG0vyziuVvXX/EHzrnIh8ZUi6TZnHJlwVdUT05tsBhfVXEAgmut3a0HSoziRydxAiD6ipMeCXLpLJASIYl+u1IhjSRVK/hF+4BUDNvE3DFdq/DC16ZlxrGZW2mSMoToORJCywXBEEkbQaPAJkUrLWBBy4u1mHT8oimdy+3PZznOTU1os31Yq6yMLJ77nLm/Yr/ZX9+T//P/0N//nwsPmjFCVH/eN4pT3LLgBqf0rJ7ycMs5hmc1DnqrQm0uDlDw1No1rcC1G8mElN6FTn29ni3I/OWWPzUDtWPRVEC698ED3q0TuBj7v8wzEG2OZF76KE97oOCTLvLW0d3+AE4FXLGmD9meZh0rf5ilRIuH+xTJM7BSNCwSkU66IsfWUNogP0q20yWWZparkwiEMpgiwEtbegMLiEEddj4lgFN6U4/cNZdNvG5RwAWymCVhRTGuVXrGb2eb41owRTXHtjvsWx+/oZqYqg2nHkBxX7ohQ2eHYelxZCetIZVvDrHFcOvlT5YMO+0WiqmbeSvpfLs/DtaS3zwBa8XwkRZN/8Ag3O4sAm6hrAsJ0DyyOBGRPSyM0wlnKvPrZVwkTSVifdPo8RrgCj+QafcmEbhitmfKHck3N8Crtrl1OZSaROWzEv1WG5hvNp3ltUejRqJ8IxRyrMyFqgJ7WxpZ4R/N/TJEcqZ3WZxflyXfD4eklfXuMxn+AQKfN78NJhNozzm62X70ha9Q0O22oueZwlJzTrAAAA'
+  'point':'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',
+  /* 20.11, «Ревью»: значки оценок 0–4 (файлы «В работу/0.png … 4.png», имя файла = оценка). 48 px WebP q80 —
+     показываются по 24 px; соответствие оценке — только по ключу rv<оценка>, не по порядку файлов */
+  'rv0':'UklGRiAFAABXRUJQVlA4WAoAAAAQAAAALwAALwAAQUxQSJgBAAABkKptezI2b5L6OmZmsgyujiQzczUOVBX5garrAYzR9QRGkpkpyTv4KbEzEaHAbRvlRsd8170B8SQlMHD3+897o4E5OJNUQNctBuh6N6AcI0IBDSekNaSx5HEDoIRbrODoK60OKm34Yz/fIaKAtM03ZCAWipBvz6cCKtEgAikTT0htGUlWkw9mUiBkku3tOSV/BWLxkXv9gJRxg7ReCdRIREaTV5oix1BA1QVDY5iYjKG9XBwaAxI5e19ITSfSlh/206EAITD3MhRzjJBPpyEgsR7YXg9kf5EbUCj7GT+Iyxg/S4EVanojzSVg1/oMdgfY8qu2ge3/K2HL+z+wCyzxl0+1DJT+NNrjP1YGhQ2//6SEwPRTX//wyzkIASik73+g1c6xL3s5kCEcQcll64oj5kI1oCJxqvkfThkHnGqNg1spgf77pLbJtve0B1AyCc7OPCC1jY89mUyAs6ExkHr+bTyOv9lMA5SDn5C//4NGR4Df16MCd8+i8TjKDzlp+Bdz93O6rwfVrS4XPyfuiEbv/fhxdyCZHwVWUDggYgMAALAQAJ0BKjAAMAA+aSqORaQioRqqrVRABoS2AFt9gmTnZXzf3MMFB1cOJtmPMB+o3rJdFH1Ev6q8B1+3vpAXcxis5KmfETg48I1ymGff6H9gP9Zegz9mb9VTWC92bhY7tQPPZEU42DZ8lSBxnb77rfN/ztUpDCGATTxGVG7S3hwz9AgZ9VEgr/G2vg/7IAAA/vx6jtAjxS78WWFs7GHItroWMHmBVDoJwcxBVqdu+HE9dEndPW2t6ze45IR+K58+daAukusXo5HuzIOCPlpkoCulIbkOKkWs8XaK3Ec1hZf8/fVZ/bAcTWXIz4bS3DxCr309AftFnX8/OsJxfbLyf/0rspdQpXqYM9YY1RICef24ERzR1ZSC70A10Aesr1dSRD1YwSGf26r/h3Uf+d8n+HJqy7RUe88CgJ3OVESeMSRxoSSPiP7Q3S8/H0gEc8OoVYUoLZ1gX7j8BsUE5F0hHZFvwG7fMxbx0OVebGKKxJ0qanuCO4n3eehL/DINdHzn43ISwujY3Wq/0oETr+uy+SXcgUzSxq1CJ5mdL3Csd5grt9QP3nqdcZumgefjDrCfNVFhweflap4GJ+WNtf8EctfyXwJBMIhGZDYldnyWWy1BSCzNaSAFntSkrm/Dq8wI7Zo8cwkZotTwwxYYrFwEStvwY/L847Pio51c7G4TAGewl143BiBR6LvX6bW63Wz3gw1un9dcLaE/8mx41Uq3WLxk0e8imbTOtblXGBrH9gW8UVO81DfygXV2yDDr8l8ci3fWX3looanNdfJPNXn64PH8aAtNzS2pifInaVyk2rrK8f6RQocS8iWdJ41A/2pdaOPTzT8QeW6aHl0vr4vSQZmL9m5OChWYbZ5yUxkBW5Z6eS4qbzmYqlFZH+vGQw/qm1ghnTj/ZH2D6znapeA8OMcKKdj/sCA3aWEOVGH0KrU3lj6hpzyMJT2BKRfn1ukRnfuEFZR+6/MKtQotYnQWmfJ3gjI42jDdvGtEHKQ20M8hMloN0rEZY7Q+vjHbVf5/8+6xh0DOioj4ugzRihcYliDWUGo6V4FF7gKTAlwYmhk1psjl+pnf3vjSQ97cDnHOd+6Df8ORL/7N9KPsP9nqjrUNQDl/I8dbD3UQsjaGn8RE6+oNfdwYP8tsJknh1JGhMAAA',
+  'rv1':'UklGRkYEAABXRUJQVlA4WAoAAAAQAAAALwAALwAAQUxQSEsBAAABkEJrm6I378z8YWaOy4lix6yYmWOj4nNiGWxkmclW1qFl5lYxd3fnDe/sRNZEhCK3jZQuY2/wBvgXEQIqzr95d7kBCAkELwrI2vxNku6xAkAFhZQIzb4jXa1d8tN8HIQMAqGAlpt7M+4Vh7w3AEgR5FXxRdLTPFD2LlyvAJQwmwmkLv+i9nho8Tx6W/mAMiLBzHPSoW9xyQ9zEZDSn6T5xgESo8nddp9HCig8uY/EsGiXvFZ+2COJ+IXP1C4DFE/z93o65IHW9tCPxPTRi6F9VaGTdDQDF+2Q45AQiHpKh1aKoz8mQkjUUNNS0WxDSKFbW4Onp/fQRXvgfxgchQ5IVFvWGYHIJ/Z07EMiBBQ67OnkKKRdHR6EtK7zvj7iBfYR6z5l4INPgvmgkc+mLP6w5LOHcRQZ+7jtnGA7hxx1zjHNUedev71kmKMAAFZQOCDUAgAAkA4AnQEqMAAwAD5pLo5FpCKhGOs2/EAGhLYATpls+9Pc/x050znODm6kGA/Ne8A8wHnaecz6QHUJ8/B7IvlJNF1cmgmdwH0p6Km6gF6s6HTyc4gl06ilS2VmMEU/whyJPDkB5gWlkbmecU/obJ+4olV1LWZV3oKugIf/aAAA/ucf1o4er/f52zixkX4CnyIuzZqKW5qfu7c6VxX/NRwJi/Xyrd8KbXXl2T8x50Rnue/v+PCtwR82dnSBlz/Wnwe6Wt/Oo0bX9VM81YjLBamjPo1pTZaTz6ZC5f/0sL2eM3hLq3sPH92gG7//W5PYaUiGeBdd54S9E6PLIFrivop1LMQcBoM+SMMRWfEga+ndRgfN0bUi84kyjRHGzvF75faThMxpOBfvKHudbz29JETqUov486Fzhf9MmYQ2f875e3N9wpjTU/U8NKV0A/4xbKyP8un0Gk6LpFGrnGO7ujJGZbqXYAd/awkI6izrX+QM38jj9ZwAXftf5aEoPonLp2xkt96SxO46oaF7i051JPys4Et5C6rVWKmotyP87QcHIzm6h2SnF2i0IDPU8EqqXQH0g5j6xDAHBF+LiGEsZi4lfqIxIUL0ia/w7g1xwvBbdBZ1d7T3RrTn9eiKsSshpqYBwNBbHA+s4zflvjn/4x4mKKlpyZ2l5+bWAuxoNGF0eWVTqnX6PF2RuXfmAOTxBJRLDyy3iPE3W1B4WjsMHmzsY5BUu1jNTpisYfNCfA31u9aWmlZycPgnGoYu2brJB+c3JW2tFxZj5jHS+Z1q85hKqd+b7DZlRlWQhxX6c2l11qpAacEIg63sPe++fWDYmHKUjzFTmne0o7Mpz/q8Qo0qXSvNFj60tjI6/Ozw22ATO7iv5nKeMNc+3YtMw6UfrSK6QQkiW8kfJfe/r7GKi6PVspnPGeco4AmHi1m6dnCfa1t31kIhvbqS6R6f+J7hRBpFJATQAA==',
+  'rv2':'UklGRqgEAABXRUJQVlA4WAoAAAAQAAAALwAALwAAQUxQSI0BAAABkGttu2k735xzHdtW6xNVtm3VNq9AlZ3cgX0NdkrbqYyFr1iYaNNEBMMASNtI0k26gRugh1DA8DOvX58aCngC9lBAy5G/JPnveDugbEsK5G76SAZRFJCftuZDyIwyZE27SwZMICDvzQCUsGENuBwfwRTiA64MNF5QQN2eP4xCZiKM+HdfvdE5pIRc/iJmaRGQb1YpSKk/yYTrpB8xA9mkaxM1JAV0nkrctCGikDzdnUWSqNzxTXsSUnuO7zsqIFN97tP4JJbwycczIBN9UeIk1oh8cg4UBErfRj6dwOeLwvhEExnRESKOhvSwTDe+3fAL4HlYSnfF/zLlWAcWwnOuM8q9jrnXSUBi/jPSemNAPpmdIdxVu37Y6/zP3ZWQWT7Sc8bKRwLyXA+gND41+ToZGPvUjcmAEnofXPnK2AfXepDSyGcb9v1lqPPZkP8ONgLK2McHGfj41SEGzq85x8x72Tnh0SxACcsckr/lUzqHfN1eACEd5Jy2Yz5J/jvZocs5NqSRZ9++PT3cLEcBAFZQOCD0AgAAsA4AnQEqMAAwAD5lKI1FpCKhGq1VVEAGRLYATplCQfNmfQhACdFjQbaDzAfqf+x3Au9R1ywHwW/uZ+2PtItHCbWgit2CZAhnXPcc92SU2I8t+69mbVJdOsTtAaeEpl0+m08pjVN8ARGgnh/NwHszZAOeTKTv8gOQ0KXHp/AAAP7qeu6ZL13OvdcwzIVWgB5u4bakJnFwA+5Fy0rxEa3il7WlUQhFPTWrlVK/LEMfYAiShslyqtQnFx5vk2EBOWzXf8x5CuJziq/IX1imX9bwiDWj354BHEuEp/lieUGOwRmXiw5nG8CN3VOCJMZ6XRAqEoy9r/sOMCyR7Ea5mVz0NKnF1Hkhip6Tid3rKL1Jt62W/2bdzqRJxsFSjOfKxn46OYIzC+p69/J2bG5Sv4fZi73p58zvCWxtFpxvarQBbBdcN2UyvOxSQR4dl+HGq94/VoC5lsO3l4xt3VDRJMhEJfVjduMn3MmAHgcO106ff+y3YYnzKHv3yN31h6WDpycw83EJXHhIXJkKJABVDhQ1PZxYdRkBMdqnfzfSWE7/mexLdmEYBC49OPWIjnY+37NPKYz0sT30d/teld1JfxzrMLV23hdflhEoU8AO8oHJ9CJ0bobFEu1Y664NNh7pWfsJI//N67ebgppxKdo6Rg6Q8efNX/oD3fWgfKUCiQ4sczhTq55ra6uZNof6zYdW/sMbjplSd0fw8UTZVDCZWejza9UKzfx7T7TtlkKcbonfxef66PDIirP6Y3ekUiCSRI3v9JjE08NNBswpz6fXRZf5e0buuWXj/irodxGv/xUmJaJAEnd4da1w9VoJtMmMGVfWolJOxmqoyLBYSBeURRLzmxeRh91rJSv4q7NeFtQ//1tb38sbkCii7o67vQBwGtc5iX0TNx0TIJxZ4sheo0vDZw/M6SOShLbfm99NsQLK6htdeaKGIttBpKB1IC/ieHOU7kEH2fkga67pxtRojVXA3weSf23VYNgS+o1+dE3GdbnkszAA',
+  'rv3':'UklGRrYEAABXRUJQVlA4WAoAAAAQAAAALwAALwAAQUxQSKcBAAAB98KgbSNJm3QezfGHfCAiIh9AKcSCoRnaFGUUAhEQ8nGXdnUdY4iy2+wFUQxtoPgBsm3baZsrKVRmZmaGlLkNU7mWdP//OwK25GknEf1n5LZtJHsG6GbkFuUNiLZQwPR9o/EwAygBfytgIBuQpL4cBpSvpEDy4J3U1mry8ygDEbZwTC3nSM02B2R+E5DCZzX+2HrBDrcePE8BCeFapP/8j8Yw1MbQXgw61ZASar/WSkVak42DJISMTi28daScFrklQInw1OgdaSJX4TWexsJCEj0n37SGHjaWv2e9kB3/WpkM6GlNVjbbPoUNMrD0tg3ILUgIpKs2YCwObL2rVWiGljHZcg4qgQ1r4pKxO0gksM74xO1/GsXZB5qSmI6zz8xCCaTKjKuPsZqGgMIKqWPqk6tQACQW86T2P2VhOaRxZw4/PBfG8uu4GzKMI0NXLYg5pwx5OwKoKNa/uNawmnydA5SI5CB2i0440WR1T0FKF8524MoJUAiHvwsOHQDoRf75Ntw6AxaOOK92ziHvkQB3DvWd/pDkb7ZtQPC3SAAT16XyzaTbAAIAVlA4IOgCAADQEACdASowADAAPmUqjUWkIqEarAaoQAZEtgBOmV68X9p/Br8jvkisT902dokEJX8q+hn0rfMV+w/7He7p6QPQA/s3Ubfyn1APLS9jH9ufSoaMU1j3GfUvsBiFPWERNcF90NMEeXsX4h2EQaJLpMaJHE25exk7+TUb4o0knlR9kz1HLjjt2L3AQZ2wxzdgAAD+83RwBcsatRXurXqOcMk+2bPoRes1cMucL/GKTGp2iiwCxehXwoa/YB/bfLzDMKI/shJ/Aq5lcVsfOo5jZcOB4/xP6kui6oya0b3Uq0l7bW25lpQX90/twk/WHLJKfLaMPcJQlWVAY0yAl+IkKUUPSezTKPEjKzUy89s4DptKvCUeFAL1VPfjn1d1AjxKKIC3z7Qmmk/w7gMyhwEFsRVIRtW6Tn8xoPUCUefk3dyyw43vioF93zF6VWmUUkHxsJttKb1jdvqAFX+p2unMY2Pw+nufCt+NQ2NMAMt5G84unNRoMeHg03sHCiEHCqjE/eUIlVQqsvv2nfclr47wcLPCvGGeGjFpEGOgRgm49Qf5iQDJGs5ySMV7EuUGUfCcKpx/guVWTkEF3X3dFK/CvUJgfCT7NiTeYbcXUSPZCJ+CyaHIAh85oswqYrcvW04xVBkMXfM7sBq8hCNfvUUEsddDcbKFsklcZogmYuyWpDsZxZhZvy1msIXSUWd8yoUbj+zRfzzsWq16/YceJ76hPrQlmnP5j5RZMol51Z4SbrvMKF8Z0HvurTRRUdxZG2teDkcQDKSscJd5OTOeE5s/O7mF4yNzPmDEWWN2NMm7cBuJx7d++bkjHvDWGWN443zL/k3GY2T9iMsJ8oQWd/nogO2b39Say2j1zRz2BdX9et9sLm//q+/YOGAxSDVgz0VPBEGgulI+jXT7HUv/lKIaKThvr/T0+ITrqTrcgZY6H6p1AbyUMAt+yJySPA7eYxHP+1ZVDyKzWpMUnw6+OX1rvD88aSyjmjCgAAA=',
+  'rv4':'UklGRnAEAABXRUJQVlA4WAoAAAAQAAAALwAALwAAQUxQSIABAAABkGJteyJW3yTjW8fMVa1m8uDJcbsCXgAoWABI8NxKXkMr6YIqzz/5zECSK6+JCAZuGyma7B4ztH0D8lEaGLn++rwaB7SCM4EG+s+Y4KwP0IHjVAi07ZNxnFy+3wqEgdsWFVvfNJIciOHXZqXDhAYKlv+QwgyE/L1UAGibUgrhxAMZGWZiIvJhIkSgbF7G0H16KmdCyPtBQKu8k7QfkRLTiljIo/bMc2igaSfxIqyJY5rdpvQ5FIrX3miETojh21oRVKLPPpFCZ4R8moGCxkLi8XrAROQCNOpFhJ6IRRqAWUb0RsR5YMX4LLMCLPsdLP9/qX+gA5j3O5gDGkRiXyUiddBY8q2TCjPPvnT4eTYl3MUb7150fr0k0QENNO85+oiQuy2AzvSpTkefOu7Is3SlgWFbH4zI+2GbyKAChJOPlj47FSJQtj6+auHjf1cKAe2QKiq3vzMeuBh+b1cCOnDMIQdZOeSwDQgD95wzcJkcXAy45Jy8VzR+8/V1O2qXowBWUDggygIAAFAPAJ0BKjAAMAA+bSiRRqQiIaEuOAzIgA2JbACdMoR4v61+LvsRVb/AbjAVaEV+ZN5P+xnqJ/hPTN3kzyAOsu/bz9uvbJaLlUGoQCStF+GJ3yYzlsztChZ81JUXv3jSjULUUnYyrlAlBBw6RzuQ7OIs+VfVO3fGJYQfD5TrIfsynwgAAP7+lGPtX99izbwfvyDsmfq4aFTdq9Gg3LhDWMeAROe0IDH4oQZ4pYt3E2V5hwmKgnf5G8a2sQn7rj1t490gdvkX+Rfel5l0/GDqRC4LJEENxDdd/6ItNqJ1Zq0x2EjlvOvm6WGrC4SwUTsAktj3HJq51gSga0b2MwpdGbIwLV7v5tb2npBPz9FE1nkMXis4Mr/BP23hY1O36p9KIoHlgERVLRJ2qr9XbAiS2F8UPOeYuS8glNY7/QjcQPszN3H6t2iiMsjV55m3XEa6L4WeGMFdnlweZTeisgufm+rOYK2Lmtq5nQxwE6vZKLc/+alUOy2YkusAm7bTe7CCsWIjEPoKR9Pb4tWsLFQmmqbdVRSxzZ/y7nUU2MrobZWi+HGD5j0h3XZF7SMA1Z9zudMMwfekvyN3gNRgYmPwRCq/vBlFY+LaZ7uYjD5GQmkW4213d2NG3R+8alTWavM14FtI45kRCVbpcPH4UQxNRh4h+ZRFbRUkSjoOYbwCz62ByjaHPEQGyw0ZARMp3pxcklvt03CSDb53m8ofC+F/r0R85nU+o5sqcUmv1eLuQ2W8ALgVutMijXbv/ZLPzAeLVN7+liW26h7HKBVMjFF1/p0LYqESNIAXd3YLtbfNBvcY669DuWVGBXt6MaDS+MSplXW9YK4luVLd0UffiKcUW0jeNsWIRHVPVHUT8Ng2eytGcLL5kBhRSodwa+3sVQFdjAqqp1jolPGqB7tM43XVoM3zn2AlwKzqvz/EfNWyL82dGzlk7/6d3fjgAA=='
 };
 
 
@@ -10803,7 +10963,7 @@ CH.tgrowth={
   },
   /* 27.10-в, п. 8: «Как растут по грейдам?» и «Как меняют специализацию?» — по описанию вкладки «Рост» дашборда HQ */
   grades(c){
-    const p=D.rostProfile(c.lp), n=k=>(p.st.find(x=>x.key===k)||{n:0}).n;
+    const p=D.rostProfile(c.lp);if(!p)return {};const n=k=>(p.st.find(x=>x.key===k)||{n:0}).n;
     if(!p.hc)return {sum:'нет людей',st:'n'};
     return {sum:pl(n('done'),PPL)+' прошли рост',st:'n',
       head:'Рост прошли '+D.fmtNumber(pc(n('done'),p.hc))+'% людей',
@@ -10812,7 +10972,7 @@ CH.tgrowth={
         '**, без заявки — **'+n('none')+'**. Повышений грейда в «Росте» — **'+p.grade.rost+'**, в T@T — **'+p.grade.tat+'**.'};
   },
   spec(c){
-    const p=D.rostProfile(c.lp), s=p.spec, t=s.rostT[0];
+    const p=D.rostProfile(c.lp);if(!p)return {};const s=p.spec, t=s.rostT[0];
     const ns=s.rost+s.tat;
     return {sum:ns?ns+' '+U.plural(ns,['смена','смены','смен'])+' специализации':'смен специализации нет',st:'n',
       head:ns?'Специализацию сменили по '+ns+' '+U.plural(ns,['заявке','заявкам','заявкам']):'Специализацию не меняли',
@@ -10954,7 +11114,7 @@ CH.ai={
      (D.aiCross без выбора). Без сочетаний (ноутбук до 113-б) — разрезы ноутбука без стажёров, так и сказано */
   who(c){
     /* поставка 138, п. 13: «Кто пользуется?» — сотрудники без стажёров (сочетания it|0); стажёры — своя глава */
-    const u=D.aiUsage(c.lp), x0=D.aiCross(c.lp,['it|0']);
+    const u=D.aiUsage(c.lp);if(!u)return {};const x0=D.aiCross(c.lp,['it|0']);
     /* поставка 128 (аудит: строка выбрана — таблицы шага по выбранной группе, а заголовок — по всем): с выбором вывод — по выбранной
        группе, группы — из таблиц, где выбора нет (в таблице с выбором её строки — сама выбранная группа) */
     const sl=((c.S&&c.S.aiSel)||[]).filter(v=>!/^it\|/.test(v)), xs=x0&&sl.length?D.aiCross(c.lp,['it|0'].concat(sl)):null, inS=!!(xs&&sl.length);
@@ -10989,7 +11149,7 @@ CH.ai={
   },
   /* поставка 138, п. 13: стажёры — своя глава: доля с AI у стажёров (признак витрины); меньше 3 — в людях */
   interns(c){
-    const it=D.aiUsage(c.lp).intern||{hc:0,act:0};
+    const u=D.aiUsage(c.lp);if(!u)return {};const it=u.intern||{hc:0,act:0};
     if(!it.hc)return {sum:'стажёров нет',st:'n',head:'Стажёров в подразделении нет',lede:''};
     const P=v=>f('ai_penetration',v), pen=it.act*100/it.hc, few=it.hc<D.SMALL_N;
     const stj=n=>D.fmtInt(n)+' '+U.plural(n,['стажёр','стажёра','стажёров']);
@@ -10999,7 +11159,7 @@ CH.ai={
         (few?' Стажёров меньше '+D.SMALL_N+' — долю не сравниваем.':'')};
   },
   usage(c){
-    const u=D.aiUsage(c.lp), t=u.tools[0];
+    const u=D.aiUsage(c.lp);if(!u)return {};const t=u.tools[0];
     if(!t)return {sum:'нет данных',st:'n'};
     const act=u.freq.reduce((a,x)=>a+x.value,0), often=u.freq.slice(4).reduce((a,x)=>a+x.value,0);
     return {sum:'лидер — «'+t.name+'»',st:'n',
@@ -11009,7 +11169,7 @@ CH.ai={
   /* 07.11 (AI-итерация, п. 5): «Что делают?» — сообщения инструментам разработчика */
   what(c){
     /* поставка 128 (аудит L2: «73%» в заголовке, «73,4%» на полосе ниже): доля — тем же форматом, что полоса (одна десятая) */
-    const u=D.aiUsage(c.lp), p=u.msgs?D.fmtNumber(u.cls/u.msgs*100):null;
+    const u=D.aiUsage(c.lp);if(!u)return {};const p=u.msgs?D.fmtNumber(u.cls/u.msgs*100):null;
     const top=u.dev.reduce((a,d)=>a.concat(d.tasks),[]).sort((a,b)=>b.value-a.value)[0];
     if(!u.msgs)return {sum:'нет сообщений',st:'n',head:'Сообщений инструментам разработчика за неделю нет',lede:''};
     return {sum:p+'% классифицированы',st:'n',
@@ -11290,10 +11450,13 @@ const TODO_LEAF={
   hiring:{profile:c=>{const h=nP(c,'hire'), hc=D.lastVal(c.lp,'hc_total')||0;return h>=3||hc&&h/hc>=0.2?
     'Много новичков — закрепите за каждым наставника на первые три месяца.':null}},
   tgrowth:{flow:c=>nP(c,'tgrowth_deny')?'Заявку отклонили — обсудите с сотрудником план роста: отказ без плана — частый предвестник ухода.':null,
-    grades:c=>{const p=D.rostProfile(c.lp), n=(p.st.find(x=>x.key==='none')||{n:0}).n;return n?
+    grades:c=>{const p=D.rostProfile(c.lp);if(!p)return null;const n=(p.st.find(x=>x.key==='none')||{n:0}).n;return n?
       'Обсудите планы роста с теми, у кого заявок не было, — особенно с опытными.':null}},
   monitor:{activity:'Недоработка или переработка у одного человека несколько месяцев подряд — повод поговорить один на один.'},
   ai:{adoption:c=>{const cw=D.aiCur(D.aiWeeks(c.lp));return cw&&cw.wau<cw.hc?'Кто не пользуется AI — спросите, что мешает: доступ, задачи, обучение.':null}}};
+QS.review={who:'Кого оцениваем',how:'Как оцениваем'};
+Q.review={who:'Кого оцениваем и как изменились оценки?',how:'Как распределены финальные оценки?'};
+WHY.review={who:['Понять охват eligible-популяции и изменения относительно прошлого года.','Отделяйте отсутствие оценки от нуля и первое ревью от пропуска прошлого года.'],how:['Сопоставить переходы и распределения в текущем кадровом снимке.','Сравнивайте доли с учётом всех eligible строки, включая сотрудников без финальной оценки.']};
 function book(bk,subTabs,cur,c,demo){
   const defs=CH[bk]||{}, q=Q[bk]||{}, leaf=D.isSmall()&&!!c&&!!c.S&&!D.rowsOf(c.S.unit).length;
   /* поставка 128 (аудит L6): выводы главной (карточки) — один раз на книгу: по ним точки шагов без своего вердикта, и главы
@@ -11605,6 +11768,7 @@ if(D.OFF_LIVE){
 }
 function devOf(bk,sub){
   const lv=DEV_LIVE[bk];
+  if(D.REAL)return null;
   if(lv&&lv.live.every(k=>!D.isDev(k)))return lv.subs.indexOf(sub)>=0?null:(lv.part&&lv.part[sub])||lv['*'];
   const d=DEV_TABS[bk]||{};
   return d[sub]||d['*']||null;
@@ -11786,7 +11950,12 @@ function renderBlock(S,expanded,mixOpen,view){
   const ts=String(S.tsort||'').split(':'), tsc=tcols&&tcols.find(c=>c.k===ts[0]&&c.val), tsd=ts[1]==='a'?1:-1;
   /* 09.11, поставка 130 (владелец: «добавим сортировку в таблицу по подразделениям»): и у обычных колонок-метрик — тем же кликом по шапке */
   const tsm=!tcols&&tmets.find(m=>m.key===ts[0]), tv=p=>{const v=val(rowLeaves(p,S),tsm.key);return v==null||!isFinite(v)?-1e18:v};
-  const cmp=tsc?(a,b)=>{const x=tdata(rowLeaves(a.path,S)), y=tdata(rowLeaves(b.path,S));
+  const dataByUnit=new Map();
+  function unitData(path,lp){
+    if(!dataByUnit.has(path))dataByUnit.set(path,tdata(lp||rowLeaves(path,S)));
+    return dataByUnit.get(path);
+  }
+  const cmp=tsc?(a,b)=>{const x=unitData(a.path), y=unitData(b.path);
     return tsd*((x?tsc.val(x):0)-(y?tsc.val(y):0))}:tsm?(a,b)=>tsd*(tv(a.path)-tv(b.path)):null;
   const rows=pivotRows(root,expanded,isEmpty,tq,cmp);
   /* инсайт про концентрацию считается по первому уровню всегда — от
@@ -11811,7 +11980,7 @@ function renderBlock(S,expanded,mixOpen,view){
       '>базой</span> — подразделениями похожей численности за ту же неделю.':cw.hc<D.SMALL_N?'Без стажёров в подразделении меньше '+
       D.SMALL_N+' человек — проникновение в людях, без сравнения с базой.':(D.isSelfBase()?'Для всей компании базы нет':
       'Базы для подразделений такого размера нет')+' — проникновение сравниваем с началом окна графика.'};
-  const cmpTxt=b.key==='ai'?aiCmp():(cmpMets.length
+  const cmpTxt=b.key==='review'?'Выберите подразделение для просмотра результатов ревью.':b.key==='ai'?aiCmp():(cmpMets.length
       ? 'Сравниваем '+(pm.length?'с <span class="term" tabindex="0"'+U.baseTip(null,pe0)+'>базой</span> — подразделениями похожей численности'+
           (pm.length<cmpMets.length?', где её нет — со всей компанией':'')+'.':'со всей компанией с выбранными фильтрами.')
       : kpiMets.length?'':'Здесь количества — с другими подразделениями они не сравниваются.')+
@@ -11827,7 +11996,6 @@ function renderBlock(S,expanded,mixOpen,view){
 
   /* 2 · вывод блока и где это происходит (20.10, одобрено: «сначала вывод → где
      это происходит → таблица»). Факты — те же карточки, что на главной. */
-  const sum=INS.blockSummary(b.key,S,rl,bl);
   /* 31.10, файл итерации п. 2 и 6: в «Саммари» только короткий текстовый вывод — таблица «Где это происходит» снята на
      всех вкладках (подразделения — в таблице ниже), блок в одну колонку и ниже по высоте */
   /* поставка 103 (файл 9, п. 10): на «Как уходит HQ?» вывод блока (он сравнивает текучесть отдела с целями) не ставим —
@@ -11835,7 +12003,10 @@ function renderBlock(S,expanded,mixOpen,view){
   /* поставка 106: у AI месячных метрик нет — вывод блока (ориентиры, «N мес. подряд») не ставим; вывод недель — в главе */
   /* поставка 128 (владелец 08.11: цели HQ обязательны): вывод блока снова и на «Как уходит HQ?» — его снимала поставка 103 вместе
      с целями */
-  if(b.key!=='ai')h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
+  if(b.key!=='ai'&&b.key!=='review'){
+    const sum=INS.blockSummary(b.key,S,rl,bl);
+    h+='<div class="bk-top '+sum.sev+' solo">'+conclusion(sum,b,S)+'</div>';
+  }
 
   /* 4 · KPI блока
      Дельта и ориентир разведены по строкам карточки: в первой — изменение и
@@ -11872,7 +12043,7 @@ function renderBlock(S,expanded,mixOpen,view){
   const sp=view&&view.split||{};
   /* 30.10, шаг 2: у маленькой команды (нет подразделений ниже или меньше 30 человек) таблица по умолчанию
      свёрнута в полоску слева — графики во всю ширину; выбор пользователя (sp.mode) — главнее */
-  const hcR=D.lastVal(rl,'hc_total'), smallTeam=!INS.unitsOf(S).length||(hcR!=null&&hcR<INS.CARD.small);
+  const hcR=D.lastVal(rl,'hc_total'), smallTeam=b.key!=='review'&&(!INS.unitsOf(S).length||(hcR!=null&&hcR<INS.CARD.small));
   const mode=sp.mode==='charts'||sp.mode==='both'?sp.mode:smallTeam?'charts':'both', share=sp.share!=null?sp.share:null;
   /* 31.10 (поставка 82, заказчик): всё, что выбрано кликом, — пилюлями в строке над обеими карточками: срез меняет и
      таблицу слева, и графики справа. Подразделение (действует на всех вкладках), срез структуры, сегмент и город
@@ -11923,7 +12094,8 @@ function renderBlock(S,expanded,mixOpen,view){
     return '<td'+(lead?' class="lead"':'')+(c.share?U.tipAttr({title:c.name,rows:[{label:'Человек',value:D.fmtInt(v)},{label:'От численности',value:hc?D.fmtNumber(v/hc*100)+'%':'—'}]}):'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
   };
   const hcT=val(rl,'hc_total');
-  const totalCells=tcols?tcols.map((c,i)=>tcell(c,tdata(rl),c===tcols0[1])).join('')
+  const totalData=tcols&&tdata(rl);
+  const totalCells=tcols?tcols.map((c,i)=>tcell(c,totalData,c===tcols0[1])).join('')
     :tmets.map(m=>'<td'+(m.fmt==='pct'&&isSm(hcT)?smAttr(hcT,m.key===mainK?'lead':''):m.key===mainK?' class="lead"':'')+'>'+D.fmtVal(m.key,val(rl,m.key))+'</td>').join('');
   /* поставка 103 убирала фразы о целях из подсказок шапок на «Как уходит HQ?»; поставка 128 (владелец 08.11) их вернула */
   const noGoal=t=>t;
@@ -11954,7 +12126,7 @@ function renderBlock(S,expanded,mixOpen,view){
     '<span class="row-body">Итого</span></span></td>'+totalCells+
     '</tr>';
   rows.forEach(r=>{
-    const lp=rowLeaves(r.n.path,S);
+    const lp=rowLeaves(r.n.path,S), rowData=tcols&&unitData(r.n.path,lp);
     const canExp=!tq&&r.kids>0&&r.depth<TREE_DEPTH, isOpen=expanded.has(r.n.path), isSel=sel===r.n.path;
     /* На границе глубины подразделения ниже не показаны — говорим, сколько их
        и как до них дойти. Число — прямые подразделения, а не все потомки. */
@@ -11979,7 +12151,7 @@ function renderBlock(S,expanded,mixOpen,view){
       /* переход — только у выбранной строки: клик по строке выбирает, а не уводит */
       /* «Напрямую в «X»» — не юнит, открывать нечего */
       (isSel&&!r.n.direct?U.openUnitBtn(r.n.path,r.n.name):'')+'</span></td>'+
-      (tcols?tcols.map((c,i)=>tcell(c,tdata(lp),c===tcols0[1],1)).join('')
+      (tcols?tcols.map((c,i)=>tcell(c,rowData,c===tcols0[1],1)).join('')
       :tmets.map(m=>{const hc=val(lp,'hc_total'), ld=m.key===mainK?'lead':'';
         return '<td'+(m.fmt==='pct'&&isSm(hc)&&!D.directNA(r.n,m.key)?smAttr(hc,ld):ld?' class="lead"':'')+'>'+
         (D.directNA(r.n,m.key)?'—':D.fmtVal(m.key,val(lp,m.key)))+'</td>'}).join(''))+'</tr>';
@@ -12020,12 +12192,12 @@ function renderBlock(S,expanded,mixOpen,view){
     rail:U.storyRail({facts:ch.facts,focus:ch.focus,act:ch.act})});
   /* У выбранной строки переход дублируется в шапке правой панели — рядом
      с её именем, там, куда смотрят, читая её графики. */
-  h+=U.panel({cls:'split-r',title:mod.title(S.subTab),
+  h+=U.panel({cls:b.key==='review'?'split-r review-screen':'split-r',title:mod.title(S.subTab),
     subHtml:esc(selNode.name)+(sel!==root?'':' · всё подразделение')+
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
       /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
       /* поставка 106: у AI — недели, без сравнения с прошлым годом */
-      (b.key==='structure'?'':b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
+      (b.key==='structure'?'':b.key==='review'?' · кадровый снимок на '+D.ASOF_LABEL:b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';
@@ -12799,7 +12971,7 @@ SC.blocks.hiring={
 
    Прежние «Заявки и T@T» и «Статусы по грейдам» (tgrowthProfile) — в истории; новые
    вкладки читают D.rostProfile. Поставка 71: на настоящих данных — разрезы «Роста» выбранного подразделения
-   (параграфы Адели); без них — условные числа с плашкой «в разработке».
+   (параграфы Адели); без них в отчёте показывается пустое состояние.
    ========================================================================== */
 (function(){
 'use strict';
@@ -12902,8 +13074,10 @@ SC.blocks.tgrowth={
        подачи» была неточной */
     const basis=(own,other)=>'<div class="tbl-note">Заявки здесь — по месяцу решения и '+own+'. На шаге «'+other[0]+'» — '+other[1]+
       ', поэтому их число за тот же период может отличаться: человек мог перейти в другое подразделение между подачей и решением.</div>';
-    if(ctx.sub==='grades')return grades(ctx,D.rostProfile(ctx.lp))+basis('по подразделению, где человек был при подаче (как в эталонном отчёте «Роста»)',['Конверсия и решения','по подразделению в месяц решения']);
-    if(ctx.sub==='spec')return specs(ctx,D.rostProfile(ctx.lp))+basis('по подразделению, где человек был при подаче (как в эталонном отчёте «Роста»)',['Конверсия и решения','по подразделению в месяц решения']);
+    const profile=ctx.sub==='flow'?null:D.rostProfile(ctx.lp);
+    if(ctx.sub!=='flow'&&!profile)return U.empty('Нет данных о росте','Для выбранного подразделения нет разбивки по грейдам и специализациям.');
+    if(ctx.sub==='grades')return grades(ctx,profile)+basis('по подразделению, где человек был при подаче (как в эталонном отчёте «Роста»)',['Конверсия и решения','по подразделению в месяц решения']);
+    if(ctx.sub==='spec')return specs(ctx,profile)+basis('по подразделению, где человек был при подаче (как в эталонном отчёте «Роста»)',['Конверсия и решения','по подразделению в месяц решения']);
     return SC.metricLine('tgrowth_conv',ctx.lp,ctx.bl,ctx.S,{h:300,title:'Конверсия T-роста, %',ann:ctx.ann.tgrowth_conv})+
       SC.yoyPair(ctx.lp,'tgrowth_pass','tgrowth_deny',
         {h:300,title:'Одобренные и отклонённые заявки',
@@ -13264,6 +13438,7 @@ SC.blocks.office={
     const blocks=D.attLast(ctx.lp,D.REAL?D.DOW_MONTHS:null,D.REAL?D.PER_I:null), dow=D.attByDow(ctx.lp);
     /* конец периода называем явно: иначе непонятно, почему текущий месяц
        оборван и на каком именно дне */
+    if(!blocks.length)return U.empty('Нет данных о посещаемости по дням','Для выбранного подразделения нет календаря посещений.');
     const end=blocks[blocks.length-1];
     /* Календарь БЕЗ fill и без своей высоты — единственный такой график в правых
        панелях, и намеренно. fill отдал бы ему всю высоту панели, а клетка всё
@@ -13553,11 +13728,81 @@ SC.blocks.ai={
     if(!D.aiWeeks(ctx.lp))return U.empty('Нет статистики AI-инструментов',
       'У «'+((D.NODE_BY_PATH[ctx.sel]||{}).name||'')+'» в недельной витрине AI нет данных. Выберите подразделение выше по дереву '+
       'или проверьте выгрузку статистики AI.');
-    if(ctx.sub==='usage')return usage(ctx,D.aiUsage(ctx.lp));
-    if(ctx.sub==='who')return who(ctx,D.aiUsage(ctx.lp));
-    if(ctx.sub==='interns')return interns(ctx,D.aiUsage(ctx.lp));
-    if(ctx.sub==='what')return what(D.aiUsage(ctx.lp));
+    const detail=ctx.sub==='adoption'?null:D.aiUsage(ctx.lp);
+    if(ctx.sub!=='adoption'&&!detail)return U.empty('Нет данных по этому разрезу','Для выбранного подразделения нет детализации использования AI.');
+    if(ctx.sub==='usage')return usage(ctx,detail);
+    if(ctx.sub==='who')return who(ctx,detail);
+    if(ctx.sub==='interns')return interns(ctx,detail);
+    if(ctx.sub==='what')return what(detail);
     return adoption(ctx);
+  }
+};
+})();
+
+</script>
+<script>
+/* Separate annual review screen. Rendering primitives live in ui.js. */
+(function(){
+'use strict';
+const D=window.TPDATA,U=window.TPUI,SC=window.TPSCREENS;
+const tabs=[['who','Кого оцениваем'],['how','Как оцениваем']];
+function bars(title,items,sub){return U.btGroup({cap:title,capSub:sub||'',head:'',valueHead:'Человек',metricKey:'hc_total',share:false,total:false,
+  items:items.map(x=>({name:x[0],value:x[1],tip:x[2]||null}))})}
+function who(r){
+  const c=r.c;
+  return bars('Общая численность и eligible',[['Общая численность',c.all],['Из них eligible',c.eligible,'Сотрудники, включённые в оцениваемую популяцию. Это часть общей численности, а не отдельная группа.']],'eligible — часть общей численности')+
+    U.reviewNote('Eligible — сотрудники, включённые в оцениваемую популяцию на текущую дату. Общая численность здесь — все сотрудники текущего кадрового снимка под выбранными фильтрами.')+
+    (!c.eligible?U.empty('Нет eligible-сотрудников','В выбранной численности нет сотрудников, включённых в ревью.'):
+    !c.rated?U.empty('Нет текущих финальных оценок','Eligible-сотрудники есть, но оценок от 0 до 4 за выбранный год нет.'):
+    bars('Изменение оценки',[['Улучшили оценку',c.up],['Ухудшили оценку',c.down],['Получили первую оценку',c.first]],r.previousYear+' → '+r.year)+
+    U.reviewNote('Показаны три категории, которые не охватывают всю eligible-популяцию. Первая оценка определяется отдельным флагом по истории финальных ревью, а не пропуском оценки прошлого года.'))+
+    bars('Остальные результаты',[['Без изменения оценки',c.same],['Без сопоставимой прошлогодней оценки',c.unpaired],['Без текущей финальной оценки',c.missing]]);
+}
+/* 20.11, итерация «В работу»: блоки — общей группой отчёта (.bt-group: заголовок 12/700 и подпись), не вложенными карточками;
+   оценки — значками (U.scoreMark), переход — «значок → значок» и число людей в своей колонке */
+function group(cap,sub,body){return '<div class="bt-group"><div class="bt-cap">'+U.esc(cap)+(sub?'<span class="bt-sub">'+U.esc(sub)+'</span>':'')+'</div>'+body+'</div>'}
+const arrow='<span class="rv-arr" aria-hidden="true">→</span>';
+function how(r,ctx){
+  if(!r.c.eligible)return U.empty('Нет eligible-сотрудников','Измените фильтры или подразделение.');
+  const blocks=[U.ratingLegend()];
+  blocks.push(group('Переходы между оценками',r.previousYear+' → '+r.year,r.transitions.length?
+    U.statTable({head:'Предыдущая → текущая оценка',cols:['Человек'],rows:r.transitions.map(t=>({name:t.previous+' → '+t.current,
+      html:'<span class="rv-pair">'+U.scoreMark(t.previous)+arrow+U.scoreMark(t.current)+'</span>',vals:[t.n]}))}):
+    U.empty('Нет переходов с изменением оценки','Нужны две сопоставимые финальные оценки разных значений. Неизменившиеся оценки сюда не входят.')));
+  /* «n/a» — нет предыдущей оценки: своего значка для него нет (задание: не подбирать), остаётся текстом */
+  blocks.push(group('Первые оценки','нет более раннего финального ревью в истории источника',r.c.first?
+    U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.score,
+      html:'<span class="rv-pair"><span class="rv-na" title="Нет предыдущей оценки">n/a</span>'+arrow+U.scoreMark(x.score)+'</span>',vals:[x.n]}))}):
+    U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')));
+  const tables=[['По грейду','grade',r.gr],['По стажу','tenure',r.tenure],['По специализации','spec',r.spec,
+    SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций'])]].map(x=>
+    group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2]},x[3]||{}))));
+  return U.btStack(blocks)+U.reviewNote('Число в ячейке — сотрудники с этой оценкой. Чем темнее синий, тем больше их доля среди всех eligible в строке. Обе доли считаются от всех eligible строки, включая сотрудников без оценки.')+
+    U.btStack(tables,'rv-tables');
+}
+const counts=[
+  ['eligible','Eligible','Сотрудники, включённые в оцениваемую популяцию.'],
+  ['rated','Оценены','Сотрудники с финальной оценкой за год.'],
+  ['up','Улучшили','Текущая оценка выше прошлогодней.'],
+  ['down','Ухудшили','Текущая оценка ниже прошлогодней.'],
+  ['first','Впервые','Первая финальная оценка по доступной истории.']
+];
+SC.blocks.review={subTabs:tabs,defaultSub:'who',
+  cols:counts.map(([k,name,tip])=>({k,name,tip,val:c=>c[k]})),
+  data(lp){
+    const r=D.reviewData(lp);
+    return r.state==='ready'||r.state==='empty'?r.c:null;
+  },
+  title(sub){return tabs.find(t=>t[0]===sub)[1]},
+  view(ctx){
+    const r=D.reviewData(ctx.lp);
+    let body;
+    if(r.state==='unavailable')body=U.empty('Данные ревью ещё не подключены','Для этой версии отчёта не получен годовой набор данных ревью.');
+    else if(r.state==='schema')body=U.empty('Данные ревью недоступны','В источнике отсутствует согласованное поле даты ревью или его формат требует уточнения.');
+    else if(r.state==='error')body=U.empty('Не удалось проверить данные ревью','Итоги и распределения не согласованы. Обновите отчёт; если ошибка повторится, проверьте сборку источника.');
+    else if(r.state==='empty')body=U.empty('Пустая выборка','В выбранном подразделении и периоде нет подходящих записей ревью.');
+    else body=ctx.sub==='how'?how(r,ctx):who(r);
+    return (r.year?U.reviewNote('Год ревью '+r.year+' · сравнение с '+r.previousYear+' годом'):'')+body;
   }
 };
 })();
@@ -13739,7 +13984,7 @@ function normRow(S,rl,ok0,bl,more){
       {head:['','Значение','Год назад'],rows:na.map(m=>[nm(m),now(m),P(m).prev])})+
     chip('ref',info.length,'для справки','Для справки','Количества и метрики без направления — без оценки, с прошлым годом.',
       {head:['',String(D.YEAR_CUR),String(D.YEAR_PREV)],rows:info.map(m=>[nm(m),now(m),P(m).prev])})+
-    (dev?'<button class="in-chip dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
+    (!D.REAL&&dev?'<button class="in-chip dev" data-opscroll="1"'+U.tipAttr({title:'В разработке',text:'Метрики без источника: цифры условные, выводов по ним нет.'})+'>'+
       dev+' в разработке</button>':'')+'</div>';
 }
 
@@ -14111,7 +14356,7 @@ function echoSig(){
 function emitPend(mask,nonce){
   return ENV.emit(nonce?mask.concat([{column:'tp_nonce',operator:'IN',value:[String(Date.now())]}]):mask);
 }
-let _pendT=null, _staleT=null;
+/* Таймеры принадлежат выбору, который переживает перезапуск чарта. */
 /* маска кросс-фильтров запроса (вынесена из request в поставке 63: ею же пользуется детализация переводов) */
 function maskOf(next){
   const id=unitId(next.unit), mask=[];
@@ -14146,9 +14391,9 @@ function request(next){
   const nm=(D.NODE_BY_PATH[next.unit]||{}).name||unitNames[next.unit]||'';
   unitNames[next.unit]=nm;
   unitNames[S.unit]=(D.NODE_BY_PATH[S.unit]||{}).name||unitNames[S.unit]||'';
-  STORE.pending={unit:next.unit,name:nm,at:Date.now(),sig:sig,mask:mask,tries:0,flt:next.unit===S.unit};
+  STORE.pending={unit:next.unit,name:nm,at:Date.now(),sig:sig,mask:mask,sentAt:Date.now(),tries:0,flt:next.unit===S.unit};
   STORE.warn='';
-  clearTimeout(_staleT);
+  clearTimeout(STORE.retryTimer);
   /* выбор снова тот, что на экране (ушли и вернулись, пока ждали ответа) — маска та же, что у
      показанного ответа: Proteus её может не перезапросить, поэтому с меткой */
   if(!(sig===echoSig()?emitPend(mask,true):ENV.emit(mask))){
@@ -14157,12 +14402,13 @@ function request(next){
   }
   ROOTEL.classList.toggle('tp-busy',!!STORE.pending);
   /* ответа нет 45 секунд — говорим об этом, а не ждём молча */
-  clearTimeout(_pendT);
-  _pendT=setTimeout(()=>{
-    if(!STORE.pending)return;
+  clearTimeout(STORE.responseTimer);
+  const awaiting=STORE.pending;
+  STORE.responseTimer=setTimeout(()=>{
+    if(!awaiting||STORE.pending!==awaiting)return;
     STORE.warnSig=STORE.pending.sig;
     STORE.pending=null;ROOTEL.classList.remove('tp-busy');
-    STORE.warn='Ответ не пришёл за 45 секунд. Проверьте кросс-фильтры чарта в настройках дашборда.';
+    STORE.warn='За 45 секунд не пришёл ответ для выбранных фильтров. Проверьте запрос датасета и кросс-фильтры.';
     renderHead();
   },45000);
   renderHead();
@@ -14195,22 +14441,23 @@ function arrive(){
   if(pend&&pend.sig&&pend.sig!==echoSig()){
     ROOTEL.classList.add('tp-busy');
     const late=Date.now()-pend.at>1000;
-    clearTimeout(_staleT);
-    if(late&&pend.tries<MAX_RESEND)_staleT=setTimeout(()=>{
+    clearTimeout(STORE.retryTimer);
+    if(late&&pend.tries<MAX_RESEND)STORE.retryTimer=setTimeout(()=>{
       const p=STORE.pending;
       if(p!==pend||p.tries>=MAX_RESEND)return;
       p.tries++;p.at=Date.now();emitPend(p.mask,true);renderHead();
     },STALE_WAIT);
-    clearTimeout(_pendT);
-    _pendT=setTimeout(()=>{
+    clearTimeout(STORE.responseTimer);
+    STORE.responseTimer=setTimeout(()=>{
       if(STORE.pending!==pend)return;
       STORE.warnSig=pend.sig;
       STORE.pending=null;ROOTEL.classList.remove('tp-busy');
-      STORE.warn='Ответ не пришёл за 45 секунд. Проверьте кросс-фильтры чарта в настройках дашборда.';
+      STORE.warn='За 45 секунд не пришёл ответ для выбранных фильтров. Проверьте запрос датасета и кросс-фильтры.';
       renderHead();
     },Math.max(1000,45000-(Date.now()-pend.at)));
   }else if(pend){
-    STORE.pending=null;clearTimeout(_pendT);clearTimeout(_staleT);
+    if(ENV.timing&&pend.sentAt)ENV.timing.waitMs=ENV.timing.receivedAt-pend.sentAt;
+    STORE.pending=null;clearTimeout(STORE.responseTimer);clearTimeout(STORE.retryTimer);
     /* новый запрос (юнит, фильтры) — экран начинается сверху: прежнюю прокрутку забываем */
     STORE.scroll=null;
     ROOTEL.classList.remove('tp-busy');
@@ -14366,6 +14613,7 @@ const NAV_IC={
   tgrowth:'<path d="M3 18l6-6 4 4 7.5-7.5M15 8.5h5.5V14"/>',
   monitor:'<path d="M3 12.5h4l2.5-6.5 5 13 2.5-6.5h4"/>',
   office:'<rect x="4" y="3" width="11" height="18" rx="1.3"/><path d="M15 9h4a1 1 0 0 1 1 1v11M8 7.5h3M8 11.5h3M8 15.5h3M2.5 21h19"/>',
+  review:'<path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/>',
   ai:'<path d="M11 3.5l1.9 4.9 4.9 1.9-4.9 1.9L11 17.1l-1.9-4.9-4.9-1.9 4.9-1.9z"/><path d="M18.5 14.5l.8 2.1 2.2.9-2.2.8-.8 2.2-.9-2.2-2.1-.8 2.1-.9z"/>'};
 const navIc=(k,sig)=>'<span class="ni-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '+
   'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(NAV_IC[k]||'<circle cx="12" cy="12" r="4"/>')+'</svg>'+
@@ -14444,6 +14692,14 @@ function mountStaticMascots(){
 
 /* ---------- модалка настройки ---------- */
 function openSetup(){
+  const diag=$('#reportTiming');
+  if(diag&&ENV&&ENV.timing){
+    const t=ENV.timing;
+    diag.hidden=false;
+    diag.querySelector('p').textContent=(STORE.pending?'Ожидаем выбранные фильтры. ':STORE.warn?STORE.warn+' ':'')+
+      (t.waitMs==null?'':('От отправки фильтра до получения ответа: '+t.waitMs+' мс. '))+
+      'Обработка ответа и первый рендер: '+t.renderMs+' мс (адаптер данных: '+t.adapterMs+' мс). Строк ответа: '+t.rows+'.';
+  }
   DRAFT={unit:S.unit,paint:S.paint,itSeg:S.itSeg,staffType:S.staffType,hcType:S.hcType,hcSet:(S.hcSet||[]).slice(),
     hiddenMetrics:(S.hiddenMetrics||[]).slice()};
   HCDD=false;
@@ -15352,6 +15608,9 @@ if(ENV&&window.TP_PARTS&&window.TP_PARTS.mixed&&!STORE.pending){
 let again=false;
 /*split:*/again=!!(window.TP_PARTS&&window.TP_PARTS.again)&&!pend0;/*:split*/
 render(!!back||again,!!back||again);
+if(ENV&&ENV.timing){
+  ENV.timing.renderMs=Math.round(performance.now()-ENV.timing.start);
+}
 if(back&&back.k===viewKey()){
   ENV.scroller.scrollTop=back.y;
   INNER_SCROLL.forEach((q,i)=>{const el=$(q), v=back.inner&&back.inner[i];if(el&&v){el.scrollTop=v[0];el.scrollLeft=v[1]}});

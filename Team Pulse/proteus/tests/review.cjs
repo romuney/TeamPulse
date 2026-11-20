@@ -40,8 +40,38 @@ assert(perLeaf.some(x=>x.c.eligible===10));assert(perLeaf.some(x=>x.c.eligible==
 load('draw.js');load('ui.js');
 const U=context.window.TPUI,html=U.ratingTable({title:'Грейд',kind:'grade',rows:actual.gr});
 assert(html.includes('33,3%'));assert(html.includes('66,7%'));assert(!html.includes('<a '));assert(html.includes('Все eligible'));
-assert(html.includes('Доля 0–1</th><th'));assert(html.indexOf('Доля 3–4</th>')>html.indexOf('Доля 0–1</th>'));
+// Headers stay one line (delivery 117): short labels, full wording in the shared tooltip.
+assert(html.includes('% 0–1</th><th'));assert(html.indexOf('% 3–4</th>')>html.indexOf('% 0–1</th>'));assert(html.includes('Доля с оценкой 3–4'));
 assert(U.ratingTable({title:'x',kind:'grade',rows:[{name:'x',n:0,missing:0,cells:[0,0,0,0,0],low:null,high:null}]}).includes('—'));
-assert(!U.ratingTable({title:'x',kind:'grade',rows:[{name:'<img src=x onerror=1>',n:1,missing:1,cells:[0,0,0,0,0],low:0,high:0}]}).includes('<img'));
+assert(!U.ratingTable({title:'x',kind:'grade',rows:[{name:'<img src=x onerror=1>',n:1,missing:1,cells:[0,0,0,0,0],low:0,high:0}]}).includes('<img src=x'));
+// Rating marks: without mascot.js the scale falls back to number + name text, never a broken <img>.
+assert(!html.includes('<img'));D.REVIEW_SCALE.forEach((name,i)=>assert(html.includes('<b>'+i+'</b>&nbsp;'+name)));
+load('mascot.js');
+const iconHtml=U.ratingTable({title:'Грейд',kind:'grade',rows:actual.gr});
+D.REVIEW_SCALE.forEach((name,i)=>{
+  const m=U.scoreMark(i), src=context.window.TPMASCOT.srcOf('rv'+i);
+  assert(src.startsWith('data:image/webp;base64,')&&m.includes('src="'+src+'"'),'icon '+i);
+  assert(m.includes('alt="'+i+' — '+name+'"')&&m.includes('width="24" height="24"'),'alt/size '+i);
+  assert(iconHtml.includes(src),'header icon '+i);
+});
+assert.equal((iconHtml.match(/<img class="rv-ico"/g)||[]).length,5);
+assert(iconHtml.includes('33,3%')&&iconHtml.includes('66,7%'));
+// Specializations: top 10 by eligible count (ties keep source order), the rest behind the shared expandable row.
+const spec=Array.from({length:13},(_,i)=>{const n=[5,9,9,1,7,3,3,8,2,6,4,1,2][i],cells=[0,0,n-1,0,0];
+  return {name:'S'+i,n,missing:1,cells,low:0,high:0}});
+const totalOf=h=>h.split('<tr class="total top">')[1].split('</tr>')[0].replace(/^<td class="txt">.*?<\/td>/,'');
+const plain=U.ratingTable({title:'Спец',kind:'spec',rows:spec});
+const collapsed=U.ratingTable({title:'Спец',kind:'spec',rows:spec,top:10,restKey:'rest:rvsp',restOpen:false,restWord:['специализация','специализации','специализаций']});
+const opened=U.ratingTable({title:'Спец',kind:'spec',rows:spec,top:10,restKey:'rest:rvsp',restOpen:true,restWord:['специализация','специализации','специализаций']});
+const names=h=>[...h.matchAll(/<span class="row-body">([^<]+)/g)].map(m=>m[1]);
+assert.deepEqual(names(collapsed),['Итого','S1','S2','S7','S4','S9','S0','S10','S5','S6','S8','Остальные']);
+assert(collapsed.includes('3 специализации')&&collapsed.includes('data-btexp="rest:rvsp"')&&!collapsed.includes('class="lvl2"'));
+assert.deepEqual(names(opened).slice(12),['S12','S3','S11']);assert.equal((opened.match(/class="lvl2"/g)||[]).length,3);
+assert.equal(totalOf(collapsed),totalOf(plain));assert.equal(totalOf(opened),totalOf(plain)); // totals over all rows
+const restTr=collapsed.slice(collapsed.indexOf('data-btexp="rest:rvsp"'));assert(/<td>4<\/td><td>3<\/td>/.test(restTr)); // S12+S3+S11: 2+1+1 eligible, 3 without rating
+const ten=U.ratingTable({title:'Спец',kind:'spec',rows:spec.slice(0,10),top:10,restKey:'rest:rvsp'});
+assert(!ten.includes('Остальные')&&!ten.includes('data-btexp'));
+assert.deepEqual([...ten.matchAll(/<td class="txt">([^<]+)/g)].map(m=>m[1]),['Итого','S1','S2','S7','S4','S9','S0','S5','S6','S8','S3']); // same ranking without the rest row
+assert.equal(spec.map(r=>r.name).join(),'S0,S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12'); // display only: source rows untouched
 if(process.env.REVIEW_BROWSER_ROWS)fs.writeFileSync(process.env.REVIEW_BROWSER_ROWS,JSON.stringify(rows));
-console.log('PASS: SQL aggregate fixture -> real adapter -> eligible denominator, history categories, filters/units, empty/unavailable/error, null vs zero, display rounding, escaping and plain labels');
+console.log('PASS: SQL aggregate fixture -> real adapter -> eligible denominator, history categories, filters/units, empty/unavailable/error, null vs zero, display rounding, escaping and plain labels, rating icons with text fallback, specialization top-10 with expandable rest');

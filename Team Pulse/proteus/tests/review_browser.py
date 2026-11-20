@@ -38,7 +38,13 @@ try:
             assert page.locator('.review-matrix a').count()==0
             # Percent headers explain the eligible denominator via the shared tooltip.
             headers=page.locator('.review-matrix').first.locator('th')
-            assert 'доля 3–4' in headers.last.inner_text().lower(),headers.last.inner_text()
+            assert '% 3–4' in headers.last.inner_text(),headers.last.inner_text()
+            # Rating icons: one per scale point in headers, transitions and first ratings; all decoded, alt = number + name.
+            icons=page.locator('.review-screen img.rv-ico')
+            assert icons.count()>=15,icons.count()
+            assert page.evaluate("[...document.querySelectorAll('.review-screen img.rv-ico')].every(i=>i.complete&&i.naturalWidth>0&&/^[0-4] — /.test(i.alt)&&i.getBoundingClientRect().width===i.getBoundingClientRect().height)")
+            assert headers.nth(3).locator('img').get_attribute('alt')=='0 — не соответствует ожиданиям'
+            assert headers.nth(7).locator('img').get_attribute('alt')=='4 — звезда'
             assert page.locator('.review-matrix').first.locator('tbody tr').count()==4
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'),(width,'page overflow')
             if width==420:
@@ -98,6 +104,7 @@ try:
         frame.locator('[data-subtab="how"]').click()
         assert frame.locator('.review-matrix').count()==3
         assert '33,3%' in frame.locator('.review-matrix').first.inner_text()
+        assert page.frames[1].evaluate("(()=>{const a=[...document.querySelectorAll('img.rv-ico')];return a.length>=15&&a.every(i=>i.complete&&i.naturalWidth>0)})()")
         frame.locator('.split-l tr.urow').filter(has_text='Отдел 22').locator('.row-body').click()
         assert frame.locator('.review-matrix').first.locator('tr.total td').nth(1).inner_text()=='1'
         assert 'ошибка чарта' not in frame.locator('body').inner_text()
@@ -105,5 +112,5 @@ try:
         page.screenshot(path='/tmp/teampulse-review-sandbox.png',full_page=True)
         page.close()
         browser.close()
-    print('PASS: review tabs, real adapter fixture, 3 widths, exact values, plain category labels, contained horizontal scroll, no browser errors; shipped minified ES5 artifact in opaque-origin sandbox')
+    print('PASS: review tabs, rating icons decoded with alt, real adapter fixture, 3 widths, exact values, plain category labels, contained horizontal scroll, no browser errors; shipped minified ES5 artifact in opaque-origin sandbox')
 finally:server.shutdown();server.server_close()

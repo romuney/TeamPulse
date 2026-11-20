@@ -2824,19 +2824,25 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .chip.as .x{background:rgba(154,101,0,.16);color:var(--warn-tx)}
 .tp-noacc .btn{margin-top:12px;align-self:flex-start}
 
-/* Годовое ревью: таблицы прокручиваются внутри панели, названия переносятся. */
-.review-screen .st-main{min-width:0}
+/* Годовое ревью. 20.11: оформление — общими классами (.bt-group, .ptable.dense, .legend, .tbl-note); здесь только то,
+   чего у них нет: прокрутка матрицы внутри панели и значки оценок. Шапки — одной строкой (поставка 117). */
+.review-screen .st-main,.review-screen .panel-b{min-width:0}
 .review-screen .mx-wrap{max-width:100%;overflow-x:auto}
-.review-screen .panel,.review-screen .panel-b{min-width:0}
-.review-note{margin:0;line-height:1.5;color:var(--muted,#667085)}
-.review-legend{display:flex;flex-wrap:wrap;gap:10px 24px;line-height:1.5}
-.ptable.review-matrix{min-width:440px;width:100%;table-layout:fixed}
-.ptable.review-matrix th{white-space:normal;line-height:1.2;vertical-align:bottom}
-.ptable.review-matrix th,.ptable.review-matrix td{padding-inline:4px}
-.ptable.review-matrix th.txt,.ptable.review-matrix td.txt{min-width:68px;max-width:180px;padding-inline:4px;white-space:normal;overflow-wrap:anywhere}
-#view .ptable.review-matrix thead th{white-space:normal;font-size:11px;text-transform:none;letter-spacing:normal}
-.ptable.review-matrix thead th:first-child{width:18%;min-width:0}
-.ptable.review-matrix thead th:nth-child(2),.ptable.review-matrix thead th:nth-child(3){width:9%}
-.ptable.review-matrix thead th:nth-last-child(-n+2){width:9.5%}
+.review-screen .bt-stack+.tbl-note{margin:var(--s5) 0}
+.ptable.review-matrix th{vertical-align:bottom}
+.ptable.review-matrix th.txt{min-width:88px}
+.ptable.review-matrix :is(th,td):is(:nth-child(2),:nth-child(3),:nth-child(9)){padding-left:4px;padding-right:4px}
+.ptable.review-matrix :is(th,td):nth-child(n+4):nth-child(-n+8){padding-left:2px;padding-right:2px}
+.ptable.review-matrix td.txt{white-space:normal;min-width:88px;max-width:150px;position:sticky;left:0;z-index:1;background:#fff}
+.ptable.review-matrix thead th.txt{position:sticky;left:0;z-index:4}
+.ptable.review-matrix tr.total td.txt{background:#fafbfc}
+.ptable.review-matrix tr.lvl2 td.txt{background:#fcfcfd}
 .ptable.review-matrix :is(th,td):nth-child(n+4):nth-child(-n+8){text-align:center}
-.review-screen .stable .txt{white-space:normal;overflow-wrap:anywhere}
+.rv-mark{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle}
+.rv-ico{display:block;width:24px;height:24px;object-fit:contain;flex:0 0 auto}
+.ptable.review-matrix th.rv-h{padding-top:2px;padding-bottom:4px}
+.ptable.review-matrix th.rv-h .rv-mark{display:flex}
+.rv-pair{display:inline-flex;align-items:center;gap:6px;vertical-align:middle}
+.rv-arr{color:var(--muted)}
+.rv-na{display:inline-flex;align-items:center;justify-content:center;width:24px;font-size:var(--fs-cap);color:var(--muted)}
+.legend.rv-legend .sw .rv-ico{width:20px;height:20px}

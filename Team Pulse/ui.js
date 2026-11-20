@@ -964,7 +964,7 @@ function statTable(o){
   rows.forEach(r=>{
     if(r.sec){h+='<tr class="st-sec"><td class="txt" colspan="'+(nc+1)+'">'+esc(r.sec)+'</td></tr>';return}
     const cls=[r.total?'total top':'',r.sub?'st-sub':''].filter(Boolean).join(' ');
-    h+='<tr'+(cls?' class="'+cls+'"':'')+(r.tip?tipAttr(r.tip):'')+'><td class="txt">'+esc(r.name)+
+    h+='<tr'+(cls?' class="'+cls+'"':'')+(r.tip?tipAttr(r.tip):'')+'><td class="txt">'+(r.html||esc(r.name))+
       (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+'</td>'+
       r.vals.map((v,j)=>{
         const txt=D.fmtNum(r.fmt||(o.fmts&&o.fmts[j])||'int',v);
@@ -1161,32 +1161,62 @@ function devSummary(o){
     '<div class="dev-sum-b">'+planTable(o.plan)+'</div></details>';
 }
 
-/* Absolute rating counts; both rightmost percentages use all eligible in the row. */
+/* 20.11, «Ревью»: оценка — значком. Одно соответствие на всю вкладку: картинка берётся из mascot.js по ключу rv<оценка>
+   (файлы «В работу/0.png … 4.png», имя файла = оценка), а не по порядку. alt — номер и название; подсказка — у владельца
+   (o.tip:false — подсказку держит ячейка шапки или подпись рядом). Нет картинки — номер и название текстом, сломанного <img> не бывает. */
+function scoreMark(i,o){
+  const name=D.REVIEW_SCALE[i], M=window.TPMASCOT, src=M&&M.srcOf?M.srcOf('rv'+i):'', label=i+' — '+name;
+  return '<span class="rv-mark"'+(o&&o.tip===false?'':tipAttr({title:label}))+'>'+
+    (src?'<img class="rv-ico" src='+JSON.stringify(src)+' width="24" height="24" alt="'+esc(label)+'">':'<b>'+i+'</b>&nbsp;'+esc(name))+'</span>';
+}
+/* Absolute rating counts; both rightmost percentages use all eligible in the row.
+   20.11, специализации: o.top — строки по числу eligible (по убыванию, при равенстве — прежний порядок) всегда, первые o.top на виду,
+   остальные — свёрнутой строкой «Остальные» с кареткой, раскрываются вторым уровнем, как «Движение по специализациям»
+   (o.restKey — ключ раскрытия в mixOpen, o.restOpen — раскрыта ли). Это только показ: Итого и доли — по всем строкам. */
 function ratingTable(o){
   const total={name:'Итого',total:true,n:0,missing:0,cells:[0,0,0,0,0]};
-  o.rows.forEach(r=>{total.n+=r.n;total.missing+=r.missing;r.cells.forEach((v,i)=>{total.cells[i]+=v})});
-  total.low=total.n?100*(total.cells[0]+total.cells[1])/total.n:null;
-  total.high=total.n?100*(total.cells[3]+total.cells[4])/total.n:null;
+  const shares=r=>{r.low=r.n?100*(r.cells[0]+r.cells[1])/r.n:null;r.high=r.n?100*(r.cells[3]+r.cells[4])/r.n:null;return r};
+  const add=(t,r)=>{t.n+=r.n;t.missing+=r.missing;r.cells.forEach((v,i)=>{t.cells[i]+=v})};
+  o.rows.forEach(r=>add(total,r));
+  shares(total);
+  let rows=o.top?o.rows.map((r,i)=>({r,i})).sort((x,y)=>y.r.n-x.r.n||x.i-y.i).map(x=>x.r):o.rows, restRow=null;
+  if(o.top&&rows.length>o.top){
+    const ranked=rows;
+    const rest=ranked.slice(o.top), word=o.restWord||['значение','значения','значений'];
+    restRow={name:'Остальные',note:rest.length+' '+plural(rest.length,word),n:0,missing:0,cells:[0,0,0,0,0],exp:o.restKey||null,open:!!o.restOpen};
+    rest.forEach(r=>add(restRow,r));
+    shares(restRow);
+    rows=ranked.slice(0,o.top).concat([restRow]).concat(restRow.exp&&restRow.open?rest.map(r=>Object.assign({sub:1},r)):[]);
+  }
+  const tree=!!(restRow&&restRow.exp);
   function scoreCell(row,n,score){
     if(row.total||!n||!row.n)return '<td>'+D.fmtInt(n)+'</td>';
     const share=n/row.n;
     return '<td class="mx-cell" style="background:'+G.heat(share)+';color:'+G.heatInk(share)+'"'+
-      tipAttr({title:row.name+' · '+score+' · '+D.REVIEW_SCALE[score],
+      tipAttr({title:row.name+' · '+score+' — '+D.REVIEW_SCALE[score],
         rows:[{label:'Человек',value:D.fmtInt(n)},{label:'Доля от eligible строки',value:D.fmtNum('pct',100*share)}]})+
       '>'+D.fmtInt(n)+'</td>';
   }
+  const caret=r=>!tree?'':r===restRow?'<button class="caret-btn"'+(r.open?' data-open="1"':'')+' data-btexp="'+esc(r.exp)+'" aria-label="'+
+    (r.open?'Свернуть':'Раскрыть')+'">'+(r.open?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>';
+  const label=r=>(tree?'<span class="row-label">'+caret(r)+'<span class="row-body">':'')+esc(r.name)+
+    (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+(tree?'</span></span>':'');
+  const trCls=r=>r.total?' class="total top"':r===restRow&&tree?' class="urow" data-btexp="'+esc(r.exp)+'"'+
+    tipAttr({title:'Остальные',text:r.open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):r.sub?' class="lvl2"':'';
   const pctTip=range=>tipAttr({title:'Доля с оценкой '+range,text:'100 × число eligible-сотрудников строки с финальной оценкой '+range+' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
-  return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt">'+esc(o.title)+'</th><th>Все eligible</th><th>Без оценки</th>'+
-    D.REVIEW_SCALE.map((name,i)=>'<th'+tipAttr({title:String(i),text:name})+'>'+i+'</th>').join('')+
-    '<th'+pctTip('0–1')+'>Доля 0–1</th><th'+pctTip('3–4')+'>Доля 3–4</th></tr></thead><tbody>'+
-    [total].concat(o.rows).map(r=>'<tr'+(r.total?' class="total top"':'')+'><td class="txt">'+esc(r.name)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
+  return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt">'+esc(o.title)+'</th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
+    D.REVIEW_SCALE.map((name,i)=>'<th class="rv-h"'+tipAttr({title:i+' — '+name})+'>'+scoreMark(i,{tip:false})+'</th>').join('')+
+    /* шапка одной строкой (правило поставки 117): «% 0–1» — коротко, «Доля с оценкой …» и формула — в подсказке */
+    '<th'+pctTip('0–1')+'>% 0–1</th><th'+pctTip('3–4')+'>% 3–4</th></tr></thead><tbody>'+
+    [total].concat(rows).map(r=>'<tr'+trCls(r)+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
       r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
     '</tbody></table></div>';
 }
-function reviewNote(text){return '<p class="review-note">'+esc(text)+'</p>'}
-function ratingLegend(){return '<div class="review-legend">'+D.REVIEW_SCALE.map((s,i)=>'<span><b>'+i+'</b> — '+esc(s)+'</span>').join('')+'</div>'}
+/* 20.11: сноски и легенда «Ревью» — общими классами отчёта (.tbl-note, .legend), своего оформления у вкладки нет */
+function reviewNote(text){return '<div class="tbl-note">'+esc(text)+'</div>'}
+function ratingLegend(){return '<div class="legend rv-legend">'+D.REVIEW_SCALE.map((s,i)=>'<span class="sw">'+scoreMark(i,{tip:false})+esc(i+' — '+s)+'</span>').join('')+'</div>'}
 
-window.TPUI={ratingTable,reviewNote,ratingLegend,ICO,icoFor,keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
+window.TPUI={ratingTable,scoreMark,reviewNote,ratingLegend,ICO,icoFor,keep,keepText,baseTip,metricText,storyFacts,richText,chapters,storyHead,storyRail,story,devTag,devNote,devSummary,planTable,blockNav,opStory,esc,plural,tipAttr,tip,deltaChip,icoExt,rowCaret,allCaret,noCmpMark,unitHead,unitTip,infoDot,NOCMP_HINT,targetCell,
   barTable,btGroup,btStack,matrixTable,mixPicker,heatLegend,selBar,sliceChips,pct,panel,subTabs,empty,trafficLegend,
   shareBar,shareCards,genderSplit,pfHead,ico,barW,segToggle,
   statTable,heatTable,icoOpen,openUnitBtn,searchBox,hlText,unitHide,unitRail,splitGut};

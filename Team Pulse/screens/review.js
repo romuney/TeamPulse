@@ -15,20 +15,27 @@ function who(r){
     U.reviewNote('Показаны три категории, которые не охватывают всю eligible-популяцию. Первая оценка определяется отдельным флагом по истории финальных ревью, а не пропуском оценки прошлого года.'))+
     bars('Остальные результаты',[['Без изменения оценки',c.same],['Без сопоставимой прошлогодней оценки',c.unpaired],['Без текущей финальной оценки',c.missing]]);
 }
-function how(r){
+/* 20.11, итерация «В работу»: блоки — общей группой отчёта (.bt-group: заголовок 12/700 и подпись), не вложенными карточками;
+   оценки — значками (U.scoreMark), переход — «значок → значок» и число людей в своей колонке */
+function group(cap,sub,body){return '<div class="bt-group"><div class="bt-cap">'+U.esc(cap)+(sub?'<span class="bt-sub">'+U.esc(sub)+'</span>':'')+'</div>'+body+'</div>'}
+const arrow='<span class="rv-arr" aria-hidden="true">→</span>';
+function how(r,ctx){
   if(!r.c.eligible)return U.empty('Нет eligible-сотрудников','Измените фильтры или подразделение.');
-  let h=U.ratingLegend();
-  h+=U.panel({title:'Переходы между оценками',sub:r.previousYear+' → '+r.year,body:r.transitions.length?
-    U.statTable({head:'Предыдущая → текущая оценка',cols:['Человек'],rows:r.transitions.map(t=>({name:t.previous+' · '+D.REVIEW_SCALE[t.previous]+' → '+t.current+' · '+D.REVIEW_SCALE[t.current],vals:[t.n]}))}):
-    U.empty('Нет переходов с изменением оценки','Нужны две сопоставимые финальные оценки разных значений. Неизменившиеся оценки сюда не входят.')});
-  h+=U.panel({title:'Первые оценки',sub:'Нет более раннего финального ревью в истории источника',body:r.c.first?
-    U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.score+' · '+x.name,vals:[x.n]}))}):
-    U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')});
-  h+=U.reviewNote('Число в ячейке — сотрудники с этой оценкой. Чем темнее синий, тем больше их доля среди всех eligible в строке. Обе доли считаются от всех eligible строки, включая сотрудников без оценки.');
-  [['По грейду','grade',r.gr],['По стажу','tenure',r.tenure],['По специализации','spec',r.spec]].forEach(x=>{
-    h+=U.panel({title:x[0],body:U.ratingTable({title:x[0],kind:x[1],rows:x[2]})});
-  });
-  return h;
+  const blocks=[U.ratingLegend()];
+  blocks.push(group('Переходы между оценками',r.previousYear+' → '+r.year,r.transitions.length?
+    U.statTable({head:'Предыдущая → текущая оценка',cols:['Человек'],rows:r.transitions.map(t=>({name:t.previous+' → '+t.current,
+      html:'<span class="rv-pair">'+U.scoreMark(t.previous)+arrow+U.scoreMark(t.current)+'</span>',vals:[t.n]}))}):
+    U.empty('Нет переходов с изменением оценки','Нужны две сопоставимые финальные оценки разных значений. Неизменившиеся оценки сюда не входят.')));
+  /* «n/a» — нет предыдущей оценки: своего значка для него нет (задание: не подбирать), остаётся текстом */
+  blocks.push(group('Первые оценки','нет более раннего финального ревью в истории источника',r.c.first?
+    U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.score,
+      html:'<span class="rv-pair"><span class="rv-na" title="Нет предыдущей оценки">n/a</span>'+arrow+U.scoreMark(x.score)+'</span>',vals:[x.n]}))}):
+    U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')));
+  const tables=[['По грейду','grade',r.gr],['По стажу','tenure',r.tenure],['По специализации','spec',r.spec,
+    SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций'])]].map(x=>
+    group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2]},x[3]||{}))));
+  return U.btStack(blocks)+U.reviewNote('Число в ячейке — сотрудники с этой оценкой. Чем темнее синий, тем больше их доля среди всех eligible в строке. Обе доли считаются от всех eligible строки, включая сотрудников без оценки.')+
+    U.btStack(tables,'rv-tables');
 }
 const counts=[
   ['eligible','Eligible','Сотрудники, включённые в оцениваемую популяцию.'],
@@ -51,7 +58,7 @@ SC.blocks.review={subTabs:tabs,defaultSub:'who',
     else if(r.state==='schema')body=U.empty('Данные ревью недоступны','В источнике отсутствует согласованное поле даты ревью или его формат требует уточнения.');
     else if(r.state==='error')body=U.empty('Не удалось проверить данные ревью','Итоги и распределения не согласованы. Обновите отчёт; если ошибка повторится, проверьте сборку источника.');
     else if(r.state==='empty')body=U.empty('Пустая выборка','В выбранном подразделении и периоде нет подходящих записей ревью.');
-    else body=ctx.sub==='how'?how(r):who(r);
+    else body=ctx.sub==='how'?how(r,ctx):who(r);
     return (r.year?U.reviewNote('Год ревью '+r.year+' · сравнение с '+r.previousYear+' годом'):'')+body;
   }
 };
