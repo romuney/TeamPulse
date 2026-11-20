@@ -2835,6 +2835,9 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .ptable.review-matrix td.txt{white-space:normal;min-width:88px;max-width:150px;position:sticky;left:0;z-index:1;background:#fff}
 .ptable.review-matrix thead th.txt{position:sticky;left:0;z-index:4}
 .ptable.review-matrix tr.total td.txt{background:#fafbfc}
+/* имя строки не режется многоточием: ширину колонки задают сами имена (шапки у неё нет — имя таблицы стоит над ней) */
+#view .ptable.review-matrix td.txt .row-body{overflow:visible;text-overflow:clip}
+#view .ptable.review-matrix td.txt .row-label{min-width:max-content}
 .ptable.review-matrix tr.lvl2 td.txt{background:#fcfcfd}
 .ptable.review-matrix :is(th,td):nth-child(n+4):nth-child(-n+8){text-align:center}
 .rv-mark{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle}
