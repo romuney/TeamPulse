@@ -73,5 +73,13 @@ const ten=U.ratingTable({title:'Спец',kind:'spec',rows:spec.slice(0,10),top:
 assert(!ten.includes('Остальные')&&!ten.includes('data-btexp'));
 assert.deepEqual([...ten.matchAll(/<td class="txt">([^<]+)/g)].map(m=>m[1]),['Итого','S1','S2','S7','S4','S9','S0','S5','S6','S8','S3']); // same ranking without the rest row
 assert.equal(spec.map(r=>r.name).join(),'S0,S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12'); // display only: source rows untouched
+// One table, three cuts: one header, one total (each cut lays out all eligible), section rubrics, top-10 inside its section.
+const grade=[{name:'G',n:60,missing:13,cells:[0,0,47,0,0],low:0,high:0}];
+const sect=U.ratingTable({title:'Распределение',groups:[{name:'Грейд',rows:grade},{name:'Стаж',rows:[]},
+  {name:'Специализация',rows:spec,top:10,restKey:'rest:rvsp',restOpen:false,restWord:['специализация','специализации','специализаций']}]});
+assert.equal((sect.match(/<tr class="total top">/g)||[]).length,1);assert.equal((sect.match(/<thead>/g)||[]).length,1);
+assert.deepEqual([...sect.matchAll(/<tr class="hx-sec"><td class="txt" colspan="10">([^<]+)/g)].map(m=>m[1]),['Грейд','Специализация']); // empty cut skipped
+assert.equal(totalOf(sect),totalOf(plain));assert(sect.includes('3 специализации'));
+assert.equal((sect.match(/caret-spacer/g)||[]).length,1+1+10); // total, grade row and top-10 aligned with the caret of «Остальные»
 if(process.env.REVIEW_BROWSER_ROWS)fs.writeFileSync(process.env.REVIEW_BROWSER_ROWS,JSON.stringify(rows));
 console.log('PASS: SQL aggregate fixture -> real adapter -> eligible denominator, history categories, filters/units, empty/unavailable/error, null vs zero, display rounding, escaping and plain labels, rating icons with text fallback, specialization top-10 with expandable rest');

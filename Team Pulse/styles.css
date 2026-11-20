@@ -1247,7 +1247,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .hxtable td.txt{padding-left:7px;color:var(--ink2);white-space:nowrap}
 .hxtable tr.total td{border-top:0;border-bottom:1px solid var(--line);padding-top:0;padding-bottom:0;position:static}
 .hxtable tr.total td.txt{color:var(--ink)}
-.hxtable tr.hx-sec td{padding:var(--s6) 0 var(--s2) 7px;font-size:var(--fs-cap);text-transform:uppercase;
+/* 20.11: рубрики секций — те же у тепловой таблицы и у таблицы оценок «Ревью» (один разрез — одна секция) */
+:is(.hxtable,.review-matrix) tr.hx-sec td{padding:var(--s6) 0 var(--s2) 7px;font-size:var(--fs-cap);text-transform:uppercase;
   letter-spacing:.3px;color:var(--muted);font-weight:var(--fw-bold);background:transparent}
 
 /* ---------- Сводная таблица с шестью и больше колонками ----------

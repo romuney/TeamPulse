@@ -1499,13 +1499,15 @@ checks.push(['третьей палитры нет: в экранах ни од�
   const st0=D.DEFAULT_STATE;
   const team=D.NODES.find(n=>D.childrenOf(n.path).length===0&&D.leavesUnder(n.path).length);
   const probes=[{sel:st0.unit},{sel:team.path}];
+  /* 20.11: у «Ревью» вывод главы — только на годовых данных ревью (в макете их нет, там пустое состояние вкладки);
+     заголовок на данных проверяет proteus/tests/review_browser.py */
   let thrown=[], noHead=[];
   probes.forEach(pr=>{
     const S=Object.assign({},st0);
     const c={S:S,lp:D.leavesUnder(pr.sel).map(l=>l.path).filter(p=>D.leafPasses(p,S)),
       bl:D.benchmarkLeaves(S),sel:pr.sel,bench:D.benchmarkLabel(S)};
     Object.keys(STY.CH).forEach(bk=>Object.keys(STY.CH[bk]).forEach(k=>{
-      try{const r=STY.CH[bk][k](c)||{};if(!r.head&&k!=='custom'&&pr.sel===st0.unit)noHead.push(bk+'/'+k)}
+      try{const r=STY.CH[bk][k](c)||{};if(!r.head&&k!=='custom'&&!(bk==='review'&&D.reviewData(c.lp).state!=='ready')&&pr.sel===st0.unit)noHead.push(bk+'/'+k)}
       catch(e){thrown.push(bk+'/'+k+': '+e.message)}
     }));
   });

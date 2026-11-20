@@ -1255,7 +1255,8 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .hxtable td.txt{padding-left:7px;color:var(--ink2);white-space:nowrap}
 .hxtable tr.total td{border-top:0;border-bottom:1px solid var(--line);padding-top:0;padding-bottom:0;position:static}
 .hxtable tr.total td.txt{color:var(--ink)}
-.hxtable tr.hx-sec td{padding:var(--s6) 0 var(--s2) 7px;font-size:var(--fs-cap);text-transform:uppercase;
+/* 20.11: рубрики секций — те же у тепловой таблицы и у таблицы оценок «Ревью» (один разрез — одна секция) */
+:is(.hxtable,.review-matrix) tr.hx-sec td{padding:var(--s6) 0 var(--s2) 7px;font-size:var(--fs-cap);text-transform:uppercase;
   letter-spacing:.3px;color:var(--muted);font-weight:var(--fw-bold);background:transparent}
 
 /* ---------- Сводная таблица с шестью и больше колонками ----------
@@ -9469,23 +9470,32 @@ function scoreMark(i,o){
 /* Absolute rating counts; both rightmost percentages use all eligible in the row.
    20.11, специализации: o.top — строки по числу eligible (по убыванию, при равенстве — прежний порядок) всегда, первые o.top на виду,
    остальные — свёрнутой строкой «Остальные» с кареткой, раскрываются вторым уровнем, как «Движение по специализациям»
-   (o.restKey — ключ раскрытия в mixOpen, o.restOpen — раскрыта ли). Это только показ: Итого и доли — по всем строкам. */
+   (o.restKey — ключ раскрытия в mixOpen, o.restOpen — раскрыта ли). Это только показ: Итого и доли — по всем строкам.
+   20.11, решение владельца (п. 3 сверки): несколько разрезов — ОДНОЙ таблицей с рубриками секций, как тепловая таблица
+   (DESIGN_SYSTEM 4.6e): o.groups=[{name, rows, top, restKey, restOpen, restWord}], одна шапка и одно Итого. Каждый разрез
+   раскладывает всех eligible (это проверяет reviewFromMix), поэтому Итого считается по первой секции. Без o.groups — одна
+   таблица из o.rows (и o.top…) без рубрик. */
 function ratingTable(o){
+  const groups=o.groups||[{name:'',rows:o.rows,top:o.top,restKey:o.restKey,restOpen:o.restOpen,restWord:o.restWord}];
   const total={name:'Итого',total:true,n:0,missing:0,cells:[0,0,0,0,0]};
   const shares=r=>{r.low=r.n?100*(r.cells[0]+r.cells[1])/r.n:null;r.high=r.n?100*(r.cells[3]+r.cells[4])/r.n:null;return r};
   const add=(t,r)=>{t.n+=r.n;t.missing+=r.missing;r.cells.forEach((v,i)=>{t.cells[i]+=v})};
-  o.rows.forEach(r=>add(total,r));
+  groups[0].rows.forEach(r=>add(total,r));
   shares(total);
-  let rows=o.top?o.rows.map((r,i)=>({r,i})).sort((x,y)=>y.r.n-x.r.n||x.i-y.i).map(x=>x.r):o.rows, restRow=null;
-  if(o.top&&rows.length>o.top){
-    const ranked=rows;
-    const rest=ranked.slice(o.top), word=o.restWord||['значение','значения','значений'];
-    restRow={name:'Остальные',note:rest.length+' '+plural(rest.length,word),n:0,missing:0,cells:[0,0,0,0,0],exp:o.restKey||null,open:!!o.restOpen};
-    rest.forEach(r=>add(restRow,r));
-    shares(restRow);
-    rows=ranked.slice(0,o.top).concat([restRow]).concat(restRow.exp&&restRow.open?rest.map(r=>Object.assign({sub:1},r)):[]);
-  }
-  const tree=!!(restRow&&restRow.exp);
+  const rests=[];
+  const parts=groups.filter(g=>g.rows.length).map(g=>{
+    let rows=g.top?g.rows.map((r,i)=>({r,i})).sort((x,y)=>y.r.n-x.r.n||x.i-y.i).map(x=>x.r):g.rows;
+    if(g.top&&rows.length>g.top){
+      const rest=rows.slice(g.top), word=g.restWord||['значение','значения','значений'];
+      const restRow={name:'Остальные',note:rest.length+' '+plural(rest.length,word),n:0,missing:0,cells:[0,0,0,0,0],exp:g.restKey||null,open:!!g.restOpen};
+      rest.forEach(r=>add(restRow,r));
+      shares(restRow);rests.push(restRow);
+      rows=rows.slice(0,g.top).concat([restRow]).concat(restRow.exp&&restRow.open?rest.map(r=>Object.assign({sub:1},r)):[]);
+    }
+    return {name:g.name,rows};
+  });
+  /* распорка под каретку — у всех строк таблицы, если раскрываемая есть хоть в одной секции: имена на одной вертикали */
+  const tree=rests.some(r=>r.exp), isRest=r=>rests.indexOf(r)>=0;
   function scoreCell(row,n,score){
     if(row.total||!n||!row.n)return '<td>'+D.fmtInt(n)+'</td>';
     const share=n/row.n;
@@ -9494,19 +9504,21 @@ function ratingTable(o){
         rows:[{label:'Человек',value:D.fmtInt(n)},{label:'Доля от eligible строки',value:D.fmtNum('pct',100*share)}]})+
       '>'+D.fmtInt(n)+'</td>';
   }
-  const caret=r=>!tree?'':r===restRow?'<button class="caret-btn"'+(r.open?' data-open="1"':'')+' data-btexp="'+esc(r.exp)+'" aria-label="'+
+  const caret=r=>!tree?'':isRest(r)&&r.exp?'<button class="caret-btn"'+(r.open?' data-open="1"':'')+' data-btexp="'+esc(r.exp)+'" aria-label="'+
     (r.open?'Свернуть':'Раскрыть')+'">'+(r.open?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>';
   const label=r=>(tree?'<span class="row-label">'+caret(r)+'<span class="row-body">':'')+esc(r.name)+
     (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+(tree?'</span></span>':'');
-  const trCls=r=>r.total?' class="total top"':r===restRow&&tree?' class="urow" data-btexp="'+esc(r.exp)+'"'+
+  const trCls=r=>r.total?' class="total top"':isRest(r)&&r.exp?' class="urow" data-btexp="'+esc(r.exp)+'"'+
     tipAttr({title:'Остальные',text:r.open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):r.sub?' class="lvl2"':'';
+  const tr=r=>'<tr'+trCls(r)+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
+    r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>';
+  const sec=name=>name?'<tr class="hx-sec"><td class="txt" colspan="10">'+esc(name)+'</td></tr>':'';
   const pctTip=range=>tipAttr({title:'Доля с оценкой '+range,text:'100 × число eligible-сотрудников строки с финальной оценкой '+range+' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
   return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt" aria-label="'+esc(o.title)+'"></th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
     D.REVIEW_SCALE.map((name,i)=>'<th class="rv-h"'+tipAttr({title:i+' — '+name})+'>'+scoreMark(i,{tip:false})+'</th>').join('')+
     /* шапка одной строкой (правило поставки 117): «% 0–1» — коротко, «Доля с оценкой …» и формула — в подсказке */
     '<th'+pctTip('0–1')+'>% 0–1</th><th'+pctTip('3–4')+'>% 3–4</th></tr></thead><tbody>'+
-    [total].concat(rows).map(r=>'<tr'+trCls(r)+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
-      r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
+    tr(total)+parts.map(p=>sec(p.name)+p.rows.map(tr).join('')).join('')+
     '</tbody></table></div>';
 }
 /* 20.11: имя таблицы стоит над ней (.bt-cap) — первая колонка его не повторяет (чек-лист 12), для чтения с экрана — aria-label.
@@ -11457,6 +11469,19 @@ const TODO_LEAF={
       'Обсудите планы роста с теми, у кого заявок не было, — особенно с опытными.':null}},
   monitor:{activity:'Недоработка или переработка у одного человека несколько месяцев подряд — повод поговорить один на один.'},
   ai:{adoption:c=>{const cw=D.aiCur(D.aiWeeks(c.lp));return cw&&cw.wau<cw.hc?'Кто не пользуется AI — спросите, что мешает: доступ, задачи, обучение.':null}}};
+/* 20.11, решение владельца (п. 2 сверки): глава открывается фактом, как на остальных вкладках, — только числа, без оценки
+   «хорошо / плохо» (цели и базы у ревью нет). Пустые и ошибочные состояния — без заголовка: их объясняет сама вкладка. */
+CH.review={
+  who(c){const r=D.reviewData(c.lp);if(r.state!=='ready')return {};
+    return {sum:D.fmtInt(r.c.eligible)+' из '+D.fmtInt(r.c.all),
+      head:'В ревью '+r.year+' оцениваем '+D.fmtInt(r.c.eligible)+' из '+pl(r.c.all,PPL),
+      lede:'Финальную оценку получили **'+D.fmtInt(r.c.rated)+'**, без оценки — **'+D.fmtInt(r.c.missing)+'**.'}},
+  how(c){const r=D.reviewData(c.lp);if(r.state!=='ready'||!r.c.eligible)return {};
+    const sum=(a,b)=>r.gr.reduce((t,x)=>t+x.cells[a]+x.cells[b],0), hi=sum(3,4), lo=sum(0,1);
+    return {sum:'3–4: '+D.fmtInt(hi)+' из '+D.fmtInt(r.c.eligible),
+      head:'Оценка 3–4 — у '+D.fmtInt(hi)+' из '+D.fmtInt(r.c.eligible)+' eligible',
+      lede:'Оценка 0–1 — у **'+D.fmtInt(lo)+'**.'}}
+};
 QS.review={who:'Кого оцениваем',how:'Как оцениваем'};
 Q.review={who:'Кого оцениваем и как изменились оценки?',how:'Как распределены финальные оценки?'};
 WHY.review={who:['Понять охват eligible-популяции и изменения относительно прошлого года.','Отделяйте отсутствие оценки от нуля и первое ревью от пропуска прошлого года.'],how:['Сопоставить переходы и распределения в текущем кадровом снимке.','Сравнивайте доли с учётом всех eligible строки, включая сотрудников без финальной оценки.']};
@@ -13753,15 +13778,19 @@ const D=window.TPDATA,U=window.TPUI,SC=window.TPSCREENS;
 const tabs=[['who','Кого оцениваем'],['how','Как оцениваем']];
 function bars(title,items,sub){return U.btGroup({cap:title,capSub:sub||'',head:'',valueHead:'Человек',metricKey:'hc_total',share:false,total:false,
   items:items.map(x=>({name:x[0],value:x[1],tip:x[2]||null}))})}
+/* 20.11, решение владельца (п. 1 сверки): исходы оценки — одной разбивкой (DESIGN_SYSTEM 4.6): шесть групп вместе дают всех
+   eligible, итог — в подписи таблицы («всего N чел»), доля — от eligible. Расчёты прежние, только раскладка. */
 function who(r){
   const c=r.c;
   return bars('Общая численность и eligible',[['Общая численность',c.all],['Из них eligible',c.eligible,'Сотрудники, включённые в оцениваемую популяцию. Это часть общей численности, а не отдельная группа.']],'eligible — часть общей численности')+
     U.reviewNote('Eligible — сотрудники, включённые в оцениваемую популяцию на текущую дату. Общая численность здесь — все сотрудники текущего кадрового снимка под выбранными фильтрами.')+
     (!c.eligible?U.empty('Нет eligible-сотрудников','В выбранной численности нет сотрудников, включённых в ревью.'):
-    !c.rated?U.empty('Нет текущих финальных оценок','Eligible-сотрудники есть, но оценок от 0 до 4 за выбранный год нет.'):
-    bars('Изменение оценки',[['Улучшили оценку',c.up],['Ухудшили оценку',c.down],['Получили первую оценку',c.first]],r.previousYear+' → '+r.year)+
-    U.reviewNote('Показаны три категории, которые не охватывают всю eligible-популяцию. Первая оценка определяется отдельным флагом по истории финальных ревью, а не пропуском оценки прошлого года.'))+
-    bars('Остальные результаты',[['Без изменения оценки',c.same],['Без сопоставимой прошлогодней оценки',c.unpaired],['Без текущей финальной оценки',c.missing]]);
+    U.btGroup({cap:'Что с оценкой у eligible',capSub:r.previousYear+' → '+r.year,head:'',valueHead:'Человек',metricKey:'hc_total',share:true,total:true,
+      items:[['Улучшили оценку',c.up],['Ухудшили оценку',c.down],['Без изменения оценки',c.same],
+        ['Получили первую оценку',c.first,'Первая финальная оценка по всей доступной истории ревью.'],
+        ['Без сопоставимой прошлогодней оценки',c.unpaired,'Оценка за этот год есть, за прошлый — нет, но ревью было раньше.'],
+        ['Без текущей финальной оценки',c.missing]].map(x=>({name:x[0],value:x[1],tip:x[2]||null}))})+
+    U.reviewNote('Шесть групп вместе — все eligible. Первая оценка определяется по истории финальных ревью, а не по пропуску оценки прошлого года.'));
 }
 /* 20.11, итерация «В работу»: блоки — общей группой отчёта (.bt-group: заголовок 12/700 и подпись), не вложенными карточками;
    оценки — значками (U.scoreMark), переход — «значок → значок» и число людей в своей колонке */
@@ -13779,11 +13808,12 @@ function how(r,ctx){
     U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.score,
       html:'<span class="rv-pair"><span class="rv-na"'+U.tipAttr({title:'n/a',text:'Предыдущей финальной оценки нет.'})+'>n/a</span>'+arrow+U.scoreMark(x.score)+'</span>',vals:[x.n]}))}):
     U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')));
-  const tables=[['По грейду','grade',r.gr],['По стажу','tenure',r.tenure],['По специализации','spec',r.spec,
-    SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций'])]].map(x=>
-    group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2]},x[3]||{}))));
+  /* 20.11, решение владельца (п. 3 сверки): три разреза — одной таблицей с рубриками (DESIGN_SYSTEM 4.6e), одна шапка и одно Итого */
+  const table=group('Распределение оценок','грейд · стаж · специализация',U.ratingTable({title:'Распределение оценок',groups:[
+    {name:'Грейд',rows:r.gr},{name:'Стаж',rows:r.tenure},
+    Object.assign({name:'Специализация',rows:r.spec},SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций']))]}));
   /* подвал матриц — как у матрицы состава (.mx-foot): шкала заливки и сноска под таблицами, а не абзац перед ними */
-  return U.btStack(blocks.concat(tables))+
+  return U.btStack(blocks.concat([table]))+
     '<div class="mx-foot">'+U.heatLegend()+'<span class="tbl-note">В клетке — сотрудники с этой оценкой, цвет — их доля среди eligible строки. '+
     'Обе доли справа — тоже от всех eligible строки, включая сотрудников без оценки.</span></div>';
 }

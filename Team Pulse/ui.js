@@ -1172,23 +1172,32 @@ function scoreMark(i,o){
 /* Absolute rating counts; both rightmost percentages use all eligible in the row.
    20.11, специализации: o.top — строки по числу eligible (по убыванию, при равенстве — прежний порядок) всегда, первые o.top на виду,
    остальные — свёрнутой строкой «Остальные» с кареткой, раскрываются вторым уровнем, как «Движение по специализациям»
-   (o.restKey — ключ раскрытия в mixOpen, o.restOpen — раскрыта ли). Это только показ: Итого и доли — по всем строкам. */
+   (o.restKey — ключ раскрытия в mixOpen, o.restOpen — раскрыта ли). Это только показ: Итого и доли — по всем строкам.
+   20.11, решение владельца (п. 3 сверки): несколько разрезов — ОДНОЙ таблицей с рубриками секций, как тепловая таблица
+   (DESIGN_SYSTEM 4.6e): o.groups=[{name, rows, top, restKey, restOpen, restWord}], одна шапка и одно Итого. Каждый разрез
+   раскладывает всех eligible (это проверяет reviewFromMix), поэтому Итого считается по первой секции. Без o.groups — одна
+   таблица из o.rows (и o.top…) без рубрик. */
 function ratingTable(o){
+  const groups=o.groups||[{name:'',rows:o.rows,top:o.top,restKey:o.restKey,restOpen:o.restOpen,restWord:o.restWord}];
   const total={name:'Итого',total:true,n:0,missing:0,cells:[0,0,0,0,0]};
   const shares=r=>{r.low=r.n?100*(r.cells[0]+r.cells[1])/r.n:null;r.high=r.n?100*(r.cells[3]+r.cells[4])/r.n:null;return r};
   const add=(t,r)=>{t.n+=r.n;t.missing+=r.missing;r.cells.forEach((v,i)=>{t.cells[i]+=v})};
-  o.rows.forEach(r=>add(total,r));
+  groups[0].rows.forEach(r=>add(total,r));
   shares(total);
-  let rows=o.top?o.rows.map((r,i)=>({r,i})).sort((x,y)=>y.r.n-x.r.n||x.i-y.i).map(x=>x.r):o.rows, restRow=null;
-  if(o.top&&rows.length>o.top){
-    const ranked=rows;
-    const rest=ranked.slice(o.top), word=o.restWord||['значение','значения','значений'];
-    restRow={name:'Остальные',note:rest.length+' '+plural(rest.length,word),n:0,missing:0,cells:[0,0,0,0,0],exp:o.restKey||null,open:!!o.restOpen};
-    rest.forEach(r=>add(restRow,r));
-    shares(restRow);
-    rows=ranked.slice(0,o.top).concat([restRow]).concat(restRow.exp&&restRow.open?rest.map(r=>Object.assign({sub:1},r)):[]);
-  }
-  const tree=!!(restRow&&restRow.exp);
+  const rests=[];
+  const parts=groups.filter(g=>g.rows.length).map(g=>{
+    let rows=g.top?g.rows.map((r,i)=>({r,i})).sort((x,y)=>y.r.n-x.r.n||x.i-y.i).map(x=>x.r):g.rows;
+    if(g.top&&rows.length>g.top){
+      const rest=rows.slice(g.top), word=g.restWord||['значение','значения','значений'];
+      const restRow={name:'Остальные',note:rest.length+' '+plural(rest.length,word),n:0,missing:0,cells:[0,0,0,0,0],exp:g.restKey||null,open:!!g.restOpen};
+      rest.forEach(r=>add(restRow,r));
+      shares(restRow);rests.push(restRow);
+      rows=rows.slice(0,g.top).concat([restRow]).concat(restRow.exp&&restRow.open?rest.map(r=>Object.assign({sub:1},r)):[]);
+    }
+    return {name:g.name,rows};
+  });
+  /* распорка под каретку — у всех строк таблицы, если раскрываемая есть хоть в одной секции: имена на одной вертикали */
+  const tree=rests.some(r=>r.exp), isRest=r=>rests.indexOf(r)>=0;
   function scoreCell(row,n,score){
     if(row.total||!n||!row.n)return '<td>'+D.fmtInt(n)+'</td>';
     const share=n/row.n;
@@ -1197,19 +1206,21 @@ function ratingTable(o){
         rows:[{label:'Человек',value:D.fmtInt(n)},{label:'Доля от eligible строки',value:D.fmtNum('pct',100*share)}]})+
       '>'+D.fmtInt(n)+'</td>';
   }
-  const caret=r=>!tree?'':r===restRow?'<button class="caret-btn"'+(r.open?' data-open="1"':'')+' data-btexp="'+esc(r.exp)+'" aria-label="'+
+  const caret=r=>!tree?'':isRest(r)&&r.exp?'<button class="caret-btn"'+(r.open?' data-open="1"':'')+' data-btexp="'+esc(r.exp)+'" aria-label="'+
     (r.open?'Свернуть':'Раскрыть')+'">'+(r.open?'▾':'▸')+'</button>':'<span class="caret-spacer"></span>';
   const label=r=>(tree?'<span class="row-label">'+caret(r)+'<span class="row-body">':'')+esc(r.name)+
     (r.note?'<span class="unit-sub">'+esc(r.note)+'</span>':'')+(tree?'</span></span>':'');
-  const trCls=r=>r.total?' class="total top"':r===restRow&&tree?' class="urow" data-btexp="'+esc(r.exp)+'"'+
+  const trCls=r=>r.total?' class="total top"':isRest(r)&&r.exp?' class="urow" data-btexp="'+esc(r.exp)+'"'+
     tipAttr({title:'Остальные',text:r.open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):r.sub?' class="lvl2"':'';
+  const tr=r=>'<tr'+trCls(r)+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
+    r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>';
+  const sec=name=>name?'<tr class="hx-sec"><td class="txt" colspan="10">'+esc(name)+'</td></tr>':'';
   const pctTip=range=>tipAttr({title:'Доля с оценкой '+range,text:'100 × число eligible-сотрудников строки с финальной оценкой '+range+' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
   return '<div class="mx-wrap"><table class="ptable dense review-matrix"><thead><tr><th class="txt" aria-label="'+esc(o.title)+'"></th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
     D.REVIEW_SCALE.map((name,i)=>'<th class="rv-h"'+tipAttr({title:i+' — '+name})+'>'+scoreMark(i,{tip:false})+'</th>').join('')+
     /* шапка одной строкой (правило поставки 117): «% 0–1» — коротко, «Доля с оценкой …» и формула — в подсказке */
     '<th'+pctTip('0–1')+'>% 0–1</th><th'+pctTip('3–4')+'>% 3–4</th></tr></thead><tbody>'+
-    [total].concat(rows).map(r=>'<tr'+trCls(r)+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
-      r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
+    tr(total)+parts.map(p=>sec(p.name)+p.rows.map(tr).join('')).join('')+
     '</tbody></table></div>';
 }
 /* 20.11: имя таблицы стоит над ней (.bt-cap) — первая колонка его не повторяет (чек-лист 12), для чтения с экрана — aria-label.

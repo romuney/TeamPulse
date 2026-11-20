@@ -6,6 +6,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT=Path(__file__).resolve().parents[2]
 rows=json.loads(Path(sys.argv[1] if len(sys.argv)>1 else '/tmp/tp-review-browser-rows.json').read_text())
+year=int(json.loads(rows[0]['j'])['rv'].split('|')[1])
 html=(ROOT/'index.html').read_text().replace('<script src="data.js"></script>',
     '<script src="proteus/real.js"></script><script>window.TP_REAL=window.TPREAL.build('+json.dumps(rows).replace('</','<\\/')+');</script><script src="data.js"></script>')
 class Handler(SimpleHTTPRequestHandler):
@@ -23,6 +24,7 @@ try:
         for width in (1440,768,420):
             page=browser.new_page(viewport={'width':width,'height':1000})
             errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+            head=lambda:' '.join(page.locator('.review-screen .st-head h3').inner_text().split()) # richText keeps numbers with nbsp
             page.goto(f'http://127.0.0.1:{server.server_port}/review-fixture.html?tour=0')
             if width<=780:page.locator('#navToggle').click()
             page.locator('[data-tab="review"]').click()
@@ -30,9 +32,18 @@ try:
             assert 'Общая численность' in page.locator('.review-screen').inner_text()
             assert 'Из них eligible' in page.locator('.review-screen').inner_text()
             assert not errors,errors
+            # One outcome breakdown: six groups add up to all eligible (11), total in the caption.
+            who=page.locator('.review-screen').inner_text()
+            assert 'Что с оценкой у eligible' in who and 'Остальные результаты' not in who
+            assert page.locator('.review-screen .bt-cap').filter(has_text='Что с оценкой у eligible').locator('b').inner_text()=='11'
+            # Chapter head states facts only.
+            assert head()=='В ревью '+str(year)+' оцениваем 11 из 13 человек'
             if width==1440:page.screenshot(path='/tmp/teampulse-review-who.png',full_page=True)
             page.locator('[data-subtab="how"]').click()
-            assert page.locator('.review-matrix').count()==3
+            assert page.locator('.review-matrix').count()==1
+            assert page.locator('.review-matrix tr.hx-sec').all_text_contents()==['Грейд','Стаж','Специализация']
+            assert page.locator('.review-matrix tr.total').count()==1
+            assert head()=='Оценка 3–4 — у 3 из 11 eligible'
             assert '33,3%' in page.locator('.review-matrix').first.inner_text()
             assert '66,7%' in page.locator('.review-matrix').first.inner_text()
             assert page.locator('.review-matrix a').count()==0
@@ -48,7 +59,7 @@ try:
             # Checklist 12: tooltips only via data-tip, never the native title attribute (smoke cannot see this tab on mocks).
             assert page.locator('.review-screen [title]').count()==0
             assert headers.first.inner_text().strip()=='' # table name stands above the table, not in its first column
-            assert page.locator('.review-matrix').first.locator('tbody tr').count()==4
+            assert page.locator('.review-matrix').first.locator('tbody tr').count()==1+3+3+2+2 # total, sections, grade, tenure, spec
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'),(width,'page overflow')
             if width==420:
                 box=page.locator('.review-matrix').first.locator('..')
@@ -105,7 +116,7 @@ try:
             print('Sandbox body:',frame.locator('body').inner_text()[:2000],flush=True)
             raise
         frame.locator('[data-subtab="how"]').click()
-        assert frame.locator('.review-matrix').count()==3
+        assert frame.locator('.review-matrix').count()==1
         assert '33,3%' in frame.locator('.review-matrix').first.inner_text()
         assert page.frames[1].evaluate("(()=>{const a=[...document.querySelectorAll('img.rv-ico')];return a.length>=15&&a.every(i=>i.complete&&i.naturalWidth>0)})()")
         frame.locator('.split-l tr.urow').filter(has_text='Отдел 22').locator('.row-body').click()
