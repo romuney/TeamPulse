@@ -2844,6 +2844,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    заданием итерации («длинный заголовок переносить на несколько строк»). */
 .ptable.review-matrix{--rv-col:80px;table-layout:fixed;width:100%;min-width:calc(var(--rv-col)*10)}
 .ptable.review-matrix col{width:10%}
+/* 23.11, ред. задания 11:14: стаж и специализация — первая колонка 2,5 : 1 к каждой из девяти остальных: w = W / (9 + 2,5),
+   первая = 2,5·w (21,74% и по 8,70%); на узкой панели — узкая 64 px, первая 160 px, пропорция та же (прокрутка в .mx-wrap) */
+.ptable.review-matrix.rv-wide{--rv-col:64px;min-width:calc(var(--rv-col)*11.5)} /* имена — в широкой первой колонке: узкой хватает 64 px */
+.ptable.review-matrix.rv-wide col{width:calc(100% / 11.5)}
+.ptable.review-matrix.rv-wide col:first-child{width:calc(100% * 2.5 / 11.5)}
 #view .ptable.review-matrix thead th{white-space:normal;vertical-align:bottom;text-transform:none;letter-spacing:0;
   font-size:var(--fs-micro);line-height:1.25;min-width:0;overflow-wrap:break-word;hyphens:auto}
 .ptable.review-matrix :is(th,td){padding-left:var(--s2);padding-right:var(--s2)}
@@ -8849,7 +8854,9 @@ function barTable(o){
         '>'+(x.open?'▾':'▸')+'</button>'
       :'<span class="caret-spacer"></span>';
     /* лёгкие таблицы (структура): длинное название без пояснения — в две строки, а не многоточием (19.10) */
-    const nm='<span class="row-body'+(lite&&!x.note?' two':'')+'">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять: оплата, рост, руководитель.'})+'>★</span> ':'')+esc(x.name)+
+    const nm='<span class="row-body'+(lite&&!x.note?' two':'')+'">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять: оплата, рост, руководитель.'})+'>★</span> ':'')+
+      /* 23.11: x.html — готовая разметка имени (значки оценок «Ревью»); подсказка и срез по-прежнему по x.name */
+      (x.html||esc(x.name))+
       (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span>';
     h+='<tr'+hook+'>'+
       '<td class="txt">'+(tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
@@ -9485,7 +9492,8 @@ const RV_LOW='% есть над чем поработать и ниже', RV_HIG
    остальные — свёрнутой строкой «Остальные» с кареткой, раскрываются вторым уровнем, как «Движение по специализациям»
    (o.restKey — ключ раскрытия в mixOpen, o.restOpen — раскрыта ли). Это только показ: Итого и доли — по всем строкам.
    23.11 (итерация «В работу», п. 5): все десять колонок одной ширины — table-layout:fixed без ширин у ячеек, длинные имена
-   и шапки переносятся (styles.css, .review-matrix). */
+   и шапки переносятся (styles.css, .review-matrix). 23.11, ред. задания 11:14: o.wide — первая колонка в 2,5 раза шире
+   каждой из остальных (стаж, специализация; грейд — без изменений), остальные девять равны между собой (.rv-wide). */
 function ratingTable(o){
   const total={name:'Итого',total:true,n:0,missing:0,cells:[0,0,0,0,0]};
   const shares=r=>{r.low=r.n?100*(r.cells[0]+r.cells[1])/r.n:null;r.high=r.n?100*(r.cells[3]+r.cells[4])/r.n:null;return r};
@@ -9518,7 +9526,7 @@ function ratingTable(o){
   const S=D.REVIEW_SCALE, q=s=>'«'+s+'»';
   const pctTip=(title,a,b)=>tipAttr({title:title,text:'100 × eligible-сотрудники строки с финальной оценкой '+q(S[a])+' или '+q(S[b])+
     ' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
-  return '<div class="mx-wrap"><table class="ptable dense review-matrix" lang="ru"><colgroup>'+'<col>'.repeat(10)+'</colgroup><thead><tr><th class="txt" aria-label="'+esc(o.title)+'"></th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
+  return '<div class="mx-wrap"><table class="ptable dense review-matrix'+(o.wide?' rv-wide':'')+'" lang="ru"><colgroup>'+'<col>'.repeat(10)+'</colgroup><thead><tr><th class="txt" aria-label="'+esc(o.title)+'"></th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
     S.map((name,i)=>'<th class="rv-h"'+tipAttr({title:name})+'>'+scoreMark(i,{tip:false})+'</th>').join('')+
     '<th'+pctTip(RV_LOW,0,1)+'>'+esc(RV_LOW)+'</th><th'+pctTip(RV_HIGH,3,4)+'>'+esc(RV_HIGH)+'</th></tr></thead><tbody>'+
     [total].concat(rows).map(r=>'<tr'+trCls(r)+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
@@ -13804,20 +13812,29 @@ const arrow='<span class="rv-arr" aria-hidden="true">→</span>';
 function how(r,ctx){
   if(!r.c.eligible)return U.empty('Нет eligible-сотрудников','Измените фильтры или подразделение.');
   const blocks=[U.ratingLegend()];
-  blocks.push(group('Переходы между оценками',r.previousYear+' → '+r.year,r.transitions.length?
-    U.statTable({head:'Предыдущая → текущая оценка',cols:['Человек'],rows:r.transitions.map(t=>({name:D.REVIEW_SCALE[t.previous]+' → '+D.REVIEW_SCALE[t.current],
-      html:'<span class="rv-pair">'+U.scoreMark(t.previous)+arrow+U.scoreMark(t.current)+'</span>',vals:[t.n]}))}):
-    U.empty('Нет переходов с изменением оценки','Нужны две сопоставимые финальные оценки разных значений. Неизменившиеся оценки сюда не входят.')));
+  /* 23.11, ред. задания 11:14: у переходов и первых оценок — люди, доля и полоса общей разбивки (btGroup: доля — от суммы строк
+     таблицы, полоса — та же доля на шкале 0–100%, по исходному значению). Знаменатель переходов согласован владельцем 23.11:
+     все сотрудники с изменившейся оценкой (улучшили + ухудшили); первых оценок — все впервые оценённые. Пустая таблица —
+     пустым состоянием, как раньше; порядок строк прежний (sort не задан). */
+  const pairs=(o)=>U.btGroup(Object.assign({head:'',valueHead:'Человек',metricKey:'hc_total',share:true,total:true},o));
+  blocks.push(r.transitions.length?pairs({cap:'Переходы между оценками',
+      capSub:r.previousYear+' → '+r.year+' · доля — от всех с изменившейся оценкой',
+      items:r.transitions.map(t=>({name:D.REVIEW_SCALE[t.previous]+' → '+D.REVIEW_SCALE[t.current],value:t.n,
+        html:'<span class="rv-pair">'+U.scoreMark(t.previous)+arrow+U.scoreMark(t.current)+'</span>'}))}):
+    group('Переходы между оценками',r.previousYear+' → '+r.year,
+      U.empty('Нет переходов с изменением оценки','Нужны две сопоставимые финальные оценки разных значений. Неизменившиеся оценки сюда не входят.')));
   /* «n/a» — нет предыдущей оценки: своего значка для него нет (задание: не подбирать), остаётся текстом */
-  blocks.push(group('Первые оценки','нет более раннего финального ревью в истории источника',r.c.first?
-    U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.name,
-      html:'<span class="rv-pair"><span class="rv-na"'+U.tipAttr({title:'n/a',text:'Предыдущей финальной оценки нет.'})+'>n/a</span>'+arrow+U.scoreMark(x.score)+'</span>',vals:[x.n]}))}):
-    U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')));
+  const na='<span class="rv-na"'+U.tipAttr({title:'n/a',text:'Предыдущей финальной оценки нет.'})+'>n/a</span>';
+  blocks.push(r.c.first?pairs({cap:'Первые оценки',capSub:'нет более раннего финального ревью · доля — от всех впервые оценённых',
+      items:r.first.map(x=>({name:'n/a → '+x.name,value:x.n,html:'<span class="rv-pair">'+na+arrow+U.scoreMark(x.score)+'</span>'}))}):
+    group('Первые оценки','нет более раннего финального ревью в истории источника',
+      U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')));
   /* 23.11 (итерация «В работу», п. 4): грейд, стаж и специализация — три самостоятельных блока, у каждого свой заголовок,
      шапка колонок и Итого; между блоками — отступ стопки .rv-tables. Рубрик внутри одной таблицы больше нет. */
   const tables=[['Распределение оценок по грейду','grade',r.gr],['Распределение оценок по стажу','tenure',r.tenure],
     ['Распределение оценок по специализации','spec',r.spec,SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций'])]]
-    .map(x=>group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2]},x[3]||{}))));
+    /* 23.11, ред. задания 11:14: у стажа и специализации первая колонка шире (wide), у грейда сетка прежняя */
+    .map(x=>group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2],wide:x[1]!=='grade'},x[3]||{}))));
   /* подвал матриц — как у матрицы состава (.mx-foot): шкала заливки и сноска под таблицами, а не абзац перед ними */
   return U.btStack(blocks)+U.btStack(tables,'rv-tables')+
     '<div class="mx-foot">'+U.heatLegend()+'<span class="tbl-note">В клетке — сотрудники с этой оценкой, цвет — их доля среди eligible строки. '+

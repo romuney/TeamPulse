@@ -49,7 +49,20 @@ try:
             # Equal-width grid: every column of every table is the same width; header cells match body cells.
             grid=page.evaluate('''()=>[...document.querySelectorAll('.review-matrix')].map(t=>{const w=r=>[...r.children].map(c=>Math.round(c.getBoundingClientRect().width));
               return {head:w(t.querySelector('thead tr')),body:w(t.querySelector('tbody tr'))}})''')
-            assert all(len(set(g['head']))==1 and g['head']==g['body'] for g in grid) and len({g['head'][0] for g in grid})==1,grid
+            # grade: ten equal columns; tenure and specialization: first column 2.5x each of the other nine, equal among themselves.
+            assert all(g['head']==g['body'] for g in grid),grid
+            assert len(set(grid[0]['head']))==1,grid[0]
+            assert all(len(set(g['head'][1:]))==1 and abs(g['head'][0]/g['head'][1]-2.5)<0.05 for g in grid[1:]),grid
+            # Transitions and first ratings: people, share and a 0–100% bar of the same raw share; denominators named in captions.
+            bt=page.evaluate('''()=>[...document.querySelectorAll('.review-screen .bt-group')].filter(g=>/Переходы между оценками|Первые оценки/.test(g.innerText)).map(g=>({
+              cap:g.querySelector('.bt-cap').innerText,rows:[...g.querySelectorAll('tbody tr')].map(r=>{const c=r.querySelectorAll('td'),bar=r.querySelector('.cellbar i');
+                return {n:+c[1].innerText,share:c[2].innerText,w:parseFloat(bar.style.width)}})}))''')
+            assert len(bt)==2 and 'от всех с изменившейся оценкой' in bt[0]['cap'] and 'от всех впервые оценённых' in bt[1]['cap'],bt
+            for g in bt:
+                tot=sum(r['n'] for r in g['rows'])
+                assert ('всего '+str(tot)) in ' '.join(g['cap'].split()),g['cap']
+                for r in g['rows']:
+                    assert abs(r['w']-100*r['n']/tot)<0.06 and r['share']==(f"{100*r['n']/tot:.1f}".replace('.',',').replace(',0','')+'%'),(r,tot)
             # No scale codes anywhere the user can see or hear: text, tooltips, alt, aria-labels.
             seen=page.evaluate('''()=>{const r=document.querySelector('.review-screen');return r.innerText+' '+
               [...r.querySelectorAll('[data-tip],[alt],[aria-label]')].map(e=>(e.getAttribute('data-tip')||'')+' '+(e.getAttribute('alt')||'')+' '+(e.getAttribute('aria-label')||'')).join(' ')}''')

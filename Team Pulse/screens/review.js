@@ -26,20 +26,29 @@ const arrow='<span class="rv-arr" aria-hidden="true">→</span>';
 function how(r,ctx){
   if(!r.c.eligible)return U.empty('Нет eligible-сотрудников','Измените фильтры или подразделение.');
   const blocks=[U.ratingLegend()];
-  blocks.push(group('Переходы между оценками',r.previousYear+' → '+r.year,r.transitions.length?
-    U.statTable({head:'Предыдущая → текущая оценка',cols:['Человек'],rows:r.transitions.map(t=>({name:D.REVIEW_SCALE[t.previous]+' → '+D.REVIEW_SCALE[t.current],
-      html:'<span class="rv-pair">'+U.scoreMark(t.previous)+arrow+U.scoreMark(t.current)+'</span>',vals:[t.n]}))}):
-    U.empty('Нет переходов с изменением оценки','Нужны две сопоставимые финальные оценки разных значений. Неизменившиеся оценки сюда не входят.')));
+  /* 23.11, ред. задания 11:14: у переходов и первых оценок — люди, доля и полоса общей разбивки (btGroup: доля — от суммы строк
+     таблицы, полоса — та же доля на шкале 0–100%, по исходному значению). Знаменатель переходов согласован владельцем 23.11:
+     все сотрудники с изменившейся оценкой (улучшили + ухудшили); первых оценок — все впервые оценённые. Пустая таблица —
+     пустым состоянием, как раньше; порядок строк прежний (sort не задан). */
+  const pairs=(o)=>U.btGroup(Object.assign({head:'',valueHead:'Человек',metricKey:'hc_total',share:true,total:true},o));
+  blocks.push(r.transitions.length?pairs({cap:'Переходы между оценками',
+      capSub:r.previousYear+' → '+r.year+' · доля — от всех с изменившейся оценкой',
+      items:r.transitions.map(t=>({name:D.REVIEW_SCALE[t.previous]+' → '+D.REVIEW_SCALE[t.current],value:t.n,
+        html:'<span class="rv-pair">'+U.scoreMark(t.previous)+arrow+U.scoreMark(t.current)+'</span>'}))}):
+    group('Переходы между оценками',r.previousYear+' → '+r.year,
+      U.empty('Нет переходов с изменением оценки','Нужны две сопоставимые финальные оценки разных значений. Неизменившиеся оценки сюда не входят.')));
   /* «n/a» — нет предыдущей оценки: своего значка для него нет (задание: не подбирать), остаётся текстом */
-  blocks.push(group('Первые оценки','нет более раннего финального ревью в истории источника',r.c.first?
-    U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.name,
-      html:'<span class="rv-pair"><span class="rv-na"'+U.tipAttr({title:'n/a',text:'Предыдущей финальной оценки нет.'})+'>n/a</span>'+arrow+U.scoreMark(x.score)+'</span>',vals:[x.n]}))}):
-    U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')));
+  const na='<span class="rv-na"'+U.tipAttr({title:'n/a',text:'Предыдущей финальной оценки нет.'})+'>n/a</span>';
+  blocks.push(r.c.first?pairs({cap:'Первые оценки',capSub:'нет более раннего финального ревью · доля — от всех впервые оценённых',
+      items:r.first.map(x=>({name:'n/a → '+x.name,value:x.n,html:'<span class="rv-pair">'+na+arrow+U.scoreMark(x.score)+'</span>'}))}):
+    group('Первые оценки','нет более раннего финального ревью в истории источника',
+      U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')));
   /* 23.11 (итерация «В работу», п. 4): грейд, стаж и специализация — три самостоятельных блока, у каждого свой заголовок,
      шапка колонок и Итого; между блоками — отступ стопки .rv-tables. Рубрик внутри одной таблицы больше нет. */
   const tables=[['Распределение оценок по грейду','grade',r.gr],['Распределение оценок по стажу','tenure',r.tenure],
     ['Распределение оценок по специализации','spec',r.spec,SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций'])]]
-    .map(x=>group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2]},x[3]||{}))));
+    /* 23.11, ред. задания 11:14: у стажа и специализации первая колонка шире (wide), у грейда сетка прежняя */
+    .map(x=>group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2],wide:x[1]!=='grade'},x[3]||{}))));
   /* подвал матриц — как у матрицы состава (.mx-foot): шкала заливки и сноска под таблицами, а не абзац перед ними */
   return U.btStack(blocks)+U.btStack(tables,'rv-tables')+
     '<div class="mx-foot">'+U.heatLegend()+'<span class="tbl-note">В клетке — сотрудники с этой оценкой, цвет — их доля среди eligible строки. '+

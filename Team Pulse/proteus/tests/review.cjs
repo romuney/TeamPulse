@@ -77,6 +77,7 @@ const ten=U.ratingTable({title:'Спец',kind:'spec',rows:spec.slice(0,10),top:
 assert(!ten.includes('Остальные')&&!ten.includes('data-btexp'));
 assert.deepEqual([...ten.matchAll(/<td class="txt">([^<]+)/g)].map(m=>m[1]),['Итого','S1','S2','S7','S4','S9','S0','S5','S6','S8','S3']); // same ranking without the rest row
 assert.equal(spec.map(r=>r.name).join(),'S0,S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12'); // display only: source rows untouched
+assert(U.ratingTable({title:'x',kind:'tenure',rows:spec,wide:true}).includes('review-matrix rv-wide')&&!html.includes('rv-wide')); // 2.5:1 grid only where asked
 assert(!U.ratingLegend().match(/\b[0-4] — /)&&U.ratingLegend().includes('звезда'));
 if(process.env.REVIEW_BROWSER_ROWS)fs.writeFileSync(process.env.REVIEW_BROWSER_ROWS,JSON.stringify(rows));
 console.log('PASS: SQL aggregate fixture -> real adapter -> eligible denominator, history categories, filters/units, empty/unavailable/error, null vs zero, display rounding, escaping and plain labels, rating icons with text fallback, specialization top-10 with expandable rest');

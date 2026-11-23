@@ -541,7 +541,9 @@ function barTable(o){
         '>'+(x.open?'▾':'▸')+'</button>'
       :'<span class="caret-spacer"></span>';
     /* лёгкие таблицы (структура): длинное название без пояснения — в две строки, а не многоточием (19.10) */
-    const nm='<span class="row-body'+(lite&&!x.note?' two':'')+'">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять: оплата, рост, руководитель.'})+'>★</span> ':'')+esc(x.name)+
+    const nm='<span class="row-body'+(lite&&!x.note?' two':'')+'">'+(x.mark?'<span class="rt-mark"'+tipAttr({title:'Нежелательный уход',text:'Причина, на которую компания могла повлиять: оплата, рост, руководитель.'})+'>★</span> ':'')+
+      /* 23.11: x.html — готовая разметка имени (значки оценок «Ревью»); подсказка и срез по-прежнему по x.name */
+      (x.html||esc(x.name))+
       (x.note?'<span class="unit-sub">'+esc(x.note)+'</span>':'')+'</span>';
     h+='<tr'+hook+'>'+
       '<td class="txt">'+(tree?'<span class="row-label">'+caret+nm+'</span>':nm)+'</td>'+
@@ -1177,7 +1179,8 @@ const RV_LOW='% есть над чем поработать и ниже', RV_HIG
    остальные — свёрнутой строкой «Остальные» с кареткой, раскрываются вторым уровнем, как «Движение по специализациям»
    (o.restKey — ключ раскрытия в mixOpen, o.restOpen — раскрыта ли). Это только показ: Итого и доли — по всем строкам.
    23.11 (итерация «В работу», п. 5): все десять колонок одной ширины — table-layout:fixed без ширин у ячеек, длинные имена
-   и шапки переносятся (styles.css, .review-matrix). */
+   и шапки переносятся (styles.css, .review-matrix). 23.11, ред. задания 11:14: o.wide — первая колонка в 2,5 раза шире
+   каждой из остальных (стаж, специализация; грейд — без изменений), остальные девять равны между собой (.rv-wide). */
 function ratingTable(o){
   const total={name:'Итого',total:true,n:0,missing:0,cells:[0,0,0,0,0]};
   const shares=r=>{r.low=r.n?100*(r.cells[0]+r.cells[1])/r.n:null;r.high=r.n?100*(r.cells[3]+r.cells[4])/r.n:null;return r};
@@ -1210,7 +1213,7 @@ function ratingTable(o){
   const S=D.REVIEW_SCALE, q=s=>'«'+s+'»';
   const pctTip=(title,a,b)=>tipAttr({title:title,text:'100 × eligible-сотрудники строки с финальной оценкой '+q(S[a])+' или '+q(S[b])+
     ' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
-  return '<div class="mx-wrap"><table class="ptable dense review-matrix" lang="ru"><colgroup>'+'<col>'.repeat(10)+'</colgroup><thead><tr><th class="txt" aria-label="'+esc(o.title)+'"></th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
+  return '<div class="mx-wrap"><table class="ptable dense review-matrix'+(o.wide?' rv-wide':'')+'" lang="ru"><colgroup>'+'<col>'.repeat(10)+'</colgroup><thead><tr><th class="txt" aria-label="'+esc(o.title)+'"></th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
     S.map((name,i)=>'<th class="rv-h"'+tipAttr({title:name})+'>'+scoreMark(i,{tip:false})+'</th>').join('')+
     '<th'+pctTip(RV_LOW,0,1)+'>'+esc(RV_LOW)+'</th><th'+pctTip(RV_HIGH,3,4)+'>'+esc(RV_HIGH)+'</th></tr></thead><tbody>'+
     [total].concat(rows).map(r=>'<tr'+trCls(r)+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+

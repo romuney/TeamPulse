@@ -2836,6 +2836,11 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    заданием итерации («длинный заголовок переносить на несколько строк»). */
 .ptable.review-matrix{--rv-col:80px;table-layout:fixed;width:100%;min-width:calc(var(--rv-col)*10)}
 .ptable.review-matrix col{width:10%}
+/* 23.11, ред. задания 11:14: стаж и специализация — первая колонка 2,5 : 1 к каждой из девяти остальных: w = W / (9 + 2,5),
+   первая = 2,5·w (21,74% и по 8,70%); на узкой панели — узкая 64 px, первая 160 px, пропорция та же (прокрутка в .mx-wrap) */
+.ptable.review-matrix.rv-wide{--rv-col:64px;min-width:calc(var(--rv-col)*11.5)} /* имена — в широкой первой колонке: узкой хватает 64 px */
+.ptable.review-matrix.rv-wide col{width:calc(100% / 11.5)}
+.ptable.review-matrix.rv-wide col:first-child{width:calc(100% * 2.5 / 11.5)}
 #view .ptable.review-matrix thead th{white-space:normal;vertical-align:bottom;text-transform:none;letter-spacing:0;
   font-size:var(--fs-micro);line-height:1.25;min-width:0;overflow-wrap:break-word;hyphens:auto}
 .ptable.review-matrix :is(th,td){padding-left:var(--s2);padding-right:var(--s2)}
