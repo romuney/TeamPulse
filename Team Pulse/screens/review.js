@@ -27,20 +27,21 @@ function how(r,ctx){
   if(!r.c.eligible)return U.empty('Нет eligible-сотрудников','Измените фильтры или подразделение.');
   const blocks=[U.ratingLegend()];
   blocks.push(group('Переходы между оценками',r.previousYear+' → '+r.year,r.transitions.length?
-    U.statTable({head:'Предыдущая → текущая оценка',cols:['Человек'],rows:r.transitions.map(t=>({name:t.previous+' → '+t.current,
+    U.statTable({head:'Предыдущая → текущая оценка',cols:['Человек'],rows:r.transitions.map(t=>({name:D.REVIEW_SCALE[t.previous]+' → '+D.REVIEW_SCALE[t.current],
       html:'<span class="rv-pair">'+U.scoreMark(t.previous)+arrow+U.scoreMark(t.current)+'</span>',vals:[t.n]}))}):
     U.empty('Нет переходов с изменением оценки','Нужны две сопоставимые финальные оценки разных значений. Неизменившиеся оценки сюда не входят.')));
   /* «n/a» — нет предыдущей оценки: своего значка для него нет (задание: не подбирать), остаётся текстом */
   blocks.push(group('Первые оценки','нет более раннего финального ревью в истории источника',r.c.first?
-    U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.score,
+    U.statTable({head:'Первая оценка',cols:['Человек'],rows:r.first.map(x=>({name:'n/a → '+x.name,
       html:'<span class="rv-pair"><span class="rv-na"'+U.tipAttr({title:'n/a',text:'Предыдущей финальной оценки нет.'})+'>n/a</span>'+arrow+U.scoreMark(x.score)+'</span>',vals:[x.n]}))}):
     U.empty('Нет впервые оценённых сотрудников','Пропуск прошлогодней оценки сам по себе не означает первое ревью.')));
-  /* 20.11, решение владельца (п. 3 сверки): три разреза — одной таблицей с рубриками (DESIGN_SYSTEM 4.6e), одна шапка и одно Итого */
-  const table=group('Распределение оценок','грейд · стаж · специализация',U.ratingTable({title:'Распределение оценок',groups:[
-    {name:'Грейд',rows:r.gr},{name:'Стаж',rows:r.tenure},
-    Object.assign({name:'Специализация',rows:r.spec},SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций']))]}));
+  /* 23.11 (итерация «В работу», п. 4): грейд, стаж и специализация — три самостоятельных блока, у каждого свой заголовок,
+     шапка колонок и Итого; между блоками — отступ стопки .rv-tables. Рубрик внутри одной таблицы больше нет. */
+  const tables=[['Распределение оценок по грейду','grade',r.gr],['Распределение оценок по стажу','tenure',r.tenure],
+    ['Распределение оценок по специализации','spec',r.spec,SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций'])]]
+    .map(x=>group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2]},x[3]||{}))));
   /* подвал матриц — как у матрицы состава (.mx-foot): шкала заливки и сноска под таблицами, а не абзац перед ними */
-  return U.btStack(blocks.concat([table]))+
+  return U.btStack(blocks)+U.btStack(tables,'rv-tables')+
     '<div class="mx-foot">'+U.heatLegend()+'<span class="tbl-note">В клетке — сотрудники с этой оценкой, цвет — их доля среди eligible строки. '+
     'Обе доли справа — тоже от всех eligible строки, включая сотрудников без оценки.</span></div>';
 }

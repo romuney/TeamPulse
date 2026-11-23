@@ -1,7 +1,7 @@
 """Browser check on synthetic aggregate rows emitted by review.cjs; no external data."""
 from pathlib import Path
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
-import json, os, shutil, sys, threading
+import json, os, re, shutil, sys, threading
 from playwright.sync_api import sync_playwright
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -40,26 +40,37 @@ try:
             assert head()=='В ревью '+str(year)+' оцениваем 11 из 13 человек'
             if width==1440:page.screenshot(path='/tmp/teampulse-review-who.png',full_page=True)
             page.locator('[data-subtab="how"]').click()
-            assert page.locator('.review-matrix').count()==1
-            assert page.locator('.review-matrix tr.hx-sec').all_text_contents()==['Грейд','Стаж','Специализация']
-            assert page.locator('.review-matrix tr.total').count()==1
-            assert head()=='Оценка 3–4 — у 3 из 11 eligible'
+            # 23.11: three self-contained tables, each with its own caption, header row and total.
+            assert page.locator('.review-matrix').count()==3
+            assert page.locator('.review-matrix tr.hx-sec').count()==0 and page.locator('.review-matrix tr.total').count()==3
+            assert [' '.join(t.split()) for t in page.locator('.review-screen .rv-tables .bt-cap').all_inner_texts()]==[
+                'Распределение оценок по грейду','Распределение оценок по стажу','Распределение оценок по специализации']
+            assert head()=='Огонь и выше — у 3 из 11 eligible'
+            # Equal-width grid: every column of every table is the same width; header cells match body cells.
+            grid=page.evaluate('''()=>[...document.querySelectorAll('.review-matrix')].map(t=>{const w=r=>[...r.children].map(c=>Math.round(c.getBoundingClientRect().width));
+              return {head:w(t.querySelector('thead tr')),body:w(t.querySelector('tbody tr'))}})''')
+            assert all(len(set(g['head']))==1 and g['head']==g['body'] for g in grid) and len({g['head'][0] for g in grid})==1,grid
+            # No scale codes anywhere the user can see or hear: text, tooltips, alt, aria-labels.
+            seen=page.evaluate('''()=>{const r=document.querySelector('.review-screen');return r.innerText+' '+
+              [...r.querySelectorAll('[data-tip],[alt],[aria-label]')].map(e=>(e.getAttribute('data-tip')||'')+' '+(e.getAttribute('alt')||'')+' '+(e.getAttribute('aria-label')||'')).join(' ')}''')
+            assert not re.search(r'0–1|3–4|0–4|\b[0-4] — |\([0-4]\)|Оценка [0-4]',seen),re.findall(r'.{20}(?:0–1|3–4|\b[0-4] — ).{20}',seen)
             assert '33,3%' in page.locator('.review-matrix').first.inner_text()
             assert '66,7%' in page.locator('.review-matrix').first.inner_text()
             assert page.locator('.review-matrix a').count()==0
             # Percent headers explain the eligible denominator via the shared tooltip.
             headers=page.locator('.review-matrix').first.locator('th')
-            assert '% 3–4' in headers.last.inner_text(),headers.last.inner_text()
+            assert ' '.join(headers.last.inner_text().split())=='% огней и выше',headers.last.inner_text()
+            assert ' '.join(headers.nth(8).inner_text().split()).replace('- ','')=='% есть над чем поработать и ниже',headers.nth(8).inner_text()
             # Rating icons: one per scale point in headers, transitions and first ratings; all decoded, alt = number + name.
             icons=page.locator('.review-screen img.rv-ico')
             assert icons.count()>=15,icons.count()
-            assert page.evaluate("[...document.querySelectorAll('.review-screen img.rv-ico')].every(i=>i.complete&&i.naturalWidth>0&&/^[0-4] — /.test(i.alt)&&i.getBoundingClientRect().width===i.getBoundingClientRect().height)")
-            assert headers.nth(3).locator('img').get_attribute('alt')=='0 — не соответствует ожиданиям'
-            assert headers.nth(7).locator('img').get_attribute('alt')=='4 — звезда'
+            assert page.evaluate("[...document.querySelectorAll('.review-screen img.rv-ico')].every(i=>i.complete&&i.naturalWidth>0&&window.TPDATA.REVIEW_SCALE.includes(i.alt)&&i.getBoundingClientRect().width===i.getBoundingClientRect().height)")
+            assert headers.nth(3).locator('img').get_attribute('alt')=='не соответствует ожиданиям'
+            assert headers.nth(7).locator('img').get_attribute('alt')=='звезда'
             # Checklist 12: tooltips only via data-tip, never the native title attribute (smoke cannot see this tab on mocks).
             assert page.locator('.review-screen [title]').count()==0
             assert headers.first.inner_text().strip()=='' # table name stands above the table, not in its first column
-            assert page.locator('.review-matrix').first.locator('tbody tr').count()==1+3+3+2+2 # total, sections, grade, tenure, spec
+            assert page.locator('.review-matrix').first.locator('tbody tr').count()==4 # total + G1, H1, Не указано
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth+1'),(width,'page overflow')
             if width==420:
                 box=page.locator('.review-matrix').first.locator('..')
@@ -72,7 +83,8 @@ try:
             assert left.is_visible() and unit.locator('td').nth(1).inner_text()=='1'
             if width==1440:
                 assert left.bounding_box()['x']<right.bounding_box()['x']
-                assert grade.locator('..').evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
+                # 512 px split panel < ten 80 px columns: the table scrolls inside its own wrapper, the page does not.
+                assert grade.locator('..').evaluate('(e)=>e.scrollWidth>e.clientWidth')
                 grade.locator('..').screenshot(path='/tmp/teampulse-review-heatmap.png')
                 left.locator('[data-tsort="eligible:d"]').click()
                 assert 'Отдел 11' in left.locator('tr.urow').first.inner_text()
@@ -116,7 +128,7 @@ try:
             print('Sandbox body:',frame.locator('body').inner_text()[:2000],flush=True)
             raise
         frame.locator('[data-subtab="how"]').click()
-        assert frame.locator('.review-matrix').count()==1
+        assert frame.locator('.review-matrix').count()==3
         assert '33,3%' in frame.locator('.review-matrix').first.inner_text()
         assert page.frames[1].evaluate("(()=>{const a=[...document.querySelectorAll('img.rv-ico')];return a.length>=15&&a.every(i=>i.complete&&i.naturalWidth>0)})()")
         frame.locator('.split-l tr.urow').filter(has_text='Отдел 22').locator('.row-body').click()

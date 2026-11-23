@@ -1247,8 +1247,7 @@ button:focus-visible,a:focus-visible,select:focus-visible{outline-color:var(--ac
 .hxtable td.txt{padding-left:7px;color:var(--ink2);white-space:nowrap}
 .hxtable tr.total td{border-top:0;border-bottom:1px solid var(--line);padding-top:0;padding-bottom:0;position:static}
 .hxtable tr.total td.txt{color:var(--ink)}
-/* 20.11: рубрики секций — те же у тепловой таблицы и у таблицы оценок «Ревью» (один разрез — одна секция) */
-:is(.hxtable,.review-matrix) tr.hx-sec td{padding:var(--s6) 0 var(--s2) 7px;font-size:var(--fs-cap);text-transform:uppercase;
+.hxtable tr.hx-sec td{padding:var(--s6) 0 var(--s2) 7px;font-size:var(--fs-cap);text-transform:uppercase;
   letter-spacing:.3px;color:var(--muted);font-weight:var(--fw-bold);background:transparent}
 
 /* ---------- Сводная таблица с шестью и больше колонками ----------
@@ -2829,17 +2828,28 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    чего у них нет: прокрутка матрицы внутри панели и значки оценок. Шапки — одной строкой (поставка 117). */
 .review-screen .st-main,.review-screen .panel-b{min-width:0}
 .review-screen .mx-wrap{max-width:100%;overflow-x:auto}
-.ptable.review-matrix th{vertical-align:bottom}
-.ptable.review-matrix th.txt{min-width:88px}
-.ptable.review-matrix :is(th,td):is(:nth-child(2),:nth-child(3),:nth-child(9)){padding-left:4px;padding-right:4px}
-.ptable.review-matrix :is(th,td):nth-child(n+4):nth-child(-n+8){padding-left:2px;padding-right:2px}
-.ptable.review-matrix td.txt{white-space:normal;min-width:88px;max-width:150px;position:sticky;left:0;z-index:1;background:#fff}
+/* 23.11 (итерация «В работу», п. 5): десять колонок одной ширины — fixed-раскладка без ширин у ячеек делит таблицу поровну,
+   шапка и тело одной колонки совпадают; одна ширина — у всех трёх таблиц. Колонка не уже --rv-col: на узкой панели таблица
+   прокручивается внутри .mx-wrap (правило проекта), первая колонка закреплена. Длинные имена и шапки переносятся
+   (переносы по словарю — lang="ru"; слово длиннее колонки — по слогам браузера, без обрезки). Шапки — как имена категорий
+   тепловой таблицы (4.6e): мелким кеглем, обычным регистром, в несколько строк; правило 117 «одной строкой» здесь снято
+   заданием итерации («длинный заголовок переносить на несколько строк»). */
+.ptable.review-matrix{--rv-col:80px;table-layout:fixed;width:100%;min-width:calc(var(--rv-col)*10)}
+.ptable.review-matrix col{width:10%}
+#view .ptable.review-matrix thead th{white-space:normal;vertical-align:bottom;text-transform:none;letter-spacing:0;
+  font-size:var(--fs-micro);line-height:1.25;min-width:0;overflow-wrap:break-word;hyphens:auto}
+.ptable.review-matrix :is(th,td){padding-left:var(--s2);padding-right:var(--s2)}
+.ptable.review-matrix :is(th,td).txt{padding-left:var(--s4)}
+.ptable.review-matrix td.txt{white-space:normal;overflow-wrap:break-word;hyphens:auto;position:sticky;left:0;z-index:1;background:#fff}
+#view .ptable.review-matrix td.txt .row-body{white-space:normal;overflow:visible;text-overflow:clip}
+#view .ptable.review-matrix td.txt .unit-sub{white-space:normal;overflow:visible;text-overflow:clip}
+/* каретка «Остальных» и распорка — базового размера отчёта (18 px, как в базовом .caret-btn): в колонке равной ширины
+   крупная каретка забирала у названия треть места */
+.ptable.review-matrix :is(.caret-btn,.caret-spacer){width:18px;height:18px;margin-right:var(--s2)}
 .ptable.review-matrix thead th.txt{position:sticky;left:0;z-index:4}
 .ptable.review-matrix tr.total td.txt{background:#fafbfc}
-/* имя строки не режется многоточием: ширину колонки задают сами имена (шапки у неё нет — имя таблицы стоит над ней) */
-#view .ptable.review-matrix td.txt .row-body{overflow:visible;text-overflow:clip}
-#view .ptable.review-matrix td.txt .row-label{min-width:max-content}
 .ptable.review-matrix tr.lvl2 td.txt{background:#fcfcfd}
+.review-screen .bt-stack.rv-tables{gap:var(--s10);margin-top:var(--s10)}
 .ptable.review-matrix :is(th,td):nth-child(n+4):nth-child(-n+8){text-align:center}
 .rv-mark{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle}
 .rv-ico{display:block;width:24px;height:24px;object-fit:contain;flex:0 0 auto}
