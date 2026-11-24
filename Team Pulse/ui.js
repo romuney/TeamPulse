@@ -98,13 +98,23 @@ function bindTips(){
   /* В чарте Proteus скрипт перезапускается на каждый ответ датасета: слушатели
      регистрирует TP_ENV.on, и прошлый прогон их снимает (proteus/prelude.js) */
   const E=window.TP_ENV, on=(t,ty,fn,o)=>E?E.on(t,ty,fn,o):t.addEventListener(ty,fn,o);
+  const held=()=>!!_tipFor&&_tipFor.hasAttribute('data-tipfocus')&&document.activeElement===_tipFor;
   on(document,'mousemove',e=>{
     const t=tipTarget(e);
-    if(t)showTip(t,e.clientX,e.clientY);else if(_tipFor)hideTip();
+    if(t)showTip(t,e.clientX,e.clientY);else if(_tipFor&&!held())hideTip();
   },{passive:true});
-  on(document,'mouseleave',hideTip,true);
-  on(document,'click',hideTip,true);
-  on(window,'scroll',hideTip,true);
+  /* подсказка элемента в фокусе (data-tipfocus) не гаснет, когда мышь уходит с элементов: после прокрутки фокусом браузер шлёт
+     mouseleave/mousemove сам; гаснет по уходу фокуса (focusout) */
+  on(document,'mouseleave',()=>{if(!held())hideTip()},true);
+  /* 24.11 («Ревью», заголовки «% > / % <»): у элемента с data-tipfocus подсказка открывается и по клавиатурному фокусу, и по
+     касанию (тап фокусирует и кликает — клик такую подсказку показывает, а не прячет). Признак — по выбору элемента: у
+     остальных подсказок отчёта поведение прежнее (только наведение) */
+  const atEl=t=>{const b=t.getBoundingClientRect();showTip(t,b.left+b.width/2,b.top)};
+  on(document,'focusin',e=>{const t=e.target&&e.target.closest&&e.target.closest('[data-tipfocus][data-tip]');if(t)atEl(t)});
+  on(document,'focusout',e=>{if(e.target&&e.target.closest&&e.target.closest('[data-tipfocus]'))hideTip()});
+  on(document,'click',e=>{const t=e.target&&e.target.closest&&e.target.closest('[data-tipfocus][data-tip]');if(t)atEl(t);else hideTip()},true);
+  /* фокус прокручивает к элементу — его подсказка едет за ним, а не гаснет; остальные при прокрутке прячутся, как раньше */
+  on(window,'scroll',()=>{if(held())atEl(_tipFor);else hideTip()},true);
 }
 bindTips();
 
@@ -1170,7 +1180,7 @@ function devSummary(o){
 function scoreMark(i,o){
   const name=D.REVIEW_SCALE[i], M=window.TPMASCOT, src=M&&M.srcOf?M.srcOf('rv'+i):'';
   return '<span class="rv-mark"'+(o&&o.tip===false?'':tipAttr({title:name}))+'>'+
-    (src?'<img class="rv-ico" src='+JSON.stringify(src)+' width="24" height="24" alt="'+esc(name)+'">':esc(name))+'</span>';
+    (src?'<img class="rv-ico" src='+JSON.stringify(src)+' width="24" height="24" alt="'+esc(o&&o.alt||name)+'">':esc(o&&o.alt||name))+'</span>';
 }
 /* Группы оценок для двух долей справа — словами (23.11, п. 2–3): коды 0–1 и 3–4 пользователю не показываем */
 const RV_LOW='% есть над чем поработать и ниже', RV_HIGH='% огней и выше';
@@ -1211,11 +1221,16 @@ function ratingTable(o){
   const trCls=r=>r.total?' class="total top"':r===restRow&&tree?' class="urow" data-btexp="'+esc(r.exp)+'"'+
     tipAttr({title:'Остальные',text:r.open?'Клик — свернуть.':'Кликни, чтобы посмотреть остальные.'}):r.sub?' class="lvl2"':'';
   const S=D.REVIEW_SCALE, q=s=>'«'+s+'»';
+  const cmpTh=(sign,title,a,b,aria)=>'<th class="rv-cmp-h" tabindex="0" data-tipfocus aria-label="'+esc(aria)+'"'+pctTip(title,a,b)+'>'+
+    '<span class="rv-cmp">%&nbsp;'+esc(sign)+'&nbsp;'+scoreMark(2,{tip:false,alt:'Хорошо'})+'</span></th>';
   const pctTip=(title,a,b)=>tipAttr({title:title,text:'100 × eligible-сотрудники строки с финальной оценкой '+q(S[a])+' или '+q(S[b])+
     ' / все eligible-сотрудники этой строки, включая сотрудников без финальной оценки. При нулевой базе — прочерк.'});
   return '<div class="mx-wrap"><table class="ptable dense review-matrix'+(o.wide?' rv-wide':'')+'" lang="ru"><colgroup>'+'<col>'.repeat(10)+'</colgroup><thead><tr><th class="txt" aria-label="'+esc(o.title)+'"></th><th'+tipAttr({title:'Все eligible',text:'Все eligible-сотрудники строки — и с финальной оценкой, и без неё. База обеих долей.'})+'>Eligible</th><th>Без оценки</th>'+
     S.map((name,i)=>'<th class="rv-h"'+tipAttr({title:name})+'>'+scoreMark(i,{tip:false})+'</th>').join('')+
-    '<th'+pctTip(RV_LOW,0,1)+'>'+esc(RV_LOW)+'</th><th'+pctTip(RV_HIGH,3,4)+'>'+esc(RV_HIGH)+'</th></tr></thead><tbody>'+
+    /* 24.11 (задание «В работу», п. 3): доли — коротко относительно оценки «Хорошо»: «% <» и «% >» со значком «Хорошо» (alt
+       «Хорошо»); прежние названия («% есть над чем поработать и ниже», «% огней и выше») и формула — в подсказке, она же по фокусу
+       и касанию (data-tipfocus); для чтения с экрана — aria-label словами. Порядок колонок прежний: сначала «ниже», потом «выше» */
+    cmpTh('<',RV_LOW,0,1,'Процент сотрудников с оценкой ниже «Хорошо»')+cmpTh('>',RV_HIGH,3,4,'Процент сотрудников с оценкой выше «Хорошо»')+'</tr></thead><tbody>'+
     [total].concat(rows).map(r=>'<tr'+trCls(r)+'><td class="txt">'+label(r)+'</td><td>'+D.fmtNumber(r.n)+'</td><td>'+D.fmtNumber(r.missing)+'</td>'+
       r.cells.map((n,i)=>scoreCell(r,n,i)).join('')+'<td>'+D.fmtNum('pct',r.low)+'</td><td>'+D.fmtNum('pct',r.high)+'</td></tr>').join('')+
     '</tbody></table></div>';

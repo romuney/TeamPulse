@@ -72,12 +72,19 @@ try:
             assert page.locator('.review-matrix a').count()==0
             # Percent headers explain the eligible denominator via the shared tooltip.
             headers=page.locator('.review-matrix').first.locator('th')
-            assert ' '.join(headers.last.inner_text().split())=='% огней и выше',headers.last.inner_text()
-            assert ' '.join(headers.nth(8).inner_text().split()).replace('- ','')=='% есть над чем поработать и ниже',headers.nth(8).inner_text()
+            # 24.11: «% < [Хорошо]», «% > [Хорошо]»; former names in the shared tooltip, also on keyboard focus.
+            assert ' '.join(headers.nth(8).inner_text().split())=='% <' and ' '.join(headers.last.inner_text().split())=='% >'
+            assert headers.nth(8).locator('img').get_attribute('alt')=='Хорошо' and headers.last.locator('img').get_attribute('alt')=='Хорошо'
+            assert headers.last.get_attribute('aria-label')=='Процент сотрудников с оценкой выше «Хорошо»'
+            headers.last.focus();page.wait_for_timeout(100)
+            assert page.locator('div.tip.on').count()==1 and page.locator('div.tip.on').inner_text().startswith('% огней и выше')
+            page.keyboard.press('Shift+Tab');page.wait_for_timeout(100)
+            assert page.locator('div.tip.on').inner_text().startswith('% есть над чем поработать и ниже')
+            page.locator('body').click(position={'x':5,'y':5});page.evaluate('document.activeElement.blur()')
             # Rating icons: one per scale point in headers, transitions and first ratings; all decoded, alt = number + name.
             icons=page.locator('.review-screen img.rv-ico')
             assert icons.count()>=15,icons.count()
-            assert page.evaluate("[...document.querySelectorAll('.review-screen img.rv-ico')].every(i=>i.complete&&i.naturalWidth>0&&window.TPDATA.REVIEW_SCALE.includes(i.alt)&&i.getBoundingClientRect().width===i.getBoundingClientRect().height)")
+            assert page.evaluate("[...document.querySelectorAll('.review-screen img.rv-ico')].every(i=>i.complete&&i.naturalWidth>0&&(window.TPDATA.REVIEW_SCALE.includes(i.alt)||i.alt==='Хорошо')&&i.getBoundingClientRect().width===i.getBoundingClientRect().height)")
             assert headers.nth(3).locator('img').get_attribute('alt')=='не соответствует ожиданиям'
             assert headers.nth(7).locator('img').get_attribute('alt')=='звезда'
             # Checklist 12: tooltips only via data-tip, never the native title attribute (smoke cannot see this tab on mocks).
@@ -96,6 +103,12 @@ try:
             assert left.is_visible() and unit.locator('td').nth(1).inner_text()=='1'
             if width==1440:
                 assert left.bounding_box()['x']<right.bounding_box()['x']
+                # 24.11: wide panel (units collapsed) — blocks in one column, one left edge and one width, nothing overflows.
+                page.locator('.unit-hide').first.click();page.wait_for_timeout(200)
+                lay=page.evaluate('''()=>[...document.querySelectorAll('.review-screen .st-main>.bt-stack>*')].map(e=>{const b=e.getBoundingClientRect();return [Math.round(b.left),Math.round(b.width)]})''')
+                assert len(lay)==6 and len({x[0] for x in lay})==1 and len({x[1] for x in lay})==1 and lay[0][1]<=960,lay
+                assert page.evaluate("[...document.querySelectorAll('.review-matrix')].every(t=>t.parentElement.scrollWidth<=t.parentElement.clientWidth+1)")
+                page.locator('button.split-rail').first.click();page.wait_for_timeout(200)
                 # 512 px split panel < ten 80 px columns: the table scrolls inside its own wrapper, the page does not.
                 assert grade.locator('..').evaluate('(e)=>e.scrollWidth>e.clientWidth')
                 grade.locator('..').screenshot(path='/tmp/teampulse-review-heatmap.png')

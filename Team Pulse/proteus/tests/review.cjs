@@ -42,7 +42,11 @@ const U=context.window.TPUI,html=U.ratingTable({title:'Грейд',kind:'grade',
 assert(html.includes('33,3%'));assert(html.includes('66,7%'));assert(!html.includes('<a '));assert(html.includes('Все eligible'));
 // Headers stay one line (delivery 117): short labels, full wording in the shared tooltip.
 // 23.11: rating groups named in words, the scale codes never shown (headers, tooltips, alt, fallback text).
-assert(html.includes('>% есть над чем поработать и ниже</th><th'));assert(html.indexOf('>% огней и выше</th>')>html.indexOf('>% есть над чем поработать и ниже</th>'));
+// 24.11: share headers «% < [Хорошо]» then «% > [Хорошо]»; former names and formula in the tooltip; aria-label in words.
+const lowAt=html.indexOf('aria-label="Процент сотрудников с оценкой ниже «Хорошо»"'),highAt=html.indexOf('aria-label="Процент сотрудников с оценкой выше «Хорошо»"');
+assert(lowAt>0&&highAt>lowAt,'share headers in order');
+assert(html.includes('%&nbsp;&lt;&nbsp;')&&html.includes('%&nbsp;&gt;&nbsp;')&&(html.match(/data-tipfocus/g)||[]).length===2);
+assert(html.includes('% есть над чем поработать и ниже')&&html.includes('% огней и выше')); // tooltip titles (escaped inside data-tip)
 assert(html.includes('«огонь» или «звезда»')&&html.includes('«не соответствует ожиданиям» или «есть над чем поработать»'));
 assert(!/0–1|3–4|\b[0-4] — |\([0-4]\)/.test(html),'no rating codes in the table markup');
 assert.equal((html.match(/<col>/g)||[]).length,10); // equal-width grid: ten columns, widths from styles.css
@@ -57,8 +61,9 @@ D.REVIEW_SCALE.forEach((name,i)=>{
   assert(src.startsWith('data:image/webp;base64,')&&m.includes('src="'+src+'"'),'icon '+i);
   assert(m.includes('alt="'+name+'"')&&m.includes('width="24" height="24"')&&!m.includes(i+' — '),'alt/size '+i);
   assert(iconHtml.includes(src),'header icon '+i);
+  if(i===2)assert((iconHtml.match(/alt="Хорошо"/g)||[]).length===2,'«Хорошо» icon in both share headers');
 });
-assert.equal((iconHtml.match(/<img class="rv-ico"/g)||[]).length,5);
+assert.equal((iconHtml.match(/<img class="rv-ico"/g)||[]).length,7); // five scale headers + «Хорошо» in two share headers
 assert(iconHtml.includes('33,3%')&&iconHtml.includes('66,7%'));
 // Specializations: top 10 by eligible count (ties keep source order), the rest behind the shared expandable row.
 const spec=Array.from({length:13},(_,i)=>{const n=[5,9,9,1,7,3,3,8,2,6,4,1,2][i],cells=[0,0,n-1,0,0];

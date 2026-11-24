@@ -2864,3 +2864,13 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .rv-arr{color:var(--muted)}
 .rv-na{display:inline-flex;align-items:center;justify-content:center;width:24px;font-size:var(--fs-cap);color:var(--muted)}
 .legend.rv-legend .sw .rv-ico{width:20px;height:20px}
+/* 24.11: заголовки долей «% < [Хорошо]» и «% > [Хорошо]» — знак и значок на одной линии, по правому краю, как числа колонки */
+.rv-cmp{display:inline-flex;align-items:center;justify-content:flex-end;gap:var(--s1);white-space:nowrap;font-size:var(--fs-cap);color:var(--ink2)}
+.ptable.review-matrix th.rv-cmp-h{cursor:help}
+.ptable.review-matrix th.rv-cmp-h:focus-visible{outline:2px solid var(--act);outline-offset:-2px}
+/* 24.11 (задание «В работу», п. 2): на широкой панели общее правило ставит элементы стопки парами (.st-main>.bt-stack — сетка
+   в 2 колонки, разрезы одного вопроса). У «Ревью» это разносило легенду и переходы, грейд и стаж, а грейд не влезал в половину.
+   Здесь стопки — всегда одна колонка, каждый блок не шире 960 px, как таблица без полос в «Движении» (.bt-group.spm): все блоки
+   вкладки — от одной левой границы и одной ширины, цифры не уезжают от названий */
+.review-screen .st-main>.bt-stack{display:flex;flex-direction:column;align-items:stretch}
+.review-screen .st-main>.bt-stack>*,.review-screen .st-main>.mx-foot{max-width:960px}
