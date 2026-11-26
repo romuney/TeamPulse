@@ -35,6 +35,7 @@ try:
             # One outcome breakdown: six groups add up to all eligible (11), total in the caption.
             who=page.locator('.review-screen').inner_text()
             assert 'Что с оценкой у eligible' in who and 'Остальные результаты' not in who
+            assert 'Шесть групп' not in who and 'а не по пропуску оценки прошлого года' not in who # 26.11: note removed entirely
             assert page.locator('.review-screen .bt-cap').filter(has_text='Что с оценкой у eligible').locator('b').inner_text()=='11'
             # Chapter head states facts only.
             assert head()=='В ревью '+str(year)+' оцениваем 11 из 13 человек'
