@@ -84,6 +84,7 @@ EXTRA = {
          "    'teampulse_hub_meta':   'prod_proteus.teampulse_hub_meta',\n"
          "    'teampulse_hub_unit':   'prod_proteus.teampulse_hub_unit',\n"
          "    'teampulse_hub_series': 'prod_proteus.teampulse_hub_series',\n"
+         "    'teampulse_hub_series_week': 'prod_proteus.teampulse_hub_series_week',  # мониторинг по неделям (26.11)\n"
          "    'teampulse_hub_mix':    'prod_proteus.teampulse_hub_mix',\n"
          "    'teampulse_hub_review_test': 'prod_proteus.teampulse_hub_review_test',  # только единый тестовый контур\n"
          "    'teampulse_hub_trf':    'prod_proteus.teampulse_hub_trf',     # переходы — переводы под фильтры\n"
@@ -127,6 +128,9 @@ PLAN = [('new', 'TeamPulse Hub — что собирает ноутбук', 'md'
         ('new', 'hub · 3 справочник и ряды', 'gp', 'sql_3_series.sql'),
         # 06.11: «hub · 3н мониторинг по неделям» (поставка 104) снят по решению владельца — источник недель ещё не готов;
         # параграф лежит в hub_nb/sql_3w_mon.sql, вернуть — строкой ('new', 'hub · 3н мониторинг по неделям', 'gp', 'sql_3w_mon.sql')
+        # 26.11: недельный мониторинг — параграф владельца «TeamPulse_Hub_week.yaml» с правками по его решениям 26.11 (неделя
+        # целиком, юнит на конец месяца воскресенья, суммы для точной агрегации): teampulse_hub_series_week
+        ('new', 'hub · 3в недели (мониторинг рабочего времени)', 'gp', 'sql_3v_week.sql'),
         ('new', 'hub · 4 разрезы', 'gp', 'sql_4_mix.sql'),
         ('new', 'hub · ревью', 'gp', 'sql_review.sql'),
         ('new', 'hub · 5 переходы', 'gp', 'sql_5_trf.sql'),

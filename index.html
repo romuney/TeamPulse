@@ -2883,6 +2883,10 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
 .review-screen .st-main>.bt-stack{display:flex;flex-direction:column;align-items:stretch}
 .review-screen .st-main>.bt-stack>*,.review-screen .st-main>.mx-foot{max-width:960px}
 
+/* 26.11: мониторинг «Месяц | Неделя» — общий переключатель .opts.tight над вкладкой, пояснение окна рядом */
+.mon-per{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3) var(--s6);margin:0 0 var(--s6)}
+.mon-per .tbl-note{margin-top:0}
+
 </style>
 </head>
 <body>
@@ -4777,7 +4781,7 @@ function fmtDelta(key,v){
 /* ---------- Дефолтный state ---------- */
 /* В пробнике юнит и фильтры — те, что применил датасет (эхо в meta): отчёт
    показывает ровно то, что пришло, а не то, что хотелось бы. */
-const DEFAULT_STATE={unit:REAL?(TECH.has(REAL.scopePath)?TOP:REAL.scopePath):'T/01',paint:REAL?REAL.applied.paint:'HQ',
+const DEFAULT_STATE={monPer:'m',unit:REAL?(TECH.has(REAL.scopePath)?TOP:REAL.scopePath):'T/01',paint:REAL?REAL.applied.paint:'HQ',
   itSeg:REAL?REAL.applied.itSeg:'all',staffType:REAL?REAL.applied.staffType:'all',
   hcType:REAL?REAL.applied.hcType:'active',hcSet:REAL?REAL.applied.hcSet:[],period:PERIOD_LABEL,
   tab:'onepager',subTab:null,selNode:null,aiOpen:false,
@@ -5670,6 +5674,65 @@ function monData(lp){
     period:MON_WEEKS[MON_NW-12].from+' — '+MON_WEEKS[MON_NW-1].to};
 }
 
+/* 26.11 (задание «В работу», п. 1): мониторинг по неделям — переключатель «Месяц | Неделя» вкладки. Пробник — разрез mw
+   у строки выбранного узла (как AI aw: человек недели посчитан у каждого предка один раз, сумма листьев не нужна):
+   «ГГГГ-ММ-ДД|люди,Σчасов,n,Σдолей звонков,n,переработка,норма,недоработка,не размечено» — teampulse_hub_series_week
+   (ноутбук «hub · 3в»), последние 16 недель источника, фильтры отчёта уже применены датасетом. Часы в день и доля звонков —
+   среднее по людям: сумма средних ÷ число людей со значением (решение владельца 26.11: суммы, делит отчёт). Неделя — Пн–Вс
+   по источнику (date_trunc('week')); неполная — её воскресенье позже даты данных (решение владельца: показывать с
+   пометкой). Пропущенная неделя внутри ряда — разрыв (gap), а не нули. Сравнения неделя к неделе нет: правила нет.
+   null — недельных данных нет вовсе (датасет без mw); {weeks:[]} — под фильтрами никого. Макет — генератор недель. */
+const MW_N=16;
+function monWeekly(lp){
+  if(!lp||!lp.length)return null;
+  const p2=n=>(n<10?'0':'')+n, dd=x=>p2(x.getDate())+'.'+p2(x.getMonth()+1), asof=new Date(ASOF.y,ASOF.m,ASOF.d);
+  const fullOf=(d0,d1,pt)=>'Неделя '+dd(d0)+(d0.getFullYear()!==d1.getFullYear()?'.'+d0.getFullYear():'')+'–'+dd(d1)+
+    (d0.getFullYear()!==d1.getFullYear()?'.'+d1.getFullYear():'')+(pt?', данные по '+dd(asof):'');
+  let W;
+  if(REAL){
+    const m=selMix(lp,'mw');
+    if(!m||!Object.keys(REAL.mixVals('mw')).length&&!Object.keys(m).length)return null;
+    W=Object.keys(m).map(v=>{
+      const i=v.indexOf('|'), d=v.slice(0,i).split('-').map(Number), a=v.slice(i+1).split(',').map(Number);
+      return {wk:v.slice(0,i),d0:new Date(d[0],d[1]-1,d[2]),hc:Math.round(a[0]||0),hrs:a[1]||0,hrn:a[2]||0,tks:a[3]||0,tkn:a[4]||0,
+        over:Math.round(a[5]||0),normal:Math.round(a[6]||0),under:Math.round(a[7]||0),grey:Math.round(a[8]||0)};
+    });
+    /* строка не сходится (нечисло, минус, категории не дают людей недели, неверная дата) — недели не показываем: ошибка
+       источника, а не нули */
+    if(W.some(x=>!/^\d{4}-\d{2}-\d{2}$/.test(x.wk)||[x.hc,x.hrs,x.hrn,x.tks,x.tkn,x.over,x.normal,x.under,x.grey].some(v=>!isFinite(v)||v<0)||
+      x.over+x.normal+x.under+x.grey!==x.hc||x.hrn>x.hc||x.tkn>x.hc))return {weekly:true,error:true,weeks:[],months:[]};
+    W=W.filter(x=>x.hc>0).sort((a,b)=>a.wk<b.wk?-1:1);
+    /* пропуск внутри ряда — своя неделя без значений: на оси она есть, линия рвётся, столбика нет */
+    const out=[];
+    W.forEach(x=>{
+      const pv=out[out.length-1];
+      if(pv)for(let t=new Date(pv.d0.getFullYear(),pv.d0.getMonth(),pv.d0.getDate()+7);t<x.d0;t=new Date(t.getFullYear(),t.getMonth(),t.getDate()+7))
+        out.push({d0:t,gap:true,hc:null,under:null,normal:null,over:null,grey:null});
+      out.push(x);
+    });
+    W=out.slice(-MW_N);
+  }else{
+    const md=monData(lp);
+    if(!md||!md.weeks)return null;
+    W=md.weeks.slice(-MW_N).map((x,i,a)=>{const w=MON_WEEKS[MON_WEEKS.length-a.length+i],d=MON_DATE(w);
+      return Object.assign({},x,{d0:d,hrs:x.hours!=null?x.hours*x.hc:0,hrn:x.hours!=null?x.hc:0,tks:x.talk!=null?x.talk*x.hc:0,tkn:x.talk!=null?x.hc:0})});
+  }
+  W.forEach(x=>{
+    const d1=new Date(x.d0.getFullYear(),x.d0.getMonth(),x.d0.getDate()+6);
+    x.pt=!x.gap&&d1>asof;x.label=dd(x.d0);x.full=fullOf(x.d0,d1,x.pt);
+    if(x.pt)x.ptNote='Неделя не закрыта: данные по '+dd(asof)+', значение может измениться к концу недели.';
+    if(!x.gap){x.hours=x.hrn?x.hrs/x.hrn:null;x.talk=x.tkn?x.tks/x.tkn:null}else{x.hours=null;x.talk=null}
+  });
+  const C=W.filter(x=>!x.gap);
+  if(C.length){const lc=C.length-1-(C[C.length-1].pt&&C.length>1?1:0);C[lc].cl=true}
+  return {weekly:true,weeks:W,months:W};
+}
+/* дата понедельника недели макета (MON_WEEKS хранит подписи): от даты данных назад, как сам ряд */
+function MON_DATE(w){
+  const i=MON_WEEKS.indexOf(w), asof=new Date(ASOF.y,ASOF.m,ASOF.d), dow=(asof.getDay()+6)%7;
+  return new Date(asof.getFullYear(),asof.getMonth(),asof.getDate()-dow-7-7*(MON_WEEKS.length-1-i));
+}
+
 /* Средний возраст. Макет: середины возрастных групп (в данных — возраст человека, сумма
    возрастов приходит вместе с численностью); dimKey/catIdx — внутри категории
    («средний возраст женщин»). Срез по возрасту оставляет только выбранные группы. */
@@ -5986,7 +6049,7 @@ let _nmx=null;
 /* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
-const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw',
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw','mw',
   'aik','aih','aiu','ait','aif','aph','apt','aut','auf','aun','aum','auc','auk','ash','asu','aip']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
@@ -6818,7 +6881,7 @@ function reviewData(lp){
   return reviewFromMix(mx,REAL.reviewVersion);
 }
 
-window.TPDATA={REVIEW_SCALE,reviewData,reviewFromMix,REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
+window.TPDATA={monWeekly,MW_N,REVIEW_SCALE,reviewData,reviewFromMix,REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,yoyMove,perSum,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,
@@ -8126,8 +8189,9 @@ function drawStack(a,w,h){
     const pm='mark' in a&&a.mark!==undefined;
     s+='<g class="barg'+(pm?' pmk':'')+(on?' on':'')+'"'+(pm?' data-pmark="'+i+'"':'')+tip({title:p.full,
       /* поставка 128 (аудит L2: в подсказке месяца «7%», в итоге под графиком и в заголовке — «6,8%»): доля — с одной десятой */
-      rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+CD.fmtNumber(all?(p[c[0]]||0)/all*100:0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
-      note:(p.pt?'Период ещё идёт — значения могут измениться. ':'')+
+      /* 26.11: период без данных (p.gap — пропущенная неделя) — «нет данных», а не нули */
+      rows:p.gap?[]:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+CD.fmtNumber(all?(p[c[0]]||0)/all*100:0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
+      note:(p.gap?'Нет данных за этот период. ':'')+(p.pt?'Период ещё идёт — значения могут измениться. ':'')+
         (a.cats?'Всего — '+CD.fmtInt(all)+(a.unit||'')+'.':(pm?(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. '):'')+'Всего — '+CD.fmtInt(all)+' чел.')})+'>'+
       (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+
       '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+segs+'</g>';
@@ -8174,7 +8238,8 @@ function drawPline(a,w,h){
     /* 05.11, заказчик: «клик — отметить период» только у графиков, которые отметку просят (a.mark задан) */
     const rows=(on1?[{label:o.name||'',value:fmt(v),color:col}]:[]).concat(on2?[{label:o.name2||'',value:fmt(v2[i]),color:col2}]:[]);
     s+='<g class="ptg'+(pm?' pmk':'')+'"'+(pm?' data-pmark="'+i+'"':'')+tip({title:P[i].full,rows:rows,
-      note:i===pi?PART_NOTE():!pm?'':on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
+      /* 26.11: у недели своя пометка «неделя не закрыта» (p.ptNote), у месяца — общая */
+      note:i===pi?(P[i].ptNote||PART_NOTE()):!pm?'':on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
       '<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+
       (i===cur0?'':hgLine(X(i),top,bot))+(v==null||!on1?'':'<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="'+(on?4.5:2.6)+'" fill="'+(on?col:'#fff')+'" stroke="'+col+'" stroke-width="2"'+(i===pi?' stroke-opacity=".45"':'')+'/>')+'</g>';
     if(on1&&v!=null&&(on||i<=last&&(last-i)%step===0))lbl+=txt(X(i),Y(v)-VAL_DY,fmt(v),valOpt({delay:300+i*20}));
@@ -11036,10 +11101,13 @@ CH.tgrowth={
 /* ===== Мониторинг работы ===== */
 /* поставка 104: последняя ЗАКРЫТАЯ неделя (месяц) — незакрытая тоже в ряду, сравнивать её с полной нельзя */
 function monStory(c,wk){
-    const md=D.monData(c.lp);
-    if(!md)return {sum:'нет данных',st:'n'};
-    const W=wk&&md.weeks?md.weeks:md.months, ci=W.findIndex(p=>p.cl), i0=ci<0?W.length-1:ci, cur=W[i0], prev=W[i0-1]||cur;
+    /* 26.11: режим «Неделя» (S.monPer) — недели D.monWeekly; глава — о последней закрытой неделе, без сравнений */
+    const md=wk?D.monWeekly(c.lp):D.monData(c.lp);
+    if(!md||wk&&(md.error||!md.weeks.some(x=>!x.gap)))return {sum:'нет данных',st:'n'};
+    const W=wk&&md.weeks?md.weeks.filter(x=>!x.gap):md.months, ci=W.findIndex(p=>p.cl), i0=ci<0?W.length-1:ci, cur=W[i0], prev=W[i0-1]||cur;
     const pc1=v=>D.fmtNumber(cur.hc?v/cur.hc*100:null);
+    /* 26.11: TEXT_GUIDE п. 9 — меньше 30 человек в периоде: только люди, без процента */
+    const pcs=v=>cur.hc>=30?' ('+pc1(v)+'%)':'';
     /* поставка 120 (критик компании: «недоработка +7, переработка −11» — непонятно, чего): изменение — в людях */
     const du=cur.under-prev.under, dv=cur.over-prev.over, sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v)+' чел.';
     const worse=du>0||dv>0, both=du>0&&dv>0;
@@ -11076,16 +11144,16 @@ function monStory(c,wk){
          меньше 30 человек — последний закрытый месяц в людях */
       head:pp&&D.isSmall()?cur.full+': недорабатывали '+pl(cur.under,PPL)+' (месяцем раньше — '+prev.under+')'
         :pp?one(hk,hp,hj)
-        :'Недоработка — '+cur.under+' чел ('+pc1(cur.under)+'%)',
+        :(wk?String(cur.full).split(',')[0]+': недоработка — ':'Недоработка — ')+cur.under+' чел'+pcs(cur.under),
       lede:pp&&D.isSmall()?'Перерабатывали **'+pl(cur.over,PPL)+'** (месяцем раньше — '+prev.over+').'
         :pp?(rf(hk,hj)?capS(rf(hk,hj))+'. ':'')+one(ok,op,oj).replace(f(ok,op.v),'**'+f(ok,op.v)+'**')+
           (rf(ok,oj)?' ('+rf(ok,oj).replace(/\*\*/g,'')+')':'')+'.'
-        :'Переработка — **'+cur.over+' чел** ('+pc1(cur.over)+'%).'};
+        :'Переработка — **'+cur.over+' чел**'+pcs(cur.over)+'.'};
   }
 
 CH.monitor={
   /* «Рабочая активность» (21.10, файл Антона): последняя закрытая неделя против прошлой */
-  activity(c){return monStory(c,false)},
+  activity(c){return monStory(c,!!(c.S&&c.S.monPer==='w'))},
   review(c){
     const rv=D.reviewProfile(c.lp), by=k=>(rv.dyn.find(x=>x.key===k)||{value:0}).value;
     const up=by('up'), dn=by('down');
@@ -12014,7 +12082,9 @@ function renderBlock(S,expanded,mixOpen,view){
      возрастанию, снова как в оргдереве. */
   /* поставка 137, п. 8: колонка с hide — в таблице не показывается (численность на вкладке AI), но остаётся знаменателем
      долей и правила малых чисел (tcols0[0]) */
-  const tcols0=mod.cols||null, tcols=tcols0&&tcols0.filter(c=>!c.hide), tdata=tcols?(lp=>mod.data?mod.data(lp):D.monData(lp)):null;
+  /* 26.11: колонки и их данные могут зависеть от состояния вкладки (мониторинг «Месяц | Неделя»): mod.cols(S), mod.data(lp, S) */
+  const tcols0=(typeof mod.cols==='function'?mod.cols(S):mod.cols)||null, tcols=tcols0&&tcols0.filter(c=>!c.hide),
+    tdata=tcols?(lp=>mod.data?mod.data(lp,S):D.monData(lp)):null;
   const ts=String(S.tsort||'').split(':'), tsc=tcols&&tcols.find(c=>c.k===ts[0]&&c.val), tsd=ts[1]==='a'?1:-1;
   /* 09.11, поставка 130 (владелец: «добавим сортировку в таблицу по подразделениям»): и у обычных колонок-метрик — тем же кликом по шапке */
   const tsm=!tcols&&tmets.find(m=>m.key===ts[0]), tv=p=>{const v=val(rowLeaves(p,S),tsm.key);return v==null||!isFinite(v)?-1e18:v};
@@ -12265,7 +12335,7 @@ function renderBlock(S,expanded,mixOpen,view){
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
       /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
       /* поставка 106: у AI — недели, без сравнения с прошлым годом */
-      (b.key==='structure'?'':b.key==='review'?reviewWin(ctx.lp):b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
+      (b.key==='structure'?'':b.key==='review'?reviewWin(ctx.lp):b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':b.key==='monitor'&&S.subTab==='activity'&&S.monPer==='w'?' · <b>последние '+D.MW_N+' недель</b>, Пн–Вс':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';
@@ -13197,7 +13267,8 @@ function monPh(title,what){
    период у графиков динамики; год к году здесь нет (16 недель / 6 месяцев). Часы и звонки — взвешенно, как точки */
 function perLine(P,wk,lp){
   /* поставка 137: среднее — по дату данных, вместе с незакрытым месяцем (как итог периода у остальных метрик) */
-  const C=wk?P.filter(p=>!p.pt):P;
+  /* 26.11: пропущенная неделя (gap) в среднее не идёт — её нет в данных */
+  const C=wk?P.filter(p=>!p.pt&&!p.gap):P;
   if(!C.length)return null;
   /* поставка 136, п. 8: среднее за несколько месяцев — «в среднем за период январь–октябрь» (не «за месяц, янв–окт») */
   /* 11.11, владелец: период словами, без тире — «в среднем с 1 января по 12 октября», у недель — «с 06.10 по 12.10» */
@@ -13214,8 +13285,10 @@ function perLine(P,wk,lp){
          тем же итогом за те же месяцы (D.periodTotal), что в заголовке */
       cur:(hc?D.fmtVal(c[2],avg(c[0])/hc*100)+' · ':'')+(avg(c[0])<10?f1(avg(c[0])):n(avg(c[0])))+' чел',
       prev:lp&&!wk?(x=>x==null?null:D.fmtVal(c[2],x))((D.periodTotal(lp,c[2])||{}).pv):null}))}},
-    hours:()=>{const v=wt&&sum('pdw')?sum('hrw')/sum('pdw'):avg('hours');return v?{head:head,cur:f1(v)+' ч/день'}:null},
-    talk:()=>{const v=wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null}};
+    /* 26.11: недели — из сумм (Σ средних по людям ÷ число людей со значением за все закрытые недели), не среднее недельных
+       средних: правило агрегации — решение владельца 26.11 */
+    hours:()=>{const v=C.every(p=>p.hrn!=null)&&sum('hrn')?sum('hrs')/sum('hrn'):wt&&sum('pdw')?sum('hrw')/sum('pdw'):avg('hours');return v?{head:head,cur:f1(v)+' ч/день'}:null},
+    talk:()=>{const v=C.every(p=>p.tkn!=null)&&sum('tkn')?sum('tks')/sum('tkn'):wt&&sum('hrw')?sum('tkw')/sum('hrw')*100:avg('talk');return v?{head:head,cur:f1(v)+'%'}:null}};
 }
 /* поставка 108 (владелец, 06.11): графики «Прогулы», «Работа в выходные» и «Звонки в Толк от 20%» сняты — вместо них три
    KPI за весь период (D.monKpi: последние 16 полных недель по данным, люди без повторов, база — численность на конец
@@ -13245,16 +13318,16 @@ function covNote(md){
    от всех людей выборки в мониторинге за этот месяц (норма + недоработка + переработка + не размечено). Нет данных — строка
    «нет данных», не нули */
 function catBlock(md){
-  const c=md&&md.months&&wk(md).cur;
+  const c=md&&md.months&&wk(md).cur, W=!!(md&&md.weekly), perG=W?'эту неделю':'этот месяц';
   if(!c)return '';
   const hc=(c.normal||0)+(c.under||0)+(c.over||0)+(c.grey||0);
-  if(!hc)return '<div class="tbl-note">Состав по категориям: нет данных мониторинга за последний месяц.</div>';
+  if(!hc)return '<div class="tbl-note">Состав по категориям: нет данных мониторинга за последн'+(W?'юю неделю':'ий месяц')+'.</div>';
   const pc=n=>D.fmtNum('pct',n/hc*100);
   const mon=String(c.full||c.label||'').split(',')[0];
   const info='<span class="info"'+U.tipAttr({title:'Состав по категориям',text:'Категория каждого человека за '+mon.toLowerCase()+
     (/данные по/.test(c.full||'')?' ('+String(c.full).split(', ')[1]+')':'')+'.',
-    list:['**Доля** — от всех людей выборки в мониторинге за этот месяц: '+D.fmtInt(hc)+' чел. (норма + недоработка + переработка + не размечено)',
-      '**Не размечено** — данных мониторинга по человеку нет; это не значит, что он не работал'],
+    list:['**Доля** — от всех людей выборки в мониторинге за '+perG+': '+D.fmtInt(hc)+' чел. (норма + недоработка + переработка + не размечено)',
+      W?'**Не размечено** — категория недели не определена; в неделе — только люди с рабочими днями по табелю':'**Не размечено** — данных мониторинга по человеку нет; это не значит, что он не работал'],
     note:'Фильтры — выбранные в отчёте.'})+' aria-label="Как считаются доли">i</span>';
   const cards=[['normal','Норма',G.C_MON.normal],['under','Недоработка',G.C_MON.under],['over','Переработка',G.C_MON.over],['grey','Не размечено',G.C_MON.grey]]
     .filter(x=>x[0]!=='grey'||c.grey!=null).map(x=>({id:'c'+x[0],name:x[1],n:c[x[0]]||0,bg:x[2],sub:pc(c[x[0]]||0)+' выборки'}));
@@ -13268,14 +13341,8 @@ function kpiBlock(lp,md){
   return c?'<div class="mon-kpi">'+c+'</div>':'';
 }
 
-SC.blocks.monitor={
-  /* 27.10-в, п. 4: ревью скрыто до следующего релиза (D.OFF_SUBS) */
-  /* 06.11: шаг «По неделям» (поставка 104) снят вместе с недельной витриной — источник недель ещё не готов */
-  subTabs:[['activity','Рабочая активность'],['review','Ревью']].filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])),
-  defaultSub:'activity',
-  /* 30.10: KPI-полоса блока снята по просьбе заказчика (плашки KPI — ни на одной вкладке) */
-  /* колонки таблицы подразделений: последний закрытый период, сортировка по клику на шапку */
-  cols:[
+/* колонки таблицы подразделений (месячный вид); недельный — те же с подписью недели (SC.blocks.monitor.cols) */
+const MON_COLS=[
     /* 26.10, ревью критиков: знаменатель — люди с категорией мониторинга, а не «активная численность HQ» (343 > 337) */
     /* 30.10, критики: «343 в мониторинге против 337 в шапке» — это не численность, а все, у кого была категория за период
        (в т.ч. ушедшие в его середине) */
@@ -13283,12 +13350,26 @@ SC.blocks.monitor={
        без записи мониторинга — «не размечено»; ушедшие в течение периода не считаются */
     /* поставка 128 (аудит: в колонке — численность закрытого месяца, под именем строки — сегодняшняя, а подсказка говорила «та же,
        что в шапке»): окно подписано, как у соседних колонок */
-    {k:'hc',name:'В мониторинге, чел',per:'за '+D.PER_MON,tip:'Сколько людей в мониторинге в последнем месяце данных.\n• У каждого одна категория: норма, недоработка, переработка или «не размечено»\n• Может отличаться от численности в шапке: та — на дату данных',val:md=>wk(md).cur.hc},
+    {k:'hc',name:'В мониторинге, чел',per:'за '+D.PER_MON,tip:'Сколько людей в мониторинге в последнем месяце данных.\n• У каждого одна категория: норма, недоработка, переработка или «не размечено»\n• Может отличаться от численности в шапке: та — на дату данных',val:md=>wk(md).cur.hc,
+      wtip:'Сколько людей с рабочими днями по табелю в последней закрытой неделе.\n• У каждого одна категория недели: норма, недоработка, переработка или «не размечено»\n• Это не численность подразделения: люди без рабочих дней в неделе сюда не входят'},
     /* поставка 90: таблица — люди за последний закрытый месяц, окно подписано под названием */
-    {k:'under',name:'Недоработчики',per:'за '+D.PER_MON,tip:'Активность ниже нормы в последнем месяце данных, человек.',val:md=>wk(md).cur.under,share:true},
-    {k:'over',name:'Переработчики',per:'за '+D.PER_MON,tip:'Активность выше нормы в последнем месяце данных, человек.',val:md=>wk(md).cur.over,share:true},
+    {k:'under',name:'Недоработчики',per:'за '+D.PER_MON,tip:'Активность ниже нормы в последнем месяце данных, человек.',val:md=>wk(md).cur.under,share:true,wtip:'Активность ниже нормы в последней закрытой неделе, человек.'},
+    {k:'over',name:'Переработчики',per:'за '+D.PER_MON,tip:'Активность выше нормы в последнем месяце данных, человек.',val:md=>wk(md).cur.over,share:true,wtip:'Активность выше нормы в последней закрытой неделе, человек.'},
     /* 28.10, п. 2: в таблице подразделений — только численность, недоработка и переработка (Толк и динамика сняты) */
-  ],
+];
+SC.blocks.monitor={
+  /* 27.10-в, п. 4: ревью скрыто до следующего релиза (D.OFF_SUBS) */
+  /* 06.11: шаг «По неделям» (поставка 104) снят вместе с недельной витриной — источник недель ещё не готов */
+  subTabs:[['activity','Рабочая активность'],['review','Ревью']].filter(t=>!D.OFF_SUBS.has('monitor.'+t[0])),
+  defaultSub:'activity',
+  /* 30.10: KPI-полоса блока снята по просьбе заказчика (плашки KPI — ни на одной вкладке) */
+  /* колонки таблицы подразделений: последний закрытый период, сортировка по клику на шапку */
+  /* 26.11: колонки — по режиму «Месяц | Неделя»: в недельном — последняя закрытая неделя (D.monWeekly), подпись окна — неделя */
+  cols(S){
+    const W=S&&S.monPer==='w', per=W?'за неделю':'за '+D.PER_MON;
+    return MON_COLS.map(c=>Object.assign({},c,{per:W?per:c.per,tip:W?c.wtip:c.tip}));
+  },
+  data(lp,S){return S&&S.monPer==='w'?D.monWeekly(lp):D.monData(lp)},
   title(sub){return sub==='review'?'Итоги ревью: последний цикл, '+D.CMP.cur
     :'Мониторинг рабочей активности'},
   view(ctx){
@@ -13307,12 +13388,33 @@ SC.blocks.monitor={
           groups:rv.groups.map(g=>({name:g.name,rows:g.rows.map((n,i)=>({name:n,cells:g.cells[i]}))}))})+
         '</div>'])+'<div class="tbl-note">Доли в строке складываются в 100%. Сколько это человек — в подсказке.</div>';
     }
+    /* 26.11 (задание «В работу», п. 1): переключатель «Месяц | Неделя» — общий .opts.tight (как «Метрика» конструктора), по
+       умолчанию месяц; выбор — S.monPer (в ссылке «mper=w»). Неделя — D.monWeekly: те же графики, таблица и состав по
+       последней закрытой неделе; сравнения неделя к неделе нет (правила нет) — сказано под переключателем */
+    const W=ctx.S&&ctx.S.monPer==='w';
+    const sw='<div class="mon-per"><div class="opts tight" role="group" aria-label="Периодичность мониторинга">'+
+      [['m','Месяц'],['w','Неделя']].map(x=>'<button class="opt'+((x[0]==='w')===W?' on':'')+'" data-monper="'+x[0]+'" aria-pressed="'+
+        ((x[0]==='w')===W)+'">'+x[1]+'</button>').join('')+'</div>'+
+      (W?'<span class="tbl-note">Неделя к неделе не сравнивается.</span>':'')+'</div>';
+    if(W){
+      const wd=D.monWeekly(ctx.lp);
+      if(!wd)return sw+U.empty('Нет недельных данных','Мониторинг по неделям ещё не загружен в отчёт. Месяцы — в переключателе выше.');
+      if(wd.error)return sw+U.empty('Недельные данные не сходятся','Цифры не показываем, чтобы не ввести в заблуждение. Обновите страницу; если не поможет — сообщите владельцу отчёта.');
+      if(!wd.weeks.some(x=>!x.gap))return sw+U.empty('Под эти фильтры никто не попал','Снимите один из фильтров в шапке или выберите другое подразделение.');
+      const P=wd.months, pl=perLine(P,true,ctx.lp), gaps=P.filter(x=>x.gap).length;
+      return sw+kpiBlock(ctx.lp,wd)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+          legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
+        G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
+        G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+'</div>'+
+        '<div class="tbl-note">В неделе — люди с рабочими днями по табелю; категория недели — по большинству рабочих дней, часы и доля звонков — среднее по людям.'+
+          (gaps?' Недель без данных: '+gaps+' — на графиках разрыв, а не ноль.':'')+'</div>';
+    }
     const md=D.monData(ctx.lp);
-    if(!md)return U.empty('Нет данных мониторинга','Витрина мониторинга по неделям ещё не подключена к отчёту.');
+    if(!md)return sw+U.empty('Нет данных мониторинга','Витрина мониторинга по неделям ещё не подключена к отчёту.');
     /* 05.11, заказчик: отметка периода кликом по столбику снята — графики без выделения */
     const wk=false, P=md.months;
     /* пробник без витрины по неделям и без мониторинга по дням: часы и звонки — заглушки */
-    if(md.monthly&&!md.daily)return covNote(md)+kpiBlock(ctx.lp,md)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    if(md.monthly&&!md.daily)return sw+covNote(md)+kpiBlock(ctx.lp,md)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),h:270})+
       /* 22.10: блоки динамики рабочей активности и звонков в Толк стоят на месте (файл Антона, 2.3 и 2.4);
          в основной таблице часов и звонков нет — они заполнятся с витриной мониторинга */
@@ -13321,7 +13423,7 @@ SC.blocks.monitor={
     /* 31.10 (поставка 82): графики мониторинга — малые кратные с одной осью периодов: на широкой панели сеткой.
        Поставка 104 (заказчик): низкие (sm) — лист короче; под заголовком — среднее за период */
     const pl=perLine(P,wk,ctx.lp);
-    return covNote(md)+kpiBlock(ctx.lp,md)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
+    return sw+covNote(md)+kpiBlock(ctx.lp,md)+'<div class="sm-grid">'+G.chart('stack',{periods:P},{title:'Состав по категориям, чел',
         legend:G.MON_CATS.map(c=>({name:c[1],color:C[c[0]]})),period:pl&&pl.cats()})+
       G.chart('pline',{periods:P,key:'hours'},{title:'Средняя рабочая активность, ч/день',name:'Средняя рабочая активность',sm:true,period:pl&&pl.hours()})+
       G.chart('pline',{periods:P,key:'talk'},{title:'Средняя доля звонков в Толк, % рабочего времени',name:'Средняя доля звонков в Толк',fmt:'pct',sm:true,period:pl&&pl.talk()})+'</div>';
@@ -14355,6 +14457,7 @@ function urlParams(){
   if(S.mixRows!==D.DEFAULT_STATE.mixRows)p.set('mxr',S.mixRows);
   if(S.mixCols!==D.DEFAULT_STATE.mixCols)p.set('mxc',S.mixCols||'');
   if(S.mixMode!==D.DEFAULT_STATE.mixMode)p.set('mxm',S.mixMode);
+  if(S.monPer==='w')p.set('mper','w');
   return p;
 }
 function readURL(){
@@ -14375,6 +14478,7 @@ function readURL(){
   if(mxr&&D.MIX_BY_KEY[mxr])S.mixRows=mxr;
   if(mxc!=null)S.mixCols=D.MIX_BY_KEY[mxc]?mxc:'';
   if(mxm&&['abs','row','col'].indexOf(mxm)>=0)S.mixMode=mxm;
+  S.monPer=q.get('mper')==='w'?'w':'m';
   if(!D.NODE_BY_PATH[S.unit]||D.isTech(S.unit))S.unit=D.DEFAULT_STATE.unit;
 }
 /* в Proteus адресной строки у чарта нет: состояние живёт в TP_ENV.store */
@@ -14671,7 +14775,7 @@ function renderHead(){
    которого «Требует действий»; остальные — серые. Тот же источник, что у вывода блока, — точка и вывод не спорят */
 /* 31.10 (поставка 82, «подлагивает»): сигналы всех блоков пересчитывались на каждый клик — шаг главы, вкладку,
    сортировку — до четверти времени клика. Сигнал зависит от среза, не от того, что открыто: кэш по срезу */
-const NAV_UI=new Set(['tab','subTab','tsort','spmSort','exitIni','mixSel','mixRows','mixCols','mixMode',
+const NAV_UI=new Set(['tab','subTab','tsort','spmSort','monPer','exitIni','mixSel','mixRows','mixCols','mixMode',
   'mxFull','aiOpen','offCity','offSeg','rostSt','aiSel']);
 let _navKey=null, _navMemo={};
 function navSig(bk){
@@ -15398,6 +15502,9 @@ on(document,'click',e=>{
 
   /* содержимое клетки матрицы — раньше общей ветки .opt: кнопки режима тоже
      .opt, но без data-f, и общий обработчик записал бы в DRAFT undefined */
+  /* 26.11: мониторинг «Месяц | Неделя» */
+  const mpr=t.closest('[data-monper]');
+  if(mpr){S.monPer=mpr.dataset.monper==='w'?'w':'m';render(true);return}
   const mm=t.closest('[data-mixmode]');
   if(mm){S.mixMode=mm.dataset.mixmode;render(true);return}
 

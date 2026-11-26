@@ -444,7 +444,9 @@ function renderBlock(S,expanded,mixOpen,view){
      возрастанию, снова как в оргдереве. */
   /* поставка 137, п. 8: колонка с hide — в таблице не показывается (численность на вкладке AI), но остаётся знаменателем
      долей и правила малых чисел (tcols0[0]) */
-  const tcols0=mod.cols||null, tcols=tcols0&&tcols0.filter(c=>!c.hide), tdata=tcols?(lp=>mod.data?mod.data(lp):D.monData(lp)):null;
+  /* 26.11: колонки и их данные могут зависеть от состояния вкладки (мониторинг «Месяц | Неделя»): mod.cols(S), mod.data(lp, S) */
+  const tcols0=(typeof mod.cols==='function'?mod.cols(S):mod.cols)||null, tcols=tcols0&&tcols0.filter(c=>!c.hide),
+    tdata=tcols?(lp=>mod.data?mod.data(lp,S):D.monData(lp)):null;
   const ts=String(S.tsort||'').split(':'), tsc=tcols&&tcols.find(c=>c.k===ts[0]&&c.val), tsd=ts[1]==='a'?1:-1;
   /* 09.11, поставка 130 (владелец: «добавим сортировку в таблицу по подразделениям»): и у обычных колонок-метрик — тем же кликом по шапке */
   const tsm=!tcols&&tmets.find(m=>m.key===ts[0]), tv=p=>{const v=val(rowLeaves(p,S),tsm.key);return v==null||!isFinite(v)?-1e18:v};
@@ -695,7 +697,7 @@ function renderBlock(S,expanded,mixOpen,view){
       (bookC.chapters.length>1?' · вкладка '+(bookC.idx+1)+' из '+bookC.chapters.length:'')+
       /* поставка 99: окно чисел вкладки — один раз здесь, а не в каждой строке (у структуры — состояния на сегодня) */
       /* поставка 106: у AI — недели, без сравнения с прошлым годом */
-      (b.key==='structure'?'':b.key==='review'?reviewWin(ctx.lp):b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
+      (b.key==='structure'?'':b.key==='review'?reviewWin(ctx.lp):b.key==='ai'?' · <b>последние '+D.AI_NW+' недель</b>':b.key==='monitor'&&S.subTab==='activity'&&S.monPer==='w'?' · <b>последние '+D.MW_N+' недель</b>, Пн–Вс':' · <b>'+esc(D.CNT_NAME)+'</b>'+(D.CNT_ON?' (доли — '+esc(D.PER_NAME)+')':'')+' против того же периода '+D.YEAR_PREV),
     body:body,bodyCls:'st-on',foot:true});
 
   return h+'</div>';

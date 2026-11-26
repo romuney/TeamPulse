@@ -68,6 +68,7 @@ function urlParams(){
   if(S.mixRows!==D.DEFAULT_STATE.mixRows)p.set('mxr',S.mixRows);
   if(S.mixCols!==D.DEFAULT_STATE.mixCols)p.set('mxc',S.mixCols||'');
   if(S.mixMode!==D.DEFAULT_STATE.mixMode)p.set('mxm',S.mixMode);
+  if(S.monPer==='w')p.set('mper','w');
   return p;
 }
 function readURL(){
@@ -88,6 +89,7 @@ function readURL(){
   if(mxr&&D.MIX_BY_KEY[mxr])S.mixRows=mxr;
   if(mxc!=null)S.mixCols=D.MIX_BY_KEY[mxc]?mxc:'';
   if(mxm&&['abs','row','col'].indexOf(mxm)>=0)S.mixMode=mxm;
+  S.monPer=q.get('mper')==='w'?'w':'m';
   if(!D.NODE_BY_PATH[S.unit]||D.isTech(S.unit))S.unit=D.DEFAULT_STATE.unit;
 }
 /* в Proteus адресной строки у чарта нет: состояние живёт в TP_ENV.store */
@@ -384,7 +386,7 @@ function renderHead(){
    которого «Требует действий»; остальные — серые. Тот же источник, что у вывода блока, — точка и вывод не спорят */
 /* 31.10 (поставка 82, «подлагивает»): сигналы всех блоков пересчитывались на каждый клик — шаг главы, вкладку,
    сортировку — до четверти времени клика. Сигнал зависит от среза, не от того, что открыто: кэш по срезу */
-const NAV_UI=new Set(['tab','subTab','tsort','spmSort','exitIni','mixSel','mixRows','mixCols','mixMode',
+const NAV_UI=new Set(['tab','subTab','tsort','spmSort','monPer','exitIni','mixSel','mixRows','mixCols','mixMode',
   'mxFull','aiOpen','offCity','offSeg','rostSt','aiSel']);
 let _navKey=null, _navMemo={};
 function navSig(bk){
@@ -1111,6 +1113,9 @@ on(document,'click',e=>{
 
   /* содержимое клетки матрицы — раньше общей ветки .opt: кнопки режима тоже
      .opt, но без data-f, и общий обработчик записал бы в DRAFT undefined */
+  /* 26.11: мониторинг «Месяц | Неделя» */
+  const mpr=t.closest('[data-monper]');
+  if(mpr){S.monPer=mpr.dataset.monper==='w'?'w':'m';render(true);return}
   const mm=t.closest('[data-mixmode]');
   if(mm){S.mixMode=mm.dataset.mixmode;render(true);return}
 

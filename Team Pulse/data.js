@@ -1757,7 +1757,7 @@ function fmtDelta(key,v){
 /* ---------- Дефолтный state ---------- */
 /* В пробнике юнит и фильтры — те, что применил датасет (эхо в meta): отчёт
    показывает ровно то, что пришло, а не то, что хотелось бы. */
-const DEFAULT_STATE={unit:REAL?(TECH.has(REAL.scopePath)?TOP:REAL.scopePath):'T/01',paint:REAL?REAL.applied.paint:'HQ',
+const DEFAULT_STATE={monPer:'m',unit:REAL?(TECH.has(REAL.scopePath)?TOP:REAL.scopePath):'T/01',paint:REAL?REAL.applied.paint:'HQ',
   itSeg:REAL?REAL.applied.itSeg:'all',staffType:REAL?REAL.applied.staffType:'all',
   hcType:REAL?REAL.applied.hcType:'active',hcSet:REAL?REAL.applied.hcSet:[],period:PERIOD_LABEL,
   tab:'onepager',subTab:null,selNode:null,aiOpen:false,
@@ -2650,6 +2650,65 @@ function monData(lp){
     period:MON_WEEKS[MON_NW-12].from+' — '+MON_WEEKS[MON_NW-1].to};
 }
 
+/* 26.11 (задание «В работу», п. 1): мониторинг по неделям — переключатель «Месяц | Неделя» вкладки. Пробник — разрез mw
+   у строки выбранного узла (как AI aw: человек недели посчитан у каждого предка один раз, сумма листьев не нужна):
+   «ГГГГ-ММ-ДД|люди,Σчасов,n,Σдолей звонков,n,переработка,норма,недоработка,не размечено» — teampulse_hub_series_week
+   (ноутбук «hub · 3в»), последние 16 недель источника, фильтры отчёта уже применены датасетом. Часы в день и доля звонков —
+   среднее по людям: сумма средних ÷ число людей со значением (решение владельца 26.11: суммы, делит отчёт). Неделя — Пн–Вс
+   по источнику (date_trunc('week')); неполная — её воскресенье позже даты данных (решение владельца: показывать с
+   пометкой). Пропущенная неделя внутри ряда — разрыв (gap), а не нули. Сравнения неделя к неделе нет: правила нет.
+   null — недельных данных нет вовсе (датасет без mw); {weeks:[]} — под фильтрами никого. Макет — генератор недель. */
+const MW_N=16;
+function monWeekly(lp){
+  if(!lp||!lp.length)return null;
+  const p2=n=>(n<10?'0':'')+n, dd=x=>p2(x.getDate())+'.'+p2(x.getMonth()+1), asof=new Date(ASOF.y,ASOF.m,ASOF.d);
+  const fullOf=(d0,d1,pt)=>'Неделя '+dd(d0)+(d0.getFullYear()!==d1.getFullYear()?'.'+d0.getFullYear():'')+'–'+dd(d1)+
+    (d0.getFullYear()!==d1.getFullYear()?'.'+d1.getFullYear():'')+(pt?', данные по '+dd(asof):'');
+  let W;
+  if(REAL){
+    const m=selMix(lp,'mw');
+    if(!m||!Object.keys(REAL.mixVals('mw')).length&&!Object.keys(m).length)return null;
+    W=Object.keys(m).map(v=>{
+      const i=v.indexOf('|'), d=v.slice(0,i).split('-').map(Number), a=v.slice(i+1).split(',').map(Number);
+      return {wk:v.slice(0,i),d0:new Date(d[0],d[1]-1,d[2]),hc:Math.round(a[0]||0),hrs:a[1]||0,hrn:a[2]||0,tks:a[3]||0,tkn:a[4]||0,
+        over:Math.round(a[5]||0),normal:Math.round(a[6]||0),under:Math.round(a[7]||0),grey:Math.round(a[8]||0)};
+    });
+    /* строка не сходится (нечисло, минус, категории не дают людей недели, неверная дата) — недели не показываем: ошибка
+       источника, а не нули */
+    if(W.some(x=>!/^\d{4}-\d{2}-\d{2}$/.test(x.wk)||[x.hc,x.hrs,x.hrn,x.tks,x.tkn,x.over,x.normal,x.under,x.grey].some(v=>!isFinite(v)||v<0)||
+      x.over+x.normal+x.under+x.grey!==x.hc||x.hrn>x.hc||x.tkn>x.hc))return {weekly:true,error:true,weeks:[],months:[]};
+    W=W.filter(x=>x.hc>0).sort((a,b)=>a.wk<b.wk?-1:1);
+    /* пропуск внутри ряда — своя неделя без значений: на оси она есть, линия рвётся, столбика нет */
+    const out=[];
+    W.forEach(x=>{
+      const pv=out[out.length-1];
+      if(pv)for(let t=new Date(pv.d0.getFullYear(),pv.d0.getMonth(),pv.d0.getDate()+7);t<x.d0;t=new Date(t.getFullYear(),t.getMonth(),t.getDate()+7))
+        out.push({d0:t,gap:true,hc:null,under:null,normal:null,over:null,grey:null});
+      out.push(x);
+    });
+    W=out.slice(-MW_N);
+  }else{
+    const md=monData(lp);
+    if(!md||!md.weeks)return null;
+    W=md.weeks.slice(-MW_N).map((x,i,a)=>{const w=MON_WEEKS[MON_WEEKS.length-a.length+i],d=MON_DATE(w);
+      return Object.assign({},x,{d0:d,hrs:x.hours!=null?x.hours*x.hc:0,hrn:x.hours!=null?x.hc:0,tks:x.talk!=null?x.talk*x.hc:0,tkn:x.talk!=null?x.hc:0})});
+  }
+  W.forEach(x=>{
+    const d1=new Date(x.d0.getFullYear(),x.d0.getMonth(),x.d0.getDate()+6);
+    x.pt=!x.gap&&d1>asof;x.label=dd(x.d0);x.full=fullOf(x.d0,d1,x.pt);
+    if(x.pt)x.ptNote='Неделя не закрыта: данные по '+dd(asof)+', значение может измениться к концу недели.';
+    if(!x.gap){x.hours=x.hrn?x.hrs/x.hrn:null;x.talk=x.tkn?x.tks/x.tkn:null}else{x.hours=null;x.talk=null}
+  });
+  const C=W.filter(x=>!x.gap);
+  if(C.length){const lc=C.length-1-(C[C.length-1].pt&&C.length>1?1:0);C[lc].cl=true}
+  return {weekly:true,weeks:W,months:W};
+}
+/* дата понедельника недели макета (MON_WEEKS хранит подписи): от даты данных назад, как сам ряд */
+function MON_DATE(w){
+  const i=MON_WEEKS.indexOf(w), asof=new Date(ASOF.y,ASOF.m,ASOF.d), dow=(asof.getDay()+6)%7;
+  return new Date(asof.getFullYear(),asof.getMonth(),asof.getDate()-dow-7-7*(MON_WEEKS.length-1-i));
+}
+
 /* Средний возраст. Макет: середины возрастных групп (в данных — возраст человека, сумма
    возрастов приходит вместе с численностью); dimKey/catIdx — внутри категории
    («средний возраст женщин»). Срез по возрасту оставляет только выбранные группы. */
@@ -2966,7 +3025,7 @@ let _nmx=null;
 /* поставка 103: разрезы «у узла» одним семейством — если датасет отдаёт их узлам (есть tsh), то и редкие (tsi tci vt…)
    берутся у выбранной строки, даже если у листьев их нет; у юнита с детьми — его строка датасета (REAL.nodeMix), а не
    сумма листьев: переводы между его подразделениями для него внутренние */
-const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw',
+const NODE_KEYS=new Set(['xim','tsh','tsi','tso','tci','tco','tsm','xsm','sp0','sp1','vt','fsm','aw','mw',
   'aik','aih','aiu','ait','aif','aph','apt','aut','auf','aun','aum','auc','auk','ash','asu','aip']);
 function selMix(lp,k){
   if(!_nmx){_nmx=new Set();NODES.forEach(n=>{if(n.leaf&&!n.direct&&n.parent)Object.keys(REAL.mix(n.path)||{}).forEach(x=>_nmx.add(x))})}
@@ -3798,7 +3857,7 @@ function reviewData(lp){
   return reviewFromMix(mx,REAL.reviewVersion);
 }
 
-window.TPDATA={REVIEW_SCALE,reviewData,reviewFromMix,REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
+window.TPDATA={monWeekly,MW_N,REVIEW_SCALE,reviewData,reviewFromMix,REAL,bandN,MONTH_ABBR_GEN,MONTH_DAT,YEAR_START_EXT,WIN_FROM,WIN_TO,WIN_START,winSum,ASOF,PARTIAL,ASOF_LABEL,MATURING,matures,
   SHOWN,OFF_SUBS,CLOSED_ONLY,closedOnly,lastIdx,PART_FLOW,partFlow,VERIFIED,VERIFIED_TIP,MISMATCH,MISMATCH_TIP,DIM,isStub,isDev,devStage,devPlan,DEV_PLAN,DEV_STAGES,PLAN_NOW,planCount,AUD_LABEL,kidsOf,defOf,unitsInScope,UNIT_WORDS,rowsOf,directNA,MIX_DIMS,MIX_BY_KEY,MIX_GROUPS,MIX_GROUP_COLOR,dimColor,GRADE_BY_SEN,MIX_LINKS,
   mixParts,mixCats,mixTree,bound,PICK,draftCount,mixMatrix,mixWeights,mixJoint,roundParts,roundMatrix,otherParts,
   PROF,SLICE_MAX,sliceable,sliceParse,sliceLabel,sliceShare,sliceGroups,aggregateSlice,lastValSlice,avgAge,HQ_LIGHT,HQN,hqLeaves,hqLight,HIRE_KINDS,hireKinds,monData,monKpi,monJudged,monCover,yoyMove,perSum,MPW,FLOW,SPM_FSM,MON_WEEKS,MON_MONTHS,

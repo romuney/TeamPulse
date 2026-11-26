@@ -512,10 +512,13 @@ CH.tgrowth={
 /* ===== Мониторинг работы ===== */
 /* поставка 104: последняя ЗАКРЫТАЯ неделя (месяц) — незакрытая тоже в ряду, сравнивать её с полной нельзя */
 function monStory(c,wk){
-    const md=D.monData(c.lp);
-    if(!md)return {sum:'нет данных',st:'n'};
-    const W=wk&&md.weeks?md.weeks:md.months, ci=W.findIndex(p=>p.cl), i0=ci<0?W.length-1:ci, cur=W[i0], prev=W[i0-1]||cur;
+    /* 26.11: режим «Неделя» (S.monPer) — недели D.monWeekly; глава — о последней закрытой неделе, без сравнений */
+    const md=wk?D.monWeekly(c.lp):D.monData(c.lp);
+    if(!md||wk&&(md.error||!md.weeks.some(x=>!x.gap)))return {sum:'нет данных',st:'n'};
+    const W=wk&&md.weeks?md.weeks.filter(x=>!x.gap):md.months, ci=W.findIndex(p=>p.cl), i0=ci<0?W.length-1:ci, cur=W[i0], prev=W[i0-1]||cur;
     const pc1=v=>D.fmtNumber(cur.hc?v/cur.hc*100:null);
+    /* 26.11: TEXT_GUIDE п. 9 — меньше 30 человек в периоде: только люди, без процента */
+    const pcs=v=>cur.hc>=30?' ('+pc1(v)+'%)':'';
     /* поставка 120 (критик компании: «недоработка +7, переработка −11» — непонятно, чего): изменение — в людях */
     const du=cur.under-prev.under, dv=cur.over-prev.over, sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v)+' чел.';
     const worse=du>0||dv>0, both=du>0&&dv>0;
@@ -552,16 +555,16 @@ function monStory(c,wk){
          меньше 30 человек — последний закрытый месяц в людях */
       head:pp&&D.isSmall()?cur.full+': недорабатывали '+pl(cur.under,PPL)+' (месяцем раньше — '+prev.under+')'
         :pp?one(hk,hp,hj)
-        :'Недоработка — '+cur.under+' чел ('+pc1(cur.under)+'%)',
+        :(wk?String(cur.full).split(',')[0]+': недоработка — ':'Недоработка — ')+cur.under+' чел'+pcs(cur.under),
       lede:pp&&D.isSmall()?'Перерабатывали **'+pl(cur.over,PPL)+'** (месяцем раньше — '+prev.over+').'
         :pp?(rf(hk,hj)?capS(rf(hk,hj))+'. ':'')+one(ok,op,oj).replace(f(ok,op.v),'**'+f(ok,op.v)+'**')+
           (rf(ok,oj)?' ('+rf(ok,oj).replace(/\*\*/g,'')+')':'')+'.'
-        :'Переработка — **'+cur.over+' чел** ('+pc1(cur.over)+'%).'};
+        :'Переработка — **'+cur.over+' чел**'+pcs(cur.over)+'.'};
   }
 
 CH.monitor={
   /* «Рабочая активность» (21.10, файл Антона): последняя закрытая неделя против прошлой */
-  activity(c){return monStory(c,false)},
+  activity(c){return monStory(c,!!(c.S&&c.S.monPer==='w'))},
   review(c){
     const rv=D.reviewProfile(c.lp), by=k=>(rv.dyn.find(x=>x.key===k)||{value:0}).value;
     const up=by('up'), dn=by('down');

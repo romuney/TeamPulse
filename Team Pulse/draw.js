@@ -1281,8 +1281,9 @@ function drawStack(a,w,h){
     const pm='mark' in a&&a.mark!==undefined;
     s+='<g class="barg'+(pm?' pmk':'')+(on?' on':'')+'"'+(pm?' data-pmark="'+i+'"':'')+tip({title:p.full,
       /* поставка 128 (аудит L2: в подсказке месяца «7%», в итоге под графиком и в заголовке — «6,8%»): доля — с одной десятой */
-      rows:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+CD.fmtNumber(all?(p[c[0]]||0)/all*100:0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
-      note:(p.pt?'Период ещё идёт — значения могут измениться. ':'')+
+      /* 26.11: период без данных (p.gap — пропущенная неделя) — «нет данных», а не нули */
+      rows:p.gap?[]:CATS.map(c=>({label:c[1],value:CD.fmtInt(p[c[0]]||0)+' · '+CD.fmtNumber(all?(p[c[0]]||0)/all*100:0)+'%',color:off.has(c[0])?C_OFF:COL[c[0]]})),
+      note:(p.gap?'Нет данных за этот период. ':'')+(p.pt?'Период ещё идёт — значения могут измениться. ':'')+
         (a.cats?'Всего — '+CD.fmtInt(all)+(a.unit||'')+'.':(pm?(on?'Период отмечен на линиях. Клик — снять отметку. ':'Клик — отметить период на линиях. '):'')+'Всего — '+CD.fmtInt(all)+' чел.')})+'>'+
       (on?rect(cx-bandW/2+1,hh+2,bandW-2,bot-hh-2,C_LINK,4):'')+
       '<rect class="hit" x="'+num(cx-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+segs+'</g>';
@@ -1329,7 +1330,8 @@ function drawPline(a,w,h){
     /* 05.11, заказчик: «клик — отметить период» только у графиков, которые отметку просят (a.mark задан) */
     const rows=(on1?[{label:o.name||'',value:fmt(v),color:col}]:[]).concat(on2?[{label:o.name2||'',value:fmt(v2[i]),color:col2}]:[]);
     s+='<g class="ptg'+(pm?' pmk':'')+'"'+(pm?' data-pmark="'+i+'"':'')+tip({title:P[i].full,rows:rows,
-      note:i===pi?PART_NOTE():!pm?'':on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
+      /* 26.11: у недели своя пометка «неделя не закрыта» (p.ptNote), у месяца — общая */
+      note:i===pi?(P[i].ptNote||PART_NOTE()):!pm?'':on?'Период отмечен. Клик — снять отметку.':'Клик — отметить период на всех графиках.'})+'>'+
       '<rect class="hit" x="'+num(X(i)-bandW/2)+'" y="'+num(hh)+'" width="'+num(bandW)+'" height="'+num(bot-hh)+'"/>'+
       (i===cur0?'':hgLine(X(i),top,bot))+(v==null||!on1?'':'<circle cx="'+num(X(i))+'" cy="'+num(Y(v))+'" r="'+(on?4.5:2.6)+'" fill="'+(on?col:'#fff')+'" stroke="'+col+'" stroke-width="2"'+(i===pi?' stroke-opacity=".45"':'')+'/>')+'</g>';
     if(on1&&v!=null&&(on||i<=last&&(last-i)%step===0))lbl+=txt(X(i),Y(v)-VAL_DY,fmt(v),valOpt({delay:300+i*20}));

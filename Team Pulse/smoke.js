@@ -48,6 +48,8 @@ fs.writeFileSync(probe,fs.readFileSync(path.join(dir,'app.js'),'utf8')+
   /* one-pager с раскрытыми строками: каретка и график живут именно в них */
   '\n  op:list=>{S.tab="onepager";openRows.clear();(list||[]).forEach(k=>openRows.add(k));render();return $("#view").innerHTML},'+
   '\n  hide:list=>{S.hiddenMetrics=list.slice();S.mainMetric=null},'+
+  /* 26.11: мониторинг «Месяц | Неделя» */
+  '\n  monPer:v=>{S.monPer=v},'+
   /* каретка ИТОГО живёт в app.js, а не в разметке: дёргаем её обработчик напрямую */
   '\n  expAll:()=>{expanded.clear();SC.expandableRows(SC.currentRoot(S)).forEach(p=>expanded.add(p));'+
   'render(true);return $("#view").innerHTML},'+
@@ -273,6 +275,17 @@ checks.push(['минус во всех дельтах типографский, 
     (moHtml.match(/class="shc"/g)||[]).length===4&&moHtml.indexOf('class="mon-kpi"')>=0&&
     /mon-cat-cap">Состав по категориям[\s\S]*Норма[\s\S]*Недоработка[\s\S]*Переработка[\s\S]*Не размечено/.test(moHtml)&&
     !/За 16 недель|Звонки в Толк от 20%|Работа в выходные/.test(moHtml)&&/Состав по категориям, чел/.test(moHtml)]);
+  /* 26.11 (задание «В работу», п. 1): переключатель «Месяц | Неделя» — общий .opts.tight, по умолчанию месяц; неделя — недели
+     ряда, колонки таблицы «за неделю», глава — о закрытой неделе, без сравнений и без «месяц»/MoM в недельных подписях */
+  A.monPer('w');const moW=A.go('monitor','activity');A.monPer('m');const moM=A.go('monitor','activity');
+  const wkd=D.monWeekly(D.reportLeaves(D.DEFAULT_STATE));
+  checks.push(['мониторинг: переключатель «Месяц | Неделя», недельный режим — недели, подписи недели, без сравнений',
+    D.DEFAULT_STATE.monPer==='m'&&/<div class="opts tight" role="group" aria-label="Периодичность мониторинга">/.test(moM)&&
+    /class="opt on" data-monper="m" aria-pressed="true">Месяц/.test(moM)&&/class="opt on" data-monper="w" aria-pressed="true">Неделя/.test(moW)&&
+    !!wkd&&wkd.weekly&&wkd.weeks.length===D.MW_N&&wkd.weeks.filter(x=>x.cl).length===1&&
+    /последние 16 недель/.test(moW)&&/Неделя к неделе не сравнивается/.test(moW)&&/за неделю/.test(moW)&&/Неделя \d\d\.\d\d–\d\d\.\d\d: недоработка/.test(moW)&&
+    /Состав по категориям, чел/.test(moW)&&!/MoM|месяцем раньше|в последнем месяце данных|за последний месяц/.test(moW.replace(/data-tip="[^"]*"/g,''))&&
+    !/Неделя к неделе|последние 16 недель/.test(moM)]);
   checks.push(['подпись месяца берётся из одного места, а не пишется руками',
     D.CMP.momShort==='к '+'маю'&&D.CMP.momFull==='к маю 2026'&&D.CMP.yoy==='к июню 2025']);
   /* 27.10-в, п. 1: шапки — MoM и YoY, месяцы сравнения — в их подсказках */

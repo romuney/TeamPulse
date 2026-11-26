@@ -2874,3 +2874,7 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    вкладки — от одной левой границы и одной ширины, цифры не уезжают от названий */
 .review-screen .st-main>.bt-stack{display:flex;flex-direction:column;align-items:stretch}
 .review-screen .st-main>.bt-stack>*,.review-screen .st-main>.mx-foot{max-width:960px}
+
+/* 26.11: мониторинг «Месяц | Неделя» — общий переключатель .opts.tight над вкладкой, пояснение окна рядом */
+.mon-per{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3) var(--s6);margin:0 0 var(--s6)}
+.mon-per .tbl-note{margin-top:0}
