@@ -261,13 +261,13 @@ WITH
           родитель закрыт. Открыто всё — корень отчёта не в UX, это полный доступ. Множества — через IN (хеш), без лямбд
           с захватом больших массивов (урок Code 241) #}
       {%- set AUQ = "(SELECT ifNull(toString(unit_rk), '') FROM prod_proteus.teampulse_hub_access WHERE lowerUTF8(trimBoth(ifNull(toString(login), ''))) = " ~ me() ~ " AND " ~ me() ~ " != '' UNION ALL SELECT ifNull(unit_rk, '') FROM prod_proteus.teampulse_hub_unit WHERE lowerUTF8(trimBoth(ifNull(toString(head_login), ''))) = " ~ me() ~ " AND " ~ me() ~ " != '')" %}
-      {%- set UX = "(SELECT arrayJoin(splitByChar('|', ifNull(path_rk, ''))) FROM prod_proteus.teampulse_hub_unit WHERE ifNull(kids_cnt, 0) = 0 AND ifNull(unit_rk, '') IN (SELECT lf FROM (SELECT ifNull(unit_rk, '') AS lf, splitByChar('|', ifNull(path_rk, '')) AS lph FROM prod_proteus.teampulse_hub_unit WHERE ifNull(kids_cnt, 0) = 0) ARRAY JOIN lph AS la GROUP BY lf HAVING max(la IN " ~ AUQ ~ ") = 0))" %}
+      {%- set UX = "(SELECT arrayJoin(splitByChar('|', ifNull(path_rk, ''))) FROM prod_proteus.teampulse_hub_unit WHERE ifNull(kids_cnt, 0) = 0 AND ifNull(unit_rk, '') IN (SELECT arrayJoin((SELECT groupArray(__x) FROM (SELECT lf AS __x FROM (SELECT ifNull(unit_rk, '') AS lf, splitByChar('|', ifNull(path_rk, '')) AS lph FROM prod_proteus.teampulse_hub_unit WHERE ifNull(kids_cnt, 0) = 0) ARRAY JOIN lph AS la GROUP BY lf HAVING max(la IN " ~ AUQ ~ ") = 0)))))" %}
       CROSS JOIN (SELECT {#- корни зоны — сверху вниз по уровню: первым (юнит по умолчанию) идёт самый верхний, а не случайный #}
                          arrayMap(x -> x.2, arraySort(groupArray((t.lv, t.id)))) AS zq, arrayDistinct(arrayFlatten(groupArray(t.ph))) AS anq
                   FROM (SELECT ifNull(unit_rk, '') AS id, ifNull(parent_rk, '') AS pr, splitByChar('|', ifNull(path_rk, '')) AS ph,
                                toInt32(ifNull(unit_lvl, 0)) AS lv
                         FROM prod_proteus.teampulse_hub_unit) AS t
-                  WHERE t.id != '' AND t.id NOT IN {{ UX }} AND (t.pr = '' OR t.pr IN {{ UX }})) AS fa
+                  WHERE t.id != '' AND t.id NOT IN (SELECT arrayJoin((SELECT groupArray(*) FROM {{ UX }}))) AND (t.pr = '' OR t.pr IN (SELECT arrayJoin((SELECT groupArray(*) FROM {{ UX }}))))) AS fa
     )
   ),
   {#- поставка 113-и (скорость: 8б на бою — почти всё время в разборе и плане запроса): контекст — скаляр ctx и его поля
@@ -355,7 +355,7 @@ WITH
   ),
   peer AS (
     SELECT arrayStringConcat(arraySort(groupArray(concat(k, '\t', toString(b), '\t', toString(n), '\t',
-             arrayStringConcat(arrayMap(q -> toString(round(q, 2)), qs), '\t')))), '\n') AS pj
+             arrayStringConcat(arrayMap(q -> toString(round(round(q, 6), 2)), qs), '\t')))), '\n') AS pj
     FROM (
       SELECT kv.1 AS k, multiIf(hb >= 1000, 4, hb >= 300, 3, hb >= 100, 2, 1) AS b, count() AS n,
              quantilesExact(0.25, 0.5, 0.75)(kv.2) AS qs
@@ -363,9 +363,9 @@ WITH
         SELECT hc9 AS hb, arrayJoin([('turnover_y', v_ty), ('turnover_m', v_tm), ('underwork', v_uw), ('overwork', v_ow),
                                      ('office_att', v_oa), ('tgrowth_conv', v_tc), ('booking_viol', v_bv),
                                      ('time_to_fill', if(t_n >= 3, v_tf, nan))]) AS kv
-        FROM pnv LEFT JOIN pvt ON tu = pu WHERE hc9 >= 30 AND pu NOT IN (SELECT xu FROM plin)
+        FROM pnv LEFT JOIN pvt ON tu = pu WHERE hc9 >= 30 AND pu NOT IN (SELECT arrayJoin((SELECT groupArray(__x) FROM (SELECT xu AS __x FROM plin))))
         UNION ALL
-        SELECT ah AS hb, ('ai_penetration', v_ai) AS kv FROM pai WHERE [ah >= 30][1] AND pu NOT IN (SELECT xu FROM plin)
+        SELECT ah AS hb, ('ai_penetration', v_ai) AS kv FROM pai WHERE [ah >= 30][1] AND pu NOT IN (SELECT arrayJoin((SELECT groupArray(__x) FROM (SELECT xu AS __x FROM plin))))
       )
       WHERE isFinite(kv.2)
       GROUP BY k, b
@@ -404,7 +404,7 @@ WITH
            arrayStringConcat(arraySort(groupArray(concat(toString(toUInt32(
              (((indexOf(tupleElement({{ FV }}, 1), v7a) - 1) * length(tupleElement({{ FV }}, 2)) + indexOf(tupleElement({{ FV }}, 2), v7b) - 1)
               * length(tupleElement({{ FV }}, 3)) + indexOf(tupleElement({{ FV }}, 3), v7c) - 1)
-             * length(tupleElement({{ FV }}, 4)) + indexOf(tupleElement({{ FV }}, 4), v7d) - 1)), ':', toString(round(n7))))), ' ') AS fds
+             * length(tupleElement({{ FV }}, 4)) + indexOf(tupleElement({{ FV }}, 4), v7d) - 1)), ':', toString(round(round(n7, 6)))))), ' ') AS fds
     FROM fdb
     GROUP BY u7
   ),
@@ -550,7 +550,7 @@ WITH
     SELECT u3 AS mu, arrayStringConcat(arraySort(groupArray(kb)), '\n') AS mxs
     FROM
     (
-    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(n4, 1))))), '\n')) AS kb
+    SELECT u3, concat(k3, arrayStringConcat(arraySort(groupArray(concat('\t', v3, '\t', toString(round(round(n4, 6), 1))))), '\n')) AS kb
     FROM
     (
       {% if P_PPL %}{{ ua(U1) }}
@@ -568,7 +568,7 @@ WITH
             города: только у выбранного юнита. П. 17: календарь по дням (dw do) — ещё и у подразделений первого уровня
             (строки таблицы): клик по строке пересчитывает календарь и дни недели #}
         AND (ifNull(mx_key, '') NOT IN ('es', 'en', 'ocm', 'ocdm', 'dw', 'do') OR node_rk = cxs
-             OR (ifNull(mx_key, '') IN ('dw', 'do') AND node_rk IN (SELECT id FROM st2 WHERE pid = cxs)))
+             OR (ifNull(mx_key, '') IN ('dw', 'do') AND node_rk IN (SELECT arrayJoin((SELECT groupArray(__x) FROM (SELECT id AS __x FROM st2 WHERE pid = cxs))))))
         {#- поставка 109 (скорость): помесячные уходы по специализации xsm заменены замкнутым водопадом fsm (поставка 105) —
             в ответ не идут #}
         AND ifNull(mx_key, '') != 'xsm'
@@ -663,7 +663,7 @@ WITH
       SELECT u3, 'fsm' AS k3, concat('*', spx, '|', yr, '|', arrayStringConcat(arraySort(groupArray(ev)), ',')) AS v3, toFloat64(1) AS n4
       FROM
       (
-      SELECT ifNull(node_rk, '') AS u3, spx, yr, concat(toString(kv.1), mo, ':', toString(round(sum(kv.2), 1))) AS ev
+      SELECT ifNull(node_rk, '') AS u3, spx, yr, concat(toString(kv.1), mo, ':', toString(round(round(sum(kv.2), 6), 1))) AS ev
       FROM
       (
         {#- поставка 109 (скорость разбора): числа без ifNull — NULL в сумме не считается, как и 0 #}
@@ -692,7 +692,7 @@ WITH
       {#- поставка 106: AI по неделям — у каждого узла ответа последние 16 недель источника (105 дней от последней недели;
           последняя неделя может быть неполной): «ГГГГ-ММ-ДД|WAU,численность,%». Численность — без стажёров, человек
           в узле один раз за неделю (ноутбук). Фильтры среза на AI не действуют — условия cond здесь нет #}
-      SELECT u8 AS u3, 'aw' AS k3, concat(toString(w8), '|', arrayStringConcat(arrayMap(x -> toString(round(x, 2)), a8), ',')) AS v3,
+      SELECT u8 AS u3, 'aw' AS k3, concat(toString(w8), '|', arrayStringConcat(arrayMap(x -> toString(round(round(x, 6), 2)), a8), ',')) AS v3,
              toFloat64(1) AS n4
       FROM
       (
@@ -782,7 +782,7 @@ FROM
 
   SELECT p.po AS o, multiIf(p.po = 1, 'scope', p.po = 2, 'base', p.po = 5, 'c', p.po = 6, 'g', 'x') AS role,
          s.id AS id, s.pid AS pid, s.lv AS lvl, s.nm0 AS nm_, s.kd AS kids, '' AS j_,
-         arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(x, 1)), r1), ','), a.tr), ';') AS ms,
+         arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(round(x, 6), 1)), r1), ','), a.tr), ';') AS ms,
          {% if P_MX %}ifNull(x.mxs, ''){% else %}''{% endif %} AS mx_
   FROM (SELECT tupleElement(pe, 1) AS pn, tupleElement(pe, 2) AS po FROM (SELECT arrayJoin(cxpk) AS pe)) AS p
   INNER JOIN st2 AS s ON s.id = p.pn
@@ -794,7 +794,7 @@ FROM
 
   {#- поставка 65: светофор HQ — выбранный юнит под «HQ + Активная» #}
   SELECT toUInt8(4) AS o, 'hq' AS role, cxs AS id, '' AS pid, toInt32(0) AS lvl, '' AS nm_, toUInt32(0) AS kids, '' AS j_,
-         arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(x, 1)), r1), ','), h.th), ';') AS ms,
+         arrayStringConcat(arrayMap(r1 -> arrayStringConcat(arrayMap(x -> toString(round(round(x, 6), 1)), r1), ','), h.th), ';') AS ms,
          '' AS mx_
   FROM arh AS h
   WHERE cxok

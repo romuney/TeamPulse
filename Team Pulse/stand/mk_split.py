@@ -9,6 +9,8 @@
 # Код чартов (файлы 3 и 3а) пишет proteus/build.js. Ноутбук и таблицы — те же, что у обычной поставки.
 # Проверки: stand/split_check.py (сумма частей = целому ответу), stand/serve_split.py + stand/split_board.cjs (браузер).
 import json, os, re, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from split_cluster import cluster_text
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ONE = os.path.join(HERE, '..', 'Поставка — TeamPulse Hub')
@@ -40,6 +42,7 @@ def datasets():
                 "    {% set PART = '" + p + "' %}. Руками не править: правка — в файле 2, затем скрипт. Описание строк и колонок ответа —\n"
                 "    в шапке файла 2. Колонки: role, id, pid, lvl, nm, kids, j, ms, mx. Первая строка части — role = 'part'. -#}\n")
         out[name] = head + body.replace(SET_ALL, "{% set PART = '" + p + "' %}")
+        out[name] = cluster_text(out[name])[0]   # кластер ClickHouse 25.8: stand/split_cluster.py (26.11)
     return out
 
 
