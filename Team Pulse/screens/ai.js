@@ -75,14 +75,17 @@ const wk=u=>u.week?' · неделя '+u.week:' · за неделю';
 /* 07.11 (AI-итерация, п. 2): доля частей целого — горизонтальная полоса с карточками, как «Пол» и «Возраст» в «Структуре»
    (без среза по клику); пусто — строка «нет данных» вместо полосы */
 const AI_NO='var(--pt-na)';
-function split(cap,sub,parts,unit,word){
+/* 27.11: тот же паттерн — eligible-численность в «Ревью» (SC.split): o.empty — текст пустого состояния, o.of — от чего доля в карточке */
+function split(cap,sub,parts,unit,word,o){
+  o=o||{};
   const tot=parts.reduce((a,x)=>a+(x.n||0),0);
-  if(!tot)return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+'<div class="tbl-note">Нет данных за неделю.</div></section>';
+  if(!tot)return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+'<div class="tbl-note">'+esc(o.empty||'Нет данных за неделю.')+'</div></section>';
   return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+
     U.shareBar({static:true,names:true,unit:unit,segs:parts.map((x,i)=>({id:'a'+i,name:x.name,n:x.n,bg:x.bg}))})+
     U.shareCards({static:true,cards:parts.map((x,i)=>({id:'a'+i,name:x.name,n:x.n,unit:word,bg:x.bg,
-      sub:'<b>'+P1(x.n/tot*100)+'</b> от '+(unit==='Сообщений'?'всех сообщений':'всех')}))})+'</section>';
+      sub:'<b>'+P1(x.n/tot*100)+'</b> от '+(o.of||(unit==='Сообщений'?'всех сообщений':'всех'))}))})+'</section>';
 }
+SC.split=split;
 /* 07.11 (п. 3–4): инструменты — % людей и число людей, порядок — по числу людей (ранг ноутбука), первые 10 и раскрываемое
    «Остальное»: в его итоге каждый человек один раз (rest — уникальные люди с инструментами вне топ-10) */
 function tools(ctx,k,cap,sub,items,base,rest,head,cnt){

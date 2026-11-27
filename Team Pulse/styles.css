@@ -2873,7 +2873,10 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    Здесь стопки — всегда одна колонка, каждый блок не шире 960 px, как таблица без полос в «Движении» (.bt-group.spm): все блоки
    вкладки — от одной левой границы и одной ширины, цифры не уезжают от названий */
 .review-screen .st-main>.bt-stack{display:flex;flex-direction:column;align-items:stretch}
-.review-screen .st-main>.bt-stack>*,.review-screen .st-main>.mx-foot{max-width:960px}
+.review-screen .st-main>.bt-stack>*,.review-screen .st-main>.pf-s{max-width:960px}
+/* 27.11: легенда градиента — первой в стопке таблиц распределений: до первой таблицы 12 px, таблицы между собой — 24 px */
+.review-screen .rv-tables>.mx-foot.rv-heat-key{margin-top:0}
+.review-screen .rv-tables>.rv-heat-key+*{margin-top:calc(var(--s6) - var(--s10))}
 
 /* 26.11: мониторинг «Месяц | Неделя» — общий переключатель .opts.tight над вкладкой, пояснение окна рядом */
 .mon-per{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3) var(--s6);margin:0 0 var(--s6)}

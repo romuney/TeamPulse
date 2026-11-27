@@ -1,21 +1,26 @@
 /* Separate annual review screen. Rendering primitives live in ui.js. */
 (function(){
 'use strict';
-const D=window.TPDATA,U=window.TPUI,SC=window.TPSCREENS;
+const D=window.TPDATA,U=window.TPUI,SC=window.TPSCREENS,G=window.TPDRAW;
 const tabs=[['who','Кого оцениваем'],['how','Как оцениваем']];
-function bars(title,items,sub){return U.btGroup({cap:title,capSub:sub||'',head:'',valueHead:'Человек',metricKey:'hc_total',share:false,total:false,
-  items:items.map(x=>({name:x[0],value:x[1],tip:x[2]||null}))})}
 /* 20.11, решение владельца (п. 1 сверки): исходы оценки — одной разбивкой (DESIGN_SYSTEM 4.6): шесть групп вместе дают всех
    eligible, итог — в подписи таблицы («всего N чел»), доля — от eligible. Расчёты прежние, только раскладка. */
 function who(r){
   const c=r.c;
-  return bars('Общая численность и eligible',[['Общая численность',c.all],['Из них eligible',c.eligible,'Сотрудники, включённые в оцениваемую популяцию. Это часть общей численности, а не отдельная группа.']],'eligible — часть общей численности')+
+  /* 27.11 (задание «В работу», п. 4): eligible — полосой воронки сообщений AI (SC.split): шкала — общая численность выборки под
+     теми же фильтрами (eligible + не eligible), eligible не растягивается на всю ширину. eligible > общей и пустая выборка сюда не
+     доходят: reviewFromMix отдаёт ошибку или пустое состояние; реальный ноль — карточка «0 чел» и пустая часть полосы */
+  return SC.split('Общая численность и eligible','всего '+D.fmtInt(c.all)+' чел · eligible — часть общей численности',
+      [{name:'Eligible-численность',n:c.eligible,bg:G.C_REVIEW},{name:'Не eligible',n:c.all-c.eligible,bg:'var(--pt-na)'}],
+      'Человек','чел',{of:'общей численности',empty:'Нет сотрудников под выбранными фильтрами.'})+
     U.reviewNote('Eligible — сотрудники, включённые в оцениваемую популяцию на текущую дату. Общая численность здесь — все сотрудники текущего кадрового снимка под выбранными фильтрами.')+
     (!c.eligible?U.empty('Нет eligible-сотрудников','В выбранной численности нет сотрудников, включённых в ревью.'):
     U.btGroup({cap:'Что с оценкой у eligible',capSub:r.previousYear+' → '+r.year,head:'',valueHead:'Человек',metricKey:'hc_total',share:true,total:true,
       items:[['Улучшили оценку',c.up],['Ухудшили оценку',c.down],['Без изменения оценки',c.same],
         ['Получили первую оценку',c.first,'Первая финальная оценка по всей доступной истории ревью.'],
-        ['Без сопоставимой прошлогодней оценки',c.unpaired,'Оценка за этот год есть, за прошлый — нет, но ревью было раньше.'],
+        /* 27.11 (задание «В работу», п. 2, решение 27.11 — буквально по ТЗ): подпись категории unpaired — «Первая оценка»;
+           правило, состав (c.unpaired) и подсказка прежние */
+        ['Первая оценка',c.unpaired,'Оценка за этот год есть, за прошлый — нет, но ревью было раньше.'],
         ['Без текущей финальной оценки',c.missing]].map(x=>({name:x[0],value:x[1],tip:x[2]||null}))}));
   /* 26.11 (задание «В работу», п. 4): сноска «Шесть групп вместе — все eligible…» снята целиком, без замены */
 }
@@ -49,10 +54,11 @@ function how(r,ctx){
     ['Распределение оценок по специализации','spec',r.spec,SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций'])]]
     /* 23.11, ред. задания 11:14: у стажа и специализации первая колонка шире (wide), у грейда сетка прежняя */
     .map(x=>group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2],wide:x[1]!=='grade'},x[3]||{}))));
-  /* подвал матриц — как у матрицы состава (.mx-foot): шкала заливки и сноска под таблицами, а не абзац перед ними */
-  return U.btStack(blocks)+U.btStack(tables,'rv-tables')+
-    '<div class="mx-foot">'+U.heatLegend()+'<span class="tbl-note">В клетке — сотрудники с этой оценкой, цвет — их доля среди eligible строки. '+
+  /* 27.11 (задание «В работу», п. 3): шкала заливки — над таблицами: у трёх таблиц смысл и шкала одни (доля среди eligible
+     строки), поэтому одна легенда над всей группой — первой в стопке таблиц, к первой таблице ближе, чем таблицы друг к другу */
+  const key='<div class="mx-foot rv-heat-key">'+U.heatLegend()+'<span class="tbl-note">В клетке — сотрудники с этой оценкой, цвет — их доля среди eligible строки. '+
     'Обе доли справа — тоже от всех eligible строки, включая сотрудников без оценки.</span></div>';
+  return U.btStack(blocks)+U.btStack([key].concat(tables),'rv-tables');
 }
 const counts=[
   ['eligible','Eligible','Сотрудники, включённые в оцениваемую популяцию.'],

@@ -48,6 +48,28 @@ try:
             assert 'mper=w' not in pg.url and right.locator('.st-head h3').inner_text() == month_head
             assert not errs, errs
             pg.close()
+        # 27.11: a unit without weekly rows under the filters ({weeks:[]}) — the table shows dashes, no «reading 'hc'»;
+        # repeated switches keep working
+        html_ok = html
+        rows_no = json.loads(json.dumps(rows))
+        for r in rows_no:
+            if r.get('id') == '22': r['mx'] = '\n'.join(l for l in r['mx'].split('\n') if not l.startswith('mw\t'))
+        html = (ROOT / 'index.html').read_text().replace('<script src="data.js"></script>',
+            '<script src="proteus/real.js"></script><script>window.TP_REAL=window.TPREAL.build(' + json.dumps(rows_no).replace('</', '<\\/') +
+            ');</script><script src="data.js"></script>')
+        pg = b.new_page(viewport={'width': 1440, 'height': 1000}); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+        pg.goto(f'http://127.0.0.1:{srv.server_port}/w.html?tour=0'); pg.locator('.nav-i[data-tab="monitor"]').click()
+        for _ in range(3):
+            pg.locator('[data-monper="w"]').click(); pg.wait_for_timeout(150); pg.locator('[data-monper="m"]').click(); pg.wait_for_timeout(150)
+        pg.locator('[data-monper="w"]').click(); pg.wait_for_timeout(200)
+        r22 = pg.locator('.split-l tr.urow').filter(has_text='Отдел 22').locator('td')
+        assert [t.strip() for t in r22.all_inner_texts()[1:]] == ['—', '—', '—'], r22.all_inner_texts()
+        assert pg.locator('.split-l tr.urow').filter(has_text='Отдел 11').locator('td').nth(1).inner_text() == '10'
+        assert pg.locator('.split-r .svgchart').count() == 3 and not errs, errs
+        if pg.locator('button.split-rail').count(): pg.locator('button.split-rail').first.click(); pg.wait_for_timeout(200)  # units panel is collapsed by default
+        pg.locator('.split-l th[data-tsort^="hc:"]').first.click(); pg.wait_for_timeout(150)  # sort by people: missing goes last, not as 0
+        assert 'Отдел 22' in pg.locator('.split-l tr.urow').last.inner_text() and not errs, errs
+        pg.close(); html = html_ok
         # shipped minified ES5 artifact in an opaque-origin sandbox
         code = next((ROOT / 'Поставка — TeamPulse Hub').glob('3. *.js')).read_text()
         pg = b.new_page(viewport={'width': 1440, 'height': 1000}); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))

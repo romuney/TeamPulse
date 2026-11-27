@@ -2881,7 +2881,10 @@ mark.hl{background:var(--act-line);color:var(--act-ink);border-radius:2px;paddin
    Здесь стопки — всегда одна колонка, каждый блок не шире 960 px, как таблица без полос в «Движении» (.bt-group.spm): все блоки
    вкладки — от одной левой границы и одной ширины, цифры не уезжают от названий */
 .review-screen .st-main>.bt-stack{display:flex;flex-direction:column;align-items:stretch}
-.review-screen .st-main>.bt-stack>*,.review-screen .st-main>.mx-foot{max-width:960px}
+.review-screen .st-main>.bt-stack>*,.review-screen .st-main>.pf-s{max-width:960px}
+/* 27.11: легенда градиента — первой в стопке таблиц распределений: до первой таблицы 12 px, таблицы между собой — 24 px */
+.review-screen .rv-tables>.mx-foot.rv-heat-key{margin-top:0}
+.review-screen .rv-tables>.rv-heat-key+*{margin-top:calc(var(--s6) - var(--s10))}
 
 /* 26.11: мониторинг «Месяц | Неделя» — общий переключатель .opts.tight над вкладкой, пояснение окна рядом */
 .mon-per{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3) var(--s6);margin:0 0 var(--s6)}
@@ -12093,8 +12096,9 @@ function renderBlock(S,expanded,mixOpen,view){
     if(!dataByUnit.has(path))dataByUnit.set(path,tdata(lp||rowLeaves(path,S)));
     return dataByUnit.get(path);
   }
-  const cmp=tsc?(a,b)=>{const x=unitData(a.path), y=unitData(b.path);
-    return tsd*((x?tsc.val(x):0)-(y?tsc.val(y):0))}:tsm?(a,b)=>tsd*(tv(a.path)-tv(b.path)):null;
+  /* 27.11: нет значения (нет записи за период) — в конец, как у колонок-метрик (tv), а не как ноль */
+  const sv=d=>{const v=d?tsc.val(d):null;return v==null||!isFinite(v)?-1e18:v};
+  const cmp=tsc?(a,b)=>tsd*(sv(unitData(a.path))-sv(unitData(b.path))):tsm?(a,b)=>tsd*(tv(a.path)-tv(b.path)):null;
   const rows=pivotRows(root,expanded,isEmpty,tq,cmp);
   /* инсайт про концентрацию считается по первому уровню всегда — от
      раскрытий и набранного поиска он зависеть не должен */
@@ -12225,7 +12229,7 @@ function renderBlock(S,expanded,mixOpen,view){
     if(!md)return '<td>—</td>';
     const v=c.val&&c.val(md), hc=tcols0[0].val(md);
     if(c.spark)return '<td'+(unit&&isSm(hc)?smAttr(hc,'sp'):' class="sp"')+'>'+c.spark(md)+'</td>';
-    if(v==null)return '<td'+U.tipAttr({title:c.name,text:c.na||'Появится с витриной мониторинга по неделям.'})+'>—</td>';
+    if(v==null)return '<td'+U.tipAttr({title:c.name,text:(typeof c.na==='function'?c.na(md):c.na)||'Появится с витриной мониторинга по неделям.'})+'>—</td>';
     /* поставка 128 (аудит L4/L10: доли AI у команды из 7 человек — «50%» без пометки, а доли в таблицах других вкладок — серым):
        колонка-доля (c.pct) у группы меньше 30 человек — серым, как везде; и в строке «Итого», если мал весь отчёт */
     if(c.pct&&isSm(hc))return '<td'+smAttr(hc,lead?'lead':'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';
@@ -13255,7 +13259,11 @@ const C=G.C_MON;
 /* доля — тем же округлением, что метрика «Недоработчики» (ratioAt → fmtVal): иначе 8,4% и 8,5% за один месяц */
 /* последняя закрытая неделя и предыдущая; в пробнике без витрины по неделям — месяцы */
 /* поставка 104: таблица подразделений — последний закрытый месяц (cl; незакрытый теперь тоже в ряду), как подпись колонок */
-function wk(md){const W=md.months, i=Math.max(0,W.findIndex(p=>p.cl));return {cur:W[i],prev:W[i-1]||W[i]}}
+/* 27.11 (ошибка недельного режима «reading 'hc'»): у подразделения без недельных строк под фильтрами D.monWeekly отдаёт
+   {weeks:[], months:[]}, при ошибке источника — {error:true}; периода нет — null, а не обращение к полям отсутствующей недели.
+   Нет записи — прочерк, не ноль */
+function wk(md){const W=md&&!md.error&&md.months||[], i=Math.max(0,W.findIndex(p=>p.cl)), c=W[i];return c&&!c.gap?{cur:c,prev:W[i-1]||c}:null}
+const cv=k=>md=>{const w=wk(md);return w&&w.cur[k]!=null?w.cur[k]:null};
 /* блок графика, данных для которого в пробнике нет: заголовок на месте, плашка «в разработке» */
 function monPh(title,what){
   return '<div class="mon-ph"><div class="bt-cap">'+U.esc(title)+'</div>'+
@@ -13299,7 +13307,9 @@ function perLine(P,wk,lp){
    переработка) в последнем закрытом месяце, знаменатель — вся численность выбора в том же месяце; остальные — «Не
    размечено». Кого размечает мониторинг — проверено по данным боя (запрос сверки, блок 3: по покраскам) */
 function covNote(md){
-  const c=wk(md).cur, lab=(c.under||0)+(c.normal||0)+(c.over||0), hc=c.hc||0;
+  const w=wk(md);
+  if(!w)return '';
+  const c=w.cur, lab=(c.under||0)+(c.normal||0)+(c.over||0), hc=c.hc||0;
   if(!hc)return '';
   const pc=lab/hc*100, info='<span class="info"'+U.tipAttr({title:'Покрытие мониторинга',
     text:'Доля людей, по которым в мониторинге есть данные.',
@@ -13318,7 +13328,7 @@ function covNote(md){
    от всех людей выборки в мониторинге за этот месяц (норма + недоработка + переработка + не размечено). Нет данных — строка
    «нет данных», не нули */
 function catBlock(md){
-  const c=md&&md.months&&wk(md).cur, W=!!(md&&md.weekly), perG=W?'эту неделю':'этот месяц';
+  const w=wk(md), c=w&&w.cur, W=!!(md&&md.weekly), perG=W?'эту неделю':'этот месяц';
   if(!c)return '';
   const hc=(c.normal||0)+(c.under||0)+(c.over||0)+(c.grey||0);
   if(!hc)return '<div class="tbl-note">Состав по категориям: нет данных мониторинга за последн'+(W?'юю неделю':'ий месяц')+'.</div>';
@@ -13350,11 +13360,11 @@ const MON_COLS=[
        без записи мониторинга — «не размечено»; ушедшие в течение периода не считаются */
     /* поставка 128 (аудит: в колонке — численность закрытого месяца, под именем строки — сегодняшняя, а подсказка говорила «та же,
        что в шапке»): окно подписано, как у соседних колонок */
-    {k:'hc',name:'В мониторинге, чел',per:'за '+D.PER_MON,tip:'Сколько людей в мониторинге в последнем месяце данных.\n• У каждого одна категория: норма, недоработка, переработка или «не размечено»\n• Может отличаться от численности в шапке: та — на дату данных',val:md=>wk(md).cur.hc,
+    {k:'hc',name:'В мониторинге, чел',per:'за '+D.PER_MON,tip:'Сколько людей в мониторинге в последнем месяце данных.\n• У каждого одна категория: норма, недоработка, переработка или «не размечено»\n• Может отличаться от численности в шапке: та — на дату данных',val:cv('hc'),
       wtip:'Сколько людей с рабочими днями по табелю в последней закрытой неделе.\n• У каждого одна категория недели: норма, недоработка, переработка или «не размечено»\n• Это не численность подразделения: люди без рабочих дней в неделе сюда не входят'},
     /* поставка 90: таблица — люди за последний закрытый месяц, окно подписано под названием */
-    {k:'under',name:'Недоработчики',per:'за '+D.PER_MON,tip:'Активность ниже нормы в последнем месяце данных, человек.',val:md=>wk(md).cur.under,share:true,wtip:'Активность ниже нормы в последней закрытой неделе, человек.'},
-    {k:'over',name:'Переработчики',per:'за '+D.PER_MON,tip:'Активность выше нормы в последнем месяце данных, человек.',val:md=>wk(md).cur.over,share:true,wtip:'Активность выше нормы в последней закрытой неделе, человек.'},
+    {k:'under',name:'Недоработчики',per:'за '+D.PER_MON,tip:'Активность ниже нормы в последнем месяце данных, человек.',val:cv('under'),share:true,wtip:'Активность ниже нормы в последней закрытой неделе, человек.'},
+    {k:'over',name:'Переработчики',per:'за '+D.PER_MON,tip:'Активность выше нормы в последнем месяце данных, человек.',val:cv('over'),share:true,wtip:'Активность выше нормы в последней закрытой неделе, человек.'},
     /* 28.10, п. 2: в таблице подразделений — только численность, недоработка и переработка (Толк и динамика сняты) */
 ];
 SC.blocks.monitor={
@@ -13367,7 +13377,10 @@ SC.blocks.monitor={
   /* 26.11: колонки — по режиму «Месяц | Неделя»: в недельном — последняя закрытая неделя (D.monWeekly), подпись окна — неделя */
   cols(S){
     const W=S&&S.monPer==='w', per=W?'за неделю':'за '+D.PER_MON;
-    return MON_COLS.map(c=>Object.assign({},c,{per:W?per:c.per,tip:W?c.wtip:c.tip}));
+    /* 27.11: прочерк в недельном режиме — почему нет числа: неделя без людей под фильтрами или несходящийся источник */
+    const na=md=>md&&md.error?'Недельные данные подразделения не сходятся — цифры не показываем.'
+      :'За последнюю закрытую неделю данных нет: под выбранными фильтрами в подразделении нет людей с рабочими днями по табелю.';
+    return MON_COLS.map(c=>Object.assign({},c,{per:W?per:c.per,tip:W?c.wtip:c.tip},W?{na:na}:{}));
   },
   data(lp,S){return S&&S.monPer==='w'?D.monWeekly(lp):D.monData(lp)},
   title(sub){return sub==='review'?'Итоги ревью: последний цикл, '+D.CMP.cur
@@ -13716,14 +13729,17 @@ const wk=u=>u.week?' · неделя '+u.week:' · за неделю';
 /* 07.11 (AI-итерация, п. 2): доля частей целого — горизонтальная полоса с карточками, как «Пол» и «Возраст» в «Структуре»
    (без среза по клику); пусто — строка «нет данных» вместо полосы */
 const AI_NO='var(--pt-na)';
-function split(cap,sub,parts,unit,word){
+/* 27.11: тот же паттерн — eligible-численность в «Ревью» (SC.split): o.empty — текст пустого состояния, o.of — от чего доля в карточке */
+function split(cap,sub,parts,unit,word,o){
+  o=o||{};
   const tot=parts.reduce((a,x)=>a+(x.n||0),0);
-  if(!tot)return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+'<div class="tbl-note">Нет данных за неделю.</div></section>';
+  if(!tot)return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+'<div class="tbl-note">'+esc(o.empty||'Нет данных за неделю.')+'</div></section>';
   return '<section class="pf-s">'+U.pfHead(cap,esc(sub),U.icoFor(cap))+
     U.shareBar({static:true,names:true,unit:unit,segs:parts.map((x,i)=>({id:'a'+i,name:x.name,n:x.n,bg:x.bg}))})+
     U.shareCards({static:true,cards:parts.map((x,i)=>({id:'a'+i,name:x.name,n:x.n,unit:word,bg:x.bg,
-      sub:'<b>'+P1(x.n/tot*100)+'</b> от '+(unit==='Сообщений'?'всех сообщений':'всех')}))})+'</section>';
+      sub:'<b>'+P1(x.n/tot*100)+'</b> от '+(o.of||(unit==='Сообщений'?'всех сообщений':'всех'))}))})+'</section>';
 }
+SC.split=split;
 /* 07.11 (п. 3–4): инструменты — % людей и число людей, порядок — по числу людей (ранг ноутбука), первые 10 и раскрываемое
    «Остальное»: в его итоге каждый человек один раз (rest — уникальные люди с инструментами вне топ-10) */
 function tools(ctx,k,cap,sub,items,base,rest,head,cnt){
@@ -13914,21 +13930,26 @@ SC.blocks.ai={
 /* Separate annual review screen. Rendering primitives live in ui.js. */
 (function(){
 'use strict';
-const D=window.TPDATA,U=window.TPUI,SC=window.TPSCREENS;
+const D=window.TPDATA,U=window.TPUI,SC=window.TPSCREENS,G=window.TPDRAW;
 const tabs=[['who','Кого оцениваем'],['how','Как оцениваем']];
-function bars(title,items,sub){return U.btGroup({cap:title,capSub:sub||'',head:'',valueHead:'Человек',metricKey:'hc_total',share:false,total:false,
-  items:items.map(x=>({name:x[0],value:x[1],tip:x[2]||null}))})}
 /* 20.11, решение владельца (п. 1 сверки): исходы оценки — одной разбивкой (DESIGN_SYSTEM 4.6): шесть групп вместе дают всех
    eligible, итог — в подписи таблицы («всего N чел»), доля — от eligible. Расчёты прежние, только раскладка. */
 function who(r){
   const c=r.c;
-  return bars('Общая численность и eligible',[['Общая численность',c.all],['Из них eligible',c.eligible,'Сотрудники, включённые в оцениваемую популяцию. Это часть общей численности, а не отдельная группа.']],'eligible — часть общей численности')+
+  /* 27.11 (задание «В работу», п. 4): eligible — полосой воронки сообщений AI (SC.split): шкала — общая численность выборки под
+     теми же фильтрами (eligible + не eligible), eligible не растягивается на всю ширину. eligible > общей и пустая выборка сюда не
+     доходят: reviewFromMix отдаёт ошибку или пустое состояние; реальный ноль — карточка «0 чел» и пустая часть полосы */
+  return SC.split('Общая численность и eligible','всего '+D.fmtInt(c.all)+' чел · eligible — часть общей численности',
+      [{name:'Eligible-численность',n:c.eligible,bg:G.C_REVIEW},{name:'Не eligible',n:c.all-c.eligible,bg:'var(--pt-na)'}],
+      'Человек','чел',{of:'общей численности',empty:'Нет сотрудников под выбранными фильтрами.'})+
     U.reviewNote('Eligible — сотрудники, включённые в оцениваемую популяцию на текущую дату. Общая численность здесь — все сотрудники текущего кадрового снимка под выбранными фильтрами.')+
     (!c.eligible?U.empty('Нет eligible-сотрудников','В выбранной численности нет сотрудников, включённых в ревью.'):
     U.btGroup({cap:'Что с оценкой у eligible',capSub:r.previousYear+' → '+r.year,head:'',valueHead:'Человек',metricKey:'hc_total',share:true,total:true,
       items:[['Улучшили оценку',c.up],['Ухудшили оценку',c.down],['Без изменения оценки',c.same],
         ['Получили первую оценку',c.first,'Первая финальная оценка по всей доступной истории ревью.'],
-        ['Без сопоставимой прошлогодней оценки',c.unpaired,'Оценка за этот год есть, за прошлый — нет, но ревью было раньше.'],
+        /* 27.11 (задание «В работу», п. 2, решение 27.11 — буквально по ТЗ): подпись категории unpaired — «Первая оценка»;
+           правило, состав (c.unpaired) и подсказка прежние */
+        ['Первая оценка',c.unpaired,'Оценка за этот год есть, за прошлый — нет, но ревью было раньше.'],
         ['Без текущей финальной оценки',c.missing]].map(x=>({name:x[0],value:x[1],tip:x[2]||null}))}));
   /* 26.11 (задание «В работу», п. 4): сноска «Шесть групп вместе — все eligible…» снята целиком, без замены */
 }
@@ -13962,10 +13983,11 @@ function how(r,ctx){
     ['Распределение оценок по специализации','spec',r.spec,SC.rest(ctx,'rvsp',10,['специализация','специализации','специализаций'])]]
     /* 23.11, ред. задания 11:14: у стажа и специализации первая колонка шире (wide), у грейда сетка прежняя */
     .map(x=>group(x[0],'',U.ratingTable(Object.assign({title:x[0],kind:x[1],rows:x[2],wide:x[1]!=='grade'},x[3]||{}))));
-  /* подвал матриц — как у матрицы состава (.mx-foot): шкала заливки и сноска под таблицами, а не абзац перед ними */
-  return U.btStack(blocks)+U.btStack(tables,'rv-tables')+
-    '<div class="mx-foot">'+U.heatLegend()+'<span class="tbl-note">В клетке — сотрудники с этой оценкой, цвет — их доля среди eligible строки. '+
+  /* 27.11 (задание «В работу», п. 3): шкала заливки — над таблицами: у трёх таблиц смысл и шкала одни (доля среди eligible
+     строки), поэтому одна легенда над всей группой — первой в стопке таблиц, к первой таблице ближе, чем таблицы друг к другу */
+  const key='<div class="mx-foot rv-heat-key">'+U.heatLegend()+'<span class="tbl-note">В клетке — сотрудники с этой оценкой, цвет — их доля среди eligible строки. '+
     'Обе доли справа — тоже от всех eligible строки, включая сотрудников без оценки.</span></div>';
+  return U.btStack(blocks)+U.btStack([key].concat(tables),'rv-tables');
 }
 const counts=[
   ['eligible','Eligible','Сотрудники, включённые в оцениваемую популяцию.'],

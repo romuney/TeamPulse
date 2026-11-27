@@ -455,8 +455,9 @@ function renderBlock(S,expanded,mixOpen,view){
     if(!dataByUnit.has(path))dataByUnit.set(path,tdata(lp||rowLeaves(path,S)));
     return dataByUnit.get(path);
   }
-  const cmp=tsc?(a,b)=>{const x=unitData(a.path), y=unitData(b.path);
-    return tsd*((x?tsc.val(x):0)-(y?tsc.val(y):0))}:tsm?(a,b)=>tsd*(tv(a.path)-tv(b.path)):null;
+  /* 27.11: нет значения (нет записи за период) — в конец, как у колонок-метрик (tv), а не как ноль */
+  const sv=d=>{const v=d?tsc.val(d):null;return v==null||!isFinite(v)?-1e18:v};
+  const cmp=tsc?(a,b)=>tsd*(sv(unitData(a.path))-sv(unitData(b.path))):tsm?(a,b)=>tsd*(tv(a.path)-tv(b.path)):null;
   const rows=pivotRows(root,expanded,isEmpty,tq,cmp);
   /* инсайт про концентрацию считается по первому уровню всегда — от
      раскрытий и набранного поиска он зависеть не должен */
@@ -587,7 +588,7 @@ function renderBlock(S,expanded,mixOpen,view){
     if(!md)return '<td>—</td>';
     const v=c.val&&c.val(md), hc=tcols0[0].val(md);
     if(c.spark)return '<td'+(unit&&isSm(hc)?smAttr(hc,'sp'):' class="sp"')+'>'+c.spark(md)+'</td>';
-    if(v==null)return '<td'+U.tipAttr({title:c.name,text:c.na||'Появится с витриной мониторинга по неделям.'})+'>—</td>';
+    if(v==null)return '<td'+U.tipAttr({title:c.name,text:(typeof c.na==='function'?c.na(md):c.na)||'Появится с витриной мониторинга по неделям.'})+'>—</td>';
     /* поставка 128 (аудит L4/L10: доли AI у команды из 7 человек — «50%» без пометки, а доли в таблицах других вкладок — серым):
        колонка-доля (c.pct) у группы меньше 30 человек — серым, как везде; и в строке «Итого», если мал весь отчёт */
     if(c.pct&&isSm(hc))return '<td'+smAttr(hc,lead?'lead':'')+'>'+(c.fmt?c.fmt(v):D.fmtInt(v))+'</td>';

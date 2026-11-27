@@ -30,7 +30,15 @@ try:
             page.locator('[data-tab="review"]').click()
             page.locator('.review-screen').wait_for()
             assert 'Общая численность' in page.locator('.review-screen').inner_text()
-            assert 'Из них eligible' in page.locator('.review-screen').inner_text()
+            # 27.11: eligible — share bar of the AI message-funnel pattern, scale = all people under the same filters (11 of 13)
+            txt=page.locator('.review-screen').inner_text()
+            assert 'Eligible-численность' in txt and 'Не eligible' in txt and 'Из них eligible' not in txt
+            bar=page.locator('.review-screen .pf-s .shbar > span')
+            assert bar.count()==2 and abs(float(bar.first.evaluate('e=>parseFloat(e.style.flexGrow)'))-11/13*100)<0.01
+            assert page.locator('.review-screen .pf-s .shc').first.locator('.shc-n b').inner_text()=='11'
+            # 27.11: «Первая оценка» replaces the old label; the category and its count are unchanged (unpaired = 2)
+            assert 'Без сопоставимой прошлогодней оценки' not in txt
+            assert page.locator('.review-screen tr').filter(has_text='Первая оценка').first.locator('td').nth(1).inner_text().strip()=='2'
             assert not errors,errors
             # One outcome breakdown: six groups add up to all eligible (11), total in the caption.
             who=page.locator('.review-screen').inner_text()
@@ -46,6 +54,10 @@ try:
             assert page.locator('.review-matrix tr.hx-sec').count()==0 and page.locator('.review-matrix tr.total').count()==3
             assert [' '.join(t.split()) for t in page.locator('.review-screen .rv-tables .bt-cap').all_inner_texts()]==[
                 'Распределение оценок по грейду','Распределение оценок по стажу','Распределение оценок по специализации']
+            # 27.11: one shared gradient legend above the three tables (same meaning and scale), none below them
+            assert page.locator('.review-screen .mx-lg').count()==1
+            assert page.evaluate('''()=>{const k=document.querySelector('.rv-tables>.rv-heat-key'),t=document.querySelector('.rv-tables .review-matrix');
+              return !!k&&k===k.parentElement.firstElementChild&&k.getBoundingClientRect().bottom<=t.getBoundingClientRect().top}''')
             assert head()=='Огонь и выше — у 3 из 11 eligible'
             # Equal-width grid: every column of every table is the same width; header cells match body cells.
             grid=page.evaluate('''()=>[...document.querySelectorAll('.review-matrix')].map(t=>{const w=r=>[...r.children].map(c=>Math.round(c.getBoundingClientRect().width));
@@ -104,10 +116,10 @@ try:
             assert left.is_visible() and unit.locator('td').nth(1).inner_text()=='1'
             if width==1440:
                 assert left.bounding_box()['x']<right.bounding_box()['x']
-                # 24.11: wide panel (units collapsed) — blocks in one column, one left edge and one width, nothing overflows.
+                # 24.11: wide panel (units collapsed) — blocks in one column (27.11: +1 — the gradient legend leads the tables stack), one left edge and one width, nothing overflows.
                 page.locator('.unit-hide').first.click();page.wait_for_timeout(200)
                 lay=page.evaluate('''()=>[...document.querySelectorAll('.review-screen .st-main>.bt-stack>*')].map(e=>{const b=e.getBoundingClientRect();return [Math.round(b.left),Math.round(b.width)]})''')
-                assert len(lay)==6 and len({x[0] for x in lay})==1 and len({x[1] for x in lay})==1 and lay[0][1]<=960,lay
+                assert len(lay)==7 and len({x[0] for x in lay})==1 and len({x[1] for x in lay})==1 and lay[0][1]<=960,lay
                 assert page.evaluate("[...document.querySelectorAll('.review-matrix')].every(t=>t.parentElement.scrollWidth<=t.parentElement.clientWidth+1)")
                 page.locator('button.split-rail').first.click();page.wait_for_timeout(200)
                 # 512 px split panel < ten 80 px columns: the table scrolls inside its own wrapper, the page does not.
@@ -136,7 +148,7 @@ try:
             assert grade_count()=='11' and grade_four_color()==company_color
             # Switching sections preserves annual results and does not revive old mock review.
             page.locator('[data-subtab="who"]').click()
-            assert 'Из них eligible' in page.locator('.review-screen').inner_text()
+            assert 'Eligible-численность' in page.locator('.review-screen').inner_text()
             page.locator('[data-subtab="how"]').click()
             assert '33,3%' in page.locator('.review-matrix').first.inner_text()
             assert not errors,errors
